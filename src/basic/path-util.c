@@ -1101,18 +1101,17 @@ const char* last_path_component(const char *path) {
         return path + k;
 }
 
-int path_extract_filename(const char *path, char **ret) {
-        _cleanup_free_ char *a = NULL;
+int path_split_prefix_filename(const char *path, char **ret_dir, char **ret_filename) {
+        _cleanup_free_ char *d = NULL;
         const char *c, *next = NULL;
         int r;
 
-        /* Extracts the filename part (i.e. right-most component) from a path, i.e. string that passes
-         * filename_is_valid(). A wrapper around last_path_component(), but eats up trailing
-         * slashes. Returns:
+        /* Split the path into dir prefix/filename pair. Returns:
          *
          * -EINVAL        → if the path is not valid
-         * -EADDRNOTAVAIL → if only a directory was specified, but no filename, i.e. the root dir
-         *                  itself or "." is specified
+         * -EADDRNOTAVAIL → if the path refers to the uppermost directory in hierarchy (i.e. has neither
+         *                  dir prefix nor filename - the root dir itself or ".")
+         * -EDESTADDRREQ  → if only a filename was passed, and caller only specifies ret_dir
          * -ENOMEM        → no memory
          *
          * Returns >= 0 on success. If the input path has a trailing slash, returns O_DIRECTORY, to
@@ -1121,63 +1120,52 @@ int path_extract_filename(const char *path, char **ret) {
          * This function guarantees to return a fully valid filename, i.e. one that passes
          * filename_is_valid() – this means "." and ".." are not accepted. */
 
-        if (!path_is_valid(path))
+        if (isempty(path))
                 return -EINVAL;
 
-        r = path_find_last_component(path, false, &next, &c);
+        r = path_find_last_component(path, /* accept_dot_dot = */ false, &next, &c);
         if (r < 0)
                 return r;
-        if (r == 0) /* root directory */
+        if (r == 0) /* root directory or "." */
                 return -EADDRNOTAVAIL;
 
-        a = strndup(c, r);
-        if (!a)
-                return -ENOMEM;
+        if (ret_dir) {
+                if (next == path) {
+                        if (*path != '/') { /* filename only */
+                                if (!ret_filename)
+                                        return -EDESTADDRREQ;
+                        } else {
+                                d = strdup("/");
+                                if (!d)
+                                        return -ENOMEM;
+                        }
+                } else {
+                        d = strndup(path, next - path);
+                        if (!d)
+                                return -ENOMEM;
 
-        *ret = TAKE_PTR(a);
-        return strlen(c) > (size_t) r ? O_DIRECTORY : 0;
-}
+                        path_simplify(d);
 
-int path_extract_directory(const char *path, char **ret) {
-        const char *c, *next = NULL;
-        int r;
+                        if (!path_is_valid(d))
+                                return -EINVAL;
+                }
 
-        /* The inverse of path_extract_filename(), i.e. returns the directory path prefix. Returns:
-         *
-         * -EINVAL        → if the path is not valid
-         * -EDESTADDRREQ  → if no directory was specified in the passed in path, i.e. only a filename was passed
-         * -EADDRNOTAVAIL → if the passed in parameter had no filename but did have a directory, i.e.
-         *                   the root dir itself or "." was specified
-         * -ENOMEM        → no memory (surprise!)
-         *
-         * This function guarantees to return a fully valid path, i.e. one that passes path_is_valid().
-         */
-
-        r = path_find_last_component(path, false, &next, &c);
-        if (r < 0)
-                return r;
-        if (r == 0) /* empty or root */
-                return isempty(path) ? -EINVAL : -EADDRNOTAVAIL;
-        if (next == path) {
-                if (*path != '/') /* filename only */
-                        return -EDESTADDRREQ;
-
-                return strdup_to(ret, "/");
-        }
-
-        _cleanup_free_ char *a = strndup(path, next - path);
-        if (!a)
-                return -ENOMEM;
-
-        path_simplify(a);
-
-        if (!path_is_valid(a))
+        } else if (!path_is_valid(path))
+                /* We didn't validate the dir prefix, hence check if the whole path is valid now */
                 return -EINVAL;
 
-        if (ret)
-                *ret = TAKE_PTR(a);
+        if (ret_filename) {
+                char *fn = strndup(c, r);
+                if (!fn)
+                        return -ENOMEM;
 
-        return 0;
+                *ret_filename = fn;
+        }
+
+        if (ret_dir)
+                *ret_dir = TAKE_PTR(d);
+
+        return strlen(c) > (size_t) r ? O_DIRECTORY : 0;
 }
 
 bool filename_part_is_valid(const char *p) {
