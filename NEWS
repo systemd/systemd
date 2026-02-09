@@ -31,6 +31,12 @@ CHANGES WITH 260 in spe:
           rather than the first, to keep these options coherent with other
           unit settings.
 
+        * Support for non-system users and groups in udev rules and
+          systemd-networkd configuration has been restored, but is deprecated
+          and discouraged. systemd-udevd and systemd-networkd will emit
+          warnings when non-system accounts are used. This support will be
+          remove in a future release.
+
         Changes in other components:
 
         * New options SYSTEMD_COLORS=auto-16, SYSTEMD_COLORS=auto-256, and
