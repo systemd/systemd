@@ -671,6 +671,10 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
   specified algorithm takes an effect immediately, you need to explicitly run
   `journalctl --rotate`.
 
+* `$SYSTEMD_JOURNAL_FD_SIZE_MAX` – Takes a size with the usual suffixes (K, M, ...) in
+  string format. Overrides the default maximum allowed size for a file-descriptor
+  based input record to be stored in the journal.
+
 * `$SYSTEMD_CATALOG` – path to the compiled catalog database file to use for
   `journalctl -x`, `journalctl --update-catalog`, `journalctl --list-catalog`
   and related calls.

@@ -328,6 +328,52 @@ void manager_process_native_message(
         } while (r == 0);
 }
 
+static size_t entry_size_max_by_ucred(Manager *m, const struct ucred *ucred, const char *label) {
+        static uint64_t entry_size_max = UINT64_MAX;
+        static bool entry_size_max_checked = false;
+        int r;
+
+        if (entry_size_max != UINT64_MAX)
+                return entry_size_max;
+        if (!entry_size_max_checked) {
+                const char *p;
+
+                entry_size_max_checked = true;
+
+                p = secure_getenv("SYSTEMD_JOURNAL_FD_SIZE_MAX");
+                if (p) {
+                        r = parse_size(p, 1024, &entry_size_max);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to parse $SYSTEMD_JOURNAL_FD_SIZE_MAX, ignoring: %m");
+                        else
+                                return entry_size_max;
+                }
+        }
+
+        /* Check for unprivileged senders, as the default limit of 768M is quite high and the socket is
+         * unprivileged, to avoid abuses. */
+
+        if (!ucred)
+                return ENTRY_SIZE_UNPRIV_MAX;
+        if (ucred->uid == 0) /* Shortcut for root senders */
+                return ENTRY_SIZE_MAX;
+
+        /* As an exception, allow coredumps to use the old max size for backward compatibility */
+        if (pid_is_valid(ucred->pid)) {
+                ClientContext *context = NULL;
+
+                r = client_context_get(m, ucred->pid, ucred, label, /* unit_id= */ NULL, &context);
+                if (r < 0)
+                        log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
+                                                    "Failed to retrieve credentials for PID " PID_FMT ", ignoring: %m",
+                                                    ucred->pid);
+                else if (context->unit && startswith(context->unit, "systemd-coredump@"))
+                        return ENTRY_SIZE_MAX;
+        }
+
+        return ENTRY_SIZE_UNPRIV_MAX;
+}
+
 int manager_process_native_file(
                 Manager *m,
                 int fd,
@@ -392,7 +438,7 @@ int manager_process_native_file(
 
         /* When !sealed, set a lower memory limit. We have to read the file, effectively doubling memory
          * use. */
-        if (st.st_size > ENTRY_SIZE_MAX / (sealed ? 1 : 2))
+        if ((size_t) st.st_size > entry_size_max_by_ucred(m, ucred, label) / (sealed ? 1 : 2))
                 return log_ratelimit_error_errno(SYNTHETIC_ERRNO(EFBIG), JOURNAL_LOG_RATELIMIT,
                                                  "File passed too large (%"PRIu64" bytes), refusing.",
                                                  (uint64_t) st.st_size);
