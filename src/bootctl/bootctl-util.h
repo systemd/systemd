@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "bootspec.h"
+
 int sync_everything(void);
 
 const char* get_efi_arch(void);
