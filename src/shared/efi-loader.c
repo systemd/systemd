@@ -433,3 +433,34 @@ bool efi_loader_entry_name_valid(const char *s) {
 
         return in_charset(s, ALPHANUMERICAL "+-_.@");
 }
+
+bool efi_loader_entry_title_valid(const char *s) {
+
+        if (isempty(s))
+                return false;
+
+        /* let's be strict here for now, we can relax this later */
+        if (!ascii_is_valid(s))
+                return false;
+
+        if (string_has_cc(s, /* ok= */ NULL))
+                return false;
+
+        return true;
+}
+
+bool efi_loader_entry_resource_filename_valid(const char *s) {
+        /* Validates file names so that they are safe for their inclusion in boot loader type #1
+         * entries. i.e. may not contain CCs, and should be ASCII */
+
+        if (!filename_is_valid(s)) /* Make sure entry names fit in filenames */
+                return false;
+
+        if (!ascii_is_valid(s))
+                return false;
+
+        if (string_has_cc(s, /* ok= */ NULL))
+                return false;
+
+        return true;
+}

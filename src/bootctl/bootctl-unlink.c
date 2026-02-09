@@ -215,12 +215,13 @@ static int unref_unlink_file(
         }
 
         _cleanup_free_ char *resolved = NULL;
-        r = chase_and_unlinkat(/* root_fd= */ root_fd,
-                               /* dir_fd= */ root_fd,
-                               path,
-                               CHASE_PROHIBIT_SYMLINKS|CHASE_TRIGGER_AUTOFS,
-                               /* unlink_flags= */ 0,
-                               &resolved);
+        r = chase_and_unlinkat(
+                        /* root_fd= */ root_fd,
+                        /* dir_fd= */ root_fd,
+                        path,
+                        CHASE_PROHIBIT_SYMLINKS|CHASE_TRIGGER_AUTOFS,
+                        /* unlink_flags= */ 0,
+                        &resolved);
         if (r == -ENOENT)
                 log_debug("Resource '%s' is already removed, skipping.", path);
         else if (r < 0) {
@@ -239,7 +240,8 @@ static int unref_unlink_file(
                                 /* root_fd= */ root_fd,
                                 /* dir_fd= */ root_fd,
                                 parent,
-                                CHASE_PROHIBIT_SYMLINKS|CHASE_TRIGGER_AUTOFS, AT_REMOVEDIR,
+                                CHASE_PROHIBIT_SYMLINKS|CHASE_TRIGGER_AUTOFS,
+                                AT_REMOVEDIR,
                                 &resolved_parent);
                 if (IN_SET(r, -ENOTEMPTY, -ENOENT))
                         log_debug_errno(r, "Failed to remove directory '%s', ignoring: %m", parent);
@@ -293,7 +295,7 @@ int boot_entry_unlink(
         STRV_FOREACH(s, e->device_tree_overlay)
                 (void) unref_unlink_file(&known_files, root, root_fd, *s, dry_run);
 
-        if (arg_dry_run)
+        if (dry_run)
                 log_info("Would remove \"%s\"", e->path);
         else {
                 const char *p = path_startswith(e->path, root);
