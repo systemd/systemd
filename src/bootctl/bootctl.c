@@ -8,12 +8,14 @@
 #include "blockdev-util.h"
 #include "boot-entry.h"
 #include "bootctl.h"
+#include "bootctl-cleanup.h"
 #include "bootctl-install.h"
 #include "bootctl-random-seed.h"
 #include "bootctl-reboot-to-firmware.h"
 #include "bootctl-set-efivar.h"
 #include "bootctl-status.h"
 #include "bootctl-uki.h"
+#include "bootctl-unlink.h"
 #include "build.h"
 #include "devnum-util.h"
 #include "dissect-image.h"
@@ -697,8 +699,8 @@ static int bootctl_main(int argc, char *argv[]) {
                 { "kernel-identify",     2,        2,        0,            verb_kernel_identify     },
                 { "kernel-inspect",      2,        2,        0,            verb_kernel_inspect      },
                 { "list",                VERB_ANY, 1,        0,            verb_list                },
-                { "unlink",              2,        2,        0,            verb_list                },
-                { "cleanup",             VERB_ANY, 1,        0,            verb_list                },
+                { "unlink",              2,        2,        0,            verb_unlink              },
+                { "cleanup",             VERB_ANY, 1,        0,            verb_cleanup             },
                 { "set-default",         2,        2,        0,            verb_set_efivar          },
                 { "set-oneshot",         2,        2,        0,            verb_set_efivar          },
                 { "set-timeout",         2,        2,        0,            verb_set_efivar          },
