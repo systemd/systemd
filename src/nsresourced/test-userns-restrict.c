@@ -8,180 +8,136 @@
 
 #include "errno-util.h"
 #include "fd-util.h"
-#include "log.h"
-#include "main-func.h"
 #include "namespace-util.h"
 #include "pidref.h"
 #include "process-util.h"
 #include "rm-rf.h"
+#include "tests.h"
 #include "tmpfile-util.h"
 #include "userns-restrict.h"
 
 static int make_tmpfs_fsmount(void) {
         _cleanup_close_ int fsfd = -EBADF, mntfd = -EBADF;
 
-        fsfd = fsopen("tmpfs", FSOPEN_CLOEXEC);
-        assert_se(fsfd >= 0);
-        assert_se(fsconfig(fsfd, FSCONFIG_CMD_CREATE, NULL, NULL, 0) >= 0);
+        fsfd = ASSERT_OK_ERRNO(fsopen("tmpfs", FSOPEN_CLOEXEC));
+        ASSERT_OK_ERRNO(fsconfig(fsfd, FSCONFIG_CMD_CREATE, NULL, NULL, 0));
 
-        mntfd = fsmount(fsfd, FSMOUNT_CLOEXEC, 0);
-        assert_se(mntfd >= 0);
+        mntfd = ASSERT_OK_ERRNO(fsmount(fsfd, FSMOUNT_CLOEXEC, 0));
 
         return TAKE_FD(mntfd);
 }
 
-static void test_works_reg(int parent_fd, const char *fname) {
-        _cleanup_close_ int fd = -EBADF;
+static struct userns_restrict_bpf *bpf_obj = NULL;
+STATIC_DESTRUCTOR_REGISTER(bpf_obj, userns_restrict_bpf_freep);
 
-        fd = openat(parent_fd, fname, O_RDWR|O_CREAT|O_CLOEXEC, 0666);
-        assert_se(fd >= 0);
+static int intro(void) {
+        int r;
+
+        r = userns_restrict_install(/* pin= */ false, &bpf_obj);
+        if (ERRNO_IS_NOT_SUPPORTED(r))
+                return log_tests_skipped("LSM-BPF logic not supported");
+        if (ERRNO_IS_PRIVILEGE(r))
+                return log_tests_skipped("Lacking privileges");
+        ASSERT_OK(r);
+
+        return 0;
 }
 
-static void test_fails_reg(int parent_fd, const char *fname) {
-        errno = 0;
-        assert_se(openat(parent_fd, fname, O_RDWR|O_CREAT|O_CLOEXEC, 0666) < 0);
-        assert_se(errno == EPERM);
-}
-
-static void test_works_dir(int parent_fd, const char *fname) {
-        assert_se(mkdirat(parent_fd, fname, 0666) >= 0);
-}
-
-static void test_fails_dir(int parent_fd, const char *fname) {
-        errno = 0;
-        assert_se(mkdirat(parent_fd, fname, 0666) < 0);
-        assert_se(errno == EPERM);
-}
-
-static int run(int argc, char *argv[]) {
-        _cleanup_(userns_restrict_bpf_freep) struct userns_restrict_bpf *obj = NULL;
+TEST(userns_restrict) {
         _cleanup_close_ int userns_fd = -EBADF, host_fd1 = -EBADF, host_tmpfs = -EBADF, afd = -EBADF, bfd = -EBADF;
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
         int r;
 
-        log_set_max_level(LOG_DEBUG);
-        log_setup();
+        ASSERT_OK(mkdtemp_malloc(NULL, &t));
 
-        r = userns_restrict_install(/* pin= */ false, &obj);
-        if (ERRNO_IS_NOT_SUPPORTED(r)) {
-                log_notice("Skipping test, LSM-BPF logic not supported.");
-                return EXIT_TEST_SKIP;
-        }
-        if (ERRNO_IS_PRIVILEGE(r)) {
-                log_notice("Skipping test, lacking privileges.");
-                return EXIT_TEST_SKIP;
-        }
-        if (r < 0)
-                return r;
+        host_fd1 = ASSERT_OK_ERRNO(open(t, O_DIRECTORY|O_CLOEXEC));
+        host_tmpfs = ASSERT_OK(make_tmpfs_fsmount());
+        userns_fd = ASSERT_OK(userns_acquire("0 0 1", "0 0 1", /* setgroups_deny= */ true));
 
-        assert_se(mkdtemp_malloc(NULL, &t) >= 0);
-
-        host_fd1 = open(t, O_DIRECTORY|O_CLOEXEC);
-        assert_se(host_fd1 >= 0);
-
-        host_tmpfs = make_tmpfs_fsmount();
-        assert_se(host_tmpfs >= 0);
-
-        userns_fd = userns_acquire("0 0 1", "0 0 1", /* setgroups_deny= */ true);
-        if (userns_fd < 0)
-                return log_error_errno(userns_fd, "Failed to make user namespace: %m");
-
-        r = userns_restrict_put_by_fd(
-                        obj,
+        ASSERT_OK(userns_restrict_put_by_fd(
+                        bpf_obj,
                         userns_fd,
                         /* replace= */ true,
                         /* mount_fds= */ NULL,
-                        /* n_mount_fds= */ 0);
-        if (r < 0)
-                return log_error_errno(r, "Failed to restrict user namespace: %m");
+                        /* n_mount_fds= */ 0));
 
-        afd = eventfd(0, EFD_CLOEXEC);
-        bfd = eventfd(0, EFD_CLOEXEC);
+        afd = ASSERT_OK_ERRNO(eventfd(0, EFD_CLOEXEC));
+        bfd = ASSERT_OK_ERRNO(eventfd(0, EFD_CLOEXEC));
 
-        assert_se(afd >= 0 && bfd >= 0);
-
-        r = pidref_safe_fork("(test)", FORK_DEATHSIG_SIGKILL, &pidref);
-        assert_se(r >= 0);
+        r = ASSERT_OK(pidref_safe_fork("(test)", FORK_DEATHSIG_SIGKILL, &pidref));
         if (r == 0) {
                 _cleanup_close_ int private_tmpfs = -EBADF;
 
-                assert_se(setns(userns_fd, CLONE_NEWUSER) >= 0);
-                assert_se(unshare(CLONE_NEWNS) >= 0);
+                ASSERT_OK_ERRNO(setns(userns_fd, CLONE_NEWUSER));
+                ASSERT_OK_ERRNO(unshare(CLONE_NEWNS));
 
                 /* Allocate tmpfs locally */
                 private_tmpfs = make_tmpfs_fsmount();
 
                 /* These two host mounts should be inaccessible */
-                test_fails_reg(host_fd1, "test");
-                test_fails_reg(host_tmpfs, "xxx");
-                test_fails_dir(host_fd1, "test2");
-                test_fails_dir(host_tmpfs, "xxx2");
+                ASSERT_ERROR_ERRNO(openat(host_fd1, "test", O_RDWR|O_CREAT|O_CLOEXEC, 0666), EPERM);
+                ASSERT_ERROR_ERRNO(openat(host_tmpfs, "xxx", O_RDWR|O_CREAT|O_CLOEXEC, 0666), EPERM);
+                ASSERT_ERROR_ERRNO(mkdirat(host_fd1, "test2", 0666), EPERM);
+                ASSERT_ERROR_ERRNO(mkdirat(host_tmpfs, "xxx2", 0666), EPERM);
 
                 /* But this mount created locally should be fine */
-                test_works_reg(private_tmpfs, "yyy");
-                test_works_dir(private_tmpfs, "yyy2");
+                safe_close(ASSERT_OK_ERRNO(openat(private_tmpfs, "yyy", O_RDWR|O_CREAT|O_CLOEXEC, 0666)));
+                ASSERT_OK_ERRNO(mkdirat(private_tmpfs, "yyy2", 0666));
 
                 /* Let's sync with the parent, so that it allowlists more stuff for us */
-                assert_se(eventfd_write(afd, 1) >= 0);
+                ASSERT_OK_ERRNO(eventfd_write(afd, 1));
                 uint64_t x;
-                assert_se(eventfd_read(bfd, &x) >= 0);
+                ASSERT_OK_ERRNO(eventfd_read(bfd, &x));
 
                 /* And now we should also have access to the host tmpfs */
-                test_works_reg(host_tmpfs, "zzz");
-                test_works_reg(private_tmpfs, "aaa");
-                test_works_dir(host_tmpfs, "zzz2");
-                test_works_dir(private_tmpfs, "aaa2");
+                safe_close(ASSERT_OK_ERRNO(openat(host_tmpfs, "zzz", O_RDWR|O_CREAT|O_CLOEXEC, 0666)));
+                safe_close(ASSERT_OK_ERRNO(openat(private_tmpfs, "aaa", O_RDWR|O_CREAT|O_CLOEXEC, 0666)));
+                ASSERT_OK_ERRNO(mkdirat(host_tmpfs, "zzz2", 0666));
+                ASSERT_OK_ERRNO(mkdirat(private_tmpfs, "aaa2", 0666));
 
                 /* But this one should still fail */
-                test_fails_reg(host_fd1, "bbb");
-                test_fails_dir(host_fd1, "bbb2");
+                ASSERT_ERROR_ERRNO(openat(host_fd1, "bbb", O_RDWR|O_CREAT|O_CLOEXEC, 0666), EPERM);
+                ASSERT_ERROR_ERRNO(mkdirat(host_fd1, "bbb2", 0666), EPERM);
 
                 /* Sync again, to get more stuff allowlisted */
-                assert_se(eventfd_write(afd, 1) >= 0);
-                assert_se(eventfd_read(bfd, &x) >= 0);
+                ASSERT_OK_ERRNO(eventfd_write(afd, 1));
+                ASSERT_OK_ERRNO(eventfd_read(bfd, &x));
 
                 /* Everything should now be allowed */
-                test_works_reg(host_tmpfs, "ccc");
-                test_works_reg(host_fd1, "ddd");
-                test_works_reg(private_tmpfs, "eee");
-                test_works_dir(host_tmpfs, "ccc2");
-                test_works_reg(host_fd1, "ddd2");
-                test_works_dir(private_tmpfs, "eee2");
+                safe_close(ASSERT_OK_ERRNO(openat(host_tmpfs, "ccc", O_RDWR|O_CREAT|O_CLOEXEC, 0666)));
+                safe_close(ASSERT_OK_ERRNO(openat(host_fd1, "ddd", O_RDWR|O_CREAT|O_CLOEXEC, 0666)));
+                safe_close(ASSERT_OK_ERRNO(openat(private_tmpfs, "eee", O_RDWR|O_CREAT|O_CLOEXEC, 0666)));
+                ASSERT_OK_ERRNO(mkdirat(host_tmpfs, "ccc2", 0666));
+                safe_close(ASSERT_OK_ERRNO(openat(host_fd1, "ddd2", O_RDWR|O_CREAT|O_CLOEXEC, 0666)));
+                ASSERT_OK_ERRNO(mkdirat(private_tmpfs, "eee2", 0666));
 
                 _exit(EXIT_SUCCESS);
         }
 
         uint64_t x;
-        assert_se(eventfd_read(afd, &x) >= 0);
+        ASSERT_OK_ERRNO(eventfd_read(afd, &x));
 
-        r = userns_restrict_put_by_fd(
-                        obj,
+        ASSERT_OK(userns_restrict_put_by_fd(
+                        bpf_obj,
                         userns_fd,
                         /* replace= */ false,
                         &host_tmpfs,
-                        1);
-        if (r < 0)
-                return log_error_errno(r, "Failed to loosen user namespace: %m");
+                        1));
 
-        assert_se(eventfd_write(bfd, 1) >= 0);
+        ASSERT_OK_ERRNO(eventfd_write(bfd, 1));
+        ASSERT_OK_ERRNO(eventfd_read(afd, &x));
 
-        assert_se(eventfd_read(afd, &x) >= 0);
-
-        r = userns_restrict_put_by_fd(
-                        obj,
+        ASSERT_OK(userns_restrict_put_by_fd(
+                        bpf_obj,
                         userns_fd,
                         /* replace= */ false,
                         &host_fd1,
-                        1);
-        if (r < 0)
-                return log_error_errno(r, "Failed to loosen user namespace: %m");
+                        1));
 
-        assert_se(eventfd_write(bfd, 1) >= 0);
+        ASSERT_OK_ERRNO(eventfd_write(bfd, 1));
 
-        assert_se(pidref_wait_for_terminate_and_check("(test)", &pidref, WAIT_LOG) >= 0);
-
-        return 0;
+        ASSERT_OK(pidref_wait_for_terminate_and_check("(test)", &pidref, WAIT_LOG));
 }
 
-DEFINE_MAIN_FUNCTION(run);
+DEFINE_TEST_MAIN_WITH_INTRO(LOG_DEBUG, intro);
