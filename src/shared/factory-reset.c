@@ -8,6 +8,7 @@
 #include "efivars.h"
 #include "env-util.h"
 #include "factory-reset.h"
+#include "initrd-util.h"
 #include "log.h"
 #include "os-util.h"
 #include "proc-cmdline.h"
@@ -127,11 +128,13 @@ static FactoryResetMode factory_reset_mode_efi_variable(void) {
 FactoryResetMode factory_reset_mode(void) {
         int r;
 
-        r = factory_reset_supported();
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return FACTORY_RESET_UNSUPPORTED;
+        if (!in_initrd()) {
+                r = factory_reset_supported();
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return FACTORY_RESET_UNSUPPORTED;
+        }
 
         /* First check if we already completed a factory reset in this boot */
         if (access("/run/systemd/factory-reset-complete", F_OK) >= 0)
