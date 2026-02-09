@@ -258,6 +258,16 @@ const struct ConfigPerfItem* network_netdev_gperf_lookup(const char *str, GPERF_
 
 /* Macros which append INTERFACE= to the message */
 
+#define log_netdev_syntax(netdev, level, message_id, fmt, ...)          \
+        ({                                                              \
+                const NetDev *_n = (netdev);                            \
+                const char *_ifname = _n ? _n->ifname : NULL;           \
+                log_struct(level,                                       \
+                           LOG_MESSAGE(fmt, __VA_ARGS__),               \
+                           LOG_MESSAGE_ID(message_id),                  \
+                           LOG_ITEM("INTERFACE=%s", strempty(_ifname))); \
+        })
+
 #define log_netdev_full_errno_zerook(netdev, level, error, ...)         \
         ({                                                              \
                 const NetDev *_n = (netdev);                            \

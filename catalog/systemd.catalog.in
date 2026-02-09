@@ -989,11 +989,14 @@ will fail.
 Subject: Non-system user or group used for device ownership
 Defined-By: systemd
 Support: %SUPPORT_URL%
-Documentation: man:systemd(1) systemd-udevd(8)
+Documentation: man:systemd(1) systemd-udevd(8) systemd-networkd(8)
 
-The ownership of a device managed by systemd-udevd was assigned to a "normal"
-(non-system) user or group. This is currently allowed for compatibility, but is
-deprecated and discouraged. Ownership of a device node grants the privileges to
-change ACLs, the group, access mode, or set labels or extended attributes. It
-is instead recommended to use the "uaccess" mechanism to grant limited and
-temporary access to device nodes, see sd-login(8).
+The ownership of a device managed by systemd-udevd or systemd-networkd was
+assigned to a "normal" (non-system) user or group. This is currently allowed
+for compatibility, but is deprecated and discouraged. Ownership of a device
+node grants the privileges to change ACLs, the group, access mode, or set
+labels or extended attributes.
+
+For devices managed by systemd-udevd, it is instead recommended to use the
+"uaccess" mechanism to grant limited and temporary access to device nodes, see
+sd-login(8).
