@@ -109,13 +109,9 @@ int generator_add_symlink_full(
          *
          * If <instance> is specified, then <src> must be a template unit name, and we'll instantiate it. */
 
-        r = path_extract_directory(src, &dn);
-        if (r < 0 && r != -EDESTADDRREQ) /* EDESTADDRREQ → just a file name was passed */
-                return log_error_errno(r, "Failed to extract directory name from '%s': %m", src);
-
-        r = path_extract_filename(src, &fn);
+        r = path_split_prefix_filename(src, &dn, &fn);
         if (r < 0)
-                return log_error_errno(r, "Failed to extract file name from '%s': %m", src);
+                return log_error_errno(r, "Failed to split '%s' into directory prefix and filename: %m", src);
         if (r == O_DIRECTORY)
                 return log_error_errno(SYNTHETIC_ERRNO(EISDIR), "Expected path to regular file name, but got '%s', refusing.", src);
 
