@@ -699,6 +699,26 @@ SPDX-License-Identifier: LGPL-2.1-or-later
           return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to read ...");
   ```
 
+- When generating log messages that contain filenames, user controlled strings,
+  or similar, please enclose them in single ticks.
+
+- Think about the log level you choose: for functions that are of the "logging"
+  kind (see above), please ensure that failures we propagate should be logged
+  about at `LOG_ERR` level. Failures that are noteworthy, but we proceed anyway,
+  should be loged at `LOG_WARN` level. Important informational messages should
+  use `LOG_NOTICE` and regular informational messages should use
+  `LOG_INFO`. Note that the latter is the default maximum log level, i.e. only
+  `LOG_DEBUG` messages are hidden by default.
+
+- All log messages that show some failure which is not fatal for the immediate
+  operation (i.e. generally those you'd log at `LOG_WARN` level, as described
+  above) should be suffixed with a `…, ignoring: %m"` or similar. Or in other
+  words, they should make clear not only in log level but also in English
+  language that the issue is not fatal, but ignored. Depending on context you
+  can also use `…, proceeding anyway: %m"`, `…, skipping: %m` or other language
+  that makes clear that the failure is not actionable and doesn't strictly
+  require immediate administrator attention.
+
 ## Memory Allocation
 
 - Always check OOM. There is no excuse. In program code, you can use
