@@ -56,8 +56,9 @@ The mechanism works as follows:
 
 * The
   [`systemd-logind.service(8)`](https://www.freedesktop.org/software/systemd/man/latest/systemd-logind.service.html)
-  unit supports automatically binding factory reset to special keypresses
-  (typically long presses). See the
+  D-Bus API exposes methods that allow the rest of the system to trigger a
+  factory reset operation. It also supports automatically binding factory reset
+  to special keypresses (typically long presses). See the
   [`logind.conf(5)`](https://www.freedesktop.org/software/systemd/man/latest/logind.conf.html)
   man page.
 
@@ -119,17 +120,21 @@ on `systemd-factory-reset@.service`.
 ## Exposure in the UI
 
 If a graphical UI shall expose a factory reset operation, it should first check
-if requesting a factory reset is supported at all via the Varlink service
-mentioned above. Once the end-user triggers a factory reset, the UI can start
-the process by asking systemd to activate the `factory-reset.target` unit.
+if requesting a factory reset is supported at all by talking to `systemd-logind.service`.
+The UI can do so by calling `CanFactoryReset()` or `CanInsecureFactoryReset()`.
+Once the end-user triggers a factory reset, the UI can start the process by calling
+`FactoryReset()`. Note that a factory reset is treated like a reboot for the
+purposes of inhibitors.
 
 Alternatively, `systemd-logind.service`'s hotkey support may be used. For
 example, it can be configured to request factory reset if the reboot button is
 pressed for a long time.
 
-The GUI should communicate the security properties of the factory reset that it
-is offering to the user. Alternatively, it's perfectly appropriate to hide the
-factory reset function entirely if only an insecure reset is available.
+An "insecure" factory reset is one that cannot totally and irrecoverably destroy
+all of the user's data. To manage user expectations, the GUI should communicate
+the capabilities of the factory reset that it is offering to the user. Alternatively,
+it's perfectly appropriate to hide the factory reset function entirely if only
+an insecure reset is available.
 
 ## Support for Resetting other Resources than Partitions + TPM
 

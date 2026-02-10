@@ -142,6 +142,7 @@ node /org/freedesktop/login1 {
       SuspendThenHibernate(in  b interactive);
       SuspendThenHibernateWithFlags(in  t flags);
       Sleep(in  t flags);
+      FactoryReset(in  t flags);
       CanPowerOff(out s result);
       CanReboot(out s result);
       CanHalt(out s result);
@@ -150,6 +151,8 @@ node /org/freedesktop/login1 {
       CanHybridSleep(out s result);
       CanSuspendThenHibernate(out s result);
       CanSleep(out s result);
+      CanFactoryReset(out s result);
+      CanInsecureFactoryReset(out s result);
       ScheduleShutdown(in  s type,
                        in  t usec);
       CancelScheduledShutdown(out b cancelled);
@@ -399,6 +402,8 @@ node /org/freedesktop/login1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="Sleep()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="FactoryReset()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="CanPowerOff()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="CanReboot()"/>
@@ -414,6 +419,10 @@ node /org/freedesktop/login1 {
     <variablelist class="dbus-method" generated="True" extra-ref="CanSuspendThenHibernate()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="CanSleep()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="CanFactoryReset()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="CanInsecureFactoryReset()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="ScheduleShutdown()"/>
 
@@ -661,12 +670,14 @@ node /org/freedesktop/login1 {
       <function>Sleep()</function> automatically selects the most suitable sleep operation supported by the
       machine. The candidate sleep operations to check for support can be configured through <varname>SleepOperation=</varname>
       setting in <citerefentry><refentrytitle>logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-      UIs should expose these calls as the primary mechanism to poweroff/reboot/suspend/hibernate the machine. Methods
-      <function>PowerOffWithFlags()</function>, <function>RebootWithFlags()</function>,
+      <function>FactoryReset()</function> will trigger a factory reset, and then reboot the system.
+      UIs should expose these calls as the primary mechanism to poweroff/reboot/suspend/hibernate/factory-reset
+      the machine. Methods <function>PowerOffWithFlags()</function>, <function>RebootWithFlags()</function>,
       <function>HaltWithFlags()</function>, <function>SuspendWithFlags()</function>,
       <function>HibernateWithFlags()</function>, <function>HybridSleepWithFlags()</function>,
-      <function>SuspendThenHibernateWithFlags()</function>, and <function>Sleep()</function> take
-      <varname>flags</varname> to allow for extendability, defined as follows:</para>
+      <function>SuspendThenHibernateWithFlags()</function>, <function>Sleep()</function>, and
+      <function>FactoryReset()</function> take <varname>flags</varname> to allow for extendability,
+      defined as follows:</para>
       <programlisting>
 #define SD_LOGIND_ROOT_CHECK_INHIBITORS          (UINT64_C(1) &lt;&lt; 0)
 #define SD_LOGIND_KEXEC_REBOOT                   (UINT64_C(1) &lt;&lt; 1)
@@ -708,12 +719,13 @@ node /org/freedesktop/login1 {
       <para><function>CanPowerOff()</function>, <function>CanReboot()</function>, <function>CanHalt()</function>,
       <function>CanSuspend()</function>, <function>CanHibernate()</function>, <function>CanHybridSleep()</function>,
       <function>CanSuspendThenHibernate()</function>, <function>CanSleep()</function>,
+      <function>CanFactoryReset()</function>, <function>CanInsecureFactoryReset()</function>,
       <function>CanRebootParameter()</function>, <function>CanRebootToFirmwareSetup()</function>,
       <function>CanRebootToBootLoaderMenu()</function>, and <function>CanRebootToBootLoaderEntry()</function>
       test whether the system supports the respective operation and whether the calling user is allowed to
       execute it. Returns one of <literal>na</literal>, <literal>yes</literal>, <literal>no</literal>, and
       <literal>challenge</literal>. If <literal>na</literal> is returned, the operation is not available because
-      hardware, kernel, or drivers do not support it. If <literal>yes</literal> is returned, the operation is
+      hardware, kernel, or userspace do not support it. If <literal>yes</literal> is returned, the operation is
       supported and the user may execute the operation without further authentication. If <literal>no</literal>
       is returned, the operation is available but the user is not allowed to execute the operation. If
       <literal>challenge</literal> is returned, the operation is available but only after authorization.</para>
@@ -1672,6 +1684,8 @@ node /org/freedesktop/login1/session/1 {
       <varname>PreparingForShutdownWithMetadata</varname>, <varname>DesignatedMaintenanceTime</varname>,
       <varname>CanIdle</varname>, <varname>CanLock</varname>,
       and <varname>BlockWeakInhibited</varname> were added in version 257.</para>
+      <para><function>FactoryReset()</function>, <function>CanFactoryReset()</function>, and
+      <function>CanInsecureFactoryReset()</function> were added in version v260.</para>
     </refsect2>
     <refsect2>
       <title>Session Objects</title>
