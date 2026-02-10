@@ -81,6 +81,8 @@ void json_escape(
                 size_t l,
                 OutputFlags flags);
 
+int journal_entry_to_json(sd_journal *j, OutputFlags flags, const Set *output_fields, sd_json_variant **ret);
+
 int discover_next_id(
                 sd_journal *j,
                 LogIdType type,
