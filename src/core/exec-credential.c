@@ -16,19 +16,25 @@
 #include "iovec-util.h"
 #include "label-util.h"
 #include "log.h"
+#include "manager.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
+#include "namespace-util.h"
 #include "ordered-set.h"
 #include "path-lookup.h"
 #include "path-util.h"
+#include "pidref.h"
+#include "process-util.h"
 #include "random-util.h"
 #include "recurse-dir.h"
 #include "rm-rf.h"
 #include "siphash24.h"
+#include "socket-util.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "unit.h"
 #include "user-util.h"
 
 ExecSetCredential* exec_set_credential_free(ExecSetCredential *sc) {
@@ -310,6 +316,34 @@ int exec_context_destroy_credentials(const ExecContext *c, const char *runtime_p
         return 0;
 }
 
+typedef struct SetupCredentialsContext {
+        RuntimeScope scope;
+
+        const ExecContext *exec_context;
+        const char *unit;
+
+        const char *runtime_prefix;
+
+        const char *received_credentials_directory;
+        const char *received_encrypted_credentials_directory;
+
+        bool always_ipc;
+
+        uid_t uid;
+        gid_t gid;
+} SetupCredentialsContext;
+
+typedef struct LoadCredentialArguments {
+        const SetupCredentialsContext *context;
+
+        bool encrypted;
+
+        int write_dfd;
+        bool ownership_ok;
+
+        uint64_t left;
+} LoadCredentialArguments;
+
 typedef enum CredentialSearchPath {
         CREDENTIAL_SEARCH_PATH_TRUSTED,
         CREDENTIAL_SEARCH_PATH_ENCRYPTED,
@@ -318,11 +352,15 @@ typedef enum CredentialSearchPath {
         _CREDENTIAL_SEARCH_PATH_INVALID = -EINVAL,
 } CredentialSearchPath;
 
-static int credential_search_path(const ExecParameters *params, CredentialSearchPath path, char ***ret) {
+static int credential_search_path(
+                const SetupCredentialsContext *context,
+                CredentialSearchPath path,
+                char ***ret) {
+
         _cleanup_strv_free_ char **l = NULL;
         int r;
 
-        assert(params);
+        assert(context);
         assert(path >= 0 && path < _CREDENTIAL_SEARCH_PATH_MAX);
         assert(ret);
 
@@ -331,12 +369,12 @@ static int credential_search_path(const ExecParameters *params, CredentialSearch
          * credentials, we'll look in /etc/credstore.encrypted/ (and similar dirs). */
 
         if (IN_SET(path, CREDENTIAL_SEARCH_PATH_ENCRYPTED, CREDENTIAL_SEARCH_PATH_ALL)) {
-                r = strv_extend(&l, params->received_encrypted_credentials_directory);
+                r = strv_extend(&l, context->received_encrypted_credentials_directory);
                 if (r < 0)
                         return r;
 
                 _cleanup_strv_free_ char **add = NULL;
-                r = credential_store_path_encrypted(params->runtime_scope, &add);
+                r = credential_store_path_encrypted(context->scope, &add);
                 if (r < 0)
                         return r;
 
@@ -346,12 +384,12 @@ static int credential_search_path(const ExecParameters *params, CredentialSearch
         }
 
         if (IN_SET(path, CREDENTIAL_SEARCH_PATH_TRUSTED, CREDENTIAL_SEARCH_PATH_ALL)) {
-                r = strv_extend(&l, params->received_credentials_directory);
+                r = strv_extend(&l, context->received_credentials_directory);
                 if (r < 0)
                         return r;
 
                 _cleanup_strv_free_ char **add = NULL;
-                r = credential_store_path(params->runtime_scope, &add);
+                r = credential_store_path(context->scope, &add);
                 if (r < 0)
                         return r;
 
@@ -368,23 +406,6 @@ static int credential_search_path(const ExecParameters *params, CredentialSearch
         *ret = TAKE_PTR(l);
         return 0;
 }
-
-struct load_cred_args {
-        const ExecContext *context;
-        const ExecParameters *params;
-        const char *unit;
-
-        bool always_ipc;
-
-        bool encrypted;
-
-        int write_dfd;
-        uid_t uid;
-        gid_t gid;
-        bool ownership_ok;
-
-        uint64_t left;
-};
 
 static int write_credential(
                 int dfd,
@@ -431,7 +452,7 @@ static int write_credential(
 }
 
 static int maybe_decrypt_and_write_credential(
-                struct load_cred_args *args,
+                LoadCredentialArguments *args,
                 const char *id,
                 const char *data,
                 size_t size,
@@ -449,7 +470,7 @@ static int maybe_decrypt_and_write_credential(
         if (args->encrypted) {
                 CredentialFlags flags = 0; /* only allow user creds in user scope */
 
-                switch (args->params->runtime_scope) {
+                switch (args->context->scope) {
 
                 case RUNTIME_SCOPE_SYSTEM:
                         /* In system mode talk directly to the TPM – unless we live in a device sandbox
@@ -457,7 +478,7 @@ static int maybe_decrypt_and_write_credential(
 
                         flags |= CREDENTIAL_ANY_SCOPE;
 
-                        if (!args->always_ipc) {
+                        if (!args->context->always_ipc) {
                                 r = decrypt_credential_and_warn(
                                                 id,
                                                 now(CLOCK_REALTIME),
@@ -506,7 +527,7 @@ static int maybe_decrypt_and_write_credential(
         if (add > args->left)
                 return -E2BIG;
 
-        r = write_credential(args->write_dfd, id, data, size, args->uid, args->gid, args->ownership_ok);
+        r = write_credential(args->write_dfd, id, data, size, args->context->uid, args->context->gid, args->ownership_ok);
         if (r < 0)
                 return log_debug_errno(r, "Failed to write credential '%s': %m", id);
 
@@ -516,7 +537,7 @@ static int maybe_decrypt_and_write_credential(
 }
 
 static int load_credential_glob(
-                struct load_cred_args *args,
+                LoadCredentialArguments *args,
                 const ExecImportCredential *ic,
                 char * const *search_path,
                 ReadFullFileFlags flags) {
@@ -595,7 +616,7 @@ static int load_credential_glob(
 }
 
 static int load_credential(
-                struct load_cred_args *args,
+                LoadCredentialArguments *args,
                 const char *id,
                 int read_dfd,
                 const char *path) {
@@ -611,9 +632,8 @@ static int load_credential(
 
         assert(args);
         assert(args->context);
-        assert(args->params);
-        assert(args->unit);
-        assert(args->write_dfd >= 0);
+        assert(args->context->exec_context);
+        assert(args->context->unit);
         assert(id);
         assert(read_dfd >= 0 || read_dfd == AT_FDCWD);
         assert(path);
@@ -641,7 +661,7 @@ static int load_credential(
 
                 /* Pass some minimal info about the unit and the credential name we are looking to acquire
                  * via the source socket address in case we read off an AF_UNIX socket. */
-                if (asprintf(&bindname, "@%" PRIx64 "/unit/%s/%s", random_u64(), args->unit, id) < 0)
+                if (asprintf(&bindname, "@%" PRIx64 "/unit/%s/%s", random_u64(), args->context->unit, id) < 0)
                         return -ENOMEM;
 
                 missing_ok = false;
@@ -652,7 +672,7 @@ static int load_credential(
                  * directory we received ourselves. We don't support the AF_UNIX stuff in this mode, since we
                  * are operating on a credential store, i.e. this is guaranteed to be regular files. */
 
-                r = credential_search_path(args->params, CREDENTIAL_SEARCH_PATH_ALL, &search_path);
+                r = credential_search_path(args->context, CREDENTIAL_SEARCH_PATH_ALL, &search_path);
                 if (r < 0)
                         return r;
 
@@ -695,17 +715,20 @@ static int load_credential(
         else
                 assert_not_reached();
 
-        if (r == -ENOENT && (missing_ok || hashmap_contains(args->context->set_credentials, id))) {
-                /* Make a missing inherited credential non-fatal, let's just continue. After all apps
-                 * will get clear errors if we don't pass such a missing credential on as they
-                 * themselves will get ENOENT when trying to read them, which should not be much
-                 * worse than when we handle the error here and make it fatal.
-                 *
-                 * Also, if the source file doesn't exist, but a fallback is set via SetCredentials=
-                 * we are fine, too. */
-                log_full_errno(hashmap_contains(args->context->set_credentials, id) ? LOG_DEBUG : LOG_INFO,
-                               r, "Couldn't read inherited credential '%s', skipping: %m", path);
-                return 0;
+        if (r == -ENOENT) {
+                bool in_set_credentials = hashmap_contains(args->context->exec_context->set_credentials, id);
+                if (missing_ok || in_set_credentials) {
+                        /* Make a missing inherited credential non-fatal, let's just continue. After all apps
+                         * will get clear errors if we don't pass such a missing credential on as they
+                         * themselves will get ENOENT when trying to read them, which should not be much
+                         * worse than when we handle the error here and make it fatal.
+                         *
+                         * Also, if the source file doesn't exist, but a fallback is set via SetCredentials=
+                         * we are fine, too. */
+                        log_full_errno(in_set_credentials ? LOG_DEBUG : LOG_INFO,
+                                       r, "Couldn't read inherited credential '%s', skipping: %m", path);
+                        return 0;
+                }
         }
         if (r < 0)
                 return log_debug_errno(r, "Failed to read credential '%s': %m", path);
@@ -722,7 +745,7 @@ static int load_cred_recurse_dir_cb(
                 const struct statx *sx,
                 void *userdata) {
 
-        struct load_cred_args *args = ASSERT_PTR(userdata);
+        LoadCredentialArguments *args = ASSERT_PTR(userdata);
         _cleanup_free_ char *sub_id = NULL;
         int r;
 
@@ -779,38 +802,27 @@ static bool device_nodes_restricted(
 }
 
 static int acquire_credentials(
-                const ExecContext *context,
-                const CGroupContext *cgroup_context,
-                const ExecParameters *params,
-                const char *unit,
+                const SetupCredentialsContext *context,
                 int dfd,
-                uid_t uid,
-                gid_t gid,
                 bool ownership_ok) {
 
         int r;
 
         assert(context);
-        assert(cgroup_context);
-        assert(params);
-        assert(unit);
+        assert(context->exec_context);
         assert(dfd >= 0);
 
-        struct load_cred_args args = {
+        LoadCredentialArguments args = {
                 .context = context,
-                .params = params,
-                .unit = unit,
-                .always_ipc = device_nodes_restricted(context, cgroup_context),
+
                 .write_dfd = dfd,
-                .uid = uid,
-                .gid = gid,
                 .ownership_ok = ownership_ok,
                 .left = CREDENTIALS_TOTAL_SIZE_MAX,
         };
 
         /* First, load credentials off disk (or acquire via AF_UNIX socket) */
         ExecLoadCredential *lc;
-        HASHMAP_FOREACH(lc, context->load_credentials) {
+        HASHMAP_FOREACH(lc, context->exec_context->load_credentials) {
                 _cleanup_close_ int sub_fd = -EBADF;
 
                 args.encrypted = lc->encrypted;
@@ -849,10 +861,10 @@ static int acquire_credentials(
         /* Next, look for system credentials and credentials in the credentials store. Note that these do not
          * override any credentials found earlier. */
         ExecImportCredential *ic;
-        ORDERED_SET_FOREACH(ic, context->import_credentials) {
+        ORDERED_SET_FOREACH(ic, context->exec_context->import_credentials) {
                 _cleanup_free_ char **search_path = NULL;
 
-                r = credential_search_path(params, CREDENTIAL_SEARCH_PATH_TRUSTED, &search_path);
+                r = credential_search_path(context, CREDENTIAL_SEARCH_PATH_TRUSTED, &search_path);
                 if (r < 0)
                         return r;
 
@@ -868,7 +880,7 @@ static int acquire_credentials(
 
                 search_path = strv_free(search_path);
 
-                r = credential_search_path(params, CREDENTIAL_SEARCH_PATH_ENCRYPTED, &search_path);
+                r = credential_search_path(context, CREDENTIAL_SEARCH_PATH_ENCRYPTED, &search_path);
                 if (r < 0)
                         return r;
 
@@ -886,7 +898,7 @@ static int acquire_credentials(
         /* Finally, we add in literally specified credentials. If the credentials already exist, we'll not
          * add them, so that they can act as a "default" if the same credential is specified multiple times. */
         ExecSetCredential *sc;
-        HASHMAP_FOREACH(sc, context->set_credentials) {
+        HASHMAP_FOREACH(sc, context->exec_context->set_credentials) {
                 args.encrypted = sc->encrypted;
 
                 if (faccessat(dfd, sc->id, F_OK, AT_SYMLINK_NOFOLLOW) >= 0) {
@@ -934,13 +946,8 @@ static int credentials_dir_finalize_permissions(int dfd, uid_t uid, gid_t gid, b
 }
 
 static int setup_credentials_plain_dir(
-                const ExecContext *context,
-                const CGroupContext *cgroup_context,
-                const ExecParameters *params,
-                const char *unit,
-                const char *cred_dir,
-                uid_t uid,
-                gid_t gid) {
+                const SetupCredentialsContext *context,
+                const char *cred_dir) {
 
         _cleanup_free_ char *t = NULL, *workspace = NULL;
         _cleanup_(rm_rf_safep) const char *workspace_rm = NULL;
@@ -948,13 +955,13 @@ static int setup_credentials_plain_dir(
         int r;
 
         assert(context);
-        assert(params);
-        assert(unit);
+        assert(context->unit);
+        assert(context->runtime_prefix);
         assert(cred_dir);
 
         /* Temporary workspace, that remains inaccessible all the time. We prepare stuff there before moving
          * it into place, so that users can't access half-initialized credential stores. */
-        t = path_join(params->prefix[EXEC_DIRECTORY_RUNTIME], "systemd/temporary-credentials");
+        t = path_join(context->runtime_prefix, "systemd/temporary-credentials");
         if (!t)
                 return -ENOMEM;
 
@@ -962,7 +969,7 @@ static int setup_credentials_plain_dir(
         if (r < 0 && r != -EEXIST)
                 return r;
 
-        workspace = path_join(t, unit);
+        workspace = path_join(t, context->unit);
         if (!workspace)
                 return -ENOMEM;
 
@@ -973,7 +980,7 @@ static int setup_credentials_plain_dir(
 
         (void) label_fix_full(dfd, /* inode_path= */ NULL, cred_dir, /* flags= */ 0);
 
-        r = acquire_credentials(context, cgroup_context, params, unit, dfd, uid, gid, /* ownership_ok= */ false);
+        r = acquire_credentials(context, dfd, /* ownership_ok= */ false);
         if (r < 0)
                 return r;
 
@@ -995,7 +1002,7 @@ static int setup_credentials_plain_dir(
 
         /* rename() requires both the source and target to be writable, hence lock down write permission
          * as last step. */
-        r = credentials_dir_finalize_permissions(dfd, uid, gid, /* ownership_ok= */ false);
+        r = credentials_dir_finalize_permissions(dfd, context->uid, context->gid, /* ownership_ok= */ false);
         if (r < 0)
                 return log_debug_errno(r, "Failed to adjust ACLs of credentials dir: %m");
 
@@ -1003,43 +1010,47 @@ static int setup_credentials_plain_dir(
 }
 
 static int setup_credentials_internal(
-                const ExecContext *context,
-                const CGroupContext *cgroup_context,
-                const ExecParameters *params,
-                const char *unit,
-                const char *cred_dir,
-                uid_t uid,
-                gid_t gid) {
+                const SetupCredentialsContext *context,
+                bool may_reuse,
+                const char *cred_dir) {
 
         _cleanup_close_ int fs_fd = -EBADF, mfd = -EBADF, dfd = -EBADF;
         bool dir_mounted;
         int r;
 
         assert(context);
-        assert(params);
-        assert(unit);
         assert(cred_dir);
-
-        if (!FLAGS_SET(params->flags, EXEC_SETUP_CREDENTIALS_FRESH)) {
-                /* We may reuse the previous credential dir */
-                r = dir_is_empty(cred_dir, /* ignore_hidden_or_backup= */ false);
-                if (r < 0)
-                        return r;
-                if (r == 0) {
-                        log_debug("Credential dir for unit '%s' already set up, skipping.", unit);
-                        return 0;
-                }
-        }
 
         r = path_is_mount_point(cred_dir);
         if (r < 0)
                 return log_debug_errno(r, "Failed to determine if '%s' is a mountpoint: %m", cred_dir);
         dir_mounted = r > 0;
 
+        if (may_reuse) {
+                bool populated;
+
+                /* If the cred dir is a mount, let's treat it as populated, and only look at the contents
+                 * if it's a plain dir, where we can't reasonably differentiate populated yet empty vs
+                 * not set up. */
+
+                if (dir_mounted)
+                        populated = true;
+                else {
+                        r = dir_is_empty(cred_dir, /* ignore_hidden_or_backup= */ false);
+                        if (r < 0)
+                                return r;
+                        populated = r == 0;
+                }
+                if (populated) {
+                        log_debug("Credential dir for unit '%s' already set up, skipping.", context->unit);
+                        return 0;
+                }
+        }
+
         mfd = fsmount_credentials_fs(&fs_fd);
         if (ERRNO_IS_NEG_PRIVILEGE(mfd) && !dir_mounted) {
                 log_debug_errno(mfd, "Lacking privilege to mount credentials fs, falling back to plain directory.");
-                return setup_credentials_plain_dir(context, cgroup_context, params, unit, cred_dir, uid, gid);
+                return setup_credentials_plain_dir(context, cred_dir);
         }
         if (mfd < 0)
                 return log_debug_errno(mfd, "Failed to mount credentials fs: %m");
@@ -1050,11 +1061,11 @@ static int setup_credentials_internal(
 
         (void) label_fix_full(dfd, /* inode_path= */ NULL, cred_dir, /* flags= */ 0);
 
-        r = acquire_credentials(context, cgroup_context, params, unit, dfd, uid, gid, /* ownership_ok= */ true);
+        r = acquire_credentials(context, dfd, /* ownership_ok= */ true);
         if (r < 0)
                 return r;
 
-        r = credentials_dir_finalize_permissions(dfd, uid, gid, /* ownership_ok= */ true);
+        r = credentials_dir_finalize_permissions(dfd, context->uid, context->gid, /* ownership_ok= */ true);
         if (r < 0)
                 return log_debug_errno(r, "Failed to adjust ACLs of credentials dir: %m");
 
@@ -1099,7 +1110,6 @@ int exec_setup_credentials(
                 const ExecContext *context,
                 const CGroupContext *cgroup_context,
                 const ExecParameters *params,
-                const char *unit,
                 uid_t uid,
                 gid_t gid) {
 
@@ -1108,7 +1118,6 @@ int exec_setup_credentials(
 
         assert(context);
         assert(params);
-        assert(unit);
 
         if (!exec_params_need_credentials(params) || !exec_context_has_credentials(context))
                 return 0;
@@ -1126,7 +1135,7 @@ int exec_setup_credentials(
         if (r < 0 && r != -EEXIST)
                 return r;
 
-        p = path_join(q, unit);
+        p = path_join(q, params->unit_id);
         if (!p)
                 return -ENOMEM;
 
@@ -1134,12 +1143,208 @@ int exec_setup_credentials(
         if (r < 0 && r != -EEXIST)
                 return r;
 
-        r = setup_credentials_internal(context, cgroup_context, params, unit, p, uid, gid);
+        SetupCredentialsContext ctx = {
+                .scope = params->runtime_scope,
+                .exec_context = context,
+                .unit = params->unit_id,
 
-        /* If the credentials dir is empty and not a mount point, then there's no point in having it. Let's
-         * try to remove it. This matters in particular if we created the dir as mount point but then didn't
-         * actually end up mounting anything on it. In that case we'd rather have ENOENT than EACCESS being
-         * seen by users when trying access this inode. */
-        (void) rmdir(p);
+                .runtime_prefix = params->prefix[EXEC_DIRECTORY_RUNTIME],
+                .received_credentials_directory = params->received_credentials_directory,
+                .received_encrypted_credentials_directory = params->received_encrypted_credentials_directory,
+
+                .always_ipc = device_nodes_restricted(context, cgroup_context),
+
+                .uid = uid,
+                .gid = gid,
+        };
+
+        r = setup_credentials_internal(&ctx, /* may_reuse = */ !FLAGS_SET(params->flags, EXEC_SETUP_CREDENTIALS_FRESH), p);
+        if (r < 0)
+                (void) rmdir(p);
+
         return r;
+}
+
+static int refresh_credentials_in_namespace_child(int cfd, const char *cred_dir) {
+        int r;
+
+        assert(cfd >= 0);
+        assert(cred_dir);
+
+        /* Paranoia: before doing anything, check if the credentials tree inside the mountns is available.
+         *
+         * Note that setup_namespace() always installs a mount for cred dir, hence path_is_mount_point()
+         * is the appropriate check here. */
+        r = path_is_mount_point(cred_dir);
+        if (IN_SET(r, 0, -ENOENT)) {
+                log_full_errno_zerook(LOG_WARNING, r,
+                                      "Credentials tree in the unit mount namespace is masked, skipping refresh.");
+                return 0;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to check whether '%s' is a mountpoint in unit mount namespace: %m",
+                                       cred_dir);
+
+        /* Inform the parent that we're good to go */
+        ssize_t n = write(cfd, &r, sizeof(r));
+        if (n < 0)
+                return log_error_errno(errno, "Failed to write to socket: %m");
+
+        _cleanup_close_ int mfd = receive_one_fd(cfd, /* flags = */ 0);
+        if (mfd < 0)
+                return log_error_errno(mfd, "Failed to receive credentials tree fd from socket: %m");
+
+        r = mount_exchange_graceful(mfd, cred_dir, /* mount_beneath = */ true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to update credentials mount in namespace: %m");
+
+        return 1;
+}
+
+int unit_refresh_credentials(Unit *u) {
+        _cleanup_free_ char *cred_dir = NULL;
+        int r;
+
+        /* Refresh the credentials for a unit, potentially forking off a second process to join the mountns
+         * if needed. Returns > 0 on successful refresh, == 0 if the credentials tree is masked and the operation
+         * is skipped. */
+
+        assert(u);
+        assert(u->manager);
+
+        r = get_credential_directory(u->manager->prefix[EXEC_DIRECTORY_RUNTIME], u->id, &cred_dir);
+        if (r < 0)
+                return log_oom();
+        assert(r > 0);
+
+        if (access(cred_dir, F_OK) < 0) {
+                if (errno == ENOENT) {
+                        log_warning_errno(errno, "Requested to refresh credentials, but credentials aren't populated, skipping.");
+                        return 0;
+                }
+
+                return log_error_errno(errno, "Failed to check if credentials dir '%s' exists: %m", cred_dir);
+        }
+
+        _cleanup_close_pair_ int tunnel_fds[2] = EBADF_PAIR;
+        _cleanup_(pidref_done) PidRef child = PIDREF_NULL;
+        _cleanup_close_ int userns_fd = -EBADF;
+
+        PidRef *main_pid = unit_main_pid(u);
+        if (pidref_is_set(main_pid)) {
+                _cleanup_close_ int mntns_fd = -EBADF, root_fd = -EBADF, pidns_fd = -EBADF;
+
+                r = pidref_namespace_open(main_pid,
+                                          &pidns_fd,
+                                          &mntns_fd,
+                                          /* ret_netns_fd = */ NULL,
+                                          MANAGER_IS_USER(u->manager) ? &userns_fd : NULL,
+                                          &root_fd);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to open namespace of unit main process '" PID_FMT "': %m",
+                                               main_pid->pid);
+
+                r = is_our_namespace(mntns_fd, NAMESPACE_MOUNT);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to check if main process resides in a separate mount namespace: %m");
+                if (r == 0) {
+                        if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, tunnel_fds) < 0)
+                                return log_error_errno(errno, "Failed to allocate socket pair: %m");
+
+                        r = namespace_fork_full("(sd-creds-ns)", "(sd-creds-ns-inner)",
+                                                (int[]) { tunnel_fds[1] }, 1,
+                                                FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_CLOSE_ALL_FDS|FORK_REOPEN_LOG,
+                                                pidns_fd, mntns_fd, /* netns_fd = */ -EBADF, userns_fd, root_fd,
+                                                /* delegated = */ MANAGER_IS_USER(u->manager),
+                                                &child);
+                        if (r < 0)
+                                return log_full_errno(ERRNO_IS_NEG_PRIVILEGE(r) ? LOG_WARNING : LOG_ERR, r,
+                                                      "Failed to fork off process into unit namespace to refresh credentials: %m");
+                        if (r == 0) {
+                                r = refresh_credentials_in_namespace_child(tunnel_fds[1], cred_dir);
+                                report_errno_and_exit(tunnel_fds[1], r);
+                        }
+
+                        tunnel_fds[1] = safe_close(tunnel_fds[1]);
+
+                        /* Wait for the child to validate the creds tree in the unit namespace is populated. */
+                        ssize_t n = read(tunnel_fds[0], &r, sizeof(r));
+                        if (n < 0)
+                                return log_error_errno(errno, "Failed to read from socket: %m");
+                        if (!IN_SET(n, 0, sizeof(r)))
+                                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Received unexpected amount of bytes (%zi) while reading errno.", n);
+                        if (n == 0 || r == 0) {
+                                /* The child exited without sending anything or 0 is received signifying
+                                 * the credentials are masked? Check the exit status to be sure. */
+                                r = pidref_wait_for_terminate_and_check("(sd-creds-ns)", &child, WAIT_LOG);
+                                if (r < 0)
+                                        return r;
+                                if (r != EXIT_SUCCESS)
+                                        return -EPROTO;
+
+                                return 0; /* skipped */
+                        }
+                        if (r < 0)
+                                return r;
+
+                        /* Yay! Got > 0 from child indicating all good, proceed with refreshing. */
+                }
+        }
+
+        SetupCredentialsContext ctx = {
+                .scope = u->manager->runtime_scope,
+                .exec_context = ASSERT_PTR(unit_get_exec_context(u)),
+                .unit = u->id,
+
+                .runtime_prefix = u->manager->prefix[EXEC_DIRECTORY_RUNTIME],
+                .received_credentials_directory = u->manager->received_credentials_directory,
+                .received_encrypted_credentials_directory = u->manager->received_encrypted_credentials_directory,
+
+                .always_ipc = false, /* we don't migrate to unit cgroup, hence cannot be restricted by cgroup bpf */
+
+                .uid = u->ref_uid,
+                .gid = u->ref_gid,
+        };
+
+        r = setup_credentials_internal(&ctx, /* may_reuse = */ false, cred_dir);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set up credentials: %m");
+
+        /* The main process doesn't run in a mountns hence nothing got forked off? Then we're all set. */
+        if (!pidref_is_set(&child))
+                return 1;
+
+        if (userns_fd >= 0) {
+                assert(MANAGER_IS_USER(u->manager));
+
+                /* Enter the unit userns now and unshare mountns, so that we have permissions to clone
+                 * the mount tree using open_tree() */
+
+                if (setns(userns_fd, CLONE_NEWUSER) < 0)
+                        return log_error_errno(errno, "Failed to enter user namespace: %m");
+
+                if (unshare(CLONE_NEWNS) < 0)
+                        return log_error_errno(errno, "Failed to unshare mount namespace: %m");
+        }
+
+        _cleanup_close_ int tfd = open_tree(AT_FDCWD, cred_dir, OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_SYMLINK_NOFOLLOW);
+        if (tfd < 0)
+                return log_error_errno(errno, "Failed to clone mount tree at '%s': %m", cred_dir);
+
+        r = send_one_fd(tunnel_fds[0], tfd, /* flags = */ 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to send mount fd to child: %m");
+
+        r = pidref_wait_for_terminate_and_check("(sd-creds-ns)", &child, WAIT_LOG_ABNORMAL);
+        if (r < 0)
+                return r;
+        if (r != EXIT_SUCCESS) {
+                r = read_errno(tunnel_fds[0]);
+                if (r < 0)
+                        return r;
+
+                return -EPROTO;
+        }
+
+        return 1;
 }
