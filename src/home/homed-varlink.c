@@ -14,6 +14,7 @@
 #include "user-record.h"
 #include "user-record-util.h"
 #include "user-util.h"
+#include "varlink-util.h"
 
 typedef struct LookupParameters {
         const char *user_name;
@@ -86,7 +87,6 @@ int vl_method_get_user_record(sd_varlink *link, sd_json_variant *parameters, sd_
                 {}
         };
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         LookupParameters p = {
                 .uid = UID_INVALID,
         };
@@ -104,6 +104,10 @@ int vl_method_get_user_record(sd_varlink *link, sd_json_variant *parameters, sd_
         if (!streq_ptr(p.service, m->userdb_service))
                 return sd_varlink_error(link, "io.systemd.UserDatabase.BadService", NULL);
 
+        r = varlink_set_sentinel(link, "io.systemd.UserDatabase.NoRecordFound");
+        if (r < 0)
+                return r;
+
         if (uid_is_valid(p.uid))
                 h = hashmap_get(m->homes_by_uid, UID_TO_PTR(p.uid));
         else if (p.user_name) {
@@ -112,45 +116,36 @@ int vl_method_get_user_record(sd_varlink *link, sd_json_variant *parameters, sd_
                         return r;
         } else {
 
-                /* If neither UID nor name was specified, then dump all homes. Do so with varlink_notify()
-                 * for all entries but the last, so that clients can stream the results, and easily process
-                 * them piecemeal. */
+                /* If neither UID nor name was specified, then dump all homes. */
 
                 HASHMAP_FOREACH(h, m->homes_by_uid) {
-
                         if (!home_user_match_lookup_parameters(&p, h))
                                 continue;
 
-                        if (v) {
-                                /* An entry set from the previous iteration? Then send it now */
-                                r = sd_varlink_notify(link, v);
-                                if (r < 0)
-                                        return r;
-
-                                v = sd_json_variant_unref(v);
-                        }
-
                         trusted = client_is_trusted(link, h);
 
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
                         r = build_user_json(h, trusted, &v);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_varlink_reply(link, v);
                         if (r < 0)
                                 return r;
                 }
 
-                if (!v)
-                        return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
-
-                return sd_varlink_reply(link, v);
+                return 0;
         }
 
         if (!h)
-                return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
+                return 0;
 
         if (!home_user_match_lookup_parameters(&p, h))
                 return sd_varlink_error(link, "io.systemd.UserDatabase.ConflictingRecordFound", NULL);
 
         trusted = client_is_trusted(link, h);
 
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         r = build_user_json(h, trusted, &v);
         if (r < 0)
                 return r;
@@ -201,7 +196,6 @@ int vl_method_get_group_record(sd_varlink *link, sd_json_variant *parameters, sd
                 {}
         };
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         LookupParameters p = {
                 .gid = GID_INVALID,
         };
@@ -218,6 +212,10 @@ int vl_method_get_group_record(sd_varlink *link, sd_json_variant *parameters, sd
         if (!streq_ptr(p.service, m->userdb_service))
                 return sd_varlink_error(link, "io.systemd.UserDatabase.BadService", NULL);
 
+        r = varlink_set_sentinel(link, "io.systemd.UserDatabase.NoRecordFound");
+        if (r < 0)
+                return r;
+
         if (gid_is_valid(p.gid))
                 h = hashmap_get(m->homes_by_uid, UID_TO_PTR((uid_t) p.gid));
         else if (p.group_name) {
@@ -225,37 +223,30 @@ int vl_method_get_group_record(sd_varlink *link, sd_json_variant *parameters, sd
                 if (r < 0)
                         return r;
         } else {
-
                 HASHMAP_FOREACH(h, m->homes_by_uid) {
-
                         if (!home_group_match_lookup_parameters(&p, h))
                                 continue;
 
-                        if (v) {
-                                r = sd_varlink_notify(link, v);
-                                if (r < 0)
-                                        return r;
-
-                                v = sd_json_variant_unref(v);
-                        }
-
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
                         r = build_group_json(h, &v);
+                        if (r < 0)
+                                return r;
+
+                        r = sd_varlink_reply(link, v);
                         if (r < 0)
                                 return r;
                 }
 
-                if (!v)
-                        return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
-
-                return sd_varlink_reply(link, v);
+                return 0;
         }
 
         if (!h)
-                return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
+                return 0;
 
         if (!home_group_match_lookup_parameters(&p, h))
                 return sd_varlink_error(link, "io.systemd.UserDatabase.ConflictingRecordFound", NULL);
 
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         r = build_group_json(h, &v);
         if (r < 0)
                 return r;
@@ -286,17 +277,21 @@ int vl_method_get_memberships(sd_varlink *link, sd_json_variant *parameters, sd_
         if (!streq_ptr(p.service, m->userdb_service))
                 return sd_varlink_error(link, "io.systemd.UserDatabase.BadService", NULL);
 
+        r = varlink_set_sentinel(link, "io.systemd.UserDatabase.NoRecordFound");
+        if (r < 0)
+                return r;
+
         if (p.user_name) {
                 r = manager_get_home_by_name(m, p.user_name, &h);
                 if (r < 0)
                         return r;
                 if (!h)
-                        return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
+                        return 0;
 
                 if (p.group_name) {
                         if (!strv_contains(h->record->member_of, p.group_name) &&
                             !user_record_matches_user_name(h->record, p.group_name))
-                                return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
+                                return 0;
 
                         return sd_varlink_replybo(
                                         link,
@@ -305,7 +300,7 @@ int vl_method_get_memberships(sd_varlink *link, sd_json_variant *parameters, sd_
                 }
 
                 STRV_FOREACH(i, h->record->member_of) {
-                        r = sd_varlink_notifybo(
+                        r = sd_varlink_replybo(
                                         link,
                                         SD_JSON_BUILD_PAIR_STRING("userName", h->user_name),
                                         SD_JSON_BUILD_PAIR_STRING("groupName", *i));
@@ -319,64 +314,37 @@ int vl_method_get_memberships(sd_varlink *link, sd_json_variant *parameters, sd_
                                 SD_JSON_BUILD_PAIR_STRING("groupName", h->user_name));
 
         } else if (p.group_name) {
-                const char *last = NULL;
-
                 HASHMAP_FOREACH(h, m->homes_by_uid) {
-
                         if (!strv_contains(h->record->member_of, p.group_name) &&
                             !user_record_matches_user_name(h->record, p.group_name))
                                 continue;
 
-                        if (last) {
-                                r = sd_varlink_notifybo(
-                                                link,
-                                                SD_JSON_BUILD_PAIR_STRING("userName", last),
-                                                SD_JSON_BUILD_PAIR_STRING("groupName", p.group_name));
-                                if (r < 0)
-                                        return r;
-                        }
-
-                        last = h->user_name;
-                }
-
-                if (last)
-                        return sd_varlink_replybo(
+                        r = sd_varlink_replybo(
                                         link,
-                                        SD_JSON_BUILD_PAIR_STRING("userName", last),
+                                        SD_JSON_BUILD_PAIR_STRING("userName", h->user_name),
                                         SD_JSON_BUILD_PAIR_STRING("groupName", p.group_name));
+                        if (r < 0)
+                                return r;
+                }
         } else {
-                const char *last = NULL;
-
                 HASHMAP_FOREACH(h, m->homes_by_uid) {
+                        r = sd_varlink_replybo(
+                                        link,
+                                        SD_JSON_BUILD_PAIR_STRING("userName", h->user_name),
+                                        SD_JSON_BUILD_PAIR_STRING("groupName", h->user_name));
+                        if (r < 0)
+                                return r;
+
                         STRV_FOREACH(j, h->record->member_of) {
-                                if (last) {
-                                        r = sd_varlink_notifybo(
-                                                        link,
-                                                        SD_JSON_BUILD_PAIR_STRING("userName", last),
-                                                        SD_JSON_BUILD_PAIR_STRING("groupName", last));
-                                        if (r < 0)
-                                                return r;
-
-                                        last = NULL;
-                                }
-
-                                r = sd_varlink_notifybo(
+                                r = sd_varlink_replybo(
                                                 link,
                                                 SD_JSON_BUILD_PAIR_STRING("userName", h->user_name),
                                                 SD_JSON_BUILD_PAIR_STRING("groupName", *j));
                                 if (r < 0)
                                         return r;
                         }
-
-                        last = h->user_name;
                 }
-
-                if (last)
-                        return sd_varlink_replybo(
-                                        link,
-                                        SD_JSON_BUILD_PAIR_STRING("userName", last),
-                                        SD_JSON_BUILD_PAIR_STRING("groupName", last));
         }
 
-        return sd_varlink_error(link, "io.systemd.UserDatabase.NoRecordFound", NULL);
+        return 0;
 }
