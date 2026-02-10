@@ -1,0 +1,74 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+option -h --help
+
+option --version
+
+option --no-pager
+
+option --no-legend
+help Do not show the headers and footers
+        arg_legend = false;
+
+option --no-ask-password
+help Do not prompt for password
+        arg_ask_password = false;
+
+option -a --all
+help Show status for all links
+        arg_all = true;
+
+option -s --stats
+help Show detailed link statistics
+        arg_stats = true;
+
+option -l --full
+help Do not ellipsize output
+        arg_full = true;
+
+option -n= --lines=INTEGER
+help Number of journal entries to show
+        if (safe_atou(optarg, &arg_lines) < 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Failed to parse lines '%s'", optarg);
+
+option --json=pretty|short|off
+help Generate JSON output
+        r = parse_json_argument(optarg, &arg_json_format_flags);
+        if (r <= 0)
+                return r;
+
+option --no-reload
+help Do not reload systemd-networkd or systemd-udevd after editing network config
+        arg_no_reload = true;
+
+option --drop-in=NAME
+help Edit specified drop-in instead of main config file
+        if (isempty(optarg))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Empty drop-in file name.");
+
+        if (!endswith(optarg, ".conf")) {
+                char *conf;
+
+                conf = strjoin(optarg, ".conf");
+                if (!conf)
+                        return log_oom();
+
+                free_and_replace(arg_drop_in, conf);
+        } else {
+                r = free_and_strdup(&arg_drop_in, optarg);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        if (!filename_is_valid(arg_drop_in))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Invalid drop-in file name '%s'.", arg_drop_in);
+
+option --runtime
+help Edit runtime config files
+        arg_runtime = true;
+
+option --stdin
+help Read new contents of edited file from stdin
+        arg_stdin = true;

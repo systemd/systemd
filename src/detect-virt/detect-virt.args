@@ -1,0 +1,39 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+option -h --help
+
+option --version
+
+option -c --container
+help Only detect whether we are run in a container
+        arg_mode = ONLY_CONTAINER;
+
+option -v --vm
+help Only detect whether we are run in a VM
+        arg_mode = ONLY_VM;
+
+option -r --chroot
+help Detect whether we are run in a chroot() environment
+        arg_mode = ONLY_CHROOT;
+
+option --private-users
+help Only detect whether we are running in a user namespace
+        arg_mode = ONLY_PRIVATE_USERS;
+
+option --cvm
+help Only detect whether we are run in a confidential VM
+        arg_mode = ONLY_CVM;
+
+option -q --quiet
+help Don't output anything, just set return value
+        arg_quiet = true;
+
+option --list
+help List all known and detectable types of virtualization
+        return DUMP_STRING_TABLE(virtualization, Virtualization, _VIRTUALIZATION_MAX);
+
+option --list-cvm
+help List all known and detectable types of confidential virtualization
+        return DUMP_STRING_TABLE(confidential_virtualization,
+                                 ConfidentialVirtualization,
+                                 _CONFIDENTIAL_VIRTUALIZATION_MAX);

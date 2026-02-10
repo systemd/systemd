@@ -120,6 +120,23 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
 
 #endif
 
+static int negative_fd(const char *spec) {
+        /* Return a non-positive number as its inverse, -EINVAL otherwise. */
+
+        int fd, r;
+
+        r = safe_atoi(spec, &fd);
+        if (r < 0)
+                return r;
+
+        if (fd > 0)
+                return -EINVAL;
+        else
+                return -fd;
+}
+
+#include "journal-remote.args.inc"
+
 /**********************************************************************
  **********************************************************************
  **********************************************************************/
@@ -798,21 +815,6 @@ static int create_remoteserver(
         return 0;
 }
 
-static int negative_fd(const char *spec) {
-        /* Return a non-positive number as its inverse, -EINVAL otherwise. */
-
-        int fd, r;
-
-        r = safe_atoi(spec, &fd);
-        if (r < 0)
-                return r;
-
-        if (fd > 0)
-                return -EINVAL;
-        else
-                return -fd;
-}
-
 static int parse_config(void) {
         const ConfigTableItem items[] = {
                 { "Remote",  "Seal",                   config_parse_bool,             0, &arg_seal        },
@@ -846,25 +848,7 @@ static int help(void) {
 
         printf("%s [OPTIONS...] {FILE|-}...\n\n"
                "Write external journal events to journal file(s).\n\n"
-               "  -h --help                 Show this help\n"
-               "     --version              Show package version\n"
-               "     --url=URL              Read events from systemd-journal-gatewayd at URL\n"
-               "     --getter=COMMAND       Read events from the output of COMMAND\n"
-               "     --listen-raw=ADDR      Listen for connections at ADDR\n"
-               "     --listen-http=ADDR     Listen for HTTP connections at ADDR\n"
-               "     --listen-https=ADDR    Listen for HTTPS connections at ADDR\n"
-               "  -o --output=FILE|DIR      Write output to FILE or DIR/external-*.journal\n"
-               "     --compress[=BOOL]      Use compression in the output journal (default: yes)\n"
-               "     --seal[=BOOL]          Use event sealing (default: no)\n"
-               "     --key=FILENAME         SSL key in PEM format (default:\n"
-               "                            \"" PRIV_KEY_FILE "\")\n"
-               "     --cert=FILENAME        SSL certificate in PEM format (default:\n"
-               "                            \"" CERT_FILE "\")\n"
-               "     --trust=FILENAME|all   SSL CA certificate or disable checking (default:\n"
-               "                            \"" TRUST_FILE "\")\n"
-               "     --gnutls-log=CATEGORY...\n"
-               "                            Specify a list of gnutls logging categories\n"
-               "     --split-mode=none|host How many output files to create\n"
+               OPTION_HELP_GENERATED
                "\nNote: file descriptors from sd_listen_fds() will be consumed, too.\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
@@ -874,182 +858,18 @@ static int help(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_URL,
-                ARG_LISTEN_RAW,
-                ARG_LISTEN_HTTP,
-                ARG_LISTEN_HTTPS,
-                ARG_GETTER,
-                ARG_SPLIT_MODE,
-                ARG_COMPRESS,
-                ARG_SEAL,
-                ARG_KEY,
-                ARG_CERT,
-                ARG_TRUST,
-                ARG_GNUTLS_LOG,
-        };
+        int r;
 
-        static const struct option options[] = {
-                { "help",         no_argument,       NULL, 'h'              },
-                { "version",      no_argument,       NULL, ARG_VERSION      },
-                { "url",          required_argument, NULL, ARG_URL          },
-                { "getter",       required_argument, NULL, ARG_GETTER       },
-                { "listen-raw",   required_argument, NULL, ARG_LISTEN_RAW   },
-                { "listen-http",  required_argument, NULL, ARG_LISTEN_HTTP  },
-                { "listen-https", required_argument, NULL, ARG_LISTEN_HTTPS },
-                { "output",       required_argument, NULL, 'o'              },
-                { "split-mode",   required_argument, NULL, ARG_SPLIT_MODE   },
-                { "compress",     optional_argument, NULL, ARG_COMPRESS     },
-                { "seal",         optional_argument, NULL, ARG_SEAL         },
-                { "key",          required_argument, NULL, ARG_KEY          },
-                { "cert",         required_argument, NULL, ARG_CERT         },
-                { "trust",        required_argument, NULL, ARG_TRUST        },
-                { "gnutls-log",   required_argument, NULL, ARG_GNUTLS_LOG   },
-                {}
-        };
-
-        int c, r;
-        bool type_a, type_b;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "ho:", options, NULL)) >= 0)
-                switch (c) {
-
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_URL:
-                        r = free_and_strdup_warn(&arg_url, optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_GETTER:
-                        r = free_and_strdup_warn(&arg_getter, optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_LISTEN_RAW:
-                        r = free_and_strdup_warn(&arg_listen_raw, optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_LISTEN_HTTP:
-                        if (arg_listen_http || http_socket >= 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Cannot currently use --listen-http= more than once");
-
-                        r = negative_fd(optarg);
-                        if (r >= 0)
-                                http_socket = r;
-                        else {
-                                r = free_and_strdup_warn(&arg_listen_http, optarg);
-                                if (r < 0)
-                                        return r;
-                        }
-                        break;
-
-                case ARG_LISTEN_HTTPS:
-                        if (arg_listen_https || https_socket >= 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Cannot currently use --listen-https= more than once");
-
-                        r = negative_fd(optarg);
-                        if (r >= 0)
-                                https_socket = r;
-                        else {
-                                r = free_and_strdup_warn(&arg_listen_https, optarg);
-                                if (r < 0)
-                                        return r;
-                        }
-                        break;
-
-                case ARG_KEY:
-                        r = free_and_strdup_warn(&arg_key, optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_CERT:
-                        r = free_and_strdup_warn(&arg_cert, optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_TRUST:
-#if HAVE_GNUTLS
-                        r = free_and_strdup_warn(&arg_trust, optarg);
-                        if (r < 0)
-                                return r;
-#else
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option --trust= is not available.");
-#endif
-                        break;
-
-                case 'o':
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_output);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_SPLIT_MODE:
-                        arg_split_mode = journal_write_split_mode_from_string(optarg);
-                        if (arg_split_mode == _JOURNAL_WRITE_SPLIT_INVALID)
-                                return log_error_errno(arg_split_mode, "Invalid split mode: %s", optarg);
-                        break;
-
-                case ARG_COMPRESS:
-                        r = parse_boolean_argument("--compress", optarg, &arg_compress);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_SEAL:
-                        r = parse_boolean_argument("--seal", optarg, &arg_seal);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_GNUTLS_LOG:
-#if HAVE_GNUTLS
-                        for (const char *p = optarg;;) {
-                                _cleanup_free_ char *word = NULL;
-
-                                r = extract_first_word(&p, &word, ",", 0);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse --gnutls-log= argument: %m");
-                                if (r == 0)
-                                        break;
-
-                                if (strv_consume(&arg_gnutls_log, TAKE_PTR(word)) < 0)
-                                        return log_oom();
-                        }
-#else
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option --gnutls-log= is not available.");
-#endif
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
+        r = parse_argv_generated(argc, argv);
+        if (r <= 0)
+                return r;
 
         arg_files = strv_copy(strv_skip(argv, optind));
         if (!arg_files)
                 return log_oom();
 
-        type_a = arg_getter || !strv_isempty(arg_files);
-        type_b = arg_url
+        bool type_a = arg_getter || !strv_isempty(arg_files);
+        bool type_b = arg_url
                 || arg_listen_raw
                 || arg_listen_http || arg_listen_https
                 || sd_listen_fds(false) > 0;

@@ -45,6 +45,7 @@ executables += [
                 'name' : 'coredumpctl',
                 'public' : true,
                 'sources' : files('coredumpctl.c'),
+                'arg_parser' : files('coredumpctl.args'),
                 'link_with' : [libshared],
                 'dependencies' : common_dependencies,
         },

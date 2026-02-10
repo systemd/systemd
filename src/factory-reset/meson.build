@@ -4,6 +4,7 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-factory-reset',
                 'sources' : files('factory-reset-tool.c'),
+                'arg_parser' : files('factory-reset-tool.args'),
         },
         generator_template + {
                 'name' : 'systemd-factory-reset-generator',

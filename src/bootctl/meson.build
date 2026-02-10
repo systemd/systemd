@@ -19,6 +19,7 @@ executables += [
                           'HAVE_BLKID',
                 ],
                 'sources' : bootctl_sources,
+                'arg_parser' : files('bootctl.args'),
                 'link_with' : boot_link_with,
                 'dependencies' : [libopenssl],
         },

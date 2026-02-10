@@ -7,6 +7,7 @@ executables += [
                         'HAVE_BLKID',
                 ],
                 'sources' : files('validatefs.c'),
+                'arg_parser' : files('validatefs.args'),
                 'dependencies' : [
                         libblkid_cflags,
                 ],

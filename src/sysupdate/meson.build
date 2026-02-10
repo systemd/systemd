@@ -27,6 +27,7 @@ executables += [
                 'conditions' : ['ENABLE_SYSUPDATE'],
                 'sources' : systemd_sysupdate_sources,
                 'extract' : systemd_sysupdate_extract_sources,
+                'arg_parser' : files('sysupdate.args'),
                 'link_with' : [
                         libshared,
                         libshared_fdisk,
@@ -48,6 +49,7 @@ executables += [
                 'name' : 'updatectl',
                 'public' : true,
                 'sources' : systemd_updatectl_sources,
+                'arg_parser' : files('updatectl.args'),
                 'objects' : ['systemd-sysupdate'],
                 'conditions' : ['ENABLE_SYSUPDATED'],
         },

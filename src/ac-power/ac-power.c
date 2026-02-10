@@ -18,6 +18,8 @@ static enum {
         ACTION_LOW,
 } arg_action = ACTION_AC_POWER;
 
+#include "ac-power.args.inc"
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -28,10 +30,7 @@ static int help(void) {
 
         printf("%1$s [OPTION]\n"
                "\n%2$sReport whether we are connected to an external power source.%3$s\n\n"
-               "  -h --help             Show this help\n"
-               "     --version          Show package version\n"
-               "  -v --verbose          Show state as text\n"
-               "     --low              Check if battery is discharging and low\n"
+               OPTION_HELP_GENERATED
                "\nSee the %4$s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -42,50 +41,11 @@ static int help(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
+        int r;
 
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_LOW,
-        };
-
-        static const struct option options[] = {
-                { "help",    no_argument, NULL, 'h'         },
-                { "version", no_argument, NULL, ARG_VERSION },
-                { "verbose", no_argument, NULL, 'v'         },
-                { "low",     no_argument, NULL, ARG_LOW     },
-                {}
-        };
-
-        int c;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "hv", options, NULL)) >= 0)
-
-                switch (c) {
-
-                case 'h':
-                        help();
-                        return 0;
-
-                case ARG_VERSION:
-                        return version();
-
-                case 'v':
-                        arg_verbose = true;
-                        break;
-
-                case ARG_LOW:
-                        arg_action = ACTION_LOW;
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
+        r = parse_argv_generated(argc, argv);
+        if (r <= 0)
+                return r;
 
         if (optind < argc)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),

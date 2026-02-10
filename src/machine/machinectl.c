@@ -109,6 +109,8 @@ static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
 STATIC_DESTRUCTOR_REGISTER(arg_property, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_setenv, strv_freep);
 
+#include "machinectl.args.inc"
+
 static OutputFlags get_output_flags(void) {
         return
                 FLAGS_SET(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY) * OUTPUT_SHOW_ALL |
@@ -2048,7 +2050,7 @@ static int chainload_importctl(int argc, char *argv[]) {
         return log_error_errno(r, "Failed to invoke 'importctl': %m");
 }
 
-static int help(int argc, char *argv[], void *userdata) {
+static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
@@ -2093,39 +2095,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  set-limit [NAME] BYTES      Set image or pool size limit (disk quota)\n"
                "  clean                       Remove hidden (or all) images\n"
                "\n%3$sOptions:%4$s\n"
-               "  -h --help                   Show this help\n"
-               "     --version                Show package version\n"
-               "     --no-pager               Do not pipe output into a pager\n"
-               "     --no-legend              Do not show the headers and footers\n"
-               "     --no-ask-password        Do not ask for system passwords\n"
-               "  -H --host=[USER@]HOST       Operate on remote host\n"
-               "  -M --machine=CONTAINER      Operate on local container\n"
-               "     --system                 Connect to system machine manager\n"
-               "     --user                   Connect to user machine manager\n"
-               "  -p --property=NAME          Show only properties by this name\n"
-               "     --value                  When showing properties, only print the value\n"
-               "  -P NAME                     Equivalent to --value --property=NAME\n"
-               "  -q --quiet                  Suppress output\n"
-               "  -a --all                    Show all properties, including empty ones\n"
-               "  -l --full                   Do not ellipsize output\n"
-               "     --kill-whom=WHOM         Whom to send signal to\n"
-               "  -s --signal=SIGNAL          Which signal to send\n"
-               "     --uid=USER               Specify user ID to invoke shell as\n"
-               "  -E --setenv=VAR[=VALUE]     Add an environment variable for shell\n"
-               "     --read-only              Create read-only bind mount or clone\n"
-               "     --mkdir                  Create directory before bind mounting, if missing\n"
-               "  -n --lines=INTEGER          Number of journal entries to show\n"
-               "     --max-addresses=INTEGER  Number of internet addresses to show at most\n"
-               "  -o --output=STRING          Change journal output mode (short, short-precise,\n"
-               "                               short-iso, short-iso-precise, short-full,\n"
-               "                               short-monotonic, short-unix, short-delta,\n"
-               "                               json, json-pretty, json-sse, json-seq, cat,\n"
-               "                               verbose, export, with-unit)\n"
-               "     --force                  Replace target file when copying, if necessary\n"
-               "     --now                    Start or power off container after enabling or\n"
-               "                              disabling it\n"
-               "     --runner=RUNNER          Select between nspawn and vmspawn as the runner\n"
-               "  -V                          Short for --runner=vmspawn\n"
+               OPTION_HELP_GENERATED
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -2138,313 +2108,32 @@ static int help(int argc, char *argv[], void *userdata) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
+        int shell = -1, r;
 
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_NO_PAGER,
-                ARG_NO_LEGEND,
-                ARG_VALUE,
-                ARG_KILL_WHOM,
-                ARG_READ_ONLY,
-                ARG_MKDIR,
-                ARG_NO_ASK_PASSWORD,
-                ARG_VERIFY,
-                ARG_RUNNER,
-                ARG_NOW,
-                ARG_FORCE,
-                ARG_FORMAT,
-                ARG_UID,
-                ARG_MAX_ADDRESSES,
-                ARG_SYSTEM,
-                ARG_USER,
-        };
+        r = parse_argv_generated(argc, argv, &shell);
+        if (r <= 0)
+                return r;
 
-        static const struct option options[] = {
-                { "help",            no_argument,       NULL, 'h'                 },
-                { "version",         no_argument,       NULL, ARG_VERSION         },
-                { "property",        required_argument, NULL, 'p'                 },
-                { "value",           no_argument,       NULL, ARG_VALUE           },
-                { "all",             no_argument,       NULL, 'a'                 },
-                { "full",            no_argument,       NULL, 'l'                 },
-                { "no-pager",        no_argument,       NULL, ARG_NO_PAGER        },
-                { "no-legend",       no_argument,       NULL, ARG_NO_LEGEND       },
-                { "kill-whom",       required_argument, NULL, ARG_KILL_WHOM       },
-                { "signal",          required_argument, NULL, 's'                 },
-                { "host",            required_argument, NULL, 'H'                 },
-                { "machine",         required_argument, NULL, 'M'                 },
-                { "read-only",       no_argument,       NULL, ARG_READ_ONLY       },
-                { "mkdir",           no_argument,       NULL, ARG_MKDIR           },
-                { "quiet",           no_argument,       NULL, 'q'                 },
-                { "lines",           required_argument, NULL, 'n'                 },
-                { "output",          required_argument, NULL, 'o'                 },
-                { "no-ask-password", no_argument,       NULL, ARG_NO_ASK_PASSWORD },
-                { "verify",          required_argument, NULL, ARG_VERIFY          },
-                { "runner",          required_argument, NULL, ARG_RUNNER          },
-                { "now",             no_argument,       NULL, ARG_NOW             },
-                { "force",           no_argument,       NULL, ARG_FORCE           },
-                { "format",          required_argument, NULL, ARG_FORMAT          },
-                { "uid",             required_argument, NULL, ARG_UID             },
-                { "setenv",          required_argument, NULL, 'E'                 },
-                { "max-addresses",   required_argument, NULL, ARG_MAX_ADDRESSES   },
-                { "user",            no_argument,       NULL, ARG_USER            },
-                { "system",          no_argument,       NULL, ARG_SYSTEM          },
-                {}
-        };
-
-        bool reorder = false;
-        int c, r, shell = -1;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        /* Resetting to 0 forces the invocation of an internal initialization routine of getopt_long()
-         * that checks for GNU extensions in optstring ('-' or '+' at the beginning). */
-        optind = 0;
-
-        for (;;) {
-                static const char option_string[] = "-hp:P:als:H:M:qn:o:E:V";
-
-                c = getopt_long(argc, argv, option_string + reorder, options, NULL);
-                if (c < 0)
-                        break;
-
-                switch (c) {
-
-                case 1: /* getopt_long() returns 1 if "-" was the first character of the option string, and a
-                         * non-option argument was discovered. */
-
-                        assert(!reorder);
-
-                        /* We generally are fine with the fact that getopt_long() reorders the command line, and looks
-                         * for switches after the main verb. However, for "shell" we really don't want that, since we
-                         * want that switches specified after the machine name are passed to the program to execute,
-                         * and not processed by us. To make this possible, we'll first invoke getopt_long() with
-                         * reordering disabled (i.e. with the "-" prefix in the option string), looking for the first
-                         * non-option parameter. If it's the verb "shell" we remember its position and continue
-                         * processing options. In this case, as soon as we hit the next non-option argument we found
-                         * the machine name, and stop further processing. If the first non-option argument is any other
-                         * verb than "shell" we switch to normal reordering mode and continue processing arguments
-                         * normally. */
-
-                        if (shell >= 0) {
-                                /* If we already found the "shell" verb on the command line, and now found the next
-                                 * non-option argument, then this is the machine name and we should stop processing
-                                 * further arguments.  */
-                                optind--; /* don't process this argument, go one step back */
-                                goto done;
-                        }
-                        if (streq(optarg, "shell"))
-                                /* Remember the position of the "shell" verb, and continue processing normally. */
-                                shell = optind - 1;
-                        else {
-                                int saved_optind;
-
-                                /* OK, this is some other verb. In this case, turn on reordering again, and continue
-                                 * processing normally. */
-                                reorder = true;
-
-                                /* We changed the option string. getopt_long() only looks at it again if we invoke it
-                                 * at least once with a reset option index. Hence, let's reset the option index here,
-                                 * then invoke getopt_long() again (ignoring what it has to say, after all we most
-                                 * likely already processed it), and the bump the option index so that we read the
-                                 * intended argument again. */
-                                saved_optind = optind;
-                                optind = 0;
-                                (void) getopt_long(argc, argv, option_string + reorder, options, NULL);
-                                optind = saved_optind - 1; /* go one step back, process this argument again */
-                        }
-
-                        break;
-
-                case 'h':
-                        return help(0, NULL, NULL);
-
-                case ARG_VERSION:
-                        return version();
-
-                case 'p':
-                case 'P':
-                        r = strv_extend(&arg_property, optarg);
-                        if (r < 0)
-                                return log_oom();
-
-                        /* If the user asked for a particular property, show it to them, even if empty. */
-                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY, true);
-
-                        if (c == 'p')
-                                break;
-                        _fallthrough_;
-
-                case ARG_VALUE:
-                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_ONLY_VALUE, true);
-                        break;
-
-                case 'a':
-                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY, true);
-                        arg_all = true;
-                        break;
-
-                case 'l':
-                        arg_full = true;
-                        break;
-
-                case 'n':
-                        if (safe_atou(optarg, &arg_lines) < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Failed to parse lines '%s'", optarg);
-                        break;
-
-                case 'o':
-                        if (streq(optarg, "help"))
-                                return DUMP_STRING_TABLE(output_mode, OutputMode, _OUTPUT_MODE_MAX);
-
-                        r = output_mode_from_string(optarg);
-                        if (r < 0)
-                                return log_error_errno(r, "Unknown output '%s'.", optarg);
-                        arg_output = r;
-
-                        if (OUTPUT_MODE_IS_JSON(arg_output))
-                                arg_legend = false;
-                        break;
-
-                case ARG_NO_PAGER:
-                        arg_pager_flags |= PAGER_DISABLE;
-                        break;
-
-                case ARG_NO_LEGEND:
-                        arg_legend = false;
-                        break;
-
-                case ARG_KILL_WHOM:
-                        arg_kill_whom = optarg;
-                        break;
-
-                case 's':
-                        r = parse_signal_argument(optarg, &arg_signal);
-                        if (r <= 0)
-                                return r;
-                        break;
-
-                case ARG_NO_ASK_PASSWORD:
-                        arg_ask_password = false;
-                        break;
-
-                case 'H':
-                        arg_transport = BUS_TRANSPORT_REMOTE;
-                        arg_host = optarg;
-                        break;
-
-                case 'M':
-                        arg_transport = BUS_TRANSPORT_MACHINE;
-                        arg_host = optarg;
-                        break;
-
-                case ARG_READ_ONLY:
-                        arg_read_only = true;
-                        break;
-
-                case ARG_MKDIR:
-                        arg_mkdir = true;
-                        break;
-
-                case 'q':
-                        arg_quiet = true;
-                        break;
-
-                case ARG_VERIFY:
-                        if (streq(optarg, "help"))
-                                return DUMP_STRING_TABLE(import_verify, ImportVerify, _IMPORT_VERIFY_MAX);
-
-                        r = import_verify_from_string(optarg);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse --verify= setting: %s", optarg);
-                        arg_verify = r;
-                        break;
-
-                case 'V':
-                        arg_runner = RUNNER_VMSPAWN;
-                        break;
-
-                case ARG_RUNNER:
-                        r = machine_runner_from_string(optarg);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse --runner= setting: %s", optarg);
-
-                        arg_runner = r;
-                        break;
-
-                case ARG_NOW:
-                        arg_now = true;
-                        break;
-
-                case ARG_FORCE:
-                        arg_force = true;
-                        break;
-
-                case ARG_FORMAT:
-                        if (!STR_IN_SET(optarg, "uncompressed", "xz", "gzip", "bzip2", "zstd"))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Unknown format: %s", optarg);
-
-                        arg_format = optarg;
-                        break;
-
-                case ARG_UID:
-                        arg_uid = optarg;
-                        break;
-
-                case 'E':
-                        r = strv_env_replace_strdup_passthrough(&arg_setenv, optarg);
-                        if (r < 0)
-                                return log_error_errno(r, "Cannot assign environment variable %s: %m", optarg);
-                        break;
-
-                case ARG_MAX_ADDRESSES:
-                        if (streq(optarg, "all"))
-                                arg_max_addresses = UINT_MAX;
-                        else if (safe_atou(optarg, &arg_max_addresses) < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Invalid number of addresses: %s", optarg);
-                        break;
-
-                case ARG_USER:
-                        arg_runtime_scope = RUNTIME_SCOPE_USER;
-                        break;
-
-                case ARG_SYSTEM:
-                        arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
-        }
-
-done:
         if (shell >= 0) {
-                char *t;
-
-                /* We found the "shell" verb while processing the argument list. Since we turned off reordering of the
-                 * argument list initially let's readjust it now, and move the "shell" verb to the back. */
+                /* We found the "shell" verb while processing the argument list. Since we turned off
+                 * reordering of the argument list initially, let's adjust it now and move the "shell" verb
+                 * to the back. */
 
                 optind -= 1; /* place the option index where the "shell" verb will be placed */
 
-                t = argv[shell];
+                char *t = argv[shell];
                 for (int i = shell; i < optind; i++)
                         argv[i] = argv[i+1];
                 argv[optind] = t;
+                shell = -1;  /* not valid anymore */
         }
 
         return 1;
 }
 
 static int machinectl_main(int argc, char *argv[], sd_bus *bus) {
-
         static const Verb verbs[] = {
-                { "help",            VERB_ANY, VERB_ANY, 0,            help              },
+                { "help",            VERB_ANY, VERB_ANY, 0,            verb_help         },
                 { "list",            VERB_ANY, 1,        VERB_DEFAULT, list_machines     },
                 { "list-images",     VERB_ANY, 1,        0,            list_images       },
                 { "status",          2,        VERB_ANY, 0,            show_machine      },

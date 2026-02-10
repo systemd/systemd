@@ -6,6 +6,7 @@ executables += [
                 'public' : true,
                 'conditions' : ['ENABLE_SYSEXT'],
                 'sources' : files('sysext.c'),
+                'arg_parser' : files('sysext.args'),
                 'dependencies' : [
                         libblkid_cflags,
                         libcryptsetup_cflags,

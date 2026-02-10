@@ -1,0 +1,30 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+option -h --help
+
+option --version
+
+option -H= --host=[USER@]HOST
+help Operate on remote host
+        arg_transport = BUS_TRANSPORT_REMOTE;
+        arg_host = optarg;
+
+option -M= --machine=CONTAINER
+help Operate on local container
+        r = parse_machine_argument(optarg, &arg_host, &arg_transport);
+        if (r < 0)
+                return r;
+
+option --no-convert
+help Don't convert keyboard mappings
+        arg_convert = false;
+
+option -l --full
+help Do not ellipsize output
+        arg_full = true;
+
+option --no-pager
+
+option --no-ask-password
+help Do not prompt for password
+        arg_ask_password = false;

@@ -20,6 +20,7 @@ executables += [
                 'name' : 'systemd-cryptenroll',
                 'public' : true,
                 'sources' : systemd_cryptenroll_sources,
+                'arg_parser' : files('cryptenroll.args'),
                 'dependencies' : [
                         libcryptsetup,
                         libdl,

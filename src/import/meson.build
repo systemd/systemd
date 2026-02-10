@@ -37,6 +37,7 @@ executables += [
                         'pull-common.c',
                         'curl-util.c',
                 ),
+                'arg_parser' : files('pull.args'),
                 'objects' : ['systemd-importd'],
                 'dependencies' : common_deps + [
                         libopenssl,
@@ -50,6 +51,7 @@ executables += [
                         'import-raw.c',
                         'import-tar.c',
                 ),
+                'arg_parser' : files('import.args'),
                 'objects' : ['systemd-importd'],
                 'dependencies' : common_deps,
         },
@@ -59,6 +61,7 @@ executables += [
                 'sources' : files(
                         'import-fs.c',
                 ),
+                'arg_parser' : files('import-fs.args'),
                 'objects' : ['systemd-importd'],
                 'dependencies' : common_deps,
         },
@@ -70,6 +73,7 @@ executables += [
                         'export-tar.c',
                         'export-raw.c',
                 ),
+                'arg_parser' : files('export.args'),
                 'objects' : ['systemd-importd'],
                 'dependencies' : common_deps,
         },
@@ -77,6 +81,7 @@ executables += [
                 'name' : 'importctl',
                 'public' : true,
                 'sources' : files('importctl.c'),
+                'arg_parser' : files('importctl.args'),
         },
         generator_template + {
                 'name' : 'systemd-import-generator',

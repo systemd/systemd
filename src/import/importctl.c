@@ -49,6 +49,8 @@ static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
 
 #define PROGRESS_PREFIX "Total:"
 
+#include "importctl.args.inc"
+
 static int settle_image_class(void) {
         int r;
 
@@ -992,7 +994,7 @@ static int list_images(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int help(int argc, char *argv[], void *userdata) {
+static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
@@ -1016,31 +1018,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  cancel-transfer [ID...]     Cancel a transfer\n"
                "  list-images                 Show list of installed images\n"
                "\n%3$sOptions:%4$s\n"
-               "  -h --help                   Show this help\n"
-               "     --version                Show package version\n"
-               "     --no-pager               Do not pipe output into a pager\n"
-               "     --no-legend              Do not show the headers and footers\n"
-               "     --no-ask-password        Do not ask for system passwords\n"
-               "  -H --host=[USER@]HOST       Operate on remote host\n"
-               "  -M --machine=CONTAINER      Operate on local container\n"
-               "     --system                 Connect to system machine manager\n"
-               "     --user                   Connect to user machine manager\n"
-               "     --read-only              Create read-only image\n"
-               "  -q --quiet                  Suppress output\n"
-               "     --json=pretty|short|off  Generate JSON output\n"
-               "  -j                          Equvilant to --json=pretty on TTY, --json=short\n"
-               "                              otherwise\n"
-               "     --verify=MODE            Verification mode for downloaded images (no,\n"
-               "                               checksum, signature)\n"
-               "     --format=xz|gzip|bzip2|zstd\n"
-               "                              Desired output format for export\n"
-               "     --force                  Install image even if already exists\n"
-               "  -m --class=machine          Install as machine image\n"
-               "  -P --class=portable         Install as portable service image\n"
-               "  -S --class=sysext           Install as system extension image\n"
-               "  -C --class=confext          Install as configuration extension image\n"
-               "     --keep-download=BOOL     Control whether to keep pristine copy of download\n"
-               "  -N                          Shortcut for --keep-download=no\n"
+               OPTION_HELP_GENERATED
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -1052,190 +1030,9 @@ static int help(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int parse_argv(int argc, char *argv[]) {
-
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_NO_PAGER,
-                ARG_NO_LEGEND,
-                ARG_NO_ASK_PASSWORD,
-                ARG_READ_ONLY,
-                ARG_JSON,
-                ARG_VERIFY,
-                ARG_FORCE,
-                ARG_FORMAT,
-                ARG_CLASS,
-                ARG_KEEP_DOWNLOAD,
-                ARG_SYSTEM,
-                ARG_USER,
-        };
-
-        static const struct option options[] = {
-                { "help",            no_argument,       NULL, 'h'                 },
-                { "version",         no_argument,       NULL, ARG_VERSION         },
-                { "no-pager",        no_argument,       NULL, ARG_NO_PAGER        },
-                { "no-legend",       no_argument,       NULL, ARG_NO_LEGEND       },
-                { "no-ask-password", no_argument,       NULL, ARG_NO_ASK_PASSWORD },
-                { "host",            required_argument, NULL, 'H'                 },
-                { "machine",         required_argument, NULL, 'M'                 },
-                { "read-only",       no_argument,       NULL, ARG_READ_ONLY       },
-                { "json",            required_argument, NULL, ARG_JSON            },
-                { "quiet",           no_argument,       NULL, 'q'                 },
-                { "verify",          required_argument, NULL, ARG_VERIFY          },
-                { "force",           no_argument,       NULL, ARG_FORCE           },
-                { "format",          required_argument, NULL, ARG_FORMAT          },
-                { "class",           required_argument, NULL, ARG_CLASS           },
-                { "keep-download",   required_argument, NULL, ARG_KEEP_DOWNLOAD   },
-                { "system",          no_argument,       NULL, ARG_SYSTEM          },
-                { "user",            no_argument,       NULL, ARG_USER            },
-                {}
-        };
-
-        int c, r;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        for (;;) {
-                c = getopt_long(argc, argv, "hH:M:jqmPSCN", options, NULL);
-                if (c < 0)
-                        break;
-
-                switch (c) {
-
-                case 'h':
-                        return help(0, NULL, NULL);
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_NO_PAGER:
-                        arg_pager_flags |= PAGER_DISABLE;
-                        break;
-
-                case ARG_NO_LEGEND:
-                        arg_legend = false;
-                        break;
-
-                case ARG_NO_ASK_PASSWORD:
-                        arg_ask_password = false;
-                        break;
-
-                case 'H':
-                        arg_transport = BUS_TRANSPORT_REMOTE;
-                        arg_host = optarg;
-                        break;
-
-                case 'M':
-                        r = parse_machine_argument(optarg, &arg_host, &arg_transport);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_READ_ONLY:
-                        arg_import_flags |= IMPORT_READ_ONLY;
-                        arg_import_flags_mask |= IMPORT_READ_ONLY;
-                        break;
-
-                case 'q':
-                        arg_quiet = true;
-                        break;
-
-                case ARG_VERIFY:
-                        if (streq(optarg, "help"))
-                                return DUMP_STRING_TABLE(import_verify, ImportVerify, _IMPORT_VERIFY_MAX);
-
-                        r = import_verify_from_string(optarg);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse --verify= setting: %s", optarg);
-                        arg_verify = r;
-                        break;
-
-                case ARG_FORCE:
-                        arg_import_flags |= IMPORT_FORCE;
-                        arg_import_flags_mask |= IMPORT_FORCE;
-                        break;
-
-                case ARG_FORMAT:
-                        if (!STR_IN_SET(optarg, "uncompressed", "xz", "gzip", "bzip2", "zstd"))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Unknown format: %s", optarg);
-
-                        arg_format = optarg;
-                        break;
-
-                case ARG_JSON:
-                        r = parse_json_argument(optarg, &arg_json_format_flags);
-                        if (r <= 0)
-                                return r;
-
-                        arg_legend = false;
-                        break;
-
-                case 'j':
-                        arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
-                        arg_legend = false;
-                        break;
-
-                case ARG_CLASS:
-                        arg_image_class = image_class_from_string(optarg);
-                        if (arg_image_class < 0)
-                                return log_error_errno(arg_image_class, "Failed to parse --class= parameter: %s", optarg);
-                        break;
-
-                case 'm':
-                        arg_image_class = IMAGE_MACHINE;
-                        break;
-
-                case 'P':
-                        arg_image_class = IMAGE_PORTABLE;
-                        break;
-
-                case 'S':
-                        arg_image_class = IMAGE_SYSEXT;
-                        break;
-
-                case 'C':
-                        arg_image_class = IMAGE_CONFEXT;
-                        break;
-
-                case ARG_KEEP_DOWNLOAD:
-                        r = parse_boolean(optarg);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse --keep-download= value: %s", optarg);
-
-                        SET_FLAG(arg_import_flags, IMPORT_PULL_KEEP_DOWNLOAD, r);
-                        arg_import_flags_mask |= IMPORT_PULL_KEEP_DOWNLOAD;
-                        break;
-
-                case 'N':
-                        arg_import_flags_mask &= ~IMPORT_PULL_KEEP_DOWNLOAD;
-                        arg_import_flags_mask |= IMPORT_PULL_KEEP_DOWNLOAD;
-                        break;
-
-                case ARG_USER:
-                        arg_runtime_scope = RUNTIME_SCOPE_USER;
-                        break;
-
-                case ARG_SYSTEM:
-                        arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
-        }
-
-        return 1;
-}
-
 static int importctl_main(int argc, char *argv[], sd_bus *bus) {
-
         static const Verb verbs[] = {
-                { "help",            VERB_ANY, VERB_ANY, 0,            help              },
+                { "help",            VERB_ANY, VERB_ANY, 0,            verb_help         },
                 { "import-tar",      2,        3,        0,            import_tar        },
                 { "import-raw",      2,        3,        0,            import_raw        },
                 { "import-fs",       2,        3,        0,            import_fs         },
@@ -1259,7 +1056,7 @@ static int run(int argc, char *argv[]) {
         setlocale(LC_ALL, "");
         log_setup();
 
-        r = parse_argv(argc, argv);
+        r = parse_argv_generated(argc, argv);
         if (r <= 0)
                 return r;
 

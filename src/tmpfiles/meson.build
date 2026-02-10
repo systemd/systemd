@@ -12,6 +12,7 @@ executables += [
                 'public' : true,
                 'extract' : files('tmpfiles.c') +
                             offline_passwd_c,
+                'arg_parser' : files('tmpfiles.args'),
                 'dependencies' : libacl_cflags,
         },
         executable_template + {

@@ -5,5 +5,6 @@ executables += [
                 'name' : 'systemd-cgls',
                 'public' : true,
                 'sources' : files('cgls.c'),
+                'arg_parser' : files('cgls.args'),
         },
 ]

@@ -5,5 +5,6 @@ executables += [
                 'name' : 'systemd-path',
                 'public' : true,
                 'sources' : files('path-tool.c'),
+                'arg_parser' : files('path-tool.args'),
         },
 ]

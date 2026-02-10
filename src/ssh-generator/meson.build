@@ -13,6 +13,7 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-ssh-issue',
                 'sources' : files('ssh-issue.c'),
+                'arg_parser' : files('ssh-issue.args'),
                 'objects' : ['systemd-ssh-generator'],
         },
 ]

@@ -5,5 +5,6 @@ executables += [
                 'name' : 'systemd-pty-forward',
                 'public' : true,
                 'sources' : files('ptyfwd-tool.c'),
+                'arg_parser' : files('ptyfwd-tool.args'),
         },
 ]

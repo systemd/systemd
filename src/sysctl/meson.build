@@ -5,5 +5,6 @@ executables += [
                 'name' : 'systemd-sysctl',
                 'public' : true,
                 'sources' : files('sysctl.c'),
+                'arg_parser' : files('sysctl.args'),
         },
 ]

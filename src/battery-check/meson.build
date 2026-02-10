@@ -5,5 +5,6 @@ executables += [
                 'name' : 'systemd-battery-check',
                 'public' : true,
                 'sources' : files('battery-check.c'),
+                'arg_parser' : files('battery-check.args'),
         },
 ]

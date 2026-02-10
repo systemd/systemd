@@ -5,5 +5,6 @@ executables += [
                 'name' : 'systemd-delta',
                 'public' : true,
                 'sources' : files('delta.c'),
+                'arg_parser' : files('delta.args'),
         },
 ]

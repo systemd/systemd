@@ -56,6 +56,8 @@ static char *arg_device = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_device, freep);
 
+#include "tty-ask-password-agent.args.inc"
+
 static int send_passwords(const char *socket_name, char **passwords) {
         int r;
 
@@ -450,15 +452,7 @@ static int help(void) {
 
         printf("%s [OPTIONS...]\n\n"
                "%sProcess system password requests.%s\n\n"
-               "  -h --help              Show this help\n"
-               "     --version           Show package version\n"
-               "     --list              Show pending password requests\n"
-               "     --query             Process pending password requests\n"
-               "     --watch             Continuously process password requests\n"
-               "     --wall              Continuously forward password requests to wall\n"
-               "     --plymouth          Ask question with Plymouth instead of on TTY\n"
-               "     --console[=DEVICE]  Ask question on /dev/console (or DEVICE if specified)\n"
-               "                         instead of the current TTY\n"
+               OPTION_HELP_GENERATED
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -469,83 +463,11 @@ static int help(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
+        int r;
 
-        enum {
-                ARG_LIST = 0x100,
-                ARG_QUERY,
-                ARG_WATCH,
-                ARG_WALL,
-                ARG_PLYMOUTH,
-                ARG_CONSOLE,
-                ARG_VERSION
-        };
-
-        static const struct option options[] = {
-                { "help",     no_argument,       NULL, 'h'          },
-                { "version",  no_argument,       NULL, ARG_VERSION  },
-                { "list",     no_argument,       NULL, ARG_LIST     },
-                { "query",    no_argument,       NULL, ARG_QUERY    },
-                { "watch",    no_argument,       NULL, ARG_WATCH    },
-                { "wall",     no_argument,       NULL, ARG_WALL     },
-                { "plymouth", no_argument,       NULL, ARG_PLYMOUTH },
-                { "console",  optional_argument, NULL, ARG_CONSOLE  },
-                {}
-        };
-
-        int r, c;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
-
-                switch (c) {
-
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_LIST:
-                        arg_action = ACTION_LIST;
-                        break;
-
-                case ARG_QUERY:
-                        arg_action = ACTION_QUERY;
-                        break;
-
-                case ARG_WATCH:
-                        arg_action = ACTION_WATCH;
-                        break;
-
-                case ARG_WALL:
-                        arg_action = ACTION_WALL;
-                        break;
-
-                case ARG_PLYMOUTH:
-                        arg_plymouth = true;
-                        break;
-
-                case ARG_CONSOLE:
-                        arg_console = true;
-                        if (optarg) {
-                                if (isempty(optarg))
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "Empty console device path is not allowed.");
-
-                                r = free_and_strdup_warn(&arg_device, optarg);
-                                if (r < 0)
-                                        return r;
-                        }
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
+        r = parse_argv_generated(argc, argv);
+        if (r <= 0)
+                return r;
 
         if (optind != argc)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
