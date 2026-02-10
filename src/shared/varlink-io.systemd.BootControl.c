@@ -80,6 +80,8 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(isSelected, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Addon images of the entry."),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(addons, BootEntryAddon, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
+                SD_VARLINK_FIELD_COMMENT("Extra files associated with the entry"),
+                SD_VARLINK_DEFINE_FIELD(extras, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
                 SD_VARLINK_FIELD_COMMENT("Command line options of the entry."),
                 SD_VARLINK_DEFINE_FIELD(cmdline, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
