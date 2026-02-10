@@ -43,6 +43,8 @@
 # Lines with # at the beginning of the line are discarded.
 # Normal C comments with /* */ or // are propagated.
 
+from __future__ import annotations
+
 import sys
 import textwrap
 import re
@@ -155,19 +157,19 @@ class Option:
         if self.argtype == ArgType.positional:
             self.help = 'skip'
 
-        match self.long_name():
-            case 'help':
-                help = 'Show this help'
-                body = ['return help();']
-            case 'version':
-                help = 'Show package version'
-                body = ['return version();']
-            case 'no-pager':
-                help = 'Do not start the pager'
-                body = ['arg_pager_flags |= PAGER_DISABLE;']
-            case _:
-                help = 'XXXXXXXXXX'
-                body = ['#warning TBD']
+        ln = self.long_name()
+        if ln == 'help':
+            help = 'Show this help'
+            body = ['return help();']
+        elif ln == 'version':
+            help = 'Show package version'
+            body = ['return version();']
+        elif ln == 'no-pager':
+            help = 'Do not start the pager'
+            body = ['arg_pager_flags |= PAGER_DISABLE;']
+        else:
+            help = 'XXXXXXXXXX'
+            body = ['#warning TBD']
 
         if not self.help:
             self.help = help
@@ -442,92 +444,91 @@ def parse_input(lines: list[str]) -> tuple[list[Option], Globals]:
             n += 1
             continue
 
-        match state:
-            case InputState.init:
-                if not line:
-                    n += 1
-                    continue
+        if state == InputState.init:
+            if not line:
+                n += 1
+                continue
 
-                if m := re.match(r'global (?P<name>[a-z_]+) +(?P<value>.+)', line):
-                    globals.set(*m.groups())
-                    n += 1
-                    continue
+            if m := re.match(r'global (?P<name>[a-z_]+) +(?P<value>.+)', line):
+                globals.set(*m.groups())
+                n += 1
+                continue
 
-                m = re.match(r'(?P<block>intro$|outro$|option\b)(?P<config>.*)', line)
-                if not m:
-                    raise ValueError(f'unexpected line {n+1}: {line!r}')
+            m = re.match(r'(?P<block>intro$|outro$|option\b)(?P<config>.*)', line)
+            if not m:
+                raise ValueError(f'unexpected line {n+1}: {line!r}')
 
-                block, config = m.groups()
-                if block == 'option':
-                    names, argtype, metavar = parse_option_line(config)
-                else:
-                    names, argtype, metavar = [], ArgType.no_argument, None
+            block, config = m.groups()
+            if block == 'option':
+                names, argtype, metavar = parse_option_line(config)
+            else:
+                names, argtype, metavar = [], ArgType.no_argument, None
 
-                state = InputState.directives
-                help = []
-                group = None
-                body: list[str] = []
-                scope = False
+            state = InputState.directives
+            help = []
+            group = None
+            body: list[str] = []
+            scope = False
 
+            n += 1
+
+        elif state == InputState.directives:
+            if line.startswith(' ') or not line:
+                state = InputState.body
+                continue
+
+            if m := re.match(r'help (?P<help>.+)', line):
+                help += [m.group('help')]
+            elif m := re.match(r'group (?P<group>.+)', line):
+                group = m.group('group')
+            elif m := re.match(r'scope$', line):
+                scope = True
+            else:
+                raise ValueError(f'unexpected directive {n+1}: {line!r}')
+
+            n += 1
+
+        elif state == InputState.body:
+            body_part = line.startswith(' ') or not line
+            if body_part:
+                if line:
+                    if not line.startswith(' ' * 8):
+                        raise ValueError(f'improperly indented line {n+1}: {line!r}')
+                    line = line[8:]
+                    if not body and line.startswith(' '):
+                        raise ValueError(f'improperly indented line {n+1}: {line!r}')
+
+                body += [line]
                 n += 1
 
-            case InputState.directives:
-                if line.startswith(' ') or not line:
-                    state = InputState.body
+                if n < len(lines):
                     continue
 
-                if m := re.match(r'help (?P<help>.+)', line):
-                    help += [m.group('help')]
-                elif m := re.match(r'group (?P<group>.+)', line):
-                    group = m.group('group')
-                elif m := re.match(r'scope$', line):
-                    scope = True
-                else:
-                    raise ValueError(f'unexpected directive {n+1}: {line!r}')
+            # end of body
+            if block == 'option':
+                assert names
 
-                n += 1
+                scope = scope or any(l.startswith(('_cleanup_', 'const')) for l in body)
 
-            case InputState.body:
-                body_part = line.startswith(' ') or not line
-                if body_part:
-                    if line:
-                        if not line.startswith(' ' * 8):
-                            raise ValueError(f'improperly indented line {n+1}: {line!r}')
-                        line = line[8:]
-                        if not body and line.startswith(' '):
-                            raise ValueError(f'improperly indented line {n+1}: {line!r}')
+                opt = Option(
+                    names,
+                    argtype,
+                    metavar,
+                    group,
+                    help=' '.join(help),
+                    body=body,
+                    scope=scope,
+                )
+                options += [opt]
+            elif block in ('intro', 'outro'):
+                assert not names
+                assert not help
+                old = globals.intro if block == 'intro' else globals.outro
+                if old:
+                    raise ValueError(f'block {block} duplicated')
+                old += body
 
-                    body += [line]
-                    n += 1
-
-                    if n < len(lines):
-                        continue
-
-                # end of body
-                if block == 'option':
-                    assert names
-
-                    scope = scope or any(l.startswith(('_cleanup_', 'const')) for l in body)
-
-                    opt = Option(
-                        names,
-                        argtype,
-                        metavar,
-                        group,
-                        help=' '.join(help),
-                        body=body,
-                        scope=scope,
-                    )
-                    options += [opt]
-                elif block in ('intro', 'outro'):
-                    assert not names
-                    assert not help
-                    old = globals.intro if block == 'intro' else globals.outro
-                    if old:
-                        raise ValueError(f'block {block} duplicated')
-                    old += body
-
-                state = InputState.init
+            state = InputState.init
 
     return options, globals
 
