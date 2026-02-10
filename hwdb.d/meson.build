@@ -36,6 +36,7 @@ hwdb_files_test = files(
         '70-mouse.hwdb',
         '70-pda.hwdb',
         '70-pointingstick.hwdb',
+        '70-scientific-equipment.hwdb',
         '70-software-radio.hwdb',
         '70-sound-card.hwdb',
         '70-touchpad.hwdb',
