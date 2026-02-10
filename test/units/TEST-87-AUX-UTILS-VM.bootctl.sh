@@ -373,8 +373,10 @@ testcase_00_secureboot() {
     cmp /sys/firmware/efi/efivars/SetupMode-8be4df61-93ca-11d2-aa0d-00e098032b8c <(printf '\6\0\0\0\0')
     bootctl status | grep "Secure Boot: enabled" >/dev/null
 
+    bootctl status
+
     # Ensure the addon is fully loaded and parsed
-    bootctl status | grep "global-addon: loader/addons/test.addon.efi" >/dev/null
+    bootctl status | grep "extra: /boot//loader/addons/test.addon.efi" >/dev/null
     bootctl status | grep "cmdline" | grep addonfoobar >/dev/null
     grep -q addonfoobar /proc/cmdline
 }
