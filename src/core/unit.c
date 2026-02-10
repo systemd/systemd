@@ -7058,3 +7058,26 @@ int unit_queue_job_check_and_mangle_type(
 
         return 0;
 }
+
+int parse_unit_marker(const char *marker, unsigned *settings, unsigned *mask) {
+        bool some_plus_minus = false, b = true;
+
+        assert(marker);
+        assert(settings);
+        assert(mask);
+
+        if (IN_SET(marker[0], '+', '-')) {
+                b = marker[0] == '+';
+                marker++;
+                some_plus_minus = true;
+        }
+
+        UnitMarker m = unit_marker_from_string(marker);
+        if (m < 0)
+                return -EINVAL;
+
+        SET_FLAG(*settings, 1u << m, b);
+        SET_FLAG(*mask, 1u << m, true);
+
+        return some_plus_minus;
+}
