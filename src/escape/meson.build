@@ -5,5 +5,6 @@ executables += [
                 'name' : 'systemd-escape',
                 'public' : true,
                 'sources' : files('escape-tool.c'),
+                'arg_parser' : files('escape-tool.args'),
         },
 ]

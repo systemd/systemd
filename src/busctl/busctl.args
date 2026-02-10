@@ -1,0 +1,179 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+global help_key_width 24
+
+option -h --help
+
+option --version
+
+option --no-pager
+
+option --no-legend
+help Do not show the headers and footers
+        arg_legend = false;
+
+option --full -l
+help Do not ellipsize output
+        arg_full = true;
+
+option --system
+help Connect to system bus
+        arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
+
+option --user
+help Connect to user bus
+        arg_runtime_scope = RUNTIME_SCOPE_USER;
+
+option --address=ADDRESS
+help Connect to bus specified by ADDRESS
+        arg_address = optarg;
+
+option --host=[USER@]HOST -H=
+help Operate on remote host
+        arg_transport = BUS_TRANSPORT_REMOTE;
+        arg_host = optarg;
+
+option --machine=CONTAINER -M=
+help Operate on local container
+        r = parse_machine_argument(optarg, &arg_host, &arg_transport);
+        if (r < 0)
+                return r;
+
+option --capsule=CAPSULE -C=
+help Operate on a local capsule
+        r = capsule_name_is_valid(optarg);
+        if (r < 0)
+                return log_error_errno(r, "Unable to validate capsule name '%s': %m", optarg);
+        if (r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid capsule name: %s", optarg);
+
+        arg_host = optarg;
+        arg_transport = BUS_TRANSPORT_CAPSULE;
+
+option --show-machine
+help Show machine ID column in list
+        arg_show_machine = true;
+
+option --unique
+help Only show unique names
+        arg_unique = true;
+
+option --acquired
+help Only show acquired names
+        arg_acquired = true;
+
+option --activatable
+help Only show activatable names
+        arg_activatable = true;
+
+option --match=PATTERN
+help Only show messages matching PATTERN
+        if (strv_extend(&arg_matches, optarg) < 0)
+                return log_oom();
+
+option --size=SIZE
+help Maximum length of captured packet
+        uint64_t sz;
+
+        r = parse_size(optarg, 1024, &sz);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse size '%s': %m", optarg);
+
+        if ((uint64_t) (size_t) sz != sz)
+                return log_error_errno(SYNTHETIC_ERRNO(E2BIG),
+                                       "Size out of range.");
+
+        arg_snaplen = (size_t) sz;
+
+option --list
+help Don't show tree, but simple object path list
+        arg_list = true;
+
+option -q --quiet
+help Don't show method call reply
+        arg_quiet = true;
+
+option --verbose
+help Show result values in long format
+        arg_verbose = true;
+
+option --json=MODE
+help Output as JSON
+        r = parse_json_argument(optarg, &arg_json_format_flags);
+        if (r <= 0)
+                return r;
+
+option -j
+help Same as --json=pretty on tty, --json=short otherwise
+        arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
+
+option --xml-interface
+help Dump the XML description in introspect command
+        arg_xml_interface = true;
+
+option --expect-reply=yes|no
+help Expect a method call reply
+        r = parse_boolean_argument("--expect-reply=", optarg, &arg_expect_reply);
+        if (r < 0)
+                return r;
+
+option --auto-start=yes|no
+help Auto-start destination service
+        r = parse_boolean_argument("--auto-start=", optarg, &arg_auto_start);
+        if (r < 0)
+                return r;
+
+option --allow-interactive-authorization=yes|no
+help Allow interactive authorization for operation
+        r = parse_boolean_argument("--allow-interactive-authorization=", optarg,
+                                   &arg_allow_interactive_authorization);
+        if (r < 0)
+                return r;
+
+option --timeout=[SECONDS]
+help Maximum time to wait for method call completion
+        if (isempty(optarg))
+                arg_timeout = 0; /* Reset to default */
+        else {
+            r = parse_sec(optarg, &arg_timeout);
+            if (r < 0)
+                    return log_error_errno(r, "Failed to parse --timeout= parameter '%s': %m", optarg);
+        }
+
+option --augment-creds=yes|no
+help Extend credential data with data read from /proc/$PID
+        r = parse_boolean_argument("--augment-creds=", optarg, &arg_augment_creds);
+        if (r < 0)
+                return r;
+
+option --watch-bind=yes|no
+help Wait for bus AF_UNIX socket to be bound in the file system
+        r = parse_boolean_argument("--watch-bind=", optarg, &arg_watch_bind);
+        if (r < 0)
+                return r;
+
+option --destination=SERVICE
+help Destination service of a signal
+        arg_destination = optarg;
+
+option -N= --limit-messages=NUMBER
+help Stop monitoring after receiving the specified number of messages
+        if (isempty(optarg)) {
+                /* Reset to default */
+                arg_limit_messages = UINT64_MAX;
+                arg_limit_signals = 1;
+                break;
+        }
+
+        if (streq(optarg, "infinity")) {
+                arg_limit_signals = arg_limit_messages = UINT64_MAX;
+                break;
+        }
+
+        r = safe_atou64(optarg, &arg_limit_messages);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse --limit-messages= parameter: %s", optarg);
+        if (arg_limit_messages == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--limit-messages= parameter cannot be 0");
+
+        arg_limit_signals = arg_limit_messages;

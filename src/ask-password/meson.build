@@ -5,6 +5,7 @@ executables += [
                 'name' : 'systemd-ask-password',
                 'public' : true,
                 'sources' : files('ask-password.c'),
+                'arg_parser' : files('ask-password.args'),
         },
 ]
 

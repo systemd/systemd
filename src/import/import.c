@@ -34,6 +34,8 @@ static RuntimeScope arg_runtime_scope = _RUNTIME_SCOPE_INVALID;
 
 STATIC_DESTRUCTOR_REGISTER(arg_image_root, freep);
 
+#include "import.args.inc"
+
 static int normalize_local(const char *local, char **ret) {
         _cleanup_free_ char *ll = NULL;
         int r;
@@ -268,33 +270,14 @@ static int import_raw(int argc, char *argv[], void *userdata) {
         return -r;
 }
 
-static int help(int argc, char *argv[], void *userdata) {
-
+static int help(void) {
         printf("%1$s [OPTIONS...] {COMMAND} ...\n"
                "\n%4$sImport disk images.%5$s\n"
                "\n%2$sCommands:%3$s\n"
                "  tar FILE [NAME]             Import a TAR image\n"
                "  raw FILE [NAME]             Import a RAW image\n"
                "\n%2$sOptions:%3$s\n"
-               "  -h --help                   Show this help\n"
-               "     --version                Show package version\n"
-               "     --force                  Force creation of image\n"
-               "     --image-root=PATH        Image root directory\n"
-               "     --read-only              Create a read-only image\n"
-               "     --direct                 Import directly to specified file\n"
-               "     --btrfs-subvol=BOOL      Controls whether to create a btrfs subvolume\n"
-               "                              instead of a directory\n"
-               "     --btrfs-quota=BOOL       Controls whether to set up quota for btrfs\n"
-               "                              subvolume\n"
-               "     --convert-qcow2=BOOL     Controls whether to convert QCOW2 images to\n"
-               "                              regular disk images\n"
-               "     --sync=BOOL              Controls whether to sync() before completing\n"
-               "     --offset=BYTES           Offset to seek to in destination\n"
-               "     --size-max=BYTES         Maximum number of bytes to write to destination\n"
-               "     --class=CLASS            Select image class (machine, sysext, confext,\n"
-               "                              portable)\n"
-               "     --system                 Operate in per-system mode\n"
-               "     --user                   Operate in per-user mode\n",
+               OPTION_HELP_GENERATED,
                program_invocation_short_name,
                ansi_underline(),
                ansi_normal(),
@@ -305,156 +288,11 @@ static int help(int argc, char *argv[], void *userdata) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
+        int r;
 
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_FORCE,
-                ARG_IMAGE_ROOT,
-                ARG_READ_ONLY,
-                ARG_DIRECT,
-                ARG_BTRFS_SUBVOL,
-                ARG_BTRFS_QUOTA,
-                ARG_CONVERT_QCOW2,
-                ARG_SYNC,
-                ARG_OFFSET,
-                ARG_SIZE_MAX,
-                ARG_CLASS,
-                ARG_SYSTEM,
-                ARG_USER,
-        };
-
-        static const struct option options[] = {
-                { "help",            no_argument,       NULL, 'h'                 },
-                { "version",         no_argument,       NULL, ARG_VERSION         },
-                { "force",           no_argument,       NULL, ARG_FORCE           },
-                { "image-root",      required_argument, NULL, ARG_IMAGE_ROOT      },
-                { "read-only",       no_argument,       NULL, ARG_READ_ONLY       },
-                { "direct",          no_argument,       NULL, ARG_DIRECT          },
-                { "btrfs-subvol",    required_argument, NULL, ARG_BTRFS_SUBVOL    },
-                { "btrfs-quota",     required_argument, NULL, ARG_BTRFS_QUOTA     },
-                { "convert-qcow2",   required_argument, NULL, ARG_CONVERT_QCOW2   },
-                { "sync",            required_argument, NULL, ARG_SYNC            },
-                { "offset",          required_argument, NULL, ARG_OFFSET          },
-                { "size-max",        required_argument, NULL, ARG_SIZE_MAX        },
-                { "class",           required_argument, NULL, ARG_CLASS           },
-                { "system",          no_argument,       NULL, ARG_SYSTEM          },
-                { "user",            no_argument,       NULL, ARG_USER            },
-                {}
-        };
-
-        int r, c;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
-
-                switch (c) {
-
-                case 'h':
-                        return help(0, NULL, NULL);
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_FORCE:
-                        arg_import_flags |= IMPORT_FORCE;
-                        break;
-
-                case ARG_IMAGE_ROOT:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_image_root);
-                        if (r < 0)
-                                return r;
-
-                        break;
-
-                case ARG_READ_ONLY:
-                        arg_import_flags |= IMPORT_READ_ONLY;
-                        break;
-
-                case ARG_DIRECT:
-                        arg_import_flags |= IMPORT_DIRECT;
-                        break;
-
-                case ARG_BTRFS_SUBVOL:
-                        r = parse_boolean_argument("--btrfs-subvol=", optarg, NULL);
-                        if (r < 0)
-                                return r;
-
-                        SET_FLAG(arg_import_flags, IMPORT_BTRFS_SUBVOL, r);
-                        break;
-
-                case ARG_BTRFS_QUOTA:
-                        r = parse_boolean_argument("--btrfs-quota=", optarg, NULL);
-                        if (r < 0)
-                                return r;
-
-                        SET_FLAG(arg_import_flags, IMPORT_BTRFS_QUOTA, r);
-                        break;
-
-                case ARG_CONVERT_QCOW2:
-                        r = parse_boolean_argument("--convert-qcow2=", optarg, NULL);
-                        if (r < 0)
-                                return r;
-
-                        SET_FLAG(arg_import_flags, IMPORT_CONVERT_QCOW2, r);
-                        break;
-
-                case ARG_SYNC:
-                        r = parse_boolean_argument("--sync=", optarg, NULL);
-                        if (r < 0)
-                                return r;
-
-                        SET_FLAG(arg_import_flags, IMPORT_SYNC, r);
-                        break;
-
-                case ARG_OFFSET: {
-                        uint64_t u;
-
-                        r = safe_atou64(optarg, &u);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse --offset= argument: %s", optarg);
-                        if (!FILE_SIZE_VALID(u))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Argument to --offset= switch too large: %s", optarg);
-
-                        arg_offset = u;
-                        break;
-                }
-
-                case ARG_SIZE_MAX: {
-                        uint64_t u;
-
-                        r = parse_size(optarg, 1024, &u);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse --size-max= argument: %s", optarg);
-                        if (!FILE_SIZE_VALID(u))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Argument to --size-max= switch too large: %s", optarg);
-
-                        arg_size_max = u;
-                        break;
-                }
-
-                case ARG_CLASS:
-                        arg_class = image_class_from_string(optarg);
-                        if (arg_class < 0)
-                                return log_error_errno(arg_class, "Failed to parse --class= argument: %s", optarg);
-
-                        break;
-
-                case ARG_SYSTEM:
-                        arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
-                        break;
-
-                case ARG_USER:
-                        arg_runtime_scope = RUNTIME_SCOPE_USER;
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
+        r = parse_argv_generated(argc, argv);
+        if (r <= 0)
+                return r;
 
         /* Make sure offset+size is still in the valid range if both set */
         if (arg_offset != UINT64_MAX && arg_size_max != UINT64_MAX &&
@@ -479,7 +317,7 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int import_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "help", VERB_ANY, VERB_ANY, 0, help       },
+                { "help", VERB_ANY, VERB_ANY, 0, verb_help  },
                 { "tar",  2,        3,        0, import_tar },
                 { "raw",  2,        3,        0, import_raw },
                 {}

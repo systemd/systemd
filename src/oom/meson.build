@@ -20,12 +20,14 @@ executables += [
                 'dbus' : true,
                 'sources' : systemd_oomd_sources,
                 'extract' : systemd_oomd_extract_sources,
+                'arg_parser' : files('oomd.args'),
                 'dependencies' : libatomic,
         },
         executable_template + {
                 'name' : 'oomctl',
                 'public' : true,
                 'sources' : files('oomctl.c'),
+                'arg_parser' : files('oomctl.args'),
         },
         test_template + {
                 'sources' : files('test-oomd-util.c'),

@@ -267,7 +267,8 @@
   <refsect1>
     <title>Unlocking</title>
 
-    <para>The following options are understood that may be used to unlock the device in preparation of the enrollment operations:</para>
+    <para>The following options specify how to unlock the device in preparation for the enrollment
+    operations:</para>
 
     <variablelist>
       <varlistentry>
@@ -311,10 +312,9 @@
   </refsect1>
 
   <refsect1>
-    <title>Simple Enrollment</title>
+    <title>Enrollment</title>
 
-    <para>The following options are understood that may be used to enroll simple user input based
-    unlocking:</para>
+    <para>The following options enroll passphrases or keys which require simple user input to unlock:</para>
 
     <variablelist>
       <varlistentry>
@@ -338,12 +338,8 @@
         <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
     </variablelist>
-  </refsect1>
 
-  <refsect1>
-    <title>PKCS#11 Enrollment</title>
-
-    <para>The following option is understood that may be used to enroll PKCS#11 tokens:</para>
+    <para>The following option enroll PKCS#11 tokens:</para>
 
     <variablelist>
       <varlistentry>
@@ -379,12 +375,8 @@
         <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
     </variablelist>
-  </refsect1>
 
-  <refsect1>
-    <title>FIDO2 Enrollment</title>
-
-    <para>The following options are understood that may be used to enroll FIDO2 tokens:</para>
+    <para>The following options enroll FIDO2 tokens:</para>
 
     <variablelist>
       <varlistentry>
@@ -487,12 +479,8 @@
         <xi:include href="version-info.xml" xpointer="v249"/></listitem>
       </varlistentry>
     </variablelist>
-  </refsect1>
 
-  <refsect1>
-    <title>TPM2 Enrollment</title>
-
-    <para>The following options are understood that may be used to enroll TPM2 devices:</para>
+    <para>The following options enroll TPM2 devices:</para>
 
     <variablelist>
       <varlistentry>

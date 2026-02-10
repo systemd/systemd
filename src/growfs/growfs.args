@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+option -h --help
+
+option --version
+
+option -n --dry-run
+help Just print what would be done
+        arg_dry_run = true;

@@ -24,6 +24,8 @@ static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 
+#include "id128.args.inc"
+
 static int verb_new(int argc, char **argv, void *userdata) {
         return id128_print_new(arg_mode);
 }
@@ -203,17 +205,7 @@ static int help(void) {
                "  show [NAME|UUID]        Print one or more UUIDs\n"
                "  help                    Show this help\n"
                "\nOptions:\n"
-               "  -h --help               Show this help\n"
-               "     --no-pager           Do not pipe output into a pager\n"
-               "     --no-legend          Do not show the headers and footers\n"
-               "     --json=FORMAT        Output inspection data in JSON (takes one of\n"
-               "                          pretty, short, off)\n"
-               "  -j                      Equivalent to --json=pretty (on TTY) or\n"
-               "                          --json=short (otherwise)\n"
-               "  -p --pretty             Generate samples of program code\n"
-               "  -P --value              Only print the value\n"
-               "  -a --app-specific=ID    Generate app-specific IDs\n"
-               "  -u --uuid               Output in UUID format\n"
+               OPTION_HELP_GENERATED
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -221,96 +213,6 @@ static int help(void) {
                link);
 
         return 0;
-}
-
-static int verb_help(int argc, char **argv, void *userdata) {
-        return help();
-}
-
-static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_NO_PAGER,
-                ARG_NO_LEGEND,
-                ARG_JSON,
-        };
-
-        static const struct option options[] = {
-                { "help",         no_argument,       NULL, 'h'              },
-                { "version",      no_argument,       NULL, ARG_VERSION      },
-                { "no-pager",     no_argument,       NULL, ARG_NO_PAGER     },
-                { "no-legend",    no_argument,       NULL, ARG_NO_LEGEND    },
-                { "json",         required_argument, NULL, ARG_JSON         },
-                { "pretty",       no_argument,       NULL, 'p'              },
-                { "value",        no_argument,       NULL, 'P'              },
-                { "app-specific", required_argument, NULL, 'a'              },
-                { "uuid",         no_argument,       NULL, 'u'              },
-                {},
-        };
-
-        int c, r;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "hpa:uPj", options, NULL)) >= 0)
-                switch (c) {
-
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_NO_PAGER:
-                        arg_pager_flags |= PAGER_DISABLE;
-                        break;
-
-                case ARG_NO_LEGEND:
-                        arg_legend = false;
-                        break;
-
-                case 'j':
-                        arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
-                        break;
-
-                case ARG_JSON:
-                        r = parse_json_argument(optarg, &arg_json_format_flags);
-                        if (r <= 0)
-                                return r;
-
-                        break;
-                case 'p':
-                        arg_mode = ID128_PRINT_PRETTY;
-                        arg_value = false;
-                        break;
-
-                case 'P':
-                        arg_value = true;
-                        if (arg_mode == ID128_PRINT_PRETTY)
-                                arg_mode = ID128_PRINT_ID128;
-                        break;
-
-                case 'a':
-                        r = id128_from_string_nonzero(optarg, &arg_app);
-                        if (r == -ENXIO)
-                                return log_error_errno(r, "Application ID cannot be all zeros.");
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse \"%s\" as application-ID: %m", optarg);
-                        break;
-
-                case 'u':
-                        arg_mode = ID128_PRINT_UUID;
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
-
-        return 1;
 }
 
 static int id128_main(int argc, char *argv[]) {
@@ -333,7 +235,7 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        r = parse_argv(argc, argv);
+        r = parse_argv_generated(argc, argv);
         if (r <= 0)
                 return r;
 

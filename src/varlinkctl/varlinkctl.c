@@ -67,6 +67,8 @@ static void push_fds_done(PushFds *p) {
 STATIC_DESTRUCTOR_REGISTER(arg_graceful, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_push_fds, push_fds_done);
 
+#include "varlinkctl.args.inc"
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -96,22 +98,7 @@ static int help(void) {
                "  validate-idl [FILE]    Validate interface description\n"
                "  help                   Show this help\n"
                "\n%3$sOptions:%4$s\n"
-               "  -h --help              Show this help\n"
-               "     --version           Show package version\n"
-               "     --no-ask-password   Do not prompt for password\n"
-               "     --no-pager          Do not pipe output into a pager\n"
-               "     --system            Enumerate system registry\n"
-               "     --user              Enumerate user registry\n"
-               "     --more              Request multiple responses\n"
-               "     --collect           Collect multiple responses in a JSON array\n"
-               "     --oneway            Do not request response\n"
-               "     --json=MODE         Output as JSON\n"
-               "  -j                     Same as --json=pretty on tty, --json=short otherwise\n"
-               "  -q --quiet             Do not output method reply\n"
-               "     --graceful=ERROR    Treat specified Varlink error as success\n"
-               "     --timeout=SECS      Maximum time to wait for method call completion\n"
-               "  -E                     Short for --more --timeout=infinity\n"
-               "     --push-fd=FD        Pass the specified fd along with method call\n"
+               OPTION_HELP_GENERATED
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -123,174 +110,12 @@ static int help(void) {
         return 0;
 }
 
-static int verb_help(int argc, char **argv, void *userdata) {
-        return help();
-}
-
 static int parse_argv(int argc, char *argv[]) {
+        int r;
 
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_NO_PAGER,
-                ARG_MORE,
-                ARG_ONEWAY,
-                ARG_JSON,
-                ARG_COLLECT,
-                ARG_GRACEFUL,
-                ARG_TIMEOUT,
-                ARG_EXEC,
-                ARG_PUSH_FD,
-                ARG_NO_ASK_PASSWORD,
-                ARG_USER,
-                ARG_SYSTEM,
-        };
-
-        static const struct option options[] = {
-                { "help",            no_argument,       NULL, 'h'                },
-                { "version",         no_argument,       NULL, ARG_VERSION         },
-                { "no-pager",        no_argument,       NULL, ARG_NO_PAGER        },
-                { "more",            no_argument,       NULL, ARG_MORE            },
-                { "oneway",          no_argument,       NULL, ARG_ONEWAY          },
-                { "json",            required_argument, NULL, ARG_JSON            },
-                { "collect",         no_argument,       NULL, ARG_COLLECT         },
-                { "quiet",           no_argument,       NULL, 'q'                 },
-                { "graceful",        required_argument, NULL, ARG_GRACEFUL        },
-                { "timeout",         required_argument, NULL, ARG_TIMEOUT         },
-                { "exec",            no_argument,       NULL, ARG_EXEC            },
-                { "push-fd",         required_argument, NULL, ARG_PUSH_FD         },
-                { "no-ask-password", no_argument,       NULL, ARG_NO_ASK_PASSWORD },
-                { "user",            no_argument,       NULL, ARG_USER            },
-                { "system",          no_argument,       NULL, ARG_SYSTEM          },
-                {},
-        };
-
-        int c, r;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "hjqE", options, NULL)) >= 0)
-
-                switch (c) {
-
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_NO_PAGER:
-                        arg_pager_flags |= PAGER_DISABLE;
-                        break;
-
-                case 'E':
-                        arg_timeout = USEC_INFINITY;
-                        _fallthrough_;
-
-                case ARG_MORE:
-                        arg_method_flags = (arg_method_flags & ~SD_VARLINK_METHOD_ONEWAY) | SD_VARLINK_METHOD_MORE;
-                        break;
-
-                case ARG_ONEWAY:
-                        arg_method_flags = (arg_method_flags & ~SD_VARLINK_METHOD_MORE) | SD_VARLINK_METHOD_ONEWAY;
-                        break;
-
-                case ARG_COLLECT:
-                        arg_collect = true;
-                        break;
-
-                case ARG_JSON:
-                        r = parse_json_argument(optarg, &arg_json_format_flags);
-                        if (r <= 0)
-                                return r;
-
-                        break;
-
-                case 'j':
-                        arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
-                        break;
-
-                case 'q':
-                        arg_quiet = true;
-                        break;
-
-                case ARG_GRACEFUL:
-                        r = varlink_idl_qualified_symbol_name_is_valid(optarg);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to validate Varlink error name '%s': %m", optarg);
-                        if (r == 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a valid Varlink error name: %s", optarg);
-
-                        if (strv_extend(&arg_graceful, optarg) < 0)
-                                return log_oom();
-
-                        break;
-
-                case ARG_TIMEOUT:
-                        if (isempty(optarg)) {
-                                arg_timeout = USEC_INFINITY;
-                                break;
-                        }
-
-                        r = parse_sec(optarg, &arg_timeout);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse --timeout= parameter '%s': %m", optarg);
-
-                        if (arg_timeout == 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Timeout cannot be zero.");
-
-                        break;
-
-                case ARG_EXEC:
-                        arg_exec = true;
-                        break;
-
-                case ARG_PUSH_FD: {
-                        if (!GREEDY_REALLOC(arg_push_fds.fds, arg_push_fds.n_fds + 1))
-                                return log_oom();
-
-                        _cleanup_close_ int add_fd = -EBADF;
-                        if (STARTSWITH_SET(optarg, "/", "./")) {
-                                /* We usually expect a numeric fd spec, but as an extension let's treat this
-                                 * as a path to open in read-only mode in case this is clearly an absolute or
-                                 * relative path */
-                                add_fd = open(optarg, O_CLOEXEC|O_RDONLY|O_NOCTTY);
-                                if (add_fd < 0)
-                                        return log_error_errno(errno, "Failed to open '%s': %m", optarg);
-                        } else {
-                                int parsed_fd = parse_fd(optarg);
-                                if (parsed_fd < 0)
-                                        return log_error_errno(parsed_fd, "Failed to parse --push-fd= parameter: %s", optarg);
-
-                                /* Make a copy, so that the same fd could be used multiple times in a reasonable
-                                 * way. This also validates the fd early */
-                                add_fd = fcntl(parsed_fd, F_DUPFD_CLOEXEC, 3);
-                                if (add_fd < 0)
-                                        return log_error_errno(errno, "Failed to duplicate file descriptor %i: %m", parsed_fd);
-                        }
-
-                        arg_push_fds.fds[arg_push_fds.n_fds++] = TAKE_FD(add_fd);
-                        break;
-                }
-
-                case ARG_NO_ASK_PASSWORD:
-                        arg_ask_password = false;
-                        break;
-
-                case ARG_USER:
-                        arg_runtime_scope = RUNTIME_SCOPE_USER;
-                        break;
-
-                case ARG_SYSTEM:
-                        arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
+        r = parse_argv_generated(argc, argv);
+        if (r <= 0)
+                return r;
 
         /* If more than one reply is expected, imply JSON-SEQ output, and set SD_JSON_FORMAT_FLUSH */
         if (FLAGS_SET(arg_method_flags, SD_VARLINK_METHOD_MORE))

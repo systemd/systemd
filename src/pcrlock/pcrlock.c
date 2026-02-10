@@ -131,6 +131,8 @@ static const char* recovery_pin_mode_table[_RECOVERY_PIN_MODE_MAX] = {
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING_WITH_BOOLEAN(recovery_pin_mode, RecoveryPinMode, RECOVERY_PIN_QUERY);
 
+#include "pcrlock.args.inc"
+
 typedef struct EventLogRecordBank EventLogRecordBank;
 typedef struct EventLogRecord EventLogRecord;
 typedef struct EventLogRegisterBank EventLogRegisterBank;
@@ -5065,7 +5067,7 @@ static int verb_is_supported(int argc, char *argv[], void *userdata) {
         return ~s & (TPM2_SUPPORT_API|TPM2_SUPPORT_API_PCRLOCK);
 }
 
-static int help(int argc, char *argv[], void *userdata) {
+static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
@@ -5109,23 +5111,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  lock-raw [FILE]             Generate a .pcrlock file from raw data\n"
                "  unlock-raw                  Remove .pcrlock file for raw data\n"
                "\n%3$sOptions:%4$s\n"
-               "  -h --help                   Show this help\n"
-               "     --version                Print version\n"
-               "     --no-pager               Do not pipe output into a pager\n"
-               "     --json=pretty|short|off  Generate JSON output\n"
-               "     --raw-description        Show raw firmware record data as description in table\n"
-               "     --pcr=NR                 Generate .pcrlock for specified PCR\n"
-               "     --nv-index=NUMBER        Use the specified NV index, instead of a random one\n"
-               "     --components=PATH        Directory to read .pcrlock files from\n"
-               "     --location=STRING[:STRING]\n"
-               "                              Do not process components beyond this component name\n"
-               "     --recovery-pin=MODE      Controls whether to show, hide, or ask for a recovery PIN\n"
-               "     --pcrlock=PATH           .pcrlock file to write expected PCR measurement to\n"
-               "     --policy=PATH            JSON file to write policy output to\n"
-               "     --force                  Write policy even if it matches existing policy\n"
-               "     --entry-token=machine-id|os-id|os-image-id|auto|literal:…\n"
-               "                              Boot entry token to use for this installation\n"
-               "  -q --quiet                  Suppress unnecessary output\n"
+               OPTION_HELP_GENERATED
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -5138,214 +5124,11 @@ static int help(int argc, char *argv[], void *userdata) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_NO_PAGER,
-                ARG_JSON,
-                ARG_RAW_DESCRIPTION,
-                ARG_PCR,
-                ARG_NV_INDEX,
-                ARG_COMPONENTS,
-                ARG_LOCATION,
-                ARG_RECOVERY_PIN,
-                ARG_PCRLOCK,
-                ARG_POLICY,
-                ARG_FORCE,
-                ARG_ENTRY_TOKEN,
-        };
+        int r;
 
-        static const struct option options[] = {
-                { "help",            no_argument,       NULL, 'h'                 },
-                { "version",         no_argument,       NULL, ARG_VERSION         },
-                { "no-pager",        no_argument,       NULL, ARG_NO_PAGER        },
-                { "json",            required_argument, NULL, ARG_JSON            },
-                { "raw-description", no_argument,       NULL, ARG_RAW_DESCRIPTION },
-                { "pcr",             required_argument, NULL, ARG_PCR             },
-                { "nv-index",        required_argument, NULL, ARG_NV_INDEX        },
-                { "components",      required_argument, NULL, ARG_COMPONENTS      },
-                { "location",        required_argument, NULL, ARG_LOCATION        },
-                { "recovery-pin",    required_argument, NULL, ARG_RECOVERY_PIN    },
-                { "pcrlock",         required_argument, NULL, ARG_PCRLOCK         },
-                { "policy",          required_argument, NULL, ARG_POLICY          },
-                { "force",           no_argument,       NULL, ARG_FORCE           },
-                { "entry-token",     required_argument, NULL, ARG_ENTRY_TOKEN     },
-                { "quiet",           no_argument,       NULL, 'q'                 },
-                {}
-        };
-
-        bool auto_location = true;
-        int c, r;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "hq", options, NULL)) >= 0)
-                switch (c) {
-
-                case 'h':
-                        help(0, NULL, NULL);
-                        return 0;
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_NO_PAGER:
-                        arg_pager_flags |= PAGER_DISABLE;
-                        break;
-
-                case ARG_JSON:
-                        r = parse_json_argument(optarg, &arg_json_format_flags);
-                        if (r <= 0)
-                                return r;
-                        break;
-
-                case ARG_RAW_DESCRIPTION:
-                        arg_raw_description = true;
-                        break;
-
-                case ARG_PCR: {
-                        r = tpm2_parse_pcr_argument_to_mask(optarg, &arg_pcr_mask);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse PCR specification: %s", optarg);
-
-                        break;
-                }
-
-                case ARG_NV_INDEX:
-                        if (isempty(optarg))
-                                arg_nv_index = 0;
-                        else {
-                                uint32_t u;
-
-                                r = safe_atou32_full(optarg, 16, &u);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse --nv-index= argument: %s", optarg);
-
-                                if (u < TPM2_NV_INDEX_FIRST || u > TPM2_NV_INDEX_LAST)
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Argument for --nv-index= outside of valid range 0x%" PRIx32 "…0x%"  PRIx32 ": 0x%" PRIx32,
-                                                               TPM2_NV_INDEX_FIRST, TPM2_NV_INDEX_LAST, u);
-
-                                arg_nv_index = u;
-                        }
-                        break;
-
-                case ARG_COMPONENTS: {
-                        _cleanup_free_ char *p = NULL;
-
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &p);
-                        if (r < 0)
-                                return r;
-
-                        r = strv_consume(&arg_components, TAKE_PTR(p));
-                        if (r < 0)
-                                return log_oom();
-
-                        break;
-                }
-
-                case ARG_LOCATION: {
-                        _cleanup_free_ char *start = NULL, *end = NULL;
-                        const char *e;
-
-                        auto_location = false;
-
-                        if (isempty(optarg)) {
-                                arg_location_start = mfree(arg_location_start);
-                                arg_location_end = mfree(arg_location_end);
-                                break;
-                        }
-
-                        e = strchr(optarg, ':');
-                        if (e) {
-                                start = strndup(optarg, e - optarg);
-                                if (!start)
-                                        return log_oom();
-
-                                end = strdup(e + 1);
-                                if (!end)
-                                        return log_oom();
-                        } else {
-                                start = strdup(optarg);
-                                if (!start)
-                                        return log_oom();
-
-                                end = strdup(optarg);
-                                if (!end)
-                                        return log_oom();
-                        }
-
-                        if (!filename_is_valid(start))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Location string invalid, refusing: %s", start);
-                        if (!filename_is_valid(end))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Location string invalid, refusing: %s", end);
-
-                        free_and_replace(arg_location_start, start);
-                        free_and_replace(arg_location_end, end);
-                        break;
-                }
-
-                case ARG_RECOVERY_PIN:
-                        arg_recovery_pin = recovery_pin_mode_from_string(optarg);
-                        if (arg_recovery_pin < 0)
-                                return log_error_errno(arg_recovery_pin, "Failed to parse --recovery-pin= mode: %s", optarg);
-                        break;
-
-                case ARG_PCRLOCK:
-                        if (empty_or_dash(optarg))
-                                arg_pcrlock_path = mfree(arg_pcrlock_path);
-                        else {
-                                r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_pcrlock_path);
-                                if (r < 0)
-                                        return r;
-                        }
-
-                        arg_pcrlock_auto = false;
-                        break;
-
-                case ARG_POLICY:
-                        if (empty_or_dash(optarg))
-                                arg_policy_path = mfree(arg_policy_path);
-                        else {
-                                r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_policy_path);
-                                if (r < 0)
-                                        return r;
-                        }
-
-                        break;
-
-                case ARG_FORCE:
-                        arg_force = true;
-                        break;
-
-                case ARG_ENTRY_TOKEN:
-                        r = parse_boot_entry_token_type(optarg, &arg_entry_token_type, &arg_entry_token);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case 'q':
-                        arg_quiet = true;
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
-
-        if (auto_location) {
-                assert(!arg_location_start);
-                assert(!arg_location_end);
-
-                arg_location_start = strdup("760-");
-                if (!arg_location_start)
-                        return log_oom();
-
-                arg_location_end = strdup("940-");
-                if (!arg_location_end)
-                        return log_oom();
-        }
+        r = parse_argv_generated(argc, argv);
+        if (r <= 0)
+                return r;
 
         r = sd_varlink_invocation(SD_VARLINK_ALLOW_ACCEPT);
         if (r < 0)
@@ -5360,7 +5143,7 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int pcrlock_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "help",                        VERB_ANY, VERB_ANY, 0,            help                             },
+                { "help",                        VERB_ANY, VERB_ANY, 0,            verb_help                        },
                 { "log",                         VERB_ANY, 1,        VERB_DEFAULT, verb_show_log                    },
                 { "cel",                         VERB_ANY, 1,        0,            verb_show_cel                    },
                 { "list-components",             VERB_ANY, 1,        0,            verb_list_components             },

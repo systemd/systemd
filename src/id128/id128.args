@@ -1,0 +1,44 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+option -h --help
+
+option --version
+
+option --no-pager
+
+option --no-legend
+help Do not show the headers and footers
+        arg_legend = false;
+
+option --json=FORMAT
+help Output inspection data in JSON (takes one of pretty, short, off)
+        r = parse_json_argument(optarg, &arg_json_format_flags);
+        if (r <= 0)
+                return r;
+
+option -j
+help Equivalent to --json=pretty (on TTY) or --json=short (otherwise)
+        arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
+
+option -p --pretty
+help Generate samples of program code
+        arg_value = false;
+        arg_mode = ID128_PRINT_PRETTY;
+
+option -P --value
+help Only print the value
+        arg_value = true;
+        if (arg_mode == ID128_PRINT_PRETTY)
+                arg_mode = ID128_PRINT_ID128;
+
+option -a= --app-specific=ID
+help Generate app-specific IDs
+        r = id128_from_string_nonzero(optarg, &arg_app);
+        if (r == -ENXIO)
+                return log_error_errno(r, "Application ID cannot be all zeros.");
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse '%s' as application-ID: %m", optarg);
+
+option -u --uuid
+help Output in UUID format
+        arg_mode = ID128_PRINT_UUID;

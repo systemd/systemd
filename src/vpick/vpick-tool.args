@@ -1,0 +1,118 @@
+option -h --help
+
+option --version
+
+option -B= --basename=NAME
+group lookup_keys
+help Look for specified basename
+        if (!filename_part_is_valid(optarg))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid basename string: %s", optarg);
+
+        r = free_and_strdup_warn(&arg_filter_basename, optarg);
+        if (r < 0)
+                return r;
+
+option -V=VERSION
+group lookup_keys
+help Look for specified version
+        if (!version_is_valid(optarg))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid version string: %s", optarg);
+
+        r = free_and_strdup_warn(&arg_filter_version, optarg);
+        if (r < 0)
+                return r;
+
+option -A=ARCH
+group lookup_keys
+help Look for specified architecture
+        if (streq(optarg, "native"))
+                arg_filter_architecture = native_architecture();
+        else if (streq(optarg, "secondary")) {
+        #ifdef ARCHITECTURE_SECONDARY
+               arg_filter_architecture = ARCHITECTURE_SECONDARY;
+        #else
+               return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Local architecture has no secondary architecture.");
+        #endif
+        } else if (streq(optarg, "uname"))
+                arg_filter_architecture = uname_architecture();
+        else if (streq(optarg, "auto"))
+                arg_filter_architecture = _ARCHITECTURE_INVALID;
+        else {
+                arg_filter_architecture = architecture_from_string(optarg);
+                if (arg_filter_architecture < 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown architecture: %s", optarg);
+        }
+
+option -S= --suffix=SUFFIX
+group lookup_keys
+help Look for specified suffix
+        if (!filename_part_is_valid(optarg))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid suffix string: %s", optarg);
+
+        r = free_and_strdup_warn(&arg_filter_suffix, optarg);
+        if (r < 0)
+                return r;
+
+option -t= --type=TYPE
+group lookup_keys
+help Look for specified inode type
+        if (isempty(optarg))
+                arg_filter_type_mask = 0;
+        else {
+                mode_t m;
+
+                m = inode_type_from_string(optarg);
+                if (m == MODE_INVALID)
+                        return log_error_errno(m, "Unknown inode type: %s", optarg);
+
+                arg_filter_type_mask |= UINT32_C(1) << IFTODT(m);
+        }
+
+option -p= --print=...
+help skip
+group output
+        if (streq(optarg, "arch")) /* accept abbreviation too */
+                arg_print = PRINT_ARCHITECTURE;
+        else
+                arg_print = print_from_string(optarg);
+        if (arg_print < 0)
+                        return log_error_errno(arg_print, "Unknown --print= argument: %s", optarg);
+
+option -p= --print=filename
+group output
+help Print selected filename rather than path
+        skip
+
+option -p= --print=version
+group output
+help Print selected version rather than path
+        skip
+
+option -p= --print=type
+group output
+help Print selected inode type rather than path
+        skip
+
+option -p= --print=arch
+group output
+help Print selected architecture rather than path
+        skip
+
+option -p= --print=tries
+group output
+help Print selected tries left/tries done rather than path
+        skip
+
+option -p= --print=all
+group output
+help Print all of the above
+        skip
+
+option --resolve=yes
+group output
+help Canonicalize the result path
+        r = parse_boolean(optarg);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse --resolve= value: %m");
+
+        SET_FLAG(arg_flags, PICK_RESOLVE, r);

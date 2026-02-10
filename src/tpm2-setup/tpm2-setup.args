@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+option -h --help
+
+option --version
+
+option --tpm2-device=PATH
+help Pick TPM2 device
+        if (streq(optarg, "list"))
+                return tpm2_list_devices(/* legend= */ true, /* quiet= */ false);
+
+        if (free_and_strdup(&arg_tpm2_device, streq(optarg, "auto") ? NULL : optarg) < 0)
+                return log_oom();
+
+option --early=yes|no
+help Store SRK public key in /run/ rather than /var/lib/
+        r = parse_boolean(optarg);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse --early= argument: %s", optarg);
+
+        arg_early = r;
+
+option --graceful
+help Exit gracefully if no TPM2 device is found
+        arg_graceful = true;

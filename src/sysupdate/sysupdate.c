@@ -1776,7 +1776,9 @@ static int verb_components(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int verb_help(int argc, char **argv, void *userdata) {
+#include "sysupdate.args.inc"
+
+static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
@@ -1797,26 +1799,9 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "                          currently booted\n"
                "  reboot                  Reboot if a newer version is installed than booted\n"
                "  components              Show list of components\n"
-               "  -h --help               Show this help\n"
-               "     --version            Show package version\n"
+               OPTION_HELP_GENERATED_COMMANDS
                "\n%3$sOptions:%4$s\n"
-               "  -C --component=NAME     Select component to update\n"
-               "     --definitions=DIR    Find transfer definitions in specified directory\n"
-               "     --root=PATH          Operate on an alternate filesystem root\n"
-               "     --image=PATH         Operate on disk image as filesystem root\n"
-               "     --image-policy=POLICY\n"
-               "                          Specify disk image dissection policy\n"
-               "  -m --instances-max=INT  How many instances to maintain\n"
-               "     --sync=BOOL          Controls whether to sync data to disk\n"
-               "     --verify=BOOL        Force signature verification on or off\n"
-               "     --reboot             Reboot after updating to newer version\n"
-               "     --offline            Do not fetch metadata from the network\n"
-               "     --no-pager           Do not pipe output into a pager\n"
-               "     --no-legend          Do not show the headers and footers\n"
-               "     --json=pretty|short|off\n"
-               "                          Generate JSON output\n"
-               "     --transfer-source=PATH\n"
-               "                          Specify the directory to transfer sources from\n"
+               OPTION_HELP_GENERATED
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -1829,161 +1814,11 @@ static int verb_help(int argc, char **argv, void *userdata) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
+        int r;
 
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_NO_PAGER,
-                ARG_NO_LEGEND,
-                ARG_SYNC,
-                ARG_DEFINITIONS,
-                ARG_JSON,
-                ARG_ROOT,
-                ARG_IMAGE,
-                ARG_IMAGE_POLICY,
-                ARG_REBOOT,
-                ARG_VERIFY,
-                ARG_OFFLINE,
-                ARG_TRANSFER_SOURCE,
-        };
-
-        static const struct option options[] = {
-                { "help",              no_argument,       NULL, 'h'                   },
-                { "version",           no_argument,       NULL, ARG_VERSION           },
-                { "no-pager",          no_argument,       NULL, ARG_NO_PAGER          },
-                { "no-legend",         no_argument,       NULL, ARG_NO_LEGEND         },
-                { "definitions",       required_argument, NULL, ARG_DEFINITIONS       },
-                { "instances-max",     required_argument, NULL, 'm'                   },
-                { "sync",              required_argument, NULL, ARG_SYNC              },
-                { "json",              required_argument, NULL, ARG_JSON              },
-                { "root",              required_argument, NULL, ARG_ROOT              },
-                { "image",             required_argument, NULL, ARG_IMAGE             },
-                { "image-policy",      required_argument, NULL, ARG_IMAGE_POLICY      },
-                { "reboot",            no_argument,       NULL, ARG_REBOOT            },
-                { "component",         required_argument, NULL, 'C'                   },
-                { "verify",            required_argument, NULL, ARG_VERIFY            },
-                { "offline",           no_argument,       NULL, ARG_OFFLINE           },
-                { "transfer-source",   required_argument, NULL, ARG_TRANSFER_SOURCE   },
-                {}
-        };
-
-        int c, r;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "hm:C:", options, NULL)) >= 0) {
-
-                switch (c) {
-
-                case 'h':
-                        return verb_help(0, NULL, NULL);
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_NO_PAGER:
-                        arg_pager_flags |= PAGER_DISABLE;
-                        break;
-
-                case ARG_NO_LEGEND:
-                        arg_legend = false;
-                        break;
-
-                case 'm':
-                        r = safe_atou64(optarg, &arg_instances_max);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse --instances-max= parameter: %s", optarg);
-
-                        break;
-
-                case ARG_SYNC:
-                        r = parse_boolean_argument("--sync=", optarg, &arg_sync);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_DEFINITIONS:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_definitions);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_JSON:
-                        r = parse_json_argument(optarg, &arg_json_format_flags);
-                        if (r <= 0)
-                                return r;
-
-                        break;
-
-                case ARG_ROOT:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_root);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_IMAGE:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_image);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_IMAGE_POLICY:
-                        r = parse_image_policy_argument(optarg, &arg_image_policy);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_REBOOT:
-                        arg_reboot = true;
-                        break;
-
-                case 'C':
-                        if (isempty(optarg)) {
-                                arg_component = mfree(arg_component);
-                                break;
-                        }
-
-                        r = component_name_valid(optarg);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to determine if component name is valid: %m");
-                        if (r == 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Component name invalid: %s", optarg);
-
-                        r = free_and_strdup_warn(&arg_component, optarg);
-                        if (r < 0)
-                                return r;
-
-                        break;
-
-                case ARG_VERIFY: {
-                        bool b;
-
-                        r = parse_boolean_argument("--verify=", optarg, &b);
-                        if (r < 0)
-                                return r;
-
-                        arg_verify = b;
-                        break;
-                }
-
-                case ARG_OFFLINE:
-                        arg_offline = true;
-                        break;
-
-                case ARG_TRANSFER_SOURCE:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_transfer_source);
-                        if (r < 0)
-                                return r;
-
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
-        }
+        r = parse_argv_generated(argc, argv);
+        if (r <= 0)
+                return r;
 
         if (arg_image && arg_root)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root= or --image=, the combination of both is not supported.");

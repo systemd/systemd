@@ -1,0 +1,51 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+global optstring_prefix +
+global help_key_width 23
+
+option -h --help
+
+option --version
+
+option --what=WHAT
+help Operations to inhibit, colon separated list of:
+help shutdown,
+help sleep,
+help idle,
+help handle-power-key,
+help handle-suspend-key,
+help handle-hibernate-key,
+help handle-lid-switch
+        arg_what = optarg;
+
+option --who=STRING
+help A descriptive string who is inhibiting
+        arg_who = optarg;
+
+option --why=
+help A descriptive string why is being inhibited
+        arg_why = optarg;
+
+option --mode=block|block-weak|delay
+help Block type
+        arg_mode = optarg;
+
+option --list
+help List active inhibitors and exit
+        arg_action = ACTION_LIST;
+
+option --no-ask-password
+help Do not attempt interactive authorization
+        arg_ask_password = false;
+
+option --no-pager
+
+option --no-legend
+help Do not show the headers and footers
+        arg_legend = false;
+
+option --json=pretty|short|off
+help Generate JSON output
+        r = parse_json_argument(optarg, &arg_json_format_flags);
+        if (r <= 0)
+                return r;

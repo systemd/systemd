@@ -1,0 +1,195 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+option -h --help
+
+option --version
+
+option --no-pager
+
+option -c --current
+help Use current PCR values
+        arg_current = true;
+
+option --phase=PHASE
+help Specify a boot phase to sign for
+scope
+        char *n = normalize_phase(optarg);
+        if (!n)
+                return log_oom();
+
+        r = strv_consume(&arg_phase, TAKE_PTR(n));
+        if (r < 0)
+                return r;
+
+option --bank=DIGEST
+help Select TPM bank (SHA1, SHA256, SHA384, SHA512)
+scope
+        const EVP_MD *bank = EVP_get_digestbyname(optarg);
+        if (!bank)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown bank '%s', refusing.", optarg);
+
+        if (strv_extend(&arg_banks, EVP_MD_name(bank)) < 0)
+                return log_oom();
+
+option --tpm2-device=PATH
+help Use specified TPM2 device
+        _cleanup_free_ char *device = NULL;
+
+        if (streq(optarg, "list"))
+                return tpm2_list_devices(/* legend= */ true, /* quiet= */ false);
+
+        if (!streq(optarg, "auto")) {
+                device = strdup(optarg);
+                if (!device)
+                        return log_oom();
+        }
+
+        free_and_replace(arg_tpm2_device, device);
+
+option --private-key=KEY
+help Private key (PEM) to sign with
+        r = free_and_strdup_warn(&arg_private_key, optarg);
+        if (r < 0)
+                return r;
+
+option --private-key-source=file|provider:PROVIDER|engine:ENGINE
+help Specify how to use KEY for --private-key=.
+help Allows an OpenSSL engine/provider to be used for signing
+        r = parse_openssl_key_source_argument(
+                        optarg,
+                        &arg_private_key_source,
+                        &arg_private_key_source_type);
+        if (r < 0)
+                return r;
+
+option --public-key=KEY
+help Public key (PEM) to validate against
+        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_public_key);
+        if (r < 0)
+                return r;
+
+option --certificate=PATH|URI
+help PEM certificate to use for signing,
+help or a provider-specific designation if --certificate-source= is used
+        r = free_and_strdup_warn(&arg_certificate, optarg);
+        if (r < 0)
+                return r;
+
+option --certificate-source=file|provider:PROVIDER
+help How to interpret the certificate from --certificate=.
+help Allows the certificate to be loaded from an OpenSSL provider
+        r = parse_openssl_certificate_source_argument(
+                        optarg,
+                        &arg_certificate_source,
+                        &arg_certificate_source_type);
+        if (r < 0)
+                return r;
+
+option --json=MODE
+help Output as JSON
+        r = parse_json_argument(optarg, &arg_json_format_flags);
+        if (r <= 0)
+                return r;
+
+option -j
+help Same as --json=pretty on tty, --json=short otherwise
+        arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
+
+option --append=PATH
+help Load specified JSON signature, and append new signature to it
+        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_append);
+        if (r < 0)
+                return r;
+
+# The option order here follows the measurement order defined in uki.h.
+option --linux=PATH
+help Linux kernel image file            %7$s .linux
+group sections
+        _fallthrough_;
+
+option --osrel=PATH
+help os-release file                    %7$s .osrel
+group sections
+        _fallthrough_;
+
+option --cmdline=PATH
+help File with kernel command line      %7$s .cmdline
+group sections
+        _fallthrough_;
+
+option --initrd=PATH
+help Initrd image file                  %7$s .initrd
+group sections
+        _fallthrough_;
+
+option --ucode=PATH
+help Microcode image file               %7$s .ucode
+group sections
+        _fallthrough_;
+
+option --splash=PATH
+help Splash bitmap file                 %7$s .splash
+group sections
+        _fallthrough_;
+
+option --dtb=PATH
+help DeviceTree file                    %7$s .dtb
+group sections
+        _fallthrough_;
+
+option --uname=PATH
+help 'uname -r' file                    %7$s .uname
+group sections
+        _fallthrough_;
+
+option --sbat=PATH
+help SBAT file                          %7$s .sbat
+group sections
+        _fallthrough_;
+
+# This option is defined to maintain enum numbering, but actually shouldn't be used.
+# Provide a helpful error message if it is ever specified.
+option --pcrsig[=PATH]
+help skip
+group sections
+        if (c == ARG_PCRSIG)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--pcrsig= must not be used, .pcrsig sections are not measured.");
+        _fallthrough_;
+
+option --pcrpkey=PATH
+help Public key for PCR signatures      %7$s .pcrpkey
+group sections
+        _fallthrough_;
+
+option --profile=PATH
+help Profile file                       %7$s .profile
+group sections
+        _fallthrough_;
+
+option --dtbauto=PATH
+help DeviceTree file for auto selection %7$s .dtbauto
+group sections
+        _fallthrough_;
+
+option --hwids=PATH
+help HWIDs file                         %7$s .hwids
+group sections
+        _fallthrough_;
+
+# This option is defined to maintain enum numbering, but actually shouldn't be used.
+option --efifw[=PATH]
+help skip
+group sections
+        if (c == ARG_EFIFW)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--efifw= must not be used, .efifw sections are not measured.");
+
+        /* Make sure the argument list and the section list stay in sync */
+        assert_cc(ELEMENTSOF(arg_sections) == ARG_EFIFW - ARG_LINUX + 1);
+
+        UnifiedSection section = c - ARG_LINUX;
+
+        r = parse_path_argument(optarg, /* suppress_root= */ false, arg_sections + section);
+        if (r < 0)
+                return r;

@@ -16,6 +16,8 @@
 
 static bool arg_graceful = false;
 
+#include "tpm2-clear.args.inc"
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -27,9 +29,7 @@ static int help(void) {
         printf("%1$s [OPTIONS...]\n"
                "\n%5$sRequest clearing of the TPM2 from PC firmware.%6$s\n"
                "\n%3$sOptions:%4$s\n"
-               "  -h --help               Show this help\n"
-               "     --version            Show package version\n"
-               "     --graceful           Exit gracefully if no TPM2 device is found\n"
+               OPTION_HELP_GENERATED
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -39,50 +39,6 @@ static int help(void) {
                ansi_normal());
 
         return 0;
-}
-
-static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_GRACEFUL,
-        };
-
-        static const struct option options[] = {
-                { "help",     no_argument, NULL, 'h'          },
-                { "version",  no_argument, NULL, ARG_VERSION  },
-                { "graceful", no_argument, NULL, ARG_GRACEFUL },
-                {}
-        };
-
-        int c;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
-                switch (c) {
-
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_GRACEFUL:
-                        arg_graceful = true;
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
-
-        if (optind != argc)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program expects no arguments.");
-
-        return 1;
 }
 
 static int request_tpm2_clear(void) {
@@ -125,9 +81,12 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        r = parse_argv(argc, argv);
+        r = parse_argv_generated(argc, argv);
         if (r <= 0)
                 return r;
+
+        if (optind != argc)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program expects no arguments.");
 
         /* If we don't fully support the TPM we are unlikely able to reinitialize it after boot, hence don't
          * be tempted to reset it in graceful mode. Otherwise we might destroy something without being able

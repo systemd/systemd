@@ -147,6 +147,7 @@ udev_binaries_dict = [
                 'sources' : udevadm_sources +
                             keyboard_keys_from_name_inc,
                 'extract' : udevadm_extract_sources,
+                'arg_parser' : files('udevadm.args'),
                 'include_directories' : [
                         libexec_template['include_directories'],
                         include_directories('.', 'net'),
@@ -177,6 +178,7 @@ udev_binaries_dict = [
         udev_plugin_template + {
                 'name' : 'iocost',
                 'sources' : files('iocost/iocost.c'),
+                'arg_parser' : files('iocost/iocost.args'),
         },
         udev_plugin_template + {
                 'name' : 'mtd_probe',

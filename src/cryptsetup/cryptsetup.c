@@ -172,6 +172,8 @@ DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(token_type, TokenType);
     initramfs
 */
 
+#include "cryptsetup.args.inc"
+
 static int parse_one_option(const char *option) {
         const char *val;
         int r;
@@ -2457,8 +2459,7 @@ static int help(void) {
         printf("%1$s attach VOLUME SOURCE-DEVICE [KEY-FILE] [CONFIG]\n"
                "%1$s detach VOLUME\n\n"
                "%2$sAttach or detach an encrypted block device.%3$s\n\n"
-               "  -h --help            Show this help\n"
-               "     --version         Show package version\n"
+               OPTION_HELP_GENERATED
                "\nSee the %4$s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -2466,44 +2467,6 @@ static int help(void) {
                link);
 
         return 0;
-}
-
-static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-        };
-
-        static const struct option options[] = {
-                { "help",                         no_argument,       NULL, 'h'                       },
-                { "version",                      no_argument,       NULL, ARG_VERSION               },
-                {}
-        };
-
-        int c;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        if (argv_looks_like_help(argc, argv))
-                return help();
-
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
-                switch (c) {
-
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
-
-        return 1;
 }
 
 static uint32_t determine_flags(void) {
@@ -2857,7 +2820,7 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
-        r = parse_argv(argc, argv);
+        r = parse_argv_generated(argc, argv);
         if (r <= 0)
                 return r;
 

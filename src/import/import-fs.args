@@ -1,0 +1,55 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+option -h --help
+
+option --version
+
+option --force
+help Force creation of image
+        arg_force = true;
+
+option --image-root=PATH
+help Image root directory
+        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_image_root);
+        if (r < 0)
+                return r;
+
+option --read-only
+help Create a read-only image
+        arg_read_only = true;
+
+option --direct
+help Import directly to specified directory
+        arg_direct = true;
+
+option --btrfs-subvol=yes|no
+help Create a btrfs subvolume in lieu of a directory
+        r = parse_boolean_argument("--btrfs-subvol=", optarg, &arg_btrfs_subvol);
+        if (r < 0)
+                return r;
+
+option --btrfs-quota=yes|no
+help Set up quota for btrfs subvolume
+        r = parse_boolean_argument("--btrfs-quota=", optarg, &arg_btrfs_quota);
+        if (r < 0)
+                return r;
+
+option --sync=yes|no
+help Sync at the end
+        r = parse_boolean_argument("--sync=", optarg, &arg_sync);
+        if (r < 0)
+                return r;
+
+option --class=CLASS
+help Select image class (machine, sysext, confext, portable)
+        arg_class = image_class_from_string(optarg);
+        if (arg_class < 0)
+                return log_error_errno(arg_class, "Failed to parse --class= argument: %s", optarg);
+
+option --system
+help Operate in system mode
+        arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
+
+option --user
+help Operate in per-user mode
+        arg_runtime_scope = RUNTIME_SCOPE_USER;

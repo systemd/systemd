@@ -4,5 +4,6 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-update-done',
                 'sources' : files('update-done.c'),
+                'arg_parser' : files('update-done.args'),
         },
 ]

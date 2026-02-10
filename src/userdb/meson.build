@@ -20,6 +20,7 @@ executables += [
                 'name' : 'userdbctl',
                 'conditions' : ['ENABLE_USERDB'],
                 'sources' : files('userdbctl.c'),
+                'arg_parser' : files('userdbctl.args'),
                 'dependencies' : threads,
         },
 ]

@@ -39,6 +39,7 @@ executables += [
                 'name' : 'portablectl',
                 'public' : true,
                 'sources' : files('portablectl.c'),
+                'arg_parser' : files('portablectl.args'),
                 'link_with' : portabled_link_with,
                 'dependencies' : threads,
         },

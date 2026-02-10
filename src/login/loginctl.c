@@ -54,6 +54,8 @@ static OutputMode arg_output = OUTPUT_SHORT;
 
 STATIC_DESTRUCTOR_REGISTER(arg_property, strv_freep);
 
+#include "loginctl.args.inc"
+
 typedef struct SessionStatusInfo {
         const char *id;
         uid_t uid;
@@ -1446,7 +1448,7 @@ static int terminate_seat(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int help(int argc, char *argv[], void *userdata) {
+static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
@@ -1485,29 +1487,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  flush-devices            Flush all device associations\n"
                "  terminate-seat NAME...   Terminate all sessions on one or more seats\n"
                "\n%3$sOptions:%4$s\n"
-               "  -h --help                Show this help\n"
-               "     --version             Show package version\n"
-               "     --no-pager            Do not pipe output into a pager\n"
-               "     --no-legend           Do not show the headers and footers\n"
-               "     --no-ask-password     Don't prompt for password\n"
-               "  -H --host=[USER@]HOST    Operate on remote host\n"
-               "  -M --machine=CONTAINER   Operate on local container\n"
-               "  -p --property=NAME       Show only properties by this name\n"
-               "  -P NAME                  Equivalent to --value --property=NAME\n"
-               "  -a --all                 Show all properties, including empty ones\n"
-               "     --value               When showing properties, only print the value\n"
-               "  -l --full                Do not ellipsize output\n"
-               "     --kill-whom=WHOM      Whom to send signal to\n"
-               "  -s --signal=SIGNAL       Which signal to send\n"
-               "  -n --lines=INTEGER       Number of journal entries to show\n"
-               "     --json=MODE           Generate JSON output for list-sessions/users/seats\n"
-               "                             (takes one of pretty, short, or off)\n"
-               "  -j                       Same as --json=pretty on tty, --json=short otherwise\n"
-               "  -o --output=MODE         Change journal output mode (short, short-precise,\n"
-               "                             short-iso, short-iso-precise, short-full,\n"
-               "                             short-monotonic, short-unix, short-delta,\n"
-               "                             json, json-pretty, json-sse, json-seq, cat,\n"
-               "                             verbose, export, with-unit)\n"
+               OPTION_HELP_GENERATED
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -1519,157 +1499,9 @@ static int help(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_VALUE,
-                ARG_NO_PAGER,
-                ARG_NO_LEGEND,
-                ARG_JSON,
-                ARG_KILL_WHOM,
-                ARG_NO_ASK_PASSWORD,
-        };
-
-        static const struct option options[] = {
-                { "help",            no_argument,       NULL, 'h'                 },
-                { "version",         no_argument,       NULL, ARG_VERSION         },
-                { "property",        required_argument, NULL, 'p'                 },
-                { "all",             no_argument,       NULL, 'a'                 },
-                { "value",           no_argument,       NULL, ARG_VALUE           },
-                { "full",            no_argument,       NULL, 'l'                 },
-                { "no-pager",        no_argument,       NULL, ARG_NO_PAGER        },
-                { "no-legend",       no_argument,       NULL, ARG_NO_LEGEND       },
-                { "json",            required_argument, NULL, ARG_JSON            },
-                { "kill-whom",       required_argument, NULL, ARG_KILL_WHOM       },
-                { "signal",          required_argument, NULL, 's'                 },
-                { "host",            required_argument, NULL, 'H'                 },
-                { "machine",         required_argument, NULL, 'M'                 },
-                { "no-ask-password", no_argument,       NULL, ARG_NO_ASK_PASSWORD },
-                { "lines",           required_argument, NULL, 'n'                 },
-                { "output",          required_argument, NULL, 'o'                 },
-                {}
-        };
-
-        int c, r;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "hp:P:als:H:M:n:o:j", options, NULL)) >= 0)
-
-                switch (c) {
-
-                case 'h':
-                        return help(0, NULL, NULL);
-
-                case ARG_VERSION:
-                        return version();
-
-                case 'P':
-                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_ONLY_VALUE, true);
-                        _fallthrough_;
-
-                case 'p': {
-                        r = strv_extend(&arg_property, optarg);
-                        if (r < 0)
-                                return log_oom();
-
-                        /* If the user asked for a particular
-                         * property, show it to them, even if it is
-                         * empty. */
-                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY, true);
-                        break;
-                }
-
-                case 'a':
-                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY, true);
-                        break;
-
-                case ARG_VALUE:
-                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_ONLY_VALUE, true);
-                        break;
-
-                case 'l':
-                        arg_full = true;
-                        break;
-
-                case 'n':
-                        if (safe_atou(optarg, &arg_lines) < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Failed to parse lines '%s'", optarg);
-                        break;
-
-                case 'o':
-                        if (streq(optarg, "help"))
-                                return DUMP_STRING_TABLE(output_mode, OutputMode, _OUTPUT_MODE_MAX);
-
-                        arg_output = output_mode_from_string(optarg);
-                        if (arg_output < 0)
-                                return log_error_errno(arg_output, "Unknown output '%s'.", optarg);
-
-                        break;
-
-                case 'j':
-                        arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
-                        arg_legend = false;
-                        break;
-
-                case ARG_JSON:
-                        r = parse_json_argument(optarg, &arg_json_format_flags);
-                        if (r <= 0)
-                                return r;
-
-                        if (sd_json_format_enabled(arg_json_format_flags))
-                                arg_legend = false;
-
-                        break;
-
-                case ARG_NO_PAGER:
-                        arg_pager_flags |= PAGER_DISABLE;
-                        break;
-
-                case ARG_NO_LEGEND:
-                        arg_legend = false;
-                        break;
-
-                case ARG_NO_ASK_PASSWORD:
-                        arg_ask_password = false;
-                        break;
-
-                case ARG_KILL_WHOM:
-                        arg_kill_whom = optarg;
-                        break;
-
-                case 's':
-                        r = parse_signal_argument(optarg, &arg_signal);
-                        if (r <= 0)
-                                return r;
-                        break;
-
-                case 'H':
-                        arg_transport = BUS_TRANSPORT_REMOTE;
-                        arg_host = optarg;
-                        break;
-
-                case 'M':
-                        r = parse_machine_argument(optarg, &arg_host, &arg_transport);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
-
-        return 1;
-}
-
 static int loginctl_main(int argc, char *argv[], sd_bus *bus) {
         static const Verb verbs[] = {
-                { "help",              VERB_ANY, VERB_ANY, 0,            help              },
+                { "help",              VERB_ANY, VERB_ANY, 0,            verb_help         },
                 { "list-sessions",     VERB_ANY, 1,        VERB_DEFAULT, list_sessions     },
                 { "session-status",    VERB_ANY, VERB_ANY, 0,            show_session      },
                 { "show-session",      VERB_ANY, VERB_ANY, 0,            show_session      },
@@ -1706,7 +1538,7 @@ static int run(int argc, char *argv[]) {
         setlocale(LC_ALL, "");
         log_setup();
 
-        r = parse_argv(argc, argv);
+        r = parse_argv_generated(argc, argv);
         if (r <= 0)
                 return r;
 

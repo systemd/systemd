@@ -45,6 +45,8 @@ static int arg_all = 0;
 STATIC_DESTRUCTOR_REGISTER(arg_devices, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_nqn, freep);
 
+#include "storagetm.args.inc"
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -55,11 +57,7 @@ static int help(void) {
 
         printf("%s [OPTIONS...] [DEVICE...]\n"
                "\n%sExpose a block device or regular file as NVMe-TCP volume.%s\n\n"
-               "  -h --help            Show this help\n"
-               "     --version         Show package version\n"
-               "     --nqn=STRING      Select NQN (NVMe Qualified Name)\n"
-               "  -a --all             Expose all devices\n"
-               "     --list-devices    List candidate block devices to operate on\n"
+               OPTION_HELP_GENERATED
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -70,63 +68,11 @@ static int help(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
+        int r;
 
-        enum {
-                ARG_NQN = 0x100,
-                ARG_VERSION,
-                ARG_LIST_DEVICES,
-        };
-
-        static const struct option options[] = {
-                { "help",         no_argument,       NULL, 'h'              },
-                { "version",      no_argument,       NULL, ARG_VERSION      },
-                { "nqn",          required_argument, NULL, ARG_NQN          },
-                { "all",          no_argument,       NULL, 'a'              },
-                { "list-devices", no_argument,       NULL, ARG_LIST_DEVICES },
-                {}
-        };
-
-        int r, c;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "ha", options, NULL)) >= 0)
-
-                switch (c) {
-
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_NQN:
-                        if (!filename_is_valid(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "NQN invalid: %s", optarg);
-
-                        if (free_and_strdup(&arg_nqn, optarg) < 0)
-                                return log_oom();
-
-                        break;
-
-                case 'a':
-                        arg_all++;
-                        break;
-
-                case ARG_LIST_DEVICES:
-                        r = blockdev_list(BLOCKDEV_LIST_SHOW_SYMLINKS|BLOCKDEV_LIST_IGNORE_ZRAM, /* ret_devices= */ NULL, /* ret_n_devices= */ NULL);
-                        if (r < 0)
-                                return r;
-
-                        return 0;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
+        r = parse_argv_generated(argc, argv);
+        if (r <= 0)
+                return r;
 
         if (arg_all > 0) {
                 if (argc > optind)

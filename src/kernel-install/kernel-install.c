@@ -1520,6 +1520,8 @@ static int verb_list(int argc, char *argv[], void *userdata) {
         return table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
 }
 
+#include "kernel-install.args.inc"
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -1538,26 +1540,8 @@ static int help(void) {
                "                                      [INITRD ...]]\n"
                "  kernel-install [OPTIONS...] list\n"
                "\n%3$sOptions:%4$s\n"
-               "  -h --help                    Show this help\n"
-               "     --version                 Show package version\n"
-               "  -v --verbose                 Increase verbosity\n"
-               "     --esp-path=PATH           Path to the EFI System Partition (ESP)\n"
-               "     --boot-path=PATH          Path to the $BOOT partition\n"
-               "     --make-entry-directory=yes|no|auto\n"
-               "                               Create $BOOT/ENTRY-TOKEN/ directory\n"
-               "     --entry-type=type1|type2|all\n"
-               "                               Operate only on the specified bootloader\n"
-               "                               entry type\n"
-               "     --entry-token=machine-id|os-id|os-image-id|auto|literal:…\n"
-               "                               Entry token to be used for this installation\n"
-               "     --no-pager                Do not pipe inspect output into a pager\n"
-               "     --json=pretty|short|off   Generate JSON output\n"
-               "     --no-legend               Do not show the headers and footers\n"
-               "     --root=PATH               Operate on an alternate filesystem root\n"
-               "     --image=PATH              Operate on disk image as filesystem root\n"
-               "     --image-policy=POLICY     Specify disk image dissection policy\n"
-               "\n"
-               "This program may also be invoked as 'installkernel':\n"
+               OPTION_HELP_GENERATED
+               "\nThis program may also be invoked as 'installkernel':\n"
                "  installkernel  [OPTIONS...] VERSION VMLINUZ [MAP] [INSTALLATION-DIR]\n"
                "(The optional arguments are passed by kernel build system, but ignored.)\n"
                "\n"
@@ -1573,139 +1557,15 @@ static int help(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_NO_LEGEND,
-                ARG_ESP_PATH,
-                ARG_BOOT_PATH,
-                ARG_MAKE_ENTRY_DIRECTORY,
-                ARG_ENTRY_TOKEN,
-                ARG_NO_PAGER,
-                ARG_JSON,
-                ARG_ROOT,
-                ARG_IMAGE,
-                ARG_IMAGE_POLICY,
-                ARG_BOOT_ENTRY_TYPE,
-        };
-        static const struct option options[] = {
-                { "help",                 no_argument,       NULL, 'h'                      },
-                { "version",              no_argument,       NULL, ARG_VERSION              },
-                { "verbose",              no_argument,       NULL, 'v'                      },
-                { "esp-path",             required_argument, NULL, ARG_ESP_PATH             },
-                { "boot-path",            required_argument, NULL, ARG_BOOT_PATH            },
-                { "make-entry-directory", required_argument, NULL, ARG_MAKE_ENTRY_DIRECTORY },
-                { "entry-token",          required_argument, NULL, ARG_ENTRY_TOKEN          },
-                { "no-pager",             no_argument,       NULL, ARG_NO_PAGER             },
-                { "json",                 required_argument, NULL, ARG_JSON                 },
-                { "root",                 required_argument, NULL, ARG_ROOT                 },
-                { "image",                required_argument, NULL, ARG_IMAGE                },
-                { "image-policy",         required_argument, NULL, ARG_IMAGE_POLICY         },
-                { "no-legend",            no_argument,       NULL, ARG_NO_LEGEND            },
-                { "entry-type",           required_argument, NULL, ARG_BOOT_ENTRY_TYPE      },
-                {}
-        };
-        int t, r;
+        int r;
 
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((t = getopt_long(argc, argv, "hv", options, NULL)) >= 0)
-                switch (t) {
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_NO_LEGEND:
-                        arg_legend = false;
-                        break;
-
-                case 'v':
-                        log_set_max_level(LOG_DEBUG);
-                        arg_verbose = true;
-                        break;
-
-                case ARG_ESP_PATH:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_esp_path);
-                        if (r < 0)
-                                return log_oom();
-                        break;
-
-                case ARG_BOOT_PATH:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_xbootldr_path);
-                        if (r < 0)
-                                return log_oom();
-                        break;
-
-                case ARG_MAKE_ENTRY_DIRECTORY:
-                        if (streq(optarg, "auto"))
-                                arg_make_entry_directory = -1;
-                        else {
-                                r = parse_boolean_argument("--make-entry-directory=", optarg, NULL);
-                                if (r < 0)
-                                        return r;
-
-                                arg_make_entry_directory = r;
-                        }
-                        break;
-
-                case ARG_ENTRY_TOKEN:
-                        r = parse_boot_entry_token_type(optarg, &arg_entry_token_type, &arg_entry_token);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_NO_PAGER:
-                        arg_pager_flags |= PAGER_DISABLE;
-                        break;
-
-                case ARG_JSON:
-                        r = parse_json_argument(optarg, &arg_json_format_flags);
-                        if (r <= 0)
-                                return r;
-                        break;
-
-                case ARG_ROOT:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_root);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_IMAGE:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_image);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_IMAGE_POLICY:
-                        r = parse_image_policy_argument(optarg, &arg_image_policy);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_BOOT_ENTRY_TYPE: {
-                        if (isempty(optarg) || streq(optarg, "all")) {
-                                arg_boot_entry_type = _BOOT_ENTRY_TYPE_INVALID;
-                                break;
-                        }
-
-                        BootEntryType e = boot_entry_type_from_string(optarg);
-                        if (e < 0)
-                                return log_error_errno(e, "Invalid entry type: %s", optarg);
-                        arg_boot_entry_type = e;
-                        break;
-                }
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
+        r = parse_argv_generated(argc, argv);
+        if (r <= 0)
+                return r;
 
         if (arg_image && arg_root)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root= or --image=, the combination of both is not supported.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                        "Please specify either --root= or --image=, the combination of both is not supported.");
 
         return 1;
 }

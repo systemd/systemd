@@ -9,6 +9,7 @@ executables += [
                 'name' : 'systemd-creds',
                 'public' : true,
                 'sources' : files('creds.c'),
+                'arg_parser' : files('creds.args'),
                 'dependencies' : [
                         libmount_cflags,
                         libopenssl,

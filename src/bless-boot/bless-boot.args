@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+option -h --help
+
+option --version
+
+option --path=MOUNTPOINT
+help Path to the $BOOT partition (may be used multiple times)
+        r = strv_extend(&arg_path, optarg);
+        if (r < 0)
+                return log_oom();

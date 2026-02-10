@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+option -h --help
+
+option --version
+
+option -c --continuous
+help Continuously wait for changes in the journal
+        arg_continuous = true;
+
+option --tty=TTY
+help Specify path to tty to use
+        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_tty);
+        if (r < 0)
+                return r;
