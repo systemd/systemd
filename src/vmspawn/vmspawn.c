@@ -1400,13 +1400,7 @@ static int cmdline_add_kernel_cmdline(char ***cmdline, const char *kernel, const
 
         KernelImageType type = _KERNEL_IMAGE_TYPE_INVALID;
         if (kernel) {
-                r = inspect_kernel(
-                                AT_FDCWD,
-                                kernel,
-                                &type,
-                                /* ret_cmdline= */ NULL,
-                                /* ret_uname= */ NULL,
-                                /* ret_pretty_name= */ NULL);
+                r = inspect_kernel(AT_FDCWD, kernel, &type);
                 if (r < 0)
                         return log_error_errno(r, "Failed to determine '%s' kernel image type: %m", kernel);
         }
