@@ -66,6 +66,7 @@ def setUpModule():
         'systemd-networkd.socket',
         'systemd-networkd-resolve-hook.socket',
         'systemd-networkd-varlink.socket',
+        'systemd-networkd-varlink-metrics.socket',
         'systemd-networkd.service',
         'systemd-resolved-monitor.socket',
         'systemd-resolved-varlink.socket',
@@ -281,6 +282,7 @@ Gateway=192.168.250.1
         subprocess.check_call(['systemctl', 'stop', 'systemd-networkd.socket'])
         subprocess.check_call(['systemctl', 'stop', 'systemd-networkd-resolve-hook.socket'])
         subprocess.check_call(['systemctl', 'stop', 'systemd-networkd-varlink.socket'])
+        subprocess.check_call(['systemctl', 'stop', 'systemd-networkd-varlink-metrics.socket'])
         subprocess.check_call(['systemctl', 'stop', 'systemd-networkd.service'])
         subprocess.check_call(['ip', 'link', 'del', 'mybridge'])
         subprocess.check_call(['ip', 'link', 'del', 'port1'])
@@ -378,6 +380,7 @@ class ClientTestBase(NetworkdTestingUtilities):
         subprocess.call(['systemctl', 'stop', 'systemd-networkd.socket'])
         subprocess.call(['systemctl', 'stop', 'systemd-networkd-resolve-hook.socket'])
         subprocess.call(['systemctl', 'stop', 'systemd-networkd-varlink.socket'])
+        subprocess.call(['systemctl', 'stop', 'systemd-networkd-varlink-metrics.socket'])
         subprocess.call(['systemctl', 'stop', 'systemd-networkd.service'])
         subprocess.call(['ip', 'link', 'del', 'dummy0'],
                         stderr=subprocess.DEVNULL)
