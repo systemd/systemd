@@ -143,6 +143,12 @@ SPDX-License-Identifier: LGPL-2.1-or-later
     volume is auto-destroyed. Would be exposed via a new flag on the Acquire
     call, similar to the locking logic above.
 
+- clean up credential naming a bit: let's say encrypted creds always should
+  carry .cred suffix, and unencrypted should not.
+
+- clean up naming of sidecar files in sd-stub: let's put global ones strictly
+  into /loader/extras/
+
 - a small tool that can do basic btrfs raid policy mgmt. i.e. gets started as
   part of the initial transaction for some btrfs raid fs, waits for some time,
   then puts message on screen (plymouth, console) that some devices apparently
@@ -2162,10 +2168,6 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   for the measurement log.
 
 - run0: maybe enable utmp for run0 sessions, so that they are easily visible.
-
-- sd-boot/sd-stub: install a uefi "handle" to a sidecar dir of bls type #1
-  entries with an "uki" or "uki-url" stanza, and make sd-stub look for
-  that. That way we can parameterize type #1 entries nicely.
 
 - **sd-boot:**
   - do something useful if we find exactly zero entries (ignoring items
