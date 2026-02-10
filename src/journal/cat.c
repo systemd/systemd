@@ -158,7 +158,7 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(r, "Failed to rearrange stdout/stderr: %m");
 
         if (argc <= optind)
-                (void) execl("/bin/cat", "/bin/cat", NULL);
+                (void) execlp("cat", "cat", NULL);
         else {
                 struct stat st;
 

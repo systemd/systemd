@@ -40,7 +40,7 @@ int polkit_agent_open(void) {
                        &pipe_fd[1],
                        1,
                        &agent_pidref,
-                       POLKIT_AGENT_BINARY_PATH,
+                       PKTTYAGENT,
                        "--notify-fd", notify_fd,
                        "--fallback");
         if (r < 0)
