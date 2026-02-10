@@ -1,0 +1,7 @@
+# This file is part of systemd.
+#
+# Database for scientific equipment.
+#
+# Permitted keys:
+#   Specify if a device is scientific equipment or part thereof
+#   ID_SCIENTIFIC_EQUIPMENT=1|0
