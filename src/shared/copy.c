@@ -193,16 +193,26 @@ int copy_bytes_full(
         if (fdt < 0)
                 return fdt;
 
+        if (FLAGS_SET(copy_flags, COPY_SEEK0_SOURCE) &&
+            lseek(fdf, 0, SEEK_SET) < 0)
+                return -errno;
+
+        if (FLAGS_SET(copy_flags, COPY_SEEK0_TARGET) &&
+            lseek(fdt, 0, SEEK_SET) < 0)
+                return -errno;
+
         /* Try btrfs reflinks first. This only works on regular, seekable files, hence let's check the file offsets of
          * source and destination first. */
         if ((copy_flags & COPY_REFLINK)) {
                 off_t foffset;
 
-                foffset = lseek(fdf, 0, SEEK_CUR);
+                /* In reflink mode we need to know where the current file offset is, but if we just seeked to
+                 * 0 anyway, we can suppress that. */
+                foffset = FLAGS_SET(copy_flags, COPY_SEEK0_SOURCE) ? 0 : lseek(fdf, 0, SEEK_CUR);
                 if (foffset >= 0) {
                         off_t toffset;
 
-                        toffset = lseek(fdt, 0, SEEK_CUR);
+                        toffset = FLAGS_SET(copy_flags, COPY_SEEK0_TARGET) ? 0 : lseek(fdt, 0, SEEK_CUR);
                         if (toffset >= 0) {
 
                                 if (foffset == 0 && toffset == 0 && max_bytes == UINT64_MAX)
