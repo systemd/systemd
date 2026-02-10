@@ -374,7 +374,7 @@ testcase_00_secureboot() {
     bootctl status | grep "Secure Boot: enabled" >/dev/null
 
     # Ensure the addon is fully loaded and parsed
-    bootctl status | grep "global-addon: loader/addons/test.addon.efi" >/dev/null
+    bootctl status | grep "extra: /boot//loader/addons/test.addon.efi" >/dev/null
     bootctl status | grep "cmdline" | grep addonfoobar >/dev/null
     grep -q addonfoobar /proc/cmdline
 }
