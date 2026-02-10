@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+option -h --help
+
+option --version
+
+option --system
+help Connect to system service manager (default)
+        arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
+
+option --user
+help Connect to user service manager
+        arg_runtime_scope = RUNTIME_SCOPE_USER;
+
+option --json=pretty|short
+help Configure JSON output
+        r = parse_json_argument(optarg, &arg_json_format_flags);
+        if (r <= 0)
+                return r;
