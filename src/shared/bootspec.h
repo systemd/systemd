@@ -20,15 +20,25 @@ typedef enum BootEntrySource {
         _BOOT_ENTRY_SOURCE_INVALID = -EINVAL,
 } BootEntrySource;
 
-typedef struct BootEntryAddon {
-        char *location;
-        char *cmdline;
-} BootEntryAddon;
+typedef enum BootEntryExtraType {
+        BOOT_ENTRY_ADDON,
+        BOOT_ENTRY_CONFEXT,
+        BOOT_ENTRY_SYSEXT,
+        BOOT_ENTRY_CREDENTIAL,
+        _BOOT_ENTRY_EXTRA_TYPE_MAX,
+        _BOOT_ENTRY_EXTRA_TYPE_INVALID = -EINVAL,
+} BootEntryExtraType;
 
-typedef struct BootEntryAddons {
-        BootEntryAddon *items;
+typedef struct BootEntryExtra {
+        BootEntryExtraType type;
+        char *location;
+        char *cmdline; /* only for BOOT_ENTRY_ADDON */
+} BootEntryExtra;
+
+typedef struct BootEntryExtras {
+        BootEntryExtra *items;
         size_t n_items;
-} BootEntryAddons;
+} BootEntryExtras;
 
 typedef struct BootEntry {
         BootEntryType type;
@@ -46,8 +56,8 @@ typedef struct BootEntry {
         char *machine_id;
         char *architecture;
         char **options;
-        BootEntryAddons local_addons;
-        const BootEntryAddons *global_addons; /* Backpointer into the BootConfig; we don't own this here */
+        BootEntryExtras local_extras;
+        const BootEntryExtras *global_extras; /* Backpointer into the BootConfig; we don't own this here */
         char *kernel;        /* linux is #defined to 1, yikes! */
         char *efi;
         char *uki;
@@ -84,7 +94,7 @@ typedef struct BootConfig {
         BootEntry *entries;
         size_t n_entries;
 
-        BootEntryAddons global_addons[_BOOT_ENTRY_SOURCE_MAX];
+        BootEntryExtras global_extras[_BOOT_ENTRY_SOURCE_MAX];
 
         ssize_t default_entry;
         ssize_t selected_entry;
