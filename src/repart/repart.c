@@ -5061,9 +5061,6 @@ static int partition_target_sync(Context *context, Partition *p, PartitionTarget
                 if (lseek(whole_fd, p->offset, SEEK_SET) < 0)
                         return log_error_errno(errno, "Failed to seek to partition offset: %m");
 
-                if (lseek(t->fd, 0, SEEK_SET) < 0)
-                        return log_error_errno(errno, "Failed to seek to start of temporary file: %m");
-
                 if (fstat(t->fd, &st) < 0)
                         return log_error_errno(errno, "Failed to stat temporary file: %m");
 
@@ -5072,7 +5069,7 @@ static int partition_target_sync(Context *context, Partition *p, PartitionTarget
                                                "Partition %" PRIu64 "'s contents (%s) don't fit in the partition (%s).",
                                                p->partno, FORMAT_BYTES(st.st_size), FORMAT_BYTES(p->new_size));
 
-                r = copy_bytes(t->fd, whole_fd, UINT64_MAX, COPY_REFLINK|COPY_HOLES|COPY_FSYNC);
+                r = copy_bytes(t->fd, whole_fd, UINT64_MAX, COPY_REFLINK|COPY_HOLES|COPY_FSYNC|COPY_SEEK0_SOURCE);
                 if (r < 0)
                         return log_error_errno(r, "Failed to copy bytes to partition: %m");
         } else {
