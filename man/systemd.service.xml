@@ -1349,6 +1349,28 @@
         <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>RefreshOnReload=</varname></term>
+
+        <listitem><para>Takes a boolean argument, or a list of resources defined in
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        Possible values are <option>extensions</option> and <option>credentials</option>, separated by space.
+        Prepending the list with a single tilde character (<literal>~</literal>) inverts the effect.
+        Defaults to <option>extensions</option>. An empty assignment resets the list to default. If enabled,
+        the corresponding resources (<option>ExtensionImages=</option>/<option>ExtensionDirectories=</option>
+        for <option>extensions</option> and <option>LoadCredential=</option>/<option>ImportCredential=</option>/
+        <option>SetCredential=</option> (along with their <option>Encrypted</option> counterparts)
+        for <option>credentials</option>) will be refreshed on service reload. If <option>yes</option>,
+        all resources listed above that are used by the service shall be refreshed.</para>
+
+        <para>Specially, if this option is set explicitly, and the respective resources are in use,
+        the service may be reloaded without any actual reload mechanism (<option>ExecReload=</option>
+        or <option>Type=notify-reload</option>) for notifying the main process, in which case the reload
+        is considered complete immediately after refreshing.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
     </variablelist>
 
     <para id='shared-unit-options'>Check
