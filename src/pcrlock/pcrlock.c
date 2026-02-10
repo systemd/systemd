@@ -5417,24 +5417,23 @@ static int vl_method_read_event_log(sd_varlink *link, sd_json_variant *parameter
         if (r < 0)
                 return r;
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *rec_cel = NULL;
+        // FIXME: We can't use a NULL sentinel here because the output fields in the IDL are non-nullable.
+        r = varlink_set_sentinel(link, NULL);
+        if (r < 0)
+                return r;
 
         FOREACH_ARRAY(rr, el->records, el->n_records) {
-
-                if (rec_cel) {
-                        r = sd_varlink_notifybo(link, SD_JSON_BUILD_PAIR_VARIANT("record", rec_cel));
-                        if (r < 0)
-                                return r;
-
-                        rec_cel = sd_json_variant_unref(rec_cel);
-                }
-
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *rec_cel = NULL;
                 r = event_log_record_to_cel(*rr, &recnum, &rec_cel);
+                if (r < 0)
+                        return r;
+
+                r = sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_VARIANT("record", rec_cel));
                 if (r < 0)
                         return r;
         }
 
-        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_CONDITION(!!rec_cel, "record", SD_JSON_BUILD_VARIANT(rec_cel)));
+        return 0;
 }
 
 typedef struct MethodMakePolicyParameters {
