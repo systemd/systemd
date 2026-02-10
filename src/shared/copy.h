@@ -33,6 +33,8 @@ typedef enum CopyFlags {
          */
         COPY_NOCOW_AFTER                  = 1 << 20,
         COPY_PRESERVE_FS_VERITY           = 1 << 21, /* Preserve fs-verity when copying. */
+        COPY_SEEK0_SOURCE                 = 1 << 22, /* Seek back to start of source file before copying */
+        COPY_SEEK0_TARGET                 = 1 << 23, /* Seek back to start of target file before copying */
 } CopyFlags;
 
 typedef enum DenyType {
