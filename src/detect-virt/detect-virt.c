@@ -21,6 +21,8 @@ static enum {
         ONLY_CVM,
 } arg_mode = ANY_VIRTUALIZATION;
 
+#include "detect-virt.args.inc"
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -31,17 +33,7 @@ static int help(void) {
 
         printf("%s [OPTIONS...]\n\n"
                "Detect execution in a virtualized environment.\n\n"
-               "  -h --help             Show this help\n"
-               "     --version          Show package version\n"
-               "  -c --container        Only detect whether we are run in a container\n"
-               "  -v --vm               Only detect whether we are run in a VM\n"
-               "  -r --chroot           Detect whether we are run in a chroot() environment\n"
-               "     --private-users    Only detect whether we are running in a user namespace\n"
-               "     --cvm              Only detect whether we are run in a confidential VM\n"
-               "  -q --quiet            Don't output anything, just set return value\n"
-               "     --list             List all known and detectable types of virtualization\n"
-               "     --list-cvm         List all known and detectable types of confidential \n"
-               "                        virtualization\n"
+               OPTION_HELP_GENERATED
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                link);
@@ -50,80 +42,11 @@ static int help(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
+        int r;
 
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_PRIVATE_USERS,
-                ARG_LIST,
-                ARG_CVM,
-                ARG_LIST_CVM,
-        };
-
-        static const struct option options[] = {
-                { "help",          no_argument, NULL, 'h'               },
-                { "version",       no_argument, NULL, ARG_VERSION       },
-                { "container",     no_argument, NULL, 'c'               },
-                { "vm",            no_argument, NULL, 'v'               },
-                { "chroot",        no_argument, NULL, 'r'               },
-                { "private-users", no_argument, NULL, ARG_PRIVATE_USERS },
-                { "quiet",         no_argument, NULL, 'q'               },
-                { "cvm",           no_argument, NULL, ARG_CVM           },
-                { "list",          no_argument, NULL, ARG_LIST          },
-                { "list-cvm",      no_argument, NULL, ARG_LIST_CVM      },
-                {}
-        };
-
-        int c;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "hqcvr", options, NULL)) >= 0)
-
-                switch (c) {
-
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case 'q':
-                        arg_quiet = true;
-                        break;
-
-                case 'c':
-                        arg_mode = ONLY_CONTAINER;
-                        break;
-
-                case ARG_PRIVATE_USERS:
-                        arg_mode = ONLY_PRIVATE_USERS;
-                        break;
-
-                case 'v':
-                        arg_mode = ONLY_VM;
-                        break;
-
-                case 'r':
-                        arg_mode = ONLY_CHROOT;
-                        break;
-
-                case ARG_LIST:
-                        return DUMP_STRING_TABLE(virtualization, Virtualization, _VIRTUALIZATION_MAX);
-
-                case ARG_CVM:
-                        arg_mode = ONLY_CVM;
-                        return 1;
-
-                case ARG_LIST_CVM:
-                        return DUMP_STRING_TABLE(confidential_virtualization, ConfidentialVirtualization, _CONFIDENTIAL_VIRTUALIZATION_MAX);
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
+        r = parse_argv_generated(argc, argv);
+        if (r <= 0)
+                return r;
 
         if (optind < argc)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),

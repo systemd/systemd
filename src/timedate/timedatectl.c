@@ -890,6 +890,8 @@ static int verb_revert(int argc, char **argv, void *userdata) {
         return 0;
 }
 
+#include "timedatectl.args.inc"
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -915,17 +917,7 @@ static int help(void) {
                "                           Set the interface specific NTP servers\n"
                "  revert INTERFACE         Revert the interface specific NTP servers\n"
                "\nOptions:\n"
-               "  -h --help                Show this help message\n"
-               "     --version             Show package version\n"
-               "     --no-pager            Do not pipe output into a pager\n"
-               "     --no-ask-password     Do not prompt for password\n"
-               "  -H --host=[USER@]HOST    Operate on remote host\n"
-               "  -M --machine=CONTAINER   Operate on local container\n"
-               "     --adjust-system-clock Adjust system clock when changing local RTC mode\n"
-               "     --monitor             Monitor status of systemd-timesyncd\n"
-               "  -p --property=NAME       Show only properties by this name\n"
-               "  -a --all                 Show all properties, including empty ones\n"
-               "     --value               When showing properties, only print the value\n"
+               OPTION_HELP_GENERATED
                "  -P NAME                  Equivalent to --value --property=NAME\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
@@ -934,107 +926,6 @@ static int help(void) {
                link);
 
         return 0;
-}
-
-static int verb_help(int argc, char **argv, void *userdata) {
-        return help();
-}
-
-static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_NO_PAGER,
-                ARG_ADJUST_SYSTEM_CLOCK,
-                ARG_NO_ASK_PASSWORD,
-                ARG_MONITOR,
-                ARG_VALUE,
-        };
-
-        static const struct option options[] = {
-                { "help",                no_argument,       NULL, 'h'                     },
-                { "version",             no_argument,       NULL, ARG_VERSION             },
-                { "no-pager",            no_argument,       NULL, ARG_NO_PAGER            },
-                { "host",                required_argument, NULL, 'H'                     },
-                { "machine",             required_argument, NULL, 'M'                     },
-                { "no-ask-password",     no_argument,       NULL, ARG_NO_ASK_PASSWORD     },
-                { "adjust-system-clock", no_argument,       NULL, ARG_ADJUST_SYSTEM_CLOCK },
-                { "monitor",             no_argument,       NULL, ARG_MONITOR             },
-                { "property",            required_argument, NULL, 'p'                     },
-                { "value",               no_argument,       NULL, ARG_VALUE               },
-                { "all",                 no_argument,       NULL, 'a'                     },
-                {}
-        };
-
-        int c, r;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "hH:M:p:P:a", options, NULL)) >= 0)
-                switch (c) {
-
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case 'H':
-                        arg_transport = BUS_TRANSPORT_REMOTE;
-                        arg_host = optarg;
-                        break;
-
-                case 'M':
-                        r = parse_machine_argument(optarg, &arg_host, &arg_transport);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_NO_ASK_PASSWORD:
-                        arg_ask_password = false;
-                        break;
-
-                case ARG_ADJUST_SYSTEM_CLOCK:
-                        arg_adjust_system_clock = true;
-                        break;
-
-                case ARG_NO_PAGER:
-                        arg_pager_flags |= PAGER_DISABLE;
-                        break;
-
-                case ARG_MONITOR:
-                        arg_monitor = true;
-                        break;
-
-                case 'p':
-                case 'P':
-                        r = strv_extend(&arg_property, optarg);
-                        if (r < 0)
-                                return log_oom();
-
-                        /* If the user asked for a particular property, show it to them, even if empty. */
-                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY, true);
-
-                        if (c == 'p')
-                                break;
-                        _fallthrough_;
-
-                case ARG_VALUE:
-                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_ONLY_VALUE, true);
-                        break;
-
-                case 'a':
-                        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY, true);
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
-
-        return 1;
 }
 
 static int timedatectl_main(sd_bus *bus, int argc, char *argv[]) {
@@ -1064,7 +955,7 @@ static int run(int argc, char *argv[]) {
         setlocale(LC_ALL, "");
         log_setup();
 
-        r = parse_argv(argc, argv);
+        r = parse_argv_generated(argc, argv);
         if (r <= 0)
                 return r;
 

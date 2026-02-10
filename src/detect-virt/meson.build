@@ -5,5 +5,6 @@ executables += [
                 'name' : 'systemd-detect-virt',
                 'public' : true,
                 'sources' : files('detect-virt.c'),
+                'arg_parser' : files('detect-virt.args'),
         },
 ]

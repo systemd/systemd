@@ -1,0 +1,105 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+option -h --help
+
+option --version
+
+option --no-pager
+
+option --no-legend
+help Do not show the headers and footers
+        arg_legend = false;
+
+option --no-ask-password
+help Do not ask for system passwords
+        arg_ask_password = false;
+
+option -H= --host=[USER@]HOST
+help Operate on remote host
+        arg_transport = BUS_TRANSPORT_REMOTE;
+        arg_host = optarg;
+
+option -M= --machine=CONTAINER
+help Operate on local container
+        r = parse_machine_argument(optarg, &arg_host, &arg_transport);
+        if (r < 0)
+                return r;
+
+option --system
+help Enumerate system registry
+        arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
+
+option --user
+help Enumerate user registry
+        arg_runtime_scope = RUNTIME_SCOPE_USER;
+
+option -q --quiet
+help Suppress informational messages
+        arg_quiet = true;
+
+option -p= --profile=PROFILE
+help Pick security profile for portable service
+        if (streq(optarg, "help"))
+                return dump_profiles();
+
+        if (!filename_is_valid(optarg))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Unit profile name not valid: %s", optarg);
+
+        arg_profile = optarg;
+
+option --copy=copy|auto|symlink|mixed|help
+help Pick copying or symlinking of resources
+        if (streq(optarg, "help")) {
+                puts("auto\n"
+                     "copy\n"
+                     "symlink\n"
+                     "mixed\n");
+                return 0;
+        }
+        if (streq(optarg, "auto"))
+                arg_copy_mode = NULL;
+        else if (STR_IN_SET(optarg, "copy", "symlink", "mixed"))
+                arg_copy_mode = optarg;
+        else
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Failed to parse --copy= argument: %s", optarg);
+
+option --runtime
+help Attach portable service until next reboot only
+        arg_runtime = true;
+
+option --no-reload
+help Don't reload the system and service manager
+        arg_reload = false;
+
+option --cat
+help When inspecting include unit and os-release file contents
+        arg_cat = true;
+
+option --enable
+help Immediately enable/disable the portable service after attach/detach
+        arg_enable = true;
+
+option --now
+help Immediately start/stop the portable service after attach/before detach
+        arg_now = true;
+
+option --no-block
+help Don't block waiting for attach --now to complete
+        arg_no_block = true;
+
+option --extension=PATH
+help Extend the image with an overlay
+        r = strv_extend(&arg_extension_images, optarg);
+        if (r < 0)
+                return log_oom();
+
+option --force
+help Skip 'already active' check when attaching or detaching an image (with extensions)
+        arg_force = true;
+
+option --clean
+help When detaching, also remove configuration, state, cache, logs, and runtime data
+help of the portable service
+        arg_clean = true;

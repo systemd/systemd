@@ -36,11 +36,6 @@ logind_gperf_c = custom_target(
 generated_sources += logind_gperf_c
 systemd_logind_extract_sources += [logind_gperf_c]
 
-loginctl_sources = files(
-        'loginctl.c',
-        'sysfs-show.c',
-)
-
 executables += [
         libexec_template + {
                 'name' : 'systemd-logind',
@@ -54,7 +49,11 @@ executables += [
         executable_template + {
                 'name' : 'loginctl',
                 'public' : true,
-                'sources' : loginctl_sources,
+                'sources' : files(
+                        'loginctl.c',
+                        'sysfs-show.c',
+                ),
+                'arg_parser' : files('loginctl.args'),
                 'dependencies' : [
                         liblz4_cflags,
                         libxz_cflags,
@@ -66,6 +65,7 @@ executables += [
                 'name' : 'systemd-inhibit',
                 'public' : true,
                 'sources' : files('inhibit.c'),
+                'arg_parser' : files('inhibit.args'),
         },
         libexec_template + {
                 'name' : 'systemd-user-runtime-dir',

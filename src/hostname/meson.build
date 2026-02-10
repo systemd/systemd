@@ -14,6 +14,7 @@ executables += [
                 'name' : 'hostnamectl',
                 'public' : true,
                 'sources' : files('hostnamectl.c'),
+                'arg_parser' : files('hostnamectl.args'),
         },
 ]
 

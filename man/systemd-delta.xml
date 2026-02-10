@@ -82,9 +82,8 @@
         <term><option>-t</option></term>
         <term><option>--type=</option></term>
 
-        <listitem><para>When listing the differences, only list those
-        that are asked for. The list itself is a comma-separated list
-        of desired difference types.</para>
+        <listitem><para>When listing the differences, only list those that are asked for. The list itself is
+        a comma-separated list of desired difference types. An empty argument resets the list.</para>
 
         <para>Recognized types are:
 

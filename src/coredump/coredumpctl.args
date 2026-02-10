@@ -1,0 +1,116 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+option -h --help
+
+option --version
+
+option     --no-pager
+help Do not pipe output into a pager
+        arg_pager_flags |= PAGER_DISABLE;
+
+option --no-legend
+help Do not print the column headers
+        arg_legend = false;
+
+option --json=pretty|short|off
+help Generate JSON output
+        r = parse_json_argument(optarg, &arg_json_format_flags);
+        if (r <= 0)
+                return r;
+
+option --debugger=DEBUGGER
+help Use the given debugger
+        arg_debugger = optarg;
+
+option -A= --debugger-arguments=ARGS
+help Pass the given arguments to the debugger
+        _cleanup_strv_free_ char **l = NULL;
+        r = strv_split_full(&l, optarg, WHITESPACE, EXTRACT_UNQUOTE);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse debugger arguments '%s': %m", optarg);
+        strv_free_and_replace(arg_debugger_args, l);
+
+option -n=INT
+help Show maximum number of rows
+scope
+        unsigned n;
+
+        r = safe_atou(optarg, &n);
+        if (r < 0 || n < 1)
+                return log_error_errno(r < 0 ? r : SYNTHETIC_ERRNO(EINVAL),
+                                       "Invalid numeric parameter to -n: %s", optarg);
+
+        arg_rows_max = n;
+
+option -1
+help Show information about most recent entry only
+        arg_rows_max = 1;
+        arg_reverse = true;
+
+option -S= --since=DATE
+help Only print coredumps since the date
+        r = parse_timestamp(optarg, &arg_since);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse timestamp '%s': %m", optarg);
+
+option -U= --until=DATE
+help Only print coredumps until the date
+        r = parse_timestamp(optarg, &arg_until);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse timestamp '%s': %m", optarg);
+
+option -r --reverse
+help Show the newest entries first
+        arg_reverse = true;
+
+option -F= --field=FIELD
+help List all values a certain field takes
+        if (arg_field)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Cannot use --field/-F more than once.");
+        arg_field = optarg;
+
+option -o= --output=FILE
+help Write output to FILE
+        if (arg_output)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Cannot set output more than once.");
+
+        arg_output = optarg;
+
+option --file=PATH
+help Use journal file
+        r = glob_extend(&arg_file, optarg, GLOB_NOCHECK);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add paths: %m");
+
+
+option -D= --directory=DIR
+help Use journal files from directoryn
+        arg_directory = optarg;
+
+option -q --quiet
+help Do not show info messages and privilege warning
+        arg_quiet = true;
+
+option --all
+help Look at all journal files instead of local ones
+        arg_all = true;
+
+option --root=PATH
+help Operate on an alternate filesystem root
+        r = parse_path_argument(optarg, false, &arg_root);
+        if (r < 0)
+                return r;
+
+option --image=PATH
+help Operate on disk image as filesystem root
+        r = parse_path_argument(optarg, false, &arg_image);
+        if (r < 0)
+                return r;
+
+option --image-policy=POLICY
+help Specify disk image dissection policy
+        r = parse_image_policy_argument(optarg, &arg_image_policy);
+        if (r < 0)
+                return r;

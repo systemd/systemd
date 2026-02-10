@@ -10,6 +10,7 @@ executables += [
                         'HAVE_TPM2',
                 ],
                 'sources' : files('pcrextend.c'),
+                'arg_parser' : files('pcrextend.args'),
                 'dependencies' : [
                         libopenssl,
                         tpm2,

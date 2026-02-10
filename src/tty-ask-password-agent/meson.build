@@ -5,5 +5,6 @@ executables += [
                 'name' : 'systemd-tty-ask-password-agent',
                 'public' : true,
                 'sources' : files('tty-ask-password-agent.c'),
+                'arg_parser' : files('tty-ask-password-agent.args'),
         },
 ]

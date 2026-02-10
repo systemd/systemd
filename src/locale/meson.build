@@ -37,6 +37,7 @@ executables += [
                 'name' : 'localectl',
                 'public' : true,
                 'sources' : files('localectl.c'),
+                'arg_parser' : files('localectl.args'),
         },
         test_template + {
                 'sources' : files('test-localed-util.c'),

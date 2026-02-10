@@ -1,0 +1,44 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+option -h --help
+group commands
+
+option --version
+group commands
+
+option --cat-config
+help Show configuration files
+group commands
+        arg_cat_flags = CAT_CONFIG_ON;
+
+option --tldr
+help Show non-comment parts of configuration
+group commands
+        arg_cat_flags = CAT_TLDR;
+
+option --prefix=PATH
+help Only apply rules with the specified prefix
+scope
+        /* We used to require people to specify absolute paths
+         * in /proc/sys in the past. This is kinda useless, but
+         * we need to keep compatibility. We now support any
+         * sysctl name available. */
+        sysctl_normalize(optarg);
+
+        const char *s = path_startswith(optarg, "/proc/sys");
+        char *p = strdup(s ?: optarg);
+        if (!p)
+                return log_oom();
+
+        if (strv_consume(&arg_prefixes, p) < 0)
+                return log_oom();
+
+option --no-pager
+
+option --strict
+help Fail on any kind of failures
+        arg_strict = true;
+
+option --inline
+help Treat arguments as configuration lines
+        arg_inline = true;

@@ -17,7 +17,9 @@
 
 static PagerFlags arg_pager_flags = 0;
 
-static int help(int argc, char *argv[], void *userdata) {
+#include "oomctl.args.inc"
+
+static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
@@ -32,9 +34,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "\n%4$sCommands:%5$s\n"
                "  dump                        Output the current state of systemd-oomd\n"
                "\n%4$sOptions:%5$s\n"
-               "  -h --help                   Show this help\n"
-               "     --version                Show package version\n"
-               "     --no-pager               Do not pipe output into a pager\n"
+               OPTION_HELP_GENERATED
                "\nSee the %6$s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -65,51 +65,9 @@ static int dump_state(int argc, char *argv[], void *userdata) {
         return bus_message_dump_fd(reply);
 }
 
-static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_NO_PAGER,
-        };
-
-        static const struct option options[] = {
-                { "help",     no_argument, NULL, 'h'          },
-                { "version",  no_argument, NULL, ARG_VERSION  },
-                { "no-pager", no_argument, NULL, ARG_NO_PAGER },
-                {}
-        };
-
-        int c;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
-
-                switch (c) {
-
-                        case 'h':
-                                return help(0, NULL, NULL);
-
-                        case ARG_VERSION:
-                                return version();
-
-                        case ARG_NO_PAGER:
-                                arg_pager_flags |= PAGER_DISABLE;
-                                break;
-
-                        case '?':
-                                return -EINVAL;
-
-                        default:
-                                assert_not_reached();
-                }
-
-        return 1;
-}
-
 static int run(int argc, char* argv[]) {
         static const Verb verbs[] = {
-                { "help", VERB_ANY, VERB_ANY, 0,            help       },
+                { "help", VERB_ANY, VERB_ANY, 0,            verb_help  },
                 { "dump", VERB_ANY, 1,        VERB_DEFAULT, dump_state },
                 {}
         };
@@ -118,7 +76,7 @@ static int run(int argc, char* argv[]) {
 
         log_setup();
 
-        r = parse_argv(argc, argv);
+        r = parse_argv_generated(argc, argv);
         if (r <= 0)
                 return r;
 

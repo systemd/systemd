@@ -16,7 +16,7 @@
 #include "initrd-util.h"
 #include "io-util.h"
 #include "log.h"
-#include "machine-id-setup.h"
+#include "machine-id-util.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
 #include "namespace-util.h"

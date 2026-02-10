@@ -10,7 +10,7 @@
 #include "image-policy.h"
 #include "log.h"
 #include "loop-util.h"
-#include "machine-id-setup.h"
+#include "machine-id-util.h"
 #include "main-func.h"
 #include "mount-util.h"
 #include "parse-argument.h"
@@ -26,6 +26,8 @@ STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
+#include "machine-id-setup.args.inc"
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -37,14 +39,9 @@ static int help(void) {
         printf("%1$s [OPTIONS...]\n"
                "\n%2$sInitialize /etc/machine-id from a random source.%4$s\n"
                "\n%3$sCommands:%4$s\n"
-               "     --commit               Commit transient ID\n"
-               "  -h --help                 Show this help\n"
-               "     --version              Show package version\n"
+               OPTION_HELP_GENERATED_COMMANDS
                "\n%3$sOptions:%4$s\n"
-               "     --root=PATH            Operate on an alternate filesystem root\n"
-               "     --image=PATH           Operate on disk image as filesystem root\n"
-               "     --image-policy=POLICY  Specify disk image dissection policy\n"
-               "     --print                Print used machine ID\n"
+               OPTION_HELP_GENERATED
                "\nSee the %5$s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -55,86 +52,6 @@ static int help(void) {
         return 0;
 }
 
-static int parse_argv(int argc, char *argv[]) {
-
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_ROOT,
-                ARG_IMAGE,
-                ARG_IMAGE_POLICY,
-                ARG_COMMIT,
-                ARG_PRINT,
-        };
-
-        static const struct option options[] = {
-                { "help",         no_argument,       NULL, 'h'              },
-                { "version",      no_argument,       NULL, ARG_VERSION      },
-                { "root",         required_argument, NULL, ARG_ROOT         },
-                { "image",        required_argument, NULL, ARG_IMAGE        },
-                { "image-policy", required_argument, NULL, ARG_IMAGE_POLICY },
-                { "commit",       no_argument,       NULL, ARG_COMMIT       },
-                { "print",        no_argument,       NULL, ARG_PRINT        },
-                {}
-        };
-
-        int c, r;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
-
-                switch (c) {
-
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_ROOT:
-                        r = parse_path_argument(optarg, true, &arg_root);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_IMAGE:
-                        r = parse_path_argument(optarg, false, &arg_image);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_IMAGE_POLICY:
-                        r = parse_image_policy_argument(optarg, &arg_image_policy);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_COMMIT:
-                        arg_commit = true;
-                        break;
-
-                case ARG_PRINT:
-                        arg_print = true;
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
-
-        if (optind < argc)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Extraneous arguments");
-
-        if (arg_image && arg_root)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root= or --image=, the combination of both is not supported.");
-
-        return 1;
-}
-
 static int run(int argc, char *argv[]) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
@@ -142,7 +59,7 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        r = parse_argv(argc, argv);
+        r = parse_argv_generated(argc, argv);
         if (r <= 0)
                 return r;
 

@@ -20,6 +20,8 @@
 static char *arg_target_solution = NULL;
 STATIC_DESTRUCTOR_REGISTER(arg_target_solution, freep);
 
+#include "iocost.args.inc"
+
 static int parse_config(void) {
         static const ConfigTableItem items[] = {
                 { "IOCost", "TargetSolution", config_parse_string, 0, &arg_target_solution },
@@ -58,46 +60,10 @@ static int help(void) {
                "  query <path>               Query the known solution for\n"
                "                             the device\n"
                "\nOptions:\n"
-               "  -h --help                  Show this help\n"
-               "     --version               Show package version\n",
+               OPTION_HELP_GENERATED,
                program_invocation_short_name);
 
         return 0;
-}
-
-static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-        };
-
-        static const struct option options[] = {
-                { "help",      no_argument,       NULL, 'h'           },
-                { "version",   no_argument,       NULL, ARG_VERSION   },
-                {}
-        };
-
-        int c;
-
-        assert(argc >= 1);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
-                switch (c) {
-
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
-
-        return 1;
 }
 
 static int get_known_solutions(sd_device *device, int log_level, char ***ret_solutions, const char **ret_selected) {
@@ -305,7 +271,7 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        r = parse_argv(argc, argv);
+        r = parse_argv_generated(argc, argv);
         if (r <= 0)
                 return r;
 

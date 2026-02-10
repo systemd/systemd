@@ -1,0 +1,51 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+option -h --help
+
+option --version
+
+option --no-ask-password
+help Do not prompt for password
+        arg_ask_password = false;
+
+option --no-pager
+
+option -H= --host=[USER@]HOST
+help Operate on remote host
+        arg_transport = BUS_TRANSPORT_REMOTE;
+        arg_host = optarg;
+
+option -M= --machine=CONTAINER
+help Operate on local container
+        r = parse_machine_argument(optarg, &arg_host, &arg_transport);
+        if (r < 0)
+                return r;
+
+option --adjust-system-clock
+help Adjust system clock when changing local RTC mode
+        arg_adjust_system_clock = true;
+
+option --monitor
+help Monitor status of systemd-timesyncd
+        arg_monitor = true;
+
+option -p= --property=NAME -P=
+help Show only properties by this name
+        r = strv_extend(&arg_property, optarg);
+        if (r < 0)
+                return log_oom();
+
+        /* If the user asked for a particular property, show it to them, even if empty. */
+        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY, true);
+
+        if (c == 'p')
+                break;
+        _fallthrough_;
+
+option --value
+help When showing properties, only print the value
+        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_ONLY_VALUE, true);
+
+option -a --all
+help Show all properties, including empty ones
+        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY, true);

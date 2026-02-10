@@ -89,6 +89,7 @@ executables += [
                 'name' : 'homectl',
                 'public' : true,
                 'sources' : homectl_sources,
+                'arg_parser' : files('homectl.args'),
                 'objects' : ['systemd-homed'],
                 'dependencies' : [
                         libdl,

@@ -9,6 +9,7 @@ executables += [
                 'name' : 'systemd-dissect',
                 'public' : true,
                 'sources' : files('dissect.c'),
+                'arg_parser' : files('dissect.args'),
         },
 ]
 

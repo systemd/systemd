@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+option -h --help
+
+option --version
+
+option -v --verbose
+help Show state as text
+        arg_verbose = true;
+
+option --low
+help Check if battery is discharging and low
+        arg_action = ACTION_LOW;

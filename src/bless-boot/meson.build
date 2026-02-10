@@ -18,6 +18,7 @@ executables += [
                         'ENABLE_BOOTLOADER',
                 ],
                 'sources' : files('bless-boot.c'),
+                'arg_parser' : files('bless-boot.args'),
                 'link_with' : boot_link_with,
         },
         generator_template + {
@@ -32,5 +33,6 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-boot-check-no-failures',
                 'sources' : files('boot-check-no-failures.c'),
+                'arg_parser' : files('boot-check-no-failures.args'),
         },
 ]

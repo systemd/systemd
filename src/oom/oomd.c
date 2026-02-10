@@ -22,6 +22,8 @@
 
 static bool arg_dry_run = false;
 
+#include "oomd.args.inc"
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -32,70 +34,12 @@ static int help(void) {
 
         printf("%s [OPTIONS...]\n\n"
                "Run the userspace out-of-memory (OOM) killer.\n\n"
-               "  -h --help                 Show this help\n"
-               "     --version              Show package version\n"
-               "     --dry-run              Only print destructive actions instead of doing them\n"
-               "     --bus-introspect=PATH  Write D-Bus XML introspection data\n"
+               OPTION_HELP_GENERATED
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                link);
 
         return 0;
-}
-
-static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_DRY_RUN,
-                ARG_BUS_INTROSPECT,
-        };
-
-        static const struct option options[] = {
-                { "help",           no_argument,       NULL, 'h'                },
-                { "version",        no_argument,       NULL, ARG_VERSION        },
-                { "dry-run",        no_argument,       NULL, ARG_DRY_RUN        },
-                { "bus-introspect", required_argument, NULL, ARG_BUS_INTROSPECT },
-                {}
-        };
-
-        int c;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
-
-                switch (c) {
-
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_DRY_RUN:
-                        arg_dry_run = true;
-                        break;
-
-                case ARG_BUS_INTROSPECT:
-                        return bus_introspect_implementations(
-                                        stdout,
-                                        optarg,
-                                        BUS_IMPLEMENTATIONS(&manager_object,
-                                                            &log_control_object));
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
-
-        if (optind < argc)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "This program takes no arguments.");
-
-        return 1;
 }
 
 static int run(int argc, char *argv[]) {
@@ -108,9 +52,13 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        r = parse_argv(argc, argv);
+        r = parse_argv_generated(argc, argv);
         if (r <= 0)
                 return r;
+
+        if (optind < argc)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "This program takes no arguments.");
 
         /* Do some basic requirement checks for running systemd-oomd. It's not exhaustive as some of the other
          * requirements do not have a reliable means to check for in code. */

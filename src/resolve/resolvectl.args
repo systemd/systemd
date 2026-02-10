@@ -1,0 +1,201 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+option -h --help
+
+option --version
+
+option --no-pager
+
+option --no-ask-password
+help Do not prompt for password
+        arg_ask_password = false;
+
+option -4
+help Resolve IPv4 addresses
+        arg_family = AF_INET;
+
+option -6
+help Resolve IPv6 addresses
+        arg_family = AF_INET6;
+
+option -i= --interface=INTERFACE
+help Look on interface
+        r = ifname_mangle(optarg);
+        if (r < 0)
+                return r;
+
+option -p= --protocol=PROTO|help
+help Look via protocol
+        if (streq(optarg, "help"))
+                return help_protocol_types();
+        if (streq(optarg, "dns"))
+                arg_flags |= SD_RESOLVED_DNS;
+        else if (streq(optarg, "llmnr"))
+                arg_flags |= SD_RESOLVED_LLMNR;
+        else if (streq(optarg, "llmnr-ipv4"))
+                arg_flags |= SD_RESOLVED_LLMNR_IPV4;
+        else if (streq(optarg, "llmnr-ipv6"))
+                arg_flags |= SD_RESOLVED_LLMNR_IPV6;
+        else if (streq(optarg, "mdns"))
+                arg_flags |= SD_RESOLVED_MDNS;
+        else if (streq(optarg, "mdns-ipv4"))
+                arg_flags |= SD_RESOLVED_MDNS_IPV4;
+        else if (streq(optarg, "mdns-ipv6"))
+                arg_flags |= SD_RESOLVED_MDNS_IPV6;
+        else
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Unknown protocol specifier: %s", optarg);
+
+option -t= --type=TYPE|help
+help Query RR with DNS type
+        if (streq(optarg, "help"))
+                return help_dns_types();
+
+        r = dns_type_from_string(optarg);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse RR record type %s: %m", optarg);
+
+        arg_type = (uint16_t) r;
+        assert((int) arg_type == r);
+
+        arg_mode = MODE_RESOLVE_RECORD;
+
+option -c= --class=CLASS|help
+help Query RR with DNS class
+        if (streq(optarg, "help"))
+                return help_dns_classes();
+
+        r = dns_class_from_string(optarg);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse RR record class %s: %m", optarg);
+
+        arg_class = (uint16_t) r;
+        assert((int) arg_class == r);
+
+option --service-address=yes|no
+help Resolve address for services (default: yes)
+        r = parse_boolean_argument("--service-address=", optarg, NULL);
+        if (r < 0)
+                return r;
+        SET_FLAG(arg_flags, SD_RESOLVED_NO_ADDRESS, r == 0);
+
+option --service-txt=yes|no
+help Resolve TXT records for services (default: yes)
+        r = parse_boolean_argument("--service-txt=", optarg, NULL);
+        if (r < 0)
+                return r;
+        SET_FLAG(arg_flags, SD_RESOLVED_NO_TXT, r == 0);
+
+option --cname=yes|no
+help Follow CNAME redirects (default: yes)
+        r = parse_boolean_argument("--cname=", optarg, NULL);
+        if (r < 0)
+                return r;
+        SET_FLAG(arg_flags, SD_RESOLVED_NO_CNAME, r == 0);
+
+option --validate=yes|no
+help Allow DNSSEC validation (default: yes)
+        r = parse_boolean_argument("--validate=", optarg, NULL);
+        if (r < 0)
+                return r;
+        SET_FLAG(arg_flags, SD_RESOLVED_NO_VALIDATE, r == 0);
+
+option --synthesize=yes|no
+help Allow synthetic response (default: yes)
+        r = parse_boolean_argument("--synthesize=", optarg, NULL);
+        if (r < 0)
+                return r;
+        SET_FLAG(arg_flags, SD_RESOLVED_NO_SYNTHESIZE, r == 0);
+
+option --cache=yes|no
+help Allow response from cache (default: yes)
+        r = parse_boolean_argument("--cache=", optarg, NULL);
+        if (r < 0)
+                return r;
+        SET_FLAG(arg_flags, SD_RESOLVED_NO_CACHE, r == 0);
+
+option --stale-data=yes|no
+help Allow response from cache with stale data (default: yes)
+        r = parse_boolean_argument("--stale-data=", optarg, NULL);
+        if (r < 0)
+                return r;
+        SET_FLAG(arg_flags, SD_RESOLVED_NO_STALE, r == 0);
+
+option --relax-single-label=yes|no
+help Allow single label lookups to go upstream (default: no)
+        r = parse_boolean_argument("--relax-single-label=", optarg, NULL);
+        if (r < 0)
+                return r;
+        SET_FLAG(arg_flags, SD_RESOLVED_RELAX_SINGLE_LABEL, r > 0);
+
+option --zone=yes|no
+help Allow response from locally registered mDNS/LLMNR records (default: yes)
+        r = parse_boolean_argument("--zone=", optarg, NULL);
+        if (r < 0)
+                return r;
+        SET_FLAG(arg_flags, SD_RESOLVED_NO_ZONE, r == 0);
+
+option --trust-anchor=yes|no
+help Allow response from local trust anchor (default: yes)
+        r = parse_boolean_argument("--trust-anchor=", optarg, NULL);
+        if (r < 0)
+                return r;
+        SET_FLAG(arg_flags, SD_RESOLVED_NO_TRUST_ANCHOR, r == 0);
+
+option --network=yes|no
+help Allow response from network (default: yes)
+        r = parse_boolean_argument("--network=", optarg, NULL);
+        if (r < 0)
+                return r;
+        SET_FLAG(arg_flags, SD_RESOLVED_NO_NETWORK, r == 0);
+
+option --search=yes|no
+help Use search domains for single-label names (default: yes)
+        r = parse_boolean_argument("--search=", optarg, NULL);
+        if (r < 0)
+                return r;
+        SET_FLAG(arg_flags, SD_RESOLVED_NO_SEARCH, r == 0);
+
+option --raw[=payload|packet]
+help Dump the answer as binary data
+        if (on_tty())
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTTY),
+                                       "Refusing to write binary data to tty.");
+
+        if (optarg == NULL || streq(optarg, "payload"))
+                arg_raw = RAW_PAYLOAD;
+        else if (streq(optarg, "packet"))
+                arg_raw = RAW_PACKET;
+        else
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Unknown --raw specifier \"%s\".",
+                                       optarg);
+
+        arg_legend = false;
+
+option --legend=yes|no
+help Print headers and additional info (default: yes)
+        r = parse_boolean_argument("--legend=", optarg, &arg_legend);
+        if (r < 0)
+                return r;
+
+option --json=MODE
+help Output as JSON
+        r = parse_json_argument(optarg, &arg_json_format_flags);
+        if (r <= 0)
+                return r;
+
+option -j
+help Same as --json=pretty on tty, --json=short otherwise
+        arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
+
+outro
+        if (arg_type == 0 && arg_class != 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--class= may only be used in conjunction with --type=.");
+
+        if (arg_type != 0 && arg_class == 0)
+                arg_class = DNS_CLASS_IN;
+
+        if (arg_class != 0 && arg_type == 0)
+                arg_type = DNS_TYPE_A;

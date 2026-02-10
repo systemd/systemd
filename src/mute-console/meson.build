@@ -5,5 +5,6 @@ executables += [
                 'name' : 'systemd-mute-console',
                 'public' : true,
                 'sources' : files('mute-console.c'),
+                'arg_parser' : files('mute-console.args'),
         },
 ]

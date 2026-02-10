@@ -1,0 +1,118 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+option -h --help
+
+option --version
+
+option --url=URL
+help Read events from systemd-journal-gatewayd at URL
+        r = free_and_strdup_warn(&arg_url, optarg);
+        if (r < 0)
+                return r;
+
+option --getter=COMMAND
+help Read events from the output of COMMAND
+        r = free_and_strdup_warn(&arg_getter, optarg);
+        if (r < 0)
+                return r;
+
+option --listen-raw=ADDR
+help Listen for connections at ADDR
+        r = free_and_strdup_warn(&arg_listen_raw, optarg);
+        if (r < 0)
+                return r;
+
+option --listen-http=ADDR
+help Listen for HTTP connections at ADDR
+        if (arg_listen_http || http_socket >= 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Cannot currently use --listen-http= more than once");
+
+        r = negative_fd(optarg);
+        if (r >= 0)
+                http_socket = r;
+        else {
+                r = free_and_strdup_warn(&arg_listen_http, optarg);
+                if (r < 0)
+                        return r;
+        }
+
+option --listen-https=ADDR
+help Listen for HTTPS connections at ADDR
+        if (arg_listen_https || https_socket >= 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Cannot currently use --listen-https= more than once");
+
+        r = negative_fd(optarg);
+        if (r >= 0)
+                https_socket = r;
+        else {
+                r = free_and_strdup_warn(&arg_listen_https, optarg);
+                if (r < 0)
+                        return r;
+        }
+
+option -o= --output=FILE|DIR
+help Write output to FILE or DIR/external-*.journal
+        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_output);
+        if (r < 0)
+                return r;
+
+option --compress[=yes|no]
+help Use compression in the output journal (default: yes)
+        r = parse_boolean_argument("--compress", optarg, &arg_compress);
+        if (r < 0)
+                return r;
+
+option --seal[=yes|no]
+help Use event sealing (default: no)
+        r = parse_boolean_argument("--seal", optarg, &arg_seal);
+        if (r < 0)
+                return r;
+
+option --key=FILENAME
+help SSL key in PEM format (default: '"PRIV_KEY_FILE"')
+        r = free_and_strdup_warn(&arg_key, optarg);
+        if (r < 0)
+                return r;
+
+option --cert=FILENAME
+help SSL certificate in PEM format (default: '"CERT_FILE"')
+        r = free_and_strdup_warn(&arg_cert, optarg);
+        if (r < 0)
+                return r;
+
+option --trust=FILENAME|all
+help SSL CA certificate or disable checking (default: '"TRUST_FILE"')
+        #if HAVE_GNUTLS
+                r = free_and_strdup_warn(&arg_trust, optarg);
+                if (r < 0)
+                        return r;
+        #else
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option --trust= is not available.");
+        #endif
+
+option --gnutls-log=CATEGORY...
+help Specify a list of gnutls logging categories
+        #if HAVE_GNUTLS
+                for (const char *p = optarg;;) {
+                        _cleanup_free_ char *word = NULL;
+
+                        r = extract_first_word(&p, &word, ",", 0);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --gnutls-log= argument: %m");
+                        if (r == 0)
+                                break;
+
+                        if (strv_consume(&arg_gnutls_log, TAKE_PTR(word)) < 0)
+                                return log_oom();
+                }
+        #else
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option --gnutls-log= is not available.");
+        #endif
+
+option --split-mode=none|host
+help How many output files to create
+        arg_split_mode = journal_write_split_mode_from_string(optarg);
+        if (arg_split_mode == _JOURNAL_WRITE_SPLIT_INVALID)
+                return log_error_errno(arg_split_mode, "Invalid split mode: %s", optarg);

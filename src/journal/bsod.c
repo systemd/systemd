@@ -27,6 +27,8 @@ static char *arg_tty = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_tty, freep);
 
+#include "bsod.args.inc"
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -39,11 +41,7 @@ static int help(void) {
                "%5$sFilter the journal to fetch the first message from the current boot with an%6$s\n"
                "%5$semergency log level and display it as a string and a QR code.%6$s\n"
                "\n%3$sOptions:%4$s\n"
-               "   -h --help            Show this help\n"
-               "      --version         Show package version\n"
-               "   -c --continuous      Make systemd-bsod wait continuously\n"
-               "                        for changes in the journal\n"
-               "      --tty=TTY         Specify path to TTY to use\n"
+               OPTION_HELP_GENERATED
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -239,61 +237,6 @@ cleanup:
         return r;
 }
 
-static int parse_argv(int argc, char * argv[]) {
-
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_TTY,
-        };
-
-        static const struct option options[] = {
-                { "help",       no_argument,       NULL, 'h'         },
-                { "version",    no_argument,       NULL, ARG_VERSION },
-                { "continuous", no_argument,       NULL, 'c'         },
-                { "tty",        required_argument, NULL, ARG_TTY     },
-                {}
-        };
-
-        int c, r;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "hc", options, NULL)) >= 0)
-
-                switch (c) {
-
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case 'c':
-                        arg_continuous = true;
-                        break;
-
-                case ARG_TTY:
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_tty);
-                        if (r < 0)
-                                return r;
-
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
-
-        if (optind < argc)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "%s takes no argument.",
-                                       program_invocation_short_name);
-        return 1;
-}
-
 static int run(int argc, char *argv[]) {
         /* Don't use SA_RESTART here, as we don't want to restart syscalls on signal
          * to get out of read_one_char() when needed */
@@ -306,9 +249,14 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        r = parse_argv(argc, argv);
+        r = parse_argv_generated(argc, argv);
         if (r <= 0)
                 return r;
+
+        if (optind < argc)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "%s takes no argument.",
+                                       program_invocation_short_name);
 
         journal_browse_prepare();
 

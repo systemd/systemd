@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+global optstring_prefix +
+global help_key_width 13
+
+option -h --help
+
+option -V --version
+        return print_version();
+
+option -d --debug
+help Enable debug mode
+        log_set_max_level(LOG_DEBUG);

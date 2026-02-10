@@ -114,6 +114,8 @@ static const char* const path_table[_SD_PATH_MAX] = {
         [SD_PATH_USER_SEARCH_CREDENTIAL_STORE_ENCRYPTED]      = "user-search-credential-store-encrypted",
 };
 
+#include "path-tool.args.inc"
+
 static int order_cmp(const size_t *a, const size_t *b) {
         assert(*a < ELEMENTSOF(path_table));
         assert(*b < ELEMENTSOF(path_table));
@@ -180,10 +182,7 @@ static int help(void) {
 
         printf("%s [OPTIONS...] [NAME...]\n"
                "\n%sShow system and user paths.%s\n\n"
-               "  -h --help             Show this help\n"
-               "     --version          Show package version\n"
-               "     --suffix=SUFFIX    Suffix to append to paths\n"
-               "     --no-pager         Do not pipe output into a pager\n"
+               OPTION_HELP_GENERATED
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -193,70 +192,20 @@ static int help(void) {
         return 0;
 }
 
-static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_SUFFIX,
-                ARG_NO_PAGER,
-        };
-
-        static const struct option options[] = {
-                { "help",      no_argument,       NULL, 'h'           },
-                { "version",   no_argument,       NULL, ARG_VERSION   },
-                { "suffix",    required_argument, NULL, ARG_SUFFIX    },
-                { "no-pager",  no_argument,       NULL, ARG_NO_PAGER  },
-                {}
-        };
-
-        int c;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
-
-                switch (c) {
-
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_SUFFIX:
-                        arg_suffix = optarg;
-                        break;
-
-                case ARG_NO_PAGER:
-                        arg_pager_flags |= PAGER_DISABLE;
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
-
-        return 1;
-}
-
 static int run(int argc, char* argv[]) {
         int r;
 
         log_setup();
 
-        r = parse_argv(argc, argv);
+        r = parse_argv_generated(argc, argv);
         if (r <= 0)
                 return r;
 
-        if (argc > optind) {
-                r = 0;
-                for (int i = optind; i < argc; i++)
-                        RET_GATHER(r, print_path(argv[i]));
-        } else
-                r = list_paths();
+        if (optind >= argc)
+                return list_paths();
 
+        for (int i = optind; i < argc; i++)
+                RET_GATHER(r, print_path(argv[i]));
         return r;
 }
 

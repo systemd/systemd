@@ -1,0 +1,810 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+global optstring_prefix +
+global help_key_width 25
+
+# Extra args to pass state to the caller
+global parser_option uint64_t *caps_plus
+global parser_option uint64_t *caps_minus
+global parser_option bool *mask_all_settings
+global parser_option bool *mask_no_settings
+
+option -h --help
+
+option --version
+
+option -q --quiet
+help Do not show status information
+        arg_quiet = true;
+
+option --no-pager
+
+option --cleanup
+help Clean up stale mounts and underlying mount points used by the container
+        arg_cleanup = true;
+
+option --no-ask-password
+help Do not prompt for password
+        arg_ask_password = false;
+
+option --settings=yes|no|override|trusted
+help Load additional settings from .nspawn file
+        /* no       → do not read files
+         * yes      → read files, do not override cmdline, trust only subset
+         * override → read files, override cmdline, trust only subset
+         * trusted  → read files, do not override cmdline, trust all
+         */
+
+        r = parse_boolean(optarg);
+        if (r < 0) {
+                if (streq(optarg, "trusted")) {
+                        *mask_all_settings = false;
+                        *mask_no_settings = false;
+                        arg_settings_trusted = true;
+                } else if (streq(optarg, "override")) {
+                        *mask_all_settings = false;
+                        *mask_no_settings = true;
+                        arg_settings_trusted = -1;
+                } else
+                        return log_error_errno(r, "Failed to parse --settings= argument: %s", optarg);
+        } else if (r > 0) {
+                /* yes */
+                *mask_all_settings = false;
+                *mask_no_settings = false;
+                arg_settings_trusted = -1;
+        } else {
+                /* no */
+                *mask_all_settings = true;
+                *mask_no_settings = false;
+                arg_settings_trusted = false;
+        }
+
+option -D= --directory=PATH
+help Root directory for the container
+group image
+        r = parse_path_argument(optarg, false, &arg_directory);
+        if (r < 0)
+                return r;
+
+        arg_settings_mask |= SETTING_DIRECTORY;
+
+option --template=PATH
+help Initialize root directory from template directory, if missing
+group image
+        r = parse_path_argument(optarg, false, &arg_template);
+        if (r < 0)
+                return r;
+
+        arg_settings_mask |= SETTING_DIRECTORY;
+
+option -x --ephemeral
+help Run container with snapshot of root directory, and remove it after exit
+group image
+        arg_ephemeral = true;
+        arg_settings_mask |= SETTING_EPHEMERAL;
+
+option -i= --image=PATH
+help File system disk image (or device) for the container
+group image
+        r = parse_path_argument(optarg, false, &arg_image);
+        if (r < 0)
+                return r;
+
+        arg_settings_mask |= SETTING_DIRECTORY;
+
+option --image-policy=POLICY
+help Specify disk image dissection policy
+group image
+        r = parse_image_policy_argument(optarg, &arg_image_policy);
+        if (r < 0)
+                return r;
+
+option --oci-bundle=PATH
+help OCI bundle directory
+group image
+        r = parse_path_argument(optarg, false, &arg_oci_bundle);
+        if (r < 0)
+                return r;
+
+option --read-only
+help Mount the root directory read-only
+group image
+        arg_read_only = true;
+        arg_settings_mask |= SETTING_READ_ONLY;
+
+option --volatile[=MODE]
+help Run the system in volatile mode
+group image
+        if (streq_ptr(optarg, "help"))
+                return DUMP_STRING_TABLE(volatile_mode, VolatileMode, _VOLATILE_MODE_MAX);
+        if (!optarg)
+                arg_volatile_mode = VOLATILE_YES;
+        else {
+                VolatileMode m;
+
+                m = volatile_mode_from_string(optarg);
+                if (m < 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Failed to parse --volatile= argument: %s", optarg);
+                arg_volatile_mode = m;
+        }
+
+        arg_settings_mask |= SETTING_VOLATILE_MODE;
+
+option --root-hash=HASH
+help Specify verity root hash for root disk image
+group image
+        _cleanup_(iovec_done) struct iovec k = {};
+
+        r = unhexmem(optarg, &k.iov_base, &k.iov_len);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse root hash: %s", optarg);
+        if (k.iov_len < sizeof(sd_id128_t))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Root hash must be at least 128-bit long: %s", optarg);
+
+        iovec_done(&arg_verity_settings.root_hash);
+        arg_verity_settings.root_hash = TAKE_STRUCT(k);
+
+option --root-hash-sig=SIG
+help Specify pkcs7 signature of root hash for verity as a DER-encoded PKCS7,
+help either as path to file or as ASCII base64-encoded string prefixed by 'base64:'
+group image
+        _cleanup_(iovec_done) struct iovec p = {};
+        char *value;
+
+        if ((value = startswith(optarg, "base64:"))) {
+                r = unbase64mem(value, &p.iov_base, &p.iov_len);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse root hash signature '%s': %m", optarg);
+        } else {
+                r = read_full_file(optarg, (char**) &p.iov_base, &p.iov_len);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse root hash signature file '%s': %m", optarg);
+        }
+
+        iovec_done(&arg_verity_settings.root_hash_sig);
+        arg_verity_settings.root_hash_sig = TAKE_STRUCT(p);
+
+option --verity-data=PATH
+help Specify hash device for verity
+group image
+        r = parse_path_argument(optarg, false, &arg_verity_settings.data_path);
+        if (r < 0)
+                return r;
+option --pivot-root=PATH[:PATH]
+help Pivot root to given directory in the container
+group image
+        r = pivot_root_parse(&arg_pivot_root_new, &arg_pivot_root_old, optarg);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse --pivot-root= argument %s: %m", optarg);
+
+        arg_settings_mask |= SETTING_PIVOT_ROOT;
+
+option -a --as-pid2
+help Maintain a stub init as PID1, invoke binary as PID2
+group execution
+        if (arg_start_mode == START_BOOT)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--boot and --as-pid2 may not be combined.");
+
+        arg_start_mode = START_PID2;
+        arg_settings_mask |= SETTING_START_MODE;
+
+option -b --boot
+help Boot up full system (i.e. invoke init)
+group execution
+        if (arg_start_mode == START_PID2)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--boot and --as-pid2 may not be combined.");
+
+        arg_start_mode = START_BOOT;
+        arg_settings_mask |= SETTING_START_MODE;
+
+option --chdir=PATH
+help Set working directory in the container
+group execution
+        _cleanup_free_ char *wd = NULL;
+
+        if (!path_is_absolute(optarg))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Working directory %s is not an absolute path.", optarg);
+
+        r = path_simplify_alloc(optarg, &wd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to simplify path %s: %m", optarg);
+
+        if (!path_is_normalized(wd))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Working directory path is not normalized: %s", wd);
+
+        if (path_below_api_vfs(wd))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Working directory is below API VFS, refusing: %s", wd);
+
+        free_and_replace(arg_chdir, wd);
+        arg_settings_mask |= SETTING_WORKING_DIRECTORY;
+
+option -E= --setenv=NAME[=VALUE]
+help Pass an environment variable to PID1
+group execution
+        r = strv_env_replace_strdup_passthrough(&arg_setenv, optarg);
+        if (r < 0)
+                return log_error_errno(r, "Cannot assign environment variable %s: %m", optarg);
+
+        arg_settings_mask |= SETTING_ENVIRONMENT;
+
+option -u= --user=USER
+help Run the command under specified user or UID
+group execution
+        r = free_and_strdup(&arg_user, optarg);
+        if (r < 0)
+                return log_oom();
+
+        arg_settings_mask |= SETTING_USER;
+
+option --kill-signal=SIGNAL
+help Select signal to use for shutting down PID1
+group execution
+        if (streq(optarg, "help"))
+                return DUMP_STRING_TABLE(signal, int, _NSIG);
+
+        arg_kill_signal = r = signal_from_string(optarg);
+        if (r < 0)
+                return log_error_errno(r, "Cannot parse signal: %s", optarg);
+
+        arg_settings_mask |= SETTING_KILL_SIGNAL;
+
+option --notify-ready=yes|no
+help Receive notifications from the child init process
+group execution
+        r = parse_boolean_argument("--notify-ready=", optarg, &arg_notify_ready);
+        if (r < 0)
+                return r;
+
+        arg_settings_mask |= SETTING_NOTIFY_READY;
+
+option --suppress-sync=yes|no
+help Suppress any form of disk data synchronization
+group execution
+        r = parse_boolean_argument("--suppress-sync=", optarg, &arg_suppress_sync);
+        if (r < 0)
+                return r;
+
+        arg_settings_mask |= SETTING_SUPPRESS_SYNC;
+
+option -M= --machine=NAME
+help Set the machine name for the container
+group system_identity
+        if (!isempty(optarg) && !hostname_is_valid(optarg, /* ValidHostnameFlags= */ 0))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Invalid machine name: %s", optarg);
+
+        r = free_and_strdup_warn(&arg_machine, optarg);
+        if (r < 0)
+                return r;
+
+option --hostname=NAME
+help Override the hostname for the container
+group system_identity
+        if (!isempty(optarg) && !hostname_is_valid(optarg, /* ValidHostnameFlags= */ 0))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Invalid hostname: %s", optarg);
+
+        r = free_and_strdup_warn(&arg_hostname, optarg);
+        if (r < 0)
+                return r;
+
+        arg_settings_mask |= SETTING_HOSTNAME;
+
+option --uuid=UUID
+help Set a specific machine UUID for the container
+group system_identity
+        r = id128_from_string_nonzero(optarg, &arg_uuid);
+        if (r == -ENXIO)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Machine UUID may not be all zeroes.");
+        if (r < 0)
+                return log_error_errno(r, "Invalid UUID: %s", optarg);
+
+        arg_settings_mask |= SETTING_MACHINE_ID;
+
+option -S= --slice=SLICE
+help Place the container in the specified slice
+group properties
+        _cleanup_free_ char *mangled = NULL;
+
+        r = unit_name_mangle_with_suffix(optarg, NULL, UNIT_NAME_MANGLE_WARN, ".slice", &mangled);
+        if (r < 0)
+                return log_oom();
+
+        free_and_replace(arg_slice, mangled);
+        arg_settings_mask |= SETTING_SLICE;
+
+option --property=NAME=VALUE
+help Set scope unit property
+group properties
+        if (strv_extend(&arg_property, optarg) < 0)
+                return log_oom();
+
+option --register=yes|no
+help Register container as machine
+group properties
+        r = parse_boolean_argument("--register=", optarg, &arg_register);
+        if (r < 0)
+                return r;
+
+option --keep-unit
+help Do not register a scope for the machine, reuse the service unit nspawn is running in
+group properties
+        arg_keep_unit = true;
+
+option --private-users=MODE
+help skip
+group user_namespacing
+        r = parse_private_users(optarg, &arg_userns_mode, &arg_uid_shift, &arg_uid_range);
+        if (r < 0)
+                return r;
+
+        arg_settings_mask |= SETTING_USERNS;
+
+option --private-users=no
+help Run without user namespacing
+group user_namespacing
+        skip
+
+option --private-users=yes|pick|identity|managed
+help Run within user namespace, autoselect UID/GID range
+group user_namespacing
+        skip
+
+option --private-users=UIDBASE[:NUIDS]
+help Similar, but with user configured UID/GID range
+group user_namespacing
+        skip
+
+option --private-users-chown
+help skip
+group user_namespacing
+        arg_userns_ownership = USER_NAMESPACE_OWNERSHIP_CHOWN;
+        arg_settings_mask |= SETTING_USERNS;
+
+option --private-users-ownership=auto|chown|map|help
+help Adjust ('chown') or map ('map') OS tree ownership to private UID/GID range
+group user_namespacing
+        if (streq(optarg, "help"))
+                return DUMP_STRING_TABLE(user_namespace_ownership, UserNamespaceOwnership, _USER_NAMESPACE_OWNERSHIP_MAX);
+
+        arg_userns_ownership = user_namespace_ownership_from_string(optarg);
+        if (arg_userns_ownership < 0)
+                return log_error_errno(arg_userns_ownership, "Cannot parse --private-users-ownership= value: %s", optarg);
+
+        arg_settings_mask |= SETTING_USERNS;
+
+option -U
+help Equivalent to --private-users=pick and --private-users-ownership=auto
+group user_namespacing
+        if (userns_supported()) {
+                /* Note that arg_userns_ownership is implied by USER_NAMESPACE_PICK further down. */
+                arg_userns_mode = arg_privileged ? USER_NAMESPACE_PICK : USER_NAMESPACE_MANAGED;
+                arg_uid_shift = UID_INVALID;
+                arg_uid_range = UINT32_C(0x10000);
+
+                arg_settings_mask |= SETTING_USERNS;
+        }
+
+option --private-network
+help Disable network in container
+group networking
+        arg_private_network = true;
+        arg_settings_mask |= SETTING_NETWORK;
+
+option --network-interface=HOSTIF[:CONTAINERIF]
+help Assign an existing network interface to the container
+group networking
+        r = interface_pair_parse(&arg_network_interfaces, optarg);
+        if (r < 0)
+                return r;
+
+        arg_private_network = true;
+        arg_settings_mask |= SETTING_NETWORK;
+
+option --network-macvlan=HOSTIF[:CONTAINERIF]
+help Create a macvlan network interface based on an existing network interface to the container
+group networking
+        r = macvlan_pair_parse(&arg_network_macvlan, optarg);
+        if (r < 0)
+                return r;
+
+        arg_private_network = true;
+        arg_settings_mask |= SETTING_NETWORK;
+
+option --network-ipvlan=HOSTIF[:CONTAINERIF]
+help Create an ipvlan network interface based on an existing network interface to the container
+group networking
+        r = ipvlan_pair_parse(&arg_network_ipvlan, optarg);
+        if (r < 0)
+                return r;
+
+        arg_private_network = true;
+        arg_settings_mask |= SETTING_NETWORK;
+
+option --network-bridge=INTERFACE
+help Add a virtual Ethernet connection to the container
+help and attach it to an existing bridge on the host
+group networking
+        if (!ifname_valid(optarg))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Bridge interface name not valid: %s", optarg);
+
+        r = free_and_strdup_warn(&arg_network_bridge, optarg);
+        if (r < 0)
+                return r;
+
+        _fallthrough_;
+
+option -n --network-veth
+help Add a virtual Ethernet connection between host and container
+group networking
+        arg_network_veth = true;
+        arg_private_network = true;
+        arg_settings_mask |= SETTING_NETWORK;
+
+option --network-veth-extra=HOSTIF[:CONTAINERIF]
+help Add an additional virtual Ethernet link between host and container
+group networking
+        r = veth_extra_parse(&arg_network_veth_extra, optarg);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse --network-veth-extra= parameter: %s", optarg);
+
+        arg_private_network = true;
+        arg_settings_mask |= SETTING_NETWORK;
+
+option --network-namespace-path=PATH
+help Set network namespace to the one represented by the specified kernel namespace file node
+group networking
+        r = parse_path_argument(optarg, false, &arg_network_namespace_path);
+        if (r < 0)
+                return r;
+
+        arg_settings_mask |= SETTING_NETWORK;
+
+option --network-zone=NAME
+help Similar, but attach the new interface to an automatically managed bridge interface
+group networking
+        _cleanup_free_ char *j = strjoin("vz-", optarg);
+        if (!j)
+                return log_oom();
+
+        if (!ifname_valid(j))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Network zone name not valid: %s", j);
+
+        free_and_replace(arg_network_zone, j);
+
+        arg_network_veth = true;
+        arg_private_network = true;
+        arg_settings_mask |= SETTING_NETWORK;
+
+option -p= --port=[PROTOCOL:]HOSTPORT[:CONTAINERPORT]
+help Expose a container IP port on the host
+group networking
+        r = expose_port_parse(&arg_expose_ports, optarg);
+        if (r == -EEXIST)
+                return log_error_errno(r, "Duplicate port specification: %s", optarg);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse host port %s: %m", optarg);
+
+        arg_settings_mask |= SETTING_EXPOSE_PORTS;
+
+option --capability=CAP
+help In addition to the default, retain specified capability
+group security
+        _fallthrough_;
+option --drop-capability=CAP
+help Drop the specified capability from the default set
+group security
+scope
+        uint64_t m;
+        r = parse_capability_spec(optarg, &m);
+        if (r <= 0)
+                return r;
+
+        if (c == ARG_CAPABILITY)
+                *caps_plus |= m;
+        else
+                *caps_minus |= m;
+        arg_settings_mask |= SETTING_CAPABILITY;
+
+option --ambient-capability=CAP
+help Sets the specified capability for the started process.
+help Not useful if booting a machine.
+group security
+scope
+        uint64_t m;
+        r = parse_capability_spec(optarg, &m);
+        if (r <= 0)
+                return r;
+
+        arg_caps_ambient |= m;
+        arg_settings_mask |= SETTING_CAPABILITY;
+
+option --no-new-privileges
+help Set PR_SET_NO_NEW_PRIVS flag for container payload
+group security
+        r = parse_boolean_argument("--no-new-privileges=", optarg, &arg_no_new_privileges);
+        if (r < 0)
+                return r;
+
+        arg_settings_mask |= SETTING_NO_NEW_PRIVILEGES;
+
+option --system-call-filter=LIST|~LIST
+help Permit/prohibit specific system calls
+group security
+        bool negative = optarg[0] == '~';
+        const char *items = negative ? optarg + 1 : optarg;
+
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&items, &word, NULL, 0);
+                if (r == 0)
+                        break;
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse system call filter: %m");
+
+                if (negative)
+                        r = strv_extend(&arg_syscall_deny_list, word);
+                else
+                        r = strv_extend(&arg_syscall_allow_list, word);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        arg_settings_mask |= SETTING_SYSCALL_FILTER;
+
+option -Z= --selinux-context=SECLABEL
+help Set the SELinux security context for processes in the container
+group security
+        arg_selinux_context = optarg;
+
+option -L= --selinux-apifs-context=SECLABEL
+help Set the SELinux security context for API/tmpfs file systems in the container
+group security
+        arg_selinux_apifs_context = optarg;
+
+option --rlimit=NAME=LIMIT
+help Set a resource limit for the payload
+group resources
+        if (streq(optarg, "help"))
+                return DUMP_STRING_TABLE(rlimit, int, _RLIMIT_MAX);
+
+        const char *eq = strchr(optarg, '=');
+        if (!eq)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--rlimit= expects an '=' assignment.");
+
+        _cleanup_free_ char *name = strndup(optarg, eq - optarg);
+        if (!name)
+                return log_oom();
+
+        int rl = rlimit_from_string_harder(name);
+        if (rl < 0)
+                return log_error_errno(rl, "Unknown resource limit: %s", name);
+
+        if (!arg_rlimit[rl]) {
+                arg_rlimit[rl] = new0(struct rlimit, 1);
+                if (!arg_rlimit[rl])
+                        return log_oom();
+        }
+
+        r = rlimit_parse(rl, eq + 1, arg_rlimit[rl]);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse resource limit: %s", eq + 1);
+
+        arg_settings_mask |= SETTING_RLIMIT_FIRST << rl;
+
+option --oom-score-adjust=VALUE
+help Adjust the OOM score value for the payload
+group resources
+        r = parse_oom_score_adjust(optarg, &arg_oom_score_adjust);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse --oom-score-adjust= parameter: %s", optarg);
+
+        arg_oom_score_adjust_set = true;
+        arg_settings_mask |= SETTING_OOM_SCORE_ADJUST;
+
+option --cpu-affinity=CPUS
+help Adjust the CPU affinity of the container
+group resources
+scope
+        CPUSet cpuset;
+        r = parse_cpu_set(optarg, &cpuset);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse CPU affinity mask %s: %m", optarg);
+
+        cpu_set_done_and_replace(arg_cpu_set, cpuset);
+        arg_settings_mask |= SETTING_CPU_AFFINITY;
+
+option --personality=ARCH
+help Pick personality for this container
+group resources
+        arg_personality = personality_from_string(optarg);
+        if (arg_personality == PERSONALITY_INVALID)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Unknown or unsupported personality '%s'.", optarg);
+
+        arg_settings_mask |= SETTING_PERSONALITY;
+
+option --resolv-conf=MODE|help
+help Select mode of /etc/resolv.conf initialization
+group integration
+        if (streq(optarg, "help"))
+                return DUMP_STRING_TABLE(resolv_conf_mode, ResolvConfMode, _RESOLV_CONF_MODE_MAX);
+
+        arg_resolv_conf = resolv_conf_mode_from_string(optarg);
+        if (arg_resolv_conf < 0)
+                return log_error_errno(arg_resolv_conf,
+                                       "Failed to parse /etc/resolv.conf mode: %s", optarg);
+
+        arg_settings_mask |= SETTING_RESOLV_CONF;
+
+option --timezone=MODE|help
+help Select mode of /etc/localtime initialization
+group integration
+        if (streq(optarg, "help"))
+                return DUMP_STRING_TABLE(timezone_mode, TimezoneMode, _TIMEZONE_MODE_MAX);
+
+        arg_timezone = timezone_mode_from_string(optarg);
+        if (arg_timezone < 0)
+                return log_error_errno(arg_timezone,
+                                       "Failed to parse /etc/localtime mode: %s", optarg);
+
+        arg_settings_mask |= SETTING_TIMEZONE;
+
+option --link-journal=no|auto|guest|host|try-guest|try-host
+help How to link up guest journal
+group integration
+        r = parse_link_journal(optarg, &arg_link_journal, &arg_link_journal_try);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse link journal mode %s", optarg);
+
+        arg_settings_mask |= SETTING_LINK_JOURNAL;
+
+option -j
+help Equivalent to --link-journal=try-guest
+group integration
+        arg_link_journal = LINK_GUEST;
+        arg_link_journal_try = true;
+        arg_settings_mask |= SETTING_LINK_JOURNAL;
+
+option --bind=PATH[:PATH[:OPTIONS]]
+help Bind mount a file or directory from the host into the container
+group mounts
+        _fallthrough_;
+option --bind-ro=PATH[:PATH[:OPTIONS]
+help Similar, but creates a read-only bind mount
+group mounts
+        r = bind_mount_parse(&arg_custom_mounts, &arg_n_custom_mounts, optarg, c == ARG_BIND_RO);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse --bind(-ro)= argument %s: %m", optarg);
+
+        arg_settings_mask |= SETTING_CUSTOM_MOUNTS;
+
+option --inaccessible=PATH
+help Overmount file node with inaccessible node to mask it
+group mounts
+        r = inaccessible_mount_parse(&arg_custom_mounts, &arg_n_custom_mounts, optarg);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse --inaccessible= argument %s: %m", optarg);
+
+        arg_settings_mask |= SETTING_CUSTOM_MOUNTS;
+
+option --tmpfs=PATH:[OPTIONS]
+help Mount an empty tmpfs to the specified directory
+group mounts
+        r = tmpfs_mount_parse(&arg_custom_mounts, &arg_n_custom_mounts, optarg);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse --tmpfs= argument %s: %m", optarg);
+
+        arg_settings_mask |= SETTING_CUSTOM_MOUNTS;
+
+option --overlay=PATH[:PATH...]:PATH
+help Create an overlay mount from the host to the container
+group mounts
+        _fallthrough_;
+option --overlay-ro=PATH[:PATH...]:PATH
+help Similar, but creates a read-only overlay mount
+group mounts
+        r = overlay_mount_parse(&arg_custom_mounts, &arg_n_custom_mounts, optarg, c == ARG_OVERLAY_RO);
+        if (r == -EADDRNOTAVAIL)
+                return log_error_errno(r, "--overlay(-ro)= needs at least two colon-separated directories specified.");
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse --overlay(-ro)= argument %s: %m", optarg);
+
+        arg_settings_mask |= SETTING_CUSTOM_MOUNTS;
+
+option --bind-user=NAME
+help Bind user from host to container
+group mounts
+        if (!valid_user_group_name(optarg, 0))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid user name to bind: %s", optarg);
+
+        if (strv_extend(&arg_bind_user, optarg) < 0)
+                return log_oom();
+
+        arg_settings_mask |= SETTING_BIND_USER;
+
+option --bind-user-shell=yes|no|PATH
+help Configure the shell to use for --bind-user= users
+group mounts
+        char *sh = NULL;
+        bool copy = false;
+        r = parse_user_shell(optarg, &sh, &copy);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0)
+                return log_error_errno(r, "Invalid user shell to bind: %s", optarg);
+
+        free_and_replace(arg_bind_user_shell, sh);
+        arg_bind_user_shell_copy = copy;
+
+        arg_settings_mask |= SETTING_BIND_USER_SHELL;
+
+option --bind-user-group=GROUP
+help Add an auxiliary group to --bind-user= users
+group mounts
+        if (!valid_user_group_name(optarg, /* flags= */ 0))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid bind user auxiliary group name: %s", optarg);
+
+        if (strv_extend(&arg_bind_user_groups, optarg) < 0)
+                return log_oom();
+
+option --console=MODE|help
+help Select how stdin/stdout/stderr and /dev/console are set up for the container
+group io
+        if (streq(optarg, "help"))
+                return DUMP_STRING_TABLE(console_mode, ConsoleMode, _CONSOLE_MODE_MAX);
+
+        arg_console_mode = r = console_mode_from_string(optarg);
+        if (r < 0)
+                return log_error_errno(r, "Unknown console mode: %s", optarg);
+
+        arg_settings_mask |= SETTING_CONSOLE_MODE;
+
+option -P --pipe
+help Equivalent to --console=pipe
+group io
+        arg_console_mode = CONSOLE_PIPE;
+        arg_settings_mask |= SETTING_CONSOLE_MODE;
+
+option --background=COLOR
+help Set ANSI color for background
+group io
+        r = parse_background_argument(optarg, &arg_background);
+        if (r < 0)
+                return r;
+
+option --set-credential=ID:VALUE
+help Pass a credential with literal value to container
+group credentials
+        r = machine_credential_set(&arg_credentials, optarg);
+        if (r < 0)
+                return r;
+
+        arg_settings_mask |= SETTING_CREDENTIALS;
+
+option --load-credential=ID:PATH
+help Load credential to pass to container from file or AF_UNIX stream socket
+group credentials
+        r = machine_credential_load(&arg_credentials, optarg);
+        if (r < 0)
+                return r;
+
+        arg_settings_mask |= SETTING_CREDENTIALS;
+
+option --share-system
+help skip
+        /* We don't officially support this anymore, except for compat reasons. People
+         * should use the * $SYSTEMD_NSPAWN_SHARE_* environment variables instead. */
+        log_warning("Please do not use --share-system anymore, use $SYSTEMD_NSPAWN_SHARE_* instead.");
+        arg_clone_ns_flags = 0;
