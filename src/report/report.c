@@ -36,6 +36,8 @@ typedef struct Context {
         size_t n_metrics, n_skipped_metrics;
 } Context;
 
+#include "report.args.inc"
+
 static int metric_compare(sd_json_variant *const *a, sd_json_variant *const *b) {
         const char *name_a, *name_b, *object_a, *object_b;
         sd_json_variant *fields_a, *fields_b;
@@ -252,12 +254,7 @@ static int help(void) {
 
         printf("%s [OPTIONS...] \n\n"
                "%sPrint metrics for all system components.%s\n\n"
-               "  -h --help             Show this help\n"
-               "     --version          Show package version\n"
-               "     --user             Connect to user service manager\n"
-               "     --system           Connect to system service manager (default)\n"
-               "     --json=pretty|short\n"
-               "                        Configure JSON output\n"
+               OPTION_HELP_GENERATED
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -267,75 +264,18 @@ static int help(void) {
         return 0;
 }
 
-static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_USER,
-                ARG_SYSTEM,
-                ARG_JSON,
-        };
-
-        static const struct option options[] = {
-                { "help",    no_argument,       NULL, 'h'         },
-                { "version", no_argument,       NULL, ARG_VERSION },
-                { "user",    no_argument,       NULL, ARG_USER    },
-                { "system",  no_argument,       NULL, ARG_SYSTEM  },
-                { "json",    required_argument, NULL, ARG_JSON    },
-                {}
-        };
-
-        int c, r;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
-                switch (c) {
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_USER:
-                        arg_runtime_scope = RUNTIME_SCOPE_USER;
-                        break;
-
-                case ARG_SYSTEM:
-                        arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
-                        break;
-
-                case ARG_JSON:
-                        r = parse_json_argument(optarg, &arg_json_format_flags);
-                        if (r <= 0)
-                                return r;
-
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
-
-        if (optind < argc)
-                return log_error_errno(
-                                SYNTHETIC_ERRNO(EINVAL),
-                                "%s takes no arguments.",
-                                program_invocation_short_name);
-
-        return 1;
-}
-
 static int run(int argc, char *argv[]) {
         int r;
 
         log_setup();
 
-        r = parse_argv(argc, argv);
+        r = parse_argv_generated(argc, argv);
         if (r <= 0)
                 return r;
+
+        if (optind < argc)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "%s takes no arguments.", program_invocation_short_name);
 
         return metrics_query();
 }
