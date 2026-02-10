@@ -21,6 +21,7 @@
 #include "open-file.h"
 #include "pcre2-util.h"
 #include "rm-rf.h"
+#include "service.h"
 #include "set.h"
 #include "specifier.h"
 #include "string-util.h"
@@ -1031,6 +1032,86 @@ TEST(config_parse_open_file) {
                                          "OpenFile", 0, "",
                                          &of, u));
         ASSERT_NULL(of);
+}
+
+TEST(config_parse_service_refresh_on_reload) {
+        ServiceRefreshOnReload flags;
+        _cleanup_strv_free_ char **l = NULL;
+        int r;
+
+        r = service_refresh_on_reload_from_string_many("extensions", &flags);
+        ASSERT_OK(r);
+        ASSERT_EQ(flags, SERVICE_RELOAD_EXTENSIONS);
+        ASSERT_OK(service_refresh_on_reload_to_strv(flags, &l));
+        ASSERT_TRUE(strv_equal(l, STRV_MAKE("extensions")));
+
+        l = strv_free(l);
+
+        r = service_refresh_on_reload_from_string_many("credentials extensions", &flags);
+        ASSERT_OK(r);
+        ASSERT_EQ(flags, SERVICE_RELOAD_EXTENSIONS|SERVICE_RELOAD_CREDENTIALS);
+        ASSERT_OK(service_refresh_on_reload_to_strv(flags, &l));
+        ASSERT_TRUE(strv_equal(l, STRV_MAKE("extensions", "credentials")));
+
+        ASSERT_ERROR(service_refresh_on_reload_from_string_many("hoge", &flags), EINVAL);
+
+        _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_(unit_freep) Unit *u = NULL;
+
+        r = manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_MINIMAL, &m);
+        if (manager_errno_skip_test(r)) {
+                log_notice_errno(r, "Skipping test: manager_new: %m");
+                return;
+        }
+
+        ASSERT_OK(r);
+        ASSERT_OK(manager_startup(m, NULL, NULL, NULL));
+
+        ASSERT_NOT_NULL(u = unit_new(m, sizeof(Service)));
+        ASSERT_OK_ZERO(unit_add_name(u, "foobar.service"));
+
+        ASSERT_FALSE(SERVICE(u)->refresh_on_reload_set);
+
+        ASSERT_OK(config_parse_service_refresh_on_reload(
+                                NULL, "fake", 1, "section", 1,
+                                "RefreshOnReload", 0, "no",
+                                NULL, u));
+        ASSERT_TRUE(SERVICE(u)->refresh_on_reload_set);
+        ASSERT_EQ(SERVICE(u)->refresh_on_reload_flags, 0);
+
+        ASSERT_OK(config_parse_service_refresh_on_reload(
+                                NULL, "fake", 1, "section", 1,
+                                "RefreshOnReload", 0, "yes",
+                                NULL, u));
+        ASSERT_TRUE(SERVICE(u)->refresh_on_reload_set);
+        ASSERT_EQ(SERVICE(u)->refresh_on_reload_flags, _SERVICE_REFRESH_ON_RELOAD_ALL);
+
+        ASSERT_OK(config_parse_service_refresh_on_reload(
+                                NULL, "fake", 1, "section", 1,
+                                "RefreshOnReload", 0, "~extensions",
+                                NULL, u));
+        ASSERT_TRUE(SERVICE(u)->refresh_on_reload_set);
+        ASSERT_EQ(SERVICE(u)->refresh_on_reload_flags, _SERVICE_REFRESH_ON_RELOAD_ALL & ~SERVICE_RELOAD_EXTENSIONS);
+
+        ASSERT_OK(config_parse_service_refresh_on_reload(
+                                NULL, "fake", 1, "section", 1,
+                                "RefreshOnReload", 0, "~extensions credentials",
+                                NULL, u));
+        ASSERT_TRUE(SERVICE(u)->refresh_on_reload_set);
+        ASSERT_EQ(SERVICE(u)->refresh_on_reload_flags, 0);
+
+        ASSERT_OK(config_parse_service_refresh_on_reload(
+                                NULL, "fake", 1, "section", 1,
+                                "RefreshOnReload", 0, "",
+                                NULL, u));
+        ASSERT_FALSE(SERVICE(u)->refresh_on_reload_set);
+
+        ASSERT_OK(config_parse_service_refresh_on_reload(
+                                NULL, "fake", 1, "section", 1,
+                                "RefreshOnReload", 0, "~extensions",
+                                NULL, u));
+        ASSERT_TRUE(SERVICE(u)->refresh_on_reload_set);
+        ASSERT_EQ(SERVICE(u)->refresh_on_reload_flags, SERVICE_REFRESH_ON_RELOAD_DEFAULT & ~SERVICE_RELOAD_EXTENSIONS);
 }
 
 static int intro(void) {
