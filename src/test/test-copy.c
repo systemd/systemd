@@ -364,9 +364,7 @@ static void test_copy_bytes_regular_file_one(const char *src, bool try_reflink, 
                 /* Make sure the file is now higher than max_bytes */
                 assert_se(ftruncate(fd2, max_bytes + 1) == 0);
 
-        assert_se(lseek(fd2, 0, SEEK_SET) == 0);
-
-        r = copy_bytes(fd2, fd3, max_bytes, try_reflink ? COPY_REFLINK : 0);
+        r = copy_bytes(fd2, fd3, max_bytes, COPY_SEEK0_SOURCE | (try_reflink ? COPY_REFLINK : 0));
         if (max_bytes == UINT64_MAX)
                 assert_se(r == 0);
         else
@@ -460,9 +458,8 @@ TEST_RET(copy_holes) {
         assert_se(lseek(fd, 0, SEEK_END) == 2 * blksz);
         /* Only ftruncate() can create holes at the end of a file. */
         assert_se(ftruncate(fd, 3 * blksz) >= 0);
-        assert_se(lseek(fd, 0, SEEK_SET) >= 0);
 
-        assert_se(copy_bytes(fd, fd_copy, UINT64_MAX, COPY_HOLES) >= 0);
+        assert_se(copy_bytes(fd, fd_copy, UINT64_MAX, COPY_SEEK0_SOURCE|COPY_HOLES) >= 0);
 
         /* Test that the hole starts at the beginning of the file. */
         assert_se(lseek(fd_copy, 0, SEEK_HOLE) == 0);
@@ -526,26 +523,20 @@ TEST_RET(copy_holes_with_gaps) {
         assert_se(st.st_size == 3 * blksz);
 
         /* Copy to the middle of the second hole */
-        assert_se(lseek(fd, 0, SEEK_SET) >= 0);
-        assert_se(lseek(fd_copy, 0, SEEK_SET) >= 0);
         assert_se(ftruncate(fd_copy, 0) >= 0);
-        assert_se(copy_bytes(fd, fd_copy, 4 * blksz, COPY_HOLES) >= 0);
+        assert_se(copy_bytes(fd, fd_copy, 4 * blksz, COPY_SEEK0_SOURCE|COPY_SEEK0_TARGET|COPY_HOLES) >= 0);
         ASSERT_OK_ERRNO(fstat(fd_copy, &st));
         assert_se(st.st_size == 4 * blksz);
 
         /* Copy to the end of the second hole */
-        assert_se(lseek(fd, 0, SEEK_SET) >= 0);
-        assert_se(lseek(fd_copy, 0, SEEK_SET) >= 0);
         assert_se(ftruncate(fd_copy, 0) >= 0);
-        assert_se(copy_bytes(fd, fd_copy, 5 * blksz, COPY_HOLES) >= 0);
+        assert_se(copy_bytes(fd, fd_copy, 5 * blksz, COPY_SEEK0_SOURCE|COPY_SEEK0_TARGET|COPY_HOLES) >= 0);
         ASSERT_OK_ERRNO(fstat(fd_copy, &st));
         assert_se(st.st_size == 5 * blksz);
 
         /* Copy everything */
-        assert_se(lseek(fd, 0, SEEK_SET) >= 0);
-        assert_se(lseek(fd_copy, 0, SEEK_SET) >= 0);
         assert_se(ftruncate(fd_copy, 0) >= 0);
-        assert_se(copy_bytes(fd, fd_copy, UINT64_MAX, COPY_HOLES) >= 0);
+        assert_se(copy_bytes(fd, fd_copy, UINT64_MAX, COPY_SEEK0_SOURCE|COPY_SEEK0_TARGET|COPY_HOLES) >= 0);
         ASSERT_OK_ERRNO(fstat(fd_copy, &st));
         assert_se(st.st_size == 6 * blksz);
 
