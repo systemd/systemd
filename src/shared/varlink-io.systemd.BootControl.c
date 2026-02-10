@@ -128,7 +128,7 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("Index into array of file descriptors passed along with this message, pointing to file descriptor to root file system to operate on"),
                 SD_VARLINK_DEFINE_INPUT(rootFileDescriptor, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Root directory to operate relative to. If both this and rootFileDescriptor is specified, this is purely informational. If only this is specified, it is what will be used."),
-                SD_VARLINK_DEFINE_INPUT(rootDirectory, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_INPUT(rootDirectory, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Selects how to identify boot entries"),
                 SD_VARLINK_DEFINE_INPUT_BY_TYPE(bootEntryTokenType, BootEntryTokenType, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("If true the boot loader will be registered in an EFI boot entry via EFI variables, otherwise this is omitted"),
