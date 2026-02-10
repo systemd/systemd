@@ -13,6 +13,7 @@
 
 #include "alloc-util.h"
 #include "errno-util.h"
+#include "escape.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fs-util.h"
@@ -633,7 +634,11 @@ static int pid_notify_with_fds_internal(
                         return log_debug_errno(SYNTHETIC_ERRNO(EPROTO), "Unexpectedly received data on notify socket.");
         }
 
-        log_debug("Notify message sent to '%s': \"%s\"", e, state);
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *escaped = xescape_full(state, "\"", /* console_width = */ SIZE_MAX, XESCAPE_8_BIT);
+                log_debug("Notify message sent to '%s': \"%s\"", e, escaped ?: state);
+        }
+
         return 1;
 }
 
