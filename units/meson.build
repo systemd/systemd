@@ -506,6 +506,10 @@ units = [
           'conditions' : ['ENABLE_NETWORKD'],
         },
         {
+          'file' : 'systemd-networkd-varlink-metrics.socket',
+          'conditions' : ['ENABLE_NETWORKD'],
+        },
+        {
           'file' : 'systemd-networkd-wait-online.service.in',
           'conditions' : ['ENABLE_NETWORKD'],
         },
