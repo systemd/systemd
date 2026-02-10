@@ -140,7 +140,7 @@ units = [
           'file' : 'machines.target',
           'conditions' : ['ENABLE_MACHINED'],
         },
-        { 'file' : 'modprobe@.service' },
+        { 'file' : 'modprobe@.service.in' },
         {
           'file' : 'multi-user.target',
           'symlinks' : runlevels ? ['runlevel2.target', 'runlevel3.target', 'runlevel4.target'] : [],
