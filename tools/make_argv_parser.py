@@ -101,7 +101,7 @@ class Option:
                 return name[1:]
         return None
 
-    def long_names(self) -> Generator[str]:
+    def long_names(self) -> Generator[str, None, None]:
         "Long option names, if any"
         for name in self.names:
             if name.startswith('--'):
@@ -190,7 +190,7 @@ class Option:
             self.body += ['break;']
 
 
-def generate_lines(options: list[Option], globals: Globals) -> Generator[str]:
+def generate_lines(options: list[Option], globals: Globals) -> Generator[str, None, None]:
     # Figure out the optstring and other variables
     opt_names = []
     opt_args = []
