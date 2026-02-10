@@ -328,6 +328,8 @@ option('wheel-gid', type : 'integer', value : 0,
        description : 'soft-static allocation for the "wheel" group')
 option('systemd-journal-gid', type : 'integer', value : 0,
        description : 'soft-static allocation for the systemd-journal group')
+option('systemd-journal-uid', type : 'integer', value : 0,
+       description : 'soft-static allocation for the systemd-journal user')
 option('systemd-network-uid', type : 'integer', value : 0,
        description : 'soft-static allocation for the systemd-network user')
 option('systemd-resolve-uid', type : 'integer', value : 0,
