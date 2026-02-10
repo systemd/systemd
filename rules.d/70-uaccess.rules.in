@@ -125,6 +125,9 @@ SUBSYSTEM=="hidraw", ENV{ID_HARDWARE_WALLET}=="1", TAG+="uaccess"
 # As defined in https://en.wikipedia.org/wiki/3Dconnexion
 SUBSYSTEM=="hidraw", ENV{ID_INPUT_3D_MOUSE}=="1", TAG+="uaccess"
 
+# Scientific equipment
+SUBSYSTEM=="usb", ENV{ID_SCIENTIFIC_EQUIPMENT}=="?*", TAG+="uaccess"
+
 # Debug interfaces (e.g. Android Debug Bridge)
 ENV{ID_DEBUG_APPLIANCE}=="?*", TAG+="uaccess"
 
