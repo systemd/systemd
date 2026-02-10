@@ -439,6 +439,11 @@ units = [
           'file' : 'systemd-journal-upload.service.in',
           'conditions' : ['ENABLE_REMOTE', 'HAVE_LIBCURL'],
         },
+        { 'file' : 'systemd-journalctl@.service' },
+        {
+          'file' : 'systemd-journalctl.socket',
+          'symlinks' : ['sockets.target.wants/'],
+        },
         { 'file' : 'systemd-journald-audit.socket' },
         {
           'file' : 'systemd-journald-dev-log.socket',
