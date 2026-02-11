@@ -557,12 +557,14 @@ static int parse_one_option(const char *option) {
 
         } else if ((val = startswith(option, "tpm2-measure-keyslot-nvpcr="))) {
 
-                if (isempty(val)) {
+                r = isempty(val) ? false : parse_boolean(val);
+                if (r == 0) {
                         arg_tpm2_measure_keyslot_nvpcr = mfree(arg_tpm2_measure_keyslot_nvpcr);
                         return 0;
                 }
-
-                if (!tpm2_nvpcr_name_is_valid(val)) {
+                if (r > 0)
+                        val = "cryptsetup";
+                else if (!tpm2_nvpcr_name_is_valid(val)) {
                         log_warning("Invalid NvPCR name, ignoring: %s", option);
                         return 0;
                 }
