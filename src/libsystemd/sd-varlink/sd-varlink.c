@@ -499,7 +499,7 @@ _public_ int sd_varlink_connect_url(sd_varlink **ret, const char *url) {
         assert_return(ret, -EINVAL);
         assert_return(url, -EINVAL);
 
-        // FIXME: Maybe add support for vsock: and ssh-exec: URL schemes here.
+        // FIXME: Maybe add support for vsock: URL schemes here.
 
         /* The Varlink URL scheme is a bit underdefined. We support only the spec-defined unix: transport for
          * now, plus exec:, ssh: transports we made up ourselves. Strictly speaking this shouldn't even be
@@ -514,11 +514,36 @@ _public_ int sd_varlink_connect_url(sd_varlink **ret, const char *url) {
                 scheme = SCHEME_SSH_UNIX;
         else if ((p = startswith(url, "ssh-exec:")))
                 scheme = SCHEME_SSH_EXEC;
-        else
-                return log_debug_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT), "URL scheme not supported.");
+        else {
+                /* scheme is not built-in: check if we have a bridge helper binary */
+                const char *colon = strchr(url, ':');
+                if (!colon)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT),
+                                               "Invalid URL %s: does not contain a ':'", url);
+
+                _cleanup_free_ char *scheme_name = strndup(url, colon - url);
+                if (!scheme_name)
+                        return log_oom_debug();
+
+                if (!filename_is_valid(scheme_name))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT),
+                                               "URL scheme not valid as bridge name: %s", scheme_name);
+
+                _cleanup_free_ char *bridge = path_join(LIBEXECDIR "/varlink-bridges", scheme_name);
+                if (!bridge)
+                        return log_oom_debug();
+
+                if (access(bridge, X_OK) < 0)
+                        return log_debug_errno(
+                                        errno == ENOENT ? SYNTHETIC_ERRNO(EPROTONOSUPPORT) : -errno,
+                                        "No varlink bridge binary '%s' available", bridge);
+
+                return sd_varlink_connect_exec(ret, bridge, STRV_MAKE(bridge, url));
+        }
 
         /* The varlink.org reference C library supports more than just file system paths. We might want to
-         * support that one day too. For now simply refuse that. */
+         * support that one day too. For now simply refuse that for our built-in schemes. It is fine for
+         * external scheme handled via plugins (see above). */
         if (p[strcspn(p, ";?#")] != '\0')
                 return log_debug_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT), "URL parameterization with ';', '?', '#' not supported.");
 
