@@ -5441,7 +5441,7 @@ int tpm2_seal(Tpm2Context *c,
                                                seal_key_handle);
 
                 primary_alg = primary_public->publicArea.type;
-                
+
                 /* Propagate fixedTPM/fixedParent flags from sealing key to hmac key */
                 hmac_template.objectAttributes = (hmac_template.objectAttributes & ~(TPMA_OBJECT_FIXEDTPM|TPMA_OBJECT_FIXEDPARENT)) |
                                                  (primary_public->publicArea.objectAttributes & (TPMA_OBJECT_FIXEDTPM|TPMA_OBJECT_FIXEDPARENT));
@@ -6478,6 +6478,7 @@ static const char* tpm2_userspace_event_type_table[_TPM2_USERSPACE_EVENT_TYPE_MA
         [TPM2_EVENT_KEYSLOT]         = "keyslot",
         [TPM2_EVENT_NVPCR_INIT]      = "nvpcr-init",
         [TPM2_EVENT_NVPCR_SEPARATOR] = "nvpcr-separator",
+        [TPM2_EVENT_DM_VERITY]       = "dm-verity",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(tpm2_userspace_event_type, Tpm2UserspaceEventType);
