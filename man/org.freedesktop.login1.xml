@@ -1246,7 +1246,7 @@ node /org/freedesktop/login1/session/1 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s RemoteUser = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
-      readonly b ExtraDeviceAccess = ...;
+      readonly as ExtraDeviceAccess = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s Service = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
@@ -1541,9 +1541,9 @@ node /org/freedesktop/login1/session/1 {
       <para><varname>RemoteHost</varname> and <varname>RemoteUser</varname> encode the remote host and user
       if this is a remote session, or an empty string otherwise.</para>
 
-      <para><varname>ExtraDeviceAccess</varname> encodes whether the session is granted access to additional
-      hardware devices, typically useful for for graphical, remote session. If true, the session is granted
-      access to all devices tagged with <literal>xaccess</literal> in udev.</para>
+      <para><varname>ExtraDeviceAccess</varname> encodes the set of additional hardware devices that the session
+      is granted access to. For every <literal><replaceable>ID</replaceable></literal> in the list, the session
+      is granted access to all devices tagged with <literal>xaccess-<replaceable>ID</replaceable></literal> in udev.</para>
 
       <para><varname>Service</varname> encodes the PAM service name that registered the session.</para>
 
