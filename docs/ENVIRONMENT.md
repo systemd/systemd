@@ -760,6 +760,9 @@ Tools using the Varlink protocol (such as `varlinkctl`) or sd-bus (such as
   would listen on. If set to "-" the tool will turn stdin/stdout into a Varlink
   connection.
 
+* `$SYSTEMD_VARLINK_BRIDGES_DIR` – overrides the default `$LIBEXEC/varlink-bridges/`
+  path when looking up custom scheme bridge helper binaries.
+
 `systemd-mountfsd`:
 
 * `$SYSTEMD_MOUNTFSD_TRUSTED_DIRECTORIES` – takes a boolean argument. If true
