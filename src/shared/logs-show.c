@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <fnmatch.h>
 #include <signal.h>
 #include <syslog.h>
 #include <unistd.h>
@@ -11,6 +12,7 @@
 
 #include "alloc-util.h"
 #include "format-util.h"
+#include "glob-util.h"
 #include "glyph-util.h"
 #include "hashmap.h"
 #include "id128-util.h"
@@ -19,6 +21,7 @@
 #include "locale-util.h"
 #include "log.h"
 #include "logs-show.h"
+#include "nulstr-util.h"
 #include "output-mode.h"
 #include "parse-util.h"
 #include "pretty-print.h"
@@ -32,6 +35,7 @@
 #include "strv.h"
 #include "terminal-util.h"
 #include "time-util.h"
+#include "unit-name.h"
 #include "user-util.h"
 #include "utf8.h"
 #include "web-util.h"
@@ -1193,16 +1197,7 @@ static int update_json_data_split(
         return update_json_data(h, flags, name, eq + 1, size - fieldlen - 1);
 }
 
-static int output_json(
-                FILE *f,
-                sd_journal *j,
-                OutputMode mode,
-                unsigned n_columns,
-                OutputFlags flags,
-                const Set *output_fields,
-                const size_t highlight[2],
-                dual_timestamp *previous_display_ts, /* unused */
-                sd_id128_t *previous_boot_id) {      /* unused */
+int journal_entry_to_json(sd_journal *j, OutputFlags flags, const Set *output_fields, sd_json_variant **ret) {
 
         char usecbuf[CONST_MAX(DECIMAL_STR_MAX(usec_t), DECIMAL_STR_MAX(uint64_t))];
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *object = NULL;
@@ -1217,6 +1212,7 @@ static int output_json(
         int r;
 
         assert(j);
+        assert(ret);
 
         (void) sd_journal_set_data_threshold(j, flags & OUTPUT_SHOW_ALL ? 0 : JSON_THRESHOLD);
 
@@ -1322,6 +1318,28 @@ static int output_json(
         r = sd_json_variant_new_object(&object, array, n);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate JSON object: %m");
+
+        *ret = TAKE_PTR(object);
+        return 1;
+}
+
+static int output_json(
+                FILE *f,
+                sd_journal *j,
+                OutputMode mode,
+                unsigned n_columns,
+                OutputFlags flags,
+                const Set *output_fields,
+                const size_t highlight[2],
+                dual_timestamp *previous_display_ts, /* unused */
+                sd_id128_t *previous_boot_id) {      /* unused */
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *object = NULL;
+        int r;
+
+        r = journal_entry_to_json(j, flags, output_fields, &object);
+        if (r <= 0)
+                return r;
 
         return sd_json_variant_dump(object,
                                  output_mode_to_json_format_flags(mode) |
@@ -2312,6 +2330,155 @@ int journal_get_log_ids(
         *ret_ids = TAKE_PTR(ids);
         *ret_n_ids = n_ids;
         return n_ids > 0;
+}
+
+int get_possible_units(
+                sd_journal *j,
+                const char *fields,
+                char * const *patterns,
+                Set **ret) {
+
+        _cleanup_set_free_ Set *found = NULL;
+        int r;
+
+        assert(j);
+        assert(fields);
+        assert(ret);
+
+        NULSTR_FOREACH(field, fields) {
+                const void *data;
+                size_t size;
+
+                r = sd_journal_query_unique(j, field);
+                if (r < 0)
+                        return r;
+
+                SD_JOURNAL_FOREACH_UNIQUE(j, data, size) {
+                        _cleanup_free_ char *u = NULL;
+
+                        const char *eq = memchr(data, '=', size);
+                        if (eq) {
+                                size -= eq - (char*) data + 1;
+                                data = ++eq;
+                        }
+
+                        u = strndup(data, size);
+                        if (!u)
+                                return -ENOMEM;
+
+                        size_t i;
+                        if (!strv_fnmatch_full(patterns, u, FNM_NOESCAPE, &i))
+                                continue;
+
+                        log_debug("Matched %s with pattern %s=%s", u, field, patterns[i]);
+                        r = set_ensure_consume(&found, &string_hash_ops_free, TAKE_PTR(u));
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        *ret = TAKE_PTR(found);
+        return 0;
+}
+
+int journal_add_unit_matches(sd_journal *j, MatchUnitFlag flags, UnitNameMangle mangle_flags, char **system_units, char **user_units) {
+        _cleanup_strv_free_ char **patterns = NULL;
+        bool added = false;
+        int r;
+
+        assert(j);
+
+        if (strv_isempty(system_units) && strv_isempty(user_units))
+                return 0;
+
+        STRV_FOREACH(i, system_units) {
+                _cleanup_free_ char *u = NULL;
+
+                r = unit_name_mangle(*i, mangle_flags, &u);
+                if (r < 0)
+                        return r;
+
+                if (string_is_glob(u)) {
+                        r = strv_consume(&patterns, TAKE_PTR(u));
+                        if (r < 0)
+                                return r;
+                } else {
+                        r = add_matches_for_unit_full(j, flags, u);
+                        if (r < 0)
+                                return r;
+                        r = sd_journal_add_disjunction(j);
+                        if (r < 0)
+                                return r;
+                        added = true;
+                }
+        }
+
+        if (!strv_isempty(patterns)) {
+                _cleanup_set_free_ Set *units = NULL;
+
+                r = get_possible_units(j, SYSTEM_UNITS_FULL, patterns, &units);
+                if (r < 0)
+                        return r;
+
+                char *u;
+                SET_FOREACH(u, units) {
+                        r = add_matches_for_unit_full(j, flags, u);
+                        if (r < 0)
+                                return r;
+                        r = sd_journal_add_disjunction(j);
+                        if (r < 0)
+                                return r;
+                        added = true;
+                }
+        }
+
+        patterns = strv_free(patterns);
+
+        STRV_FOREACH(i, user_units) {
+                _cleanup_free_ char *u = NULL;
+
+                r = unit_name_mangle(*i, mangle_flags, &u);
+                if (r < 0)
+                        return r;
+
+                if (string_is_glob(u)) {
+                        r = strv_consume(&patterns, TAKE_PTR(u));
+                        if (r < 0)
+                                return r;
+                } else {
+                        r = add_matches_for_user_unit_full(j, flags, u);
+                        if (r < 0)
+                                return r;
+                        r = sd_journal_add_disjunction(j);
+                        if (r < 0)
+                                return r;
+                        added = true;
+                }
+        }
+
+        if (!strv_isempty(patterns)) {
+                _cleanup_set_free_ Set *units = NULL;
+
+                r = get_possible_units(j, USER_UNITS_FULL, patterns, &units);
+                if (r < 0)
+                        return r;
+
+                char *u;
+                SET_FOREACH(u, units) {
+                        r = add_matches_for_user_unit_full(j, flags, u);
+                        if (r < 0)
+                                return r;
+                        r = sd_journal_add_disjunction(j);
+                        if (r < 0)
+                                return r;
+                        added = true;
+                }
+        }
+
+        if (!added)
+                return -ENODATA;
+
+        return sd_journal_add_conjunction(j);
 }
 
 void journal_browse_prepare(void) {
