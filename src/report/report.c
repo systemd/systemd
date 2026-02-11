@@ -85,12 +85,9 @@ static int metrics_on_query_reply(
                         log_info("Varlink timed out");
                 else
                         log_error("Varlink error: %s", error_id);
-        } else {
-                if (context->n_metrics >= METRICS_MAX) {
-                        context->n_skipped_metrics++;
-                        return 0;
-                }
-
+        } else if (context->n_metrics >= METRICS_MAX)
+                context->n_skipped_metrics++;
+        else {
                 /* Collect metrics for later sorting */
                 if (!GREEDY_REALLOC(context->metrics, context->n_metrics + 1))
                         return log_oom();
