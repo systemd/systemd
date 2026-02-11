@@ -10,6 +10,7 @@
 #include "build.h"
 #include "dirent-util.h"
 #include "fd-util.h"
+#include "json-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "parse-argument.h"
@@ -32,8 +33,9 @@ static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO
 typedef struct Context {
         sd_event *event;
         Set *links;
+        Hashmap *metric_prefix_by_link;
         sd_json_variant **metrics;  /* Collected metrics for sorting */
-        size_t n_metrics, n_skipped_metrics;
+        size_t n_metrics, n_skipped_metrics, n_invalid_metrics;
 } Context;
 
 static int metric_compare(sd_json_variant *const *a, sd_json_variant *const *b) {
@@ -67,6 +69,32 @@ static int metric_compare(sd_json_variant *const *a, sd_json_variant *const *b) 
         return strcmp_ptr(fields_str_a, fields_str_b);
 }
 
+static bool metrics_validate_one(sd_varlink *link, sd_json_variant *metric, void *userdata) {
+        Context *context = ASSERT_PTR(userdata);
+        const char *metric_name = NULL;
+        sd_json_variant *e;
+        const char *k;
+
+        assert(link);
+        assert(metric);
+
+        if (!sd_json_variant_is_object(metric))
+                return 0;
+
+        JSON_VARIANT_OBJECT_FOREACH(k, e, metric) {
+                if (streq(k, "name")) {
+                        metric_name = sd_json_variant_string(e);
+                        break;
+                }
+        }
+
+        const char *metric_prefix = hashmap_get(context->metric_prefix_by_link, link);
+        if (isempty(metric_name) || isempty(metric_prefix))
+                return 0;
+
+        return startswith(metric_name, metric_prefix) != NULL;
+}
+
 static int metrics_on_query_reply(
                 sd_varlink *link,
                 sd_json_variant *parameters,
@@ -85,20 +113,30 @@ static int metrics_on_query_reply(
                         log_info("Varlink timed out");
                 else
                         log_error("Varlink error: %s", error_id);
-        } else {
-                if (context->n_metrics >= METRICS_MAX) {
-                        context->n_skipped_metrics++;
-                        return 0;
-                }
 
-                /* Collect metrics for later sorting */
-                if (!GREEDY_REALLOC(context->metrics, context->n_metrics + 1))
-                        return log_oom();
-                context->metrics[context->n_metrics++] = sd_json_variant_ref(parameters);
+                goto finish;
         }
 
+        if (context->n_metrics >= METRICS_MAX) {
+                context->n_skipped_metrics++;
+                goto finish;
+        }
+
+        if (!metrics_validate_one(link, parameters, context)) {
+                context->n_invalid_metrics++;
+                goto finish;
+        }
+
+        /* Collect metrics for later sorting */
+        if (!GREEDY_REALLOC(context->metrics, context->n_metrics + 1))
+                return log_oom();
+
+        context->metrics[context->n_metrics++] = sd_json_variant_ref(parameters);
+
+finish:
         if (!FLAGS_SET(flags, SD_VARLINK_REPLY_CONTINUES)) {
                 assert_se(set_remove(context->links, link) == link);
+                hashmap_remove(context->metric_prefix_by_link, link);
                 link = sd_varlink_close_unref(link);
 
                 if (set_isempty(context->links))
@@ -110,10 +148,15 @@ static int metrics_on_query_reply(
 
 static int metrics_call(Context *context, const char *path) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        _cleanup_free_ char *metric_prefix = NULL;
         int r;
 
         assert(context);
         assert(path);
+
+        r = path_extract_filename(path, &metric_prefix);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract metric name from path %s: %m", path);
 
         r = sd_varlink_connect_address(&vl, path);
         if (r < 0)
@@ -139,7 +182,10 @@ static int metrics_call(Context *context, const char *path) {
 
         if (set_ensure_put(&context->links, &varlink_hash_ops, vl) < 0)
                 return log_oom();
+        if (hashmap_ensure_put(&context->metric_prefix_by_link, &varlink_hash_ops, vl, metric_prefix) < 0)
+                return log_oom();
 
+        TAKE_PTR(metric_prefix);
         TAKE_PTR(vl);
         return 0;
 }
@@ -148,6 +194,7 @@ static void context_done(Context *context) {
         assert(context);
 
         set_free(context->links);
+        hashmap_free(context->metric_prefix_by_link);
         sd_json_variant_unref_many(context->metrics, context->n_metrics);
         sd_event_unref(context->event);
 }
@@ -234,10 +281,13 @@ static int metrics_query(void) {
                 if (n_skipped_sources > 0)
                         log_warning("Too many metrics sources, only %u sources contacted, %zu sources skipped.", set_size(context.links), n_skipped_sources);
                 if (context.n_skipped_metrics > 0)
+                        log_warning("%zu metrics are not valid.", context.n_invalid_metrics);
+                if (context.n_skipped_metrics > 0)
                         log_warning("Too many metrics, only %zu metrics collected, %zu metrics skipped.", context.n_metrics, context.n_skipped_metrics);
 
                 if (n_skipped_sources > 0 ||
-                    context.n_skipped_metrics > 0)
+                    context.n_skipped_metrics > 0 ||
+                    context.n_invalid_metrics)
                         return EXIT_FAILURE;
         }
 
