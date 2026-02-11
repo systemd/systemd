@@ -124,7 +124,6 @@ Features:
 * report:
   - should the list of metrics use JSON-SEQ? or maybe be wrapped in a json
     array (the latter might be necessary, once we sign the combination)
-  - "io.systemd.Manager.unit_active_state" is a weird mix of CamelCase and snake_case
   - metrics from pid1: suppress metrics form units that are inactive and have nothing to report
   - how to plug facts into this? i.e. hostname, ssh keys, and so on
   - switch to daan's suggested hierarchy?
