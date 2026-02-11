@@ -20,7 +20,6 @@
 #include "sort-util.h"
 #include "string-util.h"
 #include "time-util.h"
-#include "varlink-util.h"
 
 #define METRICS_MAX 1024U
 #define METRICS_LINKS_MAX 128U
@@ -31,10 +30,43 @@ static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO
 
 typedef struct Context {
         sd_event *event;
-        Set *links;
+        Set *link_infos;
         sd_json_variant **metrics;  /* Collected metrics for sorting */
-        size_t n_metrics, n_skipped_metrics;
+        size_t n_metrics, n_skipped_metrics, n_invalid_metrics;
 } Context;
+
+typedef struct LinkInfo {
+        Context *context;
+        sd_varlink *link;
+        char *metric_prefix;
+} LinkInfo;
+
+static LinkInfo* link_info_free(LinkInfo *li) {
+        if (!li)
+                return NULL;
+
+        sd_varlink_close_unref(li->link);
+        free(li->metric_prefix);
+        return mfree(li);
+}
+
+static void context_done(Context *context) {
+        if (!context)
+                return;
+
+        set_free(context->link_infos);
+        sd_json_variant_unref_many(context->metrics, context->n_metrics);
+        sd_event_unref(context->event);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(LinkInfo*, link_info_free);
+DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+        link_info_hash_ops,
+        void,
+        trivial_hash_func,
+        trivial_compare_func,
+        LinkInfo,
+        link_info_free);
 
 static int metric_compare(sd_json_variant *const *a, sd_json_variant *const *b) {
         const char *name_a, *name_b, *object_a, *object_b;
@@ -67,6 +99,35 @@ static int metric_compare(sd_json_variant *const *a, sd_json_variant *const *b) 
         return strcmp_ptr(fields_str_a, fields_str_b);
 }
 
+static inline bool metric_startswith_prefix(const char *metric_name, const char *prefix) {
+        if (isempty(metric_name) || isempty(prefix))
+                return false;
+
+        const char *m = startswith(metric_name, prefix);
+        return !isempty(m) && m[0] == '.';
+}
+
+static bool metrics_validate_one(LinkInfo *li, sd_json_variant *metric) {
+        int r;
+
+        assert(li);
+        assert(metric);
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "name", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, 0, SD_JSON_MANDATORY },
+                {}
+        };
+
+        const char *metric_name = NULL;
+        r = sd_json_dispatch(metric, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &metric_name);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to get metric name, assuming name is not valid: %m");
+                return false;
+        }
+
+        return metric_startswith_prefix(metric_name, li->metric_prefix);
+}
+
 static int metrics_on_query_reply(
                 sd_varlink *link,
                 sd_json_variant *parameters,
@@ -76,7 +137,8 @@ static int metrics_on_query_reply(
 
         assert(link);
 
-        Context *context = ASSERT_PTR(userdata);
+        LinkInfo *li = ASSERT_PTR(userdata);
+        Context *context = ASSERT_PTR(li->context);
 
         if (error_id) {
                 if (streq(error_id, SD_VARLINK_ERROR_DISCONNECTED))
@@ -94,6 +156,11 @@ static int metrics_on_query_reply(
                 goto finish;
         }
 
+        if (!metrics_validate_one(li, parameters)) {
+                context->n_invalid_metrics++;
+                goto finish;
+        }
+
         /* Collect metrics for later sorting */
         if (!GREEDY_REALLOC(context->metrics, context->n_metrics + 1))
                 return log_oom();
@@ -102,10 +169,9 @@ static int metrics_on_query_reply(
 
 finish:
         if (!FLAGS_SET(flags, SD_VARLINK_REPLY_CONTINUES)) {
-                assert_se(set_remove(context->links, link) == link);
-                link = sd_varlink_close_unref(link);
-
-                if (set_isempty(context->links))
+                assert_se(set_remove(context->link_infos, li) == li);
+                link_info_free(li);
+                if (set_isempty(context->link_infos))
                         (void) sd_event_exit(context->event, EXIT_SUCCESS);
         }
 
@@ -123,8 +189,6 @@ static int metrics_call(Context *context, const char *path) {
         if (r < 0)
                 return log_error_errno(r, "Unable to connect to %s: %m", path);
 
-        (void) sd_varlink_set_userdata(vl, context);
-
         r = sd_varlink_set_relative_timeout(vl, TIMEOUT_USEC);
         if (r < 0)
                 return log_error_errno(r, "Failed to set varlink timeout: %m");
@@ -141,19 +205,25 @@ static int metrics_call(Context *context, const char *path) {
         if (r < 0)
                 return log_error_errno(r, "Failed to issue io.systemd.Metrics.List call: %m");
 
-        if (set_ensure_put(&context->links, &varlink_hash_ops, vl) < 0)
+        _cleanup_(link_info_freep) LinkInfo *li = new(LinkInfo, 1);
+        if (!li)
                 return log_oom();
 
-        TAKE_PTR(vl);
+        *li = (LinkInfo) {
+                .context = context,
+                .link = sd_varlink_ref(vl),
+        };
+
+        r = path_extract_filename(path, &li->metric_prefix);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract metric name from path %s: %m", path);
+
+        (void) sd_varlink_set_userdata(vl, li);
+        if (set_ensure_put(&context->link_infos, &link_info_hash_ops, li) < 0)
+                return log_oom();
+
+        TAKE_PTR(li);
         return 0;
-}
-
-static void context_done(Context *context) {
-        assert(context);
-
-        set_free(context->links);
-        sd_json_variant_unref_many(context->metrics, context->n_metrics);
-        sd_event_unref(context->event);
 }
 
 static int metrics_output_sorted(Context *context) {
@@ -211,7 +281,7 @@ static int metrics_query(void) {
                         if (!IN_SET(de->d_type, DT_SOCK, DT_UNKNOWN))
                                 continue;
 
-                        if (set_size(context.links) >= METRICS_LINKS_MAX) {
+                        if (set_size(context.link_infos) >= METRICS_LINKS_MAX) {
                                 n_skipped_sources++;
                                 break;
                         }
@@ -223,7 +293,7 @@ static int metrics_query(void) {
                         (void) metrics_call(&context, p);
                 }
 
-        if (set_isempty(context.links))
+        if (set_isempty(context.link_infos))
                 log_info("No metrics sources found.");
         else {
                 r = sd_event_loop(context.event);
@@ -238,7 +308,11 @@ static int metrics_query(void) {
         if (n_skipped_sources > 0)
                 return log_warning_errno(SYNTHETIC_ERRNO(EUCLEAN),
                                          "Too many metrics sources, only %u sources contacted, %zu sources skipped.",
-                                         set_size(context.links), n_skipped_sources);
+                                         set_size(context.link_infos), n_skipped_sources);
+        if (context.n_invalid_metrics > 0)
+                return log_warning_errno(SYNTHETIC_ERRNO(EUCLEAN),
+                                         "%zu metrics are not valid.",
+                                         context.n_invalid_metrics);
         if (context.n_skipped_metrics > 0)
                 return log_warning_errno(SYNTHETIC_ERRNO(EUCLEAN),
                                          "Too many metrics, only %zu metrics collected, %zu metrics skipped.",
