@@ -55,7 +55,14 @@ static char* normalize_locale(const char *name) {
         return strdup(name);
 }
 
+static const char* get_locale_dir(const char* fallback) {
+        return getenv("SYSTEMD_LOCALE_DIR") ?: fallback;
+}
+
 #ifdef __GLIBC__
+
+#define FALLBACK_LOCALE_DIR "/usr/lib/locale"
+
 static int add_locales_from_archive(Set *locales) {
         /* Stolen from glibc... */
 
@@ -94,7 +101,8 @@ static int add_locales_from_archive(Set *locales) {
 
         assert(locales);
 
-        _cleanup_close_ int fd = open("/usr/lib/locale/locale-archive", O_RDONLY|O_NOCTTY|O_CLOEXEC);
+        _cleanup_free_ char *locale_archive_file = path_join(get_locale_dir(FALLBACK_LOCALE_DIR), "/locale-archive");
+        _cleanup_close_ int fd = open(locale_archive_file, O_RDONLY|O_NOCTTY|O_CLOEXEC);
         if (fd < 0)
                 return errno == ENOENT ? 0 : -errno;
 
@@ -162,7 +170,7 @@ static int add_locales_from_libdir(Set *locales) {
 
         assert(locales);
 
-        dir = opendir("/usr/lib/locale");
+        dir = opendir(get_locale_dir(FALLBACK_LOCALE_DIR));
         if (!dir)
                 return errno == ENOENT ? 0 : -errno;
 
@@ -186,12 +194,14 @@ static int add_locales_from_libdir(Set *locales) {
 
 #else
 
+#define FALLBACK_LOCALE_DIR "/usr/share/i18n/locales/musl/"
+
 static int add_locales_for_musl(Set *locales) {
         int r;
 
         assert(locales);
 
-        _cleanup_closedir_ DIR *dir = opendir("/usr/share/i18n/locales/musl/");
+        _cleanup_closedir_ DIR *dir = opendir(get_locale_dir(FALLBACK_LOCALE_DIR));
         if (!dir)
                 return errno == ENOENT ? 0 : -errno;
 
@@ -313,7 +323,7 @@ int locale_is_installed(const char *name) {
 
         /* musl's newlocale() always succeeds and provides a fake locale object even when the locale does
          * not exist. Hence, we need to explicitly check if the locale file exists. */
-        _cleanup_free_ char *p = path_join("/usr/share/i18n/locales/musl/", name);
+        _cleanup_free_ char *p = path_join(get_locale_dir(FALLBACK_LOCALE_DIR), name);
         if (!p)
                 return -ENOMEM;
 
