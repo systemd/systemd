@@ -30,15 +30,11 @@
 #
 #   If the property is missing, user-space can assume:
 #   ID_INPUT_JOYSTICK_INTEGRATION=external
+#
+#   Note that usb devices should be automatically set to internal or external
+#   based on the removable attribute value of the specific port it's connected.
+#   If it's wrong a quirk for your device's specific usb port should be set
+#   instead of setting here the usb device.
 
 joystick:bluetooth:*
  ID_INPUT_JOYSTICK_INTEGRATION=external
-
-###########################################################
-# GPD
-###########################################################
-
-# GPD Win, Classic and XBox 360 compat modes
-joystick:usb:v11c5p5507*
-joystick:usb:v045ep028e*
- ID_INPUT_JOYSTICK_INTEGRATION=internal
