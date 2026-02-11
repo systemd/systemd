@@ -240,6 +240,8 @@ static int archive_unpack_regular(
         if (fd < 0)
                 return log_error_errno(fd, "Failed to create regular file '%s': %m", path);
 
+        CLEANUP_TMPFILE_AT(parent_fd, tmp);
+
         if ((fflags & CHATTR_EARLY_FL) != 0) {
                 r = chattr_full(fd,
                                 /* path= */ NULL,
@@ -250,45 +252,29 @@ static int archive_unpack_regular(
                                 CHATTR_FALLBACK_BITWISE);
                 if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
                         log_warning_errno(r, "Failed to apply chattr of '%s', ignoring: %m", path);
-                else if (r < 0) {
-                        log_error_errno(r, "Failed to adjust chattr of '%s': %m", path);
-                        goto fail;
-                }
+                else if (r < 0)
+                        return log_error_errno(r, "Failed to adjust chattr of '%s': %m", path);
         }
 
         r = sym_archive_read_data_into_fd(a, fd);
-        if (r != ARCHIVE_OK) {
-                r = log_error_errno(
-                                SYNTHETIC_ERRNO(ENOTRECOVERABLE),
-                                "Failed to unpack regular file '%s': %s", path, sym_archive_error_string(a));
-                goto fail;
-        }
+        if (r != ARCHIVE_OK)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "Failed to unpack regular file '%s': %s", path, sym_archive_error_string(a));
 
         /* If this is a sparse file, then libarchive's archive_read_data_into_fd() won't insert the final
          * hole. We need to manually truncate. */
         off_t l = lseek(fd, 0, SEEK_CUR);
-        if (l < 0) {
-                r = log_error_errno(errno, "Failed to determine current file position in '%s': %m", path);
-                goto fail;
-        }
-        if (ftruncate(fd, l) < 0) {
-                r = log_error_errno(errno, "Failed to truncate regular file '%s' to %" PRIu64 ": %m", path, (uint64_t) l);
-                goto fail;
-        }
+        if (l < 0)
+                return log_error_errno(errno, "Failed to determine current file position in '%s': %m", path);
+        if (ftruncate(fd, l) < 0)
+                return log_error_errno(errno, "Failed to truncate regular file '%s' to %" PRIu64 ": %m", path, (uint64_t) l);
 
         r = link_tmpfile_at(fd, parent_fd, tmp, filename, LINK_TMPFILE_REPLACE);
-        if (r < 0) {
-                log_error_errno(r, "Failed to install regular file '%s': %m", path);
-                goto fail;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to install regular file '%s': %m", path);
 
+        tmp = mfree(tmp); /* disarm CLEANUP_TMPFILE_AT() */
         return TAKE_FD(fd);
-
-fail:
-        if (tmp)
-                (void) unlinkat(parent_fd, tmp, /* flags= */ 0);
-
-        return r;
 }
 
 static int archive_unpack_directory(
