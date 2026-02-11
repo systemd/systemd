@@ -1031,10 +1031,8 @@ static int measure_volume_key(
         r = efi_measured_uki(LOG_WARNING);
         if (r < 0)
                 return r;
-        if (r == 0) {
-                log_debug("Kernel stub did not measure kernel image into the expected PCR, skipping userspace volume key measurement, too.");
-                return 0;
-        }
+        if (r == 0)
+                log_warning("Kernel stub did not measure kernel image into the expected PCR. This indicates that the userspace volume key measurement is ineffective.");
 
 #if HAVE_TPM2
         _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
