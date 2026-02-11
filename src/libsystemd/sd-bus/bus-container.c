@@ -17,8 +17,7 @@ int bus_container_connect_socket(sd_bus *b) {
         _cleanup_close_ int pidnsfd = -EBADF, mntnsfd = -EBADF, usernsfd = -EBADF, rootfd = -EBADF;
         _cleanup_(pidref_done) PidRef child = PIDREF_NULL;
         _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
-        int r, error_buf = 0;
-        ssize_t n;
+        int r;
 
         assert(b);
         assert(b->input_fd < 0);
@@ -61,14 +60,7 @@ int bus_container_connect_socket(sd_bus *b) {
                 pair[0] = safe_close(pair[0]);
 
                 r = connect(b->input_fd, &b->sockaddr.sa, b->sockaddr_size);
-                if (r < 0) {
-                        /* Try to send error up */
-                        error_buf = errno;
-                        (void) write(pair[1], &error_buf, sizeof(error_buf));
-                        _exit(EXIT_FAILURE);
-                }
-
-                _exit(EXIT_SUCCESS);
+                report_errno_and_exit(pair[1], r);
         }
 
         pair[1] = safe_close(pair[1]);
@@ -76,30 +68,14 @@ int bus_container_connect_socket(sd_bus *b) {
         r = pidref_wait_for_terminate_and_check("(sd-buscntrns)", &child, 0);
         if (r < 0)
                 return r;
-        bool nonzero_exit_status = r != EXIT_SUCCESS;
-
-        n = read(pair[0], &error_buf, sizeof(error_buf));
-        if (n < 0)
-                return log_debug_errno(errno, "Failed to read error status from (sd-buscntr): %m");
-
-        if (n > 0) {
-                if (n != sizeof(error_buf))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EIO),
-                                               "Read error status of unexpected length %zd from (sd-buscntr).", n);
-
-                if (error_buf < 0)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                               "Got unexpected error status from (sd-buscntr).");
-
-                if (error_buf == EINPROGRESS)
+        if (r != EXIT_SUCCESS) {
+                r = read_errno(pair[0]);
+                if (r == -EINPROGRESS)
                         return 1;
-
-                if (error_buf > 0)
-                        return log_debug_errno(error_buf, "(sd-buscntr) failed to connect to D-Bus socket: %m");
-        }
-
-        if (nonzero_exit_status)
+                if (r < 0)
+                        return log_debug_errno(r, "(sd-buscntr) failed to connect to D-Bus socket: %m");
                 return -EPROTO;
+        }
 
         return bus_socket_start_auth(b);
 }
