@@ -1381,14 +1381,13 @@ static int varlink_format_queue(sd_varlink *v) {
          * would not corrupt our fd message boundaries */
 
         while (v->output_queue) {
-                _cleanup_free_ int *array = NULL;
-
                 assert(v->n_output_queue > 0);
-
-                VarlinkJsonQueueItem *q = v->output_queue;
 
                 if (v->n_output_fds > 0) /* unwritten fds? if we'd add more we'd corrupt the fd message boundaries, hence wait */
                         return 0;
+
+                VarlinkJsonQueueItem *q = v->output_queue;
+                _cleanup_free_ int *array = NULL;
 
                 if (q->n_fds > 0) {
                         array = newdup(int, q->fds, q->n_fds);
@@ -1401,8 +1400,7 @@ static int varlink_format_queue(sd_varlink *v) {
                         return r;
 
                 /* Take possession of the queue element's fds */
-                free(v->output_fds);
-                v->output_fds = TAKE_PTR(array);
+                free_and_replace(v->output_fds, array);
                 v->n_output_fds = q->n_fds;
                 q->n_fds = 0;
 
