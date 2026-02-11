@@ -85,15 +85,22 @@ static int metrics_on_query_reply(
                         log_info("Varlink timed out");
                 else
                         log_error("Varlink error: %s", error_id);
-        } else if (context->n_metrics >= METRICS_MAX)
-                context->n_skipped_metrics++;
-        else {
-                /* Collect metrics for later sorting */
-                if (!GREEDY_REALLOC(context->metrics, context->n_metrics + 1))
-                        return log_oom();
-                context->metrics[context->n_metrics++] = sd_json_variant_ref(parameters);
+
+                goto finish;
         }
 
+        if (context->n_metrics >= METRICS_MAX) {
+                context->n_skipped_metrics++;
+                goto finish;
+        }
+
+        /* Collect metrics for later sorting */
+        if (!GREEDY_REALLOC(context->metrics, context->n_metrics + 1))
+                return log_oom();
+
+        context->metrics[context->n_metrics++] = sd_json_variant_ref(parameters);
+
+finish:
         if (!FLAGS_SET(flags, SD_VARLINK_REPLY_CONTINUES)) {
                 assert_se(set_remove(context->links, link) == link);
                 link = sd_varlink_close_unref(link);
