@@ -1097,8 +1097,9 @@ static int measure_keyslot(
                 const char *mechanism,
                 int keyslot) {
 
+#if HAVE_TPM2
         int r;
-
+#endif
         assert(cd);
         assert(name);
 
@@ -1107,6 +1108,7 @@ static int measure_keyslot(
                 return 0;
         }
 
+#if HAVE_TPM2
         r = efi_measured_uki(LOG_WARNING);
         if (r < 0)
                 return r;
@@ -1115,7 +1117,6 @@ static int measure_keyslot(
                 return 0;
         }
 
-#if HAVE_TPM2
         _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
         r = tpm2_context_new_or_warn(arg_tpm2_device, &c);
         if (r < 0)
