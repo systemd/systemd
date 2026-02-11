@@ -1035,12 +1035,15 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --format=xz|gzip|bzip2|zstd\n"
                "                              Desired output format for export\n"
                "     --force                  Install image even if already exists\n"
-               "  -m --class=machine          Install as machine image\n"
-               "  -P --class=portable         Install as portable service image\n"
-               "  -S --class=sysext           Install as system extension image\n"
-               "  -C --class=confext          Install as configuration extension image\n"
+               "     --class=TYPE             Install as the specified TYPE\n"
+               "  -m                          Install as --class=machine, machine image\n"
+               "  -P                          Install as --class=portable,\n"
+               "                              portable service image\n"
+               "  -S                          Install as --class=sysext, system extension image\n"
+               "  -C                          Install as --class=confext,\n"
+               "                              configuration extension image\n"
                "     --keep-download=BOOL     Control whether to keep pristine copy of download\n"
-               "  -N                          Shortcut for --keep-download=no\n"
+               "  -N                          Same as --keep-download=no\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
