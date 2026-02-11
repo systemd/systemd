@@ -317,8 +317,6 @@ int dhcp_server_static_leases_append_json(sd_dhcp_server *server, sd_json_varian
 
 int dhcp_server_save_leases(sd_dhcp_server *server) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        _cleanup_free_ char *temp_path = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
         sd_id128_t boot_id;
         int r;
 
@@ -355,25 +353,27 @@ int dhcp_server_save_leases(sd_dhcp_server *server) {
         if (r < 0)
                 return r;
 
+        _cleanup_free_ char *temp_path = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+
         r = fopen_temporary_at(server->lease_dir_fd, server->lease_file, &f, &temp_path);
         if (r < 0)
                 return r;
+
+        CLEANUP_TMPFILE_AT(server->lease_dir_fd, temp_path);
 
         (void) fchmod(fileno(f), 0644);
 
         r = sd_json_variant_dump(v, SD_JSON_FORMAT_NEWLINE | SD_JSON_FORMAT_FLUSH, f, /* prefix= */ NULL);
         if (r < 0)
-                goto failure;
+                return r;
 
         r = conservative_renameat(server->lease_dir_fd, temp_path, server->lease_dir_fd, server->lease_file);
         if (r < 0)
-                goto failure;
+                return r;
 
+        temp_path = mfree(temp_path); /* disarm CLEANUP_TMPFILE_AT() */
         return 0;
-
-failure:
-        (void) unlinkat(server->lease_dir_fd, temp_path, /* flags= */ 0);
-        return r;
 }
 
 static int json_dispatch_chaddr(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {

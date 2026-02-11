@@ -437,7 +437,7 @@ void cleanup_tmpfile_data_done(struct cleanup_tmpfile_data *d) {
         assert(d);
 
         if (!d->dir_fd ||
-            *d->dir_fd < 0 ||
+            (*d->dir_fd < 0 && *d->dir_fd != AT_FDCWD) ||
             !d->filename ||
             !*d->filename)
                 return;
