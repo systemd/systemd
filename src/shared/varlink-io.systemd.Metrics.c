@@ -18,7 +18,7 @@ static SD_VARLINK_DEFINE_ERROR(NoSuchMetric);
 static SD_VARLINK_DEFINE_METHOD_FULL(
                 List,
                 SD_VARLINK_REQUIRES_MORE,
-                SD_VARLINK_FIELD_COMMENT("Metric name, e.g. io.systemd.Manager.units_by_type_total or io.systemd.Manager.unit_active_state"),
+                SD_VARLINK_FIELD_COMMENT("Metric name, e.g. io.systemd.Manager.unitsByTypeTotal or io.systemd.Manager.unitActiveState"),
                 SD_VARLINK_DEFINE_OUTPUT(name, SD_VARLINK_STRING, 0),
                 /* metric value has various types depending on MetricFamilyType and actual data double/int/uint */
                 SD_VARLINK_FIELD_COMMENT("Metric value"),
