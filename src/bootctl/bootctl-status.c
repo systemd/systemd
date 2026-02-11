@@ -22,6 +22,7 @@
 #include "pretty-print.h"
 #include "string-util.h"
 #include "tpm2-util.h"
+#include "varlink-util.h"
 
 static int status_entries(
                 const BootConfig *config,
@@ -674,23 +675,21 @@ int vl_method_list_boot_entries(sd_varlink *link, sd_json_variant *parameters, s
         if (r < 0)
                 return r;
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *previous = NULL;
+        r = varlink_set_sentinel(link, "io.systemd.BootControl.NoSuchBootEntry");
+        if (r < 0)
+                return r;
+
         for (size_t i = 0; i < config.n_entries; i++) {
-                if (previous) {
-                        r = sd_varlink_notifybo(link, SD_JSON_BUILD_PAIR_VARIANT("entry", previous));
-                        if (r < 0)
-                                return r;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
-                        previous = sd_json_variant_unref(previous);
-                }
+                r = boot_entry_to_json(&config, i, &v);
+                if (r < 0)
+                        return r;
 
-                r = boot_entry_to_json(&config, i, &previous);
+                r = sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_VARIANT("entry", v));
                 if (r < 0)
                         return r;
         }
 
-        if (!previous)
-                return sd_varlink_error(link, "io.systemd.BootControl.NoSuchBootEntry", NULL);
-
-        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_VARIANT("entry", previous));
+        return 0;
 }
