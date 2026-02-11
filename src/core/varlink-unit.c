@@ -395,7 +395,12 @@ static int varlink_error_conflict_lookup_parameters(sd_varlink *v, const UnitLoo
         return varlink_error_no_such_unit(v, /* name= */ NULL);
 }
 
-static int lookup_unit_by_parameters(sd_varlink *link, Manager *manager, UnitLookupParameters *p, Unit **ret_unit) {
+static int lookup_unit_by_parameters(
+                sd_varlink *link,
+                Manager *manager,
+                UnitLookupParameters *p,
+                Unit **ret) {
+
         /* The function can return ret_unit=NULL if no lookup parameters provided */
         Unit *unit = NULL;
         int r;
@@ -403,7 +408,7 @@ static int lookup_unit_by_parameters(sd_varlink *link, Manager *manager, UnitLoo
         assert(link);
         assert(manager);
         assert(p);
-        assert(ret_unit);
+        assert(ret);
 
         if (p->name) {
                 unit = manager_get_unit(manager, p->name);
@@ -413,6 +418,7 @@ static int lookup_unit_by_parameters(sd_varlink *link, Manager *manager, UnitLoo
 
         if (pidref_is_set_or_automatic(&p->pidref)) {
                 Unit *pid_unit;
+
                 r = lookup_unit_by_pidref(link, manager, &p->pidref, &pid_unit);
                 if (r == -EINVAL)
                         return sd_varlink_error_invalid_parameter_name(link, "pid");
@@ -420,7 +426,7 @@ static int lookup_unit_by_parameters(sd_varlink *link, Manager *manager, UnitLoo
                         return varlink_error_no_such_unit(link, "pid");
                 if (r < 0)
                         return r;
-                if (pid_unit != unit && unit != NULL)
+                if (unit && pid_unit != unit)
                         return varlink_error_conflict_lookup_parameters(link, p);
 
                 unit = pid_unit;
@@ -433,7 +439,7 @@ static int lookup_unit_by_parameters(sd_varlink *link, Manager *manager, UnitLoo
                 Unit *cgroup_unit = manager_get_unit_by_cgroup(manager, p->cgroup);
                 if (!cgroup_unit)
                         return varlink_error_no_such_unit(link, "cgroup");
-                if (cgroup_unit != unit && unit != NULL)
+                if (unit && cgroup_unit != unit)
                         return varlink_error_conflict_lookup_parameters(link, p);
 
                 unit = cgroup_unit;
@@ -443,13 +449,13 @@ static int lookup_unit_by_parameters(sd_varlink *link, Manager *manager, UnitLoo
                 Unit *id128_unit = hashmap_get(manager->units_by_invocation_id, &p->invocation_id);
                 if (!id128_unit)
                         return varlink_error_no_such_unit(link, "invocationID");
-                if (id128_unit != unit && unit != NULL)
+                if (unit && id128_unit != unit)
                         return varlink_error_conflict_lookup_parameters(link, p);
 
                 unit = id128_unit;
         }
 
-        *ret_unit = unit;
+        *ret = unit;
         return 0;
 }
 
@@ -480,7 +486,7 @@ int vl_method_list_units(sd_varlink *link, sd_json_variant *parameters, sd_varli
         r = lookup_unit_by_parameters(link, manager, &p, &unit);
         if (r < 0)
                 return r;
-        if (unit)
+        if (r > 0)
                 return list_unit_one_with_selinux_access_check(link, unit, /* more= */ false);
 
         if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
