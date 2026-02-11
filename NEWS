@@ -31,6 +31,12 @@ CHANGES WITH 260 in spe:
           rather than the first, to keep these options coherent with other
           unit settings.
 
+        * Support for non-system users and groups in udev rules and
+          systemd-networkd configuration has been restored, but is deprecated
+          and discouraged. systemd-udevd and systemd-networkd will emit
+          warnings when non-system accounts are used. This support will be
+          removed in a future release.
+
         Changes in other components:
 
         * New options SYSTEMD_COLORS=auto-16, SYSTEMD_COLORS=auto-256, and
@@ -669,13 +675,13 @@ CHANGES WITH 258:
           an incompatible change of sorts, since per-user services will
           typically not be available for such PAM sessions of system users.
 
-        * systemd-udevd ignores OWNER=/GROUP= settings with a non-system
-          user/group specified in udev rules files, to avoid device nodes being
+        * systemd-udevd warns about OWNER=/GROUP= settings with a non-system
+          user/group specified in udev rules files. Device nodes should not be
           owned by a non-system user/group. It is recommended to check udev
           rules files with 'udevadm verify' and/or 'udevadm test' commands if
           the specified user/group in OWNER=/GROUP= are valid.
-          Similarly, systemd-networkd refuses User=/Group= settings with a
-          non-system user/group specified in .netdev files for Tun/Tap
+          Similarly, systemd-networkd will warn about User=/Group= settings
+          with a non-system user/group specified in .netdev files for Tun/Tap
           interfaces.
 
         * systemd-cryptenroll, systemd-repart and systemd-creds no longer

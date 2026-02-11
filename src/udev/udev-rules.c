@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 #include "sd-json.h"
+#include "sd-messages.h"
 
 #include "alloc-util.h"
 #include "architecture.h"
@@ -50,6 +51,7 @@
 #include "udev-trace.h"
 #include "udev-util.h"
 #include "udev-worker.h"
+#include "uid-classification.h"
 #include "user-record.h"
 #include "user-util.h"
 #include "userdb.h"
@@ -225,6 +227,26 @@ static bool token_is_for_parents(UdevRuleToken *token) {
 }
 
 /*** Logging helpers ***/
+
+#define log_udev_event_syntax(event, token, level, message_id, fmt, ...) \
+        ({                                                              \
+                UdevEvent *_event = (event);                            \
+                UdevRuleToken *_token = ASSERT_PTR(token);              \
+                int _level = (level);                                   \
+                sd_device *_d = token_is_for_parents(_token) ? _event->dev_parent : _event->dev; \
+                const char *_sysname = NULL;                            \
+                                                                        \
+                if (_d && log_get_max_level() >= LOG_PRI(_level))       \
+                        (void) sd_device_get_sysname(_d, &_sysname);    \
+                log_struct(_level,                                      \
+                           LOG_MESSAGE("%s:%u %s:" fmt,                 \
+                                       strna(_token->rule_line->rule_file ? _token->rule_line->rule_file->filename : NULL), \
+                                       _token->rule_line->line_number,  \
+                                       _token->token_str,               \
+                                       __VA_ARGS__),                    \
+                           LOG_MESSAGE_ID(message_id),                  \
+                           LOG_ITEM("DEVICE=%s", strempty(_sysname)));  \
+        })
 
 #define _log_udev_rule_file_full(device, device_u, file, file_u, line_nr, level, level_u, error, fmt, ...) \
         ({                                                              \
@@ -509,13 +531,19 @@ static int rule_resolve_user(UdevRuleLine *rule_line, const char *name, uid_t *r
         }
 
         _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
-        r = userdb_by_name(name, &USERDB_MATCH_ROOT_AND_SYSTEM,
+        r = userdb_by_name(name, /* match= */ NULL,
                            USERDB_SUPPRESS_SHADOW | USERDB_PARSE_NUMERIC | USERDB_SYNTHESIZE_NUMERIC,
                            &ur);
         if (r < 0)
                 return log_line_error_errno(rule_line, r,
                                             "Failed to resolve user '%s', ignoring: %s",
                                             name, STRERROR_USER(r));
+        if (!uid_is_system(ur->uid))
+                log_struct(LOG_WARNING,
+                           LOG_MESSAGE("%s:%u User %s configured to own a device node is not a system user. "
+                                       "Support for device node ownership by non-system accounts is deprecated and will be removed in the future.",
+                                       rule_line->rule_file->filename, rule_line->line_number, name),
+                           LOG_MESSAGE_ID(SD_MESSAGE_SYSTEM_ACCOUNT_REQUIRED_STR));
 
         _cleanup_free_ char *n = strdup(name);
         if (!n)
@@ -544,13 +572,19 @@ static int rule_resolve_group(UdevRuleLine *rule_line, const char *name, gid_t *
         }
 
         _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
-        r = groupdb_by_name(name, &USERDB_MATCH_ROOT_AND_SYSTEM,
+        r = groupdb_by_name(name, /* match= */ NULL,
                             USERDB_SUPPRESS_SHADOW | USERDB_PARSE_NUMERIC | USERDB_SYNTHESIZE_NUMERIC,
                             &gr);
         if (r < 0)
                 return log_line_error_errno(rule_line, r,
                                             "Failed to resolve group '%s', ignoring: %s",
                                             name, STRERROR_GROUP(r));
+        if (!gid_is_system(gr->gid))
+                log_struct(LOG_WARNING,
+                           LOG_MESSAGE("%s:%u Group %s configured to own a device node is not a system group. "
+                                       "Support for device node ownership by non-system accounts is deprecated and will be removed in the future.",
+                                       rule_line->rule_file->filename, rule_line->line_number, name),
+                           LOG_MESSAGE_ID(SD_MESSAGE_SYSTEM_ACCOUNT_REQUIRED_STR));
 
         _cleanup_free_ char *n = strdup(name);
         if (!n)
@@ -2674,7 +2708,7 @@ static int udev_rule_apply_token_to_event(
                         return true;
 
                 _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
-                r = userdb_by_name(owner, &USERDB_MATCH_ROOT_AND_SYSTEM,
+                r = userdb_by_name(owner, /* match= */ NULL,
                                    USERDB_SUPPRESS_SHADOW | USERDB_PARSE_NUMERIC | USERDB_SYNTHESIZE_NUMERIC,
                                    &ur);
                 if (r < 0)
@@ -2682,6 +2716,13 @@ static int udev_rule_apply_token_to_event(
                                               "Failed to resolve user \"%s\", ignoring: %s",
                                               owner, STRERROR_USER(r));
                 else {
+                        if (!uid_is_system(ur->uid))
+                                log_udev_event_syntax(event, token, LOG_WARNING,
+                                                      SD_MESSAGE_SYSTEM_ACCOUNT_REQUIRED_STR,
+                                                      "User %s configured to own a device node is not a system user. "
+                                                      "Support for device node ownership by non-system accounts is deprecated and will be removed in the future.",
+                                                      owner);
+
                         event->uid = ur->uid;
                         log_event_debug(event, token, "Set owner: %s("UID_FMT")", owner, event->uid);
                 }
@@ -2700,7 +2741,7 @@ static int udev_rule_apply_token_to_event(
                         return true;
 
                 _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
-                r = groupdb_by_name(group, &USERDB_MATCH_ROOT_AND_SYSTEM,
+                r = groupdb_by_name(group, /* match= */ NULL,
                                     USERDB_SUPPRESS_SHADOW | USERDB_PARSE_NUMERIC | USERDB_SYNTHESIZE_NUMERIC,
                                     &gr);
                 if (r < 0)
@@ -2708,6 +2749,13 @@ static int udev_rule_apply_token_to_event(
                                               "Failed to resolve group \"%s\", ignoring: %s",
                                               group, STRERROR_GROUP(r));
                 else {
+                        if (!gid_is_system(gr->gid))
+                                log_udev_event_syntax(event, token, LOG_WARNING,
+                                                      SD_MESSAGE_SYSTEM_ACCOUNT_REQUIRED_STR,
+                                                      "Group %s configured to own a device node is not a system group. "
+                                                      "Support for device node ownership by non-system accounts is deprecated and will be removed in the future.",
+                                                      group);
+
                         event->gid = gr->gid;
                         log_event_debug(event, token, "Set group: %s("GID_FMT")", group, event->gid);
                 }

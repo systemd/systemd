@@ -981,6 +981,24 @@ Defined-By: systemd
 Support: %SUPPORT_URL%
 Documentation: man:systemd(1)
 
-It has been attempted to break an ordering cycle between units for which jobs
-have been enqueued as part of a transaction, but this was not successful. The
-transaction will fail.
+An unsuccessful attempt has been made to break an ordering cycle between units
+for which jobs have been enqueued as part of a transaction. The transaction
+will fail.
+
+-- 3405205d368e49feb5ab3925fee13874
+Subject: Non-system user or group used for device ownership
+Defined-By: systemd
+Support: %SUPPORT_URL%
+Documentation: man:systemd(1) systemd-udevd(8) systemd-networkd(8)
+
+The ownership of a device managed by systemd-udevd or systemd-networkd is
+assigned to a "regular" (non-system) user or group. This is currently allowed
+for compatibility, but is deprecated and discouraged. Ownership of a device
+node grants the privileges to change ACLs, the group, access mode, or set
+labels or extended attributes, which creates a conflict of management, because
+both udev and the user are in power to change these attributes. In addition,
+device nodes appear early in boot, while regular users may appear only later.
+
+For devices managed by systemd-udevd, it is instead recommended to use the
+"uaccess"/"xaccess" mechanisms to grant limited and temporary access to device
+nodes, see sd-login(8).
