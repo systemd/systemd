@@ -2662,8 +2662,8 @@ _public_ int sd_varlink_reset_fds(sd_varlink *v) {
          * rollback the fds. Note that this is implicitly called whenever an error reply is sent, see
          * below. */
 
-        close_many(v->output_fds, v->n_output_fds);
-        v->n_output_fds = 0;
+        close_many(v->pushed_fds, v->n_pushed_fds);
+        v->n_pushed_fds = 0;
         return 0;
 }
 
