@@ -26,8 +26,9 @@ static ImportCompressType arg_compress = IMPORT_COMPRESS_UNKNOWN;
 static ImageClass arg_class = IMAGE_MACHINE;
 static RuntimeScope arg_runtime_scope = _RUNTIME_SCOPE_INVALID;
 
-static void determine_compression_from_filename(const char *p) {
+#include "export.args.inc"
 
+static void determine_compression_from_filename(const char *p) {
         if (arg_compress != IMPORT_COMPRESS_UNKNOWN)
                 return;
 
@@ -202,20 +203,14 @@ static int export_raw(int argc, char *argv[], void *userdata) {
         return -r;
 }
 
-static int help(int argc, char *argv[], void *userdata) {
+static int help(void) {
         printf("%1$s [OPTIONS...] {COMMAND} ...\n"
                "\n%4$sExport disk images.%5$s\n"
                "\n%2$sCommands:%3$s\n"
                "  tar NAME [FILE]              Export a TAR image\n"
                "  raw NAME [FILE]              Export a RAW image\n"
                "\n%2$sOptions:%3$s\n"
-               "  -h --help                    Show this help\n"
-               "     --version                 Show package version\n"
-               "     --format=FORMAT           Select format\n"
-               "     --class=CLASS             Select image class (machine, sysext, confext,\n"
-               "                               portable)\n"
-               "     --system                  Operate in per-system mode\n"
-               "     --user                    Operate in per-user mode\n",
+               OPTION_HELP_GENERATED,
                program_invocation_short_name,
                ansi_underline(),
                ansi_normal(),
@@ -226,68 +221,11 @@ static int help(int argc, char *argv[], void *userdata) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
+        int r;
 
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_FORMAT,
-                ARG_CLASS,
-                ARG_SYSTEM,
-                ARG_USER,
-        };
-
-        static const struct option options[] = {
-                { "help",    no_argument,       NULL, 'h'         },
-                { "version", no_argument,       NULL, ARG_VERSION },
-                { "format",  required_argument, NULL, ARG_FORMAT  },
-                { "class",   required_argument, NULL, ARG_CLASS   },
-                { "system",  no_argument,       NULL, ARG_SYSTEM  },
-                { "user",    no_argument,       NULL, ARG_USER    },
-                {}
-        };
-
-        int c;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
-
-                switch (c) {
-
-                case 'h':
-                        return help(0, NULL, NULL);
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_FORMAT:
-                        arg_compress = import_compress_type_from_string(optarg);
-                        if (arg_compress < 0 || arg_compress == IMPORT_COMPRESS_UNKNOWN)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Unknown format: %s", optarg);
-                        break;
-
-                case ARG_CLASS:
-                        arg_class = image_class_from_string(optarg);
-                        if (arg_class < 0)
-                                return log_error_errno(arg_class, "Failed to parse --class= argument: %s", optarg);
-
-                        break;
-
-                case ARG_SYSTEM:
-                        arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
-                        break;
-
-                case ARG_USER:
-                        arg_runtime_scope = RUNTIME_SCOPE_USER;
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
+        r = parse_argv_generated(argc, argv);
+        if (r <= 0)
+                return r;
 
         if (arg_runtime_scope == RUNTIME_SCOPE_USER)
                 arg_import_flags |= IMPORT_FOREIGN_UID;
@@ -297,7 +235,7 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int export_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "help", VERB_ANY, VERB_ANY, 0, help       },
+                { "help", VERB_ANY, VERB_ANY, 0, verb_help  },
                 { "tar",  2,        3,        0, export_tar },
                 { "raw",  2,        3,        0, export_raw },
                 {}

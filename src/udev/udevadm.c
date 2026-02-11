@@ -13,21 +13,9 @@
 #include "udevd.h"
 #include "verbs.h"
 
-static int help(void) {
-        static const char *const short_descriptions[][2] = {
-                { "info",         "Query sysfs or the udev database"  },
-                { "trigger",      "Request events from the kernel"    },
-                { "settle",       "Wait for pending udev events"      },
-                { "control",      "Control the udev daemon"           },
-                { "monitor",      "Listen to kernel and udev events"  },
-                { "test",         "Test an event run"                 },
-                { "test-builtin", "Test a built-in command"           },
-                { "verify",       "Verify udev rules files"           },
-                { "cat",          "Show udev rules files"             },
-                { "wait",         "Wait for device or device symlink" },
-                { "lock",         "Lock a block device"               },
-        };
+#include "udevadm.args.inc"
 
+static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
@@ -37,52 +25,25 @@ static int help(void) {
 
         printf("%s [--help] [--version] [--debug] COMMAND [COMMAND OPTIONS]\n\n"
                "Send control commands or test the device manager.\n\n"
-               "Commands:\n",
-               program_invocation_short_name);
+               "Commands:\n"
+               "  info          Query sysfs or the udev database\n"
+               "  trigger       Request events from the kernel\n"
+               "  settle        Wait for pending udev events\n"
+               "  control       Control the udev daemon\n"
+               "  monitor       Listen to kernel and udev events\n"
+               "  test          Test an event run\n"
+               "  test-builtin  Test a built-in command\n"
+               "  verify        Verify udev rules files\n"
+               "  cat           Show udev rules files\n"
+               "  wait          Wait for device or device symlink\n"
+               "  lock          Lock a block device\n"
+               "\nOptions:\n"
+               OPTION_HELP_GENERATED
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
 
-        FOREACH_ELEMENT(desc, short_descriptions)
-                printf("  %-12s  %s\n", (*desc)[0], (*desc)[1]);
-
-        printf("\nSee the %s for details.\n", link);
         return 0;
-}
-
-static int parse_argv(int argc, char *argv[]) {
-        static const struct option options[] = {
-                { "debug",   no_argument, NULL, 'd' },
-                { "help",    no_argument, NULL, 'h' },
-                { "version", no_argument, NULL, 'V' },
-                {}
-        };
-        int c;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        /* Resetting to 0 forces the invocation of an internal initialization routine of getopt_long()
-         * that checks for GNU extensions in optstring ('-' or '+' at the beginning). */
-        optind = 0;
-        while ((c = getopt_long(argc, argv, "+dhV", options, NULL)) >= 0)
-                switch (c) {
-
-                case 'd':
-                        log_set_max_level(LOG_DEBUG);
-                        break;
-
-                case 'h':
-                        return help();
-
-                case 'V':
-                        return print_version();
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
-
-        return 1; /* work to do */
 }
 
 int print_version(void) {
@@ -130,7 +91,7 @@ static int run(int argc, char *argv[]) {
         (void) udev_parse_config();
         log_setup();
 
-        r = parse_argv(argc, argv);
+        r = parse_argv_generated(argc, argv);
         if (r <= 0)
                 return r;
 

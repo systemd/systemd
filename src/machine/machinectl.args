@@ -1,0 +1,220 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+global optstring_prefix -
+global parser_option int *shell /* position of the shell argument */
+
+option positional
+        /* getopt_long() returns 1 if "-" was the first character of the option string, and a
+         * non-option argument was discovered. */
+
+        assert(streq(optstring, OPTSTRING));
+
+        /* We generally are fine with the fact that getopt_long() reorders the command line, and looks
+         * for switches after the main verb. However, for "shell" we really don't want that, since we
+         * want that switches specified after the machine name are passed to the program to execute,
+         * and not processed by us. To make this possible, we'll first invoke getopt_long() with
+         * reordering disabled (i.e. with the "-" prefix in the option string), looking for the first
+         * non-option parameter. If it's the verb "shell" we remember its position and continue
+         * processing options. In this case, as soon as we hit the next non-option argument we found
+         * the machine name, and stop further processing. If the first non-option argument is any other
+         * verb than "shell" we switch to normal reordering mode and continue processing arguments
+         * normally. */
+
+        if (*shell >= 0) {
+                /* If we already found the "shell" verb on the command line, and now found the next
+                 * non-option argument, then this is the machine name and we should stop processing
+                 * further arguments.  */
+                optind--; /* don't process this argument, go one step back */
+                return 1;
+        }
+        if (streq(optarg, "shell"))
+                /* Remember the position of the "shell" verb, and continue processing normally. */
+                *shell = optind - 1;
+        else {
+                /* OK, this is some other verb. In this case, turn on reordering by skipping
+                 * the first char of the option string and continue processing normally. */
+                 optstring++;
+
+                /* We changed the option string. getopt_long() only looks at it again if we invoke it
+                 * at least once with a reset option index. Hence, let's reset the option index here,
+                 * then invoke getopt_long() again (ignoring what it has to say, after all we most
+                 * likely already processed it), and the bump the option index so that we read the
+                 * intended argument again. */
+                int saved_optind = optind;
+                optind = 0;
+                (void) getopt_long(argc, argv, optstring, options, NULL);
+                optind = saved_optind - 1; /* go one step back, process this argument again */
+        }
+
+option -h --help
+
+option --version
+
+option -p= --property=NAME
+help Show only properties by this name
+        _fallthrough_;
+
+option -P=NAME
+help Equivalent to --value --property=NAME
+        r = strv_extend(&arg_property, optarg);
+        if (r < 0)
+                return log_oom();
+
+        /* If the user asked for a particular property, show it to them, even if empty. */
+        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY, true);
+
+        if (c == 'p')
+                break;
+        _fallthrough_;
+
+option --value
+help When showing properties, only print the value
+        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_ONLY_VALUE, true);
+
+option -a --all
+help Show all properties, including empty ones
+        SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY, true);
+        arg_all = true;
+
+option -l --full
+help Do not ellipsize output
+        arg_full = true;
+
+option -n= --lines=INTEGER
+help Number of journal entries to show
+        r = safe_atou(optarg, &arg_lines);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse lines '%s'", optarg);
+
+option -o= --output=MODE|help
+help Change journal output mode:
+help short-iso,
+help short-iso-precise,
+help short-full,
+help short-monotonic,
+help short-unix,
+help short-delta,
+help json,
+help json-pretty,
+help json-sse,
+help json-seq,
+help cat,
+help verbose,
+help export,
+help with-unit
+        if (streq(optarg, "help"))
+                return DUMP_STRING_TABLE(output_mode, OutputMode, _OUTPUT_MODE_MAX);
+
+        r = output_mode_from_string(optarg);
+        if (r < 0)
+                return log_error_errno(r, "Unknown output '%s'.", optarg);
+        arg_output = r;
+
+        if (OUTPUT_MODE_IS_JSON(arg_output))
+                arg_legend = false;
+
+option --no-pager
+
+option --no-legend
+help Do not show headers and footers
+        arg_legend = false;
+
+option --no-ask-password
+help Do not ask for system passwords
+        arg_ask_password = false;
+
+option --kill-whom=WHOM
+help Whom to send signal to
+        arg_kill_whom = optarg;
+
+option -s= --signal=SIGNAL
+help Which signal to send
+        r = parse_signal_argument(optarg, &arg_signal);
+        if (r <= 0)
+                return r;
+
+option --read-only
+help Create read-only bind mount or clone
+        arg_read_only = true;
+
+option --mkdir
+help Create directory before bind mounting, if missing
+        arg_mkdir = true;
+
+option -q --quiet
+help Suppress output
+        arg_quiet = true;
+
+option --verify=HOW|help
+# Now moved to importctl
+help skip
+        if (streq(optarg, "help"))
+                return DUMP_STRING_TABLE(import_verify, ImportVerify, _IMPORT_VERIFY_MAX);
+
+        r = import_verify_from_string(optarg);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse --verify= setting: %s", optarg);
+        arg_verify = r;
+
+option --runner=RUNNER
+help Select between nspawn and vmspawn as the runner
+        r = machine_runner_from_string(optarg);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse --runner= setting: %s", optarg);
+
+        arg_runner = r;
+
+option -V
+help Short for --runner=vmspawn
+        arg_runner = RUNNER_VMSPAWN;
+
+option --now
+help Start or power off container after enabling or disabling it
+        arg_now = true;
+
+option --force
+help Replace target file when copying, if necessary
+        arg_force = true;
+
+option --format=FORMAT
+help Selection compression format
+        if (!STR_IN_SET(optarg, "uncompressed", "xz", "gzip", "bzip2", "zstd"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Unknown format: %s", optarg);
+        arg_format = optarg;
+
+option --uid=USER
+help Specify user ID to invoke shell as
+        arg_uid = optarg;
+
+option -E= --setenv=VAR[=VALUE]
+help Add an environment variable for shell
+        r = strv_env_replace_strdup_passthrough(&arg_setenv, optarg);
+        if (r < 0)
+                return log_error_errno(r, "Cannot assign environment variable %s: %m", optarg);
+
+option --max-addresses=INT|all
+help Number of internet addresses to show at most
+        if (streq(optarg, "all"))
+                arg_max_addresses = UINT_MAX;
+        else if (safe_atou(optarg, &arg_max_addresses) < 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Invalid number of addresses: %s", optarg);
+
+option -H= --host=[USER@]HOST
+help Operate on remote host
+        arg_transport = BUS_TRANSPORT_REMOTE;
+        arg_host = optarg;
+
+option -M= --machine=CONTAINER
+help Operate on local container
+        arg_transport = BUS_TRANSPORT_MACHINE;
+        arg_host = optarg;
+
+option --system
+help Connect to system machine manager
+        arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
+
+option --user
+help Connect to user machine manager
+        arg_runtime_scope = RUNTIME_SCOPE_USER;

@@ -9,6 +9,7 @@ executables += [
                 'name' : 'systemd-sysusers',
                 'public' : true,
                 'extract' : files('sysusers.c'),
+                'arg_parser' : files('sysusers.args'),
                 'dependencies' : libaudit_cflags,
         },
         executable_template + {

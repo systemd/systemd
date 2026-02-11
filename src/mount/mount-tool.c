@@ -84,6 +84,8 @@ STATIC_DESTRUCTOR_REGISTER(arg_description, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_property, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_automount_property, strv_freep);
 
+#include "mount-tool.args.inc"
+
 static int parse_where(const char *input, char **ret_where) {
         int r;
 
@@ -122,36 +124,7 @@ static int help(void) {
                "%1$s [OPTIONS...] %7$sWHAT|WHERE...\n"
                "\n%5$sEstablish a mount or auto-mount point transiently.%6$s\n"
                "\n%3$sOptions:%4$s\n"
-               "  -h --help                       Show this help\n"
-               "     --version                    Show package version\n"
-               "     --no-block                   Do not wait until operation finished\n"
-               "     --no-pager                   Do not pipe output into a pager\n"
-               "     --no-legend                  Do not show the headers\n"
-               "  -l --full                       Do not ellipsize output\n"
-               "     --no-ask-password            Do not prompt for password\n"
-               "  -q --quiet                      Suppress information messages during runtime\n"
-               "     --json=pretty|short|off      Generate JSON output\n"
-               "     --user                       Run as user unit\n"
-               "  -H --host=[USER@]HOST           Operate on remote host\n"
-               "  -M --machine=CONTAINER          Operate on local container\n"
-               "     --discover                   Discover mount device metadata\n"
-               "  -t --type=TYPE                  File system type\n"
-               "  -o --options=OPTIONS            Mount options\n"
-               "     --owner=USER                 Add uid= and gid= options for USER\n"
-               "     --fsck=no                    Don't run file system check before mount\n"
-               "     --description=TEXT           Description for unit\n"
-               "  -p --property=NAME=VALUE        Set mount unit property\n"
-               "  -A --automount=BOOL             Create an auto-mount point\n"
-               "     --timeout-idle-sec=SEC       Specify automount idle timeout\n"
-               "     --automount-property=NAME=VALUE\n"
-               "                                  Set automount unit property\n"
-               "     --bind-device                Bind automount unit to device\n"
-               "     --list                       List mountable block devices\n"
-               "  -u --umount                     Unmount mount points\n"
-               "  -G --collect                    Unload unit after it stopped, even when failed\n"
-               "  -T --tmpfs                      Create a new tmpfs on the mount point\n"
-               "     --canonicalize=BOOL          Controls whether to canonicalize path before\n"
-               "                                  operation\n"
+               OPTION_HELP_GENERATED
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -165,236 +138,11 @@ static int help(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
+        int r;
 
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_NO_BLOCK,
-                ARG_NO_PAGER,
-                ARG_NO_LEGEND,
-                ARG_NO_ASK_PASSWORD,
-                ARG_USER,
-                ARG_SYSTEM,
-                ARG_DISCOVER,
-                ARG_MOUNT_TYPE,
-                ARG_MOUNT_OPTIONS,
-                ARG_OWNER,
-                ARG_FSCK,
-                ARG_DESCRIPTION,
-                ARG_TIMEOUT_IDLE,
-                ARG_AUTOMOUNT,
-                ARG_AUTOMOUNT_PROPERTY,
-                ARG_BIND_DEVICE,
-                ARG_LIST,
-                ARG_JSON,
-                ARG_CANONICALIZE,
-        };
-
-        static const struct option options[] = {
-                { "help",               no_argument,       NULL, 'h'                    },
-                { "version",            no_argument,       NULL, ARG_VERSION            },
-                { "no-block",           no_argument,       NULL, ARG_NO_BLOCK           },
-                { "no-pager",           no_argument,       NULL, ARG_NO_PAGER           },
-                { "no-legend",          no_argument,       NULL, ARG_NO_LEGEND          },
-                { "full",               no_argument,       NULL, 'l'                    },
-                { "no-ask-password",    no_argument,       NULL, ARG_NO_ASK_PASSWORD    },
-                { "quiet",              no_argument,       NULL, 'q'                    },
-                { "user",               no_argument,       NULL, ARG_USER               },
-                { "system",             no_argument,       NULL, ARG_SYSTEM             },
-                { "host",               required_argument, NULL, 'H'                    },
-                { "machine",            required_argument, NULL, 'M'                    },
-                { "discover",           no_argument,       NULL, ARG_DISCOVER           },
-                { "type",               required_argument, NULL, 't'                    },
-                { "options",            required_argument, NULL, 'o'                    },
-                { "owner",              required_argument, NULL, ARG_OWNER              },
-                { "fsck",               required_argument, NULL, ARG_FSCK               },
-                { "description",        required_argument, NULL, ARG_DESCRIPTION        },
-                { "property",           required_argument, NULL, 'p'                    },
-                { "automount",          required_argument, NULL, ARG_AUTOMOUNT          },
-                { "timeout-idle-sec",   required_argument, NULL, ARG_TIMEOUT_IDLE       },
-                { "automount-property", required_argument, NULL, ARG_AUTOMOUNT_PROPERTY },
-                { "bind-device",        no_argument,       NULL, ARG_BIND_DEVICE        },
-                { "list",               no_argument,       NULL, ARG_LIST               },
-                { "umount",             no_argument,       NULL, 'u'                    },
-                { "unmount",            no_argument,       NULL, 'u'                    }, /* Compat spelling */
-                { "collect",            no_argument,       NULL, 'G'                    },
-                { "tmpfs",              no_argument,       NULL, 'T'                    },
-                { "json",               required_argument, NULL, ARG_JSON               },
-                { "canonicalize",       required_argument, NULL, ARG_CANONICALIZE       },
-                {},
-        };
-
-        int r, c;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        if (invoked_as(argv, "systemd-umount"))
-                arg_action = ACTION_UMOUNT;
-
-        while ((c = getopt_long(argc, argv, "hqH:M:t:o:p:AuGlT", options, NULL)) >= 0)
-
-                switch (c) {
-
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_NO_BLOCK:
-                        arg_no_block = true;
-                        break;
-
-                case ARG_NO_PAGER:
-                        arg_pager_flags |= PAGER_DISABLE;
-                        break;
-
-                case ARG_NO_LEGEND:
-                        arg_legend = false;
-                        break;
-
-                case 'l':
-                        arg_full = true;
-                        break;
-
-                case ARG_NO_ASK_PASSWORD:
-                        arg_ask_password = false;
-                        break;
-
-                case 'q':
-                        arg_quiet = true;
-                        break;
-
-                case ARG_USER:
-                        arg_runtime_scope = RUNTIME_SCOPE_USER;
-                        break;
-
-                case ARG_SYSTEM:
-                        arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
-                        break;
-
-                case 'H':
-                        arg_transport = BUS_TRANSPORT_REMOTE;
-                        arg_host = optarg;
-                        break;
-
-                case 'M':
-                        r = parse_machine_argument(optarg, &arg_host, &arg_transport);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_DISCOVER:
-                        arg_discover = true;
-                        break;
-
-                case 't':
-                        r = free_and_strdup_warn(&arg_mount_type, optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case 'o':
-                        r = free_and_strdup_warn(&arg_mount_options, optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_OWNER: {
-                        const char *user = optarg;
-
-                        r = get_user_creds(&user, &arg_uid, &arg_gid, NULL, NULL, 0);
-                        if (r < 0)
-                                return log_error_errno(r,
-                                                       r == -EBADMSG ? "UID or GID of user %s are invalid."
-                                                                     : "Cannot use \"%s\" as owner: %m",
-                                                       optarg);
-                        break;
-                }
-
-                case ARG_FSCK:
-                        r = parse_boolean_argument("--fsck=", optarg, &arg_fsck);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_DESCRIPTION:
-                        r = free_and_strdup_warn(&arg_description, optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case 'p':
-                        if (strv_extend(&arg_property, optarg) < 0)
-                                return log_oom();
-
-                        break;
-
-                case 'A':
-                        arg_action = ACTION_AUTOMOUNT;
-                        break;
-
-                case ARG_AUTOMOUNT:
-                        r = parse_boolean_argument("--automount=", optarg, NULL);
-                        if (r < 0)
-                                return r;
-
-                        arg_action = r ? ACTION_AUTOMOUNT : ACTION_MOUNT;
-                        break;
-
-                case ARG_TIMEOUT_IDLE:
-                        r = parse_sec(optarg, &arg_timeout_idle);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse timeout: %s", optarg);
-
-                        break;
-
-                case ARG_AUTOMOUNT_PROPERTY:
-                        if (strv_extend(&arg_automount_property, optarg) < 0)
-                                return log_oom();
-
-                        break;
-
-                case ARG_BIND_DEVICE:
-                        arg_bind_device = true;
-                        break;
-
-                case ARG_LIST:
-                        arg_action = ACTION_LIST;
-                        break;
-
-                case 'u':
-                        arg_action = ACTION_UMOUNT;
-                        break;
-
-                case 'G':
-                        arg_aggressive_gc = true;
-                        break;
-
-                case 'T':
-                        arg_tmpfs = true;
-                        break;
-
-                case ARG_JSON:
-                        r = parse_json_argument(optarg, &arg_json_format_flags);
-                        if (r <= 0)
-                                return r;
-
-                        break;
-
-                case ARG_CANONICALIZE:
-                        r = parse_boolean_argument("--canonicalize=", optarg, &arg_canonicalize);
-                        if (r < 0)
-                                return r;
-
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
+        r = parse_argv_generated(argc, argv);
+        if (r <= 0)
+                return r;
 
         if (arg_runtime_scope == RUNTIME_SCOPE_USER) {
                 arg_ask_password = false;

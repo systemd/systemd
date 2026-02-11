@@ -26,6 +26,8 @@ static char *arg_title = NULL;
 STATIC_DESTRUCTOR_REGISTER(arg_background, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_title, freep);
 
+#include "ptyfwd-tool.args.inc"
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -37,12 +39,7 @@ static int help(void) {
         printf("%1$s  [OPTIONS...] COMMAND ...\n"
                "\n%5$sRun command with a custom terminal background color or title.%6$s\n"
                "\n%3$sOptions:%4$s\n"
-               "  -h --help              Show this help\n"
-               "     --version           Print version\n"
-               "  -q --quiet             Suppress information messages during runtime\n"
-               "     --read-only         Do not accept any user input on stdin\n"
-               "     --background=COLOR  Set ANSI color for background\n"
-               "     --title=TITLE       Set terminal title\n"
+               OPTION_HELP_GENERATED
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -52,72 +49,6 @@ static int help(void) {
                ansi_normal());
 
         return 0;
-}
-
-static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_READ_ONLY,
-                ARG_BACKGROUND,
-                ARG_TITLE,
-        };
-
-        static const struct option options[] = {
-                { "help",               no_argument,       NULL, 'h'                    },
-                { "version",            no_argument,       NULL, ARG_VERSION            },
-                { "quiet",              no_argument,       NULL, 'q'                    },
-                { "read-only",          no_argument,       NULL, ARG_READ_ONLY          },
-                { "background",         required_argument, NULL, ARG_BACKGROUND         },
-                { "title",              required_argument, NULL, ARG_TITLE              },
-                {}
-        };
-
-        int c, r;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        optind = 0;
-        while ((c = getopt_long(argc, argv, "+hq", options, NULL)) >= 0)
-                switch (c) {
-
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case 'q':
-                        arg_quiet = true;
-                        break;
-
-                case ARG_READ_ONLY:
-                        arg_read_only = true;
-                        break;
-
-                case ARG_BACKGROUND:
-                        r = parse_background_argument(optarg, &arg_background);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_TITLE:
-                        r = free_and_strdup_warn(&arg_title, optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
-
-        if (optind >= argc)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected command line, refusing.");
-
-        return 1;
 }
 
 static int pty_forward_handler(PTYForward *f, int rcode, void *userdata) {
@@ -155,9 +86,12 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        r = parse_argv(argc, argv);
+        r = parse_argv_generated(argc, argv);
         if (r <= 0)
                 return r;
+
+        if (optind >= argc)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected command line, refusing.");
 
         _cleanup_strv_free_ char **l = strv_copy(argv + optind);
         if (!l)

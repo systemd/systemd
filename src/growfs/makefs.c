@@ -1,17 +1,41 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <getopt.h>
 #include <sys/file.h>
 #include <sys/stat.h>
 
 #include "alloc-util.h"
 #include "blockdev-util.h"
+#include "build.h"
 #include "dissect-image.h"
 #include "fd-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "mkfs-util.h"
 #include "path-util.h"
+#include "pretty-print.h"
+
+#include "makefs.args.inc"
+
+static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("systemd-makefs@.service", "8", &link);
+        if (r < 0)
+                return log_oom();
+
+        printf("%s [OPTIONS...] DEVICE FSTYPE \n\n"
+               "Make file system on device.\n\n"
+               "Options:\n"
+               OPTION_HELP_GENERATED
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               link);
+
+        return 0;
+}
 
 static int run(int argc, char *argv[]) {
         _cleanup_free_ char *device = NULL, *fstype = NULL, *detected = NULL, *label = NULL;
@@ -21,6 +45,10 @@ static int run(int argc, char *argv[]) {
         int r;
 
         log_setup();
+
+        r = parse_argv_generated(argc, argv);
+        if (r <= 0)
+                return r;
 
         if (argc != 3)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),

@@ -1,0 +1,27 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+global optstring_prefix +
+
+option -h --help
+
+option --version
+
+option --quiet -q
+help Suppress informational messages during runtime
+        arg_quiet = true;
+
+option --read-only
+help Do not accept any user input on stdin
+        arg_read_only = true;
+
+option --background=COLOR
+help Set ANSI color for background
+        r = parse_background_argument(optarg, &arg_background);
+        if (r < 0)
+                return r;
+
+option --title=TITLE
+help Set terminal title
+        r = free_and_strdup_warn(&arg_title, optarg);
+        if (r < 0)
+                return r;

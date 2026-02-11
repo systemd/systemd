@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+option -h --help
+
+option --version
+
+option --retrigger
+help Retrigger block devices
+        arg_retrigger = true;
+
+option -q --quiet
+help Suppress output
+        arg_quiet = true;

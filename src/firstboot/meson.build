@@ -6,5 +6,6 @@ executables += [
                 'public' : true,
                 'conditions' : ['ENABLE_FIRSTBOOT'],
                 'sources' : files('firstboot.c'),
+                'arg_parser' : files('firstboot.args'),
         },
 ]

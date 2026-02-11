@@ -1,0 +1,113 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+option -h --help
+
+option --version
+
+option --ready
+help Inform the service manager about completion of service start/reload
+        arg_ready = true;
+
+option --reloading
+help Inform the service manager about configuration reloading
+        arg_reloading = true;
+
+option --stopping
+help Inform the service manager about service shutdown
+        arg_stopping = true;
+
+option --pid[=PID]
+help Set main PID of daemon
+        pidref_done(&arg_pid);
+
+        if (isempty(optarg) || streq(optarg, "auto"))
+                r = pidref_parent_if_applicable(&arg_pid);
+        else if (streq(optarg, "parent"))
+                r = pidref_set_parent(&arg_pid);
+        else if (streq(optarg, "self"))
+                r = pidref_set_self(&arg_pid);
+        else
+                r = pidref_set_pidstr(&arg_pid, optarg);
+        if (r < 0)
+                return log_error_errno(r, "Failed to refer to --pid='%s': %m", optarg);
+
+option --uid=USER
+help Set user to send as
+        const char *u = optarg;
+
+        r = get_user_creds(&u, &arg_uid, &arg_gid, NULL, NULL, 0);
+        if (r == -ESRCH) /* If the user doesn't exist, then accept it anyway as numeric */
+                r = parse_uid(u, &arg_uid);
+        if (r < 0)
+                return log_error_errno(r, "Can't resolve user %s: %m", optarg);
+
+option --status=TEXT
+help Set status text
+        arg_status = optarg;
+
+option --booted
+help Check if the system was booted with systemd
+        arg_action = ACTION_BOOTED;
+
+option --no-block
+help Do not wait for operation to finish
+        arg_no_block = true;
+
+option --exec
+help Execute command line separated by ';' once done
+        arg_do_exec = true;
+
+option --fd=FD
+help Pass specified file descriptor along with the message
+        _cleanup_close_ int owned_fd = -EBADF;
+
+        int fd = parse_fd(optarg);
+        if (fd < 0)
+                return log_error_errno(fd, "Failed to parse file descriptor number: %s", optarg);
+
+        if (!arg_fds_passed) {
+                /* Take possession of all passed fds */
+                r = fdset_new_fill(/* filter_cloexec= */ 0, &arg_fds_passed);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to take possession of passed file descriptors: %m");
+        }
+
+        if (fd < 3) {
+                /* For stdin/stdout/stderr we want to keep the fd too, hence make a copy */
+                owned_fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+                if (owned_fd < 0)
+                        return log_error_errno(errno, "Failed to duplicate file descriptor: %m");
+        } else {
+                /* Otherwise, move the fd over */
+                owned_fd = fdset_remove(arg_fds_passed, fd);
+                if (owned_fd < 0)
+                        return log_error_errno(owned_fd,
+                                "Specified file descriptor %i not passed or specified more than once: %m", fd);
+        }
+
+        if (!arg_fds) {
+                arg_fds = fdset_new();
+                if (!arg_fds)
+                        return log_oom();
+        }
+
+        r = fdset_consume(arg_fds, TAKE_FD(owned_fd));
+        if (r < 0)
+                return log_error_errno(r, "Failed to add file descriptor to set: %m");
+
+option --fdname=NAME
+help Name to assign to passed file descriptors
+        if (!fdname_is_valid(optarg))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "File descriptor name invalid: %s", optarg);
+
+        if (free_and_strdup(&arg_fdname, optarg) < 0)
+                return log_oom();
+
+option --fork
+help Receive notifications from child rather than sending them
+        arg_action = ACTION_FORK;
+
+option -q --quiet
+help Do not show PID of child when forking
+        arg_quiet = true;

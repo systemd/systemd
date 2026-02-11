@@ -52,6 +52,10 @@ static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
 
 STATIC_DESTRUCTOR_REGISTER(arg_extension_images, strv_freep);
 
+static int dump_profiles(void);
+
+#include "portablectl.args.inc"
+
 static bool is_portable_managed(const char *unit) {
         return ENDSWITH_SET(unit, ".service", ".target", ".socket", ".path", ".timer");
 }
@@ -1257,7 +1261,7 @@ static int dump_profiles(void) {
         return 0;
 }
 
-static int help(int argc, char *argv[], void *userdata) {
+static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
@@ -1284,32 +1288,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  remove NAME|PATH...         Remove a portable service image\n"
                "  set-limit [NAME|PATH]       Set image or pool size limit (disk quota)\n"
                "\nOptions:\n"
-               "  -h --help                   Show this help\n"
-               "     --version                Show package version\n"
-               "     --no-pager               Do not pipe output into a pager\n"
-               "     --no-legend              Do not show the headers and footers\n"
-               "     --no-ask-password        Do not ask for system passwords\n"
-               "  -H --host=[USER@]HOST       Operate on remote host\n"
-               "  -M --machine=CONTAINER      Operate on local container\n"
-               "  -q --quiet                  Suppress informational messages\n"
-               "  -p --profile=PROFILE        Pick security profile for portable service\n"
-               "     --copy=copy|auto|symlink|mixed\n"
-               "                              Pick copying or symlinking of resources\n"
-               "     --runtime                Attach portable service until next reboot only\n"
-               "     --no-reload              Don't reload the system and service manager\n"
-               "     --cat                    When inspecting include unit and os-release file\n"
-               "                              contents\n"
-               "     --enable                 Immediately enable/disable the portable service\n"
-               "                              after attach/detach\n"
-               "     --now                    Immediately start/stop the portable service after\n"
-               "                              attach/before detach\n"
-               "     --no-block               Don't block waiting for attach --now to complete\n"
-               "     --extension=PATH         Extend the image with an overlay\n"
-               "     --force                  Skip 'already active' check when attaching or\n"
-               "                              detaching an image (with extensions)\n"
-               "     --clean                  When detaching, also remove configuration, state,\n"
-               "                              cache, logs or runtime data of the portable\n"
-               "                              service(s)\n"
+               OPTION_HELP_GENERATED
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -1319,181 +1298,9 @@ static int help(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int parse_argv(int argc, char *argv[]) {
-
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_NO_PAGER,
-                ARG_NO_LEGEND,
-                ARG_NO_ASK_PASSWORD,
-                ARG_COPY,
-                ARG_RUNTIME,
-                ARG_NO_RELOAD,
-                ARG_CAT,
-                ARG_ENABLE,
-                ARG_NOW,
-                ARG_NO_BLOCK,
-                ARG_EXTENSION,
-                ARG_FORCE,
-                ARG_CLEAN,
-                ARG_USER,
-                ARG_SYSTEM,
-        };
-
-        static const struct option options[] = {
-                { "help",            no_argument,       NULL, 'h'                 },
-                { "version",         no_argument,       NULL, ARG_VERSION         },
-                { "no-pager",        no_argument,       NULL, ARG_NO_PAGER        },
-                { "no-legend",       no_argument,       NULL, ARG_NO_LEGEND       },
-                { "no-ask-password", no_argument,       NULL, ARG_NO_ASK_PASSWORD },
-                { "host",            required_argument, NULL, 'H'                 },
-                { "machine",         required_argument, NULL, 'M'                 },
-                { "quiet",           no_argument,       NULL, 'q'                 },
-                { "profile",         required_argument, NULL, 'p'                 },
-                { "copy",            required_argument, NULL, ARG_COPY            },
-                { "runtime",         no_argument,       NULL, ARG_RUNTIME         },
-                { "no-reload",       no_argument,       NULL, ARG_NO_RELOAD       },
-                { "cat",             no_argument,       NULL, ARG_CAT             },
-                { "enable",          no_argument,       NULL, ARG_ENABLE          },
-                { "now",             no_argument,       NULL, ARG_NOW             },
-                { "no-block",        no_argument,       NULL, ARG_NO_BLOCK        },
-                { "extension",       required_argument, NULL, ARG_EXTENSION       },
-                { "force",           no_argument,       NULL, ARG_FORCE           },
-                { "clean",           no_argument,       NULL, ARG_CLEAN           },
-                { "user",            no_argument,       NULL, ARG_USER            },
-                { "system",          no_argument,       NULL, ARG_SYSTEM          },
-                {}
-        };
-
-        int r, c;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "hH:M:qp:", options, NULL)) >= 0)
-
-                switch (c) {
-
-                case 'h':
-                        return help(0, NULL, NULL);
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_NO_PAGER:
-                        arg_pager_flags |= PAGER_DISABLE;
-                        break;
-
-                case ARG_NO_LEGEND:
-                        arg_legend = false;
-                        break;
-
-                case ARG_NO_ASK_PASSWORD:
-                        arg_ask_password = false;
-                        break;
-
-                case 'H':
-                        arg_transport = BUS_TRANSPORT_REMOTE;
-                        arg_host = optarg;
-                        break;
-
-                case 'M':
-                        r = parse_machine_argument(optarg, &arg_host, &arg_transport);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case 'q':
-                        arg_quiet = true;
-                        break;
-
-                case 'p':
-                        if (streq(optarg, "help"))
-                                return dump_profiles();
-
-                        if (!filename_is_valid(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Unit profile name not valid: %s", optarg);
-
-                        arg_profile = optarg;
-                        break;
-
-                case ARG_COPY:
-                        if (streq(optarg, "auto"))
-                                arg_copy_mode = NULL;
-                        else if (STR_IN_SET(optarg, "copy", "symlink", "mixed"))
-                                arg_copy_mode = optarg;
-                        else if (streq(optarg, "help")) {
-                                puts("auto\n"
-                                     "copy\n"
-                                     "symlink\n"
-                                     "mixed\n");
-                                return 0;
-                        } else
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Failed to parse --copy= argument: %s", optarg);
-
-                        break;
-
-                case ARG_RUNTIME:
-                        arg_runtime = true;
-                        break;
-
-                case ARG_NO_RELOAD:
-                        arg_reload = false;
-                        break;
-
-                case ARG_CAT:
-                        arg_cat = true;
-                        break;
-
-                case ARG_ENABLE:
-                        arg_enable = true;
-                        break;
-
-                case ARG_NOW:
-                        arg_now = true;
-                        break;
-
-                case ARG_NO_BLOCK:
-                        arg_no_block = true;
-                        break;
-
-                case ARG_EXTENSION:
-                        r = strv_extend(&arg_extension_images, optarg);
-                        if (r < 0)
-                                return log_oom();
-                        break;
-
-                case ARG_FORCE:
-                        arg_force = true;
-                        break;
-
-                case ARG_CLEAN:
-                        arg_clean = true;
-                        break;
-
-                case ARG_USER:
-                        arg_runtime_scope = RUNTIME_SCOPE_USER;
-                        break;
-
-                case ARG_SYSTEM:
-                        arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
-
-        return 1;
-}
-
 static int run(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "help",        VERB_ANY, VERB_ANY, 0,            help              },
+                { "help",        VERB_ANY, VERB_ANY, 0,            verb_help         },
                 { "list",        VERB_ANY, 1,        VERB_DEFAULT, list_images       },
                 { "attach",      2,        VERB_ANY, 0,            attach_image      },
                 { "detach",      2,        VERB_ANY, 0,            detach_image      },
@@ -1510,7 +1317,7 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        r = parse_argv(argc, argv);
+        r = parse_argv_generated(argc, argv);
         if (r <= 0)
                 return r;
 

@@ -1,0 +1,11 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+option -h --help
+
+option --version
+
+option --suffix=SUFFIX
+help Suffix to append to paths
+        arg_suffix = optarg;
+
+option --no-pager

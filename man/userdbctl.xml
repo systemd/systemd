@@ -173,6 +173,8 @@
         passing an additional command line after the user name that is chain executed after the lookup
         completed. This allows chaining multiple tools that show SSH authorized keys.</para>
 
+        <para>See the example in "Integration with SSH" below how to use this option correctly.</para>
+
         <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>
 
@@ -488,12 +490,14 @@ AuthorizedKeysCommandUser root
     not. Example:</para>
 
     <programlisting>…
-AuthorizedKeysCommand /usr/bin/userdbctl ssh-authorized-keys %u --chain /usr/bin/othertool %u
+AuthorizedKeysCommand /usr/bin/userdbctl ssh-authorized-keys %u --chain -- othertool %u
 AuthorizedKeysCommandUser root
 …</programlisting>
 
     <para>The above will first query the userdb database for SSH keys, and then chain execute
-    <command>/usr/bin/othertool</command> to also be queried.</para>
+    <command>othertool</command> to also be queried. The command to chain should be separated by
+    <literal>--</literal> to avoid parsing of its options by <command>userdbctl> itself.</command>
+    </para>
   </refsect1>
 
   <refsect1>

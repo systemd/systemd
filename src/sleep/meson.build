@@ -5,6 +5,7 @@ executables += [
                 'name' : 'systemd-sleep',
                 'sources' : files('sleep.c'),
                 'extract' : files('battery-capacity.c'),
+                'arg_parser' : files('sleep.args'),
         },
         test_template + {
                 'sources' : files('test-battery-capacity.c'),

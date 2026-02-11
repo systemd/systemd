@@ -1,0 +1,60 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+option -h --help
+
+option --version
+
+option --private-key=KEY
+help Private key in PEM format
+        r = free_and_strdup_warn(&arg_private_key, optarg);
+        if (r < 0)
+                return r;
+
+option --private-key-source=file|provider:PROVIDER|engine:ENGINE
+help Specify how to use KEY for --private-key=.
+help Allows an OpenSSL engine/provider to be used for signing
+        r = parse_openssl_key_source_argument(
+                        optarg,
+                        &arg_private_key_source,
+                        &arg_private_key_source_type);
+        if (r < 0)
+                return r;
+
+option --certificate=PATH|URI
+help PEM certificate to use for signing,
+help or a provider-specific designation if --certificate-source= is used
+        r = free_and_strdup_warn(&arg_certificate, optarg);
+        if (r < 0)
+                return r;
+
+option --certificate-source=file|provider:PROVIDER
+help Specify how to interpret the certificate from --certificate=.
+help Allows the certificate to be loaded from an OpenSSL provider
+        r = parse_openssl_certificate_source_argument(
+                        optarg,
+                        &arg_certificate_source,
+                        &arg_certificate_source_type);
+        if (r < 0)
+                return r;
+
+option --content=PATH
+help Raw data content to embed in PKCS#7 signature
+        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_content);
+        if (r < 0)
+                return r;
+
+option --signature=PATH
+help PKCS#1 signature to embed in PKCS#7 signature
+        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_signature);
+        if (r < 0)
+                return r;
+
+option --hash-algorithm=ALGORITHM
+help Hash algorithm used to create the PKCS#1 signature
+        arg_hash_algorithm = optarg;
+
+option --output=PATH
+help Where to write the PKCS#7 signature
+        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_output);
+        if (r < 0)
+                return r;

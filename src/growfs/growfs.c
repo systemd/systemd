@@ -24,6 +24,8 @@
 static const char *arg_target = NULL;
 static bool arg_dry_run = false;
 
+#include "growfs.args.inc"
+
 #if HAVE_LIBCRYPTSETUP
 static int resize_crypt_luks_device(dev_t devno, const char *fstype, dev_t main_devno) {
         _cleanup_free_ char *devpath = NULL, *main_devpath = NULL;
@@ -141,9 +143,7 @@ static int help(void) {
         printf("%s [OPTIONS...] /path/to/mountpoint\n\n"
                "Grow filesystem or encrypted payload to device size.\n\n"
                "Options:\n"
-               "  -h --help          Show this help and exit\n"
-               "     --version       Print version string and exit\n"
-               "  -n --dry-run       Just print what would be done\n"
+               OPTION_HELP_GENERATED
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                link);
@@ -152,40 +152,11 @@ static int help(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-        };
+        int r;
 
-        int c;
-
-        static const struct option options[] = {
-                { "help",         no_argument,       NULL, 'h'           },
-                { "version" ,     no_argument,       NULL, ARG_VERSION   },
-                { "dry-run",      no_argument,       NULL, 'n'           },
-                {}
-        };
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "hn", options, NULL)) >= 0)
-                switch (c) {
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case 'n':
-                        arg_dry_run = true;
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
+        r = parse_argv_generated(argc, argv);
+        if (r <= 0)
+                return r;
 
         if (optind + 1 != argc)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),

@@ -51,6 +51,8 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 char, string_hash_func, string_compare_func,
                 Option, option_free);
 
+#include "sysctl.args.inc"
+
 static bool test_prefix(const char *p) {
         if (strv_isempty(arg_prefixes))
                 return true;
@@ -323,15 +325,11 @@ static int help(void) {
         printf("%1$s [OPTIONS...] [CONFIGURATION FILE...]\n"
                "\n%2$sApplies kernel sysctl settings.%4$s\n"
                "\n%3$sCommands:%4$s\n"
-               "     --cat-config       Show configuration files\n"
-               "     --tldr             Show non-comment parts of configuration\n"
                "  -h --help             Show this help\n"
                "     --version          Show package version\n"
+               OPTION_HELP_GENERATED_COMMANDS
                "\n%3$sOptions:%4$s\n"
-               "     --prefix=PATH      Only apply rules with the specified prefix\n"
-               "     --no-pager         Do not pipe output into a pager\n"
-               "     --strict           Fail on any kind of failures\n"
-               "     --inline           Treat arguments as configuration lines\n"
+               OPTION_HELP_GENERATED
                "\nSee the %5$s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -343,91 +341,11 @@ static int help(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
+        int r;
 
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_CAT_CONFIG,
-                ARG_TLDR,
-                ARG_PREFIX,
-                ARG_NO_PAGER,
-                ARG_STRICT,
-                ARG_INLINE,
-        };
-
-        static const struct option options[] = {
-                { "help",       no_argument,       NULL, 'h'            },
-                { "version",    no_argument,       NULL, ARG_VERSION    },
-                { "cat-config", no_argument,       NULL, ARG_CAT_CONFIG },
-                { "tldr",       no_argument,       NULL, ARG_TLDR       },
-                { "prefix",     required_argument, NULL, ARG_PREFIX     },
-                { "no-pager",   no_argument,       NULL, ARG_NO_PAGER   },
-                { "strict",     no_argument,       NULL, ARG_STRICT     },
-                { "inline",     no_argument,       NULL, ARG_INLINE     },
-                {}
-        };
-
-        int c;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
-
-                switch (c) {
-
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_CAT_CONFIG:
-                        arg_cat_flags = CAT_CONFIG_ON;
-                        break;
-
-                case ARG_TLDR:
-                        arg_cat_flags = CAT_TLDR;
-                        break;
-
-                case ARG_PREFIX: {
-                        const char *s;
-                        char *p;
-
-                        /* We used to require people to specify absolute paths
-                         * in /proc/sys in the past. This is kinda useless, but
-                         * we need to keep compatibility. We now support any
-                         * sysctl name available. */
-                        sysctl_normalize(optarg);
-
-                        s = path_startswith(optarg, "/proc/sys");
-                        p = strdup(s ?: optarg);
-                        if (!p)
-                                return log_oom();
-
-                        if (strv_consume(&arg_prefixes, p) < 0)
-                                return log_oom();
-
-                        break;
-                }
-
-                case ARG_NO_PAGER:
-                        arg_pager_flags |= PAGER_DISABLE;
-                        break;
-
-                case ARG_STRICT:
-                        arg_strict = true;
-                        break;
-
-                case ARG_INLINE:
-                        arg_inline = true;
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
+        r = parse_argv_generated(argc, argv);
+        if (r <= 0)
+                return r;
 
         if (arg_cat_flags != CAT_CONFIG_OFF && argc > optind)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),

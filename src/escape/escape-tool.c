@@ -24,6 +24,8 @@ static const char *arg_template = NULL;
 static bool arg_path = false;
 static bool arg_instance = false;
 
+#include "escape-tool.args.inc"
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -34,14 +36,7 @@ static int help(void) {
 
         printf("%1$s [OPTIONS...] [NAME...]\n\n"
                "%3$sEscape strings for usage in systemd unit names.%4$s\n\n"
-               "  -h --help               Show this help\n"
-               "     --version            Show package version\n"
-               "     --suffix=SUFFIX      Unit suffix to append to escaped strings\n"
-               "     --template=TEMPLATE  Insert strings as instance into template\n"
-               "     --instance           With --unescape, show just the instance part\n"
-               "  -u --unescape           Unescape strings\n"
-               "  -m --mangle             Mangle strings\n"
-               "  -p --path               When escaping/unescaping assume the string is a path\n"
+               OPTION_HELP_GENERATED
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -52,79 +47,11 @@ static int help(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
+        int r;
 
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_SUFFIX,
-                ARG_TEMPLATE
-        };
-
-        static const struct option options[] = {
-                { "help",      no_argument,       NULL, 'h'           },
-                { "version",   no_argument,       NULL, ARG_VERSION   },
-                { "suffix",    required_argument, NULL, ARG_SUFFIX    },
-                { "template",  required_argument, NULL, ARG_TEMPLATE  },
-                { "unescape",  no_argument,       NULL, 'u'           },
-                { "mangle",    no_argument,       NULL, 'm'           },
-                { "path",      no_argument,       NULL, 'p'           },
-                { "instance",  no_argument,       NULL, 'i'           },
-                {}
-        };
-
-        int c;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "hump", options, NULL)) >= 0)
-
-                switch (c) {
-
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_SUFFIX: {
-                        UnitType t = unit_type_from_string(optarg);
-                        if (t < 0)
-                                return log_error_errno(t, "Invalid unit suffix type \"%s\".", optarg);
-
-                        arg_suffix = optarg;
-                        break;
-                }
-
-                case ARG_TEMPLATE:
-                        if (!unit_name_is_valid(optarg, UNIT_NAME_TEMPLATE))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Template name %s is not valid.", optarg);
-
-                        arg_template = optarg;
-                        break;
-
-                case 'u':
-                        arg_action = ACTION_UNESCAPE;
-                        break;
-
-                case 'm':
-                        arg_action = ACTION_MANGLE;
-                        break;
-
-                case 'p':
-                        arg_path = true;
-                        break;
-
-                case 'i':
-                        arg_instance = true;
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
+        r = parse_argv_generated(argc, argv);
+        if (r <= 0)
+                return r;
 
         if (optind >= argc)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),

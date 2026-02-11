@@ -24,6 +24,8 @@ static CatFlags arg_cat_flags = CAT_CONFIG_OFF;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_unregister = false;
 
+#include "binfmt.args.inc"
+
 static int delete_rule(const char *rulename) {
         const char *fn = strjoina("/proc/sys/fs/binfmt_misc/", rulename);
         return write_string_file(fn, "-1", WRITE_STRING_FILE_DISABLE_BUFFER);
@@ -116,12 +118,7 @@ static int help(void) {
 
         printf("%s [OPTIONS...] [CONFIGURATION FILE...]\n\n"
                "Registers binary formats with the kernel.\n\n"
-               "  -h --help             Show this help\n"
-               "     --version          Show package version\n"
-               "     --cat-config       Show configuration files\n"
-               "     --tldr             Show non-comment parts of configuration\n"
-               "     --no-pager         Do not pipe output into a pager\n"
-               "     --unregister       Unregister all existing entries\n"
+               OPTION_HELP_GENERATED
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                link);
@@ -130,61 +127,11 @@ static int help(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_CAT_CONFIG,
-                ARG_TLDR,
-                ARG_NO_PAGER,
-                ARG_UNREGISTER,
-        };
+        int r;
 
-        static const struct option options[] = {
-                { "help",       no_argument, NULL, 'h'            },
-                { "version",    no_argument, NULL, ARG_VERSION    },
-                { "cat-config", no_argument, NULL, ARG_CAT_CONFIG },
-                { "tldr",       no_argument, NULL, ARG_TLDR       },
-                { "no-pager",   no_argument, NULL, ARG_NO_PAGER   },
-                { "unregister", no_argument, NULL, ARG_UNREGISTER },
-                {}
-        };
-
-        int c;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
-
-                switch (c) {
-
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_CAT_CONFIG:
-                        arg_cat_flags = CAT_CONFIG_ON;
-                        break;
-
-                case ARG_TLDR:
-                        arg_cat_flags = CAT_TLDR;
-                        break;
-
-                case ARG_NO_PAGER:
-                        arg_pager_flags |= PAGER_DISABLE;
-                        break;
-
-                case ARG_UNREGISTER:
-                        arg_unregister = true;
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
+        r = parse_argv_generated(argc, argv);
+        if (r <= 0)
+                return r;
 
         if ((arg_unregister || arg_cat_flags != CAT_CONFIG_OFF) && argc > optind)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),

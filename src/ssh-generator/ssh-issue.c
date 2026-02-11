@@ -24,10 +24,11 @@ static enum {
         ACTION_RM_VSOCK,
 } arg_action = ACTION_MAKE_VSOCK;
 
+#define DEFAULT_ISSUE_PATH "/run/issue.d/50-ssh-vsock.issue"
 static char *arg_issue_path = NULL;
 static bool arg_issue_stdout = false;
 
-STATIC_DESTRUCTOR_REGISTER(arg_issue_path, freep);
+#include "ssh-issue.args.inc"
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -40,9 +41,7 @@ static int help(void) {
         printf("%s [OPTIONS...] --make-vsock\n"
                "%s [OPTIONS...] --rm-vsock\n"
                "\n%sCreate ssh /run/issue.d/ file reporting VSOCK address.%s\n\n"
-               "  -h --help            Show this help\n"
-               "     --version         Show package version\n"
-               "     --issue-path=PATH Change path to /run/issue.d/50-ssh-vsock.issue\n"
+               OPTION_HELP_GENERATED
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                program_invocation_short_name,
@@ -51,72 +50,6 @@ static int help(void) {
                link);
 
         return 0;
-}
-
-static int parse_argv(int argc, char *argv[]) {
-
-        enum {
-                ARG_MAKE_VSOCK = 0x100,
-                ARG_RM_VSOCK,
-                ARG_ISSUE_PATH,
-                ARG_VERSION,
-        };
-
-        static const struct option options[] = {
-                { "help",       no_argument,       NULL, 'h'            },
-                { "version",    no_argument,       NULL, ARG_VERSION    },
-                { "make-vsock", no_argument,       NULL, ARG_MAKE_VSOCK },
-                { "rm-vsock",   no_argument,       NULL, ARG_RM_VSOCK   },
-                { "issue-path", required_argument, NULL, ARG_ISSUE_PATH },
-                {}
-        };
-
-        int c, r;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0) {
-
-                switch (c) {
-
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_MAKE_VSOCK:
-                        arg_action = ACTION_MAKE_VSOCK;
-                        break;
-
-                case ARG_RM_VSOCK:
-                        arg_action = ACTION_RM_VSOCK;
-                        break;
-
-                case ARG_ISSUE_PATH:
-                        if (isempty(optarg) || streq(optarg, "-")) {
-                                arg_issue_path = mfree(arg_issue_path);
-                                arg_issue_stdout = true;
-                                break;
-                        }
-
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_issue_path);
-                        if (r < 0)
-                                return r;
-
-                        arg_issue_stdout = false;
-                        break;
-                }
-        }
-
-        if (!arg_issue_path && !arg_issue_stdout) {
-                arg_issue_path = strdup("/run/issue.d/50-ssh-vsock.issue");
-                if (!arg_issue_path)
-                        return log_oom();
-        }
-
-        return 1;
 }
 
 static int acquire_cid(unsigned *ret_cid) {
@@ -146,9 +79,11 @@ static int run(int argc, char* argv[]) {
 
         log_setup();
 
-        r = parse_argv(argc, argv);
+        r = parse_argv_generated(argc, argv);
         if (r <= 0)
                 return r;
+
+        const char *path = arg_issue_stdout ? NULL : arg_issue_path ?: DEFAULT_ISSUE_PATH;
 
         switch (arg_action) {
         case ACTION_MAKE_VSOCK: {
@@ -166,14 +101,14 @@ static int run(int argc, char* argv[]) {
                 _cleanup_(fclosep) FILE *f = NULL;
                 FILE *out;
 
-                if (arg_issue_path)  {
-                        r = mkdir_parents(arg_issue_path, 0755);
+                if (path) {
+                        r = mkdir_parents(path, 0755);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to create parent directories of '%s': %m", arg_issue_path);
+                                return log_error_errno(r, "Failed to create parent directories of '%s': %m", path);
 
-                        r = fopen_tmpfile_linkable(arg_issue_path, O_WRONLY|O_CLOEXEC, &t, &f);
+                        r = fopen_tmpfile_linkable(path, O_WRONLY|O_CLOEXEC, &t, &f);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to create '%s': %m", arg_issue_path);
+                                return log_error_errno(r, "Failed to create '%s': %m", path);
 
                         out = f;
                 } else
@@ -185,25 +120,25 @@ static int run(int argc, char* argv[]) {
 
                 if (f) {
                         if (fchmod(fileno(f), 0644) < 0)
-                                return log_error_errno(errno, "Failed to adjust access mode of '%s': %m", arg_issue_path);
+                                return log_error_errno(errno, "Failed to adjust access mode of '%s': %m", path);
 
-                        r = flink_tmpfile(f, t, arg_issue_path, LINK_TMPFILE_REPLACE);
+                        r = flink_tmpfile(f, t, path, LINK_TMPFILE_REPLACE);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to move '%s' into place: %m", arg_issue_path);
+                                return log_error_errno(r, "Failed to move '%s' into place: %m", path);
                 }
 
                 break;
         }
 
         case ACTION_RM_VSOCK:
-                if (arg_issue_path) {
-                        if (unlink(arg_issue_path) < 0) {
+                if (path) {
+                        if (unlink(path) < 0) {
                                 if (errno != ENOENT)
-                                        return log_error_errno(errno, "Failed to remove '%s': %m", arg_issue_path);
+                                        return log_error_errno(errno, "Failed to remove '%s': %m", path);
 
-                                log_debug_errno(errno, "File '%s' does not exist, no operation executed.", arg_issue_path);
+                                log_debug_errno(errno, "File '%s' does not exist, no operation executed.", path);
                         } else
-                                log_debug("Successfully removed '%s'.", arg_issue_path);
+                                log_debug("Successfully removed '%s'.", path);
                 } else
                         log_notice("STDOUT selected for issue file, not removing.");
 

@@ -5,5 +5,6 @@ executables += [
                 'name' : 'systemd-report',
                 'public' : true,
                 'sources' : files('report.c'),
+                'arg_parser' : files('report.args'),
         },
 ]

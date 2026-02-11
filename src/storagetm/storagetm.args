@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+option -h --help
+
+option --version
+
+option --nqn=STRING
+help Select NQN (NVMe Qualified Name)
+        if (!filename_is_valid(optarg))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "NQN invalid: %s", optarg);
+
+        if (free_and_strdup(&arg_nqn, optarg) < 0)
+                return log_oom();
+
+option -a --all
+help Expose all devices. Specify twice to export root device too.
+        arg_all++;
+
+option --list-devices
+help List candidate block devices to operate on
+        return blockdev_list(BLOCKDEV_LIST_SHOW_SYMLINKS|BLOCKDEV_LIST_IGNORE_ZRAM,
+                             /* ret_devices= */ NULL,
+                             /* ret_n_devices= */ NULL);

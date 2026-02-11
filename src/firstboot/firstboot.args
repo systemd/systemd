@@ -1,0 +1,209 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+
+option -h --help
+
+option --version
+
+option --root=PATH
+help Operate on an alternate filesystem root
+        r = parse_path_argument(optarg, true, &arg_root);
+        if (r < 0)
+                return r;
+
+option --image=PATH
+help Operate on disk image as filesystem root
+        r = parse_path_argument(optarg, false, &arg_image);
+        if (r < 0)
+                return r;
+
+option --image-policy=POLICY
+help Specify disk image dissection policy
+        r = parse_image_policy_argument(optarg, &arg_image_policy);
+        if (r < 0)
+                return r;
+
+option --locale=LOCALE
+help Set primary locale (LANG=)
+        r = free_and_strdup(&arg_locale, optarg);
+        if (r < 0)
+                return log_oom();
+
+option --locale-messages=LOCALE
+help Set message locale (LC_MESSAGES=)
+        r = free_and_strdup(&arg_locale_messages, optarg);
+        if (r < 0)
+                return log_oom();
+
+option --keymap=KEYMAP
+help Set keymap
+        if (!keymap_is_valid(optarg))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Keymap %s is not valid.", optarg);
+
+        r = free_and_strdup(&arg_keymap, optarg);
+        if (r < 0)
+                return log_oom();
+
+option --timezone=TIMEZONE
+help Set timezone
+        if (!timezone_is_valid(optarg, LOG_ERR))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Timezone %s is not valid.", optarg);
+
+        r = free_and_strdup(&arg_timezone, optarg);
+        if (r < 0)
+                return log_oom();
+
+option --hostname=NAME
+help Set hostname
+        if (!hostname_is_valid(optarg, VALID_HOSTNAME_TRAILING_DOT|VALID_HOSTNAME_QUESTION_MARK))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Hostname %s is not valid.", optarg);
+
+        r = free_and_strdup(&arg_hostname, optarg);
+        if (r < 0)
+                return log_oom();
+
+        hostname_cleanup(arg_hostname);
+
+option --setup-machine-id
+help Set a random machine ID
+        r = sd_id128_randomize(&arg_machine_id);
+        if (r < 0)
+                return log_error_errno(r, "Failed to generate randomized machine ID: %m");
+
+option --machine-id=ID
+help Set specified machine ID
+        r = sd_id128_from_string(optarg, &arg_machine_id);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse machine id %s.", optarg);
+
+option --root-password=PASSWORD
+help Set root password from plaintext password
+        r = free_and_strdup(&arg_root_password, optarg);
+        if (r < 0)
+                return log_oom();
+
+        arg_root_password_is_hashed = false;
+
+option --root-password-file=FILE
+help Set root password from file
+        arg_root_password = mfree(arg_root_password);
+
+        r = read_one_line_file(optarg, &arg_root_password);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read %s: %m", optarg);
+
+        arg_root_password_is_hashed = false;
+
+option --root-password-hashed=HASH
+help Set root password from hashed password
+        r = free_and_strdup(&arg_root_password, optarg);
+        if (r < 0)
+                return log_oom();
+
+        arg_root_password_is_hashed = true;
+
+option --root-shell=SHELL
+help Set root shell
+        r = free_and_strdup(&arg_root_shell, optarg);
+        if (r < 0)
+                return log_oom();
+
+option --kernel-command-line=CMDLINE
+help Set kernel command line
+        r = free_and_strdup(&arg_kernel_cmdline, optarg);
+        if (r < 0)
+                return log_oom();
+
+option --prompt-locale
+help Prompt the user for locale settings
+        arg_prompt_locale = true;
+
+option --prompt-keymap
+help Prompt the user for keymap settings
+        arg_prompt_keymap = true;
+        arg_prompt_keymap_auto = false;
+
+option --prompt-keymap-auto
+help Prompt the user for keymap settings if invoked on local console
+        arg_prompt_keymap_auto = true;
+
+option --prompt-timezone
+help Prompt the user for timezone
+        arg_prompt_timezone = true;
+
+option --prompt-hostname
+help Prompt the user for hostname
+        arg_prompt_hostname = true;
+
+option --prompt-root-password
+help Prompt the user for root password
+        arg_prompt_root_password = true;
+
+option --prompt-root-shell
+help Prompt the user for root shell
+        arg_prompt_root_shell = true;
+
+option --prompt
+help Prompt for all of the above
+        arg_prompt_locale = arg_prompt_keymap = arg_prompt_timezone = arg_prompt_hostname =
+                arg_prompt_root_password = arg_prompt_root_shell = true;
+        arg_prompt_keymap_auto = false;
+
+option --copy-locale
+help Copy locale from host
+        arg_copy_locale = true;
+
+option --copy-keymap
+help Copy keymap from host
+        arg_copy_keymap = true;
+
+option --copy-timezone
+help Copy timezone from host
+        arg_copy_timezone = true;
+
+option --copy-root-password
+help Copy root password from host
+        arg_copy_root_password = true;
+
+option --copy-root-shell
+help Copy root shell from host
+        arg_copy_root_shell = true;
+
+option --copy
+help Copy all of the above
+        arg_copy_locale = arg_copy_keymap = arg_copy_timezone = arg_copy_root_password =
+                arg_copy_root_shell = true;
+
+option --force
+help Overwrite existing files
+        arg_force = true;
+
+option --delete-root-password
+help Delete root password
+        arg_delete_root_password = true;
+
+option --reset
+help Remove existing files
+        arg_reset = true;
+
+option --welcome=no
+help Disable the welcome text
+        r = parse_boolean(optarg);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse --welcome= argument: %s", optarg);
+
+        arg_welcome = r;
+
+option --chrome=no
+help Don't show color bar at top and bottom of terminal
+        r = parse_boolean_argument("--chrome=", optarg, &arg_chrome);
+        if (r < 0)
+                return r;
+
+option --mute-console=yes
+help Supress console messages from kernel/PID1 while running
+        r = parse_boolean_argument("--mute-console=", optarg, &arg_mute_console);
+        if (r < 0)
+                return r;

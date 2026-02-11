@@ -75,7 +75,9 @@ static const char *output_table[_OUTPUT_MAX] = {
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP(output, Output);
 
-static const char *user_disposition_to_color(UserDisposition d) {
+#include "userdbctl.args.inc"
+
+static const char* user_disposition_to_color(UserDisposition d) {
         assert(d >= 0);
         assert(d < _USER_DISPOSITION_MAX);
 
@@ -1131,14 +1133,9 @@ static int ssh_authorized_keys(int argc, char *argv[], void *userdata) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "No chain command line specified, refusing.");
 
-                /* Make similar restrictions on the chain command as OpenSSH itself makes on the primary command. */
-                if (!path_is_absolute(argv[2]))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Chain invocation of ssh-authorized-keys commands requires an absolute binary path argument.");
-
                 if (!path_is_normalized(argv[2]))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Chain invocation of ssh-authorized-keys commands requires an normalized binary path argument.");
+                                               "Chain invocation of ssh-authorized-keys commands requires a normalized path.");
 
                 chain_invocation = argv + 2;
         } else {
@@ -1184,7 +1181,7 @@ static int ssh_authorized_keys(int argc, char *argv[], void *userdata) {
                 }
 
                 fflush(stdout);
-                execv(chain_invocation[0], chain_invocation);
+                execvp(chain_invocation[0], chain_invocation);
                 if (errno == ENOENT) /* Let's handle ENOENT gracefully */
                         log_warning_errno(errno, "Chain executable '%s' does not exist, ignoring chain invocation.", chain_invocation[0]);
                 else {
@@ -1532,7 +1529,7 @@ static int load_credentials(int argc, char *argv[], void *userdata) {
         return r;
 }
 
-static int help(int argc, char *argv[], void *userdata) {
+static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
@@ -1553,34 +1550,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  ssh-authorized-keys USER   Show SSH authorized keys for user\n"
                "  load-credentials           Write static user/group records from credentials\n"
                "\nOptions:\n"
-               "  -h --help                  Show this help\n"
-               "     --version               Show package version\n"
-               "     --no-pager              Do not pipe output into a pager\n"
-               "     --no-legend             Do not show the headers and footers\n"
-               "     --output=MODE           Select output mode (classic, friendly, table, json)\n"
-               "  -j                         Equivalent to --output=json\n"
-               "  -s --service=SERVICE[:SERVICE…]\n"
-               "                             Query the specified service\n"
-               "     --with-nss=BOOL         Control whether to include glibc NSS data\n"
-               "  -N                         Do not synthesize or include glibc NSS data\n"
-               "                             (Same as --synthesize=no --with-nss=no)\n"
-               "     --synthesize=BOOL       Synthesize root/nobody user\n"
-               "     --with-dropin=BOOL      Control whether to include drop-in records\n"
-               "     --with-varlink=BOOL     Control whether to talk to services at all\n"
-               "     --multiplexer=BOOL      Control whether to use the multiplexer\n"
-               "     --json=pretty|short     JSON output mode\n"
-               "     --chain                 Chain another command\n"
-               "     --uid-min=ID            Filter by minimum UID/GID (default 0)\n"
-               "     --uid-max=ID            Filter by maximum UID/GID (default 4294967294)\n"
-               "     --uuid=UUID             Filter by UUID\n"
-               "  -z --fuzzy                 Do a fuzzy name search\n"
-               "     --disposition=VALUE     Filter by disposition\n"
-               "  -I                         Equivalent to --disposition=intrinsic\n"
-               "  -S                         Equivalent to --disposition=system\n"
-               "  -R                         Equivalent to --disposition=regular\n"
-               "     --boundaries=BOOL       Show/hide UID/GID range boundaries in output\n"
-               "  -B                         Equivalent to --boundaries=no\n"
-               "  -F --from-file=PATH        Read JSON record from file\n"
+               OPTION_HELP_GENERATED
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -1591,58 +1561,11 @@ static int help(int argc, char *argv[], void *userdata) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
-
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_NO_PAGER,
-                ARG_NO_LEGEND,
-                ARG_OUTPUT,
-                ARG_WITH_NSS,
-                ARG_WITH_DROPIN,
-                ARG_WITH_VARLINK,
-                ARG_SYNTHESIZE,
-                ARG_MULTIPLEXER,
-                ARG_JSON,
-                ARG_CHAIN,
-                ARG_UID_MIN,
-                ARG_UID_MAX,
-                ARG_UUID,
-                ARG_DISPOSITION,
-                ARG_BOUNDARIES,
-        };
-
-        static const struct option options[] = {
-                { "help",         no_argument,       NULL, 'h'              },
-                { "version",      no_argument,       NULL, ARG_VERSION      },
-                { "no-pager",     no_argument,       NULL, ARG_NO_PAGER     },
-                { "no-legend",    no_argument,       NULL, ARG_NO_LEGEND    },
-                { "output",       required_argument, NULL, ARG_OUTPUT       },
-                { "service",      required_argument, NULL, 's'              },
-                { "with-nss",     required_argument, NULL, ARG_WITH_NSS     },
-                { "with-dropin",  required_argument, NULL, ARG_WITH_DROPIN  },
-                { "with-varlink", required_argument, NULL, ARG_WITH_VARLINK },
-                { "synthesize",   required_argument, NULL, ARG_SYNTHESIZE   },
-                { "multiplexer",  required_argument, NULL, ARG_MULTIPLEXER  },
-                { "json",         required_argument, NULL, ARG_JSON         },
-                { "chain",        no_argument,       NULL, ARG_CHAIN        },
-                { "uid-min",      required_argument, NULL, ARG_UID_MIN      },
-                { "uid-max",      required_argument, NULL, ARG_UID_MAX      },
-                { "uuid",         required_argument, NULL, ARG_UUID         },
-                { "fuzzy",        no_argument,       NULL, 'z'              },
-                { "disposition",  required_argument, NULL, ARG_DISPOSITION  },
-                { "boundaries",   required_argument, NULL, ARG_BOUNDARIES   },
-                { "from-file",    required_argument, NULL, 'F'              },
-                {}
-        };
-
-        const char *e;
         int r;
 
-        assert(argc >= 0);
-        assert(argv);
-
-        /* We are going to update this environment variable with our own, hence let's first read what is already set */
-        e = getenv("SYSTEMD_ONLY_USERDB");
+        /* We are going to update this environment variable with our own, hence let's first read what is
+         * already set. */
+        const char *e = getenv("SYSTEMD_ONLY_USERDB");
         if (e) {
                 char **l;
 
@@ -1654,213 +1577,16 @@ static int parse_argv(int argc, char *argv[]) {
                 arg_services = l;
         }
 
-        /* Resetting to 0 forces the invocation of an internal initialization routine of getopt_long()
-         * that checks for GNU extensions in optstring ('-' or '+' at the beginning). */
-        optind = 0;
-
-        for (;;) {
-                int c;
-
-                c = getopt_long(argc, argv,
-                                arg_chain ? "+hjs:NISRzBF:" : "hjs:NISRzBF:", /* When --chain was used disable parsing of further switches */
-                                options, NULL);
-                if (c < 0)
-                        break;
-
-                switch (c) {
-
-                case 'h':
-                        return help(0, NULL, NULL);
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_NO_PAGER:
-                        arg_pager_flags |= PAGER_DISABLE;
-                        break;
-
-                case ARG_NO_LEGEND:
-                        arg_legend = false;
-                        break;
-
-                case ARG_OUTPUT:
-                        if (streq(optarg, "help"))
-                                return DUMP_STRING_TABLE(output, Output, _OUTPUT_MAX);
-
-                        arg_output = output_from_string(optarg);
-                        if (arg_output < 0)
-                                return log_error_errno(arg_output, "Invalid --output= mode: %s", optarg);
-
-                        arg_json_format_flags = arg_output == OUTPUT_JSON ? SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_COLOR_AUTO : SD_JSON_FORMAT_OFF;
-                        break;
-
-                case ARG_JSON:
-                        r = parse_json_argument(optarg, &arg_json_format_flags);
-                        if (r <= 0)
-                                return r;
-
-                        arg_output = sd_json_format_enabled(arg_json_format_flags) ? OUTPUT_JSON : _OUTPUT_INVALID;
-                        break;
-
-                case 'j':
-                        arg_json_format_flags = SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_COLOR_AUTO;
-                        arg_output = OUTPUT_JSON;
-                        break;
-
-                case 's':
-                        if (isempty(optarg))
-                                arg_services = strv_free(arg_services);
-                        else {
-                                r = strv_split_and_extend(&arg_services, optarg, ":", /* filter_duplicates= */ true);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse -s/--service= argument: %m");
-                        }
-
-                        break;
-
-                case 'N':
-                        arg_userdb_flags |= USERDB_EXCLUDE_NSS|USERDB_DONT_SYNTHESIZE_INTRINSIC|USERDB_DONT_SYNTHESIZE_FOREIGN;
-                        break;
-
-                case ARG_WITH_NSS:
-                        r = parse_boolean_argument("--with-nss=", optarg, NULL);
-                        if (r < 0)
-                                return r;
-
-                        SET_FLAG(arg_userdb_flags, USERDB_EXCLUDE_NSS, !r);
-                        break;
-
-                case ARG_WITH_DROPIN:
-                        r = parse_boolean_argument("--with-dropin=", optarg, NULL);
-                        if (r < 0)
-                                return r;
-
-                        SET_FLAG(arg_userdb_flags, USERDB_EXCLUDE_DROPIN, !r);
-                        break;
-
-                case ARG_WITH_VARLINK:
-                        r = parse_boolean_argument("--with-varlink=", optarg, NULL);
-                        if (r < 0)
-                                return r;
-
-                        SET_FLAG(arg_userdb_flags, USERDB_EXCLUDE_VARLINK, !r);
-                        break;
-
-                case ARG_SYNTHESIZE:
-                        r = parse_boolean_argument("--synthesize=", optarg, NULL);
-                        if (r < 0)
-                                return r;
-
-                        SET_FLAG(arg_userdb_flags, USERDB_DONT_SYNTHESIZE_INTRINSIC|USERDB_DONT_SYNTHESIZE_FOREIGN, !r);
-                        break;
-
-                case ARG_MULTIPLEXER:
-                        r = parse_boolean_argument("--multiplexer=", optarg, NULL);
-                        if (r < 0)
-                                return r;
-
-                        SET_FLAG(arg_userdb_flags, USERDB_AVOID_MULTIPLEXER, !r);
-                        break;
-
-                case ARG_CHAIN:
-                        arg_chain = true;
-                        break;
-
-                case ARG_DISPOSITION: {
-                        UserDisposition d = user_disposition_from_string(optarg);
-                        if (d < 0)
-                                return log_error_errno(d, "Unknown user disposition: %s", optarg);
-
-                        if (arg_disposition_mask == UINT64_MAX)
-                                arg_disposition_mask = 0;
-
-                        arg_disposition_mask |= UINT64_C(1) << d;
-                        break;
-                }
-
-                case 'I':
-                        if (arg_disposition_mask == UINT64_MAX)
-                                arg_disposition_mask = 0;
-
-                        arg_disposition_mask |= UINT64_C(1) << USER_INTRINSIC;
-                        break;
-
-                case 'S':
-                        if (arg_disposition_mask == UINT64_MAX)
-                                arg_disposition_mask = 0;
-
-                        arg_disposition_mask |= UINT64_C(1) << USER_SYSTEM;
-                        break;
-
-                case 'R':
-                        if (arg_disposition_mask == UINT64_MAX)
-                                arg_disposition_mask = 0;
-
-                        arg_disposition_mask |= UINT64_C(1) << USER_REGULAR;
-                        break;
-
-                case ARG_UID_MIN:
-                        r = parse_uid(optarg, &arg_uid_min);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse --uid-min= value: %s", optarg);
-                        break;
-
-                case ARG_UID_MAX:
-                        r = parse_uid(optarg, &arg_uid_max);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse --uid-max= value: %s", optarg);
-                        break;
-
-                case ARG_UUID:
-                        r = sd_id128_from_string(optarg, &arg_uuid);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse --uuid= value: %s", optarg);
-                        break;
-
-                case 'z':
-                        arg_fuzzy = true;
-                        break;
-
-                case ARG_BOUNDARIES:
-                        r = parse_boolean_argument("boundaries", optarg, &arg_boundaries);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case 'B':
-                        arg_boundaries = false;
-                        break;
-
-                case 'F': {
-                        if (isempty(optarg)) {
-                                arg_from_file = sd_json_variant_unref(arg_from_file);
-                                break;
-                        }
-
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-                        const char *fn = streq(optarg, "-") ? NULL : optarg;
-                        unsigned line = 0;
-                        r = sd_json_parse_file(fn ? NULL : stdin, fn ?: "<stdin>", SD_JSON_PARSE_SENSITIVE, &v, &line, /* reterr_column= */ NULL);
-                        if (r < 0)
-                                return log_syntax(/* unit= */ NULL, LOG_ERR, fn ?: "<stdin>", line, r, "JSON parse failure.");
-
-                        sd_json_variant_unref(arg_from_file);
-                        arg_from_file = TAKE_PTR(v);
-                        break;
-                }
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
-        }
+        r = parse_argv_generated(argc, argv);
+        if (r <= 0)
+                return r;
 
         if (arg_uid_min > arg_uid_max)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Minimum UID/GID " UID_FMT " is above maximum UID/GID " UID_FMT ", refusing.", arg_uid_min, arg_uid_max);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Minimum UID/GID " UID_FMT " is above maximum UID/GID " UID_FMT ", refusing.",
+                                       arg_uid_min, arg_uid_max);
 
-        /* If not mask was specified, use the all bits on mask */
+        /* If no mask was specified, use the all bits on mask */
         if (arg_disposition_mask == UINT64_MAX)
                 arg_disposition_mask = USER_DISPOSITION_MASK_ALL;
 
@@ -1872,7 +1598,7 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int run(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "help",                VERB_ANY, VERB_ANY, 0,            help                },
+                { "help",                VERB_ANY, VERB_ANY, 0,            verb_help           },
                 { "user",                VERB_ANY, VERB_ANY, VERB_DEFAULT, display_user        },
                 { "group",               VERB_ANY, VERB_ANY, 0,            display_group       },
                 { "users-in-group",      VERB_ANY, VERB_ANY, 0,            display_memberships },

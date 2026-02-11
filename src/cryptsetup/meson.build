@@ -17,6 +17,7 @@ executables += [
                 'name' : 'systemd-cryptsetup',
                 'public' : true,
                 'sources' : systemd_cryptsetup_sources,
+                'arg_parser' : files('cryptsetup.args'),
                 'dependencies' : [
                         libcryptsetup,
                         libmount_cflags,

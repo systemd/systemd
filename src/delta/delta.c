@@ -54,7 +54,7 @@ static const char have_dropins[] =
 static PagerFlags arg_pager_flags = 0;
 static int arg_diff = -1;
 
-static enum {
+typedef enum ShowFlags {
         SHOW_MASKED     = 1 << 0,
         SHOW_EQUIVALENT = 1 << 1,
         SHOW_REDIRECTED = 1 << 2,
@@ -64,7 +64,48 @@ static enum {
 
         SHOW_DEFAULTS =
         (SHOW_MASKED | SHOW_EQUIVALENT | SHOW_REDIRECTED | SHOW_OVERRIDDEN | SHOW_EXTENDED)
-} arg_flags = 0;
+} ShowFlags;
+static ShowFlags arg_flags = 0;
+
+static int update_flags(ShowFlags *flags, const char *s) {
+        int r, new = 0;
+
+        if (isempty(s)) {
+                *flags = 0;
+                return 0;
+        }
+
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&s, &word, ",", EXTRACT_DONT_COALESCE_SEPARATORS);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        *flags |= new;
+                        return 0;
+                }
+
+                if (streq(word, "masked"))
+                        new |= SHOW_MASKED;
+                else if (streq(word, "equivalent"))
+                        new |= SHOW_EQUIVALENT;
+                else if (streq(word, "redirected"))
+                        new |= SHOW_REDIRECTED;
+                else if (streq(word, "overridden"))
+                        new |= SHOW_OVERRIDDEN;
+                else if (streq(word, "unchanged"))
+                        new |= SHOW_UNCHANGED;
+                else if (streq(word, "extended"))
+                        new |= SHOW_EXTENDED;
+                else if (streq(word, "default"))
+                        new |= SHOW_DEFAULTS;
+                else
+                        return -EINVAL;
+        }
+}
+
+#include "delta.args.inc"
 
 static int equivalent(const char *a, const char *b) {
         _cleanup_free_ char *x = NULL, *y = NULL;
@@ -467,11 +508,7 @@ static int help(void) {
 
         printf("%s [OPTIONS...] [SUFFIX...]\n\n"
                "Find overridden configuration files.\n\n"
-               "  -h --help           Show this help\n"
-               "     --version        Show package version\n"
-               "     --no-pager       Do not pipe output into a pager\n"
-               "     --diff[=1|0]     Show a diff when overridden files differ\n"
-               "  -t --type=LIST...   Only display a selected set of override types\n"
+               OPTION_HELP_GENERATED
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                link);
@@ -479,105 +516,12 @@ static int help(void) {
         return 0;
 }
 
-static int parse_flags(const char *flag_str, int flags) {
-        for (;;) {
-                _cleanup_free_ char *word = NULL;
-                int r;
-
-                r = extract_first_word(&flag_str, &word, ",", EXTRACT_DONT_COALESCE_SEPARATORS);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        return flags;
-
-                if (streq(word, "masked"))
-                        flags |= SHOW_MASKED;
-                else if (streq(word, "equivalent"))
-                        flags |= SHOW_EQUIVALENT;
-                else if (streq(word, "redirected"))
-                        flags |= SHOW_REDIRECTED;
-                else if (streq(word, "overridden"))
-                        flags |= SHOW_OVERRIDDEN;
-                else if (streq(word, "unchanged"))
-                        flags |= SHOW_UNCHANGED;
-                else if (streq(word, "extended"))
-                        flags |= SHOW_EXTENDED;
-                else if (streq(word, "default"))
-                        flags |= SHOW_DEFAULTS;
-                else
-                        return -EINVAL;
-        }
-}
-
-static int parse_argv(int argc, char *argv[]) {
-
-        enum {
-                ARG_NO_PAGER = 0x100,
-                ARG_DIFF,
-                ARG_VERSION
-        };
-
-        static const struct option options[] = {
-                { "help",      no_argument,       NULL, 'h'          },
-                { "version",   no_argument,       NULL, ARG_VERSION  },
-                { "no-pager",  no_argument,       NULL, ARG_NO_PAGER },
-                { "diff",      optional_argument, NULL, ARG_DIFF     },
-                { "type",      required_argument, NULL, 't'          },
-                {}
-        };
-
-        int c, r;
-
-        assert(argc >= 1);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "ht:", options, NULL)) >= 0)
-
-                switch (c) {
-
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_NO_PAGER:
-                        arg_pager_flags |= PAGER_DISABLE;
-                        break;
-
-                case 't': {
-                        int f;
-                        f = parse_flags(optarg, arg_flags);
-                        if (f < 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Failed to parse flags field.");
-                        arg_flags = f;
-                        break;
-                }
-
-                case ARG_DIFF:
-                        r = parse_boolean_argument("--diff", optarg, NULL);
-                        if (r < 0)
-                                return r;
-                        arg_diff = r;
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
-
-        return 1;
-}
-
 static int run(int argc, char *argv[]) {
         int r, k, n_found = 0;
 
         log_setup();
 
-        r = parse_argv(argc, argv);
+        r = parse_argv_generated(argc, argv);
         if (r <= 0)
                 return r;
 

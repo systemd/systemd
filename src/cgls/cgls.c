@@ -37,6 +37,8 @@ static const char* arg_machine = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_names, freep); /* don't free the strings */
 
+#include "cgls.args.inc"
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -47,17 +49,7 @@ static int help(void) {
 
         printf("%s [OPTIONS...] [CGROUP...]\n\n"
                "Recursively show control group contents.\n\n"
-               "  -h --help           Show this help\n"
-               "     --version        Show package version\n"
-               "     --no-pager       Do not pipe output into a pager\n"
-               "  -a --all            Show all groups, including empty\n"
-               "  -u --unit           Show the subtrees of specified system units\n"
-               "     --user-unit      Show the subtrees of specified user units\n"
-               "  -x --xattr=BOOL     Show cgroup extended attributes\n"
-               "  -c --cgroup-id=BOOL Show cgroup ID\n"
-               "  -l --full           Do not ellipsize output\n"
-               "  -k                  Include kernel threads in output\n"
-               "  -M --machine=NAME   Show container NAME\n"
+               OPTION_HELP_GENERATED
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                link);
@@ -66,119 +58,11 @@ static int help(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
+        int r;
 
-        enum {
-                ARG_NO_PAGER = 0x100,
-                ARG_VERSION,
-                ARG_USER_UNIT,
-        };
-
-        static const struct option options[] = {
-                { "help",      no_argument,       NULL, 'h'           },
-                { "version",   no_argument,       NULL, ARG_VERSION   },
-                { "no-pager",  no_argument,       NULL, ARG_NO_PAGER  },
-                { "all",       no_argument,       NULL, 'a'           },
-                { "full",      no_argument,       NULL, 'l'           },
-                { "machine",   required_argument, NULL, 'M'           },
-                { "unit",      optional_argument, NULL, 'u'           },
-                { "user-unit", optional_argument, NULL, ARG_USER_UNIT },
-                { "xattr",     required_argument, NULL, 'x'           },
-                { "cgroup-id", required_argument, NULL, 'c'           },
-                {}
-        };
-
-        int c, r;
-
-        assert(argc >= 1);
-        assert(argv);
-
-        /* Resetting to 0 forces the invocation of an internal initialization routine of getopt_long()
-         * that checks for GNU extensions in optstring ('-' or '+' at the beginning). */
-        optind = 0;
-        while ((c = getopt_long(argc, argv, "-hkalM:u::xc", options, NULL)) >= 0)
-
-                switch (c) {
-
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_NO_PAGER:
-                        arg_pager_flags |= PAGER_DISABLE;
-                        break;
-
-                case 'a':
-                        arg_output_flags |= OUTPUT_SHOW_ALL;
-                        break;
-
-                case 'u':
-                        if (arg_show_unit == SHOW_UNIT_USER)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                "Cannot combine --unit with --user-unit.");
-
-                        arg_show_unit = SHOW_UNIT_SYSTEM;
-                        if (strv_push(&arg_names, optarg) < 0) /* push optarg if not empty */
-                                return log_oom();
-                        break;
-
-                case ARG_USER_UNIT:
-                        if (arg_show_unit == SHOW_UNIT_SYSTEM)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                "Cannot combine --user-unit with --unit.");
-
-                        arg_show_unit = SHOW_UNIT_USER;
-                        if (strv_push(&arg_names, optarg) < 0) /* push optarg if not empty */
-                                return log_oom();
-                        break;
-
-                case 1:
-                        /* positional argument */
-                        if (strv_push(&arg_names, optarg) < 0)
-                                return log_oom();
-                        break;
-
-                case 'l':
-                        arg_full = true;
-                        break;
-
-                case 'k':
-                        arg_output_flags |= OUTPUT_KERNEL_THREADS;
-                        break;
-
-                case 'M':
-                        arg_machine = optarg;
-                        break;
-
-                case 'x':
-                        if (optarg) {
-                                r = parse_boolean(optarg);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse --xattr= value: %s", optarg);
-                        } else
-                                r = true;
-
-                        SET_FLAG(arg_output_flags, OUTPUT_CGROUP_XATTRS, r);
-                        break;
-
-                case 'c':
-                        if (optarg) {
-                                r = parse_boolean(optarg);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse --cgroup-id= value: %s", optarg);
-                        } else
-                                r = true;
-
-                        SET_FLAG(arg_output_flags, OUTPUT_CGROUP_ID, r);
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
+        r = parse_argv_generated(argc, argv);
+        if (r <= 0)
+                return r;
 
         if (arg_machine && arg_show_unit != SHOW_UNIT_NONE)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),

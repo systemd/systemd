@@ -53,6 +53,8 @@ STATIC_DESTRUCTOR_REGISTER(arg_trust_pem, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_directory, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_file, strv_freep);
 
+#include "journal-gatewayd.args.inc"
+
 typedef struct RequestMeta {
         sd_journal *journal;
 
@@ -1094,16 +1096,7 @@ static int help(void) {
 
         printf("%s [OPTIONS...] ...\n\n"
                "HTTP server for journal events.\n\n"
-               "  -h --help           Show this help\n"
-               "     --version        Show package version\n"
-               "     --cert=CERT.PEM  Server certificate in PEM format\n"
-               "     --key=KEY.PEM    Server key in PEM format\n"
-               "     --trust=CERT.PEM Certificate authority certificate in PEM format\n"
-               "     --system         Serve system journal\n"
-               "     --user           Serve the user journal for the current user\n"
-               "  -m --merge          Serve all available journals\n"
-               "  -D --directory=PATH Serve journal files in directory\n"
-               "     --file=PATH      Serve this journal file\n"
+               OPTION_HELP_GENERATED
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                link);
@@ -1112,123 +1105,11 @@ static int help(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_KEY,
-                ARG_CERT,
-                ARG_TRUST,
-                ARG_USER,
-                ARG_SYSTEM,
-                ARG_MERGE,
-                ARG_FILE,
-        };
+        int r;
 
-        int r, c;
-
-        static const struct option options[] = {
-                { "help",      no_argument,       NULL, 'h'           },
-                { "version",   no_argument,       NULL, ARG_VERSION   },
-                { "key",       required_argument, NULL, ARG_KEY       },
-                { "cert",      required_argument, NULL, ARG_CERT      },
-                { "trust",     required_argument, NULL, ARG_TRUST     },
-                { "user",      no_argument,       NULL, ARG_USER      },
-                { "system",    no_argument,       NULL, ARG_SYSTEM    },
-                { "merge",     no_argument,       NULL, 'm'           },
-                { "directory", required_argument, NULL, 'D'           },
-                { "file",      required_argument, NULL, ARG_FILE      },
-                {}
-        };
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "hD:", options, NULL)) >= 0)
-
-                switch (c) {
-
-                case 'h':
-                        return help();
-
-                case ARG_VERSION:
-                        return version();
-
-                case ARG_KEY:
-                        if (arg_key_pem)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Key file specified twice");
-                        r = read_full_file_full(
-                                        AT_FDCWD, optarg, UINT64_MAX, SIZE_MAX,
-                                        READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET,
-                                        NULL,
-                                        &arg_key_pem, NULL);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to read key file: %m");
-                        assert(arg_key_pem);
-                        break;
-
-                case ARG_CERT:
-                        if (arg_cert_pem)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Certificate file specified twice");
-                        r = read_full_file_full(
-                                        AT_FDCWD, optarg, UINT64_MAX, SIZE_MAX,
-                                        READ_FULL_FILE_CONNECT_SOCKET,
-                                        NULL,
-                                        &arg_cert_pem, NULL);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to read certificate file: %m");
-                        assert(arg_cert_pem);
-                        break;
-
-                case ARG_TRUST:
-#if HAVE_GNUTLS
-                        if (arg_trust_pem)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "CA certificate file specified twice");
-                        r = read_full_file_full(
-                                        AT_FDCWD, optarg, UINT64_MAX, SIZE_MAX,
-                                        READ_FULL_FILE_CONNECT_SOCKET,
-                                        NULL,
-                                        &arg_trust_pem, NULL);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to read CA certificate file: %m");
-                        assert(arg_trust_pem);
-                        break;
-#else
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Option --trust= is not available.");
-#endif
-
-                case ARG_SYSTEM:
-                        arg_journal_type |= SD_JOURNAL_SYSTEM;
-                        break;
-
-                case ARG_USER:
-                        arg_journal_type |= SD_JOURNAL_CURRENT_USER;
-                        break;
-
-                case 'm':
-                        arg_merge = true;
-                        break;
-
-                case 'D':
-                        r = free_and_strdup_warn(&arg_directory, optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_FILE:
-                        r = glob_extend(&arg_file, optarg, GLOB_NOCHECK);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to add paths: %m");
-                        break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
-                }
+        r = parse_argv_generated(argc, argv);
+        if (r <= 0)
+                return r;
 
         if (optind < argc)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),

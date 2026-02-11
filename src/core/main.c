@@ -64,7 +64,7 @@
 #include "load-fragment.h"
 #include "log.h"
 #include "loopback-setup.h"
-#include "machine-id-setup.h"
+#include "machine-id-util.h"
 #include "main.h"
 #include "manager.h"
 #include "manager-dump.h"
