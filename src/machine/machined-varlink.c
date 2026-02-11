@@ -426,7 +426,7 @@ static int json_build_local_addresses(const struct local_address *addresses, siz
         return 0;
 }
 
-static int list_machine_one_and_maybe_read_metadata(sd_varlink *link, Machine *m, bool more, AcquireMetadata am) {
+static int list_machine_one_and_maybe_read_metadata(sd_varlink *link, Machine *m, AcquireMetadata am) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *addr_array = NULL;
         _cleanup_strv_free_ char **os_release = NULL;
         uid_t shift = UID_INVALID;
@@ -496,9 +496,6 @@ static int list_machine_one_and_maybe_read_metadata(sd_varlink *link, Machine *m
         if (r < 0)
                 return r;
 
-        if (more)
-                return sd_varlink_notify(link, v);
-
         return sd_varlink_reply(link, v);
 }
 
@@ -528,8 +525,6 @@ static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varl
         _cleanup_(machine_lookup_parameters_done) MachineLookupParameters p = {
                 .pidref = PIDREF_NULL,
         };
-
-        Machine *machine;
         int r;
 
         assert(link);
@@ -539,34 +534,32 @@ static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varl
         if (r != 0)
                 return r;
 
+        r = varlink_set_sentinel(link, VARLINK_ERROR_MACHINE_NO_SUCH_MACHINE);
+        if (r < 0)
+                return r;
+
         if (p.name || pidref_is_set(&p.pidref) || pidref_is_automatic(&p.pidref)) {
+                Machine *machine;
                 r = lookup_machine_by_name_or_pidref(link, m, p.name, &p.pidref, &machine);
                 if (r == -ESRCH)
-                        return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_SUCH_MACHINE, NULL);
+                        return 0;
                 if (r < 0)
                         return r;
 
-                return list_machine_one_and_maybe_read_metadata(link, machine, /* more= */ false, p.acquire_metadata);
+                return list_machine_one_and_maybe_read_metadata(link, machine, p.acquire_metadata);
         }
 
         if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
                 return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
 
-        Machine *previous = NULL, *i;
-        HASHMAP_FOREACH(i, m->machines) {
-                if (previous) {
-                        r = list_machine_one_and_maybe_read_metadata(link, previous, /* more= */ true, p.acquire_metadata);
-                        if (r < 0)
-                                return r;
-                }
-
-                previous = i;
+        Machine *machine;
+        HASHMAP_FOREACH(machine, m->machines) {
+                r = list_machine_one_and_maybe_read_metadata(link, machine, p.acquire_metadata);
+                if (r < 0)
+                        return r;
         }
 
-        if (previous)
-                return list_machine_one_and_maybe_read_metadata(link, previous, /* more= */ false, p.acquire_metadata);
-
-        return sd_varlink_error(link, VARLINK_ERROR_MACHINE_NO_SUCH_MACHINE, NULL);
+        return 0;
 }
 
 static int lookup_machine_and_call_method(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata, sd_varlink_method_t method) {
@@ -619,7 +612,7 @@ static int vl_method_open_root_directory(sd_varlink *link, sd_json_variant *para
         return lookup_machine_and_call_method(link, parameters, flags, userdata, vl_method_open_root_directory_internal);
 }
 
-static int list_image_one_and_maybe_read_metadata(Manager *m, sd_varlink *link, Image *image, bool more, AcquireMetadata am) {
+static int list_image_one_and_maybe_read_metadata(Manager *m, sd_varlink *link, Image *image, AcquireMetadata am) {
         int r;
 
         assert(m);
@@ -663,9 +656,6 @@ static int list_image_one_and_maybe_read_metadata(Manager *m, sd_varlink *link, 
                         return r;
         }
 
-        if (more)
-                return sd_varlink_notify(link, v);
-
         return sd_varlink_reply(link, v);
 }
 
@@ -691,6 +681,10 @@ static int vl_method_list_images(sd_varlink *link, sd_json_variant *parameters, 
         if (r != 0)
                 return r;
 
+        r = varlink_set_sentinel(link, VARLINK_ERROR_MACHINE_IMAGE_NO_SUCH_IMAGE);
+        if (r < 0)
+                return r;
+
         if (p.image_name) {
                 _cleanup_(image_unrefp) Image *found = NULL;
 
@@ -699,11 +693,11 @@ static int vl_method_list_images(sd_varlink *link, sd_json_variant *parameters, 
 
                 r = image_find(m->runtime_scope, IMAGE_MACHINE, p.image_name, /* root= */ NULL, &found);
                 if (r == -ENOENT)
-                        return sd_varlink_error(link, VARLINK_ERROR_MACHINE_IMAGE_NO_SUCH_IMAGE, NULL);
+                        return 0;
                 if (r < 0)
                         return log_debug_errno(r, "Failed to find image: %m");
 
-                return list_image_one_and_maybe_read_metadata(m, link, found, /* more= */ false, p.acquire_metadata);
+                return list_image_one_and_maybe_read_metadata(m, link, found, p.acquire_metadata);
         }
 
         if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
@@ -714,21 +708,14 @@ static int vl_method_list_images(sd_varlink *link, sd_json_variant *parameters, 
         if (r < 0)
                 return log_debug_errno(r, "Failed to discover images: %m");
 
-        Image *image, *previous = NULL;
+        Image *image;
         HASHMAP_FOREACH(image, images) {
-                if (previous) {
-                        r = list_image_one_and_maybe_read_metadata(m, link, previous, /* more= */ true, p.acquire_metadata);
-                        if (r < 0)
-                                return r;
-                }
-
-                previous = image;
+                r = list_image_one_and_maybe_read_metadata(m, link, image, p.acquire_metadata);
+                if (r < 0)
+                        return r;
         }
 
-        if (previous)
-                return list_image_one_and_maybe_read_metadata(m, link, previous, /* more= */ false, p.acquire_metadata);
-
-        return sd_varlink_error(link, VARLINK_ERROR_MACHINE_IMAGE_NO_SUCH_IMAGE, NULL);
+        return 0;
 }
 
 static int manager_varlink_init_userdb(Manager *m) {

@@ -311,27 +311,16 @@ static int unit_runtime_build_json(sd_json_variant **ret, const char *name, void
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("CGroup", unit_cgroup_runtime_build_json, u));
 }
 
-static int list_unit_one(sd_varlink *link, Unit *unit, bool more) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        int r;
-
+static int list_unit_one(sd_varlink *link, Unit *unit) {
         assert(link);
         assert(unit);
 
-        r = sd_json_buildo(
-                &v,
-                SD_JSON_BUILD_PAIR_CALLBACK("context", unit_context_build_json, unit),
-                SD_JSON_BUILD_PAIR_CALLBACK("runtime", unit_runtime_build_json, unit));
-        if (r < 0)
-                return r;
-
-        if (more)
-                return sd_varlink_notify(link, v);
-
-        return sd_varlink_reply(link, v);
+        return sd_varlink_replybo(link,
+                        SD_JSON_BUILD_PAIR_CALLBACK("context", unit_context_build_json, unit),
+                        SD_JSON_BUILD_PAIR_CALLBACK("runtime", unit_runtime_build_json, unit));
 }
 
-static int list_unit_one_with_selinux_access_check(sd_varlink *link, Unit *unit, bool more) {
+static int list_unit_one_with_selinux_access_check(sd_varlink *link, Unit *unit) {
         int r;
 
         assert(link);
@@ -343,7 +332,7 @@ static int list_unit_one_with_selinux_access_check(sd_varlink *link, Unit *unit,
                  * it means that SELinux enforce is on. It also does all the logging(). */
                 return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
 
-        return list_unit_one(link, unit, more);
+        return list_unit_one(link, unit);
 }
 
 static int lookup_unit_by_pidref(sd_varlink *link, Manager *manager, PidRef *pidref, Unit **ret_unit) {
@@ -395,7 +384,12 @@ static int varlink_error_conflict_lookup_parameters(sd_varlink *v, const UnitLoo
         return varlink_error_no_such_unit(v, /* name= */ NULL);
 }
 
-static int lookup_unit_by_parameters(sd_varlink *link, Manager *manager, UnitLookupParameters *p, Unit **ret_unit) {
+static int lookup_unit_by_parameters(
+                sd_varlink *link,
+                Manager *manager,
+                UnitLookupParameters *p,
+                Unit **ret) {
+
         /* The function can return ret_unit=NULL if no lookup parameters provided */
         Unit *unit = NULL;
         int r;
@@ -403,7 +397,7 @@ static int lookup_unit_by_parameters(sd_varlink *link, Manager *manager, UnitLoo
         assert(link);
         assert(manager);
         assert(p);
-        assert(ret_unit);
+        assert(ret);
 
         if (p->name) {
                 unit = manager_get_unit(manager, p->name);
@@ -413,6 +407,7 @@ static int lookup_unit_by_parameters(sd_varlink *link, Manager *manager, UnitLoo
 
         if (pidref_is_set_or_automatic(&p->pidref)) {
                 Unit *pid_unit;
+
                 r = lookup_unit_by_pidref(link, manager, &p->pidref, &pid_unit);
                 if (r == -EINVAL)
                         return sd_varlink_error_invalid_parameter_name(link, "pid");
@@ -420,7 +415,7 @@ static int lookup_unit_by_parameters(sd_varlink *link, Manager *manager, UnitLoo
                         return varlink_error_no_such_unit(link, "pid");
                 if (r < 0)
                         return r;
-                if (pid_unit != unit && unit != NULL)
+                if (unit && pid_unit != unit)
                         return varlink_error_conflict_lookup_parameters(link, p);
 
                 unit = pid_unit;
@@ -433,7 +428,7 @@ static int lookup_unit_by_parameters(sd_varlink *link, Manager *manager, UnitLoo
                 Unit *cgroup_unit = manager_get_unit_by_cgroup(manager, p->cgroup);
                 if (!cgroup_unit)
                         return varlink_error_no_such_unit(link, "cgroup");
-                if (cgroup_unit != unit && unit != NULL)
+                if (unit && cgroup_unit != unit)
                         return varlink_error_conflict_lookup_parameters(link, p);
 
                 unit = cgroup_unit;
@@ -443,14 +438,14 @@ static int lookup_unit_by_parameters(sd_varlink *link, Manager *manager, UnitLoo
                 Unit *id128_unit = hashmap_get(manager->units_by_invocation_id, &p->invocation_id);
                 if (!id128_unit)
                         return varlink_error_no_such_unit(link, "invocationID");
-                if (id128_unit != unit && unit != NULL)
+                if (unit && id128_unit != unit)
                         return varlink_error_conflict_lookup_parameters(link, p);
 
                 unit = id128_unit;
         }
 
-        *ret_unit = unit;
-        return 0;
+        *ret = unit;
+        return !!unit;
 }
 
 int vl_method_list_units(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -466,7 +461,7 @@ int vl_method_list_units(sd_varlink *link, sd_json_variant *parameters, sd_varli
          _cleanup_(unit_lookup_parameters_done) UnitLookupParameters p = {
                  .pidref = PIDREF_NULL,
         };
-        Unit *unit, *previous = NULL;
+        Unit *unit;
         const char *k;
         int r;
 
@@ -480,30 +475,27 @@ int vl_method_list_units(sd_varlink *link, sd_json_variant *parameters, sd_varli
         r = lookup_unit_by_parameters(link, manager, &p, &unit);
         if (r < 0)
                 return r;
-        if (unit)
-                return list_unit_one_with_selinux_access_check(link, unit, /* more= */ false);
+        if (r > 0)
+                return list_unit_one_with_selinux_access_check(link, unit);
 
         if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
                 return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
+
+        r = varlink_set_sentinel(link, "io.systemd.Manager.NoSuchUnit");
+        if (r < 0)
+                return r;
 
         HASHMAP_FOREACH_KEY(unit, k, manager->units) {
                 /* ignore aliases */
                 if (k != unit->id)
                         continue;
 
-                if (previous) {
-                        r = list_unit_one(link, previous, /* more= */ true);
-                        if (r < 0)
-                                return r;
-                }
-
-                previous = unit;
+                r = list_unit_one(link, unit);
+                if (r < 0)
+                        return r;
         }
 
-        if (previous)
-                return list_unit_one(link, previous, /* more= */ false);
-
-        return sd_varlink_error(link, "io.systemd.Manager.NoSuchUnit", NULL);
+        return 0;
 }
 
 int varlink_unit_queue_job_one(
