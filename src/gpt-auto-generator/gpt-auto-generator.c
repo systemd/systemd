@@ -127,7 +127,7 @@ static int add_cryptsetup(
                  * assignment, under the assumption that people who are fine to use sd-stub with its PCR
                  * assignments are also OK with our PCR 15 use here. */
                 if (r > 0)
-                        if (!strextend_with_separator(&options, ",", "tpm2-measure-pcr=yes,tpm2-measure-keyslot-nvpcr=cryptsetup"))
+                        if (!strextend_with_separator(&options, ",", "tpm2-measure-pcr=yes,tpm2-measure-keyslot-nvpcr=yes"))
                                 return log_oom();
                 if (r == 0)
                         log_debug("Will not measure volume key of volume '%s', not booted via systemd-stub with measurements enabled.", id);
