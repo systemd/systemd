@@ -272,9 +272,13 @@
     <para>If the system was booted via
     <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> and the
     stub reported to userspace that the kernel image was measured to a TPM2 PCR, then any discovered root and
-    <filename>/var/</filename> volume identifiers (and volume encryption key in case it is encrypted) will be
-    automatically measured into PCR 15 on activation, via
-    <citerefentry><refentrytitle>systemd-pcrfs@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+    <filename>/var/</filename> volume identifiers (and volume encryption keys, in case they are encrypted)
+    will be automatically measured into PCR 15 on activation, via
+    <citerefentry><refentrytitle>systemd-pcrfs@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>. Moreover,
+    information about the LUKS key slot used to unlock the volume is measured into NvPCR
+    <literal>cryptsetup</literal>. Finally, if the root or <filename>/usr/</filename> partition is protected
+    via Verity its root hash and the serial/issuer of the key used for the provided root hash signature (if
+    any) are measured into the NvPCR <literal>verity</literal>.</para>
 
     <para>Mount constraint metadata contained in the file systems is validated by pulling in
     <citerefentry><refentrytitle>systemd-validatefs@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
