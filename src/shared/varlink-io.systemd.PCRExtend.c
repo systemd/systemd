@@ -12,7 +12,7 @@ static SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_DEFINE_ENUM_VALUE(keyslot),
                 SD_VARLINK_DEFINE_ENUM_VALUE(nvpcr_init),
                 SD_VARLINK_DEFINE_ENUM_VALUE(nvpcr_separator),
-                SD_VARLINK_DEFINE_ENUM_VALUE(verity));
+                SD_VARLINK_DEFINE_ENUM_VALUE(dm_verity));
 
 static SD_VARLINK_DEFINE_METHOD(
                 Extend,
