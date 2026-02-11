@@ -4,6 +4,7 @@
 #include "sd-id128.h"
 
 #include "shared-forward.h"
+#include "unit-name.h"
 
 typedef struct LogId {
         sd_id128_t id; /* boot ID or invocation ID */
@@ -62,6 +63,31 @@ static inline int add_matches_for_user_unit(sd_journal *j, const char *unit) {
         return add_matches_for_user_unit_full(j, MATCH_UNIT_ALL, unit);
 }
 
+/* The lists below are supposed to return the superset of unit names possibly matched by rules added with
+ * add_matches_for_unit() and add_matches_for_user_unit(). */
+#define SYSTEM_UNITS                 \
+        "_SYSTEMD_UNIT\0"            \
+        "UNIT\0"                     \
+        "OBJECT_SYSTEMD_UNIT\0"
+
+#define SYSTEM_UNITS_FULL            \
+        SYSTEM_UNITS                 \
+        "COREDUMP_UNIT\0"            \
+        "_SYSTEMD_SLICE\0"
+
+#define USER_UNITS                   \
+        "_SYSTEMD_USER_UNIT\0"       \
+        "USER_UNIT\0"                \
+        "OBJECT_SYSTEMD_USER_UNIT\0"
+
+#define USER_UNITS_FULL              \
+        USER_UNITS                   \
+        "COREDUMP_USER_UNIT\0"       \
+        "_SYSTEMD_USER_SLICE\0"
+
+int get_possible_units(sd_journal *j, const char *fields, char * const *patterns, Set **ret);
+int journal_add_unit_matches(sd_journal *j, MatchUnitFlag flags, UnitNameMangle mangle_flags, char **system_units, char **user_units);
+
 int show_journal_by_unit(
                 FILE *f,
                 const char *unit,
@@ -80,6 +106,8 @@ void json_escape(
                 const char* p,
                 size_t l,
                 OutputFlags flags);
+
+int journal_entry_to_json(sd_journal *j, OutputFlags flags, const Set *output_fields, sd_json_variant **ret);
 
 int discover_next_id(
                 sd_journal *j,
