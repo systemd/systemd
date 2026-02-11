@@ -454,15 +454,15 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_KVM:
-                        r = parse_tristate(optarg, &arg_kvm);
+                        r = parse_tristate_argument("--kvm=", optarg, &arg_kvm);
                         if (r < 0)
-                            return log_error_errno(r, "Failed to parse --kvm=%s: %m", optarg);
+                                return r;
                         break;
 
                 case ARG_VSOCK:
-                        r = parse_tristate(optarg, &arg_vsock);
+                        r = parse_tristate_argument("--vsock=", optarg, &arg_vsock);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --vsock=%s: %m", optarg);
+                                return r;
                         break;
 
                 case ARG_VSOCK_CID:
@@ -482,9 +482,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_TPM:
-                        r = parse_tristate(optarg, &arg_tpm);
+                        r = parse_tristate_argument("--tpm=", optarg, &arg_tpm);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --tpm=%s: %m", optarg);
+                                return r;
                         break;
 
                 case ARG_LINUX:
@@ -586,9 +586,9 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 case ARG_SECURE_BOOT:
-                        r = parse_tristate(optarg, &arg_secure_boot);
+                        r = parse_tristate_argument("--secure-boot=", optarg, &arg_secure_boot);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --secure-boot=%s: %m", optarg);
+                                return r;
                         break;
 
                 case ARG_PRIVATE_USERS:
