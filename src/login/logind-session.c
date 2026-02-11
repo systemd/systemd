@@ -21,6 +21,7 @@
 #include "daemon-util.h"
 #include "device-util.h"
 #include "devnum-util.h"
+#include "dirent-util.h"
 #include "env-file.h"
 #include "errno-util.h"
 #include "extract-word.h"
@@ -45,6 +46,7 @@
 #include "process-util.h"
 #include "serialize.h"
 #include "string-table.h"
+#include "strv.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
 #include "user-record.h"
@@ -210,6 +212,7 @@ Session* session_free(Session *s) {
         free(s->remote_user);
         free(s->service);
         free(s->desktop);
+        strv_free(s->extra_device_access);
 
         hashmap_remove(s->manager->sessions, s->id);
 
@@ -286,18 +289,16 @@ static int trigger_xaccess(void) {
         if (r < 0)
                 return r;
 
-        r = sd_device_enumerator_add_match_tag(e, "xaccess");
-        if (r < 0)
-                return r;
-
-        FOREACH_DEVICE(e, d) {
-                /* Verify that the tag is still in place. */
-                r = sd_device_has_current_tag(d, "xaccess");
+        _cleanup_closedir_ DIR *dir = opendir("/run/udev/tags");
+        FOREACH_DIRENT(de, dir, return -errno) {
+                if (!startswith(de->d_name, "xaccess-"))
+                        continue;
+                r = sd_device_enumerator_add_match_tag(e, de->d_name);
                 if (r < 0)
                         return r;
-                if (r == 0)
-                        continue;
+        }
 
+        FOREACH_DEVICE(e, d) {
                 /* In case people mistag devices without nodes, we need to ignore this. */
                 r = sd_device_get_devname(d, NULL);
                 if (r == -ENOENT)
@@ -349,14 +350,12 @@ int session_save(Session *s) {
                 "IS_DISPLAY=%s\n"
                 "STATE=%s\n"
                 "REMOTE=%s\n"
-                "EXTRA_DEVICE_ACCESS=%s\n"
                 "LEADER_FD_SAVED=%s\n",
                 s->user->user_record->uid,
                 one_zero(session_is_active(s)),
                 one_zero(s->user->display == s),
                 session_state_to_string(session_get_state(s)),
                 one_zero(s->remote),
-                one_zero(s->extra_device_access),
                 one_zero(s->leader_fd_saved));
 
         env_file_fputs_assignment(f, "USER=", s->user->user_record->user_name);
@@ -412,6 +411,13 @@ int session_save(Session *s) {
         if (s->controller) {
                 env_file_fputs_assignment(f, "CONTROLLER=", s->controller);
                 session_save_devices(s, f);
+        }
+
+        if (s->extra_device_access) {
+                _cleanup_free_ char *extra_devices = strv_join(s->extra_device_access, " ");
+                if (!extra_devices)
+                        return log_oom();
+                fprintf(f, "EXTRA_DEVICE_ACCESS=%s\n", extra_devices);
         }
 
         r = flink_tmpfile(f, temp_path, s->state_file, LINK_TMPFILE_REPLACE);
@@ -586,9 +592,9 @@ int session_load(Session *s) {
         }
 
         if (extra_device_access) {
-                k = parse_boolean(extra_device_access);
-                if (k >= 0)
-                        s->extra_device_access = k;
+                s->extra_device_access = strv_split(extra_device_access, NULL);
+                if (!s->extra_device_access)
+                        return log_oom();
         }
 
         if (vtnr)
@@ -915,7 +921,7 @@ int session_start(Session *s, sd_bus_message *properties, sd_bus_error *error) {
         if (s->seat)
                 (void) seat_save(s->seat);
 
-        if (s->extra_device_access)
+        if (!strv_isempty(s->extra_device_access))
                 (void) trigger_xaccess();
 
         /* Send signals */
@@ -1008,7 +1014,7 @@ int session_stop(Session *s, bool force) {
         (void) session_save(s);
         (void) user_save(s->user);
 
-        if (s->extra_device_access)
+        if (!strv_isempty(s->extra_device_access))
                 (void) trigger_xaccess();
 
         return r;

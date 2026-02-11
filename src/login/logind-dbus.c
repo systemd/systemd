@@ -898,7 +898,7 @@ int manager_create_session(
                 bool remote,
                 const char *remote_user,
                 const char *remote_host,
-                bool extra_device_access,
+                char * const *extra_device_access,
                 Session **ret_session) {
 
         bool mangle_class = false;
@@ -1005,7 +1005,6 @@ int manager_create_session(
 
         session->original_type = session->type = type;
         session->remote = remote;
-        session->extra_device_access = extra_device_access;
         session->vtnr = vtnr;
         session->class = class;
 
@@ -1053,6 +1052,14 @@ int manager_create_session(
                 r = strdup_to(&session->desktop, desktop);
                 if (r < 0)
                         goto fail;
+        }
+
+        if (extra_device_access) {
+                session->extra_device_access = strv_copy(extra_device_access);
+                if (!session->extra_device_access) {
+                        r = -ENOMEM;
+                        goto fail;
+                }
         }
 
         if (seat) {
@@ -1229,7 +1236,7 @@ static int manager_create_session_by_bus(
                         remote,
                         remote_user,
                         remote_host,
-                        /* extra_device_access= */ false,
+                        /* extra_device_access= */ NULL,
                         &session);
         if (r == -EBUSY)
                 return sd_bus_error_set(error, BUS_ERROR_SESSION_BUSY, "Already running in a session or user slice");

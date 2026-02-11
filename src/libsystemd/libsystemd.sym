@@ -1088,5 +1088,5 @@ global:
 
 LIBSYSTEMD_260 {
 global:
-        sd_session_has_extra_device_access;
+        sd_session_get_extra_device_access;
 } LIBSYSTEMD_259;
