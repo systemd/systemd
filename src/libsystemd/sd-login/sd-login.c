@@ -677,7 +677,7 @@ _public_ int sd_session_is_remote(const char *session) {
         return parse_boolean(s);
 }
 
-_public_ int sd_session_has_extra_device_access(const char *session) {
+_public_ int sd_session_get_extra_device_access(const char *session, char ***ret_devices) {
         _cleanup_free_ char *p = NULL, *s = NULL;
         int r;
 
@@ -690,10 +690,18 @@ _public_ int sd_session_has_extra_device_access(const char *session) {
                 return -ENXIO;
         if (r < 0)
                 return r;
-        if (isempty(s))
-                return -ENODATA;
 
-        return parse_boolean(s);
+        _cleanup_strv_free_ char **devices = NULL;
+        if (s) {
+                devices = strv_split(s, NULL);
+                if (!devices)
+                        return -ENOMEM;
+        }
+
+        if (ret_devices)
+                *ret_devices = TAKE_PTR(devices);
+
+        return 0;
 }
 
 _public_ int sd_session_get_state(const char *session, char **ret_state) {

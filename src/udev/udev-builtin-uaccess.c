@@ -63,11 +63,15 @@ static int builtin_uaccess(UdevEvent *event, int argc, char *argv[]) {
                 }
         }
 
-        r = sd_device_has_tag(dev, "xaccess");
-        if (r < 0)
-                return log_device_error_errno(dev, r, "Failed to query device xaccess tag: %m");
+        bool has_xaccess = false;
+        FOREACH_DEVICE_TAG(dev, tag) {
+                if (startswith(tag, "xaccess-")) {
+                        has_xaccess = true;
+                        break;
+                }
+        }
 
-        if (r > 0) {
+        if (has_xaccess) {
                 r = sd_get_sessions(&sessions);
                 if (r < 0)
                         return log_device_error_errno(dev, r, "Failed to list sessions: %m");
@@ -80,17 +84,33 @@ static int builtin_uaccess(UdevEvent *event, int argc, char *argv[]) {
                         }
                         if (streq(state, "closing"))
                                 continue;
-                        r = sd_session_has_extra_device_access(*s);
-                        if (r < 0) {
-                                log_device_debug_errno(dev, r, "Failed to query extra device access for session %s, ignoring: %m", *s);
-                                continue;
-                        }
-                        if (r == 0)
-                                continue;
                         if (sd_session_get_uid(*s, &uid) < 0) {
                                 log_device_debug_errno(dev, r, "Failed to query uid for session %s, ignoring: %m", *s);
                                 continue;
                         }
+
+                        _cleanup_strv_free_ char **extra_devices = NULL;
+                        r = sd_session_get_extra_device_access(*s, &extra_devices);
+                        if (r < 0) {
+                                log_device_debug_errno(dev, r, "Failed to query extra device access for session %s, ignoring: %m", *s);
+                                continue;
+                        }
+
+                        bool match = false;
+                        STRV_FOREACH(id, extra_devices) {
+                                const char *tag = strjoina("xaccess-", *id);
+                                r = sd_device_has_tag(dev, tag);
+                                if (r < 0)
+                                        return log_device_error_errno(dev, r, "Failed to query %s tag: %m", tag);
+
+                                if (r > 0) {
+                                        match = true;
+                                        break;
+                                }
+                        }
+                        if (!match)
+                                continue;
+
                         if (set_ensure_put(&uids, NULL, UID_TO_PTR(uid)) < 0)
                                 return log_oom();
                 }
