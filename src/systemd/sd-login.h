@@ -150,8 +150,10 @@ int sd_session_is_active(const char *session);
 /* Return 1 if the session is remote. */
 int sd_session_is_remote(const char *session);
 
-/* Return 1 if the session is granted extra device access. */
-int sd_session_has_extra_device_access(const char *session);
+/* Return extra hardware devices that the session is granted access to.
+ * For every $ID in the list, this adds access for all devices tagged with
+ * "xaccess-$ID" in udev. */
+int sd_session_get_extra_device_access(const char *session, char ***ret_ids);
 
 /* Get state from session. Possible states: online, active, closing.
  * This function is a more generic version of sd_session_is_active(). */
