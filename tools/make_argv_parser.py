@@ -121,7 +121,8 @@ class Option:
             # option string, and a non-option argument was discovered.
             return '1'
 
-        if sn := self.short_name():
+        sn = self.short_name()
+        if sn:
             return f"'{sn}'"
         ln = self.long_name()
         assert ln
@@ -135,7 +136,8 @@ class Option:
         lhs = ['-', sn] if sn else ['  ']
         rhs = []
 
-        if ln := self.long_name():
+        ln = self.long_name()
+        if ln:
             # Here the argument is specified with '='
             if self.argtype == ArgType.required_argument:
                 rhs = [' --', ln, '=', self.metavar or '']
@@ -211,7 +213,8 @@ def generate_lines(options: list[Option], globals: Globals) -> Generator[str, No
             opt_enums += [option.enum_name()]
             opt_comments += ['' if pos == 0 else ' /* Compatibility alias */']
 
-        if sn := option.short_name():
+        sn = option.short_name()
+        if sn:
             optstring += sn
             if option.argtype == ArgType.required_argument:
                 optstring += ':'
@@ -230,7 +233,12 @@ def generate_lines(options: list[Option], globals: Globals) -> Generator[str, No
     yield ''
 
     # 1. Generate help string
-    if (help_key_width := globals.help_key_width) is None:
+    help_key_width = globals.help_key_width
+    if help_key_width is not None:
+        # line is 'SP SP -s SP --long SP REST'.
+        # '-s SP --long' is covered by 'key'
+        help_expl_width = globals.target_line_width - help_key_width - 2 - 1
+    else:
         # We assume keys which are above globals.target_help_key_width chars always get a linebreak.
         widths = [len(option.help_key() or '') for option in options]
         help_key_width = max(w for w in widths if w < globals.target_help_key_width)
@@ -247,10 +255,6 @@ def generate_lines(options: list[Option], globals: Globals) -> Generator[str, No
         # add an extra column if the space is not needed for the explanations
         if maxwidth < help_expl_width:
             help_key_width += 1
-    else:
-        # line is 'SP SP -s SP --long SP REST'.
-        # '-s SP --long' is covered by 'key'
-        help_expl_width = globals.target_line_width - help_key_width - 2 - 1
 
     groups = set(option.group for option in options)
     for group in groups:
@@ -449,7 +453,8 @@ def parse_input(lines: list[str]) -> tuple[list[Option], Globals]:
                 n += 1
                 continue
 
-            if m := re.match(r'global (?P<name>[a-z_]+) +(?P<value>.+)', line):
+            m = re.match(r'global (?P<name>[a-z_]+) +(?P<value>.+)', line)
+            if m:
                 globals.set(*m.groups())
                 n += 1
                 continue
@@ -477,14 +482,19 @@ def parse_input(lines: list[str]) -> tuple[list[Option], Globals]:
                 state = InputState.body
                 continue
 
-            if m := re.match(r'help (?P<help>.+)', line):
+            m = re.match(r'help (?P<help>.+)', line)
+            if m:
                 help += [m.group('help')]
-            elif m := re.match(r'group (?P<group>.+)', line):
-                group = m.group('group')
-            elif m := re.match(r'scope$', line):
-                scope = True
             else:
-                raise ValueError(f'unexpected directive {n+1}: {line!r}')
+                m = re.match(r'group (?P<group>.+)', line)
+                if m:
+                    group = m.group('group')
+                else:
+                    m = re.match(r'scope$', line)
+                    if m:
+                        scope = True
+                    else:
+                        raise ValueError(f'unexpected directive {n+1}: {line!r}')
 
             n += 1
 
