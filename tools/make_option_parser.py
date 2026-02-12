@@ -209,6 +209,10 @@ class Option:
                 _sn = '-M'
                 _argtype = ArgType.required_argument
                 _metavar = 'CONTAINER'
+            case 'OPTION_CAT_CONFIG':
+                _help = 'Show configuration files'
+            case 'OPTION_TLDR':
+                _help = 'Show non-comment parts of configuration'
             case _:
                 _help = 'XXXXXXXXXX'
 
