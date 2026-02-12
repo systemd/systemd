@@ -1452,6 +1452,7 @@ testcase_delegate() {
 [Delegate]
 DNS=192.168.77.78
 Domains=exercise.test
+FirewallMark=42
 EOF
     systemctl reload systemd-resolved
     resolvectl status
