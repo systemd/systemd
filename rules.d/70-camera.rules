@@ -2,7 +2,7 @@
 
 ACTION=="remove", GOTO="camera_end"
 
-SUBSYSTEM=="video4linux", ENV{ID_BUS}="usb", \
+SUBSYSTEM=="video4linux", ENV{ID_BUS}=="usb", \
   IMPORT{builtin}="hwdb 'camera:usb:v$env{ID_VENDOR_ID}p$env{ID_MODEL_ID}:name:$attr{name}:'", \
   GOTO="camera_end"
 
