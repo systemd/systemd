@@ -20,6 +20,7 @@
 #include "in-addr-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "option-parser.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
@@ -33,6 +34,8 @@
 #include "terminal-util.h"
 #include "time-util.h"
 #include "verbs.h"
+
+#include "timedatectl.c.inc"
 
 static PagerFlags arg_pager_flags = 0;
 static bool arg_ask_password = true;
@@ -915,18 +918,7 @@ static int help(void) {
                "                           Set the interface specific NTP servers\n"
                "  revert INTERFACE         Revert the interface specific NTP servers\n"
                "\nOptions:\n"
-               "  -h --help                Show this help message\n"
-               "     --version             Show package version\n"
-               "     --no-pager            Do not pipe output into a pager\n"
-               "     --no-ask-password     Do not prompt for password\n"
-               "  -H --host=[USER@]HOST    Operate on remote host\n"
-               "  -M --machine=CONTAINER   Operate on local container\n"
-               "     --adjust-system-clock Adjust system clock when changing local RTC mode\n"
-               "     --monitor             Monitor status of systemd-timesyncd\n"
-               "  -p --property=NAME       Show only properties by this name\n"
-               "  -a --all                 Show all properties, including empty ones\n"
-               "     --value               When showing properties, only print the value\n"
-               "  -P NAME                  Equivalent to --value --property=NAME\n"
+               OPTION_HELP_GENERATED
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -936,78 +928,52 @@ static int help(void) {
         return 0;
 }
 
-static int verb_help(int argc, char **argv, void *userdata) {
-        return help();
-}
-
 static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_NO_PAGER,
-                ARG_ADJUST_SYSTEM_CLOCK,
-                ARG_NO_ASK_PASSWORD,
-                ARG_MONITOR,
-                ARG_VALUE,
-        };
+        int r;
 
-        static const struct option options[] = {
-                { "help",                no_argument,       NULL, 'h'                     },
-                { "version",             no_argument,       NULL, ARG_VERSION             },
-                { "no-pager",            no_argument,       NULL, ARG_NO_PAGER            },
-                { "host",                required_argument, NULL, 'H'                     },
-                { "machine",             required_argument, NULL, 'M'                     },
-                { "no-ask-password",     no_argument,       NULL, ARG_NO_ASK_PASSWORD     },
-                { "adjust-system-clock", no_argument,       NULL, ARG_ADJUST_SYSTEM_CLOCK },
-                { "monitor",             no_argument,       NULL, ARG_MONITOR             },
-                { "property",            required_argument, NULL, 'p'                     },
-                { "value",               no_argument,       NULL, ARG_VALUE               },
-                { "all",                 no_argument,       NULL, 'a'                     },
-                {}
-        };
-
-        int c, r;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "hH:M:p:P:a", options, NULL)) >= 0)
+        FOREACH_OPTION(c, argc, argv, /* on_error= */ return c)
                 switch (c) {
 
-                case 'h':
+                case OPTION_HELP:
                         return help();
 
-                case ARG_VERSION:
+                case OPTION_VERSION:
                         return version();
 
-                case 'H':
+                case OPTION_HOST:
                         arg_transport = BUS_TRANSPORT_REMOTE;
                         arg_host = optarg;
                         break;
 
-                case 'M':
+                case OPTION_MACHINE:
                         r = parse_machine_argument(optarg, &arg_host, &arg_transport);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_NO_ASK_PASSWORD:
+                case OPTION_NO_ASK_PASSWORD:
                         arg_ask_password = false;
                         break;
 
-                case ARG_ADJUST_SYSTEM_CLOCK:
-                        arg_adjust_system_clock = true;
-                        break;
-
-                case ARG_NO_PAGER:
+                case OPTION_NO_PAGER:
                         arg_pager_flags |= PAGER_DISABLE;
                         break;
 
-                case ARG_MONITOR:
+                case OPTION_ADJUST_SYSTEM_CLOCK:
+                        // help: Adjust system clock when changing local RTC mode
+                        arg_adjust_system_clock = true;
+                        break;
+
+                case OPTION_MONITOR:
+                        // help: Monitor status of systemd-timesyncd
                         arg_monitor = true;
                         break;
 
-                case 'p':
-                case 'P':
+                case OPTION_PROPERTY:
+                        // option: -p= --property=NAME
+                        // help: Show only properties by this name
+                case OPTION_SHORT_P:
+                        // help: Equivalent to --value --property=NAME
                         r = strv_extend(&arg_property, optarg);
                         if (r < 0)
                                 return log_oom();
@@ -1019,19 +985,16 @@ static int parse_argv(int argc, char *argv[]) {
                                 break;
                         _fallthrough_;
 
-                case ARG_VALUE:
+                case OPTION_VALUE:
+                        // help: When showing properties, only print the value
                         SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_ONLY_VALUE, true);
                         break;
 
-                case 'a':
+                case OPTION_ALL:
+                        // option: -a --all
+                        // help: Show all properties, including empty ones
                         SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY, true);
                         break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
 
         return 1;
