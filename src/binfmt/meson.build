@@ -9,6 +9,7 @@ executables += [
                 'name' : 'systemd-binfmt',
                 'public' : true,
                 'sources' : files('binfmt.c'),
+                'option_parser' : true,
         },
 ]
 
