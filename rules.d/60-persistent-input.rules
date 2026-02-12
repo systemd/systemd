@@ -5,10 +5,18 @@ SUBSYSTEM!="input", GOTO="persistent_input_end"
 SUBSYSTEMS=="bluetooth", ENV{ID_BUS}="bluetooth", GOTO="persistent_input_end"
 # Bluetooth devices don't always have the bluetooth subsystem
 ATTRS{id/bustype}=="0005", ENV{ID_BUS}="bluetooth", GOTO="persistent_input_end"
+SUBSYSTEMS=="acpi", ENV{ID_BUS}="acpi"
+# platform must be before serio as serio can be child
+SUBSYSTEMS=="platform", ENV{ID_BUS}="platform"
+SUBSYSTEMS=="i2c", ENV{ID_BUS}="i2c"
 SUBSYSTEMS=="rmi4", ENV{ID_BUS}="rmi"
 SUBSYSTEMS=="serio", ENV{ID_BUS}="i8042"
 
 SUBSYSTEMS=="usb", ENV{ID_BUS}=="", IMPORT{builtin}="usb_id"
+
+# subsystems before (usb, platform, i2c) can be under pci so only set them if we still have no ID_BUS.
+# we could set this the first but will break the ENV{ID_BUS}=="" condition for usb.
+SUBSYSTEMS=="pci", ENV{ID_BUS}=="", ENV{ID_BUS}="pci"
 
 # determine class name for persistent symlinks
 ENV{ID_INPUT_KEYBOARD}=="?*", ENV{.INPUT_CLASS}="kbd"
