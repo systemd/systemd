@@ -2064,8 +2064,11 @@ static EFI_STATUS call_boot_windows_bitlocker(const BootEntry *entry, EFI_FILE *
                 if (err != EFI_SUCCESS || block_io->Media->BlockSize < 512 || block_io->Media->BlockSize > 4096)
                         continue;
 
-                char buf[4096];
-                err = block_io->ReadBlocks(block_io, block_io->Media->MediaId, 0, sizeof(buf), buf);
+                const size_t buf_size = 4096;
+                _cleanup_pages_ Pages buf_pages = xmalloc_aligned_pages(AllocateMaxAddress, EfiLoaderData, EFI_SIZE_TO_PAGES(buf_size), block_io->Media->IoAlign, UINT32_MAX);
+                char *buf = PHYSICAL_ADDRESS_TO_POINTER(buf_pages.addr);
+
+                err = block_io->ReadBlocks(block_io, block_io->Media->MediaId, 0, buf_size, buf);
                 if (err != EFI_SUCCESS)
                         continue;
 
