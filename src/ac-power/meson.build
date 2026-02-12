@@ -5,5 +5,6 @@ executables += [
                 'name' : 'systemd-ac-power',
                 'public' : true,
                 'sources' : files('ac-power.c'),
+                'option_parser' : true,
         },
 ]

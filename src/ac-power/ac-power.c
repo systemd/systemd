@@ -8,8 +8,11 @@
 #include "build.h"
 #include "log.h"
 #include "main-func.h"
+#include "option-parser.h"
 #include "pretty-print.h"
 #include "string-util.h"
+
+#include "ac-power.c.inc"
 
 static bool arg_verbose = false;
 
@@ -28,10 +31,7 @@ static int help(void) {
 
         printf("%1$s [OPTION]\n"
                "\n%2$sReport whether we are connected to an external power source.%3$s\n\n"
-               "  -h --help             Show this help\n"
-               "     --version          Show package version\n"
-               "  -v --verbose          Show state as text\n"
-               "     --low              Check if battery is discharging and low\n"
+               OPTION_HELP_GENERATED
                "\nSee the %4$s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -42,49 +42,24 @@ static int help(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
-
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_LOW,
-        };
-
-        static const struct option options[] = {
-                { "help",    no_argument, NULL, 'h'         },
-                { "version", no_argument, NULL, ARG_VERSION },
-                { "verbose", no_argument, NULL, 'v'         },
-                { "low",     no_argument, NULL, ARG_LOW     },
-                {}
-        };
-
-        int c;
-
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "hv", options, NULL)) >= 0)
-
+        FOREACH_OPTION(c, argc, argv, /* on_error= */ return c)
                 switch (c) {
 
-                case 'h':
-                        help();
-                        return 0;
+                case OPTION_HELP:
+                        return help();
 
-                case ARG_VERSION:
+                case OPTION_VERSION:
                         return version();
 
-                case 'v':
+                case OPTION_VERBOSE:
+                        // help: Show state as text
                         arg_verbose = true;
                         break;
 
-                case ARG_LOW:
+                case OPTION_LOW:
+                        // help: Check if battery is discharging and low
                         arg_action = ACTION_LOW;
                         break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
 
         if (optind < argc)
