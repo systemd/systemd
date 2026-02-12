@@ -1171,7 +1171,7 @@ static int run_callout(
 /* Build the filenames and paths which is normally done by transfer_acquire_instance(), but for partial
  * and pending instances which are about to be installed (in which case, transfer_acquire_instance() is
  * skipped). */
-static int transfer_compute_temporary_paths(Transfer *t, Instance *i, InstanceMetadata *f) {
+int transfer_compute_temporary_paths(Transfer *t, Instance *i, InstanceMetadata *f) {
         _cleanup_free_ char *formatted_pattern = NULL, *formatted_partial_pattern = NULL, *formatted_pending_pattern = NULL;
         int r;
 
@@ -1260,16 +1260,16 @@ static int transfer_compute_temporary_paths(Transfer *t, Instance *i, InstanceMe
         return 0;
 }
 
-int transfer_acquire_instance(Transfer *t, Instance *i, TransferProgress cb, void *userdata) {
+int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, TransferProgress cb, void *userdata) {
         _cleanup_free_ char *digest = NULL;
         char offset[DECIMAL_STR_MAX(uint64_t)+1], max_size[DECIMAL_STR_MAX(uint64_t)+1];
         const char *where = NULL;
-        InstanceMetadata f;
         Instance *existing;
         int r;
 
         assert(t);
         assert(i);
+        assert(f);
         assert(i->resource == &t->source);
         assert(cb);
 
@@ -1281,11 +1281,6 @@ int transfer_acquire_instance(Transfer *t, Instance *i, TransferProgress cb, voi
                 log_info("No need to acquire '%s', already installed.", i->path);
                 return 0;
         }
-
-        /* Compute up the temporary paths */
-        r = transfer_compute_temporary_paths(t, i, &f);
-        if (r < 0)
-                return r;
 
         if (RESOURCE_IS_FILESYSTEM(t->target.type)) {
                 r = mkdir_parents(t->temporary_partial_path, 0755);
@@ -1502,10 +1497,10 @@ int transfer_acquire_instance(Transfer *t, Instance *i, TransferProgress cb, voi
                 assert(t->temporary_pending_path);
 
                 /* Apply file attributes if set */
-                if (f.mtime != USEC_INFINITY) {
+                if (f->mtime != USEC_INFINITY) {
                         struct timespec ts;
 
-                        timespec_store(&ts, f.mtime);
+                        timespec_store(&ts, f->mtime);
 
                         if (utimensat(AT_FDCWD, t->temporary_partial_path, (struct timespec[2]) { ts, ts }, AT_SYMLINK_NOFOLLOW) < 0)
                                 return log_error_errno(errno, "Failed to adjust mtime of '%s': %m", t->temporary_partial_path);
@@ -1513,12 +1508,12 @@ int transfer_acquire_instance(Transfer *t, Instance *i, TransferProgress cb, voi
                         need_sync = true;
                 }
 
-                if (f.mode != MODE_INVALID) {
+                if (f->mode != MODE_INVALID) {
                         /* Try with AT_SYMLINK_NOFOLLOW first, because it's the safe thing to do. Older
                          * kernels don't support that however, in that case we fall back to chmod(). Not as
                          * safe, but shouldn't be a problem, given that we don't create symlinks here. */
-                        if (fchmodat(AT_FDCWD, t->temporary_partial_path, f.mode, AT_SYMLINK_NOFOLLOW) < 0 &&
-                            (!ERRNO_IS_NOT_SUPPORTED(errno) || chmod(t->temporary_partial_path, f.mode) < 0))
+                        if (fchmodat(AT_FDCWD, t->temporary_partial_path, f->mode, AT_SYMLINK_NOFOLLOW) < 0 &&
+                            (!ERRNO_IS_NOT_SUPPORTED(errno) || chmod(t->temporary_partial_path, f->mode) < 0))
                                 return log_error_errno(errno, "Failed to adjust mode of '%s': %m", t->temporary_partial_path);
 
                         need_sync = true;
@@ -1536,7 +1531,7 @@ int transfer_acquire_instance(Transfer *t, Instance *i, TransferProgress cb, voi
                                 return log_error_errno(r, "Failed to synchronize file system backing '%s': %m", t->temporary_partial_path);
                 }
 
-                t->install_read_only = f.read_only;
+                t->install_read_only = f->read_only;
 
                 /* Rename the file from `.sysupdate.partial.<VERSION>` to `.sysupdate.pending.<VERSION>` to indicate it’s ready to install. */
                 log_debug("Renaming resource instance '%s' to '%s'.", t->temporary_partial_path, t->temporary_pending_path);
@@ -1557,28 +1552,28 @@ int transfer_acquire_instance(Transfer *t, Instance *i, TransferProgress cb, voi
                         return r;
                 t->partition_change = PARTITION_LABEL;
 
-                if (f.partition_uuid_set) {
-                        t->partition_info.uuid = f.partition_uuid;
+                if (f->partition_uuid_set) {
+                        t->partition_info.uuid = f->partition_uuid;
                         t->partition_change |= PARTITION_UUID;
                 }
 
-                if (f.partition_flags_set) {
-                        t->partition_info.flags = f.partition_flags;
+                if (f->partition_flags_set) {
+                        t->partition_info.flags = f->partition_flags;
                         t->partition_change |= PARTITION_FLAGS;
                 }
 
-                if (f.no_auto >= 0) {
-                        t->partition_info.no_auto = f.no_auto;
+                if (f->no_auto >= 0) {
+                        t->partition_info.no_auto = f->no_auto;
                         t->partition_change |= PARTITION_NO_AUTO;
                 }
 
-                if (f.read_only >= 0) {
-                        t->partition_info.read_only = f.read_only;
+                if (f->read_only >= 0) {
+                        t->partition_info.read_only = f->read_only;
                         t->partition_change |= PARTITION_READ_ONLY;
                 }
 
-                if (f.growfs >= 0) {
-                        t->partition_info.growfs = f.growfs;
+                if (f->growfs >= 0) {
+                        t->partition_info.growfs = f->growfs;
                         t->partition_change |= PARTITION_GROWFS;
                 }
 
