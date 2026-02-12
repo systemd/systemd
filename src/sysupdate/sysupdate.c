@@ -1053,6 +1053,23 @@ static int context_acquire(
         if (c->newest_installed && strverscmp_improved(c->newest_installed->version, us->version) > 0)
                 log_notice("Selected update '%s' is older than newest installed version, proceeding anyway.", us->version);
 
+        _cleanup_free_ InstanceMetadata *metadata = new0(InstanceMetadata, c->n_transfers);
+        if (!metadata)
+                return log_oom();
+
+        /* Compute up the temporary paths before vacuuming so we don't vacuum anything if we fail to compute
+         * any paths because of failed validations (e.g. exceeding the gpt partition label size). */
+        for (size_t i = 0; i < c->n_transfers; i++) {
+                Instance *inst = us->instances[i];
+                Transfer *t = c->transfers[i];
+
+                assert(inst);
+
+                r = transfer_compute_temporary_paths(t, inst, metadata + i);
+                if (r < 0)
+                        return r;
+        }
+
         log_info("Selected update '%s' for install.", us->version);
 
         (void) sd_notifyf(/* unset_environment= */ false,
@@ -1090,7 +1107,7 @@ static int context_acquire(
                         continue;
                 }
 
-                r = transfer_acquire_instance(t, inst, context_on_acquire_progress, c);
+                r = transfer_acquire_instance(t, inst, metadata + i, context_on_acquire_progress, c);
                 if (r < 0)
                         return r;
         }
