@@ -187,6 +187,8 @@ class Option:
             _help = 'Show package version'
         elif enum == 'OPTION_NO_PAGER':
             _help = 'Do not start the pager'
+        elif enum == 'OPTION_NO_ASK_PASSWORD':
+            _help = 'Do not prompt for password'
         elif enum == 'OPTION_JSON':
             _help = 'Output as JSON (one of pretty, short, off)'
             _argtype = ArgType.required_argument
@@ -195,6 +197,16 @@ class Option:
             _help = 'Do not show headers or footers'
         elif enum == 'OPTION_SHORT_j':
             _help = 'Equivalent to --json=pretty (on TTY) or --json=short (otherwise)'
+        elif enum == 'OPTION_HOST':
+            _help = 'Operate on remote host'
+            _sn = '-H'
+            _argtype = ArgType.required_argument
+            _metavar = '[USER@]HOST'
+        elif enum == 'OPTION_MACHINE':
+            _help = 'Operate on local container'
+            _sn = '-M'
+            _argtype = ArgType.required_argument
+            _metavar = 'CONTAINER'
         else:
             _help = 'XXXXXXXXXX'
 
