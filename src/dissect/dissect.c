@@ -14,6 +14,7 @@
 #include "argv-util.h"
 #include "blockdev-util.h"
 #include "build.h"
+#include "capability-util.h"
 #include "chase.h"
 #include "copy.h"
 #include "device-util.h"
@@ -108,6 +109,7 @@ static bool arg_all = false;
 static uid_t arg_uid_base = UID_INVALID;
 static bool arg_quiet = false;
 static ImageFilter *arg_image_filter = NULL;
+static int arg_copy_ownership = -1;
 
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
@@ -169,6 +171,8 @@ static int help(void) {
                "     --loop-ref=NAME      Set reference string for loopback device\n"
                "     --loop-ref-auto      Derive reference string from image file name\n"
                "     --mtree-hash=BOOL    Whether to include SHA256 hash in the mtree output\n"
+               "     --copy-ownership=BOOL\n"
+               "                          Whether to copy ownership when copying files\n"
                "     --user               Discover user images\n"
                "     --system             Discover system images\n"
                "     --all                Show hidden images too\n"
@@ -305,48 +309,50 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_USER,
                 ARG_ALL,
                 ARG_IMAGE_FILTER,
+                ARG_COPY_OWNERSHIP,
         };
 
         static const struct option options[] = {
-                { "help",          no_argument,       NULL, 'h'               },
-                { "version",       no_argument,       NULL, ARG_VERSION       },
-                { "no-pager",      no_argument,       NULL, ARG_NO_PAGER      },
-                { "no-legend",     no_argument,       NULL, ARG_NO_LEGEND     },
-                { "mount",         no_argument,       NULL, 'm'               },
-                { "umount",        no_argument,       NULL, 'u'               },
-                { "attach",        no_argument,       NULL, ARG_ATTACH        },
-                { "detach",        no_argument,       NULL, ARG_DETACH        },
-                { "with",          no_argument,       NULL, ARG_WITH          },
-                { "read-only",     no_argument,       NULL, 'r'               },
-                { "discard",       required_argument, NULL, ARG_DISCARD       },
-                { "fsck",          required_argument, NULL, ARG_FSCK          },
-                { "growfs",        required_argument, NULL, ARG_GROWFS        },
-                { "root-hash",     required_argument, NULL, ARG_ROOT_HASH     },
-                { "root-hash-sig", required_argument, NULL, ARG_ROOT_HASH_SIG },
-                { "usr-hash",      required_argument, NULL, ARG_USR_HASH      },
-                { "usr-hash-sig",  required_argument, NULL, ARG_USR_HASH_SIG  },
-                { "verity-data",   required_argument, NULL, ARG_VERITY_DATA   },
-                { "mkdir",         no_argument,       NULL, ARG_MKDIR         },
-                { "rmdir",         no_argument,       NULL, ARG_RMDIR         },
-                { "in-memory",     no_argument,       NULL, ARG_IN_MEMORY     },
-                { "list",          no_argument,       NULL, 'l'               },
-                { "mtree",         no_argument,       NULL, ARG_MTREE         },
-                { "copy-from",     no_argument,       NULL, 'x'               },
-                { "copy-to",       no_argument,       NULL, 'a'               },
-                { "json",          required_argument, NULL, ARG_JSON          },
-                { "discover",      no_argument,       NULL, ARG_DISCOVER      },
-                { "loop-ref",      required_argument, NULL, ARG_LOOP_REF      },
-                { "loop-ref-auto", no_argument,       NULL, ARG_LOOP_REF_AUTO },
-                { "image-policy",  required_argument, NULL, ARG_IMAGE_POLICY  },
-                { "validate",      no_argument,       NULL, ARG_VALIDATE      },
-                { "mtree-hash",    required_argument, NULL, ARG_MTREE_HASH    },
-                { "make-archive",  no_argument,       NULL, ARG_MAKE_ARCHIVE  },
-                { "shift",         no_argument,       NULL, ARG_SHIFT         },
-                { "system",        no_argument,       NULL, ARG_SYSTEM        },
-                { "user",          no_argument,       NULL, ARG_USER          },
-                { "all",           no_argument,       NULL, ARG_ALL           },
-                { "quiet",         no_argument,       NULL, 'q'               },
-                { "image-filter",  required_argument, NULL, ARG_IMAGE_FILTER  },
+                { "help",           no_argument,       NULL, 'h'                },
+                { "version",        no_argument,       NULL, ARG_VERSION        },
+                { "no-pager",       no_argument,       NULL, ARG_NO_PAGER       },
+                { "no-legend",      no_argument,       NULL, ARG_NO_LEGEND      },
+                { "mount",          no_argument,       NULL, 'm'                },
+                { "umount",         no_argument,       NULL, 'u'                },
+                { "attach",         no_argument,       NULL, ARG_ATTACH         },
+                { "detach",         no_argument,       NULL, ARG_DETACH         },
+                { "with",           no_argument,       NULL, ARG_WITH           },
+                { "read-only",      no_argument,       NULL, 'r'                },
+                { "discard",        required_argument, NULL, ARG_DISCARD        },
+                { "fsck",           required_argument, NULL, ARG_FSCK           },
+                { "growfs",         required_argument, NULL, ARG_GROWFS         },
+                { "root-hash",      required_argument, NULL, ARG_ROOT_HASH      },
+                { "root-hash-sig",  required_argument, NULL, ARG_ROOT_HASH_SIG  },
+                { "usr-hash",       required_argument, NULL, ARG_USR_HASH       },
+                { "usr-hash-sig",   required_argument, NULL, ARG_USR_HASH_SIG   },
+                { "verity-data",    required_argument, NULL, ARG_VERITY_DATA    },
+                { "mkdir",          no_argument,       NULL, ARG_MKDIR          },
+                { "rmdir",          no_argument,       NULL, ARG_RMDIR          },
+                { "in-memory",      no_argument,       NULL, ARG_IN_MEMORY      },
+                { "list",           no_argument,       NULL, 'l'                },
+                { "mtree",          no_argument,       NULL, ARG_MTREE          },
+                { "copy-from",      no_argument,       NULL, 'x'                },
+                { "copy-to",        no_argument,       NULL, 'a'                },
+                { "json",           required_argument, NULL, ARG_JSON           },
+                { "discover",       no_argument,       NULL, ARG_DISCOVER       },
+                { "loop-ref",       required_argument, NULL, ARG_LOOP_REF       },
+                { "loop-ref-auto",  no_argument,       NULL, ARG_LOOP_REF_AUTO  },
+                { "image-policy",   required_argument, NULL, ARG_IMAGE_POLICY   },
+                { "validate",       no_argument,       NULL, ARG_VALIDATE       },
+                { "mtree-hash",     required_argument, NULL, ARG_MTREE_HASH     },
+                { "make-archive",   no_argument,       NULL, ARG_MAKE_ARCHIVE   },
+                { "shift",          no_argument,       NULL, ARG_SHIFT          },
+                { "system",         no_argument,       NULL, ARG_SYSTEM         },
+                { "user",           no_argument,       NULL, ARG_USER           },
+                { "all",            no_argument,       NULL, ARG_ALL            },
+                { "quiet",          no_argument,       NULL, 'q'                },
+                { "image-filter",   required_argument, NULL, ARG_IMAGE_FILTER   },
+                { "copy-ownership", required_argument, NULL, ARG_COPY_OWNERSHIP },
                 {}
         };
 
@@ -630,6 +636,12 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
+                case ARG_COPY_OWNERSHIP:
+                        r = parse_tristate_argument("--copy-ownership=", optarg, &arg_copy_ownership);
+                        if (r < 0)
+                                return r;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -837,8 +849,25 @@ static int parse_argv(int argc, char *argv[]) {
         } else
                 arg_via_service = r;
 
-        if (!IN_SET(arg_action, ACTION_DISSECT, ACTION_LIST, ACTION_MTREE, ACTION_COPY_FROM, ACTION_COPY_TO, ACTION_DISCOVER, ACTION_VALIDATE) && geteuid() != 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Need to be root.");
+        r = have_effective_cap(CAP_SYS_ADMIN);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine if we have CAP_SYS_ADMIN: %m");
+
+        if (IN_SET(arg_action, ACTION_MOUNT, ACTION_UMOUNT) && r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Need to have CAP_SYS_ADMIN to mount/unmount images");
+
+        r = have_effective_cap(CAP_CHOWN);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine if we have CAP_CHOWN: %m");
+
+        if (arg_action == ACTION_SHIFT && r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Need to have CAP_CHOWN to shift UID ranges");
+
+        if (IN_SET(arg_action, ACTION_ATTACH, ACTION_DETACH)) {
+                r = must_be_root();
+                if (r < 0)
+                        return r;
+        }
 
         SET_FLAG(arg_flags, DISSECT_IMAGE_ALLOW_INTERACTIVE_AUTH, isatty_safe(STDIN_FILENO));
 
@@ -1439,6 +1468,13 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
 
         assert(IN_SET(arg_action, ACTION_LIST, ACTION_MTREE, ACTION_COPY_FROM, ACTION_COPY_TO, ACTION_MAKE_ARCHIVE, ACTION_SHIFT));
 
+        /* Determine whether to copy ownership:
+         * --copy-ownership=yes: always try to preserve ownership
+         * --copy-ownership=no: never preserve ownership, use current user
+         * --copy-ownership=auto (default): preserve ownership for directory trees,
+         *                              but not for regular files (since DDI password tables are typically
+         *                              distinct from the host ones, individual file ownership is less meaningful) */
+
         if (arg_image) {
                 assert(m);
 
@@ -1501,7 +1537,12 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
                 }
 
                 /* Try to copy as directory? */
-                r = copy_directory_at(source_fd, NULL, AT_FDCWD, arg_target, COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS);
+                r = copy_directory_at(
+                                source_fd, /* from= */ NULL,
+                                AT_FDCWD, arg_target,
+                                arg_copy_ownership == 0 ? getuid() : UID_INVALID,
+                                arg_copy_ownership == 0 ? getgid() : GID_INVALID,
+                                COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS);
                 if (r >= 0)
                         return 0;
                 if (r != -ENOTDIR)
@@ -1524,9 +1565,10 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
 
                 (void) copy_xattr(source_fd, NULL, target_fd, NULL, 0);
                 (void) copy_access(source_fd, target_fd);
+                if (arg_copy_ownership > 0)
+                        (void) copy_owner(source_fd, target_fd);
                 (void) copy_times(source_fd, target_fd, 0);
 
-                /* When this is a regular file we don't copy ownership! */
                 return 0;
         }
 
@@ -1580,9 +1622,23 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
                                 if (errno != ENOENT)
                                         return log_error_errno(errno, "Failed to open destination '%s': %m", arg_target);
 
-                                r = copy_tree_at(source_fd, ".", dfd, bn, UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS, NULL, NULL);
+                                r = copy_tree_at(
+                                                source_fd, ".",
+                                                dfd, bn,
+                                                arg_copy_ownership == 0 ? getuid() : UID_INVALID,
+                                                arg_copy_ownership == 0 ? getgid() : GID_INVALID,
+                                                COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS,
+                                                /* denylist= */ NULL,
+                                                /* subvolumes= */ NULL);
                         } else
-                                r = copy_tree_at(source_fd, ".", target_fd, ".", UID_INVALID, GID_INVALID, COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS, NULL, NULL);
+                                r = copy_tree_at(
+                                                source_fd, ".",
+                                                target_fd, ".",
+                                                arg_copy_ownership == 0 ? getuid() : UID_INVALID,
+                                                arg_copy_ownership == 0 ? getgid() : GID_INVALID,
+                                                COPY_REFLINK|COPY_MERGE|COPY_REPLACE|COPY_SIGINT|COPY_HARDLINKS,
+                                                /* denylist= */ NULL,
+                                                /* subvolumes= */ NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to copy '%s' to '%s' in image '%s': %m", arg_source, arg_target, arg_image);
 
@@ -1603,9 +1659,10 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
 
                 (void) copy_xattr(source_fd, NULL, target_fd, NULL, 0);
                 (void) copy_access(source_fd, target_fd);
+                if (arg_copy_ownership > 0)
+                        (void) copy_owner(source_fd, target_fd);
                 (void) copy_times(source_fd, target_fd, 0);
 
-                /* When this is a regular file we don't copy ownership! */
                 return 0;
         }
 
@@ -1721,7 +1778,7 @@ static int action_umount(const char *path) {
                 return log_error_errno(r, "Failed to find backing block device for '%s': %m", canonical);
 
         r = loop_device_open(dev, 0, LOCK_EX, &d);
-        if (r < 0)
+        if (r < 0 && !ERRNO_IS_PRIVILEGE(r))
                 return log_device_error_errno(dev, r, "Failed to open loopback block device: %m");
 
         /* We've locked the loop device, now we're ready to unmount. To allow the unmount to succeed, we have
@@ -1733,7 +1790,8 @@ static int action_umount(const char *path) {
                 return log_error_errno(r, "Failed to unmount '%s': %m", canonical);
 
         /* We managed to lock and unmount successfully? That means we can try to remove the loop device. */
-        loop_device_unrelinquish(d);
+        if (d)
+                loop_device_unrelinquish(d);
 
         if (arg_rmdir) {
                 r = RET_NERRNO(rmdir(canonical));
@@ -1785,7 +1843,7 @@ static int action_with(DissectedImage *m, LoopDevice *d) {
                         return log_error_errno(r, "Failed to unlock loopback block device: %m");
         }
 
-        rcode = pidref_safe_fork("(with)", FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_WAIT, /* ret= */ NULL);
+        rcode = pidref_safe_fork("(with)", FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_REOPEN_LOG|FORK_WAIT, /* ret= */ NULL);
         if (rcode == 0) {
                 /* Child */
 
@@ -1799,7 +1857,7 @@ static int action_with(DissectedImage *m, LoopDevice *d) {
                         _exit(EXIT_FAILURE);
                 }
 
-                if (setenv("SYSTEMD_DISSECT_DEVICE", d->node, /* overwrite= */ true) < 0) {
+                if (d && setenv("SYSTEMD_DISSECT_DEVICE", d->node, /* overwrite= */ true) < 0) {
                         log_error_errno(errno, "Failed to set $SYSTEMD_DISSECT_DEVICE: %m");
                         _exit(EXIT_FAILURE);
                 }
@@ -1839,7 +1897,7 @@ static int action_with(DissectedImage *m, LoopDevice *d) {
         created_dir = TAKE_PTR(mounted_dir);
 
         if (rmdir(created_dir) < 0)
-                log_warning_errno(r, "Failed to remove directory '%s', ignoring: %m", created_dir);
+                log_warning_errno(errno, "Failed to remove directory '%s', ignoring: %m", created_dir);
 
         temp = TAKE_PTR(created_dir);
 
@@ -2114,7 +2172,7 @@ static int run(int argc, char *argv[]) {
                         else
                                 r = loop_device_make_by_path(arg_image, open_flags, /* sector_size= */ UINT32_MAX, loop_flags, LOCK_SH, &d);
                         if (r < 0) {
-                                if (!ERRNO_IS_PRIVILEGE(r) || !IN_SET(arg_action, ACTION_DISSECT, ACTION_LIST, ACTION_MTREE, ACTION_COPY_FROM, ACTION_COPY_TO, ACTION_SHIFT))
+                                if (!ERRNO_IS_PRIVILEGE(r) || !IN_SET(arg_action, ACTION_MOUNT, ACTION_UMOUNT, ACTION_WITH, ACTION_DISSECT, ACTION_LIST, ACTION_MTREE, ACTION_COPY_FROM, ACTION_COPY_TO, ACTION_SHIFT))
                                         return log_error_errno(r, "Failed to set up loopback device for %s: %m", arg_image);
 
                                 log_debug_errno(r, "Lacking permissions to set up loopback block device for %s, using service: %m", arg_image);
@@ -2180,8 +2238,9 @@ static int run(int argc, char *argv[]) {
                         if (arg_loop_ref || arg_loop_ref_auto) /* yes, the 2nd check is strictly speaking redundant, given the normalization we did above, but let's be explicit here */
                                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--loop-ref=/--loop-ref-auto not supported when operating via systemd-mountfsd.");
 
-                        /* Don't run things in private userns, if the mount shall be attached to the host */
-                        if (!IN_SET(arg_action, ACTION_MOUNT, ACTION_WITH)) {
+                        /* Don't run things in private userns, if the mount shall be attached to the host
+                         * or if we're copying from/to the host. */
+                        if (!IN_SET(arg_action, ACTION_MOUNT, ACTION_WITH, ACTION_COPY_FROM, ACTION_COPY_TO)) {
                                 userns_fd = nsresource_allocate_userns(/* name= */ NULL, NSRESOURCE_UIDS_64K); /* allocate 64K users by default */
                                 if (userns_fd < 0)
                                         return log_error_errno(userns_fd, "Failed to allocate user namespace with 64K users: %m");

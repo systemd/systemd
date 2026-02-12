@@ -1050,6 +1050,45 @@ echo abc >abc
 systemd-dissect --copy-to /tmp/img abc /abc
 test -f /tmp/img/abc
 
+# Test --copy-ownership= option
+rm -rf /tmp/copychown-test
+mkdir -p /tmp/copychown-test/srcdir
+echo "test file" >/tmp/copychown-test/srcdir/testfile
+chown 1234:5678 /tmp/copychown-test/srcdir/testfile
+chown 1234:5678 /tmp/copychown-test/srcdir
+
+# Test --copy-ownership=yes preserves ownership for regular files
+systemd-dissect --copy-from /tmp/img etc/os-release /tmp/copychown-test/os-release-chown-yes --copy-ownership=yes
+test "$(stat -c %u:%g /tmp/copychown-test/os-release-chown-yes)" = "0:0"
+
+# Test --copy-ownership=no uses current user for regular files
+systemd-dissect --copy-from /tmp/img etc/os-release /tmp/copychown-test/os-release-chown-no --copy-ownership=no
+test "$(stat -c %u:%g /tmp/copychown-test/os-release-chown-no)" = "0:0"
+
+# Test --copy-ownership=auto (default) does not preserve ownership for regular files
+systemd-dissect --copy-from /tmp/img etc/os-release /tmp/copychown-test/os-release-chown-auto
+test "$(stat -c %u:%g /tmp/copychown-test/os-release-chown-auto)" = "0:0"
+
+# Test --copy-ownership=yes preserves ownership for directories
+systemd-dissect --copy-to /tmp/img /tmp/copychown-test/srcdir /copychown-dir-yes --copy-ownership=yes
+test "$(stat -c %u:%g /tmp/img/copychown-dir-yes)" = "1234:5678"
+test "$(stat -c %u:%g /tmp/img/copychown-dir-yes/testfile)" = "1234:5678"
+rm -rf /tmp/img/copychown-dir-yes
+
+# Test --copy-ownership=no overrides ownership for directories
+systemd-dissect --copy-to /tmp/img /tmp/copychown-test/srcdir /copychown-dir-no --copy-ownership=no
+test "$(stat -c %u:%g /tmp/img/copychown-dir-no)" = "0:0"
+test "$(stat -c %u:%g /tmp/img/copychown-dir-no/testfile)" = "0:0"
+rm -rf /tmp/img/copychown-dir-no
+
+# Test --copy-ownership=auto (default) preserves ownership for directories
+systemd-dissect --copy-to /tmp/img /tmp/copychown-test/srcdir /copychown-dir-auto
+test "$(stat -c %u:%g /tmp/img/copychown-dir-auto)" = "1234:5678"
+test "$(stat -c %u:%g /tmp/img/copychown-dir-auto/testfile)" = "1234:5678"
+rm -rf /tmp/img/copychown-dir-auto
+
+rm -rf /tmp/copychown-test
+
 # Test for dissect tool support with systemd-sysext
 mkdir -p /run/extensions/ testkit/usr/lib/extension-release.d/
 echo "ID=_any" >testkit/usr/lib/extension-release.d/extension-release.testkit
