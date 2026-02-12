@@ -183,6 +183,7 @@ ntpservicelistdir = libexecdir / 'ntp-units.d'
 credstoredir = prefixdir / 'lib/credstore'
 pcrlockdir = prefixdir / 'lib/pcrlock.d'
 mimepackagesdir = prefixdir / 'share/mime/packages'
+systemdvarlinkbridgesdir = libexecdir / 'varlink-bridges'
 
 configfiledir = get_option('configfiledir')
 if configfiledir == ''
@@ -298,6 +299,7 @@ conf.set_quoted('SYSTEM_GENERATOR_DIR',                       systemgeneratordir
 conf.set_quoted('SYSTEM_PRESET_DIR',                          systempresetdir)
 conf.set_quoted('SYSTEM_SHUTDOWN_PATH',                       systemshutdowndir)
 conf.set_quoted('SYSTEM_SLEEP_PATH',                          systemsleepdir)
+conf.set_quoted('SYSTEMD_VARLINK_BRIDGES_DIR',                systemdvarlinkbridgesdir)
 conf.set_quoted('SYSUSERS_DIR',                               sysusersdir)
 conf.set_quoted('TMPFILES_DIR',                               tmpfilesdir)
 conf.set_quoted('USER_TMPFILES_DIR',                          usertmpfilesdir)
