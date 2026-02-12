@@ -190,6 +190,10 @@ class Option:
             _sn = '-M'
             _argtype = ArgType.required_argument
             _metavar = 'CONTAINER'
+        elif enum == 'OPTION_CAT_CONFIG':
+            _help = 'Show configuration files'
+        elif enum == 'OPTION_TLDR':
+            _help = 'Show non-comment parts of configuration'
         else:
             _help = 'XXXXXXXXXX'
 
