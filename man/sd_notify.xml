@@ -213,6 +213,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term>RELOADING=-1</term>
+
+        <listitem><para>Tells the service manager that the reload job failed. One of <literal>READY=1</literal>
+        or <literal>STOPPING=1</literal> should be sent along with the message to indicate whether the error
+        is recoverable/will be recovered from.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term>MONOTONIC_USEC=…</term>
 
         <listitem><para>A field carrying the monotonic timestamp (as per
