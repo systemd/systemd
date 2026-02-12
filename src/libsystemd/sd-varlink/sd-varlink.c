@@ -1583,7 +1583,7 @@ static int varlink_dispatch_method(sd_varlink *v) {
                         r = callback(v, parameters, flags, v->userdata);
                         if (VARLINK_STATE_WANTS_REPLY(v->state)) {
                                 if (r < 0) {
-                                        varlink_log_errno(v, r, "Callback for %s returned error: %m", method);
+                                        varlink_log_errno(v, r, "Callback for '%s' returned error: %m", method);
 
                                         /* We got an error back from the callback. Propagate it to the client
                                          * if the method call remains unanswered. */
@@ -1612,6 +1612,16 @@ static int varlink_dispatch_method(sd_varlink *v) {
                                                 varlink_log_errno(v, r, "Failed to process sentinel for method '%s': %m", method);
                                 } else {
                                         assert(!v->previous);
+
+                                        /* We're at the bare minimum referenced by sd_varlink_server and
+                                         * sd_varlink_process() */
+                                        if (v->n_ref <= 2) {
+                                                r = varlink_log_errno(v, SYNTHETIC_ERRNO(EPROTO),
+                                                                      "Callback for method '%s' returned without enqueuing a reply or stashing connection, failing.",
+                                                                      method);
+                                                goto fail;
+                                        }
+
                                         r = 0;
                                 }
 
