@@ -2000,7 +2000,7 @@ _public_ int sd_varlink_flush(sd_varlink *v) {
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
 
         for (;;) {
-                if (v->output_buffer_size == 0)
+                if (v->output_buffer_size == 0 && !v->output_queue)
                         break;
                 if (v->write_disconnected)
                         return -ECONNRESET;
