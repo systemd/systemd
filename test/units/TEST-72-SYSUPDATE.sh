@@ -204,7 +204,7 @@ MatchPattern=part2-@v.raw.gz
 [Target]
 Type=partition
 Path=$blockdev
-MatchPattern=part2-@v
+MatchPattern=a-very-long-partition-name-@v
 MatchPartitionType=root-x86-64-verity
 EOF
 
@@ -397,7 +397,7 @@ MatchPattern=part2-@v.raw.gz
 [Target]
 Type=partition
 Path=$blockdev
-MatchPattern=part2-@v
+MatchPattern=a-very-long-partition-name-@v
 MatchPartitionType=root-x86-64-verity
 EOF
 
