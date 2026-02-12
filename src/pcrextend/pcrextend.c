@@ -369,6 +369,7 @@ typedef struct MethodExtendParameters {
         const char *nvpcr;
         const char *text;
         struct iovec data;
+        Tpm2UserspaceEventType event_type;
 } MethodExtendParameters;
 
 static void method_extend_parameters_done(MethodExtendParameters *p) {
@@ -377,17 +378,21 @@ static void method_extend_parameters_done(MethodExtendParameters *p) {
         iovec_done(&p->data);
 }
 
+static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_tpm2_userspace_event_type, Tpm2UserspaceEventType, tpm2_userspace_event_type_from_string);
+
 static int vl_method_extend(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "pcr",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,         offsetof(MethodExtendParameters, pcr),   0 },
-                { "nvpcr", SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(MethodExtendParameters, nvpcr), 0 },
-                { "text",  SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(MethodExtendParameters, text),  0 },
-                { "data",  SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec,  offsetof(MethodExtendParameters, data),  0 },
+                { "pcr",       _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,                   offsetof(MethodExtendParameters, pcr),   0 },
+                { "nvpcr",     SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,           offsetof(MethodExtendParameters, nvpcr), 0 },
+                { "text",      SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,           offsetof(MethodExtendParameters, text),  0 },
+                { "data",      SD_JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec,            offsetof(MethodExtendParameters, data),   0 },
+                { "eventType", SD_JSON_VARIANT_STRING,        json_dispatch_tpm2_userspace_event_type, offsetof(MethodExtendParameters, event_type), 0 },
                 {}
         };
         _cleanup_(method_extend_parameters_done) MethodExtendParameters p = {
                 .pcr = UINT_MAX,
+                .event_type = _TPM2_USERSPACE_EVENT_TYPE_INVALID,
         };
         int r;
 
@@ -424,11 +429,11 @@ static int vl_method_extend(sd_varlink *link, sd_json_variant *parameters, sd_va
                 return sd_varlink_error_invalid_parameter_name(link, "text");
 
         if (p.nvpcr) {
-                r = extend_nvpcr_now(p.nvpcr, extend_iovec->iov_base, extend_iovec->iov_len, _TPM2_USERSPACE_EVENT_TYPE_INVALID);
+                r = extend_nvpcr_now(p.nvpcr, extend_iovec->iov_base, extend_iovec->iov_len, p.event_type);
                 if (r == -ENOENT)
                         return sd_varlink_error(link, "io.systemd.PCRExtend.NoSuchNvPCR", NULL);
         } else
-                r = extend_pcr_now(p.pcr, extend_iovec->iov_base, extend_iovec->iov_len, _TPM2_USERSPACE_EVENT_TYPE_INVALID);
+                r = extend_pcr_now(p.pcr, extend_iovec->iov_base, extend_iovec->iov_len, p.event_type);
         if (r < 0)
                 return r;
 

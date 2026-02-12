@@ -60,6 +60,7 @@
 #include "openssl-util.h"
 #include "os-util.h"
 #include "path-util.h"
+#include "pcrextend-util.h"
 #include "pidref.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
@@ -3219,13 +3220,13 @@ static int do_crypt_activate_verity(
                 DissectImageFlags flags,
                 PartitionPolicyFlags policy_flags) {
 
-        bool check_signature;
-        int r, k;
+        int r;
 
         assert(cd);
         assert(name);
         assert(verity);
 
+        bool check_signature;
         if (iovec_is_set(&verity->root_hash_sig) && FLAGS_SET(policy_flags, PARTITION_POLICY_SIGNED)) {
                 r = secure_getenv_bool("SYSTEMD_DISSECT_VERITY_SIGNATURE");
                 if (r < 0 && r != -ENXIO)
@@ -3235,7 +3236,10 @@ static int do_crypt_activate_verity(
         } else
                 check_signature = false;
 
+        bool measure_signature;
         if (check_signature) {
+                int k;
+
                 /* First, if we have support for signed keys in the kernel, then try that first. */
                 r = sym_crypt_activate_by_signed_key(
                                 cd,
@@ -3247,7 +3251,8 @@ static int do_crypt_activate_verity(
                                 CRYPT_ACTIVATE_READONLY);
                 if (r >= 0) {
                         log_debug("Verity activation via kernel signature logic worked.");
-                        return 0;
+                        measure_signature = true;
+                        goto done;
                 }
 
                 log_debug_errno(r, "Validation of dm-verity signature failed via the kernel, trying userspace validation instead: %m");
@@ -3280,9 +3285,13 @@ static int do_crypt_activate_verity(
 
                 /* Otherwise let's see what signature-less activation results in. */
 
+                measure_signature = true;
+
         } else if (!FLAGS_SET(policy_flags, PARTITION_POLICY_VERITY))
                 return log_debug_errno(SYNTHETIC_ERRNO(ERFKILL),
                                        "No-signature activation of Verity volume not allowed by policy, refusing.");
+        else
+                measure_signature = false;
 
         r = sym_crypt_activate_by_volume_key(
                         cd,
@@ -3294,6 +3303,12 @@ static int do_crypt_activate_verity(
                 return log_debug_errno(r, "Activation of Verity via root hash failed: %m");
 
         log_debug("Activation of Verity via root hash succeeded.");
+
+done:
+        (void) pcrextend_verity_now(
+                        name,
+                        &verity->root_hash,
+                        measure_signature ? &verity->root_hash_sig : NULL);
         return 0;
 }
 
