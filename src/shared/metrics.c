@@ -11,6 +11,7 @@ int metrics_setup_varlink_server(
                 sd_varlink_server **server, /* in and out param */
                 sd_varlink_server_flags_t flags,
                 sd_event *event,
+                int64_t priority,
                 sd_varlink_method_t vl_method_list_cb,
                 sd_varlink_method_t vl_method_describe_cb,
                 void *userdata) {
@@ -45,13 +46,12 @@ int metrics_setup_varlink_server(
         if (r < 0)
                 return log_debug_errno(r, "Failed to set varlink metrics server description: %m");
 
-        r = sd_varlink_server_attach_event(s, event, SD_EVENT_PRIORITY_NORMAL);
+        r = sd_varlink_server_attach_event(s, event, priority);
         if (r < 0)
                 return log_debug_errno(r, "Failed to attach varlink metrics server to event loop: %m");
 
         *server = TAKE_PTR(s);
-
-        return 0;
+        return 1;
 }
 
 static const char * const metric_family_type_table[_METRIC_FAMILY_TYPE_MAX] = {
