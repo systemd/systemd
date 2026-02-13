@@ -182,7 +182,7 @@ sensor:modalias:acpi:SMO8500:*:dmi:*:svnASUSTeK*:*:rnTP300LJ:*       # Transform
 #########################################
 # Axxo
 #########################################
-sensor:modalias:acpi:SMO8500*:dmi:*:svnStandard:pnWCBT1011::*
+sensor:modalias:acpi:SMO8500:*:dmi:*:svnStandard:pnWCBT1011:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
 #########################################
