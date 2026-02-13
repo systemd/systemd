@@ -489,6 +489,7 @@ sensor:modalias:acpi:KIOX000A:*:dmi:bvnINSYDECorp.:bvrBYT70A.YNCHENG.WIN.007:*:s
 # GPD
 #########################################
 
+# TODO: Now that we can match sku, try to search if it could be a better mach. 
 # GPD win (version 1, with the X5-Z8750 CPU)
 # Note we match all dmi fields including the BIOS date checking for all known
 # BIOS dates, since the strings are unfortunately very generic.
@@ -497,29 +498,23 @@ sensor:modalias:acpi:KIOX000A:*:dmi:bvnINSYDECorp.:bvrBYT70A.YNCHENG.WIN.007:*:s
 # "Default string". So combined with the sensor modalias and BIOS date this
 # should be unique enough to identify the GPDwin
 # '*' in ":*svn" is there because kernels >= 5.8 have inserted a br field there
-sensor:modalias:acpi:KIOX000A*:dmi:bvnAmericanMegatrendsInc.:bvr5.11:bd10/25/2016:*svnDefaultstring:pnDefaultstring:pvrDefaultstring:rvnAMICorporation:rnDefaultstring:rvrDefaultstring:cvnDefaultstring:ct3:cvrDefaultstring:*
-sensor:modalias:acpi:KIOX000A*:dmi:bvnAmericanMegatrendsInc.:bvr5.11:bd11/18/2016:*svnDefaultstring:pnDefaultstring:pvrDefaultstring:rvnAMICorporation:rnDefaultstring:rvrDefaultstring:cvnDefaultstring:ct3:cvrDefaultstring:*
-sensor:modalias:acpi:KIOX000A*:dmi:bvnAmericanMegatrendsInc.:bvr5.11:bd12/23/2016:*svnDefaultstring:pnDefaultstring:pvrDefaultstring:rvnAMICorporation:rnDefaultstring:rvrDefaultstring:cvnDefaultstring:ct3:cvrDefaultstring:*
-sensor:modalias:acpi:KIOX000A*:dmi:bvnAmericanMegatrendsInc.:bvr5.11:bd12/26/2016:*svnDefaultstring:pnDefaultstring:pvrDefaultstring:rvnAMICorporation:rnDefaultstring:rvrDefaultstring:cvnDefaultstring:ct3:cvrDefaultstring:*
-sensor:modalias:acpi:KIOX000A*:dmi:bvnAmericanMegatrendsInc.:bvr5.11:bd02/21/2017:*svnDefaultstring:pnDefaultstring:pvrDefaultstring:rvnAMICorporation:rnDefaultstring:rvrDefaultstring:cvnDefaultstring:ct3:cvrDefaultstring:*
-sensor:modalias:acpi:KIOX000A*:dmi:bvnAmericanMegatrendsInc.:bvr5.11:bd03/20/2017:*svnDefaultstring:pnDefaultstring:pvrDefaultstring:rvnAMICorporation:rnDefaultstring:rvrDefaultstring:cvnDefaultstring:ct3:cvrDefaultstring:*
-sensor:modalias:acpi:KIOX000A*:dmi:bvnAmericanMegatrendsInc.:bvr5.11:bd05/25/2017:*svnDefaultstring:pnDefaultstring:pvrDefaultstring:rvnAMICorporation:rnDefaultstring:rvrDefaultstring:cvnDefaultstring:ct3:cvrDefaultstring:*
+sensor:modalias:acpi:KIOX000A:*:dmi:bvnAmericanMegatrendsInc.:bvr5.11:bd10/25/2016:*:svnDefaultstring:pnDefaultstring:pvrDefaultstring:rvnAMICorporation:rnDefaultstring:rvrDefaultstring:cvnDefaultstring:ct3:cvrDefaultstring:*
+sensor:modalias:acpi:KIOX000A:*:dmi:bvnAmericanMegatrendsInc.:bvr5.11:bd11/18/2016:*:svnDefaultstring:pnDefaultstring:pvrDefaultstring:rvnAMICorporation:rnDefaultstring:rvrDefaultstring:cvnDefaultstring:ct3:cvrDefaultstring:*
+sensor:modalias:acpi:KIOX000A:*:dmi:bvnAmericanMegatrendsInc.:bvr5.11:bd12/23/2016:*:svnDefaultstring:pnDefaultstring:pvrDefaultstring:rvnAMICorporation:rnDefaultstring:rvrDefaultstring:cvnDefaultstring:ct3:cvrDefaultstring:*
+sensor:modalias:acpi:KIOX000A:*:dmi:bvnAmericanMegatrendsInc.:bvr5.11:bd12/26/2016:*:svnDefaultstring:pnDefaultstring:pvrDefaultstring:rvnAMICorporation:rnDefaultstring:rvrDefaultstring:cvnDefaultstring:ct3:cvrDefaultstring:*
+sensor:modalias:acpi:KIOX000A:*:dmi:bvnAmericanMegatrendsInc.:bvr5.11:bd02/21/2017:*:svnDefaultstring:pnDefaultstring:pvrDefaultstring:rvnAMICorporation:rnDefaultstring:rvrDefaultstring:cvnDefaultstring:ct3:cvrDefaultstring:*
+sensor:modalias:acpi:KIOX000A:*:dmi:bvnAmericanMegatrendsInc.:bvr5.11:bd03/20/2017:*:svnDefaultstring:pnDefaultstring:pvrDefaultstring:rvnAMICorporation:rnDefaultstring:rvrDefaultstring:cvnDefaultstring:ct3:cvrDefaultstring:*
+sensor:modalias:acpi:KIOX000A:*:dmi:bvnAmericanMegatrendsInc.:bvr5.11:bd05/25/2017:*:svnDefaultstring:pnDefaultstring:pvrDefaultstring:rvnAMICorporation:rnDefaultstring:rvrDefaultstring:cvnDefaultstring:ct3:cvrDefaultstring:*
  ACCEL_LOCATION=base
 
-# GPD Pocket 3
-sensor:modalias:acpi:MXC6655*:dmi:*:svnGPD:pnG1621-02:*
+sensor:modalias:acpi:MXC6655:*:dmi:*:svnGPD:pnG1621-02:*    # Pocket 3
+sensor:modalias:acpi:MXC6655:*:dmi:*:svnGPD:pnG1628-04:*    # Pocket 4
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
-# GPD Pocket 4
-sensor:modalias:acpi:MXC6655*:dmi:*:svnGPD:pnG1628-04:*
- ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
-
-# GPD WinMax2
-sensor:modalias:acpi:BMI0160*:dmi:*:svnGPD:pnG1619*:*
+sensor:modalias:acpi:BMI0160:*:dmi:*:svnGPD:pnG1619*:*      # WinMax2
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
-# GPD MicroPC 2
-sensor:modalias:acpi:MXC6655*:dmi:*:svnGPD:pnG1688-*:*
+sensor:modalias:acpi:MXC6655:*:dmi:*:svnGPD:pnG1688-*:*     # MicroPC 2
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, -1
 
 #########################################
