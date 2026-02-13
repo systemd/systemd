@@ -524,8 +524,8 @@ sensor:modalias:acpi:MXC6655:*:dmi:*:svnGPD:pnG1688-*:*     # MicroPC 2
 # Nobody bothered to use Linux on any device of this manufacturer
 # so current marks might be too general and need fixes.
 # These values are based on Wi101 model.
-sensor:modalias:acpi:BMA250E*:dmi:*:svnInsyde*:pni101c:*
- ACCEL_MOUNT_MATRIX=0,1,0;-1,0,0;-1,0,0
+sensor:modalias:acpi:BMA250E:*:dmi:*:svnInsyde*:pni101c:*
+ ACCEL_MOUNT_MATRIX=0, 1, 0; -1, 0, 0; -1, 0, 0
 
 #########################################
 # HP
