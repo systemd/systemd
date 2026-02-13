@@ -1022,14 +1022,10 @@ sensor:modalias:acpi:BMA250E:*:dmi:bvnAmericanMegatrendsInc.:bvr5.6.5:bd04/15/20
 # Toshiba
 #########################################
 
-# Toshiba Encore WT8-B | WT10A | WT10A-102 tablets
-sensor:modalias:acpi:INVN6500*:dmi:*:svnTOSHIBA:pnTOSHIBAENCORE2WT8-B:*
-sensor:modalias:acpi:INVN6500*:dmi:*:svnTOSHIBA:pnTOSHIBAWT10-A-103:*
-sensor:modalias:acpi:INVN6500*:dmi:*:svnTOSHIBA:pnTOSHIBAWT10-A-102:*
- ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
-
-# Toshiba Encore WT10A-108 tablet
-sensor:modalias:acpi:INVN6500*:dmi:*:svnTOSHIBA:pnTOSHIBAWT10-A-108:*
+sensor:modalias:acpi:INVN6500:*:dmi:*:svnTOSHIBA:pnTOSHIBAENCORE2WT8-B:*    # Encore WT8-B
+sensor:modalias:acpi:INVN6500:*:dmi:*:svnTOSHIBA:pnTOSHIBAWT10-A-103:*      # Encore WT10A
+sensor:modalias:acpi:INVN6500:*:dmi:*:svnTOSHIBA:pnTOSHIBAWT10-A-102:*      # Encore WT10A-102
+sensor:modalias:acpi:INVN6500:*:dmi:*:svnTOSHIBA:pnTOSHIBAWT10-A-108:*      # Encore WT10A-108
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
 #########################################
