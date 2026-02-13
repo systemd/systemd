@@ -719,21 +719,23 @@ sensor:modalias:acpi:BMA250:*:dmi:*:svnMEDIACOM:pnWinPad7W10-WPW700:*    # Winpa
 #########################################
 # Medion
 #########################################
+
 # Medion Akoya E2228T MD61900
-sensor:modalias:acpi:KIOX020A*:dmi:*:svnMEDION:pnE2228TMD61900:*
+sensor:modalias:acpi:KIOX020A:*:dmi:*:svnMEDION:pnE2228TMD61900:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, -1
  ACCEL_LOCATION=base
 
 # Medion Akoya E1239T MD60568
-sensor:modalias:acpi:KIOX0009*:dmi:*:svnMEDION:pnE1239TMD60568:*
+sensor:modalias:acpi:KIOX0009:*:dmi:*:svnMEDION:pnE1239TMD60568:*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
 # Medion Akoya E2212T MD99720
-sensor:modalias:acpi:SMO8500*:dmi:*:svnMEDION:pnAkoyaE2212TMD99720:*
+sensor:modalias:acpi:SMO8500:*:dmi:*:svnMEDION:pnAkoyaE2212TMD99720:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
+# FIXME: There are some very generic matches that even include other defined matches.
 # Medion Akoya E2215T MD60198
-sensor:modalias:acpi:KIOX000A*:dmi:*svnMEDION:pnE2215TMD60198:*
+sensor:modalias:acpi:KIOX000A:*:dmi:*svnMEDION:pnE2215TMD60198:*
 # Medion Akoya E3216 MD60900
 # Medion Akoya E3221 MD61237
 # Medion Akoya E2292 MD63390
@@ -741,18 +743,19 @@ sensor:modalias:acpi:KIOX000A*:dmi:*svnMEDION:pnE2215TMD60198:*
 # Medion Akoya E2293 MD61144
 # Medion Akoya E3222 MD62450
 # and presumably all other Akoya Exxxx
-sensor:modalias:acpi:KIOX010A*:dmi:*:svnMEDION:pnE*:*
+sensor:modalias:acpi:KIOX010A:*:dmi:*:svnMEDION:pnE*:*
 # Medion Akoya E3222 MD62450
-sensor:modalias:acpi:KIOX010A*:dmi:*:svnMEDION:pnMEDION*:*
+sensor:modalias:acpi:KIOX010A:*:dmi:*:svnMEDION:pnMEDION*:*
 # and rebrands of the above
-sensor:modalias:acpi:KIOX010A*:dmi:*:rvnMEDION:rnMEDION*:*
+sensor:modalias:acpi:KIOX010A:*:dmi:*:rvnMEDION:rnMEDION*:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
  ACCEL_LOCATION=display
 
+# FIXME: There are some very generic matches that even include other defined matches.
 # Same as above, but for base sensor
-sensor:modalias:acpi:KIOX020A*:dmi:*:svnMEDION:pnE*:*
-sensor:modalias:acpi:KIOX020A*:dmi:*:svnMEDION:pnMEDION*:*
-sensor:modalias:acpi:KIOX020A*:dmi:*:rvnMEDION:rnMEDION*:*
+sensor:modalias:acpi:KIOX020A:*:dmi:*:svnMEDION:pnE*:*
+sensor:modalias:acpi:KIOX020A:*:dmi:*:svnMEDION:pnMEDION*:*
+sensor:modalias:acpi:KIOX020A:*:dmi:*:rvnMEDION:rnMEDION*:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, -1
  ACCEL_LOCATION=base
 
