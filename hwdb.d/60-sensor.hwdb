@@ -135,58 +135,46 @@ sensor:modalias:acpi:KIOX000A*:dmi:*:svnARCHOS:pnARCHOS101CesiumEduc:*
 #########################################
 # AsusTek
 #########################################
-sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:*pnT100CHI:*
- ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
-
-sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:pnT300CHI:*
- ACCEL_MOUNT_MATRIX=0, -1, 0; 1, 0, 0; 0, 0, 1
-
-sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:*pnM80TA:*
-sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:*pnT100TA:*
-sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:*pnT100TAF:*
-sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:*pnT100TAM:*
-sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:*pnT100TAS:*
-sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:pnT200TA:*
- ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
-
-sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:*pnTP201SA:*
-sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:pn*E205SA:*
- ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
-
-sensor:modalias:acpi:INVN6500*:dmi:*svn*ASUSTeK*:*pn*TP300LA:*
-sensor:modalias:acpi:INVN6500*:dmi:*svn*ASUSTeK*:*pn*TP300LD:*
- ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
-
-sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:*pn*Q5??L*:*
- ACCEL_MOUNT_MATRIX=0, 1, 0; -1, 0, 0; 0, 0, 1
-
+sensor:modalias:acpi:INVN6500*:dmi:*:svnASUSTeK*:pnT100CHI:*
 sensor:modalias:acpi:KXJ2109*:dmi:*:svnASUSTeK*:pnME176C:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
-sensor:modalias:acpi:SMO8500*:dmi:*svn*ASUSTeK*:*pn*TP300LJ:*
- ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
-
-sensor:modalias:acpi:SMO8500*:dmi:*svn*ASUSTeK*:*pn*TP500LAB:*
-sensor:modalias:acpi:SMO8500*:dmi:*svn*ASUSTeK*:*pn*TP500LB:*
-sensor:modalias:acpi:SMO8500*:dmi:*svn*ASUSTeK*:*pn*TP550LA:*
- ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
-
-sensor:modalias:acpi:SMO8500*:dmi:*svn*ASUSTeK*:*pn*TP300LD:*
-sensor:modalias:acpi:SMO8500*:dmi:*svn*ASUSTeK*:*pn*TP300LAB:*
- ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
-
-sensor:modalias:acpi:BOSC0200*:dmi:*svn*ASUSTeK*:*pn*TP412UA:*
+sensor:modalias:acpi:INVN6500*:dmi:*:svnASUSTeK*:pnT300CHI:*
+sensor:modalias:acpi:BOSC0200*:dmi:*:svnASUSTeK*:pn*TP412UA:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; 1, 0, 0; 0, 0, 1
 
+sensor:modalias:acpi:INVN6500*:dmi:*:svnASUSTeK*:pnM80TA:*
+sensor:modalias:acpi:INVN6500*:dmi:*:svnASUSTeK*:pnT100TA:*
+sensor:modalias:acpi:INVN6500*:dmi:*:svnASUSTeK*:pnT100TAF:*
+sensor:modalias:acpi:INVN6500*:dmi:*:svnASUSTeK*:pnT100TAM:*
+sensor:modalias:acpi:INVN6500*:dmi:*:svnASUSTeK*:pnT100TAS:*
+sensor:modalias:acpi:INVN6500*:dmi:*:svnASUSTeK*:pnT200TA:*
+ ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
+
+sensor:modalias:acpi:INVN6500*:dmi:*:svnASUSTeK*:pnTP201SA:*
+sensor:modalias:acpi:INVN6500*:dmi:*:svnASUSTeK*:pn*E205SA:*
+sensor:modalias:acpi:SMO8500*:dmi:*:svnASUSTeK*:pn*TP300LJ:*
+sensor:modalias:acpi:SMO8500*:dmi:*:svnASUSTeK*:pn*TP300LD:*
+sensor:modalias:acpi:SMO8500*:dmi:*:svnASUSTeK*:pn*TP300LAB:*
+ ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
+
+sensor:modalias:acpi:INVN6500*:dmi:*:svnASUSTeK*:pn*TP300LA:*
+sensor:modalias:acpi:INVN6500*:dmi:*:svnASUSTeK*:pn*TP300LD:*
+sensor:modalias:acpi:SMO8500*:dmi:*:svnASUSTeK*:pn*TP500LAB:*
+sensor:modalias:acpi:SMO8500*:dmi:*:svnASUSTeK*:pn*TP500LB:*
+sensor:modalias:acpi:SMO8500*:dmi:*:svnASUSTeK*:pn*TP550LA:*
+sensor:modalias:acpi:BMA250E*:dmi:*:svnASUSTeK*:pnT300FA:*
+ ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
+
+sensor:modalias:acpi:INVN6500*:dmi:*:svnASUSTeK*:pn*Q5??L*:*
+ ACCEL_MOUNT_MATRIX=0, 1, 0; -1, 0, 0; 0, 0, 1
+
 # ASUS ROG Ally X (2024)
-sensor:modalias:acpi:BOSC0200*:dmi:*svn*ASUSTeK*:*pn*RC72LA:*
+sensor:modalias:acpi:BOSC0200*:dmi:*:svnASUSTeK*:pn*RC72LA:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, -1
 
-sensor:modalias:acpi:BOSC0200*:dmi:*svn*ASUSTeK*:pn*BR1100FKA:*
+sensor:modalias:acpi:BOSC0200*:dmi:*:svnASUSTeK*:pn*BR1100FKA:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, -1
-
-sensor:modalias:acpi:BMA250E*:dmi:*:*svn*ASUSTeK*:pnT300FA:*
- ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
 
 #########################################
 # Axxo
