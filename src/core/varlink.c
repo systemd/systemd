@@ -390,6 +390,7 @@ int manager_setup_varlink_server(Manager *m) {
                         "io.systemd.Manager.Reload", vl_method_reload_manager,
                         "io.systemd.Manager.EnqueueMarkedJobs", vl_method_enqueue_marked_jobs_manager,
                         "io.systemd.Unit.List", vl_method_list_units,
+                        "io.systemd.Unit.SetProperties", vl_method_set_unit_properties,
                         "io.systemd.service.Ping", varlink_method_ping,
                         "io.systemd.service.GetEnvironment", varlink_method_get_environment);
         if (r < 0)

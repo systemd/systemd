@@ -2121,7 +2121,6 @@ static int bus_unit_set_live_property(
 
                 for (;;) {
                         const char *word;
-                        bool b;
 
                         r = sd_bus_message_read(message, "s", &word);
                         if (r < 0)
@@ -2129,22 +2128,14 @@ static int bus_unit_set_live_property(
                         if (r == 0)
                                 break;
 
-                        if (IN_SET(word[0], '+', '-')) {
-                                b = word[0] == '+';
-                                word++;
-                                some_plus_minus = true;
-                        } else {
-                                b = true;
-                                some_absolute = true;
-                        }
-
-                        UnitMarker m = unit_marker_from_string(word);
-                        if (m < 0)
+                        r = parse_unit_marker(word, &settings, &mask);
+                        if (r < 0)
                                 return sd_bus_error_setf(reterr_error, BUS_ERROR_BAD_UNIT_SETTING,
                                                          "Unknown marker \"%s\".", word);
-
-                        SET_FLAG(settings, 1u << m, b);
-                        SET_FLAG(mask, 1u << m, true);
+                        if (r > 0)
+                                some_plus_minus = true;
+                        else
+                                some_absolute = true;
                 }
 
                 r = sd_bus_message_exit_container(message);

@@ -361,6 +361,40 @@ static int lookup_unit_by_pidref(sd_varlink *link, Manager *manager, PidRef *pid
         return 0;
 }
 
+static int load_unit_and_check(sd_varlink *link, Manager *manager, const char *name, Unit **ret_unit) {
+        Unit *unit;
+        int r;
+
+        assert(link);
+        assert(manager);
+        assert(name);
+        assert(ret_unit);
+
+        r = manager_load_unit(manager, name, /* path= */ NULL, /* e= */ NULL, &unit);
+        if (r < 0)
+                return r;
+
+        /* manager_load_unit() will create an object regardless of whether the unit actually exists, so
+         * check the state and refuse if it's not in a good state. */
+        if (IN_SET(unit->load_state, UNIT_NOT_FOUND, UNIT_STUB, UNIT_MERGED))
+                return sd_varlink_error(link, "io.systemd.Unit.NoSuchUnit", NULL);
+        if (unit->load_state == UNIT_BAD_SETTING)
+                return sd_varlink_error(link, "io.systemd.Unit.UnitError", NULL);
+        if (unit->load_state == UNIT_ERROR)
+                return sd_varlink_errorbo(
+                        link,
+                        SD_VARLINK_ERROR_SYSTEM,
+                        SD_JSON_BUILD_PAIR_STRING("origin", "linux"),
+                        SD_JSON_BUILD_PAIR_INTEGER("errno", unit->load_error),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("errnoName", "io.systemd.Unit.UnitError"));
+        if (unit->load_state == UNIT_MASKED)
+                return sd_varlink_error(link, "io.systemd.Unit.UnitMasked", NULL);
+        assert(UNIT_IS_LOAD_COMPLETE(unit->load_state));
+
+        *ret_unit = unit;
+        return 0;
+}
+
 typedef struct UnitLookupParameters {
         const char *name, *cgroup;
         PidRef pidref;
@@ -400,9 +434,9 @@ static int lookup_unit_by_parameters(
         assert(ret);
 
         if (p->name) {
-                unit = manager_get_unit(manager, p->name);
-                if (!unit)
-                        return varlink_error_no_such_unit(link, "name");
+                r = load_unit_and_check(link, manager, p->name, &unit);
+                if (r < 0)
+                        return r;
         }
 
         if (pidref_is_set_or_automatic(&p->pidref)) {
@@ -533,4 +567,108 @@ int varlink_error_no_such_unit(sd_varlink *v, const char *name) {
                         ASSERT_PTR(v),
                         VARLINK_ERROR_UNIT_NO_SUCH_UNIT,
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("parameter", name));
+}
+
+typedef struct UnitSetPropertiesParameters {
+        const char *unsupported_property; /* For error reporting */
+        const char *name;
+        bool runtime;
+
+        bool markers_found;
+        unsigned markers, markers_mask;
+} UnitSetPropertiesParameters;
+
+static int parse_unit_markers(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        UnitSetPropertiesParameters *p = ASSERT_PTR(userdata);
+        bool some_plus_minus = false, some_absolute = false;
+        unsigned settings = 0, mask = 0;
+        sd_json_variant *e;
+        int r;
+
+        assert(variant);
+
+        JSON_VARIANT_ARRAY_FOREACH(e, variant) {
+                if (!sd_json_variant_is_string(e))
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Marker is not an array of strings.");
+
+                const char *word = sd_json_variant_string(e);
+
+                r = parse_unit_marker(word, &settings, &mask);
+                if (r < 0)
+                        return json_log(variant, flags, r, "Failed to parse marker '%s'.", word);
+                if (r > 0)
+                        some_plus_minus = true;
+                else
+                        some_absolute = true;
+        }
+
+        if (some_plus_minus && some_absolute)
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Absolute and non-absolute markers in the same setting.");
+
+        if (some_absolute || sd_json_variant_elements(variant) == 0)
+                mask = UINT_MAX;
+
+        p->markers = settings;
+        p->markers_mask = mask;
+        p->markers_found = true;
+
+        return 0;
+}
+
+static int unit_dispatch_properties(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "Markers", SD_JSON_VARIANT_ARRAY, parse_unit_markers, 0, 0 },
+                {}
+        };
+        UnitSetPropertiesParameters *p = ASSERT_PTR(userdata);
+        const char *bad_field = NULL;
+        int r;
+
+        r = sd_json_dispatch_full(variant, dispatch_table, /* bad= */ NULL, flags, userdata, &bad_field);
+        if (r == -EADDRNOTAVAIL && !isempty(bad_field))
+                /* When properties contains a valid field, but that we don't currently support, make sure to
+                 * return the offending property, rather than generic invalid argument. */
+                p->unsupported_property = bad_field;
+        return r;
+}
+
+int vl_method_set_unit_properties(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "name",       SD_JSON_VARIANT_STRING,  json_dispatch_const_unit_name, offsetof(UnitSetPropertiesParameters, name),    SD_JSON_MANDATORY },
+                { "runtime",    SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool,      offsetof(UnitSetPropertiesParameters, runtime), SD_JSON_MANDATORY },
+                { "properties", SD_JSON_VARIANT_OBJECT,  unit_dispatch_properties,      0,                                              SD_JSON_MANDATORY },
+                {}
+        };
+
+        UnitSetPropertiesParameters p = {};
+        Manager *manager = ASSERT_PTR(userdata);
+        const char *bad_field = NULL;
+        Unit *unit;
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        r = sd_json_dispatch_full(parameters, dispatch_table, /* bad= */ NULL, /* flags= */ 0, &p, &bad_field);
+        if (r < 0) {
+                /* When properties contains a valid field, but that we don't currently support, make sure to
+                 * return a specific error, rather than generic invalid argument. */
+                if (streq_ptr(bad_field, "properties") && r == -EADDRNOTAVAIL)
+                        return sd_varlink_errorbo(
+                                link,
+                                "io.systemd.Unit.PropertyNotSupported",
+                                SD_JSON_BUILD_PAIR_CONDITION(!!p.unsupported_property, "property", SD_JSON_BUILD_STRING(p.unsupported_property)));
+                if (bad_field)
+                        return sd_varlink_error_invalid_parameter_name(link, bad_field);
+                return r;
+        }
+
+        r = load_unit_and_check(link, manager, p.name, &unit);
+        if (r < 0)
+                return r;
+
+        if (p.markers_found)
+                unit->markers = p.markers | (unit->markers & ~p.markers_mask);
+
+        return sd_varlink_reply(link, NULL);
 }
