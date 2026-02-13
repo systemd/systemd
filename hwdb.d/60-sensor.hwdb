@@ -531,28 +531,26 @@ sensor:modalias:acpi:BMA250E:*:dmi:*:svnInsyde*:pni101c:*
 # HP
 #########################################
 
+# TODO: Look if for HP is better to use pvr.
+
 # Most HP Laptop using the lis3lv02d device have it in the base,
 # mark these sensors as such.
-sensor:modalias:platform:lis3lv02d:dmi:*svn*Hewlett-Packard*:*
-sensor:modalias:platform:lis3lv02d:dmi:*svn*HP*:*
+sensor:modalias:platform:lis3lv02d:dmi:*:svnHewlett-Packard:*
+sensor:modalias:platform:lis3lv02d:dmi:*:svnHP:*
  ACCEL_LOCATION=base
 
-# HP OmniBook Ultra Flip Laptop 14-fh0xxx
-sensor:modalias:platform:HID-SENSOR-200073:dmi:*:svnHP:pnHPOmniBookUltraFlipLaptop14-fh0xxx:*
+sensor:modalias:platform:HID-SENSOR-200073:dmi:*:svnHP:pnHPOmniBookUltraFlipLaptop14-fh0xxx:*    # OmniBook Ultra Flip 14
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, 1, 0; 0, 0, -1
 
-sensor:modalias:acpi:SMO8500*:dmi:*:svnHewlett-Packard:pnHPStream7Tablet:*
-sensor:modalias:acpi:SMO8500*:dmi:*:svnHewlett-Packard:pnHPStream8Tablet:*
+sensor:modalias:acpi:SMO8500:*:dmi:*:svnHewlett-Packard:pnHPStream7Tablet:*                      # Stream 7 Tablet
+sensor:modalias:acpi:SMO8500:*:dmi:*:svnHewlett-Packard:pnHPStream8Tablet:*                      # Stream 8 Tablet
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
 
-# HP Pavilion X2 10-n000nd
-sensor:modalias:i2c:bmc150_accel:dmi:*:svnHewlett-Packard:pnHPPavilionx2Detachable:*:rn815D:*
-# HP Pavilion X2 10-k010nr
-sensor:modalias:i2c:bmc150_accel:dmi:*:svnHewlett-Packard:pnHPPavilionx2DetachablePC10:*
+sensor:modalias:i2c:bmc150_accel:dmi:*:svnHewlett-Packard:pnHPPavilionx2Detachable:*:rn815D:*    # Pavilion X2 10-n000nd
+sensor:modalias:i2c:bmc150_accel:dmi:*:svnHewlett-Packard:pnHPPavilionx2DetachablePC10:*         # Pavilion X2 10-k010nr
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
-# HP Pro Tablet 408 G1
-sensor:modalias:i2c:bmc150_accel:dmi:*:svnHewlett-Packard:pnHPProTablet408:*:rn8048:*
+sensor:modalias:i2c:bmc150_accel:dmi:*:svnHewlett-Packard:pnHPProTablet408:*:rn8048:*            # Pro Tablet 408 G1
  ACCEL_MOUNT_MATRIX=0, 1, 0; -1, 0, 0; 0, 0, 1
 
 #########################################
