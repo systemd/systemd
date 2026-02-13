@@ -41,7 +41,7 @@ int metrics_setup_varlink_server(
         if (r < 0)
                 return log_debug_errno(r, "Failed to register varlink metrics methods: %m");
 
-        r = sd_varlink_server_set_description(s, "systemd varlink metrics server");
+        r = sd_varlink_server_set_description(s, "varlink-metrics");
         if (r < 0)
                 return log_debug_errno(r, "Failed to set varlink metrics server description: %m");
 
