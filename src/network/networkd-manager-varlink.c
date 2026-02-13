@@ -10,12 +10,16 @@
 #include "hashmap.h"
 #include "json-util.h"
 #include "lldp-rx-internal.h"
+#include "metrics.h"
 #include "network-util.h"
 #include "networkd-dhcp-server.h"
 #include "networkd-json.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-manager-varlink.h"
+#include "networkd-varlink-metrics.h"
+#include "path-lookup.h"
+#include "runtime-scope.h"
 #include "stat-util.h"
 #include "varlink-io.systemd.Network.h"
 #include "varlink-io.systemd.service.h"
@@ -279,7 +283,40 @@ static int vl_method_set_persistent_storage(sd_varlink *vlink, sd_json_variant *
         return sd_varlink_reply(vlink, NULL);
 }
 
-int manager_varlink_init(Manager *m, int fd) {
+static int manager_varlink_metrics_init(Manager *m, int fd) {
+        _cleanup_free_ char *address = NULL;
+        _unused_ _cleanup_close_ int fd_close = fd;
+        int r;
+
+        assert(m);
+
+        r = metrics_setup_varlink_server(
+                        &m->metrics_varlink_server,
+                        SD_VARLINK_SERVER_INHERIT_USERDATA,
+                        m->event,
+                        vl_method_metrics_list,
+                        vl_method_metrics_describe,
+                        m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set up metrics varlink server: %m");
+
+        if (fd < 0) {
+                r = runtime_directory_generic(RUNTIME_SCOPE_SYSTEM, "systemd/report/io.systemd.Network", &address);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine metrics directory path: %m");
+
+                r = sd_varlink_server_listen_address(m->metrics_varlink_server, address, 0666 | SD_VARLINK_SERVER_MODE_MKDIR_0755);
+        } else
+                r = sd_varlink_server_listen_fd(m->metrics_varlink_server, fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind to varlink socket: %m");
+
+        TAKE_FD(fd_close);
+
+        return r;
+}
+
+int manager_varlink_init(Manager *m, int fd, int metrics_fd) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
         _unused_ _cleanup_close_ int fd_close = fd; /* take possession */
         int r;
@@ -333,5 +370,10 @@ int manager_varlink_init(Manager *m, int fd) {
                 return log_error_errno(r, "Failed to attach varlink connection to event loop: %m");
 
         m->varlink_server = TAKE_PTR(s);
+
+        r = manager_varlink_metrics_init(m, metrics_fd);
+        if (r < 0)
+                return r;
+
         return 0;
 }
