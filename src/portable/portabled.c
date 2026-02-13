@@ -37,7 +37,7 @@ static int manager_new(RuntimeScope scope, Manager **ret) {
                 .runtime_scope = scope,
         };
 
-        r = runtime_directory_generic(scope, "systemd/portables", &m->state_dir);
+        r = runtime_directory_generic(scope, "portables", &m->state_dir);
         if (r < 0)
                 return r;
 
