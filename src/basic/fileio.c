@@ -807,7 +807,6 @@ int read_full_stream_full(
 
         buf[l] = 0;
         *ret_contents = TAKE_PTR(buf);
-
         if (ret_size)
                 *ret_size = l;
 
