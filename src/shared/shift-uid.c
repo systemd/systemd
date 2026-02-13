@@ -440,7 +440,7 @@ int path_patch_uid(const char *path, uid_t shift, uid_t range) {
                 if (fchown(fd,
                            UID_BUSY_BASE | (st.st_uid & ~UID_BUSY_MASK),
                            (gid_t) UID_BUSY_BASE | (st.st_gid & ~(gid_t) UID_BUSY_MASK)) < 0)
-                        log_debug_errno(errno, "Failed to mark '%s' as busy, ignoring: %m", path);
+                        return log_debug_errno(errno, "Failed to mark '%s' as busy, ignoring: %m", path);
 
         r = recurse_fd(TAKE_FD(fd), &st, shift, /* is_toplevel= */ true);
         if (r < 0)
