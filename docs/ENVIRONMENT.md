@@ -388,6 +388,10 @@ All tools:
 * `$SYSTEMD_XKB_DIRECTORY=` — The directory must be absolute and normalized.
   If unset, the default XKB directory (/usr/share/X11/xkb) will be used.
 
+* `$SYSTEMD_LOCALE_DIRECTORY=` — The directory must be absolute and normalized.
+  If unset, the default locale directory of the C library (/usr/lib/locale for
+  glibc and /usr/share/i18n/locales/musl for musl) will be used.
+
 `systemd-resolved`:
 
 * `$SYSTEMD_RESOLVED_SYNTHESIZE_HOSTNAME` — if set to "0", `systemd-resolved`
