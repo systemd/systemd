@@ -641,66 +641,52 @@ sensor:modalias:acpi:KIOX000A:*:dmi:*:svnLAMINA:pnT-1016BNORD:*    # T-1016B.NOR
 #########################################
 # Lenovo
 #########################################
-sensor:modalias:acpi:NCPE0388*:dmi:*:rnLenovoYOGA510-14IKB:*
+
+sensor:modalias:acpi:NCPE0388:*:dmi:*:rnLenovoYOGA510-14IKB:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, 1
 
-sensor:modalias:acpi:BOSC0200*:dmi:*ThinkPadYoga11e3rdGen:*
- ACCEL_MOUNT_MATRIX=0, 1, 0; -1, 0, 0; 0, 0, -1
-
-sensor:modalias:acpi:BOSC0200*:dmi:*:svnLENOVO:*pvrThinkPadYoga11e4thGen:*
+sensor:modalias:acpi:BOSC0200:*:dmi:*:svnLENOVO:*:pvrThinkPadYoga11e3rdGen:*
+sensor:modalias:acpi:BOSC0200:*:dmi:*:svnLENOVO:*:pvrThinkPadYoga11e4thGen:*
  ACCEL_MOUNT_MATRIX=0, 1, 0; -1, 0, 0; 0, 0, -1
 
 # Lenovo ThinkPad Yoga 11e 5th Gen (20LN-S14900)
-sensor:modalias:acpi:BOSC0200*:dmi:*pvrThinkPadYoga11e5thGen:*
+sensor:modalias:acpi:BOSC0200:*:dmi:*:svnLENOVO:*:pvrThinkPadYoga11e5thGen:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, -1
 
-# Miix3-1030
-sensor:modalias:acpi:BMA250E*:dmi:bvnLENOVO:*:pvrLenovoMIIX3-1030:*
+sensor:modalias:acpi:BMA250E:*:dmi:bvnLENOVO:*:pvrLenovoMIIX3-1030:*    # Miix3-1030
+sensor:modalias:acpi:SMO8500:*:dmi:bvnLENOVO:*:pvrMIIX300-*:*           # IdeaPad Miix 300
+# IdeaPad Miix 310 BIOS version bvr1HCN3?WW (variant 3)
+sensor:modalias:acpi:KIOX000A:*:dmi:bvnLENOVO:bvr1HCN3?WW:*:svnLENOVO:pn80SG:*
+# IdeaPad Miix 320, different batches use a different sensor
+sensor:modalias:acpi:BOSC0200:*:dmi:*:svnLENOVO*:pn80XF:*
+sensor:modalias:acpi:SMO8840:*:dmi:*:svnLENOVO:pn80XF:pvrLenovoMIIX320:*
+# IdeaPad Miix 510, multiple expressions match different internal names
+# pn80U1 matches IdeaPad Miix510-12ISK
+sensor:modalias:acpi:BOSC0200:*:dmi:*:svnLENOVO:pn80XE:*
+sensor:modalias:acpi:BOSC0200:*:dmi:*:svnLENOVO:pn80U1:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
-# Miix3-830
-sensor:modalias:acpi:SMO8500*:dmi:bvnLENOVO:*:pvrLenovoMIIX3-830:*
+sensor:modalias:acpi:SMO8500:*:dmi:bvnLENOVO:*:pvrLenovoMIIX3-830:*     # Miix3-830
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
 # IdeaPad D330-10IGM (81H3) and (81MD) product names
 #   Panel mounted at -90º. ACPI in_mount_matrix 0, -1, 0; 1, 0, 0; 0, 0, 1
+sensor:modalias:acpi:BOSC0200:*:dmi:*:svnLENOVO:*:pvrLenovoideapadD330-10IGM:*
 # IdeaPad Duet 3 10IGL5 (82AT) and 10IGL5-LTE (82HK)
 #   Panel mounted at -90º. ACPI in_mount_matrix unknown, if someone knows please report it
-sensor:modalias:acpi:BOSC0200*:dmi:*:svnLENOVO:*:pvrLenovoideapadD330-10IGM:*
-sensor:modalias:acpi:SMO8B30*:dmi:*:svnLENOVO:*:pvrIdeaPadDuet310IGL5*:*
+sensor:modalias:acpi:SMO8B30:*:dmi:*:svnLENOVO:*:pvrIdeaPadDuet310IGL5*:*
+sensor:modalias:platform:HID-SENSOR-200073:dmi:*:svnLENOVO:pn83E1:*     # Legion Go
+sensor:modalias:acpi:ACCL0001:*:dmi:*:svnLENOVO:pn60072:pvr851*:*       # Yoga Tablet 2 851F/L
  ACCEL_MOUNT_MATRIX=0, 1, 0; -1, 0, 0; 0, 0, 1
-
-# IdeaPad Miix 300
-sensor:modalias:acpi:SMO8500*:dmi:bvnLENOVO:*:pvrMIIX300-*:*
- ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
 # IdeaPad Miix 310 note this only is for BIOS version (bvr) 1HCN4?WW and 1HCN2?WW, which has
 # a portrait LCD panel, versions with bvr 1HCN3?WW have a landscape panel
-sensor:modalias:acpi:KIOX000A*:dmi:bvnLENOVO:bvr1HCN4?WW:*:svnLENOVO:pn80SG:*
-sensor:modalias:acpi:KIOX000A*:dmi:bvnLENOVO:bvr1HCN2?WW:*:svnLENOVO:pn80SG:*
+sensor:modalias:acpi:KIOX000A:*:dmi:bvnLENOVO:bvr1HCN4?WW:*:svnLENOVO:pn80SG:*
+sensor:modalias:acpi:KIOX000A:*:dmi:bvnLENOVO:bvr1HCN2?WW:*:svnLENOVO:pn80SG:*
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, -1
 
-# IdeaPad Miix 310 BIOS version bvr1HCN3?WW (variant 3)
-sensor:modalias:acpi:KIOX000A*:dmi:bvnLENOVO:bvr1HCN3?WW:*:svnLENOVO:pn80SG:*
- ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
-
-# IdeaPad Miix 320, different batches use a different sensor
-sensor:modalias:acpi:*BOSC0200*:dmi:*:svnLENOVO*:pn80XF:*
-sensor:modalias:acpi:SMO8840*:dmi:*:svnLENOVO:pn80XF:pvrLenovoMIIX320:*
- ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
-
-# IdeaPad Miix 510, multiple expressions match different internal names
-# pn80U1 matches IdeaPad Miix510-12ISK
-sensor:modalias:acpi:*BOSC0200*:dmi:*:svnLENOVO*:pn80XE:*
-sensor:modalias:acpi:*BOSC0200*:dmi:*:svnLENOVO*:pn80U1:*
- ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
-
-# Legion Go
-sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnLENOVO:pn83E1:*
- ACCEL_MOUNT_MATRIX=0,1,0;-1,0,0;0,0,1
-
 # Yoga 300-11IBR, display sensor
-sensor:modalias:acpi:DUAL250E*:dmi:*:svnLENOVO:*:pvrLenovoYoga300-11IBR:*
+sensor:modalias:acpi:DUAL250E:*:dmi:*:svnLENOVO:*:pvrLenovoYoga300-11IBR:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
  ACCEL_LOCATION=display
 
@@ -708,10 +694,6 @@ sensor:modalias:acpi:DUAL250E*:dmi:*:svnLENOVO:*:pvrLenovoYoga300-11IBR:*
 sensor:modalias:i2c:bmc150_accel:dmi:*:svnLENOVO:*:pvrLenovoYoga300-11IBR:*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, 1, 0; 0, 0, -1
  ACCEL_LOCATION=base
-
-# Yoga Tablet 2 851F/L
-sensor:modalias:acpi:ACCL0001*:dmi:*:svnLENOVO:pn60072:pvr851*:*
- ACCEL_MOUNT_MATRIX=0, 1, 0; -1, 0, 0; 0, 0, 1
 
 #########################################
 # LINX
