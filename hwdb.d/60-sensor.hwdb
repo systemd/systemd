@@ -189,33 +189,16 @@ sensor:modalias:acpi:SMO8500:*:dmi:*:svnStandard:pnWCBT1011:*
 # AYANEO
 #########################################
 
-# AYANEO 2021, 2021 Pro, 2021 Pro Retro Power
-sensor:modalias:acpi:10EC5280*:dmi:*:svnAYANEO:pn*2021*:*
- ACCEL_MOUNT_MATRIX=-0, -1, 0; 0, 0, -1; 1, 0, 0
+sensor:modalias:acpi:10EC5280:*:dmi:*:svnAYANEO:pn*2021*:*      # 2021, 2021 Pro, 2021 Pro Retro Power
+sensor:modalias:acpi:BMI0160:*:dmi:*:svnAYANEO:pnAYANEO2*:*     # 2, 2S
+sensor:modalias:acpi:BMI0160:*:dmi:*:svnAYANEO:pnAIR*:*         # AIR, AIR Pro, and 1S
+sensor:modalias:acpi:BMI0160:*:dmi:*:svnAYANEO:pnFLIP*:*        # FLIP DS, FLIP KB
+sensor:modalias:acpi:BMI0160:*:dmi:*:svnAYANEO:pnGEEK*:*        # GEEK, GEEK 1S
+sensor:modalias:acpi:BMI0160:*:dmi:*:svnAYANEO:pn*NEXT*:*       # NEXT, NEXT Lite, NEXT Advance, NEXT Pro
+ ACCEL_MOUNT_MATRIX=0, -1, 0; 0, 0, -1; 1, 0, 0
 
-# AYANEO 2, 2S
-sensor:modalias:acpi:BMI0160*:dmi:*:svnAYANEO:pnAYANEO 2*:*
- ACCEL_MOUNT_MATRIX=-0, -1, 0; 0, 0, -1; 1, 0, 0
-
-# AYANEO AIR, AIR Pro, and 1S
-sensor:modalias:acpi:BMI0160*:dmi:*:svnAYANEO:pnAIR*:*
- ACCEL_MOUNT_MATRIX=-0, -1, 0; 0, 0, -1; 1, 0, 0
-
-# AYANEO AIR Plus AMD, Plus Mendocino, and Plus Intel
-sensor:modalias:acpi:BOSC0200*:dmi:*:svnAYANEO:pnAIR Plus*:*
- ACCEL_MOUNT_MATRIX=-0, -1, 0; 0, 0, 1; -1, 0, 0
-
-# AYANEO FLIP DS, FLIP KB
-sensor:modalias:acpi:BMI0160*:dmi:*:svnAYANEO:pnFLIP**:*
- ACCEL_MOUNT_MATRIX=-0, -1, 0; 0, 0, -1; 1, 0, 0
-
-# AYANEO GEEK, GEEK 1S
-sensor:modalias:acpi:BMI0160*:dmi:*:svnAYANEO:pnAYANEO GEEK*:*
- ACCEL_MOUNT_MATRIX=-0, -1, 0; 0, 0, -1; 1, 0, 0
-
-# AYANEO NEXT, NEXT Lite, NEXT Advance, and NEXT Pro
-sensor:modalias:acpi:BMI0160*:dmi:*:svnAYANEO:pn*NEXT*:*
- ACCEL_MOUNT_MATRIX=-0, -1, 0; 0, 0, -1; 1, 0, 0
+sensor:modalias:acpi:BOSC0200:*:dmi:*:svnAYANEO:pnAIRPlus*:*    # AIR Plus AMD, Plus Mendocino, Plus Intel
+ ACCEL_MOUNT_MATRIX=0, -1, 0; 0, 0, 1; -1, 0, 0
 
 #########################################
 # BMAX
