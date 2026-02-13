@@ -2886,7 +2886,7 @@ static void service_enter_refresh_credentials(Service *s) {
                                           FORK_ALLOW_DLOPEN, /* allow loading libacl to avoid doing so in pid1 */
                                           &worker);
         if (r < 0) {
-                log_unit_error_errno(UNIT(s), r, "Failed to fork process to refresh credentials in unit's namespace: %m");
+                log_unit_error_errno(UNIT(s), r, "Failed to fork process to refresh credentials: %m");
                 goto fail;
         }
         if (r == 0) {
@@ -3917,7 +3917,7 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
         else if (streq(key, "refreshed-mask")) {
                 r = service_refresh_on_reload_from_string_many(value, &s->refreshed_mask);
                 if (r < 0)
-                        log_unit_debug_errno(u, r, "Failed to parse refresh-mask value: %s", value);
+                        log_unit_debug_errno(u, r, "Failed to parse refreshed-mask value: %s", value);
         } else
                 log_unit_debug(u, "Unknown serialization key: %s", key);
 

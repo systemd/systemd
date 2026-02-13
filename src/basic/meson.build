@@ -124,7 +124,7 @@ sources += basic_sources
 
 generated_gperf_headers = []
 foreach item : [
-        # name,        source,             prefix,    headers
+        # name,             source,             prefix,    headers
         ['af',              af_sources,         '',        ['<sys/socket.h>'],       ],
         ['arphrd',          arphrd_sources,     'ARPHRD_', ['<linux/if_arp.h>'],     ],
         ['capability',      capability_sources, '',        ['<linux/capability.h>'], ],
