@@ -292,6 +292,71 @@ STATIC_DESTRUCTOR_REGISTER(arg_settings_filename, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_background, freep);
 
+static int parse_private_users(
+                const char *s,
+                UserNamespaceMode *ret_userns_mode,
+                uid_t *ret_uid_shift,
+                uid_t *ret_uid_range) {
+
+        int boolean, r;
+
+        assert(ret_userns_mode);
+        assert(ret_uid_shift);
+        assert(ret_uid_range);
+
+        if (!s)
+                boolean = true;
+        else if (!in_charset(s, DIGITS))
+                /* do *not* parse numbers as booleans */
+                boolean = parse_boolean(s);
+        else
+                boolean = -1;
+
+        if (boolean == 0) {
+                /* no: User namespacing off */
+                *ret_userns_mode = USER_NAMESPACE_NO;
+                *ret_uid_shift = UID_INVALID;
+                *ret_uid_range = UINT32_C(0x10000);
+
+        } else if (boolean > 0) {
+                /* yes: User namespacing on, UID range is read from root dir */
+                *ret_userns_mode = USER_NAMESPACE_FIXED;
+                *ret_uid_shift = UID_INVALID;
+                *ret_uid_range = UINT32_C(0x10000);
+
+        } else if (streq(s, "pick")) {
+                /* pick: User namespacing on, UID range is picked randomly */
+                *ret_userns_mode = USER_NAMESPACE_PICK; /* Note that arg_userns_ownership is
+                                                         * implied by USER_NAMESPACE_PICK
+                                                         * further down. */
+                *ret_uid_shift = UID_INVALID;
+                *ret_uid_range = UINT32_C(0x10000);
+
+        } else if (streq(s, "identity")) {
+                /* identity: User namespaces on, UID range is map of the 0…0xFFFF range to
+                 * itself, i.e. we don't actually map anything, but do take benefit of
+                 * isolation of capability sets. */
+                *ret_userns_mode = USER_NAMESPACE_FIXED;
+                *ret_uid_shift = 0;
+                *ret_uid_range = UINT32_C(0x10000);
+
+        } else if (streq(optarg, "managed")) {
+                /* managed: User namespace on, and acquire it from systemd-nsresourced */
+                *ret_userns_mode = USER_NAMESPACE_MANAGED;
+                *ret_uid_shift = UID_INVALID;
+                *ret_uid_range = UINT32_C(0x10000);
+
+        } else {
+                /* anything else: User namespacing on, UID range is explicitly configured */
+                r = parse_userns_uid_range(optarg, ret_uid_shift, ret_uid_range);
+                if (r < 0)
+                        return r;
+                *ret_userns_mode = USER_NAMESPACE_FIXED;
+        }
+
+        return 0;
+}
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -942,31 +1007,23 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 case 'M':
-                        if (isempty(optarg))
-                                arg_machine = mfree(arg_machine);
-                        else {
-                                if (!hostname_is_valid(optarg, 0))
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "Invalid machine name: %s", optarg);
+                        if (!isempty(optarg) && !hostname_is_valid(optarg, /* flags= */ 0))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Invalid machine name: %s", optarg);
 
-                                r = free_and_strdup(&arg_machine, optarg);
-                                if (r < 0)
-                                        return log_oom();
-                        }
+                        r = free_and_strdup_warn(&arg_machine, optarg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_HOSTNAME:
-                        if (isempty(optarg))
-                                arg_hostname = mfree(arg_hostname);
-                        else {
-                                if (!hostname_is_valid(optarg, 0))
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "Invalid hostname: %s", optarg);
+                        if (!isempty(optarg) && !hostname_is_valid(optarg, /* flags= */ 0))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Invalid hostname: %s", optarg);
 
-                                r = free_and_strdup(&arg_hostname, optarg);
-                                if (r < 0)
-                                        return log_oom();
-                        }
+                        r = free_and_strdup_warn(&arg_hostname, optarg);
+                        if (r < 0)
+                                return r;
 
                         arg_settings_mask |= SETTING_HOSTNAME;
                         break;
@@ -1141,58 +1198,13 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
-                case ARG_PRIVATE_USERS: {
-                        int boolean;
-
-                        if (!optarg)
-                                boolean = true;
-                        else if (!in_charset(optarg, DIGITS))
-                                /* do *not* parse numbers as booleans */
-                                boolean = parse_boolean(optarg);
-                        else
-                                boolean = -1;
-
-                        if (boolean == 0) {
-                                /* no: User namespacing off */
-                                arg_userns_mode = USER_NAMESPACE_NO;
-                                arg_uid_shift = UID_INVALID;
-                                arg_uid_range = UINT32_C(0x10000);
-                        } else if (boolean > 0) {
-                                /* yes: User namespacing on, UID range is read from root dir */
-                                arg_userns_mode = USER_NAMESPACE_FIXED;
-                                arg_uid_shift = UID_INVALID;
-                                arg_uid_range = UINT32_C(0x10000);
-                        } else if (streq(optarg, "pick")) {
-                                /* pick: User namespacing on, UID range is picked randomly */
-                                arg_userns_mode = USER_NAMESPACE_PICK; /* Note that arg_userns_ownership is
-                                                                        * implied by USER_NAMESPACE_PICK
-                                                                        * further down. */
-                                arg_uid_shift = UID_INVALID;
-                                arg_uid_range = UINT32_C(0x10000);
-
-                        } else if (streq(optarg, "identity")) {
-                                /* identity: User namespaces on, UID range is map of the 0…0xFFFF range to
-                                 * itself, i.e. we don't actually map anything, but do take benefit of
-                                 * isolation of capability sets. */
-                                arg_userns_mode = USER_NAMESPACE_FIXED;
-                                arg_uid_shift = 0;
-                                arg_uid_range = UINT32_C(0x10000);
-                        } else if (streq(optarg, "managed")) {
-                                /* managed: User namespace on, and acquire it from systemd-nsresourced */
-                                arg_userns_mode = USER_NAMESPACE_MANAGED;
-                                arg_uid_shift = UID_INVALID;
-                                arg_uid_range = UINT32_C(0x10000);
-                        } else {
-                                /* anything else: User namespacing on, UID range is explicitly configured */
-                                r = parse_userns_uid_range(optarg, &arg_uid_shift, &arg_uid_range);
-                                if (r < 0)
-                                        return r;
-                                arg_userns_mode = USER_NAMESPACE_FIXED;
-                        }
+                case ARG_PRIVATE_USERS:
+                        r = parse_private_users(optarg, &arg_userns_mode, &arg_uid_shift, &arg_uid_range);
+                        if (r < 0)
+                                return r;
 
                         arg_settings_mask |= SETTING_USERNS;
                         break;
-                }
 
                 case 'U':
                         if (userns_supported()) {
