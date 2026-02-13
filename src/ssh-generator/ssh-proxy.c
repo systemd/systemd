@@ -268,7 +268,7 @@ static int fetch_machine(const char *machine, RuntimeScope scope, sd_json_varian
         assert(ret);
 
         _cleanup_free_ char *addr = NULL;
-        r = runtime_directory_generic(scope, "machine/io.systemd.Machine", &addr);
+        r = runtime_directory_generic(scope, "systemd/machine/io.systemd.Machine", &addr);
         if (r < 0)
                 return r;
 
