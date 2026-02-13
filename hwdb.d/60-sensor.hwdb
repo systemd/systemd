@@ -867,8 +867,6 @@ sensor:modalias:acpi:BOSC0200*:dmi:bvnAmericanMegatrendsInc.:bvr5.12:bd10/26/201
 
 # One-netbook OneMix 3 Pro
 sensor:modalias:acpi:BOSC0200*:dmi:*svnONE-NETBOOKTECHNOLOGYCO*:pnOne-Mix3Pro:*
- ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
-
 # One-netbook OneMix 3s
 # OneMix 3s has no product name filled, matching entire dmi-alias
 # '*' in ":*svn" is there because kernels >= 5.8 have inserted a br field there
