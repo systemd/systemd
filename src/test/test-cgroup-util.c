@@ -246,7 +246,10 @@ TEST(proc, .sd_booted = true) {
                 _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
                 uid_t uid = UID_INVALID;
 
-                ASSERT_OK(r = proc_dir_read_pidref(d, &pid));
+                r = proc_dir_read_pidref(d, &pid);
+                if (r == -EINVAL) /* Can happen if we pick a non-thread-group leader */
+                        continue;
+                ASSERT_OK(r);
                 if (r == 0)
                         break;
 
