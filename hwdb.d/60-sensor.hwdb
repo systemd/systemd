@@ -226,110 +226,67 @@ sensor:modalias:acpi:KIOX000A:*:dmi:*:svnBUSH:pnBushWindowstablet:*    # Bush Wi
 #########################################
 # Chuwi
 #########################################
+# Notice to remember lookup for sku values now that we have that field in dmi in
+# order to search the simplicity of too generic strings.
 
-# Chuwi Vi8 (CWI506)
-sensor:modalias:acpi:BMA250E*:dmi:bvnINSYDECorp.:bvrCHUWI.D86JLBNR*:svnInsyde:pni86:*
+sensor:modalias:acpi:BMA250E:*:dmi:bvnINSYDECorp.:bvrCHUWI.D86JLBNR*:svnInsyde:pni86:*       # Vi8 (CWI506)
+sensor:modalias:acpi:BOSC0200:*:dmi:*:svnHampoo:pnD2D3_Vi8A1:*                               # Vi8 Plus (CWI519)
+sensor:modalias:acpi:BOSC0200:*:dmi:*:svnHampoo:pnX1D3_C806N:*                               # Hi8 Pro (CWI513)
+# Hi10 (CWI515)
+sensor:modalias:acpi:BOSC0200:*:dmi:bvnAmericanMegatrendsInc.:bvr5.11:*:svnDefaultstring:pnDefaultstring:*
+# Hi10 (CWI1515)
+sensor:modalias:acpi:BOSC0200:*:dmi:bvnAmericanMegatrendsInc.:bvrP02A_C106.60E:*:svnDefaultstring:pnDefaultstring:*
+sensor:modalias:acpi:BOSC0200:*:dmi:*:svn*CHUWIINNOVATIONANDTECHNOLOGY*:pnHi10protablet:*    # Hi10 Pro (CWI529)
+sensor:modalias:acpi:KIOX000A:*:dmi:*:svnCHUWIInnovationAndTechnology*:pnHi10X:*             # Hi10 X (N4120 processor version)
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
-# Chuwi Vi8 Plus (CWI519)
-sensor:modalias:acpi:BOSC0200*:dmi:*:svnHampoo:pnD2D3_Vi8A1:*
- ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
-
-# Chuwi Vi10 (CWI505)
-sensor:modalias:acpi:BMA250E*:dmi:bvnINSYDECorp.:bvrG1D_S165*:svnilife:pnS165:*
+sensor:modalias:acpi:BMA250E:*:dmi:bvnINSYDECorp.:bvrG1D_S165*:svnilife:pnS165:*             # Vi10 (CWI505)
+sensor:modalias:acpi:MXC6655:*:dmi:*:svnCHUWIInnovationAndTechnology*:pnHi10X:*              # Hi10 X
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
 
-# Chuwi Hi8 (CWI509)
-sensor:modalias:acpi:BMA250E*:dmi:*svnilife*:pnS806:*
- ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
-
-# Chuwi Hi8 Pro (CWI513)
-sensor:modalias:acpi:BOSC0200*:dmi:*:svnHampoo:pnX1D3_C806N:*
- ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
-
-# Chuwi Hi10 (CWI515)
-sensor:modalias:acpi:BOSC0200*:dmi:bvnAmericanMegatrendsInc.:bvr5.11:*:svnDefaultstring:pnDefaultstring:*
- ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
-
-# Chuwi Hi10 (CWI1515)
-sensor:modalias:acpi:BOSC0200*:dmi:bvnAmericanMegatrendsInc.:bvrP02A_C106.60E:*:svnDefaultstring:pnDefaultstring:*
- ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
-
-# Chuwi Hi10 Plus (CWI527)
-sensor:modalias:acpi:BOSC0200*:dmi:*:svnCHUWIINNOVATIONANDTECHNOLOGY*:pnHi10plustablet:*
- ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
-
-# Chuwi Hi10 Pro (CWI529)
-sensor:modalias:acpi:BOSC0200*:dmi:*:svn*CHUWIINNOVATIONANDTECHNOLOGY*:pnHi10protablet:*
- ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
-
-# Chuwi Hi10 X
-sensor:modalias:acpi:MXC6655*:dmi:*:svnCHUWIInnovationAndTechnology*:pnHi10X:*
- ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
-
-# Chuwi Hi10 X (N4120 processor version)
-sensor:modalias:acpi:KIOX000A*:dmi:*:svnCHUWIInnovationAndTechnology*:pnHi10X:*
- ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
-
-# Chuwi Hi10 X1
-sensor:modalias:acpi:NSA2513*:dmi:*:svnCHUWIInnovationAndTechnology*:pnHi10X1:*
- ACCEL_MOUNT_MATRIX=0, 1, 0; -1, 0, 0; 0, 0, 1
-
-# Chuwi Hi10 Go
-sensor:modalias:acpi:MXC6655*:dmi:*:svnCHUWIINNOVATIONLIMITED:pnHi10Go:*
- ACCEL_MOUNT_MATRIX=-1, 0, 0; 0,-1, 0; 0, 0, 1
-
-# Chuwi Hi10 Max
-sensor:modalias:acpi:MXC6655*:dmi:*:svnCHUWIInnovationAndTechnology*:pnHi10Max:*
- ACCEL_MOUNT_MATRIX=0, -1, 0; 1, 0, 0; 0, 0, 1
-
-# Chuwi Hi12
-sensor:modalias:acpi:BOSC0200*:dmi:*:svnHampoo:pnP02BD6_HI-122LP:*
-sensor:modalias:acpi:BOSC0200*:dmi:*:svnDefaultstring:pnDefaultstring:*
-sensor:modalias:acpi:BOSC0200*:dmi:*:svnHampoo:pnE4D6_HI-122LP:*
- ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
-
-# Chuwi Hi13
-sensor:modalias:acpi:KIOX000A*:dmi:*:svnChuwi*:pnHi13:*
- ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
-
-# Chuwi Hi13 (CWI534) with BMA250 sensor
-# Note this sets the norm matrix, since the matrix which the kernel reads
-# from the ACPI tables is actually wrong on these models
-sensor:modalias:acpi:BOSC0200*:dmi:*:svnChuwi*:pnHi13:*
- ACCEL_MOUNT_MATRIX=1, 0, 0; 0, 1, 0; 0, 0, 1
-
-# Chuwi HiBook
-# Chuwi HiBook does not have its product name filled, so we
+sensor:modalias:acpi:BMA250E:*:dmi:*svnilife*:pnS806:*                                       # Hi8 (CWI509)
+sensor:modalias:acpi:BOSC0200:*:dmi:*:svnCHUWIINNOVATIONANDTECHNOLOGY*:pnHi10plustablet:*    # Hi10 Plus (CWI527)
+sensor:modalias:acpi:BOSC0200:*:dmi:*:svnHampoo:pnP02BD6_HI-122LP:*                          # Hi12
+# FIXME: Too generic dmi string.
+sensor:modalias:acpi:BOSC0200:*:dmi:*:svnDefaultstring:pnDefaultstring:*                     # Hi12
+sensor:modalias:acpi:BOSC0200:*:dmi:*:svnHampoo:pnE4D6_HI-122LP:*                            # Hi12
+sensor:modalias:acpi:KIOX000A:*:dmi:*:svnChuwi*:pnHi13:*                                     # Hi13
+# HiBook
+# HiBook does not have its product name filled, so we
 # match the entire dmi-alias, assuming that the use of a BOSC0200 +
 # bios-version + bios-date combo is unique
 # '*' in ":*svn" is there because kernels >= 5.8 have inserted a br field there
-sensor:modalias:acpi:BOSC0200*:dmi:bvnAmericanMegatrendsInc.:bvr5.11:bd05/07/2016:*svnDefaultstring:pnDefaultstring:pvrDefaultstring:rvnHampoo:rnCherryTrailCR:rvrDefaultstring:cvnDefaultstring:ct3:cvrDefaultstring:*
-sensor:modalias:acpi:BOSC0200*:dmi:bvnAmericanMegatrendsInc.:bvr5.11:bd05/28/2016:*svnDefaultstring:pnDefaultstring:pvrDefaultstring:rvnHampoo:rnCherryTrailCR:rvrDefaultstring:cvnDefaultstring:ct3:cvrDefaultstring:*
+sensor:modalias:acpi:BOSC0200:*:dmi:bvnAmericanMegatrendsInc.:bvr5.11:bd05/07/2016:*svnDefaultstring:pnDefaultstring:pvrDefaultstring:rvnHampoo:rnCherryTrailCR:rvrDefaultstring:cvnDefaultstring:ct3:cvrDefaultstring:*
+sensor:modalias:acpi:BOSC0200:*:dmi:bvnAmericanMegatrendsInc.:bvr5.11:bd05/28/2016:*svnDefaultstring:pnDefaultstring:pvrDefaultstring:rvnHampoo:rnCherryTrailCR:rvrDefaultstring:cvnDefaultstring:ct3:cvrDefaultstring:*
+sensor:modalias:acpi:BOSC0200:*:dmi:*:svnHampoo*:pnP1D6_C109K:*                              # HiBook Pro (CWI526)
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
-# Chuwi HiBook Pro (CWI526)
-sensor:modalias:acpi:BOSC0200*:dmi:*:svnHampoo*:pnP1D6_C109K:*
- ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
+sensor:modalias:acpi:NSA2513:*:dmi:*:svnCHUWIInnovationAndTechnology*:pnHi10X1:*             # Hi10 X1
+ ACCEL_MOUNT_MATRIX=0, 1, 0; -1, 0, 0; 0, 0, 1
 
-# Chuwi CoreBook
-# Chuwi CoreBook does not have its product name filled, so we
+sensor:modalias:acpi:MXC6655:*:dmi:*:svnCHUWIINNOVATIONLIMITED:pnHi10Go:*                    # Hi10 Go
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, 1
+
+sensor:modalias:acpi:MXC6655:*:dmi:*:svnCHUWIInnovationAndTechnology*:pnHi10Max:*            # Hi10 Max
+sensor:modalias:acpi:MDA6655:*:dmi:*:svnCHUWI*:pnFreeBook:*                                  # Freebook N100
+ ACCEL_MOUNT_MATRIX=0, -1, 0; 1, 0, 0; 0, 0, 1
+
+# Hi13 (CWI534) with BMA250 sensor
+# Note this sets the norm matrix, since the matrix which the kernel reads
+# from the ACPI tables is actually wrong on these models
+sensor:modalias:acpi:BOSC0200:*:dmi:*:svnChuwi*:pnHi13:*
+ ACCEL_MOUNT_MATRIX=1, 0, 0; 0, 1, 0; 0, 0, 1
+
+# CoreBook
+# CoreBook does not have its product name filled, so we
 # match the entire dmi-alias
 # '*' in ":*svn" is there because kernels >= 5.8 have inserted a br field there
-sensor:modalias:acpi:BOSC0200*:dmi:bvnAmericanMegatrendsInc.:bvrY13D_KB133.103:bd06/01/2018:*svnHampoo:pnDefaultstring:pvrV100:rvnHampoo:rnY13D_KB133:rvrV100:cvnDefaultstring:ct9:cvrDefaultstring:*
+sensor:modalias:acpi:BOSC0200:*:dmi:bvnAmericanMegatrendsInc.:bvrY13D_KB133.103:bd06/01/2018:*svnHampoo:pnDefaultstring:pvrV100:rvnHampoo:rnY13D_KB133:rvrV100:cvnDefaultstring:ct9:cvrDefaultstring:*
+sensor:modalias:acpi:BOSC0200:*:dmi:*:svnHampoo*:pnC3W6_AP108_4GB:*                          # SurBook Mini (CWI540)
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
-# Chuwi SurBook Mini (CWI540)
-sensor:modalias:acpi:BOSC0200*:dmi:*:svnHampoo*:pnC3W6_AP108_4GB:*
- ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
-
-# Chuwi Ubook X (CWI535)
-sensor:modalias:acpi:MXC6655*:dmi:*:svnCHUWIInnovationAndTechnology*:pnUBookX:*
+sensor:modalias:acpi:MXC6655:*:dmi:*:svnCHUWIInnovationAndTechnology*:pnUBookX:*             # Ubook X (CWI535)
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, -1
-
-# Chuwi Freebook N100
-sensor:modalias:acpi:MDA6655*:dmi:*:svnCHUWI*:pnFreeBook:*
- ACCEL_MOUNT_MATRIX=0, -1, 0;1, 0, 0;0, 0, 1
 
 #########################################
 # Connect
