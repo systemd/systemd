@@ -922,21 +922,21 @@ int maybe_setgroups(size_t size, const gid_t *list) {
         if (size == 0) { /* Dropping all aux groups? */
                 _cleanup_free_ char *gidmap = NULL;
                 r = read_full_file("/proc/self/gid_map", &gidmap, /* ret_size= */ NULL);
+                if (r < 0 && r != -ENOENT)
+                        return r;
                 if (r >= 0 && isempty(gidmap)) {
                         log_debug("Skipping setgroups(), /proc/self/gid_map is empty");
                         return 0;
                 }
-                if (r < 0 && r != -ENOENT)
-                        return r;
 
                 _cleanup_free_ char *setgroups_content = NULL;
                 r = read_one_line_file("/proc/self/setgroups", &setgroups_content);
-                if (r >= 0 && streq(setgroups_content, "deny")) {
+                if (r < 0 && r != -ENOENT)
+                        return r;
+                if (r > 0 && streq(setgroups_content, "deny")) {
                         log_debug("Skipping setgroups(), /proc/self/setgroups is set to 'deny'");
                         return 0;
                 }
-                if (r < 0 && r != -ENOENT)
-                        return r;
         }
 
         return RET_NERRNO(setgroups(size, list));
