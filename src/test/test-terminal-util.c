@@ -12,6 +12,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "stat-util.h"
 #include "strv.h"
@@ -422,4 +423,15 @@ TEST(terminal_new_session) {
         }
 }
 
-DEFINE_TEST_MAIN(LOG_INFO);
+TEST(openpt_allocate_in_namespace) {
+        _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
+
+        ASSERT_OK(pidref_safe_fork(
+                        "test-openpt-ns",
+                        FORK_NEW_USERNS|FORK_NEW_MOUNTNS|FORK_LOG|FORK_FREEZE|FORK_DEATHSIG_SIGKILL,
+                        &pidref));
+
+        safe_close(ASSERT_OK(openpt_allocate_in_namespace(&pidref, O_RDWR|O_NOCTTY|O_CLOEXEC, true, NULL)));
+}
+
+DEFINE_TEST_MAIN(LOG_DEBUG);
