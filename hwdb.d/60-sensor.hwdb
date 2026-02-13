@@ -578,20 +578,16 @@ sensor:modalias:acpi:BMA250:*:dmi:*:bvritWORKS.G.WI71C.JGBMRB*:*:svnInsyde:pni71
 # Irbis
 #########################################
 
-#TW43
-sensor:modalias:acpi:BMA250E*:dmi:*:svnIRBIS:pnTW43:*
+sensor:modalias:acpi:BMA250E:*:dmi:*:svnIRBIS:pnTW43:*      # TW43
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, -1
 
-#TW90
-sensor:modalias:acpi:BOSC0200*:dmi:*:svnIRBIS:pnTW90:*
+sensor:modalias:acpi:BOSC0200:*:dmi:*:svnIRBIS:pnTW90:*     # TW90
  ACCEL_MOUNT_MATRIX=0, 1, 0; -1, 0, 0; 0, 0, 1
 
-# NB111
-sensor:modalias:acpi:KIOX010A*:dmi:*svn*IRBIS*:*pn*NB111:*
+sensor:modalias:acpi:KIOX010A:*:dmi:*:svnIRBIS:pnNB111:*    # NB111
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
 
-#TW118
-sensor:modalias:acpi:BOSC0200*:dmi:*:svnIRBIS:pnTW118:*
+sensor:modalias:acpi:BOSC0200:*:dmi:*:svnIRBIS:pnTW118:*    # TW118
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
 #########################################
