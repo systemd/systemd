@@ -978,58 +978,35 @@ sensor:modalias:acpi:BOSC0200*:dmi:bvnAmericanMegatrendsInc.:bvrSCH12i.WJ210Z.Kt
 #########################################
 # Teclast
 #########################################
-# Teclast F5
-sensor:modalias:acpi:KIOX010A*:dmi:*:svnTECLAST:pnF5:*
+
+sensor:modalias:acpi:KIOX010A:*:dmi:*:svnTECLAST:pnF5:*                    # F5
+sensor:modalias:acpi:KIOX000A:*:dmi:*:svnTECLAST:pnX4:*                    # X4 2-in-1 (G4M6)
+# FIXME: Too generic DMI match
+sensor:modalias:acpi:KIOX000A:*:dmi:*:svnTECLAST:pnDefaultstring:*         # X80 Plus (H5C5)
+sensor:modalias:acpi:KIOX000A:*:dmi:*:svnTECLAST:pnX80Pro:*                # X80 Pro (E3E6)
+# X98 Plus I (A5C6), generic DMI strings, match entire dmi modalias inc. bios-date
+# '*' in ":*svn" is there because kernels >= 5.8 have inserted a br field there
+sensor:modalias:acpi:KIOX000A:*:dmi:bvnAmericanMegatrendsInc.:bvr5.011:bd11/03/2015:*svnTobefilledbyO.E.M.:pnTobefilledbyO.E.M.:pvrTobefilledbyO.E.M.:rvnAMICorporation:rnCherryTrailCR:rvrTobefilledbyO.E.M.:cvnToBeFilledByO.E.M.:ct3:cvrToBeFilledByO.E.M.:*
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
 
-# Teclast F6 Pro (2 sensors)
-sensor:modalias:acpi:KIOX010A*:dmi:*:svnTECLAST:pnF6Pro:*
+sensor:modalias:acpi:KIOX010A:*:dmi:*:svnTECLAST:pnF6Pro:*                 # F6 Pro, display sensor
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, -1
  ACCEL_LOCATION=display
 
-sensor:modalias:acpi:KIOX020A*:dmi:*:svnTECLAST:pnF6Pro:*
+sensor:modalias:acpi:KIOX020A:*:dmi:*:svnTECLAST:pnF6Pro:*                 # F6 Pro, base sensor
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
  ACCEL_LOCATION=base
 
-# Teclast Tbook 11 (E5A6)
-sensor:modalias:acpi:KIOX000A*:dmi:*:svnTECLAST:pnTbooK11:*
+sensor:modalias:acpi:KIOX000A:*:dmi:*:svnTECLAST:pnTbooK11:*               # Tbook 11 (E5A6)
+sensor:modalias:acpi:KIOX000A:*:dmi:*svnTECLAST:pnX3Plus:*:skuG4K3_A1:*    # X3 Plus (G4K3)
+# X89 (E7ED), "tPAD" is too generic also match on BIOS date
+sensor:modalias:acpi:SMO8500:*:dmi:*bd12/19/2014:*:rvnTECLAST:rntPAD:*
+# X98 Air 3G (C5J6), "tPAD" is too generic also match on newest BIOS date
+sensor:modalias:acpi:SMO8500:*:dmi:*bd05/05/2015:*:rvnTECLAST:rntPAD:*
+sensor:modalias:acpi:KIOX000A:*:dmi:*:svnTECLAST:pnX98PlusII:*             # X98 Plus II
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
-# Teclast X3 Plus (G4K3)
-sensor:modalias:acpi:KIOX000A*:dmi:*svnTECLAST:pnX3Plus:*:skuG4K3_A1:*
- ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
-
-# Teclast X4 2-in-1 (G4M6)
-sensor:modalias:acpi:KIOX000A*:dmi:*:svnTECLAST:pnX4:*
- ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
-
-# Teclast X80 Plus (H5C5)
-sensor:modalias:acpi:KIOX000A*:dmi:*:svnTECLAST:pnDefaultstring:*
- ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
-
-# Teclast X80 Pro (E3E6)
-sensor:modalias:acpi:KIOX000A*:dmi:*:svnTECLAST:pnX80Pro:*
- ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
-
-# Teclast X89 (E7ED), "tPAD" is too generic also match on BIOS date
-sensor:modalias:acpi:SMO8500*:dmi:*bd12/19/2014:*:rvnTECLAST:rntPAD:*
- ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
-
-# Teclast X98 Air 3G (C5J6), "tPAD" is too generic also match on newest BIOS date
-sensor:modalias:acpi:SMO8500*:dmi:*bd05/05/2015:*:rvnTECLAST:rntPAD:*
- ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
-
-# Teclast X98 Plus I (A5C6), generic DMI strings, match entire dmi modalias inc. bios-date
-# '*' in ":*svn" is there because kernels >= 5.8 have inserted a br field there
-sensor:modalias:acpi:KIOX000A*:dmi:bvnAmericanMegatrendsInc.:bvr5.011:bd11/03/2015:*svnTobefilledbyO.E.M.:pnTobefilledbyO.E.M.:pvrTobefilledbyO.E.M.:rvnAMICorporation:rnCherryTrailCR:rvrTobefilledbyO.E.M.:cvnToBeFilledByO.E.M.:ct3:cvrToBeFilledByO.E.M.:*
- ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
-
-# Teclast X98 Plus II
-sensor:modalias:acpi:KIOX000A*:dmi:*:svnTECLAST:pnX98PlusII:*
- ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
-
-# Teclast X98 Pro
-sensor:modalias:acpi:BMA250E*:dmi:*:svnTECLAST:pnX98Pro:*
+sensor:modalias:acpi:BMA250E:*:dmi:*:svnTECLAST:pnX98Pro:*                 # X98 Pro
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
 #########################################
