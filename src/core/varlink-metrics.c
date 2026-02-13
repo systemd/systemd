@@ -178,10 +178,10 @@ const MetricFamily metric_family_table[] = {
         {}
 };
 
-int vl_method_describe(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+int vl_method_describe_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         return metrics_method_describe(metric_family_table, link, parameters, flags, userdata);
 }
 
-int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+int vl_method_list_metrics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         return metrics_method_list(metric_family_table, link, parameters, flags, userdata);
 }
