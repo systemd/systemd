@@ -382,11 +382,15 @@ All tools:
 
 * `$SYSTEMD_KEYMAP_DIRECTORIES=` — takes a colon (`:`) separated list of keymap
   directories. The directories must be absolute and normalized. If unset, the
-  default keymap directories (/usr/share/keymaps/, /usr/share/kbd/keymaps/, and
-  /usr/lib/kbd/keymaps/) will be used.
+  default keymap directories (`/usr/share/keymaps/`, `/usr/share/kbd/keymaps/`,
+  and `/usr/lib/kbd/keymaps/`) will be used.
 
-* `$SYSTEMD_XKB_DIRECTORY=` — The directory must be absolute and normalized.
-  If unset, the default XKB directory (/usr/share/X11/xkb) will be used.
+* `$SYSTEMD_XKB_DIRECTORY=` — The directory must be absolute and normalized. If
+  unset, the default XKB directory (`/usr/share/X11/xkb/`) will be used.
+
+* `$SYSTEMD_LOCALE_DIRECTORY=` — The directory must be absolute and normalized.
+  If unset, the default locale directory of the C library (`/usr/lib/locale/`
+  for glibc and `/usr/share/i18n/locales/musl/` for musl) will be used.
 
 `systemd-resolved`:
 
