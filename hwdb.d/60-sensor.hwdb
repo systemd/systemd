@@ -601,20 +601,17 @@ sensor:modalias:acpi:KIOX000A:*:dmi:*:svniOTA:pnIOTA2210:*    # 360
 # Jumper
 #########################################
 
-# EZpad mini 3
-sensor:modalias:acpi:BOSC0200*:dmi:bvnINSYDECorp.:bvrjumperx.T87.KFBNEE:*
+sensor:modalias:acpi:BOSC0200:*:dmi:bvnINSYDECorp.:bvrjumperx.T87.KFBNEE:*                # EZpad mini 3
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
-# EZpad 6 Pro
-sensor:modalias:acpi:BOSC0200*:dmi:*:svnJumper:pnEZpad:*:rvr.A006:*
+sensor:modalias:acpi:BOSC0200:*:dmi:*:svnJumper:pnEZpad:*:rvr.A006:*                      # EZpad 6 Pro
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, 1
 
-# EZpad 7
-sensor:modalias:acpi:KIOX0009*:dmi:*:bvrJumper12x.WJ2012.bsBKRCP*:svnJumper:pnEZpad:*
+sensor:modalias:acpi:KIOX0009:*:dmi:*:bvrJumper12x.WJ2012.bsBKRCP*:svnJumper:pnEZpad:*    # EZpad 7
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
 # EZpad Go
-sensor:modalias:acpi:KIOX000A*:dmi:bvnAmericanMegatrendsInc.:*:svnjumper:pnEZpad:*:ct31:*
+sensor:modalias:acpi:KIOX000A:*:dmi:bvnAmericanMegatrendsInc.:bvrZB-BI-11.6-SF133AR200-059-J:*:svnjumper:pnEZpad:*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
 #########################################
