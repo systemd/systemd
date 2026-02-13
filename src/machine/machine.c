@@ -858,7 +858,11 @@ int machine_openpt(Machine *m, int flags, char **ret_peer) {
                 if (!pidref_is_set(&m->leader))
                         return -EINVAL;
 
-                return openpt_allocate_in_namespace(&m->leader, flags, ret_peer);
+                return openpt_allocate_in_namespace(
+                                &m->leader,
+                                flags,
+                                /* delegated= */ m->manager->runtime_scope == RUNTIME_SCOPE_USER,
+                                ret_peer);
 
         default:
                 return -EOPNOTSUPP;

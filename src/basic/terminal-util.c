@@ -1659,6 +1659,7 @@ static int ptsname_namespace(int pty, char **ret) {
 int openpt_allocate_in_namespace(
                 const PidRef *pidref,
                 int flags,
+                bool delegated,
                 char **ret_peer_path) {
 
         _cleanup_close_ int pidnsfd = -EBADF, mntnsfd = -EBADF, usernsfd = -EBADF, rootfd = -EBADF, fd = -EBADF;
@@ -1672,15 +1673,18 @@ int openpt_allocate_in_namespace(
         if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, pair) < 0)
                 return -errno;
 
-        r = namespace_fork(
+        r = namespace_fork_full(
                         "(sd-openptns)",
                         "(sd-openpt)",
+                        /* except_fds= */ NULL,
+                        /* n_except_fds= */ 0,
                         FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_WAIT,
                         pidnsfd,
                         mntnsfd,
                         /* netns_fd= */ -EBADF,
                         usernsfd,
                         rootfd,
+                        delegated,
                         /* ret= */ NULL);
         if (r < 0)
                 return r;
