@@ -133,58 +133,51 @@ sensor:modalias:acpi:KIOX000A:*:dmi:*:svnARCHOS:pnARCHOS101CesiumEduc:*    # 101
 #########################################
 # AsusTek
 #########################################
-sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:*pnT100CHI:*
- ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
+# With Asus is better to match system vendor plus board product name because
+# while system product name is usually the same, sometimes the match is part of
+# a very long string, so with board we don't need to wildcard.
 
-sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:pnT300CHI:*
- ACCEL_MOUNT_MATRIX=0, -1, 0; 1, 0, 0; 0, 0, 1
-
-sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:*pnM80TA:*
-sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:*pnT100TA:*
-sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:*pnT100TAF:*
-sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:*pnT100TAM:*
-sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:*pnT100TAS:*
-sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:pnT200TA:*
- ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
-
-sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:*pnTP201SA:*
-sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:pn*E205SA:*
- ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
-
-sensor:modalias:acpi:INVN6500*:dmi:*svn*ASUSTeK*:*pn*TP300LA:*
-sensor:modalias:acpi:INVN6500*:dmi:*svn*ASUSTeK*:*pn*TP300LD:*
- ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
-
-sensor:modalias:acpi:INVN6500*:dmi:*svnASUSTeK*:*pn*Q5??L*:*
- ACCEL_MOUNT_MATRIX=0, 1, 0; -1, 0, 0; 0, 0, 1
-
-sensor:modalias:acpi:KXJ2109*:dmi:*:svnASUSTeK*:pnME176C:*
- ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
-
-sensor:modalias:acpi:SMO8500*:dmi:*svn*ASUSTeK*:*pn*TP300LJ:*
- ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
-
-sensor:modalias:acpi:SMO8500*:dmi:*svn*ASUSTeK*:*pn*TP500LAB:*
-sensor:modalias:acpi:SMO8500*:dmi:*svn*ASUSTeK*:*pn*TP500LB:*
-sensor:modalias:acpi:SMO8500*:dmi:*svn*ASUSTeK*:*pn*TP550LA:*
- ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
-
-sensor:modalias:acpi:SMO8500*:dmi:*svn*ASUSTeK*:*pn*TP300LD:*
-sensor:modalias:acpi:SMO8500*:dmi:*svn*ASUSTeK*:*pn*TP300LAB:*
- ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
-
-sensor:modalias:acpi:BOSC0200*:dmi:*svn*ASUSTeK*:*pn*TP412UA:*
- ACCEL_MOUNT_MATRIX=0, -1, 0; 1, 0, 0; 0, 0, 1
-
-# ASUS ROG Ally X (2024)
-sensor:modalias:acpi:BOSC0200*:dmi:*svn*ASUSTeK*:*pn*RC72LA:*
- ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, -1
-
-sensor:modalias:acpi:BOSC0200*:dmi:*svn*ASUSTeK*:pn*BR1100FKA:*
+sensor:modalias:acpi:BOSC0200:*:dmi:*:svnASUSTeK*:*:rnBR1100FKA:*    # BR1100F, this is the ASUS Web name.
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, -1
 
-sensor:modalias:acpi:BMA250E*:dmi:*:*svn*ASUSTeK*:pnT300FA:*
+sensor:modalias:acpi:INVN6500:*:dmi:*:svnASUSTeK*:*:rnQ502LAB:*      # Q502LAB
+sensor:modalias:acpi:INVN6500:*:dmi:*:svnASUSTeK*:*:rnQ551LB:*       # Q551LB
+sensor:modalias:acpi:INVN6500:*:dmi:*:svnASUSTeK*:*:rnQ551LN:*       # Q551LN
+ ACCEL_MOUNT_MATRIX=0, 1, 0; -1, 0, 0; 0, 0, 1
+
+sensor:modalias:acpi:KXJ2109:*:dmi:*:svnASUSTeK*:*:rnME176C:*        # MeMO Pad 7 (ME176C)
+sensor:modalias:acpi:INVN6500:*:dmi:*:svnASUSTeK*:*:rnT100CHI:*      # Transformer Book (T100 Chi)
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
+
+sensor:modalias:acpi:INVN6500:*:dmi:*:svnASUSTeK*:*:rnM80TA:*        # VivoTab Note 8 (M80TA)
+sensor:modalias:acpi:INVN6500:*:dmi:*:svnASUSTeK*:*:rnT100TA:*       # Transformer Book (T100TA)
+sensor:modalias:acpi:INVN6500:*:dmi:*:svnASUSTeK*:*:rnT100TAF:*      # Transformer Book (T100TAF)
+sensor:modalias:acpi:INVN6500:*:dmi:*:svnASUSTeK*:*:rnT100TAM:*      # Transformer Book (T100TAM)
+sensor:modalias:acpi:INVN6500:*:dmi:*:svnASUSTeK*:*:rnT100TAS:*      # Transformer Book (T100TAS), not in ASUS Web but exists.
+sensor:modalias:acpi:INVN6500:*:dmi:*:svnASUSTeK*:*:rnT200TA:*       # Transformer Book (T200TA)
+ ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
+
+sensor:modalias:acpi:BOSC0200:*:dmi:*:svnASUSTeK*:*:rnRC72LA:*       # ROG Ally X (2024) (RC72LA)
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, -1
+
+sensor:modalias:acpi:INVN6500:*:dmi:*:svnASUSTeK*:*:rnT300CHI:*      # Transformer Book (T300 Chi)
+sensor:modalias:acpi:BOSC0200:*:dmi:*:svnASUSTeK*:*:rnTP412UA:*      # VivoBook Flip 14 (TP412UA)
+ ACCEL_MOUNT_MATRIX=0, -1, 0; 1, 0, 0; 0, 0, 1
+
+sensor:modalias:acpi:BMA250E:*:dmi:*:svnASUSTeK*:*:rnT300FA:*        # Transformer Book (T300FA)
+sensor:modalias:acpi:INVN6500:*:dmi:*:svnASUSTeK*:*:rnTP300LA:*      # Transformer Book Flip (TP300LA)
+sensor:modalias:acpi:INVN6500:*:dmi:*:svnASUSTeK*:*:rnTP300LD:*      # Transformer Book Flip (TP300LD)
+sensor:modalias:acpi:SMO8500:*:dmi:*:svnASUSTeK*:*:rnTP500LAB:*      # Transformer Book Flip (TP500LA)
+sensor:modalias:acpi:SMO8500:*:dmi:*:svnASUSTeK*:*:rnTP500LB:*       # Transformer Book Flip (TP500LB)
+sensor:modalias:acpi:SMO8500:*:dmi:*:svnASUSTeK*:*:rnTP550LA:*       # Transformer Book Flip (TP550LA)
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
+
+sensor:modalias:acpi:INVN6500:*:dmi:*:svnASUSTeK*:*:rnE205SA:*       # Vivobook Flip (TP200SA)
+sensor:modalias:acpi:INVN6500:*:dmi:*:svnASUSTeK*:*:rnTP201SA:*      # Vivobook Flip (TP201SA)
+sensor:modalias:acpi:SMO8500:*:dmi:*:svnASUSTeK*:*:rnTP300LAB:*      # Transformer Book Flip (TP300LAB)
+sensor:modalias:acpi:SMO8500:*:dmi:*:svnASUSTeK*:*:rnTP300LD:*       # Transformer Book Flip (TP300LD)
+sensor:modalias:acpi:SMO8500:*:dmi:*:svnASUSTeK*:*:rnTP300LJ:*       # Transformer Book Flip (TP300LJ)
+ ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
 #########################################
 # Axxo
