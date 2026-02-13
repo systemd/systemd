@@ -306,34 +306,23 @@ sensor:modalias:acpi:KIOX000A:*:dmi:*:svnCSLComputer*:pnCSLPantherTabHD:*    # C
 # Cube
 #########################################
 
-# Cube iWork8 Air
-sensor:modalias:acpi:KIOX000A*:dmi:*:svncube:pni1-TF:*
+# TODO: Due to the multiple svn formats, check if they use different ones in a same model.
+sensor:modalias:acpi:KIOX000A:*:dmi:*:svncube:pni1-TF:*          # iWork8 Air
+sensor:modalias:acpi:SMO8500:*:dmi:*:svncube:pni7:*              # i7
+sensor:modalias:acpi:BOSC0200:*:dmi:*:svnCube:pnI15-TC:*         # iWork 10 Flagship
+sensor:modalias:acpi:BOSC0200:*:dmi:*:svnALLDOCUBE:pnI15-TG:*    # iWork 10 Flagship
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
-# Cube i7
-sensor:modalias:acpi:SMO8500*:dmi:*:svncube:pni7:*
- ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
-
-# Cube i7 Stylus, i7 Stylus I8L Model, i7 Book (i16) and Mix Plus (i18B/i18D)
-sensor:modalias:acpi:KIOX000A*:dmi:*:svnCube:pni7Stylus:*
-sensor:modalias:acpi:KIOX000A*:dmi:*:svnCube:pni8-L:*
-sensor:modalias:acpi:KIOX000A*:dmi:*:svnCube:pni16:*
-sensor:modalias:acpi:KIOX000A*:dmi:*:svnCube:pni18B:*
-sensor:modalias:acpi:KIOX000A*:dmi:*:svnALLDOCUBE:pni18D:*
+sensor:modalias:acpi:KIOX000A:*:dmi:*:svnCube:pni7Stylus:*       # i7 Stylus
+sensor:modalias:acpi:KIOX000A:*:dmi:*:svnCube:pni8-L:*           # i7 Stylus I8L Model
+sensor:modalias:acpi:KIOX000A:*:dmi:*:svnCube:pni16:*            # i7 Book (i16)
+sensor:modalias:acpi:KIOX000A:*:dmi:*:svnCube:pni18B:*           # Mix Plus (i18B)
+sensor:modalias:acpi:KIOX000A:*:dmi:*:svnALLDOCUBE:pni18D:*      # Mix Plus (i18D)
+sensor:modalias:acpi:KIOX000A:*:dmi:*:svnALLDOCUBE:pni1102:*     # KNote 5
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
-# Cube iWork 10 Flagship
-sensor:modalias:acpi:BOSC0200*:dmi:*:svnCube:pnI15-TC:*
-sensor:modalias:acpi:BOSC0200*:dmi:*:svnALLDOCUBE:pnI15-TG:*
- ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
-
-# Cube iWork 11 Stylus
-sensor:modalias:acpi:KIOX000A*:dmi:*:svncube:pni8-T:*
+sensor:modalias:acpi:KIOX000A:*:dmi:*:svncube:pni8-T:*           # iWork 11 Stylus
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
-
-# Cube KNote 5
-sensor:modalias:acpi:KIOX000A*:dmi:*:svnALLDOCUBE:pni1102:*
- ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
 #########################################
 # Cyberbook
