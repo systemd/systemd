@@ -1,5 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-json.h"
+#include "sd-varlink.h"
+
 #include "hashmap.h"
 #include "manager.h"
 #include "metrics.h"

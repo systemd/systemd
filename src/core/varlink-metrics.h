@@ -1,8 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-varlink.h"
-#include "sd-json.h"
+#include "core-forward.h"
 
 #define METRIC_IO_SYSTEMD_MANAGER_PREFIX "io.systemd.Manager."
 
