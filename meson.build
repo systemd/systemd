@@ -183,6 +183,7 @@ ntpservicelistdir = libexecdir / 'ntp-units.d'
 credstoredir = prefixdir / 'lib/credstore'
 pcrlockdir = prefixdir / 'lib/pcrlock.d'
 mimepackagesdir = prefixdir / 'share/mime/packages'
+varlinkbridgesdir = libexecdir / 'varlink-bridges'
 
 configfiledir = get_option('configfiledir')
 if configfiledir == ''
@@ -311,6 +312,7 @@ conf.set_quoted('USER_GENERATOR_DIR',                         usergeneratordir)
 conf.set_quoted('USER_KEYRING_PATH',                          pkgsysconfdir / 'import-pubring.pgp')
 conf.set_quoted('USER_KEYRING_PATH_LEGACY',                   pkgsysconfdir / 'import-pubring.gpg')
 conf.set_quoted('USER_PRESET_DIR',                            userpresetdir)
+conf.set_quoted('VARLINK_BRIDGES_DIR',                        varlinkbridgesdir)
 conf.set_quoted('VENDOR_KEYRING_PATH',                        libexecdir / 'import-pubring.pgp')
 
 conf.set('ANSI_OK_COLOR',                                     'ANSI_' + get_option('ok-color').underscorify().to_upper())
