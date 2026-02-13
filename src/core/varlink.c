@@ -434,12 +434,10 @@ static int manager_setup_varlink_metrics_server(Manager *m) {
         if (MANAGER_IS_SYSTEM(m))
                 flags |= SD_VARLINK_SERVER_ACCOUNT_UID;
 
-        r = metrics_setup_varlink_server(
-                        &m->metrics_varlink_server, flags, m->event, vl_method_list, vl_method_describe, m);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return metrics_setup_varlink_server(&m->metrics_varlink_server, flags,
+                                            m->event,
+                                            vl_method_list_metrics, vl_method_describe_metrics,
+                                            m);
 }
 
 static int manager_varlink_init_system(Manager *m) {
