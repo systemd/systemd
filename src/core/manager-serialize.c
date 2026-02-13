@@ -171,7 +171,11 @@ int manager_serialize(
         if (r < 0)
                 return r;
 
-        r = varlink_server_serialize(m->varlink_server, f, fds);
+        r = varlink_server_serialize(m->varlink_server, /* name = */ NULL, f, fds);
+        if (r < 0)
+                return r;
+
+        r = varlink_server_serialize(m->metrics_varlink_server, "metrics", f, fds);
         if (r < 0)
                 return r;
 
@@ -489,7 +493,18 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         r = strv_extend(&m->subscribed_as_strv, val);
                         if (r < 0)
                                 return r;
-                } else if ((val = startswith(l, "varlink-server-socket-address="))) {
+                } else if ((val = startswith(l, "varlink-server-metrics-"))) {
+                        if (m->objective == MANAGER_RELOAD)
+                                /* We don't destroy varlink server on daemon-reload (in contrast to reexec) -> skip! */
+                                continue;
+
+                        r = manager_setup_varlink_metrics_server(m);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to setup metrics varlink server, ignoring: %m");
+                        else
+                                (void) varlink_server_deserialize_one(m->metrics_varlink_server, val, fds);
+
+                } else if ((val = startswith(l, "varlink-server-"))) {
                         if (m->objective == MANAGER_RELOAD)
                                 /* We don't destroy varlink server on daemon-reload (in contrast to reexec) -> skip! */
                                 continue;
