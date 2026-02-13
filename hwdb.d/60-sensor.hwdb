@@ -81,40 +81,32 @@
 #########################################
 # Acer
 #########################################
-sensor:modalias:acpi:KIOX0009*:dmi:*:svnAcer:pnAspireSW3-016:*
+# Acer most reliable way to match is by system manufacturer and board product
+# name because system product name can have different formats like SW5-017,
+# TP-SW5-017-17BU for a device and board manufaturer can vary Acer, APL, GLK.
+# Always comment the product to be able to identify them.
+
+sensor:modalias:acpi:BOSC0200:*:dmi:*:svnAcer:*:rnAlien_AP:*    # Spin 1 (SP111-32N)
+sensor:modalias:acpi:BOSC0200:*:dmi:*:svnAcer:*:rnHamm_GL:*     # Spin 1 (SP111-33)
+sensor:modalias:acpi:BOSC0200:*:dmi:*:svnAcer:*:rnAlien_GL:*    # Spin 1 (SP111-34N)
+sensor:modalias:acpi:KIOX000A:*:dmi:*:svnAcer:*:rnOkinawa:*     # Switch One 10 (SW1-011)
+sensor:modalias:acpi:INVN6500:*:dmi:*:svnAcer:*:rnFendi2:*      # Aspire Switch 10 (SW5-012)
+sensor:modalias:acpi:BOSC0200:*:dmi:*:svnAcer:*:rnBali:*        # Switch V 10 (SW5-017) and (SW5-017P)
+ ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
+
+sensor:modalias:acpi:KIOX0009:*:dmi:*:svnAcer:*:rnGummiCHT:*    # Aspire Switch 10 E (SW3-016)
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, -1
 
-sensor:modalias:acpi:INVN6500*:dmi:*svn*Acer*:*pn*AspireSW5-011:*
+sensor:modalias:acpi:INVN6500:*:dmi:*:svnAcer:*:rnFendi:*       # Aspire Switch 10 (SW5-011)
+sensor:modalias:acpi:BOSC0200:*:dmi:*:svnAcer:*:rnTahiti_S:*    # Switch 3 (SW312-31)
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
-sensor:modalias:acpi:INVN6500*:dmi:*svn*Acer*:*pn*AspireSW5-012:*
- ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
-
-sensor:modalias:acpi:BOSC0200*:dmi:*svnAcer*:*TP-SW5-017-17BU:*
- ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, -1
-
-sensor:modalias:acpi:BOSC0200*:dmi:*:svnAcer:pnSW5-017:*
- ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
-
-sensor:modalias:acpi:BMA250E*:dmi:*:svnAcer:pnIconiaW1-810:*
- ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
-
-sensor:modalias:acpi:SMO8500:*:dmi:*Acer*:pnOneS1002:*
+sensor:modalias:acpi:SMO8500:*:dmi:*:svnAcer:*:rnPopcorn:*      # One 10 (S1002)
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, -1
 
-sensor:modalias:acpi:KIOX0009*:dmi:*:svnAcer:pnOneS1003:*
+sensor:modalias:acpi:KIOX0009:*:dmi:*:svnAcer:*:rnOneS1003:*    # One 10 (S1003) and (S1003P)
+sensor:modalias:acpi:BMA250E:*:dmi:*:svnAcer:*:rnAigner:*       # Iconia Tab 8W (W1-810)
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
-
-sensor:modalias:acpi:KIOX000A*:dmi:*:svnAcer:pnSwitchOneSW1-011:*
- ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
-
-sensor:modalias:acpi:BOSC0200*:dmi:*:svnAcer*:pnSwitchSW312-31:*
- ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
-
-sensor:modalias:acpi:BOSC0200*:dmi:*svn*Acer*:*pn*Spin*SP111-32:*
-sensor:modalias:acpi:BOSC0200*:dmi:*svn*Acer*:*pn*Spin*SP111-33:*
-sensor:modalias:acpi:BOSC0200*:dmi:*svnAcer*:*pnSpinSP111-34:*
- ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
 
 #########################################
 # Aquarius
