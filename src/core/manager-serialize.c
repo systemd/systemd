@@ -282,7 +282,6 @@ static void manager_deserialize_gid_refs_one(Manager *m, const char *value) {
 }
 
 int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
-        bool deserialize_varlink_sockets = false;
         int r;
 
         assert(m);
@@ -491,22 +490,16 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "varlink-server-socket-address="))) {
-                        if (!m->varlink_server) {
-                                r = manager_setup_varlink_server(m);
-                                if (r < 0) {
-                                        log_warning_errno(r, "Failed to setup varlink server, ignoring: %m");
-                                        continue;
-                                }
+                        if (m->objective == MANAGER_RELOAD)
+                                /* We don't destroy varlink server on daemon-reload (in contrast to reexec) -> skip! */
+                                continue;
 
-                                deserialize_varlink_sockets = true;
-                        }
-
-                        /* To avoid unnecessary deserialization (i.e. during reload vs. reexec) we only deserialize
-                         * the FDs if we had to create a new m->varlink_server. The deserialize_varlink_sockets flag
-                         * is initialized outside of the loop, is flipped after the VarlinkServer is setup, and
-                         * remains set until all serialized contents are handled. */
-                        if (deserialize_varlink_sockets)
+                        r = manager_setup_varlink_server(m);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to setup varlink server, ignoring: %m");
+                        else
                                 (void) varlink_server_deserialize_one(m->varlink_server, val, fds);
+
                 } else if ((val = startswith(l, "dump-ratelimit=")))
                         deserialize_ratelimit(&m->dump_ratelimit, "dump-ratelimit", val);
                 else if ((val = startswith(l, "reload-reexec-ratelimit=")))
