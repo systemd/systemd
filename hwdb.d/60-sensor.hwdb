@@ -822,17 +822,14 @@ sensor:modalias:acpi:BOSC0200:*:dmi:bvnINSYDECorp.:bvrODYS.FUSIONWIN12:*    # Fu
 #########################################
 # Onda
 #########################################
-sensor:modalias:acpi:BOSC0200*:dmi:*:svnONDA:pnV80PLUS:*
- ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
-sensor:modalias:acpi:BMA250E*:dmi:bvnINSYDECorp.:bvrONDA.D89*:svnInsyde:pnONDATablet:*
-sensor:modalias:acpi:BMA250E*:dmi:bvnINSYDECorp.:bvrONDA.D86*:svnONDA:pnV820wDualOS:*
-sensor:modalias:acpi:BMA250E*:dmi:bvnINSYDECorp.:bvrONDA.W89*:svnInsyde:pnONDATablet:*
- ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
-
+sensor:modalias:acpi:BOSC0200:*:dmi:*:svnONDA:pnV80PLUS:*                                  # V80 Plus
+sensor:modalias:acpi:BMA250E:*:dmi:bvnINSYDECorp.:bvrONDA.D86*:svnONDA:pnV820wDualOS:*     # V820w
+sensor:modalias:acpi:BMA250E:*:dmi:bvnINSYDECorp.:bvrONDA.D89*:svnInsyde:pnONDATablet:*    # V891w
+sensor:modalias:acpi:BMA250E:*:dmi:bvnINSYDECorp.:bvrONDA.W89*:svnInsyde:pnONDATablet:*    # V891w
 # Onda v975w, generic DMI strings, match entire dmi modalias inc. bios-date
 # '*' in ":*svn" is there because kernels >= 5.8 have inserted a br field there
-sensor:modalias:acpi:SMO8500*:dmi:bvnAmericanMegatrendsInc.:bvr5.6.5:bd07/25/2014:*svnTobefilledbyO.E.M.:pnTobefilledbyO.E.M.:pvrTobefilledbyO.E.M.:rvnAMICorporation:rnAptioCRB:rvrTobefilledbyO.E.M.:cvnToBeFilledByO.E.M.:ct3:cvrToBeFilledByO.E.M.:*
+sensor:modalias:acpi:SMO8500:*:dmi:bvnAmericanMegatrendsInc.:bvr5.6.5:bd07/25/2014:*svnTobefilledbyO.E.M.:pnTobefilledbyO.E.M.:pvrTobefilledbyO.E.M.:rvnAMICorporation:rnAptioCRB:rvrTobefilledbyO.E.M.:cvnToBeFilledByO.E.M.:ct3:cvrToBeFilledByO.E.M.:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
 #########################################
