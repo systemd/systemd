@@ -849,19 +849,21 @@ static int parse_argv(int argc, char *argv[]) {
         } else
                 arg_via_service = r;
 
-        r = have_effective_cap(CAP_SYS_ADMIN);
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine if we have CAP_SYS_ADMIN: %m");
+        if (IN_SET(arg_action, ACTION_MOUNT, ACTION_UMOUNT)) {
+                r = have_effective_cap(CAP_SYS_ADMIN);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine if we have CAP_SYS_ADMIN: %m");
+                if (r == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Need to have CAP_SYS_ADMIN to mount/unmount images");
+        }
 
-        if (IN_SET(arg_action, ACTION_MOUNT, ACTION_UMOUNT) && r == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Need to have CAP_SYS_ADMIN to mount/unmount images");
-
-        r = have_effective_cap(CAP_CHOWN);
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine if we have CAP_CHOWN: %m");
-
-        if (arg_action == ACTION_SHIFT && r == 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Need to have CAP_CHOWN to shift UID ranges");
+        if (arg_action == ACTION_SHIFT) {
+                r = have_effective_cap(CAP_CHOWN);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine if we have CAP_CHOWN: %m");
+                if (r == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Need to have CAP_CHOWN to shift UID ranges");
+        }
 
         if (IN_SET(arg_action, ACTION_ATTACH, ACTION_DETACH)) {
                 r = must_be_root();
@@ -1470,10 +1472,10 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
 
         /* Determine whether to copy ownership:
          * --copy-ownership=yes: always try to preserve ownership
-         * --copy-ownership=no: never preserve ownership, use current user
-         * --copy-ownership=auto (default): preserve ownership for directory trees,
-         *                              but not for regular files (since DDI password tables are typically
-         *                              distinct from the host ones, individual file ownership is less meaningful) */
+         *  --copy-ownership=no: never preserve ownership, use current user
+         *              default: preserve ownership for directory trees,
+         *                       but not for regular files (since DDI password tables are typically
+         *                       distinct from the host ones, individual file ownership is less meaningful) */
 
         if (arg_image) {
                 assert(m);
@@ -1778,8 +1780,12 @@ static int action_umount(const char *path) {
                 return log_error_errno(r, "Failed to find backing block device for '%s': %m", canonical);
 
         r = loop_device_open(dev, 0, LOCK_EX, &d);
-        if (r < 0 && !ERRNO_IS_PRIVILEGE(r))
-                return log_device_error_errno(dev, r, "Failed to open loopback block device: %m");
+        if (r < 0) {
+                if (!ERRNO_IS_PRIVILEGE(r))
+                        return log_device_error_errno(dev, r, "Failed to open loopback block device: %m");
+
+                log_device_debug_errno(dev, r, "Lacking privileges to open loopback block device, ignoring.");
+        }
 
         /* We've locked the loop device, now we're ready to unmount. To allow the unmount to succeed, we have
          * to close the O_PATH fd we opened earlier. */
