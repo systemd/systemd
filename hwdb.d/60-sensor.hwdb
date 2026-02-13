@@ -84,37 +84,26 @@
 sensor:modalias:acpi:KIOX0009*:dmi:*:svnAcer:pnAspireSW3-016:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, -1
 
-sensor:modalias:acpi:INVN6500*:dmi:*svn*Acer*:*pn*AspireSW5-011:*
+sensor:modalias:acpi:INVN6500*:dmi:*:svnAcer:pnAspireSW5-011:*
+sensor:modalias:acpi:BOSC0200*:dmi:*:svnAcer:pnSwitchSW312-31:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
-sensor:modalias:acpi:INVN6500*:dmi:*svn*Acer*:*pn*AspireSW5-012:*
+sensor:modalias:acpi:INVN6500*:dmi:*:svnAcer:pnAspireSW5-012:*
+sensor:modalias:acpi:KIOX000A*:dmi:*:svnAcer:pnSwitchOneSW1-011:*
+sensor:modalias:acpi:BOSC0200*:dmi:*:svnAcer:pnSW5-017:*
+sensor:modalias:acpi:BOSC0200*:dmi:*:svnAcer:pnSpinSP111-3[234]:*
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
 
-sensor:modalias:acpi:BOSC0200*:dmi:*svnAcer*:*TP-SW5-017-17BU:*
+# FIXME: Locate this one pn as it could be the same defined above, just Z axis inverted.
+sensor:modalias:acpi:BOSC0200*:dmi:*:svnAcer:*TP-SW5-017-17BU:*
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, -1
 
-sensor:modalias:acpi:BOSC0200*:dmi:*:svnAcer:pnSW5-017:*
- ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
-
 sensor:modalias:acpi:BMA250E*:dmi:*:svnAcer:pnIconiaW1-810:*
- ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
-
-sensor:modalias:acpi:SMO8500:*:dmi:*Acer*:pnOneS1002:*
- ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, -1
-
 sensor:modalias:acpi:KIOX0009*:dmi:*:svnAcer:pnOneS1003:*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
-sensor:modalias:acpi:KIOX000A*:dmi:*:svnAcer:pnSwitchOneSW1-011:*
- ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
-
-sensor:modalias:acpi:BOSC0200*:dmi:*:svnAcer*:pnSwitchSW312-31:*
- ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
-
-sensor:modalias:acpi:BOSC0200*:dmi:*svn*Acer*:*pn*Spin*SP111-32:*
-sensor:modalias:acpi:BOSC0200*:dmi:*svn*Acer*:*pn*Spin*SP111-33:*
-sensor:modalias:acpi:BOSC0200*:dmi:*svnAcer*:*pnSpinSP111-34:*
- ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
+sensor:modalias:acpi:SMO8500*:dmi:*:svnAcer:pnOneS1002:*
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, -1
 
 #########################################
 # Aquarius
