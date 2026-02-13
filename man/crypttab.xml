@@ -945,12 +945,12 @@
         <term><option>tpm2-measure-keyslot-nvpcr=</option></term>
 
         <listitem><para>Controls whether to measure information about the used LUKS unlock keyslot to a TPM2
-        non-volatile index (nvindex in PCR mode). If set to to an empty string (which is the default) no TPM2
-        nvindex extension is done, otherwise keyslot information is measured to an nvindex of the specified
-        name, which is allocated if needed. It is recommended to set this to <literal>cryptsetup</literal> to
-        enable this logic. The slot index and the used unlock mechanism (i.e. <literal>tpm2</literal>,
-        <literal>fido2</literal>, <literal>pkcs11</literal>) is measured along with the activated volume name
-        and its UUID.</para>
+        non-volatile index (nvindex in PCR mode). Takes a boolean argument, or an NvPCR name. If set to false
+        or an empty string (which is the default) no TPM2 nvindex extension is done, otherwise keyslot
+        information is measured to an nvindex of the specified name, which is allocated if needed. If set to
+        true the recommended default of <literal>cryptsetup</literal> is selected as NvPCR. The slot index
+        and the used unlock mechanism (i.e. <literal>tpm2</literal>, <literal>fido2</literal>,
+        <literal>pkcs11</literal>) are measured along with the activated volume name and its UUID.</para>
 
         <xi:include href="version-info.xml" xpointer="v259"/></listitem>
       </varlistentry>

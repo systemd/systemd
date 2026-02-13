@@ -557,12 +557,14 @@ static int parse_one_option(const char *option) {
 
         } else if ((val = startswith(option, "tpm2-measure-keyslot-nvpcr="))) {
 
-                if (isempty(val)) {
+                r = isempty(val) ? false : parse_boolean(val);
+                if (r == 0) {
                         arg_tpm2_measure_keyslot_nvpcr = mfree(arg_tpm2_measure_keyslot_nvpcr);
                         return 0;
                 }
-
-                if (!tpm2_nvpcr_name_is_valid(val)) {
+                if (r > 0)
+                        val = "cryptsetup";
+                else if (!tpm2_nvpcr_name_is_valid(val)) {
                         log_warning("Invalid NvPCR name, ignoring: %s", option);
                         return 0;
                 }
@@ -1095,8 +1097,9 @@ static int measure_keyslot(
                 const char *mechanism,
                 int keyslot) {
 
+#if HAVE_TPM2
         int r;
-
+#endif
         assert(cd);
         assert(name);
 
@@ -1105,6 +1108,7 @@ static int measure_keyslot(
                 return 0;
         }
 
+#if HAVE_TPM2
         r = efi_measured_uki(LOG_WARNING);
         if (r < 0)
                 return r;
@@ -1113,7 +1117,6 @@ static int measure_keyslot(
                 return 0;
         }
 
-#if HAVE_TPM2
         _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
         r = tpm2_context_new_or_warn(arg_tpm2_device, &c);
         if (r < 0)
