@@ -920,22 +920,21 @@ int maybe_setgroups(size_t size, const gid_t *list) {
 
         /* Check if setgroups is allowed before we try to drop all the auxiliary groups */
         if (size == 0) { /* Dropping all aux groups? */
-                _cleanup_free_ char *setgroups_content = NULL;
-                bool can_setgroups;
-
-                r = read_one_line_file("/proc/self/setgroups", &setgroups_content);
-                if (r == -ENOENT)
-                        /* Old kernels don't have /proc/self/setgroups, so assume we can use setgroups */
-                        can_setgroups = true;
-                else if (r < 0)
+                _cleanup_free_ char *gid_map = NULL;
+                r = read_one_line_file("/proc/self/gid_map", &gid_map);
+                if (r >= 0 && isempty(gid_map)) {
+                        log_debug("Skipping setgroups(), /proc/self/gid_map is empty");
+                        return 0;
+                } else if (r != -ENOENT)
                         return r;
-                else
-                        can_setgroups = streq(setgroups_content, "allow");
 
-                if (!can_setgroups) {
+                _cleanup_free_ char *setgroups_content = NULL;
+                r = read_one_line_file("/proc/self/setgroups", &setgroups_content);
+                if (r >= 0 && streq(setgroups_content, "deny")) {
                         log_debug("Skipping setgroups(), /proc/self/setgroups is set to 'deny'");
                         return 0;
-                }
+                } else if (r != -ENOENT)
+                        return r;
         }
 
         return RET_NERRNO(setgroups(size, list));
