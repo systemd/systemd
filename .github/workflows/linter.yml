@@ -50,10 +50,6 @@ jobs:
           [Build]
           ToolsTreeDistribution=fedora
           ToolsTreeRelease=rawhide
-          ToolsTreePackages=
-                libgcrypt-devel
-                libgpg-error-devel
-                musl-gcc
           EOF
 
           mkosi -f box -- true
