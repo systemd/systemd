@@ -7,140 +7,149 @@ msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-11-26 01:17+0000\n"
-"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
-"Last-Translator: Automatically generated\n"
-"Language-Team: none\n"
+"PO-Revision-Date: 2026-02-14 06:27+0000\n"
+"Last-Translator: Baurzhan Muftakhidinov <baurthefirst@gmail.com>\n"
+"Language-Team: Kazakh <https://translate.fedoraproject.org/projects/systemd/"
+"main/kk/>\n"
 "Language: kk\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
+"X-Generator: Weblate 5.15.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
-msgstr ""
+msgstr "Кілттік фразаны жүйеге қайта жіберу"
 
 #: src/core/org.freedesktop.systemd1.policy.in:23
 msgid ""
 "Authentication is required to send the entered passphrase back to the system."
 msgstr ""
+"Енгізілген кілттік фразаны жүйеге қайта жіберу үшін аутентификация қажет."
 
 #: src/core/org.freedesktop.systemd1.policy.in:33
 msgid "Manage system services or other units"
-msgstr ""
+msgstr "Жүйелік қызметтерді немесе басқа юниттерді басқару"
 
 #: src/core/org.freedesktop.systemd1.policy.in:34
 msgid "Authentication is required to manage system services or other units."
 msgstr ""
+"Жүйелік қызметтерді немесе басқа юниттерді басқару үшін аутентификация қажет."
 
 #: src/core/org.freedesktop.systemd1.policy.in:43
 msgid "Manage system service or unit files"
-msgstr ""
+msgstr "Жүйелік қызмет немесе юнит файлдарын басқару"
 
 #: src/core/org.freedesktop.systemd1.policy.in:44
 msgid "Authentication is required to manage system service or unit files."
-msgstr ""
+msgstr "Жүйелік қызмет немесе юнит файлдарын басқару үшін аутентификация қажет."
 
 #: src/core/org.freedesktop.systemd1.policy.in:54
 msgid "Set or unset system and service manager environment variables"
 msgstr ""
+"Жүйе және қызмет менеджерінің орта айнымалыларын орнату немесе алып тастау"
 
 #: src/core/org.freedesktop.systemd1.policy.in:55
 msgid ""
 "Authentication is required to set or unset system and service manager "
 "environment variables."
 msgstr ""
+"Жүйе және қызмет менеджерінің орта айнымалыларын орнату немесе алып тастау "
+"үшін аутентификация қажет."
 
 #: src/core/org.freedesktop.systemd1.policy.in:64
 msgid "Reload the systemd state"
-msgstr ""
+msgstr "systemd күйін қайта жүктеу"
 
 #: src/core/org.freedesktop.systemd1.policy.in:65
 msgid "Authentication is required to reload the systemd state."
-msgstr ""
+msgstr "systemd күйін қайта жүктеу үшін аутентификация қажет."
 
 #: src/core/org.freedesktop.systemd1.policy.in:74
 msgid "Dump the systemd state without rate limits"
-msgstr ""
+msgstr "systemd күйін жылдамдық шектеуінсіз дамптау"
 
 #: src/core/org.freedesktop.systemd1.policy.in:75
 msgid ""
 "Authentication is required to dump the systemd state without rate limits."
-msgstr ""
+msgstr "systemd күйін жылдамдық шектеуінсіз дамптау үшін аутентификация қажет."
 
 #: src/home/org.freedesktop.home1.policy:13
 msgid "Create a home area"
-msgstr ""
+msgstr "Үй аймағын жасау"
 
 #: src/home/org.freedesktop.home1.policy:14
 msgid "Authentication is required to create a user's home area."
-msgstr ""
+msgstr "Пайдаланушының үй аймағын жасау үшін аутентификация қажет."
 
 #: src/home/org.freedesktop.home1.policy:23
 msgid "Remove a home area"
-msgstr ""
+msgstr "Үй аймағын өшіру"
 
 #: src/home/org.freedesktop.home1.policy:24
 msgid "Authentication is required to remove a user's home area."
-msgstr ""
+msgstr "Пайдаланушының үй аймағын өшіру үшін аутентификация қажет."
 
 #: src/home/org.freedesktop.home1.policy:33
 msgid "Check credentials of a home area"
-msgstr ""
+msgstr "Үй аймағының тіркелгі деректерін тексеру"
 
 #: src/home/org.freedesktop.home1.policy:34
 msgid ""
 "Authentication is required to check credentials against a user's home area."
 msgstr ""
+"Пайдаланушының үй аймағына қарсы тіркелгі деректерін тексеру үшін "
+"аутентификация қажет."
 
 #: src/home/org.freedesktop.home1.policy:43
 msgid "Update a home area"
-msgstr ""
+msgstr "Үй аймағын жаңарту"
 
 #: src/home/org.freedesktop.home1.policy:44
 msgid "Authentication is required to update a user's home area."
-msgstr ""
+msgstr "Пайдаланушының үй аймағын жаңарту үшін аутентификация қажет."
 
 #: src/home/org.freedesktop.home1.policy:53
 msgid "Update your home area"
-msgstr ""
+msgstr "Үй аймағыңызды жаңарту"
 
 #: src/home/org.freedesktop.home1.policy:54
 msgid "Authentication is required to update your home area."
-msgstr ""
+msgstr "Үй аймағыңызды жаңарту үшін аутентификация қажет."
 
 #: src/home/org.freedesktop.home1.policy:63
 msgid "Resize a home area"
-msgstr ""
+msgstr "Үй аймағының өлшемін өзгерту"
 
 #: src/home/org.freedesktop.home1.policy:64
 msgid "Authentication is required to resize a user's home area."
-msgstr ""
+msgstr "Пайдаланушының үй аймағының өлшемін өзгерту үшін аутентификация қажет."
 
 #: src/home/org.freedesktop.home1.policy:73
 msgid "Change password of a home area"
-msgstr ""
+msgstr "Үй аймағының паролін өзгерту"
 
 #: src/home/org.freedesktop.home1.policy:74
 msgid ""
 "Authentication is required to change the password of a user's home area."
-msgstr ""
+msgstr "Пайдаланушының үй аймағының паролін өзгерту үшін аутентификация қажет."
 
 #: src/home/org.freedesktop.home1.policy:83
 msgid "Activate a home area"
-msgstr ""
+msgstr "Үй аймағын белсендіру"
 
 #: src/home/org.freedesktop.home1.policy:84
 msgid "Authentication is required to activate a user's home area."
-msgstr ""
+msgstr "Пайдаланушының үй аймағын белсендіру үшін аутентификация қажет."
 
 #: src/home/org.freedesktop.home1.policy:93
 msgid "Manage Home Directory Signing Keys"
-msgstr ""
+msgstr "Үй бумасының қолтаңба кілттерін басқару"
 
 #: src/home/org.freedesktop.home1.policy:94
 msgid "Authentication is required to manage signing keys for home directories."
-msgstr ""
+msgstr "Үй бумалары үшін қолтаңба кілттерін басқару үшін аутентификация қажет."
 
 #: src/home/pam_systemd_home.c:333
 #, c-format
@@ -148,28 +157,32 @@ msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
 "device or backing file system."
 msgstr ""
+"%s пайдаланушысының үй бумасы қазір жоқ, қажетті сақтау құрылғысын немесе "
+"негізгі файлдық жүйені қосыңыз."
 
 #: src/home/pam_systemd_home.c:338
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
 msgstr ""
+"%s пайдаланушысы үшін кіру әрекеттері тым жиі, кейінірек қайталап көріңіз."
 
 #: src/home/pam_systemd_home.c:350
 msgid "Password: "
-msgstr ""
+msgstr "Пароль: "
 
 #: src/home/pam_systemd_home.c:352
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
 msgstr ""
+"%s пайдаланушысының аутентификациясы үшін пароль қате немесе жеткіліксіз."
 
 #: src/home/pam_systemd_home.c:353
 msgid "Sorry, try again: "
-msgstr ""
+msgstr "Кешіріңіз, қайталап көріңіз: "
 
 #: src/home/pam_systemd_home.c:375
 msgid "Recovery key: "
-msgstr ""
+msgstr "Қалпына келтіру кілті: "
 
 #: src/home/pam_systemd_home.c:377
 #, c-format
@@ -177,19 +190,21 @@ msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
 "%s."
 msgstr ""
+"%s пайдаланушысының аутентификациясы үшін пароль/қалпына келтіру кілті қате "
+"немесе жеткіліксіз."
 
 #: src/home/pam_systemd_home.c:378
 msgid "Sorry, reenter recovery key: "
-msgstr ""
+msgstr "Кешіріңіз, қалпына келтіру кілтін қайта енгізіңіз: "
 
 #: src/home/pam_systemd_home.c:398
 #, c-format
 msgid "Security token of user %s not inserted."
-msgstr ""
+msgstr "%s пайдаланушысының қауіпсіздік токені салынбаған."
 
 #: src/home/pam_systemd_home.c:399 src/home/pam_systemd_home.c:402
 msgid "Try again with password: "
-msgstr ""
+msgstr "Парольмен қайталап көріңіз: "
 
 #: src/home/pam_systemd_home.c:401
 #, c-format
@@ -197,989 +212,1079 @@ msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
 "%s not inserted."
 msgstr ""
+"Пароль қате немесе жеткіліксіз және %s пайдаланушысының бапталған "
+"қауіпсіздік токені салынбаған."
 
 #: src/home/pam_systemd_home.c:421
 msgid "Security token PIN: "
-msgstr ""
+msgstr "Қауіпсіздік токенінің PIN коды: "
 
 #: src/home/pam_systemd_home.c:438
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
 msgstr ""
+"%s пайдаланушысының қауіпсіздік токенінде физикалық түрде аутентификациядан "
+"өтіңіз."
 
 #: src/home/pam_systemd_home.c:449
 #, c-format
 msgid "Please confirm presence on security token of user %s."
-msgstr ""
+msgstr "%s пайдаланушысының қауіпсіздік токені болуын растаңыз."
 
 #: src/home/pam_systemd_home.c:460
 #, c-format
 msgid "Please verify user on security token of user %s."
-msgstr ""
+msgstr "%s пайдаланушысының қауіпсіздік токенінде пайдаланушыны тексеріңіз."
 
 #: src/home/pam_systemd_home.c:469
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
 msgstr ""
+"Қауіпсіздік токенінің PIN коды құлыпталған, алдымен оның құлпын ашыңыз. "
+"(Тұспал: Алып тастау және қайта салу жеткілікті болуы мүмкін.)"
 
 #: src/home/pam_systemd_home.c:477
 #, c-format
 msgid "Security token PIN incorrect for user %s."
-msgstr ""
+msgstr "%s пайдаланушысы үшін қауіпсіздік токенінің PIN коды қате."
 
 #: src/home/pam_systemd_home.c:478 src/home/pam_systemd_home.c:497
 #: src/home/pam_systemd_home.c:516
 msgid "Sorry, retry security token PIN: "
-msgstr ""
+msgstr "Кешіріңіз, қауіпсіздік токенінің PIN кодын қайталап көріңіз: "
 
 #: src/home/pam_systemd_home.c:496
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
+"%s пайдаланушысының қауіпсіздік токенінің PIN коды қате (тек бірнеше талап "
+"қалды!)"
 
 #: src/home/pam_systemd_home.c:515
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
+"%s пайдаланушысының қауіпсіздік токенінің PIN коды қате (тек бір талап "
+"қалды!)"
 
 #: src/home/pam_systemd_home.c:682
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr ""
+"%s пайдаланушысының үй бумасы қазір белсенді емес, алдымен жергілікті түрде "
+"жүйеге кіріңіз."
 
 #: src/home/pam_systemd_home.c:684
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr ""
+"%s пайдаланушысының үй бумасы қазір құлыпталған, алдымен жергілікті түрде "
+"құлпын ашыңыз."
 
 #: src/home/pam_systemd_home.c:718
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
-msgstr ""
+msgstr "%s пайдаланушысы үшін сәтсіз кіру әрекеттері тым көп, бас тартылды."
 
 #: src/home/pam_systemd_home.c:1017
 msgid "User record is blocked, prohibiting access."
-msgstr ""
+msgstr "Пайдаланушы жазбасы блокталған, қол жеткізуге тыйым салынған."
 
 #: src/home/pam_systemd_home.c:1021
 msgid "User record is not valid yet, prohibiting access."
-msgstr ""
+msgstr "Пайдаланушы жазбасы әлі жарамсыз, қол жеткізуге тыйым салынған."
 
 #: src/home/pam_systemd_home.c:1025
 msgid "User record is not valid anymore, prohibiting access."
-msgstr ""
+msgstr "Пайдаланушы жазбасы енді жарамсыз, қол жеткізуге тыйым салынған."
 
 #: src/home/pam_systemd_home.c:1030 src/home/pam_systemd_home.c:1079
 msgid "User record not valid, prohibiting access."
-msgstr ""
+msgstr "Пайдаланушы жазбасы жарамсыз, қол жеткізуге тыйым салынған."
 
 #: src/home/pam_systemd_home.c:1040
 #, c-format
 msgid "Too many logins, try again in %s."
-msgstr ""
+msgstr "Кіру әрекеттері тым көп, %s кейін қайталап көріңіз."
 
 #: src/home/pam_systemd_home.c:1051
 msgid "Password change required."
-msgstr ""
+msgstr "Парольді өзгерту қажет."
 
 #: src/home/pam_systemd_home.c:1055
 msgid "Password expired, change required."
-msgstr ""
+msgstr "Парольдің мерзімі өткен, өзгерту қажет."
 
 #: src/home/pam_systemd_home.c:1061
 msgid "Password is expired, but can't change, refusing login."
 msgstr ""
+"Парольдің мерзімі өткен, бірақ оны өзгерту мүмкін емес, жүйеге кіруден бас "
+"тартылды."
 
 #: src/home/pam_systemd_home.c:1065
 msgid "Password will expire soon, please change."
-msgstr ""
+msgstr "Парольдің мерзімі жақында өтеді, оны өзгертіңіз."
 
 #: src/hostname/org.freedesktop.hostname1.policy:20
 msgid "Set hostname"
-msgstr ""
+msgstr "Хост атын орнату"
 
 #: src/hostname/org.freedesktop.hostname1.policy:21
 msgid "Authentication is required to set the local hostname."
-msgstr ""
+msgstr "Жергілікті хост атын орнату үшін аутентификация қажет."
 
 #: src/hostname/org.freedesktop.hostname1.policy:30
 msgid "Set static hostname"
-msgstr ""
+msgstr "Статикалық хост атын орнату"
 
 #: src/hostname/org.freedesktop.hostname1.policy:31
 msgid ""
 "Authentication is required to set the statically configured local hostname, "
 "as well as the pretty hostname."
 msgstr ""
+"Статикалық түрде бапталған жергілікті хост атын, сондай-ақ көркем хост атын "
+"орнату үшін аутентификация қажет."
 
 #: src/hostname/org.freedesktop.hostname1.policy:41
 msgid "Set machine information"
-msgstr ""
+msgstr "Машина ақпаратын орнату"
 
 #: src/hostname/org.freedesktop.hostname1.policy:42
 msgid "Authentication is required to set local machine information."
-msgstr ""
+msgstr "Жергілікті машина ақпаратын орнату үшін аутентификация қажет."
 
 #: src/hostname/org.freedesktop.hostname1.policy:51
 msgid "Get product UUID"
-msgstr ""
+msgstr "Өнім UUID-ін алу"
 
 #: src/hostname/org.freedesktop.hostname1.policy:52
 msgid "Authentication is required to get product UUID."
-msgstr ""
+msgstr "Өнім UUID-ін алу үшін аутентификация қажет."
 
 #: src/hostname/org.freedesktop.hostname1.policy:61
 msgid "Get hardware serial number"
-msgstr ""
+msgstr "Жабдықтың сериялық нөмірін алу"
 
 #: src/hostname/org.freedesktop.hostname1.policy:62
 msgid "Authentication is required to get hardware serial number."
-msgstr ""
+msgstr "Жабдықтың сериялық нөмірін алу үшін аутентификация қажет."
 
 #: src/hostname/org.freedesktop.hostname1.policy:71
 msgid "Get system description"
-msgstr ""
+msgstr "Жүйе сипаттамасын алу"
 
 #: src/hostname/org.freedesktop.hostname1.policy:72
 msgid "Authentication is required to get system description."
-msgstr ""
+msgstr "Жүйе сипаттамасын алу үшін аутентификация қажет."
 
 #: src/import/org.freedesktop.import1.policy:22
 msgid "Import a disk image"
-msgstr ""
+msgstr "Диск бейнесін импорттау"
 
 #: src/import/org.freedesktop.import1.policy:23
 msgid "Authentication is required to import an image."
-msgstr ""
+msgstr "Бейнені импорттау үшін аутентификация қажет."
 
 #: src/import/org.freedesktop.import1.policy:32
 msgid "Export a disk image"
-msgstr ""
+msgstr "Диск бейнесін экспорттау"
 
 #: src/import/org.freedesktop.import1.policy:33
 msgid "Authentication is required to export disk image."
-msgstr ""
+msgstr "Диск бейнесін экспорттау үшін аутентификация қажет."
 
 #: src/import/org.freedesktop.import1.policy:42
 msgid "Download a disk image"
-msgstr ""
+msgstr "Диск бейнесін жүктеп алу"
 
 #: src/import/org.freedesktop.import1.policy:43
 msgid "Authentication is required to download a disk image."
-msgstr ""
+msgstr "Диск бейнесін жүктеп алу үшін аутентификация қажет."
 
 #: src/import/org.freedesktop.import1.policy:52
 msgid "Cancel transfer of a disk image"
-msgstr ""
+msgstr "Диск бейнесін беруден бас тарту"
 
 #: src/import/org.freedesktop.import1.policy:53
 msgid ""
 "Authentication is required to cancel the ongoing transfer of a disk image."
 msgstr ""
+"Диск бейнесінің жүріп жатқан берілуінен бас тарту үшін аутентификация қажет."
 
 #: src/locale/org.freedesktop.locale1.policy:22
 msgid "Set system locale"
-msgstr ""
+msgstr "Жүйелік локальді орнату"
 
 #: src/locale/org.freedesktop.locale1.policy:23
 msgid "Authentication is required to set the system locale."
-msgstr ""
+msgstr "Жүйелік локальді орнату үшін аутентификация қажет."
 
 #: src/locale/org.freedesktop.locale1.policy:33
 msgid "Set system keyboard settings"
-msgstr ""
+msgstr "Жүйелік пернетақта баптауларын орнату"
 
 #: src/locale/org.freedesktop.locale1.policy:34
 msgid "Authentication is required to set the system keyboard settings."
-msgstr ""
+msgstr "Жүйелік пернетақта баптауларын орнату үшін аутентификация қажет."
 
 #: src/login/org.freedesktop.login1.policy:22
 msgid "Allow applications to inhibit system shutdown"
-msgstr ""
+msgstr "Қолданбаларға жүйенің сөндірілуіне тыйым салуға рұқсат ету"
 
 #: src/login/org.freedesktop.login1.policy:23
 msgid ""
 "Authentication is required for an application to inhibit system shutdown."
-msgstr ""
+msgstr "Қолданбаның жүйе сөндірілуіне тыйым салуы үшін аутентификация қажет."
 
 #: src/login/org.freedesktop.login1.policy:33
 msgid "Allow applications to delay system shutdown"
-msgstr ""
+msgstr "Қолданбаларға жүйенің сөндірілуін кешіктіруге рұқсат ету"
 
 #: src/login/org.freedesktop.login1.policy:34
 msgid "Authentication is required for an application to delay system shutdown."
-msgstr ""
+msgstr "Қолданбаның жүйе сөндірілуін кешіктіруі үшін аутентификация қажет."
 
 #: src/login/org.freedesktop.login1.policy:44
 msgid "Allow applications to inhibit system sleep"
-msgstr ""
+msgstr "Қолданбаларға жүйенің ұйқы режиміне өтуіне тыйым салуға рұқсат ету"
 
 #: src/login/org.freedesktop.login1.policy:45
 msgid "Authentication is required for an application to inhibit system sleep."
 msgstr ""
+"Қолданбаның жүйе ұйқы режиміне өтуіне тыйым салуы үшін аутентификация қажет."
 
 #: src/login/org.freedesktop.login1.policy:55
 msgid "Allow applications to delay system sleep"
-msgstr ""
+msgstr "Қолданбаларға жүйенің ұйқы режиміне өтуін кешіктіруге рұқсат ету"
 
 #: src/login/org.freedesktop.login1.policy:56
 msgid "Authentication is required for an application to delay system sleep."
 msgstr ""
+"Қолданбаның жүйе ұйқы режиміне өтуін кешіктіруі үшін аутентификация қажет."
 
 #: src/login/org.freedesktop.login1.policy:65
 msgid "Allow applications to inhibit automatic system suspend"
 msgstr ""
+"Қолданбаларға жүйенің автоматты түрде тоқтатылуына тыйым салуға рұқсат ету"
 
 #: src/login/org.freedesktop.login1.policy:66
 msgid ""
 "Authentication is required for an application to inhibit automatic system "
 "suspend."
 msgstr ""
+"Қолданбаның жүйенің автоматты түрде тоқтатылуына тыйым салуы үшін "
+"аутентификация қажет."
 
 #: src/login/org.freedesktop.login1.policy:75
 msgid "Allow applications to inhibit system handling of the power key"
-msgstr ""
+msgstr "Қолданбаларға жүйенің қуат пернесін өңдеуіне тыйым салуға рұқсат ету"
 
 #: src/login/org.freedesktop.login1.policy:76
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the power key."
 msgstr ""
+"Қолданбаның жүйенің қуат пернесін өңдеуіне тыйым салуы үшін аутентификация "
+"қажет."
 
 #: src/login/org.freedesktop.login1.policy:86
 msgid "Allow applications to inhibit system handling of the suspend key"
-msgstr ""
+msgstr "Қолданбаларға жүйенің тоқтату пернесін өңдеуіне тыйым салуға рұқсат ету"
 
 #: src/login/org.freedesktop.login1.policy:87
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the suspend key."
 msgstr ""
+"Қолданбаның жүйенің тоқтату пернесін өңдеуіне тыйым салуы үшін "
+"аутентификация қажет."
 
 #: src/login/org.freedesktop.login1.policy:97
 msgid "Allow applications to inhibit system handling of the hibernate key"
 msgstr ""
+"Қолданбаларға жүйенің гибернация пернесін өңдеуіне тыйым салуға рұқсат ету"
 
 #: src/login/org.freedesktop.login1.policy:98
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the hibernate key."
 msgstr ""
+"Қолданбаның жүйенің гибернация пернесін өңдеуіне тыйым салуы үшін "
+"аутентификация қажет."
 
 #: src/login/org.freedesktop.login1.policy:107
 msgid "Allow applications to inhibit system handling of the lid switch"
 msgstr ""
+"Қолданбаларға жүйенің қақпақ ауыстырғышын өңдеуіне тыйым салуға рұқсат ету"
 
 #: src/login/org.freedesktop.login1.policy:108
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the lid switch."
 msgstr ""
+"Қолданбаның жүйенің қақпақ ауыстырғышын өңдеуіне тыйым салуы үшін "
+"аутентификация қажет."
 
 #: src/login/org.freedesktop.login1.policy:117
 msgid "Allow applications to inhibit system handling of the reboot key"
 msgstr ""
+"Қолданбаларға жүйенің қайта жүктеу пернесін өңдеуіне тыйым салуға рұқсат ету"
 
 #: src/login/org.freedesktop.login1.policy:118
 msgid ""
 "Authentication is required for an application to inhibit system handling of "
 "the reboot key."
 msgstr ""
+"Қолданбаның жүйенің қайта жүктеу пернесін өңдеуіне тыйым салуы үшін "
+"аутентификация қажет."
 
 #: src/login/org.freedesktop.login1.policy:128
 msgid "Allow non-logged-in user to run programs"
-msgstr ""
+msgstr "Жүйеге кірмеген пайдаланушыға бағдарламаларды іске қосуға рұқсат ету"
 
 #: src/login/org.freedesktop.login1.policy:129
 msgid "Explicit request is required to run programs as a non-logged-in user."
 msgstr ""
+"Жүйеге кірмеген пайдаланушы ретінде бағдарламаларды іске қосу үшін айқын "
+"сұраным қажет."
 
 #: src/login/org.freedesktop.login1.policy:138
 msgid "Allow non-logged-in users to run programs"
-msgstr ""
+msgstr "Жүйеге кірмеген пайдаланушыларға бағдарламаларды іске қосуға рұқсат ету"
 
 #: src/login/org.freedesktop.login1.policy:139
 msgid "Authentication is required to run programs as a non-logged-in user."
 msgstr ""
+"Жүйеге кірмеген пайдаланушы ретінде бағдарламаларды іске қосу үшін "
+"аутентификация қажет."
 
 #: src/login/org.freedesktop.login1.policy:148
 msgid "Allow attaching devices to seats"
-msgstr ""
+msgstr "Құрылғыларды орындарға жалғауға рұқсат ету"
 
 #: src/login/org.freedesktop.login1.policy:149
 msgid "Authentication is required to attach a device to a seat."
-msgstr ""
+msgstr "Құрылғыны орынға жалғау үшін аутентификация қажет."
 
 #: src/login/org.freedesktop.login1.policy:159
 msgid "Flush device to seat attachments"
-msgstr ""
+msgstr "Құрылғылардың орындарға жалғануын тазарту"
 
 #: src/login/org.freedesktop.login1.policy:160
 msgid "Authentication is required to reset how devices are attached to seats."
 msgstr ""
+"Құрылғылардың орындарға қалай жалғанғанын ысыру үшін аутентификация қажет."
 
 #: src/login/org.freedesktop.login1.policy:169
 msgid "Power off the system"
-msgstr ""
+msgstr "Жүйені сөндіру"
 
 #: src/login/org.freedesktop.login1.policy:170
 msgid "Authentication is required to power off the system."
-msgstr ""
+msgstr "Жүйені сөндіру үшін аутентификация қажет."
 
 #: src/login/org.freedesktop.login1.policy:180
 msgid "Power off the system while other users are logged in"
-msgstr ""
+msgstr "Басқа пайдаланушылар жүйеге кіріп тұрғанда жүйені сөндіру"
 
 #: src/login/org.freedesktop.login1.policy:181
 msgid ""
 "Authentication is required to power off the system while other users are "
 "logged in."
 msgstr ""
+"Басқа пайдаланушылар жүйеге кіріп тұрғанда жүйені сөндіру үшін "
+"аутентификация қажет."
 
 #: src/login/org.freedesktop.login1.policy:191
 msgid "Power off the system while an application is inhibiting this"
-msgstr ""
+msgstr "Қолданба бұған тыйым салып тұрғанда жүйені сөндіру"
 
 #: src/login/org.freedesktop.login1.policy:192
 msgid ""
 "Authentication is required to power off the system while an application is "
 "inhibiting this."
 msgstr ""
+"Қолданба бұған тыйым салып тұрғанда жүйені сөндіру үшін аутентификация қажет."
 
 #: src/login/org.freedesktop.login1.policy:202
 msgid "Reboot the system"
-msgstr ""
+msgstr "Жүйені қайта жүктеу"
 
 #: src/login/org.freedesktop.login1.policy:203
 msgid "Authentication is required to reboot the system."
-msgstr ""
+msgstr "Жүйені қайта жүктеу үшін аутентификация қажет."
 
 #: src/login/org.freedesktop.login1.policy:213
 msgid "Reboot the system while other users are logged in"
-msgstr ""
+msgstr "Басқа пайдаланушылар жүйеге кіріп тұрғанда жүйені қайта жүктеу"
 
 #: src/login/org.freedesktop.login1.policy:214
 msgid ""
 "Authentication is required to reboot the system while other users are logged "
 "in."
 msgstr ""
+"Басқа пайдаланушылар жүйеге кіріп тұрғанда жүйені қайта жүктеу үшін "
+"аутентификация қажет."
 
 #: src/login/org.freedesktop.login1.policy:224
 msgid "Reboot the system while an application is inhibiting this"
-msgstr ""
+msgstr "Қолданба бұған тыйым салып тұрғанда жүйені қайта жүктеу"
 
 #: src/login/org.freedesktop.login1.policy:225
 msgid ""
 "Authentication is required to reboot the system while an application is "
 "inhibiting this."
 msgstr ""
+"Қолданба бұған тыйым салып тұрғанда жүйені қайта жүктеу үшін аутентификация "
+"қажет."
 
 #: src/login/org.freedesktop.login1.policy:235
 msgid "Halt the system"
-msgstr ""
+msgstr "Жүйені тоқтату"
 
 #: src/login/org.freedesktop.login1.policy:236
 msgid "Authentication is required to halt the system."
-msgstr ""
+msgstr "Жүйені тоқтату үшін аутентификация қажет."
 
 #: src/login/org.freedesktop.login1.policy:246
 msgid "Halt the system while other users are logged in"
-msgstr ""
+msgstr "Басқа пайдаланушылар жүйеге кіріп тұрғанда жүйені тоқтату"
 
 #: src/login/org.freedesktop.login1.policy:247
 msgid ""
 "Authentication is required to halt the system while other users are logged "
 "in."
 msgstr ""
+"Басқа пайдаланушылар жүйеге кіріп тұрғанда жүйені тоқтату үшін "
+"аутентификация қажет."
 
 #: src/login/org.freedesktop.login1.policy:257
 msgid "Halt the system while an application is inhibiting this"
-msgstr ""
+msgstr "Қолданба бұған тыйым салып тұрғанда жүйені тоқтату"
 
 #: src/login/org.freedesktop.login1.policy:258
 msgid ""
 "Authentication is required to halt the system while an application is "
 "inhibiting this."
 msgstr ""
+"Қолданба бұған тыйым салып тұрғанда жүйені тоқтату үшін аутентификация қажет."
 
 #: src/login/org.freedesktop.login1.policy:268
 msgid "Suspend the system"
-msgstr ""
+msgstr "Жүйені ұйықтату"
 
 #: src/login/org.freedesktop.login1.policy:269
 msgid "Authentication is required to suspend the system."
-msgstr ""
+msgstr "Жүйені ұйықтату үшін аутентификация қажет."
 
 #: src/login/org.freedesktop.login1.policy:278
 msgid "Suspend the system while other users are logged in"
-msgstr ""
+msgstr "Басқа пайдаланушылар жүйеге кіріп тұрғанда жүйені ұйықтату"
 
 #: src/login/org.freedesktop.login1.policy:279
 msgid ""
 "Authentication is required to suspend the system while other users are "
 "logged in."
 msgstr ""
+"Басқа пайдаланушылар жүйеге кіріп тұрғанда жүйені ұйықтату үшін "
+"аутентификация қажет."
 
 #: src/login/org.freedesktop.login1.policy:289
 msgid "Suspend the system while an application is inhibiting this"
-msgstr ""
+msgstr "Қолданба бұған тыйым салып тұрғанда жүйені ұйықтату"
 
 #: src/login/org.freedesktop.login1.policy:290
 msgid ""
 "Authentication is required to suspend the system while an application is "
 "inhibiting this."
 msgstr ""
+"Қолданба бұған тыйым салып тұрғанда жүйені ұйықтату үшін аутентификация "
+"қажет."
 
 #: src/login/org.freedesktop.login1.policy:300
 msgid "Hibernate the system"
-msgstr ""
+msgstr "Жүйені гибернациялау"
 
 #: src/login/org.freedesktop.login1.policy:301
 msgid "Authentication is required to hibernate the system."
-msgstr ""
+msgstr "Жүйені гибернациялау үшін аутентификация қажет."
 
 #: src/login/org.freedesktop.login1.policy:310
 msgid "Hibernate the system while other users are logged in"
-msgstr ""
+msgstr "Басқа пайдаланушылар жүйеге кіріп тұрғанда жүйені гибернациялау"
 
 #: src/login/org.freedesktop.login1.policy:311
 msgid ""
 "Authentication is required to hibernate the system while other users are "
 "logged in."
 msgstr ""
+"Басқа пайдаланушылар жүйеге кіріп тұрғанда жүйені гибернациялау үшін "
+"аутентификация қажет."
 
 #: src/login/org.freedesktop.login1.policy:321
 msgid "Hibernate the system while an application is inhibiting this"
-msgstr ""
+msgstr "Қолданба бұған тыйым салып тұрғанда жүйені гибернациялау"
 
 #: src/login/org.freedesktop.login1.policy:322
 msgid ""
 "Authentication is required to hibernate the system while an application is "
 "inhibiting this."
 msgstr ""
+"Қолданба бұған тыйым салып тұрғанда жүйені гибернациялау үшін аутентификация "
+"қажет."
 
 #: src/login/org.freedesktop.login1.policy:332
 msgid "Manage active sessions, users and seats"
-msgstr ""
+msgstr "Белсенді сессияларды, пайдаланушыларды және орындарды басқару"
 
 #: src/login/org.freedesktop.login1.policy:333
 msgid "Authentication is required to manage active sessions, users and seats."
 msgstr ""
+"Белсенді сессияларды, пайдаланушыларды және орындарды басқару үшін "
+"аутентификация қажет."
 
 #: src/login/org.freedesktop.login1.policy:342
 msgid "Lock or unlock active sessions"
-msgstr ""
+msgstr "Белсенді сессияларды құлыптау немесе құлпын ашу"
 
 #: src/login/org.freedesktop.login1.policy:343
 msgid "Authentication is required to lock or unlock active sessions."
 msgstr ""
+"Белсенді сессияларды құлыптау немесе құлпын ашу үшін аутентификация қажет."
 
 #: src/login/org.freedesktop.login1.policy:352
 msgid "Set the reboot \"reason\" in the kernel"
-msgstr ""
+msgstr "Ядрода қайта жүктеу \"себебін\" орнату"
 
 #: src/login/org.freedesktop.login1.policy:353
 msgid "Authentication is required to set the reboot \"reason\" in the kernel."
-msgstr ""
+msgstr "Ядрода қайта жүктеу \"себебін\" орнату үшін аутентификация қажет."
 
 #: src/login/org.freedesktop.login1.policy:363
 msgid "Indicate to the firmware to boot to setup interface"
-msgstr ""
+msgstr "Микробағдарламаға баптау интерфейсіне жүктелуді көрсету"
 
 #: src/login/org.freedesktop.login1.policy:364
 msgid ""
 "Authentication is required to indicate to the firmware to boot to setup "
 "interface."
 msgstr ""
+"Микробағдарламаға баптау интерфейсіне жүктелуді көрсету үшін аутентификация "
+"қажет."
 
 #: src/login/org.freedesktop.login1.policy:374
 msgid "Indicate to the boot loader to boot to the boot loader menu"
-msgstr ""
+msgstr "Жүктеуішке жүктеу мәзіріне жүктелуді көрсету"
 
 #: src/login/org.freedesktop.login1.policy:375
 msgid ""
 "Authentication is required to indicate to the boot loader to boot to the "
 "boot loader menu."
-msgstr ""
+msgstr "Жүктеуішке жүктеу мәзіріне жүктелуді көрсету үшін аутентификация қажет."
 
 #: src/login/org.freedesktop.login1.policy:385
 msgid "Indicate to the boot loader to boot a specific entry"
-msgstr ""
+msgstr "Жүктеуішке белгілі бір жазбаға жүктелуді көрсету"
 
 #: src/login/org.freedesktop.login1.policy:386
 msgid ""
 "Authentication is required to indicate to the boot loader to boot into a "
 "specific boot loader entry."
 msgstr ""
+"Жүктеуішке белгілі бір жүктеуіш жазбасына жүктелуді көрсету үшін "
+"аутентификация қажет."
 
 #: src/login/org.freedesktop.login1.policy:396
 msgid "Set a wall message"
-msgstr ""
+msgstr "Wall хабарламасын орнату"
 
 #: src/login/org.freedesktop.login1.policy:397
 msgid "Authentication is required to set a wall message."
-msgstr ""
+msgstr "Wall хабарламасын орнату үшін аутентификация қажет."
 
 #: src/login/org.freedesktop.login1.policy:406
 msgid "Change Session"
-msgstr ""
+msgstr "Сессияны өзгерту"
 
 #: src/login/org.freedesktop.login1.policy:407
 msgid "Authentication is required to change the virtual terminal."
-msgstr ""
+msgstr "Виртуалды терминалды өзгерту үшін аутентификация қажет."
 
 #: src/machine/org.freedesktop.machine1.policy:22
 msgid "Log into a local container"
-msgstr ""
+msgstr "Жергілікті контейнерге кіру"
 
 #: src/machine/org.freedesktop.machine1.policy:23
 msgid "Authentication is required to log into a local container."
-msgstr ""
+msgstr "Жергілікті контейнерге кіру үшін аутентификация қажет."
 
 #: src/machine/org.freedesktop.machine1.policy:32
 msgid "Log into the local host"
-msgstr ""
+msgstr "Жергілікті хостқа кіру"
 
 #: src/machine/org.freedesktop.machine1.policy:33
 msgid "Authentication is required to log into the local host."
-msgstr ""
+msgstr "Жергілікті хостқа кіру үшін аутентификация қажет."
 
 #: src/machine/org.freedesktop.machine1.policy:42
 msgid "Acquire a shell in a local container"
-msgstr ""
+msgstr "Жергілікті контейнерде қоршамды алу"
 
 #: src/machine/org.freedesktop.machine1.policy:43
 msgid "Authentication is required to acquire a shell in a local container."
-msgstr ""
+msgstr "Жергілікті контейнерде қоршамды алу үшін аутентификация қажет."
 
 #: src/machine/org.freedesktop.machine1.policy:53
 msgid "Acquire a shell on the local host"
-msgstr ""
+msgstr "Жергілікті хостта қоршамды алу"
 
 #: src/machine/org.freedesktop.machine1.policy:54
 msgid "Authentication is required to acquire a shell on the local host."
-msgstr ""
+msgstr "Жергілікті хостта қоршамды алу үшін аутентификация қажет."
 
 #: src/machine/org.freedesktop.machine1.policy:64
 msgid "Acquire a pseudo TTY in a local container"
-msgstr ""
+msgstr "Жергілікті контейнерде псевдо TTY алу"
 
 #: src/machine/org.freedesktop.machine1.policy:65
 msgid ""
 "Authentication is required to acquire a pseudo TTY in a local container."
-msgstr ""
+msgstr "Жергілікті контейнерде псевдо TTY алу үшін аутентификация қажет."
 
 #: src/machine/org.freedesktop.machine1.policy:74
 msgid "Acquire a pseudo TTY on the local host"
-msgstr ""
+msgstr "Жергілікті хостта псевдо TTY алу"
 
 #: src/machine/org.freedesktop.machine1.policy:75
 msgid "Authentication is required to acquire a pseudo TTY on the local host."
-msgstr ""
+msgstr "Жергілікті хостта псевдо TTY алу үшін аутентификация қажет."
 
 #: src/machine/org.freedesktop.machine1.policy:84
 msgid "Manage local virtual machines and containers"
-msgstr ""
+msgstr "Жергілікті виртуалды машиналарды және контейнерлерді басқару"
 
 #: src/machine/org.freedesktop.machine1.policy:85
 msgid ""
 "Authentication is required to manage local virtual machines and containers."
 msgstr ""
+"Жергілікті виртуалды машиналарды және контейнерлерді басқару үшін "
+"аутентификация қажет."
 
 #: src/machine/org.freedesktop.machine1.policy:95
 msgid "Create a local virtual machine or container"
-msgstr ""
+msgstr "Жергілікті виртуалды машина немесе контейнер жасау"
 
 #: src/machine/org.freedesktop.machine1.policy:96
 msgid ""
 "Authentication is required to create a local virtual machine or container."
 msgstr ""
+"Жергілікті виртуалды машина немесе контейнер жасау үшін аутентификация қажет."
 
 #: src/machine/org.freedesktop.machine1.policy:106
 msgid "Register a local virtual machine or container"
-msgstr ""
+msgstr "Жергілікті виртуалды машинаны немесе контейнерді тіркеу"
 
 #: src/machine/org.freedesktop.machine1.policy:107
 msgid ""
 "Authentication is required to register a local virtual machine or container."
 msgstr ""
+"Жергілікті виртуалды машинаны немесе контейнерді тіркеу үшін аутентификация "
+"қажет."
 
 #: src/machine/org.freedesktop.machine1.policy:116
 msgid "Manage local virtual machine and container images"
-msgstr ""
+msgstr "Жергілікті виртуалды машина және контейнер бейнелерін басқару"
 
 #: src/machine/org.freedesktop.machine1.policy:117
 msgid ""
 "Authentication is required to manage local virtual machine and container "
 "images."
 msgstr ""
+"Жергілікті виртуалды машина және контейнер бейнелерін басқару үшін "
+"аутентификация қажет."
 
 #: src/network/org.freedesktop.network1.policy:22
 msgid "Set NTP servers"
-msgstr ""
+msgstr "NTP серверлерін орнату"
 
 #: src/network/org.freedesktop.network1.policy:23
 msgid "Authentication is required to set NTP servers."
-msgstr ""
+msgstr "NTP серверлерін орнату үшін аутентификация қажет."
 
 #: src/network/org.freedesktop.network1.policy:33
 #: src/resolve/org.freedesktop.resolve1.policy:44
 msgid "Set DNS servers"
-msgstr ""
+msgstr "DNS серверлерін орнату"
 
 #: src/network/org.freedesktop.network1.policy:34
 #: src/resolve/org.freedesktop.resolve1.policy:45
 msgid "Authentication is required to set DNS servers."
-msgstr ""
+msgstr "DNS серверлерін орнату үшін аутентификация қажет."
 
 #: src/network/org.freedesktop.network1.policy:44
 #: src/resolve/org.freedesktop.resolve1.policy:55
 msgid "Set domains"
-msgstr ""
+msgstr "Домендерді орнату"
 
 #: src/network/org.freedesktop.network1.policy:45
 #: src/resolve/org.freedesktop.resolve1.policy:56
 msgid "Authentication is required to set domains."
-msgstr ""
+msgstr "Домендерді орнату үшін аутентификация қажет."
 
 #: src/network/org.freedesktop.network1.policy:55
 #: src/resolve/org.freedesktop.resolve1.policy:66
 msgid "Set default route"
-msgstr ""
+msgstr "Әдепкі маршрутты орнату"
 
 #: src/network/org.freedesktop.network1.policy:56
 #: src/resolve/org.freedesktop.resolve1.policy:67
 msgid "Authentication is required to set default route."
-msgstr ""
+msgstr "Әдепкі маршрутты орнату үшін аутентификация қажет."
 
 #: src/network/org.freedesktop.network1.policy:66
 #: src/resolve/org.freedesktop.resolve1.policy:77
 msgid "Enable/disable LLMNR"
-msgstr ""
+msgstr "LLMNR іске қосу/сөндіру"
 
 #: src/network/org.freedesktop.network1.policy:67
 #: src/resolve/org.freedesktop.resolve1.policy:78
 msgid "Authentication is required to enable or disable LLMNR."
-msgstr ""
+msgstr "LLMNR іске қосу немесе сөндіру үшін аутентификация қажет."
 
 #: src/network/org.freedesktop.network1.policy:77
 #: src/resolve/org.freedesktop.resolve1.policy:88
 msgid "Enable/disable multicast DNS"
-msgstr ""
+msgstr "Мультикаст DNS іске қосу/сөндіру"
 
 #: src/network/org.freedesktop.network1.policy:78
 #: src/resolve/org.freedesktop.resolve1.policy:89
 msgid "Authentication is required to enable or disable multicast DNS."
-msgstr ""
+msgstr "Мультикаст DNS іске қосу немесе сөндіру үшін аутентификация қажет."
 
 #: src/network/org.freedesktop.network1.policy:88
 #: src/resolve/org.freedesktop.resolve1.policy:99
 msgid "Enable/disable DNS over TLS"
-msgstr ""
+msgstr "DNS over TLS іске қосу/сөндіру"
 
 #: src/network/org.freedesktop.network1.policy:89
 #: src/resolve/org.freedesktop.resolve1.policy:100
 msgid "Authentication is required to enable or disable DNS over TLS."
-msgstr ""
+msgstr "DNS over TLS іске қосу немесе сөндіру үшін аутентификация қажет."
 
 #: src/network/org.freedesktop.network1.policy:99
 #: src/resolve/org.freedesktop.resolve1.policy:110
 msgid "Enable/disable DNSSEC"
-msgstr ""
+msgstr "DNSSEC іске қосу/сөндіру"
 
 #: src/network/org.freedesktop.network1.policy:100
 #: src/resolve/org.freedesktop.resolve1.policy:111
 msgid "Authentication is required to enable or disable DNSSEC."
-msgstr ""
+msgstr "DNSSEC іске қосу немесе сөндіру үшін аутентификация қажет."
 
 #: src/network/org.freedesktop.network1.policy:110
 #: src/resolve/org.freedesktop.resolve1.policy:121
 msgid "Set DNSSEC Negative Trust Anchors"
-msgstr ""
+msgstr "DNSSEC теріс сенім зәкірлерін орнату"
 
 #: src/network/org.freedesktop.network1.policy:111
 #: src/resolve/org.freedesktop.resolve1.policy:122
 msgid "Authentication is required to set DNSSEC Negative Trust Anchors."
-msgstr ""
+msgstr "DNSSEC теріс сенім зәкірлерін орнату үшін аутентификация қажет."
 
 #: src/network/org.freedesktop.network1.policy:121
 msgid "Revert NTP settings"
-msgstr ""
+msgstr "NTP баптауларын қайтару"
 
 #: src/network/org.freedesktop.network1.policy:122
 msgid "Authentication is required to reset NTP settings."
-msgstr ""
+msgstr "NTP баптауларын тастау үшін аутентификация қажет."
 
 #: src/network/org.freedesktop.network1.policy:132
 msgid "Revert DNS settings"
-msgstr ""
+msgstr "DNS баптауларын қайтару"
 
 #: src/network/org.freedesktop.network1.policy:133
 msgid "Authentication is required to reset DNS settings."
-msgstr ""
+msgstr "DNS баптауларын тастау үшін аутентификация қажет."
 
 #: src/network/org.freedesktop.network1.policy:143
 msgid "DHCP server sends force renew message"
-msgstr ""
+msgstr "DHCP сервері мәжбүрлі жаңарту хабарламасын жібереді"
 
 #: src/network/org.freedesktop.network1.policy:144
 msgid "Authentication is required to send force renew message."
-msgstr ""
+msgstr "Мәжбүрлі жаңарту хабарламасын жіберу үшін аутентификация қажет."
 
 #: src/network/org.freedesktop.network1.policy:154
 msgid "Renew dynamic addresses"
-msgstr ""
+msgstr "Динамикалық адрестерді жаңарту"
 
 #: src/network/org.freedesktop.network1.policy:155
 msgid "Authentication is required to renew dynamic addresses."
-msgstr ""
+msgstr "Динамикалық адрестерді жаңарту үшін аутентификация қажет."
 
 #: src/network/org.freedesktop.network1.policy:165
 msgid "Reload network settings"
-msgstr ""
+msgstr "Желілік баптауларды қайта жүктеу"
 
 #: src/network/org.freedesktop.network1.policy:166
 msgid "Authentication is required to reload network settings."
-msgstr ""
+msgstr "Желілік баптауларды қайта жүктеу үшін аутентификация қажет."
 
 #: src/network/org.freedesktop.network1.policy:176
 msgid "Reconfigure network interface"
-msgstr ""
+msgstr "Желілік интерфейсті қайта баптау"
 
 #: src/network/org.freedesktop.network1.policy:177
 msgid "Authentication is required to reconfigure network interface."
-msgstr ""
+msgstr "Желілік интерфейсті қайта баптау үшін аутентификация қажет."
 
 #: src/network/org.freedesktop.network1.policy:187
 msgid "Specify whether persistent storage for systemd-networkd is available"
-msgstr ""
+msgstr "systemd-networkd үшін тұрақты сақтау орнының қолжетімділігін көрсету"
 
 #: src/network/org.freedesktop.network1.policy:188
 msgid ""
 "Authentication is required to specify whether persistent storage for systemd-"
 "networkd is available."
 msgstr ""
+"systemd-networkd үшін тұрақты сақтау орнының қолжетімділігін көрсету үшін "
+"аутентификация қажет."
 
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
-msgstr ""
+msgstr "Портативті қызмет бейнесін тексеру"
 
 #: src/portable/org.freedesktop.portable1.policy:14
 msgid "Authentication is required to inspect a portable service image."
-msgstr ""
+msgstr "Портативті қызмет бейнесін тексеру үшін аутентификация қажет."
 
 #: src/portable/org.freedesktop.portable1.policy:23
 msgid "Attach or detach a portable service image"
-msgstr ""
+msgstr "Портативті қызмет бейнесін жалғау немесе ажырату"
 
 #: src/portable/org.freedesktop.portable1.policy:24
 msgid ""
 "Authentication is required to attach or detach a portable service image."
 msgstr ""
+"Портативті қызмет бейнесін жалғау немесе ажырату үшін аутентификация қажет."
 
 #: src/portable/org.freedesktop.portable1.policy:34
 msgid "Delete or modify portable service image"
-msgstr ""
+msgstr "Портативті қызмет бейнесін өшіру немесе өзгерту"
 
 #: src/portable/org.freedesktop.portable1.policy:35
 msgid ""
 "Authentication is required to delete or modify a portable service image."
 msgstr ""
+"Портативті қызмет бейнесін өшіру немесе өзгерту үшін аутентификация қажет."
 
 #: src/resolve/org.freedesktop.resolve1.policy:22
 msgid "Register a DNS-SD service"
-msgstr ""
+msgstr "DNS-SD қызметін тіркеу"
 
 #: src/resolve/org.freedesktop.resolve1.policy:23
 msgid "Authentication is required to register a DNS-SD service."
-msgstr ""
+msgstr "DNS-SD қызметін тіркеу үшін аутентификация қажет."
 
 #: src/resolve/org.freedesktop.resolve1.policy:33
 msgid "Unregister a DNS-SD service"
-msgstr ""
+msgstr "DNS-SD қызметін тіркеуден шығару"
 
 #: src/resolve/org.freedesktop.resolve1.policy:34
 msgid "Authentication is required to unregister a DNS-SD service."
-msgstr ""
+msgstr "DNS-SD қызметін тіркеуден шығару үшін аутентификация қажет."
 
 #: src/resolve/org.freedesktop.resolve1.policy:132
 msgid "Revert name resolution settings"
-msgstr ""
+msgstr "Атауларды шешу баптауларын қайтару"
 
 #: src/resolve/org.freedesktop.resolve1.policy:133
 msgid "Authentication is required to reset name resolution settings."
-msgstr ""
+msgstr "Атауларды шешу баптауларын ысыру үшін аутентификация қажет."
 
 #: src/resolve/org.freedesktop.resolve1.policy:143
 msgid "Subscribe query results"
-msgstr ""
+msgstr "Сұраным нәтижелеріне жазылу"
 
 #: src/resolve/org.freedesktop.resolve1.policy:144
 msgid "Authentication is required to subscribe query results."
-msgstr ""
+msgstr "Сұраным нәтижелеріне жазылу үшін аутентификация қажет."
 
 #: src/resolve/org.freedesktop.resolve1.policy:154
 msgid "Subscribe to DNS configuration"
-msgstr ""
+msgstr "DNS конфигурациясына жазылу"
 
 #: src/resolve/org.freedesktop.resolve1.policy:155
 msgid "Authentication is required to subscribe to DNS configuration."
-msgstr ""
+msgstr "DNS конфигурациясына жазылу үшін аутентификация қажет."
 
 #: src/resolve/org.freedesktop.resolve1.policy:165
 msgid "Dump cache"
-msgstr ""
+msgstr "Кэшті дамптау"
 
 #: src/resolve/org.freedesktop.resolve1.policy:166
 msgid "Authentication is required to dump cache."
-msgstr ""
+msgstr "Кэшті дамптау үшін аутентификация қажет."
 
 #: src/resolve/org.freedesktop.resolve1.policy:176
 msgid "Dump server state"
-msgstr ""
+msgstr "Сервер күйін дамптау"
 
 #: src/resolve/org.freedesktop.resolve1.policy:177
 msgid "Authentication is required to dump server state."
-msgstr ""
+msgstr "Сервер күйін дамптау үшін аутентификация қажет."
 
 #: src/resolve/org.freedesktop.resolve1.policy:187
 msgid "Dump statistics"
-msgstr ""
+msgstr "Статистиканы дамптау"
 
 #: src/resolve/org.freedesktop.resolve1.policy:188
 msgid "Authentication is required to dump statistics."
-msgstr ""
+msgstr "Статистиканы дамптау үшін аутентификация қажет."
 
 #: src/resolve/org.freedesktop.resolve1.policy:198
 msgid "Reset statistics"
-msgstr ""
+msgstr "Статистиканы тастау"
 
 #: src/resolve/org.freedesktop.resolve1.policy:199
 msgid "Authentication is required to reset statistics."
-msgstr ""
+msgstr "Статистиканы тастау үшін аутентификация қажет."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:35
 msgid "Check for system updates"
-msgstr ""
+msgstr "Жүйелік жаңартуларды тексеру"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:36
 msgid "Authentication is required to check for system updates."
-msgstr ""
+msgstr "Жүйелік жаңартуларды тексеру үшін аутентификация қажет."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:45
 msgid "Install system updates"
-msgstr ""
+msgstr "Жүйелік жаңартуларды орнату"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:46
 msgid "Authentication is required to install system updates."
-msgstr ""
+msgstr "Жүйелік жаңартуларды орнату үшін аутентификация қажет."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:55
 msgid "Install specific system version"
-msgstr ""
+msgstr "Жүйенің белгілі бір нұсқасын орнату"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:56
 msgid ""
 "Authentication is required to update the system to a specific (possibly old) "
 "version."
 msgstr ""
+"Жүйені белгілі бір (мүмкін ескі) нұсқаға жаңарту үшін аутентификация қажет."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:65
 msgid "Cleanup old system updates"
-msgstr ""
+msgstr "Ескі жүйелік жаңартуларды тазалау"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:66
 msgid "Authentication is required to cleanup old system updates."
-msgstr ""
+msgstr "Ескі жүйелік жаңартуларды тазалау үшін аутентификация қажет."
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:75
 msgid "Manage optional features"
-msgstr ""
+msgstr "Қосымша мүмкіндіктерді басқару"
 
 #: src/sysupdate/org.freedesktop.sysupdate1.policy:76
 msgid "Authentication is required to manage optional features."
-msgstr ""
+msgstr "Қосымша мүмкіндіктерді басқару үшін аутентификация қажет."
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
-msgstr ""
+msgstr "Жүйелік уақытты орнату"
 
 #: src/timedate/org.freedesktop.timedate1.policy:23
 msgid "Authentication is required to set the system time."
-msgstr ""
+msgstr "Жүйелік уақытты орнату үшін аутентификация қажет."
 
 #: src/timedate/org.freedesktop.timedate1.policy:33
 msgid "Set system timezone"
-msgstr ""
+msgstr "Жүйелік уақыт белдеуін орнату"
 
 #: src/timedate/org.freedesktop.timedate1.policy:34
 msgid "Authentication is required to set the system timezone."
-msgstr ""
+msgstr "Жүйелік уақыт белдеуін орнату үшін аутентификация қажет."
 
 #: src/timedate/org.freedesktop.timedate1.policy:43
 msgid "Set RTC to local timezone or UTC"
-msgstr ""
+msgstr "RTC-ны жергілікті уақыт белдеуіне немесе UTC-ге орнату"
 
 #: src/timedate/org.freedesktop.timedate1.policy:44
 msgid ""
 "Authentication is required to control whether the RTC stores the local or "
 "UTC time."
 msgstr ""
+"RTC-ның жергілікті немесе UTC уақытын сақтайтынын бақылау үшін "
+"аутентификация қажет."
 
 #: src/timedate/org.freedesktop.timedate1.policy:53
 msgid "Turn network time synchronization on or off"
-msgstr ""
+msgstr "Желілік уақытты синхрондауды қосу немесе сөндіру"
 
 #: src/timedate/org.freedesktop.timedate1.policy:54
 msgid ""
 "Authentication is required to control whether network time synchronization "
 "shall be enabled."
 msgstr ""
+"Желілік уақытты синхрондаудың іске қосылуын бақылау үшін аутентификация "
+"қажет."
 
 #: src/core/dbus-unit.c:371
 msgid "Authentication is required to start '$(unit)'."
-msgstr ""
+msgstr "'$(unit)' юнитын іске қосу үшін аутентификация қажет."
 
 #: src/core/dbus-unit.c:372
 msgid "Authentication is required to stop '$(unit)'."
-msgstr ""
+msgstr "'$(unit)' юнитын тоқтату үшін аутентификация қажет."
 
 #: src/core/dbus-unit.c:373
 msgid "Authentication is required to reload '$(unit)'."
-msgstr ""
+msgstr "'$(unit)' юнитын қайта жүктеу үшін аутентификация қажет."
 
 #: src/core/dbus-unit.c:374 src/core/dbus-unit.c:375
 msgid "Authentication is required to restart '$(unit)'."
-msgstr ""
+msgstr "'$(unit)' юнитын қайта іске қосу үшін аутентификация қажет."
 
 #: src/core/dbus-unit.c:567
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of '$"
 "(unit)'."
 msgstr ""
+"'$(unit)' юнитының процестеріне UNIX сигналын жіберу үшін аутентификация "
+"қажет."
 
 #: src/core/dbus-unit.c:620
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "subgroup of '$(unit)'."
 msgstr ""
+"'$(unit)' юнитының ішкі тобының процестеріне UNIX сигналын жіберу үшін "
+"аутентификация қажет."
 
 #: src/core/dbus-unit.c:648
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
-msgstr ""
+msgstr "'$(unit)' юнитының \"failed\" күйін ысыру үшін аутентификация қажет."
 
 #: src/core/dbus-unit.c:678
 msgid "Authentication is required to set properties on '$(unit)'."
-msgstr ""
+msgstr "'$(unit)' юнитының қасиеттерін орнату үшін аутентификация қажет."
 
 #: src/core/dbus-unit.c:775
 msgid ""
 "Authentication is required to delete files and directories associated with '$"
 "(unit)'."
 msgstr ""
+"'$(unit)' юнитымен байланысты файлдарды және бумаларды өшіру үшін "
+"аутентификация қажет."
 
 #: src/core/dbus-unit.c:812
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""
+"'$(unit)' юнитының процестерін қатыру немесе еріту үшін аутентификация қажет."
