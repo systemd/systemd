@@ -287,7 +287,7 @@ int oomd_cgroup_kill(Manager *m, OomdCGroupContext *ctx, bool recurse) {
                                           "org.freedesktop.oom1.Manager",
                                           "Killed",
                                           "ss",
-                                          ctx,
+                                          ctx->path,
                                           "oom");
 
         return !set_isempty(pids_killed);
