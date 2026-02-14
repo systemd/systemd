@@ -156,4 +156,14 @@ TEST(ellipsize_ansi_cats) {
         ASSERT_STREQ(h, "🐱…" ANSI_NORMAL "🐱" ANSI_NORMAL);
 }
 
+TEST(ellipsize_esc_infinite_loop) {
+        /* Make sure we don't infinite loop on an ESC in the first half */
+        static const char s[] = { 'A', 'B', 0x1B, ' ', 'D', '\0' };
+        _cleanup_free_ char *t = NULL;
+
+        t = ellipsize_mem(s, 5, 5, 50);
+        assert_se(t);
+        assert_se(memcmp(t, s, 5) == 0);
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
