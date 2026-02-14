@@ -83,7 +83,7 @@ run_test_killed() {
     for _ in {1..40}; do
         if [[ -z "$killed" ]]; then
             if [[ -e /tmp/test-udev-marker ]]; then
-                killall --signal ABRT --regexp udev-worker
+                pkill -ABRT udev-worker
                 killed=1
             fi
         elif grep -q 'UDEV_WORKER_FAILED=1' "$TMPDIR"/monitor.txt; then
