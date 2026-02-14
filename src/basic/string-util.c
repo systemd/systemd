@@ -267,9 +267,11 @@ static size_t ansi_sequence_length(const char *s, size_t len) {
 static bool string_has_ansi_sequence(const char *s, size_t len) {
         const char *t = s;
 
-        while ((t = memchr(s, 0x1B, len - (t - s))))
+        while ((t = memchr(t, 0x1B, len - (t - s)))) {
                 if (ansi_sequence_length(t, len - (t - s)) > 0)
                         return true;
+                t++;
+        }
         return false;
 }
 
