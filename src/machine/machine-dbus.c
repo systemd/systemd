@@ -376,7 +376,10 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
         if (m->uid != 0 && m->class != MACHINE_HOST) {
                 r = pidref_in_same_namespace(&PIDREF_MAKE_FROM_PID(1), &m->leader, NAMESPACE_USER);
                 if (r < 0)
-                        return r;
+                        return log_debug_errno(
+                                        r,
+                                        "Failed to check if machine '%s' is running in the root user namespace: %m",
+                                        m->name);
                 if (r != 0)
                         return sd_bus_error_set(
                                         error,
