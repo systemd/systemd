@@ -87,8 +87,6 @@ int pidref_from_same_root_fs(PidRef *a, PidRef *b);
 
 bool is_main_thread(void);
 
-bool oom_score_adjust_is_valid(int oa);
-
 #ifndef PERSONALITY_INVALID
 /* personality(2) documents that 0xFFFFFFFFUL is used for querying the
  * current personality, hence let's use that here as error
@@ -220,6 +218,7 @@ static inline int namespace_fork(
                                    ret);
 }
 
+bool oom_score_adjust_is_valid(int oa);
 int set_oom_score_adjust(int value);
 int get_oom_score_adjust(int *ret);
 
