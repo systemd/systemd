@@ -204,13 +204,15 @@ sensor:modalias:acpi:BOSC0200:*:dmi:*:svnAYANEO:pnAIRPlus*:*    # AIR Plus AMD, 
 # BMAX
 #########################################
 
-# BMAX Y13
-sensor:modalias:acpi:KIOX010A:*:dmi:*:svnAMI:*:skuH2M6:*
+# FIXME: location could be not needed because correctly detected, base sensor is acpi:KIOX020A:*
+# this should requiere good testing of both accels to match their lid close position.
+sensor:modalias:acpi:KIOX010A:*:dmi:*:svnAMI:*:skuH2M6:*    # MaxBook Y13
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, -1
  ACCEL_LOCATION=display
 
-# BMAX MaxBook Y14
-sensor:modalias:acpi:KIOX010A:*:dmi:*:svnAMI:*:skuH8Y6:*
+# FIXME: location could be not needed because correctly detected, base sensor is acpi:KIOX020A:*
+# this should requiere good testing of both accels to match their lid close position.
+sensor:modalias:acpi:KIOX010A:*:dmi:*:svnAMI:*:skuH8Y6:*    # MaxBook Y14
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, 1
  ACCEL_LOCATION=display
 
