@@ -220,8 +220,7 @@ sensor:modalias:acpi:KIOX010A:*:dmi:*:svnAMI:*:skuH8Y6:*    # MaxBook Y14
 # BUSH
 #########################################
 
-# Bush Windows tablet
-sensor:modalias:acpi:KIOX000A*:dmi:*:svnBUSH*:pnBushWindowstablet:*
+sensor:modalias:acpi:KIOX000A:*:dmi:*:svnBUSH:pnBushWindowstablet:*    # Bush Windows tablet
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 1, 0, 0
 
 #########################################
