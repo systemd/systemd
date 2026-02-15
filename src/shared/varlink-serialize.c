@@ -3,6 +3,8 @@
 #include "sd-event.h"
 
 #include "alloc-util.h"
+#include "extract-word.h"
+#include "fd-util.h"
 #include "fdset.h"
 #include "log.h"
 #include "parse-util.h"
@@ -43,7 +45,7 @@ int varlink_server_deserialize_one(sd_varlink_server *s, const char *value, FDSe
         int r;
 
         assert(s);
-        assert(l);
+        assert(value);
         assert(fds);
 
         v = startswith(value, "socket-address=");
