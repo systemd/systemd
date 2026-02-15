@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <gnu/libc-version.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/ioctl.h>
@@ -12,6 +13,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "stat-util.h"
 #include "strv.h"
@@ -420,6 +422,21 @@ TEST(terminal_new_session) {
 
                 _exit(EXIT_SUCCESS);
         }
+}
+
+TEST(openpt_allocate_in_namespace) {
+        _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
+
+        // FIXME: Figure out why this fails when using musl in Github Actions CI.
+        if (isempty(gnu_get_libc_version()))
+                return (void) log_tests_skipped("Test fails with 'Permission Denied' when using musl as libc");
+
+        ASSERT_OK(pidref_safe_fork(
+                        "test-openpt-ns",
+                        FORK_NEW_USERNS|FORK_NEW_MOUNTNS|FORK_LOG|FORK_FREEZE|FORK_DEATHSIG_SIGKILL,
+                        &pidref));
+
+        safe_close(ASSERT_OK(openpt_allocate_in_namespace(&pidref, O_RDWR|O_NOCTTY|O_CLOEXEC, true, NULL)));
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

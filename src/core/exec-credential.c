@@ -1255,7 +1255,6 @@ int unit_refresh_credentials(Unit *u) {
                                                 (int[]) { tunnel_fds[1] }, 1,
                                                 FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_CLOSE_ALL_FDS|FORK_REOPEN_LOG,
                                                 pidns_fd, mntns_fd, /* netns_fd = */ -EBADF, userns_fd, root_fd,
-                                                /* delegated = */ MANAGER_IS_USER(u->manager),
                                                 &child);
                         if (r < 0)
                                 return log_full_errno(ERRNO_IS_NEG_PRIVILEGE(r) ? LOG_WARNING : LOG_ERR, r,
