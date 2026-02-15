@@ -541,9 +541,8 @@ static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t
                                 log_error_errno(r, "Failed to select any cgroups under %s based on pressure, ignoring: %m", t->path);
                         else {
                                 /* Don't act on all the high pressure cgroups at once; return as soon as we kill one.
-                                 * If r == 0 then it means there were not eligible candidates, the candidate cgroup
-                                 * disappeared, or the candidate cgroup has no processes by the time we tried to kill
-                                 * it. In either case, go through the event loop again and select a new candidate if
+                                 * If r == 0 then the cgroup is already queued for kill by an earlier iteration.
+                                 * In either case, go through the event loop again and select a new candidate if
                                  * pressure is still high. */
                                 m->mem_pressure_post_action_delay_start = usec_now;
                                 if (selected && r > 0) {
