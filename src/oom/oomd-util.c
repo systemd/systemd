@@ -27,6 +27,7 @@
 typedef struct OomdKillState {
         Manager *manager;
         OomdCGroupContext *ctx;
+        const char *reason;
         /* This holds sd_varlink references */
         Set *links;
 } OomdKillState;
@@ -245,11 +246,12 @@ int oomd_sort_cgroup_contexts(Hashmap *h, oomd_compare_t compare_func, const cha
         return (int) k;
 }
 
-int oomd_cgroup_kill(Manager *m, OomdCGroupContext *ctx, bool recurse) {
+int oomd_cgroup_kill(Manager *m, OomdCGroupContext *ctx, bool recurse, const char *reason) {
         _cleanup_set_free_ Set *pids_killed = NULL;
         int r;
 
         assert(ctx);
+        assert(!m || reason);
 
         pids_killed = set_new(NULL);
         if (!pids_killed)
@@ -288,7 +290,7 @@ int oomd_cgroup_kill(Manager *m, OomdCGroupContext *ctx, bool recurse) {
                                           "Killed",
                                           "ss",
                                           ctx->path,
-                                          "oom");
+                                          reason);
 
         return !set_isempty(pids_killed);
 }
@@ -334,7 +336,7 @@ static void oomd_kill_state_remove(OomdKillState *ks) {
         if (!set_isempty(ks->links))
                 return;
 
-        r = oomd_cgroup_kill(ks->manager, ks->ctx, /* recurse= */ true);
+        r = oomd_cgroup_kill(ks->manager, ks->ctx, /* recurse= */ true, ks->reason);
         if (r < 0)
                 log_debug_errno(r, "Failed to kill cgroup '%s', ignoring: %m", ks->ctx->path);
         oomd_kill_state_free(ks);
@@ -465,11 +467,12 @@ static int oomd_prekill_hook(Manager *m, OomdKillState *ks) {
         return 0;
 }
 
-int oomd_cgroup_kill_mark(Manager *m, OomdCGroupContext *ctx) {
+int oomd_cgroup_kill_mark(Manager *m, OomdCGroupContext *ctx, const char *reason) {
         int r;
 
         assert(ctx);
         assert(m);
+        assert(reason);
 
         if (m->dry_run) {
                 _cleanup_free_ char *cg_path = NULL;
@@ -489,6 +492,7 @@ int oomd_cgroup_kill_mark(Manager *m, OomdCGroupContext *ctx) {
         *ks = (OomdKillState) {
                 .manager = m,
                 .ctx = oomd_cgroup_context_ref(ctx),
+                .reason = reason,
         };
 
         r = set_ensure_put(&m->kill_states, &oomd_kill_state_hash_ops, ks);
