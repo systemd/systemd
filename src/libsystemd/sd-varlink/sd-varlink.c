@@ -247,27 +247,19 @@ _public_ int sd_varlink_connect_exec(sd_varlink **ret, const char *_command, cha
                         /* stdio_fds= */ NULL,
                         /* except_fds= */ (int[]) { pair[1] },
                         /* n_except_fds= */ 1,
-                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REOPEN_LOG|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_PACK_FDS|FORK_CLOEXEC_OFF|FORK_REOPEN_LOG|FORK_DEATHSIG_SIGTERM|FORK_RLIMIT_NOFILE_SAFE,
                         &pidref);
         if (r < 0)
                 return log_debug_errno(r, "Failed to spawn process: %m");
         if (r == 0) {
                 char spid[DECIMAL_STR_MAX(pid_t)+1];
                 const char *setenv_list[] = {
-                        "LISTEN_FDS", "1",
                         "LISTEN_PID", spid,
+                        "LISTEN_FDS", "1",
                         "LISTEN_FDNAMES", "varlink",
                         NULL, NULL,
                 };
                 /* Child */
-
-                pair[0] = -EBADF;
-
-                r = move_fd(pair[1], 3, /* cloexec= */ false);
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to move file descriptor to 3: %m");
-                        _exit(EXIT_FAILURE);
-                }
 
                 xsprintf(spid, PID_FMT, pidref.pid);
 
@@ -364,7 +356,7 @@ static int varlink_connect_ssh_unix(sd_varlink **ret, const char *where) {
                         /* stdio_fds= */ (int[]) { pair[1], pair[1], STDERR_FILENO },
                         /* except_fds= */ NULL,
                         /* n_except_fds= */ 0,
-                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REOPEN_LOG|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE|FORK_REARRANGE_STDIO,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REOPEN_LOG|FORK_RLIMIT_NOFILE_SAFE|FORK_REARRANGE_STDIO,
                         &pidref);
         if (r < 0)
                 return log_debug_errno(r, "Failed to spawn process: %m");
@@ -448,7 +440,7 @@ static int varlink_connect_ssh_exec(sd_varlink **ret, const char *where) {
                         /* stdio_fds= */ (int[]) { input_pipe[0], output_pipe[1], STDERR_FILENO },
                         /* except_fds= */ NULL,
                         /* n_except_fds= */ 0,
-                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REOPEN_LOG|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE|FORK_REARRANGE_STDIO,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REOPEN_LOG|FORK_RLIMIT_NOFILE_SAFE|FORK_REARRANGE_STDIO,
                         &pidref);
         if (r < 0)
                 return log_debug_errno(r, "Failed to spawn process: %m");
@@ -1389,14 +1381,13 @@ static int varlink_format_queue(sd_varlink *v) {
          * would not corrupt our fd message boundaries */
 
         while (v->output_queue) {
-                _cleanup_free_ int *array = NULL;
-
                 assert(v->n_output_queue > 0);
-
-                VarlinkJsonQueueItem *q = v->output_queue;
 
                 if (v->n_output_fds > 0) /* unwritten fds? if we'd add more we'd corrupt the fd message boundaries, hence wait */
                         return 0;
+
+                VarlinkJsonQueueItem *q = v->output_queue;
+                _cleanup_free_ int *array = NULL;
 
                 if (q->n_fds > 0) {
                         array = newdup(int, q->fds, q->n_fds);
@@ -1409,8 +1400,7 @@ static int varlink_format_queue(sd_varlink *v) {
                         return r;
 
                 /* Take possession of the queue element's fds */
-                free(v->output_fds);
-                v->output_fds = TAKE_PTR(array);
+                free_and_replace(v->output_fds, array);
                 v->n_output_fds = q->n_fds;
                 q->n_fds = 0;
 
@@ -1593,7 +1583,7 @@ static int varlink_dispatch_method(sd_varlink *v) {
                         r = callback(v, parameters, flags, v->userdata);
                         if (VARLINK_STATE_WANTS_REPLY(v->state)) {
                                 if (r < 0) {
-                                        varlink_log_errno(v, r, "Callback for %s returned error: %m", method);
+                                        varlink_log_errno(v, r, "Callback for '%s' returned error: %m", method);
 
                                         /* We got an error back from the callback. Propagate it to the client
                                          * if the method call remains unanswered. */
@@ -1622,6 +1612,16 @@ static int varlink_dispatch_method(sd_varlink *v) {
                                                 varlink_log_errno(v, r, "Failed to process sentinel for method '%s': %m", method);
                                 } else {
                                         assert(!v->previous);
+
+                                        /* We're at the bare minimum referenced by sd_varlink_server and
+                                         * sd_varlink_process() */
+                                        if (v->n_ref <= 2) {
+                                                r = varlink_log_errno(v, SYNTHETIC_ERRNO(EPROTO),
+                                                                      "Callback for method '%s' returned without enqueuing a reply or stashing connection, failing.",
+                                                                      method);
+                                                goto fail;
+                                        }
+
                                         r = 0;
                                 }
 
@@ -1857,19 +1857,10 @@ _public_ int sd_varlink_wait(sd_varlink *v, uint64_t timeout) {
         r = sd_varlink_get_timeout(v, &t);
         if (r < 0)
                 return r;
-        if (t != USEC_INFINITY) {
-                usec_t n;
+        if (t != USEC_INFINITY)
+                t = usec_sub_unsigned(t, now(CLOCK_MONOTONIC));
 
-                n = now(CLOCK_MONOTONIC);
-                if (t < n)
-                        t = 0;
-                else
-                        t = usec_sub_unsigned(t, n);
-        }
-
-        if (timeout != USEC_INFINITY &&
-            (t == USEC_INFINITY || timeout < t))
-                t = timeout;
+        t = MIN(t, timeout);
 
         events = sd_varlink_get_events(v);
         if (events < 0)
@@ -2019,7 +2010,7 @@ _public_ int sd_varlink_flush(sd_varlink *v) {
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
 
         for (;;) {
-                if (v->output_buffer_size == 0)
+                if (v->output_buffer_size == 0 && !v->output_queue)
                         break;
                 if (v->write_disconnected)
                         return -ECONNRESET;
@@ -2681,8 +2672,8 @@ _public_ int sd_varlink_reset_fds(sd_varlink *v) {
          * rollback the fds. Note that this is implicitly called whenever an error reply is sent, see
          * below. */
 
-        close_many(v->output_fds, v->n_output_fds);
-        v->n_output_fds = 0;
+        close_many(v->pushed_fds, v->n_pushed_fds);
+        v->n_pushed_fds = 0;
         return 0;
 }
 
@@ -3556,8 +3547,8 @@ static int validate_connection(sd_varlink_server *server, const struct ucred *uc
 
                 c = PTR_TO_UINT(hashmap_get(server->by_uid, UID_TO_PTR(ucred->uid)));
                 if (c >= server->connections_per_uid_max) {
-                        varlink_server_log(server, "Per-UID connection limit of %u reached, refusing.",
-                                           server->connections_per_uid_max);
+                        varlink_server_log(server, "Per-UID connection limit of %u for '" UID_FMT "' reached, refusing.",
+                                           server->connections_per_uid_max, ucred->uid);
                         return 0;
                 }
         }
@@ -3610,7 +3601,7 @@ _public_ int sd_varlink_server_add_connection_pair(
         assert_return(input_fd >= 0, -EBADF);
         assert_return(output_fd >= 0, -EBADF);
 
-        if ((server->flags & (SD_VARLINK_SERVER_ROOT_ONLY|SD_VARLINK_SERVER_ACCOUNT_UID)) != 0) {
+        if ((server->flags & (SD_VARLINK_SERVER_ROOT_ONLY|SD_VARLINK_SERVER_MYSELF_ONLY|SD_VARLINK_SERVER_ACCOUNT_UID)) != 0) {
 
                 if (override_ucred)
                         ucred = *override_ucred;
@@ -3752,11 +3743,7 @@ static int varlink_server_create_listen_fd_socket(sd_varlink_server *s, int fd, 
         };
 
         if (s->event) {
-                r = sd_event_add_io(s->event, &ss->event_source, fd, EPOLLIN, connect_callback, ss);
-                if (r < 0)
-                        return r;
-
-                r = sd_event_source_set_priority(ss->event_source, s->event_priority);
+                r = varlink_server_add_socket_event_source(s, ss);
                 if (r < 0)
                         return r;
         }
@@ -4080,13 +4067,14 @@ _public_ int sd_varlink_server_set_exit_on_idle(sd_varlink_server *s, int b) {
         return 0;
 }
 
-int varlink_server_add_socket_event_source(sd_varlink_server *s, VarlinkServerSocket *ss, int64_t priority) {
+int varlink_server_add_socket_event_source(sd_varlink_server *s, VarlinkServerSocket *ss) {
         _cleanup_(sd_event_source_unrefp) sd_event_source *es = NULL;
         int r;
 
         assert(s);
         assert(s->event);
         assert(ss);
+        assert(ss->server == s);
         assert(ss->fd >= 0);
         assert(!ss->event_source);
 
@@ -4094,7 +4082,7 @@ int varlink_server_add_socket_event_source(sd_varlink_server *s, VarlinkServerSo
         if (r < 0)
                 return r;
 
-        r = sd_event_source_set_priority(es, priority);
+        r = sd_event_source_set_priority(es, s->event_priority);
         if (r < 0)
                 return r;
 
@@ -4116,13 +4104,14 @@ _public_ int sd_varlink_server_attach_event(sd_varlink_server *s, sd_event *e, i
                         return r;
         }
 
+        s->event_priority = priority;
+
         LIST_FOREACH(sockets, ss, s->sockets) {
-                r = varlink_server_add_socket_event_source(s, ss, priority);
+                r = varlink_server_add_socket_event_source(s, ss);
                 if (r < 0)
                         goto fail;
         }
 
-        s->event_priority = priority;
         return 0;
 
 fail:
@@ -4293,20 +4282,16 @@ _public_ int sd_varlink_server_add_interface_many_internal(sd_varlink_server *s,
 }
 
 _public_ unsigned sd_varlink_server_connections_max(sd_varlink_server *s) {
-        int dts;
 
         /* If a server is specified, return the setting for that server, otherwise the default value */
         if (s)
                 return s->connections_max;
 
-        dts = getdtablesize();
+        int dts = getdtablesize();
         assert_se(dts > 0);
 
         /* Make sure we never use up more than ¾th of RLIMIT_NOFILE for IPC */
-        if (VARLINK_DEFAULT_CONNECTIONS_MAX > (unsigned) dts / 4 * 3)
-                return dts / 4 * 3;
-
-        return VARLINK_DEFAULT_CONNECTIONS_MAX;
+        return MIN(VARLINK_DEFAULT_CONNECTIONS_MAX, (unsigned) dts / 4 * 3);
 }
 
 _public_ unsigned sd_varlink_server_connections_per_uid_max(sd_varlink_server *s) {
