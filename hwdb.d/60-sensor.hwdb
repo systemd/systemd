@@ -341,38 +341,37 @@ sensor:modalias:acpi:KIOX000A:*:dmi:svnCytrixTechnology:pnComplex11t:*    # Comp
 #########################################
 # Dell
 #########################################
-sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:pnVostro5581:*
-sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0A36:*
-sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0A3E:*
-sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0B09:*
-sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0B0B:*
-sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0B0D:*
-sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0B11:*
-sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0C00:*
-sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0C02:*
-sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0C40:*
-sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0C41:*
-sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0C42:*
-sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0CBD:*
-sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0CBF:*
-sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0CC0:*
-sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0CC1:*
-sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0CC3:*
-sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0CC4:*
-sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0CC5:*
-sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0CC7:*
-sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0CC8:*
-sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0CB2:*
-sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:skuOCB4:*
-sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0CB3:*
+
+sensor:modalias:platform:HID-SENSOR-200073:dmi:*:svnDellInc.:*:sku08A8:*    # Vostro 5581
+sensor:modalias:platform:HID-SENSOR-200073:dmi:*:svnDellInc.:*:sku0A36:*    # Latitude 7420
+sensor:modalias:platform:HID-SENSOR-200073:dmi:*:svnDellInc.:*:sku0A3E:*    # Latitude 9520
+sensor:modalias:platform:HID-SENSOR-200073:dmi:*:svnDellInc.:*:sku0B09:*    # Latitude 7330
+sensor:modalias:platform:HID-SENSOR-200073:dmi:*:svnDellInc.:*:sku0B0B:*    # Latitude 7430
+sensor:modalias:platform:HID-SENSOR-200073:dmi:*:svnDellInc.:*:sku0B0D:*    # Latitude 7530
+sensor:modalias:platform:HID-SENSOR-200073:dmi:*:svnDellInc.:*:sku0B11:*    # Latitude 9430
+sensor:modalias:platform:HID-SENSOR-200073:dmi:*:svnDellInc.:*:sku0C00:*    # Latitude 5440
+sensor:modalias:platform:HID-SENSOR-200073:dmi:*:svnDellInc.:*:sku0C02:*    # Precision 3480
+sensor:modalias:platform:HID-SENSOR-200073:dmi:*:svnDellInc.:*:sku0C40:*    # Precision 5480
+sensor:modalias:platform:HID-SENSOR-200073:dmi:*:svnDellInc.:*:sku0C41:*    # Precision 7680
+sensor:modalias:platform:HID-SENSOR-200073:dmi:*:svnDellInc.:*:sku0C42:*    # Precision 7780
+sensor:modalias:platform:HID-SENSOR-200073:dmi:*:svnDellInc.:*:sku0CB2:*    # Latitude 5450 with Core Ultra 5 and 7
+sensor:modalias:platform:HID-SENSOR-200073:dmi:*:svnDellInc.:*:sku0CB3:* 	# Precision 3490
+sensor:modalias:platform:HID-SENSOR-200073:dmi:*:svnDellInc.:*:sku0CB4:*    # Latitude 5450 with 13th Gen Core i5 and i7
+sensor:modalias:platform:HID-SENSOR-200073:dmi:*:svnDellInc.:*:sku0CBD:*    # Latitude 7350 Intel Corp. Intel(R) CoreTM Ultra 7 165U ????
+sensor:modalias:platform:HID-SENSOR-200073:dmi:*:svnDellInc.:*:sku0CBF:*    # Latitude 7350 Intel(R) CoreTM Ultra 5 135U
+sensor:modalias:platform:HID-SENSOR-200073:dmi:*:svnDellInc.:*:sku0CC0:*    # Latitude 7350 Intel Corp. 13th Gen Intel(R) Core(TM) i5-1345U ????
+sensor:modalias:platform:HID-SENSOR-200073:dmi:*:svnDellInc.:*:sku0CC1:*    # Latitude 7450
+sensor:modalias:platform:HID-SENSOR-200073:dmi:*:svnDellInc.:*:sku0CC3:*
+sensor:modalias:platform:HID-SENSOR-200073:dmi:*:svnDellInc.:*:sku0CC4:*    # Latitude 7650
+sensor:modalias:platform:HID-SENSOR-200073:dmi:*:svnDellInc.:*:sku0CC5:*
+sensor:modalias:platform:HID-SENSOR-200073:dmi:*:svnDellInc.:*:sku0CC7:*    # Precision 5490
+sensor:modalias:platform:HID-SENSOR-200073:dmi:*:svnDellInc.:*:sku0CC8:*    # Precision 5690
  ACCEL_LOCATION=base
 
-# Dell Venue 8 Pro 3845
-sensor:modalias:acpi:INVN6500*:dmi:*svnDellInc.*:pnVenue8Pro3845:*
+sensor:modalias:acpi:INVN6500:*:dmi:*:svnDellInc.:pnVenue8Pro3845:*         # Venue 8 Pro 3845
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
-# Dell Venue 10 Pro 5055
-sensor:modalias:acpi:INVN6500*:dmi:*svnDell*:pnVenue10Pro5055:*
+sensor:modalias:acpi:INVN6500:*:dmi:*:svnDellInc.:pnVenue10Pro5055:*        # Venue 10 Pro 5055
  ACCEL_MOUNT_MATRIX=0, -1, 0; 1, 0, 0; 0, 0, 1
 
 #########################################
