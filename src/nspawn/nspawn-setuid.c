@@ -11,6 +11,7 @@
 #include "log.h"
 #include "mkdir.h"
 #include "nspawn-setuid.h"
+#include "path-util.h"
 #include "pidref.h"
 #include "process-util.h"
 #include "string-util.h"
@@ -38,8 +39,11 @@ static int spawn_getent(const char *database, const char *key, PidRef *ret) {
                 return r;
         }
         if (r == 0) {
-                execle("/usr/bin/getent", "getent", database, key, NULL, &(char*[1]){});
-                execle("/bin/getent", "getent", database, key, NULL, &(char*[1]){});
+                _cleanup_free_ char *getent = NULL;
+                r = find_executable("getent", &getent);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to find getent binary: %m");
+                execle(getent, "getent", database, key, NULL, &(char*[1]){});
                 _exit(EXIT_FAILURE);
         }
 
