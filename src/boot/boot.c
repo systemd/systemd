@@ -2064,8 +2064,18 @@ static EFI_STATUS call_boot_windows_bitlocker(const BootEntry *entry, EFI_FILE *
                 if (err != EFI_SUCCESS || block_io->Media->BlockSize < 512 || block_io->Media->BlockSize > 4096)
                         continue;
 
-                char buf[4096];
-                err = block_io->ReadBlocks(block_io, block_io->Media->MediaId, 0, sizeof(buf), buf);
+                #define BLOCK_IO_BUFFER_SIZE 4096
+                _cleanup_pages_ Pages buf_pages = xmalloc_aligned_pages(
+                        AllocateMaxAddress,
+                        EfiLoaderData,
+                        EFI_SIZE_TO_PAGES(BLOCK_IO_BUFFER_SIZE),
+                        block_io->Media->IoAlign,
+                        /* On 32-bit allocate below 4G boundary as we can't easily access anything above that.
+                         * 64-bit platforms don't suffer this limitation, so we can allocate from anywhere.
+                         * addr= */ UINTPTR_MAX);
+                char *buf = PHYSICAL_ADDRESS_TO_POINTER(buf_pages.addr);
+
+                err = block_io->ReadBlocks(block_io, block_io->Media->MediaId, /* LBA= */ 0, BLOCK_IO_BUFFER_SIZE, buf);
                 if (err != EFI_SUCCESS)
                         continue;
 
