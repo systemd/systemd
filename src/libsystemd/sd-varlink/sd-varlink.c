@@ -3547,8 +3547,8 @@ static int validate_connection(sd_varlink_server *server, const struct ucred *uc
 
                 c = PTR_TO_UINT(hashmap_get(server->by_uid, UID_TO_PTR(ucred->uid)));
                 if (c >= server->connections_per_uid_max) {
-                        varlink_server_log(server, "Per-UID connection limit of %u reached, refusing.",
-                                           server->connections_per_uid_max);
+                        varlink_server_log(server, "Per-UID connection limit of %u for '" UID_FMT "' reached, refusing.",
+                                           server->connections_per_uid_max, ucred->uid);
                         return 0;
                 }
         }
