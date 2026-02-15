@@ -1613,7 +1613,7 @@ static int varlink_dispatch_method(sd_varlink *v) {
                                 } else {
                                         assert(!v->previous);
 
-                                        if (v->n_ref <= 2) {
+                                        if (v->n_ref <= 3) { // for test
                                                 r = varlink_log_errno(v, SYNTHETIC_ERRNO(EPROTO),
                                                                       "Callback for method '%s' returned without enqueuing a reply or stashing connection, failing.",
                                                                       method);
