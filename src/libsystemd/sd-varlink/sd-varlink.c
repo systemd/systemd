@@ -3601,7 +3601,7 @@ _public_ int sd_varlink_server_add_connection_pair(
         assert_return(input_fd >= 0, -EBADF);
         assert_return(output_fd >= 0, -EBADF);
 
-        if ((server->flags & (SD_VARLINK_SERVER_ROOT_ONLY|SD_VARLINK_SERVER_ACCOUNT_UID)) != 0) {
+        if ((server->flags & (SD_VARLINK_SERVER_ROOT_ONLY|SD_VARLINK_SERVER_MYSELF_ONLY|SD_VARLINK_SERVER_ACCOUNT_UID)) != 0) {
 
                 if (override_ucred)
                         ucred = *override_ucred;
