@@ -920,19 +920,28 @@ int maybe_setgroups(size_t size, const gid_t *list) {
 
         /* Check if setgroups is allowed before we try to drop all the auxiliary groups */
         if (size == 0) { /* Dropping all aux groups? */
+
+                /* The kernel refuses setgroups() if there are no GID mappings in the current
+                 * user namespace, so check that beforehand and don't try to setgroups() if
+                 * there are no GID mappings. */
+                _cleanup_fclose_ FILE *f = fopen("/proc/self/gid_map", "re");
+                if (!f && errno != ENOENT)
+                        return -errno;
+                if (f) {
+                        r = safe_fgetc(f, /* ret= */ NULL);
+                        if (r < 0)
+                                return r;
+                        if (r == 0) {
+                                log_debug("Skipping setgroups(), /proc/self/gid_map is empty");
+                                return 0;
+                        }
+                }
+
                 _cleanup_free_ char *setgroups_content = NULL;
-                bool can_setgroups;
-
                 r = read_one_line_file("/proc/self/setgroups", &setgroups_content);
-                if (r == -ENOENT)
-                        /* Old kernels don't have /proc/self/setgroups, so assume we can use setgroups */
-                        can_setgroups = true;
-                else if (r < 0)
+                if (r < 0 && r != -ENOENT)
                         return r;
-                else
-                        can_setgroups = streq(setgroups_content, "allow");
-
-                if (!can_setgroups) {
+                if (r > 0 && streq(setgroups_content, "deny")) {
                         log_debug("Skipping setgroups(), /proc/self/setgroups is set to 'deny'");
                         return 0;
                 }

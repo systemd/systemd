@@ -149,6 +149,7 @@ simple_tests += files(
         'test-mkdir.c',
         'test-modhex.c',
         'test-mountpoint-util.c',
+        'test-namespace-util.c',
         'test-net-naming-scheme.c',
         'test-notify-recv.c',
         'test-nsresource.c',
