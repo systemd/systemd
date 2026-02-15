@@ -1857,19 +1857,10 @@ _public_ int sd_varlink_wait(sd_varlink *v, uint64_t timeout) {
         r = sd_varlink_get_timeout(v, &t);
         if (r < 0)
                 return r;
-        if (t != USEC_INFINITY) {
-                usec_t n;
+        if (t != USEC_INFINITY)
+                t = usec_sub_unsigned(t, now(CLOCK_MONOTONIC));
 
-                n = now(CLOCK_MONOTONIC);
-                if (t < n)
-                        t = 0;
-                else
-                        t = usec_sub_unsigned(t, n);
-        }
-
-        if (timeout != USEC_INFINITY &&
-            (t == USEC_INFINITY || timeout < t))
-                t = timeout;
+        t = MIN(t, timeout);
 
         events = sd_varlink_get_events(v);
         if (events < 0)
@@ -4293,20 +4284,16 @@ _public_ int sd_varlink_server_add_interface_many_internal(sd_varlink_server *s,
 }
 
 _public_ unsigned sd_varlink_server_connections_max(sd_varlink_server *s) {
-        int dts;
 
         /* If a server is specified, return the setting for that server, otherwise the default value */
         if (s)
                 return s->connections_max;
 
-        dts = getdtablesize();
+        int dts = getdtablesize();
         assert_se(dts > 0);
 
         /* Make sure we never use up more than ¾th of RLIMIT_NOFILE for IPC */
-        if (VARLINK_DEFAULT_CONNECTIONS_MAX > (unsigned) dts / 4 * 3)
-                return dts / 4 * 3;
-
-        return VARLINK_DEFAULT_CONNECTIONS_MAX;
+        return MIN(VARLINK_DEFAULT_CONNECTIONS_MAX, (unsigned) dts / 4 * 3);
 }
 
 _public_ unsigned sd_varlink_server_connections_per_uid_max(sd_varlink_server *s) {
