@@ -179,6 +179,8 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(SocketBindDeny, CGroupSocketBind, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#RestrictNetworkInterfaces="),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(RestrictNetworkInterfaces, CGroupRestrictNetworkInterfaces, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#BindNetworkInterface="),
+                SD_VARLINK_DEFINE_FIELD(BindNetworkInterface, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#NFTSet=family:table:set"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(NFTSet, CGroupNFTSet, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
 
