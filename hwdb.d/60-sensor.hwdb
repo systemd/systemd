@@ -123,14 +123,11 @@ sensor:modalias:acpi:MXC6655:*:dmi:*:svnAquarius:pnCmpNS483:*    # Cmp NS483 v2
 # Archos
 #########################################
 
-# Archos 80 Cesium
-sensor:modalias:acpi:SMO8500*:dmi:*:svnARCHOS:pnARCHOS80Cesium:*
-# Archos 101 Cesium
-sensor:modalias:acpi:KIOX000A*:dmi:*:svnARCHOS:pnARCHOS101CESIUM:*
+sensor:modalias:acpi:SMO8500:*:dmi:*:svnARCHOS:pnARCHOS80Cesium:*          # 80 Cesium
+sensor:modalias:acpi:KIOX000A:*:dmi:*:svnARCHOS:pnARCHOS101CESIUM:*        # 101 Cesium
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
-# Archos 101 Cesium Educ
-sensor:modalias:acpi:KIOX000A*:dmi:*:svnARCHOS:pnARCHOS101CesiumEduc:*
+sensor:modalias:acpi:KIOX000A:*:dmi:*:svnARCHOS:pnARCHOS101CesiumEduc:*    # 101 Cesium Educ
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
 #########################################
