@@ -512,6 +512,8 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
 
                 .ipoib_mode = _IP_OVER_INFINIBAND_MODE_INVALID,
                 .ipoib_umcast = -1,
+
+                .mm_use_gateway = -1,
         };
 
         r = config_parse_many_full(
@@ -551,6 +553,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                         "LLDP\0"
                         "TrafficControlQueueingDiscipline\0"
                         "CAN\0"
+                        "ModemManager\0"
                         "QDisc\0"
                         "BFIFO\0"
                         "CAKE\0"
@@ -846,6 +849,9 @@ static Network *network_free(Network *network) {
         ordered_hashmap_free(network->sr_iov_by_section);
         hashmap_free(network->qdiscs_by_section);
         hashmap_free(network->tclasses_by_section);
+
+        /* ModemManager */
+        strv_free(network->mm_simple_connect_props);
 
         return mfree(network);
 }

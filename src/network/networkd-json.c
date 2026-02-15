@@ -26,6 +26,7 @@
 #include "networkd-route.h"
 #include "networkd-route-util.h"
 #include "networkd-routing-policy-rule.h"
+#include "networkd-wwan.h"
 #include "ordered-set.h"
 #include "set.h"
 #include "string-util.h"
@@ -540,6 +541,15 @@ static int dns_append_json(Link *link, sd_json_variant **v) {
                         if (r < 0)
                                 return r;
                 }
+
+                Bearer *b;
+
+                if (link_get_bearer(link, &b) >= 0)
+                        FOREACH_ARRAY(dns, b->dns, b->n_dns) {
+                                r = dns_append_json_one(link, *dns, NETWORK_CONFIG_SOURCE_MODEM_MANAGER, NULL, &array);
+                                if (r < 0)
+                                        return r;
+                        }
 
                 if (link->dhcp_lease && link_get_use_dns(link, NETWORK_CONFIG_SOURCE_DHCP4)) {
                         const struct in_addr *dns;
