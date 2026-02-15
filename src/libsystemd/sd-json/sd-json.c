@@ -3370,8 +3370,8 @@ done:
         r = 0;
 
 finish:
-        for (size_t i = 0; i < n_stack; i++)
-                json_stack_release(stack + i);
+        FOREACH_ARRAY(i, stack, n_stack)
+                json_stack_release(i);
 
         free(stack);
 
@@ -5227,8 +5227,8 @@ done:
         r = 0;
 
 finish:
-        for (size_t i = 0; i < n_stack; i++)
-                json_stack_release(stack + i);
+        FOREACH_ARRAY(i, stack, n_stack)
+                json_stack_release(i);
 
         free(stack);
 
