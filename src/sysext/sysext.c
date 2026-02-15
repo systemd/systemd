@@ -2749,6 +2749,7 @@ static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varl
         int r;
 
         assert(link);
+        assert(FLAGS_SET(flags, SD_VARLINK_METHOD_MORE));
 
         const char *class = NULL;
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &class);
