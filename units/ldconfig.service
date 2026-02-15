@@ -25,4 +25,4 @@ Before=shutdown.target initrd-switch-root.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/sbin/ldconfig -X
+ExecStart=ldconfig -X
