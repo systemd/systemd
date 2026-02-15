@@ -262,4 +262,4 @@ static inline const char* varlink_server_description(sd_varlink_server *s) {
 VarlinkServerSocket* varlink_server_socket_free(VarlinkServerSocket *ss);
 DEFINE_TRIVIAL_CLEANUP_FUNC(VarlinkServerSocket *, varlink_server_socket_free);
 
-int varlink_server_add_socket_event_source(sd_varlink_server *s, VarlinkServerSocket *ss, int64_t priority);
+int varlink_server_add_socket_event_source(sd_varlink_server *s, VarlinkServerSocket *ss);

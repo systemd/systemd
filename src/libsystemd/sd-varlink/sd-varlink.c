@@ -3743,11 +3743,7 @@ static int varlink_server_create_listen_fd_socket(sd_varlink_server *s, int fd, 
         };
 
         if (s->event) {
-                r = sd_event_add_io(s->event, &ss->event_source, fd, EPOLLIN, connect_callback, ss);
-                if (r < 0)
-                        return r;
-
-                r = sd_event_source_set_priority(ss->event_source, s->event_priority);
+                r = varlink_server_add_socket_event_source(s, ss);
                 if (r < 0)
                         return r;
         }
@@ -4071,13 +4067,14 @@ _public_ int sd_varlink_server_set_exit_on_idle(sd_varlink_server *s, int b) {
         return 0;
 }
 
-int varlink_server_add_socket_event_source(sd_varlink_server *s, VarlinkServerSocket *ss, int64_t priority) {
+int varlink_server_add_socket_event_source(sd_varlink_server *s, VarlinkServerSocket *ss) {
         _cleanup_(sd_event_source_unrefp) sd_event_source *es = NULL;
         int r;
 
         assert(s);
         assert(s->event);
         assert(ss);
+        assert(ss->server == s);
         assert(ss->fd >= 0);
         assert(!ss->event_source);
 
@@ -4085,7 +4082,7 @@ int varlink_server_add_socket_event_source(sd_varlink_server *s, VarlinkServerSo
         if (r < 0)
                 return r;
 
-        r = sd_event_source_set_priority(es, priority);
+        r = sd_event_source_set_priority(es, s->event_priority);
         if (r < 0)
                 return r;
 
@@ -4107,13 +4104,14 @@ _public_ int sd_varlink_server_attach_event(sd_varlink_server *s, sd_event *e, i
                         return r;
         }
 
+        s->event_priority = priority;
+
         LIST_FOREACH(sockets, ss, s->sockets) {
-                r = varlink_server_add_socket_event_source(s, ss, priority);
+                r = varlink_server_add_socket_event_source(s, ss);
                 if (r < 0)
                         goto fail;
         }
 
-        s->event_priority = priority;
         return 0;
 
 fail:
