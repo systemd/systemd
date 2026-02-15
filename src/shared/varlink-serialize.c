@@ -29,7 +29,7 @@ int varlink_server_serialize(sd_varlink_server *s, const char *name, FILE *f, FD
                 if (copy < 0)
                         return copy;
 
-                fprintf(f, "%s-socket-address=%s varlink-server-socket-fd=%d\n", prefix, ss->address, copy);
+                fprintf(f, "%s-socket-address=%s fd=%d\n", prefix, ss->address, copy);
         }
 
         return 0;
@@ -55,7 +55,7 @@ int varlink_server_deserialize_one(sd_varlink_server *s, const char *value, FDSe
                 return log_debug_errno(r < 0 ? r : SYNTHETIC_ERRNO(ENODATA),
                                        "Failed to extract socket address from varlink serialization: %s", value);
         if (v)
-                v = startswith(v, "varlink-server-socket-fd=");
+                v = STARTSWITH_SET(v, "fd=", "varlink-server-socket-fd="); /* the latter for compat with pre-v260 */
         if (!v)
                 return varlink_server_log_errno(s, SYNTHETIC_ERRNO(EBADF),
                                                 "Got varlink serialization without socket fd, refusing.");
