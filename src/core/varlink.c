@@ -9,7 +9,6 @@
 #include "path-util.h"
 #include "pidref.h"
 #include "string-util.h"
-#include "strv.h"
 #include "unit.h"
 #include "varlink.h"
 #include "varlink-dynamic-user.h"
