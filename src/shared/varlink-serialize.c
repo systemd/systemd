@@ -83,7 +83,7 @@ int varlink_server_deserialize_one(sd_varlink_server *s, const char *value, FDSe
                 .fd = fdset_remove(fds, fd),
         };
 
-        r = varlink_server_add_socket_event_source(s, ss, SD_EVENT_PRIORITY_NORMAL);
+        r = varlink_server_add_socket_event_source(s, ss);
         if (r < 0)
                 return varlink_server_log_errno(s, r, "Failed to add VarlinkServerSocket event source to the event loop: %m");
 
