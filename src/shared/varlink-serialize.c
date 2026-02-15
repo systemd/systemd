@@ -8,6 +8,7 @@
 #include "socket-util.h"
 #include "serialize.h"
 #include "string-util.h"
+#include "strv.h"
 #include "varlink-internal.h"
 #include "varlink-serialize.h"
 
