@@ -507,7 +507,7 @@ int oomd_cgroup_kill_mark(Manager *m, OomdCGroupContext *ctx) {
         if (r < 0)
                 log_warning_errno(r, "oomd prekill hook failed for %s, ignoring: %m", ctx->path);
 
-        return 0;
+        return 1;
 }
 
 typedef void (*dump_candidate_func)(const OomdCGroupContext *ctx, FILE *f, const char *prefix);
