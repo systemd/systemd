@@ -112,14 +112,12 @@ sensor:modalias:acpi:BMA250E:*:dmi:*:svnAcer:*:rnAigner:*       # Iconia Tab 8W 
 # Aquarius
 #########################################
 
-# Aquarius Cmp NS483
-sensor:modalias:acpi:MXC6655*:dmi:*:svnAquarius*:pnCmp*NS483:*
- ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, 1
-
-sensor:modalias:acpi:MXC4005*:dmi:*:svnAquarius*:pnCmp*NS483:*
-# Aquarius NS483
-sensor:modalias:acpi:MXC6655*:dmi:*:svnAquarius*:pnNS483:*
+sensor:modalias:acpi:MXC6655:*:dmi:*:svnAquarius:pnNS483:*       # Cmp NS483
+sensor:modalias:acpi:MXC4005:*:dmi:*:svnAquarius:pnCmpNS483:*    # Cmp NS483 v2
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
+
+sensor:modalias:acpi:MXC6655:*:dmi:*:svnAquarius:pnCmpNS483:*    # Cmp NS483 v2
+ ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, 1
 
 #########################################
 # Archos
