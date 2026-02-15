@@ -429,7 +429,6 @@ int manager_setup_varlink_server(Manager *m) {
 
 int manager_setup_varlink_metrics_server(Manager *m) {
         sd_varlink_server_flags_t flags = SD_VARLINK_SERVER_INHERIT_USERDATA;
-        int r;
 
         assert(m);
 
@@ -454,7 +453,7 @@ static int varlink_server_listen_many_idempotent_sentinel(
         assert(s);
 
         va_start(ap, prefix);
-        for (const char *address, (address = va_arg(ap, const char*)); ) {
+        for (const char *address; (address = va_arg(ap, const char*)); ) {
                 _cleanup_free_ char *p = NULL;
 
                 if (prefix) {
@@ -479,7 +478,7 @@ static int varlink_server_listen_many_idempotent_sentinel(
 }
 
 #define varlink_server_listen_many_idempotent(s, known_fresh, prefix, ...) \
-        varlink_server_listen_many_idempotent((s), (known_fresh), (prefix), __VA_ARGS__, NULL)
+        varlink_server_listen_many_idempotent_sentinel((s), (known_fresh), (prefix), __VA_ARGS__, NULL)
 
 static int manager_varlink_init_system_api(Manager *m) {
         int r;
@@ -492,7 +491,7 @@ static int manager_varlink_init_system_api(Manager *m) {
         bool fresh = r > 0;
 
         if (!MANAGER_IS_TEST_RUN(m)) {
-                r = varlink_server_listen_many_idempotent(s, fresh,
+                r = varlink_server_listen_many_idempotent(m->varlink_server, fresh,
                                                           /* prefix = */ NULL,
                                                           "/run/systemd/io.systemd.Manager",
                                                           "/run/systemd/userdb/io.systemd.DynamicUser",
@@ -517,7 +516,7 @@ static int manager_varlink_init_user_api(Manager *m) {
                 return log_error_errno(r, "Failed to set up varlink server: %m");
         bool fresh = r > 0;
 
-        r = varlink_server_listen_many_idempotent(s, fresh,
+        r = varlink_server_listen_many_idempotent(m->varlink_server, fresh,
                                                   m->prefix[EXEC_DIRECTORY_RUNTIME],
                                                   "systemd/io.systemd.Manager");
         if (r < 0)
@@ -539,7 +538,7 @@ static int manager_varlink_init_metrics(Manager *m) {
                 return log_error_errno(r, "Failed to set up metrics varlink server: %m");
         bool fresh = r > 0;
 
-        return varlink_server_listen_many_idempotent(s, fresh,
+        return varlink_server_listen_many_idempotent(m->metrics_varlink_sever, fresh,
                                                      m->prefix[EXEC_DIRECTORY_RUNTIME],
                                                      "systemd/report/io.systemd.Manager");
 }
