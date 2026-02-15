@@ -76,7 +76,7 @@
 # be identical to the display-accelerometer's readings (when the lid is
 # closed).
 #
-# Sort by brand, model
+# Sort by brand, model (groupped by same matrices)
 
 #########################################
 # Acer
