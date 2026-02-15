@@ -10324,13 +10324,11 @@ static int vl_method_list_candidate_devices(
         int r;
 
         assert(link);
+        assert(FLAGS_SET(flags, SD_VARLINK_METHOD_MORE));
 
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
-
-        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
-                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
 
         BlockDevice *l = NULL;
         size_t n = 0;
