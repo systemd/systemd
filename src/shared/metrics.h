@@ -31,6 +31,7 @@ int metrics_setup_varlink_server(
                 sd_varlink_server **server, /* in and out param */
                 sd_varlink_server_flags_t flags,
                 sd_event *event,
+                int64_t priority,
                 sd_varlink_method_t vl_method_list_cb,
                 sd_varlink_method_t vl_method_describe_cb,
                 void *userdata);

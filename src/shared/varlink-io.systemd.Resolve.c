@@ -300,7 +300,7 @@ static SD_VARLINK_DEFINE_METHOD(
 
 static SD_VARLINK_DEFINE_METHOD_FULL(
                 BrowseServices,
-                SD_VARLINK_SUPPORTS_MORE,
+                SD_VARLINK_REQUIRES_MORE,
                 SD_VARLINK_FIELD_COMMENT("The domain to browse for services. If null, the default browsing domain local is used."),
                 SD_VARLINK_DEFINE_INPUT(domain, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The service type to browse for (e.g., '_http._tcp')."),

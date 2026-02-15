@@ -723,7 +723,7 @@ static int server_append_json_one_addr(int family, const union in_addr_union *a,
         return sd_json_variant_append_arraybo(
                         array,
                         SD_JSON_BUILD_PAIR_INTEGER("Family", family),
-                        JSON_BUILD_PAIR_IN_ADDR("Address", a, family),
+                        JSON_BUILD_PAIR_IN_ADDR("Address", family, a),
                         SD_JSON_BUILD_PAIR_STRING("AddressString", address_str),
                         SD_JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(s)),
                         JSON_BUILD_PAIR_IN_ADDR_WITH_STRING_NON_NULL("ConfigProvider", family, p));
