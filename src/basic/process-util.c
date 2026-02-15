@@ -1778,7 +1778,6 @@ int namespace_fork_full(
                 int netns_fd,
                 int userns_fd,
                 int root_fd,
-                bool delegated,
                 PidRef *ret) {
 
         _cleanup_(pidref_done_sigkill_wait) PidRef pidref_outer = PIDREF_NULL;
@@ -1824,10 +1823,7 @@ int namespace_fork_full(
 
                 errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
 
-                if (delegated)
-                        r = namespace_enter_delegated(userns_fd, pidns_fd, mntns_fd, netns_fd, root_fd);
-                else
-                        r = namespace_enter(pidns_fd, mntns_fd, netns_fd, userns_fd, root_fd);
+                r = namespace_enter(pidns_fd, mntns_fd, netns_fd, userns_fd, root_fd);
                 if (r < 0) {
                         log_full_errno(prio, r, "Failed to join namespace: %m");
                         report_errno_and_exit(errno_pipe_fd[1], r);
