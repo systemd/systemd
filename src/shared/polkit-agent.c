@@ -3,11 +3,13 @@
 #include <poll.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "bus-util.h"
 #include "exec-util.h"
 #include "fd-util.h"
 #include "io-util.h"
 #include "log.h"
+#include "path-util.h"
 #include "pidref.h"
 #include "polkit-agent.h"
 #include "stdio-util.h"
@@ -36,11 +38,16 @@ int polkit_agent_open(void) {
 
         xsprintf(notify_fd, "%i", pipe_fd[1]);
 
+        _cleanup_free_ char *pkttyagent = NULL;
+        r = find_executable("pkttyagent", &pkttyagent);
+        if (r < 0)
+                return log_error_errno(r, "Failed to find pkttyagent binary: %m");
+
         r = fork_agent("(polkit-agent)",
                        &pipe_fd[1],
                        1,
                        &agent_pidref,
-                       POLKIT_AGENT_BINARY_PATH,
+                       pkttyagent,
                        "--notify-fd", notify_fd,
                        "--fallback");
         if (r < 0)
