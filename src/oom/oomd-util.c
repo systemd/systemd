@@ -494,12 +494,20 @@ int oomd_cgroup_kill_mark(Manager *m, OomdCGroupContext *ctx) {
         r = set_ensure_put(&m->kill_states, &oomd_kill_state_hash_ops, ks);
         if (r < 0)
                 return log_oom_debug();
+        if (r == 0) {
+                /* The cgroup is already queued. Drop only this temporary object, because running the normal
+                 * cleanup path would remove by cgroup path key and could interfere with the existing queued
+                 * kill state. */
+                oomd_cgroup_context_unref(ks->ctx);
+                ks = mfree(ks);
+                return 0;
+        }
 
         r = oomd_prekill_hook(m, ks);
         if (r < 0)
                 log_warning_errno(r, "oomd prekill hook failed for %s, ignoring: %m", ctx->path);
 
-        return 0;
+        return 1;
 }
 
 typedef void (*dump_candidate_func)(const OomdCGroupContext *ctx, FILE *f, const char *prefix);
