@@ -623,7 +623,7 @@ static int dnr_append_json_one(Link *link, const struct sd_dns_resolver *res, Ne
         FOREACH_ARRAY(addr, res->addrs, res->n_addrs) {
                 r = sd_json_variant_append_arrayb(
                                 &addrs_array,
-                                JSON_BUILD_IN_ADDR(addr, res->family));
+                                JSON_BUILD_IN_ADDR(res->family, addr));
                 if (r < 0)
                         return r;
         }
@@ -644,7 +644,7 @@ static int dnr_append_json_one(Link *link, const struct sd_dns_resolver *res, Ne
                                         JSON_BUILD_PAIR_STRING_NON_EMPTY("DoHPath", res->dohpath),
                                         JSON_BUILD_PAIR_STRV_NON_EMPTY("Transports", transports),
                                         SD_JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(s)),
-                                        JSON_BUILD_PAIR_IN_ADDR_NON_NULL("ConfigProvider", p, res->family)));
+                                        JSON_BUILD_PAIR_IN_ADDR_NON_NULL("ConfigProvider", res->family, p)));
 }
 
 static int dnr_append_json(Link *link, sd_json_variant **v) {
@@ -733,7 +733,7 @@ static int server_append_json_one_addr(int family, const union in_addr_union *a,
         return sd_json_variant_append_arraybo(
                         array,
                         SD_JSON_BUILD_PAIR_INTEGER("Family", family),
-                        JSON_BUILD_PAIR_IN_ADDR("Address", a, family),
+                        JSON_BUILD_PAIR_IN_ADDR("Address", family, a),
                         SD_JSON_BUILD_PAIR_STRING("AddressString", address_str),
                         SD_JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(s)),
                         JSON_BUILD_PAIR_IN_ADDR_WITH_STRING_NON_NULL("ConfigProvider", family, p));
