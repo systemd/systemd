@@ -634,7 +634,7 @@ static int dnr_append_json_one(Link *link, const struct sd_dns_resolver *res, Ne
                                         JSON_BUILD_PAIR_STRING_NON_EMPTY("DoHPath", res->dohpath),
                                         JSON_BUILD_PAIR_STRV_NON_EMPTY("Transports", transports),
                                         SD_JSON_BUILD_PAIR_STRING("ConfigSource", network_config_source_to_string(s)),
-                                        JSON_BUILD_PAIR_IN_ADDR_NON_NULL("ConfigProvider", p, res->family)));
+                                        JSON_BUILD_PAIR_IN_ADDR_NON_NULL("ConfigProvider", res->family, p)));
 }
 
 static int dnr_append_json(Link *link, sd_json_variant **v) {
