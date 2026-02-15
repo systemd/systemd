@@ -247,27 +247,19 @@ _public_ int sd_varlink_connect_exec(sd_varlink **ret, const char *_command, cha
                         /* stdio_fds= */ NULL,
                         /* except_fds= */ (int[]) { pair[1] },
                         /* n_except_fds= */ 1,
-                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REOPEN_LOG|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_PACK_FDS|FORK_CLOEXEC_OFF|FORK_REOPEN_LOG|FORK_DEATHSIG_SIGTERM|FORK_RLIMIT_NOFILE_SAFE,
                         &pidref);
         if (r < 0)
                 return log_debug_errno(r, "Failed to spawn process: %m");
         if (r == 0) {
                 char spid[DECIMAL_STR_MAX(pid_t)+1];
                 const char *setenv_list[] = {
-                        "LISTEN_FDS", "1",
                         "LISTEN_PID", spid,
+                        "LISTEN_FDS", "1",
                         "LISTEN_FDNAMES", "varlink",
                         NULL, NULL,
                 };
                 /* Child */
-
-                pair[0] = -EBADF;
-
-                r = move_fd(pair[1], 3, /* cloexec= */ false);
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to move file descriptor to 3: %m");
-                        _exit(EXIT_FAILURE);
-                }
 
                 xsprintf(spid, PID_FMT, pidref.pid);
 
@@ -364,7 +356,7 @@ static int varlink_connect_ssh_unix(sd_varlink **ret, const char *where) {
                         /* stdio_fds= */ (int[]) { pair[1], pair[1], STDERR_FILENO },
                         /* except_fds= */ NULL,
                         /* n_except_fds= */ 0,
-                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REOPEN_LOG|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE|FORK_REARRANGE_STDIO,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REOPEN_LOG|FORK_RLIMIT_NOFILE_SAFE|FORK_REARRANGE_STDIO,
                         &pidref);
         if (r < 0)
                 return log_debug_errno(r, "Failed to spawn process: %m");
@@ -448,7 +440,7 @@ static int varlink_connect_ssh_exec(sd_varlink **ret, const char *where) {
                         /* stdio_fds= */ (int[]) { input_pipe[0], output_pipe[1], STDERR_FILENO },
                         /* except_fds= */ NULL,
                         /* n_except_fds= */ 0,
-                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REOPEN_LOG|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE|FORK_REARRANGE_STDIO,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REOPEN_LOG|FORK_RLIMIT_NOFILE_SAFE|FORK_REARRANGE_STDIO,
                         &pidref);
         if (r < 0)
                 return log_debug_errno(r, "Failed to spawn process: %m");
