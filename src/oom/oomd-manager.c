@@ -416,7 +416,7 @@ static int monitor_swap_contexts_handler(sd_event_source *s, uint64_t usec, void
                         return 0;
                 }
 
-                r = oomd_cgroup_kill_mark(m, selected);
+                r = oomd_cgroup_kill_mark(m, selected, "memory-used");
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0)
@@ -534,7 +534,7 @@ static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t
                                 return 0;
                         }
 
-                        r = oomd_cgroup_kill_mark(m, selected);
+                        r = oomd_cgroup_kill_mark(m, selected, "memory-pressure");
                         if (r == -ENOMEM)
                                 return log_oom();
                         if (r < 0)
