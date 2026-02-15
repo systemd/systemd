@@ -47,6 +47,8 @@ SUBSYSTEM=="drm", KERNEL=="card*", TAG+="uaccess"
 {% if GROUP_RENDER_UACCESS %}
 # DRI render nodes
 SUBSYSTEM=="drm", KERNEL=="renderD*", TAG+="uaccess", TAG+="xaccess-render"
+# DRI accel nodes
+SUBSYSTEM=="accel", KERNEL=="accel*", TAG+="uaccess", TAG+="xaccess-accel"
 {% endif %}
 {% if DEV_KVM_UACCESS %}
 # KVM
