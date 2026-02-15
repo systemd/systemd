@@ -4666,63 +4666,9 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         break;
                 }
 
-                case _JSON_BUILD_PAIR_IN4_ADDR_NON_NULL: {
-                        const struct in_addr *a;
-                        const char *n;
-
-                        if (current->expect != EXPECT_OBJECT_KEY) {
-                                r = -EINVAL;
-                                goto finish;
-                        }
-
-                        n = va_arg(ap, const char *);
-                        a = va_arg(ap, const struct in_addr *);
-
-                        if (a && in4_addr_is_set(a) && current->n_suppress == 0) {
-                                r = sd_json_variant_new_string(&add, n);
-                                if (r < 0)
-                                        goto finish;
-
-                                r = sd_json_variant_new_array_bytes(&add_more, a, sizeof(struct in_addr));
-                                if (r < 0)
-                                        goto finish;
-                        }
-
-                        n_subtract = 2; /* we generated two items */
-
-                        current->expect = EXPECT_OBJECT_KEY;
-                        break;
-                }
-
-                case _JSON_BUILD_PAIR_IN6_ADDR_NON_NULL: {
-                        const struct in6_addr *a;
-                        const char *n;
-
-                        if (current->expect != EXPECT_OBJECT_KEY) {
-                                r = -EINVAL;
-                                goto finish;
-                        }
-
-                        n = va_arg(ap, const char *);
-                        a = va_arg(ap, const struct in6_addr *);
-
-                        if (a && in6_addr_is_set(a) && current->n_suppress == 0) {
-                                r = sd_json_variant_new_string(&add, n);
-                                if (r < 0)
-                                        goto finish;
-
-                                r = sd_json_variant_new_array_bytes(&add_more, a, sizeof(struct in6_addr));
-                                if (r < 0)
-                                        goto finish;
-                        }
-
-                        n_subtract = 2; /* we generated two items */
-
-                        current->expect = EXPECT_OBJECT_KEY;
-                        break;
-                }
-
-                case _JSON_BUILD_PAIR_IN_ADDR_NON_NULL: {
+                case _JSON_BUILD_PAIR_IN_ADDR_NON_NULL:
+                case _JSON_BUILD_PAIR_IN_ADDR_WITH_STRING_NON_NULL:
+                case _JSON_BUILD_PAIR_IN_ADDR_WITH_STRING: {
                         const union in_addr_union *a;
                         const char *n;
                         int f;
@@ -4733,10 +4679,16 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         }
 
                         n = va_arg(ap, const char *);
-                        a = va_arg(ap, const union in_addr_union *);
                         f = va_arg(ap, int);
+                        a = va_arg(ap, const union in_addr_union *);
 
-                        if (a && in_addr_is_set(f, a) && current->n_suppress == 0) {
+                        if (current->n_suppress == 0 &&
+                            ((a && in_addr_is_set(f, a)) ||
+                             command == _JSON_BUILD_PAIR_IN_ADDR_WITH_STRING)) {
+
+                                if (!a)
+                                        a = &IN_ADDR_NULL;
+
                                 r = sd_json_variant_new_string(&add, n);
                                 if (r < 0)
                                         goto finish;
@@ -4744,9 +4696,36 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                 r = sd_json_variant_new_array_bytes(&add_more, a->bytes, FAMILY_ADDRESS_SIZE_SAFE(f));
                                 if (r < 0)
                                         goto finish;
+
+                                if (IN_SET(command, _JSON_BUILD_PAIR_IN_ADDR_WITH_STRING, _JSON_BUILD_PAIR_IN_ADDR_WITH_STRING_NON_NULL)) {
+                                        _cleanup_free_ char *string_key_name = NULL;
+                                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *string_key = NULL, *string_value = NULL;
+
+                                        string_key_name = strjoin(n, "String");
+                                        if (!string_key_name) {
+                                                r = -ENOMEM;
+                                                goto finish;
+                                        }
+
+                                        r = sd_json_variant_new_string(&string_key, string_key_name);
+                                        if (r < 0)
+                                                goto finish;
+
+                                        r = sd_json_variant_new_string(&string_value, IN_ADDR_TO_STRING(f, a));
+                                        if (r < 0)
+                                                goto finish;
+
+                                        if (!GREEDY_REALLOC(current->elements, current->n_elements + 2)) {
+                                                r = -ENOMEM;
+                                                goto finish;
+                                        }
+
+                                        current->elements[current->n_elements++] = TAKE_PTR(string_key);
+                                        current->elements[current->n_elements++] = TAKE_PTR(string_value);
+                                }
                         }
 
-                        n_subtract = 2; /* we generated two items */
+                        n_subtract = command == _JSON_BUILD_PAIR_IN_ADDR_NON_NULL ? 2 : 4;
 
                         current->expect = EXPECT_OBJECT_KEY;
                         break;
@@ -4891,207 +4870,6 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         }
 
                         n_subtract = 2; /* we generated two items */
-
-                        current->expect = EXPECT_OBJECT_KEY;
-                        break;
-                }
-
-                case _JSON_BUILD_PAIR_IN_ADDR_WITH_STRING_NON_NULL:
-                case _JSON_BUILD_PAIR_IN_ADDR_WITH_STRING: {
-                        const union in_addr_union *a;
-                        const char *n;
-                        int f;
-
-                        if (current->expect != EXPECT_OBJECT_KEY) {
-                                r = -EINVAL;
-                                goto finish;
-                        }
-
-                        n = va_arg(ap, const char *);
-                        f = va_arg(ap, int);
-                        a = va_arg(ap, const union in_addr_union *);
-
-                        if (current->n_suppress == 0) {
-                                bool have_address = a && in_addr_is_set(f, a);
-
-                                if (have_address || command != _JSON_BUILD_PAIR_IN_ADDR_WITH_STRING_NON_NULL) {
-                                        _cleanup_free_ char *addr_str = NULL, *string_key_name = NULL;
-                                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *string_key = NULL, *string_value = NULL;
-
-                                        /* For non-NON_NULL variant, always convert address to string (even if all zeros).
-                                         * For NON_NULL variant, we only get here when have_address is true. */
-                                        if (a) {
-                                                r = in_addr_to_string(f, a, &addr_str);
-                                                if (r < 0)
-                                                        goto finish;
-                                        }
-
-                                        string_key_name = strjoin(n, "String");
-                                        if (!string_key_name) {
-                                                r = -ENOMEM;
-                                                goto finish;
-                                        }
-
-                                        r = sd_json_variant_new_string(&add, n);
-                                        if (r < 0)
-                                                goto finish;
-
-                                        r = sd_json_variant_new_array_bytes(&add_more, a->bytes, FAMILY_ADDRESS_SIZE_SAFE(f));
-                                        if (r < 0)
-                                                goto finish;
-
-                                        r = sd_json_variant_new_string(&string_key, string_key_name);
-                                        if (r < 0)
-                                                goto finish;
-
-                                        r = sd_json_variant_new_string(&string_value, addr_str);
-                                        if (r < 0)
-                                                goto finish;
-
-                                        if (!GREEDY_REALLOC(current->elements, current->n_elements + 2)) {
-                                                r = -ENOMEM;
-                                                goto finish;
-                                        }
-
-                                        current->elements[current->n_elements++] = TAKE_PTR(string_key);
-                                        current->elements[current->n_elements++] = TAKE_PTR(string_value);
-                                }
-                        }
-
-                        n_subtract = 4; /* we generated two pairs (binary and string) */
-
-                        current->expect = EXPECT_OBJECT_KEY;
-                        break;
-                }
-
-                case _JSON_BUILD_PAIR_IN6_ADDR_WITH_STRING_NON_NULL:
-                case _JSON_BUILD_PAIR_IN6_ADDR_WITH_STRING: {
-                        const struct in6_addr *a;
-                        const char *n;
-
-                        if (current->expect != EXPECT_OBJECT_KEY) {
-                                r = -EINVAL;
-                                goto finish;
-                        }
-
-                        n = va_arg(ap, const char *);
-                        a = va_arg(ap, const struct in6_addr *);
-
-                        if (current->n_suppress == 0) {
-                                bool have_address = a && in6_addr_is_set(a);
-
-                                if (have_address || command != _JSON_BUILD_PAIR_IN6_ADDR_WITH_STRING_NON_NULL) {
-                                        _cleanup_free_ char *addr_str = NULL, *string_key_name = NULL;
-                                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *string_key = NULL, *string_value = NULL;
-
-                                        /* For non-NON_NULL variant, always convert address to string (even if all zeros).
-                                         * For NON_NULL variant, we only get here when have_address is true. */
-                                        if (a) {
-                                                r = in6_addr_to_string(a, &addr_str);
-                                                if (r < 0)
-                                                        goto finish;
-                                        }
-
-                                        string_key_name = strjoin(n, "String");
-                                        if (!string_key_name) {
-                                                r = -ENOMEM;
-                                                goto finish;
-                                        }
-
-                                        r = sd_json_variant_new_string(&add, n);
-                                        if (r < 0)
-                                                goto finish;
-
-                                        r = sd_json_variant_new_array_bytes(&add_more, a, sizeof(struct in6_addr));
-                                        if (r < 0)
-                                                goto finish;
-
-                                        r = sd_json_variant_new_string(&string_key, string_key_name);
-                                        if (r < 0)
-                                                goto finish;
-
-                                        r = sd_json_variant_new_string(&string_value, addr_str);
-                                        if (r < 0)
-                                                goto finish;
-
-                                        if (!GREEDY_REALLOC(current->elements, current->n_elements + 2)) {
-                                                r = -ENOMEM;
-                                                goto finish;
-                                        }
-
-                                        current->elements[current->n_elements++] = TAKE_PTR(string_key);
-                                        current->elements[current->n_elements++] = TAKE_PTR(string_value);
-                                }
-                        }
-
-                        n_subtract = 4; /* we generated two pairs (binary and string) */
-
-                        current->expect = EXPECT_OBJECT_KEY;
-                        break;
-                }
-
-                case _JSON_BUILD_PAIR_IN4_ADDR_WITH_STRING_NON_NULL:
-                case _JSON_BUILD_PAIR_IN4_ADDR_WITH_STRING: {
-                        const struct in_addr *a;
-                        const char *n;
-
-                        if (current->expect != EXPECT_OBJECT_KEY) {
-                                r = -EINVAL;
-                                goto finish;
-                        }
-
-                        n = va_arg(ap, const char *);
-                        a = va_arg(ap, const struct in_addr *);
-
-                        if (current->n_suppress == 0) {
-                                bool have_address = a && !in4_addr_is_null(a);
-
-                                if (have_address || command != _JSON_BUILD_PAIR_IN4_ADDR_WITH_STRING_NON_NULL) {
-                                        _cleanup_free_ char *addr_str = NULL, *string_key_name = NULL;
-                                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *string_key = NULL, *string_value = NULL;
-
-                                        /* For non-NON_NULL variant, always convert address to string (even if all zeros).
-                                         * For NON_NULL variant, we only get here when have_address is true. */
-                                        if (a) {
-                                                union in_addr_union addr_union = { .in = *a };
-                                                r = in_addr_to_string(AF_INET, &addr_union, &addr_str);
-                                                if (r < 0)
-                                                        goto finish;
-                                        }
-
-                                        string_key_name = strjoin(n, "String");
-                                        if (!string_key_name) {
-                                                r = -ENOMEM;
-                                                goto finish;
-                                        }
-
-                                        r = sd_json_variant_new_string(&add, n);
-                                        if (r < 0)
-                                                goto finish;
-
-                                        r = sd_json_variant_new_array_bytes(&add_more, a, sizeof(struct in_addr));
-                                        if (r < 0)
-                                                goto finish;
-
-                                        r = sd_json_variant_new_string(&string_key, string_key_name);
-                                        if (r < 0)
-                                                goto finish;
-
-                                        r = sd_json_variant_new_string(&string_value, addr_str);
-                                        if (r < 0)
-                                                goto finish;
-
-                                        if (!GREEDY_REALLOC(current->elements, current->n_elements + 2)) {
-                                                r = -ENOMEM;
-                                                goto finish;
-                                        }
-
-                                        current->elements[current->n_elements++] = TAKE_PTR(string_key);
-                                        current->elements[current->n_elements++] = TAKE_PTR(string_value);
-                                }
-                        }
-
-                        n_subtract = 4; /* we generated two pairs (binary and string) */
 
                         current->expect = EXPECT_OBJECT_KEY;
                         break;
