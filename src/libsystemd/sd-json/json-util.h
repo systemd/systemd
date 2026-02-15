@@ -223,15 +223,15 @@ enum {
 #define JSON_BUILD_PAIR_VARIANT_NON_NULL(name, v) _JSON_BUILD_PAIR_VARIANT_NON_NULL, (const char*) { name }, (sd_json_variant*) { v }
 #define JSON_BUILD_PAIR_VARIANT_NON_EMPTY(name, v) _JSON_BUILD_PAIR_VARIANT_NON_EMPTY, (const char*) { name }, (sd_json_variant*) { v }
 #define JSON_BUILD_PAIR_BYTE_ARRAY_NON_EMPTY(name, v, n) _JSON_BUILD_PAIR_BYTE_ARRAY_NON_EMPTY, (const char*) { name }, (const void*) { v }, (size_t) { n }
-#define JSON_BUILD_PAIR_IN_ADDR_NON_NULL(name, v, f) _JSON_BUILD_PAIR_IN_ADDR_NON_NULL, (const char*) { name }, (int) { f }, (const union in_addr_union*) { v }
+#define JSON_BUILD_PAIR_IN_ADDR_NON_NULL(name, f, v) _JSON_BUILD_PAIR_IN_ADDR_NON_NULL, (const char*) { name }, (int) { f }, (const union in_addr_union*) { v }
 #define JSON_BUILD_PAIR_IN4_ADDR_NON_NULL(name, v) _JSON_BUILD_PAIR_IN_ADDR_NON_NULL, (const char*) { name }, AF_INET, &(union in_addr_union) { .in = *(v) }
 #define JSON_BUILD_PAIR_IN6_ADDR_NON_NULL(name, v) _JSON_BUILD_PAIR_IN_ADDR_NON_NULL, (const char*) { name }, AF_INET6, &(union in_addr_union) { .in6 = *(v) }
 #define JSON_BUILD_PAIR_IN_ADDR_WITH_STRING(name, f, v) _JSON_BUILD_PAIR_IN_ADDR_WITH_STRING, (const char*) { name }, (int) { f }, (const union in_addr_union*) { v }
-#define JSON_BUILD_PAIR_IN6_ADDR_WITH_STRING(name, v) _JSON_BUILD_PAIR_IN_ADDR_WITH_STRING, (const char*) { name }, AF_INET, &(union in_addr_union) { .in = *(v) }
-#define JSON_BUILD_PAIR_IN4_ADDR_WITH_STRING(name, v) _JSON_BUILD_PAIR_IN_ADDR_WITH_STRING, (const char*) { name }, AF_INET6, &(union in_addr_union) { .in6 = *(v) }
+#define JSON_BUILD_PAIR_IN4_ADDR_WITH_STRING(name, v) _JSON_BUILD_PAIR_IN_ADDR_WITH_STRING, (const char*) { name }, AF_INET, &(union in_addr_union) { .in = *(v) }
+#define JSON_BUILD_PAIR_IN6_ADDR_WITH_STRING(name, v) _JSON_BUILD_PAIR_IN_ADDR_WITH_STRING, (const char*) { name }, AF_INET6, &(union in_addr_union) { .in6 = *(v) }
 #define JSON_BUILD_PAIR_IN_ADDR_WITH_STRING_NON_NULL(name, f, v) _JSON_BUILD_PAIR_IN_ADDR_WITH_STRING_NON_NULL, (const char*) { name }, (int) { f }, (const union in_addr_union*) { v }
-#define JSON_BUILD_PAIR_IN6_ADDR_WITH_STRING_NON_NULL(name, v) _JSON_BUILD_PAIR_IN_ADDR_WITH_STRING_NON_NULL, (const char*) { name }, AF_INET, &(union in_addr_union) { .in = *(v) }
-#define JSON_BUILD_PAIR_IN4_ADDR_WITH_STRING_NON_NULL(name, v) _JSON_BUILD_PAIR_IN_ADDR_WITH_STRING_NON_NULL, (const char*) { name }, AF_INET6, &(union in_addr_union) { .in6 = *(v) }
+#define JSON_BUILD_PAIR_IN4_ADDR_WITH_STRING_NON_NULL(name, v) _JSON_BUILD_PAIR_IN_ADDR_WITH_STRING_NON_NULL, (const char*) { name }, AF_INET, &(union in_addr_union) { .in = *(v) }
+#define JSON_BUILD_PAIR_IN6_ADDR_WITH_STRING_NON_NULL(name, v) _JSON_BUILD_PAIR_IN_ADDR_WITH_STRING_NON_NULL, (const char*) { name }, AF_INET6, &(union in_addr_union) { .in6 = *(v) }
 #define JSON_BUILD_PAIR_ETHER_ADDR_NON_NULL(name, v) _JSON_BUILD_PAIR_ETHER_ADDR_NON_NULL, (const char*) { name }, (const struct ether_addr*) { v }
 #define JSON_BUILD_PAIR_HW_ADDR_NON_NULL(name, v) _JSON_BUILD_PAIR_HW_ADDR_NON_NULL, (const char*) { name }, (const struct hw_addr_data*) { v }
 #define JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL(name, t) _JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL, (const char*) { name }, (dual_timestamp*) { t }
