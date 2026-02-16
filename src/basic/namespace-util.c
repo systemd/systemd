@@ -368,6 +368,42 @@ int is_our_namespace(int fd, NamespaceType type) {
         return fd_inode_same(fd, our_ns);
 }
 
+int are_our_namespaces(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int root_fd) {
+        int r;
+
+        if (pidns_fd >= 0) {
+                r = is_our_namespace(pidns_fd, NAMESPACE_PID);
+                if (r <= 0)
+                        return r;
+        }
+
+        if (mntns_fd >= 0) {
+                r = is_our_namespace(mntns_fd, NAMESPACE_MOUNT);
+                if (r <= 0)
+                        return r;
+        }
+
+        if (netns_fd >= 0) {
+                r = is_our_namespace(netns_fd, NAMESPACE_NET);
+                if (r <= 0)
+                        return r;
+        }
+
+        if (userns_fd >= 0) {
+                r = is_our_namespace(userns_fd, NAMESPACE_USER);
+                if (r <= 0)
+                        return r;
+        }
+
+        if (root_fd >= 0) {
+                r = dir_fd_is_root(root_fd);
+                if (r <= 0)
+                        return r;
+        }
+
+        return true;
+}
+
 int namespace_is_init(NamespaceType type) {
         int r;
 
