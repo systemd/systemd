@@ -475,6 +475,12 @@ static int dns_scope_socket(
                         return r;
         }
 
+        if (s->delegate && s->delegate->fwmark > 0) {
+                r = setsockopt_int(fd, SOL_SOCKET, SO_MARK, s->delegate->fwmark);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to set firewall mark on DNS socket: %m)");
+        }
+
         bool addr_is_nonlocal = s->link &&
             !manager_find_link_address(s->manager, sa.sa.sa_family, sockaddr_in_addr(&sa.sa)) &&
             in_addr_is_localhost(sa.sa.sa_family, sockaddr_in_addr(&sa.sa)) == 0;
