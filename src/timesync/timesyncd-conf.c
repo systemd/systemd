@@ -84,15 +84,21 @@ int config_parse_servers(
         assert(lvalue);
         assert(rvalue);
 
-        if (isempty(rvalue))
+        if (isempty(rvalue)) {
                 manager_flush_server_names(m, ltype);
-        else {
-                r = manager_parse_server_string(m, ltype, rvalue);
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to parse NTP server string '%s', ignoring: %m", rvalue);
-                        return 0;
-                }
+
+                /* FallbackNTP= with an empty string disables the built-in fallback servers. */
+                if (ltype == SERVER_FALLBACK)
+                        m->have_fallbacks = true;
+
+                return 0;
+        }
+
+        r = manager_parse_server_string(m, ltype, rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse NTP server string '%s', ignoring: %m", rvalue);
+                return 0;
         }
 
         return 0;
