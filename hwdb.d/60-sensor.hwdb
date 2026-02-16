@@ -414,8 +414,7 @@ sensor:modalias:acpi:SMO8500:*:dmi:*:svnDigibras:pnF10-30:*    # F10-30
 # DIGMA
 #########################################
 
-# Digma CITI E203
-sensor:modalias:acpi:BOSC0200*:dmi:*:svnDigma:pnCITIE203ES2010EW:*
+sensor:modalias:acpi:BOSC0200:*:dmi:*:svnDigma:pnCITIE203ES2010EW:*    # CITI E203
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
 
 #########################################
