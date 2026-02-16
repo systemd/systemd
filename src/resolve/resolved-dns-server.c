@@ -1374,7 +1374,7 @@ int dns_server_dump_configuration_to_json(DnsServer *server, sd_json_variant **r
         return sd_json_buildo(
                         ret,
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("addressString", dns_server_string(server)),
-                        JSON_BUILD_PAIR_IN_ADDR("address", &server->address, server->family),
+                        JSON_BUILD_PAIR_IN_ADDR("address", server->family, &server->address),
                         SD_JSON_BUILD_PAIR_INTEGER("family", server->family),
                         SD_JSON_BUILD_PAIR_UNSIGNED("port", dns_server_port(server)),
                         SD_JSON_BUILD_PAIR_CONDITION(ifindex > 0, "ifindex", SD_JSON_BUILD_UNSIGNED(ifindex)),
