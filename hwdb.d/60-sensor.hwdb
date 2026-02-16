@@ -449,8 +449,7 @@ sensor:modalias:acpi:SMO8500:*:dmi:*:svnEXO*:pnWings:*    # Wings 2in1 w1125
 # Geo Computers
 #########################################
 
-# Geoflex
-sensor:modalias:acpi:KIOX010A*:dmi:*:svnGEO*:pnGeoFlex*:*
+sensor:modalias:acpi:KIOX010A:*:dmi:*:svnGEO:pnGeoFlex:*    # Geoflex (2018)
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, 1
 
 #########################################
