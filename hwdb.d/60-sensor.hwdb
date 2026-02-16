@@ -457,7 +457,7 @@ sensor:modalias:acpi:KIOX010A:*:dmi:*:svnGEO:pnGeoFlex:*    # Geoflex (2018)
 #########################################
 
 # Glavey TM800A550L
-sensor:modalias:acpi:KXCJ9000*:dmi:*:bvrZY-8-BI-PX4S70VTR400-X423B-005-D:*:rvnAMICorporation:rnAptioCRB:*
+sensor:modalias:acpi:KXCJ9000:*:dmi:*:bvrZY-8-BI-PX4S70VTR400-X423B-005-D:*:rvnAMICorporation:rnAptioCRB:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
 #########################################
