@@ -378,17 +378,21 @@ sensor:modalias:acpi:INVN6500:*:dmi:*:svnDellInc.:pnVenue10Pro5055:*        # Ve
 # DERE
 #########################################
 
+# TODO: Find sku if it's a better match.
 # DBook D10 / Juno Tablet
-sensor:modalias:acpi:KIOX000A*:dmi:bvnAmericanMegatrendsInternational,LLC.:bvrJP2V*:svnDefaultstring:*
+sensor:modalias:acpi:KIOX000A:*:dmi:bvnAmericanMegatrendsInternational,LLC.:bvrJP2V*:svnDefaultstring:*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
+# TODO: Find sku if it's a better match.
 # T11 / Juno Tablet 2
-sensor:modalias:acpi:NSA2513*:dmi:*:svnDigitek:*
-sensor:modalias:acpi:NSA2513*:dmi:*:svnDefaultstring:*
+sensor:modalias:acpi:NSA2513:*:dmi:*:svnDigitek:*
+# FIXME: Too generic dmi match.
+sensor:modalias:acpi:NSA2513:*:dmi:*:svnDefaultstring:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; 1, 0, 0; 0, 0, 1
 
+# TODO: Find sku if it's a better match.
 # N12 / Juno Tablet 3
-sensor:modalias:acpi:MXC6655*:dmi:bvnAmericanMegatrendsInternational,LLC.:bvr*:svnDefaultstring:pnS1105ANR100:pvr*:rvn*:rnS1105ANR100:*
+sensor:modalias:acpi:MXC6655:*:dmi:bvnAmericanMegatrendsInternational,LLC.:bvr*:svnDefaultstring:pnS1105ANR100:pvr*:rvn*:rnS1105ANR100:*
  ACCEL_MOUNT_MATRIX=0, 1, 0; -1, 0, 0; 0, 0, -1
 
 #########################################
