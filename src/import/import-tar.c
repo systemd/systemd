@@ -259,11 +259,11 @@ static int tar_import_fork_tar(TarImport *i) {
                 _cleanup_close_ int directory_fd = -EBADF;
                 r = mountfsd_make_directory(d, MODE_INVALID, /* flags= */ 0, &directory_fd);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to make directory via mountfsd: %m");
 
                 r = mountfsd_mount_directory_fd(directory_fd, i->userns_fd, DISSECT_IMAGE_FOREIGN_UID, &i->tree_fd);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed mount directory via mountfsd: %m");
         } else {
                 if (i->flags & IMPORT_BTRFS_SUBVOL)
                         r = btrfs_subvol_make_fallback(AT_FDCWD, d, 0755);
