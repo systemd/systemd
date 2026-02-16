@@ -197,6 +197,63 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>mount.var=</varname></term>
+
+        <listitem><para>Takes the <filename>/var/</filename> filesystem to be mounted by the initrd. If
+        <varname>mount.varfstype=</varname> or <varname>mount.varflags=</varname> is set, then the mount
+        configured via <varname>mount.var=</varname> will default to the the same value set in
+        <varname>root=</varname>.</para>
+
+        <para>Set to <literal>dissect</literal> to explicitly request automatic <filename>/var/</filename>
+        file system discovery, implemented in
+        <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+        <para>Set to <literal>off</literal> to turn off mounting of a separate <filename>/var/</filename> file system.</para>
+
+        <para><varname>mount.var=</varname> is honored by the initrd.</para>
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>mount.varfstype=</varname></term>
+
+        <listitem><para>Takes the <filename>/var/</filename> filesystem
+        type that will be passed to the mount command. If
+        <varname>mount.var=</varname> or
+        <varname>mount.varflags=</varname> is set, then
+        <varname>mount.varfstype=</varname> will default to the value
+        set in <varname>rootfstype=</varname>.</para>
+
+        <para>Otherwise, this value will be read from the
+        <filename>/var/</filename> entry in
+        <filename>/etc/fstab</filename> on the root filesystem.</para>
+
+        <para><varname>mount.varfstype=</varname> is honored by the
+        initrd.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>mount.varflags=</varname></term>
+
+        <listitem><para>Takes the <filename>/var/</filename> filesystem
+        mount options to use. If <varname>mount.var=</varname> or
+        <varname>mount.varfstype=</varname> is set, then
+        <varname>mount.varflags=</varname> will default to the value
+        set in <varname>rootflags=</varname>.</para>
+
+        <para>Otherwise, this value will be read from the
+        <filename>/var/</filename> entry in
+        <filename>/etc/fstab</filename> on the root filesystem.</para>
+
+        <para><varname>mount.varflags=</varname> is honored by the
+        initrd.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>roothash=</varname></term>
         <term><varname>usrhash=</varname></term>
 
