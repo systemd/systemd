@@ -3,4 +3,6 @@
 
 #include "sd-forward.h"
 
+int container_get_leader(RuntimeScope scope, const char *machined, pid_t *pid);
+
 int bus_container_connect_socket(sd_bus *b);
