@@ -1793,13 +1793,11 @@ static int vl_method_list_transfers(sd_varlink *link, sd_json_variant *parameter
 
         assert(link);
         assert(parameters);
+        assert(FLAGS_SET(flags, SD_VARLINK_METHOD_MORE));
 
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
-
-        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
-                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
 
         r = varlink_set_sentinel(link, "io.systemd.Import.NoTransfers");
         if (r < 0)

@@ -112,7 +112,7 @@ static int ip_address_access_build_json(sd_json_variant **ret, const char *name,
                 r = sd_json_variant_append_arraybo(
                                 &v,
                                 SD_JSON_BUILD_PAIR_INTEGER("family", i->family),
-                                JSON_BUILD_PAIR_IN_ADDR("address", &i->address, i->family),
+                                JSON_BUILD_PAIR_IN_ADDR("address", i->family, &i->address),
                                 SD_JSON_BUILD_PAIR_UNSIGNED("prefixLength", i->prefixlen));
                 if (r < 0)
                         return r;
@@ -299,6 +299,7 @@ int unit_cgroup_context_build_json(sd_json_variant **ret, const char *name, void
                                         SD_JSON_BUILD_OBJECT(
                                                 SD_JSON_BUILD_PAIR_BOOLEAN("isAllowList", c->restrict_network_interfaces_is_allow_list),
                                                 JSON_BUILD_PAIR_STRING_SET("interfaces", c->restrict_network_interfaces))),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("BindNetworkInterface", c->bind_network_interface),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("NFTSet", nft_set_build_json, &c->nft_set_context),
 
                         /* BPF programs */
