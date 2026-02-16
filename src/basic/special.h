@@ -97,6 +97,7 @@
 #define SPECIAL_PCRFS_ROOT_SERVICE "systemd-pcrfs-root.service"
 #define SPECIAL_VALIDATEFS_SERVICE "systemd-validatefs@.service"
 #define SPECIAL_HIBERNATE_RESUME_SERVICE "systemd-hibernate-resume.service"
+#define SPECIAL_CLONE_TARGET "clone.target"
 
 /* Services systemd relies on */
 #define SPECIAL_DBUS_SERVICE "dbus.service"
