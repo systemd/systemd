@@ -631,10 +631,11 @@ sensor:modalias:acpi:SMO8500:*:dmi:*:svnKDInteractive:pnKurioSmart:*:rnKDM960BCP
 #########################################
 # Lamina
 #########################################
-sensor:modalias:acpi:SMO8500*:dmi:*svnLamina*:*pnT701BR.SE:*
+
+sensor:modalias:acpi:SMO8500:*:dmi:*:svnLamina:pnT701BR.SE:*      # I8270 7"
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
-sensor:modalias:acpi:KIOX000A*:dmi:*svnLAMINA:pnT-1016BNORD:*
+sensor:modalias:acpi:KIOX000A:*:dmi:*:svnLAMINA:pnT-1016BNORD:*    # T-1016B.NORD
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
 
 #########################################
