@@ -699,17 +699,14 @@ sensor:modalias:i2c:bmc150_accel:dmi:*:svnLENOVO:*:pvrLenovoYoga300-11IBR:*
 # LINX
 #########################################
 
-# Linx 1010B
-sensor:modalias:acpi:BOSC0200*:dmi:*:svnLINX*:pnLINX1010B:*
+sensor:modalias:acpi:BOSC0200:*:dmi:*:svnLINX:pnLINX1010B:*    # 1010B
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, -1
 
-# Linx 1020
-sensor:modalias:acpi:MIRAACC*:dmi:*:svnLINX*:pnLINX1020:*
+sensor:modalias:acpi:MIRAACC:*:dmi:*:svnLINX:pnLINX1020:*      # 1020
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, -1
 
-# Linx 12X64, 12V64 and Vision 8
-sensor:modalias:acpi:KIOX000A*:dmi:*:svnLINX*:pnLINX12*64:*
-sensor:modalias:acpi:KIOX000A*:dmi:*:svnLINX:pnVISION004:*
+sensor:modalias:acpi:KIOX000A:*:dmi:*:svnLINX:pnLINX12?64:*    # 12X64, 12V64
+sensor:modalias:acpi:KIOX000A:*:dmi:*:svnLINX:pnVISION004:*    # Vision 8
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
 
 #########################################
