@@ -420,7 +420,8 @@ sensor:modalias:acpi:BOSC0200:*:dmi:*:svnDigma:pnCITIE203ES2010EW:*    # CITI E2
 #########################################
 # Endless
 #########################################
-sensor:modalias:acpi:ACCE0001*:dmi:*svnEndless*:*pnELT-NL3:*
+
+sensor:modalias:acpi:ACCE0001:*:dmi:*:svnEndless:pnELT-NL3:*    # ELT-NL3
  ACCEL_MOUNT_MATRIX=0, 1, 0; 0, 0, -1; -1, 0, 0
 
 #########################################
