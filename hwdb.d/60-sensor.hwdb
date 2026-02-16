@@ -557,8 +557,7 @@ sensor:modalias:i2c:bmc150_accel:dmi:*:svnHewlett-Packard:pnHPProTablet408:*:rn8
 # HUAWEI
 #########################################
 
-# HUAWEI MateBook D 15 AMD
-sensor:modalias:acpi:SMO8840*:dmi:*:svnHUAWEI:pnBOHK-WAX9X:*
+sensor:modalias:acpi:SMO8840:*:dmi:*:svnHUAWEI:pnBOHK-WAX9X:*    # MateBook D 15 AMD
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
  ACCEL_LOCATION=base
 
