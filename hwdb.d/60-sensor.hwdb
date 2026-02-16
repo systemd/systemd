@@ -339,8 +339,7 @@ sensor:modalias:acpi:KIOX000A*:dmi:*:svnALLDOCUBE:pni1102:*
 # Cyberbook
 #########################################
 
-# Cyberbook T116
-sensor:modalias:acpi:KIOX000A*:dmi:*:rvnDefaultstring:rnCherryTrailCR:*:sku20170531:*
+sensor:modalias:acpi:KIOX000A:*:dmi:*:rvnDefaultstring:rnCherryTrailCR:*:sku20170531:*    # T116
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
 #########################################
