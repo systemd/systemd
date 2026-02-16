@@ -296,18 +296,18 @@ static int tar_pull_make_local_copy(TarPull *p) {
 
                                 r = mountfsd_mount_directory_fd(directory_fd, p->userns_fd, DISSECT_IMAGE_FOREIGN_UID, &p->tree_fd);
                                 if (r < 0)
-                                        return r;
+                                        return log_error_errno(r, "Failed to mount directory via mountfsd: %m");
                         }
 
                         _cleanup_close_ int directory_fd = -EBADF;
                         r = mountfsd_make_directory(t, MODE_INVALID, /* flags= */ 0, &directory_fd);
                         if (r < 0)
-                                return r;
+                                return log_error_errno(r, "Failed to make directory via mountfsd: %m");
 
                         _cleanup_close_ int copy_fd = -EBADF;
                         r = mountfsd_mount_directory_fd(directory_fd, p->userns_fd, DISSECT_IMAGE_FOREIGN_UID, &copy_fd);
                         if (r < 0)
-                                return r;
+                                return log_error_errno(r, "Failed to mount directory via mountfsd: %m");
 
                         r = copy_tree_at_foreign(p->tree_fd, copy_fd, p->userns_fd);
                         if (r < 0)
@@ -614,11 +614,11 @@ static int tar_pull_job_on_open_disk_tar(PullJob *j) {
                 _cleanup_close_ int directory_fd = -EBADF;
                 r = mountfsd_make_directory(where, MODE_INVALID, /* flags= */ 0, &directory_fd);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to make directory via mountfsd: %m");
 
                 r = mountfsd_mount_directory_fd(directory_fd, p->userns_fd, DISSECT_IMAGE_FOREIGN_UID, &p->tree_fd);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to mount directory via mountfsd: %m");
         } else {
                 if (p->flags & IMPORT_BTRFS_SUBVOL)
                         r = btrfs_subvol_make_fallback(AT_FDCWD, where, 0755);
