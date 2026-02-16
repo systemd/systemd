@@ -8,6 +8,7 @@
 #include <sys/mount.h>
 #include <unistd.h>
 
+#include "capability-util.h"
 #include "dlfcn-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -215,53 +216,6 @@ int namespace_open(
         return pidref_namespace_open(&pidref, ret_pidns_fd, ret_mntns_fd, ret_netns_fd, ret_userns_fd, ret_root_fd);
 }
 
-int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int root_fd) {
-        int r;
-
-        /* Block dlopen() now, to avoid us inadvertently loading shared library from another namespace */
-        block_dlopen();
-
-        if (userns_fd >= 0) {
-                /* Can't setns to your own userns, since then you could escalate from non-root to root in
-                 * your own namespace, so check if namespaces are equal before attempting to enter. */
-
-                r = is_our_namespace(userns_fd, NAMESPACE_USER);
-                if (r < 0)
-                        return r;
-                if (r > 0)
-                        userns_fd = -EBADF;
-        }
-
-        if (pidns_fd >= 0)
-                if (setns(pidns_fd, CLONE_NEWPID) < 0)
-                        return -errno;
-
-        if (mntns_fd >= 0)
-                if (setns(mntns_fd, CLONE_NEWNS) < 0)
-                        return -errno;
-
-        if (netns_fd >= 0)
-                if (setns(netns_fd, CLONE_NEWNET) < 0)
-                        return -errno;
-
-        if (userns_fd >= 0)
-                if (setns(userns_fd, CLONE_NEWUSER) < 0)
-                        return -errno;
-
-        if (root_fd >= 0) {
-                if (fchdir(root_fd) < 0)
-                        return -errno;
-
-                if (chroot(".") < 0)
-                        return -errno;
-        }
-
-        if (userns_fd >= 0)
-                return reset_uid_gid();
-
-        return 0;
-}
-
 static int namespace_enter_one_idempotent(int nsfd, NamespaceType type) {
         int r;
 
@@ -283,20 +237,43 @@ static int namespace_enter_one_idempotent(int nsfd, NamespaceType type) {
         return 1;
 }
 
-int namespace_enter_delegated(int userns_fd, int pidns_fd, int mntns_fd, int netns_fd, int root_fd) {
+int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int root_fd) {
         int r;
-
-        /* Similar to namespace_enter(), but operates on a set of namespaces that are potentially owned
-         * by the userns ("delegated"), in which case we'll need to gain CAP_SYS_ADMIN by joining
-         * the userns first, and the rest later. */
-
-        assert(userns_fd >= 0);
 
         /* Block dlopen() now, to avoid us inadvertently loading shared library from another namespace */
         block_dlopen();
 
-        if (setns(userns_fd, CLONE_NEWUSER) < 0)
-                return -errno;
+        if (userns_fd >= 0) {
+                /* Can't setns to your own userns, since then you could escalate from non-root to root in
+                 * your own namespace, so check if namespaces are equal before attempting to enter. */
+
+                r = is_our_namespace(userns_fd, NAMESPACE_USER);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        userns_fd = -EBADF;
+        }
+
+        r = have_effective_cap(CAP_SYS_ADMIN);
+        if (r < 0)
+                return r;
+
+        bool have_cap_sys_admin = r > 0;
+
+        if (!have_cap_sys_admin) {
+                /* If we don't have CAP_SYS_ADMIN in our own user namespace, our best bet is to enter the
+                 * user namespace first (if we got one) to get CAP_SYS_ADMIN within the child user namespace,
+                 * and then hope the other namespaces are owned by the child user namespace. If they aren't,
+                 * we'll just get an EPERM later on when trying to setns() to them. */
+
+                if (userns_fd < 0)
+                        return log_debug_errno(
+                                        SYNTHETIC_ERRNO(EPERM),
+                                        "Need CAP_SYS_ADMIN or a child user namespace to enter namespaces.");
+
+                if (setns(userns_fd, CLONE_NEWUSER) < 0)
+                        return -errno;
+        }
 
         if (pidns_fd >= 0) {
                 r = namespace_enter_one_idempotent(pidns_fd, NAMESPACE_PID);
@@ -316,6 +293,10 @@ int namespace_enter_delegated(int userns_fd, int pidns_fd, int mntns_fd, int net
                         return r;
         }
 
+        if (userns_fd >= 0 && have_cap_sys_admin)
+                if (setns(userns_fd, CLONE_NEWUSER) < 0)
+                        return -errno;
+
         if (root_fd >= 0) {
                 if (fchdir(root_fd) < 0)
                         return -errno;
@@ -324,7 +305,15 @@ int namespace_enter_delegated(int userns_fd, int pidns_fd, int mntns_fd, int net
                         return -errno;
         }
 
-        return maybe_setgroups(/* size = */ 0, NULL);
+        if (userns_fd >= 0) {
+                /* Try to become root in the user namespace but don't error out if we can't, since it's not
+                 * uncommon to have user namespaces without a root user in them. */
+                r = reset_uid_gid();
+                if (r < 0)
+                        log_debug_errno(r, "Unable to drop auxiliary groups or reset UID/GID, ignoring: %m");
+        }
+
+        return 0;
 }
 
 int fd_is_namespace(int fd, NamespaceType type) {

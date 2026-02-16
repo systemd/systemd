@@ -47,7 +47,6 @@ int namespace_open(
                 int *ret_root_fd);
 
 int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int root_fd);
-int namespace_enter_delegated(int userns_fd, int pidns_fd, int mntns_fd, int netns_fd, int root_fd);
 
 int fd_is_namespace(int fd, NamespaceType type);
 int is_our_namespace(int fd, NamespaceType type);
