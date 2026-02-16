@@ -1128,10 +1128,6 @@ bool is_main_thread(void) {
         return cached;
 }
 
-bool oom_score_adjust_is_valid(int oa) {
-        return oa >= OOM_SCORE_ADJ_MIN && oa <= OOM_SCORE_ADJ_MAX;
-}
-
 unsigned long personality_from_string(const char *s) {
         Architecture architecture;
 
@@ -1885,6 +1881,10 @@ int namespace_fork_full(
                 pidref_done(&pidref_outer); /* disarm sigkill_wait */
 
         return 1;
+}
+
+bool oom_score_adjust_is_valid(int oa) {
+        return oa >= OOM_SCORE_ADJ_MIN && oa <= OOM_SCORE_ADJ_MAX;
 }
 
 int set_oom_score_adjust(int value) {
