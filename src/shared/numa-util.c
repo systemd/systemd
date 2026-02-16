@@ -154,6 +154,63 @@ static int numa_max_node(void) {
         return max_node;
 }
 
+int numa_get_node_from_cpu(unsigned cpu, unsigned *ret) {
+        _cleanup_closedir_ DIR *d = NULL;
+        int r;
+
+        assert(ret);
+
+        d = opendir("/sys/devices/system/node");
+        if (!d)
+                return -errno;
+
+        FOREACH_DIRENT(de, d, break) {
+                char p[STRLEN("/sys/devices/system/node/node/cpulist") + DECIMAL_STR_MAX(unsigned) + 1];
+                _cleanup_(cpu_set_done) CPUSet cpus = {};
+                _cleanup_free_ char *cpulist = NULL;
+                const char *n;
+                unsigned node;
+
+                if (de->d_type != DT_DIR)
+                        continue;
+
+                n = startswith(de->d_name, "node");
+                if (!n)
+                        continue;
+
+                r = safe_atou(n, &node);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to parse node number %s to unsigned, ignoring: %m", n);
+                        continue;
+                }
+
+                xsprintf(p, "/sys/devices/system/node/node%u/cpulist", node);
+
+                r = read_one_line_file(p, &cpulist);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to read %s, ignoring: %m", p);
+                        continue;
+                }
+
+                r = parse_cpu_set(cpulist, &cpus);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to parse cpu set %s, ignoring: %m", cpulist);
+                        continue;
+                }
+
+                if (CPU_ISSET_S(cpu, cpus.allocated, cpus.set)) {
+                        *ret = node;
+                        return 0;
+                }
+        }
+
+        /* CPU not found in any NUMA node, assume node 0 */
+        log_debug("CPU %u not found in any NUMA node, assuming node 0.", cpu);
+        *ret = 0;
+
+        return 0;
+}
+
 int numa_mask_add_all(CPUSet *mask) {
         int m;
 
