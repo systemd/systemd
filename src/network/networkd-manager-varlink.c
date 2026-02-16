@@ -92,24 +92,23 @@ static int vl_method_get_namespace_id(sd_varlink *link, sd_json_variant *paramet
                                SD_JSON_BUILD_PAIR_CONDITION(nsid != UINT32_MAX, "NamespaceNSID", SD_JSON_BUILD_UNSIGNED(nsid)));
 }
 
-typedef struct InterfaceInfo {
-        int ifindex;
-        const char *ifname;
-} InterfaceInfo;
-
 static int dispatch_interface(sd_varlink *vlink, sd_json_variant *parameters, Manager *manager, Link **ret) {
-        static const sd_json_dispatch_field dispatch_table[] = {
-                { "InterfaceIndex", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,         offsetof(InterfaceInfo, ifindex), SD_JSON_RELAX },
-                { "InterfaceName",  SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(InterfaceInfo, ifname),  0             },
-                {}
-        };
-
-        InterfaceInfo info = {};
+        struct {
+                int ifindex;
+                const char *ifname;
+        } info = {};
         Link *link = NULL;
         int r;
 
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "InterfaceIndex", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_ifindex,         voffsetof(info, ifindex), SD_JSON_RELAX },
+                { "InterfaceName",  SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, voffsetof(info, ifname),  0             },
+                {}
+        };
+
         assert(vlink);
         assert(manager);
+        assert(ret);
 
         r = sd_varlink_dispatch(vlink, parameters, dispatch_table, &info);
         if (r != 0)
