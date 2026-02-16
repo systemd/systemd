@@ -409,6 +409,8 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(RootDirectory, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#RootImage="),
                 SD_VARLINK_DEFINE_FIELD(RootImage, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#RootMStack="),
+                SD_VARLINK_DEFINE_FIELD(RootMStack, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#RootImageOptions="),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(RootImageOptions, PartitionMountOptions, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#RootEphemeral="),
