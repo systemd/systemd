@@ -412,7 +412,7 @@ _public_ int sd_json_variant_new_stringn(sd_json_variant **ret, const char *s, s
                 return sd_json_variant_new_null(ret);
         }
         if (n == SIZE_MAX) /* determine length automatically */
-                n = strlen(s);
+                n = strlen_ptr(s);
         else if (memchr(s, 0, n)) /* don't allow embedded NUL, as we can't express that in JSON */
                 return -EINVAL;
         if (n == 0) {
