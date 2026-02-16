@@ -37,6 +37,16 @@ CHANGES WITH 260 in spe:
           warnings when non-system accounts are used. This support will be
           removed in a future release.
 
+        systemd-udevd:
+
+        * Permissions for /dev/ptp* are now set to 0664 (previously 0660),
+          allowing unprivileged read-only access. This relies on the kernel fix
+          "ptp: Add PHC file mode checks. Allow RO adjtime() without
+          FMODE_WRITE." (commit b4e53b15c04e), which adds missing PTP ioctl
+          permission checks and keeps clock-modifying operations
+          write-restricted. Systems running stable kernel branches should
+          ensure they are updated to patch levels that include this fix.
+
         Changes in other components:
 
         * New options SYSTEMD_COLORS=auto-16, SYSTEMD_COLORS=auto-256, and
