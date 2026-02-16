@@ -17,7 +17,6 @@
 #include "ordered-set.h"
 #include "parse-util.h"
 #include "polkit-agent.h"
-#include "set.h"
 #include "string-util.h"
 #include "strv.h"
 #include "varlink-util.h"
@@ -124,86 +123,59 @@ int link_delete(int argc, char *argv[], void *userdata) {
         return ret;
 }
 
-static int link_renew_one(sd_bus *bus, int index, const char *name) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        int r;
+int link_bus_simple_method(int argc, char *argv[], void *userdata) {
+        int r, ret = 0;
 
-        assert(bus);
-        assert(index >= 0);
-        assert(name);
+        typedef struct LinkBusAction {
+                const char *verb;
+                const char *bus_method;
+                const char *error_message;
+        } LinkBusAction;
 
-        r = bus_call_method(bus, bus_network_mgr, "RenewLink", &error, NULL, "i", index);
+        static const LinkBusAction link_bus_action_table[] = {
+                { "renew",       "RenewLink",       "Failed to renew dynamic configuration of interface"          },
+                { "forcerenew",  "ForceRenewLink",  "Failed to forcibly renew dynamic configuration of interface" },
+                { "reconfigure", "ReconfigureLink", "Failed to reconfigure network interface"                     },
+        };
+
+        /* Common implementation for 'simple' method calls that just take an ifindex, and nothing else. */
+
+        const LinkBusAction *a = NULL;
+        FOREACH_ELEMENT(i, link_bus_action_table)
+                if (streq(argv[0], i->verb)) {
+                        a = i;
+                        break;
+                }
+        assert(a);
+
+        _cleanup_ordered_set_free_ OrderedSet *indexes = NULL;
+        r = parse_interfaces(/* rtnl= */ NULL, argv, &indexes);
         if (r < 0)
-                return log_error_errno(r, "Failed to renew dynamic configuration of interface %s: %s",
-                                       name, bus_error_message(&error, r));
+                return r;
 
-        return 0;
-}
-
-int link_renew(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        int r;
-
         r = acquire_bus(&bus);
         if (r < 0)
                 return r;
 
         (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
-        r = 0;
+        void *p;
+        ORDERED_SET_FOREACH(p, indexes) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                int index = PTR_TO_INT(p);
 
-        for (int i = 1; i < argc; i++) {
-                int index;
-
-                index = rtnl_resolve_interface_or_warn(&rtnl, argv[i]);
-                if (index < 0)
-                        return index;
-
-                RET_GATHER(r, link_renew_one(bus, index, argv[i]));
+                r = bus_call_method(bus, bus_network_mgr, a->bus_method, &error, /* ret_reply= */ NULL, "i", index);
+                if (r < 0) {
+                        RET_GATHER(ret, r);
+                        log_error_errno(r, "%s %s: %s",
+                                        a->error_message,
+                                        FORMAT_IFNAME_FULL(index, FORMAT_IFNAME_IFINDEX),
+                                        bus_error_message(&error, r));
+                }
         }
 
-        return r;
-}
-
-static int link_force_renew_one(sd_bus *bus, int index, const char *name) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        int r;
-
-        assert(bus);
-        assert(index >= 0);
-        assert(name);
-
-        r = bus_call_method(bus, bus_network_mgr, "ForceRenewLink", &error, NULL, "i", index);
-        if (r < 0)
-                return log_error_errno(r, "Failed to force renew dynamic configuration of interface %s: %s",
-                                       name, bus_error_message(&error, r));
-
-        return 0;
-}
-
-int link_force_renew(int argc, char *argv[], void *userdata) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        int k = 0, r;
-
-        r = acquire_bus(&bus);
-        if (r < 0)
-                return r;
-
-        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
-
-        for (int i = 1; i < argc; i++) {
-                int index = rtnl_resolve_interface_or_warn(&rtnl, argv[i]);
-                if (index < 0)
-                        return index;
-
-                r = link_force_renew_one(bus, index, argv[i]);
-                if (r < 0 && k >= 0)
-                        k = r;
-        }
-
-        return k;
+        return ret;
 }
 
 int verb_reload(int argc, char *argv[], void *userdata) {
@@ -220,46 +192,6 @@ int verb_reload(int argc, char *argv[], void *userdata) {
         r = bus_call_method(bus, bus_network_mgr, "Reload", &error, NULL, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to reload network settings: %s", bus_error_message(&error, r));
-
-        return 0;
-}
-
-int verb_reconfigure(int argc, char *argv[], void *userdata) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        _cleanup_set_free_ Set *indexes = NULL;
-        int index, r;
-        void *p;
-
-        r = acquire_bus(&bus);
-        if (r < 0)
-                return r;
-
-        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
-
-        indexes = set_new(NULL);
-        if (!indexes)
-                return log_oom();
-
-        for (int i = 1; i < argc; i++) {
-                index = rtnl_resolve_interface_or_warn(&rtnl, argv[i]);
-                if (index < 0)
-                        return index;
-
-                r = set_put(indexes, INT_TO_PTR(index));
-                if (r < 0)
-                        return log_oom();
-        }
-
-        SET_FOREACH(p, indexes) {
-                index = PTR_TO_INT(p);
-                r = bus_call_method(bus, bus_network_mgr, "ReconfigureLink", &error, NULL, "i", index);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to reconfigure network interface %s: %s",
-                                               FORMAT_IFNAME_FULL(index, FORMAT_IFNAME_IFINDEX),
-                                               bus_error_message(&error, r));
-        }
 
         return 0;
 }
