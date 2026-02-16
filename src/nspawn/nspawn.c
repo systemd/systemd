@@ -6297,8 +6297,10 @@ static int run(int argc, char *argv[]) {
                                         userns_fd,
                                         determine_dissect_image_flags(),
                                         &mount_fd);
-                        if (r < 0)
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to mount directory via mountfsd: %m");
                                 goto finish;
+                        }
                 }
 
         } else if (arg_image) {
@@ -6448,8 +6450,10 @@ static int run(int argc, char *argv[]) {
                                         &arg_verity_settings,
                                         dissect_image_flags,
                                         &dissected_image);
-                        if (r < 0)
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to mount image via mountfsd: %m");
                                 goto finish;
+                        }
                 }
 
                 /* Now that we mounted the image, let's try to remove it again, if it is ephemeral */
@@ -6474,8 +6478,10 @@ static int run(int argc, char *argv[]) {
                 r = mstack_load(arg_mstack,
                                 /* dir_fd= */ -EBADF,
                                 &mstack);
-                if (r < 0)
+                if (r < 0) {
+                        log_error_errno(r, "Failed to load .mstack/ directory '%s': %m", arg_mstack);
                         goto finish;
+                }
 
                 r = mstack_open_images(
                                 mstack,
