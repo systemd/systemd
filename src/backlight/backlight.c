@@ -401,7 +401,7 @@ static int shall_clamp(sd_device *device, unsigned *ret) {
 
         r = parse_boolean(s);
         if (r >= 0) {
-                *ret = r ? 5 : 0;
+                *ret = r ? 1 : 0;
                 return r;
         }
 
