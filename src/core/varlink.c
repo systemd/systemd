@@ -9,7 +9,6 @@
 #include "path-util.h"
 #include "pidref.h"
 #include "string-util.h"
-#include "strv.h"
 #include "unit.h"
 #include "varlink.h"
 #include "varlink-dynamic-user.h"
@@ -375,6 +374,8 @@ int manager_setup_varlink_server(Manager *m) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to allocate Varlink server: %m");
 
+        (void) sd_varlink_server_set_description(s, "varlink-api");
+
         r = sd_varlink_server_add_interface_many(
                         s,
                         &vl_interface_io_systemd_Manager,
@@ -425,26 +426,64 @@ int manager_setup_varlink_server(Manager *m) {
         return 1;
 }
 
-static int manager_setup_varlink_metrics_server(Manager *m) {
-        sd_varlink_server_flags_t flags = SD_VARLINK_SERVER_INHERIT_USERDATA;
-        int r;
-
+int manager_setup_varlink_metrics_server(Manager *m) {
         assert(m);
 
+        sd_varlink_server_flags_t flags = SD_VARLINK_SERVER_INHERIT_USERDATA;
         if (MANAGER_IS_SYSTEM(m))
                 flags |= SD_VARLINK_SERVER_ACCOUNT_UID;
 
-        r = metrics_setup_varlink_server(
-                        &m->metrics_varlink_server, flags, m->event, vl_method_list, vl_method_describe, m);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return metrics_setup_varlink_server(&m->metrics_varlink_server, flags,
+                                            m->event, EVENT_PRIORITY_IPC,
+                                            vl_method_list_metrics, vl_method_describe_metrics,
+                                            m);
 }
 
-static int manager_varlink_init_system(Manager *m) {
+static int varlink_server_listen_many_idempotent_sentinel(
+                sd_varlink_server *s,
+                bool known_fresh,
+                const char *prefix,
+                ...) {
+
+        va_list ap;
+        int r = 0;
+
+        assert(s);
+
+        va_start(ap, prefix);
+        for (const char *address; (address = va_arg(ap, const char*)); ) {
+                _cleanup_free_ char *p = NULL;
+
+                if (prefix) {
+                        p = path_join(prefix, address);
+                        if (!p) {
+                                r = log_oom();
+                                break;
+                        }
+
+                        address = p;
+                }
+
+                /* We might have got sockets through deserialization. Do not bind to them twice. */
+                if (!known_fresh && varlink_server_contains_socket(s, address))
+                        continue;
+
+                r = sd_varlink_server_listen_address(s, address, 0666 | SD_VARLINK_SERVER_MODE_MKDIR_0755);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to bind to varlink socket '%s': %m", address);
+                        break;
+                }
+        }
+        va_end(ap);
+
+        return r;
+}
+
+#define varlink_server_listen_many_idempotent(s, known_fresh, prefix, ...) \
+        varlink_server_listen_many_idempotent_sentinel((s), (known_fresh), (prefix), __VA_ARGS__, NULL)
+
+static int manager_varlink_init_system_api(Manager *m) {
         int r;
-        _cleanup_free_ char *metrics_address = NULL;
 
         assert(m);
 
@@ -453,38 +492,21 @@ static int manager_varlink_init_system(Manager *m) {
                 return log_error_errno(r, "Failed to set up varlink server: %m");
         bool fresh = r > 0;
 
-        r = manager_setup_varlink_metrics_server(m);
-        if (r < 0)
-                return log_error_errno(r, "Failed to set up metrics varlink server: %m");
-        bool metrics_fresh = r > 0;
-
-        r = runtime_directory_generic(m->runtime_scope, "systemd/report/io.systemd.Manager", &metrics_address);
-        if (r < 0)
-                return r;
-
         if (!MANAGER_IS_TEST_RUN(m)) {
-                FOREACH_STRING(address,
-                               "/run/systemd/userdb/io.systemd.DynamicUser",
-                               VARLINK_PATH_MANAGED_OOM_SYSTEM,
-                               "/run/systemd/io.systemd.Manager",
-                               metrics_address) {
-
-                        sd_varlink_server *server = streq(address, metrics_address) ? m->metrics_varlink_server : m->varlink_server;
-                        fresh = streq(address, metrics_address) ? metrics_fresh : fresh;
-                        /* We might have got sockets through deserialization. Do not bind to them twice. */
-                        if (!fresh && varlink_server_contains_socket(server, address))
-                                continue;
-
-                        r = sd_varlink_server_listen_address(server, address, 0666 | SD_VARLINK_SERVER_MODE_MKDIR_0755);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to bind to varlink socket '%s': %m", address);
-                }
+                r = varlink_server_listen_many_idempotent(
+                                m->varlink_server, fresh,
+                                /* prefix = */ NULL,
+                                "/run/systemd/io.systemd.Manager",
+                                "/run/systemd/userdb/io.systemd.DynamicUser",
+                                VARLINK_PATH_MANAGED_OOM_SYSTEM);
+                if (r < 0)
+                        return r;
         }
 
-        return 1;
+        return 0;
 }
 
-static int manager_varlink_init_user(Manager *m) {
+static int manager_varlink_init_user_api(Manager *m) {
         int r;
 
         assert(m);
@@ -497,30 +519,46 @@ static int manager_varlink_init_user(Manager *m) {
                 return log_error_errno(r, "Failed to set up varlink server: %m");
         bool fresh = r > 0;
 
-        FOREACH_STRING(a,
-                       "systemd/io.systemd.Manager") {
-                _cleanup_free_ char *address = NULL;
-                address = path_join(m->prefix[EXEC_DIRECTORY_RUNTIME], a);
-                if (!address)
-                        return -ENOMEM;
-                /* We might have got sockets through deserialization. Do not bind to them twice. */
-                if (!fresh && varlink_server_contains_socket(m->varlink_server, address))
-                        continue;
-
-                r = sd_varlink_server_listen_address(m->varlink_server, address, 0666 | SD_VARLINK_SERVER_MODE_MKDIR_0755);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to bind to varlink socket '%s': %m", address);
-        }
-
-        r = manager_setup_varlink_metrics_server(m);
+        r = varlink_server_listen_many_idempotent(
+                        m->varlink_server, fresh,
+                        m->prefix[EXEC_DIRECTORY_RUNTIME],
+                        "systemd/io.systemd.Manager");
         if (r < 0)
-                return log_error_errno(r, "Failed to set up metrics varlink server: %m");
+                return r;
 
         return manager_varlink_managed_oom_connect(m);
 }
 
+static int manager_varlink_init_metrics(Manager *m) {
+        int r;
+
+        assert(m);
+
+        if (MANAGER_IS_TEST_RUN(m))
+                return 0;
+
+        r = manager_setup_varlink_metrics_server(m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set up metrics varlink server: %m");
+        bool fresh = r > 0;
+
+        return varlink_server_listen_many_idempotent(
+                        m->metrics_varlink_server, fresh,
+                        m->prefix[EXEC_DIRECTORY_RUNTIME],
+                        "systemd/report/io.systemd.Manager");
+}
+
 int manager_varlink_init(Manager *m) {
-        return MANAGER_IS_SYSTEM(m) ? manager_varlink_init_system(m) : manager_varlink_init_user(m);
+        int r;
+
+        if (MANAGER_IS_SYSTEM(m))
+                r = manager_varlink_init_system_api(m);
+        else
+                r = manager_varlink_init_user_api(m);
+        if (r < 0)
+                return r;
+
+        return manager_varlink_init_metrics(m);
 }
 
 void manager_varlink_done(Manager *m) {
@@ -534,6 +572,7 @@ void manager_varlink_done(Manager *m) {
 
         m->varlink_server = sd_varlink_server_unref(m->varlink_server);
         m->managed_oom_varlink = sd_varlink_close_unref(m->managed_oom_varlink);
+
         m->metrics_varlink_server = sd_varlink_server_unref(m->metrics_varlink_server);
 }
 
