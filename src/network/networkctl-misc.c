@@ -95,57 +95,33 @@ int link_up_down(int argc, char *argv[], void *userdata) {
         return ret;
 }
 
-static int link_delete_send_message(sd_netlink *rtnl, int index) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
-        int r;
+int link_delete(int argc, char *argv[], void *userdata) {
+        int r, ret = 0;
 
-        assert(rtnl);
-        assert(index >= 0);
-
-        r = sd_rtnl_message_new_link(rtnl, &req, RTM_DELLINK, index);
-        if (r < 0)
-                return rtnl_log_create_error(r);
-
-        r = sd_netlink_call(rtnl, req, 0, NULL);
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_ordered_set_free_ OrderedSet *indexes = NULL;
+        r = parse_interfaces(&rtnl, argv, &indexes);
         if (r < 0)
                 return r;
 
-        return 0;
-}
-
-int link_delete(int argc, char *argv[], void *userdata) {
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        _cleanup_set_free_ Set *indexes = NULL;
-        int index, r;
         void *p;
+        ORDERED_SET_FOREACH(p, indexes) {
+                _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+                int index = PTR_TO_INT(p);
 
-        r = sd_netlink_open(&rtnl);
-        if (r < 0)
-                return log_error_errno(r, "Failed to connect to netlink: %m");
-
-        indexes = set_new(NULL);
-        if (!indexes)
-                return log_oom();
-
-        for (int i = 1; i < argc; i++) {
-                index = rtnl_resolve_interface_or_warn(&rtnl, argv[i]);
-                if (index < 0)
-                        return index;
-
-                r = set_put(indexes, INT_TO_PTR(index));
+                r = sd_rtnl_message_new_link(rtnl, &req, RTM_DELLINK, index);
                 if (r < 0)
-                        return log_oom();
+                        return rtnl_log_create_error(r);
+
+                r = sd_netlink_call(rtnl, req, /* timeout= */ 0, /* ret= */ NULL);
+                if (r < 0) {
+                        RET_GATHER(ret, r);
+                        log_error_errno(r, "Failed to delete interface %s: %m",
+                                        FORMAT_IFNAME_FULL(index, FORMAT_IFNAME_IFINDEX));
+                }
         }
 
-        SET_FOREACH(p, indexes) {
-                index = PTR_TO_INT(p);
-                r = link_delete_send_message(rtnl, index);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to delete interface %s: %m",
-                                               FORMAT_IFNAME_FULL(index, FORMAT_IFNAME_IFINDEX));
-        }
-
-        return r;
+        return ret;
 }
 
 static int link_renew_one(sd_bus *bus, int index, const char *name) {
