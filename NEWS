@@ -44,6 +44,14 @@ CHANGES WITH 260 in spe:
           SYSTEMD_COLORS=256, and SYSTEMD_COLORS=24bit respectively when output
           is to a non-dumb TTY, and like SYSTEMD_COLORS=no otherwise.
 
+        * Minimum backlight brightness clamp for restoring it at boot has been
+          lowered from 5% to 1%. This is a safe change allowing more chance to
+          user environments to set lower values that won't be set higher at boot
+          while still giving the chance to recover from blackouts because
+          excesive lower bright values by just rebooting. Notice that if your
+          enviroment allow you to set excesive low brightness values this has
+          nothing to do with systemd's brightness clamp.
+
 CHANGES WITH 259:
 
         Announcements of Future Feature Removals and Incompatible Changes:
