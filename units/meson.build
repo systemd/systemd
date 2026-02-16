@@ -107,6 +107,10 @@ units = [
           'conditions' : ['ENABLE_INITRD'],
         },
         {
+          'file' : 'initrd-var-fs.target',
+          'conditions' : ['ENABLE_INITRD'],
+        },
+        {
           'file' : 'initrd.target',
           'conditions' : ['ENABLE_INITRD'],
         },
