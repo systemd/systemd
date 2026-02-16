@@ -3,7 +3,6 @@
 shared_sources = files(
         'acl-util.c',
         'acpi-fpdt.c',
-        'apparmor-util.c',
         'ask-password-agent.c',
         'ask-password-api.c',
         'async.c',
@@ -277,6 +276,10 @@ endif
 
 if conf.get('HAVE_LIBIDN2') == 1
         shared_sources += files('idn-util.c')
+endif
+
+if conf.get('HAVE_APPARMOR') == 1
+        shared_sources += files('apparmor-util.c')
 endif
 
 generate_ip_protocol_list = files('generate-ip-protocol-list.sh')
