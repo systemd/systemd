@@ -624,7 +624,8 @@ sensor:modalias:acpi:KIOX000A:*:dmi:bvnINSYDECorp.:bvrVISION.I22K*:svnKAZAM:pnVI
 #########################################
 # KD / Kurio
 #########################################
-sensor:modalias:acpi:SMO8500*:dmi:*:svnKDInteractive:pnKurioSmart:*:rnKDM960BCP:*
+
+sensor:modalias:acpi:SMO8500:*:dmi:*:svnKDInteractive:pnKurioSmart:*:rnKDM960BCP:*    # Smart C15200
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
 #########################################
