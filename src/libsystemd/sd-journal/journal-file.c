@@ -419,7 +419,8 @@ static int journal_file_init_header(
                 .incompatible_flags = htole32(
                                 FLAGS_SET(file_flags, JOURNAL_COMPRESS) * COMPRESSION_TO_HEADER_INCOMPATIBLE_FLAG(compression_requested()) |
                                 keyed_hash_requested() * HEADER_INCOMPATIBLE_KEYED_HASH |
-                                compact_mode_requested() * HEADER_INCOMPATIBLE_COMPACT),
+                                compact_mode_requested() * HEADER_INCOMPATIBLE_COMPACT |
+                                HEADER_INCOMPATIBLE_BOOTTIME),
                 .compatible_flags = htole32(
                                 (seal * (HEADER_COMPATIBLE_SEALED | HEADER_COMPATIBLE_SEALED_CONTINUOUS) ) |
                                 HEADER_COMPATIBLE_TAIL_ENTRY_BOOT_ID),
@@ -507,6 +508,8 @@ static bool warn_wrong_flags(const JournalFile *f, bool compatible) {
                                         strv[n++] = "keyed-hash";
                                 if (flags & HEADER_INCOMPATIBLE_COMPACT)
                                         strv[n++] = "compact";
+                                if (flags & HEADER_INCOMPATIBLE_BOOTTIME)
+                                        strv[n++] = "boottime";
                         }
                         strv[n] = NULL;
                         assert(n < ELEMENTSOF(strv));
@@ -2306,7 +2309,7 @@ static void write_entry_item(JournalFile *f, Object *o, uint64_t i, const EntryI
 
 static int journal_file_append_entry_internal(
                 JournalFile *f,
-                const dual_timestamp *ts,
+                const triple_timestamp *ts,
                 const sd_id128_t *boot_id,
                 const sd_id128_t *machine_id,
                 uint64_t xor_hash,
@@ -2386,6 +2389,10 @@ static int journal_file_append_entry_internal(
         o->entry.seqnum = htole64(journal_file_entry_seqnum(f, seqnum));
         o->entry.realtime = htole64(ts->realtime);
         o->entry.monotonic = htole64(ts->monotonic);
+        if (JOURNAL_HEADER_BOOTTIME(f->header)) {
+                o->entry.boottime = htole64(ts->boottime);
+                f->header->tail_entry_boottime = htole64(ts->boottime);
+        }
         o->entry.xor_hash = htole64(xor_hash);
         o->entry.boot_id = f->header->tail_entry_boot_id = *boot_id;
 
@@ -2526,7 +2533,7 @@ static size_t remove_duplicate_entry_items(EntryItem items[], size_t n) {
 
 int journal_file_append_entry(
                 JournalFile *f,
-                const dual_timestamp *ts,
+                const triple_timestamp *ts,
                 const sd_id128_t *boot_id,
                 const struct iovec iovec[],
                 size_t n_iovec,
@@ -2538,7 +2545,7 @@ int journal_file_append_entry(
         _cleanup_free_ EntryItem *items_alloc = NULL;
         EntryItem *items;
         uint64_t xor_hash = 0;
-        struct dual_timestamp _ts;
+        struct triple_timestamp _ts;
         sd_id128_t _boot_id, _machine_id, *machine_id;
         int r;
 
@@ -2557,7 +2564,7 @@ int journal_file_append_entry(
                                                "Invalid monotonic timestamp %" PRIu64 ", refusing entry.",
                                                ts->monotonic);
         } else {
-                dual_timestamp_now(&_ts);
+                triple_timestamp_now(&_ts);
                 ts = &_ts;
         }
 
@@ -4439,7 +4446,7 @@ int journal_file_copy_entry(
         EntryItem *items;
         uint64_t n, m = 0, xor_hash = 0;
         sd_id128_t boot_id;
-        dual_timestamp ts;
+        triple_timestamp ts;
         int r;
 
         assert(from);
@@ -4450,9 +4457,10 @@ int journal_file_copy_entry(
         if (!journal_file_writable(to))
                 return -EPERM;
 
-        ts = (dual_timestamp) {
+        ts = (triple_timestamp) {
                 .monotonic = le64toh(o->entry.monotonic),
                 .realtime = le64toh(o->entry.realtime),
+                .boottime = JOURNAL_HEADER_BOOTTIME(from->header) ? le64toh(o->entry.boottime) : 0,
         };
         boot_id = o->entry.boot_id;
 

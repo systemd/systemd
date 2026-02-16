@@ -100,6 +100,7 @@ assert_cc(sizeof(struct FieldObject) == sizeof(struct FieldObject__packed));
         le64_t seqnum;                                 \
         le64_t realtime;                               \
         le64_t monotonic;                              \
+        le64_t boottime;                               \
         sd_id128_t boot_id;                            \
         le64_t xor_hash;                               \
         union {                                        \
@@ -170,18 +171,21 @@ enum {
         HEADER_INCOMPATIBLE_KEYED_HASH      = 1 << 2,
         HEADER_INCOMPATIBLE_COMPRESSED_ZSTD = 1 << 3,
         HEADER_INCOMPATIBLE_COMPACT         = 1 << 4,
+        HEADER_INCOMPATIBLE_BOOTTIME        = 1 << 5,
 
         HEADER_INCOMPATIBLE_ANY             = HEADER_INCOMPATIBLE_COMPRESSED_XZ |
                                               HEADER_INCOMPATIBLE_COMPRESSED_LZ4 |
                                               HEADER_INCOMPATIBLE_KEYED_HASH |
                                               HEADER_INCOMPATIBLE_COMPRESSED_ZSTD |
-                                              HEADER_INCOMPATIBLE_COMPACT,
+                                              HEADER_INCOMPATIBLE_COMPACT |
+                                              HEADER_INCOMPATIBLE_BOOTTIME,
 
         HEADER_INCOMPATIBLE_SUPPORTED       = (HAVE_XZ ? HEADER_INCOMPATIBLE_COMPRESSED_XZ : 0) |
                                               (HAVE_LZ4 ? HEADER_INCOMPATIBLE_COMPRESSED_LZ4 : 0) |
                                               (HAVE_ZSTD ? HEADER_INCOMPATIBLE_COMPRESSED_ZSTD : 0) |
                                               HEADER_INCOMPATIBLE_KEYED_HASH |
-                                              HEADER_INCOMPATIBLE_COMPACT,
+                                              HEADER_INCOMPATIBLE_COMPACT |
+                                              HEADER_INCOMPATIBLE_BOOTTIME,
 };
 
 enum {
@@ -238,12 +242,14 @@ enum {
         le32_t tail_entry_array_n_entries;              \
         /* Added in 254 */                              \
         le64_t tail_entry_offset;                       \
+        /* Added in 261 */                              \
+        le64_t tail_entry_boottime;                     \
         }
 
 struct Header struct_Header__contents;
 struct Header__packed struct_Header__contents _packed_;
 assert_cc(sizeof(struct Header) == sizeof(struct Header__packed));
-assert_cc(sizeof(struct Header) == 272);
+assert_cc(sizeof(struct Header) == 280);
 
 #define FSS_HEADER_SIGNATURE                                            \
         ((const char[]) { 'K', 'S', 'H', 'H', 'R', 'H', 'L', 'P' })
