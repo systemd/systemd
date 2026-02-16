@@ -398,7 +398,9 @@ sensor:modalias:acpi:MXC6655:*:dmi:bvnAmericanMegatrendsInternational,LLC.:bvr*:
 #########################################
 # DEXP
 #########################################
-sensor:modalias:acpi:SMO8500*:dmi:*svn*DEXP*:*pn*DEXPOEM:*
+
+sensor:modalias:acpi:SMO8500:*:dmi:bvnTechvisionHASHVersion96AC8868:*:svnDEXP:pnDEXPOEM:*    # Ursus 10XW
+sensor:modalias:acpi:SMO8500:*:dmi:bvnTechvisionHASHVersion1DE28747:*:svnDEXP:pnDEXPOEM:*    # Ursus Z110i Apollo
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
 #########################################
