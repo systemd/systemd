@@ -471,7 +471,7 @@ static int portable_extract_by_path(
 
         _cleanup_close_ int rfd = open(path, O_PATH|O_CLOEXEC);
         if (rfd < 0)
-                return log_error_errno(errno, "Failed to open '%s': %m", path);
+                return log_debug_errno(errno, "Failed to open '%s': %m", path);
 
         struct stat st;
         if (fstat(rfd, &st) < 0)
@@ -481,7 +481,7 @@ static int portable_extract_by_path(
                 _cleanup_free_ char *image_name = NULL;
                 r = path_extract_filename(path, &image_name);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to extract image name from path '%s': %m", path);
+                        return log_debug_errno(r, "Failed to extract image name from path '%s': %m", path);
 
                 if (scope == RUNTIME_SCOPE_USER && uid_is_foreign(st.st_uid)) {
                         _cleanup_close_ int userns_fd = nsresource_allocate_userns(
@@ -596,7 +596,7 @@ static int portable_extract_by_path(
                                 /* root_hash_path= */ NULL,
                                 /* root_hash_sig_path= */ NULL);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to read verity artifacts for %s: %m", path);
+                        return log_debug_errno(r, "Failed to read verity artifacts for %s: %m", path);
 
                 if (verity.data_path)
                         flags |= DISSECT_IMAGE_NO_PARTITION_TABLE;
@@ -1830,11 +1830,11 @@ static int install_image(
 
                         _cleanup_close_ int fd = open(image_path, O_DIRECTORY|O_CLOEXEC);
                         if (fd < 0)
-                                return log_error_errno(errno, "Failed to open '%s': %m", image_path);
+                                return log_debug_errno(errno, "Failed to open '%s': %m", image_path);
 
                         struct stat st;
                         if (fstat(fd, &st) < 0)
-                                return log_error_errno(errno, "Failed to stat '%s': %m", image_path);
+                                return log_debug_errno(errno, "Failed to stat '%s': %m", image_path);
 
                         _cleanup_(sd_varlink_unrefp) sd_varlink *mountfsd_link = NULL;
                         r = mountfsd_connect(&mountfsd_link);
