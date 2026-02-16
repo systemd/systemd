@@ -77,6 +77,12 @@ static int verb_add(int argc, char *argv[], void *userdata) {
 }
 
 static int verb_remove(int argc, char *argv[], void *userdata) {
+        const char *name = ASSERT_PTR(argv[1]);
+        int r;
+
+        r = dm_clone_remove_device(name);
+        if (r < 0)
+                return r;
 
         return 0;
 }
@@ -153,7 +159,7 @@ static int run(int argc, char *argv[]) {
 
         static const Verb verbs[] = {
                 { "add",    5, 6, 0, verb_add },
-                { "remove", 1, 1, 0, verb_remove },
+                { "remove", 2, 2, 0, verb_remove },
                 {}
         };
         return dispatch_verb(argc, argv, verbs, NULL);
