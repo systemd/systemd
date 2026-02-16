@@ -89,6 +89,22 @@ int apply_numa_policy(const NUMAPolicy *policy) {
         return 0;
 }
 
+int numa_node_get_cpus(size_t node, CPUSet *ret) {
+        char p[STRLEN("/sys/devices/system/node/node//cpulist") + DECIMAL_STR_MAX(size_t) + 1];
+        _cleanup_free_ char *cpulist = NULL;
+        int r;
+
+        assert(ret);
+
+        xsprintf(p, "/sys/devices/system/node/node%zu/cpulist", node);
+
+        r = read_one_line_file(p, &cpulist);
+        if (r < 0)
+                return r;
+
+        return parse_cpu_set(cpulist, ret);
+}
+
 int numa_to_cpu_set(const NUMAPolicy *policy, CPUSet *ret) {
         _cleanup_(cpu_set_done) CPUSet s = {};
         int r;
@@ -97,20 +113,11 @@ int numa_to_cpu_set(const NUMAPolicy *policy, CPUSet *ret) {
         assert(ret);
 
         for (size_t i = 0; i < policy->nodes.allocated * 8; i++) {
-                _cleanup_free_ char *l = NULL;
-                char p[STRLEN("/sys/devices/system/node/node//cpulist") + DECIMAL_STR_MAX(size_t) + 1];
-
                 if (!CPU_ISSET_S(i, policy->nodes.allocated, policy->nodes.set))
                         continue;
 
-                xsprintf(p, "/sys/devices/system/node/node%zu/cpulist", i);
-
-                r = read_one_line_file(p, &l);
-                if (r < 0)
-                        return r;
-
                 _cleanup_(cpu_set_done) CPUSet part = {};
-                r = parse_cpu_set(l, &part);
+                r = numa_node_get_cpus(i, &part);
                 if (r < 0)
                         return r;
 
