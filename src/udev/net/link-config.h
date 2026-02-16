@@ -122,6 +122,7 @@ struct LinkConfig {
 
         /* IRQ affinity */
         IRQAffinityPolicy irq_affinity_policy;
+        CPUSet irq_affinity_cpus;
 
         /* SR-IOV */
         uint32_t sr_iov_num_vfs;
