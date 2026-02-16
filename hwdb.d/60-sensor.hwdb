@@ -481,7 +481,8 @@ sensor:accel-base:modalias:platform:cros-ec-accel-legacy:*
 #########################################
 # GP-electronic
 #########################################
-sensor:modalias:acpi:KIOX000A*:dmi:bvnINSYDECorp.:bvrBYT70A.YNCHENG.WIN.007:*:svnInsyde:pnT701:*
+
+sensor:modalias:acpi:KIOX000A:*:dmi:bvnINSYDECorp.:bvrBYT70A.YNCHENG.WIN.007:*:svnInsyde:pnT701:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
 #########################################
