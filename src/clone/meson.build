@@ -11,4 +11,8 @@ executables += [
                 'public' : true,
                 'sources' : systemd_clone_sources,
         },
+        generator_template + {
+                'name' : 'systemd-clone-generator',
+                'sources' : files('clone-generator.c'),
+        },
 ]
