@@ -11,3 +11,5 @@ int dm_clone_create_device(
 
 int dm_clone_send_message(const char *name, const char *message);
 
+int dm_clone_remove_device(const char *name);
+

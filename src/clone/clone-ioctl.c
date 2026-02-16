@@ -166,3 +166,10 @@ int dm_clone_send_message(const char *name, const char *message) {
 
         return dm_ioctl_run(name, DM_TARGET_MSG, dm, dm_size);
 }
+
+int dm_clone_remove_device(const char *name) {
+        struct dm_ioctl dm = {};
+
+        assert(name);
+        return dm_ioctl_run(name, DM_DEV_REMOVE, &dm, sizeof(struct dm_ioctl));
+}
