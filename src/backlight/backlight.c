@@ -348,8 +348,8 @@ static int clamp_brightness(
         assert(brightness);
 
         /* Some systems turn the backlight all the way off at the lowest levels. This clamps the saved
-         * brightness to at least 1 or 5% of max_brightness in case of 'backlight' subsystem. This
-         * avoids preserving an unreadably dim screen, which would otherwise force the user to disable
+         * brightness to at least 1 or 1% of max_brightness (whichever is bigger) in case of 'backlight' subsystem.
+         * This avoids preserving an unreadably dim screen, which would otherwise force the user to disable
          * state restoration. */
 
         min_brightness = (unsigned) ((double) max_brightness * percent / 100);
