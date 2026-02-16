@@ -25,13 +25,11 @@
 #include "cgroup-util.h"
 #include "dirent-util.h"
 #include "dlfcn-util.h"
-#include "env-file.h"
 #include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
-#include "hostname-util.h"
 #include "io-util.h"
 #include "iovec-util.h"
 #include "locale-util.h"
@@ -53,6 +51,7 @@
 #include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
 #include "time-util.h"
 #include "user-util.h"
 
@@ -346,47 +345,6 @@ int pidref_get_cmdline_strv(const PidRef *pid, ProcessCmdlineFlags flags, char *
         if (ret)
                 *ret = TAKE_PTR(args);
 
-        return 0;
-}
-
-int container_get_leader(const char *machine, pid_t *pid) {
-        _cleanup_free_ char *s = NULL, *class = NULL;
-        const char *p;
-        pid_t leader;
-        int r;
-
-        assert(machine);
-        assert(pid);
-
-        if (streq(machine, ".host")) {
-                *pid = 1;
-                return 0;
-        }
-
-        if (!hostname_is_valid(machine, 0))
-                return -EINVAL;
-
-        p = strjoina("/run/systemd/machines/", machine);
-        r = parse_env_file(NULL, p,
-                           "LEADER", &s,
-                           "CLASS", &class);
-        if (r == -ENOENT)
-                return -EHOSTDOWN;
-        if (r < 0)
-                return r;
-        if (!s)
-                return -EIO;
-
-        if (!streq_ptr(class, "container"))
-                return -EIO;
-
-        r = parse_pid(s, &leader);
-        if (r < 0)
-                return r;
-        if (leader <= 1)
-                return -EIO;
-
-        *pid = leader;
         return 0;
 }
 
