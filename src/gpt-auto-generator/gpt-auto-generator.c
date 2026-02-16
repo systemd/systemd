@@ -47,6 +47,7 @@ static const char *arg_dest_late = NULL;
 static bool arg_enabled = true;
 static GptAutoRoot arg_auto_root = _GPT_AUTO_ROOT_INVALID;
 static GptAutoRoot arg_auto_usr = _GPT_AUTO_ROOT_INVALID;
+static GptAutoRoot arg_auto_var = _GPT_AUTO_ROOT_INVALID;
 static VeritySettings arg_verity_settings = VERITY_SETTINGS_DEFAULT;
 static bool arg_swap_enabled = true;
 static char *arg_root_fstype = NULL;
@@ -54,6 +55,8 @@ static char *arg_root_options = NULL;
 static int arg_root_rw = -1;
 static char *arg_usr_fstype = NULL;
 static char *arg_usr_options = NULL;
+static char *arg_var_fstype = NULL;
+static char *arg_var_options = NULL;
 static ImagePolicy *arg_image_policy = NULL;
 static ImageFilter *arg_image_filter = NULL;
 
@@ -61,6 +64,8 @@ STATIC_DESTRUCTOR_REGISTER(arg_root_fstype, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root_options, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_usr_fstype, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_usr_options, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_var_fstype, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_var_options, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_filter, image_filter_freep);
 
@@ -1017,6 +1022,85 @@ static int add_usr_mount(void) {
         return 0;
 }
 
+static int add_var_mount(void) {
+#if ENABLE_EFI
+        int r;
+
+        /* /var/ discovery must be enabled explicitly. */
+        if (arg_auto_var <= 0)
+                return 0;
+
+        /* We do not support the other gpt-auto modes for /var/, but the parser should already have checked that. */
+        assert(arg_auto_var == GPT_AUTO_ROOT_DISSECT);
+
+        if (arg_root_fstype && !arg_var_fstype) {
+                arg_var_fstype = strdup(arg_root_fstype);
+                if (!arg_var_fstype)
+                        return log_oom();
+        }
+
+        if (arg_root_options && !arg_var_options) {
+                arg_var_options = strdup(arg_root_options);
+                if (!arg_var_options)
+                        return log_oom();
+        }
+
+        if (in_initrd()) {
+                r = add_cryptsetup(
+                                "var",
+                                "/dev/disk/by-designator/var-luks",
+                                arg_var_options,
+                                MOUNT_RW|MOUNT_MEASURE,
+                                /* require= */ false,
+                                /* ret_device= */ NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        _cleanup_free_ char *options = NULL;
+        r = partition_pick_mount_options(
+                        PARTITION_VAR,
+                        arg_var_fstype,
+                        /* rw= */ true,
+                        /* discard= */ true,
+                        &options,
+                        /* ret_ms_flags= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to pick /var/ mount options: %m");
+
+        if (arg_var_options)
+                if (!strextend_with_separator(&options, ",", arg_var_options))
+                        return log_oom();
+
+        r = add_mount("var",
+                      "/dev/disk/by-designator/var",
+                      in_initrd() ? "/sysvar/var" : "/var",
+                      arg_var_fstype,
+                      /* flags= */ 0,
+                      options,
+                      "/var/ Partition",
+                      in_initrd() ? SPECIAL_INITRD_VAR_FS_TARGET : SPECIAL_LOCAL_FS_TARGET);
+        if (r < 0)
+                return r;
+
+        if (in_initrd()) {
+                log_debug("Synthesizing entry what=/sysvar/var where=/sysroot/var opts=bind");
+
+                r = add_mount("var-bind",
+                              "/sysvar/var",
+                              "/sysroot/var",
+                              /* fstype= */ NULL,
+                              MOUNT_VALIDATEFS,
+                              "bind",
+                              "/var/ Partition (Final)",
+                              SPECIAL_INITRD_FS_TARGET);
+                if (r < 0)
+                        return r;
+        }
+#endif
+        return 0;
+}
+
 static int process_loader_partitions(DissectedPartition *esp, DissectedPartition *xbootldr) {
         sd_id128_t loader_uuid;
         int r;
@@ -1137,10 +1221,6 @@ static int enumerate_partitions(dev_t devnum) {
         if (m->partitions[PARTITION_SRV].found)
                 RET_GATHER(r, add_partition_mount(PARTITION_SRV, m->partitions + PARTITION_SRV,
                                                   "srv", "/srv", "Server Data Partition"));
-
-        if (m->partitions[PARTITION_VAR].found)
-                RET_GATHER(r, add_partition_mount(PARTITION_VAR, m->partitions + PARTITION_VAR,
-                                                  "var", "/var", "Variable Data Partition"));
 
         if (m->partitions[PARTITION_TMP].found)
                 RET_GATHER(r, add_partition_mount(PARTITION_TMP, m->partitions + PARTITION_TMP,
@@ -1270,6 +1350,36 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (!strextend_with_separator(&arg_usr_options, ",", value))
                         return log_oom();
 
+        } else if (streq(key, "mount.var")) {
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                /* Disable root disk logic if there's a root= value specified (unless it happens to be
+                 * "gpt-auto" or "gpt-auto-force") */
+
+                arg_auto_var = parse_gpt_auto_root("mount.var=", value);
+                assert(arg_auto_var >= 0);
+
+                if (IN_SET(arg_auto_var, GPT_AUTO_ROOT_ON, GPT_AUTO_ROOT_FORCE, GPT_AUTO_ROOT_DISSECT_FORCE)) {
+                        log_warning("'gpt-auto', 'gpt-auto-force' and 'dissect-force' are not supported for mount.var=. Automatically resorting to mount.var=dissect mode instead.");
+                        arg_auto_var = GPT_AUTO_ROOT_DISSECT;
+                }
+
+        } else if (streq(key, "mount.varfstype")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                return free_and_strdup_warn(&arg_var_fstype, empty_to_null(value));
+
+        } else if (streq(key, "mount.varflags")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                if (!strextend_with_separator(&arg_var_options, ",", value))
+                        return log_oom();
+
         } else if (streq(key, "rw") && !value)
                 arg_root_rw = true;
         else if (streq(key, "ro") && !value)
@@ -1325,6 +1435,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
         r = 0;
         RET_GATHER(r, add_root_mount());
         RET_GATHER(r, add_usr_mount());
+        RET_GATHER(r, add_var_mount());
         RET_GATHER(r, add_mounts());
 
         return r;
