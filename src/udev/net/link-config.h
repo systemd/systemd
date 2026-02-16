@@ -24,6 +24,7 @@ typedef enum MACAddressPolicy {
 
 typedef enum IRQAffinityPolicy {
         IRQ_AFFINITY_POLICY_SINGLE,
+        IRQ_AFFINITY_POLICY_SPREAD,
         _IRQ_AFFINITY_POLICY_MAX,
         _IRQ_AFFINITY_POLICY_INVALID = -EINVAL,
 } IRQAffinityPolicy;
