@@ -5,13 +5,67 @@
 #include "bus-container.h"
 #include "bus-internal.h"
 #include "bus-socket.h"
+#include "env-file.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "hostname-util.h"
 #include "log.h"
 #include "namespace-util.h"
+#include "parse-util.h"
+#include "path-lookup.h"
+#include "path-util.h"
 #include "pidref.h"
 #include "process-util.h"
 #include "string-util.h"
+
+int container_get_leader(RuntimeScope scope, const char *machine, pid_t *ret) {
+        _cleanup_free_ char *p = NULL, *s = NULL, *class = NULL;
+        pid_t leader;
+        int r;
+
+        assert(machine);
+        assert(ret);
+
+        if (streq(machine, ".host")) {
+                if (scope == RUNTIME_SCOPE_USER)
+                        return -EHOSTDOWN;
+
+                *ret = 1;
+                return 0;
+        }
+
+        if (!hostname_is_valid(machine, 0))
+                return -EINVAL;
+
+        r = runtime_directory_generic(scope, "systemd/machines", &p);
+        if (r < 0)
+                return r;
+
+        if (!path_extend(&p, machine))
+                return -ENOMEM;
+
+        r = parse_env_file(NULL, p,
+                           "LEADER", &s,
+                           "CLASS", &class);
+        if (r == -ENOENT)
+                return -EHOSTDOWN;
+        if (r < 0)
+                return r;
+        if (!s)
+                return -ESRCH;
+
+        if (!streq_ptr(class, "container"))
+                return -EMEDIUMTYPE;
+
+        r = parse_pid(s, &leader);
+        if (r < 0)
+                return r;
+        if (leader <= 1)
+                return -EBADMSG;
+
+        *ret = leader;
+        return 0;
+}
 
 int bus_container_connect_socket(sd_bus *b) {
         _cleanup_close_ int pidnsfd = -EBADF, mntnsfd = -EBADF, usernsfd = -EBADF, rootfd = -EBADF;
@@ -29,7 +83,9 @@ int bus_container_connect_socket(sd_bus *b) {
                 log_debug("sd-bus: connecting bus%s%s to machine %s...",
                           b->description ? " " : "", strempty(b->description), b->machine);
 
-                r = container_get_leader(b->machine, &b->nspid);
+                r = container_get_leader(RUNTIME_SCOPE_USER, b->machine, &b->nspid);
+                if (IN_SET(r, -EHOSTDOWN, -ENXIO))
+                        r = container_get_leader(RUNTIME_SCOPE_SYSTEM, b->machine, &b->nspid);
                 if (r < 0)
                         return r;
         } else
