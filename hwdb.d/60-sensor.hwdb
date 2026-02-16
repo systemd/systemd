@@ -291,7 +291,8 @@ sensor:modalias:acpi:MXC6655:*:dmi:*:svnCHUWIInnovationAndTechnology*:pnUBookX:*
 #########################################
 # Connect
 #########################################
-sensor:modalias:acpi:KIOX000A*:dmi:*:svnConnect:pnTablet9:*
+
+sensor:modalias:acpi:KIOX000A:*:dmi:*:svnConnect:pnTablet9:*    # Connect Tablet9
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
 
 #########################################
