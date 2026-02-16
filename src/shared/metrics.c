@@ -27,6 +27,8 @@ int metrics_setup_varlink_server(
 
         assert(server);
         assert(event);
+        assert(vl_method_list_cb);
+        assert(vl_method_describe_cb);
 
         if (*server)
                 return 0;
@@ -41,10 +43,8 @@ int metrics_setup_varlink_server(
 
         r = sd_varlink_server_bind_method_many(
                         s,
-                        "io.systemd.Metrics.List",
-                        vl_method_list_cb,
-                        "io.systemd.Metrics.Describe",
-                        vl_method_describe_cb);
+                        "io.systemd.Metrics.List",     vl_method_list_cb,
+                        "io.systemd.Metrics.Describe", vl_method_describe_cb);
         if (r < 0)
                 return log_debug_errno(r, "Failed to register varlink metrics methods: %m");
 
