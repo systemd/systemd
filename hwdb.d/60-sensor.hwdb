@@ -617,7 +617,8 @@ sensor:modalias:acpi:KIOX000A:*:dmi:bvnAmericanMegatrendsInc.:bvrZB-BI-11.6-SF13
 #########################################
 # Kazam
 #########################################
-sensor:modalias:acpi:KIOX000A*:dmi:bvnINSYDECorp.:bvrVISION.I22K*:svnKAZAM:pnVISION:*
+
+sensor:modalias:acpi:KIOX000A:*:dmi:bvnINSYDECorp.:bvrVISION.I22K*:svnKAZAM:pnVISION:*    # Vision (rebranded LINX Vision 8)
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
 
 #########################################
