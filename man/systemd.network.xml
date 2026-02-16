@@ -6445,6 +6445,117 @@ ServerAddress=192.168.0.1/24</programlisting>
   </refsect1>
 
   <refsect1>
+    <title>[ModemManager] Section Options</title>
+
+    <para>This section configures the default setting of the ModemManager integration. See
+    <ulink url="https://modemmanager.org/docs/modemmanager/" /> for more information about ModemManager.</para>
+
+    <para>Regardless of the [ModemManager] section settings consider using the following for LTE modems (take into account
+    that LTE modems do not typically support LLDP because LLDP is a Layer 2 protocol for Ethernet networks and an LTE
+    modem connects to a cellular network, not a local Ethernet LAN):
+      <programlisting>[Network]
+LLDP=no
+LinkLocalAddressing=no
+IPv6AcceptRA=no
+      </programlisting>
+    </para>
+
+    <para>The following options are available in the [ModemManager] section:</para>
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>SimpleConnectProperties=</varname></term>
+        <listitem>
+          <para>Specifies the white-space separated list of simple connect properties used to connect a modem. See
+          <ulink url="https://www.freedesktop.org/software/ModemManager/man/latest/mmcli.1.html" /> for more
+          information about simple connect. If no properties provided then the connection is not initiated.</para>
+
+          <varlistentry>
+            <term><option>apn</option>=<replaceable>NAME</replaceable></term>
+            <listitem><para>An Access Point Name (APN) is the name of a gateway between a mobile network
+            (GSM, GPRS, 3G, 4G and 5G) and another computer network. Required in 3GPP.</para>
+
+            <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><option>allowed-auth</option>=<replaceable>METHOD</replaceable></term>
+            <listitem><para>Authentication method to use. Takes one of "none", "pap", "chap", "mschap", "mschapv2" or "eap".
+            Optional in 3GPP.</para>
+
+            <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><option>user</option>=<replaceable>NAME</replaceable></term>
+            <listitem><para>User name (if any) required by the network. Optional in 3GPP.</para>
+
+            <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><option>password</option>=<replaceable>PASSWORD</replaceable></term>
+            <listitem><para>Password (if any) required by the network. Optional in 3GPP.</para>
+
+            <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><option>ip-type</option>=<replaceable>TYPE</replaceable></term>
+            <listitem><para>Addressing type. Takes one of "none", "ipv4", "ipv6", "ipv4v6" or "any".
+            Optional in 3GPP and CDMA.</para>
+
+            <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><option>allow-roaming</option>=<replaceable>BOOL</replaceable></term>
+            <listitem><para>A boolean. When true, connection is allowed during roaming. When false,
+            connection is not allowed during roaming. Optional in 3GPP.</para>
+
+            <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><option>pin</option>=<replaceable>PIN</replaceable></term>
+            <listitem><para>SIM-PIN unlock code.</para>
+
+            <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><option>operator-id</option>=<replaceable>ID</replaceable></term>
+            <listitem><para>ETSI MCC-MNC of a network to force registration.</para>
+
+            <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+          </varlistentry>
+
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>RouteMetric=</varname></term>
+        <listitem>
+          <para>Set the routing metric for routes specified by the mobile network (including the prefix route
+          added for the specified prefix). Takes an unsigned integer in the range 0…4294967295.
+          When unset or set to 0, the kernel's default value will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v260"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>UseGateway=</varname></term>
+        <listitem>
+          <para>When true (the default), the router address will be configured as the default gateway.</para>
+
+          <xi:include href="version-info.xml" xpointer="v260"/>
+        </listitem>
+      </varlistentry>
+
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>Examples</title>
     <example>
       <title>Static network configuration</title>
@@ -6770,6 +6881,29 @@ Xfrm=xfrm0</programlisting>
       <para>This creates a <literal>xfrm0</literal> interface and binds it to the <literal>eth0</literal> device.
       This allows hardware based ipsec offloading to the <literal>eth0</literal> nic.
       If offloading is not needed, xfrm interfaces can be assigned to the <literal>lo</literal> device.
+      </para>
+
+    </example>
+
+    <example>
+      <title>Connecting to a cellular network with ModemManager</title>
+      <programlisting># /etc/systemd/network/27-wwan0.network
+[Match]
+Name=wwan0
+
+[Network]
+LLDP=no
+LinkLocalAddressing=no
+IPv6AcceptRA=no
+
+[ModemManager]
+SimpleConnectProperties=apn=internet pin=1111
+RouteMetric=30
+UseGateway=yes</programlisting>
+
+      <para>This connects a cellular modem to a broadband network matched with the network interface <literal>wwan0</literal>,
+      with APN name <literal>internet</literal>, SIM card pin unlock code <literal>1111</literal> and sets up a default
+      gateway with route metric of 30.
       </para>
     </example>
   </refsect1>
