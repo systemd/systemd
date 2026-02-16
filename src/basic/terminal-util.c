@@ -31,6 +31,7 @@
 #include "namespace-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
 #include "signal-util.h"
@@ -1666,7 +1667,7 @@ int openpt_allocate_in_namespace(
 
         r = pidref_namespace_open(pidref, &pidnsfd, &mntnsfd, /* ret_netns_fd= */ NULL, &usernsfd, &rootfd);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to open namespaces of PID "PID_FMT": %m", pidref->pid);
 
         if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, pair) < 0)
                 return -errno;
