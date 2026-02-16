@@ -439,11 +439,10 @@ sensor:modalias:acpi:KIOX000A:*:dmi:*:svnEVE:pnEveV:*    # Eve V
  ACCEL_MOUNT_MATRIX=0, 1, 0; -1, 0, 0; 0, 0, 1
 
 #########################################
-# Exo
+# EXO
 #########################################
 
-# EXO Wings 2in1 w1125
-sensor:modalias:acpi:SMO8500*:dmi:*:svnEXO*:pnWings:*
+sensor:modalias:acpi:SMO8500:*:dmi:*:svnEXO*:pnWings:*    # Wings 2in1 w1125
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
 #########################################
