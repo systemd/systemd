@@ -372,6 +372,9 @@ static int clamp_brightness(
         return 0;
 }
 
+/* used as the default for devices in the backlight subsystem, or when ID_BACKLIGHT_CLAMP/ID_LEDS_CLAMP=yes. */
+#define DEFAULT_CLAMP_PERCENT 1u
+
 static int shall_clamp(sd_device *device, unsigned *ret) {
         const char *property, *s;
         unsigned default_percent;
@@ -385,10 +388,10 @@ static int shall_clamp(sd_device *device, unsigned *ret) {
                 return r;
         if (r > 0) {
                 property = "ID_BACKLIGHT_CLAMP";
-                default_percent = 1;
+                default_percent = DEFAULT_CLAMP_PERCENT;
         } else {
                 property = "ID_LEDS_CLAMP";
-                default_percent = 0;
+                default_percent = 0; /* The clamping is disabled by default. */
         }
 
         r = sd_device_get_property_value(device, property, &s);
@@ -401,7 +404,7 @@ static int shall_clamp(sd_device *device, unsigned *ret) {
 
         r = parse_boolean(s);
         if (r >= 0) {
-                *ret = r ? 5 : 0;
+                *ret = r ? DEFAULT_CLAMP_PERCENT : 0;
                 return r;
         }
 
