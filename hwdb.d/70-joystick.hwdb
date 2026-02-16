@@ -30,15 +30,12 @@
 #
 #   If the property is missing, user-space can assume:
 #   ID_INPUT_JOYSTICK_INTEGRATION=external
+#
+#   By default i8042, i2c, and rmi devices are assumed to be internal,
+#   bluetooth devices are assumed to be external, usb devices are assumed
+#   to be internal when connected to a PCB port and external otherwise.
 
-joystick:bluetooth:*
- ID_INPUT_JOYSTICK_INTEGRATION=external
-
-###########################################################
-# GPD
-###########################################################
-
-# GPD Win, Classic and XBox 360 compat modes
-joystick:usb:v11c5p5507*
-joystick:usb:v045ep028e*
- ID_INPUT_JOYSTICK_INTEGRATION=internal
+# Example entry; vid: ffff, pid: 0000; both must be lowecase.
+# this will make this usb joystick to behave as internal.
+#joystick:usb:vffffp0000*
+# ID_INPUT_JOYSTICK_INTEGRATION=internal

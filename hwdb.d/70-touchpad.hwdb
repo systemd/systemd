@@ -28,44 +28,18 @@
 # Permitted keys:
 #   Specify whether a touchpad is a built-in one or external:
 #   ID_INPUT_TOUCHPAD_INTEGRATION=internal|external
+#
+#   By default i8042, i2c, and rmi devices are assumed to be internal,
+#   bluetooth devices are assumed to be external, usb devices are assumed
+#   to be internal when connected to a PCB port and external otherwise.
 
-touchpad:i8042:*
-touchpad:rmi:*
-touchpad:usb:*
- ID_INPUT_TOUCHPAD_INTEGRATION=internal
-
-touchpad:bluetooth:*
- ID_INPUT_TOUCHPAD_INTEGRATION=external
-
-###########################################################
-# Apple
-###########################################################
-# Magic Trackpad (1 and 2)
-touchpad:usb:v05acp030e:*
-touchpad:usb:v05acp0265:*
-touchpad:usb:v05acp0324:*
- ID_INPUT_TOUCHPAD_INTEGRATION=external
-
-###########################################################
-# HP Elite x2 1013 G3
-###########################################################
-touchpad:usb:v044ep1221:*
- ID_INPUT_TOUCHPAD_INTEGRATION=external
+# Example entry; vid: ffff, pid: 0000; both must be lowecase.
+# this will make this bluetooth touchpad to behave as internal.
+#touchpad:bluetooth:vffffp0000:*
+# ID_INPUT_TOUCHPAD_INTEGRATION=internal
 
 ###########################################################
 # Lenovo IdeaPad Duet3 10IGL5 (82AT)
 ###########################################################
 touchpad:bluetooth:v17efp60fa:*
  ID_INPUT_TOUCHPAD_INTEGRATION=internal
-
-###########################################################
-# Logitech
-###########################################################
-touchpad:usb:v046d*
- ID_INPUT_TOUCHPAD_INTEGRATION=external
-
-###########################################################
-# Wacom
-###########################################################
-touchpad:usb:v056a*
- ID_INPUT_TOUCHPAD_INTEGRATION=external
