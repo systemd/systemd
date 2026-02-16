@@ -2261,7 +2261,7 @@ static int run(int argc, char *argv[]) {
                                         arg_flags,
                                         &m);
                         if (r < 0)
-                                return r;
+                                return log_error_errno(r, "Failed to mount image via mountfsd: %m");
                 }
         }
 

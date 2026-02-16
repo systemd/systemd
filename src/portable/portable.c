@@ -490,7 +490,7 @@ static int portable_extract_by_path(
                         _cleanup_close_ int mfd = -EBADF;
                         r = mountfsd_mount_directory_fd(rfd, userns_fd, DISSECT_IMAGE_FOREIGN_UID, &mfd);
                         if (r < 0)
-                                return log_debug_errno(r, "Failed to open '%s' via mountfsd: %m", path);
+                                return r;
 
                         _cleanup_close_pair_ int seq[2] = EBADF_PAIR;
                         if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, seq) < 0)
