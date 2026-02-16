@@ -8,6 +8,7 @@ int main(int argc, char **argv) {
         test_setup_logging(LOG_DEBUG);
 
         test_table(MACAddressPolicy, mac_address_policy, MAC_ADDRESS_POLICY);
+        test_table(IRQAffinityPolicy, irq_affinity_policy, IRQ_AFFINITY_POLICY);
 
         return EXIT_SUCCESS;
 }
