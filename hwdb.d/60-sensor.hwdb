@@ -298,8 +298,8 @@ sensor:modalias:acpi:KIOX000A:*:dmi:*:svnConnect:pnTablet9:*    # Connect Tablet
 #########################################
 # CSL Computer
 #########################################
-# CSL Panther Tab HD
-sensor:modalias:acpi:KIOX000A*:dmi:*:svnCSL*Computer*:pnCSL*Panther*Tab*HD:*
+
+sensor:modalias:acpi:KIOX000A:*:dmi:*:svnCSLComputer*:pnCSLPantherTabHD:*    # CSL Panther Tab HD
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
 #########################################
