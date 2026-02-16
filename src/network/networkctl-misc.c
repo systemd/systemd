@@ -46,50 +46,31 @@ static int parse_interfaces(sd_netlink **rtnl, char *argv[], OrderedSet **ret) {
         return 0;
 }
 
-static int link_up_down_send_message(sd_netlink *rtnl, char *command, int index) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
-        int r;
-
-        assert(rtnl);
-        assert(index >= 0);
-
-        r = sd_rtnl_message_new_link(rtnl, &req, RTM_SETLINK, index);
-        if (r < 0)
-                return rtnl_log_create_error(r);
-
-        if (streq(command, "up"))
-                r = sd_rtnl_message_link_set_flags(req, IFF_UP, IFF_UP);
-        else
-                r = sd_rtnl_message_link_set_flags(req, 0, IFF_UP);
-        if (r < 0)
-                return log_error_errno(r, "Could not set link flags: %m");
-
-        r = sd_netlink_call(rtnl, req, 0, NULL);
-        if (r < 0)
-                return r;
-
-        return 0;
-}
-
 int link_up_down(int argc, char *argv[], void *userdata) {
         int r, ret = 0;
 
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        bool up = streq_ptr(argv[0], "up");
+
         _cleanup_ordered_set_free_ OrderedSet *indexes = NULL;
-        r = parse_interfaces(&rtnl, argv, &indexes);
+        r = parse_interfaces(/* rtnl= */ NULL, argv, &indexes);
         if (r < 0)
                 return r;
 
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *vl = NULL;
+        r = varlink_connect_networkd(&vl);
+        if (r < 0)
+                return r;
+
+        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
+
         void *p;
-        ORDERED_SET_FOREACH(p, indexes) {
-                int index = PTR_TO_INT(p);
-                r = link_up_down_send_message(rtnl, argv[0], index);
-                if (r < 0) {
-                        RET_GATHER(ret, r);
-                        log_error_errno(r, "Failed to bring %s interface %s: %m",
-                                        argv[0], FORMAT_IFNAME_FULL(index, FORMAT_IFNAME_IFINDEX));
-                }
-        }
+        ORDERED_SET_FOREACH(p, indexes)
+                RET_GATHER(ret, varlink_callbo_and_log(
+                                           vl,
+                                           up ? "io.systemd.Network.LinkUp" : "io.systemd.Network.LinkDown",
+                                           /* reply= */ NULL,
+                                           SD_JSON_BUILD_PAIR_INTEGER("InterfaceIndex", PTR_TO_INT(p)),
+                                           SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", arg_ask_password)));
 
         return ret;
 }
