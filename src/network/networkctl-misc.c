@@ -14,11 +14,38 @@
 #include "networkctl.h"
 #include "networkctl-misc.h"
 #include "networkctl-util.h"
+#include "ordered-set.h"
 #include "parse-util.h"
 #include "polkit-agent.h"
 #include "set.h"
 #include "string-util.h"
+#include "strv.h"
 #include "varlink-util.h"
+
+static int parse_interfaces(sd_netlink **rtnl, char *argv[], OrderedSet **ret) {
+        _cleanup_(sd_netlink_unrefp) sd_netlink *our_rtnl = NULL;
+        _cleanup_ordered_set_free_ OrderedSet *indexes = NULL;
+        int r;
+
+        assert(ret);
+
+        if (!rtnl)
+                rtnl = &our_rtnl;
+
+        STRV_FOREACH(s, strv_skip(argv, 1)) {
+                int index = rtnl_resolve_interface_or_warn(rtnl, *s);
+                if (index < 0)
+                        return index;
+                assert(index > 0);
+
+                r = ordered_set_ensure_put(&indexes, /* ops= */ NULL, INT_TO_PTR(index));
+                if (r < 0)
+                        return log_oom();
+        }
+
+        *ret = TAKE_PTR(indexes);
+        return 0;
+}
 
 static int link_up_down_send_message(sd_netlink *rtnl, char *command, int index) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
@@ -46,38 +73,26 @@ static int link_up_down_send_message(sd_netlink *rtnl, char *command, int index)
 }
 
 int link_up_down(int argc, char *argv[], void *userdata) {
+        int r, ret = 0;
+
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        _cleanup_set_free_ Set *indexes = NULL;
-        int index, r;
-        void *p;
-
-        r = sd_netlink_open(&rtnl);
+        _cleanup_ordered_set_free_ OrderedSet *indexes = NULL;
+        r = parse_interfaces(&rtnl, argv, &indexes);
         if (r < 0)
-                return log_error_errno(r, "Failed to connect to netlink: %m");
+                return r;
 
-        indexes = set_new(NULL);
-        if (!indexes)
-                return log_oom();
-
-        for (int i = 1; i < argc; i++) {
-                index = rtnl_resolve_interface_or_warn(&rtnl, argv[i]);
-                if (index < 0)
-                        return index;
-
-                r = set_put(indexes, INT_TO_PTR(index));
-                if (r < 0)
-                        return log_oom();
-        }
-
-        SET_FOREACH(p, indexes) {
-                index = PTR_TO_INT(p);
+        void *p;
+        ORDERED_SET_FOREACH(p, indexes) {
+                int index = PTR_TO_INT(p);
                 r = link_up_down_send_message(rtnl, argv[0], index);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to bring %s interface %s: %m",
-                                               argv[0], FORMAT_IFNAME_FULL(index, FORMAT_IFNAME_IFINDEX));
+                if (r < 0) {
+                        RET_GATHER(ret, r);
+                        log_error_errno(r, "Failed to bring %s interface %s: %m",
+                                        argv[0], FORMAT_IFNAME_FULL(index, FORMAT_IFNAME_IFINDEX));
+                }
         }
 
-        return r;
+        return ret;
 }
 
 static int link_delete_send_message(sd_netlink *rtnl, int index) {
