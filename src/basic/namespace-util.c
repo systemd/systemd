@@ -358,7 +358,7 @@ int is_our_namespace(int fd, NamespaceType type) {
         int r;
 
         assert(fd >= 0);
-        assert(type < _NAMESPACE_TYPE_MAX);
+        assert(type >= 0 && type < _NAMESPACE_TYPE_MAX);
 
         r = fd_is_namespace(fd, type);
         if (r < 0)
