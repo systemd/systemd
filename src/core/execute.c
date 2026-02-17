@@ -356,7 +356,7 @@ const char* exec_get_private_notify_socket_path(const ExecContext *context, cons
         if (!needs_sandboxing)
                 return NULL;
 
-        if (!context->root_directory && !context->root_image && !context->root_directory_as_fd)
+        if (!exec_context_with_rootfs(context))
                 return NULL;
 
         if (!exec_context_get_effective_mount_apivfs(context))
