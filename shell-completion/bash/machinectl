@@ -38,9 +38,9 @@ _machinectl() {
 
     local -A OPTS=(
         [STANDALONE]='--all -a -l --full --help -h --no-ask-password --no-legend --no-pager --version --value
-                      --mkdir --read-only --force -q --quiet --system --user'
-        [ARG]='--host -H --kill-whom -M --machine --property -p --signal -s --uid -E --setenv -n --lines
-                      -o --output --verify --format --max-addresses'
+                      --mkdir --read-only --force -q --quiet --system --user --now -V'
+        [ARG]='--host -H --kill-whom -M --machine --property -p -P --signal -s --uid -E --setenv -n --lines
+                      -o --output --verify --format --max-addresses --runner'
     )
 
     local -A VERBS=(
@@ -96,6 +96,9 @@ _machinectl() {
                 ;;
             --format)
                 comps='uncompressed xz gzip bzip2 zstd'
+                ;;
+            --runner)
+                comps='nspawn vmspawn'
                 ;;
         esac
         COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
