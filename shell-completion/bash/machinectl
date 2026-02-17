@@ -45,10 +45,13 @@ _machinectl() {
 
     local -A VERBS=(
         [STANDALONE]='list list-images clean pull-tar pull-raw list-transfers cancel-transfer import-fs'
-        [MACHINES]='status show start stop login shell enable disable poweroff reboot terminate kill bind
-                    copy-to copy-from image-status show-image clone rename read-only remove set-limit
-                    export-tar export-raw'
+        [MACHINES]='status show start stop login shell enable disable poweroff reboot terminate kill
+                    image-status show-image remove export-tar export-raw'
+        [MACHINES_OR_FILES]='edit cat'
+        [MACHINE_ONLY]='clone rename set-limit'
+        [READONLY]='read-only'
         [FILE]='import-tar import-raw'
+        [MACHINES_AND_FILES]='copy-to copy-from bind'
     )
 
     _init_completion || return
@@ -112,6 +115,67 @@ _machinectl() {
 
     elif __contains_word "$verb" ${VERBS[MACHINES]}; then
         comps=$( __get_machines $mode )
+
+    elif __contains_word "$verb" ${VERBS[MACHINES_OR_FILES]}; then
+        comps=$( __get_machines $mode )
+        compopt -o filenames
+        comps+=" $(compgen -f -- "$cur")"
+
+    elif __contains_word "$verb" ${VERBS[MACHINE_ONLY]}; then
+        local k args=0
+        for ((k=i+1; k < COMP_CWORD; k++)); do
+            if __contains_word "${COMP_WORDS[k]}" ${OPTS[ARG]}; then
+                ((k++))
+            elif [[ ${COMP_WORDS[k]} = -* ]]; then
+                continue
+            else
+                ((args++))
+            fi
+        done
+        if (( args == 0 )); then
+            comps=$( __get_machines $mode )
+        else
+            comps=''
+        fi
+
+    elif __contains_word "$verb" ${VERBS[READONLY]}; then
+        local k args=0
+        for ((k=i+1; k < COMP_CWORD; k++)); do
+            if __contains_word "${COMP_WORDS[k]}" ${OPTS[ARG]}; then
+                ((k++))
+            elif [[ ${COMP_WORDS[k]} = -* ]]; then
+                continue
+            else
+                ((args++))
+            fi
+        done
+        if (( args == 0 )); then
+            comps=$( __get_machines $mode )
+        elif (( args == 1 )); then
+            comps='true false'
+        else
+            comps=''
+        fi
+
+    elif __contains_word "$verb" ${VERBS[MACHINES_AND_FILES]}; then
+        local k args=0
+        for ((k=i+1; k < COMP_CWORD; k++)); do
+            if __contains_word "${COMP_WORDS[k]}" ${OPTS[ARG]}; then
+                ((k++))
+            elif [[ ${COMP_WORDS[k]} = -* ]]; then
+                continue
+            else
+                ((args++))
+            fi
+        done
+        if (( args == 0 )); then
+            comps=$( __get_machines $mode )
+        elif (( args <= 2 )); then
+            comps=$(compgen -f -- "$cur")
+            compopt -o filenames
+        else
+            comps=''
+        fi
 
     elif __contains_word "$verb" ${VERBS[FILE]}; then
         if (( COMP_CWORD == i + 1 )); then # first argument after verb
