@@ -771,8 +771,7 @@ sensor:modalias:acpi:KIOX000A:*:dmi:*:rvnMETAPHYUNI:rnMetawillBook01:*    # Meta
 # Microtech
 #########################################
 
-# Microtech e-tab Pro
-sensor:modalias:acpi:KIOX000A*:dmi:*:svnMicrotech:pne-tabPro:*
+sensor:modalias:acpi:KIOX000A:*:dmi:*:svnMicrotech:pne-tabPro:*    # Microtech e-tab Pro
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
 #########################################
