@@ -124,8 +124,8 @@ int oomd_sort_cgroup_contexts(Hashmap *h, oomd_compare_t compare_func, const cha
 int oomd_fetch_cgroup_oom_preference(OomdCGroupContext *ctx, const char *prefix);
 
 /* Returns a negative value on error, 0 if no processes were killed, or 1 if processes were killed. */
-int oomd_cgroup_kill(Manager *m, OomdCGroupContext *ctx, bool recurse);
-int oomd_cgroup_kill_mark(Manager *m, OomdCGroupContext *ctx);
+int oomd_cgroup_kill(Manager *m, OomdCGroupContext *ctx, bool recurse, const char *reason);
+int oomd_cgroup_kill_mark(Manager *m, OomdCGroupContext *ctx, const char *reason);
 
 /* The following oomd_kill_by_* functions return 1 if processes were killed, or negative otherwise. */
 /* If `prefix` is supplied, only cgroups whose paths start with `prefix` are eligible candidates. Otherwise,
