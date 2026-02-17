@@ -1,0 +1,9 @@
+[Unit]
+Description=Journal Log Access Service
+Documentation=man:journalctl(1)
+DefaultDependencies=no
+Conflicts=shutdown.target
+Before=shutdown.target
+
+[Service]
+ExecStart=journalctl
