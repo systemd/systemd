@@ -83,6 +83,7 @@ struct iovec_wrapper;
 union in_addr_union;
 union sockaddr_union;
 
+typedef enum Architecture Architecture;
 typedef enum CGroupFlags CGroupFlags;
 typedef enum CGroupMask CGroupMask;
 typedef enum ChaseFlags ChaseFlags;
