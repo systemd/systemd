@@ -787,7 +787,8 @@ sensor:modalias:acpi:BMA250E:*:dmi:*:svnMPMAN:pnMPWIN8900CL:*    # MPWIN895C
 #########################################
 # MSI
 #########################################
-sensor:modalias:acpi:SMO8500*:dmi:*:svnMicro-StarInternationalCo.,Ltd.:pnS100:*
+
+sensor:modalias:acpi:SMO8500:*:dmi:*:svnMicro-StarInternationalCo.,Ltd.:pnS100:*    # MSI S100 2-in-1
  ACCEL_MOUNT_MATRIX=0, -1, 0; 1, 0, 0; 0, 0, 1
 
 #########################################
