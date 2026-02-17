@@ -238,19 +238,21 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
                 break;
         }
 
-        case OBJECT_ENTRY:
-                if ((le64toh(o->object.size) - offsetof(Object, entry.items)) % journal_file_entry_item_size(f) != 0) {
+        case OBJECT_ENTRY: {
+                size_t entry_header_size = journal_file_entry_header_size(f);
+
+                if ((le64toh(o->object.size) - entry_header_size) % journal_file_entry_item_size(f) != 0) {
                         error(offset,
                               "Bad entry size (<= %zu): %"PRIu64,
-                              offsetof(Object, entry.items),
+                              entry_header_size,
                               le64toh(o->object.size));
                         return -EBADMSG;
                 }
 
-                if ((le64toh(o->object.size) - offsetof(Object, entry.items)) / journal_file_entry_item_size(f) <= 0) {
+                if ((le64toh(o->object.size) - entry_header_size) / journal_file_entry_item_size(f) <= 0) {
                         error(offset,
                               "Invalid number items in entry: %"PRIu64,
-                              (le64toh(o->object.size) - offsetof(Object, entry.items)) / journal_file_entry_item_size(f));
+                              (le64toh(o->object.size) - entry_header_size) / journal_file_entry_item_size(f));
                         return -EBADMSG;
                 }
 
@@ -287,6 +289,7 @@ static int journal_file_object_verify(JournalFile *f, uint64_t offset, Object *o
                 }
 
                 break;
+        }
 
         case OBJECT_DATA_HASH_TABLE:
         case OBJECT_FIELD_HASH_TABLE:
