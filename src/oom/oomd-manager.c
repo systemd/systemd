@@ -241,7 +241,7 @@ static int recursively_get_cgroup_context(Hashmap *new_h, const char *path) {
                         return r;
                 if (r < 0) {
                         log_debug_errno(r, "Failed to read memory.oom.group from %s, ignoring: %m", cg_path);
-                        return 0;
+                        continue;
                 }
                 if (r > 0)
                         r = oomd_insert_cgroup_context(NULL, new_h, cg_path);
