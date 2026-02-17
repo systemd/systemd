@@ -77,6 +77,10 @@ CHANGES WITH 260 in spe:
           systemd-report is a new command line tool which collects the reports
           from all endpoints and prints them in JSON format.
 
+          The details of the structure of the reports should be considered
+          EXPERIMENTAL at this point. We reserve the right to make incompatible
+          changes to the JSON structure and/or place additional requirements.
+
         Changes in the system and user managers:
 
         * Systemd now uses ANSI CSI 18 sequence to query terminal size. This
