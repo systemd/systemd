@@ -814,7 +814,7 @@ typedef struct SessionContext {
         uint32_t vtnr;
         const char *tty;
         const char *display;
-        bool extra_device_access;
+        char **extra_device_access;
         bool remote;
         const char *remote_user;
         const char *remote_host;
@@ -826,6 +826,10 @@ typedef struct SessionContext {
         const char *area;
         bool incomplete;
 } SessionContext;
+
+static void session_context_done(SessionContext *c) {
+        strv_free(c->extra_device_access);
+}
 
 static int create_session_message(
                 sd_bus *bus,
@@ -1150,7 +1154,7 @@ static int register_session(
                                         SD_JSON_BUILD_PAIR_BOOLEAN("Remote", c->remote),
                                         JSON_BUILD_PAIR_STRING_NON_EMPTY("RemoteUser", c->remote_user),
                                         JSON_BUILD_PAIR_STRING_NON_EMPTY("RemoteHost", c->remote_host),
-                                        JSON_BUILD_PAIR_CONDITION_BOOLEAN(c->extra_device_access, "ExtraDeviceAccess", c->extra_device_access));
+                                        JSON_BUILD_PAIR_CONDITION_STRV(!strv_isempty(c->extra_device_access), "ExtraDeviceAccess", c->extra_device_access));
                         if (r < 0)
                                 return pam_syslog_errno(pamh, LOG_ERR, r,
                                                         "Failed to issue io.systemd.Login.CreateSession varlink call: %m");
@@ -1317,7 +1321,11 @@ static int register_session(
         if (r != PAM_SUCCESS)
                 return r;
 
-        r = update_environment(pamh, "XDG_SESSION_EXTRA_DEVICE_ACCESS", one_zero(c->extra_device_access));
+        _cleanup_free_ char *extra_devices = strv_join(c->extra_device_access, ":");
+        if (!extra_devices)
+                return pam_log_oom(pamh);
+
+        r = update_environment(pamh, "XDG_SESSION_EXTRA_DEVICE_ACCESS", extra_devices);
         if (r != PAM_SUCCESS)
                 return r;
 
@@ -1769,7 +1777,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         if (r != PAM_SUCCESS)
                 return r;
 
-        SessionContext c = {};
+        _cleanup_(session_context_done) SessionContext c = {};
         r = pam_get_item_many(
                         pamh,
                         PAM_SERVICE,  &c.service,
@@ -1787,7 +1795,13 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         c.desktop = getenv_harder(pamh, "XDG_SESSION_DESKTOP", desktop_pam);
         c.area = getenv_harder(pamh, "XDG_AREA", area_pam);
         c.incomplete = getenv_harder_bool(pamh, "XDG_SESSION_INCOMPLETE", false);
-        c.extra_device_access = getenv_harder_bool(pamh, "XDG_SESSION_EXTRA_DEVICE_ACCESS", false);
+
+        const char *extra_device_access = getenv_harder(pamh, "XDG_SESSION_EXTRA_DEVICE_ACCESS", NULL);
+        if (extra_device_access) {
+                c.extra_device_access = strv_split(extra_device_access, ":");
+                if (!c.extra_device_access)
+                        return pam_log_oom(pamh);
+        }
 
         r = pam_get_data_many(
                         pamh,

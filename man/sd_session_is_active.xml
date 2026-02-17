@@ -34,7 +34,7 @@
     <refname>sd_session_get_remote_host</refname>
     <refname>sd_session_get_remote_user</refname>
     <refname>sd_session_get_leader</refname>
-    <refname>sd_session_has_extra_device_access</refname>
+    <refname>sd_session_get_extra_device_access</refname>
     <refpurpose>Determine state of a specific session</refpurpose>
   </refnamediv>
 
@@ -143,8 +143,9 @@
       </funcprototype>
 
       <funcprototype>
-        <funcdef>int <function>sd_session_has_extra_device_access</function></funcdef>
+        <funcdef>int <function>sd_session_get_extra_device_access</function></funcdef>
         <paramdef>const char *<parameter>session</parameter></paramdef>
+        <paramdef>char ***<parameter>ret_ids</parameter></paramdef>
       </funcprototype>
     </funcsynopsis>
   </refsynopsisdiv>
@@ -280,11 +281,11 @@
     session identifier. This function will return an error if the seat
     does not support VTs.</para>
 
-    <para><function>sd_session_has_extra_device_access()</function> may
-    be used to determine whether the session is granted access to
-    additional hardware devices, typically useful for for graphical,
-    remote session. If true, the session is granted access to all
-    devices tagged with <literal>xaccess</literal> in udev.</para>
+    <para><function>sd_session_get_extra_device_access()</function> may
+    be used to determine which additional hardware devices the session
+    is granted access to. For every <literal><replaceable>ID</replaceable></literal>
+    in the list, the session is granted access to all devices tagged with
+    <literal>xaccess-<replaceable>ID</replaceable></literal> in udev.</para>
 
     <para>If the <varname>session</varname> parameter of any of these
     functions is passed as <constant>NULL</constant>, the operation is
@@ -296,9 +297,8 @@
     <title>Return Value</title>
 
     <para>If the test succeeds,
-    <function>sd_session_is_active()</function>,
-    <function>sd_session_is_remote()</function>, and
-    <function>sd_session_has_extra_device_access()</function>
+    <function>sd_session_is_active()</function> and
+    <function>sd_session_is_remote()</function>
     return a positive integer; if it fails, 0.  On success,
     <function>sd_session_get_state()</function>,
     <function>sd_session_get_uid()</function>,
@@ -310,9 +310,10 @@
     <function>sd_session_get_display()</function>,
     <function>sd_session_get_leader()</function>,
     <function>sd_session_get_remote_user()</function>,
-    <function>sd_session_get_remote_host()</function> and
-    <function>sd_session_get_tty()</function> return 0 or
-    a positive integer. On failure, these calls return a
+    <function>sd_session_get_remote_host()</function>,
+    <function>sd_session_get_tty()</function>, and
+    <function>sd_session_get_extra_device_access()</function>
+    return 0 or a positive integer. On failure, these calls return a
     negative errno-style error code.</para>
 
     <refsect2>
@@ -366,7 +367,7 @@
     <para><function>sd_session_get_username()</function>,
     <function>sd_session_get_start_time()</function>, and
     <function>sd_session_get_leader()</function> were added in version 254.</para>
-    <para><function>sd_session_has_extra_device_access()</function> was added in version 260.</para>
+    <para><function>sd_session_get_extra_device_access()</function> was added in version 260.</para>
   </refsect1>
 
   <refsect1>

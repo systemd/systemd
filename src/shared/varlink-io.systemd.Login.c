@@ -65,10 +65,9 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT(RemoteUser, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Host name of the remote host"),
                 SD_VARLINK_DEFINE_INPUT(RemoteHost, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("If true this session is granted access to additional hardware devices, "
-                                         "typically useful for remote, graphical sessions. "
-                                         "This adds access for all devices tagged with \"xaccess\" in udev."),
-                SD_VARLINK_DEFINE_INPUT(ExtraDeviceAccess, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("List of additional hardware devices that this session is granted access to."
+                                         "For every $ID in the list, this adds access for all devices tagged with \"xaccess-$ID\" in udev."),
+                SD_VARLINK_DEFINE_INPUT(ExtraDeviceAccess, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
                 SD_VARLINK_FIELD_COMMENT("The identifier string of the session of the user."),
                 SD_VARLINK_DEFINE_OUTPUT(Id, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("The runtime path ($XDG_RUNTIME_DIR) of the user."),

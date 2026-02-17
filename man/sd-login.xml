@@ -191,12 +191,13 @@
       </varlistentry>
 
       <varlistentry>
-        <term>Tag <literal>xaccess</literal></term>
+        <term>Tag <literal>xaccess-*</literal></term>
 
-        <listitem><para>When set, access to this device is granted to sessions
-        created with <literal>ExtraDeviceAccess</literal>. This is typically useful
-        for graphical, remote sessions. As the <literal>ExtraDeviceAccess</literal>
-        sessions open and close, access to the device is updated accordingly.</para>
+        <listitem><para>When <literal>xaccess-<replaceable>ID</replaceable></literal>
+        is set, access to this device is granted to sessions created with
+        <literal><replaceable>ID</replaceable></literal> listed in <literal>ExtraDeviceAccess</literal>.
+        As the sessions with some <literal>ExtraDeviceAccess</literal> open and close,
+        access to the device is updated accordingly.</para>
 
         <xi:include href="version-info.xml" xpointer="v260"/></listitem>
       </varlistentry>
