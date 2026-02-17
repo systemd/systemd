@@ -2,11 +2,10 @@
 
 #include <assert.h>
 #include <endian.h>
-#include <sys/random.h>
-#include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/random.h>
 
 #include "memory-util.h"
 #include "nts_crypto.h"
@@ -69,6 +68,7 @@ int NTS_add_extension_fields(
 
         assert(dest);
         assert(nts);
+        assert(uniq_id);
 
         slice buf = { dest, dest + 1280 };
 
@@ -76,11 +76,10 @@ int NTS_add_extension_fields(
         buf.data += 48;
 
         /* generate unique identifier */
-        uint8_t rand_buf[32], *rand = *(uniq_id? uniq_id : &rand_buf);
-        if (getrandom(rand, sizeof(rand_buf), 0) != sizeof(rand_buf))
+        if (getrandom(*uniq_id, sizeof(*uniq_id), 0) != sizeof(*uniq_id))
                 goto exit;
 
-        r = write_ntp_ext_field(&buf, UniqueIdentifier, rand, sizeof(rand_buf), 16);
+        r = write_ntp_ext_field(&buf, UniqueIdentifier, *uniq_id, sizeof(*uniq_id), 16);
         if (r == 0)
                 goto exit;
 
@@ -189,7 +188,7 @@ int NTS_parse_extension_fields(
         assert(fields);
 
         slice buf = { src + 48, src + src_len };
-        int processed = 0;
+        bool processed = 0;
 
         while (capacity(&buf) >= 4) {
                 uint16_t type, len;
@@ -205,7 +204,7 @@ int NTS_parse_extension_fields(
                                 goto exit;
 
                         fields->identifier = (uint8_t (*)[32])(buf.data + 4);
-                        ++processed;
+                        processed = true;
                         break;
                 case AuthEncExtFields: {
                         uint16_t nonce_len, ciph_len;
@@ -259,7 +258,7 @@ int NTS_parse_extension_fields(
 
                         /* ignore any further fields after this,
                          * since they are not authenticated */
-                        return processed;
+                        return processed? plain.data - src : 0;
                 }
 
                 default:
