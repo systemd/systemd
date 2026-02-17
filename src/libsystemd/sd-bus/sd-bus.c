@@ -3483,10 +3483,13 @@ static int add_match_callback(
         sd_bus_slot_ref(match_slot);
 
         if (sd_bus_message_is_method_error(m, NULL)) {
-                r = log_debug_errno(sd_bus_message_get_errno(m),
+                const sd_bus_error *e = ASSERT_PTR(sd_bus_message_get_error(m));
+                r = sd_bus_error_get_errno(e);
+
+                r = log_debug_errno(r,
                                     "Unable to add match %s, failing connection: %s",
                                     match_slot->match_callback.match_string,
-                                    sd_bus_message_get_error(m)->message);
+                                    bus_error_message(e, r));
 
                 failed = true;
         } else

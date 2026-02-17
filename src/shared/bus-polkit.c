@@ -286,9 +286,7 @@ static int async_polkit_read_reply(sd_bus_message *reply, AsyncPolkitQuery *q) {
         a = ASSERT_PTR(TAKE_PTR(q->action));
 
         if (sd_bus_message_is_method_error(reply, NULL)) {
-                const sd_bus_error *e;
-
-                e = sd_bus_message_get_error(reply);
+                const sd_bus_error *e = ASSERT_PTR(sd_bus_message_get_error(reply));
 
                 if (bus_error_is_unknown_service(e)) {
                         /* If PK is absent, then store this away, as it depends on the callers flags whether
