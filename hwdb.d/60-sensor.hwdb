@@ -942,7 +942,8 @@ sensor:modalias:acpi:BOSC0200:*:dmi:bvnINSYDECorp.:bvrMx.WT107.KUBNGEA*:*:svnIns
 #########################################
 # Prowise
 #########################################
-sensor:modalias:acpi:SMO8500*:dmi:*:svnProwise:pnPT301:*
+
+sensor:modalias:acpi:SMO8500:*:dmi:*:svnProwise:pnPT301:*    # PT301
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
 #########################################
