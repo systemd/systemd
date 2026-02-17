@@ -858,8 +858,7 @@ sensor:modalias:acpi:BMI0160:*:dmi:*:rnONEXPLAYER:rvrV01:*
 # OrangePi
 #########################################
 
-# OrangePi NEO
-sensor:modalias:acpi:BMI0260*:dmi:*:svnOrangePi:pnNEO-01:*
+sensor:modalias:acpi:BMI0260:*:dmi:*:svnOrangePi:pnNEO-01:*    # NEO
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 0, -1; 0, -1, 0
 
 #########################################
