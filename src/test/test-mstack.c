@@ -1,0 +1,96 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
+#include <sys/stat.h>
+
+#include "capability-util.h"
+#include "fd-util.h"
+#include "fs-util.h"
+#include "mstack.h"
+#include "process-util.h"
+#include "rm-rf.h"
+#include "tests.h"
+#include "tmpfile-util.h"
+
+TEST(mstack) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF;
+        int r;
+
+        tfd = mkdtemp_open("/tmp/mstack-what-XXXXXX", O_PATH, &t);
+        ASSERT_OK(tfd);
+
+        ASSERT_OK_ERRNO(mkdirat(tfd, "rw", 0755));
+        ASSERT_OK_ERRNO(mkdirat(tfd, "rw/data", 0755));
+        ASSERT_OK_ERRNO(mkdirat(tfd, "rw/data/check1", 0755));
+        ASSERT_OK_ERRNO(mkdirat(tfd, "layer@0", 0755));
+        ASSERT_OK_ERRNO(mkdirat(tfd, "layer@0/check2", 0755));
+        ASSERT_OK_ERRNO(mkdirat(tfd, "layer@0/zzz", 0755));
+        ASSERT_OK_ERRNO(mkdirat(tfd, "layer@1", 0755));
+        ASSERT_OK_ERRNO(mkdirat(tfd, "layer@1/check3", 0755));
+        ASSERT_OK_ERRNO(mkdirat(tfd, "layer@0/yyy", 0755));
+        ASSERT_OK_ERRNO(mkdirat(tfd, "bind@zzz", 0755));
+        ASSERT_OK_ERRNO(mkdirat(tfd, "bind@zzz/check4", 0755));
+        ASSERT_OK_ERRNO(mkdirat(tfd, "robind@yyy", 0755));
+        ASSERT_OK_ERRNO(mkdirat(tfd, "robind@yyy/check5", 0755));
+
+        _cleanup_(mstack_freep) MStack *mstack = NULL;
+        ASSERT_OK(mstack_load(t, tfd, &mstack));
+
+        ASSERT_OK_ZERO(mstack_is_read_only(mstack));
+        ASSERT_OK_ZERO(mstack_is_foreign_uid_owned(mstack));
+
+        if (!have_effective_cap(CAP_SYS_ADMIN))
+                return (void) log_tests_skipped("not attaching mstack, lacking privs");
+
+        mstack = mstack_free(mstack);
+
+        /* For with a new mountns */
+        r = pidref_safe_fork("(mstack-test", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE, /* ret= */ NULL);
+        ASSERT_OK(r);
+
+        if (r == 0) {
+                MStackFlags flags = 0;
+
+                /* Close the original temporary fd, it still points to an inode of the original mountns,
+                 * which we cannot use to generate mounts from */
+                tfd = safe_close(tfd);
+
+                {
+                        ASSERT_OK(mstack_load(t, -EBADF, &mstack));
+
+                        ASSERT_OK(mstack_open_images(
+                                                  mstack,
+                                                  /* link= */ NULL,
+                                                  /* userns_fd= */ -EBADF,
+                                                  /* image_policy= */ NULL,
+                                                  /* image_filter= */ NULL,
+                                                  flags));
+
+                        _cleanup_(rmdir_and_freep) char *m = NULL;
+                        ASSERT_OK(mkdtemp_malloc("/tmp/mstack-temporary-XXXXXX", &m));
+
+                        ASSERT_OK(mstack_make_mounts(mstack, m, flags));
+
+                        _cleanup_(rmdir_and_freep) char *w = NULL;
+                        ASSERT_OK(mkdtemp_malloc("/tmp/mstack-where-XXXXXX", &w));
+
+                        _cleanup_close_ int rfd = -EBADF;
+                        ASSERT_OK(mstack_bind_mounts(mstack, w, /* where_fd= */ -EBADF, flags, &rfd));
+
+                        _cleanup_close_ int ofd = open(w, O_PATH|O_CLOEXEC);
+                        ASSERT_OK_ERRNO(ofd);
+
+                        ASSERT_OK_ERRNO(faccessat(ofd, "check1", F_OK, AT_SYMLINK_NOFOLLOW));
+                        ASSERT_OK_ERRNO(faccessat(ofd, "check2/", F_OK, AT_SYMLINK_NOFOLLOW));
+                        ASSERT_OK_ERRNO(faccessat(ofd, "check3/", F_OK, AT_SYMLINK_NOFOLLOW));
+                        ASSERT_OK_ERRNO(faccessat(ofd, "zzz/check4/", F_OK, AT_SYMLINK_NOFOLLOW));
+                        ASSERT_OK_ERRNO(faccessat(ofd, "yyy/check5/", F_OK, AT_SYMLINK_NOFOLLOW));
+                }
+
+                mstack = mstack_free(mstack);
+
+                _exit(EXIT_SUCCESS);
+        }
+}
+
+DEFINE_TEST_MAIN(LOG_INFO);
