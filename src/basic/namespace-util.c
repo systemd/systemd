@@ -68,6 +68,11 @@ static int pidref_namespace_open_by_type_internal(const PidRef *pidref, Namespac
 
         if (pidref->fd >= 0) {
                 r = pidfd_get_namespace(pidref->fd, namespace_info[type].pidfd_get_ns_ioctl_cmd);
+                if (r == -ENOPKG)
+                        return log_debug_errno(
+                                        r,
+                                        "Cannot open %s namespace for PID "PID_FMT" as the namespace type is not supported by the kernel",
+                                        namespace_info[type].proc_name, pidref->pid);
                 if (!ERRNO_IS_NEG_NOT_SUPPORTED(r))
                         return r;
         }
@@ -83,10 +88,17 @@ static int pidref_namespace_open_by_type_internal(const PidRef *pidref, Namespac
         if (nsfd == -ENOENT) {
                 r = proc_mounted();
                 if (r == 0)
-                        return -ENOSYS;  /* /proc/ is not available or not set up properly, we're most likely
-                                            in some chroot environment. */
+                        /* /proc/ is not available or not set up properly, we're most likely in some chroot environment. */
+                        return log_debug_errno(
+                                        SYNTHETIC_ERRNO(ENOSYS),
+                                        "Cannot open %s namespace for PID "PID_FMT" as /proc is not mounted",
+                                        namespace_info[type].proc_name, pidref->pid);
                 if (r > 0)
-                        return -ENOPKG;  /* If /proc/ is definitely around then this means the namespace type is not supported */
+                        /* If /proc/ is definitely around then this means the namespace type is not supported */
+                        return log_debug_errno(
+                                        SYNTHETIC_ERRNO(ENOPKG),
+                                        "Cannot open %s namespace for PID "PID_FMT" via /proc as the namespace type is not supported by the kernel",
+                                        namespace_info[type].proc_name, pidref->pid);
 
                 /* can't determine? then propagate original error */
         }
