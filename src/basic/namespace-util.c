@@ -228,32 +228,38 @@ int namespace_open(
         return pidref_namespace_open(&pidref, ret_pidns_fd, ret_mntns_fd, ret_netns_fd, ret_userns_fd, ret_root_fd);
 }
 
-static int namespace_enter_one_idempotent(int nsfd, NamespaceType type) {
-        int r;
-
-        /* Join a namespace, but only if we're not part of it already. This is important if we don't necessarily
-         * own the namespace in question, as kernel would unconditionally return EPERM otherwise. */
-
-        assert(nsfd >= 0);
-        assert(type >= 0 && type < _NAMESPACE_TYPE_MAX);
-
-        r = is_our_namespace(nsfd, type);
-        if (r < 0)
-                return r;
-        if (r > 0)
-                return 0;
-
-        if (setns(nsfd, namespace_info[type].clone_flag) < 0)
-                return -errno;
-
-        return 1;
-}
-
 int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int root_fd) {
         int r;
 
         /* Block dlopen() now, to avoid us inadvertently loading shared library from another namespace */
         block_dlopen();
+
+         /* Join namespaces, but only if we're not part of them already. This is important if we don't
+          * necessarily own the namespace in question, as kernel would unconditionally return EPERM otherwise. */
+
+        if (pidns_fd >= 0) {
+                r = is_our_namespace(pidns_fd, NAMESPACE_PID);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        pidns_fd = -EBADF;
+        }
+
+        if (mntns_fd >= 0) {
+                r = is_our_namespace(mntns_fd, NAMESPACE_MOUNT);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        mntns_fd = -EBADF;
+        }
+
+        if (netns_fd >= 0) {
+                r = is_our_namespace(netns_fd, NAMESPACE_NET);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        netns_fd = -EBADF;
+        }
 
         if (userns_fd >= 0) {
                 /* Can't setns to your own userns, since then you could escalate from non-root to root in
@@ -287,23 +293,14 @@ int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int
                         return -errno;
         }
 
-        if (pidns_fd >= 0) {
-                r = namespace_enter_one_idempotent(pidns_fd, NAMESPACE_PID);
-                if (r < 0)
-                        return r;
-        }
+        if (pidns_fd >= 0 && setns(pidns_fd, CLONE_NEWPID) < 0)
+                return -errno;
 
-        if (mntns_fd >= 0) {
-                r = namespace_enter_one_idempotent(mntns_fd, NAMESPACE_MOUNT);
-                if (r < 0)
-                        return r;
-        }
+        if (mntns_fd >= 0 && setns(mntns_fd, CLONE_NEWNS) < 0)
+                return -errno;
 
-        if (netns_fd >= 0) {
-                r = namespace_enter_one_idempotent(netns_fd, NAMESPACE_NET);
-                if (r < 0)
-                        return r;
-        }
+        if (netns_fd >= 0 && setns(netns_fd, CLONE_NEWNET) < 0)
+                return -errno;
 
         if (userns_fd >= 0 && have_cap_sys_admin)
                 if (setns(userns_fd, CLONE_NEWUSER) < 0)
