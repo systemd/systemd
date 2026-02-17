@@ -531,7 +531,7 @@ static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t
                                 return log_error_errno(r, "Failed to select any cgroups based on swap, ignoring: %m");
                         if (r == 0) {
                                 log_debug("No cgroup candidates found for memory pressure-based OOM action for %s", t->path);
-                                return 0;
+                                continue;
                         }
 
                         r = oomd_cgroup_kill_mark(m, selected, "memory-pressure");
