@@ -958,8 +958,7 @@ sensor:modalias:acpi:MXC6655:*:dmi:*:svnPurism:pnlibrem_11:*    # Librem 11 (wit
 # Reeder
 #########################################
 
-# A8iW-Rev.A
-sensor:modalias:acpi:SMO8500*:dmi:*:rvnReeder:rnA8iW-Rev.A:*
+sensor:modalias:acpi:SMO8500:*:dmi:*:rvnReeder:rnA8iW-Rev.A:*    # A8iW-Rev.A
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
 #########################################
