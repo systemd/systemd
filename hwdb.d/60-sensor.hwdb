@@ -1113,6 +1113,7 @@ sensor:modalias:acpi:BMA250E:*:dmi:*:svnYOURS:pnY8W81:*    # Y8W81
 #########################################
 # Unknown manufacturer
 #########################################
+
 # ANP09 Intel N100 based 7-inch tablet
-sensor:modalias:acpi:BOSC0200*:dmi:bvnAmericanMegatrendsInternational,LLC.:bvrANP09_INTEL001:*
+sensor:modalias:acpi:BOSC0200:*:dmi:bvnAmericanMegatrendsInternational,LLC.:bvrANP09_INTEL001:*
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, -1
