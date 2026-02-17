@@ -577,6 +577,7 @@ char** exec_context_get_restrict_filesystems(const ExecContext *c);
 bool exec_context_restrict_namespaces_set(const ExecContext *c);
 bool exec_context_restrict_filesystems_set(const ExecContext *c);
 bool exec_context_with_rootfs(const ExecContext *c);
+bool exec_context_with_rootfs_strict(const ExecContext *c);
 
 int exec_context_has_vpicked_extensions(const ExecContext *context);
 
