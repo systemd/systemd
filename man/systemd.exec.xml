@@ -353,6 +353,26 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>RootMStack=</varname></term>
+
+        <listitem><para>Takes a path to a
+        <citerefentry><refentrytitle>systemd.mstack</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        directory encapsulating a mount stack consisting of layers and bind mounts. Similar to
+        <varname>RootDirectory=</varname> and <varname>RootImage=</varname> this runs the service off a
+        distinct root file system, in this case set up via <literal>overlayfs</literal>.</para>
+
+        <para>Since <filename>.mstack/</filename> directories may reference disk images (DDIs) similar device
+        policy extensions and dependencies are in effect when <varname>RootMStack=</varname> is used as are
+        if <varname>RootImage=</varname> is used.</para>
+
+        <xi:include href="vpick.xml" xpointer="image"/>
+
+        <xi:include href="system-or-user-ns-mountfsd.xml" xpointer="singular"/>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>MountAPIVFS=</varname></term>
 
         <listitem><para>Takes a boolean argument. If on, a private mount namespace for the unit's processes is created
@@ -450,16 +470,16 @@
         <term><varname>BindPaths=</varname></term>
         <term><varname>BindReadOnlyPaths=</varname></term>
 
-        <listitem><para>Configures unit-specific bind mounts. A bind mount makes a particular file or directory
-        available at an additional place in the unit's view of the file system. Any bind mounts created with this
-        option are specific to the unit, and are not visible in the host's mount table. This option expects a
-        whitespace separated list of bind mount definitions. Each definition consists of a colon-separated triple of
-        source path, destination path and option string, where the latter two are optional. If only a source path is
-        specified the source and destination is taken to be the same. The option string may be either
-        <literal>rbind</literal> or <literal>norbind</literal> for configuring a recursive or non-recursive bind
-        mount. If the destination path is omitted, the option string must be omitted too.
-        Each bind mount definition may be prefixed with <literal>-</literal>, in which case it will be ignored
-        when its source path does not exist.</para>
+        <listitem><para>Configures unit-specific bind mounts. A bind mount makes a particular file or
+        directory available at an additional place in the unit's view of the file system. Any bind mounts
+        created with this option are specific to the unit, and are not visible in the host's mount
+        table. This option expects a whitespace separated list of bind mount definitions. Each definition
+        consists of a colon-separated triple of source path, destination path and option string, where the
+        latter two are optional. If only a source path is specified the source and destination is taken to be
+        the same. The option string may be either <literal>rbind</literal> or <literal>norbind</literal> for
+        configuring a recursive or non-recursive bind mount. If the destination path is omitted, the option
+        string must be omitted too.  Each bind mount definition may be prefixed with <literal>-</literal>, in
+        which case it will be ignored when its source path does not exist or is not accessible.</para>
 
         <para><varname>BindPaths=</varname> creates regular writable bind mounts (unless the source file system mount
         is already marked read-only), while <varname>BindReadOnlyPaths=</varname> creates read-only bind mounts. These
@@ -2202,16 +2222,17 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
       <varlistentry>
         <term><varname>PrivateUsers=</varname></term>
 
-        <listitem><para>Takes a boolean argument or one of <literal>self</literal>, <literal>identity</literal>,
-        or <literal>full</literal>. Defaults to false. If enabled, sets up a new user namespace for the
-        executed processes and configures a user and group mapping. If set to a true value or
-        <literal>self</literal>, a minimal user and group mapping is configured that maps the
-        <literal>root</literal> user and group as well as the unit's own user and group to themselves and
-        everything else to the <literal>nobody</literal> user and group. This is useful to securely detach
-        the user and group databases used by the unit from the rest of the system, and thus to create an
-        effective sandbox environment. All files, directories, processes, IPC objects and other resources
-        owned by users/groups not equaling <literal>root</literal> or the unit's own will stay visible from
-        within the unit but appear owned by the <literal>nobody</literal> user and group. </para>
+        <listitem><para>Takes a boolean argument or one of <literal>self</literal>,
+        <literal>identity</literal>, <literal>full</literal> or <literal>managed</literal>. Defaults to
+        false. If enabled, sets up a new user namespace for the executed processes and configures a user and
+        group mapping. If set to a true value or <literal>self</literal>, a minimal user and group mapping is
+        configured that maps the <literal>root</literal> user and group as well as the unit's own user and
+        group to themselves and everything else to the <literal>nobody</literal> user and group. This is
+        useful to securely detach the user and group databases used by the unit from the rest of the system,
+        and thus to create an effective sandbox environment. All files, directories, processes, IPC objects
+        and other resources owned by users/groups not equaling <literal>root</literal> or the unit's own will
+        stay visible from within the unit but appear owned by the <literal>nobody</literal> user and
+        group. </para>
 
         <para>If the parameter is <literal>identity</literal>, user namespacing is set up with an identity
         mapping for the first 65536 UIDs/GIDs. Any UIDs/GIDs above 65536 will be mapped to the
@@ -2224,14 +2245,21 @@ BindReadOnlyPaths=/var/lib/systemd</programlisting>
         to call <function>setgroups()</function> system calls (by setting
         <filename>/proc/<replaceable>pid</replaceable>/setgroups</filename> to <literal>allow</literal>).
         Similar to <literal>identity</literal>, this does not provide UID/GID isolation, but it does provide
-        process capability isolation.</para>
+        process capability isolation. If this mode is enabled, all unit processes are run without privileges
+        in the host user namespace (regardless of whether the unit's own user/group is
+        <literal>root</literal> or not). Specifically this means that the process will have zero process
+        capabilities on the host's user namespace, but full capabilities within the service's user
+        namespace. Settings such as <varname>CapabilityBoundingSet=</varname> will affect only the latter,
+        and there's no way to acquire additional capabilities in the host's user namespace.</para>
 
-        <para>If this mode is enabled, all unit processes are run without privileges in the host user
-        namespace (regardless of whether the unit's own user/group is <literal>root</literal> or not). Specifically
-        this means that the process will have zero process capabilities on the host's user namespace, but
-        full capabilities within the service's user namespace. Settings such as
-        <varname>CapabilityBoundingSet=</varname> will affect only the latter, and there's no way to acquire
-        additional capabilities in the host's user namespace.</para>
+        <para>If the paramater is <literal>managed</literal> a transient, dynamically allocated range of
+        65536 UIDs/GIDs is allocated for the unit, and a UID/GID mapping is assigned to the unit's process
+        so the UID/GID 0 from inside the unit maps to the first UID/GID of the allocated mapping. Note that
+        in this mode the UID/GID the service process will run as is different depending if looking from the
+        host side (where it will be a high, dynamically assigned UID) or from inside the unit (where it will
+        be 0). Also note that this mode will enable file system UID mapping for the file systems this service
+        accesses, mapping the "foreign" UID range on disk to the selected dynamic UID range at
+        runtime.</para>
 
         <para>When this setting is set up by a per-user instance of the service manager, the mapping of the
         <literal>root</literal> user and group to itself is omitted (unless the user manager is root).
