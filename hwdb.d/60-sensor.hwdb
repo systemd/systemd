@@ -879,9 +879,7 @@ sensor:modalias:acpi:SMO8500:*:dmi:*:svnPEAQ:pnPEAQPMMC1010MD99187:*    # MMC101
 # Pine64
 #########################################
 
-# PineTab2
-
-sensor:modalias:of:NaccelerometerT_null_Csilan,sc7a20:*
+sensor:modalias:of:NaccelerometerT_null_Csilan,sc7a20:*    # PineTab2
  ACCEL_MOUNT_MATRIX=0, 0, -1; 1, 0, 0; 0, -1, 0
 
 #########################################
