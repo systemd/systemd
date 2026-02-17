@@ -31,6 +31,7 @@
 #include "strv.h"
 #include "sysupdate-cache.h"
 #include "sysupdate-instance.h"
+#include "sysupdate-partition.h"
 #include "sysupdate-pattern.h"
 #include "sysupdate-resource.h"
 #include "time-util.h"
@@ -244,9 +245,7 @@ static int resource_load_from_blockdev(Resource *rr) {
                 _cleanup_(instance_metadata_destroy) InstanceMetadata extracted_fields = INSTANCE_METADATA_NULL;
                 _cleanup_(partition_info_destroy) PartitionInfo pinfo = PARTITION_INFO_NULL;
                 Instance *instance;
-                const char *pinfo_label_stripped;
                 bool is_partial = false, is_pending = false;
-                const char *stripped;
 
                 r = read_partition_info(c, t, i, &pinfo);
                 if (r < 0)
@@ -254,9 +253,28 @@ static int resource_load_from_blockdev(Resource *rr) {
                 if (r == 0) /* not assigned */
                         continue;
 
-                /* Check if partition type matches */
-                if (rr->partition_type_set && !sd_id128_equal(pinfo.type, rr->partition_type.uuid))
-                        continue;
+                /* Check if partition type matches, either directly or via derived partial/pending type
+                 * UUIDs. The derived UUIDs are computed from the configured partition type by hashing it
+                 * with a fixed app-specific ID, so we can detect the state without relying on label
+                 * prefixes. */
+                if (rr->partition_type_set) {
+                        sd_id128_t partial_type, pending_type;
+
+                        r = gpt_partition_type_uuid_for_sysupdate_partial(rr->partition_type.uuid, &partial_type);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to derive partial partition type UUID: %m");
+
+                        r = gpt_partition_type_uuid_for_sysupdate_pending(rr->partition_type.uuid, &pending_type);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to derive pending partition type UUID: %m");
+
+                        if (sd_id128_equal(pinfo.type, partial_type))
+                                is_partial = true;
+                        else if (sd_id128_equal(pinfo.type, pending_type))
+                                is_pending = true;
+                        else if (!sd_id128_equal(pinfo.type, rr->partition_type.uuid))
+                                continue;
+                }
 
                 /* A label of "_empty" means "not used so far" for us */
                 if (streq_ptr(pinfo.label, "_empty")) {
@@ -264,18 +282,7 @@ static int resource_load_from_blockdev(Resource *rr) {
                         continue;
                 }
 
-                /* Match the label with any partial/pending prefix removed so the user’s existing patterns
-                 * match regardless of the instance’s state. */
-                if ((stripped = startswith(pinfo.label, "PRT#"))) {
-                        pinfo_label_stripped = stripped;
-                        is_partial = true;
-                } else if ((stripped = startswith(pinfo.label, "PND#"))) {
-                        pinfo_label_stripped = stripped;
-                        is_pending = true;
-                } else
-                        pinfo_label_stripped = pinfo.label;
-
-                r = pattern_match_many(rr->patterns, pinfo_label_stripped, &extracted_fields);
+                r = pattern_match_many(rr->patterns, pinfo.label, &extracted_fields);
                 if (r < 0)
                         return log_error_errno(r, "Failed to match pattern: %m");
                 if (IN_SET(r, PATTERN_MATCH_NO, PATTERN_MATCH_RETRY))

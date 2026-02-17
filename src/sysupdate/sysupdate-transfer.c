@@ -67,8 +67,6 @@ Transfer* transfer_free(Transfer *t) {
         strv_free(t->appstream);
 
         partition_info_destroy(&t->partition_info);
-        free(t->temporary_partial_partition_label);
-        free(t->temporary_pending_partition_label);
         free(t->final_partition_label);
 
         resource_destroy(&t->source);
@@ -766,12 +764,21 @@ static int transfer_instance_vacuum(
 
         case RESOURCE_PARTITION: {
                 PartitionInfo pinfo = instance->partition_info;
+                PartitionChange change = PARTITION_LABEL;
 
                 /* label "_empty" means "no contents" for our purposes */
                 pinfo.label = (char*) "_empty";
 
-                log_debug("Relabelling partition '%s' to '%s'.", pinfo.device, pinfo.label);
-                r = patch_partition(t->target.path, &pinfo, PARTITION_LABEL);
+                /* If the partition had a derived partial/pending type UUID, restore the original
+                 * partition type so that the slot is properly recognized as empty in subsequent
+                 * scans. */
+                if ((instance->is_partial || instance->is_pending) && t->target.partition_type_set) {
+                        pinfo.type = t->target.partition_type.uuid;
+                        change |= PARTITION_TYPE;
+                }
+
+                log_debug("Resetting partition '%s' to empty.", pinfo.device);
+                r = patch_partition(t->target.path, &pinfo, change);
                 if (r < 0)
                         return r;
 
@@ -1172,7 +1179,7 @@ static int run_callout(
  * and pending instances which are about to be installed (in which case, transfer_acquire_instance() is
  * skipped). */
 int transfer_compute_temporary_paths(Transfer *t, Instance *i, InstanceMetadata *f) {
-        _cleanup_free_ char *formatted_pattern = NULL, *formatted_partial_pattern = NULL, *formatted_pending_pattern = NULL;
+        _cleanup_free_ char *formatted_pattern = NULL;
         int r;
 
         assert(t);
@@ -1182,8 +1189,6 @@ int transfer_compute_temporary_paths(Transfer *t, Instance *i, InstanceMetadata 
         assert(!t->temporary_partial_path);
         assert(!t->temporary_pending_path);
         assert(!t->final_partition_label);
-        assert(!t->temporary_partial_partition_label);
-        assert(!t->temporary_pending_partition_label);
         assert(!strv_isempty(t->target.patterns));
 
         /* Format the target name using the first pattern specified */
@@ -1234,25 +1239,18 @@ int transfer_compute_temporary_paths(Transfer *t, Instance *i, InstanceMetadata 
                 if (!r)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Formatted pattern is not suitable as GPT partition label, refusing: %s", formatted_pattern);
 
-                if (!strprepend(&formatted_partial_pattern, "PRT#", formatted_pattern))
-                        return log_oom();
-                r = gpt_partition_label_valid(formatted_partial_pattern);
+                if (!t->target.partition_type_set)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Partition type must be set for partition targets.");
+
+                /* Derive temporary partition type UUIDs for partial/pending states from the configured
+                 * partition type. This avoids the need for label prefixes. */
+                r = gpt_partition_type_uuid_for_sysupdate_partial(t->target.partition_type.uuid, &t->partition_type_partial);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to determine if formatted pattern is suitable as GPT partition label: %s", formatted_partial_pattern);
-                if (!r)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Formatted pattern is not suitable as GPT partition label, refusing: %s", formatted_partial_pattern);
+                        return log_error_errno(r, "Failed to derive partial partition type UUID: %m");
 
-                free_and_replace(t->temporary_partial_partition_label, formatted_partial_pattern);
-
-                if (!strprepend(&formatted_pending_pattern, "PND#", formatted_pattern))
-                        return log_oom();
-                r = gpt_partition_label_valid(formatted_pending_pattern);
+                r = gpt_partition_type_uuid_for_sysupdate_pending(t->target.partition_type.uuid, &t->partition_type_pending);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to determine if formatted pattern is suitable as GPT partition label: %s", formatted_pending_pattern);
-                if (!r)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Formatted pattern is not suitable as GPT partition label, refusing: %s", formatted_pending_pattern);
-
-                free_and_replace(t->temporary_pending_partition_label, formatted_pending_pattern);
+                        return log_error_errno(r, "Failed to derive pending partition type UUID: %m");
 
                 t->final_partition_label = TAKE_PTR(formatted_pattern);
         }
@@ -1312,13 +1310,18 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
 
                 where = t->partition_info.device;
 
-                /* Rename the partition to `PRT#<VERSION>` to indicate that a transfer to it is in progress. */
-                r = free_and_strdup_warn(&t->partition_info.label, t->temporary_partial_partition_label);
+                /* Set the partition label and change the partition type to the derived "partial" type UUID
+                 * to indicate that a transfer to it is in progress. */
+                r = free_and_strdup_warn(&t->partition_info.label, t->final_partition_label);
                 if (r < 0)
                         return r;
-                t->partition_change = PARTITION_LABEL;
+                t->partition_info.type = t->partition_type_partial;
+                t->partition_change = PARTITION_LABEL | PARTITION_TYPE;
 
-                log_debug("Relabelling partition '%s' to '%s'.", t->partition_info.device, t->partition_info.label);
+                log_debug("Marking partition '%s' as partial (label='%s', type=%s).",
+                          t->partition_info.device,
+                          t->partition_info.label,
+                          SD_ID128_TO_UUID_STRING(t->partition_info.type));
                 r = patch_partition(
                                 t->target.path,
                                 &t->partition_info,
@@ -1545,12 +1548,10 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
         }
 
         if (t->target.type == RESOURCE_PARTITION) {
-                /* Now rename the partition again to `PND#<VERSION>` to indicate that the acquire is complete
-                 * and the partition is ready for install. */
-                r = free_and_strdup_warn(&t->partition_info.label, t->temporary_pending_partition_label);
-                if (r < 0)
-                        return r;
-                t->partition_change = PARTITION_LABEL;
+                /* Now change the partition type to the derived "pending" type UUID to indicate that the
+                 * acquire is complete and the partition is ready for install. */
+                t->partition_info.type = t->partition_type_pending;
+                t->partition_change = PARTITION_TYPE;
 
                 if (f->partition_uuid_set) {
                         t->partition_info.uuid = f->partition_uuid;
@@ -1577,7 +1578,9 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                         t->partition_change |= PARTITION_GROWFS;
                 }
 
-                log_debug("Relabelling partition '%s' to '%s'.", t->partition_info.device, t->partition_info.label);
+                log_debug("Marking partition '%s' as pending (type=%s).",
+                          t->partition_info.device,
+                          SD_ID128_TO_UUID_STRING(t->partition_info.type));
                 r = patch_partition(
                                 t->target.path,
                                 &t->partition_info,
@@ -1617,7 +1620,7 @@ int transfer_process_partial_and_pending_instance(Transfer *t, Instance *i) {
 
         /* This is the analogue of find_suitable_partition(), but since finding the suitable partition has
          * already happened in the acquire phase, the target should already have that information and it
-         * should already have been claimed as `PND#`. */
+         * should already have been claimed with the pending partition type UUID. */
         if (t->target.type == RESOURCE_PARTITION) {
                 assert(i->resource == &t->target);
                 assert(i->is_pending);
@@ -1665,14 +1668,17 @@ int transfer_install_instance(
                 t->temporary_pending_path = mfree(t->temporary_pending_path);
         }
 
-        if (t->temporary_pending_partition_label) {
+        if (t->final_partition_label) {
                 assert(t->target.type == RESOURCE_PARTITION);
-                assert(t->final_partition_label);
+                assert(t->target.partition_type_set);
 
                 r = free_and_strdup_warn(&t->partition_info.label, t->final_partition_label);
                 if (r < 0)
                         return r;
-                t->partition_change = PARTITION_LABEL;
+
+                /* Restore the original partition type UUID now that the partition is fully installed. */
+                t->partition_info.type = t->target.partition_type.uuid;
+                t->partition_change = PARTITION_LABEL | PARTITION_TYPE;
 
                 r = patch_partition(
                                 t->target.path,
