@@ -865,8 +865,7 @@ sensor:modalias:acpi:BMI0260:*:dmi:*:svnOrangePi:pnNEO-01:*    # NEO
 # Passion
 #########################################
 
-# Passion P612F
-sensor:modalias:acpi:MXC6655*:dmi:*:svnDefaultstring*:pnP612F:*
+sensor:modalias:acpi:MXC6655:*:dmi:*:svnDefaultstring*:pnP612F:*    # P612F
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
 #########################################
