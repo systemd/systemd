@@ -68,7 +68,7 @@ static inline struct mount *real_mount(struct vfsmount *mnt) {
         return container_of(mnt, struct mount, mnt);
 }
 
-static int validate_inode_on_mount(struct inode *inode, struct vfsmount *v) {
+static int validate_mount(struct vfsmount *v) {
         struct user_namespace *mount_userns, *task_userns, *p;
         unsigned task_userns_inode;
         struct task_struct *task;
@@ -124,10 +124,9 @@ static int validate_path(const struct path *path, int ret) {
         if (ret != 0) /* propagate earlier error */
                 return ret;
 
-        inode = path->dentry->d_inode;
         v = path->mnt;
 
-        return validate_inode_on_mount(inode, v);
+        return validate_mount(v);
 }
 
 SEC("lsm/path_chown")
