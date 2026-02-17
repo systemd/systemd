@@ -571,18 +571,18 @@ int bus_verify_polkit_async_full(
                         return r;
                 }
         }
-#endif
 
         if (!FLAGS_SET(flags, POLKIT_ALWAYS_QUERY)) {
+#endif
                 /* Don't query PK if client is privileged */
                 r = sd_bus_query_sender_privilege(call, /* capability= */ -1);
                 if (r < 0)
                         return r;
                 if (r > 0)
                         return 1;
+#if ENABLE_POLKIT
         }
 
-#if ENABLE_POLKIT
         int c = sd_bus_message_get_allow_interactive_authorization(call);
         if (c < 0)
                 return c;
@@ -781,13 +781,15 @@ int varlink_verify_polkit_async_full(
         if (r != 0)
                 return r;
 
+#if ENABLE_POLKIT
         if (!FLAGS_SET(flags, POLKIT_ALWAYS_QUERY)) {
+#endif
                 r = varlink_check_peer_privilege(link);
                 if (r != 0)
                         return r;
+#if ENABLE_POLKIT
         }
 
-#if ENABLE_POLKIT
         _cleanup_(async_polkit_query_unrefp) AsyncPolkitQuery *q = NULL;
 
         q = async_polkit_query_ref(hashmap_get(*registry, link));
