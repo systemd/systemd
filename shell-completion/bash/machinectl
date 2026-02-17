@@ -25,19 +25,20 @@ __contains_word() {
 }
 
 __get_machines() {
+    local mode=$1; shift 1
     local a b
-    { machinectl list-images --full --no-legend --no-pager 2>/dev/null; machinectl list --full --max-addresses=0 --no-legend --no-pager 2>/dev/null; echo ".host"; } |
+    { machinectl $mode list-images --full --no-legend --no-pager 2>/dev/null; machinectl $mode list --full --max-addresses=0 --no-legend --no-pager 2>/dev/null; echo ".host"; } |
         { while read -r a b; do echo " $a"; done; } |
         sort -u
 }
 
 _machinectl() {
     local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]} words cword
-    local i verb comps
+    local i verb comps mode
 
     local -A OPTS=(
         [STANDALONE]='--all -a -l --full --help -h --no-ask-password --no-legend --no-pager --version --value
-                      --mkdir --read-only --force -q --quiet'
+                      --mkdir --read-only --force -q --quiet --system --user'
         [ARG]='--host -H --kill-whom -M --machine --property -p --signal -s --uid -E --setenv -n --lines
                       -o --output --verify --format --max-addresses'
     )
@@ -51,6 +52,12 @@ _machinectl() {
     )
 
     _init_completion || return
+
+    if __contains_word "--user" ${COMP_WORDS[*]}; then
+        mode=--user
+    else
+        mode=--system
+    fi
 
     for ((i=0; i <= COMP_CWORD; i++)); do
         if __contains_word "${COMP_WORDS[i]}" ${VERBS[*]} &&
@@ -73,7 +80,7 @@ _machinectl() {
                 comps=$(compgen -A hostname)
                 ;;
             --machine|-M)
-                comps=$( __get_machines )
+                comps=$( __get_machines $mode )
                 ;;
             --property|-p)
                 comps=''
@@ -104,7 +111,7 @@ _machinectl() {
         comps=''
 
     elif __contains_word "$verb" ${VERBS[MACHINES]}; then
-        comps=$( __get_machines )
+        comps=$( __get_machines $mode )
 
     elif __contains_word "$verb" ${VERBS[FILE]}; then
         if (( COMP_CWORD == i + 1 )); then # first argument after verb
