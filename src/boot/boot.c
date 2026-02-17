@@ -2785,7 +2785,7 @@ static EFI_STATUS call_image_start(
                 uint32_t compat_address;
 
                 err = pe_kernel_info(loaded_image->ImageBase, /* ret_entry_point= */ NULL, &compat_address,
-                                     /* ret_image_base= */ NULL, /* ret_size_in_memory= */ NULL);
+                                     /* ret_size_in_memory= */ NULL);
                 if (err != EFI_SUCCESS) {
                         if (err != EFI_UNSUPPORTED)
                                 return log_error_status(err, "Error finding kernel compat entry address: %m");

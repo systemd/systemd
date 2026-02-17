@@ -459,7 +459,7 @@ static uint32_t get_compatibility_entry_address(const DosFileHeader *dos, const 
         return 0;
 }
 
-EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_entry_point, uint32_t *ret_compat_entry_point, uint64_t *ret_image_base, size_t *ret_size_in_memory) {
+EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_entry_point, uint32_t *ret_compat_entry_point, size_t *ret_size_in_memory) {
         assert(base);
 
         const DosFileHeader *dos = (const DosFileHeader *) base;
@@ -469,18 +469,6 @@ EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_entry_point, uint32_t 
         const PeFileHeader *pe = (const PeFileHeader *) ((const uint8_t *) base + dos->ExeHeader);
         if (!verify_pe(dos, pe, /* allow_compatibility= */ true))
                 return EFI_LOAD_ERROR;
-
-        uint64_t image_base;
-        switch (pe->OptionalHeader.Magic) {
-        case OPTHDR32_MAGIC:
-                image_base = pe->OptionalHeader.ImageBase32;
-                break;
-        case OPTHDR64_MAGIC:
-                image_base = pe->OptionalHeader.ImageBase64;
-                break;
-        default:
-                assert_not_reached();
-        }
 
         /* When allocating we need to also consider the virtual/uninitialized data sections, so parse it out
          * of the SizeOfImage field in the PE header and return it */
@@ -495,8 +483,6 @@ EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_entry_point, uint32_t 
                         *ret_entry_point = pe->OptionalHeader.AddressOfEntryPoint;
                 if (ret_compat_entry_point)
                         *ret_compat_entry_point = 0;
-                if (ret_image_base)
-                        *ret_image_base = image_base;
                 if (ret_size_in_memory)
                         *ret_size_in_memory = size_in_memory;
                 return EFI_SUCCESS;
@@ -511,8 +497,6 @@ EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_entry_point, uint32_t 
                 *ret_entry_point = 0;
         if (ret_compat_entry_point)
                 *ret_compat_entry_point = compat_entry_point;
-        if (ret_image_base)
-                *ret_image_base = image_base;
         if (ret_size_in_memory)
                 *ret_size_in_memory = size_in_memory;
 
