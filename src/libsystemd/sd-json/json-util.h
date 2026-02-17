@@ -264,6 +264,8 @@ enum {
         SD_JSON_BUILD_PAIR_CONDITION(condition, name, SD_JSON_BUILD_UNSIGNED(value))
 #define JSON_BUILD_PAIR_CONDITION_BOOLEAN(condition, name, value) \
         SD_JSON_BUILD_PAIR_CONDITION(condition, name, SD_JSON_BUILD_BOOLEAN(value))
+#define JSON_BUILD_PAIR_CONDITION_STRV(condition, name, value) \
+        SD_JSON_BUILD_PAIR_CONDITION(condition, name, SD_JSON_BUILD_STRV(value))
 
 int json_variant_new_pidref(sd_json_variant **ret, PidRef *pidref);
 int json_variant_new_devnum(sd_json_variant **ret, dev_t devnum);

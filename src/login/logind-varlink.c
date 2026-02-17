@@ -15,6 +15,7 @@
 #include "logind-seat.h"
 #include "logind-user.h"
 #include "logind-varlink.h"
+#include "strv.h"
 #include "terminal-util.h"
 #include "user-record.h"
 #include "user-util.h"
@@ -145,11 +146,12 @@ typedef struct CreateSessionParameters {
         int remote;
         const char *remote_user;
         const char *remote_host;
-        bool extra_device_access;
+        char **extra_device_access;
 } CreateSessionParameters;
 
 static void create_session_parameters_done(CreateSessionParameters *p) {
         pidref_done(&p->pid);
+        strv_free(p->extra_device_access);
 }
 
 static int vl_method_create_session(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -170,7 +172,7 @@ static int vl_method_create_session(sd_varlink *link, sd_json_variant *parameter
                 { "Remote",            SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate,     offsetof(CreateSessionParameters, remote),              0                 },
                 { "RemoteUser",        SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(CreateSessionParameters, remote_user),         0                 },
                 { "RemoteHost",        SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(CreateSessionParameters, remote_host),         0                 },
-                { "ExtraDeviceAccess", SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool,      offsetof(CreateSessionParameters, extra_device_access), 0                 },
+                { "ExtraDeviceAccess", SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_strv,         offsetof(CreateSessionParameters, extra_device_access), 0                 },
                 {}
         };
 
@@ -180,7 +182,6 @@ static int vl_method_create_session(sd_varlink *link, sd_json_variant *parameter
                 .class = _SESSION_CLASS_INVALID,
                 .type = _SESSION_TYPE_INVALID,
                 .remote = -1,
-                .extra_device_access = false,
         };
 
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
