@@ -1084,12 +1084,13 @@ sensor:modalias:acpi:MXC6655*:dmi:*:svnUMAX:pnVisionbook12WrTab:*
 #########################################
 # Voyo
 #########################################
+
 # Voyo Winpad A15
 # The Winpad A15 does not have its product name filled, so we
 # match the entire dmi-alias, assuming that the use of a SMO8500 +
 # bios-version + bios-date combo is unique
 # '*' in ":*svn" is there because kernels >= 5.8 have inserted a br field there
-sensor:modalias:acpi:SMO8500*:dmi:bvnAmericanMegatrendsInc.:bvr5.6.5:bd11/20/2014:*svnTobefilledbyO.E.M.:pnTobefilledbyO.E.M.:pvrTobefilledbyO.E.M.:rvnAMICorporation:rnAptioCRB:rvrTobefilledbyO.E.M.:cvnToBeFilledByO.E.M.:ct3:cvrToBeFilledByO.E.M.:*
+sensor:modalias:acpi:SMO8500:*:dmi:bvnAmericanMegatrendsInc.:bvr5.6.5:bd11/20/2014:*:svnTobefilledbyO.E.M.:pnTobefilledbyO.E.M.:pvrTobefilledbyO.E.M.:rvnAMICorporation:rnAptioCRB:rvrTobefilledbyO.E.M.:cvnToBeFilledByO.E.M.:ct3:cvrToBeFilledByO.E.M.:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; 1, 0, 0; 0, 0, -1
 
 #########################################
