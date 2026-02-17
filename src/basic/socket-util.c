@@ -970,53 +970,6 @@ int getpeerpidref(int fd, PidRef *ret) {
         return pidref_set_pidfd_consume(ret, pidfd);
 }
 
-ssize_t send_many_fds_iov_sa(
-                int transport_fd,
-                int *fds_array, size_t n_fds_array,
-                const struct iovec *iov, size_t iovlen,
-                const struct sockaddr *sa, socklen_t len,
-                int flags) {
-
-        _cleanup_free_ struct cmsghdr *cmsg = NULL;
-        struct msghdr mh = {
-                .msg_name = (struct sockaddr*) sa,
-                .msg_namelen = len,
-                .msg_iov = (struct iovec *)iov,
-                .msg_iovlen = iovlen,
-        };
-        ssize_t k;
-
-        assert(transport_fd >= 0);
-        assert(fds_array || n_fds_array == 0);
-
-        /* The kernel will reject sending more than SCM_MAX_FD FDs at once */
-        if (n_fds_array > SCM_MAX_FD)
-                return -E2BIG;
-
-        /* We need either an FD array or data to send. If there's nothing, return an error. */
-        if (n_fds_array == 0 && !iov)
-                return -EINVAL;
-
-        if (n_fds_array > 0) {
-                mh.msg_controllen = CMSG_SPACE(sizeof(int) * n_fds_array);
-                mh.msg_control = cmsg = malloc(mh.msg_controllen);
-                if (!cmsg)
-                        return -ENOMEM;
-
-                *cmsg = (struct cmsghdr) {
-                        .cmsg_len = CMSG_LEN(sizeof(int) * n_fds_array),
-                        .cmsg_level = SOL_SOCKET,
-                        .cmsg_type = SCM_RIGHTS,
-                };
-                memcpy(CMSG_DATA(cmsg), fds_array, sizeof(int) * n_fds_array);
-        }
-        k = sendmsg(transport_fd, &mh, MSG_NOSIGNAL | flags);
-        if (k < 0)
-                return (ssize_t) -errno;
-
-        return k;
-}
-
 ssize_t send_one_fd_iov_sa(
                 int transport_fd,
                 int fd,
@@ -1070,74 +1023,6 @@ int send_one_fd_sa(
         assert(fd >= 0);
 
         return (int) send_one_fd_iov_sa(transport_fd, fd, NULL, 0, sa, len, flags);
-}
-
-ssize_t receive_many_fds_iov(
-                int transport_fd,
-                struct iovec *iov, size_t iovlen,
-                int **ret_fds_array, size_t *ret_n_fds_array,
-                int flags) {
-
-        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(int) * SCM_MAX_FD)) control;
-        struct msghdr mh = {
-                .msg_control = &control,
-                .msg_controllen = sizeof(control),
-                .msg_iov = iov,
-                .msg_iovlen = iovlen,
-        };
-        _cleanup_free_ int *fds_array = NULL;
-        size_t n_fds_array = 0;
-        struct cmsghdr *cmsg;
-        ssize_t k;
-
-        assert(transport_fd >= 0);
-        assert(ret_fds_array);
-        assert(ret_n_fds_array);
-
-        /*
-         * Receive many FDs via @transport_fd. We don't care for the transport-type. We retrieve all the FDs
-         * at once. This is best used in combination with send_many_fds().
-         */
-
-        k = recvmsg_safe(transport_fd, &mh, MSG_CMSG_CLOEXEC | flags);
-        if (k < 0)
-                return k;
-
-        CMSG_FOREACH(cmsg, &mh)
-                if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_RIGHTS) {
-                        size_t n = (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
-
-                        if (!GREEDY_REALLOC_APPEND(fds_array, n_fds_array, CMSG_TYPED_DATA(cmsg, int), n)) {
-                                cmsg_close_all(&mh);
-                                return -ENOMEM;
-                        }
-                }
-
-        if (n_fds_array == 0) {
-                cmsg_close_all(&mh);
-
-                /* If didn't receive an FD or any data, return an error. */
-                if (k == 0)
-                        return -EIO;
-        }
-
-        *ret_fds_array = TAKE_PTR(fds_array);
-        *ret_n_fds_array = n_fds_array;
-
-        return k;
-}
-
-int receive_many_fds(int transport_fd, int **ret_fds_array, size_t *ret_n_fds_array, int flags) {
-        ssize_t k;
-
-        k = receive_many_fds_iov(transport_fd, NULL, 0, ret_fds_array, ret_n_fds_array, flags);
-        if (k == 0)
-                return 0;
-
-        /* k must be negative, since receive_many_fds_iov() only returns a positive value if data was received
-         * through the iov. */
-        assert(k < 0);
-        return (int) k;
 }
 
 ssize_t receive_one_fd_iov(
