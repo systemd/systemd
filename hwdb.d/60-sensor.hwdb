@@ -778,12 +778,10 @@ sensor:modalias:acpi:KIOX000A:*:dmi:*:svnMicrotech:pne-tabPro:*    # Microtech e
 # MPMAN
 #########################################
 
-# MPMAN Converter 9, same hw as the I.T.Works TW891 2-in-1
-sensor:modalias:acpi:SMO8500*:dmi:*:svnMPMAN:pnConverter9:*
+sensor:modalias:acpi:SMO8500:*:dmi:*:svnMPMAN:pnConverter9:*     # Converter 9, same hw as the I.T.Works TW891 2-in-1
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
 
-# MPMAN MPWIN895C
-sensor:modalias:acpi:BMA250E*:dmi:*:svnMPMAN:pnMPWIN8900CL:*
+sensor:modalias:acpi:BMA250E:*:dmi:*:svnMPMAN:pnMPWIN8900CL:*    # MPWIN895C
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
 #########################################
