@@ -923,13 +923,11 @@ sensor:modalias:i2c:bmc150_accel:dmi:bvnINSYDECorp.:*:svnInsyde:pnBayTrail:*:rvn
 # Positivo
 #########################################
 
-# Positivo Duo K116R
-sensor:modalias:acpi:KIOX010A*:dmi:bvn*:bvr*:svnPositivoTecnologiaSA:pn*:pvr*:rvnPositivoTecnologiaSA:rnK116R*
+sensor:modalias:acpi:KIOX010A:*:dmi:*:svnPositivoTecnologiaSA:*:rnK116R:*    # Duo K116R
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
  ACCEL_LOCATION=display
 
-# Positivo Duo K116J
-sensor:modalias:acpi:MDA6655*:dmi:bvn*:bvr*:svnPositivoTecnologiaSA:pn*:pvr*:rvnPositivoTecnologiaSA:rnK116J*
+sensor:modalias:acpi:MDA6655:*:dmi:*:svnPositivoTecnologiaSA:*:rnK116J:*     # Duo K116J
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
  ACCEL_LOCATION=display
 
