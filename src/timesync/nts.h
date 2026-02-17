@@ -2,9 +2,9 @@
 #pragma once
 
 #include <errno.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <stdbool.h>
 #include <sys/types.h>
 
 /* algorithm type is not made into a full enum since it eases ptr-conversions */
