@@ -541,11 +541,13 @@ static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t
                                 log_error_errno(r, "Failed to select any cgroups under %s based on pressure, ignoring: %m", t->path);
                         else {
                                 /* Don't act on all the high pressure cgroups at once; return as soon as we kill one.
-                                 * If r == 0 then the cgroup is already queued for kill by an earlier iteration.
-                                 * In either case, go through the event loop again and select a new candidate if
-                                 * pressure is still high. */
+                                 * If r == 0 then the cgroup is already queued for kill by an earlier iteration,
+                                 * so try the next target without resetting the delay timer. */
+                                if (r == 0)
+                                        continue;
+
                                 m->mem_pressure_post_action_delay_start = usec_now;
-                                if (selected && r > 0) {
+                                if (selected) {
                                         log_notice("Marked %s for killing due to memory pressure for %s being %lu.%02lu%% > %lu.%02lu%%"
                                                    " for > %s with reclaim activity",
                                                    selected->path, t->path,
