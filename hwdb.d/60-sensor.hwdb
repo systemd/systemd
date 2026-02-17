@@ -871,7 +871,8 @@ sensor:modalias:acpi:MXC6655:*:dmi:*:svnDefaultstring*:pnP612F:*    # P612F
 #########################################
 # Peaq
 #########################################
-sensor:modalias:acpi:SMO8500*:dmi:*:svnPEAQ:pnPEAQPMMC1010MD99187:*
+
+sensor:modalias:acpi:SMO8500:*:dmi:*:svnPEAQ:pnPEAQPMMC1010MD99187:*    # MMC1010 2-in-1
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
 #########################################
