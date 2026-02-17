@@ -243,7 +243,7 @@ int pe_read_section_data_by_name(
 
         assert(fd >= 0);
         assert(pe_header);
-        assert(sections || pe_header->pe.NumberOfSections == 0);
+        assert(sections || le16toh(pe_header->pe.NumberOfSections) == 0);
         assert(name);
 
         section = pe_header_find_section(pe_header, sections, name);
@@ -408,9 +408,9 @@ int pe_hash(int fd,
                 return r;
 
         /* Sort by location in file */
-        typesafe_qsort(sections, pe_header->pe.NumberOfSections, section_offset_cmp);
+        typesafe_qsort(sections, le16toh(pe_header->pe.NumberOfSections), section_offset_cmp);
 
-        FOREACH_ARRAY(section, sections, pe_header->pe.NumberOfSections) {
+        FOREACH_ARRAY(section, sections, le16toh(pe_header->pe.NumberOfSections)) {
                 r = hash_file(fd, mdctx, section->PointerToRawData, section->SizeOfRawData);
                 if (r < 0)
                         return r;
@@ -537,7 +537,7 @@ int uki_hash(int fd,
         if (hsz < 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to get hash size.");
 
-        FOREACH_ARRAY(section, sections, pe_header->pe.NumberOfSections) {
+        FOREACH_ARRAY(section, sections, le16toh(pe_header->pe.NumberOfSections)) {
                 _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX *mdctx = NULL;
                 _cleanup_free_ char *n = NULL;
                 ssize_t i;
