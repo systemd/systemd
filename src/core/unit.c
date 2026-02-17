@@ -11,6 +11,7 @@
 #include "all-units.h"
 #include "alloc-util.h"
 #include "ansi-color.h"
+#include "bitfield.h"
 #include "bpf-restrict-fs.h"
 #include "bus-common-errors.h"
 #include "bus-internal.h"
@@ -478,6 +479,9 @@ bool unit_may_gc(Unit *u) {
         r = unit_cgroup_is_empty(u);
         if (r <= 0 && !IN_SET(r, -ENXIO, -EOWNERDEAD))
                 return false; /* ENXIO/EOWNERDEAD means: currently not realized */
+
+        if (BIT_SET(u->markers, UNIT_MARKER_NEEDS_START))
+                return false;
 
         if (!UNIT_VTABLE(u)->may_gc)
                 return true;
@@ -2752,11 +2756,13 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
         /* Make sure the cgroup and state files are always removed when we become inactive */
         if (UNIT_IS_INACTIVE_OR_FAILED(ns)) {
                 SET_FLAG(u->markers,
-                         (1u << UNIT_MARKER_NEEDS_RELOAD)|(1u << UNIT_MARKER_NEEDS_RESTART),
+                         (1u << UNIT_MARKER_NEEDS_RELOAD)|(1u << UNIT_MARKER_NEEDS_RESTART)|(1u << UNIT_MARKER_NEEDS_STOP),
                          false);
                 unit_prune_cgroup(u);
                 unit_unlink_state_files(u);
-        } else if (ns != os && ns == UNIT_RELOADING)
+        } else if (UNIT_IS_ACTIVE_OR_ACTIVATING(ns))
+                SET_FLAG(u->markers, 1u << UNIT_MARKER_NEEDS_START, false);
+        else if (ns != os && ns == UNIT_RELOADING)
                 SET_FLAG(u->markers, 1u << UNIT_MARKER_NEEDS_RELOAD, false);
 
         unit_update_on_console(u);
