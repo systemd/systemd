@@ -54,8 +54,6 @@ int pid_get_start_time(pid_t pid, usec_t *ret);
 int pidref_get_start_time(const PidRef *pid, usec_t *ret);
 int get_process_umask(pid_t pid, mode_t *ret);
 
-int container_get_leader(const char *machine, pid_t *pid);
-
 static inline bool SIGINFO_CODE_IS_DEAD(int code) {
         return IN_SET(code, CLD_EXITED, CLD_KILLED, CLD_DUMPED);
 }
