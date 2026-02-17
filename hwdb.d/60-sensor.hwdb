@@ -1029,41 +1029,43 @@ sensor:modalias:acpi:INVN6500:*:dmi:*:svnTOSHIBA:pnTOSHIBAWT10-A-108:*      # En
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
 #########################################
-# Trekstor
+# TrekStor
 #########################################
-sensor:modalias:acpi:BMA250*:dmi:*:bvrTREK.G.WI71C.JGBMRBA*:*:svnInsyde:pnST70416-6:*
-sensor:modalias:acpi:BMA250*:dmi:*:bvrTREK.G.WI71C.JGBMRBA*:*:svnTrekStor:pnSurfTabwintron7.0ST70416-6:*
+
+# Surftab Wintron 7.0 ST70416-6 7"
+sensor:modalias:acpi:BMA250:*:dmi:*:bvrTREK.G.WI71C.JGBMRBA*:*:svnInsyde:pnST70416-6:*
+sensor:modalias:acpi:BMA250:*:dmi:*:bvrTREK.G.WI71C.JGBMRBA*:*:svnTrekStor:pnSurfTabwintron7.0ST70416-6:*
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
 
 # SurfTab Wintron 10.1 ST10432-3, generic DMI string, use partial BIOS version match
-sensor:modalias:acpi:SMO8500*:dmi:*:bvrWintron.R25M.02.0*:*:svnInsyde:pnBayTrail:*
+sensor:modalias:acpi:SMO8500:*:dmi:*:bvrWintron.R25M.02.0*:*:svnInsyde:pnBayTrail:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
-sensor:modalias:acpi:KIOX000A*:dmi:*:svnTrekStor:pnSurfTabtwin10.1:*
+sensor:modalias:acpi:KIOX000A:*:dmi:*:svnTrekStor:pnSurfTabtwin10.1:*    # Surftab Twin 10.1
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
-sensor:modalias:acpi:KIOX000A*:dmi:*:svnTREKSTOR*:pnPrimetabS11B:*
-sensor:modalias:acpi:KIOX000A*:dmi:*:svnTREKSTOR:pnPrimetabT13B:*
-sensor:modalias:acpi:BOSC0200*:dmi:*:svnTrekStor*:pnSurfTabtwin11.6:*
+sensor:modalias:acpi:KIOX000A:*:dmi:*:svnTREKSTOR:pnPrimetabS11B:*       # Primetab S11B
+sensor:modalias:acpi:KIOX000A:*:dmi:*:svnTREKSTOR:pnPrimetabT13B:*       # Primetab T13B
+sensor:modalias:acpi:BOSC0200:*:dmi:*:svnTrekStor:pnSurfTabtwin11.6:*    # Surf Tab Twin 11.6 aka VolksTablet
  ACCEL_MOUNT_MATRIX=1, 0, 0; 0, -1, 0; 0, 0, 1
 
 # alternative version of Trekstor's SurfTab Twin 11.6
-sensor:modalias:acpi:BOSC0200*:dmi:*:bvrTP15-VT5.2.1.3:*:svnTrekStor*:pnSurfTabtwin11.6:*
+sensor:modalias:acpi:BOSC0200*:dmi:*:bvrTP15-VT5.2.1.3:*:svnTrekStor:pnSurfTabtwin11.6:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, -1
 
-sensor:modalias:acpi:KIOX010A*:dmi:*:svnTREKSTOR:pnPrimebookC11B:*
-sensor:modalias:acpi:KIOX010A*:dmi:*:svnTREKSTOR:pnPrimebookC13:*
-sensor:modalias:acpi:KIOX010A*:dmi:*:svnTREKSTOR:pnPRIMEBOOKC11B:*
-sensor:modalias:acpi:KIOX010A*:dmi:*:svnTREKSTOR:pnYourbookC11B:*
-sensor:modalias:acpi:KIOX010A*:dmi:*:svnTREKSTOR:pnYOURBOOKC11B:*
+sensor:modalias:acpi:KIOX010A:*:dmi:*:svnTREKSTOR:pnPrimebookC11B:*      # Primebook C11B
+sensor:modalias:acpi:KIOX010A:*:dmi:*:svnTREKSTOR:pnPRIMEBOOKC11B:*      # Primebook C11B
+sensor:modalias:acpi:KIOX010A:*:dmi:*:svnTREKSTOR:pnYourbookC11B:*       # Yourbook C11B
+sensor:modalias:acpi:KIOX010A:*:dmi:*:svnTREKSTOR:pnYOURBOOKC11B:*       # Yourbook C11B
+sensor:modalias:acpi:KIOX010A:*:dmi:*:svnTREKSTOR:pnPrimebookC13:*       # Primebook C13
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, -1
  ACCEL_LOCATION=display
 
-sensor:modalias:acpi:KIOX020A*:dmi:*:svnTREKSTOR:pnPrimebookC11B:*
-sensor:modalias:acpi:KIOX020A*:dmi:*:svnTREKSTOR:pnPRIMEBOOKC11B:*
-sensor:modalias:acpi:KIOX020A*:dmi:*:svnTREKSTOR:pnPrimebookC13:*
-sensor:modalias:acpi:KIOX020A*:dmi:*:svnTREKSTOR:pnYourbookC11B:*
-sensor:modalias:acpi:KIOX020A*:dmi:*:svnTREKSTOR:pnYOURBOOKC11B:*
+sensor:modalias:acpi:KIOX020A:*:dmi:*:svnTREKSTOR:pnPrimebookC11B:*      # Primebook C11B
+sensor:modalias:acpi:KIOX020A:*:dmi:*:svnTREKSTOR:pnPRIMEBOOKC11B:*      # Primebook C11B
+sensor:modalias:acpi:KIOX020A:*:dmi:*:svnTREKSTOR:pnYourbookC11B:*       # Yourbook C11B
+sensor:modalias:acpi:KIOX020A:*:dmi:*:svnTREKSTOR:pnYOURBOOKC11B:*       # Yourbook C11B
+sensor:modalias:acpi:KIOX020A:*:dmi:*:svnTREKSTOR:pnPrimebookC13:*       # Primebook C13
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
  ACCEL_LOCATION=base
 
