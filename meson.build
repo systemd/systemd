@@ -1695,7 +1695,6 @@ conf.set10('SYSTEMD_SLOW_TESTS_DEFAULT', want_slow_tests)
 
 pymod = import('python')
 python = pymod.find_installation('python3', required : true, modules : ['jinja2'])
-python_39 = python.language_version().version_compare('>=3.9')
 
 #####################################################################
 
@@ -1898,7 +1897,7 @@ endif
 
 pefile = pymod.find_installation('python3', required: false, modules : ['pefile'])
 
-want_ukify = get_option('ukify').require(python_39 and (want_tests != 'true' or pefile.found()), error_message : 'Python >= 3.9 and pefile required').allowed()
+want_ukify = get_option('ukify').require(want_tests != 'true' or pefile.found(), error_message : 'pefile required').allowed()
 conf.set10('ENABLE_UKIFY', want_ukify)
 
 #####################################################################

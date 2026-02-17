@@ -47,7 +47,7 @@ jobs:
           # older glibc
           - env: { COMPILER: "gcc",   COMPILER_VERSION: "12", LINKER: "bfd", CUSTOM_PYTHON: "1"  }
             runner: [ ubuntu-22.04 ]
-            python-version: '3.7'
+            python-version: '3.9'
     env: ${{ matrix.env }}
     steps:
       - name: Repository checkout
