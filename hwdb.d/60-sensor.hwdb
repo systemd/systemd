@@ -795,12 +795,10 @@ sensor:modalias:acpi:SMO8500:*:dmi:*:svnMicro-StarInternationalCo.,Ltd.:pnS100:*
 # MYRIA
 #########################################
 
-# MY8307
-sensor:modalias:acpi:BOSC0200*:dmi:*:svnCompletElectroServ:pnMY8307:*
+sensor:modalias:acpi:BOSC0200:*:dmi:*:svnCompletElectroServ:pnMY8307:*      # MY8307
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
-# MY8312
-sensor:modalias:acpi:KIOX010A*:dmi:*:svnCompletElectroServSA:pnMY8312:*
+sensor:modalias:acpi:KIOX010A:*:dmi:*:svnCompletElectroServSA:pnMY8312:*    # MY8312
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, 1
 
 #########################################
