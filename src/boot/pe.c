@@ -288,6 +288,10 @@ static void pe_locate_sections_internal(
                         if ((size_t) j->VirtualSize > size_max)
                                 continue;
 
+                        /* Overflow check: ignore sections where SizeOfRawData is greater than VirtualSize */
+                        if (j->SizeOfRawData > j->VirtualSize)
+                                continue;
+
                         /* 2nd overflow check: ignore sections that are impossibly large also taking the
                          * loaded base into account. */
                         if (validate_base != 0) {
