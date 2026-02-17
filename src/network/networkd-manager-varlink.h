@@ -4,3 +4,4 @@
 #include "networkd-forward.h"
 
 int manager_varlink_init(Manager *m, int fd);
+int manager_varlink_metrics_init(Manager *m, int metrics_fd);
