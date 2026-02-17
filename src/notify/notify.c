@@ -20,6 +20,7 @@
 #include "log.h"
 #include "main-func.h"
 #include "notify-recv.h"
+#include "option-parser.h"
 #include "parse-util.h"
 #include "pidref.h"
 #include "pretty-print.h"
@@ -55,6 +56,8 @@ STATIC_DESTRUCTOR_REGISTER(arg_exec, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_fds, fdset_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_fdname, freep);
 
+#include "notify.c.inc"
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -67,22 +70,7 @@ static int help(void) {
                "%s [OPTIONS...] --exec [VARIABLE=VALUE...] ; -- CMDLINE...\n"
                "%s [OPTIONS...] --fork -- CMDLINE...\n"
                "\n%sNotify the init system about service status updates.%s\n\n"
-               "  -h --help            Show this help\n"
-               "     --version         Show package version\n"
-               "     --ready           Inform the service manager about service start-up/reload\n"
-               "                       completion\n"
-               "     --reloading       Inform the service manager about configuration reloading\n"
-               "     --stopping        Inform the service manager about service shutdown\n"
-               "     --pid[=PID]       Set main PID of daemon\n"
-               "     --uid=USER        Set user to send from\n"
-               "     --status=TEXT     Set status text\n"
-               "     --booted          Check if the system was booted up with systemd\n"
-               "     --no-block        Do not wait until operation finished\n"
-               "     --exec            Execute command line separated by ';' once done\n"
-               "     --fd=FD           Pass specified file descriptor with along with message\n"
-               "     --fdname=NAME     Name to assign to passed file descriptor(s)\n"
-               "     --fork            Receive notifications from child rather than sending them\n"
-               "  -q --quiet           Do not show PID of child when forking\n"
+               OPTION_HELP_GENERATED
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                program_invocation_short_name,
@@ -162,72 +150,37 @@ from_self:
 }
 
 static int parse_argv(int argc, char *argv[]) {
-
-        enum {
-                ARG_READY = 0x100,
-                ARG_RELOADING,
-                ARG_STOPPING,
-                ARG_VERSION,
-                ARG_PID,
-                ARG_STATUS,
-                ARG_BOOTED,
-                ARG_UID,
-                ARG_NO_BLOCK,
-                ARG_EXEC,
-                ARG_FD,
-                ARG_FDNAME,
-                ARG_FORK,
-        };
-
-        static const struct option options[] = {
-                { "help",      no_argument,       NULL, 'h'           },
-                { "version",   no_argument,       NULL, ARG_VERSION   },
-                { "ready",     no_argument,       NULL, ARG_READY     },
-                { "reloading", no_argument,       NULL, ARG_RELOADING },
-                { "stopping",  no_argument,       NULL, ARG_STOPPING  },
-                { "pid",       optional_argument, NULL, ARG_PID       },
-                { "status",    required_argument, NULL, ARG_STATUS    },
-                { "booted",    no_argument,       NULL, ARG_BOOTED    },
-                { "uid",       required_argument, NULL, ARG_UID       },
-                { "no-block",  no_argument,       NULL, ARG_NO_BLOCK  },
-                { "exec",      no_argument,       NULL, ARG_EXEC      },
-                { "fd",        required_argument, NULL, ARG_FD        },
-                { "fdname",    required_argument, NULL, ARG_FDNAME    },
-                { "fork",      no_argument,       NULL, ARG_FORK      },
-                { "quiet",     no_argument,       NULL, 'q'           },
-                {}
-        };
-
         _cleanup_fdset_free_ FDSet *passed = NULL;
         bool do_exec = false;
         int c, r;
 
-        assert(argc >= 0);
-        assert(argv);
-
-        while ((c = getopt_long(argc, argv, "hq", options, NULL)) >= 0) {
-
+        while ((c = option_parse(OPTSTRING, options, argc, argv)) > OPTION_VALUE_MIN)
                 switch (c) {
 
-                case 'h':
+                case OPTION_HELP:
                         return help();
 
-                case ARG_VERSION:
+                case OPTION_VERSION:
                         return version();
 
-                case ARG_READY:
+                case OPTION_READY:
+                        // help: Inform the service manager about service start-up/reload completion
                         arg_ready = true;
                         break;
 
-                case ARG_RELOADING:
+                case OPTION_RELOADING:
+                        // help: Inform service manager about configuration reloading
                         arg_reloading = true;
                         break;
 
-                case ARG_STOPPING:
+                case OPTION_STOPPING:
+                        // help: Inform service manager about service shutdown
                         arg_stopping = true;
                         break;
 
-                case ARG_PID:
+                case OPTION_PID:
+                        // option: --pid[=PID]
+                        // help: Set main PID of daemon
                         pidref_done(&arg_pid);
 
                         if (isempty(optarg) || streq(optarg, "auto"))
@@ -243,15 +196,9 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
-                case ARG_STATUS:
-                        arg_status = optarg;
-                        break;
-
-                case ARG_BOOTED:
-                        arg_action = ACTION_BOOTED;
-                        break;
-
-                case ARG_UID: {
+                case OPTION_UID: {
+                        // option: --uid=USER
+                        // help: Set user to send from
                         const char *u = optarg;
 
                         r = get_user_creds(&u, &arg_uid, &arg_gid, NULL, NULL, 0);
@@ -263,15 +210,30 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                case ARG_NO_BLOCK:
+                case OPTION_STATUS:
+                        // option: --status=TEXT
+                        // help: Set status text
+                        arg_status = optarg;
+                        break;
+
+                case OPTION_BOOTED:
+                        // help: Check if the system was booted up with systemd
+                        arg_action = ACTION_BOOTED;
+                        break;
+
+                case OPTION_NO_BLOCK:
+                        // help: Do not wait until operation finished
                         arg_no_block = true;
                         break;
 
-                case ARG_EXEC:
+                case OPTION_EXEC:
+                        // help: Execute command line separated by ';' once done
                         do_exec = true;
                         break;
 
-                case ARG_FD: {
+                case OPTION_FD: {
+                        // option: --fd=FD
+                        // help: Pass specified file descriptor with along with message
                         _cleanup_close_ int owned_fd = -EBADF;
                         int fdnr;
 
@@ -310,7 +272,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                case ARG_FDNAME:
+                case OPTION_FDNAME:
+                        // option: --fdname=NAME
+                        // help: Name to assign to passed file descriptors
                         if (!fdname_is_valid(optarg))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "File descriptor name invalid: %s", optarg);
 
@@ -319,21 +283,20 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
-                case ARG_FORK:
+                case OPTION_FORK:
+                        // help: Receive notifications from child rather than sending them
                         arg_action = ACTION_FORK;
                         break;
 
-                case 'q':
+                case OPTION_QUIET:
+                        // option: -q --quiet
+                        // help: Do not show PID of child when forking
                         arg_quiet = true;
                         break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
-        }
+
+        if (c < 0)
+                return c;
 
         bool have_env = arg_ready || arg_stopping || arg_reloading || arg_status || pidref_is_set(&arg_pid) || !fdset_isempty(arg_fds);
 
