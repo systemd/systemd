@@ -243,6 +243,9 @@ acpi:JSYS*:
 acpi:JUMP*:
  ID_VENDOR_FROM_DATABASE=JUMPtec GmbH
 
+acpi:KAYA*:
+ ID_VENDOR_FROM_DATABASE=KAYA N CO., LTD.
+
 acpi:KIOX*:
  ID_VENDOR_FROM_DATABASE=Kionix, Inc.
 
@@ -269,6 +272,9 @@ acpi:MCRY*:
 
 acpi:MIPI*:
  ID_VENDOR_FROM_DATABASE=MIPI Alliance
+
+acpi:MITH*:
+ ID_VENDOR_FROM_DATABASE=Mesiontech
 
 acpi:MRVL*:
  ID_VENDOR_FROM_DATABASE=Marvell Technology Group Ltd.

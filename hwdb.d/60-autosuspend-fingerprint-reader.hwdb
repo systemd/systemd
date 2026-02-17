@@ -169,7 +169,9 @@ usb:v04F3p0C99*
 usb:v04F3p0C9D*
 usb:v04F3p0C9F*
 usb:v04F3p0CA3*
+usb:v04F3p0CA7*
 usb:v04F3p0CA8*
+usb:v04F3p0CB0*
  ID_AUTOSUSPEND=1
  ID_PERSIST=0
 
@@ -258,6 +260,7 @@ usb:v06CBp00C2*
 usb:v06CBp00C4*
 usb:v06CBp00C6*
 usb:v06CBp00DF*
+usb:v06CBp00E9*
 usb:v06CBp00F0*
 usb:v06CBp00F9*
 usb:v06CBp00FC*
@@ -385,10 +388,12 @@ usb:v06CBp0088*
 usb:v06CBp008A*
 usb:v06CBp009A*
 usb:v06CBp009B*
+usb:v06CBp00A1*
 usb:v06CBp00A2*
 usb:v06CBp00A8*
 usb:v06CBp00B7*
 usb:v06CBp00BB*
+usb:v06CBp00BC*
 usb:v06CBp00BE*
 usb:v06CBp00CB*
 usb:v06CBp00C9*
@@ -397,7 +402,6 @@ usb:v06CBp00DA*
 usb:v06CBp00DC*
 usb:v06CBp00E4*
 usb:v06CBp00E7*
-usb:v06CBp00E9*
 usb:v06CBp00FD*
 usb:v06CBp00FF*
 usb:v0A5Cp5801*
@@ -418,9 +422,11 @@ usb:v0A5Cp5867*
 usb:v0BDAp5812*
 usb:v10A5p0007*
 usb:v10A5p9200*
+usb:v10A5p9201*
 usb:v10A5p9800*
 usb:v10A5pA120*
 usb:v10A5pA900*
+usb:v10A5pA921*
 usb:v10A5pE340*
 usb:v1188p9545*
 usb:v138Ap0007*
@@ -474,12 +480,14 @@ usb:v27C6p5E0A*
 usb:v27C6p581A*
 usb:v27C6p589A*
 usb:v27C6p5F10*
+usb:v27C6p5F91*
 usb:v27C6p6382*
 usb:v2808p9338*
 usb:v2808p9348*
 usb:v2808p93A9*
 usb:v2808pA658*
 usb:v2808pC652*
+usb:v2808pA553*
 usb:v298Dp2020*
 usb:v298Dp2033*
 usb:v2DF0p0003*

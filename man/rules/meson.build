@@ -926,6 +926,7 @@ manpages = [
    'sd_session_get_uid',
    'sd_session_get_username',
    'sd_session_get_vt',
+   'sd_session_has_extra_device_access',
    'sd_session_is_remote'],
   'HAVE_PAM'],
  ['sd_uid_get_state',
