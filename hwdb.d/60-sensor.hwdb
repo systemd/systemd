@@ -936,7 +936,7 @@ sensor:modalias:acpi:MDA6655:*:dmi:*:svnPositivoTecnologiaSA:*:rnK116J:*     # D
 #########################################
 
 # Predia Basic tablet, most DMI strings are generic, match on BIOS version
-sensor:modalias:acpi:BOSC0200*:dmi:bvnINSYDECorp.:bvrMx.WT107.KUBNGEA*svnInsyde:pnCherryTrail:*
+sensor:modalias:acpi:BOSC0200:*:dmi:bvnINSYDECorp.:bvrMx.WT107.KUBNGEA*:*:svnInsyde:pnCherryTrail:*
  ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
 #########################################
