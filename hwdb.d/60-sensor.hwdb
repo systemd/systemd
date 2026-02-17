@@ -1094,16 +1094,13 @@ sensor:modalias:acpi:SMO8500:*:dmi:bvnAmericanMegatrendsInc.:bvr5.6.5:bd11/20/20
  ACCEL_MOUNT_MATRIX=0, -1, 0; 1, 0, 0; 0, 0, -1
 
 #########################################
-# Wortmann
+# Wortmann AG
 #########################################
 
-# Wortmann AG TERRA PAD 1061
-sensor:modalias:acpi:KIOX000A*:dmi:*:svnWortmann_AG:pnTERRA_PAD_1061:*
+sensor:modalias:acpi:KIOX000A:*:dmi:*:svnWortmann_AG:pnTERRA_PAD_1061:*    # TERRA PAD 1061 (KIOX000A accel)
  ACCEL_MOUNT_MATRIX=0, -1, 0; 1, 0, 0; 0, 0, -1
 
-# Wortmann AG TERRA PAD 1061
-# This is a variant with another sensor.
-sensor:modalias:acpi:SMO8500*:dmi:*:svnWortmann_AG:pnTERRA_PAD_1061:*
+sensor:modalias:acpi:SMO8500:*:dmi:*:svnWortmann_AG:pnTERRA_PAD_1061:*     # TERRA PAD 1061 (SMO8500 accel)
  ACCEL_MOUNT_MATRIX=0, -1, 0; 1, 0, 0; 0, 0, 1
 
 #########################################
