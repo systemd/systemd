@@ -46,9 +46,15 @@ CHANGES WITH 260 in spe:
 
         * Support for non-system users and groups in udev rules and
           systemd-networkd configuration has been restored, but is deprecated
-          and discouraged. systemd-udevd and systemd-networkd will emit
-          warnings when non-system accounts are used. This support will be
-          removed in a future release.
+          and discouraged. systemd-udevd will emits warnings if a non-system
+          user/group is specified in OWNER=/GROUP=. Similarly, systemd-networkd
+          will warn about User=/Group= settings with a non-system user/group
+          specified in .netdev files for Tun/Tap interfaces. This support will
+          be removed in a future release.
+
+          Device nodes should not be owned by a non-system user/group. It is
+          recommended to check udev rules files with 'udevadm verify' and/or
+          'udevadm test' commands .
 
         New system interfaces and components:
 
@@ -215,10 +221,10 @@ CHANGES WITH 260 in spe:
 
         Changes in units:
 
-        * runlevel[0-6].target was removed in v258 has been restored when the
-          newly introduced -Dcompat-sysv-interfaces=BOOL meson option is
-          enabled. The installation of legacy.conf for tmpfiles is now also
-          conditionalized with the meson option.
+        * runlevel[0-6].target units that were removed in v258 have been
+          restored when the newly introduced -Dcompat-sysv-interfaces=BOOL
+          meson option is enabled. The installation of legacy.conf for tmpfiles
+          is now also conditionalized with the meson option.
 
         * systemd-portabled now runs also in the user session in the new
           systemd-portabled.service unit.
@@ -860,14 +866,17 @@ CHANGES WITH 258:
           an incompatible change of sorts, since per-user services will
           typically not be available for such PAM sessions of system users.
 
-        * systemd-udevd warns about OWNER=/GROUP= settings with a non-system
-          user/group specified in udev rules files. Device nodes should not be
+        * systemd-udevd ignores OWNER=/GROUP= settings with a non-system
+          user/group specified in udev rules files, to avoid device nodes being
           owned by a non-system user/group. It is recommended to check udev
           rules files with 'udevadm verify' and/or 'udevadm test' commands if
           the specified user/group in OWNER=/GROUP= are valid.
-          Similarly, systemd-networkd will warn about User=/Group= settings
-          with a non-system user/group specified in .netdev files for Tun/Tap
+          Similarly, systemd-networkd refuses User=/Group= settings with a
+          non-system user/group specified in .netdev files for Tun/Tap
           interfaces.
+
+          NOTE: this change was partially reverted in v260 and the patch may be
+          backported to the v259-stable branch.
 
         * systemd-cryptenroll, systemd-repart and systemd-creds no longer
           default to locking TPM2 enrollments to the current, literal value of
