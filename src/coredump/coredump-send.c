@@ -241,7 +241,7 @@ int coredump_send_to_container(CoredumpContext *context) {
         _cleanup_(pidref_done) PidRef leader_pid = PIDREF_NULL;
         r = namespace_get_leader(&context->pidref, NAMESPACE_PID, &leader_pid);
         if (r < 0)
-                return log_debug_errno(r, "Failed to get namespace leader: %m");
+                return log_error_errno(r, "Failed to get namespace leader: %m");
 
         r = can_forward_coredump(&context->pidref, &leader_pid);
         if (r <= 0)
@@ -258,33 +258,33 @@ int coredump_send_to_container(CoredumpContext *context) {
 
         r = RET_NERRNO(socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, pair));
         if (r < 0)
-                return log_debug_errno(r, "Failed to create socket pair: %m");
+                return log_error_errno(r, "Failed to create socket pair: %m");
 
         r = setsockopt_int(pair[1], SOL_SOCKET, SO_PASSCRED, true);
         if (r < 0)
-                return log_debug_errno(r, "Failed to set SO_PASSCRED: %m");
+                return log_error_errno(r, "Failed to set SO_PASSCRED: %m");
 
         r = pidref_namespace_open(&leader_pid, &pidnsfd, &mntnsfd, &netnsfd, &usernsfd, &rootfd);
         if (r < 0)
-                return log_debug_errno(r, "Failed to open namespaces of PID " PID_FMT ": %m", leader_pid.pid);
+                return log_error_errno(r, "Failed to open namespaces of PID " PID_FMT ": %m", leader_pid.pid);
 
         r = namespace_fork("(sd-coredumpns)", "(sd-coredump)",
                            FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM,
                            pidnsfd, mntnsfd, netnsfd, usernsfd, rootfd, &child);
         if (r < 0)
-                return log_debug_errno(r, "Failed to fork into namespaces of PID " PID_FMT ": %m", leader_pid.pid);
+                return log_error_errno(r, "Failed to fork into namespaces of PID " PID_FMT ": %m", leader_pid.pid);
         if (r == 0) {
                 pair[0] = safe_close(pair[0]);
 
                 r = access_nofollow("/run/systemd/coredump", W_OK);
                 if (r < 0) {
-                        log_debug_errno(r, "Cannot find coredump socket, exiting: %m");
+                        log_error_errno(r, "Cannot find coredump socket, exiting: %m");
                         _exit(EXIT_FAILURE);
                 }
 
                 r = receive_ucred(pair[1], &ucred);
                 if (r < 0) {
-                        log_debug_errno(r, "Failed to receive ucred and fd: %m");
+                        log_error_errno(r, "Failed to receive ucred and fd: %m");
                         _exit(EXIT_FAILURE);
                 }
 
@@ -309,7 +309,7 @@ int coredump_send_to_container(CoredumpContext *context) {
 
                 r = coredump_send(context);
                 if (r < 0) {
-                        log_debug_errno(r, "Failed to send iovec to coredump socket: %m");
+                        log_error_errno(r, "Failed to send iovec to coredump socket: %m");
                         _exit(EXIT_FAILURE);
                 }
 
@@ -324,13 +324,13 @@ int coredump_send_to_container(CoredumpContext *context) {
          * container. The kernel will perform the translation for us. */
         r = send_ucred(pair[0], &ucred);
         if (r < 0)
-                return log_debug_errno(r, "Failed to send metadata to container: %m");
+                return log_error_errno(r, "Failed to send metadata to container: %m");
 
-        r = pidref_wait_for_terminate_and_check("(sd-coredumpns)", &child, 0);
+        r = pidref_wait_for_terminate_and_check("(sd-coredumpns)", &child, WAIT_LOG);
         if (r < 0)
-                return log_debug_errno(r, "Failed to wait for child to terminate: %m");
+                return r;
         if (r != EXIT_SUCCESS)
-                return log_debug_errno(SYNTHETIC_ERRNO(EPROTO), "Failed to process coredump in container.");
+                return -EPROTO;
 
         return 1; /* sent */
 }
