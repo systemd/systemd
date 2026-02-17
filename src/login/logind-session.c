@@ -45,6 +45,7 @@
 #include "process-util.h"
 #include "serialize.h"
 #include "string-table.h"
+#include "strv.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
 #include "user-record.h"
@@ -210,6 +211,7 @@ Session* session_free(Session *s) {
         free(s->remote_user);
         free(s->service);
         free(s->desktop);
+        strv_free(s->extra_device_access);
 
         hashmap_remove(s->manager->sessions, s->id);
 
@@ -278,24 +280,37 @@ static void session_save_devices(Session *s, FILE *f) {
         }
 }
 
-static int trigger_xaccess(void) {
+static int trigger_xaccess(char * const *extra_devices) {
         int r;
+
+        if (strv_isempty(extra_devices))
+                return 0;
+
+        _cleanup_strv_free_ char **tags = NULL;
+        r = strv_extend_strv_biconcat(&tags, "xaccess-", (const char * const *)extra_devices, /* suffix= */ NULL);
+        if (r < 0)
+                return r;
 
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         r = sd_device_enumerator_new(&e);
         if (r < 0)
                 return r;
 
-        r = sd_device_enumerator_add_match_tag(e, "xaccess");
-        if (r < 0)
-                return r;
+        STRV_FOREACH(tag, tags) {
+                r = sd_device_enumerator_add_match_tag(e, *tag);
+                if (r < 0)
+                        return r;
+        }
 
         FOREACH_DEVICE(e, d) {
                 /* Verify that the tag is still in place. */
-                r = sd_device_has_current_tag(d, "xaccess");
-                if (r < 0)
-                        return r;
-                if (r == 0)
+                bool has_xaccess = false;
+                STRV_FOREACH(tag, tags)
+                        if (sd_device_has_current_tag(d, *tag)) {
+                                has_xaccess = true;
+                                break;
+                        }
+                if (!has_xaccess)
                         continue;
 
                 /* In case people mistag devices without nodes, we need to ignore this. */
@@ -349,14 +364,12 @@ int session_save(Session *s) {
                 "IS_DISPLAY=%s\n"
                 "STATE=%s\n"
                 "REMOTE=%s\n"
-                "EXTRA_DEVICE_ACCESS=%s\n"
                 "LEADER_FD_SAVED=%s\n",
                 s->user->user_record->uid,
                 one_zero(session_is_active(s)),
                 one_zero(s->user->display == s),
                 session_state_to_string(session_get_state(s)),
                 one_zero(s->remote),
-                one_zero(s->extra_device_access),
                 one_zero(s->leader_fd_saved));
 
         env_file_fputs_assignment(f, "USER=", s->user->user_record->user_name);
@@ -412,6 +425,13 @@ int session_save(Session *s) {
         if (s->controller) {
                 env_file_fputs_assignment(f, "CONTROLLER=", s->controller);
                 session_save_devices(s, f);
+        }
+
+        if (s->extra_device_access) {
+                _cleanup_free_ char *extra_devices = strv_join(s->extra_device_access, " ");
+                if (!extra_devices)
+                        return log_oom();
+                fprintf(f, "EXTRA_DEVICE_ACCESS=%s\n", extra_devices);
         }
 
         r = flink_tmpfile(f, temp_path, s->state_file, LINK_TMPFILE_REPLACE);
@@ -586,9 +606,9 @@ int session_load(Session *s) {
         }
 
         if (extra_device_access) {
-                k = parse_boolean(extra_device_access);
-                if (k >= 0)
-                        s->extra_device_access = k;
+                s->extra_device_access = strv_split(extra_device_access, /* separators= */ NULL);
+                if (!s->extra_device_access)
+                        return log_oom();
         }
 
         if (vtnr)
@@ -915,8 +935,7 @@ int session_start(Session *s, sd_bus_message *properties, sd_bus_error *error) {
         if (s->seat)
                 (void) seat_save(s->seat);
 
-        if (s->extra_device_access)
-                (void) trigger_xaccess();
+        (void) trigger_xaccess(s->extra_device_access);
 
         /* Send signals */
         (void) session_send_signal(s, true);
@@ -1008,8 +1027,7 @@ int session_stop(Session *s, bool force) {
         (void) session_save(s);
         (void) user_save(s->user);
 
-        if (s->extra_device_access)
-                (void) trigger_xaccess();
+        (void) trigger_xaccess(s->extra_device_access);
 
         return r;
 }
