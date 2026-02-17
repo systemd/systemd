@@ -4368,15 +4368,8 @@ static int outer_child(
                 /* The inner child has all namespaces that are requested, so that we all are owned by the
                  * user if user namespaces are turned on. */
 
-                if (arg_network_namespace_path) {
-                        r = namespace_enter(/* pidns_fd= */ -EBADF,
-                                            /* mntns_fd= */ -EBADF,
-                                            netns_fd,
-                                            /* userns_fd= */ -EBADF,
-                                            /* root_fd= */ -EBADF);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to join network namespace: %m");
-                }
+                if (arg_network_namespace_path && setns(netns_fd, CLONE_NEWNET) < 0)
+                        return log_error_errno(errno, "Failed to join network namespace: %m");
 
                 if (arg_userns_mode == USER_NAMESPACE_MANAGED) {
                         /* In managed usernamespace operation, sysfs + procfs are special, we'll have to
