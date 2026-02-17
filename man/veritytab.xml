@@ -298,6 +298,18 @@ This is based on crypttab(5).
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>tpm2-measure-nvpcr=</option></term>
+
+        <listitem><para>Takes a boolean argument, or an NvPCR name as argument. May be used to enable
+        automatic measurement of the volume name and Verity root hash, as well as the serials and issuers of
+        the certificates used to generate the provided signatures (if any) will be measured. Passing false
+        disables the mechanism. Passing true enables measurement into the <literal>verity</literal> NvPCR. If
+        any other string is specified this selects the NvPCR to measure into by name.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
     </variablelist>
 
     <para>At early boot and when the system manager configuration is

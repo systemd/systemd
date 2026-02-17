@@ -152,6 +152,7 @@ shared_sources = files(
         'pcre2-util.c',
         'pcrextend-util.c',
         'pe-binary.c',
+        'pkcs7-util.c',
         'pkcs11-util.c',
         'plymouth-util.c',
         'polkit-agent.c',

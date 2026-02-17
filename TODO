@@ -720,10 +720,6 @@ Features:
   deleting entries for rotation, place an event that declares how many items
   have been dropped, and what the hash before and after that.
 
-* measure information about all DDIs as we activate them to an NvPCR. We
-  probably should measure the dm-verity root hash from the kernel side, but
-  DDI meta info from userspace.
-
 * use name_to_handle_at() with AT_HANDLE_FID instead of .st_ino (inode
   number) for identifying inodes, for example in copy.c when finding hard
   links, or loop-util.c for tracking backing files, and other places.
@@ -1299,9 +1295,9 @@ Features:
   - If run on every boot, should it use the sysupdate config from the host on
     subsequent boots?
 
-* To mimic the new tpm2-measure-pcr= crypttab option add the same to veritytab
-  (measuring the root hash) and integritytab (measuring the HMAC key if one is
-  used)
+* To mimic the new tpm2-measure-pcr= crypttab option and tpm2-measure-nvpcr=
+  veritytab option, add the same to integritytab (measuring the HMAC key if one
+  is used)
 
 * We should start measuring all services, containers, and system extensions we
   activate. probably into PCR 13. i.e. add --tpm2-measure-pcr= or so to
@@ -1719,18 +1715,6 @@ Features:
   including a path to an AF_UNIX path, similar to how we do things with the
   keys of /etc/crypttab. That way people can store/provide the roothash
   externally and provide to us on demand only.
-
-* we probably should extend the root verity hash of the root fs into some PCR
-  on boot. (i.e. maybe add a veritytab option tpm2-measure=12 or so to measure
-  it into PCR 12); Similar: we probably should extend the LUKS volume key of
-  the root fs into some PCR on boot. (i.e. maybe add a crypttab option
-  tpm2-measure=15 or so to measure it into PCR 15); once both are in place
-  update gpt-auto-discovery to generate these by default for the partitions it
-  discovers. Static vendor stuff should probably end up in PCR 12 (i.e. the
-  verity hash), with local keys in PCR 15 (i.e. the encryption volume
-  key). That way, we nicely distinguish resources supplied by the OS vendor
-  (i.e. sysext, root verity) from those inherently local (i.e. encryption key),
-  which is useful if they shall be signed separately.
 
 * rework recursive read-only remount to use new mount API
 

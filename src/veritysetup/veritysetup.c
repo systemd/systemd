@@ -16,9 +16,11 @@
 #include "main-func.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pcrextend-util.h"
 #include "pretty-print.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tpm2-util.h"
 #include "verbs.h"
 
 static char *arg_hash = NULL; /* the hash algorithm */
@@ -38,12 +40,14 @@ static uint64_t arg_fec_roots = 2;
 static void *arg_root_hash_signature = NULL;
 static size_t arg_root_hash_signature_size = 0;
 static bool arg_root_hash_signature_auto = false;
+static char *arg_tpm2_measure_nvpcr = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_hash, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_salt, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_uuid, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_fec_what, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root_hash_signature, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_tpm2_measure_nvpcr, freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -142,7 +146,7 @@ static int parse_options(const char *options) {
 
         for (;;) {
                 _cleanup_free_ char *word = NULL;
-                char *val;
+                const char *val;
 
                 r = extract_first_word(&options, &word, ",", EXTRACT_DONT_COALESCE_SEPARATORS | EXTRACT_UNESCAPE_SEPARATORS);
                 if (r < 0)
@@ -290,6 +294,21 @@ static int parse_options(const char *options) {
                         if (r < 0)
                                 return r;
 
+                } else if ((val = startswith(word, "tpm2-measure-nvpcr="))) {
+                        r = isempty(val) ? 0 : parse_boolean(val);
+                        if (r == 0) {
+                                arg_tpm2_measure_nvpcr = mfree(arg_tpm2_measure_nvpcr);
+                                return 0;
+                        }
+                        if (r > 0)
+                                val = "verity";
+                        else if (!tpm2_nvpcr_name_is_valid(val)) {
+                                log_warning("Invalid NvPCR name, ignoring: %s", word);
+                                return 0;
+                        }
+
+                        if (free_and_strdup(&arg_tpm2_measure_nvpcr, val) < 0)
+                                return log_oom();
                 } else
                         log_warning("Encountered unknown option '%s', ignoring.", word);
         }
@@ -422,6 +441,11 @@ static int verb_attach(int argc, char *argv[], void *userdata) {
                 r = crypt_activate_by_volume_key(cd, volume, rh, rh_size, arg_activate_flags);
         if (r < 0)
                 return log_error_errno(r, "Failed to set up verity device '%s': %m", volume);
+
+        (void) pcrextend_verity_now(
+                        volume,
+                        &IOVEC_MAKE(rh, rh_size),
+                        &IOVEC_MAKE(arg_root_hash_signature, arg_root_hash_signature_size));
 
         return 0;
 }

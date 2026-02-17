@@ -2,6 +2,7 @@
 
 #include "sd-device.h"
 #include "sd-id128.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "blkid-util.h"
@@ -10,10 +11,13 @@
 #include "errno-util.h"
 #include "escape.h"
 #include "fd-util.h"
+#include "hexdecoct.h"
 #include "id128-util.h"
+#include "iovec-util.h"
 #include "log.h"
 #include "mountpoint-util.h"
 #include "pcrextend-util.h"
+#include "pkcs7-util.h"
 #include "string-util.h"
 #include "strv.h"
 
@@ -179,4 +183,111 @@ int pcrextend_product_id_word(char **ret) {
 
         *ret = TAKE_PTR(word);
         return 0;
+}
+
+int pcrextend_verity_word(
+                const char *name,
+                const struct iovec *root_hash,
+                const struct iovec *root_hash_sig,
+                char **ret) {
+
+        int r;
+
+        assert(name);
+        assert(iovec_is_set(root_hash));
+
+        _cleanup_free_ char *name_escaped = xescape(name, ":"); /* Avoid ambiguity around ":" */
+        if (!name_escaped)
+                return log_oom();
+
+        _cleanup_free_ char *h = hexmem(root_hash->iov_base, root_hash->iov_len);
+        if (!h)
+                return log_oom();
+
+        _cleanup_free_ char *sigs = NULL;
+        if (iovec_is_set(root_hash_sig)) {
+                size_t n_signers = 0;
+                Signer *signers = NULL;
+
+                /* Let's extract the X.509 issuer + serial number from the PKCS#7 signature and include that
+                 * in the measurement record. This is useful since it allows us to have different signing
+                 * keys for confext + sysext + other types of DDIs, and by means of this information we can
+                 * discern which kind it was. Ideally, we'd measure the fingerprint of the X.509 certificate,
+                 * but typically that's not available in a PKCS#7 signature. */
+
+                CLEANUP_ARRAY(signers, n_signers, signer_free_many);
+
+                r = pkcs7_extract_signers(root_hash_sig, &signers, &n_signers);
+                if (r < 0)
+                        return r;
+
+                FOREACH_ARRAY(i, signers, n_signers) {
+                        _cleanup_free_ char *serial = hexmem(i->serial.iov_base, i->serial.iov_len);
+                        if (!serial)
+                                return log_oom();
+
+                        _cleanup_free_ char *issuer = NULL;
+                        if (base64mem(i->issuer.iov_base, i->issuer.iov_len, &issuer) < 0)
+                                return log_oom();
+
+                        if (strextendf_with_separator(&sigs, ",", "%s/%s", serial, issuer) < 0)
+                                return log_oom();
+                }
+        }
+
+        _cleanup_free_ char *word = strjoin("verity:", name_escaped, ":", h, ":", strempty(sigs));
+        if (!word)
+                return log_oom();
+
+        *ret = TAKE_PTR(word);
+        return 0;
+}
+
+int pcrextend_verity_now(
+                const char *name,
+                const struct iovec *root_hash,
+                const struct iovec *root_hash_sig) {
+
+#if HAVE_TPM2
+        int r;
+
+        _cleanup_free_ char *word = NULL;
+        r = pcrextend_verity_word(
+                        name,
+                        root_hash,
+                        root_hash_sig,
+                        &word);
+        if (r < 0)
+                return r;
+
+        _cleanup_free_ sd_varlink *vl = NULL;
+        r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.PCRExtend");
+        if (r < 0)
+                return r;
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
+        const char *error_id = NULL;
+        r = sd_varlink_callbo(
+                        vl,
+                        "io.systemd.PCRExtend.Extend",
+                        /* ret_reply= */ NULL,
+                        &error_id,
+                        SD_JSON_BUILD_PAIR_STRING("nvpcr", "verity"),
+                        SD_JSON_BUILD_PAIR_STRING("text", word),
+                        SD_JSON_BUILD_PAIR_STRING("eventType", "dm_verity"));
+        if (r < 0)
+                return log_debug_errno(r, "Failed to issue io.systemd.PCRExtend.Extend() varlink call: %m");
+        if (error_id) {
+                r = sd_varlink_error_to_errno(error_id, reply);
+                if (r != -EBADR)
+                        return log_debug_errno(r, "Failed to issue io.systemd.PCRExtend.Extend() varlink call: %m");
+
+                return log_debug_errno(r, "Failed to issue io.systemd.PCRExtend.Extend() varlink call: %s", error_id);
+        }
+
+        log_debug("Measurement of '%s' into 'images' NvPCR completed.", word);
+        return 1;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 support disabled, not measuring Verity root hashes and signatures.");
+#endif
 }
