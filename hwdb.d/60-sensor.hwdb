@@ -763,8 +763,7 @@ sensor:modalias:acpi:KIOX020A:*:dmi:*:rvnMEDION:rnMEDION*:*
 # METAPHYUNI
 #########################################
 
-# MetawillBook01
-sensor:modalias:acpi:KIOX000A*:dmi:*:rvnMETAPHYUNI:rnMetawillBook01:*
+sensor:modalias:acpi:KIOX000A:*:dmi:*:rvnMETAPHYUNI:rnMetawillBook01:*    # MetawillBook01
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, -1
  ACCEL_LOCATION=display
 
