@@ -72,7 +72,7 @@ CHANGES WITH 260 in spe:
 
         * A new "metrics" or "report" framework has been defined. Any component
           can hook into the reporting framework by providing a varlink endpoint
-          under /run/systemd/report. Such hookup has been added to the manager.
+          under /run/systemd/report. Such a hookup has been added to the manager.
 
           systemd-report is a new command line tool which collects the reports
           from all endpoints and prints them in JSON format.
@@ -112,13 +112,13 @@ CHANGES WITH 260 in spe:
           RouteMetric=, and UseGateway= settings. This allows systemd-networkd
           to establish a cellular modem connection to a broadband network.
 
-        * systemd-networkd now provides a varlink interface and varlinkctl
+        * systemd-networkd now provides a varlink interface and networkctl
           now uses varlink to connect to the daemon.
 
         Changes in systemd-boot and the stub:
 
         * The timeout in the boot menu can be configured with the
-          io.systmed.boot.timeout= SMBIOS type 11 string.
+          io.systemd.boot.timeout= SMBIOS type 11 string.
 
         Changes in libsystemd:
 
@@ -150,14 +150,14 @@ CHANGES WITH 260 in spe:
         * systemd-dissect gained a --copy-ownership= switch to configure
           ownership of copied files.
 
-        * systemd-portabled now runs also as a user service. Unprivileged users
+        * systemd-portabled now also runs as a user service. Unprivileged users
           can run portable services (on sufficiently fresh kernels).
 
         * systemd-portabled will now generate a policy and pin the image for a
           portable service, so that the image cannot be changed later without a
           reattach.
 
-        * systemd-keytil gained an 'extract-certicate' verb to print the X.509
+        * systemd-keyutil gained an 'extract-certificate' verb to print the X.509
           certificate.
 
         * bootctl is now also available as service over varlink. The new
