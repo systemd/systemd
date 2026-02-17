@@ -48,8 +48,11 @@ typedef struct Transfer {
         PartitionInfo partition_info;
         PartitionChange partition_change;
         char *final_partition_label;
-        char *temporary_partial_partition_label;
-        char *temporary_pending_partition_label;
+
+        /* Derived partition type UUIDs used to indicate partial/pending state on the partition type level,
+         * instead of polluting the partition label with prefixes */
+        sd_id128_t partition_type_partial;
+        sd_id128_t partition_type_pending;
 
         Context *context;
 } Transfer;

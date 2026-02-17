@@ -12,7 +12,8 @@ typedef enum PartitionChange {
         PARTITION_GROWFS          = 1 << 3,
         PARTITION_UUID            = 1 << 4,
         PARTITION_LABEL           = 1 << 5,
-        _PARTITION_CHANGE_MAX     = (1 << 6) - 1, /* all of the above */
+        PARTITION_TYPE            = 1 << 6,
+        _PARTITION_CHANGE_MAX     = (1 << 7) - 1, /* all of the above */
         _PARTITION_CHANGE_INVALID = -EINVAL,
 } PartitionChange;
 
@@ -39,6 +40,9 @@ void partition_info_destroy(PartitionInfo *p);
 int partition_info_copy(PartitionInfo *dest, const PartitionInfo *src);
 
 int read_partition_info(struct fdisk_context *c, struct fdisk_table *t, size_t i, PartitionInfo *ret);
+
+int gpt_partition_type_uuid_for_sysupdate_partial(sd_id128_t type, sd_id128_t *ret);
+int gpt_partition_type_uuid_for_sysupdate_pending(sd_id128_t type, sd_id128_t *ret);
 
 int find_suitable_partition(const char *device, uint64_t space, sd_id128_t *partition_type, PartitionInfo *ret);
 int patch_partition(const char *device, const PartitionInfo *info, PartitionChange change);
