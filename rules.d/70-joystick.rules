@@ -7,6 +7,6 @@ KERNEL!="event*", GOTO="joystick_end"
 # joystick:<bustype>:v<vid>p<pid>:name:<name>:*
 KERNELS=="input*", ENV{ID_BUS}!="", \
         IMPORT{builtin}="hwdb 'joystick:$env{ID_BUS}:v$attr{id/vendor}p$attr{id/product}:name:$attr{name}:'", \
-        GOTO="joystick_end"
+        ENV{ID_INTEGRATION}="$env{ID_INPUT_JOYSTICK_INTEGRATION}", GOTO="joystick_end"
 
 LABEL="joystick_end"
