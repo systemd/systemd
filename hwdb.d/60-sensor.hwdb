@@ -896,7 +896,8 @@ sensor:modalias:acpi:SMO8500:*:dmi:*:bvrV8L_WIN32_CHIPHD_*_DX:*:rvnAMICorporatio
 #########################################
 # Ployer
 #########################################
-sensor:modalias:acpi:BMA250E*:dmi:*:svnShenzhenPLOYER*:pnMOMO7W:*
+
+sensor:modalias:acpi:BMA250E:*:dmi:*:svnShenzhenPLOYER*:pnMOMO7W:*    # Momo7w
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
 
 #########################################
