@@ -221,6 +221,9 @@
           when the VM shuts down. This mode is not suitable for VMs which lock disk encryption keys to the
           TPM, as these keys will be lost on every reboot. Defaults to <literal>auto</literal>.</para>
 
+          <para>If <option>--ephemeral</option> is specified, <literal>auto</literal> behaves like
+          <literal>off</literal>.</para>
+
           <xi:include href="version-info.xml" xpointer="v258"/></listitem>
         </varlistentry>
 
