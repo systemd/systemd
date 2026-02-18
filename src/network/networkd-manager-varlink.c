@@ -10,6 +10,7 @@
 #include "hashmap.h"
 #include "json-util.h"
 #include "lldp-rx-internal.h"
+#include "metrics.h"
 #include "network-util.h"
 #include "networkd-dhcp-server.h"
 #include "networkd-json.h"
@@ -17,6 +18,7 @@
 #include "networkd-manager.h"
 #include "networkd-manager-varlink.h"
 #include "networkd-setlink.h"
+#include "networkd-varlink-metrics.h"
 #include "stat-util.h"
 #include "varlink-io.systemd.Network.h"
 #include "varlink-io.systemd.service.h"
@@ -380,5 +382,38 @@ int manager_varlink_init(Manager *m, int fd) {
                 return log_error_errno(r, "Failed to attach varlink connection to event loop: %m");
 
         m->varlink_server = TAKE_PTR(s);
+
+        return 0;
+}
+
+int manager_varlink_metrics_init(Manager *m, int metrics_fd) {
+        _unused_ _cleanup_close_ int metrics_fd_close = metrics_fd;
+        int r;
+
+        assert(m);
+
+        r = metrics_setup_varlink_server(
+                        &m->metrics_varlink_server,
+                        SD_VARLINK_SERVER_INHERIT_USERDATA,
+                        m->event,
+                        SD_EVENT_PRIORITY_NORMAL,
+                        vl_method_metrics_list,
+                        vl_method_metrics_describe,
+                        m);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set up metrics varlink server: %m");
+
+        if (metrics_fd < 0)
+                r = sd_varlink_server_listen_address(
+                                m->metrics_varlink_server,
+                                "/run/systemd/report/io.systemd.Network",
+                                0666 | SD_VARLINK_SERVER_MODE_MKDIR_0755);
+        else
+                r = sd_varlink_server_listen_fd(m->metrics_varlink_server, metrics_fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind to metrics varlink socket: %m");
+
+        TAKE_FD(metrics_fd_close);
+
         return 0;
 }

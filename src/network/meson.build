@@ -87,6 +87,7 @@ systemd_networkd_extract_sources = files(
         'networkd-state-file.c',
         'networkd-sysctl.c',
         'networkd-util.c',
+        'networkd-varlink-metrics.c',
         'networkd-wifi.c',
         'networkd-wiphy.c',
         'networkd-wwan.c',

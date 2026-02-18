@@ -245,3 +245,9 @@ systemd-run --wait --pipe --user --machine testuser@ \
 
 # test report
 systemd-report
+
+# test io.systemd.Network Metrics
+varlinkctl info /run/systemd/report/io.systemd.Network
+varlinkctl list-methods /run/systemd/report/io.systemd.Network
+varlinkctl --more call /run/systemd/report/io.systemd.Network io.systemd.Metrics.List {}
+varlinkctl --more call /run/systemd/report/io.systemd.Network io.systemd.Metrics.Describe {}
