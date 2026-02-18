@@ -64,11 +64,11 @@ def setUpModule():
     # Ensure we don't mess with an existing networkd config
     for u in [
         'systemd-networkd.socket',
-        'systemd-networkd-varlink.socket',
         'systemd-networkd-resolve-hook.socket',
+        'systemd-networkd-varlink.socket',
         'systemd-networkd.service',
-        'systemd-resolved-varlink.socket',
         'systemd-resolved-monitor.socket',
+        'systemd-resolved-varlink.socket',
         'systemd-resolved.service',
     ]:
         if subprocess.call(['systemctl', 'is-active', '--quiet', u]) == 0:
@@ -279,8 +279,8 @@ Gateway=192.168.250.1
 
     def tearDown(self):
         subprocess.check_call(['systemctl', 'stop', 'systemd-networkd.socket'])
-        subprocess.check_call(['systemctl', 'stop', 'systemd-networkd-varlink.socket'])
         subprocess.check_call(['systemctl', 'stop', 'systemd-networkd-resolve-hook.socket'])
+        subprocess.check_call(['systemctl', 'stop', 'systemd-networkd-varlink.socket'])
         subprocess.check_call(['systemctl', 'stop', 'systemd-networkd.service'])
         subprocess.check_call(['ip', 'link', 'del', 'mybridge'])
         subprocess.check_call(['ip', 'link', 'del', 'port1'])
@@ -376,8 +376,8 @@ class ClientTestBase(NetworkdTestingUtilities):
     def tearDown(self):
         self.shutdown_iface()
         subprocess.call(['systemctl', 'stop', 'systemd-networkd.socket'])
-        subprocess.call(['systemctl', 'stop', 'systemd-networkd-varlink.socket'])
         subprocess.call(['systemctl', 'stop', 'systemd-networkd-resolve-hook.socket'])
+        subprocess.call(['systemctl', 'stop', 'systemd-networkd-varlink.socket'])
         subprocess.call(['systemctl', 'stop', 'systemd-networkd.service'])
         subprocess.call(['ip', 'link', 'del', 'dummy0'],
                         stderr=subprocess.DEVNULL)
