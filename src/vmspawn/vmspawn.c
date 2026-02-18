@@ -85,7 +85,7 @@
 
 typedef enum TpmStateMode {
         TPM_STATE_OFF,      /* keep no state around */
-        TPM_STATE_AUTO,     /* keep state around, derive path from image/directory */
+        TPM_STATE_AUTO,     /* keep state around if not ephemeral, derive path from image/directory */
         TPM_STATE_PATH,     /* explicitly specified location */
         _TPM_STATE_MODE_MAX,
         _TPM_STATE_MODE_INVALID = -EINVAL,
@@ -2569,7 +2569,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         _cleanup_free_ char *swtpm = NULL;
         if (arg_tpm != 0) {
-                if (arg_tpm_state_mode == TPM_STATE_AUTO) {
+                if (arg_tpm_state_mode == TPM_STATE_AUTO && !arg_ephemeral) {
                         assert(!arg_tpm_state_path);
 
                         const char *p = ASSERT_PTR(arg_image ?: arg_directory);
