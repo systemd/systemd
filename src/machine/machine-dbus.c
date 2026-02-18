@@ -373,7 +373,7 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
          * do not need to check the caller's uid, as that will be checked by polkit, and if they machine's
          * and the caller's do not match, authorization will be required. It's only the case where the
          * caller owns the machine that will be shortcut and needs to be checked here. */
-        if (m->uid != 0 && m->class != MACHINE_HOST) {
+        if (m->manager->runtime_scope != RUNTIME_SCOPE_USER && m->uid != 0 && m->class != MACHINE_HOST) {
                 r = pidref_in_same_namespace(&PIDREF_MAKE_FROM_PID(1), &m->leader, NAMESPACE_USER);
                 if (r < 0)
                         return log_debug_errno(
