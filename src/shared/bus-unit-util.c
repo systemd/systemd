@@ -2468,6 +2468,7 @@ static const BusProperty execute_properties[] = {
         { "SELinuxContext",                        bus_append_string                             },
         { "RootImage",                             bus_append_string                             },
         { "RootVerity",                            bus_append_string                             },
+        { "RootMStack",                            bus_append_string                             },
         { "RuntimeDirectoryPreserve",              bus_append_string                             },
         { "Personality",                           bus_append_string                             },
         { "KeyringMode",                           bus_append_string                             },

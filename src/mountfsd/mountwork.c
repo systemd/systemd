@@ -662,6 +662,7 @@ static int vl_method_mount_image(
         if (r < 0)
                 return r;
 
+        _cleanup_(sd_varlink_unrefp) sd_varlink *nsresource_link = NULL;
         for (PartitionDesignator d = 0; d < _PARTITION_DESIGNATOR_MAX; d++) {
                 DissectedPartition *pp = di->partitions + d;
                 int fd_idx;
@@ -673,7 +674,14 @@ static int vl_method_mount_image(
                         continue;
 
                 if (userns_fd >= 0) {
-                        r = nsresource_add_mount(userns_fd, pp->fsmount_fd);
+
+                        if (!nsresource_link) {
+                                r = nsresource_connect(&nsresource_link);
+                                if (r < 0)
+                                        return r;
+                        }
+
+                        r = nsresource_add_mount(nsresource_link, userns_fd, pp->fsmount_fd);
                         if (r < 0)
                                 return r;
                 }
@@ -1206,7 +1214,7 @@ static int vl_method_mount_directory(
         }
 
         if (userns_fd >= 0) {
-                r = nsresource_add_mount(userns_fd, mount_fd);
+                r = nsresource_add_mount(/* vl= */ NULL, userns_fd, mount_fd);
                 if (r < 0)
                         return r;
         }

@@ -3053,7 +3053,7 @@ static bool shall_make_executable_absolute(void) {
         if (!arg_root_directory && running_in_chroot() > 0)
                 return false;
 
-        FOREACH_STRING(f, "RootDirectory=", "RootImage=", "ExecSearchPath=", "MountImages=", "ExtensionImages=")
+        FOREACH_STRING(f, "RootDirectory=", "RootImage=", "RootMStack=", "ExecSearchPath=", "MountImages=", "ExtensionImages=")
                 if (strv_find_startswith(arg_property, f))
                         return false;
 
