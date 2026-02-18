@@ -19,6 +19,7 @@
 #include "sd-id128.h"
 #include "sd-netlink.h"
 #include "sd-path.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "barrier.h"
@@ -69,6 +70,7 @@
 #include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
+#include "mstack.h"
 #include "namespace-util.h"
 #include "netlink-internal.h"
 #include "notify-recv.h"
@@ -204,6 +206,7 @@ struct ether_addr arg_network_provided_mac = {};
 static PagerFlags arg_pager_flags = 0;
 static unsigned long arg_personality = PERSONALITY_INVALID;
 static char *arg_image = NULL;
+static char *arg_mstack = NULL;
 static char *arg_oci_bundle = NULL;
 static VolatileMode arg_volatile_mode = VOLATILE_NO;
 static ExposePort *arg_expose_ports = NULL;
@@ -272,6 +275,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_network_bridge, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_network_zone, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_network_namespace_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_mstack, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_oci_bundle, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_property, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_property_message, sd_bus_message_unrefp);
@@ -738,6 +742,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_BACKGROUND,
                 ARG_CLEANUP,
                 ARG_NO_ASK_PASSWORD,
+                ARG_MSTACK,
         };
 
         static const struct option options[] = {
@@ -817,6 +822,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "background",             required_argument, NULL, ARG_BACKGROUND             },
                 { "cleanup",                no_argument,       NULL, ARG_CLEANUP                },
                 { "no-ask-password",        no_argument,       NULL, ARG_NO_ASK_PASSWORD        },
+                { "mstack",                 required_argument, NULL, ARG_MSTACK                 },
                 {}
         };
 
@@ -857,6 +863,14 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'i':
                         r = parse_path_argument(optarg, false, &arg_image);
+                        if (r < 0)
+                                return r;
+
+                        arg_settings_mask |= SETTING_DIRECTORY;
+                        break;
+
+                case ARG_MSTACK:
+                        r = parse_path_argument(optarg, false, &arg_mstack);
                         if (r < 0)
                                 return r;
 
@@ -1654,17 +1668,20 @@ static int verify_arguments(void) {
         if (has_custom_root_mount(arg_custom_mounts, arg_n_custom_mounts))
                 arg_read_only = true;
 
-        if (arg_directory && arg_image)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--directory= and --image= may not be combined.");
+        if (!!arg_directory + !!arg_image + !!arg_mstack > 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--directory=, --image= --mstack= may not be combined.");
 
-        if (arg_template && arg_image)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--template= and --image= may not be combined.");
+        if (arg_template && (arg_image || arg_mstack))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--template= and --image=/--mstack= may not be combined.");
 
         if (arg_template && !(arg_directory || arg_machine))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--template= needs --directory= or --machine=.");
 
         if (arg_ephemeral && arg_template)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--ephemeral and --template= may not be combined.");
+
+        if (arg_ephemeral && arg_mstack)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--ephemeral and --mstack= may not be combined.");
 
         /* Permit --ephemeral with --link-journal=try-* to satisfy principle of the least astonishment
          * (by common sense, "try" means "do not fail if not possible") */
@@ -3054,6 +3071,24 @@ static int pick_paths(void) {
                 arg_architecture = result.architecture;
         }
 
+        if (arg_mstack) {
+                _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
+                PickFilter filter = *pick_filter_image_mstack;
+
+                filter.architecture = arg_architecture;
+
+                r = path_pick_update_warn(
+                                &arg_mstack,
+                                &filter,
+                                /* n_filters= */ 1,
+                                PICK_ARCHITECTURE|PICK_TRIES,
+                                &result);
+                if (r < 0)
+                        return r;
+
+                arg_architecture = result.architecture;
+        }
+
         if (arg_template) {
                 _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
                 PickFilter filter = *pick_filter_image_dir;
@@ -3088,7 +3123,7 @@ static int determine_names(void) {
                         return log_oom();
         }
 
-        if (!arg_image && !arg_directory) {
+        if (!arg_image && !arg_directory && !arg_mstack) {
                 if (arg_machine) {
                         _cleanup_(image_unrefp) Image *i = NULL;
 
@@ -3099,10 +3134,24 @@ static int determine_names(void) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to find image for machine '%s': %m", arg_machine);
 
-                        if (IN_SET(i->type, IMAGE_RAW, IMAGE_BLOCK))
+                        switch (i->type) {
+                        case IMAGE_RAW:
+                        case IMAGE_BLOCK:
                                 r = free_and_strdup(&arg_image, i->path);
-                        else
+                                break;
+
+                        case IMAGE_DIRECTORY:
+                        case IMAGE_SUBVOLUME:
                                 r = free_and_strdup(&arg_directory, i->path);
+                                break;
+
+                        case IMAGE_MSTACK:
+                                r = free_and_strdup(&arg_mstack, i->path);
+                                break;
+
+                        default:
+                                assert_not_reached();
+                        }
                         if (r < 0)
                                 return log_oom();
 
@@ -3114,31 +3163,40 @@ static int determine_names(void) {
                                 return log_error_errno(r, "Failed to determine current directory: %m");
                 }
 
-                if (!arg_directory && !arg_image)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to determine path, please use -D or -i.");
+                if (!arg_directory && !arg_image && !arg_mstack)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to determine path, please use --directory=, --image= or --mstack=.");
         }
 
         if (!arg_machine) {
-                if (arg_directory && path_equal(arg_directory, "/")) {
-                        arg_machine = gethostname_malloc();
-                        if (!arg_machine)
-                                return log_oom();
+                if (arg_directory) {
+                        if (path_equal(arg_directory, "/")) {
+                                arg_machine = gethostname_malloc();
+                                if (!arg_machine)
+                                        return log_oom();
+                        } else {
+                                r = path_extract_filename(arg_directory, &arg_machine);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to extract file name from '%s': %m", arg_directory);
+                        }
                 } else if (arg_image) {
-                        char *e;
-
                         r = path_extract_filename(arg_image, &arg_machine);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to extract file name from '%s': %m", arg_image);
 
                         /* Truncate suffix if there is one */
-                        e = endswith(arg_machine, ".raw");
+                        char *e = endswith(arg_machine, ".raw");
                         if (e)
                                 *e = 0;
-                } else {
-                        r = path_extract_filename(arg_directory, &arg_machine);
+                } else if (arg_mstack)  {
+                        r = path_extract_filename(arg_mstack, &arg_machine);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to extract file name from '%s': %m", arg_directory);
-                }
+                                return log_error_errno(r, "Failed to extract file name from '%s': %m", arg_mstack);
+
+                        char *e = endswith(arg_machine, ".mstack");
+                        if (e)
+                                *e = 0;
+                } else
+                        assert_not_reached();
 
                 hostname_cleanup(arg_machine);
                 if (!hostname_is_valid(arg_machine, 0))
@@ -3873,6 +3931,7 @@ static int outer_child(
                 const char *directory,
                 int mount_fd,
                 DissectedImage *dissected_image,
+                MStack *mstack,
                 int fd_outer_socket,
                 int fd_inner_socket,
                 FDSet *fds,
@@ -3928,6 +3987,7 @@ static int outer_child(
         if (mount_fd >= 0) {
                 assert(arg_directory);
                 assert(!arg_image);
+                assert(!arg_mstack);
 
                 if (move_mount(mount_fd, "", AT_FDCWD, directory, MOVE_MOUNT_F_EMPTY_PATH) < 0)
                         return log_error_errno(errno, "Failed to attach root directory: %m");
@@ -3938,6 +3998,7 @@ static int outer_child(
         } else if (dissected_image) {
                 assert(!arg_directory);
                 assert(arg_image);
+                assert(!arg_mstack);
 
                 /* If we are operating on a disk image, then mount its root directory now, but leave out the
                  * rest. We can read the UID shift from it if we need to. Further down we'll mount the rest,
@@ -3955,9 +4016,38 @@ static int outer_child(
                                 (arg_start_mode == START_BOOT ? DISSECT_IMAGE_VALIDATE_OS : 0));
                 if (r < 0)
                         return r;
+
+        } else if (arg_mstack) {
+                assert(!arg_directory);
+                assert(!arg_image);
+                assert(arg_mstack);
+
+                MStackFlags mstack_flags = arg_read_only ? MSTACK_RDONLY : 0;
+
+                /* This creates the needed overlayfs or tmpfs, owned by our target userns. Note that we pass
+                 * the target mount dir as temporary mount dir here. We after all just need some dir here
+                 * that definitely exists, and the temporary mounts on it are not going to be visible
+                 * outside. */
+                r = mstack_make_mounts(
+                                mstack,
+                                /* temp_mount_dir= */ directory, /* !! */
+                                mstack_flags);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to make .mstack/ mounts: %m");
+
+                /* And then attaches all mounts to the directory */
+                r = mstack_bind_mounts(
+                                mstack,
+                                directory,
+                                /* where_fd= */ -EBADF,
+                                mstack_flags,
+                                /* ret_root_fd= */ NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed bind mount .mstack/ mounts: %m");
         } else {
                 assert(arg_directory);
                 assert(!arg_image);
+                assert(!arg_mstack);
 
                 r = mount_nofollow_verbose(LOG_ERR, arg_directory, directory, /* fstype= */ NULL, MS_BIND|MS_REC, /* options= */ NULL);
                 if (r < 0)
@@ -5023,6 +5113,10 @@ static int load_settings(void) {
                         r = file_in_same_dir(arg_directory, arg_settings_filename, &p);
                         if (r < 0 && r != -EADDRNOTAVAIL) /* if directory is root fs, don't complain */
                                 return log_error_errno(r, "Failed to generate settings path from directory path: %m");
+                } else if (arg_mstack) {
+                        r = file_in_same_dir(arg_mstack, arg_settings_filename, &p);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to generate settings path from mstack path: %m");
                 }
 
                 if (p) {
@@ -5073,6 +5167,7 @@ static int run_container(
                 const char *directory,
                 int mount_fd,
                 DissectedImage *dissected_image,
+                MStack *mstack,
                 int userns_fd,
                 FDSet *fds,
                 char veth_name[IFNAMSIZ],
@@ -5223,6 +5318,7 @@ static int run_container(
                                 directory,
                                 mount_fd,
                                 dissected_image,
+                                mstack,
                                 fd_outer_socket_pair[1],
                                 fd_inner_socket_pair[1],
                                 fds,
@@ -5347,7 +5443,13 @@ static int run_container(
                         } else {
                                 _cleanup_free_ char *host_ifname = NULL;
 
-                                r = nsresource_add_netif_veth(userns_fd, child_netns_fd, /* namespace_ifname= */ NULL, &host_ifname, /* ret_namespace_ifname= */ NULL);
+                                r = nsresource_add_netif_veth(
+                                                /* vl= */ NULL,
+                                                userns_fd,
+                                                child_netns_fd,
+                                                /* namespace_ifname= */ NULL,
+                                                &host_ifname,
+                                                /* ret_namespace_ifname= */ NULL);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to add network interface to container: %m");
 
@@ -5932,8 +6034,10 @@ static int run(int argc, char *argv[]) {
         _cleanup_(rm_rf_subvolume_and_freep) char *snapshot_dir = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
+        _cleanup_(mstack_freep) MStack *mstack = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *nfnl = NULL;
         _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *nsresource_link = NULL, *mountfsd_link = NULL;
 
         log_setup();
 
@@ -6036,13 +6140,28 @@ static int run(int argc, char *argv[]) {
         if (arg_userns_mode == USER_NAMESPACE_MANAGED) {
                 /* Let's allocate a 64K userns first, if managed mode is chosen */
 
+                r = nsresource_connect(&nsresource_link);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to connect to nsresourced: %m");
+                        goto finish;
+                }
+
+                r = mountfsd_connect(&mountfsd_link);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to connect to mountsd: %m");
+                        goto finish;
+                }
+
                 _cleanup_free_ char *userns_name = NULL;
                 if (asprintf(&userns_name, "nspawn-" PID_FMT "-%s", getpid_cached(), arg_machine) < 0) {
                         r = log_oom();
                         goto finish;
                 }
 
-                userns_fd = nsresource_allocate_userns(userns_name, NSRESOURCE_UIDS_64K); /* allocate 64K UIDs */
+                userns_fd = nsresource_allocate_userns(
+                                nsresource_link,
+                                userns_name,
+                                NSRESOURCE_UIDS_64K); /* allocate 64K UIDs */
                 if (userns_fd < 0) {
                         r = log_error_errno(userns_fd, "Failed to allocate user namespace with 64K users: %m");
                         goto finish;
@@ -6195,20 +6314,23 @@ static int run(int argc, char *argv[]) {
                         }
                 }
 
-                if (arg_userns_mode == USER_NAMESPACE_MANAGED) {
+                if (userns_fd >= 0) {
                         r = mountfsd_mount_directory(
+                                        mountfsd_link,
                                         arg_directory,
                                         userns_fd,
                                         determine_dissect_image_flags(),
                                         &mount_fd);
-                        if (r < 0)
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to mount directory via mountfsd: %m");
                                 goto finish;
+                        }
                 }
-        } else {
+
+        } else if (arg_image) {
                 DissectImageFlags dissect_image_flags =
                         determine_dissect_image_flags();
 
-                assert(arg_image);
                 assert(!arg_template);
 
                 r = chase_and_update(&arg_image, 0);
@@ -6345,6 +6467,7 @@ static int run(int argc, char *argv[]) {
                                 goto finish;
                 } else {
                         r = mountfsd_mount_image(
+                                        mountfsd_link,
                                         arg_image,
                                         userns_fd,
                                         /* options= */ NULL,
@@ -6352,8 +6475,10 @@ static int run(int argc, char *argv[]) {
                                         &arg_verity_settings,
                                         dissect_image_flags,
                                         &dissected_image);
-                        if (r < 0)
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to mount image via mountfsd: %m");
                                 goto finish;
+                        }
                 }
 
                 /* Now that we mounted the image, let's try to remove it again, if it is ephemeral */
@@ -6362,7 +6487,40 @@ static int run(int argc, char *argv[]) {
 
                 if (arg_architecture < 0)
                         arg_architecture = dissected_image_architecture(dissected_image);
-        }
+
+        } else if (arg_mstack) {
+                assert(!arg_template);
+                assert(!arg_ephemeral);
+
+                r = chase_and_update(&arg_mstack, CHASE_MUST_BE_DIRECTORY);
+                if (r < 0)
+                        goto finish;
+
+                if (!IN_SET(arg_userns_mode, USER_NAMESPACE_NO, USER_NAMESPACE_MANAGED))
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--mstack= requires managed user namespacing, or user namespace turned off.");
+
+                MStackFlags mstack_flags = arg_read_only ? MSTACK_RDONLY : 0;
+                r = mstack_load(arg_mstack,
+                                /* dir_fd= */ -EBADF,
+                                &mstack);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to load .mstack/ directory '%s': %m", arg_mstack);
+                        goto finish;
+                }
+
+                r = mstack_open_images(
+                                mstack,
+                                mountfsd_link,
+                                userns_fd,
+                                arg_image_policy,
+                                /* image_filter= */ NULL,
+                                mstack_flags);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to open .mstack/ layer images '%s': %m", arg_mstack);
+                        goto finish;
+                }
+        } else
+                assert_not_reached();
 
         /* Create a temporary place to mount stuff. */
         r = mkdtemp_malloc("/tmp/nspawn-root-XXXXXX", &rootdir);
@@ -6375,8 +6533,11 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 goto finish;
 
+        mountfsd_link = sd_varlink_unref(mountfsd_link);
+        nsresource_link = sd_varlink_unref(nsresource_link);
+
         if (!arg_quiet) {
-                const char *t = arg_image ?: arg_directory;
+                const char *t = arg_mstack ?: arg_image ?: arg_directory;
                 _cleanup_free_ char *u = NULL;
                 (void) terminal_urlify_path(t, t, &u);
 
@@ -6412,9 +6573,11 @@ static int run(int argc, char *argv[]) {
                                 rootdir,
                                 mount_fd,
                                 dissected_image,
+                                mstack,
                                 userns_fd,
                                 fds,
-                                veth_name, &veth_created,
+                                veth_name,
+                                &veth_created,
                                 &expose_args, &master,
                                 &pid, &ret);
                 if (r <= 0)
