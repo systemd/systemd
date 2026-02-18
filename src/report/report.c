@@ -607,6 +607,8 @@ static int verb_help(int argc, char *argv[], void *userdata) {
                "     --system           Connect to system service manager (default)\n"
                "     --json=pretty|short\n"
                "                        Configure JSON output\n"
+               "  -j                    Equivalent to --json=pretty (on TTY) or --json=short\n"
+               "                        (otherwise)\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -642,7 +644,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hj", options, NULL)) >= 0)
                 switch (c) {
                 case 'h':
                         return verb_help(/* argc= */ 0, /* argv= */ NULL, /* userdata= */ NULL);
@@ -667,6 +669,10 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r <= 0)
                                 return r;
 
+                        break;
+
+                case 'j':
+                        arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
                         break;
 
                 case '?':
