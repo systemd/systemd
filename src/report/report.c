@@ -112,7 +112,7 @@ static int metric_compare(sd_json_variant *const *a, sd_json_variant *const *b) 
         return strcmp_ptr(fields_str_a, fields_str_b);
 }
 
-static inline bool metric_startswith_prefix(const char *metric_name, const char *prefix) {
+static bool metric_startswith_prefix(const char *metric_name, const char *prefix) {
         if (isempty(metric_name) || isempty(prefix))
                 return false;
 
