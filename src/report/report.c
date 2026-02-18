@@ -56,7 +56,7 @@ typedef struct Context {
 typedef struct LinkInfo {
         Context *context;
         sd_varlink *link;
-        char *metric_prefix;
+        char *name;
 } LinkInfo;
 
 static LinkInfo* link_info_free(LinkInfo *li) {
@@ -64,7 +64,7 @@ static LinkInfo* link_info_free(LinkInfo *li) {
                 return NULL;
 
         sd_varlink_close_unref(li->link);
-        free(li->metric_prefix);
+        free(li->name);
         return mfree(li);
 }
 
@@ -187,8 +187,8 @@ static Verdict metrics_verdict(LinkInfo *li, sd_json_variant *metric) {
         }
 
         /* Validate metric name matches the Varlink service it was found on */
-        if (!metric_startswith_prefix(metric_name, li->metric_prefix)) {
-                log_debug("Metric name '%s' does not match service name '%s', skipping.", metric_name, li->metric_prefix);
+        if (!metric_startswith_prefix(metric_name, li->name)) {
+                log_debug("Metric name '%s' does not match service name '%s', skipping.", metric_name, li->name);
                 return VERDICT_INVALID;
         }
 
@@ -230,11 +230,11 @@ static int metrics_on_query_reply(
 
         if (error_id) {
                 if (streq(error_id, SD_VARLINK_ERROR_DISCONNECTED))
-                        log_info("Varlink disconnected");
+                        log_warning("Varlink connection to '%s' disconnected prematurely, ignoring.", li->name);
                 else if (streq(error_id, SD_VARLINK_ERROR_TIMEOUT))
-                        log_info("Varlink timed out");
+                        log_warning("Varlink connection to '%s' timed out, ignoring.", li->name);
                 else
-                        log_error("Varlink error: %s", error_id);
+                        log_warning("Varlink error from '%s', ignoring: %s", li->name, error_id);
 
                 goto finish;
         }
@@ -306,10 +306,10 @@ static int metrics_call(Context *context, const char *name, const char *path) {
         *li = (LinkInfo) {
                 .context = context,
                 .link = sd_varlink_ref(vl),
-                .metric_prefix = strdup(name),
+                .name = strdup(name),
         };
 
-        if (!li->metric_prefix)
+        if (!li->name)
                 return log_oom();
 
         if (set_ensure_put(&context->link_infos, &link_info_hash_ops, li) < 0)
