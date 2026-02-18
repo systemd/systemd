@@ -498,11 +498,11 @@ units = [
           'conditions' : ['ENABLE_NETWORKD'],
         },
         {
-          'file' : 'systemd-networkd-varlink.socket',
+          'file' : 'systemd-networkd-resolve-hook.socket',
           'conditions' : ['ENABLE_NETWORKD'],
         },
         {
-          'file' : 'systemd-networkd-resolve-hook.socket',
+          'file' : 'systemd-networkd-varlink.socket',
           'conditions' : ['ENABLE_NETWORKD'],
         },
         {
