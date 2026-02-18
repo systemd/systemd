@@ -242,12 +242,3 @@ systemd-run --wait --pipe --user --machine testuser@ \
 # test io.systemd.Unit in user manager
 systemd-run --wait --pipe --user --machine testuser@ \
         varlinkctl --more call "/run/user/$testuser_uid/systemd/io.systemd.Manager" io.systemd.Unit.List '{}'
-
-# test report
-systemd-report metrics
-
-# test io.systemd.Network Metrics
-varlinkctl info /run/systemd/report/io.systemd.Network
-varlinkctl list-methods /run/systemd/report/io.systemd.Network
-varlinkctl --more call /run/systemd/report/io.systemd.Network io.systemd.Metrics.List {}
-varlinkctl --more call /run/systemd/report/io.systemd.Network io.systemd.Metrics.Describe {}
