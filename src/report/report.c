@@ -34,6 +34,9 @@
 static PagerFlags arg_pager_flags = 0;
 static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF|SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
+static char **arg_matches = NULL;
+
+STATIC_DESTRUCTOR_REGISTER(arg_matches, strv_freep);
 
 typedef enum Action {
         ACTION_LIST,
@@ -145,7 +148,13 @@ static bool metric_startswith_prefix(const char *metric_name, const char *prefix
         return !isempty(m) && m[0] == '.';
 }
 
-static bool metrics_validate_one(LinkInfo *li, sd_json_variant *metric) {
+typedef enum {
+        VERDICT_INVALID,
+        VERDICT_GOOD,
+        VERDICT_BAD,
+} Verdict;
+
+static Verdict metrics_verdict(LinkInfo *li, sd_json_variant *metric) {
         int r;
 
         assert(li);
@@ -160,20 +169,48 @@ static bool metrics_validate_one(LinkInfo *li, sd_json_variant *metric) {
         r = sd_json_dispatch(metric, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &metric_name);
         if (r < 0) {
                 log_debug_errno(r, "Failed to get metric name, assuming name is not valid: %m");
-                return false;
+                return VERDICT_INVALID;
         }
 
+        /* Validate metric name is generally valid */
         r = metrics_name_valid(metric_name);
         if (r < 0) {
                 log_debug_errno(r, "Failed to determine if '%s' is a valid metric name: %m", metric_name);
-                return false;
+                return VERDICT_INVALID;
         }
         if (!r) {
                 log_debug("Metric name '%s' is not valid, skipping: %m", metric_name);
-                return false;
+                return VERDICT_INVALID;
         }
 
-        return metric_startswith_prefix(metric_name, li->metric_prefix);
+        /* Validate metric name matches the Varlink service it was found on */
+        if (!metric_startswith_prefix(metric_name, li->metric_prefix)) {
+                log_debug("Metric name '%s' does not match service name '%s', skipping.", metric_name, li->metric_prefix);
+                return VERDICT_INVALID;
+        }
+
+        /* Check it against any specified matches */
+        bool matches;
+        if (strv_isempty(arg_matches))
+                matches = true;
+        else {
+                matches = false;
+
+                /* Allow exact matches or prefix matches */
+                STRV_FOREACH(i, arg_matches)
+                        if (streq(metric_name, *i) ||
+                            metric_startswith_prefix(metric_name, *i)) {
+                                matches = true;
+                                break;
+                        }
+        }
+
+        if (!matches) {
+                log_debug("Metric '%s' does not match search, ignoring.", metric_name);
+                return VERDICT_BAD;
+        }
+
+        return VERDICT_GOOD;
 }
 
 static int metrics_on_query_reply(
@@ -204,10 +241,13 @@ static int metrics_on_query_reply(
                 goto finish;
         }
 
-        if (!metrics_validate_one(li, parameters)) {
+        Verdict v = metrics_verdict(li, parameters);
+        if (v == VERDICT_INVALID) {
                 context->n_invalid_metrics++;
                 goto finish;
         }
+        if (v == VERDICT_BAD)
+                goto finish;
 
         /* Collect metrics for later sorting */
         if (!GREEDY_REALLOC(context->metrics, context->n_metrics + 1))
@@ -438,11 +478,51 @@ static int metrics_output(Context *context) {
         return 0;
 }
 
+static int parse_metrics_matches(char **matches) {
+        int r;
+
+        STRV_FOREACH(i, matches) {
+                r = metrics_name_valid(*i);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine if '%s' is a valid metric name: %m", *i);
+                if (!r && !varlink_idl_interface_name_is_valid(*i))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Selector is not a valid family name or prefix: %s", *i);
+
+                if (strv_extend(&arg_matches, *i) < 0)
+                        return log_oom();
+        }
+
+        strv_sort_uniq(arg_matches);
+        return 0;
+}
+
+static bool test_service_matches(const char *service) {
+        assert(service);
+
+        if (strv_isempty(arg_matches))
+                return true;
+
+        /* Only contact services whose name is either a prefix of any of the specified metrics families, or
+         * there the specified metric families are a prefix of the service */
+
+        STRV_FOREACH(i, arg_matches) {
+
+                if (streq(service, *i))
+                        return true;
+
+                if (metric_startswith_prefix(*i, service) ||
+                    metric_startswith_prefix(service, *i))
+                        return true;
+        }
+
+        return false;
+}
+
 static int verb_metrics(int argc, char *argv[], void *userdata) {
         Action action;
         int r;
 
-        assert(argc == 1);
+        assert(argc >= 1);
         assert(argv);
 
         if (streq_ptr(argv[0], "metrics"))
@@ -451,6 +531,10 @@ static int verb_metrics(int argc, char *argv[], void *userdata) {
                 assert(streq_ptr(argv[0], "describe-metrics"));
                 action = ACTION_DESCRIBE;
         }
+
+        r = parse_metrics_matches(argv + 1);
+        if (r < 0)
+                return r;
 
         assert(STR_IN_SET(argv[0], "metrics", "describe-metrics"));
 
@@ -486,6 +570,9 @@ static int verb_metrics(int argc, char *argv[], void *userdata) {
                                 continue;
 
                         if (!varlink_idl_interface_name_is_valid(de->d_name))
+                                continue;
+
+                        if (!test_service_matches(de->d_name))
                                 continue;
 
                         if (set_size(context.link_infos) >= METRICS_LINKS_MAX) {
@@ -605,8 +692,9 @@ static int verb_help(int argc, char *argv[], void *userdata) {
         printf("%1$s [OPTIONS...] COMMAND ...\n"
                "\n%5$sAcquire metrics from local sources.%6$s\n"
                "\n%3$sCommands:%4$s\n"
-               "  metrics               Acquire list of metrics and their values\n"
-               "  describe-metrics      Describe available metrics\n"
+               "  metrics [MATCH...]    Acquire list of metrics and their values\n"
+               "  describe-metrics [MATCH...]\n"
+               "                        Describe available metrics\n"
                "  list-sources          Show list of known metrics sources\n"
                "\n%3$sOptions:%4$s\n"
                "  -h --help             Show this help\n"
@@ -697,10 +785,10 @@ static int parse_argv(int argc, char *argv[]) {
 static int report_main(int argc, char *argv[]) {
 
         static const Verb verbs[] = {
-                { "help",             VERB_ANY, 1, 0, verb_help         },
-                { "metrics",          VERB_ANY, 1, 0, verb_metrics      },
-                { "describe-metrics", VERB_ANY, 1, 0, verb_metrics      },
-                { "list-sources",     VERB_ANY, 1, 0, verb_list_sources },
+                { "help",             VERB_ANY, 1,        0, verb_help         },
+                { "metrics",          VERB_ANY, VERB_ANY, 0, verb_metrics      },
+                { "describe-metrics", VERB_ANY, VERB_ANY, 0, verb_metrics      },
+                { "list-sources",     VERB_ANY, 1,        0, verb_list_sources },
                 {}
         };
 
