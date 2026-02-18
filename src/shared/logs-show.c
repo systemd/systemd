@@ -1193,16 +1193,7 @@ static int update_json_data_split(
         return update_json_data(h, flags, name, eq + 1, size - fieldlen - 1);
 }
 
-static int output_json(
-                FILE *f,
-                sd_journal *j,
-                OutputMode mode,
-                unsigned n_columns,
-                OutputFlags flags,
-                const Set *output_fields,
-                const size_t highlight[2],
-                dual_timestamp *previous_display_ts, /* unused */
-                sd_id128_t *previous_boot_id) {      /* unused */
+int journal_entry_to_json(sd_journal *j, OutputFlags flags, const Set *output_fields, sd_json_variant **ret) {
 
         char usecbuf[CONST_MAX(DECIMAL_STR_MAX(usec_t), DECIMAL_STR_MAX(uint64_t))];
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *object = NULL;
@@ -1217,6 +1208,7 @@ static int output_json(
         int r;
 
         assert(j);
+        assert(ret);
 
         (void) sd_journal_set_data_threshold(j, flags & OUTPUT_SHOW_ALL ? 0 : JSON_THRESHOLD);
 
@@ -1322,6 +1314,28 @@ static int output_json(
         r = sd_json_variant_new_object(&object, array, n);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate JSON object: %m");
+
+        *ret = TAKE_PTR(object);
+        return 1;
+}
+
+static int output_json(
+                FILE *f,
+                sd_journal *j,
+                OutputMode mode,
+                unsigned n_columns,
+                OutputFlags flags,
+                const Set *output_fields,
+                const size_t highlight[2],
+                dual_timestamp *previous_display_ts, /* unused */
+                sd_id128_t *previous_boot_id) {      /* unused */
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *object = NULL;
+        int r;
+
+        r = journal_entry_to_json(j, flags, output_fields, &object);
+        if (r <= 0)
+                return r;
 
         return sd_json_variant_dump(object,
                                  output_mode_to_json_format_flags(mode) |

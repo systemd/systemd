@@ -1,0 +1,11 @@
+[Unit]
+Description=Journal Log Access Socket
+Documentation=man:journalctl(1)
+
+[Socket]
+ListenStream=%t/systemd/io.systemd.Journalctl
+Symlinks=%t/varlink/registry/io.systemd.Journalctl
+FileDescriptorName=varlink
+SocketMode=0600
+Accept=yes
+MaxConnectionsPerSource=16
