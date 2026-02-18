@@ -38,6 +38,33 @@
   </refsect1>
 
   <refsect1>
+    <title>Commands</title>
+
+    <para>The following commands are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><command>metrics</command></term>
+
+        <listitem><para>Acquire a list of metrics values from all local services providing them, and write them to standard output.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>describe-metrics</command></term>
+
+        <listitem><para>Acquire a list of metric families from all local services providing them, and write
+        them to standard output. This returns information about metrics, their data types and human readable
+        description without values.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>Options</title>
 
     <para>The following options are understood:</para>
