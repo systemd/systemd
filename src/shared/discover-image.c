@@ -11,6 +11,7 @@
 
 #include "sd-json.h"
 #include "sd-path.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "blockdev-util.h"
@@ -36,6 +37,7 @@
 #include "log.h"
 #include "loop-util.h"
 #include "mountpoint-util.h"
+#include "mstack.h"
 #include "namespace-util.h"
 #include "nsresource.h"
 #include "nulstr-util.h"
@@ -43,6 +45,7 @@
 #include "path-lookup.h"
 #include "path-util.h"
 #include "process-util.h"
+#include "recurse-dir.h"
 #include "rm-rf.h"
 #include "runtime-scope.h"
 #include "stat-util.h"
@@ -478,11 +481,66 @@ static int image_make(
                 on_mount_id = _mnt_id;
 
         if (S_ISDIR(st->st_mode)) {
-                unsigned file_attr = 0;
-                usec_t crtime = 0;
 
                 if (!ret)
                         return 0;
+
+                if (endswith(path, ".mstack")) {
+                        usec_t crtime = 0;
+                        r = fd_getcrtime(fd, &crtime);
+                        if (r < 0)
+                                log_debug_errno(r, "Unable to read creation time of '%s', ignoring: %m", path);
+
+                        if (!pretty) {
+                                r = extract_image_basename(
+                                                path,
+                                                image_class_suffix_to_string(c),
+                                                STRV_MAKE(".mstack"),
+                                                &pretty_buffer,
+                                                /* ret_suffix= */ NULL);
+                                if (r < 0)
+                                        return r;
+
+                                pretty = pretty_buffer;
+                        }
+
+                        _cleanup_(mstack_freep) MStack *mstack = NULL;
+                        r = mstack_load(path, fd, &mstack);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to load mstack '%s', ignoring: %m", path);
+                                read_only = true;
+                        } else if (!read_only) {
+                                r = mstack_is_read_only(mstack);
+                                if (r < 0)
+                                        log_debug_errno(r, "Failed to determine if mstack '%s' is read-only, assuming it is: %m", path);
+
+                                read_only = r != 0;
+                        }
+
+                        r = image_new(IMAGE_MSTACK,
+                                      c,
+                                      pretty,
+                                      path,
+                                      read_only,
+                                      crtime,
+                                      /* mtime= */ 0,
+                                      fh,
+                                      on_mount_id,
+                                      (uint64_t) st->st_ino,
+                                      ret);
+                        if (r < 0)
+                                return r;
+
+                        if (mstack) {
+                                r = mstack_is_foreign_uid_owned(mstack);
+                                if (r < 0)
+                                        log_debug_errno(r, "Failed to determine if mstack '%s' is foreign UID owned, assuming it is not: %m", path);
+                                if (r > 0)
+                                        (*ret)->foreign_uid_owned = true;
+                        }
+
+                        return 0;
+                }
 
                 if (!pretty) {
                         r = extract_image_basename(
@@ -532,10 +590,12 @@ static int image_make(
                 }
 
                 /* Get directory creation time (not available everywhere, but that's OK */
+                usec_t crtime = 0;
                 (void) fd_getcrtime(fd, &crtime);
 
                 /* If the IMMUTABLE bit is set, we consider the directory read-only. Since the ioctl is not
                  * supported everywhere we ignore failures. */
+                unsigned file_attr = 0;
                 (void) read_attr_fd(fd, &file_attr);
 
                 /* It's just a normal directory. */
@@ -767,7 +827,7 @@ static char** make_possible_filenames(ImageClass class, const char *image_name) 
         assert(image_name);
 
         FOREACH_STRING(v_suffix, "", ".v")
-                FOREACH_STRING(format_suffix, "", ".raw") {
+                FOREACH_STRING(format_suffix, "", ".raw", ".mstack") {
                         _cleanup_free_ char *j = NULL;
                         const char *class_suffix;
 
@@ -862,6 +922,12 @@ int image_find(RuntimeScope scope,
                         if (endswith(fname, ".raw")) {
                                 if (!S_ISREG(st.st_mode)) {
                                         log_debug("Ignoring non-regular file '%s' with .raw suffix.", fname);
+                                        continue;
+                                }
+                        } else if (endswith(fname, ".mstack")) {
+
+                                if (!S_ISDIR(st.st_mode)) {
+                                        log_debug("Ignoring non-directory '%s' with .mstack suffix.", fname);
                                         continue;
                                 }
 
@@ -1088,7 +1154,7 @@ int image_discover(
                                         r = extract_image_basename(
                                                         nov,
                                                         image_class_suffix_to_string(class),
-                                                        STRV_MAKE(".raw", ""),
+                                                        STRV_MAKE(".raw", ".mstack", ""),
                                                         &pretty,
                                                         &suffix);
                                         if (r < 0) {
@@ -1139,7 +1205,7 @@ int image_discover(
                                         r = extract_image_basename(
                                                         fname,
                                                         image_class_suffix_to_string(class),
-                                                        /* format_suffixes= */ NULL,
+                                                        STRV_MAKE(".mstack", ""),
                                                         &pretty,
                                                         /* ret_suffix= */ NULL);
                                         if (r < 0) {
@@ -1210,60 +1276,112 @@ int image_discover(
         return 0;
 }
 
+static int unpriv_remove_cb(
+                RecurseDirEvent event,
+                const char *path,
+                int dir_fd,
+                int inode_fd,
+                const struct dirent *de,
+                const struct statx *sx,
+                void *userdata) {
+
+        int r, userns_fd = PTR_TO_FD(userdata);
+
+        assert(sx);
+
+        if (event == RECURSE_DIR_ENTER &&
+            S_ISDIR(sx->stx_mode) &&
+            uid_is_foreign(sx->stx_uid)) {
+
+                /* This is owned by the foreign UID range, and a dir, let's remove it via mountfsd userns
+                 * shenanigans. */
+
+                _cleanup_close_ int tree_fd = -EBADF;
+                r = mountfsd_mount_directory_fd(
+                                /* vl= */ NULL,
+                                inode_fd,
+                                userns_fd,
+                                DISSECT_IMAGE_FOREIGN_UID,
+                                &tree_fd);
+                if (r < 0)
+                        return r;
+
+                /* Fork off child that moves into userns and does the copying */
+                r = pidref_safe_fork_full(
+                                "rm-tree",
+                                /* stdio_fds= */ NULL,
+                                (int[]) { userns_fd, tree_fd, }, 2,
+                                FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_WAIT|FORK_REOPEN_LOG,
+                                /* ret= */ NULL);
+                if (r < 0)
+                        log_debug_errno(r, "Process that was supposed to remove subtree '%s' failed, ignoring: %m", empty_to_root(path));
+                else if (r == 0) {
+                        /* child */
+
+                        r = namespace_enter(
+                                        /* pidns_fd= */ -EBADF,
+                                        /* mntns_fd= */ -EBADF,
+                                        /* netns_fd= */ -EBADF,
+                                        userns_fd,
+                                        /* root_fd= */ -EBADF);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to join user namespace: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+
+                        _cleanup_close_ int dfd = fd_reopen(tree_fd, O_DIRECTORY|O_CLOEXEC);
+                        if (dfd < 0) {
+                                log_error_errno(r, "Failed to reopen tree fd: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+
+                        r = rm_rf_children(dfd, REMOVE_PHYSICAL|REMOVE_SUBVOLUME|REMOVE_CHMOD, /* root_dev= */ NULL);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to empty '%s' directory in foreign UID mode: %m", empty_to_root(path));
+                                _exit(EXIT_FAILURE);
+                        }
+
+                        _exit(EXIT_SUCCESS);
+                }
+
+                /* Don't descent further into this one, and delete it immediately */
+                return RECURSE_DIR_UNLINK_GRACEFUL;
+        }
+
+        /* Everything else try to remove */
+        if (event == RECURSE_DIR_LEAVE)
+                return RECURSE_DIR_UNLINK_GRACEFUL;
+
+        return RECURSE_DIR_CONTINUE;
+}
+
 static int unprivileged_remove(Image *i) {
         int r;
 
         assert(i);
 
-        _cleanup_close_ int userns_fd = nsresource_allocate_userns(/* name= */ NULL, /* size= */ NSRESOURCE_UIDS_64K);
+        /* We want this to work in complex .mstack/ hierarchies, where the main directory (and maybe a .v/
+         * directory below or two) might be owned by the user themselves, but some subdirs might be owned by
+         * the foreign UID range. We deal with this by recursively descending down the tree, and removing
+         * foreign-owned ranges via userns shenanigans, and the rest just like that. */
+
+        _cleanup_close_ int userns_fd = nsresource_allocate_userns(
+                        /* vl= */ NULL,
+                        /* name= */ NULL,
+                        /* size= */ NSRESOURCE_UIDS_64K);
         if (userns_fd < 0)
                 return log_debug_errno(userns_fd, "Failed to allocate transient user namespace: %m");
 
-        _cleanup_close_ int tree_fd = -EBADF;
-        r = mountfsd_mount_directory(
+        r = recurse_dir_at(
+                        AT_FDCWD,
                         i->path,
-                        userns_fd,
-                        DISSECT_IMAGE_FOREIGN_UID,
-                        &tree_fd);
+                        /* statx_mask= */ STATX_TYPE|STATX_UID,
+                        /* n_depth_max= */ UINT_MAX,
+                        RECURSE_DIR_IGNORE_DOT|RECURSE_DIR_ENSURE_TYPE|RECURSE_DIR_SAME_MOUNT|RECURSE_DIR_INODE_FD|RECURSE_DIR_TOPLEVEL,
+                        unpriv_remove_cb,
+                        FD_TO_PTR(userns_fd));
         if (r < 0)
                 return r;
-        /* Fork off child that moves into userns and does the copying */
-        r = pidref_safe_fork_full(
-                        "rm-tree",
-                        /* stdio_fds= */ NULL,
-                        (int[]) { userns_fd, tree_fd, }, 2,
-                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_WAIT|FORK_REOPEN_LOG,
-                        /* ret= */ NULL);
-        if (r < 0)
-                return log_debug_errno(r, "Process that was supposed to remove tree failed: %m");
-        if (r == 0) {
-                /* child */
-
-                r = namespace_enter(
-                                /* pidns_fd= */ -EBADF,
-                                /* mntns_fd= */ -EBADF,
-                                /* netns_fd= */ -EBADF,
-                                userns_fd,
-                                /* root_fd= */ -EBADF);
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to join user namespace: %m");
-                        _exit(EXIT_FAILURE);
-                }
-
-                _cleanup_close_ int dfd = fd_reopen(tree_fd, O_DIRECTORY|O_CLOEXEC);
-                if (dfd < 0) {
-                        log_error_errno(r, "Failed to reopen tree fd: %m");
-                        _exit(EXIT_FAILURE);
-                }
-
-                r = rm_rf_children(dfd, REMOVE_PHYSICAL|REMOVE_SUBVOLUME|REMOVE_CHMOD, /* root_dev= */ NULL);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to empty '%s' directory in foreign UID mode: %m", i->path);
-                        _exit(EXIT_FAILURE);
-                }
-
-                _exit(EXIT_SUCCESS);
-        }
 
         return 0;
 }
@@ -1305,6 +1423,9 @@ int image_remove(Image *i, RuntimeScope scope) {
                 /* Allow deletion of read-only directories */
                 (void) chattr_path(i->path, 0, FS_IMMUTABLE_FL);
 
+                _fallthrough_;
+
+        case IMAGE_MSTACK:
                 /* If this is foreign owned, try an unprivileged remove first, but accept if that doesn't work, and do it directly either way, maybe it works */
                 if (i->foreign_uid_owned)
                         (void) unprivileged_remove(i);
@@ -1559,13 +1680,22 @@ static int unprivileged_clone(Image *i, const char *new_path) {
         assert(i);
         assert(new_path);
 
-        _cleanup_close_ int userns_fd = nsresource_allocate_userns(/* name= */ NULL, /* size= */ NSRESOURCE_UIDS_64K);
+        _cleanup_close_ int userns_fd = nsresource_allocate_userns(
+                        /* vl= */ NULL,
+                        /* name= */ NULL,
+                        /* size= */ NSRESOURCE_UIDS_64K);
         if (userns_fd < 0)
                 return log_debug_errno(userns_fd, "Failed to allocate transient user namespace: %m");
+
+        _cleanup_(sd_varlink_unrefp) sd_varlink *link = NULL;
+        r = mountfsd_connect(&link);
+        if (r < 0)
+                return r;
 
         /* Map original image */
         _cleanup_close_ int tree_fd = -EBADF;
         r = mountfsd_mount_directory(
+                        link,
                         i->path,
                         userns_fd,
                         DISSECT_IMAGE_FOREIGN_UID,
@@ -1576,6 +1706,7 @@ static int unprivileged_clone(Image *i, const char *new_path) {
         /* Make new image */
         _cleanup_close_ int new_fd = -EBADF;
         r = mountfsd_make_directory(
+                        link,
                         new_path,
                         MODE_INVALID,
                         /* flags= */ 0,
@@ -1586,12 +1717,15 @@ static int unprivileged_clone(Image *i, const char *new_path) {
         /* Mount new image */
         _cleanup_close_ int target_fd = -EBADF;
         r = mountfsd_mount_directory_fd(
+                        link,
                         new_fd,
                         userns_fd,
                         DISSECT_IMAGE_FOREIGN_UID,
                         &target_fd);
         if (r < 0)
                 return r;
+
+        link = sd_varlink_unref(link);
 
         /* Fork off child that moves into userns and does the copying */
         return copy_tree_at_foreign(tree_fd, target_fd, userns_fd);
@@ -2367,6 +2501,7 @@ static const char* const image_type_table[_IMAGE_TYPE_MAX] = {
         [IMAGE_SUBVOLUME] = "subvolume",
         [IMAGE_RAW]       = "raw",
         [IMAGE_BLOCK]     = "block",
+        [IMAGE_MSTACK]    = "mstack",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(image_type, ImageType);

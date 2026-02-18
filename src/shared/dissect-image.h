@@ -269,13 +269,23 @@ static inline const char* dissected_partition_fstype(const DissectedPartition *m
 
 int get_common_dissect_directory(char **ret);
 
-int mountfsd_mount_image_fd(int image_fd, int userns_fd, const MountOptions *options, const ImagePolicy *image_policy, const VeritySettings *verity, DissectImageFlags flags, DissectedImage **ret);
-int mountfsd_mount_image(const char *path, int userns_fd, const MountOptions *options, const ImagePolicy *image_policy, const VeritySettings *verity, DissectImageFlags flags, DissectedImage **ret);
-int mountfsd_mount_directory_fd(int directory_fd, int userns_fd, DissectImageFlags flags, int *ret_mount_fd);
-int mountfsd_mount_directory(const char *path, int userns_fd, DissectImageFlags flags, int *ret_mount_fd);
+int mountfsd_connect(sd_varlink **ret);
 
-int mountfsd_make_directory_fd(int parent_fd, const char *name, mode_t mode, DissectImageFlags flags, int *ret_directory_fd);
-int mountfsd_make_directory(const char *path, mode_t mode, DissectImageFlags flags, int *ret_directory_fd);
+/* All the calls below take a 'link' parameter, that may be an already established Varlink connection object
+ * towards systemd-mountfsd, previously created via mountfsd_connect(). This serves two purposes: first of
+ * all allows more efficient resource usage, as this allows recycling already allocated resources for
+ * multiple calls. Secondly, the user credentials are pinned at time of mountfsd_connect(), and the caller
+ * hence can drop privileges afterwards while keeping open the connection and still execute relevant
+ * operations under the original identity, until the connection is closed. The 'link' parameter may be passed
+ * as NULL in which case a short-lived connection is created, just to execute the requested operation. */
+
+int mountfsd_mount_image_fd(sd_varlink *vl, int image_fd, int userns_fd, const MountOptions *options, const ImagePolicy *image_policy, const VeritySettings *verity, DissectImageFlags flags, DissectedImage **ret);
+int mountfsd_mount_image(sd_varlink *vl, const char *path, int userns_fd, const MountOptions *options, const ImagePolicy *image_policy, const VeritySettings *verity, DissectImageFlags flags, DissectedImage **ret);
+int mountfsd_mount_directory_fd(sd_varlink *vl, int directory_fd, int userns_fd, DissectImageFlags flags, int *ret_mount_fd);
+int mountfsd_mount_directory(sd_varlink *vl, const char *path, int userns_fd, DissectImageFlags flags, int *ret_mount_fd);
+
+int mountfsd_make_directory_fd(sd_varlink *vl, int parent_fd, const char *name, mode_t mode, DissectImageFlags flags, int *ret_directory_fd);
+int mountfsd_make_directory(sd_varlink *vl, const char *path, mode_t mode, DissectImageFlags flags, int *ret_directory_fd);
 
 int copy_tree_at_foreign(int source_fd, int target_fd, int userns_fd);
 int remove_tree_foreign(const char *path, int userns_fd);

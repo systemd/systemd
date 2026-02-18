@@ -1,0 +1,218 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-mstack"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-mstack</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-mstack</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-mstack</refname>
+    <refname>mount.mstack</refname>
+    <refpurpose>Mstack Discoverable Disk Images (DDIs)</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>systemd-mstack</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="plain"><replaceable>IMAGE</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-mstack</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg>--mount</arg> <arg choice="plain"><replaceable>IMAGE</replaceable></arg> <arg choice="plain"><replaceable>PATH</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
+      <command>systemd-mstack</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg>--umount</arg> <arg choice="plain"><replaceable>PATH</replaceable></arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-mstack</command> is a tool for introspecting and interacting with
+    <filename>.mstack/</filename> mount stack directories, as described in
+    <citerefentry><refentrytitle>systemd.mstack</refentrytitle><manvolnum>7</manvolnum></citerefentry>. It
+    supports three different operations:</para>
+
+    <orderedlist>
+      <listitem><para>Show general mount stack information, including all described
+      <literal>overlayfs</literal> layers and bind mounts.</para></listitem>
+
+      <listitem><para>Mount a mount stack to a local directory.</para></listitem>
+
+      <listitem><para>Unmount a mount stack from a local directory.</para></listitem>
+    </orderedlist>
+
+    <para>The <command>systemd-mstack</command> command may be invoked as <command>mount.mstack</command> in
+    which case it implements the <citerefentry
+    project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry> "external
+    helper" interface. This ensures mount stack directories compatible with <command>systemd-mstack</command>
+    can be mounted directly by <command>mount</command> and <citerefentry
+    project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>. For
+    details see below.</para>
+
+    <xi:include href="vpick.xml" xpointer="image"/>
+  </refsect1>
+
+  <refsect1>
+    <title>Commands</title>
+
+    <para>If neither of the command switches listed below are passed the specified mount stack is opened and
+    general information about it is shown, including a list of all defined layers.</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--mount</option></term>
+        <term><option>-m</option></term>
+
+        <listitem><para>Mount the specified mount stack to the specified directory.</para>
+
+        <para>To unmount a mount stack directory mounted like this use the <option>--umount</option> operation.</para>
+
+        <para>Note that this functionality is also available in <citerefentry
+        project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry> via a
+        command such as <command>mount -t mstack mystack.mstack targetdir/</command>, as well as in <citerefentry
+        project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>. For
+        details, see below.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-M</option></term>
+
+        <listitem><para>This is a shortcut for <option>--mount --mkdir</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--umount</option></term>
+        <term><option>-u</option></term>
+
+        <listitem><para>Unmount a mount stack from the specified directory. This command expects one argument:
+        a directory where mount stack was mounted.</para>
+
+        <para>All mounted mounts will be recursively unmounted</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-U</option></term>
+
+        <listitem><para>This is a shortcut for <option>--umount --rmdir</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
+
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--read-only</option></term>
+        <term><option>-r</option></term>
+
+        <listitem><para>Operate in read-only mode. By default, <option>--mount</option> will establish
+        writable mount points. If this option is specified they are established in read-only mode
+        instead.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--mkdir</option></term>
+
+        <listitem><para>If combined with <option>--mount</option> the directory to mount the mount stack to
+        is created if it is missing. Note that the directory is not automatically removed when the mount
+        stack is unmounted again.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--rmdir</option></term>
+
+        <listitem><para>If combined with <option>--umount</option> the specified directory where the mount stack
+        is mounted is removed after unmounting it.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="image-policy-open" />
+      <xi:include href="standard-options.xml" xpointer="image-filter" />
+      <xi:include href="standard-options.xml" xpointer="no-pager" />
+      <xi:include href="standard-options.xml" xpointer="no-legend" />
+      <xi:include href="standard-options.xml" xpointer="json" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Exit status</title>
+
+    <para>On success, 0 is returned, a non-zero failure code otherwise.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Invocation as <command>/sbin/mount.mstack</command></title>
+
+    <!-- In case you are wondering why this is spelled out with the /sbin/ prefix, rather than /usr/bin/ or
+         so, or omitting the prefix entirely: it's simply because util-linux mount always uses precisely this
+         spelling in their API docs. For example open mount(8), and grep for '/sbin/mount', and you see a ton
+         of occurences. We just inherit this spelling here, to make clear this is just an instantiation of
+         their plugin mechanism. -->
+
+    <para>The <command>systemd-mstack</command> executable may be symlinked to
+    <filename>/sbin/mount.mstack</filename>. If invoked through that it implements <citerefentry
+    project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>'s
+    "external helper" interface for the (pseudo) file system type <literal>mstack</literal>. This means
+    conformant mount stack directories  may be mounted directly via</para>
+
+    <programlisting># mount -t mstack mystack.mstack targetdir/</programlisting>
+
+    <para>in a fashion mostly equivalent to:</para>
+
+    <programlisting># systemd-mstack --mount mystack.mstack targetdir/</programlisting>
+
+    <para>Note that since a single mount stack may contain multiple mount points it should later be unmounted with
+    <command>umount -R targetdir/</command>, for recursive operation.</para>
+
+    <para>This functionality is particularly useful to mount mount stacks automatically at boot via simple
+    <filename>/etc/fstab</filename> entries. For example:</para>
+
+    <programlisting>/path/to/mystack.nspawn /images/mystack/ mstack defaults 0 0</programlisting>
+
+    <para>When invoked this way the mount options <literal>ro</literal>, <literal>rw</literal> map to the
+    corresponding options listed above (i.e. <option>--read-only</option>).</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.mstack</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>umount</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>
