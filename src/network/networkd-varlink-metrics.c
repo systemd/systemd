@@ -102,43 +102,43 @@ static int managed_interfaces_build_json(MetricFamilyContext *context, void *use
 /* Keep metrics ordered alphabetically */
 static const MetricFamily network_metric_family_table[] = {
         {
-                .name = METRIC_IO_SYSTEMD_NETWORK_PREFIX "addressState",
+                .name = METRIC_IO_SYSTEMD_NETWORK_PREFIX "AddressState",
                 .description = "Per interface metric: address state",
                 .type = METRIC_FAMILY_TYPE_STRING,
                 .generate = link_address_state_build_json,
         },
         {
-                .name = METRIC_IO_SYSTEMD_NETWORK_PREFIX "adminState",
-                .description = "Per interface metric: admin state",
+                .name = METRIC_IO_SYSTEMD_NETWORK_PREFIX "AdministrativeState",
+                .description = "Per interface metric: administrative state",
                 .type = METRIC_FAMILY_TYPE_STRING,
                 .generate = link_admin_state_build_json,
         },
         {
-                .name = METRIC_IO_SYSTEMD_NETWORK_PREFIX "carrierState",
+                .name = METRIC_IO_SYSTEMD_NETWORK_PREFIX "CarrierState",
                 .description = "Per interface metric: carrier state",
                 .type = METRIC_FAMILY_TYPE_STRING,
                 .generate = link_carrier_state_build_json,
         },
         {
-                .name = METRIC_IO_SYSTEMD_NETWORK_PREFIX "ipv4AddressState",
+                .name = METRIC_IO_SYSTEMD_NETWORK_PREFIX "IPv4AddressState",
                 .description = "Per interface metric: IPv4 address state",
                 .type = METRIC_FAMILY_TYPE_STRING,
                 .generate = link_ipv4_address_state_build_json,
         },
         {
-                .name = METRIC_IO_SYSTEMD_NETWORK_PREFIX "ipv6AddressState",
+                .name = METRIC_IO_SYSTEMD_NETWORK_PREFIX "IPv6AddressState",
                 .description = "Per interface metric: IPv6 address state",
                 .type = METRIC_FAMILY_TYPE_STRING,
                 .generate = link_ipv6_address_state_build_json,
         },
         {
-                .name = METRIC_IO_SYSTEMD_NETWORK_PREFIX "managedInterfaces",
+                .name = METRIC_IO_SYSTEMD_NETWORK_PREFIX "ManagedInterfaces",
                 .description = "Number of network interfaces managed by systemd-networkd",
                 .type = METRIC_FAMILY_TYPE_GAUGE,
                 .generate = managed_interfaces_build_json,
         },
         {
-                .name = METRIC_IO_SYSTEMD_NETWORK_PREFIX "operationalState",
+                .name = METRIC_IO_SYSTEMD_NETWORK_PREFIX "OperationalState",
                 .description = "Per interface metric: operational state",
                 .type = METRIC_FAMILY_TYPE_STRING,
                 .generate = link_oper_state_build_json,
