@@ -23,6 +23,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
+#include "varlink-idl-util.h"
 #include "verbs.h"
 
 #define METRICS_MAX 1024U
@@ -112,6 +113,29 @@ static int metric_compare(sd_json_variant *const *a, sd_json_variant *const *b) 
         return strcmp_ptr(fields_str_a, fields_str_b);
 }
 
+static int metrics_name_valid(const char *metric_name) {
+
+        /* Validates a metrics family name. Since the prefix shall match the Varlink service name, we'll
+         * enforce Varlink interface naming rules on it. Given how close we are to Varlink let's also enforce
+         * rules on metrics names similar to those of Varlink field names. */
+
+        const char *e = strrchr(metric_name, '.');
+        if (!e)
+                return false;
+
+        _cleanup_free_ char *j = strndup(metric_name, e - metric_name);
+        if (!j)
+                return -ENOMEM;
+
+        if (!varlink_idl_interface_name_is_valid(j))
+                return false;
+
+        if (!varlink_idl_field_name_is_valid(e+1))
+                return false;
+
+        return true;
+}
+
 static bool metric_startswith_prefix(const char *metric_name, const char *prefix) {
         if (isempty(metric_name) || isempty(prefix))
                 return false;
@@ -138,6 +162,16 @@ static bool metrics_validate_one(LinkInfo *li, sd_json_variant *metric) {
         r = sd_json_dispatch(metric, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &metric_name);
         if (r < 0) {
                 log_debug_errno(r, "Failed to get metric name, assuming name is not valid: %m");
+                return false;
+        }
+
+        r = metrics_name_valid(metric_name);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to determine if '%s' is a valid metric name: %m", metric_name);
+                return false;
+        }
+        if (!r) {
+                log_debug("Metric name '%s' is not valid, skipping.", metric_name);
                 return false;
         }
 
@@ -434,11 +468,14 @@ static int readdir_sources(char **ret_directory, DirectoryEntries **ret) {
         else if (r < 0)
                 return log_error_errno(r, "Failed to enumerate '%s': %m", sources_path);
         else {
-                /* Filter out non-sockets/non-symlinks entries */
+                /* Filter out non-sockets/non-symlinks and badly named entries */
                 FOREACH_ARRAY(i, de->entries, de->n_entries) {
                         struct dirent *d = *i;
 
                         if (!IN_SET(d->d_type, DT_SOCK, DT_LNK))
+                                continue;
+
+                        if (!varlink_idl_interface_name_is_valid(d->d_name))
                                 continue;
 
                         de->entries[m++] = *i;
