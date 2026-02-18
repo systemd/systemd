@@ -31,6 +31,7 @@
 #define TIMEOUT_USEC (30 * USEC_PER_SEC) /* 30 seconds */
 
 static PagerFlags arg_pager_flags = 0;
+static bool arg_legend = true;
 static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF|SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
 static char **arg_matches = NULL;
@@ -443,7 +444,7 @@ static int metrics_output(Context *context) {
                                 return log_error_errno(r, "Failed to write JSON: %m");
                 }
 
-                if (context->n_metrics == 0)
+                if (context->n_metrics == 0 && arg_legend)
                         log_info("No metrics collected.");
 
                 return 0;
@@ -467,12 +468,12 @@ static int metrics_output(Context *context) {
                 return r;
 
         if (!table_isempty(table) || sd_json_format_enabled(arg_json_format_flags)) {
-                r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, /* show_header= */ true);
+                r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
                 if (r < 0)
                         return r;
         }
 
-        if (!sd_json_format_enabled(arg_json_format_flags)) {
+        if (arg_legend && !sd_json_format_enabled(arg_json_format_flags)) {
                 if (table_isempty(table))
                         printf("No metrics available.\n");
                 else
@@ -631,9 +632,10 @@ static int verb_metrics(int argc, char *argv[], void *userdata) {
                 }
         }
 
-        if (set_isempty(context.link_infos))
-                log_info("No metrics sources found.");
-        else {
+        if (set_isempty(context.link_infos)) {
+                if (arg_legend)
+                        log_info("No metrics sources found.");
+        } else {
                 assert(context.event);
 
                 r = sd_event_loop(context.event);
@@ -700,12 +702,12 @@ static int verb_list_sources(int argc, char *argv[], void *userdata) {
                 }
 
         if (!table_isempty(table) || sd_json_format_enabled(arg_json_format_flags)) {
-                r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, /* show_header= */ true);
+                r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
                 if (r < 0)
                         return r;
         }
 
-        if (!sd_json_format_enabled(arg_json_format_flags)) {
+        if (arg_legend && !sd_json_format_enabled(arg_json_format_flags)) {
                 if (table_isempty(table))
                         printf("No sources available.\n");
                 else
@@ -734,6 +736,7 @@ static int verb_help(int argc, char *argv[], void *userdata) {
                "  -h --help             Show this help\n"
                "     --version          Show package version\n"
                "     --no-pager         Do not pipe output into a pager\n"
+               "     --no-legend        Do not show the headers and footers\n"
                "     --user             Connect to user service manager\n"
                "     --system           Connect to system service manager (default)\n"
                "     --json=pretty|short\n"
@@ -755,18 +758,20 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_NO_PAGER,
+                ARG_NO_LEGEND,
                 ARG_USER,
                 ARG_SYSTEM,
                 ARG_JSON,
         };
 
         static const struct option options[] = {
-                { "help",     no_argument,       NULL, 'h'          },
-                { "version",  no_argument,       NULL, ARG_VERSION  },
-                { "no-pager", no_argument,       NULL, ARG_NO_PAGER },
-                { "user",     no_argument,       NULL, ARG_USER     },
-                { "system",   no_argument,       NULL, ARG_SYSTEM   },
-                { "json",     required_argument, NULL, ARG_JSON     },
+                { "help",      no_argument,       NULL, 'h'           },
+                { "version",   no_argument,       NULL, ARG_VERSION   },
+                { "no-pager",  no_argument,       NULL, ARG_NO_PAGER  },
+                { "no-legend", no_argument,       NULL, ARG_NO_LEGEND },
+                { "user",      no_argument,       NULL, ARG_USER      },
+                { "system",    no_argument,       NULL, ARG_SYSTEM    },
+                { "json",      required_argument, NULL, ARG_JSON      },
                 {}
         };
 
@@ -785,6 +790,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_PAGER:
                         arg_pager_flags |= PAGER_DISABLE;
+                        break;
+
+                case ARG_NO_LEGEND:
+                        arg_legend = false;
                         break;
 
                 case ARG_USER:
