@@ -246,25 +246,164 @@ static int metrics_call(Context *context, const char *name, const char *path) {
         return 0;
 }
 
-static int metrics_output_sorted(Context *context) {
+static int metrics_output_list(Context *context, Table **ret) {
+        int r;
+
+        assert(context);
+
+        _cleanup_(table_unrefp) Table *table = table_new("family", "object", "fields", "value");
+        if (!table)
+                return log_oom();
+
+        table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
+        table_set_sort(table, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3);
+
+        FOREACH_ARRAY(m, context->metrics, context->n_metrics) {
+                struct {
+                        const char *name;
+                        const char *object;
+                        sd_json_variant *fields, *value;
+                } d = {};
+
+                static const sd_json_dispatch_field dispatch_table[] = {
+                        { "name",   SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  voffsetof(d, name),   SD_JSON_MANDATORY },
+                        { "object", SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  voffsetof(d, object), 0                 },
+                        { "fields", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_variant_noref, voffsetof(d, fields), 0                 },
+                        { "value",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_variant_noref, voffsetof(d, value),  SD_JSON_MANDATORY },
+                        {}
+                };
+
+                r = sd_json_dispatch(*m, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &d);
+                if (r < 0) {
+                        _cleanup_free_ char *t = NULL;
+                        int k = sd_json_variant_format(*m, /* flags= */ 0, &t);
+                        if (k < 0)
+                                return log_error_errno(k, "Failed to format JSON: %m");
+
+                        log_warning_errno(r, "Cannot parse metric, skipping: %s", t);
+                        continue;
+                }
+
+                r = table_add_many(
+                                table,
+                                TABLE_STRING,     d.name,
+                                TABLE_STRING,     d.object,
+                                TABLE_JSON,       d.fields,
+                                TABLE_SET_WEIGHT, 50U,
+                                TABLE_JSON,       d.value,
+                                TABLE_SET_WEIGHT, 50U);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        *ret = TAKE_PTR(table);
+        return 0;
+}
+
+static int metrics_output_describe(Context *context, Table **ret) {
+        int r;
+
+        assert(context);
+
+        _cleanup_(table_unrefp) Table *table = table_new("family", "type", "description");
+        if (!table)
+                return log_oom();
+
+        table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
+        table_set_sort(table, (size_t) 0, (size_t) 1, (size_t) 2);
+
+        FOREACH_ARRAY(m, context->metrics, context->n_metrics) {
+                struct {
+                        const char *name;
+                        const char *type;
+                        const char *description;
+                } d = {};
+
+                static const sd_json_dispatch_field dispatch_table[] = {
+                        { "name",        SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, voffsetof(d, name),        SD_JSON_MANDATORY },
+                        { "type",        SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, voffsetof(d, type),        SD_JSON_MANDATORY },
+                        { "description", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, voffsetof(d, description), 0                 },
+                        {}
+                };
+
+                r = sd_json_dispatch(*m, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &d);
+                if (r < 0) {
+                        _cleanup_free_ char *t = NULL;
+                        int k = sd_json_variant_format(*m, /* flags= */ 0, &t);
+                        if (k < 0)
+                                return log_error_errno(k, "Failed to format JSON: %m");
+
+                        log_warning_errno(r, "Cannot parse metric description, skipping: %s", t);
+                        continue;
+                }
+
+                r = table_add_many(
+                                table,
+                                TABLE_STRING,     d.name,
+                                TABLE_STRING,     d.type,
+                                TABLE_STRING,     d.description,
+                                TABLE_SET_WEIGHT, 50U);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        *ret = TAKE_PTR(table);
+        return 0;
+}
+
+static int metrics_output(Context *context) {
         int r;
 
         assert(context);
 
         typesafe_qsort(context->metrics, context->n_metrics, metric_compare);
 
-        FOREACH_ARRAY(m, context->metrics, context->n_metrics) {
-                r = sd_json_variant_dump(
-                                *m,
-                                arg_json_format_flags | SD_JSON_FORMAT_FLUSH,
-                                stdout,
-                                /* prefix= */ NULL);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to write JSON: %m");
+        if (sd_json_format_enabled(arg_json_format_flags)) {
+                FOREACH_ARRAY(m, context->metrics, context->n_metrics) {
+                        r = sd_json_variant_dump(
+                                        *m,
+                                        arg_json_format_flags | SD_JSON_FORMAT_FLUSH,
+                                        stdout,
+                                        /* prefix= */ NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to write JSON: %m");
+                }
+
+                if (context->n_metrics == 0)
+                        log_info("No metrics collected.");
+
+                return 0;
         }
 
-        if (context->n_metrics == 0)
-                log_info("No metrics collected.");
+        _cleanup_(table_unrefp) Table *table = NULL;
+        switch(context->action) {
+
+        case ACTION_LIST:
+                r = metrics_output_list(context, &table);
+                break;
+
+        case ACTION_DESCRIBE:
+                r = metrics_output_describe(context, &table);
+                break;
+
+        default:
+                assert_not_reached();
+        }
+        if (r < 0)
+                return r;
+
+        if (!table_isempty(table) || sd_json_format_enabled(arg_json_format_flags)) {
+                r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, /* show_header= */ true);
+                if (r < 0)
+                        return r;
+        }
+
+        if (!sd_json_format_enabled(arg_json_format_flags)) {
+                if (table_isempty(table))
+                        printf("No metrics available.\n");
+                else
+                        printf("\n%zu metrics listed.\n", table_get_rows(table) - 1);
+        }
 
         return 0;
 }
@@ -320,8 +459,6 @@ static int verb_metrics(int argc, char *argv[], void *userdata) {
         assert(argc == 1);
         assert(argv);
 
-        arg_json_format_flags &= ~SD_JSON_FORMAT_OFF;
-
         if (streq_ptr(argv[0], "metrics"))
                 action = ACTION_LIST;
         else {
@@ -373,7 +510,7 @@ static int verb_metrics(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to run event loop: %m");
 
-                r = metrics_output_sorted(&context);
+                r = metrics_output(&context);
                 if (r < 0)
                         return r;
         }
