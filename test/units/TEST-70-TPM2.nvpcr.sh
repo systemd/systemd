@@ -54,11 +54,20 @@ DIGEST_MEASURED2="$(echo -n "schnurz" | openssl dgst -sha256 -hex -r | cut -d' '
 DIGEST_EXPECTED2="$(echo "$DIGEST_EXPECTED$DIGEST_MEASURED2" | tr '[:lower:]' '[:upper:]' | basenc --base16 -d | openssl dgst -sha256 -hex -r | cut -d' ' -f1)"
 test "$DIGEST_ACTUAL2" = "$DIGEST_EXPECTED2"
 
-mkdir /tmp/nvpcr
+mkdir -p /tmp/nvpcr/tree
+touch /tmp/nvpcr/tree/file
 
-OPENSSL_CONFIG="/tmp/nvpcr/opensslconfig"
-# Unfortunately OpenSSL insists on reading some config file, hence provide one with mostly placeholder contents
-cat >"${OPENSSL_CONFIG:?}" <<EOF
+if machine_supports_verity_keyring; then
+    SYSTEMD_REPART_OVERRIDE_FSTYPE=squashfs \
+        systemd-repart -P \
+                    -s /tmp/nvpcr/tree \
+                    --certificate=/usr/share/mkosi.crt \
+                    --private-key=/usr/share/mkosi.key \
+                    /var/tmp/nvpcr.raw
+else
+    OPENSSL_CONFIG="/tmp/nvpcr/opensslconfig"
+    # Unfortunately OpenSSL insists on reading some config file, hence provide one with mostly placeholder contents
+    cat >"${OPENSSL_CONFIG:?}" <<EOF
 [ req ]
 prompt = no
 distinguished_name = req_distinguished_name
@@ -73,22 +82,20 @@ CN = Common Name
 emailAddress = test@email.com
 EOF
 
-openssl req -config "$OPENSSL_CONFIG" -subj="/CN=waldo" \
-            -x509 -sha256 -nodes -days 365 -newkey rsa:4096 \
-            -keyout /tmp/nvpcr/test-70-nvpcr.key -out /tmp/nvpcr/test-70-nvpcr.crt
+    openssl req -config "$OPENSSL_CONFIG" -subj="/CN=waldo" \
+                -x509 -sha256 -nodes -days 365 -newkey rsa:4096 \
+                -keyout /tmp/nvpcr/test-70-nvpcr.key -out /tmp/nvpcr/test-70-nvpcr.crt
 
-mkdir /tmp/nvpcr/tree
-touch /tmp/nvpcr/tree/file
+    SYSTEMD_REPART_OVERRIDE_FSTYPE=squashfs \
+        systemd-repart -P \
+                    -s /tmp/nvpcr/tree \
+                    --certificate=/tmp/nvpcr/test-70-nvpcr.crt \
+                    --private-key=/tmp/nvpcr/test-70-nvpcr.key \
+                    /var/tmp/nvpcr.raw
 
-SYSTEMD_REPART_OVERRIDE_FSTYPE=squashfs \
-    systemd-repart -P \
-                   -s /tmp/nvpcr/tree \
-                   --certificate=/tmp/nvpcr/test-70-nvpcr.crt \
-                   --private-key=/tmp/nvpcr/test-70-nvpcr.key \
-                   /var/tmp/nvpcr.raw
-
-mkdir -p /run/verity.d
-cp /tmp/nvpcr/test-70-nvpcr.crt /run/verity.d/
+    mkdir -p /run/verity.d
+    cp /tmp/nvpcr/test-70-nvpcr.crt /run/verity.d/
+fi
 
 cp /run/log/systemd/tpm2-measure.log /tmp/nvpcr/log-before
 
