@@ -11,6 +11,7 @@ SUBSYSTEMS=="platform", ENV{ID_BUS}="platform"
 SUBSYSTEMS=="i2c", ENV{ID_BUS}="i2c"
 SUBSYSTEMS=="rmi4", ENV{ID_BUS}="rmi"
 SUBSYSTEMS=="serio", ENV{ID_BUS}="i8042"
+SUBSYSTEMS=="spi", ENV{ID_BUS}="spi"
 
 SUBSYSTEMS=="usb", ENV{ID_BUS}=="", IMPORT{builtin}="usb_id"
 
