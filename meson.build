@@ -706,8 +706,6 @@ foreach header : [
 endforeach
 
 foreach header : [
-        'gshadow.h',
-        'nss.h',
         'sys/sdt.h',
         'threads.h',
         'valgrind/memcheck.h',
@@ -1657,11 +1655,11 @@ foreach tuple : [
                 ['efi'],
                 ['environment-d'],
                 ['firstboot'],
-                ['gshadow',         conf.get('HAVE_GSHADOW_H') == 1,  'gshadow.h not found'],
+                ['gshadow',         get_option('libc') != 'musl', 'musl does not support it'],
                 ['hibernate'],
                 ['hostnamed'],
                 ['hwdb'],
-                ['idn',             conf.get('HAVE_NI_IDN') == 1,     'NI_IDN is not defined'],
+                ['idn',             conf.get('HAVE_NI_IDN') == 1, 'NI_IDN is not defined'],
                 ['ima'],
                 ['ipe'],
                 ['initrd'],
@@ -1673,8 +1671,8 @@ foreach tuple : [
                 ['mountfsd'],
                 ['networkd'],
                 ['nsresourced'],
-                ['nss-myhostname',  conf.get('HAVE_NSS_H') == 1,      'nss.h not found'],
-                ['nss-systemd',     conf.get('HAVE_NSS_H') == 1,      'nss.h not found'],
+                ['nss-myhostname',  get_option('libc') != 'musl', 'musl does not support it'],
+                ['nss-systemd',     get_option('libc') != 'musl', 'musl does not support it'],
                 ['oomd'],
                 ['portabled'],
                 ['pstore'],
@@ -1689,7 +1687,7 @@ foreach tuple : [
                 ['timesyncd'],
                 ['tmpfiles'],
                 ['tpm'],
-                ['utmp',            get_option('libc') != 'musl',     'musl does not support it'],
+                ['utmp',            get_option('libc') != 'musl', 'musl does not support it'],
                 ['userdb'],
                 ['vconsole'],
                 ['xdg-autostart'],
@@ -1711,15 +1709,15 @@ foreach tuple : [['nss-mymachines', 'machined'],
                  ['nss-resolve',    'resolve']]
         want = get_option(tuple[0])
         if want.enabled()
-                if conf.get('HAVE_NSS_H') != 1
-                        error('@0@ is requested but nss.h not found'.format(tuple[0]))
+                if get_option('libc') == 'musl'
+                        error('@0@ is requested but musl does not support it'.format(tuple[0]))
                 endif
                 if not get_option(tuple[1])
                         error('@0@ is requested but @1@ is disabled'.format(tuple[0], tuple[1]))
                 endif
                 have = true
         elif want.allowed()
-                have = get_option(tuple[1]) and conf.get('HAVE_NSS_H') == 1
+                have = get_option(tuple[1]) and get_option('libc') != 'musl'
         else
                 have = false
         endif
