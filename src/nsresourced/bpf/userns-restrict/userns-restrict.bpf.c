@@ -16,9 +16,15 @@
 #include "vmlinux.h"
 
 #include <errno.h>
+
+/* Prevent conflicting declarations of bpf_stream_vprintk between vmlinux.h
+ * (from kernel BTF) and bpf/bpf_helpers.h (from libbpf), which may have
+ * different signatures depending on kernel and libbpf versions. */
+#define bpf_stream_vprintk __libbpf_bpf_stream_vprintk
 #include <bpf/bpf_core_read.h>
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_tracing.h>
+#undef bpf_stream_vprintk
 
 #ifndef bpf_core_cast
 /* bpf_rdonly_cast() was introduced in libbpf commit 688879f together with
