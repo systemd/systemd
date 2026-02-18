@@ -273,3 +273,5 @@ int json_variant_new_fd_info(sd_json_variant **ret, int fd);
 
 char *json_underscorify(char *p);
 char *json_dashify(char *p);
+
+int json_variant_compare(sd_json_variant *a, sd_json_variant *b);
