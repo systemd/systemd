@@ -586,6 +586,9 @@ static int verb_metrics(int argc, char *argv[], void *userdata) {
         assert(argc >= 1);
         assert(argv);
 
+        /* Enable JSON-SEQ mode here, since we'll dump a large series of JSON objects */
+        arg_json_format_flags |= SD_JSON_FORMAT_SEQ;
+
         if (streq_ptr(argv[0], "metrics"))
                 action = ACTION_LIST;
         else {
