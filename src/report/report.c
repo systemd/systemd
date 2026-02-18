@@ -61,12 +61,12 @@ static void context_done(Context *context) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(LinkInfo*, link_info_free);
 DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
-        link_info_hash_ops,
-        void,
-        trivial_hash_func,
-        trivial_compare_func,
-        LinkInfo,
-        link_info_free);
+                link_info_hash_ops,
+                void,
+                trivial_hash_func,
+                trivial_compare_func,
+                LinkInfo,
+                link_info_free);
 
 static int metric_compare(sd_json_variant *const *a, sd_json_variant *const *b) {
         const char *name_a, *name_b, *object_a, *object_b;
