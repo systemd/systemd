@@ -6,8 +6,8 @@
 ACTION=="remove", GOTO="integration_end"
 ENV{ID_BUS}=="", GOTO="integration_end"
 
-# ACPI, platform, PS/2, I2C, RMI and PCI devices: Internal by default.
-ENV{ID_BUS}=="acpi|platform|i8042|i2c|rmi|pci", ENV{ID_INTEGRATION}="internal"
+# ACPI, platform, PS/2, I2C, RMI, SPI and PCI devices: Internal by default.
+ENV{ID_BUS}=="acpi|platform|i8042|i2c|rmi|spi|pci", ENV{ID_INTEGRATION}="internal"
 
 # Bluetooth devices: External by default.
 ENV{ID_BUS}=="bluetooth", ENV{ID_INTEGRATION}="external"
