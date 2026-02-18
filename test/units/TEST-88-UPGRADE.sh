@@ -84,7 +84,7 @@ timer2=$(systemctl show -P NextElapseUSecRealtime upgrade_timer_test.timer)
 # FIXME: See https://github.com/systemd/systemd/pull/39293
 systemctl stop systemd-networkd-resolve-hook.socket || true
 
-dnf downgrade -y --allowerasing --disablerepo '*' "$pkgdir"/distro/*.rpm
+dnf downgrade --no-gpgchecks -y --allowerasing --disablerepo '*' "$pkgdir"/distro/*.rpm
 
 # Some distros don't ship networkd, so the test will always fail
 if command -v networkctl >/dev/null; then
@@ -105,7 +105,7 @@ fi
 check_sd
 
 # Finally test the upgrade
-dnf -y upgrade --disablerepo '*' "$pkgdir"/devel/*.rpm
+dnf -y upgrade --no-gpgchecks --disablerepo '*' "$pkgdir"/devel/*.rpm
 
 # TODO: sanity checks
 check_sd
