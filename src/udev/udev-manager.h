@@ -11,9 +11,6 @@
  * inotify event source stopped as soon as possible when the signal is received. Otherwise, we may continue
  * receive events that needs to be serialized anyway. */
 #define EVENT_PRIORITY_SIGTERM        (SD_EVENT_PRIORITY_NORMAL - 6)
-/* This must have a higher priority than the inotify event source, to make 'remove' uevent received earlier
- * than IN_IGNORED inotify event. */
-#define EVENT_PRIORITY_DEVICE_MONITOR (SD_EVENT_PRIORITY_NORMAL - 5)
 /* This must have a higher priority than the worker notification, to make IN_IGNORED event received earlier
  * than notifications about requests of adding/removing inotify watches. */
 #define EVENT_PRIORITY_INOTIFY_WATCH  (SD_EVENT_PRIORITY_NORMAL - 4)
@@ -33,6 +30,9 @@
 #define EVENT_PRIORITY_CONTROL        (SD_EVENT_PRIORITY_NORMAL + 2)
 /* The event is intended to trigger the post-event source, hence can be the lowest priority. */
 #define EVENT_PRIORITY_REQUEUE_EVENT  (SD_EVENT_PRIORITY_NORMAL + 3)
+/* This must have a higher priority than the inotify event source, to make 'remove' uevent received earlier
+ * than IN_IGNORED inotify event. */
+#define EVENT_PRIORITY_DEVICE_MONITOR (SD_EVENT_PRIORITY_NORMAL + 4)
 
 typedef struct Manager {
         sd_event *event;
