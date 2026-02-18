@@ -14,6 +14,7 @@
 #include "glyph-util.h"
 #include "gunicode.h"
 #include "in-addr-util.h"
+#include "json-util.h"
 #include "memory-util.h"
 #include "memstream-util.h"
 #include "pager.h"
@@ -110,6 +111,7 @@ typedef struct TableData {
                 pid_t pid;
                 mode_t mode;
                 dev_t devnum;
+                sd_json_variant *json;
                 /* … add more here as we start supporting more cell data types … */
         };
 } TableData;
@@ -249,6 +251,9 @@ static TableData *table_data_free(TableData *d) {
         if (IN_SET(d->type, TABLE_STRV, TABLE_STRV_WRAPPED))
                 strv_free(d->strv);
 
+        if (d->type == TABLE_JSON)
+                sd_json_variant_unref(d->json);
+
         return mfree(d);
 }
 
@@ -363,6 +368,9 @@ static size_t table_data_size(TableDataType type, const void *data) {
         case TABLE_DEVNUM:
                 return sizeof(dev_t);
 
+        case TABLE_JSON:
+                return sizeof(sd_json_variant*);
+
         default:
                 assert_not_reached();
         }
@@ -445,12 +453,22 @@ static TableData *table_data_new(
         d->ellipsize_percent = ellipsize_percent;
         d->uppercase = uppercase;
 
-        if (IN_SET(type, TABLE_STRV, TABLE_STRV_WRAPPED)) {
+        switch (type) {
+
+        case TABLE_STRV:
+        case TABLE_STRV_WRAPPED:
                 d->strv = strv_copy(data);
                 if (!d->strv)
                         return NULL;
-        } else
+                break;
+
+        case TABLE_JSON:
+                d->json = sd_json_variant_ref((sd_json_variant*) data);
+                break;
+
+        default:
                 memcpy_safe(d->data, data, data_size);
+        }
 
         return TAKE_PTR(d);
 }
@@ -1096,6 +1114,10 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         data = &buffer.devnum;
                         break;
 
+                case TABLE_JSON:
+                        data = va_arg(ap, sd_json_variant*);
+                        break;
+
                 case TABLE_SET_MINIMUM_WIDTH: {
                         size_t w = va_arg(ap, size_t);
 
@@ -1505,6 +1527,9 @@ static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t 
                                 return r;
 
                         return CMP(minor(a->devnum), minor(b->devnum));
+
+                case TABLE_JSON:
+                        return json_variant_compare(a->json, b->json);
 
                 default:
                         ;
@@ -2071,6 +2096,18 @@ static const char *table_data_format(
 
                 break;
 
+        case TABLE_JSON: {
+                if (!d->json)
+                        return table_ersatz_string(t);
+
+                char *p;
+                if (sd_json_variant_format(d->json, /* flags= */ 0, &p) < 0)
+                        return NULL;
+
+                d->formatted = p;
+                break;
+        }
+
         default:
                 assert_not_reached();
         }
@@ -2283,6 +2320,9 @@ static bool table_data_isempty(const TableData *d) {
         /* Let's also consider an empty strv as truly empty. */
         if (IN_SET(d->type, TABLE_STRV, TABLE_STRV_WRAPPED))
                 return strv_isempty(d->strv);
+
+        if (d->type == TABLE_JSON)
+                return sd_json_variant_is_null(d->json);
 
         /* Note that an empty string we do not consider empty here! */
         return false;
@@ -2990,6 +3030,15 @@ static int table_data_to_json(TableData *d, sd_json_variant **ret) {
                 return sd_json_build(ret, SD_JSON_BUILD_ARRAY(
                                                   SD_JSON_BUILD_UNSIGNED(major(d->devnum)),
                                                   SD_JSON_BUILD_UNSIGNED(minor(d->devnum))));
+
+        case TABLE_JSON:
+                if (!d->json)
+                        return sd_json_variant_new_null(ret);
+
+                if (ret)
+                        *ret = sd_json_variant_ref(d->json);
+
+                return 0;
 
         case TABLE_STRING_WITH_ANSI: {
                 _cleanup_free_ char *s = strdup(d->string);
