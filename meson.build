@@ -1603,7 +1603,7 @@ foreach tuple : [
                 ['efi'],
                 ['environment-d'],
                 ['firstboot'],
-                ['gshadow',         conf.get('HAVE_GSHADOW_H') == 1,  'gshadow.h not found'],
+                ['gshadow',         conf.get('HAVE_GSHADOW_H') == 1 and get_option('libc') != 'musl', 'gshadow.h not found'],
                 ['hibernate'],
                 ['hostnamed'],
                 ['hwdb'],
@@ -1619,8 +1619,8 @@ foreach tuple : [
                 ['mountfsd'],
                 ['networkd'],
                 ['nsresourced'],
-                ['nss-myhostname',  conf.get('HAVE_NSS_H') == 1,      'nss.h not found'],
-                ['nss-systemd',     conf.get('HAVE_NSS_H') == 1,      'nss.h not found'],
+                ['nss-myhostname',  conf.get('HAVE_NSS_H') == 1 and get_option('libc') != 'musl', 'nss.h not found'],
+                ['nss-systemd',     conf.get('HAVE_NSS_H') == 1 and get_option('libc') != 'musl', 'nss.h not found'],
                 ['oomd'],
                 ['portabled'],
                 ['pstore'],
@@ -1665,7 +1665,7 @@ foreach tuple : [['nss-mymachines', 'machined'],
                 endif
                 have = true
         elif want.allowed()
-                have = get_option(tuple[1]) and conf.get('HAVE_NSS_H') == 1
+                have = get_option(tuple[1]) and conf.get('HAVE_NSS_H') == 1 and get_option('libc') != 'musl'
         else
                 have = false
         endif
