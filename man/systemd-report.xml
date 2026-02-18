@@ -44,19 +44,26 @@
 
     <variablelist>
       <varlistentry>
-        <term><command>metrics</command></term>
+        <term><command>metrics</command> <arg choice="opt" rep="repeat">MATCH</arg></term>
 
-        <listitem><para>Acquire a list of metrics values from all local services providing them, and write them to standard output.</para>
+        <listitem><para>Acquire a list of metrics values from all local services providing them, and write
+        them to standard output. Optionally takes one or more match expressions for filtering the metrics to
+        show. The expression either may be a literal metric family name to search for, or a prefix of one
+        (which will be matched only at dot boundaries). If multiple matches are specified as multiple
+        paramaters, any metric matching <emphasis>any</emphasis> of the specified matches are shown.</para>
 
         <xi:include href="version-info.xml" xpointer="v260"/></listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><command>describe-metrics</command></term>
+        <term><command>describe-metrics</command> <arg choice="opt" rep="repeat">MATCH</arg></term>
 
         <listitem><para>Acquire a list of metric families from all local services providing them, and write
-        them to standard output. This returns information about metrics, their data types and human readable
-        description without values.</para>
+        them to standard output. This returns primarily static information about metrics, their data types
+        and human readable description, without values.</para>
+
+        <para>Match expressions similar to those supported by <command>metrics</command> are supported for
+        <command>describe-metrics</command>, too.</para>
 
         <xi:include href="version-info.xml" xpointer="v260"/></listitem>
       </varlistentry>
