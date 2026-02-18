@@ -295,6 +295,12 @@ int uid_range_load_userns_by_fd(int userns_fd, UIDRangeUsernsMode mode, UIDRange
         assert(mode < _UID_RANGE_USERNS_MODE_MAX);
         assert(ret);
 
+        r = is_our_namespace(userns_fd, NAMESPACE_USER);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                return uid_range_load_userns(/* path= */ NULL, mode, ret);
+
         r = userns_enter_and_pin(userns_fd, &pidref);
         if (r < 0)
                 return r;
