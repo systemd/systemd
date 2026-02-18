@@ -425,8 +425,9 @@ def clear_udev_rules():
 def save_active_units():
     for u in [
             'systemd-networkd.socket',
-            'systemd-networkd-varlink.socket',
             'systemd-networkd-resolve-hook.socket',
+            'systemd-networkd-varlink.socket',
+            'systemd-networkd-varlink-metrics.socket',
             'systemd-networkd.service',
             'systemd-resolved-monitor.socket',
             'systemd-resolved-varlink.socket',
@@ -447,12 +448,16 @@ def restore_active_units():
         call('systemctl stop systemd-networkd.socket')
         has_network_socket = True
 
+    if 'systemd-networkd-resolve-hook.socket' in active_units:
+        call('systemctl stop systemd-networkd-resolve-hook.socket')
+        has_network_socket = True
+
     if 'systemd-networkd-varlink.socket' in active_units:
         call('systemctl stop systemd-networkd-varlink.socket')
         has_network_socket = True
 
-    if 'systemd-networkd-resolve-hook.socket' in active_units:
-        call('systemctl stop systemd-networkd-resolve-hook.socket')
+    if 'systemd-networkd-varlink-metrics.socket' in active_units:
+        call('systemctl stop systemd-networkd-varlink-metrics.socket')
         has_network_socket = True
 
     if 'systemd-resolved-monitor.socket' in active_units:
@@ -521,9 +526,10 @@ def setup_system_units():
         for unit in [
                 'systemd-networkd.service',
                 'systemd-networkd.socket',
-                'systemd-networkd-varlink.socket',
-                'systemd-networkd-resolve-hook.socket',
                 'systemd-networkd-persistent-storage.service',
+                'systemd-networkd-resolve-hook.socket',
+                'systemd-networkd-varlink.socket',
+                'systemd-networkd-varlink-metrics.socket',
                 'systemd-resolved.service',
                 'systemd-timesyncd.service',
                 'systemd-udevd.service',
@@ -549,29 +555,7 @@ def setup_system_units():
 
     # TODO: also run udevd with sanitizers, valgrind, or coverage
     create_unit_dropin(
-        'systemd-udevd.service',
-        [
-            '[Service]',
-            'ExecStart=',
-            f'ExecStart=@{udevadm_bin} systemd-udevd',
-        ]
-    )
-    create_unit_dropin(
         'systemd-networkd.socket',
-        [
-            '[Unit]',
-            'StartLimitIntervalSec=0',
-        ]
-    )
-    create_unit_dropin(
-        'systemd-networkd-varlink.socket',
-        [
-            '[Unit]',
-            'StartLimitIntervalSec=0',
-        ]
-    )
-    create_unit_dropin(
-        'systemd-networkd-resolve-hook.socket',
         [
             '[Unit]',
             'StartLimitIntervalSec=0',
@@ -588,6 +572,35 @@ def setup_system_units():
             'ExecStop=',
             f'ExecStop={networkctl_bin} persistent-storage no',
             'Environment=SYSTEMD_LOG_LEVEL=debug' if enable_debug else '',
+        ]
+    )
+    create_unit_dropin(
+        'systemd-networkd-resolve-hook.socket',
+        [
+            '[Unit]',
+            'StartLimitIntervalSec=0',
+        ]
+    )
+    create_unit_dropin(
+        'systemd-networkd-varlink.socket',
+        [
+            '[Unit]',
+            'StartLimitIntervalSec=0',
+        ]
+    )
+    create_unit_dropin(
+        'systemd-networkd-varlink-metrics.socket',
+        [
+            '[Unit]',
+            'StartLimitIntervalSec=0',
+        ]
+    )
+    create_unit_dropin(
+        'systemd-udevd.service',
+        [
+            '[Service]',
+            'ExecStart=',
+            f'ExecStart=@{udevadm_bin} systemd-udevd',
         ]
     )
 
@@ -608,9 +621,10 @@ def clear_system_units():
 
     rm_unit('systemd-networkd.service')
     rm_unit('systemd-networkd.socket')
-    rm_unit('systemd-networkd-varlink.socket')
-    rm_unit('systemd-networkd-resolve-hook.socket')
     rm_unit('systemd-networkd-persistent-storage.service')
+    rm_unit('systemd-networkd-resolve-hook.socket')
+    rm_unit('systemd-networkd-varlink.socket')
+    rm_unit('systemd-networkd-varlink-metrics.socket')
     rm_unit('systemd-resolved.service')
     rm_unit('systemd-timesyncd.service')
     rm_unit('systemd-udevd.service')
@@ -995,13 +1009,15 @@ def stop_networkd(show_logs=True, check_failed=True):
 
     if check_failed:
         check_output('systemctl stop systemd-networkd.socket')
-        check_output('systemctl stop systemd-networkd-varlink.socket')
         check_output('systemctl stop systemd-networkd-resolve-hook.socket')
+        check_output('systemctl stop systemd-networkd-varlink.socket')
+        check_output('systemctl stop systemd-networkd-varlink-metrics.socket')
         check_output('systemctl stop systemd-networkd.service')
     else:
         call('systemctl stop systemd-networkd.socket')
-        call('systemctl stop systemd-networkd-varlink.socket')
         call('systemctl stop systemd-networkd-resolve-hook.socket')
+        call('systemctl stop systemd-networkd-varlink.socket')
+        call('systemctl stop systemd-networkd-varlink-metrics.socket')
         call('systemctl stop systemd-networkd.service')
 
     if show_logs:
