@@ -260,7 +260,7 @@ int pcrextend_verity_now(
         if (r < 0)
                 return r;
 
-        _cleanup_free_ sd_varlink *vl = NULL;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.PCRExtend");
         if (r < 0)
                 return r;
