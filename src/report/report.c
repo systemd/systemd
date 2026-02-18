@@ -278,7 +278,7 @@ static int metrics_query(void) {
                 FOREACH_DIRENT(de, d,
                                return log_warning_errno(errno, "Failed to read %s: %m", metrics_path)) {
 
-                        if (!IN_SET(de->d_type, DT_SOCK, DT_UNKNOWN))
+                        if (!IN_SET(de->d_type, DT_SOCK, DT_UNKNOWN, DT_LNK))
                                 continue;
 
                         if (set_size(context.link_infos) >= METRICS_LINKS_MAX) {
