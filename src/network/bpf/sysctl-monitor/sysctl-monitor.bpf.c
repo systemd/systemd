@@ -3,7 +3,13 @@
 #include "vmlinux.h"
 
 #include <errno.h>
+
+/* Prevent conflicting declarations of bpf_stream_vprintk between vmlinux.h
+ * (from kernel BTF) and bpf/bpf_helpers.h (from libbpf), which may have
+ * different signatures depending on kernel and libbpf versions. */
+#define bpf_stream_vprintk __libbpf_bpf_stream_vprintk
 #include <bpf/bpf_helpers.h>
+#undef bpf_stream_vprintk
 
 #include "sysctl-write-event.h"
 
