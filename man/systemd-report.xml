@@ -61,6 +61,13 @@
         <xi:include href="version-info.xml" xpointer="v260"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><command>list-sources</command></term>
+
+        <listitem><para>Show list of known metrics sources.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -81,6 +88,7 @@
         </listitem>
       </varlistentry>
 
+      <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="json" />
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
