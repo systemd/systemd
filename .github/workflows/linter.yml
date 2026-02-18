@@ -81,4 +81,12 @@ jobs:
         run: mkosi box -- meson test -C build --suite=clang-tidy --print-errorlogs --no-stdsplit --quiet
 
       - name: Build with musl
-        run: mkosi box -- .github/workflows/build-test-musl.sh
+        run: |
+          mkosi box -- \
+            env \
+            CC=musl-gcc \
+            CXX=musl-gcc \
+            CFLAGS="-idirafter /usr/include" \
+            CXXFLAGS="-idirafter /usr/include" \
+              meson setup -Dlibc=musl -Ddbus-interfaces-dir=no musl
+          mkosi box -- ninja -C musl
