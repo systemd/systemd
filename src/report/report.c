@@ -19,7 +19,9 @@
 #include "set.h"
 #include "sort-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "time-util.h"
+#include "verbs.h"
 
 #define METRICS_MAX 1024U
 #define METRICS_LINKS_MAX 128U
@@ -28,7 +30,15 @@
 static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
 
+typedef enum Action {
+        ACTION_LIST,
+        ACTION_DESCRIBE,
+        _ACTION_MAX,
+        _ACTION_INVALID = -EINVAL,
+} Action;
+
 typedef struct Context {
+        Action action;
         sd_event *event;
         Set *link_infos;
         sd_json_variant **metrics;  /* Collected metrics for sorting */
@@ -204,9 +214,12 @@ static int metrics_call(Context *context, const char *path) {
         if (r < 0)
                 return log_error_errno(r, "Failed to bind reply callback: %m");
 
-        r = sd_varlink_observe(vl, "io.systemd.Metrics.List", /* parameters= */ NULL);
+        const char *method = context->action == ACTION_LIST ? "io.systemd.Metrics.List" : "io.systemd.Metrics.Describe";
+        r = sd_varlink_observe(vl,
+                               method,
+                               /* parameters= */ NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to issue io.systemd.Metrics.List call: %m");
+                return log_error_errno(r, "Failed to issue %s() call: %m", method);
 
         _cleanup_(link_info_freep) LinkInfo *li = new(LinkInfo, 1);
         if (!li)
@@ -252,17 +265,30 @@ static int metrics_output_sorted(Context *context) {
         return 0;
 }
 
-static int metrics_query(void) {
+static int verb_metrics(int argc, char *argv[], void *userdata) {
+        Action action;
         int r;
+
+        assert(argc == 1);
+        assert(argv);
+
+        if (streq_ptr(argv[0], "metrics"))
+                action = ACTION_LIST;
+        else {
+                assert(streq_ptr(argv[0], "describe-metrics"));
+                action = ACTION_DESCRIBE;
+        }
 
         _cleanup_free_ char *metrics_path = NULL;
         r = runtime_directory_generic(arg_runtime_scope, "systemd/report", &metrics_path);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine metrics directory path: %m");
 
-        log_debug("Looking for reports in %s/", metrics_path);
+        log_debug("Looking for metrics in %s/", metrics_path);
 
-        _cleanup_(context_done) Context context = {};
+        _cleanup_(context_done) Context context = {
+                .action = action,
+        };
 
         r = sd_event_default(&context.event);
         if (r < 0)
@@ -323,7 +349,7 @@ static int metrics_query(void) {
         return 0;
 }
 
-static int help(void) {
+static int verb_help(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *link = NULL;
         int r;
 
@@ -331,19 +357,25 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] \n\n"
-               "%sPrint metrics for all system components.%s\n\n"
+        printf("%1$s [OPTIONS...] COMMAND ...\n"
+               "\n%5$sAcquire metrics from local sources.%6$s\n"
+               "\n%3$sCommands:%4$s\n"
+               "  metrics               Acquire list of metrics and their values\n"
+               "  describe-metrics      Describe available metrics\n"
+               "\n%3$sOptions:%4$s\n"
                "  -h --help             Show this help\n"
                "     --version          Show package version\n"
                "     --user             Connect to user service manager\n"
                "     --system           Connect to system service manager (default)\n"
                "     --json=pretty|short\n"
                "                        Configure JSON output\n"
-               "\nSee the %s for details.\n",
+               "\nSee the %2$s for details.\n",
                program_invocation_short_name,
-               ansi_highlight(),
+               link,
+               ansi_underline(),
                ansi_normal(),
-               link);
+               ansi_highlight(),
+               ansi_normal());
 
         return 0;
 }
@@ -373,7 +405,7 @@ static int parse_argv(int argc, char *argv[]) {
         while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
                 switch (c) {
                 case 'h':
-                        return help();
+                        return verb_help(/* argc= */ 0, /* argv= */ NULL, /* userdata= */ NULL);
 
                 case ARG_VERSION:
                         return version();
@@ -400,13 +432,20 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached();
                 }
 
-        if (optind < argc)
-                return log_error_errno(
-                                SYNTHETIC_ERRNO(EINVAL),
-                                "%s takes no arguments.",
-                                program_invocation_short_name);
-
         return 1;
+}
+
+
+static int report_main(int argc, char *argv[]) {
+
+        static const Verb verbs[] = {
+                { "help",             VERB_ANY, 1, 0,  verb_help    },
+                { "metrics",          VERB_ANY, 1, 0,  verb_metrics },
+                { "describe-metrics", VERB_ANY, 1, 0,  verb_metrics },
+                {}
+        };
+
+        return dispatch_verb(argc, argv, verbs, NULL);
 }
 
 static int run(int argc, char *argv[]) {
@@ -418,7 +457,7 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        return metrics_query();
+        return report_main(argc, argv);
 }
 
 DEFINE_MAIN_FUNCTION(run);
