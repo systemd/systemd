@@ -9,12 +9,12 @@
 #include "ansi-color.h"
 #include "build.h"
 #include "dirent-util.h"
-#include "fd-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "parse-argument.h"
 #include "path-lookup.h"
 #include "pretty-print.h"
+#include "recurse-dir.h"
 #include "runtime-scope.h"
 #include "set.h"
 #include "sort-util.h"
@@ -191,7 +191,7 @@ finish:
         return 0;
 }
 
-static int metrics_call(Context *context, const char *path) {
+static int metrics_call(Context *context, const char *name, const char *path) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         int r;
 
@@ -228,15 +228,16 @@ static int metrics_call(Context *context, const char *path) {
         *li = (LinkInfo) {
                 .context = context,
                 .link = sd_varlink_ref(vl),
+                .metric_prefix = strdup(name),
         };
 
-        r = path_extract_filename(path, &li->metric_prefix);
-        if (r < 0)
-                return log_error_errno(r, "Failed to extract metric name from path %s: %m", path);
+        if (!li->metric_prefix)
+                return log_oom();
 
-        (void) sd_varlink_set_userdata(vl, li);
         if (set_ensure_put(&context->link_infos, &link_info_hash_ops, li) < 0)
                 return log_oom();
+
+        (void) sd_varlink_set_userdata(vl, li);
 
         TAKE_PTR(li);
         return 0;
@@ -265,6 +266,50 @@ static int metrics_output_sorted(Context *context) {
         return 0;
 }
 
+static int readdir_sources(char **ret_directory, DirectoryEntries **ret) {
+        int r;
+
+        assert(ret_directory);
+        assert(ret);
+
+        _cleanup_free_ char *sources_path = NULL;
+        r = runtime_directory_generic(arg_runtime_scope, "systemd/report", &sources_path);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine sources directory path: %m");
+
+        log_debug("Looking for metrics in '%s'.", sources_path);
+
+        size_t m = 0;
+
+        _cleanup_free_ DirectoryEntries *de = NULL;
+        r = readdir_all_at(
+                        AT_FDCWD,
+                        sources_path,
+                        RECURSE_DIR_IGNORE_DOT|RECURSE_DIR_ENSURE_TYPE,
+                        &de);
+        if (r == -ENOENT)
+                *ret = NULL;
+        else if (r < 0)
+                return log_error_errno(r, "Failed to enumerate '%s': %m", sources_path);
+        else {
+                /* Filter out non-sockets/non-symlinks entries */
+                FOREACH_ARRAY(i, de->entries, de->n_entries) {
+                        struct dirent *d = *i;
+
+                        if (!IN_SET(d->d_type, DT_SOCK, DT_LNK))
+                                continue;
+
+                        de->entries[m++] = *i;
+                }
+
+                de->n_entries = m;
+                *ret = TAKE_PTR(de);
+        }
+
+        *ret_directory = TAKE_PTR(sources_path);
+        return m > 0;
+}
+
 static int verb_metrics(int argc, char *argv[], void *userdata) {
         Action action;
         int r;
@@ -279,52 +324,46 @@ static int verb_metrics(int argc, char *argv[], void *userdata) {
                 action = ACTION_DESCRIBE;
         }
 
-        _cleanup_free_ char *metrics_path = NULL;
-        r = runtime_directory_generic(arg_runtime_scope, "systemd/report", &metrics_path);
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine metrics directory path: %m");
-
-        log_debug("Looking for metrics in %s/", metrics_path);
-
         _cleanup_(context_done) Context context = {
                 .action = action,
         };
-
-        r = sd_event_default(&context.event);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get event loop: %m");
-
-        r = sd_event_set_signal_exit(context.event, true);
-        if (r < 0)
-                return log_error_errno(r, "Failed to enable exit on SIGINT/SIGTERM: %m");
-
         size_t n_skipped_sources = 0;
-        _cleanup_closedir_ DIR *d = opendir(metrics_path);
-        if (!d) {
-                if (errno != ENOENT)
-                        return log_error_errno(errno, "Failed to open metrics directory %s: %m", metrics_path);
-        } else
-                FOREACH_DIRENT(de, d,
-                               return log_warning_errno(errno, "Failed to read %s: %m", metrics_path)) {
 
-                        if (!IN_SET(de->d_type, DT_SOCK, DT_UNKNOWN))
-                                continue;
+        _cleanup_free_ DirectoryEntries *de = NULL;
+        _cleanup_free_ char *sources_path = NULL;
+        r = readdir_sources(&sources_path, &de);
+        if (r < 0)
+                return r;
+        if (r > 0) {
+                r = sd_event_default(&context.event);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get event loop: %m");
+
+                r = sd_event_set_signal_exit(context.event, true);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to enable exit on SIGINT/SIGTERM: %m");
+
+                FOREACH_ARRAY(i, de->entries, de->n_entries) {
+                        struct dirent *d = *i;
 
                         if (set_size(context.link_infos) >= METRICS_LINKS_MAX) {
                                 n_skipped_sources++;
                                 break;
                         }
 
-                        _cleanup_free_ char *p = path_join(metrics_path, de->d_name);
+                        _cleanup_free_ char *p = path_join(sources_path, d->d_name);
                         if (!p)
                                 return log_oom();
 
-                        (void) metrics_call(&context, p);
+                        (void) metrics_call(&context, d->d_name, p);
                 }
+        }
 
         if (set_isempty(context.link_infos))
                 log_info("No metrics sources found.");
         else {
+                assert(context.event);
+
                 r = sd_event_loop(context.event);
                 if (r < 0)
                         return log_error_errno(r, "Failed to run event loop: %m");
