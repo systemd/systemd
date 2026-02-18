@@ -125,6 +125,7 @@ int import_url_change_suffix(
 static const char* const import_type_table[_IMPORT_TYPE_MAX] = {
         [IMPORT_RAW] = "raw",
         [IMPORT_TAR] = "tar",
+        [IMPORT_OCI] = "oci",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(import_type, ImportType);
