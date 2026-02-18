@@ -17,7 +17,7 @@ typedef struct PickFilter {
         const char *basename;         /* Can be overridden by search pattern */
         const char *version;
         Architecture architecture;
-        char * const *suffix;         /* Can be overridden by search pattern */
+        const char *suffix;           /* Can be overridden by search pattern */
 } PickFilter;
 
 typedef struct PickResult {
