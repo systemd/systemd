@@ -336,7 +336,7 @@ static int hash_file(int fd, EVP_MD_CTX *md_ctx, uint64_t offset, uint64_t size)
 }
 
 static int section_offset_cmp(const IMAGE_SECTION_HEADER *a, const IMAGE_SECTION_HEADER *b) {
-        return CMP(ASSERT_PTR(a)->PointerToRawData, ASSERT_PTR(b)->PointerToRawData);
+        return CMP(le32toh(ASSERT_PTR(a)->PointerToRawData), le32toh(ASSERT_PTR(b)->PointerToRawData));
 }
 
 int pe_hash(int fd,
@@ -384,7 +384,7 @@ int pe_hash(int fd,
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to allocate message digest.");
 
         /* Everything from beginning of file to CheckSum field in PE header */
-        p = (uint64_t) dos_header->e_lfanew +
+        p = (uint64_t) le32toh(dos_header->e_lfanew) +
                 offsetof(PeHeader, optional.CheckSum);
         r = hash_file(fd, mdctx, 0, p);
         if (r < 0)
@@ -392,7 +392,7 @@ int pe_hash(int fd,
         p += sizeof(le32_t);
 
         /* Everything between the CheckSum field and the Image Data Directory Entry for the Certification Table */
-        q = (uint64_t) dos_header->e_lfanew +
+        q = (uint64_t) le32toh(dos_header->e_lfanew) +
                 PE_HEADER_OPTIONAL_FIELD_OFFSET(pe_header, DataDirectory[IMAGE_DATA_DIRECTORY_INDEX_CERTIFICATION_TABLE]);
         r = hash_file(fd, mdctx, p, q - p);
         if (r < 0)
@@ -400,7 +400,7 @@ int pe_hash(int fd,
         q += sizeof(IMAGE_DATA_DIRECTORY);
 
         /* The rest of the header + the section table */
-        p = pe_header->optional.SizeOfHeaders;
+        p = le32toh(pe_header->optional.SizeOfHeaders);
         if (p < q)
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "SizeOfHeaders too short.");
         r = hash_file(fd, mdctx, q, p - q);
@@ -411,19 +411,19 @@ int pe_hash(int fd,
         typesafe_qsort(sections, le16toh(pe_header->pe.NumberOfSections), section_offset_cmp);
 
         FOREACH_ARRAY(section, sections, le16toh(pe_header->pe.NumberOfSections)) {
-                r = hash_file(fd, mdctx, section->PointerToRawData, section->SizeOfRawData);
+                r = hash_file(fd, mdctx, le32toh(section->PointerToRawData), le32toh(section->SizeOfRawData));
                 if (r < 0)
                         return r;
 
-                p += section->SizeOfRawData;
+                p += le32toh(section->SizeOfRawData);
         }
 
         if ((uint64_t) st.st_size > p) {
 
-                if (st.st_size - p < certificate_table->Size)
+                if ((uint64_t) st.st_size - p < le32toh(certificate_table->Size))
                         return log_debug_errno(errno, "No space for certificate table, refusing.");
 
-                r = hash_file(fd, mdctx, p, st.st_size - p - certificate_table->Size);
+                r = hash_file(fd, mdctx, p, st.st_size - p - le32toh(certificate_table->Size));
                 if (r < 0)
                         return r;
 
@@ -560,13 +560,13 @@ int uki_hash(int fd,
                 if (EVP_DigestInit_ex(mdctx, md, NULL) != 1)
                         return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Failed to allocate message digest.");
 
-                r = hash_file(fd, mdctx, section->PointerToRawData, MIN(section->VirtualSize, section->SizeOfRawData));
+                r = hash_file(fd, mdctx, le32toh(section->PointerToRawData), MIN(le32toh(section->VirtualSize), le32toh(section->SizeOfRawData)));
                 if (r < 0)
                         return r;
 
-                if (section->SizeOfRawData < section->VirtualSize) {
+                if (le32toh(section->SizeOfRawData) < le32toh(section->VirtualSize)) {
                         uint8_t zeroes[1024] = {};
-                        size_t remaining = section->VirtualSize - section->SizeOfRawData;
+                        size_t remaining = le32toh(section->VirtualSize) - le32toh(section->SizeOfRawData);
 
                         while (remaining > 0) {
                                 size_t sz = MIN(sizeof(zeroes), remaining);
