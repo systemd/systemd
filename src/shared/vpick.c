@@ -13,7 +13,6 @@
 #include "recurse-dir.h"
 #include "stat-util.h"
 #include "string-util.h"
-#include "strv.h"
 #include "vpick.h"
 
 void pick_result_done(PickResult *p) {
@@ -86,8 +85,6 @@ static int format_fname(
 
         if (FLAGS_SET(flags, PICK_TRIES) || !filter->version) /* Underspecified? */
                 return -ENOEXEC;
-        if (strv_length(filter->suffix) > 1) /* suffix is not deterministic? */
-                return -ENOEXEC;
 
         /* The format for names we match goes like this:
          *
@@ -139,8 +136,8 @@ static int format_fname(
                         return -ENOMEM;
         }
 
-        if (!strv_isempty(filter->suffix))
-                if (!strextend(&fn, filter->suffix[0]))
+        if (!isempty(filter->suffix))
+                if (!strextend(&fn, filter->suffix))
                         return -ENOMEM;
 
         if (!filename_is_valid(fn))
@@ -407,8 +404,8 @@ static int make_choice(
                 } else
                         e = dname;
 
-                if (!strv_isempty(filter->suffix)) {
-                        char *sfx = endswith_strv(e, filter->suffix);
+                if (!isempty(filter->suffix)) {
+                        char *sfx = endswith(e, filter->suffix);
                         if (!sfx)
                                 continue;
 
@@ -511,7 +508,6 @@ static int path_pick_one(
                 PickResult *ret) {
 
         _cleanup_free_ char *filter_bname = NULL, *dir = NULL, *parent = NULL, *fname = NULL;
-        char * const *filter_suffix_strv = NULL;
         const char *filter_suffix = NULL, *enumeration_path;
         uint32_t filter_type_mask;
         int r;
@@ -569,11 +565,13 @@ static int path_pick_one(
                         return -ENOMEM;
 
                 /* Chop off suffix, if specified */
-                char *f = endswith_strv(filter_bname, filter->suffix);
-                if (f)
-                        *f = 0;
+                if (!isempty(filter->suffix)) {
+                        char *f = endswith(filter_bname, filter->suffix);
+                        if (f)
+                                *f = 0;
+                }
 
-                filter_suffix_strv = filter->suffix;
+                filter_suffix = filter->suffix;
                 filter_type_mask = filter->type_mask;
 
                 enumeration_path = path;
@@ -633,7 +631,7 @@ static int path_pick_one(
                                 .basename = filter_bname,
                                 .version = filter->version,
                                 .architecture = filter->architecture,
-                                .suffix = filter_suffix_strv ?: STRV_MAKE(filter_suffix),
+                                .suffix = filter_suffix,
                         },
                         flags,
                         ret);
@@ -790,7 +788,7 @@ const PickFilter pick_filter_image_raw[1] = {
         {
                 .type_mask = (UINT32_C(1) << DT_REG) | (UINT32_C(1) << DT_BLK),
                 .architecture = _ARCHITECTURE_INVALID,
-                .suffix = STRV_MAKE(".raw"),
+                .suffix = ".raw",
         },
 };
 
