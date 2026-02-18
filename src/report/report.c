@@ -8,7 +8,9 @@
 #include "alloc-util.h"
 #include "ansi-color.h"
 #include "build.h"
+#include "chase.h"
 #include "dirent-util.h"
+#include "format-table.h"
 #include "log.h"
 #include "main-func.h"
 #include "parse-argument.h"
@@ -27,8 +29,9 @@
 #define METRICS_LINKS_MAX 128U
 #define TIMEOUT_USEC (30 * USEC_PER_SEC) /* 30 seconds */
 
+static PagerFlags arg_pager_flags = 0;
 static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
-static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
+static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF|SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
 
 typedef enum Action {
         ACTION_LIST,
@@ -317,6 +320,8 @@ static int verb_metrics(int argc, char *argv[], void *userdata) {
         assert(argc == 1);
         assert(argv);
 
+        arg_json_format_flags &= ~SD_JSON_FORMAT_OFF;
+
         if (streq_ptr(argv[0], "metrics"))
                 action = ACTION_LIST;
         else {
@@ -388,6 +393,61 @@ static int verb_metrics(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static int verb_list_sources(int argc, char *argv[], void *userdata) {
+        int r;
+
+        _cleanup_(table_unrefp) Table *table = table_new("source", "address");
+        if (!table)
+                return log_oom();
+
+        _cleanup_free_ char *sources_path = NULL;
+        _cleanup_free_ DirectoryEntries *de = NULL;
+        r = readdir_sources(&sources_path, &de);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                FOREACH_ARRAY(i, de->entries, de->n_entries) {
+                        struct dirent *d = *i;
+
+                        _cleanup_free_ char *k = path_join(sources_path, d->d_name);
+                        if (!k)
+                                return log_oom();
+
+                        _cleanup_free_ char *resolved = NULL;
+                        r = chase(k, /* root= */ NULL, CHASE_MUST_BE_SOCKET, &resolved, /* ret_fd= */ NULL);
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to resolve '%s', skipping: %m", k);
+                                continue;
+                        }
+
+                        _cleanup_free_ char *j = strjoin("unix:", resolved);
+                        if (!j)
+                                return log_oom();
+
+                        r = table_add_many(
+                                        table,
+                                        TABLE_STRING, d->d_name,
+                                        TABLE_STRING, j);
+                        if (r < 0)
+                                return table_log_add_error(r);
+                }
+
+        if (!table_isempty(table) || sd_json_format_enabled(arg_json_format_flags)) {
+                r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, /* show_header= */ true);
+                if (r < 0)
+                        return r;
+        }
+
+        if (!sd_json_format_enabled(arg_json_format_flags)) {
+                if (table_isempty(table))
+                        printf("No sources available.\n");
+                else
+                        printf("\n%zu sources listed.\n", table_get_rows(table) - 1);
+        }
+
+        return 0;
+}
+
 static int verb_help(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -401,9 +461,11 @@ static int verb_help(int argc, char *argv[], void *userdata) {
                "\n%3$sCommands:%4$s\n"
                "  metrics               Acquire list of metrics and their values\n"
                "  describe-metrics      Describe available metrics\n"
+               "  list-sources          Show list of known metrics sources\n"
                "\n%3$sOptions:%4$s\n"
                "  -h --help             Show this help\n"
                "     --version          Show package version\n"
+               "     --no-pager         Do not pipe output into a pager\n"
                "     --user             Connect to user service manager\n"
                "     --system           Connect to system service manager (default)\n"
                "     --json=pretty|short\n"
@@ -422,17 +484,19 @@ static int verb_help(int argc, char *argv[], void *userdata) {
 static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
+                ARG_NO_PAGER,
                 ARG_USER,
                 ARG_SYSTEM,
                 ARG_JSON,
         };
 
         static const struct option options[] = {
-                { "help",    no_argument,       NULL, 'h'         },
-                { "version", no_argument,       NULL, ARG_VERSION },
-                { "user",    no_argument,       NULL, ARG_USER    },
-                { "system",  no_argument,       NULL, ARG_SYSTEM  },
-                { "json",    required_argument, NULL, ARG_JSON    },
+                { "help",     no_argument,       NULL, 'h'          },
+                { "version",  no_argument,       NULL, ARG_VERSION  },
+                { "no-pager", no_argument,       NULL, ARG_NO_PAGER },
+                { "user",     no_argument,       NULL, ARG_USER     },
+                { "system",   no_argument,       NULL, ARG_SYSTEM   },
+                { "json",     required_argument, NULL, ARG_JSON     },
                 {}
         };
 
@@ -448,6 +512,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_VERSION:
                         return version();
+
+                case ARG_NO_PAGER:
+                        arg_pager_flags |= PAGER_DISABLE;
+                        break;
 
                 case ARG_USER:
                         arg_runtime_scope = RUNTIME_SCOPE_USER;
@@ -474,13 +542,13 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-
 static int report_main(int argc, char *argv[]) {
 
         static const Verb verbs[] = {
-                { "help",             VERB_ANY, 1, 0,  verb_help    },
-                { "metrics",          VERB_ANY, 1, 0,  verb_metrics },
-                { "describe-metrics", VERB_ANY, 1, 0,  verb_metrics },
+                { "help",             VERB_ANY, 1, 0, verb_help         },
+                { "metrics",          VERB_ANY, 1, 0, verb_metrics      },
+                { "describe-metrics", VERB_ANY, 1, 0, verb_metrics      },
+                { "list-sources",     VERB_ANY, 1, 0, verb_list_sources },
                 {}
         };
 
