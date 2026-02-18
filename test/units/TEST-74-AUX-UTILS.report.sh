@@ -6,27 +6,29 @@ set -o pipefail
 # Unset $PAGER so we don't have to use --no-pager everywhere
 export PAGER=
 
-systemd-report --help
-systemd-report help
-systemd-report --version
-systemd-report --json=help
+REPORT=/usr/lib/systemd/systemd-report
 
-systemd-report metrics
-systemd-report metrics -j
-systemd-report metrics --no-legend
-systemd-report describe-metrics
-systemd-report describe-metrics -j
-systemd-report describe-metrics --no-legend
-systemd-report list-sources
-systemd-report list-sources -j
-systemd-report list-sources --no-legend
+"$REPORT" --help
+"$REPORT" help
+"$REPORT" --version
+"$REPORT" --json=help
 
-systemd-report metrics io
-systemd-report metrics io.systemd piff
-systemd-report metrics piff
-systemd-report describe-metrics io
-systemd-report describe-metrics io.systemd piff
-systemd-report describe-metrics piff
+"$REPORT" metrics
+"$REPORT" metrics -j
+"$REPORT" metrics --no-legend
+"$REPORT" describe-metrics
+"$REPORT" describe-metrics -j
+"$REPORT" describe-metrics --no-legend
+"$REPORT" list-sources
+"$REPORT" list-sources -j
+"$REPORT" list-sources --no-legend
+
+"$REPORT" metrics io
+"$REPORT" metrics io.systemd piff
+"$REPORT" metrics piff
+"$REPORT" describe-metrics io
+"$REPORT" describe-metrics io.systemd piff
+"$REPORT" describe-metrics piff
 
 # test io.systemd.Network Metrics
 varlinkctl info /run/systemd/report/io.systemd.Network
