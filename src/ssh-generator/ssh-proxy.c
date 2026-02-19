@@ -11,7 +11,9 @@
 #include "log.h"
 #include "main-func.h"
 #include "path-lookup.h"
+#include "path-util.h"
 #include "socket-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
@@ -309,27 +311,65 @@ static int process_machine(const char *machine, const char *port) {
         assert(port);
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *result = NULL;
-        r = fetch_machine(machine, RUNTIME_SCOPE_USER, &result);
-        if (r == -ESRCH)
-                r = fetch_machine(machine, RUNTIME_SCOPE_SYSTEM, &result);
+        RuntimeScope scope = RUNTIME_SCOPE_USER;
+        r = fetch_machine(machine, scope, &result);
+        if (r == -ESRCH) {
+                scope = RUNTIME_SCOPE_SYSTEM;
+                r = fetch_machine(machine, scope, &result);
+        }
         if (r < 0)
                 return r;
 
-        uint32_t cid = VMADDR_CID_ANY;
-
-        static const sd_json_dispatch_field dispatch_table[] = {
-                { "vSockCid", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint32, 0, 0 },
-                {}
+        struct {
+                uint32_t cid;
+                const char *class;
+                const char *service;
+        } p = {
+                .cid = VMADDR_CID_ANY,
         };
 
-        r = sd_json_dispatch(result, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &cid);
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "vSockCid", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint32,       voffsetof(p, cid),     0                 },
+                { "class",    SD_JSON_VARIANT_STRING,   sd_json_dispatch_const_string, voffsetof(p, class),   SD_JSON_MANDATORY },
+                { "service",  SD_JSON_VARIANT_STRING,   sd_json_dispatch_const_string, voffsetof(p, service), 0                 },
+        };
+
+        r = sd_json_dispatch(result, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &p);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse Varlink reply: %m");
 
-        if (cid == VMADDR_CID_ANY)
+        if (streq(p.class, "container")) {
+                _cleanup_free_ char *path = NULL;
+
+                if (!streq_ptr(p.service, "systemd-nspawn"))
+                        return log_error_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Don't know how to SSH into '%s' container %s.", p.service, machine);
+
+                r = runtime_directory_generic(scope, "systemd/nspawn/unix-export", &path);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine runtime directory: %m");
+
+                if (!path_extend(&path, machine, "ssh"))
+                        return log_oom();
+
+                r = is_socket(path);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to check if '%s' exists and is a socket: %m", path);
+                if (r == 0)
+                        return log_error_errno(
+                                        SYNTHETIC_ERRNO(ENOENT),
+                                        "'%s' does not exist or is not a socket, are sshd and systemd-ssh-generator installed and enabled in the container?",
+                                        path);
+
+                return process_unix(path);
+        }
+
+        if (!streq(p.class, "vm"))
+                return log_error_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Don't know how to SSH into machine %s with class '%s'.", machine, p.class);
+
+        if (p.cid == VMADDR_CID_ANY)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Machine %s has no AF_VSOCK CID assigned.", machine);
 
-        return process_vsock_cid(cid, port);
+        return process_vsock_cid(p.cid, port);
 }
 
 static char *startswith_sep(const char *s, const char *prefix) {
