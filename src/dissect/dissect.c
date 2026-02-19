@@ -42,6 +42,7 @@
 #include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "nsresource.h"
+#include "option-parser.h"
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -60,6 +61,8 @@
 #include "uid-classification.h"
 #include "user-util.h"
 #include "vpick.h"
+
+#include "dissect.c.inc"
 
 static enum {
         ACTION_DISSECT,
@@ -146,56 +149,9 @@ static int help(void) {
                "%1$s [OPTIONS...] --shift IMAGE UIDBASE\n"
                "\n%5$sDissect a Discoverable Disk Image (DDI).%6$s\n\n"
                "%3$sOptions:%4$s\n"
-               "     --no-pager           Do not pipe output into a pager\n"
-               "     --no-legend          Do not show the headers and footers\n"
-               "  -r --read-only          Mount read-only\n"
-               "     --fsck=BOOL          Run fsck before mounting\n"
-               "     --growfs=BOOL        Grow file system to partition size, if marked\n"
-               "     --mkdir              Make mount directory before mounting, if missing\n"
-               "     --rmdir              Remove mount directory after unmounting\n"
-               "     --discard=MODE       Choose 'discard' mode (disabled, loop, all, crypto)\n"
-               "     --in-memory          Copy image into memory\n"
-               "     --root-hash=HASH     Specify root hash for verity\n"
-               "     --root-hash-sig=SIG  Specify pkcs7 signature of root hash for verity\n"
-               "                          as a DER encoded PKCS7, either as a path to a file\n"
-               "                          or as an ASCII base64 encoded string prefixed by\n"
-               "                          'base64:'\n"
-               "     --verity-data=PATH   Specify data file with hash tree for verity if it is\n"
-               "                          not embedded in IMAGE\n"
-               "     --image-policy=POLICY\n"
-               "                          Specify image dissection policy\n"
-               "     --image-filter=FILTER\n"
-               "                          Specify image dissection filter\n"
-               "     --json=pretty|short|off\n"
-               "                          Generate JSON output\n"
-               "     --loop-ref=NAME      Set reference string for loopback device\n"
-               "     --loop-ref-auto      Derive reference string from image file name\n"
-               "     --mtree-hash=BOOL    Whether to include SHA256 hash in the mtree output\n"
-               "     --copy-ownership=BOOL\n"
-               "                          Whether to copy ownership when copying files\n"
-               "     --user               Discover user images\n"
-               "     --system             Discover system images\n"
-               "     --all                Show hidden images too\n"
+               OPTION_HELP_GENERATED
                "\n%3$sCommands:%4$s\n"
-               "  -h --help               Show this help\n"
-               "     --version            Show package version\n"
-               "  -m --mount              Mount the image to the specified directory\n"
-               "  -M                      Shortcut for --mount --mkdir\n"
-               "  -u --umount             Unmount the image from the specified directory\n"
-               "  -U                      Shortcut for --umount --rmdir\n"
-               "     --attach             Attach the disk image to a loopback block device\n"
-               "     --detach             Detach a loopback block device again\n"
-               "  -l --list               List all the files and directories of the specified\n"
-               "                          OS image\n"
-               "     --mtree              Show BSD mtree manifest of OS image\n"
-               "     --with               Mount, run command, unmount\n"
-               "  -x --copy-from          Copy files from image to host\n"
-               "  -a --copy-to            Copy files from host to image\n"
-               "     --make-archive       Convert the DDI to an archive file\n"
-               "     --discover           Discover DDIs in well known directories\n"
-               "     --validate           Validate image and image policy\n"
-               "     --shift              Shift UID range to selected base\n"
-               "  -q --quiet              Suppress output of chosen loopback block device\n"
+               OPTION_HELP_GENERATED_COMMANDS
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -276,89 +232,9 @@ static int parse_image_path_argument(const char *path, char **ret_root, char **r
 }
 
 static int parse_argv(int argc, char *argv[]) {
-
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_NO_PAGER,
-                ARG_NO_LEGEND,
-                ARG_WITH,
-                ARG_DISCARD,
-                ARG_FSCK,
-                ARG_GROWFS,
-                ARG_ROOT_HASH,
-                ARG_ROOT_HASH_SIG,
-                ARG_USR_HASH,
-                ARG_USR_HASH_SIG,
-                ARG_VERITY_DATA,
-                ARG_MKDIR,
-                ARG_RMDIR,
-                ARG_IN_MEMORY,
-                ARG_JSON,
-                ARG_MTREE,
-                ARG_DISCOVER,
-                ARG_ATTACH,
-                ARG_DETACH,
-                ARG_LOOP_REF,
-                ARG_LOOP_REF_AUTO,
-                ARG_IMAGE_POLICY,
-                ARG_VALIDATE,
-                ARG_MTREE_HASH,
-                ARG_MAKE_ARCHIVE,
-                ARG_SHIFT,
-                ARG_SYSTEM,
-                ARG_USER,
-                ARG_ALL,
-                ARG_IMAGE_FILTER,
-                ARG_COPY_OWNERSHIP,
-        };
-
-        static const struct option options[] = {
-                { "help",           no_argument,       NULL, 'h'                },
-                { "version",        no_argument,       NULL, ARG_VERSION        },
-                { "no-pager",       no_argument,       NULL, ARG_NO_PAGER       },
-                { "no-legend",      no_argument,       NULL, ARG_NO_LEGEND      },
-                { "mount",          no_argument,       NULL, 'm'                },
-                { "umount",         no_argument,       NULL, 'u'                },
-                { "attach",         no_argument,       NULL, ARG_ATTACH         },
-                { "detach",         no_argument,       NULL, ARG_DETACH         },
-                { "with",           no_argument,       NULL, ARG_WITH           },
-                { "read-only",      no_argument,       NULL, 'r'                },
-                { "discard",        required_argument, NULL, ARG_DISCARD        },
-                { "fsck",           required_argument, NULL, ARG_FSCK           },
-                { "growfs",         required_argument, NULL, ARG_GROWFS         },
-                { "root-hash",      required_argument, NULL, ARG_ROOT_HASH      },
-                { "root-hash-sig",  required_argument, NULL, ARG_ROOT_HASH_SIG  },
-                { "usr-hash",       required_argument, NULL, ARG_USR_HASH       },
-                { "usr-hash-sig",   required_argument, NULL, ARG_USR_HASH_SIG   },
-                { "verity-data",    required_argument, NULL, ARG_VERITY_DATA    },
-                { "mkdir",          no_argument,       NULL, ARG_MKDIR          },
-                { "rmdir",          no_argument,       NULL, ARG_RMDIR          },
-                { "in-memory",      no_argument,       NULL, ARG_IN_MEMORY      },
-                { "list",           no_argument,       NULL, 'l'                },
-                { "mtree",          no_argument,       NULL, ARG_MTREE          },
-                { "copy-from",      no_argument,       NULL, 'x'                },
-                { "copy-to",        no_argument,       NULL, 'a'                },
-                { "json",           required_argument, NULL, ARG_JSON           },
-                { "discover",       no_argument,       NULL, ARG_DISCOVER       },
-                { "loop-ref",       required_argument, NULL, ARG_LOOP_REF       },
-                { "loop-ref-auto",  no_argument,       NULL, ARG_LOOP_REF_AUTO  },
-                { "image-policy",   required_argument, NULL, ARG_IMAGE_POLICY   },
-                { "validate",       no_argument,       NULL, ARG_VALIDATE       },
-                { "mtree-hash",     required_argument, NULL, ARG_MTREE_HASH     },
-                { "make-archive",   no_argument,       NULL, ARG_MAKE_ARCHIVE   },
-                { "shift",          no_argument,       NULL, ARG_SHIFT          },
-                { "system",         no_argument,       NULL, ARG_SYSTEM         },
-                { "user",           no_argument,       NULL, ARG_USER           },
-                { "all",            no_argument,       NULL, ARG_ALL            },
-                { "quiet",          no_argument,       NULL, 'q'                },
-                { "image-filter",   required_argument, NULL, ARG_IMAGE_FILTER   },
-                { "copy-ownership", required_argument, NULL, ARG_COPY_OWNERSHIP },
-                {}
-        };
-
         _cleanup_free_ char **buf = NULL; /* we use free(), not strv_free() here, as we don't copy the strings here */
         bool system_scope_requested = false, user_scope_requested = false;
-        int c, r;
+        int r;
 
         assert(argc >= 0);
         assert(argv);
@@ -367,88 +243,120 @@ static int parse_argv(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        while ((c = getopt_long(argc, argv, "hmurMUlxaq", options, NULL)) >= 0) {
-
+        FOREACH_OPTION(c, argc, argv, /* on_error= */ return c)
                 switch (c) {
 
-                case 'h':
+                case OPTION_HELP:
+                        // group: commands
                         return help();
 
-                case ARG_VERSION:
+                case OPTION_VERSION:
+                        // group: commands
                         return version();
 
-                case ARG_NO_PAGER:
+                case OPTION_NO_PAGER:
                         arg_pager_flags |= PAGER_DISABLE;
                         break;
 
-                case ARG_NO_LEGEND:
+                case OPTION_NO_LEGEND:
                         arg_legend = false;
                         break;
 
-                case 'm':
+                case OPTION_MOUNT:
+                        // option: -m --mount
+                        // group: commands
+                        // help: Mount the image to the specified directory
                         arg_action = ACTION_MOUNT;
                         break;
 
-                case ARG_MKDIR:
+                case OPTION_MKDIR:
+                        // help: Make mount directory before mounting, if missing
                         arg_flags |= DISSECT_IMAGE_MKDIR;
                         break;
 
-                case 'M':
-                        /* Shortcut combination of the above two */
+                case OPTION_RMDIR:
+                        // help: Remove mount directory after unmounting
+                        arg_rmdir = true;
+                        break;
+
+                case OPTION_SHORT_M:
+                        // group: commands
+                        // help: Shortcut for --mount --mkdir
                         arg_action = ACTION_MOUNT;
                         arg_flags |= DISSECT_IMAGE_MKDIR;
                         break;
 
-                case 'u':
+                case OPTION_UMOUNT:
+                        // option: -u --umount
+                        // group: commands
+                        // help: Unmount the image from the specified directory
                         arg_action = ACTION_UMOUNT;
                         break;
 
-                case ARG_RMDIR:
-                        arg_rmdir = true;
-                        break;
-
-                case 'U':
-                        /* Shortcut combination of the above two */
+                case OPTION_SHORT_U:
+                        // group: commands
+                        // help: Shortcut for --umount --rmdir
                         arg_action = ACTION_UMOUNT;
                         arg_rmdir = true;
                         break;
 
-                case ARG_ATTACH:
+                case OPTION_ATTACH:
+                        // group: commands
+                        // help: Attach the disk image to a loopback block device
                         arg_action = ACTION_ATTACH;
                         break;
 
-                case ARG_DETACH:
+                case OPTION_DETACH:
+                        // group: commands
+                        // help: Detach a loopback block device again
                         arg_action = ACTION_DETACH;
                         break;
 
-                case 'l':
+                case OPTION_LIST:
+                        // option: -l --list
+                        // group: commands
+                        // help: List all the files and directories of the specified OS image
                         arg_action = ACTION_LIST;
                         arg_flags |= DISSECT_IMAGE_READ_ONLY;
                         break;
 
-                case ARG_MTREE:
+                case OPTION_MTREE:
+                        // group: commands
+                        // help: Show BSD mtree manifest of OS image
                         arg_action = ACTION_MTREE;
                         arg_flags |= DISSECT_IMAGE_READ_ONLY;
                         break;
 
-                case ARG_WITH:
+                case OPTION_WITH:
+                        // group: commands
+                        // help: Mount, run command, unmount
                         arg_action = ACTION_WITH;
                         break;
 
-                case 'x':
+                case OPTION_COPY_FROM:
+                        // option: -x --copy-from
+                        // group: commands
+                        // help: Copy files from image to host
                         arg_action = ACTION_COPY_FROM;
                         arg_flags |= DISSECT_IMAGE_READ_ONLY;
                         break;
 
-                case 'a':
+                case OPTION_COPY_TO:
+                        // option: -a --copy-to
+                        // group: commands
+                        // help: Copy files from host to image
                         arg_action = ACTION_COPY_TO;
                         break;
 
-                case 'r':
+                case OPTION_READ_ONLY:
+                        // option: -r --read-only
+                        // help: Mount read-only
                         arg_flags |= DISSECT_IMAGE_READ_ONLY;
                         break;
 
-                case ARG_DISCARD: {
+                case OPTION_DISCARD: {
+                        // option: --discard=MODE
+                        // help: Choose discard mode (disabled, loop, all, crypto)
                         DissectImageFlags flags;
 
                         if (streq(optarg, "disabled"))
@@ -474,15 +382,20 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                case ARG_IN_MEMORY:
+                case OPTION_IN_MEMORY:
+                        // help: Copy image into memory
                         arg_in_memory = true;
                         break;
 
-                case ARG_ROOT_HASH:
-                case ARG_USR_HASH: {
+                case OPTION_ROOT_HASH:
+                        // option: --root-hash=HASH
+                        // help: Specify root hash for verity
+                case OPTION_USR_HASH: {
+                        // option: --usr-hash=HASH
+                        // help: Same, but for the usr partition
                         _cleanup_(iovec_done) struct iovec roothash = {};
 
-                        PartitionDesignator d = c == ARG_USR_HASH ? PARTITION_USR : PARTITION_ROOT;
+                        PartitionDesignator d = c == OPTION_USR_HASH ? PARTITION_USR : PARTITION_ROOT;
                         if (arg_verity_settings.designator >= 0 &&
                             arg_verity_settings.designator != d)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot combine --root-hash=/--root-hash-sig= and --usr-hash=/--usr-hash-sig= options.");
@@ -500,12 +413,18 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                case ARG_ROOT_HASH_SIG:
-                case ARG_USR_HASH_SIG: {
+                case OPTION_ROOT_HASH_SIG:
+                        // option: --root-hash-sig=SIG
+                        // help: Specify pkcs7 signature of root hash for verity as a DER-encoded
+                        // help: as a DER encoded PKCS7, either as a path to a file or as an
+                        // help: ASCII base64-encoded string prefixed by 'base64:'
+                case OPTION_USR_HASH_SIG: {
+                        // option: --usr-hash-sig=SIG
+                        // help: Same, but for the usr partition
                         char *value;
                         _cleanup_(iovec_done) struct iovec sig = {};
 
-                        PartitionDesignator d = c == ARG_USR_HASH_SIG ? PARTITION_USR : PARTITION_ROOT;
+                        PartitionDesignator d = c == OPTION_USR_HASH_SIG ? PARTITION_USR : PARTITION_ROOT;
                         if (arg_verity_settings.designator >= 0 &&
                             arg_verity_settings.designator != d)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot combine --root-hash=/--root-hash-sig= and --usr-hash=/--usr-hash-sig= options.");
@@ -526,13 +445,17 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                case ARG_VERITY_DATA:
+                case OPTION_VERITY_DATA:
+                        // option: --verity-data=PATH
+                        // help: Specify data file with hash tree for verity if it is not embedded in IMAGE
                         r = parse_path_argument(optarg, false, &arg_verity_settings.data_path);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_FSCK:
+                case OPTION_FSCK:
+                        // option: --fsck=BOOL
+                        // help: Run fsck before mounting
                         r = parse_boolean(optarg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --fsck= parameter: %s", optarg);
@@ -540,7 +463,9 @@ static int parse_argv(int argc, char *argv[]) {
                         SET_FLAG(arg_flags, DISSECT_IMAGE_FSCK, r);
                         break;
 
-                case ARG_GROWFS:
+                case OPTION_GROWFS:
+                        // option: --growfs=BOOL
+                        // help: Grow file system to partition size, if marked
                         r = parse_boolean(optarg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --growfs= parameter: %s", optarg);
@@ -548,18 +473,32 @@ static int parse_argv(int argc, char *argv[]) {
                         SET_FLAG(arg_flags, DISSECT_IMAGE_GROWFS, r);
                         break;
 
-                case ARG_JSON:
+                case OPTION_JSON:
                         r = parse_json_argument(optarg, &arg_json_format_flags);
                         if (r <= 0)
                                 return r;
 
                         break;
 
-                case ARG_DISCOVER:
+                case OPTION_MAKE_ARCHIVE:
+                        // group: commands
+                        // help: Convert the DDI to an archive file
+                        r = dlopen_libarchive();
+                        if (r < 0)
+                                return log_error_errno(r, "Archive support not available (compiled without libarchive, or libarchive not installed?).");
+
+                        arg_action = ACTION_MAKE_ARCHIVE;
+                        break;
+
+                case OPTION_DISCOVER:
+                        // group: commands
+                        // help: Discover DDIs in well known directories
                         arg_action = ACTION_DISCOVER;
                         break;
 
-                case ARG_LOOP_REF:
+                case OPTION_LOOP_REF:
+                        // option: --loop-ref=NAME
+                        // help: Set reference string for loopback device
                         if (isempty(optarg)) {
                                 arg_loop_ref = mfree(arg_loop_ref);
                                 arg_loop_ref_auto = false;
@@ -576,56 +515,23 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_loop_ref_auto = false;
                         break;
 
-                case ARG_LOOP_REF_AUTO:
+                case OPTION_LOOP_REF_AUTO:
+                        // help: Derive reference string from image file name
                         arg_loop_ref = mfree(arg_loop_ref);
                         arg_loop_ref_auto = true;
                         break;
 
-                case ARG_IMAGE_POLICY:
+                case OPTION_IMAGE_POLICY:
+                        // option: --image-policy=POLICY
+                        // help: Specify image dissection policy
                         r = parse_image_policy_argument(optarg, &arg_image_policy);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_VALIDATE:
-                        arg_action = ACTION_VALIDATE;
-                        break;
-
-                case ARG_MTREE_HASH:
-                        r = parse_boolean_argument("--mtree-hash=", optarg, &arg_mtree_hash);
-                        if (r < 0)
-                                return r;
-                        break;
-
-                case ARG_MAKE_ARCHIVE:
-                        r = dlopen_libarchive();
-                        if (r < 0)
-                                return log_error_errno(r, "Archive support not available (compiled without libarchive, or libarchive not installed?).");
-
-                        arg_action = ACTION_MAKE_ARCHIVE;
-                        break;
-
-                case ARG_SHIFT:
-                        arg_action = ACTION_SHIFT;
-                        break;
-
-                case ARG_SYSTEM:
-                        system_scope_requested = true;
-                        break;
-
-                case ARG_USER:
-                        user_scope_requested = true;
-                        break;
-
-                case ARG_ALL:
-                        arg_all = true;
-                        break;
-
-                case 'q':
-                        arg_quiet = true;
-                        break;
-
-                case ARG_IMAGE_FILTER: {
+                case OPTION_IMAGE_FILTER: {
+                        // option: --image-filter=FILTER
+                        // help: Specify image dissection filter
                         _cleanup_(image_filter_freep) ImageFilter *f = NULL;
                         r = image_filter_parse(optarg, &f);
                         if (r < 0)
@@ -636,19 +542,55 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                case ARG_COPY_OWNERSHIP:
-                        r = parse_tristate_argument("--copy-ownership=", optarg, &arg_copy_ownership);
+                case OPTION_VALIDATE:
+                        // group: commands
+                        // help: Validate image and image policy
+                        arg_action = ACTION_VALIDATE;
+                        break;
+
+                case OPTION_MTREE_HASH:
+                        // option: --mtree-hash=BOOL
+                        // help: Whether to include SHA256 hash in the mtree output
+                        r = parse_boolean_argument("--mtree-hash=", optarg, &arg_mtree_hash);
                         if (r < 0)
                                 return r;
                         break;
 
-                case '?':
-                        return -EINVAL;
+                case OPTION_SHIFT:
+                        // group: commands
+                        // help: Shift UID range to selected base
+                        arg_action = ACTION_SHIFT;
+                        break;
 
-                default:
-                        assert_not_reached();
+                case OPTION_SYSTEM:
+                        // help: Discover system images
+                        system_scope_requested = true;
+                        break;
+
+                case OPTION_USER:
+                        // help: Discover user images
+                        user_scope_requested = true;
+                        break;
+
+                case OPTION_ALL:
+                        // help: Show hidden images too
+                        arg_all = true;
+                        break;
+
+                case OPTION_QUIET:
+                        // option: -q --quiet
+                        // help: Suppress output of chosen loopback block device
+                        arg_quiet = true;
+                        break;
+
+                case OPTION_COPY_OWNERSHIP:
+                        // option: --copy-ownership=BOOL
+                        // help: Whether to copy ownership when copying files
+                        r = parse_tristate_argument("--copy-ownership=", optarg, &arg_copy_ownership);
+                        if (r < 0)
+                                return r;
+                        break;
                 }
-        }
 
         if (system_scope_requested || user_scope_requested)
                 arg_runtime_scope = system_scope_requested && user_scope_requested ? _RUNTIME_SCOPE_INVALID :
@@ -877,7 +819,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int parse_argv_as_mount_helper(int argc, char *argv[]) {
-        const char *options = NULL;
+        const char *options_helper = NULL;
         bool fake = false;
         int c, r;
 
@@ -891,7 +833,7 @@ static int parse_argv_as_mount_helper(int argc, char *argv[]) {
                         break;
 
                 case 'o':
-                        options = optarg;
+                        options_helper = optarg;
                         break;
 
                 case 't':
@@ -917,7 +859,7 @@ static int parse_argv_as_mount_helper(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Expected an image file path and target directory as only argument.");
 
-        for (const char *p = options;;) {
+        for (const char *p = options_helper;;) {
                 _cleanup_free_ char *word = NULL;
 
                 r = extract_first_word(&p, &word, ",", EXTRACT_KEEP_QUOTE);
