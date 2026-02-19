@@ -621,7 +621,7 @@ bool mount_new_api_supported(void) {
         if (cache >= 0)
                 return cache;
 
-        /* This is the newer API among the ones we use, so use it as boundary */
+        /* This is the newest API among the ones we use, so use it as boundary */
         r = RET_NERRNO(mount_setattr(-EBADF, NULL, 0, NULL, 0));
         if (r == 0 || ERRNO_IS_NOT_SUPPORTED(r)) /* This should return an error if it is working properly */
                 return (cache = false);

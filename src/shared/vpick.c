@@ -798,3 +798,11 @@ const PickFilter pick_filter_image_dir[1] = {
                 .architecture = _ARCHITECTURE_INVALID,
         },
 };
+
+const PickFilter pick_filter_image_mstack[1] = {
+        {
+                .type_mask = UINT32_C(1) << DT_DIR,
+                .architecture = _ARCHITECTURE_INVALID,
+                .suffix = ".mstack",
+        },
+};

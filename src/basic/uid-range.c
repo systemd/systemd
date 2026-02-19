@@ -379,3 +379,18 @@ int uid_map_search_root(pid_t pid, UIDRangeUsernsMode mode, uid_t *ret) {
                 }
         }
 }
+
+uid_t uid_range_base(const UIDRange *range) {
+
+        /* Returns the lowest UID in the range (notw that elements are sorted, hence we just need to look at
+         * the first one that is populated. */
+
+        if (uid_range_is_empty(range))
+                return UID_INVALID;
+
+        FOREACH_ARRAY(e, range->entries, range->n_entries)
+                if (e->nr > 0)
+                        return e->start;
+
+        return UID_INVALID;
+}

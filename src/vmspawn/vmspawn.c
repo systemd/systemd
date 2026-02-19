@@ -12,6 +12,7 @@
 #include "sd-daemon.h"
 #include "sd-event.h"
 #include "sd-id128.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "architecture.h"
@@ -2041,11 +2042,16 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         if (asprintf(&userns_name, "vmspawn-" PID_FMT "-%s", getpid_cached(), arg_machine) < 0)
                                 return log_oom();
 
-                        r = nsresource_register_userns(userns_name, delegate_userns_fd);
+                        _cleanup_(sd_varlink_unrefp) sd_varlink *nsresource_link = NULL;
+                        r = nsresource_connect(&nsresource_link);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to connect to nsresourced: %m");
+
+                        r = nsresource_register_userns(nsresource_link, userns_name, delegate_userns_fd);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to register user namespace with systemd-nsresourced: %m");
 
-                        tap_fd = nsresource_add_netif_tap(delegate_userns_fd, /* ret_host_ifname= */ NULL);
+                        tap_fd = nsresource_add_netif_tap(nsresource_link, delegate_userns_fd, /* ret_host_ifname= */ NULL);
                         if (tap_fd < 0)
                                 return log_error_errno(tap_fd, "Failed to allocate network tap device: %m");
 
