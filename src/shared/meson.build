@@ -142,6 +142,7 @@ shared_sources = files(
         'numa-util.c',
         'open-file.c',
         'openssl-util.c',
+        'option-parser.c',
         'osc-context.c',
         'output-mode.c',
         'pager.c',
