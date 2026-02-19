@@ -124,12 +124,12 @@ NAME_TO_MAGIC = {
     'z3fold':          ['Z3FOLD_MAGIC'],
     'zonefs':          ['ZONEFS_MAGIC'],
     'zsmalloc':        ['ZSMALLOC_MAGIC'],
-}
+}  # fmt: skip
 
 # System magics are sometimes not unique, because file systems got new
 # revisions or got renamed. Let's prefer newer over older here, and thus ignore
 # the old names.
-OBSOLETE_NAMES =  {
+OBSOLETE_NAMES = {
     'cpuset',    # magic taken over by cgroupfs
     'devtmpfs',  # not a file system of its own, but just a "named superblock" of tmpfs
     'ext2',      # ext4 is the newest revision of ext2 + ext3
@@ -142,115 +142,116 @@ OBSOLETE_NAMES =  {
     'nfs',       # nfs4 is the newest revision of nfs
     'pvfs2',     # orangefs is the new name of pvfs2
     'smb3',      # smb3 is an alias for cifs
-}
+}  # fmt: skip
 
 FILESYSTEM_SETS = [
     (
-        "@basic-api",
-        "Basic filesystem API",
-        "cgroup",
-        "cgroup2",
-        "devpts",
-        "devtmpfs",
-        "mqueue",
-        "proc",
-        "sysfs",
+        '@basic-api',
+        'Basic filesystem API',
+        'cgroup',
+        'cgroup2',
+        'devpts',
+        'devtmpfs',
+        'mqueue',
+        'proc',
+        'sysfs',
     ),
     (
-        "@anonymous",
-        "Anonymous inodes",
-        "anon_inodefs",
-        "pipefs",
-        "sockfs",
+        '@anonymous',
+        'Anonymous inodes',
+        'anon_inodefs',
+        'pipefs',
+        'sockfs',
     ),
     (
-        "@application",
-        "Application virtual filesystems",
-        "autofs",
-        "fuse",
-        "overlay",
+        '@application',
+        'Application virtual filesystems',
+        'autofs',
+        'fuse',
+        'overlay',
     ),
     (
-        "@auxiliary-api",
-        "Auxiliary filesystem API",
-        "binfmt_misc",
-        "configfs",
-        "efivarfs",
-        "fusectl",
-        "hugetlbfs",
-        "rpc_pipefs",
-        "securityfs",
+        '@auxiliary-api',
+        'Auxiliary filesystem API',
+        'binfmt_misc',
+        'configfs',
+        'efivarfs',
+        'fusectl',
+        'hugetlbfs',
+        'rpc_pipefs',
+        'securityfs',
     ),
     (
-        "@common-block",
-        "Common block device filesystems",
-        "btrfs",
-        "erofs",
-        "exfat",
-        "ext4",
-        "f2fs",
-        "iso9660",
-        "ntfs3",
-        "squashfs",
-        "udf",
-        "vfat",
-        "xfs",
+        '@common-block',
+        'Common block device filesystems',
+        'btrfs',
+        'erofs',
+        'exfat',
+        'ext4',
+        'f2fs',
+        'iso9660',
+        'ntfs3',
+        'squashfs',
+        'udf',
+        'vfat',
+        'xfs',
     ),
     (
-        "@historical-block",
-        "Historical block device filesystems",
-        "ext2",
-        "ext3",
-        "minix",
+        '@historical-block',
+        'Historical block device filesystems',
+        'ext2',
+        'ext3',
+        'minix',
     ),
     (
-        "@network",
-        "Well-known network filesystems",
-        "afs",
-        "ceph",
-        "cifs",
-        "gfs",
-        "gfs2",
-        "ncp",
-        "ncpfs",
-        "nfs",
-        "nfs4",
-        "ocfs2",
-        "orangefs",
-        "pvfs2",
-        "smb3",
-        "smbfs",
+        '@network',
+        'Well-known network filesystems',
+        'afs',
+        'ceph',
+        'cifs',
+        'gfs',
+        'gfs2',
+        'ncp',
+        'ncpfs',
+        'nfs',
+        'nfs4',
+        'ocfs2',
+        'orangefs',
+        'pvfs2',
+        'smb3',
+        'smbfs',
     ),
     (
-        "@privileged-api",
-        "Privileged filesystem API",
-        "bpf",
-        "debugfs",
-        "pstore",
-        "tracefs",
+        '@privileged-api',
+        'Privileged filesystem API',
+        'bpf',
+        'debugfs',
+        'pstore',
+        'tracefs',
     ),
     (
-        "@security",
-        "Security/MAC API VFS",
-        "apparmorfs",
-        "selinuxfs",
-        "smackfs",
+        '@security',
+        'Security/MAC API VFS',
+        'apparmorfs',
+        'selinuxfs',
+        'smackfs',
     ),
     (
-        "@temporary",
-        "Temporary filesystems",
-        "ramfs",
-        "tmpfs",
+        '@temporary',
+        'Temporary filesystems',
+        'ramfs',
+        'tmpfs',
     ),
     (
-        "@known",
-        "All known filesystems declared in the kernel",
+        '@known',
+        'All known filesystems declared in the kernel',
         *NAME_TO_MAGIC.keys(),
     ),
 ]
 
+
 def generate_gperf():
-    print("""\
+    print('''\
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 %{
 #if __GNUC__ >= 15
@@ -275,12 +276,13 @@ struct FilesystemMagic;
 %omit-struct-type
 %struct-type
 %includes
-%%""")
+%%''')
     for name, magics in NAME_TO_MAGIC.items():
-        print(f"{name + ',':16} {{{', '.join(magics)}}}")
+        print(f'{name + ",":16} {{{", ".join(magics)}}}')
+
 
 def generate_fs_type_to_string():
-    print("""\
+    print('''\
 #include <linux/magic.h>
 #include "filesystems.h"
 
@@ -290,7 +292,7 @@ def generate_fs_type_to_string():
 #define PROJECT_FILE __FILE__
 
 const char* fs_type_to_string(statfs_f_type_t magic) {
-        switch (magic) {""")
+        switch (magic) {''')
 
     for name, magics in NAME_TO_MAGIC.items():
         if name in OBSOLETE_NAMES:
@@ -299,10 +301,11 @@ const char* fs_type_to_string(statfs_f_type_t magic) {
             print(f'        case (statfs_f_type_t) {magic}:')
         print(f'                return "{name}";')
 
-    print("""\
+    print('''\
         }
         return NULL;
-}""")
+}''')
+
 
 def generate_fs_in_group():
     print('bool fs_in_group(const struct statfs *st, FilesystemGroups fs_group) {')
@@ -312,13 +315,13 @@ def generate_fs_in_group():
         magics = sorted(set(sum((NAME_TO_MAGIC[fs] for fs in filesystems), start=[])))
         enum = 'FILESYSTEM_SET_' + name[1:].upper().replace('-', '_')
         print(f'        case {enum}:')
-        opts = '\n                    || '.join(f'F_TYPE_EQUAL(st->f_type, {magic})'
-                                                for magic in magics)
+        opts = '\n                    || '.join(f'F_TYPE_EQUAL(st->f_type, {magic})' for magic in magics)
         print(f'                return {opts};')
 
     print('        default: assert_not_reached();')
     print('        }')
     print('}')
+
 
 def generate_filesystem_sets():
     print('const FilesystemSet filesystem_sets[_FILESYSTEM_SET_MAX] = {')
@@ -329,37 +332,45 @@ def generate_filesystem_sets():
         print(f'        [{enum}] = {{')
         print(f'                .name = "{name}",')
         print(f'                .help = "{desc}",')
-        print(f'                .value =')
+        print('                .value =')
         for filesystem in filesystems:
             print(f'                "{filesystem}\\0"')
         print('        },')
 
     print('};')
 
+
 def magic_defines():
     cpp = os.environ['CPP'].split()
     out = subprocess.check_output(
         [*cpp, '-dM', '-include', 'linux/magic.h', '-'],
         stdin=subprocess.DEVNULL,
-        text=True)
+        text=True,
+    )
     for line in out.splitlines():
         _, name, *rest = line.split()
-        if ('_MAGIC' in name
-            and rest and rest[0].startswith('0x')
-            and name not in {
+        if (
+            '_MAGIC' in name
+            and rest
+            and rest[0].startswith('0x')
+            and name
+            not in {
                 'STACK_END_MAGIC',
                 'MTD_INODE_FS_MAGIC',
                 'FUTEXFS_SUPER_MAGIC',
                 'CRAMFS_MAGIC_WEND',
-            }):
+            }
+        ):
             yield name
+
 
 def check():
     kernel_magics = set(magic_defines())
     our_magics = set(sum(NAME_TO_MAGIC.values(), start=[]))
     extra = kernel_magics - our_magics
     if extra:
-        sys.exit(f"kernel knows additional filesystem magics: {', '.join(sorted(extra))}")
+        sys.exit(f'kernel knows additional filesystem magics: {", ".join(sorted(extra))}')
+
 
 if __name__ == '__main__':
     for arg in sys.argv[1:]:
