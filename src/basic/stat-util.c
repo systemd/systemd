@@ -157,6 +157,11 @@ int stat_verify_socket(const struct stat *st) {
         return 0;
 }
 
+int is_socket(const char *path) {
+        assert(!isempty(path));
+        return verify_stat_at(AT_FDCWD, path, /* follow= */ true, stat_verify_socket, /* verify= */ false);
+}
+
 int stat_verify_linked(const struct stat *st) {
         assert(st);
 
