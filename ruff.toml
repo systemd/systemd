@@ -1,6 +1,9 @@
 target-version = "py39"
 line-length = 109
 
+# This file is imported from an external project.
+extend-exclude = ["tools/chromiumos/gen_autosuspend_rules.py"]
+
 [lint]
 select = ["E", "F", "I", "Q", "UP"]
 # E501: line-too-long
