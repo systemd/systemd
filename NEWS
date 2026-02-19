@@ -131,6 +131,18 @@ CHANGES WITH 260 in spe:
           low brightness values at runtime independently of the systemd clamp
           which only applies during boot.
 
+        * A new variable ID_INTEGRATION is now exposed to devices that have
+          ID_BUS defined. This variable can be set to internal when the device
+          is integral part of the system or external otherwise. Actually,
+          internal buses like PCI, I2C, SPI... makes it to be internal and
+          external buses like bluetooth set it to external, while for USB the
+          removable attribute of the port the device is connected tells us to
+          decide, fixed is set to internal and removable or unknown to external.
+
+        * ID_INPUT_JOYSTICK_INTEGRATION variable has been dropped in favor of
+          ID_INTEGRATION because it was never used and the new variable cover
+          better the idea that variable was intended for.
+
         Changes in systemd-networkd:
 
         * MultiPathRoute= option now supports interface-bound ECMP routes.
