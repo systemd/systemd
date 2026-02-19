@@ -7,7 +7,7 @@ import subprocess
 import sys
 
 OVERRIDES = {
-    'autoneg' : 'autonegotiation',
+    'autoneg': 'autonegotiation',
 }
 
 mode = sys.argv[1]
