@@ -8,7 +8,7 @@
 #  the Free Software Foundation; either version 2.1 of the License, or
 #  (at your option) any later version.
 
-systemctl --user import-environment DISPLAY XAUTHORITY
+systemctl --user import-environment DISPLAY ${XAUTHORITY+XAUTHORITY}
 
 if command -v dbus-update-activation-environment >/dev/null 2>&1; then
     dbus-update-activation-environment DISPLAY XAUTHORITY
