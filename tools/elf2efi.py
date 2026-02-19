@@ -20,6 +20,7 @@
 # ELF dynamic relocations at runtime.
 
 # pylint: disable=attribute-defined-outside-init
+# mypy: untyped-calls-exclude=elftools
 
 import argparse
 import hashlib
@@ -182,7 +183,7 @@ class PeSection(LittleEndianStructure):
         ("Characteristics",      c_uint32),
     )
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.data = bytearray()
 
@@ -353,7 +354,7 @@ def copy_sections(
     opt: PeOptionalHeader,
     input_names: str,
     sections: typing.List[PeSection],
-):
+) -> None:
     for name in input_names.split(","):
         elf_s = file.get_section_by_name(name)
         if not elf_s:
@@ -379,7 +380,7 @@ def apply_elf_relative_relocation(
     image_base: int,
     sections: typing.List[PeSection],
     addend_size: int,
-):
+) -> None:
     [target] = [pe_s for pe_s in sections
                 if pe_s.VirtualAddress <= reloc["r_offset"] < pe_s.VirtualAddress + len(pe_s.data)]
 
@@ -401,7 +402,7 @@ def convert_elf_reloc_table(
     elf_image_base: int,
     sections: typing.List[PeSection],
     pe_reloc_blocks: typing.Dict[int, PeRelocationBlock],
-):
+) -> None:
     NONE_RELOC = {
         "EM_386":       elf.enums.ENUM_RELOC_TYPE_i386["R_386_NONE"],
         "EM_AARCH64":   elf.enums.ENUM_RELOC_TYPE_AARCH64["R_AARCH64_NONE"],
@@ -537,11 +538,11 @@ def convert_elf_relocations(
 
 
 def write_pe(
-    file,
+    file: typing.IO[bytes],
     coff: PeCoffHeader,
     opt: PeOptionalHeader,
     sections: typing.List[PeSection],
-):
+) -> None:
     file.write(b"MZ")
     file.seek(0x3C, io.SEEK_SET)
     file.write(PE_OFFSET.to_bytes(2, byteorder="little"))
@@ -569,7 +570,7 @@ def write_pe(
     file.truncate(offset)
 
 
-def elf2efi(args: argparse.Namespace):
+def elf2efi(args: argparse.Namespace) -> None:
     file = elffile.ELFFile(args.ELF)
     if not file.little_endian:
         raise ValueError("ELF file is not little-endian")
@@ -695,7 +696,7 @@ def create_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main():
+def main() -> None:
     parser = create_parser()
     elf2efi(parser.parse_args())
 
