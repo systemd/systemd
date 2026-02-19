@@ -43,11 +43,11 @@ used by the 'systemd' project.
 
 import glob
 import os
+
 import ycm_core
 
-
-SOURCE_EXTENSIONS = (".C", ".cpp", ".cxx", ".cc", ".c", ".m", ".mm")
-HEADER_EXTENSIONS = (".H", ".h", ".hxx", ".hpp", ".hh")
+SOURCE_EXTENSIONS = ('.C', '.cpp', '.cxx', '.cc', '.c', '.m', '.mm')
+HEADER_EXTENSIONS = ('.H', '.h', '.hxx', '.hpp', '.hh')
 
 
 def DirectoryOfThisScript():
@@ -69,19 +69,18 @@ def GuessBuildDirectory():
     containing '.ninja_log' file two levels above the current directory;
     returns this single directory only if there is one candidate.
     """
-    result = os.path.join(DirectoryOfThisScript(), "build")
+    result = os.path.join(DirectoryOfThisScript(), 'build')
 
     if os.path.exists(result):
         return result
 
-    result = glob.glob(os.path.join(DirectoryOfThisScript(),
-                                    "..", "..", "*", ".ninja_log"))
+    result = glob.glob(os.path.join(DirectoryOfThisScript(), '..', '..', '*', '.ninja_log'))
 
     if not result:
-        return ""
+        return ''
 
     if 1 != len(result):
-        return ""
+        return ''
 
     return os.path.split(result[0])[0]
 
@@ -106,9 +105,7 @@ def TraverseByDepth(root, include_extensions):
             # print(subdirs)
             if include_extensions:
                 get_ext = os.path.splitext
-                subdir_extensions = {
-                    get_ext(f)[-1] for f in file_list if get_ext(f)[-1]
-                }
+                subdir_extensions = {get_ext(f)[-1] for f in file_list if get_ext(f)[-1]}
                 if subdir_extensions & include_extensions:
                     result.add(root_dir)
             else:
@@ -119,11 +116,11 @@ def TraverseByDepth(root, include_extensions):
     return result
 
 
-_project_src_dir = os.path.join(DirectoryOfThisScript(), "src")
-_include_dirs_set = TraverseByDepth(_project_src_dir, frozenset({".h"}))
+_project_src_dir = os.path.join(DirectoryOfThisScript(), 'src')
+_include_dirs_set = TraverseByDepth(_project_src_dir, frozenset({'.h'}))
 flags = [
-    "-x",
-    "c"
+    '-x',
+    'c',
     # The following flags are partially redundant due to the existence of
     # 'compile_commands.json'.
     #    '-Wall',
@@ -135,7 +132,7 @@ flags = [
 ]
 
 for include_dir in _include_dirs_set:
-    flags.append("-I" + include_dir)
+    flags.append('-I' + include_dir)
 
 # Set this to the absolute path to the folder (NOT the file!) containing the
 # compile_commands.json file to use that instead of 'flags'. See here for
@@ -165,13 +162,13 @@ def MakeRelativePathsInFlagsAbsolute(flags, working_directory):
         return list(flags)
     new_flags = []
     make_next_absolute = False
-    path_flags = ["-isystem", "-I", "-iquote", "--sysroot="]
+    path_flags = ['-isystem', '-I', '-iquote', '--sysroot=']
     for flag in flags:
         new_flag = flag
 
         if make_next_absolute:
             make_next_absolute = False
-            if not flag.startswith("/"):
+            if not flag.startswith('/'):
                 new_flag = os.path.join(working_directory, flag)
 
         for path_flag in path_flags:
@@ -180,7 +177,7 @@ def MakeRelativePathsInFlagsAbsolute(flags, working_directory):
                 break
 
             if flag.startswith(path_flag):
-                path = flag[len(path_flag):]
+                path = flag[len(path_flag) :]
                 new_flag = path_flag + os.path.join(working_directory, path)
                 break
 
@@ -213,8 +210,7 @@ def GetCompilationInfoForFile(filename):
         for extension in SOURCE_EXTENSIONS:
             replacement_file = basename + extension
             if os.path.exists(replacement_file):
-                compilation_info = \
-                    database.GetCompilationInfoForFile(replacement_file)
+                compilation_info = database.GetCompilationInfoForFile(replacement_file)
                 if compilation_info.compiler_flags_:
                     return compilation_info
         return None
@@ -238,13 +234,14 @@ def FlagsForFile(filename, **kwargs):
 
         final_flags = MakeRelativePathsInFlagsAbsolute(
             compilation_info.compiler_flags_,
-            compilation_info.compiler_working_dir_)
+            compilation_info.compiler_working_dir_,
+        )
 
     else:
         relative_to = DirectoryOfThisScript()
         final_flags = MakeRelativePathsInFlagsAbsolute(flags, relative_to)
 
     return {
-        "flags": final_flags,
-        "do_cache": True
+        'flags': final_flags,
+        'do_cache': True,
     }
