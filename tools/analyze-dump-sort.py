@@ -58,12 +58,14 @@ def sort_dump(sourcefile, destfile=None):
     destfile.flush()
     return destfile
 
+
 def parse_args():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('one')
     p.add_argument('two', nargs='?')
     p.add_argument('--user', action='store_true')
     return p.parse_args()
+
 
 if __name__ == '__main__':
     opts = parse_args()
@@ -73,8 +75,7 @@ if __name__ == '__main__':
         two = sort_dump(open(opts.two))
     else:
         user = ['--user'] if opts.user else []
-        two = subprocess.run(['systemd-analyze', 'dump', *user],
-                             capture_output=True, text=True, check=True)
+        two = subprocess.run(['systemd-analyze', 'dump', *user], capture_output=True, text=True, check=True)
         two = sort_dump(two.stdout.splitlines())
     with subprocess.Popen(['diff', '-U10', one.name, two.name], stdout=subprocess.PIPE) as diff:
         subprocess.Popen(['less'], stdin=diff.stdout)
