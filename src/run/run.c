@@ -2250,7 +2250,7 @@ static int fchown_to_capsule(int fd, const char *capsule) {
         return fchmod_and_chown(fd, 0600, st.st_uid, st.st_gid);
 }
 
-static int print_unit_invocation(const char *unit, sd_id128_t invocation_id) {
+static int print_unit_invocation(const char *unit, sd_id128_t invocation_id, const char *error) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         int r;
 
@@ -2270,6 +2270,12 @@ static int print_unit_invocation(const char *unit, sd_id128_t invocation_id) {
 
         if (!sd_id128_is_null(invocation_id)) {
                 r = sd_json_variant_set_field_id128(&v, "invocation_id", invocation_id);
+                if (r < 0)
+                        return r;
+        }
+
+        if (error) {
+                r = sd_json_variant_set_field_string(&v, "error", error);
                 if (r < 0)
                         return r;
         }
@@ -2450,7 +2456,7 @@ static int start_transient_service(sd_bus *bus) {
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
         _cleanup_free_ char *pty_path = NULL;
         _cleanup_close_ int peer_fd = -EBADF;
-        int r;
+        int r, job_r = 0;
 
         assert(bus);
 
@@ -2581,27 +2587,52 @@ static int start_transient_service(sd_bus *bus) {
                 return bus_log_parse_error(r);
 
         if (w) {
-                r = bus_wait_for_jobs_one(
+                _cleanup_free_ char *error_description = NULL;
+                /* When JSON output is requested, suppress the human-readable error from stderr and
+                 * embed the description in the JSON output instead. */
+                WaitJobsFlags wait_flags = arg_quiet ? 0 : BUS_WAIT_JOBS_LOG_ERROR;
+                if (sd_json_format_enabled(arg_json_format_flags))
+                        wait_flags &= ~BUS_WAIT_JOBS_LOG_ERROR;
+
+                job_r = bus_wait_for_jobs_one_full(
                                 w,
                                 object,
-                                arg_quiet ? 0 : BUS_WAIT_JOBS_LOG_ERROR,
-                                arg_runtime_scope == RUNTIME_SCOPE_USER ? STRV_MAKE_CONST("--user") : NULL);
-                if (r < 0)
-                        return r;
+                                wait_flags,
+                                arg_runtime_scope == RUNTIME_SCOPE_USER ? STRV_MAKE_CONST("--user") : NULL,
+                                sd_json_format_enabled(arg_json_format_flags) ? &error_description : NULL);
+                /* When JSON output is requested, don't return early on job failure so we can still
+                 * emit the unit name and invocation ID as JSON before propagating the error. */
+                if (job_r < 0 && !sd_json_format_enabled(arg_json_format_flags))
+                        return job_r;
+
+                if (!arg_quiet) {
+                        sd_id128_t invocation_id;
+
+                        r = acquire_invocation_id(bus, c.unit, &invocation_id);
+                        if (r < 0)
+                                return r;
+
+                        r = print_unit_invocation(c.unit, invocation_id, error_description);
+                        if (r < 0)
+                                return r;
+                }
+
+                if (job_r < 0)
+                        return job_r;
         } else if (!arg_no_block) {
                 c.start_job = strdup(object);
                 if (!c.start_job)
                         return log_oom();
         }
 
-        if (!arg_quiet) {
+        if (!arg_quiet && !w) {
                 sd_id128_t invocation_id;
 
                 r = acquire_invocation_id(bus, c.unit, &invocation_id);
                 if (r < 0)
                         return r;
 
-                r = print_unit_invocation(c.unit, invocation_id);
+                r = print_unit_invocation(c.unit, invocation_id, /* error= */ NULL);
                 if (r < 0)
                         return r;
         }
@@ -2835,7 +2866,7 @@ static int start_transient_scope(sd_bus *bus) {
                 return log_oom();
 
         if (!arg_quiet) {
-                r = print_unit_invocation(scope, invocation_id);
+                r = print_unit_invocation(scope, invocation_id, /* error= */ NULL);
                 if (r < 0)
                         return r;
         }
