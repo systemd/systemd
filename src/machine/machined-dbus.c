@@ -480,7 +480,7 @@ static int method_create_or_register_machine(
                         root_directory,
                         netif,
                         n_netif,
-                        /* cid= */ 0,
+                        /* cid= */ VMADDR_CID_ANY,
                         /* ssh_address= */ NULL,
                         /* ssh_private_key_path= */ NULL,
                         ret,
