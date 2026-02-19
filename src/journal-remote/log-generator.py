@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-import sys
 import argparse
+import sys
 
 PARSER = argparse.ArgumentParser()
 PARSER.add_argument('n', type=int)
@@ -12,7 +12,7 @@ PARSER.add_argument('-d', '--data-size', type=int, default=4000)
 PARSER.add_argument('--data-type', choices={'random', 'simple'})
 OPTIONS = PARSER.parse_args()
 
-template = """\
+template = '''\
 __CURSOR=s=6863c726210b4560b7048889d8ada5c5;i=3e931;b=f446871715504074bf7049ef0718fa93;m={m:x};t=4fd05c
 __REALTIME_TIMESTAMP={realtime_ts}
 __MONOTONIC_TIMESTAMP={monotonic_ts}
@@ -30,7 +30,7 @@ SYSLOG_PID=25721
 _PID=25721
 _SOURCE_REALTIME_TIMESTAMP={source_realtime_ts}
 DATA={data}
-"""
+'''
 
 priority = 3
 facility = 6
@@ -51,14 +51,16 @@ for i in range(OPTIONS.n):
         data = '{:0{}}'.format(counter, OPTIONS.data_size)
         counter += 1
 
-    entry = template.format(m=0x198603b12d7 + i,
-                            realtime_ts=1404101101501873 + i,
-                            monotonic_ts=1753961140951 + i,
-                            source_realtime_ts=1404101101483516 + i,
-                            priority=priority,
-                            facility=facility,
-                            message=message,
-                            data=data)
+    entry = template.format(
+        m=0x198603B12D7 + i,
+        realtime_ts=1404101101501873 + i,
+        monotonic_ts=1753961140951 + i,
+        source_realtime_ts=1404101101483516 + i,
+        priority=priority,
+        facility=facility,
+        message=message,
+        data=data,
+    )
 
     bytes += len(entry)
 
@@ -69,4 +71,4 @@ for i in range(OPTIONS.n):
 
 if OPTIONS.dots:
     print(file=sys.stderr)
-print('Wrote {} bytes'.format(bytes), file=sys.stderr)
+print(f'Wrote {bytes} bytes', file=sys.stderr)
