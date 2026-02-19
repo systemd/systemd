@@ -199,6 +199,16 @@ class Option:
                 _help = 'Do not show headers or footers'
             case 'OPTION_SHORT_j':
                 _help = 'Equivalent to --json=pretty (on TTY) or --json=short (otherwise)'
+            case 'OPTION_HOST':
+                _help = 'Operate on remote host'
+                _sn = '-H'
+                _argtype = ArgType.required_argument
+                _metavar = '[USER@]HOST'
+            case 'OPTION_MACHINE':
+                _help = 'Operate on local container'
+                _sn = '-M'
+                _argtype = ArgType.required_argument
+                _metavar = 'CONTAINER'
             case _:
                 _help = 'XXXXXXXXXX'
 
