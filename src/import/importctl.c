@@ -19,6 +19,7 @@
 #include "import-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "oci-util.h"
 #include "os-util.h"
 #include "pager.h"
 #include "parse-argument.h"
@@ -769,6 +770,61 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
         return transfer_image_common(bus, m);
 }
 
+static int pull_oci(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_free_ char *l = NULL;
+        const char *local, *remote;
+        sd_bus *bus = ASSERT_PTR(userdata);
+        int r;
+
+        r = settle_image_class();
+        if (r < 0)
+                return r;
+
+        remote = argv[1];
+        _cleanup_free_ char *image = NULL;
+        r = oci_ref_parse(remote, /* ret_registry= */ NULL, &image, /* ret_tag= */ NULL);
+        if (r == -EINVAL)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Ref '%s' is not valid.", remote);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine if ref '%s' is valid.", remote);
+
+        if (argc >= 3)
+                local = argv[2];
+        else {
+                r = path_extract_filename(image, &l);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get final component of reference: %m");
+
+                local = l;
+        }
+
+        local = empty_or_dash_to_null(local);
+
+        if (local) {
+                if (!image_name_is_valid(local))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Local name %s is not a suitable image name.",
+                                               local);
+        }
+
+        r = bus_message_new_method_call(bus, &m, bus_import_mgr, "PullOci");
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        r = sd_bus_message_append(
+                        m,
+                        "ssst",
+                        remote,
+                        local,
+                        image_class_to_string(arg_image_class),
+                        (uint64_t) arg_import_flags & (IMPORT_FORCE|IMPORT_READ_ONLY));
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return transfer_image_common(bus, m);
+}
+
 static int list_transfers(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
@@ -1007,6 +1063,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "\n%3$sCommands:%4$s\n"
                "  pull-tar URL [NAME]         Download a TAR container image\n"
                "  pull-raw URL [NAME]         Download a RAW container or VM image\n"
+               "  pull-oci REF [NAME]         Download an OCI container image\n"
                "  import-tar FILE [NAME]      Import a local TAR container image\n"
                "  import-raw FILE [NAME]      Import a local RAW container or VM image\n"
                "  import-fs DIRECTORY [NAME]  Import a local directory container image\n"
@@ -1245,6 +1302,7 @@ static int importctl_main(int argc, char *argv[], sd_bus *bus) {
                 { "export-tar",      2,        3,        0,            export_tar        },
                 { "export-raw",      2,        3,        0,            export_raw        },
                 { "pull-tar",        2,        3,        0,            pull_tar          },
+                { "pull-oci",        2,        3,        0,            pull_oci          },
                 { "pull-raw",        2,        3,        0,            pull_raw          },
                 { "list-transfers",  VERB_ANY, 1,        VERB_DEFAULT, list_transfers    },
                 { "cancel-transfer", 2,        VERB_ANY, 0,            cancel_transfer   },
