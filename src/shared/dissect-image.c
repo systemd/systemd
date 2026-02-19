@@ -200,8 +200,15 @@ int probe_sector_size_prefer_ioctl(int fd, uint32_t *ret) {
         if (fstat(fd, &st) < 0)
                 return -errno;
 
-        if (S_ISBLK(st.st_mode))
-                return blockdev_get_sector_size(fd, ret);
+        if (S_ISBLK(st.st_mode)) {
+                int r;
+
+                r = blockdev_get_sector_size(fd, ret);
+                if (r < 0)
+                        return r;
+
+                return 1; /* indicate we *did* find it, like probe_sector_size() does */
+        }
 
         return probe_sector_size(fd, ret);
 }
