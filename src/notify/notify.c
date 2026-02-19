@@ -284,7 +284,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
         switch (arg_action) {
 
-        case ACTION_NOTIFY: {
+        case ACTION_NOTIFY:
                 if (arg_fdname && fdset_isempty(arg_fds))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No file descriptors passed, but --fdname= set, refusing.");
 
@@ -330,7 +330,6 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         log_warning("Warning: %u more file descriptors passed than referenced with --fd=.", fdset_size(passed));
 
                 break;
-        }
 
         case ACTION_BOOTED:
                 if (!strv_isempty(args))
