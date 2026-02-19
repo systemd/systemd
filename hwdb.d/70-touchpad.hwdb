@@ -33,7 +33,7 @@
 #   bluetooth devices are assumed to be external, usb devices are assumed
 #   to be internal when connected to a PCB port and external otherwise.
 
-# Example entry; vid: ffff, pid: 0000; both must be lowecase.
+# Example entry; vid: ffff, pid: 0000; both must be lowercase.
 # this will make this bluetooth touchpad to behave as internal.
 #touchpad:bluetooth:vffffp0000:*
 # ID_INPUT_TOUCHPAD_INTEGRATION=internal
