@@ -5,10 +5,7 @@ import subprocess
 import syslog
 
 if __name__ == '__main__':
-    syslog.openlog(ident="logs-filtering", logoption=syslog.LOG_PID)
-    syslog.syslog(syslog.LOG_NOTICE, "Logging from the service, and ~more~ foo bar")
+    syslog.openlog(ident='logs-filtering', logoption=syslog.LOG_PID)
+    syslog.syslog(syslog.LOG_NOTICE, 'Logging from the service, and ~more~ foo bar')
 
-    subprocess.check_output(
-        ['journalctl', '--sync'],
-        stdin=subprocess.DEVNULL,
-        text=True)
+    subprocess.check_output(['journalctl', '--sync'], stdin=subprocess.DEVNULL, text=True)
