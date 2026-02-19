@@ -16,10 +16,7 @@ ENV{ID_BUS}=="bluetooth", ENV{ID_INTEGRATION}="external"
 ENV{ID_BUS}=="usb", DRIVERS=="usb", ATTRS{maxchild}=="0", ATTRS{removable}=="fixed", ENV{ID_INTEGRATION}="internal"
 ENV{ID_BUS}=="usb", DRIVERS=="usb", ATTRS{maxchild}=="0", ATTRS{removable}=="removable|unknown", ENV{ID_INTEGRATION}="external"
 
-# libinput compatibility variables, must be loaded before 70-(joystick|touchpad).rules to allow hwdb quirks to override.
-ENV{ID_INPUT}=="", GOTO="integration_libinput_end"
-ENV{ID_INPUT_JOYSTICK}=="1", ENV{ID_INPUT_JOYSTICK_INTEGRATION}="$env{ID_INTEGRATION}"
+# libinput compatibility, must be loaded before 70-touchpad.rules to allow hwdb quirks to override.
 ENV{ID_INPUT_TOUCHPAD}=="1", ENV{ID_INPUT_TOUCHPAD_INTEGRATION}="$env{ID_INTEGRATION}"
-LABEL="integration_libinput_end"
 
 LABEL="integration_end"
