@@ -103,6 +103,9 @@ static inline bool metric_startswith_prefix(const char *metric_name, const char 
         if (isempty(metric_name) || isempty(prefix))
                 return false;
 
+        /* NB: this checks for a *true* prefix, i.e. insists on the dot separator after the prefix. Or in
+         * other words, "foo" is not going to be considered a prefix of "foo", but of "foo.bar" it will. */
+
         const char *m = startswith(metric_name, prefix);
         return !isempty(m) && m[0] == '.';
 }
