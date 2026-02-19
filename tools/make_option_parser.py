@@ -61,17 +61,16 @@ class Globals:
 
     def set(self, name: str, value: str) -> None:
         # A consumer for the 'global foo bar' settings.
-        match name:
-            case 'namespace':
-                self.namespace = value
-            case 'help_key_width':
-                self.help_key_width = int(value)
-            case 'optstring_prefix':
-                self.optstring_prefix = value
-            case 'parser_option':
-                self.parser_options += [value]
-            case _:
-                raise ValueError(f'Uknown global setting {name!r}')
+        if name == 'namespace':
+            self.namespace = value
+        elif name == 'help_key_width':
+            self.help_key_width = int(value)
+        elif name == 'optstring_prefix':
+            self.optstring_prefix = value
+        elif name == 'parser_option':
+            self.parser_options += [value]
+        else:
+            raise ValueError(f'Uknown global setting {name!r}')
 
 
 class ArgType(Enum):
@@ -181,40 +180,39 @@ class Option:
         # Insert defaults
         _sn = _argtype = _metavar = None
 
-        match enum:
-            case 'OPTION_HELP':
-                _help = 'Show this help'
-                _sn = '-h'
-            case 'OPTION_VERSION':
-                _help = 'Show package version'
-            case 'OPTION_NO_PAGER':
-                _help = 'Do not start the pager'
-            case 'OPTION_NO_ASK_PASSWORD':
-                _help = 'Do not prompt for password'
-            case 'OPTION_JSON':
-                _help = 'Output as JSON (one of pretty, short, off)'
-                _argtype = ArgType.required_argument
-                _metavar = 'FORMAT'
-            case 'OPTION_NO_LEGEND':
-                _help = 'Do not show headers or footers'
-            case 'OPTION_SHORT_j':
-                _help = 'Equivalent to --json=pretty (on TTY) or --json=short (otherwise)'
-            case 'OPTION_HOST':
-                _help = 'Operate on remote host'
-                _sn = '-H'
-                _argtype = ArgType.required_argument
-                _metavar = '[USER@]HOST'
-            case 'OPTION_MACHINE':
-                _help = 'Operate on local container'
-                _sn = '-M'
-                _argtype = ArgType.required_argument
-                _metavar = 'CONTAINER'
-            case 'OPTION_CAT_CONFIG':
-                _help = 'Show configuration files'
-            case 'OPTION_TLDR':
-                _help = 'Show non-comment parts of configuration'
-            case _:
-                _help = 'XXXXXXXXXX'
+        if enum == 'OPTION_HELP':
+            _help = 'Show this help'
+            _sn = '-h'
+        elif enum == 'OPTION_VERSION':
+            _help = 'Show package version'
+        elif enum == 'OPTION_NO_PAGER':
+            _help = 'Do not start the pager'
+        elif enum == 'OPTION_NO_ASK_PASSWORD':
+            _help = 'Do not prompt for password'
+        elif enum == 'OPTION_JSON':
+            _help = 'Output as JSON (one of pretty, short, off)'
+            _argtype = ArgType.required_argument
+            _metavar = 'FORMAT'
+        elif enum == 'OPTION_NO_LEGEND':
+            _help = 'Do not show headers or footers'
+        elif enum == 'OPTION_SHORT_j':
+            _help = 'Equivalent to --json=pretty (on TTY) or --json=short (otherwise)'
+        elif enum == 'OPTION_HOST':
+            _help = 'Operate on remote host'
+            _sn = '-H'
+            _argtype = ArgType.required_argument
+            _metavar = '[USER@]HOST'
+        elif enum == 'OPTION_MACHINE':
+            _help = 'Operate on local container'
+            _sn = '-M'
+            _argtype = ArgType.required_argument
+            _metavar = 'CONTAINER'
+        elif enum == 'OPTION_CAT_CONFIG':
+            _help = 'Show configuration files'
+        elif enum == 'OPTION_TLDR':
+            _help = 'Show non-comment parts of configuration'
+        else:
+            _help = 'XXXXXXXXXX'
 
         if not help:
             help += [_help]
@@ -403,42 +401,43 @@ def parse_input(lines: list[str]) -> tuple[list[Option], Globals]:
     while n < len(lines) or state != InputState.other:
         line = lines[n]
 
-        match state:
-            case InputState.other:
-                if m := re.match(r'^\s*case (?P<enum>OPTION_.+):(?:\s*{)?$', line):
-                    enum = m.group('enum')
-                    print(f'// found {enum}')
+        if state == InputState.other:
+            if m := re.match(r'^\s*case (?P<enum>OPTION_.+):(?:\s*{)?$', line):
+                enum = m.group('enum')
+                print(f'// found {enum}')
 
-                    state = InputState.option
-                    specs: list[str] = []
-                    group = None
-                    help = []
+                state = InputState.option
+                specs: list[str] = []
+                group = None
+                help = []
 
+            n += 1
+
+        elif state == InputState.option:
+            if m := re.match(r'\s*// option: (?P<specs>.*)', line):
+                specs += m.group('specs').split()
                 n += 1
 
-            case InputState.option:
-                if m := re.match(r'\s*// option: (?P<specs>.*)', line):
-                    specs += m.group('specs').split()
-                    n += 1
+            state = InputState.directives
 
-                state = InputState.directives
+        else:
+            assert state == InputState.directives
 
-            case InputState.directives:
-                if m := re.match(r'\s*// help: (?P<help>.*)', line):
-                    help += [m.group('help').strip()]
-                    n += 1
+            if m := re.match(r'\s*// help: (?P<help>.*)', line):
+                help += [m.group('help').strip()]
+                n += 1
 
-                elif m := re.match(r'\s*// group: (?P<group>.*)', line):
-                    if group is not None:
-                        raise ValueError('group specified again')
-                    group = m.group('group').strip()
-                    n += 1
+            elif m := re.match(r'\s*// group: (?P<group>.*)', line):
+                if group is not None:
+                    raise ValueError('group specified again')
+                group = m.group('group').strip()
+                n += 1
 
-                else:
-                    # end of directives
+            else:
+                # end of directives
 
-                    options += [Option.new(enum, specs, group, help)]
-                    state = InputState.other
+                options += [Option.new(enum, specs, group, help)]
+                state = InputState.other
 
     return options, globals
 
