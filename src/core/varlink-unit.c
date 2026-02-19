@@ -668,7 +668,7 @@ int vl_method_set_unit_properties(sd_varlink *link, sd_json_variant *parameters,
                 return r;
 
         if (p.markers_found)
-                unit->markers = p.markers | (unit->markers & ~p.markers_mask);
+                unit->markers = unit_normalize_markers(p.markers | (unit->markers & ~p.markers_mask));
 
         return sd_varlink_reply(link, NULL);
 }
