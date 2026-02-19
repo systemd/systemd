@@ -71,7 +71,7 @@ class PeRelocationBlock(LittleEndianStructure):
 
     def __init__(self, PageRVA: int):
         super().__init__(PageRVA)
-        self.entries: typing.List[PeRelocationEntry] = []
+        self.entries: list[PeRelocationEntry] = []
 
 
 class PeRelocationEntry(LittleEndianStructure):
@@ -238,7 +238,7 @@ def align_down(x: int, align: int) -> int:
     return x & ~(align - 1)
 
 
-def next_section_address(sections: typing.List[PeSection]) -> int:
+def next_section_address(sections: list[PeSection]) -> int:
     return align_to(sections[-1].VirtualAddress + sections[-1].VirtualSize,
                     SECTION_ALIGNMENT)
 
@@ -308,7 +308,7 @@ def iter_copy_sections(file: elffile.ELFFile) -> typing.Iterator[PeSection]:
 def convert_sections(
         file: elffile.ELFFile,
         opt: PeOptionalHeader,
-) -> typing.List[PeSection]:
+) -> list[PeSection]:
     last_vma = (0, 0)
     sections = []
 
@@ -353,7 +353,7 @@ def copy_sections(
     file: elffile.ELFFile,
     opt: PeOptionalHeader,
     input_names: str,
-    sections: typing.List[PeSection],
+    sections: list[PeSection],
 ) -> None:
     for name in input_names.split(","):
         elf_s = file.get_section_by_name(name)
@@ -378,7 +378,7 @@ def copy_sections(
 def apply_elf_relative_relocation(
     reloc: elf.relocation.Relocation,
     image_base: int,
-    sections: typing.List[PeSection],
+    sections: list[PeSection],
     addend_size: int,
 ) -> None:
     [target] = [pe_s for pe_s in sections
@@ -400,8 +400,8 @@ def convert_elf_reloc_table(
     file: elffile.ELFFile,
     elf_reloc_table: elf.relocation.RelocationTable,
     elf_image_base: int,
-    sections: typing.List[PeSection],
-    pe_reloc_blocks: typing.Dict[int, PeRelocationBlock],
+    sections: list[PeSection],
+    pe_reloc_blocks: dict[int, PeRelocationBlock],
 ) -> None:
     NONE_RELOC = {
         "EM_386":       elf.enums.ENUM_RELOC_TYPE_i386["R_386_NONE"],
@@ -450,7 +450,7 @@ def convert_elf_reloc_table(
 def convert_elf_relocations(
     file: elffile.ELFFile,
     opt: PeOptionalHeader,
-    sections: typing.List[PeSection],
+    sections: list[PeSection],
     minimum_sections: int,
 ) -> typing.Optional[PeSection]:
     dynamic = file.get_section_by_name(".dynamic")
@@ -490,7 +490,7 @@ def convert_elf_relocations(
     if isinstance(opt, PeOptionalHeader32):
         opt.BaseOfData += segment_offset
 
-    pe_reloc_blocks: typing.Dict[int, PeRelocationBlock] = {}
+    pe_reloc_blocks: dict[int, PeRelocationBlock] = {}
     for reloc_type, reloc_table in dynamic.get_relocation_tables().items():
         if reloc_type not in ["REL", "RELA"]:
             raise BadSectionError(f"Unsupported relocation type {reloc_type}")
@@ -541,7 +541,7 @@ def write_pe(
     file: typing.IO[bytes],
     coff: PeCoffHeader,
     opt: PeOptionalHeader,
-    sections: typing.List[PeSection],
+    sections: list[PeSection],
 ) -> None:
     file.write(b"MZ")
     file.seek(0x3C, io.SEEK_SET)
