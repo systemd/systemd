@@ -214,6 +214,7 @@ static char **arg_property = NULL;
 static sd_bus_message *arg_property_message = NULL;
 static UserNamespaceMode arg_userns_mode; /* initialized depending on arg_privileged in run() */
 static uid_t arg_uid_shift = UID_INVALID, arg_uid_range = 0x10000U;
+static unsigned arg_delegate_container_ranges = 0;
 static UserNamespaceOwnership arg_userns_ownership = _USER_NAMESPACE_OWNERSHIP_INVALID;
 static int arg_kill_signal = 0;
 static SettingsMask arg_settings_mask = 0;
@@ -430,6 +431,10 @@ static int help(void) {
                "     --private-users-ownership=MODE\n"
                "                            Adjust ('chown') or map ('map') OS tree ownership\n"
                "                            to private UID/GID range\n"
+               "     --private-users-delegate=N\n"
+               "                            Delegate N additional 64K UID/GID ranges for use\n"
+               "                            by nested containers (requires managed user\n"
+               "                            namespaces)\n"
                "  -U                        Equivalent to --private-users=pick and\n"
                "                            --private-users-ownership=auto\n"
                "\n%3$sNetworking:%4$s\n"
@@ -710,6 +715,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_TEMPLATE,
                 ARG_PROPERTY,
                 ARG_PRIVATE_USERS,
+                ARG_PRIVATE_USERS_DELEGATE,
                 ARG_KILL_SIGNAL,
                 ARG_SETTINGS,
                 ARG_CHDIR,
@@ -794,6 +800,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "private-users",          optional_argument, NULL, ARG_PRIVATE_USERS          },
                 { "private-users-chown",    optional_argument, NULL, ARG_PRIVATE_USERS_CHOWN    }, /* obsolete */
                 { "private-users-ownership",required_argument, NULL, ARG_PRIVATE_USERS_OWNERSHIP},
+                { "private-users-delegate", required_argument, NULL, ARG_PRIVATE_USERS_DELEGATE },
                 { "kill-signal",            required_argument, NULL, ARG_KILL_SIGNAL            },
                 { "settings",               required_argument, NULL, ARG_SETTINGS               },
                 { "chdir",                  required_argument, NULL, ARG_CHDIR                  },
@@ -1249,6 +1256,14 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_settings_mask |= SETTING_USERNS;
                         break;
 
+                case ARG_PRIVATE_USERS_DELEGATE:
+                        r = safe_atou(optarg, &arg_delegate_container_ranges);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --private-users-delegate= parameter: %s", optarg);
+
+                        arg_settings_mask |= SETTING_USERNS;
+                        break;
+
                 case ARG_KILL_SIGNAL:
                         if (streq(optarg, "help"))
                                 return DUMP_STRING_TABLE(signal, int, _NSIG);
@@ -1647,6 +1662,9 @@ static int verify_arguments(void) {
 
         if (arg_userns_mode == USER_NAMESPACE_MANAGED && !arg_private_network)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Managed user namespace operation requires private networking, as otherwise /sys/ may not be mounted.");
+
+        if (arg_delegate_container_ranges > 0 && arg_userns_mode != USER_NAMESPACE_MANAGED)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--private-users-delegate= requires --private-users=managed.");
 
         if (!(arg_clone_ns_flags & CLONE_NEWPID) ||
             !(arg_clone_ns_flags & CLONE_NEWUTS)) {
@@ -2877,6 +2895,141 @@ static int setup_machine_id(const char *directory) {
                 }
         } else if (r < 0)
                 return log_error_errno(r, "Failed to read machine ID from container image: %m");
+
+        return 0;
+}
+
+static int setup_nsresourced_socket(const char *directory) {
+        int r;
+
+        assert(directory);
+
+        if (arg_delegate_container_ranges == 0)
+                return 0;
+
+        /* Bind mount the nsresourced varlink socket into the container so that nested containers can
+         * allocate user namespaces from the delegated UID/GID ranges. */
+
+        _cleanup_free_ char *dest = path_join(directory, "/run/systemd/io.systemd.NamespaceResource");
+        if (!dest)
+                return log_oom();
+
+        r = userns_mkdir(directory, "/run/systemd", 0755, 0, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create parent directory of %s: %m", dest);
+
+        r = touch(dest);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create %s: %m", dest);
+
+        r = userns_lchown(dest, 0, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to chown %s: %m", dest);
+
+        r = mount_nofollow_verbose(
+                        LOG_ERR,
+                        "/run/systemd/io.systemd.NamespaceResource",
+                        dest,
+                        /* fstype= */ NULL,
+                        MS_BIND,
+                        /* options= */ NULL);
+        if (r < 0)
+                return r;
+
+        /* Create the userdb symlink so that the socket is discoverable via userdb */
+        _cleanup_free_ char *userdb_symlink = path_join(directory, "/run/systemd/userdb/io.systemd.NamespaceResource");
+        if (!userdb_symlink)
+                return log_oom();
+
+        r = userns_mkdir(directory, "/run/systemd/userdb", 0755, 0, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create parent directory of %s: %m", userdb_symlink);
+
+        r = symlink_idempotent("/run/systemd/io.systemd.NamespaceResource", userdb_symlink, /* make_relative= */ false);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create symlink %s: %m", userdb_symlink);
+
+        r = userns_lchown(userdb_symlink, 0, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to chown %s: %m", userdb_symlink);
+
+        /* Create the varlink registry symlink so that the socket is discoverable via the varlink registry */
+        _cleanup_free_ char *registry_symlink = path_join(directory, "/run/varlink/registry/io.systemd.NamespaceResource");
+        if (!registry_symlink)
+                return log_oom();
+
+        FOREACH_STRING(p, "/run/varlink", "/run/varlink/registry") {
+                r = userns_mkdir(directory, p, 0755, 0, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create directory %s: %m", p);
+        }
+
+        r = symlink_idempotent("/run/systemd/io.systemd.NamespaceResource", registry_symlink, /* make_relative= */ false);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create symlink %s: %m", registry_symlink);
+
+        r = userns_lchown(registry_symlink, 0, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to chown %s: %m", registry_symlink);
+
+        return 0;
+}
+
+static int setup_mountfsd_socket(const char *directory) {
+        int r;
+
+        assert(directory);
+
+        if (arg_delegate_container_ranges == 0)
+                return 0;
+
+        /* Bind mount the nsresourced varlink socket into the container so that nested containers can
+         * allocate user namespaces from the delegated UID/GID ranges. */
+
+        _cleanup_free_ char *dest = path_join(directory, "/run/systemd/io.systemd.MountFileSystem");
+        if (!dest)
+                return log_oom();
+
+        r = userns_mkdir(directory, "/run/systemd", 0755, 0, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create parent directory of %s: %m", dest);
+
+        r = touch(dest);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create %s: %m", dest);
+
+        r = userns_lchown(dest, 0, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to chown %s: %m", dest);
+
+        r = mount_nofollow_verbose(
+                        LOG_ERR,
+                        "/run/systemd/io.systemd.MountFileSystem",
+                        dest,
+                        /* fstype= */ NULL,
+                        MS_BIND,
+                        /* options= */ NULL);
+        if (r < 0)
+                return r;
+
+        /* Create the varlink registry symlink so that the socket is discoverable via the varlink registry */
+        _cleanup_free_ char *registry_symlink = path_join(directory, "/run/varlink/registry/io.systemd.MountFileSystem");
+        if (!registry_symlink)
+                return log_oom();
+
+        FOREACH_STRING(p, "/run/varlink", "/run/varlink/registry") {
+                r = userns_mkdir(directory, p, 0755, 0, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create directory %s: %m", p);
+        }
+
+        r = symlink_idempotent("/run/systemd/io.systemd.MountFileSystem", registry_symlink, /* make_relative= */ false);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create symlink %s: %m", registry_symlink);
+
+        r = userns_lchown(registry_symlink, 0, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to chown %s: %m", registry_symlink);
 
         return 0;
 }
@@ -4371,6 +4524,14 @@ static int outer_child(
         if (r < 0)
                 return r;
 
+        r = setup_nsresourced_socket(directory);
+        if (r < 0)
+                return r;
+
+        r = setup_mountfsd_socket(directory);
+        if (r < 0)
+                return r;
+
         FOREACH_STRING(dirname, "/run/systemd", "/run/systemd/dissect-root") {
                 r = userns_mkdir(directory, dirname, 0755, 0, 0);
                 if (r < 0)
@@ -4891,6 +5052,7 @@ static int merge_settings(Settings *settings, const char *path) {
                         arg_uid_shift = settings->uid_shift;
                         arg_uid_range = settings->uid_range;
                         arg_userns_ownership = settings->userns_ownership;
+                        arg_delegate_container_ranges = settings->delegate_container_ranges;
                 }
         }
 
@@ -6164,10 +6326,11 @@ static int run(int argc, char *argv[]) {
                         goto finish;
                 }
 
-                userns_fd = nsresource_allocate_userns(
+                userns_fd = nsresource_allocate_userns_full(
                                 nsresource_link,
                                 userns_name,
-                                NSRESOURCE_UIDS_64K); /* allocate 64K UIDs */
+                                NSRESOURCE_UIDS_64K,
+                                arg_delegate_container_ranges);
                 if (userns_fd < 0) {
                         r = log_error_errno(userns_fd, "Failed to allocate user namespace with 64K users: %m");
                         goto finish;
