@@ -1730,6 +1730,9 @@ static void context_place_partitions(Context *context) {
                         assert(left >= p->new_padding);
                         start += p->new_padding;
                         left -= p->new_padding;
+
+                        /* Ensure the next partition starts at a grain boundary */
+                        start = round_up_size(start, context->grain_size);
                 }
         }
 }
@@ -3702,10 +3705,8 @@ static int context_load_partition_table(Context *context) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Sector size %lu is not a power of two larger than 512? Refusing.", secsz);
 
         /* Use at least 4K, and ensure it's a multiple of the sector size, regardless if that is smaller or
-         * larger */
+         * larger. The actual grain may be bumped up further below once we know the first usable LBA. */
         grainsz = MAX(secsz, 4096U);
-
-        log_debug("Sector size of device is %lu bytes. Using default filesystem sector size of %" PRIu64 " and grain size of %" PRIu64 ".", secsz, fs_secsz, grainsz);
 
         switch (context->empty) {
 
@@ -3915,6 +3916,15 @@ add_initial_free_area:
         first_lba = fdisk_get_first_lba(c);
         assert(first_lba <= UINT64_MAX/secsz);
         first_lba *= secsz;
+
+        /* Bump up the grain to the first usable LBA if it's larger. On a conventional GPT disk
+         * (512-byte sectors, first_lba at sector 2048) this raises the grain from 4K to 1 MiB,
+         * which matches the standard GPT alignment and ensures that small partitions
+         * like the verity-sig partition (16 KiB) do not break subsequent partition alignment. */
+        if (first_lba > grainsz)
+                grainsz = first_lba;
+
+        log_debug("Sector size of device is %lu bytes. Using default filesystem sector size of %" PRIu64 " and grain size of %" PRIu64 ".", secsz, fs_secsz, grainsz);
 
         last_lba = fdisk_get_last_lba(c);
         assert(last_lba < UINT64_MAX);
