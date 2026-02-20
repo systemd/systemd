@@ -1,3 +1,5 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
 #  This file is part of systemd.
 #
 #  systemd is free software; you can redistribute it and/or modify it
@@ -5,5 +7,9 @@
 #  the Free Software Foundation; either version 2.1 of the License, or
 #  (at your option) any later version.
 
-g  systemd-journal {{SYSTEMD_JOURNAL_GID}} -
-u! systemd-journal {{SYSTEMD_JOURNAL_UID}} "systemd Journal"
+[Unit]
+Description=Journal Log Access Service
+Documentation=man:journalctl(1)
+
+[Service]
+ExecStart=journalctl

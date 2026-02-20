@@ -177,6 +177,108 @@ int get_possible_units(
         return 0;
 }
 
+int journal_add_unit_matches(sd_journal *j, MatchUnitFlag flags, UnitNameMangle mangle_flags, char **system_units, char **user_units) {
+        _cleanup_strv_free_ char **patterns = NULL;
+        bool added = false;
+        int r;
+
+        assert(j);
+
+        if (strv_isempty(system_units) && strv_isempty(user_units))
+                return 0;
+
+        STRV_FOREACH(i, system_units) {
+                _cleanup_free_ char *u = NULL;
+
+                r = unit_name_mangle(*i, UNIT_NAME_MANGLE_GLOB | mangle_flags, &u);
+                if (r < 0)
+                        return r;
+
+                if (string_is_glob(u)) {
+                        r = strv_consume(&patterns, TAKE_PTR(u));
+                        if (r < 0)
+                                return r;
+                } else {
+                        r = add_matches_for_unit_full(j, flags, u);
+                        if (r < 0)
+                                return r;
+                        r = sd_journal_add_disjunction(j);
+                        if (r < 0)
+                                return r;
+                        added = true;
+                }
+        }
+
+        if (!strv_isempty(patterns)) {
+                _cleanup_set_free_ Set *units = NULL;
+
+                r = get_possible_units(j, SYSTEM_UNITS_FULL, patterns, &units);
+                if (r < 0)
+                        return r;
+
+                char *u;
+                SET_FOREACH(u, units) {
+                        r = add_matches_for_unit_full(j, flags, u);
+                        if (r < 0)
+                                return r;
+                        r = sd_journal_add_disjunction(j);
+                        if (r < 0)
+                                return r;
+                        added = true;
+                }
+        }
+
+        patterns = strv_free(patterns);
+
+        STRV_FOREACH(i, user_units) {
+                _cleanup_free_ char *u = NULL;
+
+                r = unit_name_mangle(*i, UNIT_NAME_MANGLE_GLOB | mangle_flags, &u);
+                if (r < 0)
+                        return r;
+
+                if (string_is_glob(u)) {
+                        r = strv_consume(&patterns, TAKE_PTR(u));
+                        if (r < 0)
+                                return r;
+                } else {
+                        r = add_matches_for_user_unit_full(j, flags, u);
+                        if (r < 0)
+                                return r;
+                        r = sd_journal_add_disjunction(j);
+                        if (r < 0)
+                                return r;
+                        added = true;
+                }
+        }
+
+        if (!strv_isempty(patterns)) {
+                _cleanup_set_free_ Set *units = NULL;
+
+                r = get_possible_units(j, USER_UNITS_FULL, patterns, &units);
+                if (r < 0)
+                        return r;
+
+                char *u;
+                SET_FOREACH(u, units) {
+                        r = add_matches_for_user_unit_full(j, flags, u);
+                        if (r < 0)
+                                return r;
+                        r = sd_journal_add_disjunction(j);
+                        if (r < 0)
+                                return r;
+                        added = true;
+                }
+        }
+
+        /* Complain if the user request matches but nothing whatsoever was found, since otherwise everything
+         * would be matched. */
+        if (!added)
+                return -ENODATA;
+
+        return sd_journal_add_conjunction(j);
+}
+
 int acquire_unit(sd_journal *j, const char *option_name, const char **ret_unit, LogIdType *ret_type) {
         size_t n;
         int r;
