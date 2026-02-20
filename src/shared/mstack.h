@@ -47,7 +47,7 @@ typedef struct MStack {
                 .usr_mount_fd = -EBADF,         \
         }
 
-MStack *mstack_free(MStack *mstack);
+MStack* mstack_free(MStack *mstack);
 DEFINE_TRIVIAL_CLEANUP_FUNC(MStack*, mstack_free);
 
 int mstack_load(const char *dir, int dir_fd, MStack **ret);
@@ -56,7 +56,17 @@ int mstack_make_mounts(MStack *mstack, const char *temp_mount_dir, MStackFlags f
 int mstack_bind_mounts(MStack *mstack, const char *where, int where_fd, MStackFlags flags, int *ret_root_fd);
 
 /* The four calls above in one */
-int mstack_apply(const char *dir, int dir_fd, const char *where, const char *temp_mount_dir, sd_varlink *mountfsd_link, int userns_fd, const ImagePolicy *image_policy, const ImageFilter *image_filter, MStackFlags flags, int *ret_root_fd);
+int mstack_apply(
+                const char *dir,
+                int dir_fd,
+                const char *where,
+                const char *temp_mount_dir,
+                sd_varlink *mountfsd_link,
+                int userns_fd,
+                const ImagePolicy *image_policy,
+                const ImageFilter *image_filter,
+                MStackFlags flags,
+                int *ret_root_fd);
 
 int mstack_is_read_only(MStack *mstack);
 int mstack_is_foreign_uid_owned(MStack *mstack);

@@ -101,7 +101,10 @@ static OciLayerState* oci_layer_state_free(OciLayerState *st) {
         pidref_done_sigkill_wait(&st->tar_pid);
 
         if (st->temp_path) {
-                import_remove_tree(st->temp_path, st->pull ? &st->pull->userns_fd : NULL, st->pull->flags);
+                import_remove_tree(
+                                st->temp_path,
+                                st->pull ? &st->pull->userns_fd : NULL,
+                                st->pull ? st->pull->flags : 0);
                 free(st->temp_path);
         }
         free(st->final_path);

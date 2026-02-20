@@ -56,7 +56,7 @@ static void mstack_done(MStack *mstack) {
         safe_close(mstack->usr_mount_fd);
 }
 
-MStack *mstack_free(MStack *mstack) {
+MStack* mstack_free(MStack *mstack) {
         if (!mstack)
                 return NULL;
 
@@ -501,7 +501,7 @@ static bool mount_is_ro(MStackMount *m, MStackFlags flags) {
                 IN_SET(m->mount_type, MSTACK_LAYER, MSTACK_ROBIND);
 }
 
-static const char *mount_name(MStackMount *m) {
+static const char* mount_name(MStackMount *m) {
         assert(m);
 
         /* Returns some vaguely useful identifier for this layer, for showing in debug output */
@@ -1120,11 +1120,10 @@ int mstack_apply(
         return mstack_bind_mounts(&mstack, where, /* where_fd= */ -EBADF, flags, ret_root_fd);
 }
 
-int mstack_load(const char *dir,
-                int dir_fd,
-                MStack **ret) {
-
+int mstack_load(const char *dir, int dir_fd, MStack **ret) {
         int r;
+
+        assert(ret);
 
         /* Well-known errors:
          *
@@ -1132,7 +1131,7 @@ int mstack_load(const char *dir,
          *     -EBADMSG  → Bad file suffix, inode type for layer, or unrecognized entry
          */
 
-        MStack *mstack = new(MStack, 1);
+        _cleanup_(mstack_freep) MStack *mstack = new(MStack, 1);
         if (!mstack)
                 return -ENOMEM;
 
@@ -1142,9 +1141,7 @@ int mstack_load(const char *dir,
         if (r < 0)
                 return r;
 
-        if (ret)
-                *ret = TAKE_PTR(mstack);
-
+        *ret = TAKE_PTR(mstack);
         return 0;
 }
 
