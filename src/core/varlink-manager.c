@@ -343,6 +343,7 @@ int vl_method_enqueue_marked_jobs_manager(sd_varlink *link, sd_json_variant *par
                 _cleanup_(sd_bus_error_free) sd_bus_error bus_error = SD_BUS_ERROR_NULL;
                 const char *error_id = NULL;
                 uint32_t job_id = 0; /* silence 'maybe-uninitialized' compiler warning */
+                JobType job;
 
                 /* ignore aliases */
                 if (u->id != k)
@@ -350,14 +351,20 @@ int vl_method_enqueue_marked_jobs_manager(sd_varlink *link, sd_json_variant *par
 
                 if (u->markers == 0)
                         continue;
+                if (BIT_SET(u->markers, UNIT_MARKER_NEEDS_STOP))
+                        job = JOB_STOP;
+                else if (BIT_SET(u->markers, UNIT_MARKER_NEEDS_START))
+                        job = JOB_START;
+                else
+                        job = JOB_TRY_RESTART;
 
-                r = mac_selinux_unit_access_check_varlink(u, link, job_type_to_access_method(JOB_TRY_RESTART));
+                r = mac_selinux_unit_access_check_varlink(u, link, job_type_to_access_method(job));
                 if (r < 0)
                         error_id = SD_VARLINK_ERROR_PERMISSION_DENIED;
                 else
                         r = varlink_unit_queue_job_one(
                                         u,
-                                        JOB_TRY_RESTART,
+                                        job,
                                         JOB_FAIL,
                                         /* reload_if_possible= */ !BIT_SET(u->markers, UNIT_MARKER_NEEDS_RESTART),
                                         &job_id,
