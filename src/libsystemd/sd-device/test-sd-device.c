@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include "sd-daemon.h"
 #include "sd-event.h"
 
 #include "capability-util.h"
@@ -465,6 +466,10 @@ TEST(sd_device_enumerator_filter_subsystem) {
                 ASSERT_TRUE(test_sd_device_enumerator_filter_subsystem_trial_many());
                 return;
         }
+
+        /* The rest of this test depends on a full booted system with a working udev and so on */
+        if (!sd_booted())
+                return (void) log_tests_skipped("Test requires fully booted system with udev/etc, skipping to avoid hanging forever.");
 
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         ASSERT_OK(sd_event_default(&event));
