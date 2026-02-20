@@ -47,7 +47,7 @@
         them to standard output. Optionally takes one or more match expressions for filtering the metrics to
         show. The expression either may be a literal metric family name to search for, or a prefix of one
         (which will be matched only at dot boundaries). If multiple matches are specified as multiple
-        paramaters, any metric matching <emphasis>any</emphasis> of the specified matches are shown.</para>
+        parameters, any metric matching <emphasis>any</emphasis> of the specified matches are shown.</para>
 
         <xi:include href="version-info.xml" xpointer="v260"/></listitem>
       </varlistentry>
