@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include "sd-daemon.h"
 #include "sd-event.h"
 
 #include "capability-util.h"
@@ -471,6 +472,8 @@ TEST(sd_device_enumerator_filter_subsystem) {
         ASSERT_OK(sd_event_add_inotify(event, NULL, "/run/udev" , IN_DELETE, on_inotify, NULL));
 
         if (udev_queue_is_empty() == 0) {
+                if (!sd_booted())
+                        return (void) log_tests_skipped("udev queue is not empty, but system not running systemd, skipping to avoid hanging forever.");
                 log_debug("udev queue is not empty, waiting for all queued events to be processed.");
                 ASSERT_OK(sd_event_loop(event));
         } else
