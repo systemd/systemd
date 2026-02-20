@@ -1,6 +1,12 @@
 target-version = "py39"
 line-length = 109
-lint.select = ["E", "F", "I", "UP"]
+lint.select = ["E", "F", "I", "Q", "UP"]
 
 [format]
-quote-style = "single"
+# The formatter prefers double quotes for multiline quotes,
+# Hence, let's make the formatter not change quotations.
+quote-style = "preserve"
+
+[lint.flake8-quotes]
+inline-quotes = "single"
+multiline-quotes = "single"

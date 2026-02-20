@@ -120,43 +120,43 @@ def process_source_file(file: IO[str]) -> None:
             continue
 
 
-print("""/* SPDX-License-Identifier: LGPL-2.1-or-later */
+print('''/* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-""")
+''')
 
 for header in sys.argv[3:]:
     with open(header, 'r') as f:
         if process_header_file(f):
             print('#include "{}"'.format(header.split('/')[-1]))
 
-print("""
+print('''
 /* We want to check deprecated symbols too, without complaining */
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-""")
+''')
 
-print("""
+print('''
 struct symbol {
         const char *name;
         const void *symbol;
 };
-static struct symbol symbols_from_sym[] = {""")
+static struct symbol symbols_from_sym[] = {''')
 
 with open(sys.argv[1], 'r') as f:
     process_sym_file(f)
 
-print("""        {}
-}, symbols_from_header[] = {""")
+print('''        {}
+}, symbols_from_header[] = {''')
 
 for header in sys.argv[3:]:
     with open(header, 'r') as f:
         print(process_header_file(f), end='')
 
-print("""        {}
-}, symbols_from_source[] = {""")
+print('''        {}
+}, symbols_from_source[] = {''')
 
 for dirpath, _, filenames in sorted(os.walk(sys.argv[2])):
     for filename in sorted(filenames):
@@ -168,7 +168,7 @@ for dirpath, _, filenames in sorted(os.walk(sys.argv[2])):
         with p.open('rt') as f:
             process_source_file(f)
 
-print("""        {}
+print('''        {}
 };
 
 static int sort_callback(const void *a, const void *b) {
@@ -239,4 +239,4 @@ int main(void) {
         }
 
         return n_error == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
-}""")
+}''')

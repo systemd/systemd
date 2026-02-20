@@ -599,7 +599,7 @@ class SystemdSbSign(SignTool):
         )
         cmd = [
             tool,
-            "sign",
+            'sign',
             '--private-key', opts.sb_key,
             '--certificate', opts.sb_cert,
             *(
@@ -1305,15 +1305,15 @@ def parse_efifw_dir(path: Path) -> bytes:
     return efifw_blob
 
 
-STUB_SBAT = """\
+STUB_SBAT = '''\
 sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
 uki,1,UKI,uki,1,https://uapi-group.org/specifications/specs/unified_kernel_image/
-"""
+'''
 
-ADDON_SBAT = """\
+ADDON_SBAT = '''\
 sbat,1,SBAT Version,sbat,1,https://github.com/rhboot/shim/blob/main/SBAT.md
 uki-addon,1,UKI Addon,addon,1,https://www.freedesktop.org/software/systemd/man/latest/systemd-stub.html
-"""
+'''
 
 
 def make_uki(opts: UkifyConfig) -> None:
@@ -2326,11 +2326,11 @@ def create_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         description='Build and sign Unified Kernel Images',
         usage='\n  '
-        + textwrap.dedent("""\
+        + textwrap.dedent('''\
           ukify {b}build{e} [--linux=LINUX] [--initrd=INITRD] [options…]
             ukify {b}genkey{e} [options…]
             ukify {b}inspect{e} FILE… [options…]
-        """).format(b=Style.bold, e=Style.reset),
+        ''').format(b=Style.bold, e=Style.reset),
         allow_abbrev=False,
         add_help=False,
         epilog='\n  '.join(('config file:', *config_example())),
