@@ -217,6 +217,13 @@ sensor:modalias:acpi:KIOX010A:*:dmi:*:svnAMI:*:skuH8Y6:*    # MaxBook Y14
  ACCEL_LOCATION=display
 
 #########################################
+# BNCF
+#########################################
+
+sensor:modalias:acpi:NSA2513:NSA2513*:dmi:*svnBNCF:pnNewBook11* # NewBook 11 2-in-1
+ ACCEL_MOUNT_MATRIX=0, 1, 0; -1, 0, 0; 0, 0, -1
+
+#########################################
 # BUSH
 #########################################
 
