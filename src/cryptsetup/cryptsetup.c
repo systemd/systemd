@@ -90,6 +90,7 @@ static bool arg_readonly = false;
 static bool arg_verify = false;
 static bool arg_password_cache_set = false; /* Not the actual argument value, just an indicator that some value is set */
 static AskPasswordFlags arg_ask_password_flags = ASK_PASSWORD_ACCEPT_CACHED | ASK_PASSWORD_PUSH_CACHE;
+static bool arg_headless_recovery = false;
 static bool arg_discards = false;
 static bool arg_same_cpu_crypt = false;
 static bool arg_submit_from_crypt_cpus = false;
@@ -601,6 +602,18 @@ static int parse_one_option(const char *option) {
         } else if (streq(option, "headless"))
                 arg_ask_password_flags |= ASK_PASSWORD_HEADLESS;
 
+        else if ((val = startswith(option, "headless.recovery="))) {
+
+                r = parse_boolean(val);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to parse %s, ignoring: %m", option);
+                        return 0;
+                }
+
+                arg_headless_recovery = r;
+        } else if (streq(option, "headless.recovery"))
+                arg_headless_recovery = true;
+
         else if ((val = startswith(option, "token-timeout="))) {
 
                 r = parse_sec_fix_0(val, &arg_token_timeout_usec);
@@ -928,6 +941,9 @@ static int get_password(
 
         if (FLAGS_SET(arg_ask_password_flags, ASK_PASSWORD_HEADLESS))
                 return log_error_errno(SYNTHETIC_ERRNO(ENOPKG), "Password querying disabled via 'headless' option.");
+
+        if (arg_headless_recovery && passphrase_type == PASSPHRASE_RECOVERY_KEY)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOPKG), "Recovery key querying disabled via 'headless.recovery' option.");
 
         friendly = friendly_disk_name(src, vol);
         if (!friendly)
@@ -2743,7 +2759,7 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
                  *    1. A key acquired via PKCS#11 or FIDO2 token, or TPM2 chip
                  *    2. The configured or discovered key, of which both are exclusive and optional
                  *    3. The empty password, in case arg_try_empty_password is set
-                 *    4. We enquire the user for a password
+                 *    4. We enquire the user for a password or recovery key, unless disabled using headless or headless.recovery
                  */
 
                 if (try_discover_key) {
@@ -2769,6 +2785,12 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
                                         passphrase_type = check_registered_passwords(cd);
                                         if (passphrase_type == PASSPHRASE_NONE)
                                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No passphrase or recovery key registered.");
+                                }
+
+                                if (arg_headless_recovery) {
+                                        if (passphrase_type == PASSPHRASE_RECOVERY_KEY)
+                                                return log_error_errno(SYNTHETIC_ERRNO(ENOPKG), "Recovery key querying disabled via 'headless.recovery' option.");
+                                        passphrase_type &= ~PASSPHRASE_RECOVERY_KEY;
                                 }
 
                                 r = get_password(
