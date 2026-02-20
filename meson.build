@@ -2011,6 +2011,7 @@ man_page_depends = []
 
 #####################################################################
 
+option_parsers = {}
 simple_tests = []
 libsystemd_tests = []
 simple_fuzzers = []
@@ -2437,6 +2438,7 @@ subdir('src/vmspawn')
 subdir('src/volatile-root')
 subdir('src/vpick')
 subdir('src/xdg-autostart-generator')
+subdir('src/option-parsers')  # needs to be after all normal executables
 
 subdir('src/systemd')
 
@@ -2491,7 +2493,8 @@ foreach dict : executables
         foreach key, val : dict
                 if key in ['name', 'dbus', 'public', 'conditions', 'type', 'suite',
                            'timeout', 'parallel', 'objects', 'sources', 'extract',
-                           'include_directories', 'build_by_default', 'install']
+                           'include_directories', 'build_by_default', 'install',
+                           'option_parser']
                         continue
                 endif
 
@@ -2505,6 +2508,11 @@ foreach dict : executables
         include_directories = dict['include_directories']
         if not is_test and exe_sources.length() > 0
                 include_directories += fs.parent(exe_sources[0])
+        endif
+
+        if dict.get('option_parser', false)
+                exe_sources += option_parsers[name]
+                include_directories += option_parser_include_dir
         endif
 
         foreach val : dict.get('objects', [])
