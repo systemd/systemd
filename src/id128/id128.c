@@ -28,10 +28,12 @@ static bool arg_legend = true;
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 
 static int verb_new(int argc, char **argv, void *userdata) {
+        // help: Generate a new ID
         return id128_print_new(arg_mode);
 }
 
 static int verb_machine_id(int argc, char **argv, void *userdata) {
+        // help: Print the ID of current machine
         sd_id128_t id;
         int r;
 
@@ -47,6 +49,7 @@ static int verb_machine_id(int argc, char **argv, void *userdata) {
 }
 
 static int verb_boot_id(int argc, char **argv, void *userdata) {
+        // help: Print the ID of current boot
         sd_id128_t id;
         int r;
 
@@ -62,6 +65,7 @@ static int verb_boot_id(int argc, char **argv, void *userdata) {
 }
 
 static int verb_invocation_id(int argc, char **argv, void *userdata) {
+        // help: Print the ID of current invocation
         sd_id128_t id;
         int r;
 
@@ -77,6 +81,8 @@ static int verb_invocation_id(int argc, char **argv, void *userdata) {
 }
 
 static int verb_var_uuid(int argc, char **argv, void *userdata) {
+        // help: Print the UUID for the /var/ partition
+
         sd_id128_t id;
         int r;
 
@@ -134,6 +140,9 @@ static int show_one(Table **table, const char *name, sd_id128_t uuid, bool first
 }
 
 static int verb_show(int argc, char **argv, void *userdata) {
+        // verb: show [NAME|UUID]
+        // help: Print one or more UUIDs
+
         _cleanup_(table_unrefp) Table *table = NULL;
         int r;
 
@@ -198,13 +207,7 @@ static int help(void) {
         printf("%s [OPTIONS...] COMMAND\n\n"
                "%sGenerate and print 128-bit identifiers.%s\n"
                "\nCommands:\n"
-               "  new                     Generate a new ID\n"
-               "  machine-id              Print the ID of current machine\n"
-               "  boot-id                 Print the ID of current boot\n"
-               "  invocation-id           Print the ID of current invocation\n"
-               "  var-partition-uuid      Print the UUID for the /var/ partition\n"
-               "  show [NAME|UUID]        Print one or more UUIDs\n"
-               "  help                    Show this help\n"
+               VERB_HELP_GENERATED
                "\nOptions:\n"
                OPTION_HELP_GENERATED
                "\nSee the %s for details.\n",
@@ -282,21 +285,6 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static int id128_main(int argc, char *argv[]) {
-        static const Verb verbs[] = {
-                { "new",                VERB_ANY, 1,        0,  verb_new           },
-                { "machine-id",         VERB_ANY, 1,        0,  verb_machine_id    },
-                { "boot-id",            VERB_ANY, 1,        0,  verb_boot_id       },
-                { "invocation-id",      VERB_ANY, 1,        0,  verb_invocation_id },
-                { "var-partition-uuid", VERB_ANY, 1,        0,  verb_var_uuid      },
-                { "show",               VERB_ANY, VERB_ANY, 0,  verb_show          },
-                { "help",               VERB_ANY, VERB_ANY, 0,  verb_help          },
-                {}
-        };
-
-        return dispatch_verb(argc, argv, verbs, NULL);
-}
-
 static int run(int argc, char *argv[]) {
         int r;
 
@@ -306,7 +294,7 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        return id128_main(argc, argv);
+        return dispatch_verb(argc, argv, verbs, NULL);
 }
 
 DEFINE_MAIN_FUNCTION(run);
