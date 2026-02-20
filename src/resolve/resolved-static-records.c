@@ -141,13 +141,12 @@ static int manager_static_records_read(Manager *m) {
         bool reload;
         if (set_size(m->static_records_stat) != n_files)
                 reload = true;
-        else {
+        else
                 FOREACH_ARRAY(f, files, n_files)
                         if (!set_contains(m->static_records_stat, &(*f)->st)) {
                                 reload = true;
                                 break;
                         }
-        }
 
         if (!reload) {
                 log_debug("No static record files changed, not re-reading.");
@@ -170,6 +169,7 @@ static int manager_static_records_read(Manager *m) {
 
 int manager_static_records_lookup(Manager *m, DnsQuestion *q, DnsAnswer **answer) {
         int r;
+
         assert(m);
         assert(q);
         assert(answer);

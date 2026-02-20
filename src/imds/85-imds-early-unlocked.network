@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: MIT-0
+#
+# This config file is installed as part of systemd.
+# It may be freely copied and edited (following the MIT No Attribution license).
+
+# Similar to 85-imds-early.network, but doesn't add a prohibit route to the
+# IMDS service for everyone else
+
+[Match]
+Type=ether
+Kind=!*
+
+[Link]
+RequiredFamilyForOnline=ipv4
+
+[Network]
+DHCP=yes
+LinkLocalAddressing=ipv6
+
+[DHCP]
+UseTimezone=yes
+UseHostname=yes
+UseMTU=yes
+
+# Even if we don't prohibit IMDS for everyone else, let's still go via our own
+# routing table
+[Route]
+Destination=169.254.169.254
+Scope=link
+Table=0x7FFF0815
+
+# Sockets marked with firewall mark 0x7FFF0815 get access to the IMDS route by
+# using the 0x7FFF0815 table populated above.
+[RoutingPolicyRule]
+FirewallMark=0x7FFF0815
+Table=0x7FFF0815

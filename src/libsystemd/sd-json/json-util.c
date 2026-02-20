@@ -194,7 +194,7 @@ int json_dispatch_in_addr(const char *name, sd_json_variant *variant, sd_json_di
                 return r;
 
         if (iov.iov_len != sizeof(struct in_addr))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is array of unexpected size.", strna(name));
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Expected JSON field '%s' to be an array of %zu bytes.", strna(name), sizeof(struct in_addr));
 
         memcpy(address, iov.iov_base, iov.iov_len);
         return 0;
@@ -215,7 +215,7 @@ int json_dispatch_in6_addr(const char *name, sd_json_variant *variant, sd_json_d
                 return r;
 
         if (iov.iov_len != sizeof(struct in6_addr))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is array of unexpected size.", strna(name));
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Expected JSON field '%s' to be an array of %zu bytes.", strna(name), sizeof(struct in6_addr));
 
         memcpy(address, iov.iov_base, iov.iov_len);
         return 0;

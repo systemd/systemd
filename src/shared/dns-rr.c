@@ -2561,6 +2561,8 @@ int dns_resource_record_from_json(sd_json_variant *v, DnsResourceRecord **ret) {
                 r = dns_name_is_valid(name);
                 if (r < 0)
                         return r;
+                if (!r)
+                        return -EBADMSG;
 
                 rr->ptr.name = TAKE_PTR(name);
                 break;
