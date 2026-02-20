@@ -255,8 +255,9 @@
         <term><option>--lightweight=<replaceable>BOOLEAN</replaceable></option></term>
 
         <listitem><para>Controls whether to activate the per-user service manager for the target user. By
-        default if the target user is <literal>root</literal> or a system user the per-user service manager
-        is not activated as effect of the <command>run0</command> invocation, otherwise it is.</para>
+        default (unset or set to <option>auto</option>), if the target user is <literal>root</literal> or
+        a system user the per-user service manager is not activated as effect of the <command>run0</command>
+        invocation, otherwise it is.</para>
 
         <para>This ultimately controls the <varname>$XDG_SESSION_CLASS</varname> environment variable
         <citerefentry><refentrytitle>pam_systemd</refentrytitle><manvolnum>8</manvolnum></citerefentry>

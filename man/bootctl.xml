@@ -407,10 +407,11 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--variables=yes|no</option></term>
+        <term><option>--variables=yes|no|auto</option></term>
         <listitem><para>Controls whether to touch the firmware's boot loader list stored in EFI variables,
-        and other EFI variables. If not specified defaults to no when execution in a container runtime is
-        detected, yes otherwise.</para>
+        and other EFI variables. If not specified or set to <option>auto</option>, EFI variables will not
+        be modified when execution in a container runtime is detected. <option>yes</option> may be used to
+        explicit override the check.</para>
 
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>

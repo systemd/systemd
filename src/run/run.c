@@ -1083,7 +1083,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                         break;
 
                 case ARG_LIGHTWEIGHT:
-                        r = parse_tristate_argument("--lightweight=", optarg, &arg_lightweight);
+                        r = parse_tristate_argument_with_auto("--lightweight=", optarg, &arg_lightweight);
                         if (r < 0)
                                 return r;
                         break;

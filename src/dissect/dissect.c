@@ -637,7 +637,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 case ARG_COPY_OWNERSHIP:
-                        r = parse_tristate_argument("--copy-ownership=", optarg, &arg_copy_ownership);
+                        r = parse_tristate_argument_with_auto("--copy-ownership=", optarg, &arg_copy_ownership);
                         if (r < 0)
                                 return r;
                         break;

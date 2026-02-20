@@ -455,15 +455,15 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_KVM:
-                        r = parse_tristate(optarg, &arg_kvm);
+                        r = parse_tristate_argument_with_auto("--kvm=", optarg, &arg_kvm);
                         if (r < 0)
-                            return log_error_errno(r, "Failed to parse --kvm=%s: %m", optarg);
+                                return r;
                         break;
 
                 case ARG_VSOCK:
-                        r = parse_tristate(optarg, &arg_vsock);
+                        r = parse_tristate_argument_with_auto("--vsock=", optarg, &arg_vsock);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --vsock=%s: %m", optarg);
+                                return r;
                         break;
 
                 case ARG_VSOCK_CID:
@@ -483,9 +483,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_TPM:
-                        r = parse_tristate(optarg, &arg_tpm);
+                        r = parse_tristate_argument_with_auto("--tpm=", optarg, &arg_tpm);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --tpm=%s: %m", optarg);
+                                return r;
                         break;
 
                 case ARG_LINUX:
@@ -587,9 +587,9 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 case ARG_SECURE_BOOT:
-                        r = parse_tristate(optarg, &arg_secure_boot);
+                        r = parse_tristate_argument_with_auto("--secure-boot=", optarg, &arg_secure_boot);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --secure-boot=%s: %m", optarg);
+                                return r;
                         break;
 
                 case ARG_PRIVATE_USERS:
@@ -1915,6 +1915,16 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (r < 0)
                 return log_error_errno(r, "Failed to find OVMF config: %m");
 
+        if (arg_secure_boot > 0 && !ovmf_config->supports_sb) {
+                assert(arg_firmware);
+
+                return log_error_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE),
+                                       "Secure Boot requested, but supplied OVMF firmware blob doesn't support it.");
+        }
+
+        if (arg_secure_boot < 0)
+                log_debug("Using OVMF firmware %s Secure Boot support.", ovmf_config->supports_sb ? "with" : "without");
+
         _cleanup_(machine_bind_user_context_freep) MachineBindUserContext *bind_user_context = NULL;
         r = machine_bind_user_prepare(
                         /* directory= */ NULL,
@@ -1930,11 +1940,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         r = bind_user_setup(bind_user_context, &arg_credentials, &arg_runtime_mounts);
         if (r < 0)
                 return r;
-
-        /* only warn if the user hasn't disabled secureboot */
-        if (!ovmf_config->supports_sb && arg_secure_boot)
-                log_warning("Couldn't find OVMF firmware blob with Secure Boot support, "
-                            "falling back to OVMF firmware blobs without Secure Boot support.");
 
         _cleanup_free_ char *machine = NULL;
         const char *shm = arg_directory || arg_runtime_mounts.n_mounts != 0 ? ",memory-backend=mem" : "";

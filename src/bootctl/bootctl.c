@@ -521,7 +521,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_VARIABLES:
-                        r = parse_tristate_argument("--variables=", optarg, &arg_touch_variables);
+                        r = parse_tristate_argument_with_auto("--variables=", optarg, &arg_touch_variables);
                         if (r < 0)
                                 return r;
                         break;

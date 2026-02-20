@@ -555,10 +555,10 @@
         <term><option>--copy-ownership=</option></term>
 
         <listitem><para>Controls whether file ownership (user and group) is preserved when copying files
-        with <option>--copy-from</option> or <option>--copy-to</option>. Takes a boolean. If
-        <literal>yes</literal>, ownership is always preserved. If <literal>no</literal>, ownership is never
-        preserved and the current user's UID/GID is used instead. If not specified, ownership is preserved
-        when copying directory trees, but not when copying individual regular files.
+        with <option>--copy-from</option> or <option>--copy-to</option>. Takes a boolean, or <option>auto</option>.
+        If <literal>yes</literal>, ownership is always preserved. If <literal>no</literal>, ownership is never
+        preserved and the current user's UID/GID is used instead. If not specified or <option>auto</option>,
+        ownership is preserved when copying directory trees, but not when copying individual regular files.
         </para>
 
         <xi:include href="version-info.xml" xpointer="v260"/></listitem>

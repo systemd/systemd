@@ -166,8 +166,8 @@
         <varlistentry>
           <term><option>--kvm=<replaceable>BOOL</replaceable></option></term>
 
-          <listitem><para>If <option>--kvm=</option> is not specified, KVM support will be
-          detected automatically. If true, KVM is always used, and if false, KVM is never used.</para>
+          <listitem><para>Controls whether to enable KVM acceleration. If not specified or set to <option>auto</option>,
+          KVM support will be detected automatically. If true, KVM is insisted on. If false, disable KVM.</para>
 
           <xi:include href="version-info.xml" xpointer="v255"/></listitem>
         </varlistentry>
@@ -175,8 +175,9 @@
         <varlistentry>
           <term><option>--vsock=<replaceable>BOOL</replaceable></option></term>
 
-          <listitem><para>If <option>--vsock=</option> is not specified, VSOCK networking support will be
-          detected automatically. If true, VSOCK networking is always used, and if false, VSOCK networking is never used.</para>
+          <listitem><para>Controls whether to allocate a VSOCK socket for guest. If not specified or set to
+          <option>auto</option>, VSOCK networking support will be detected automatically. If true, VSOCK
+          is insisted on. If false, VSOCK networking is disabled.</para>
 
           <xi:include href="version-info.xml" xpointer="v255"/></listitem>
         </varlistentry>
@@ -198,12 +199,10 @@
           <term><option>--tpm=<replaceable>BOOL</replaceable></option></term>
 
           <listitem>
-            <para>If <option>--tpm=</option> is not specified, vmspawn will detect the presence of <citerefentry project='debian'>
-            <refentrytitle>swtpm</refentrytitle><manvolnum>8</manvolnum></citerefentry> and use it if
-            available.  If yes is specified <citerefentry
-            project='debian'><refentrytitle>swtpm</refentrytitle><manvolnum>8</manvolnum></citerefentry> is
-            always used, and if no is set <citerefentry project='debian'><refentrytitle>swtpm</refentrytitle>
-            <manvolnum>8</manvolnum></citerefentry> is never used.</para>
+            <para>Controls whether to serve a TPM device for guest, via <citerefentry project='debian'>
+            <refentrytitle>swtpm</refentrytitle><manvolnum>8</manvolnum></citerefentry>. If not specified or
+            set to <option>auto</option>, vmspawn will detect the presence of swtpm binary automatically.
+            If yes, swtpm support is insisted on. If no, TPM is disabled.</para>
 
             <xi:include href="version-info.xml" xpointer="v256"/>
           </listitem>
@@ -311,9 +310,9 @@
 
           <listitem><para>Configure whether to search for firmware which supports Secure Boot.</para>
 
-          <para>If the option is not specified, the first firmware which is detected will be used.
-          If the option is set to yes, then the first firmware with Secure Boot support will be selected.
-          If no is specified, then the first firmware without Secure Boot will be selected.</para>
+          <para>If the option is not specified or set to <option>auto</option>, the first firmware detected
+          will be used. If the option is set to yes, then the first firmware with Secure Boot support will
+          be selected. If no is specified, then the first firmware without Secure Boot will be selected.</para>
 
           <xi:include href="version-info.xml" xpointer="v255"/></listitem>
         </varlistentry>
