@@ -101,6 +101,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "umount",       no_argument,       NULL, 'u'              },
                 { "json",         required_argument, NULL, ARG_JSON         },
                 { "read-only",    no_argument,       NULL, 'r'              },
+                { "mkdir",        no_argument,       NULL, ARG_MKDIR        },
                 { "rmdir",        no_argument,       NULL, ARG_RMDIR        },
                 { "image-policy", required_argument, NULL, ARG_IMAGE_POLICY },
                 { "image-filter", required_argument, NULL, ARG_IMAGE_FILTER },
