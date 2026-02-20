@@ -1717,6 +1717,8 @@ static void context_place_partitions(Context *context) {
                 left = a->size;
 
                 LIST_FOREACH(partitions, p, context->partitions) {
+                        uint64_t gap;
+
                         if (p->allocated_to_area != a)
                                 continue;
 
@@ -1730,6 +1732,17 @@ static void context_place_partitions(Context *context) {
                         assert(left >= p->new_padding);
                         start += p->new_padding;
                         left -= p->new_padding;
+
+                        /* Re-align start to the grain after each partition, so that the next
+                         * partition placed into this free area also starts on a grain boundary.
+                         * This matters for small partitions (e.g. verity-sig, 16 KiB) placed
+                         * before larger ones: without this, the successor would start at an
+                         * unaligned offset and subsequent verity or dm-crypt operations may
+                         * fail or produce misaligned layouts. */
+                        gap = round_up_size(start, context->grain_size) - start;
+                        assert(left >= gap);
+                        start += gap;
+                        left -= gap;
                 }
         }
 }
@@ -3579,7 +3592,11 @@ static int context_load_fallback_metrics(Context *context) {
         assert(context);
 
         context->sector_size = arg_sector_size > 0 ? arg_sector_size : 512;
-        context->grain_size = MAX(context->sector_size, 4096U);
+        /* Assume a conventional GPT disk with first usable LBA at sector 2048, matching the grain
+         * bump in context_load_partition_table(). This keeps determine_auto_size() consistent
+         * with the real layout computed once the partition table is available. */
+        context->start = 2048ULL * context->sector_size;
+        context->grain_size = MAX(MAX(context->sector_size, 4096U), context->start);
         context->default_fs_sector_size = arg_sector_size > 0 ? arg_sector_size : DEFAULT_FILESYSTEM_SECTOR_SIZE;
         return 1; /* Starting from scratch */
 }
@@ -3672,7 +3689,10 @@ static int context_load_partition_table(Context *context) {
                         /* Use the fallback values if we have no better idea */
                         context->sector_size = fdisk_get_sector_size(c);
                         context->default_fs_sector_size = fs_secsz;
-                        context->grain_size = MAX(context->sector_size, 4096U);
+                        /* Assume conventional first usable LBA at sector 2048, matching the grain
+                         * bump in context_load_partition_table(). */
+                        context->start = 2048ULL * context->sector_size;
+                        context->grain_size = MAX(MAX(context->sector_size, 4096U), context->start);
                         return /* from_scratch= */ true;
                 }
 
@@ -3702,10 +3722,8 @@ static int context_load_partition_table(Context *context) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Sector size %lu is not a power of two larger than 512? Refusing.", secsz);
 
         /* Use at least 4K, and ensure it's a multiple of the sector size, regardless if that is smaller or
-         * larger */
+         * larger. The actual grain may be bumped up further below once we know the first usable LBA. */
         grainsz = MAX(secsz, 4096U);
-
-        log_debug("Sector size of device is %lu bytes. Using default filesystem sector size of %" PRIu64 " and grain size of %" PRIu64 ".", secsz, fs_secsz, grainsz);
 
         switch (context->empty) {
 
@@ -3785,6 +3803,16 @@ static int context_load_partition_table(Context *context) {
         r = fdisk_get_partitions(c, &t);
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire partition table: %m");
+
+        /* Bump grain to first usable LBA now, before scanning existing partitions and calling
+         * determine_current_padding(). This ensures that current_padding for existing partitions is
+         * computed with the same grain that will later be used for placement, avoiding a mismatch
+         * that would cause the last free area to be over-counted and new partitions to be placed
+         * beyond the disk end. */
+        first_lba = fdisk_get_first_lba(c);
+        assert(first_lba <= UINT64_MAX / secsz);
+        first_lba *= secsz;
+        grainsz = MAX(grainsz, first_lba);
 
         n_partitions = fdisk_table_get_nents(t);
         for (size_t i = 0; i < n_partitions; i++) {
@@ -3915,6 +3943,15 @@ add_initial_free_area:
         first_lba = fdisk_get_first_lba(c);
         assert(first_lba <= UINT64_MAX/secsz);
         first_lba *= secsz;
+
+        /* Raise the grain to the first usable LBA if it is larger. On a conventional GPT disk with
+         * 512-byte sectors the first usable LBA sits at sector 2048 (1 MiB), so this lifts the grain
+         * from the libfdisk default of 4 KiB to 1 MiB and ensures that every partition — including
+         * small ones like the 16 KiB verity-sig partition — is followed by a naturally aligned start
+         * for the next partition without any special-casing. */
+        grainsz = MAX(grainsz, first_lba);
+
+        log_debug("Sector size of device is %lu bytes. Using default filesystem sector size of %" PRIu64 " and grain size of %" PRIu64 ".", secsz, fs_secsz, grainsz);
 
         last_lba = fdisk_get_last_lba(c);
         assert(last_lba < UINT64_MAX);
