@@ -10208,44 +10208,60 @@ done:
 static int determine_auto_size(
                 Context *c,
                 int level,
-                bool ignore_allocated, /* If true, determines unallocated space needed */
-                uint64_t *ret) {
+                uint64_t *ret_current_size,
+                uint64_t *ret_foreign_size,
+                uint64_t *ret_minimal_size) {
 
-        uint64_t sum;
+        uint64_t current_size, foreign_size, minimal_size;
 
         assert(c);
 
-        sum = round_up_size(GPT_METADATA_SIZE, 4096);
+        minimal_size = round_up_size(GPT_METADATA_SIZE, 4096);
+
+        if (c->from_scratch)
+                current_size = 0;
+        else
+                current_size = round_up_size(GPT_METADATA_SIZE, 4096);
+
+        foreign_size = 0;
 
         LIST_FOREACH(partitions, p, c->partitions) {
                 uint64_t m;
+
+                if (PARTITION_IS_FOREIGN(p))
+                        foreign_size += p->current_size;
+
+                if (PARTITION_EXISTS(p))
+                        current_size += p->current_size;
 
                 if (p->dropped || PARTITION_SUPPRESSED(p))
                         continue;
 
                 m = partition_min_size_with_padding(c, p);
-                if (m > UINT64_MAX - sum)
+                if (m > UINT64_MAX - minimal_size)
                         return log_error_errno(SYNTHETIC_ERRNO(EOVERFLOW), "Image would grow too large, refusing.");
 
-                if (ignore_allocated && PARTITION_EXISTS(p))
-                        m = LESS_BY(m, p->current_size + p->current_padding);
-
-                sum += m;
+                minimal_size += m;
         }
 
-        if (c->total != UINT64_MAX)
+        if (current_size != 0)
                 /* Image already allocated? Then show its size. */
                 log_full(level,
                          "Automatically determined minimal disk image size as %s, current block device/image size is %s.",
-                         FORMAT_BYTES(sum), FORMAT_BYTES(c->total));
+                         FORMAT_BYTES(minimal_size), FORMAT_BYTES(current_size));
         else
                 /* If the image is being created right now, then it has no previous size, suppress any comment about it hence. */
                 log_full(level,
                          "Automatically determined minimal disk image size as %s.",
-                         FORMAT_BYTES(sum));
+                         FORMAT_BYTES(minimal_size));
 
-        if (ret)
-                *ret = sum;
+        if (ret_current_size)
+                *ret_current_size = current_size;
+        if (ret_foreign_size)
+                *ret_foreign_size = foreign_size;
+        if (ret_minimal_size)
+                *ret_minimal_size = minimal_size;
+
         return 0;
 }
 
@@ -10472,53 +10488,58 @@ static int vl_method_run(
         /* If we have no node, just sum up how much space we need */
         if (!context->node) {
                 /* Check if space issue is caused by the whole disk being too small */
-                uint64_t size;
-                r = determine_auto_size(context, LOG_DEBUG, /* ignore_allocated= */ false, &size);
+                uint64_t minimal_size;
+                r = determine_auto_size(context, LOG_DEBUG, /* ret_current_size= */ NULL, /* ret_foreign_size= */ NULL, &minimal_size);
                 if (r < 0)
                         return r;
 
                 return sd_varlink_replybo(
                                 link,
-                                SD_JSON_BUILD_PAIR_UNSIGNED("minimalSizeBytes", size));
+                                SD_JSON_BUILD_PAIR_UNSIGNED("minimalSizeBytes", minimal_size));
         }
 
         r = context_ponder(context);
         if (r == -ENOSPC) {
+                uint64_t current_size, foreign_size, minimal_size;
+
+                r = determine_auto_size(context, LOG_DEBUG, &current_size, &foreign_size, &minimal_size);
+                if (r < 0)
+                        return r;
+
+                uint64_t needed_size = LESS_BY(minimal_size, foreign_size);
+
                 /* Check if space issue is caused by the whole disk being too small */
-                uint64_t size = UINT64_MAX;
-                (void) determine_auto_size(context, LOG_DEBUG, /* ignore_allocated= */ false, &size);
-                if (size != UINT64_MAX && context->total != UINT64_MAX && size > context->total)
+                if (needed_size > context->total)
                         return sd_varlink_errorbo(
                                         link,
                                         "io.systemd.Repart.DiskTooSmall",
-                                        SD_JSON_BUILD_PAIR_UNSIGNED("minimalSizeBytes", size),
-                                        SD_JSON_BUILD_PAIR_UNSIGNED("currentSizeBytes", context->total));
+                                        SD_JSON_BUILD_PAIR_UNSIGNED("currentSizeBytes", current_size),
+                                        SD_JSON_BUILD_PAIR_UNSIGNED("minimalSizeBytes", minimal_size));
 
                 /* Or if the disk would fit, but theres's not enough unallocated space */
-                uint64_t need_free = UINT64_MAX;
-                (void) determine_auto_size(context, LOG_DEBUG, /* ignore_allocated= */ true, &need_free);
+                uint64_t need_free = LESS_BY(minimal_size, current_size);
                 return sd_varlink_errorbo(
                                 link,
                                 "io.systemd.Repart.InsufficientFreeSpace",
-                                JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("minimalSizeBytes", size, UINT64_MAX),
-                                JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("needFreeBytes", need_free, UINT64_MAX),
-                                JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("currentSizeBytes", context->total, UINT64_MAX));
+                                SD_JSON_BUILD_PAIR_UNSIGNED("currentSizeBytes", current_size),
+                                JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("needFreeBytes", need_free),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("minimalSizeBytes", minimal_size));
         }
         if (r < 0)
                 return r;
 
         if (p.dry_run) {
-                uint64_t size;
+                uint64_t current_size, minimal_size;
 
                 /* If we are doing a dry-run, report the minimal size. */
-                r = determine_auto_size(context, LOG_DEBUG, /* ignore_allocated= */ false, &size);
+                r = determine_auto_size(context, LOG_DEBUG, &current_size, /* ret_foreign_size= */ NULL, &minimal_size);
                 if (r < 0)
                         return r;
 
                 return sd_varlink_replybo(
                                 link,
-                                SD_JSON_BUILD_PAIR_UNSIGNED("minimalSizeBytes", size),
-                                JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("currentSizeBytes", context->total, UINT64_MAX));
+                                SD_JSON_BUILD_PAIR_UNSIGNED("minimalSizeBytes", minimal_size),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("currentSizeBytes", current_size));
         }
 
         r = context_write_partition_table(context);
@@ -10764,12 +10785,12 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         if (arg_node_none) {
-                (void) determine_auto_size(context, LOG_INFO, /* ignore_allocated= */ false, /* ret= */ NULL);
+                (void) determine_auto_size(context, LOG_INFO, /* ret_current_size= */ NULL, /* ret_foreign_size= */ NULL, /* ret_minimal_size= */ NULL);
                 return 0;
         }
 
         if (arg_size_auto) {
-                r = determine_auto_size(context, LOG_INFO, /* ignore_allocated= */ false, &arg_size);
+                r = determine_auto_size(context, LOG_INFO, /* ret_current_size= */ NULL, /* ret_foreign_size= */ NULL, &arg_size);
                 if (r < 0)
                         return r;
 
@@ -10794,7 +10815,7 @@ static int run(int argc, char *argv[]) {
         r = context_ponder(context);
         if (r == -ENOSPC) {
                 /* When we hit space issues, tell the user the minimal size. */
-                (void) determine_auto_size(context, LOG_INFO, /* ignore_allocated= */ false, /* ret= */ NULL);
+                (void) determine_auto_size(context, LOG_INFO, /* ret_current_size= */ NULL, /* ret_foreign_size= */ NULL, /* ret_minimal_size= */ NULL);
                 return r;
         }
         if (r < 0)
