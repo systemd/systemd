@@ -183,7 +183,7 @@ def property_grammar():
              ('ID_MM_DEVICE_IGNORE', Or((Literal('0'), Literal('1')))),
              ('ID_NET_AUTO_LINK_LOCAL_ONLY', Or((Literal('0'), Literal('1')))),
              ('POINTINGSTICK_SENSITIVITY', INTEGER),
-             ('ID_INPUT_JOYSTICK_INTEGRATION', Or(('internal', 'external'))),
+             ('ID_INTEGRATION', Or(('internal', 'external'))),
              ('ID_INPUT_TOUCHPAD_INTEGRATION', Or(('internal', 'external'))),
              ('XKB_FIXED_LAYOUT', xkb_setting),
              ('XKB_FIXED_VARIANT', xkb_setting),
