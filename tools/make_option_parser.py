@@ -47,6 +47,9 @@ from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 
+VERB_ANY = 'VERB_ANY'
+
+
 @dataclass
 class Globals:
     target_line_width: int = 80
@@ -134,6 +137,19 @@ def parse_option_specs(specs: list[str]) -> tuple[list[str], ArgType, str|None]:
     assert argtype
 
     return names, argtype, metavar
+
+
+def parse_verb_specs(name: str, specs: list[str]) -> tuple[list[str], int]:
+    # Determine argument names and count from the specification
+    #
+    # Examples:
+    #    // verb: foo arg1 [arg2]
+    if not specs:
+        # A verb that takes no arguments
+        return [name], 1
+    if specs[0] != name:
+        raise ValueError(f'Inconsistent option spefication: {name=} {specs=!r}')
+    return [*specs], (VERB_ANY if len(specs) > 1 else 1)
 
 
 @dataclass
@@ -276,7 +292,26 @@ class Option:
         return ''.join((*lhs, *rhs))
 
 
-def generate_lines(options: list[Option], globals: Globals) -> Iterator[str]:
+@dataclass
+class Verb:
+    function: str
+    name: str
+    specs: list[str]
+    maxargs: int|str
+    help: str
+
+    @staticmethod
+    def new(function: str,
+            specs: list[str],
+            help: list[str]) -> Verb:
+        assert function.startswith('verb_')
+        name = function[len('verb_'):].replace('_', '-')
+        formatted, maxargs = parse_verb_specs(name, specs)
+
+        return Verb(function, name, formatted, maxargs, ' '.join(help))
+
+
+def generate_lines(globals: Globals, options: list[Option], verbs: list[Verb]) -> Iterator[str]:
     # Figure out the optstring and other variables
     opt_names = []
     opt_args = []
@@ -302,6 +337,10 @@ def generate_lines(options: list[Option], globals: Globals) -> Iterator[str]:
     opt_names_width = max(len(it) for it in opt_names) + 2
     opt_args_width = max(len(it) for it in opt_args)
     opt_enums_width = max(len(it) for it in opt_enums)
+
+    verb_names_width = max(len(verb.name) for verb in verbs)
+    verb_maxargs_width = max(len(str(verb.maxargs)) for verb in verbs)
+    verb_functions_width = max(len(verb.function) for verb in verbs)
 
     # 0. Generate forward declarations and defines
     opstring_name = 'OPTSTRING' + ns.upper()
@@ -360,6 +399,15 @@ def generate_lines(options: list[Option], globals: Globals) -> Iterator[str]:
         yield '\t""'
         yield ''
 
+    # 2. Generate a help string for verbs
+    if verbs:
+        yield f'#define VERB_HELP_GENERATED \\'
+        for verb in verbs:
+            key = ' '.join(verb.specs)
+            yield f'\t"  {key:{help_key_width}} {verb.help}\\n" \\'
+        yield '\t""'
+        yield ''
+
     # 3. Walk over options and generate enums for all options.
     yield 'enum {'
     for num, option in enumerate(options, start=0x100):
@@ -379,22 +427,42 @@ def generate_lines(options: list[Option], globals: Globals) -> Iterator[str]:
 
     yield '\t{}'
     yield '};'
+    yield ''
 
+    # 5. Generate forward declarations for verb functions
+    for verb in verbs:
+        yield f'static int {verb.function}(int, char**, void*);'
+    yield ''
 
-def generate_c(options: list[Option], globals: Globals) -> None:
-    for line in generate_lines(options, globals):
+    # 6. Generate verb table
+    yield 'static const Verb verbs[] = {'
+
+    for verb in verbs:
+        n = f'"{verb.name}",'
+        ma = f'{verb.maxargs},'
+        yield (f'\t{{ {n:{verb_names_width + 3}} '
+               f'VERB_ANY, {ma:{verb_maxargs_width + 1}} 0, '
+               f'{verb.function:{verb_functions_width}} }},')
+
+    yield '\t{}'
+    yield '};'
+
+def generate_c(globals: Globals, options: list[Option], verbs: list[Verb]) -> None:
+    for line in generate_lines(globals, options, verbs):
         print(line.rstrip().replace('\t', 8 * ' '))
 
 
 class InputState(Enum):
-    other      = 1
-    option     = 2
-    directives = 3
+    other      = 1   # other      → item
+    item       = 2   # item       → directives
+    directives = 3   # directives → other
 
 
-def parse_input(lines: list[str]) -> tuple[list[Option], Globals]:
+def parse_input(lines: list[str]) -> tuple[Globals, list[Option], list[Verb]]:
     globals = Globals()
     options = []
+    verbs = []
+    klass: type[Verb|Option]|None = None
 
     n = 0
     state = InputState.other
@@ -403,43 +471,56 @@ def parse_input(lines: list[str]) -> tuple[list[Option], Globals]:
 
         if state == InputState.other:
             if m := re.match(r'^\s*case (?P<enum>OPTION_.+):(?:\s*{)?$', line):
-                enum = m.group('enum')
-                print(f'// found {enum}')
-
-                state = InputState.option
-                specs: list[str] = []
-                group = None
-                help = []
-
-            n += 1
-
-        elif state == InputState.option:
-            if m := re.match(r'\s*// option: (?P<specs>.*)', line):
-                specs += m.group('specs').split()
+                item = m.group('enum')
+                klass = Option
+            elif m := re.match(r'^static int (?P<function>verb_[a-z0-9_]+)\(', line):
+                item = m.group('function')
+                klass = Verb
+            else:
                 n += 1
+                continue
+
+            print(f'// found {item}')
+
+            specs: list[str] = []
+            group = None
+            help = []
+            state = InputState.item
+
+        elif state == InputState.item:
+            kw = 'option' if klass == Option else 'verb'
+            if m := re.match(fr'\s*// {kw}: (?P<specs>.*)', line):
+                specs += m.group('specs').split()
+            else:
+                # process this line again looking for directives
+                n -= 1
 
             state = InputState.directives
 
         else:
-            assert state == InputState.directives
-
             if m := re.match(r'\s*// help: (?P<help>.*)', line):
                 help += [m.group('help').strip()]
-                n += 1
 
             elif m := re.match(r'\s*// group: (?P<group>.*)', line):
+                if klass == Verb:
+                    raise ValueError('group cannot be specified for verbs')
                 if group is not None:
                     raise ValueError('group specified again')
+
                 group = m.group('group').strip()
-                n += 1
 
             else:
                 # end of directives
+                if klass == Option:
+                    options += [Option.new(item, specs, group, help)]
+                else:
+                    verbs += [Verb.new(item, specs, help)]
 
-                options += [Option.new(enum, specs, group, help)]
                 state = InputState.other
 
-    return options, globals
+        n += 1
+
+    return globals, options, verbs
 
 
 def main() -> None:
@@ -452,13 +533,15 @@ def main() -> None:
     args = parser.parse_args()
 
     input = open(args.input).read().splitlines()
-    options, globals = parse_input(input)
+    globals, options, verbs = parse_input(input)
 
     print('//', globals)
     for option in options:
         print('//', option)
+    for verb in verbs:
+        print('//', verb)
 
-    generate_c(options, globals)
+    generate_c(globals, options, verbs)
 
 
 if __name__ == '__main__':
