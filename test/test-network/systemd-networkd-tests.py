@@ -178,114 +178,6 @@ def expectedFailureIfModuleIsNotAvailable(*module_names):
 
     return f
 
-def expectedFailureIfERSPANv0IsNotSupported():
-    # erspan version 0 is supported since f989d546a2d5a9f001f6f8be49d98c10ab9b1897 (v5.8)
-    def f(func):
-        rc = call_quiet('ip link add dev erspan99 type erspan seq key 30 local 192.168.1.4 remote 192.168.1.1 erspan_ver 0')
-        remove_link('erspan99')
-        return func if rc == 0 else unittest.expectedFailure(func)
-
-    return f
-
-def expectedFailureIfERSPANv2IsNotSupported():
-    # erspan version 2 is supported since f551c91de262ba36b20c3ac19538afb4f4507441 (v4.16)
-    def f(func):
-        rc = call_quiet('ip link add dev erspan99 type erspan seq key 30 local 192.168.1.4 remote 192.168.1.1 erspan_ver 2')
-        remove_link('erspan99')
-        return func if rc == 0 else unittest.expectedFailure(func)
-
-    return f
-
-def expectedFailureIfRoutingPolicyPortRangeIsNotAvailable():
-    def f(func):
-        rc = call_quiet('ip rule add from 192.168.100.19 sport 1123-1150 dport 3224-3290 table 7')
-        call_quiet('ip rule del from 192.168.100.19 sport 1123-1150 dport 3224-3290 table 7')
-        return func if rc == 0 else unittest.expectedFailure(func)
-
-    return f
-
-def expectedFailureIfRoutingPolicyIPProtoIsNotAvailable():
-    def f(func):
-        # IP protocol name is parsed by getprotobyname(), and it requires /etc/protocols.
-        # Hence. here we use explicit number: 6 == tcp.
-        rc = call_quiet('ip rule add not from 192.168.100.19 ipproto 6 table 7')
-        call_quiet('ip rule del not from 192.168.100.19 ipproto 6 table 7')
-        return func if rc == 0 else unittest.expectedFailure(func)
-
-    return f
-
-def expectedFailureIfRoutingPolicyUIDRangeIsNotAvailable():
-    def f(func):
-        supported = False
-        if call_quiet('ip rule add from 192.168.100.19 table 7 uidrange 200-300') == 0:
-            ret = run('ip rule list from 192.168.100.19 table 7')
-            supported = ret.returncode == 0 and 'uidrange 200-300' in ret.stdout
-            call_quiet('ip rule del from 192.168.100.19 table 7 uidrange 200-300')
-        return func if supported else unittest.expectedFailure(func)
-
-    return f
-
-def expectedFailureIfRoutingPolicyL3MasterDeviceIsNotAvailable():
-    def f(func):
-        rc = call_quiet('ip rule add not from 192.168.100.19 l3mdev')
-        call_quiet('ip rule del not from 192.168.100.19 l3mdev')
-        return func if rc == 0 else unittest.expectedFailure(func)
-
-    return f
-
-def expectedFailureIfNexthopIsNotAvailable():
-    def f(func):
-        rc = call_quiet('ip nexthop list')
-        return func if rc == 0 else unittest.expectedFailure(func)
-
-    return f
-
-def expectedFailureIfAlternativeNameIsNotAvailable():
-    def f(func):
-        call_quiet('ip link add dummy98 type dummy')
-        supported = \
-            call_quiet('ip link prop add dev dummy98 altname hogehogehogehogehoge') == 0 and \
-            call_quiet('ip link show dev hogehogehogehogehoge') == 0
-        remove_link('dummy98')
-        return func if supported else unittest.expectedFailure(func)
-
-    return f
-
-def expectedFailureIfNetdevsimWithSRIOVIsNotAvailable():
-    def f(func):
-        def finalize(func, supported):
-            call_quiet('rmmod netdevsim')
-            return func if supported else unittest.expectedFailure(func)
-
-        call_quiet('rmmod netdevsim')
-        if call_quiet('modprobe netdevsim') != 0:
-            return finalize(func, False)
-
-        try:
-            with open('/sys/bus/netdevsim/new_device', mode='w', encoding='utf-8') as f:
-                f.write('99 1')
-        except OSError:
-            return finalize(func, False)
-
-        return finalize(func, os.path.exists('/sys/bus/netdevsim/devices/netdevsim99/sriov_numvfs'))
-
-    return f
-
-def expectedFailureIfKernelReturnsInvalidFlags():
-    '''
-    This checks the kernel bug caused by 3ddc2231c8108302a8229d3c5849ee792a63230d (v6.9),
-    fixed by 1af7f88af269c4e06a4dc3bc920ff6cdf7471124 (v6.10, backported to 6.9.3).
-    '''
-    def f(func):
-        call_quiet('ip link add dummy98 type dummy')
-        call_quiet('ip link set up dev dummy98')
-        call_quiet('ip address add 192.0.2.1/24 dev dummy98 noprefixroute')
-        output = check_output('ip address show dev dummy98')
-        remove_link('dummy98')
-        return func if 'noprefixroute' in output else unittest.expectedFailure(func)
-
-    return f
-
 # pylint: disable=C0415
 def compare_kernel_version(min_kernel_version):
     try:
@@ -1454,7 +1346,6 @@ class NetworkctlTests(unittest.TestCase, Utilities):
     def tearDown(self):
         tear_down_common()
 
-    @expectedFailureIfAlternativeNameIsNotAvailable()
     def test_altname(self):
         copy_network_unit('26-netdev-link-local-addressing-yes.network', '12-dummy.netdev', '12-dummy.link')
         start_networkd()
@@ -1463,7 +1354,6 @@ class NetworkctlTests(unittest.TestCase, Utilities):
         output = networkctl_status('dummy98')
         self.assertRegex(output, 'hogehogehogehogehogehoge')
 
-    @expectedFailureIfAlternativeNameIsNotAvailable()
     def test_rename_to_altname(self):
         copy_network_unit('26-netdev-link-local-addressing-yes.network',
                           '12-dummy.netdev', '12-dummy-rename-to-altname.link')
@@ -1666,7 +1556,6 @@ class NetworkdMatchTests(unittest.TestCase, Utilities):
     def tearDown(self):
         tear_down_common()
 
-    @expectedFailureIfAlternativeNameIsNotAvailable()
     def test_match(self):
         copy_network_unit('12-dummy-mac.netdev',
                           '12-dummy-match-mac-01.network',
@@ -2689,9 +2578,13 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                           '25-ip6gre-tunnel-any-any.netdev', '25-tunnel-any-any.network')
         start_networkd()
 
-        # Old kernels seem not to support IPv6LL address on ip6gre tunnel, So please do not use wait_online() here.
-
-        self.wait_links('dummy98', 'ip6gretun99', 'ip6gretun98', 'ip6gretun97', 'ip6gretun96')
+        self.wait_online(
+            'ip6gretun99:routable',
+            'ip6gretun98:routable',
+            'ip6gretun97:routable',
+            'ip6gretun96:routable',
+            'dummy98:degraded',
+        )
 
         output = check_output('ip -d link show ip6gretun99')
         print(output)
@@ -2712,12 +2605,13 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
             '25-ip6gre-tunnel-remote-any.netdev',
             '25-ip6gre-tunnel-any-any.netdev')
         networkctl_reload()
-        self.wait_links(
-            'dummy98',
-            'ip6gretun99',
-            'ip6gretun98',
-            'ip6gretun97',
-            'ip6gretun96')
+        self.wait_online(
+            'ip6gretun99:routable',
+            'ip6gretun98:routable',
+            'ip6gretun97:routable',
+            'ip6gretun96:routable',
+            'dummy98:degraded',
+        )
 
     def test_gretap_tunnel(self):
         copy_network_unit('12-dummy.netdev', '25-gretap.network',
@@ -3036,7 +2930,6 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         networkctl_reload()
         self.wait_online('sittun99:routable', 'dummy98:degraded')
 
-    @expectedFailureIfERSPANv0IsNotSupported()
     def test_erspan_tunnel_v0(self):
         copy_network_unit('12-dummy.netdev', '25-erspan.network',
                           '25-erspan0-tunnel.netdev', '25-tunnel.network',
@@ -3119,7 +3012,6 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
             'erspan98:routable',
             'dummy98:degraded')
 
-    @expectedFailureIfERSPANv2IsNotSupported()
     def test_erspan_tunnel_v2(self):
         copy_network_unit('12-dummy.netdev', '25-erspan.network',
                           '25-erspan2-tunnel.netdev', '25-tunnel.network',
@@ -3696,7 +3588,6 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         check_json(networkctl_json())
 
-    @expectedFailureIfKernelReturnsInvalidFlags()
     def test_address_static(self):
         copy_network_unit('25-address-static.network', '12-dummy.netdev', copy_dropins=False)
         self.setup_nftset('addr4', 'ipv4_addr')
@@ -4289,7 +4180,6 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         else:
             self.assertFalse(True)
 
-    @expectedFailureIfRoutingPolicyPortRangeIsNotAvailable()
     def test_routing_policy_rule_port_range(self):
         copy_network_unit('25-fibrule-port-range.network', '11-dummy.netdev')
         start_networkd()
@@ -4304,7 +4194,6 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'ipproto (tcp|ipproto-6) ')
         self.assertIn('lookup 7 ', output)
 
-    @expectedFailureIfRoutingPolicyIPProtoIsNotAvailable()
     def test_routing_policy_rule_invert(self):
         copy_network_unit('25-fibrule-invert.network', '11-dummy.netdev')
         start_networkd()
@@ -4318,7 +4207,6 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'ipproto (tcp|ipproto-6) ')
         self.assertIn('lookup 7 ', output)
 
-    @expectedFailureIfRoutingPolicyL3MasterDeviceIsNotAvailable()
     def test_routing_policy_rule_l3mdev(self):
         copy_network_unit('25-fibrule-l3mdev.network', '11-dummy.netdev')
         start_networkd()
@@ -4329,7 +4217,6 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertIn('1500:	from all lookup [l3mdev-table]', output)
         self.assertIn('2000:	from all lookup [l3mdev-table] unreachable', output)
 
-    @expectedFailureIfRoutingPolicyUIDRangeIsNotAvailable()
     def test_routing_policy_rule_uidrange(self):
         copy_network_unit('25-fibrule-uidrange.network', '11-dummy.netdev')
         start_networkd()
@@ -5610,7 +5497,6 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         print(output)
         self.assertEqual(output, '')
 
-    @expectedFailureIfNexthopIsNotAvailable()
     def test_nexthop(self):
         first = True
         for manage_foreign_nexthops in [True, False]:
@@ -6354,13 +6240,10 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'dev bridge99 port test1 grp ff02:aaaa:fee5::1:3 permanent *vid 4064')
         self.assertRegex(output, 'dev bridge99 port test1 grp 224.0.1.1 permanent *vid 4065')
+        self.assertRegex(output, 'dev bridge99 port bridge99 grp ff02:aaaa:fee5::1:4 temp *vid 4066')
+        self.assertRegex(output, 'dev bridge99 port bridge99 grp 224.0.1.2 temp *vid 4067')
 
-        # Old kernel may not support bridge MDB entries on bridge master
-        if call_quiet('bridge mdb add dev bridge99 port bridge99 grp 224.0.1.3 temp vid 4068') == 0:
-            self.assertRegex(output, 'dev bridge99 port bridge99 grp ff02:aaaa:fee5::1:4 temp *vid 4066')
-            self.assertRegex(output, 'dev bridge99 port bridge99 grp 224.0.1.2 temp *vid 4067')
-
-        # Old kernel may not support L2 bridge MDB entries
+        # The kernels older than 955062b03fa62b802a1ee34fbb04e39f7a70ae73 (v5.11) do not support L2 bridge MDB entries
         if call_quiet('bridge mdb add dev bridge99 port bridge99 grp 01:80:c2:00:00:0f permanent vid 4070') == 0:
             self.assertRegex(output, 'dev bridge99 port bridge99 grp 01:80:c2:00:00:0e permanent *vid 4069')
 
@@ -6625,7 +6508,7 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
             with open(f'/sys/bus/netdevsim/devices/netdevsim{id}/sriov_numvfs', mode='w', encoding='utf-8') as f:
                 f.write(f'{num_vfs}')
 
-    @expectedFailureIfNetdevsimWithSRIOVIsNotAvailable()
+    @expectedFailureIfModuleIsNotAvailable('netdevsim')
     def test_sriov(self):
         copy_network_unit('25-netdevsim.link', '25-sriov.network')
 
@@ -6642,7 +6525,7 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
                          'vf 2 .*00:11:22:33:44:57.*vlan 7, qos 3, spoof checking off, link-state auto, trust off, query_rss off'
                          )
 
-    @expectedFailureIfNetdevsimWithSRIOVIsNotAvailable()
+    @expectedFailureIfModuleIsNotAvailable('netdevsim')
     def test_sriov_udev(self):
         copy_network_unit('25-sriov.link', '25-sriov-udev.network')
 
@@ -7785,7 +7668,6 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertIn('DHCPREPLY(veth-peer)', output)
         self.assertIn('sent size:  0 option: 14 rapid-commit', output)
 
-    @expectedFailureIfKernelReturnsInvalidFlags()
     def test_dhcp_client_ipv4_only(self):
         copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-ipv4-only.network',
                           '25-sit-dhcp4.netdev', '25-sit-dhcp4.network')
