@@ -31,6 +31,7 @@
 #include "errno-util.h"
 #include "escape.h"
 #include "event-util.h"
+#include "factory-reset.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-util.h"
@@ -2439,6 +2440,12 @@ static int method_do_shutdown_or_sleep(
                                 assert_not_reached();
 
                         }
+        } else if (action == HANDLE_FACTORY_RESET) {
+                assert_se(a = handle_action_lookup(action));
+
+                if (factory_reset_supported() == FACTORY_RESET_SUPPORT_NONE)
+                        return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED,
+                                                "This OS does not support factory reset");
         } else if (!a)
                 assert_se(a = handle_action_lookup(action));
 
@@ -2544,6 +2551,16 @@ static int method_sleep(sd_bus_message *message, void *userdata, sd_bus_error *e
         return method_do_shutdown_or_sleep(
                         m, message,
                         HANDLE_SLEEP,
+                        /* with_flags= */ true,
+                        error);
+}
+
+static int method_factory_reset(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = userdata;
+
+        return method_do_shutdown_or_sleep(
+                        m, message,
+                        HANDLE_FACTORY_RESET,
                         /* with_flags= */ true,
                         error);
 }
@@ -2922,6 +2939,7 @@ static int method_can_shutdown_or_sleep(
                 Manager *m,
                 sd_bus_message *message,
                 HandleAction action,
+                bool allow_insecure_factory_reset,
                 sd_bus_error *error) {
 
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
@@ -2959,6 +2977,26 @@ static int method_can_shutdown_or_sleep(
                         return r;
                 if (r == 0)
                         return sd_bus_reply_method_return(message, "s", support == SLEEP_DISABLED ? "no" : "na");
+        } else if(action == HANDLE_FACTORY_RESET) {
+                bool supported;
+
+                assert_se(a = handle_action_lookup(action));
+
+                switch (factory_reset_supported()) {
+                case FACTORY_RESET_SUPPORT_SECURE:
+                        supported = true;
+                        break;
+                case FACTORY_RESET_SUPPORT_INSECURE:
+                        supported = allow_insecure_factory_reset;
+                        break;
+                case FACTORY_RESET_SUPPORT_NONE:
+                default:
+                        supported = false;
+                        break;
+                }
+
+                if (!supported)
+                        return sd_bus_reply_method_return(message, "s", "na");
         } else
                 assert_se(a = handle_action_lookup(action));
 
@@ -3059,49 +3097,61 @@ static int method_can_shutdown_or_sleep(
 static int method_can_poweroff(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
 
-        return method_can_shutdown_or_sleep(m, message, HANDLE_POWEROFF, error);
+        return method_can_shutdown_or_sleep(m, message, HANDLE_POWEROFF, false, error);
 }
 
 static int method_can_reboot(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
 
-        return method_can_shutdown_or_sleep(m, message, HANDLE_REBOOT, error);
+        return method_can_shutdown_or_sleep(m, message, HANDLE_REBOOT, false, error);
 }
 
 static int method_can_halt(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
 
-        return method_can_shutdown_or_sleep(m, message, HANDLE_HALT, error);
+        return method_can_shutdown_or_sleep(m, message, HANDLE_HALT, false, error);
 }
 
 static int method_can_suspend(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
 
-        return method_can_shutdown_or_sleep(m, message, HANDLE_SUSPEND, error);
+        return method_can_shutdown_or_sleep(m, message, HANDLE_SUSPEND, false, error);
 }
 
 static int method_can_hibernate(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
 
-        return method_can_shutdown_or_sleep(m, message, HANDLE_HIBERNATE, error);
+        return method_can_shutdown_or_sleep(m, message, HANDLE_HIBERNATE, false, error);
 }
 
 static int method_can_hybrid_sleep(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
 
-        return method_can_shutdown_or_sleep(m, message, HANDLE_HYBRID_SLEEP, error);
+        return method_can_shutdown_or_sleep(m, message, HANDLE_HYBRID_SLEEP, false, error);
 }
 
 static int method_can_suspend_then_hibernate(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
 
-        return method_can_shutdown_or_sleep(m, message, HANDLE_SUSPEND_THEN_HIBERNATE, error);
+        return method_can_shutdown_or_sleep(m, message, HANDLE_SUSPEND_THEN_HIBERNATE, false, error);
 }
 
 static int method_can_sleep(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = userdata;
 
-        return method_can_shutdown_or_sleep(m, message, HANDLE_SLEEP, error);
+        return method_can_shutdown_or_sleep(m, message, HANDLE_SLEEP, false, error);
+}
+
+static int method_can_factory_reset(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = userdata;
+
+        return method_can_shutdown_or_sleep(m, message, HANDLE_FACTORY_RESET, false, error);
+}
+
+static int method_can_insecure_factory_reset(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = userdata;
+
+        return method_can_shutdown_or_sleep(m, message, HANDLE_FACTORY_RESET, true, error);
 }
 
 static int property_get_reboot_parameter(
@@ -4220,6 +4270,11 @@ static const sd_bus_vtable manager_vtable[] = {
                                 SD_BUS_NO_RESULT,
                                 method_sleep,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("FactoryReset",
+                                SD_BUS_ARGS("t", flags),
+                                SD_BUS_NO_RESULT,
+                                method_factory_reset,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("CanPowerOff",
                                 SD_BUS_NO_ARGS,
                                 SD_BUS_RESULT("s", result),
@@ -4259,6 +4314,16 @@ static const sd_bus_vtable manager_vtable[] = {
                                 SD_BUS_NO_ARGS,
                                 SD_BUS_RESULT("s", result),
                                 method_can_sleep,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("CanFactoryReset",
+                                SD_BUS_NO_ARGS,
+                                SD_BUS_RESULT("s", result),
+                                method_can_factory_reset,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("CanInsecureFactoryReset",
+                                SD_BUS_NO_ARGS,
+                                SD_BUS_RESULT("s", result),
+                                method_can_insecure_factory_reset,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("ScheduleShutdown",
                                 SD_BUS_ARGS("s", type, "t", usec),

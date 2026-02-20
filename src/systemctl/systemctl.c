@@ -213,6 +213,7 @@ static int systemctl_help(void) {
                "  reboot                              Shut down and reboot the system\n"
                "  kexec                               Shut down and reboot the system with kexec\n"
                "  soft-reboot                         Shut down and reboot userspace\n"
+               "  factory-reset                       Factory reset the system\n"
                "  exit [EXIT_CODE]                    Request user instance or container exit\n"
                "  switch-root [ROOT [INIT]]           Change to a different root file system\n"
                "  sleep                               Put the system to sleep (through one of\n"
