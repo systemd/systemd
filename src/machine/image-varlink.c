@@ -392,6 +392,7 @@ int vl_method_clean_pool(sd_varlink *link, sd_json_variant *parameters, sd_varli
 
         assert(link);
         assert(parameters);
+        assert(FLAGS_SET(flags, SD_VARLINK_METHOD_MORE));
 
         if (manager->n_operations >= OPERATIONS_MAX)
                 return sd_varlink_error(link, "io.systemd.MachineImage.TooManyOperations", NULL);
@@ -399,9 +400,6 @@ int vl_method_clean_pool(sd_varlink *link, sd_json_variant *parameters, sd_varli
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &mode);
         if (r != 0)
                 return r;
-
-        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
-                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
 
         if (manager->runtime_scope != RUNTIME_SCOPE_USER) {
                 r = varlink_verify_polkit_async(
