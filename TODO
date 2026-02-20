@@ -134,17 +134,12 @@ Features:
 * oci: support "data" in any OCI descriptor, not just manifest config.
 
 * report:
-  - should the list of metrics use JSON-SEQ? or maybe be wrapped in a json
-    array (the latter might be necessary, once we sign the combination)
+  - plug "facts" into systemd-report too, i.e. stuff that is more static, such as hostnames, ssh keys and so on.
+  - pass filtering hints to services, so that they can also be applied server-side, not just client side
   - metrics from pid1: suppress metrics form units that are inactive and have nothing to report
-  - how to plug facts into this? i.e. hostname, ssh keys, and so on
-  - switch to daan's suggested hierarchy?
-  - enforce naming rules: a backend can only report metrics with the prefix of its service name
-  - use that to optimize sorted report generation
-  - figure out report vs. metrics
-  - systemd-report: add prefix matching of metrics
   - add "hint-suppress-zero" flag (which suppresses all metrics which are zero)
   - add "hint-object" parameter (which only queries info about certain object)
+  - make systemd-report a varlink service
 
 * implement a varlink registry service, similar to the one of the reference
   implementation, backed by /run/varlink/registry/. Then, also implement

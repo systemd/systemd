@@ -743,3 +743,105 @@ int json_dispatch_access_mode(const char *name, sd_json_variant *variant, sd_jso
 
         return 0;
 }
+
+int json_variant_compare(sd_json_variant *a, sd_json_variant *b) {
+        int r;
+
+        r = CMP(!!a, !!b);
+        if (r != 0)
+                return r;
+
+        if (sd_json_variant_equal(a, b))
+                return 0;
+
+        if (sd_json_variant_is_null(a))
+                return -1;
+        if (sd_json_variant_is_null(b))
+                return 1;
+
+        if (sd_json_variant_is_string(a) &&
+            sd_json_variant_is_string(b))
+                return strcmp(sd_json_variant_string(a), sd_json_variant_string(b));
+
+        if (sd_json_variant_is_integer(a) &&
+            sd_json_variant_is_integer(b))
+                return CMP(sd_json_variant_integer(a), sd_json_variant_integer(b));
+
+        if (sd_json_variant_is_unsigned(a) &&
+            sd_json_variant_is_unsigned(b))
+                return CMP(sd_json_variant_unsigned(a), sd_json_variant_unsigned(b));
+
+        /* We cannot necessarily compare 64bit signed with unsigned, hence we go via sign checking instead */
+        if (sd_json_variant_is_number(a) && sd_json_variant_is_number(b)) {
+                if (sd_json_variant_is_negative(a) &&
+                    !sd_json_variant_is_negative(b))
+                        return -1;
+
+                if (!sd_json_variant_is_negative(a) &&
+                    sd_json_variant_is_negative(b))
+                        return 1;
+        }
+
+        if (sd_json_variant_is_real(a) &&
+            sd_json_variant_is_real(b))
+                return CMP(sd_json_variant_real(a), sd_json_variant_real(b));
+
+        if (sd_json_variant_is_boolean(a) &&
+            sd_json_variant_is_boolean(b))
+                return CMP(sd_json_variant_boolean(a), sd_json_variant_boolean(b));
+
+        if (sd_json_variant_is_array(a) &&
+            sd_json_variant_is_array(b)) {
+
+                size_t n = sd_json_variant_elements(a),
+                        m = sd_json_variant_elements(b);
+                for (size_t i = 0; i < n || i < m; i++) {
+
+                        if (i >= n)
+                                return -1;
+                        if (i >= m)
+                                return 1;
+
+                        r = json_variant_compare(
+                                        sd_json_variant_by_index(a, i),
+                                        sd_json_variant_by_index(b, i));
+                        if (r != 0)
+                                return r;
+                }
+
+                return 0;
+        }
+
+        if (sd_json_variant_is_object(a) &&
+            sd_json_variant_is_object(b)) {
+                const char *k, *lowest = NULL;
+                sd_json_variant *v;
+                int result = 0;
+
+                JSON_VARIANT_OBJECT_FOREACH(k, v, a) {
+                        if (lowest && strcmp(k, lowest) >= 0)
+                                continue;
+
+                        r = json_variant_compare(v, sd_json_variant_by_key(b, k));
+                        if (r != 0) {
+                                lowest = k;
+                                result = r;
+                        }
+                }
+
+                JSON_VARIANT_OBJECT_FOREACH(k, v, b) {
+                        if (lowest && strcmp(k, lowest) >= 0)
+                                continue;
+
+                        r = json_variant_compare(v, sd_json_variant_by_key(a, k));
+                        if (r != 0) {
+                                lowest = k;
+                                result = -r;
+                        }
+                }
+
+                return result;
+        }
+
+        return CMP(sd_json_variant_type(a), sd_json_variant_type(b));
+}

@@ -8,27 +8,45 @@
 #include "alloc-util.h"
 #include "ansi-color.h"
 #include "build.h"
+#include "chase.h"
 #include "dirent-util.h"
-#include "fd-util.h"
+#include "format-table.h"
 #include "log.h"
 #include "main-func.h"
 #include "parse-argument.h"
 #include "path-lookup.h"
 #include "pretty-print.h"
+#include "recurse-dir.h"
 #include "runtime-scope.h"
 #include "set.h"
 #include "sort-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "time-util.h"
+#include "varlink-idl-util.h"
+#include "verbs.h"
 
 #define METRICS_MAX 1024U
 #define METRICS_LINKS_MAX 128U
 #define TIMEOUT_USEC (30 * USEC_PER_SEC) /* 30 seconds */
 
+static PagerFlags arg_pager_flags = 0;
+static bool arg_legend = true;
 static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
-static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
+static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF|SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
+static char **arg_matches = NULL;
+
+STATIC_DESTRUCTOR_REGISTER(arg_matches, strv_freep);
+
+typedef enum Action {
+        ACTION_LIST,
+        ACTION_DESCRIBE,
+        _ACTION_MAX,
+        _ACTION_INVALID = -EINVAL,
+} Action;
 
 typedef struct Context {
+        Action action;
         sd_event *event;
         Set *link_infos;
         sd_json_variant **metrics;  /* Collected metrics for sorting */
@@ -38,7 +56,7 @@ typedef struct Context {
 typedef struct LinkInfo {
         Context *context;
         sd_varlink *link;
-        char *metric_prefix;
+        char *name;
 } LinkInfo;
 
 static LinkInfo* link_info_free(LinkInfo *li) {
@@ -46,7 +64,7 @@ static LinkInfo* link_info_free(LinkInfo *li) {
                 return NULL;
 
         sd_varlink_close_unref(li->link);
-        free(li->metric_prefix);
+        free(li->name);
         return mfree(li);
 }
 
@@ -61,12 +79,12 @@ static void context_done(Context *context) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(LinkInfo*, link_info_free);
 DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
-        link_info_hash_ops,
-        void,
-        trivial_hash_func,
-        trivial_compare_func,
-        LinkInfo,
-        link_info_free);
+                link_info_hash_ops,
+                void,
+                trivial_hash_func,
+                trivial_compare_func,
+                LinkInfo,
+                link_info_free);
 
 static int metric_compare(sd_json_variant *const *a, sd_json_variant *const *b) {
         const char *name_a, *name_b, *object_a, *object_b;
@@ -99,15 +117,47 @@ static int metric_compare(sd_json_variant *const *a, sd_json_variant *const *b) 
         return strcmp_ptr(fields_str_a, fields_str_b);
 }
 
-static inline bool metric_startswith_prefix(const char *metric_name, const char *prefix) {
+static int metrics_name_valid(const char *metric_name) {
+
+        /* Validates a metrics family name. Since the prefix shall match the Varlink service name, we'll
+         * enforce Varlink interface naming rules on it. Given how close we are to Varlink let's also enforce
+         * rules on metrics names similar to those of Varlink field names. */
+
+        const char *e = strrchr(metric_name, '.');
+        if (!e)
+                return false;
+
+        _cleanup_free_ char *j = strndup(metric_name, e - metric_name);
+        if (!j)
+                return -ENOMEM;
+
+        if (!varlink_idl_interface_name_is_valid(j))
+                return false;
+
+        if (!varlink_idl_field_name_is_valid(e+1))
+                return false;
+
+        return true;
+}
+
+static bool metric_startswith_prefix(const char *metric_name, const char *prefix) {
         if (isempty(metric_name) || isempty(prefix))
                 return false;
+
+        /* NB: this checks for a *true* prefix, i.e. insists on the dot separator after the prefix. Or in
+         * other words, "foo" is not going to be considered a prefix of "foo", but of "foo.bar" it will. */
 
         const char *m = startswith(metric_name, prefix);
         return !isempty(m) && m[0] == '.';
 }
 
-static bool metrics_validate_one(LinkInfo *li, sd_json_variant *metric) {
+typedef enum {
+        VERDICT_INVALID,
+        VERDICT_MATCH,
+        VERDICT_MISMATCH,
+} Verdict;
+
+static Verdict metrics_verdict(LinkInfo *li, sd_json_variant *metric) {
         int r;
 
         assert(li);
@@ -122,10 +172,48 @@ static bool metrics_validate_one(LinkInfo *li, sd_json_variant *metric) {
         r = sd_json_dispatch(metric, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &metric_name);
         if (r < 0) {
                 log_debug_errno(r, "Failed to get metric name, assuming name is not valid: %m");
-                return false;
+                return VERDICT_INVALID;
         }
 
-        return metric_startswith_prefix(metric_name, li->metric_prefix);
+        /* Validate metric name is generally valid */
+        r = metrics_name_valid(metric_name);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to determine if '%s' is a valid metric name: %m", metric_name);
+                return VERDICT_INVALID;
+        }
+        if (!r) {
+                log_debug("Metric name '%s' is not valid, skipping.", metric_name);
+                return VERDICT_INVALID;
+        }
+
+        /* Validate metric name matches the Varlink service it was found on */
+        if (!metric_startswith_prefix(metric_name, li->name)) {
+                log_debug("Metric name '%s' does not match service name '%s', skipping.", metric_name, li->name);
+                return VERDICT_INVALID;
+        }
+
+        /* Check it against any specified matches */
+        bool matches;
+        if (strv_isempty(arg_matches))
+                matches = true;
+        else {
+                matches = false;
+
+                /* Allow exact matches or prefix matches */
+                STRV_FOREACH(i, arg_matches)
+                        if (streq(metric_name, *i) ||
+                            metric_startswith_prefix(metric_name, *i)) {
+                                matches = true;
+                                break;
+                        }
+        }
+
+        if (!matches) {
+                log_debug("Metric '%s' does not match search, ignoring.", metric_name);
+                return VERDICT_MISMATCH;
+        }
+
+        return VERDICT_MATCH;
 }
 
 static int metrics_on_query_reply(
@@ -142,11 +230,11 @@ static int metrics_on_query_reply(
 
         if (error_id) {
                 if (streq(error_id, SD_VARLINK_ERROR_DISCONNECTED))
-                        log_info("Varlink disconnected");
+                        log_warning("Varlink connection to '%s' disconnected prematurely, ignoring.", li->name);
                 else if (streq(error_id, SD_VARLINK_ERROR_TIMEOUT))
-                        log_info("Varlink timed out");
+                        log_warning("Varlink connection to '%s' timed out, ignoring.", li->name);
                 else
-                        log_error("Varlink error: %s", error_id);
+                        log_warning("Varlink error from '%s', ignoring: %s", li->name, error_id);
 
                 goto finish;
         }
@@ -156,10 +244,13 @@ static int metrics_on_query_reply(
                 goto finish;
         }
 
-        if (!metrics_validate_one(li, parameters)) {
+        Verdict v = metrics_verdict(li, parameters);
+        if (v == VERDICT_INVALID) {
                 context->n_invalid_metrics++;
                 goto finish;
         }
+        if (v == VERDICT_MISMATCH)
+                goto finish;
 
         /* Collect metrics for later sorting */
         if (!GREEDY_REALLOC(context->metrics, context->n_metrics + 1))
@@ -178,7 +269,7 @@ finish:
         return 0;
 }
 
-static int metrics_call(Context *context, const char *path) {
+static int metrics_call(Context *context, const char *name, const char *path) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         int r;
 
@@ -201,9 +292,12 @@ static int metrics_call(Context *context, const char *path) {
         if (r < 0)
                 return log_error_errno(r, "Failed to bind reply callback: %m");
 
-        r = sd_varlink_observe(vl, "io.systemd.Metrics.List", /* parameters= */ NULL);
+        const char *method = context->action == ACTION_LIST ? "io.systemd.Metrics.List" : "io.systemd.Metrics.Describe";
+        r = sd_varlink_observe(vl,
+                               method,
+                               /* parameters= */ NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to issue io.systemd.Metrics.List call: %m");
+                return log_error_errno(r, "Failed to issue %s() call: %m", method);
 
         _cleanup_(link_info_freep) LinkInfo *li = new(LinkInfo, 1);
         if (!li)
@@ -212,95 +306,346 @@ static int metrics_call(Context *context, const char *path) {
         *li = (LinkInfo) {
                 .context = context,
                 .link = sd_varlink_ref(vl),
+                .name = strdup(name),
         };
 
-        r = path_extract_filename(path, &li->metric_prefix);
-        if (r < 0)
-                return log_error_errno(r, "Failed to extract metric name from path %s: %m", path);
+        if (!li->name)
+                return log_oom();
 
-        (void) sd_varlink_set_userdata(vl, li);
         if (set_ensure_put(&context->link_infos, &link_info_hash_ops, li) < 0)
                 return log_oom();
+
+        (void) sd_varlink_set_userdata(vl, li);
 
         TAKE_PTR(li);
         return 0;
 }
 
-static int metrics_output_sorted(Context *context) {
+static int metrics_output_list(Context *context, Table **ret) {
+        int r;
+
+        assert(context);
+
+        _cleanup_(table_unrefp) Table *table = table_new("family", "object", "fields", "value");
+        if (!table)
+                return log_oom();
+
+        table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
+        table_set_sort(table, (size_t) 0, (size_t) 1, (size_t) 2, (size_t) 3);
+
+        FOREACH_ARRAY(m, context->metrics, context->n_metrics) {
+                struct {
+                        const char *name;
+                        const char *object;
+                        sd_json_variant *fields, *value;
+                } d = {};
+
+                static const sd_json_dispatch_field dispatch_table[] = {
+                        { "name",   SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  voffsetof(d, name),   SD_JSON_MANDATORY },
+                        { "object", SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  voffsetof(d, object), 0                 },
+                        { "fields", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_variant_noref, voffsetof(d, fields), 0                 },
+                        { "value",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_variant_noref, voffsetof(d, value),  SD_JSON_MANDATORY },
+                        {}
+                };
+
+                r = sd_json_dispatch(*m, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &d);
+                if (r < 0) {
+                        _cleanup_free_ char *t = NULL;
+                        int k = sd_json_variant_format(*m, /* flags= */ 0, &t);
+                        if (k < 0)
+                                return log_error_errno(k, "Failed to format JSON: %m");
+
+                        log_warning_errno(r, "Cannot parse metric, skipping: %s", t);
+                        continue;
+                }
+
+                r = table_add_many(
+                                table,
+                                TABLE_STRING,     d.name,
+                                TABLE_STRING,     d.object,
+                                TABLE_JSON,       d.fields,
+                                TABLE_SET_WEIGHT, 50U,
+                                TABLE_JSON,       d.value,
+                                TABLE_SET_WEIGHT, 50U);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        *ret = TAKE_PTR(table);
+        return 0;
+}
+
+static int metrics_output_describe(Context *context, Table **ret) {
+        int r;
+
+        assert(context);
+
+        _cleanup_(table_unrefp) Table *table = table_new("family", "type", "description");
+        if (!table)
+                return log_oom();
+
+        table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
+        table_set_sort(table, (size_t) 0, (size_t) 1, (size_t) 2);
+
+        FOREACH_ARRAY(m, context->metrics, context->n_metrics) {
+                struct {
+                        const char *name;
+                        const char *type;
+                        const char *description;
+                } d = {};
+
+                static const sd_json_dispatch_field dispatch_table[] = {
+                        { "name",        SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, voffsetof(d, name),        SD_JSON_MANDATORY },
+                        { "type",        SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, voffsetof(d, type),        SD_JSON_MANDATORY },
+                        { "description", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, voffsetof(d, description), 0                 },
+                        {}
+                };
+
+                r = sd_json_dispatch(*m, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &d);
+                if (r < 0) {
+                        _cleanup_free_ char *t = NULL;
+                        int k = sd_json_variant_format(*m, /* flags= */ 0, &t);
+                        if (k < 0)
+                                return log_error_errno(k, "Failed to format JSON: %m");
+
+                        log_warning_errno(r, "Cannot parse metric description, skipping: %s", t);
+                        continue;
+                }
+
+                r = table_add_many(
+                                table,
+                                TABLE_STRING,     d.name,
+                                TABLE_STRING,     d.type,
+                                TABLE_STRING,     d.description,
+                                TABLE_SET_WEIGHT, 50U);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        *ret = TAKE_PTR(table);
+        return 0;
+}
+
+static int metrics_output(Context *context) {
         int r;
 
         assert(context);
 
         typesafe_qsort(context->metrics, context->n_metrics, metric_compare);
 
-        FOREACH_ARRAY(m, context->metrics, context->n_metrics) {
-                r = sd_json_variant_dump(
-                                *m,
-                                arg_json_format_flags | SD_JSON_FORMAT_FLUSH,
-                                stdout,
-                                /* prefix= */ NULL);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to write JSON: %m");
+        if (sd_json_format_enabled(arg_json_format_flags)) {
+                FOREACH_ARRAY(m, context->metrics, context->n_metrics) {
+                        r = sd_json_variant_dump(
+                                        *m,
+                                        arg_json_format_flags | SD_JSON_FORMAT_FLUSH,
+                                        stdout,
+                                        /* prefix= */ NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to write JSON: %m");
+                }
+
+                if (context->n_metrics == 0 && arg_legend)
+                        log_info("No metrics collected.");
+
+                return 0;
         }
 
-        if (context->n_metrics == 0)
-                log_info("No metrics collected.");
+        _cleanup_(table_unrefp) Table *table = NULL;
+        switch(context->action) {
+
+        case ACTION_LIST:
+                r = metrics_output_list(context, &table);
+                break;
+
+        case ACTION_DESCRIBE:
+                r = metrics_output_describe(context, &table);
+                break;
+
+        default:
+                assert_not_reached();
+        }
+        if (r < 0)
+                return r;
+
+        if (!table_isempty(table) || sd_json_format_enabled(arg_json_format_flags)) {
+                r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
+                if (r < 0)
+                        return r;
+        }
+
+        if (arg_legend && !sd_json_format_enabled(arg_json_format_flags)) {
+                if (table_isempty(table))
+                        printf("No metrics available.\n");
+                else
+                        printf("\n%zu metrics listed.\n", table_get_rows(table) - 1);
+        }
 
         return 0;
 }
 
-static int metrics_query(void) {
+static int parse_metrics_matches(char **matches) {
         int r;
 
-        _cleanup_free_ char *metrics_path = NULL;
-        r = runtime_directory_generic(arg_runtime_scope, "systemd/report", &metrics_path);
+        STRV_FOREACH(i, matches) {
+                r = metrics_name_valid(*i);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine if '%s' is a valid metric name: %m", *i);
+                if (!r && !varlink_idl_interface_name_is_valid(*i))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Match is not a valid family name or prefix: %s", *i);
+
+                if (strv_extend(&arg_matches, *i) < 0)
+                        return log_oom();
+        }
+
+        strv_sort_uniq(arg_matches);
+        return 0;
+}
+
+static bool test_service_matches(const char *service) {
+        assert(service);
+
+        if (strv_isempty(arg_matches))
+                return true;
+
+        /* Only contact services whose name is either a prefix of any of the specified metrics families, or
+         * if the specified metric families are a prefix of the service.
+         *
+         * Example: if user specifies "foo" we want to match sockets "foo" and "foo.bar".
+         *          if user specifies "foo.waldo" we want to match sockets "foo" and "foo.waldo" as well as "foo.waldo.quux".
+         *
+         *          in other words: it should be fine to specify any prefix of a service name to get all metrics from all matching services.
+         *                          it should also be fine to specify a full metric name, and then go directly to the relevant services, and ask for matching metrics.
+         */
+
+        STRV_FOREACH(i, arg_matches) {
+                if (streq(service, *i))
+                        return true;
+
+                if (metric_startswith_prefix(*i, service) ||
+                    metric_startswith_prefix(service, *i))
+                        return true;
+        }
+
+        return false;
+}
+
+static int readdir_sources(char **ret_directory, DirectoryEntries **ret) {
+        int r;
+
+        assert(ret_directory);
+        assert(ret);
+
+        _cleanup_free_ char *sources_path = NULL;
+        r = runtime_directory_generic(arg_runtime_scope, "systemd/report", &sources_path);
         if (r < 0)
-                return log_error_errno(r, "Failed to determine metrics directory path: %m");
+                return log_error_errno(r, "Failed to determine sources directory path: %m");
 
-        log_debug("Looking for reports in %s/", metrics_path);
+        log_debug("Looking for metrics in '%s'.", sources_path);
 
-        _cleanup_(context_done) Context context = {};
+        size_t m = 0;
 
-        r = sd_event_default(&context.event);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get event loop: %m");
+        _cleanup_free_ DirectoryEntries *de = NULL;
+        r = readdir_all_at(
+                        AT_FDCWD,
+                        sources_path,
+                        RECURSE_DIR_IGNORE_DOT|RECURSE_DIR_ENSURE_TYPE,
+                        &de);
+        if (r == -ENOENT)
+                *ret = NULL;
+        else if (r < 0)
+                return log_error_errno(r, "Failed to enumerate '%s': %m", sources_path);
+        else {
+                /* Filter out non-sockets/non-symlinks and badly named entries */
+                FOREACH_ARRAY(i, de->entries, de->n_entries) {
+                        struct dirent *d = *i;
 
-        r = sd_event_set_signal_exit(context.event, true);
-        if (r < 0)
-                return log_error_errno(r, "Failed to enable exit on SIGINT/SIGTERM: %m");
-
-        size_t n_skipped_sources = 0;
-        _cleanup_closedir_ DIR *d = opendir(metrics_path);
-        if (!d) {
-                if (errno != ENOENT)
-                        return log_error_errno(errno, "Failed to open metrics directory %s: %m", metrics_path);
-        } else
-                FOREACH_DIRENT(de, d,
-                               return log_warning_errno(errno, "Failed to read %s: %m", metrics_path)) {
-
-                        if (!IN_SET(de->d_type, DT_SOCK, DT_UNKNOWN))
+                        if (!IN_SET(d->d_type, DT_SOCK, DT_LNK))
                                 continue;
+
+                        if (!varlink_idl_interface_name_is_valid(d->d_name))
+                                continue;
+
+                        if (!test_service_matches(d->d_name))
+                                continue;
+
+                        de->entries[m++] = *i;
+                }
+
+                de->n_entries = m;
+                *ret = TAKE_PTR(de);
+        }
+
+        *ret_directory = TAKE_PTR(sources_path);
+        return m > 0;
+}
+
+static int verb_metrics(int argc, char *argv[], void *userdata) {
+        Action action;
+        int r;
+
+        assert(argc >= 1);
+        assert(argv);
+
+        /* Enable JSON-SEQ mode here, since we'll dump a large series of JSON objects */
+        arg_json_format_flags |= SD_JSON_FORMAT_SEQ;
+
+        if (streq_ptr(argv[0], "metrics"))
+                action = ACTION_LIST;
+        else {
+                assert(streq_ptr(argv[0], "describe-metrics"));
+                action = ACTION_DESCRIBE;
+        }
+
+        r = parse_metrics_matches(argv + 1);
+        if (r < 0)
+                return r;
+
+        _cleanup_(context_done) Context context = {
+                .action = action,
+        };
+        size_t n_skipped_sources = 0;
+
+        _cleanup_free_ DirectoryEntries *de = NULL;
+        _cleanup_free_ char *sources_path = NULL;
+        r = readdir_sources(&sources_path, &de);
+        if (r < 0)
+                return r;
+        if (r > 0) {
+                r = sd_event_default(&context.event);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get event loop: %m");
+
+                r = sd_event_set_signal_exit(context.event, true);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to enable exit on SIGINT/SIGTERM: %m");
+
+                FOREACH_ARRAY(i, de->entries, de->n_entries) {
+                        struct dirent *d = *i;
 
                         if (set_size(context.link_infos) >= METRICS_LINKS_MAX) {
                                 n_skipped_sources++;
                                 break;
                         }
 
-                        _cleanup_free_ char *p = path_join(metrics_path, de->d_name);
+                        _cleanup_free_ char *p = path_join(sources_path, d->d_name);
                         if (!p)
                                 return log_oom();
 
-                        (void) metrics_call(&context, p);
+                        (void) metrics_call(&context, d->d_name, p);
                 }
+        }
 
-        if (set_isempty(context.link_infos))
-                log_info("No metrics sources found.");
-        else {
+        if (set_isempty(context.link_infos)) {
+                if (arg_legend)
+                        log_info("No metrics sources found.");
+        } else {
+                assert(context.event);
+
                 r = sd_event_loop(context.event);
                 if (r < 0)
                         return log_error_errno(r, "Failed to run event loop: %m");
 
-                r = metrics_output_sorted(&context);
+                r = metrics_output(&context);
                 if (r < 0)
                         return r;
         }
@@ -320,7 +665,62 @@ static int metrics_query(void) {
         return 0;
 }
 
-static int help(void) {
+static int verb_list_sources(int argc, char *argv[], void *userdata) {
+        int r;
+
+        _cleanup_(table_unrefp) Table *table = table_new("source", "address");
+        if (!table)
+                return log_oom();
+
+        _cleanup_free_ char *sources_path = NULL;
+        _cleanup_free_ DirectoryEntries *de = NULL;
+        r = readdir_sources(&sources_path, &de);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                FOREACH_ARRAY(i, de->entries, de->n_entries) {
+                        struct dirent *d = *i;
+
+                        _cleanup_free_ char *k = path_join(sources_path, d->d_name);
+                        if (!k)
+                                return log_oom();
+
+                        _cleanup_free_ char *resolved = NULL;
+                        r = chase(k, /* root= */ NULL, CHASE_MUST_BE_SOCKET, &resolved, /* ret_fd= */ NULL);
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to resolve '%s', skipping: %m", k);
+                                continue;
+                        }
+
+                        _cleanup_free_ char *j = strjoin("unix:", resolved);
+                        if (!j)
+                                return log_oom();
+
+                        r = table_add_many(
+                                        table,
+                                        TABLE_STRING, d->d_name,
+                                        TABLE_STRING, j);
+                        if (r < 0)
+                                return table_log_add_error(r);
+                }
+
+        if (!table_isempty(table) || sd_json_format_enabled(arg_json_format_flags)) {
+                r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
+                if (r < 0)
+                        return r;
+        }
+
+        if (arg_legend && !sd_json_format_enabled(arg_json_format_flags)) {
+                if (table_isempty(table))
+                        printf("No sources available.\n");
+                else
+                        printf("\n%zu sources listed.\n", table_get_rows(table) - 1);
+        }
+
+        return 0;
+}
+
+static int verb_help(int argc, char *argv[], void *userdata) {
         _cleanup_free_ char *link = NULL;
         int r;
 
@@ -328,19 +728,31 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] \n\n"
-               "%sPrint metrics for all system components.%s\n\n"
+        printf("%1$s [OPTIONS...] COMMAND ...\n"
+               "\n%5$sAcquire metrics from local sources.%6$s\n"
+               "\n%3$sCommands:%4$s\n"
+               "  metrics [MATCH...]    Acquire list of metrics and their values\n"
+               "  describe-metrics [MATCH...]\n"
+               "                        Describe available metrics\n"
+               "  list-sources          Show list of known metrics sources\n"
+               "\n%3$sOptions:%4$s\n"
                "  -h --help             Show this help\n"
                "     --version          Show package version\n"
+               "     --no-pager         Do not pipe output into a pager\n"
+               "     --no-legend        Do not show the headers and footers\n"
                "     --user             Connect to user service manager\n"
                "     --system           Connect to system service manager (default)\n"
                "     --json=pretty|short\n"
                "                        Configure JSON output\n"
-               "\nSee the %s for details.\n",
+               "  -j                    Equivalent to --json=pretty (on TTY) or --json=short\n"
+               "                        (otherwise)\n"
+               "\nSee the %2$s for details.\n",
                program_invocation_short_name,
-               ansi_highlight(),
+               link,
+               ansi_underline(),
                ansi_normal(),
-               link);
+               ansi_highlight(),
+               ansi_normal());
 
         return 0;
 }
@@ -348,17 +760,21 @@ static int help(void) {
 static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
+                ARG_NO_PAGER,
+                ARG_NO_LEGEND,
                 ARG_USER,
                 ARG_SYSTEM,
                 ARG_JSON,
         };
 
         static const struct option options[] = {
-                { "help",    no_argument,       NULL, 'h'         },
-                { "version", no_argument,       NULL, ARG_VERSION },
-                { "user",    no_argument,       NULL, ARG_USER    },
-                { "system",  no_argument,       NULL, ARG_SYSTEM  },
-                { "json",    required_argument, NULL, ARG_JSON    },
+                { "help",      no_argument,       NULL, 'h'           },
+                { "version",   no_argument,       NULL, ARG_VERSION   },
+                { "no-pager",  no_argument,       NULL, ARG_NO_PAGER  },
+                { "no-legend", no_argument,       NULL, ARG_NO_LEGEND },
+                { "user",      no_argument,       NULL, ARG_USER      },
+                { "system",    no_argument,       NULL, ARG_SYSTEM    },
+                { "json",      required_argument, NULL, ARG_JSON      },
                 {}
         };
 
@@ -367,13 +783,21 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hj", options, NULL)) >= 0)
                 switch (c) {
                 case 'h':
-                        return help();
+                        return verb_help(/* argc= */ 0, /* argv= */ NULL, /* userdata= */ NULL);
 
                 case ARG_VERSION:
                         return version();
+
+                case ARG_NO_PAGER:
+                        arg_pager_flags |= PAGER_DISABLE;
+                        break;
+
+                case ARG_NO_LEGEND:
+                        arg_legend = false;
+                        break;
 
                 case ARG_USER:
                         arg_runtime_scope = RUNTIME_SCOPE_USER;
@@ -390,6 +814,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case 'j':
+                        arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -397,13 +825,20 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached();
                 }
 
-        if (optind < argc)
-                return log_error_errno(
-                                SYNTHETIC_ERRNO(EINVAL),
-                                "%s takes no arguments.",
-                                program_invocation_short_name);
-
         return 1;
+}
+
+static int report_main(int argc, char *argv[]) {
+
+        static const Verb verbs[] = {
+                { "help",             VERB_ANY, 1,        0, verb_help         },
+                { "metrics",          VERB_ANY, VERB_ANY, 0, verb_metrics      },
+                { "describe-metrics", VERB_ANY, VERB_ANY, 0, verb_metrics      },
+                { "list-sources",     VERB_ANY, 1,        0, verb_list_sources },
+                {}
+        };
+
+        return dispatch_verb(argc, argv, verbs, NULL);
 }
 
 static int run(int argc, char *argv[]) {
@@ -415,7 +850,7 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        return metrics_query();
+        return report_main(argc, argv);
 }
 
 DEFINE_MAIN_FUNCTION(run);
