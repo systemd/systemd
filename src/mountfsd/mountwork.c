@@ -633,24 +633,76 @@ static int vl_method_mount_image(
         if (r < 0)
                 return r;
 
-        r = dissected_image_decrypt(
-                        di,
-                        /* root= */ NULL,
-                        p.password,
-                        &verity,
-                        use_policy,
-                        dissect_flags);
-        if (r == -ENOKEY) /* new dm-verity userspace returns ENOKEY if the dm-verity signature key is not in
-                           * key chain. That's great. */
-                return sd_varlink_error(link, "io.systemd.MountFileSystem.KeyNotFound", NULL);
-        if (r == -EBUSY) /* DM kernel subsystem is shit with returning useful errors hence we keep retrying
-                          * under the assumption that some errors are transitional. Which the errors might
-                          * not actually be. After all retries failed we return EBUSY. Let's turn that into a
-                          * generic Verity error. It's not very helpful, could mean anything, but at least it
-                          * gives client a clear idea that this has to do with Verity. */
-                return sd_varlink_error(link, "io.systemd.MountFileSystem.VerityFailure", NULL);
-        if (r < 0)
-                return r;
+        for (;;) {
+                use_policy = image_policy_free(use_policy);
+                ps = mfree(ps);
+
+                /* We use the image policy for trusted images if either the path is below a trusted
+                 * directory, or if we have already acquired a PK authentication that tells us that untrusted
+                 * images are OK */
+                bool use_trusted_policy =
+                        image_is_trusted ||
+                        polkit_have_untrusted_action;
+
+                r = determine_image_policy(
+                                image_fd,
+                                use_trusted_policy,
+                                p.image_policy,
+                                &use_policy);
+                if (r < 0)
+                        return r;
+
+                r = image_policy_to_string(use_policy, /* simplify= */ true, &ps);
+                if (r < 0)
+                        return r;
+
+                log_debug("Using image policy: %s", ps);
+
+                r = dissected_image_decrypt(
+                                di,
+                                /* root= */ NULL,
+                                p.password,
+                                &verity,
+                                use_policy,
+                                dissect_flags);
+                if (r == -EDESTADDRREQ) {
+                        /* new dm-verity userspace returns ENOKEY if the dm-verity signature key is not in
+                         * key chain which we mangle to EDESTADDRREQ. That's great. */
+
+                        if (!polkit_have_untrusted_action) {
+                                 log_debug("Missing verity key in kernel and userspace. Trying a stronger polkit authentication before continuing.");
+                                 r = varlink_verify_polkit_async_full(
+                                                 link,
+                                                 /* bus= */ NULL,
+                                                 polkit_untrusted_action,
+                                                 polkit_details,
+                                                 /* good_user= */ UID_INVALID,
+                                                 /* flags= */ 0,                   /* NB: the image cannot be authenticated, hence unless PK is around to allow this anyway, fail! */
+                                                 polkit_registry);
+                                 if (r <= 0 && !ERRNO_IS_NEG_PRIVILEGE(r))
+                                         return r;
+                                 if (r > 0) {
+                                         /* Try again, now that we know the client has enough privileges. */
+                                         log_debug("Missing verity key in kernel and userspace, retrying after polkit authentication.");
+                                         polkit_have_untrusted_action = true;
+                                         continue;
+                                 }
+                         }
+
+                        return sd_varlink_error(link, "io.systemd.MountFileSystem.KeyNotFound", NULL);
+                }
+                if (r == -EBUSY) /* DM kernel subsystem is bad at returning useful errors hence we keep retrying
+                                  * under the assumption that some errors are transitional. Which the errors might
+                                  * not actually be. After all retries failed we return EBUSY. Let's turn that into a
+                                  * generic Verity error. It's not very helpful, could mean anything, but at least it
+                                  * gives client a clear idea that this has to do with Verity. */
+                        return sd_varlink_error(link, "io.systemd.MountFileSystem.VerityFailure", NULL);
+                if (r < 0)
+                        return r;
+
+                /* Success */
+                break;
+        }
 
         r = dissected_image_mount(
                         di,
