@@ -4371,6 +4371,10 @@ static int outer_child(
         if (r < 0)
                 return r;
 
+        r = userns_mkdir(directory, "/run/systemd/dissect-root", 0755, 0, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create /run/systemd/dissect-root");
+
         /* The same stuff as the $container env var, but nicely readable for the entire payload */
         free(p);
         p = path_join(directory, "/run/host/container-manager");
