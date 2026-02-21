@@ -1125,8 +1125,10 @@ int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds,
         if (!ctx)
                 return -ENOMEM;
 
+        /* If the digest is supported by systemd-resolved but disabled by host policy, also return -EOPNOTSUPP
+         */
         if (EVP_DigestInit_ex(ctx, md_algorithm, NULL) <= 0)
-                return -EIO;
+                return -EOPNOTSUPP;
 
         if (EVP_DigestUpdate(ctx, wire_format, encoded_length) <= 0)
                 return -EIO;
@@ -1154,6 +1156,7 @@ int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds,
 int dnssec_verify_dnskey_by_ds_search(DnsResourceRecord *dnskey, DnsAnswer *validated_ds) {
         DnsResourceRecord *ds;
         DnsAnswerFlags flags;
+        bool found_unsupported_algorithm = false;
         int r;
 
         assert(dnskey);
@@ -1178,13 +1181,20 @@ int dnssec_verify_dnskey_by_ds_search(DnsResourceRecord *dnskey, DnsAnswer *vali
                         continue;
 
                 r = dnssec_verify_dnskey_by_ds(dnskey, ds, false);
-                if (IN_SET(r, -EKEYREJECTED, -EOPNOTSUPP))
-                        continue; /* The DNSKEY is revoked or otherwise invalid, or we don't support the digest algorithm */
+                if (r == -EKEYREJECTED)
+                        continue; /* The DNSKEY is revoked or otherwise invalid. */
+                if (r == -EOPNOTSUPP) {
+                        found_unsupported_algorithm = true;
+                        continue;
+                }
                 if (r < 0)
                         return r;
                 if (r > 0)
                         return 1;
         }
+
+        if (found_unsupported_algorithm)
+                return -EOPNOTSUPP;
 
         return 0;
 }
