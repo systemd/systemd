@@ -302,6 +302,23 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>PrivateUsersDelegate=</varname></term>
+
+        <listitem><para>Takes a non-negative integer. Configures delegation of additional 64K UID/GID ranges
+        into the container's user namespace for use by nested containers. When set to a value greater than
+        zero, the
+        <citerefentry><refentrytitle>systemd-nsresourced.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        varlink socket will be bind-mounted into the container so that processes inside the container can
+        allocate further user namespaces from the delegated ranges. This is equivalent to the
+        <option>--private-users-delegate=</option> command line switch. Requires
+        <varname>PrivateUsers=managed</varname>. Defaults to 0. See
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        for details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>NotifyReady=</varname></term>
 
         <listitem><para>Configures support for notifications from the container's init process.  This is equivalent to
