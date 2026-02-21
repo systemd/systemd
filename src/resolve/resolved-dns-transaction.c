@@ -2836,13 +2836,17 @@ static int dns_transaction_validate_dnskey_by_ds(DnsTransaction *t) {
         DNS_ANSWER_FOREACH_ITEM(item, t->answer) {
 
                 r = dnssec_verify_dnskey_by_ds_search(item->rr, t->validated_keys);
-                if (r < 0)
+                if (r < 0 && r != -EOPNOTSUPP)
                         return r;
                 if (r == 0)
                         continue;
 
                 /* If so, the DNSKEY is validated too. */
-                r = dns_answer_add_extend(&t->validated_keys, item->rr, item->ifindex, item->flags|DNS_ANSWER_AUTHENTICATED, item->rrsig);
+                if (r == -EOPNOTSUPP)
+                        r = dns_answer_add_extend(&t->validated_keys, item->rr, item->ifindex, item->flags, NULL);
+                else
+                        r = dns_answer_add_extend(&t->validated_keys, item->rr, item->ifindex, item->flags|DNS_ANSWER_AUTHENTICATED, item->rrsig);
+
                 if (r < 0)
                         return r;
         }
