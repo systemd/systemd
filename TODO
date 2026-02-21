@@ -968,7 +968,6 @@ Features:
 * Varlinkification of the following command line tools, to open them up to
   other programs via IPC:
   - bootctl
-  - journalctl (allowing journal read access via IPC)
   - coredumpcl
   - systemd-bless-boot
   - systemd-measure
