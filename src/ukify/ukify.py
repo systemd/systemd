@@ -1109,7 +1109,7 @@ def pe_add_sections(opts: UkifyConfig, uki: UKI, output: str) -> None:
                 encoded = json.dumps(j).encode()
                 if len(encoded) > section.SizeOfRawData:
                     raise PEError(
-                        f'Not enough space in existing section .pcrsig of size {section.SizeOfRawData} to append new data of size {len(encoded)}'  # noqa: E501
+                        f'Not enough space in existing section .pcrsig of size {section.SizeOfRawData} to append new data of size {len(encoded)}'
                     )
                 section.Misc_VirtualSize = len(encoded)
                 # bytes(n) results in an array of n zeroes
@@ -1498,7 +1498,7 @@ def make_uki(opts: UkifyConfig) -> None:
 
         if names[0] != '.profile':
             raise ValueError(
-                f'Expected .profile section as first valid section in PE profile binary {profile} but got {names[0]}'  # noqa: E501
+                f'Expected .profile section as first valid section in PE profile binary {profile} but got {names[0]}'
             )
 
         if names.count('.profile') > 1:
@@ -1688,7 +1688,7 @@ def generate_keys(opts: UkifyConfig) -> None:
 
     if not work:
         raise ValueError(
-            'genkey: --secureboot-private-key=/--secureboot-certificate= or --pcr-private-key/--pcr-public-key must be specified'  # noqa: E501
+            'genkey: --secureboot-private-key=/--secureboot-certificate= or --pcr-private-key/--pcr-public-key must be specified'
         )
 
 
@@ -1879,7 +1879,7 @@ class ConfigItem:
         elif self.type:
             conv = self.type
         else:
-            conv = lambda s: s  # noqa: E731
+            conv = lambda s: s
 
         # This is a bit ugly, but --initrd and --devicetree-auto are the only options
         # with multiple args on the command line and a space-separated list in the
@@ -2116,14 +2116,14 @@ CONFIG_ITEMS = [
     ConfigItem(
         '--secureboot-private-key',
         dest='sb_key',
-        help='required by --signtool=sbsign|systemd-sbsign. Path to key file or engine/provider designation for SB signing',  # noqa: E501
+        help='required by --signtool=sbsign|systemd-sbsign. Path to key file or engine/provider designation for SB signing',
         config_key='UKI/SecureBootPrivateKey',
     ),
     ConfigItem(
         '--secureboot-certificate',
         dest='sb_cert',
         help=(
-            'required by --signtool=sbsign. sbsign needs a path to certificate file or engine-specific designation for SB signing'  # noqa: E501
+            'required by --signtool=sbsign. sbsign needs a path to certificate file or engine-specific designation for SB signing'
         ),
         config_key='UKI/SecureBootCertificate',
     ),
@@ -2132,7 +2132,7 @@ CONFIG_ITEMS = [
         dest='sb_certdir',
         default='/etc/pki/pesign',
         help=(
-            'required by --signtool=pesign. Path to nss certificate database directory for PE signing. Default is /etc/pki/pesign'  # noqa: E501
+            'required by --signtool=pesign. Path to nss certificate database directory for PE signing. Default is /etc/pki/pesign'
         ),
         config_key='UKI/SecureBootCertificateDir',
         config_push=ConfigItem.config_set,
@@ -2141,7 +2141,7 @@ CONFIG_ITEMS = [
         '--secureboot-certificate-name',
         dest='sb_cert_name',
         help=(
-            'required by --signtool=pesign. pesign needs a certificate nickname of nss certificate database entry to use for PE signing'  # noqa: E501
+            'required by --signtool=pesign. pesign needs a certificate nickname of nss certificate database entry to use for PE signing'
         ),
         config_key='UKI/SecureBootCertificateName',
     ),
@@ -2458,7 +2458,7 @@ def finalize_options(opts: argparse.Namespace) -> None:
         # both param given, infer sbsign and in case it was given, ensure signtool=sbsign
         if opts.signtool and opts.signtool not in ('sbsign', 'systemd-sbsign'):
             raise ValueError(
-                f'Cannot provide --signtool={opts.signtool} with --secureboot-private-key= and --secureboot-certificate='  # noqa: E501
+                f'Cannot provide --signtool={opts.signtool} with --secureboot-private-key= and --secureboot-certificate='
             )
         if not opts.signtool:
             opts.signtool = 'sbsign'
@@ -2478,7 +2478,7 @@ def finalize_options(opts: argparse.Namespace) -> None:
 
     if opts.sign_kernel and not opts.sb_key and not opts.sb_cert_name:
         raise ValueError(
-            '--sign-kernel requires either --secureboot-private-key= and --secureboot-certificate= (for sbsign) or --secureboot-certificate-name= (for pesign) to be specified'  # noqa: E501
+            '--sign-kernel requires either --secureboot-private-key= and --secureboot-certificate= (for sbsign) or --secureboot-certificate-name= (for pesign) to be specified'
         )
 
     opts.profile = resolve_at_path(opts.profile)

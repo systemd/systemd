@@ -589,7 +589,7 @@ def main() -> None:
         *(['--forward-journal', journal_file] if journal_file else []),
         *(
             [
-                '--credential', f'systemd.extra-unit.emergency-exit.service={shlex.quote(EMERGENCY_EXIT_SERVICE)}',  # noqa: E501
+                '--credential', f'systemd.extra-unit.emergency-exit.service={shlex.quote(EMERGENCY_EXIT_SERVICE)}',
                 '--credential', f'systemd.unit-dropin.emergency.target={shlex.quote(EMERGENCY_EXIT_DROPIN)}',
             ]
             if not sys.stdin.isatty()
@@ -700,7 +700,7 @@ def main() -> None:
             iter = os.environ['GITHUB_RUN_ATTEMPT']
             runner = os.environ['TEST_RUNNER']
             artifact = (
-                f'ci-{wf}-{id}-{iter}-{summary.distribution}-{summary.release}-{runner}-failed-test-journals'  # noqa: E501
+                f'ci-{wf}-{id}-{iter}-{summary.distribution}-{summary.release}-{runner}-failed-test-journals'
             )
             ops += [f'gh run download {id} --name {artifact} -D ci/{artifact}']
             journal_file = Path(f'ci/{artifact}/test/journal/{name}.journal')

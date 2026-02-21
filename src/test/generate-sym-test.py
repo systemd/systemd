@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: LGPL-2.1-or-later
 #
-# ruff: noqa: E501 UP015
+# ruff: noqa: UP015
 
 import os
 import re

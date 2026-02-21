@@ -1,6 +1,11 @@
 target-version = "py39"
 line-length = 109
-lint.select = ["E", "F", "I", "Q", "UP"]
+
+[lint]
+select = ["E", "F", "I", "Q", "UP"]
+# E501: line-too-long
+# E731: lambda-assignment
+ignore = ["E501", "E731"]
 
 [format]
 # The formatter prefers double quotes for multiline quotes,
