@@ -34,6 +34,7 @@
 #include "strv.h"
 #include "transaction.h"                /* IWYU pragma: keep */
 #include "unit-name.h"
+#include "user-util.h"
 #include "web-util.h"
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_collect_mode, collect_mode, CollectMode);
@@ -1648,6 +1649,9 @@ int bus_unit_method_attach_processes(sd_bus_message *message, void *userdata, sd
                                 return sd_bus_error_set_errnof(reterr_error, r, "Failed to check if process " PID_FMT " is owned by client's UID: %m", pidref->pid);
                         if (r == 0)
                                 return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_ACCESS_DENIED, "Process " PID_FMT " not owned by client's UID. Refusing.", pidref->pid);
+
+                        if (!uid_is_valid(u->ref_uid)) /* process_is_owned_by_uid() requires a valid uid */
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_ACCESS_DENIED, "Unit does not have a valid ref_uid, refusing to attach process " PID_FMT ".", pidref->pid);
 
                         r = process_is_owned_by_uid(pidref, u->ref_uid);
                         if (r < 0)
