@@ -992,6 +992,14 @@ static int condition_test_path_is_encrypted(Condition *c, char **env) {
         return r > 0;
 }
 
+static int condition_test_path_is_socket(Condition *c, char **env) {
+        assert(c);
+        assert(c->parameter);
+        assert(c->type == CONDITION_PATH_IS_SOCKET);
+
+        return is_socket(c->parameter) > 0;
+}
+
 static int condition_test_directory_not_empty(Condition *c, char **env) {
         int r;
 
@@ -1233,6 +1241,7 @@ int condition_test(Condition *c, char **env) {
                 [CONDITION_PATH_IS_MOUNT_POINT]      = condition_test_path_is_mount_point,
                 [CONDITION_PATH_IS_READ_WRITE]       = condition_test_path_is_read_write,
                 [CONDITION_PATH_IS_ENCRYPTED]        = condition_test_path_is_encrypted,
+                [CONDITION_PATH_IS_SOCKET]           = condition_test_path_is_socket,
                 [CONDITION_DIRECTORY_NOT_EMPTY]      = condition_test_directory_not_empty,
                 [CONDITION_FILE_NOT_EMPTY]           = condition_test_file_not_empty,
                 [CONDITION_FILE_IS_EXECUTABLE]       = condition_test_file_is_executable,
