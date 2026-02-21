@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "varlink-io.systemd.JournalControl.h"
+#include "varlink-io.systemd.JournalAccess.h"
 
 static SD_VARLINK_DEFINE_METHOD_FULL(
                 GetEntries,
@@ -21,8 +21,8 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
 static SD_VARLINK_DEFINE_ERROR(NoEntries);
 
 SD_VARLINK_DEFINE_INTERFACE(
-                io_systemd_JournalControl,
-                "io.systemd.JournalControl",
+                io_systemd_JournalAccess,
+                "io.systemd.JournalAccess",
                 SD_VARLINK_INTERFACE_COMMENT("Journal log read APIs"),
                 SD_VARLINK_SYMBOL_COMMENT("Retrieve journal log entries, optionally filtered by unit, priority, etc."),
                 &vl_method_GetEntries,

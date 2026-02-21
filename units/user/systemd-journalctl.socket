@@ -12,8 +12,8 @@ Description=Journal Log Access Socket
 Documentation=man:journalctl(1)
 
 [Socket]
-ListenStream=%t/systemd/io.systemd.JournalControl
-Symlinks=%t/varlink/registry/io.systemd.JournalControl
+ListenStream=%t/systemd/io.systemd.JournalAccess
+Symlinks=%t/varlink/registry/io.systemd.JournalAccess
 FileDescriptorName=varlink
 SocketMode=0600
 Accept=yes

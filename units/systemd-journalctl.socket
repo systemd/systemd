@@ -14,8 +14,8 @@ DefaultDependencies=no
 Before=sockets.target
 
 [Socket]
-ListenStream=/run/systemd/io.systemd.JournalControl
-Symlinks=/run/varlink/registry/io.systemd.JournalControl
+ListenStream=/run/systemd/io.systemd.JournalAccess
+Symlinks=/run/varlink/registry/io.systemd.JournalAccess
 FileDescriptorName=varlink
 SocketGroup=systemd-journal
 SocketMode=0660

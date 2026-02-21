@@ -86,7 +86,7 @@ int vl_method_get_entries(sd_varlink *link, sd_json_variant *parameters, sd_varl
 
         uint64_t n = p.limit == 0 ? 100 : p.limit;
 
-        r = varlink_set_sentinel(link, "io.systemd.JournalControl.NoEntries");
+        r = varlink_set_sentinel(link, "io.systemd.JournalAccess.NoEntries");
         if (r < 0)
                 return r;
 

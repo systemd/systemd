@@ -37,7 +37,7 @@
 #include "strv.h"
 #include "syslog-util.h"
 #include "time-util.h"
-#include "varlink-io.systemd.JournalControl.h"
+#include "varlink-io.systemd.JournalAccess.h"
 #include "varlink-util.h"
 
 #define DEFAULT_FSS_INTERVAL_USEC (15*USEC_PER_MINUTE)
@@ -337,11 +337,11 @@ static int vl_server(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate Varlink server: %m");
 
-        r = sd_varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_JournalControl);
+        r = sd_varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_JournalAccess);
         if (r < 0)
                 return log_error_errno(r, "Failed to add Varlink interface: %m");
 
-        r = sd_varlink_server_bind_method(varlink_server, "io.systemd.JournalControl.GetEntries", vl_method_get_entries);
+        r = sd_varlink_server_bind_method(varlink_server, "io.systemd.JournalAccess.GetEntries", vl_method_get_entries);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind Varlink method: %m");
 
