@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "sd-event.h"
-
 #include "journald-manager.h"
 #include "journald-sync.h"
 #include "journald-varlink.h"
