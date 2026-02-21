@@ -646,8 +646,10 @@ static int dnssec_rrset_verify_sig(
                 if (!ctx)
                         return -ENOMEM;
 
+                /* If the signature algorithm is supported by systemd-resolved but disabled by host policy,
+                 * also return -EOPNOTSUPP. */
                 if (EVP_DigestInit_ex(ctx, md_algorithm, NULL) <= 0)
-                        return -EIO;
+                        return -EOPNOTSUPP;
 
                 if (EVP_DigestUpdate(ctx, sig_data, sig_size) <= 0)
                         return -EIO;
@@ -912,15 +914,20 @@ int dnssec_verify_rrset_search(
                 DNS_ANSWER_FOREACH_FLAGS(dnskey, flags, validated_dnskeys) {
                         DnssecResult one_result;
 
-                        if ((flags & DNS_ANSWER_AUTHENTICATED) == 0)
-                                continue;
-
                         /* Is this a DNSKEY RR that matches they key of our RRSIG? */
                         r = dnssec_rrsig_match_dnskey(rrsig, dnskey, false);
                         if (r < 0)
                                 return r;
                         if (r == 0)
                                 continue;
+
+                        if ((flags & DNS_ANSWER_AUTHENTICATED) == 0) {
+                                /* An unauthenticated DNSKEY in validated_dnskeys is a key we are not able to
+                                 * authenticate, but might still be valid. Record this as an unsupported
+                                 * algorithm so we can still at least report an insecure answer. */
+                                found_unsupported_algorithm = true;
+                                continue;
+                        }
 
                         /* Take the time here, if it isn't set yet, so
                          * that we do all validations with the same
@@ -1201,7 +1208,7 @@ int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret) {
                 return -ENOMEM;
 
         if (EVP_DigestInit_ex(ctx, algorithm, NULL) <= 0)
-                return -EIO;
+                return -EOPNOTSUPP;
 
         r = dns_name_to_wire_format(name, wire_format, sizeof(wire_format), true);
         if (r < 0)
@@ -1218,7 +1225,7 @@ int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret) {
 
         for (unsigned k = 0; k < nsec3->nsec3.iterations; k++) {
                 if (EVP_DigestInit_ex(ctx, algorithm, NULL) <= 0)
-                        return -EIO;
+                        return -EOPNOTSUPP;
                 if (EVP_DigestUpdate(ctx, result, hash_size) <= 0)
                         return -EIO;
                 if (EVP_DigestUpdate(ctx, nsec3->nsec3.salt, nsec3->nsec3.salt_size) <= 0)
