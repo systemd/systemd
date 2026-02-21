@@ -2174,13 +2174,12 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
             output = check_output('ip -d link show testtun99')
             print(output)
-            # Old ip command does not support IFF_ flags
-            self.assertRegex(output, 'tun (type tun pi on vnet_hdr on multi_queue|addrgenmode) ')
+            self.assertIn('tun type tun pi on vnet_hdr on multi_queue', output)
             self.assertIn('UP,LOWER_UP', output)
 
             output = check_output('ip -d link show testtap99')
             print(output)
-            self.assertRegex(output, 'tun (type tap pi on vnet_hdr on multi_queue|addrgenmode) ')
+            self.assertIn('tun type tap pi on vnet_hdr on multi_queue', output)
             self.assertIn('UP,LOWER_UP', output)
 
         else:
@@ -2190,7 +2189,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
             for _ in range(20):
                 output = check_output('ip -d link show testtun99')
                 print(output)
-                self.assertRegex(output, 'tun (type tun pi on vnet_hdr on multi_queue|addrgenmode) ')
+                self.assertIn('tun type tun pi on vnet_hdr on multi_queue', output)
                 if 'NO-CARRIER' in output:
                     break
                 time.sleep(0.5)
@@ -2200,7 +2199,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
             for _ in range(20):
                 output = check_output('ip -d link show testtap99')
                 print(output)
-                self.assertRegex(output, 'tun (type tap pi on vnet_hdr on multi_queue|addrgenmode) ')
+                self.assertIn('tun type tap pi on vnet_hdr on multi_queue', output)
                 if 'NO-CARRIER' in output:
                     break
                 time.sleep(0.5)
@@ -4313,24 +4312,21 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         print('### ip route show 192.168.10.2')
         output = check_output('ip route show 192.168.10.2')
         print(output)
-        # old ip command does not show IPv6 gateways...
         self.assertIn('192.168.10.2 proto static', output)
-        self.assertIn('nexthop', output)
-        self.assertIn('dev test1 weight 20', output)
-        self.assertIn('dev test1 weight 30', output)
-        self.assertIn('dev dummy98 weight 10', output)
-        self.assertIn('dev dummy98 weight 5', output)
+        self.assertIn('nexthop via inet6 2001:1234:5:6fff:ff:ff:ff:ff dev test1 weight 20', output)
+        self.assertIn('nexthop via inet6 2001:1234:5:7fff:ff:ff:ff:ff dev test1 weight 30', output)
+        self.assertIn('nexthop via inet6 2001:1234:5:8fff:ff:ff:ff:ff dev dummy98 weight 10', output)
+        self.assertIn('nexthop via inet6 2001:1234:5:9fff:ff:ff:ff:ff dev dummy98 weight 5', output)
 
         print('### ip -6 route show 2001:1234:5:bfff:ff:ff:ff:ff')
         output = check_output('ip -6 route show 2001:1234:5:bfff:ff:ff:ff:ff')
         print(output)
-        # old ip command does not show 'nexthop' keyword and weight...
         self.assertIn('2001:1234:5:bfff:ff:ff:ff:ff', output)
         if test1_is_managed:
-            self.assertIn('via 2001:1234:5:6fff:ff:ff:ff:ff dev test1', output)
-            self.assertIn('via 2001:1234:5:7fff:ff:ff:ff:ff dev test1', output)
-        self.assertIn('via 2001:1234:5:8fff:ff:ff:ff:ff dev dummy98', output)
-        self.assertIn('via 2001:1234:5:9fff:ff:ff:ff:ff dev dummy98', output)
+            self.assertIn('nexthop via 2001:1234:5:6fff:ff:ff:ff:ff dev test1 weight 20', output)
+            self.assertIn('nexthop via 2001:1234:5:7fff:ff:ff:ff:ff dev test1 weight 30', output)
+        self.assertIn('nexthop via 2001:1234:5:8fff:ff:ff:ff:ff dev dummy98 weight 10', output)
+        self.assertIn('nexthop via 2001:1234:5:9fff:ff:ff:ff:ff dev dummy98 weight 5', output)
 
         print('### ip route show 192.168.20.0/24')
         output = check_output('ip route show 192.168.20.0/24')
