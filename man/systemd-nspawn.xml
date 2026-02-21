@@ -939,6 +939,33 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--private-users-delegate=</option></term>
+
+        <listitem><para>Takes a non-negative integer. Requests that the specified number of additional 64K
+        UID/GID ranges are delegated into the container's user namespace. These delegated ranges are mapped
+        1:1 (i.e. the same UID/GID values are used inside and outside the user namespace) and can be used by
+        nested containers to allocate their own transient UID/GID ranges via
+        <citerefentry><refentrytitle>systemd-nsresourced.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+        <para>This option requires <option>--private-users=managed</option>, as the delegation is performed
+        by
+        <citerefentry><refentrytitle>systemd-nsresourced.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        as part of the user namespace allocation. The maximum number of delegated ranges is 16. Defaults to
+        0, i.e. no delegation.</para>
+
+        <para>When this option is used with a non-zero value, the
+        <citerefentry><refentrytitle>systemd-nsresourced.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        Varlink socket (<filename>/run/systemd/io.systemd.NamespaceResource</filename>) is automatically
+        bind-mounted into the container along with the necessary discovery symlinks in
+        <filename>/run/systemd/userdb/</filename> and <filename>/run/varlink/registry/</filename>. This
+        allows processes inside the container to contact
+        <command>systemd-nsresourced</command> on the host in order to allocate nested user namespaces from
+        the delegated ranges.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>-U</option></term>
 
         <listitem><para>If the kernel supports the user namespaces feature, equivalent to
