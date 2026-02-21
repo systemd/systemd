@@ -912,15 +912,20 @@ int dnssec_verify_rrset_search(
                 DNS_ANSWER_FOREACH_FLAGS(dnskey, flags, validated_dnskeys) {
                         DnssecResult one_result;
 
-                        if ((flags & DNS_ANSWER_AUTHENTICATED) == 0)
-                                continue;
-
                         /* Is this a DNSKEY RR that matches they key of our RRSIG? */
                         r = dnssec_rrsig_match_dnskey(rrsig, dnskey, false);
                         if (r < 0)
                                 return r;
                         if (r == 0)
                                 continue;
+
+                        if ((flags & DNS_ANSWER_AUTHENTICATED) == 0) {
+                                /* An unauthenticated DNSKEY in validated_dnskeys is a key we are not able to
+                                 * authenticate, but might still be valid. Record this as an unsupported
+                                 * algorithm so we can still at least report an insecure answer.*/
+                                found_unsupported_algorithm = true;
+                                continue;
+                        }
 
                         /* Take the time here, if it isn't set yet, so
                          * that we do all validations with the same
