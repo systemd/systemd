@@ -4371,6 +4371,12 @@ static int outer_child(
         if (r < 0)
                 return r;
 
+        FOREACH_STRING(dirname, "/run/systemd", "/run/systemd/dissect-root") {
+                r = userns_mkdir(directory, dirname, 0755, 0, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create %s: %m", dirname);
+        }
+
         /* The same stuff as the $container env var, but nicely readable for the entire payload */
         free(p);
         p = path_join(directory, "/run/host/container-manager");
