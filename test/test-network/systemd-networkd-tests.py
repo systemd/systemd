@@ -1529,10 +1529,6 @@ class NetworkctlTests(unittest.TestCase, Utilities):
 
         self.check_networkd_log('test1: Configuring with /run/systemd/network/11-test-unit-file.network (dropins: /run/systemd/network/11-test-unit-file.network.d/dropin.conf).')
 
-        # This test may be run on the system that has older udevd than 70f32a260b5ebb68c19ecadf5d69b3844896ba55 (v249).
-        # In that case, the udev DB for the loopback network interface may already have ID_NET_LINK_FILE property.
-        # Let's reprocess the interface and drop the property.
-        udevadm_trigger('/sys/class/net/lo')
         output = networkctl_status('lo')
         print(output)
         self.assertIn('Link File: n/a', output)
