@@ -3259,6 +3259,12 @@ static int dns_transaction_copy_validated(DnsTransaction *t) {
                 if (DNS_TRANSACTION_IS_LIVE(dt->state))
                         continue;
 
+                /* Some of the validated keys may not be authenticated, but are still useful to report
+                 * insecure answers when the domain is signed only by unsupported algorithms. */
+                r = dns_answer_extend(&t->validated_keys, dt->validated_keys);
+                if (r < 0)
+                        return r;
+
                 if (!FLAGS_SET(dt->answer_query_flags, SD_RESOLVED_AUTHENTICATED))
                         continue;
 
@@ -3478,6 +3484,23 @@ static int dnssec_validate_records(
 
                 /* https://datatracker.ietf.org/doc/html/rfc6840#section-5.2 */
                 if (result == DNSSEC_UNSUPPORTED_ALGORITHM) {
+                        if (rr->key->type == DNS_TYPE_DNSKEY) {
+                                /* This is a DNSKEY we cannot authenticate, but it might still be the best
+                                 * offer from the resolver. Add it to the validated keys in case it's the
+                                 * best we can find, but do not mark it as authenticated.
+                                 */
+
+                                r = dns_answer_copy_by_key(&t->validated_keys, t->answer, rr->key, 0, NULL);
+                                if (r < 0)
+                                        return r;
+
+                                /* Some of the DNSKEYs we just added might already have been revoked,
+                                 * remove them again in that case. */
+                                r = dns_transaction_invalidate_revoked_keys(t);
+                                if (r < 0)
+                                        return r;
+                        }
+
                         r = dns_answer_move_by_key(validated, &t->answer, rr->key, 0, NULL);
                         if (r < 0)
                                 return r;
