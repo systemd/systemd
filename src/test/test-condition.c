@@ -110,6 +110,16 @@ TEST(condition_test_path) {
         ASSERT_OK_ZERO(condition_test(condition, environ));
         condition_free(condition);
 
+        if (access("/run/dbus/system_bus_socket", F_OK) >= 0) {
+                ASSERT_NOT_NULL((condition = condition_new(CONDITION_PATH_IS_SOCKET, "/run/dbus/system_bus_socket", false, false)));
+                ASSERT_OK_POSITIVE(condition_test(condition, environ));
+                condition_free(condition);
+        }
+
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_PATH_IS_SOCKET, "/sys", false, false)));
+        ASSERT_OK_ZERO(condition_test(condition, environ));
+        condition_free(condition);
+
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_PATH_IS_SYMBOLIC_LINK, "/dev/stdout", false, false)));
         ASSERT_OK_POSITIVE(condition_test(condition, environ));
         condition_free(condition);
