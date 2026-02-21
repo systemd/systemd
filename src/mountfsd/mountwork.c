@@ -633,24 +633,76 @@ static int vl_method_mount_image(
         if (r < 0)
                 return r;
 
-        r = dissected_image_decrypt(
-                        di,
-                        /* root= */ NULL,
-                        p.password,
-                        &verity,
-                        use_policy,
-                        dissect_flags);
-        if (r == -ENOKEY) /* new dm-verity userspace returns ENOKEY if the dm-verity signature key is not in
-                           * key chain. That's great. */
-                return sd_varlink_error(link, "io.systemd.MountFileSystem.KeyNotFound", NULL);
-        if (r == -EBUSY) /* DM kernel subsystem is shit with returning useful errors hence we keep retrying
-                          * under the assumption that some errors are transitional. Which the errors might
-                          * not actually be. After all retries failed we return EBUSY. Let's turn that into a
-                          * generic Verity error. It's not very helpful, could mean anything, but at least it
-                          * gives client a clear idea that this has to do with Verity. */
-                return sd_varlink_error(link, "io.systemd.MountFileSystem.VerityFailure", NULL);
-        if (r < 0)
-                return r;
+        for (;;) {
+                use_policy = image_policy_free(use_policy);
+                ps = mfree(ps);
+
+                /* We use the image policy for trusted images if either the path is below a trusted
+                 * directory, or if we have already acquired a PK authentication that tells us that untrusted
+                 * images are OK */
+                bool use_trusted_policy =
+                        image_is_trusted ||
+                        polkit_have_untrusted_action;
+
+                r = determine_image_policy(
+                                image_fd,
+                                use_trusted_policy,
+                                p.image_policy,
+                                &use_policy);
+                if (r < 0)
+                        return r;
+
+                r = image_policy_to_string(use_policy, /* simplify= */ true, &ps);
+                if (r < 0)
+                        return r;
+
+                log_debug("Using image policy: %s", ps);
+
+                r = dissected_image_decrypt(
+                                di,
+                                /* root= */ NULL,
+                                p.password,
+                                &verity,
+                                use_policy,
+                                dissect_flags);
+                if (r == -EDESTADDRREQ) {
+                        /* new dm-verity userspace returns ENOKEY if the dm-verity signature key is not in
+                         * key chain which we mangle to EDESTADDRREQ. That's great. */
+
+                        if (!polkit_have_untrusted_action) {
+                                 log_debug("Missing verity key in kernel and userspace. Trying a stronger polkit authentication before continuing.");
+                                 r = varlink_verify_polkit_async_full(
+                                                 link,
+                                                 /* bus= */ NULL,
+                                                 polkit_untrusted_action,
+                                                 polkit_details,
+                                                 /* good_user= */ UID_INVALID,
+                                                 /* flags= */ 0,                   /* NB: the image cannot be authenticated, hence unless PK is around to allow this anyway, fail! */
+                                                 polkit_registry);
+                                 if (r <= 0 && !ERRNO_IS_NEG_PRIVILEGE(r))
+                                         return r;
+                                 if (r > 0) {
+                                         /* Try again, now that we know the client has enough privileges. */
+                                         log_debug("Missing verity key in kernel and userspace, retrying after polkit authentication.");
+                                         polkit_have_untrusted_action = true;
+                                         continue;
+                                 }
+                         }
+
+                        return sd_varlink_error(link, "io.systemd.MountFileSystem.KeyNotFound", NULL);
+                }
+                if (r == -EBUSY) /* DM kernel subsystem is shit with returning useful errors hence we keep retrying
+                                  * under the assumption that some errors are transitional. Which the errors might
+                                  * not actually be. After all retries failed we return EBUSY. Let's turn that into a
+                                  * generic Verity error. It's not very helpful, could mean anything, but at least it
+                                  * gives client a clear idea that this has to do with Verity. */
+                        return sd_varlink_error(link, "io.systemd.MountFileSystem.VerityFailure", NULL);
+                if (r < 0)
+                        return r;
+
+                /* Success */
+                break;
+        }
 
         r = dissected_image_mount(
                         di,
@@ -1156,29 +1208,59 @@ static int vl_method_mount_directory(
                 uid_t start;
 
                 if (userns_fd >= 0) {
+                        /* Load ranges without coalescing to preserve the 1:1 correspondence
+                         * between inside and outside entries */
                         _cleanup_(uid_range_freep) UIDRange *uid_range_outside = NULL, *uid_range_inside = NULL, *gid_range_outside = NULL, *gid_range_inside = NULL;
-                        r = uid_range_load_userns_by_fd(userns_fd, UID_RANGE_USERNS_OUTSIDE, &uid_range_outside);
+                        r = uid_range_load_userns_by_fd_full(userns_fd, UID_RANGE_USERNS_OUTSIDE, /* coalesce= */ false, &uid_range_outside);
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to load outside UID range of provided userns: %m");
-                        r = uid_range_load_userns_by_fd(userns_fd, UID_RANGE_USERNS_INSIDE, &uid_range_inside);
+
+                        r = uid_range_load_userns_by_fd_full(userns_fd, UID_RANGE_USERNS_INSIDE, /* coalesce= */ false, &uid_range_inside);
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to load inside UID range of provided userns: %m");
-                        r = uid_range_load_userns_by_fd(userns_fd, GID_RANGE_USERNS_OUTSIDE, &gid_range_outside);
+
+                        r = uid_range_load_userns_by_fd_full(userns_fd, GID_RANGE_USERNS_OUTSIDE, /* coalesce= */ false, &gid_range_outside);
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to load outside GID range of provided userns: %m");
-                        r = uid_range_load_userns_by_fd(userns_fd, GID_RANGE_USERNS_INSIDE, &gid_range_inside);
+
+                        r = uid_range_load_userns_by_fd_full(userns_fd, GID_RANGE_USERNS_INSIDE, /* coalesce= */ false, &gid_range_inside);
                         if (r < 0)
                                 return log_debug_errno(r, "Failed to load inside GID range of provided userns: %m");
 
-                        /* Be very strict for now */
+                        /* UID and GID mappings must match */
                         if (!uid_range_equal(uid_range_outside, gid_range_outside) ||
-                            !uid_range_equal(uid_range_inside, gid_range_inside) ||
-                            uid_range_outside->n_entries != 1 ||
-                            uid_range_outside->entries[0].nr != 0x10000 ||
-                            uid_range_inside->n_entries != 1 ||
-                            uid_range_inside->entries[0].start != 0 ||
-                            uid_range_inside->entries[0].nr != 0x10000)
+                            !uid_range_equal(uid_range_inside, gid_range_inside))
                                 return sd_varlink_error_invalid_parameter_name(link, "userNamespaceFileDescriptor");
+
+                        /* Must have at least one entry, and inside/outside must have matching entry counts */
+                        if (uid_range_is_empty(uid_range_outside) ||
+                            uid_range_outside->n_entries != uid_range_inside->n_entries)
+                                return sd_varlink_error_invalid_parameter_name(link, "userNamespaceFileDescriptor");
+
+                        /* The first range must be a root UID in the transient range (i.e. aligned
+                         * to a 64K boundary) and mapped to 0 inside the user namespace (size 65536) */
+                        if (!uid_is_transient(uid_range_outside->entries[0].start) ||
+                            (uid_range_outside->entries[0].start & 0xFFFFU) != 0 ||
+                            uid_range_outside->entries[0].nr != NSRESOURCE_UIDS_64K ||
+                            uid_range_inside->entries[0].start != 0 ||
+                            uid_range_inside->entries[0].nr != NSRESOURCE_UIDS_64K)
+                                return sd_varlink_error_invalid_parameter_name(link, "userNamespaceFileDescriptor");
+
+                        /* All remaining entries must also be root UIDs in the transient range and
+                         * mapped 1:1, which identifies them as delegated ranges. The last entry
+                         * may also be the root UID in the foreign UID range. */
+                        for (size_t i = 1; i < uid_range_outside->n_entries; i++) {
+                                bool is_last = i + 1 == uid_range_outside->n_entries;
+                                uid_t entry_start = uid_range_outside->entries[i].start;
+
+                                if (!(uid_is_transient(entry_start) ||
+                                      (is_last && uid_is_foreign(entry_start))) ||
+                                    (entry_start & 0xFFFFU) != 0 ||
+                                    uid_range_outside->entries[i].nr != NSRESOURCE_UIDS_64K ||
+                                    uid_range_outside->entries[i].start != uid_range_inside->entries[i].start ||
+                                    uid_range_outside->entries[i].nr != uid_range_inside->entries[i].nr)
+                                        return sd_varlink_error_invalid_parameter_name(link, "userNamespaceFileDescriptor");
+                        }
 
                         start = uid_range_outside->entries[0].start;
                 } else
