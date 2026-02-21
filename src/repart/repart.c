@@ -1175,13 +1175,25 @@ static uint64_t partition_max_size(const Context *context, const Partition *p) {
         return MAX(partition_min_size(context, p), sm);
 }
 
-static uint64_t partition_min_padding(const Partition *p) {
+static uint64_t partition_min_padding(const Context *context, const Partition *p) {
         uint64_t override_min;
 
         assert(p);
 
         override_min = p->suppressing ? MAX(p->padding_min, p->suppressing->padding_min) : p->padding_min;
-        return override_min != UINT64_MAX ? override_min : 0;
+        if (override_min != UINT64_MAX)
+                return override_min;
+
+        /* For new verity-sig partitions, add padding to realign the immediately following partition to
+         * the disk's conventional first-LBA alignment (1 MiB on 512-byte-sector disks).
+         * VERITY_SIG_SIZE (16 KiB) is a multiple of the 4 KiB grain but not of 1 MiB, so any partition
+         * placed right after a verity-sig would land at a misaligned offset without this padding. */
+        if (context && !PARTITION_EXISTS(p) &&
+            partition_designator_is_verity_sig(p->type.designator) &&
+            context->start != UINT64_MAX && context->start > 0)
+                return round_up_size(VERITY_SIG_SIZE, context->start) - VERITY_SIG_SIZE;
+
+        return 0;
 }
 
 static uint64_t partition_max_padding(const Partition *p) {
@@ -1199,7 +1211,7 @@ static uint64_t partition_min_size_with_padding(Context *context, const Partitio
         assert(context);
         assert(p);
 
-        sz = partition_min_size(context, p) + partition_min_padding(p);
+        sz = partition_min_size(context, p) + partition_min_padding(context, p);
 
         if (PARTITION_EXISTS(p)) {
                 /* If the partition wasn't aligned, add extra space so that any we might add will be aligned */
@@ -1543,7 +1555,7 @@ static bool context_grow_partitions_phase(
 
                         share = scale_by_weight(*span, padding_weight, *weight_sum);
 
-                        rsz = partition_min_padding(p);
+                        rsz = partition_min_padding(context, p);
                         xsz = partition_max_padding(p);
 
                         if (phase == PHASE_OVERCHARGE && rsz > share) {
@@ -3580,6 +3592,10 @@ static int context_load_fallback_metrics(Context *context) {
 
         context->sector_size = arg_sector_size > 0 ? arg_sector_size : 512;
         context->grain_size = MAX(context->sector_size, 4096U);
+        /* Assume a conventional GPT disk with first usable LBA at sector 2048 so that
+         * partition_min_padding() can compute the correct alignment gap for verity-sig
+         * partitions even before the real partition table is available. */
+        context->start = 2048ULL * context->sector_size;
         context->default_fs_sector_size = arg_sector_size > 0 ? arg_sector_size : DEFAULT_FILESYSTEM_SECTOR_SIZE;
         return 1; /* Starting from scratch */
 }
@@ -3673,6 +3689,10 @@ static int context_load_partition_table(Context *context) {
                         context->sector_size = fdisk_get_sector_size(c);
                         context->default_fs_sector_size = fs_secsz;
                         context->grain_size = MAX(context->sector_size, 4096U);
+                        /* Assume a conventional GPT first usable LBA at sector 2048 so that
+                         * partition_min_padding() can compute the correct alignment gap for
+                         * verity-sig partitions during the first (sizing) pass. */
+                        context->start = 2048ULL * context->sector_size;
                         return /* from_scratch= */ true;
                 }
 
@@ -3702,10 +3722,8 @@ static int context_load_partition_table(Context *context) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Sector size %lu is not a power of two larger than 512? Refusing.", secsz);
 
         /* Use at least 4K, and ensure it's a multiple of the sector size, regardless if that is smaller or
-         * larger */
+         * larger. The actual grain may be bumped up further below once we know the first usable LBA. */
         grainsz = MAX(secsz, 4096U);
-
-        log_debug("Sector size of device is %lu bytes. Using default filesystem sector size of %" PRIu64 " and grain size of %" PRIu64 ".", secsz, fs_secsz, grainsz);
 
         switch (context->empty) {
 
@@ -3915,6 +3933,8 @@ add_initial_free_area:
         first_lba = fdisk_get_first_lba(c);
         assert(first_lba <= UINT64_MAX/secsz);
         first_lba *= secsz;
+
+        log_debug("Sector size of device is %lu bytes. Using default filesystem sector size of %" PRIu64 " and grain size of %" PRIu64 ".", secsz, fs_secsz, grainsz);
 
         last_lba = fdisk_get_last_lba(c);
         assert(last_lba < UINT64_MAX);
