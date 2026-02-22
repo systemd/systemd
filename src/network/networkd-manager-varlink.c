@@ -350,6 +350,38 @@ static int vl_method_describe_link(sd_varlink *vlink, sd_json_variant *parameter
                         SD_JSON_BUILD_PAIR_VARIANT("Interface", v));
 }
 
+static int vl_method_reload(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        assert(vlink);
+
+        if (m->reloading > 0)
+                return sd_varlink_error(vlink, "io.systemd.Network.AlreadyReloading", NULL);
+
+        r = sd_varlink_dispatch(vlink, parameters, dispatch_table_polkit_only, /* userdata= */ NULL);
+        if (r != 0)
+                return r;
+
+        r = varlink_verify_polkit_async(
+                        vlink,
+                        m->bus,
+                        "org.freedesktop.network1.reload",
+                        /* details= */ NULL,
+                        &m->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = manager_reload(m, /* message= */ NULL, vlink);
+        if (r < 0)
+                return r;
+
+        if (m->reloading > 0)
+                return 0; /* Reply will be sent asynchronously. */
+
+        return sd_varlink_reply(vlink, NULL);
+}
+
 static int vl_method_reconfigure_link(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
         Link *link;
@@ -481,6 +513,7 @@ int manager_varlink_init(Manager *m, int fd) {
                         "io.systemd.Network.DescribeLink",         vl_method_describe_link,
                         "io.systemd.Network.ForceRenewLink",       vl_method_force_renew_link,
                         "io.systemd.Network.ReconfigureLink",      vl_method_reconfigure_link,
+                        "io.systemd.Network.Reload",               vl_method_reload,
                         "io.systemd.Network.RenewLink",            vl_method_renew_link,
                         "io.systemd.Network.GetStates",            vl_method_get_states,
                         "io.systemd.Network.GetNamespaceId",       vl_method_get_namespace_id,
