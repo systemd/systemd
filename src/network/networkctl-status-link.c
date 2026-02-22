@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "sd-bus.h"
 #include "sd-device.h"
 #include "sd-dhcp-client-id.h"
 #include "sd-dhcp-lease.h"
@@ -12,8 +11,6 @@
 #include "alloc-util.h"
 #include "bond-util.h"
 #include "bridge-util.h"
-#include "bus-error.h"
-#include "bus-util.h"
 #include "errno-util.h"
 #include "escape.h"
 #include "extract-word.h"
@@ -21,7 +18,9 @@
 #include "format-util.h"
 #include "geneve-util.h"
 #include "glyph-util.h"
+#include "iovec-util.h"
 #include "ipvlan-util.h"
+#include "json-util.h"
 #include "macvlan-util.h"
 #include "netif-util.h"
 #include "network-internal.h"
@@ -40,87 +39,58 @@
 #include "time-util.h"
 #include "udev-util.h"
 
-static int dump_dhcp_leases(Table *table, const char *prefix, sd_bus *bus, const LinkInfo *link) {
+typedef struct LeaseInfo {
+        const char *address;
+        struct iovec client_id;
+} LeaseInfo;
+
+static void lease_info_done(LeaseInfo *p) {
+        assert(p);
+
+        iovec_done(&p->client_id);
+}
+
+static int dump_dhcp_leases(Table *table, const char *prefix, const LinkInfo *link) {
         _cleanup_strv_free_ char **buf = NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(table);
         assert(prefix);
-        assert(bus);
         assert(link);
 
-        r = link_get_property(bus, link->ifindex, &error, &reply, "org.freedesktop.network1.DHCPServer", "Leases", "a(uayayayayt)");
-        if (r < 0) {
-                bool quiet = sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_PROPERTY);
-
-                log_full_errno(quiet ? LOG_DEBUG : LOG_WARNING,
-                               r, "Failed to query link DHCP leases: %s", bus_error_message(&error, r));
+        sd_json_variant *leases;
+        r = json_variant_find_object(link->description, STRV_MAKE("Interfaces", "DHCPServer", "Leases"), &leases);
+        if (r == -ENODATA)
                 return 0;
-        }
-
-        r = sd_bus_message_enter_container(reply, 'a', "(uayayayayt)");
         if (r < 0)
-                return bus_log_parse_error(r);
+                return r;
 
-        while ((r = sd_bus_message_enter_container(reply, 'r', "uayayayayt")) > 0) {
-                _cleanup_free_ char *id = NULL, *ip = NULL;
-                const void *client_id, *addr, *gtw, *hwaddr;
-                size_t client_id_sz, sz;
-                uint64_t expiration;
-                uint32_t family;
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "AddressString", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string,  offsetof(LeaseInfo, address),   SD_JSON_MANDATORY },
+                { "ClientId",      SD_JSON_VARIANT_ARRAY,  json_dispatch_byte_array_iovec, offsetof(LeaseInfo, client_id), 0                 },
+                {}
+        };
 
-                r = sd_bus_message_read(reply, "u", &family);
+        sd_json_variant *lease;
+        JSON_VARIANT_ARRAY_FOREACH(lease, leases) {
+                _cleanup_(lease_info_done) LeaseInfo info = {};
+                _cleanup_free_ char *client_id = NULL;
+
+                r = sd_json_dispatch(lease, dispatch_table, SD_JSON_LOG | SD_JSON_WARNING | SD_JSON_ALLOW_EXTENSIONS, &info);
                 if (r < 0)
-                        return bus_log_parse_error(r);
+                        continue;
 
-                r = sd_bus_message_read_array(reply, 'y', &client_id, &client_id_sz);
-                if (r < 0)
-                        return bus_log_parse_error(r);
+                if (info.client_id.iov_len > 0)
+                        (void) sd_dhcp_client_id_to_string_from_raw(info.client_id.iov_base, info.client_id.iov_len, &client_id);
 
-                r = sd_bus_message_read_array(reply, 'y', &addr, &sz);
-                if (r < 0 || sz != 4)
-                        return bus_log_parse_error(r);
-
-                r = sd_bus_message_read_array(reply, 'y', &gtw, &sz);
-                if (r < 0 || sz != 4)
-                        return bus_log_parse_error(r);
-
-                r = sd_bus_message_read_array(reply, 'y', &hwaddr, &sz);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                r = sd_bus_message_read_basic(reply, 't', &expiration);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                r = sd_dhcp_client_id_to_string_from_raw(client_id, client_id_sz, &id);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                r = in_addr_to_string(family, addr, &ip);
-                if (r < 0)
-                        return bus_log_parse_error(r);
-
-                r = strv_extendf(&buf, "%s (to %s)", ip, id);
+                r = strv_extendf(&buf, "%s%s%s%s",
+                                 info.address,
+                                 client_id ? " (to " : "",
+                                 strempty(client_id),
+                                 client_id ? ")" : "");
                 if (r < 0)
                         return log_oom();
-
-                r = sd_bus_message_exit_container(reply);
-                if (r < 0)
-                        return bus_log_parse_error(r);
         }
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        r = sd_bus_message_exit_container(reply);
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        r = sd_bus_message_exit_container(reply);
-        if (r < 0)
-                return bus_log_parse_error(r);
 
         if (strv_isempty(buf)) {
                 r = strv_extendf(&buf, "none");
@@ -259,7 +229,6 @@ static int format_config_files(char ***files, const char *main_config) {
 }
 
 static int link_status_one(
-                sd_bus *bus,
                 sd_netlink *rtnl,
                 sd_hwdb *hwdb,
                 sd_varlink *vl,
@@ -276,7 +245,6 @@ static int link_status_one(
         _cleanup_(table_unrefp) Table *table = NULL;
         int r;
 
-        assert(bus);
         assert(rtnl);
         assert(vl);
         assert(info);
@@ -919,7 +887,7 @@ static int link_status_one(
         if (r < 0)
                 return r;
 
-        r = dump_dhcp_leases(table, "Offered DHCP leases", bus, info);
+        r = dump_dhcp_leases(table, "Offered DHCP leases", info);
         if (r < 0)
                 return r;
 
@@ -940,7 +908,6 @@ static int link_status_one(
 }
 
 int link_status(int argc, char *argv[], void *userdata) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *vl = NULL;
@@ -949,10 +916,6 @@ int link_status(int argc, char *argv[], void *userdata) {
 
         r = dump_description(argc, argv);
         if (r != 0)
-                return r;
-
-        r = acquire_bus(&bus);
-        if (r < 0)
                 return r;
 
         pager_open(arg_pager_flags);
@@ -970,11 +933,11 @@ int link_status(int argc, char *argv[], void *userdata) {
                 return r;
 
         if (arg_all)
-                c = acquire_link_info(bus, rtnl, NULL, &links);
+                c = acquire_link_info(vl, rtnl, NULL, &links);
         else if (argc <= 1)
                 return system_status(rtnl, hwdb);
         else
-                c = acquire_link_info(bus, rtnl, argv + 1, &links);
+                c = acquire_link_info(vl, rtnl, argv + 1, &links);
         if (c < 0)
                 return c;
 
@@ -985,7 +948,7 @@ int link_status(int argc, char *argv[], void *userdata) {
                 if (!first)
                         putchar('\n');
 
-                RET_GATHER(r, link_status_one(bus, rtnl, hwdb, vl, i));
+                RET_GATHER(r, link_status_one(rtnl, hwdb, vl, i));
 
                 first = false;
         }
