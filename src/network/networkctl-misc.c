@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "sd-bus.h"
 #include "sd-netlink.h"
 
-#include "bus-error.h"
-#include "bus-locator.h"
 #include "bus-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -126,21 +123,7 @@ int link_varlink_simple_method(int argc, char *argv[], void *userdata) {
 }
 
 int verb_reload(int argc, char *argv[], void *userdata) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        int r;
-
-        r = acquire_bus(&bus);
-        if (r < 0)
-                return r;
-
-        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
-
-        r = bus_call_method(bus, bus_network_mgr, "Reload", &error, NULL, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to reload network settings: %s", bus_error_message(&error, r));
-
-        return 0;
+        return reload_networkd();
 }
 
 int verb_persistent_storage(int argc, char *argv[], void *userdata) {
