@@ -102,6 +102,10 @@ int sd_dhcp_server_configure_pool(
                 server->subnet = address->s_addr & netmask;
         }
 
+        log_dhcp_server(server, "Configured %s pool: " IPV4_ADDRESS_FMT_STR "/%u, offset %" PRIu32 ", size %" PRIu32,
+                        in4_addr_is_link_local(address) ? "link-local" : "address",
+                        IPV4_ADDRESS_FMT_VAL(*address), prefixlen, offset, size);
+
         return 0;
 }
 
@@ -698,12 +702,12 @@ static int server_send_offer_or_ack(
          * the option was not present in the Parameter Request List sent by the client. */
         if (dhcp_request_contains(req, SD_DHCP_OPTION_IPV6_ONLY_PREFERRED) &&
             server->ipv6_only_preferred_usec > 0) {
-                be32_t sec = usec_to_be32_sec(server->ipv6_only_preferred_usec);
+                be32_t hex = usec_to_be32_sec(server->ipv6_only_preferred_usec);
 
                 r = dhcp_option_append(
                                 &packet->dhcp, req->max_optlen, &offset, 0,
                                 SD_DHCP_OPTION_IPV6_ONLY_PREFERRED,
-                                sizeof(sec), &sec);
+                                sizeof(hex), &hex);
                 if (r < 0)
                         return r;
         }
