@@ -1,0 +1,6 @@
+[Match]
+Name=veth-peer
+
+[Network]
+Address=169.254.10.1/24
+DHCPServer=yes
