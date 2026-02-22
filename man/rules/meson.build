@@ -1280,7 +1280,6 @@ manpages = [
  ['systemd-udevd.service',
   '8',
   ['systemd-udevd',
-   'systemd-udevd-control.socket',
    'systemd-udevd-kernel.socket',
    'systemd-udevd-varlink.socket'],
   ''],
