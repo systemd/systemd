@@ -418,8 +418,8 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Receive bitrate in bits per second"),
                 SD_VARLINK_DEFINE_FIELD(RxBitRate, SD_VARLINK_INT, 0));
 
-static SD_VARLINK_DEFINE_STRUCT_TYPE(
-                Interface,
+SD_VARLINK_DEFINE_STRUCT_TYPE(
+                NetworkInterface,
                 SD_VARLINK_FIELD_COMMENT("Network interface index"),
                 SD_VARLINK_DEFINE_FIELD(Index, SD_VARLINK_INT, 0),
                 SD_VARLINK_FIELD_COMMENT("Primary interface name"),
@@ -547,7 +547,7 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
 static SD_VARLINK_DEFINE_METHOD(
                 Describe,
                 SD_VARLINK_FIELD_COMMENT("All network interfaces managed by systemd-networkd"),
-                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(Interfaces, Interface, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(Interfaces, NetworkInterface, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("All configured next hops for multipath routing"),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(NextHops, NextHop, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("All configured routes across all interfaces"),
@@ -625,13 +625,13 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_DNSSECNegativeTrustAnchor,
                 &vl_type_DNSSetting,
                 &vl_type_Domain,
-                &vl_type_Interface,
                 &vl_type_LinkState,
                 &vl_type_LinkAddressState,
                 &vl_type_LinkOnlineState,
                 &vl_type_LinkRequiredAddressFamily,
                 &vl_type_LLDPNeighbor,
                 &vl_type_LLDPNeighborsByInterface,
+                &vl_type_NetworkInterface,
                 &vl_type_NDisc,
                 &vl_type_Neighbor,
                 &vl_type_NextHop,
