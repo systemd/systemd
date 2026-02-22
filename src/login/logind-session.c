@@ -9,6 +9,7 @@
 #include <unistd.h>
 
 #include "sd-bus.h"
+#include "sd-device.h"
 #include "sd-event.h"
 #include "sd-messages.h"
 #include "sd-varlink.h"
@@ -18,6 +19,7 @@
 #include "bus-error.h"
 #include "bus-util.h"
 #include "daemon-util.h"
+#include "device-util.h"
 #include "devnum-util.h"
 #include "env-file.h"
 #include "errno-util.h"
@@ -43,6 +45,7 @@
 #include "process-util.h"
 #include "serialize.h"
 #include "string-table.h"
+#include "strv.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
 #include "user-record.h"
@@ -195,7 +198,7 @@ Session* session_free(Session *s) {
 
         free(s->scope_job);
 
-        session_reset_leader(s, /* keep_fdstore = */ true);
+        session_reset_leader(s, /* keep_fdstore= */ true);
 
         sd_bus_message_unref(s->create_message);
         sd_bus_message_unref(s->upgrade_message);
@@ -208,6 +211,7 @@ Session* session_free(Session *s) {
         free(s->remote_user);
         free(s->service);
         free(s->desktop);
+        strv_free(s->extra_device_access);
 
         hashmap_remove(s->manager->sessions, s->id);
 
@@ -239,7 +243,7 @@ int session_set_leader_consume(Session *s, PidRef _leader) {
         if (pidref_equal(&s->leader, &pidref))
                 return 0;
 
-        session_reset_leader(s, /* keep_fdstore = */ false);
+        session_reset_leader(s, /* keep_fdstore= */ false);
 
         s->leader = TAKE_PIDREF(pidref);
 
@@ -274,6 +278,59 @@ static void session_save_devices(Session *s, FILE *f) {
                         fprintf(f, DEVNUM_FORMAT_STR " ", DEVNUM_FORMAT_VAL(sd->dev));
                 fprintf(f, "\n");
         }
+}
+
+static int trigger_xaccess(char * const *extra_devices) {
+        int r;
+
+        if (strv_isempty(extra_devices))
+                return 0;
+
+        _cleanup_strv_free_ char **tags = NULL;
+        r = strv_extend_strv_biconcat(&tags, "xaccess-", (const char * const *)extra_devices, /* suffix= */ NULL);
+        if (r < 0)
+                return r;
+
+        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        r = sd_device_enumerator_new(&e);
+        if (r < 0)
+                return r;
+
+        STRV_FOREACH(tag, tags) {
+                r = sd_device_enumerator_add_match_tag(e, *tag);
+                if (r < 0)
+                        return r;
+        }
+
+        FOREACH_DEVICE(e, d) {
+                /* Verify that the tag is still in place. */
+                bool has_xaccess = false;
+                STRV_FOREACH(tag, tags)
+                        if (sd_device_has_current_tag(d, *tag)) {
+                                has_xaccess = true;
+                                break;
+                        }
+                if (!has_xaccess)
+                        continue;
+
+                /* In case people mistag devices without nodes, we need to ignore this. */
+                r = sd_device_get_devname(d, NULL);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0)
+                        return r;
+
+                sd_id128_t uuid;
+                r = sd_device_trigger_with_uuid(d, SD_DEVICE_CHANGE, &uuid);
+                if (r < 0) {
+                        log_device_debug_errno(d, r, "Failed to trigger 'change' event, ignoring: %m");
+                        continue;
+                }
+
+                log_device_debug(d, "Triggered synthetic event (ACTION=change, UUID=%s).", SD_ID128_TO_UUID_STRING(uuid));
+        }
+
+        return 0;
 }
 
 int session_save(Session *s) {
@@ -370,6 +427,13 @@ int session_save(Session *s) {
                 session_save_devices(s, f);
         }
 
+        if (s->extra_device_access) {
+                _cleanup_free_ char *extra_devices = strv_join(s->extra_device_access, " ");
+                if (!extra_devices)
+                        return log_oom();
+                fprintf(f, "EXTRA_DEVICE_ACCESS=%s\n", extra_devices);
+        }
+
         r = flink_tmpfile(f, temp_path, s->state_file, LINK_TMPFILE_REPLACE);
         if (r < 0)
                 return log_error_errno(r, "Failed to move '%s' into place: %m", s->state_file);
@@ -401,7 +465,7 @@ static int session_load_devices(Session *s, const char *devices) {
                 }
 
                 /* The file descriptors for loaded devices will be reattached later. */
-                RET_GATHER(r, session_device_new(s, dev, /* open_device = */ false, /* ret = */ NULL));
+                RET_GATHER(r, session_device_new(s, dev, /* open_device= */ false, /* ret= */ NULL));
         }
 
         if (r < 0)
@@ -453,6 +517,7 @@ static int session_load_leader(Session *s, uint64_t pidfdid) {
 
 int session_load(Session *s) {
         _cleanup_free_ char *remote = NULL,
+                *extra_device_access = NULL,
                 *seat = NULL,
                 *tty_validity = NULL,
                 *vtnr = NULL,
@@ -478,34 +543,35 @@ int session_load(Session *s) {
         assert(s);
 
         r = parse_env_file(NULL, s->state_file,
-                           "REMOTE",          &remote,
-                           "SCOPE",           &s->scope,
-                           "SCOPE_JOB",       &s->scope_job,
-                           "FIFO",            &fifo_path,
-                           "SEAT",            &seat,
-                           "TTY",             &s->tty,
-                           "TTY_VALIDITY",    &tty_validity,
-                           "DISPLAY",         &s->display,
-                           "REMOTE_HOST",     &s->remote_host,
-                           "REMOTE_USER",     &s->remote_user,
-                           "SERVICE",         &s->service,
-                           "DESKTOP",         &s->desktop,
-                           "VTNR",            &vtnr,
-                           "STATE",           &state,
-                           "POSITION",        &position,
-                           "LEADER",          &leader_pid,
-                           "LEADER_FD_SAVED", &leader_fd_saved,
-                           "LEADER_PIDFDID",  &leader_pidfdid,
-                           "TYPE",            &type,
-                           "ORIGINAL_TYPE",   &original_type,
-                           "CLASS",           &class,
-                           "UID",             &uid,
-                           "REALTIME",        &realtime,
-                           "MONOTONIC",       &monotonic,
-                           "CONTROLLER",      &controller,
-                           "ACTIVE",          &active,
-                           "DEVICES",         &devices,
-                           "IS_DISPLAY",      &is_display);
+                           "REMOTE",              &remote,
+                           "EXTRA_DEVICE_ACCESS", &extra_device_access,
+                           "SCOPE",               &s->scope,
+                           "SCOPE_JOB",           &s->scope_job,
+                           "FIFO",                &fifo_path,
+                           "SEAT",                &seat,
+                           "TTY",                 &s->tty,
+                           "TTY_VALIDITY",        &tty_validity,
+                           "DISPLAY",             &s->display,
+                           "REMOTE_HOST",         &s->remote_host,
+                           "REMOTE_USER",         &s->remote_user,
+                           "SERVICE",             &s->service,
+                           "DESKTOP",             &s->desktop,
+                           "VTNR",                &vtnr,
+                           "STATE",               &state,
+                           "POSITION",            &position,
+                           "LEADER",              &leader_pid,
+                           "LEADER_FD_SAVED",     &leader_fd_saved,
+                           "LEADER_PIDFDID",      &leader_pidfdid,
+                           "TYPE",                &type,
+                           "ORIGINAL_TYPE",       &original_type,
+                           "CLASS",               &class,
+                           "UID",                 &uid,
+                           "REALTIME",            &realtime,
+                           "MONOTONIC",           &monotonic,
+                           "CONTROLLER",          &controller,
+                           "ACTIVE",              &active,
+                           "DEVICES",             &devices,
+                           "IS_DISPLAY",          &is_display);
         if (r < 0)
                 return log_error_errno(r, "Failed to read %s: %m", s->state_file);
 
@@ -537,6 +603,12 @@ int session_load(Session *s) {
                 k = parse_boolean(remote);
                 if (k >= 0)
                         s->remote = k;
+        }
+
+        if (extra_device_access) {
+                s->extra_device_access = strv_split(extra_device_access, /* separators= */ NULL);
+                if (!s->extra_device_access)
+                        return log_oom();
         }
 
         if (vtnr)
@@ -728,18 +800,18 @@ static int session_start_scope(Session *s, sd_bus_message *properties, sd_bus_er
                         s->manager,
                         scope,
                         &s->leader,
-                        /* allow_pidfd = */ true,
+                        /* allow_pidfd= */ true,
                         s->user->slice,
                         description,
                         /* These should have been pulled in explicitly in user_start(). Just to be sure. */
-                        /* requires = */ STRV_MAKE_CONST(s->user->runtime_dir_unit),
-                        /* wants = */ STRV_MAKE_CONST(SESSION_CLASS_WANTS_SERVICE_MANAGER(s->class) ? s->user->service_manager_unit : NULL),
+                        /* requires= */ STRV_MAKE_CONST(s->user->runtime_dir_unit),
+                        /* wants= */ STRV_MAKE_CONST(SESSION_CLASS_WANTS_SERVICE_MANAGER(s->class) ? s->user->service_manager_unit : NULL),
                         /* We usually want to order session scopes after systemd-user-sessions.service
                          * since the unit is used as login session barrier for unprivileged users. However
                          * the barrier doesn't apply for root as sysadmin should always be able to log in
                          * (and without waiting for any timeout to expire) in case something goes wrong
                          * during the boot process. */
-                        /* extra_after = */ STRV_MAKE_CONST("systemd-logind.service",
+                        /* extra_after= */ STRV_MAKE_CONST("systemd-logind.service",
                                                             SESSION_CLASS_IS_EARLY(s->class) ? NULL : "systemd-user-sessions.service"),
                         user_record_home_directory(s->user->user_record),
                         properties,
@@ -770,7 +842,7 @@ static int session_dispatch_stop_on_idle(sd_event_source *source, uint64_t t, vo
         if (idle) {
                 log_info("Session \"%s\" of user \"%s\" is idle, stopping.", s->id, s->user->user_record->user_name);
 
-                return session_stop(s, /* force = */ true);
+                return session_stop(s, /* force= */ true);
         }
 
         r = sd_event_source_set_time(
@@ -863,6 +935,8 @@ int session_start(Session *s, sd_bus_message *properties, sd_bus_error *error) {
         if (s->seat)
                 (void) seat_save(s->seat);
 
+        (void) trigger_xaccess(s->extra_device_access);
+
         /* Send signals */
         (void) session_send_signal(s, true);
         (void) user_send_changed(s->user, "Display");
@@ -953,6 +1027,8 @@ int session_stop(Session *s, bool force) {
         (void) session_save(s);
         (void) user_save(s->user);
 
+        (void) trigger_xaccess(s->extra_device_access);
+
         return r;
 }
 
@@ -997,7 +1073,7 @@ int session_finalize(Session *s) {
                 seat_save(s->seat);
         }
 
-        session_reset_leader(s, /* keep_fdstore = */ false);
+        session_reset_leader(s, /* keep_fdstore= */ false);
 
         (void) user_save(s->user);
         (void) user_send_changed(s->user, "Display");
@@ -1010,7 +1086,7 @@ static int release_timeout_callback(sd_event_source *es, uint64_t usec, void *us
 
         assert(es);
 
-        session_stop(s, /* force = */ false);
+        session_stop(s, /* force= */ false);
         return 0;
 }
 
@@ -1360,7 +1436,7 @@ static int session_prepare_vt(Session *s) {
         if (s->vtnr < 1)
                 return 0;
 
-        vt = session_open_vt(s, /* reopen = */ false);
+        vt = session_open_vt(s, /* reopen= */ false);
         if (vt < 0)
                 return vt;
 
@@ -1426,7 +1502,7 @@ static void session_restore_vt(Session *s) {
                 /* We do a little dance to avoid having the terminal be available
                  * for reuse before we've cleaned it up. */
 
-                int fd = session_open_vt(s, /* reopen = */ true);
+                int fd = session_open_vt(s, /* reopen= */ true);
                 if (fd >= 0)
                         r = vt_restore(fd);
         }
@@ -1456,13 +1532,13 @@ void session_leave_vt(Session *s) {
                 return;
 
         session_device_pause_all(s);
-        r = vt_release(s->vtfd, /* restore = */ false);
+        r = vt_release(s->vtfd, /* restore= */ false);
         if (r == -EIO) {
                 /* Handle the same VT hung-up case as in session_restore_vt */
 
-                int fd = session_open_vt(s, /* reopen = */ true);
+                int fd = session_open_vt(s, /* reopen= */ true);
                 if (fd >= 0)
-                        r = vt_release(fd, /* restore = */ false);
+                        r = vt_release(fd, /* restore= */ false);
         }
         if (r < 0)
                 log_debug_errno(r, "Cannot release VT of session %s: %m", s->id);

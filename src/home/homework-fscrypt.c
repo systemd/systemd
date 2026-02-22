@@ -71,12 +71,10 @@ static int fscrypt_unlink_key(UserRecord *h) {
                 char *d;
 
                 r = keyring_describe(*key, &description);
-                if (r < 0) {
-                        if (r == -ENOKEY) /* Something else deleted it already, that's ok. */
-                                continue;
-
+                if (r == -ENOKEY) /* Something else deleted it already, that's ok. */
+                        continue;
+                if (r < 0)
                         return log_error_errno(r, "Failed to describe key id %d: %m", *key);
-                }
 
                 /* The description is the final element as per manpage. */
                 d = strrchr(description, ';');
@@ -117,9 +115,10 @@ int home_flush_keyring_fscrypt(UserRecord *h) {
         if (!uid_is_valid(h->uid))
                 return 0;
 
-        r = safe_fork("(sd-delkey)",
-                      FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT|FORK_REOPEN_LOG,
-                      NULL);
+        r = pidref_safe_fork(
+                        "(sd-delkey)",
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT|FORK_REOPEN_LOG,
+                        /* ret= */ NULL);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -338,11 +337,11 @@ static int fscrypt_setup(
                 if (!e)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "xattr %s lacks ':' separator.", xa);
 
-                r = unbase64mem_full(value, e - value, /* secure = */ false, &salt, &salt_size);
+                r = unbase64mem_full(value, e - value, /* secure= */ false, &salt, &salt_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to decode salt of %s: %m", xa);
 
-                r = unbase64mem_full(e + 1, vsize - (e - value) - 1, /* secure = */ false, &encrypted, &encrypted_size);
+                r = unbase64mem_full(e + 1, vsize - (e - value) - 1, /* secure= */ false, &encrypted, &encrypted_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to decode encrypted key of %s: %m", xa);
 
@@ -411,9 +410,10 @@ int home_setup_fscrypt(
         /* Also install the access key in the user's own keyring */
 
         if (uid_is_valid(h->uid)) {
-                r = safe_fork("(sd-addkey)",
-                              FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT|FORK_REOPEN_LOG,
-                              NULL);
+                r = pidref_safe_fork(
+                                "(sd-addkey)",
+                                FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT|FORK_REOPEN_LOG,
+                                /* ret= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to install encryption key in user's keyring: %m");
                 if (r == 0) {

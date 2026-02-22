@@ -12,6 +12,7 @@
 #include "sd-daemon.h"
 #include "sd-event.h"
 #include "sd-id128.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "architecture.h"
@@ -62,7 +63,9 @@
 #include "random-util.h"
 #include "rm-rf.h"
 #include "signal-util.h"
+#include "snapshot-util.h"
 #include "socket-util.h"
+#include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -83,7 +86,7 @@
 
 typedef enum TpmStateMode {
         TPM_STATE_OFF,      /* keep no state around */
-        TPM_STATE_AUTO,     /* keep state around, derive path from image/directory */
+        TPM_STATE_AUTO,     /* keep state around if not ephemeral, derive path from image/directory */
         TPM_STATE_PATH,     /* explicitly specified location */
         _TPM_STATE_MODE_MAX,
         _TPM_STATE_MODE_INVALID = -EINVAL,
@@ -104,6 +107,7 @@ static bool arg_quiet = false;
 static PagerFlags arg_pager_flags = 0;
 static char *arg_directory = NULL;
 static char *arg_image = NULL;
+static ImageFormat arg_image_format = IMAGE_FORMAT_RAW;
 static char *arg_machine = NULL;
 static char *arg_slice = NULL;
 static char **arg_property = NULL;
@@ -123,12 +127,11 @@ static uid_t arg_uid_shift = UID_INVALID, arg_uid_range = 0x10000U;
 static RuntimeMountContext arg_runtime_mounts = {};
 static char *arg_firmware = NULL;
 static char *arg_forward_journal = NULL;
-static bool arg_privileged = false;
 static bool arg_register = true;
 static bool arg_keep_unit = false;
 static sd_id128_t arg_uuid = {};
 static char **arg_kernel_cmdline_extra = NULL;
-static char **arg_extra_drives = NULL;
+static ExtraDriveContext arg_extra_drives = {};
 static char *arg_background = NULL;
 static bool arg_pass_ssh_key = true;
 static char *arg_ssh_key_type = NULL;
@@ -144,6 +147,8 @@ static char **arg_bind_user = NULL;
 static char *arg_bind_user_shell = NULL;
 static bool arg_bind_user_shell_copy = false;
 static char **arg_bind_user_groups = NULL;
+static bool arg_ephemeral = false;
+static RuntimeScope arg_runtime_scope = _RUNTIME_SCOPE_INVALID;
 
 STATIC_DESTRUCTOR_REGISTER(arg_directory, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -157,7 +162,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_initrds, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_runtime_mounts, runtime_mount_context_done);
 STATIC_DESTRUCTOR_REGISTER(arg_forward_journal, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_kernel_cmdline_extra, strv_freep);
-STATIC_DESTRUCTOR_REGISTER(arg_extra_drives, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_extra_drives, extra_drive_context_done);
 STATIC_DESTRUCTOR_REGISTER(arg_background, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_ssh_key_type, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_smbios11, strv_freep);
@@ -184,9 +189,13 @@ static int help(void) {
                "  -q --quiet               Do not show status information\n"
                "     --no-pager            Do not pipe output into a pager\n"
                "     --no-ask-password     Do not prompt for password\n"
+               "     --user                Interact with user manager\n"
+               "     --system              Interact with system manager\n"
                "\n%3$sImage:%4$s\n"
                "  -D --directory=PATH      Root directory for the VM\n"
+               "  -x --ephemeral           Run VM with snapshot of the disk or directory\n"
                "  -i --image=FILE|DEVICE   Root file system disk image or device for the VM\n"
+               "     --image-format=FORMAT Specify disk image format (raw, qcow2; default: raw)\n"
                "\n%3$sHost Configuration:%4$s\n"
                "     --cpus=CPUS           Configure number of CPUs in guest\n"
                "     --ram=BYTES           Configure guest's RAM size\n"
@@ -225,7 +234,9 @@ static int help(void) {
                "                           Mount a file or directory from the host into the VM\n"
                "     --bind-ro=SOURCE[:TARGET]\n"
                "                           Mount a file or directory, but read-only\n"
-               "     --extra-drive=PATH    Adds an additional disk to the virtual machine\n"
+               "     --extra-drive=PATH[:FORMAT]\n"
+               "                           Adds an additional disk to the virtual machine\n"
+               "                           (format: raw, qcow2; default: raw)\n"
                "     --bind-user=NAME       Bind user from host to virtual machine\n"
                "     --bind-user-shell=BOOL|PATH\n"
                "                            Configure the shell to use for --bind-user= users\n"
@@ -308,6 +319,9 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_BIND_USER,
                 ARG_BIND_USER_SHELL,
                 ARG_BIND_USER_GROUP,
+                ARG_SYSTEM,
+                ARG_USER,
+                ARG_IMAGE_FORMAT,
         };
 
         static const struct option options[] = {
@@ -316,6 +330,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "quiet",             no_argument,       NULL, 'q'                   },
                 { "no-pager",          no_argument,       NULL, ARG_NO_PAGER          },
                 { "image",             required_argument, NULL, 'i'                   },
+                { "image-format",      required_argument, NULL, ARG_IMAGE_FORMAT      },
+                { "ephemeral",         no_argument,       NULL, 'x'                   },
                 { "directory",         required_argument, NULL, 'D'                   },
                 { "machine",           required_argument, NULL, 'M'                   },
                 { "slice",             required_argument, NULL, 'S'                   },
@@ -360,6 +376,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "bind-user",         required_argument, NULL, ARG_BIND_USER         },
                 { "bind-user-shell",   required_argument, NULL, ARG_BIND_USER_SHELL   },
                 { "bind-user-group",   required_argument, NULL, ARG_BIND_USER_GROUP   },
+                { "system",            no_argument,       NULL, ARG_SYSTEM            },
+                { "user",              no_argument,       NULL, ARG_USER              },
                 {}
         };
 
@@ -369,7 +387,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argv);
 
         optind = 0;
-        while ((c = getopt_long(argc, argv, "+hD:i:M:nqs:G:S:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "+hD:i:xM:nqs:G:S:", options, NULL)) >= 0)
                 switch (c) {
                 case 'h':
                         return help();
@@ -395,6 +413,13 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_IMAGE_FORMAT:
+                        arg_image_format = image_format_from_string(optarg);
+                        if (arg_image_format < 0)
+                                return log_error_errno(arg_image_format,
+                                                       "Invalid image format: %s", optarg);
+                        break;
+
                 case 'M':
                         if (isempty(optarg))
                                 arg_machine = mfree(arg_machine);
@@ -407,6 +432,10 @@ static int parse_argv(int argc, char *argv[]) {
                                 if (r < 0)
                                         return log_oom();
                         }
+                        break;
+
+                case 'x':
+                        arg_ephemeral = true;
                         break;
 
                 case ARG_NO_PAGER:
@@ -426,15 +455,15 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_KVM:
-                        r = parse_tristate(optarg, &arg_kvm);
+                        r = parse_tristate_argument_with_auto("--kvm=", optarg, &arg_kvm);
                         if (r < 0)
-                            return log_error_errno(r, "Failed to parse --kvm=%s: %m", optarg);
+                                return r;
                         break;
 
                 case ARG_VSOCK:
-                        r = parse_tristate(optarg, &arg_vsock);
+                        r = parse_tristate_argument_with_auto("--vsock=", optarg, &arg_vsock);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --vsock=%s: %m", optarg);
+                                return r;
                         break;
 
                 case ARG_VSOCK_CID:
@@ -454,9 +483,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_TPM:
-                        r = parse_tristate(optarg, &arg_tpm);
+                        r = parse_tristate_argument_with_auto("--tpm=", optarg, &arg_tpm);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --tpm=%s: %m", optarg);
+                                return r;
                         break;
 
                 case ARG_LINUX:
@@ -526,22 +555,41 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_EXTRA_DRIVE: {
-                        _cleanup_free_ char *drive_path = NULL;
+                        _cleanup_free_ char *buf = NULL, *drive_path = NULL;
+                        ImageFormat format = IMAGE_FORMAT_RAW;
 
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &drive_path);
+                        const char *colon = strrchr(optarg, ':');
+                        if (colon) {
+                                ImageFormat f = image_format_from_string(colon + 1);
+                                if (f < 0)
+                                        log_debug_errno(f, "Failed to parse image format '%s', assuming it is a part of path, ignoring: %m", colon + 1);
+                                else {
+                                        format = f;
+                                        buf = strndup(optarg, colon - optarg);
+                                        if (!buf)
+                                                return log_oom();
+                                }
+                        }
+
+                        r = parse_path_argument(buf ?: optarg, /* suppress_root= */ false, &drive_path);
                         if (r < 0)
                                 return r;
 
-                        r = strv_consume(&arg_extra_drives, TAKE_PTR(drive_path));
-                        if (r < 0)
+                        if (!GREEDY_REALLOC(arg_extra_drives.drives, arg_extra_drives.n_drives + 1))
                                 return log_oom();
+
+                        arg_extra_drives.drives[arg_extra_drives.n_drives++] = (ExtraDrive) {
+                                .path = TAKE_PTR(drive_path),
+                                .format = format,
+                        };
+
                         break;
                 }
 
                 case ARG_SECURE_BOOT:
-                        r = parse_tristate(optarg, &arg_secure_boot);
+                        r = parse_tristate_argument_with_auto("--secure-boot=", optarg, &arg_secure_boot);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --secure-boot=%s: %m", optarg);
+                                return r;
                         break;
 
                 case ARG_PRIVATE_USERS:
@@ -730,6 +778,14 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_SYSTEM:
+                        arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
+                        break;
+
+                case ARG_USER:
+                        arg_runtime_scope = RUNTIME_SCOPE_USER;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -746,6 +802,9 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (!strv_isempty(arg_bind_user_groups) && strv_isempty(arg_bind_user))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot use --bind-user-group= without --bind-user=");
+
+        if (arg_ephemeral && arg_extra_drives.n_drives > 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot use --ephemeral with --extra-drive=");
 
         if (argc > optind) {
                 arg_kernel_cmdline_extra = strv_copy(argv + optind);
@@ -1085,7 +1144,7 @@ static int on_child_exit(sd_event_source *s, const siginfo_t *si, void *userdata
                                       si->si_pid, signal_to_string(si->si_status));
         else
                 ret = log_error_errno(SYNTHETIC_ERRNO(EPROTO),
-                                      "Got unexpected exit code %i via SIGCHLD,",
+                                      "Got unexpected exit code %i from child.",
                                       si->si_code);
 
         /* Regardless of whether the main qemu process or an auxiliary process died, let's exit either way
@@ -1260,7 +1319,7 @@ static int start_tpm(
         if (!argv)
                 return log_oom();
 
-        r = safe_fork("(swtpm-setup)", FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_WAIT, NULL);
+        r = pidref_safe_fork("(swtpm-setup)", FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_WAIT, /* ret= */ NULL);
         if (r == 0) {
                 /* Child */
                 execvp(argv[0], argv);
@@ -1273,7 +1332,7 @@ static int start_tpm(
                 strv_remove(argv, "--profile-name");
                 strv_remove(argv, "default-v2");
 
-                r = safe_fork("(swtpm-setup)", FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_WAIT, NULL);
+                r = pidref_safe_fork("(swtpm-setup)", FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_WAIT, /* ret= */ NULL);
                 if (r == 0) {
                         /* Child */
                         execvp(argv[0], argv);
@@ -1330,12 +1389,12 @@ static int start_systemd_journal_remote(
         _cleanup_free_ char *sd_journal_remote = NULL;
         r = find_executable_full(
                         "systemd-journal-remote",
-                        /* root = */ NULL,
+                        /* root= */ NULL,
                         STRV_MAKE(LIBEXECDIR),
-                        /* use_path_envvar = */ true, /* systemd-journal-remote should be installed in
+                        /* use_path_envvar= */ true, /* systemd-journal-remote should be installed in
                                                         * LIBEXECDIR, but for supporting fancy setups. */
                         &sd_journal_remote,
-                        /* ret_fd = */ NULL);
+                        /* ret_fd= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to find systemd-journal-remote binary: %m");
 
@@ -1725,10 +1784,12 @@ static int generate_ssh_keypair(const char *key_path, const char *key_type) {
                 log_debug("Executing: %s", joined);
         }
 
-        r = safe_fork(
+        r = pidref_safe_fork_full(
                         ssh_keygen,
-                        FORK_WAIT|FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE|FORK_REARRANGE_STDIO,
-                        NULL);
+                        (int[]) { -EBADF, -EBADF, STDERR_FILENO },
+                        /* except_fds= */ NULL, /* n_except_fds= */ 0,
+                        FORK_WAIT|FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE|FORK_REARRANGE_STDIO|FORK_REOPEN_LOG,
+                        /* ret= */ NULL);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -1794,6 +1855,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         _cleanup_(ovmf_config_freep) OvmfConfig *ovmf_config = NULL;
         _cleanup_free_ char *qemu_binary = NULL, *mem = NULL, *kernel = NULL;
         _cleanup_(rm_rf_physical_and_freep) char *ssh_private_key_path = NULL, *ssh_public_key_path = NULL;
+        _cleanup_(rm_rf_subvolume_and_freep) char *snapshot_directory = NULL;
+        _cleanup_(release_lock_file) LockFile tree_global_lock = LOCK_FILE_INIT, tree_local_lock = LOCK_FILE_INIT;
         _cleanup_close_ int notify_sock_fd = -EBADF;
         _cleanup_strv_free_ char **cmdline = NULL;
         _cleanup_free_ int *pass_fds = NULL;
@@ -1808,7 +1871,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         /* Registration always happens on the system bus */
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *system_bus = NULL;
-        if (arg_register || arg_privileged) {
+        if (arg_register || arg_runtime_scope == RUNTIME_SCOPE_SYSTEM) {
                 r = sd_bus_default_system(&system_bus);
                 if (r < 0)
                         return log_error_errno(r, "Failed to open system bus: %m");
@@ -1823,7 +1886,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         /* Scope allocation happens on the user bus if we are unpriv, otherwise system bus. */
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *user_bus = NULL;
         _cleanup_(sd_bus_unrefp) sd_bus *runtime_bus = NULL;
-        if (arg_privileged)
+        if (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM)
                 runtime_bus = sd_bus_ref(system_bus);
         else {
                 r = sd_bus_default_user(&user_bus);
@@ -1852,6 +1915,16 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (r < 0)
                 return log_error_errno(r, "Failed to find OVMF config: %m");
 
+        if (arg_secure_boot > 0 && !ovmf_config->supports_sb) {
+                assert(arg_firmware);
+
+                return log_error_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE),
+                                       "Secure Boot requested, but supplied OVMF firmware blob doesn't support it.");
+        }
+
+        if (arg_secure_boot < 0)
+                log_debug("Using OVMF firmware %s Secure Boot support.", ovmf_config->supports_sb ? "with" : "without");
+
         _cleanup_(machine_bind_user_context_freep) MachineBindUserContext *bind_user_context = NULL;
         r = machine_bind_user_prepare(
                         /* directory= */ NULL,
@@ -1867,11 +1940,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         r = bind_user_setup(bind_user_context, &arg_credentials, &arg_runtime_mounts);
         if (r < 0)
                 return r;
-
-        /* only warn if the user hasn't disabled secureboot */
-        if (!ovmf_config->supports_sb && arg_secure_boot)
-                log_warning("Couldn't find OVMF firmware blob with Secure Boot support, "
-                            "falling back to OVMF firmware blobs without Secure Boot support.");
 
         _cleanup_free_ char *machine = NULL;
         const char *shm = arg_directory || arg_runtime_mounts.n_mounts != 0 ? ",memory-backend=mem" : "";
@@ -1949,10 +2017,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (asprintf(&subdir, "systemd/vmspawn.%" PRIx64, random_u64()) < 0)
                         return log_oom();
 
-                r = runtime_directory(
-                                arg_privileged ? RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER,
-                                subdir,
-                                &runtime_dir);
+                r = runtime_directory(arg_runtime_scope, subdir, &runtime_dir);
                 if (r < 0)
                         return log_error_errno(r, "Failed to lookup runtime directory: %m");
                 if (r > 0) { /* We need to create our own runtime dir */
@@ -1982,11 +2047,16 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         if (asprintf(&userns_name, "vmspawn-" PID_FMT "-%s", getpid_cached(), arg_machine) < 0)
                                 return log_oom();
 
-                        r = nsresource_register_userns(userns_name, delegate_userns_fd);
+                        _cleanup_(sd_varlink_unrefp) sd_varlink *nsresource_link = NULL;
+                        r = nsresource_connect(&nsresource_link);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to connect to nsresourced: %m");
+
+                        r = nsresource_register_userns(nsresource_link, userns_name, delegate_userns_fd);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to register user namespace with systemd-nsresourced: %m");
 
-                        tap_fd = nsresource_add_netif_tap(delegate_userns_fd, /* ret_host_ifname= */ NULL);
+                        tap_fd = nsresource_add_netif_tap(nsresource_link, delegate_userns_fd, /* ret_host_ifname= */ NULL);
                         if (tap_fd < 0)
                                 return log_error_errno(tap_fd, "Failed to allocate network tap device: %m");
 
@@ -2258,6 +2328,14 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (arg_image) {
                 assert(!arg_directory);
 
+                if (arg_image_format == IMAGE_FORMAT_QCOW2) {
+                        r = verify_regular_at(AT_FDCWD, arg_image, /* follow= */ true);
+                        if (r < 0)
+                                return log_error_errno(r,
+                                                       "Block device '%s' cannot be used with 'qcow2' format, only 'raw' is supported: %m",
+                                                       arg_image);
+                }
+
                 if (strv_extend(&cmdline, "-drive") < 0)
                         return log_oom();
 
@@ -2265,7 +2343,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (!escaped_image)
                         return log_oom();
 
-                if (strv_extendf(&cmdline, "if=none,id=vmspawn,file=%s,format=raw,discard=%s", escaped_image, on_off(arg_discard_disk)) < 0)
+                if (strv_extendf(&cmdline, "if=none,id=vmspawn,file=%s,format=%s,discard=%s,snapshot=%s",
+                                 escaped_image, image_format_to_string(arg_image_format), on_off(arg_discard_disk), on_off(arg_ephemeral)) < 0)
                         return log_oom();
 
                 _cleanup_free_ char *image_fn = NULL;
@@ -2287,8 +2366,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (r < 0)
                         return r;
         }
-
-        assert_se(sigprocmask_many(SIG_BLOCK, /* ret_old_mask=*/ NULL, SIGCHLD) >= 0);
 
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         r = sd_event_new(&event);
@@ -2313,6 +2390,21 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
                 if (!GREEDY_REALLOC(children, n_children + 1))
                         return log_oom();
+
+                if (arg_ephemeral) {
+                        r = create_ephemeral_snapshot(arg_directory,
+                                                      arg_runtime_scope,
+                                                      /* read-only */ false,
+                                                      &tree_global_lock,
+                                                      &tree_local_lock,
+                                                      &snapshot_directory);
+                        if (r < 0)
+                                return r;
+
+                        arg_directory = strdup(snapshot_directory);
+                        if (!arg_directory)
+                                return log_oom();
+                }
 
                 r = start_virtiofsd(
                                 unit,
@@ -2356,33 +2448,37 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         }
 
         size_t i = 0;
-        STRV_FOREACH(drive, arg_extra_drives) {
+        FOREACH_ARRAY(drive, arg_extra_drives.drives, arg_extra_drives.n_drives) {
                 if (strv_extend(&cmdline, "-blockdev") < 0)
                         return log_oom();
 
-                _cleanup_free_ char *escaped_drive = escape_qemu_value(*drive);
+                _cleanup_free_ char *escaped_drive = escape_qemu_value(drive->path);
                 if (!escaped_drive)
                         return log_oom();
 
                 struct stat st;
-                if (stat(*drive, &st) < 0)
-                        return log_error_errno(errno, "Failed to stat '%s': %m", *drive);
+                if (stat(drive->path, &st) < 0)
+                        return log_error_errno(errno, "Failed to stat '%s': %m", drive->path);
 
                 const char *driver = NULL;
                 if (S_ISREG(st.st_mode))
                         driver = "file";
-                else if (S_ISBLK(st.st_mode))
+                else if (S_ISBLK(st.st_mode)) {
+                        if (drive->format == IMAGE_FORMAT_QCOW2)
+                                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                                       "Block device '%s' cannot be used with 'qcow2' format, only 'raw' is supported.",
+                                                       drive->path);
                         driver = "host_device";
-                else
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected regular file or block device, not '%s'.", *drive);
+                } else
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected regular file or block device, not '%s'.", drive->path);
 
-                if (strv_extendf(&cmdline, "driver=raw,cache.direct=off,cache.no-flush=on,file.driver=%s,file.filename=%s,node-name=vmspawn_extra_%zu", driver, escaped_drive, i) < 0)
+                if (strv_extendf(&cmdline, "driver=%s,cache.direct=off,cache.no-flush=on,file.driver=%s,file.filename=%s,node-name=vmspawn_extra_%zu", image_format_to_string(drive->format), driver, escaped_drive, i) < 0)
                         return log_oom();
 
                 _cleanup_free_ char *drive_fn = NULL;
-                r = path_extract_filename(*drive, &drive_fn);
+                r = path_extract_filename(drive->path, &drive_fn);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to extract filename from path '%s': %m", *drive);
+                        return log_error_errno(r, "Failed to extract filename from path '%s': %m", drive->path);
 
                 _cleanup_free_ char *escaped_drive_fn = escape_qemu_value(drive_fn);
                 if (!escaped_drive_fn)
@@ -2395,11 +2491,14 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_oom();
         }
 
-        r = strv_prepend(&arg_kernel_cmdline_extra, "console=hvc0");
-        if (r < 0)
-                return log_oom();
+        if (arg_console_mode != CONSOLE_GUI) {
+                r = strv_prepend(&arg_kernel_cmdline_extra, "console=hvc0");
+                if (r < 0)
+                        return log_oom();
+        }
 
-        FOREACH_ARRAY(mount, arg_runtime_mounts.mounts, arg_runtime_mounts.n_mounts) {
+        for (size_t j = 0; j < arg_runtime_mounts.n_mounts; j++) {
+                RuntimeMount *m = arg_runtime_mounts.mounts + j;
                 _cleanup_free_ char *listen_address = NULL;
                 _cleanup_(fork_notify_terminate) PidRef child = PIDREF_NULL;
 
@@ -2408,9 +2507,9 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
                 r = start_virtiofsd(
                                 unit,
-                                mount->source,
-                                /* source_uid= */ mount->source_uid,
-                                /* target_uid= */ mount->target_uid,
+                                m->source,
+                                /* source_uid= */ m->source_uid,
+                                /* target_uid= */ m->target_uid,
                                 /* uid_range= */ 1U,
                                 runtime_dir,
                                 sd_socket_activate,
@@ -2435,7 +2534,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_oom();
 
                 _cleanup_free_ char *id = NULL;
-                if (asprintf(&id, "mnt%zi", mount - arg_runtime_mounts.mounts) < 0)
+                if (asprintf(&id, "mnt%zu", j) < 0)
                         return log_oom();
 
                 if (strv_extendf(&cmdline, "socket,id=%s,path=%s", id, escaped_listen_address) < 0)
@@ -2447,12 +2546,12 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (strv_extendf(&cmdline, "vhost-user-fs-pci,queue-size=1024,chardev=%1$s,tag=%1$s", id) < 0)
                         return log_oom();
 
-                _cleanup_free_ char *clean_target = xescape(mount->target, "\":");
+                _cleanup_free_ char *clean_target = xescape(m->target, "\":");
                 if (!clean_target)
                         return log_oom();
 
                 if (strv_extendf(&arg_kernel_cmdline_extra, "systemd.mount-extra=\"%s:%s:virtiofs:%s\"",
-                                 id, clean_target, mount->read_only ? "ro" : "rw") < 0)
+                                 id, clean_target, m->read_only ? "ro" : "rw") < 0)
                         return log_oom();
         }
 
@@ -2481,7 +2580,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         _cleanup_free_ char *swtpm = NULL;
         if (arg_tpm != 0) {
-                if (arg_tpm_state_mode == TPM_STATE_AUTO) {
+                if (arg_tpm_state_mode == TPM_STATE_AUTO && !arg_ephemeral) {
                         assert(!arg_tpm_state_path);
 
                         const char *p = ASSERT_PTR(arg_image ?: arg_directory);
@@ -2705,7 +2804,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         const char *e = secure_getenv("SYSTEMD_VMSPAWN_QEMU_EXTRA");
         if (e) {
                 r = strv_split_and_extend_full(&cmdline, e,
-                                               /* separators = */ NULL, /* filter_duplicates = */ false,
+                                               /* separators= */ NULL, /* filter_duplicates= */ false,
                                                EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse $SYSTEMD_VMSPAWN_QEMU_EXTRA: %m");
@@ -2718,8 +2817,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
                 log_debug("Executing: %s", joined);
         }
-
-        assert_se(sigprocmask_many(SIG_BLOCK, /* ret_old_mask=*/ NULL, SIGCHLD) >= 0);
 
         _cleanup_(pidref_done) PidRef child_pidref = PIDREF_NULL;
         r = pidref_safe_fork_full(
@@ -2766,7 +2863,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         }
 
         bool scope_allocated = false;
-        if (!arg_keep_unit && (!arg_register || !arg_privileged)) {
+        if (!arg_keep_unit && (!arg_register || arg_runtime_scope != RUNTIME_SCOPE_SYSTEM)) {
                 r = allocate_scope(
                                 runtime_bus,
                                 arg_machine,
@@ -2782,7 +2879,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
                 scope_allocated = true;
         } else {
-                if (arg_privileged)
+                if (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM)
                         r = cg_pid_get_unit(0, &unit);
                 else
                         r = cg_pid_get_user_unit(0, &unit);
@@ -2790,7 +2887,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_error_errno(r, "Failed to get our own unit: %m");
         }
 
-        bool registered = false;
+        bool registered_system = false, registered_runtime = false;
         if (arg_register) {
                 char vm_address[STRLEN("vsock/") + DECIMAL_STR_MAX(unsigned)];
                 xsprintf(vm_address, "vsock/%u", child_cid);
@@ -2804,11 +2901,38 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                 child_cid,
                                 child_cid != VMADDR_CID_ANY ? vm_address : NULL,
                                 ssh_private_key_path,
-                                arg_keep_unit || !arg_privileged);
-                if (r < 0)
-                        return r;
+                                !arg_keep_unit && arg_runtime_scope == RUNTIME_SCOPE_SYSTEM,
+                                RUNTIME_SCOPE_SYSTEM);
+                if (r < 0) {
+                        /* if privileged the request to register definitely failed */
+                        if (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM)
+                                return r;
 
-                registered = true;
+                        log_notice_errno(r, "Failed to register machine in system context, will try in user context.");
+                } else
+                        registered_system = true;
+
+                if (arg_runtime_scope == RUNTIME_SCOPE_USER) {
+                        r = register_machine(
+                                        runtime_bus,
+                                        arg_machine,
+                                        arg_uuid,
+                                        "systemd-vmspawn",
+                                        &child_pidref,
+                                        arg_directory,
+                                        child_cid,
+                                        child_cid != VMADDR_CID_ANY ? vm_address : NULL,
+                                        ssh_private_key_path,
+                                        !arg_keep_unit,
+                                        RUNTIME_SCOPE_USER);
+                        if (r < 0) {
+                                if (!registered_system) /* neither registration worked: fail */
+                                        return r;
+
+                                log_notice_errno(r, "Failed to register machine in user context, but succeeded in system context, will proceed.");
+                        } else
+                                registered_runtime = true;
+                }
         }
 
         /* Report that the VM is now set up */
@@ -2871,7 +2995,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         /* Exit when the child exits */
         r = event_add_child_pidref(event, /* ret= */ NULL, &child_pidref, WEXITED, on_child_exit, /* userdata= */ NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to watch qemu process: &m");
+                return log_error_errno(r, "Failed to watch qemu process: %m");
 
         _cleanup_(osc_context_closep) sd_id128_t osc_context_id = SD_ID128_NULL;
         _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
@@ -2897,7 +3021,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 } else if (!isempty(arg_background))
                         (void) pty_forward_set_background_color(forward, arg_background);
 
-                (void) pty_forward_set_window_title(forward, GLYPH_GREEN_CIRCLE, /* hostname = */ NULL,
+                (void) pty_forward_set_window_title(forward, GLYPH_GREEN_CIRCLE, /* hostname= */ NULL,
                                                     STRV_MAKE("Virtual Machine", arg_machine));
         }
 
@@ -2909,8 +3033,10 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (scope_allocated)
                 terminate_scope(runtime_bus, arg_machine);
 
-        if (registered)
+        if (registered_system)
                 (void) unregister_machine(system_bus, arg_machine);
+        if (registered_runtime)
+                (void) unregister_machine(runtime_bus, arg_machine);
 
         if (use_vsock) {
                 if (exit_status == INT_MAX) {
@@ -2932,8 +3058,12 @@ static int determine_names(void) {
                 if (arg_machine) {
                         _cleanup_(image_unrefp) Image *i = NULL;
 
-                        r = image_find(arg_privileged ? RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER,
-                                       IMAGE_MACHINE, arg_machine, NULL, &i);
+                        /* Use both user and system images in user mode, use only system images in system mode. */
+                        r = image_find(arg_runtime_scope == RUNTIME_SCOPE_USER ? _RUNTIME_SCOPE_INVALID : arg_runtime_scope,
+                                       IMAGE_MACHINE,
+                                       arg_machine,
+                                       /* root= */ NULL,
+                                       &i);
                         if (r == -ENOENT)
                                 return log_error_errno(r, "No image for machine '%s'.", arg_machine);
                         if (r < 0)
@@ -2975,6 +3105,11 @@ static int determine_names(void) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to extract file name from '%s': %m", arg_directory);
                 }
+                /* Add a random suffix when this is an ephemeral machine, so that we can run many
+                 * instances at once without manually having to specify -M each time. */
+                if (arg_ephemeral)
+                        if (strextendf(&arg_machine, "-%016" PRIx64, random_u64()) < 0)
+                                return log_oom();
 
                 hostname_cleanup(arg_machine);
                 if (!hostname_is_valid(arg_machine, 0))
@@ -2997,7 +3132,7 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        arg_privileged = getuid() == 0;
+        arg_runtime_scope = getuid() == 0 ? RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER;
 
         r = parse_environment();
         if (r < 0)

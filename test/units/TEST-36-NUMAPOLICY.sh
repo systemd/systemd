@@ -341,7 +341,7 @@ else
 
     systemd-run -p NUMAPolicy=local -p NUMAMask=0 -p CPUAffinity=numa --unit "$runUnit" sleep 1000
     systemctlCheckNUMAProperties "$runUnit" "local" ""
-    systemctl cat "$runUnit" | grep -q 'CPUAffinity=numa'
+    systemctl cat "$runUnit" | grep 'CPUAffinity=numa' >/dev/null
     pid1StopUnit "$runUnit"
 fi
 

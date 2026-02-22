@@ -938,7 +938,7 @@ static int fd_copy_regular(
         if (fdt < 0)
                 return -errno;
 
-        r = prepare_nocow(fdf, /*from=*/ NULL, fdt, /*chattr_mask=*/ NULL, /*chattr_flags=*/ NULL);
+        r = prepare_nocow(fdf, /* from= */ NULL, fdt, /* chattr_mask= */ NULL, /* chattr_flags= */ NULL);
         if (r < 0)
                 return r;
 
@@ -1442,6 +1442,8 @@ int copy_directory_at_full(
                 const char *from,
                 int dir_fdt,
                 const char *to,
+                uid_t override_uid,
+                gid_t override_gid,
                 CopyFlags copy_flags,
                 copy_progress_path_t progress_path,
                 copy_progress_bytes_t progress_bytes,
@@ -1468,9 +1470,13 @@ int copy_directory_at_full(
                         dir_fdt, to,
                         st.st_dev,
                         COPY_DEPTH_MAX,
-                        UID_INVALID, GID_INVALID,
+                        override_uid,
+                        override_gid,
                         copy_flags,
-                        NULL, NULL, NULL, NULL,
+                        /* denylist= */ NULL,
+                        /* subvolumes= */ NULL,
+                        /* progress_path= */ NULL,
+                        /* progress_bytes= */ NULL,
                         progress_path,
                         progress_bytes,
                         userdata);
@@ -1583,7 +1589,7 @@ int copy_file_at_full(
                         return fdt;
         }
 
-        r = prepare_nocow(fdf, /*from=*/ NULL, fdt, &chattr_mask, &chattr_flags);
+        r = prepare_nocow(fdf, /* from= */ NULL, fdt, &chattr_mask, &chattr_flags);
         if (r < 0)
                 return r;
 
@@ -1750,6 +1756,18 @@ int copy_access(int fdf, int fdt) {
         return RET_NERRNO(fchmod(fdt, st.st_mode & 07777));
 }
 
+int copy_owner(int fdf, int fdt) {
+        struct stat st;
+
+        assert(fdf >= 0);
+        assert(fdt >= 0);
+
+        if (fstat(fdf, &st) < 0)
+                return -errno;
+
+        return RET_NERRNO(fchown(fdt, st.st_uid, st.st_gid));
+}
+
 int copy_rights_with_fallback(int fdf, int fdt, const char *patht) {
         struct stat st;
 
@@ -1784,7 +1802,7 @@ int copy_xattr(int df, const char *from, int dt, const char *to, CopyFlags copy_
                 if (r < 0)
                         return r;
 
-                RET_GATHER(ret, xsetxattr_full(dt, to, /* at_flags = */ 0, p, value, value_size, /* xattr_flags = */ 0));
+                RET_GATHER(ret, xsetxattr_full(dt, to, /* at_flags= */ 0, p, value, value_size, /* xattr_flags= */ 0));
         }
 
         return ret;

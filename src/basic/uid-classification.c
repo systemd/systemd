@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#if ENABLE_COMPAT_MUTABLE_UID_BOUNDARIES
 #include <threads.h>
 
 #include "chase.h"
@@ -7,6 +8,8 @@
 #include "fileio.h"
 #include "log.h"
 #include "string-util.h"
+#endif
+
 #include "uid-classification.h"
 #include "user-util.h"
 

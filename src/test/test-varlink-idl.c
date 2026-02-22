@@ -43,6 +43,7 @@
 #include "varlink-io.systemd.Unit.h"
 #include "varlink-io.systemd.UserDatabase.h"
 #include "varlink-io.systemd.oom.h"
+#include "varlink-io.systemd.oom.Prekill.h"
 #include "varlink-io.systemd.service.h"
 #include "varlink-io.systemd.sysext.h"
 #include "varlink-org.varlink.service.h"
@@ -101,6 +102,13 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(ooona, SD_VARLINK_OBJECT, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
                 SD_VARLINK_DEFINE_FIELD(ooom, SD_VARLINK_OBJECT, SD_VARLINK_MAP),
                 SD_VARLINK_DEFINE_FIELD(ooonm, SD_VARLINK_OBJECT, SD_VARLINK_NULLABLE|SD_VARLINK_MAP),
+
+                SD_VARLINK_DEFINE_FIELD(aaa, SD_VARLINK_ANY, 0),
+                SD_VARLINK_DEFINE_FIELD(aaan, SD_VARLINK_ANY, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(aaaa, SD_VARLINK_ANY, SD_VARLINK_ARRAY),
+                SD_VARLINK_DEFINE_FIELD(aaana, SD_VARLINK_ANY, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
+                SD_VARLINK_DEFINE_FIELD(aaam, SD_VARLINK_ANY, SD_VARLINK_MAP),
+                SD_VARLINK_DEFINE_FIELD(aaanm, SD_VARLINK_ANY, SD_VARLINK_NULLABLE|SD_VARLINK_MAP),
 
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(eee, EnumTest, 0),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(eeen, EnumTest, SD_VARLINK_NULLABLE),
@@ -199,6 +207,7 @@ TEST(parse_format) {
                 &vl_interface_io_systemd_Unit,
                 &vl_interface_io_systemd_UserDatabase,
                 &vl_interface_io_systemd_oom,
+                &vl_interface_io_systemd_oom_Prekill,
                 &vl_interface_io_systemd_service,
                 &vl_interface_io_systemd_sysext,
                 &vl_interface_org_varlink_service,
@@ -268,6 +277,7 @@ TEST(symbol_name_is_valid) {
         assert_se(!varlink_idl_symbol_name_is_valid("float"));
         assert_se(!varlink_idl_symbol_name_is_valid("string"));
         assert_se(!varlink_idl_symbol_name_is_valid("object"));
+        assert_se(!varlink_idl_symbol_name_is_valid("any"));
 }
 
 TEST(field_name_is_valid) {
@@ -527,6 +537,40 @@ TEST(enums_idl) {
 
         TEST_IDL_ENUM(DnsOverTlsMode, dns_over_tls_mode, vl_type_DNSOverTLSMode);
         TEST_IDL_ENUM(ResolveSupport, resolve_support, vl_type_ResolveSupport);
+}
+
+static SD_VARLINK_DEFINE_METHOD(
+                AnyTestStrict,
+                SD_VARLINK_DEFINE_INPUT(foo, SD_VARLINK_ANY, 0),
+                SD_VARLINK_DEFINE_INPUT(foo2, SD_VARLINK_ANY, 0),
+                SD_VARLINK_DEFINE_INPUT(foo3, SD_VARLINK_ANY, 0),
+                SD_VARLINK_DEFINE_INPUT(foo4, SD_VARLINK_ANY, 0));
+
+static SD_VARLINK_DEFINE_METHOD(
+                AnyTestNullable,
+                SD_VARLINK_DEFINE_INPUT(foo, SD_VARLINK_ANY, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_INPUT(foo2, SD_VARLINK_ANY, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_INPUT(foo3, SD_VARLINK_ANY, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_INPUT(foo4, SD_VARLINK_ANY, SD_VARLINK_NULLABLE));
+
+TEST(any) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+        ASSERT_OK(sd_json_buildo(&v,
+                                 SD_JSON_BUILD_PAIR_STRING("foo", "bar"),
+                                 SD_JSON_BUILD_PAIR_INTEGER("foo2", 47),
+                                 SD_JSON_BUILD_PAIR_NULL("foo3"),
+                                 SD_JSON_BUILD_PAIR_BOOLEAN("foo4", true)));
+
+        /* "any" shall mean any type – but null */
+        const char *bad_field = NULL;
+        ASSERT_ERROR(varlink_idl_validate_method_call(&vl_method_AnyTestStrict, v, /* flags= */ 0, &bad_field), ENOANO);
+        ASSERT_STREQ(bad_field, "foo3");
+
+        /* "any?" shall many truly any type */
+        bad_field = NULL;
+        ASSERT_OK(varlink_idl_validate_method_call(&vl_method_AnyTestNullable, v, /* flags= */ 0, &bad_field));
+        ASSERT_NULL(bad_field);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

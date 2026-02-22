@@ -641,6 +641,7 @@ static void manager_set_defaults(Manager *m) {
         m->cache_from_localhost = false;
         m->stale_retention_usec = 0;
         m->refuse_record_types = set_free(m->refuse_record_types);
+        m->resolv_conf_stat = (struct stat) {};
 }
 
 static int manager_dispatch_reload_signal(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
@@ -884,6 +885,9 @@ Manager* manager_free(Manager *m) {
         manager_mdns_stop(m);
         manager_dns_stub_stop(m);
         manager_varlink_done(m);
+
+        set_free(m->varlink_query_results_subscription);
+        set_free(m->varlink_dns_configuration_subscription);
 
         manager_socket_graveyard_clear(m);
 
@@ -2054,6 +2058,7 @@ static int dns_configuration_json_append(
                 Set *negative_trust_anchors,
                 Set *dns_scopes,
                 DnssecMode dnssec_mode,
+                bool dnssec_supported,
                 DnsOverTlsMode dns_over_tls_mode,
                 ResolveSupport llmnr_support,
                 ResolveSupport mdns_support,
@@ -2069,6 +2074,12 @@ static int dns_configuration_json_append(
         int r;
 
         assert(configuration);
+
+        if (current_dns_server) {
+                r = dns_server_dump_configuration_to_json(current_dns_server, &current_dns_server_json);
+                if (r < 0)
+                        return r;
+        }
 
         SET_FOREACH(scope, dns_scopes) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
@@ -2131,6 +2142,7 @@ static int dns_configuration_json_append(
                         SD_JSON_BUILD_PAIR_CONDITION(!set_isempty(negative_trust_anchors),
                                                      "negativeTrustAnchors",
                                                      JSON_BUILD_STRING_SET(negative_trust_anchors)),
+                        JSON_BUILD_PAIR_CONDITION_BOOLEAN(dnssec_mode >= 0, "dnssecSupported", dnssec_supported),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("dnssec", dnssec_mode_to_string(dnssec_mode)),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("dnsOverTLS", dns_over_tls_mode_to_string(dns_over_tls_mode)),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("llmnr", resolve_support_to_string(llmnr_support)),
@@ -2151,10 +2163,10 @@ static int global_dns_configuration_json_append(Manager *m, sd_json_variant **co
                 return r;
 
         return dns_configuration_json_append(
-                        /* ifname = */ NULL,
-                        /* ifindex = */ 0,
-                        /* delegate = */ NULL,
-                        /* default_route = */ -1,
+                        /* ifname= */ NULL,
+                        /* ifindex= */ 0,
+                        /* delegate= */ NULL,
+                        /* default_route= */ -1,
                         manager_get_dns_server(m),
                         m->dns_servers,
                         m->fallback_dns_servers,
@@ -2162,6 +2174,7 @@ static int global_dns_configuration_json_append(Manager *m, sd_json_variant **co
                         m->trust_anchor.negative_by_name,
                         scopes,
                         manager_get_dnssec_mode(m),
+                        manager_dnssec_supported(m),
                         manager_get_dns_over_tls_mode(m),
                         m->llmnr_support,
                         m->mdns_support,
@@ -2209,19 +2222,20 @@ static int link_dns_configuration_json_append(Link *l, sd_json_variant **configu
         return dns_configuration_json_append(
                         l->ifname,
                         l->ifindex,
-                        /* delegate = */ NULL,
+                        /* delegate= */ NULL,
                         link_get_default_route(l),
                         link_get_dns_server(l),
                         l->dns_servers,
-                        /* fallback_dns_servers = */ NULL,
+                        /* fallback_dns_servers= */ NULL,
                         l->search_domains,
                         l->dnssec_negative_trust_anchors,
                         scopes,
                         link_get_dnssec_mode(l),
+                        link_dnssec_supported(l),
                         link_get_dns_over_tls_mode(l),
                         link_get_llmnr_support(l),
                         link_get_mdns_support(l),
-                        /* resolv_conf_mode = */ _RESOLV_CONF_MODE_INVALID,
+                        /* resolv_conf_mode= */ _RESOLV_CONF_MODE_INVALID,
                         configuration);
 }
 
@@ -2237,21 +2251,22 @@ static int delegate_dns_configuration_json_append(DnsDelegate *d, sd_json_varian
                 return r;
 
         return dns_configuration_json_append(
-                        /* ifname = */ NULL,
-                        /* ifindex = */ 0,
+                        /* ifname= */ NULL,
+                        /* ifindex= */ 0,
                         d->id,
                         d->default_route > 0, /* Defaults to false. See dns_scope_is_default_route(). */
                         dns_delegate_get_dns_server(d),
                         d->dns_servers,
-                        /* fallback_dns_servers = */ NULL,
+                        /* fallback_dns_servers= */ NULL,
                         d->search_domains,
-                        /* negative_trust_anchors = */ NULL,
+                        /* negative_trust_anchors= */ NULL,
                         scopes,
-                        /* dnssec_mode = */ _DNSSEC_MODE_INVALID,
-                        /* dns_over_tls_mode = */ _DNS_OVER_TLS_MODE_INVALID,
-                        /* llmnr_support = */ _RESOLVE_SUPPORT_INVALID,
-                        /* mdns_support = */ _RESOLVE_SUPPORT_INVALID,
-                        /* resolv_conf_mode = */ _RESOLV_CONF_MODE_INVALID,
+                        /* dnssec_mode= */ _DNSSEC_MODE_INVALID,
+                        /* dnssec_supported= */ false,
+                        /* dns_over_tls_mode= */ _DNS_OVER_TLS_MODE_INVALID,
+                        /* llmnr_support= */ _RESOLVE_SUPPORT_INVALID,
+                        /* mdns_support= */ _RESOLVE_SUPPORT_INVALID,
+                        /* resolv_conf_mode= */ _RESOLV_CONF_MODE_INVALID,
                         configuration);
 }
 

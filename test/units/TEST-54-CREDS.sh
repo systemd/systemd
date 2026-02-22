@@ -54,7 +54,7 @@ EOF
     # Verify mount succeeds
     systemctl daemon-reload
     systemctl start "$unit"
-    systemctl --no-pager show -p SubState --value "$unit" | grep -q mounted
+    systemctl --no-pager show -p SubState --value "$unit" | grep mounted >/dev/null
 
     # Verify mount fails with different credential file content
     echo bar >"$credfile"
@@ -408,7 +408,7 @@ systemd-run -p "ImportCredentialEx=test.creds.first" \
 cmp /tmp/ts54-concat <(echo -n aaa)
 
 # Now test encrypted credentials (only supported when built with OpenSSL though)
-if systemctl --version | grep -q -- +OPENSSL ; then
+if systemctl --version | grep -- +OPENSSL  >/dev/null; then
     echo -n $RANDOM >/tmp/test-54-plaintext
     systemd-creds encrypt --name=test-54 /tmp/test-54-plaintext /tmp/test-54-ciphertext
     systemd-creds decrypt --name=test-54 /tmp/test-54-ciphertext | cmp /tmp/test-54-plaintext
@@ -484,7 +484,7 @@ if ! systemd-detect-virt -q -c ; then
     grep -q /injected /proc/self/mountinfo
 
     # Make sure the getty generator processed the credentials properly
-    systemctl -P Wants show getty.target | grep -q container-getty@idontexist.service
+    systemctl -P Wants show getty.target | grep container-getty@idontexist.service >/dev/null
 fi
 
 # Decrypt/encrypt via varlink
@@ -554,6 +554,9 @@ run0 -u testuser --pipe mkdir -p /home/testuser/.config/credstore.encrypted
 run0 -u testuser --pipe systemd-creds encrypt --user --name=brummbaer - /home/testuser/.config/credstore.encrypted/brummbaer < /tmp/brummbaer.data
 run0 -u testuser --pipe systemd-run --user --pipe -p ImportCredential=brummbaer systemd-creds cat brummbaer | cmp /tmp/brummbaer.data
 
+# https://github.com/systemd/systemd/pull/40108
+run0 -u testuser --pipe systemd-run --user --wait -p ImportCredential=brummbaer -p ExecStartPre='ls -l $CREDENTIALS_DIRECTORY' bash -c 'systemd-creds cat brummbaer | cmp /tmp/brummbaer.data'
+
 # https://github.com/systemd/systemd/pull/39651
 TESTUSER_CRED_DIR="/run/user/$(id -u testuser)/credentials"
 
@@ -567,5 +570,107 @@ systemd-run -M testuser@ --user --wait -p ImportCredential=brummbaer \
     test -d "$TESTUSER_CRED_DIR/brummbaer.service"
 
 kill "$PID"
+
+# Now test credential refreshing
+
+UNIT_NAME="TEST-54-CREDS-refreshing-$RANDOM.service"
+OUTPUT_FILE="/tmp/$UNIT_NAME.out"
+POST_FLAG_FILE="/tmp/$UNIT_NAME.post-flag"
+
+cat >/run/systemd/system/"$UNIT_NAME" <<EOF
+[Service]
+Type=notify-reload
+ImportCredential=test.creds.*
+ExecStart=/usr/lib/systemd/tests/testdata/TEST-54-CREDS.units/refresh.sh $OUTPUT_FILE
+EOF
+
+systemctl start "$UNIT_NAME"
+ls -l /run/credentials/"$UNIT_NAME"/
+
+echo "neu" >/run/credstore/test.creds.new-refresh-1
+[[ ! -e /run/credentials/"$UNIT_NAME"/test.creds.new-refresh-1 ]]
+
+systemctl reload "$UNIT_NAME"
+[[ ! -e /run/credentials/"$UNIT_NAME"/test.creds.new-refresh-1 ]]
+(! grep -q "test.creds.new-refresh-1" "$OUTPUT_FILE")
+
+echo "RefreshOnReload=credentials" >>/run/systemd/system/"$UNIT_NAME"
+systemctl daemon-reload
+systemctl reload "$UNIT_NAME"
+diff /run/credstore/test.creds.new-refresh-1 /run/credentials/"$UNIT_NAME"/test.creds.new-refresh-1
+diff "$OUTPUT_FILE" <(grep . /run/credentials/"$UNIT_NAME"/*)
+
+systemctl stop "$UNIT_NAME"
+cat >>/run/systemd/system/"$UNIT_NAME" <<EOF
+ProtectSystem=strict
+ReadWritePaths=/tmp
+ExecReloadPost=bash -c 'diff $OUTPUT_FILE <(grep . %d/*) || rm -v $POST_FLAG_FILE'
+EOF
+
+systemctl daemon-reload
+systemctl start "$UNIT_NAME"
+diff /run/credstore/test.creds.new-refresh-1 /run/credentials/"$UNIT_NAME"/test.creds.new-refresh-1
+diff "$OUTPUT_FILE" <(grep . /run/credentials/"$UNIT_NAME"/*)
+
+systemctl reload "$UNIT_NAME"
+diff "$OUTPUT_FILE" <(grep . /run/credentials/"$UNIT_NAME"/*)
+
+echo "2" >/run/credstore/test.creds.new-refresh-2
+[[ ! -e /run/credentials/"$UNIT_NAME"/test.creds.new-refresh-2 ]]
+
+systemctl reload "$UNIT_NAME"
+diff /run/credstore/test.creds.new-refresh-2 /run/credentials/"$UNIT_NAME"/test.creds.new-refresh-2
+diff "$OUTPUT_FILE" <(grep . /run/credentials/"$UNIT_NAME"/*)
+
+echo "3" >/run/credstore/test.creds.new-refresh-3
+[[ ! -e /run/credentials/"$UNIT_NAME"/test.creds.new-refresh-3 ]]
+
+rm "$OUTPUT_FILE"
+systemctl edit --runtime --stdin "$UNIT_NAME" <<EOF
+[Service]
+Type=notify
+ExecReloadPost=
+EOF
+systemctl reload "$UNIT_NAME"
+diff /run/credstore/test.creds.new-refresh-3 /run/credentials/"$UNIT_NAME"/test.creds.new-refresh-3
+[[ ! -e "$OUTPUT_FILE" ]]
+
+echo "RefreshOnReload=no" >>/run/systemd/system/"$UNIT_NAME"
+systemctl daemon-reload
+assert_eq "$(systemctl show "$UNIT_NAME" -P CanReload)" "no"
+systemctl revert "$UNIT_NAME"
+assert_eq "$(systemctl show "$UNIT_NAME" -P CanReload)" "yes"
+
+echo "BOGUS" >/run/credstore/test.creds.refresh-bogus
+touch "$POST_FLAG_FILE"
+systemctl reload "$UNIT_NAME"
+diff /run/credstore/test.creds.new-refresh-3 /run/credentials/"$UNIT_NAME"/test.creds.new-refresh-3
+[[ ! -e /run/credentials/"$UNIT_NAME"/test.creds.refresh-bogus ]]
+diff "$OUTPUT_FILE" <(grep . /run/credentials/"$UNIT_NAME"/*)
+[[ ! -e "$POST_FLAG_FILE" ]]
+
+OUTPUT_FILE_USER="/tmp/TEST-54-CREDS-refreshing-user.out"
+
+systemd-notify --fork -- \
+    systemd-run -M testuser@ --user --wait \
+        --unit=brummbaer-refresh.service \
+        --service-type=notify-reload \
+        -p NotifyAccess=all \
+        -p 'ImportCredential=brummbaer*' \
+        -p RefreshOnReload=credentials \
+        -p ProtectSystem=strict \
+        -p ReadWritePaths=/tmp \
+        /usr/lib/systemd/tests/testdata/TEST-54-CREDS.units/refresh.sh "$OUTPUT_FILE_USER"
+
+[[ -f "$TESTUSER_CRED_DIR/brummbaer-refresh.service/brummbaer" ]]
+diff "$OUTPUT_FILE_USER" <(grep . "$TESTUSER_CRED_DIR"/brummbaer-refresh.service/*)
+
+run0 -u testuser --pipe -i \
+     --property=EnvironmentFile=-/usr/lib/systemd/systemd-asan-env \
+     'mkdir -p .config/credstore && echo "refreshed" >.config/credstore/brummbaer.refreshed'
+
+systemctl -M testuser@ --user reload brummbaer-refresh.service
+assert_eq "$(cat "$TESTUSER_CRED_DIR"/brummbaer-refresh.service/brummbaer.refreshed)" "refreshed"
+diff "$OUTPUT_FILE_USER" <(grep . "$TESTUSER_CRED_DIR"/brummbaer-refresh.service/*)
 
 touch /testok

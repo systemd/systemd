@@ -898,6 +898,7 @@ int manager_create_session(
                 bool remote,
                 const char *remote_user,
                 const char *remote_host,
+                char * const *extra_device_access,
                 Session **ret_session) {
 
         bool mangle_class = false;
@@ -1052,6 +1053,10 @@ int manager_create_session(
                 if (r < 0)
                         goto fail;
         }
+
+        r = strv_copy_unless_empty(extra_device_access, &session->extra_device_access);
+        if (r < 0)
+                goto fail;
 
         if (seat) {
                 r = seat_attach_session(seat, session);
@@ -1227,6 +1232,7 @@ static int manager_create_session_by_bus(
                         remote,
                         remote_user,
                         remote_host,
+                        /* extra_device_access= */ NULL,
                         &session);
         if (r == -EBUSY)
                 return sd_bus_error_set(error, BUS_ERROR_SESSION_BUSY, "Already running in a session or user slice");
@@ -1304,7 +1310,7 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
                         error,
                         uid,
                         leader_pid,
-                        /* leader_pidfd = */ -EBADF,
+                        /* leader_pidfd= */ -EBADF,
                         service,
                         type,
                         class,
@@ -1316,7 +1322,7 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
                         remote,
                         remote_user,
                         remote_host,
-                        /* flags = */ 0);
+                        /* flags= */ 0);
 }
 
 static int method_create_session_pidfd(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -1351,7 +1357,7 @@ static int method_create_session_pidfd(sd_bus_message *message, void *userdata, 
                         message,
                         error,
                         uid,
-                        /* leader_pid = */ 0,
+                        /* leader_pid= */ 0,
                         leader_fd,
                         service,
                         type,
@@ -2115,9 +2121,9 @@ static int delay_shutdown_or_sleep(
 
         r = event_reset_time_relative(
                         m->event, &m->inhibit_timeout_source,
-                        CLOCK_MONOTONIC, m->inhibit_delay_max, /* accuracy = */ 0,
+                        CLOCK_MONOTONIC, m->inhibit_delay_max, /* accuracy= */ 0,
                         manager_inhibit_timeout_handler, m,
-                        /* priority = */ 0, "inhibit-timeout", /* force_reset = */ true);
+                        /* priority= */ 0, "inhibit-timeout", /* force_reset= */ true);
         if (r < 0)
                 return log_error_errno(r, "Failed to reset timer event source for inhibit timeout: %m");
 
@@ -2538,7 +2544,7 @@ static int method_sleep(sd_bus_message *message, void *userdata, sd_bus_error *e
         return method_do_shutdown_or_sleep(
                         m, message,
                         HANDLE_SLEEP,
-                        /* with_flags = */ true,
+                        /* with_flags= */ true,
                         error);
 }
 
@@ -2820,15 +2826,13 @@ static int method_schedule_shutdown(sd_bus_message *message, void *userdata, sd_
         if (elapse == USEC_INFINITY) {
                 if (m->maintenance_time) {
                         r = calendar_spec_next_usec(m->maintenance_time, now(CLOCK_REALTIME), &elapse);
-                        if (r < 0) {
-                                if (r == -ENOENT)
-                                        return sd_bus_error_set(error,
-                                                                BUS_ERROR_DESIGNATED_MAINTENANCE_TIME_NOT_SCHEDULED,
-                                                                "No upcoming maintenance window scheduled");
-
+                        if (r == -ENOENT)
+                                return sd_bus_error_set(error,
+                                                        BUS_ERROR_DESIGNATED_MAINTENANCE_TIME_NOT_SCHEDULED,
+                                                        "No upcoming maintenance window scheduled");
+                        if (r < 0)
                                 return sd_bus_error_set_errnof(error, r,
                                                                "Failed to determine next maintenance window: %m");
-                        }
 
                         log_info("Scheduled %s at maintenance window %s", type, FORMAT_TIMESTAMP(elapse));
                 } else
@@ -4435,7 +4439,7 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
 
                                         LIST_FOREACH(sessions_by_user, s, user->sessions)
                                                 /* Don't propagate user service failures to the client */
-                                                session_jobs_reply(s, id, unit, /* result = */ NULL);
+                                                session_jobs_reply(s, id, unit, /* result= */ NULL);
 
                                         user_save(user);
                                         break;
@@ -4668,7 +4672,7 @@ int manager_start_scope(
                                         manager,
                                         scope,
                                         pidref,
-                                        /* allow_pidfd = */ false,
+                                        /* allow_pidfd= */ false,
                                         slice,
                                         description,
                                         requires,

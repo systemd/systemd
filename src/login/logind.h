@@ -153,7 +153,7 @@ int manager_add_user_by_uid(Manager *m, uid_t uid, User **ret_user);
 int manager_add_inhibitor(Manager *m, const char* id, Inhibitor **ret_inhibitor);
 
 int manager_process_seat_device(Manager *m, sd_device *d);
-int manager_process_button_device(Manager *m, sd_device *d);
+int manager_process_button_device(Manager *m, sd_device *d, Button **ret_button);
 
 int manager_spawn_autovt(Manager *m, unsigned vtnr);
 

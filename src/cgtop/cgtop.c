@@ -702,13 +702,18 @@ static int help(void) {
                "Show top control groups by their resource usage.\n\n"
                "  -h --help           Show this help\n"
                "     --version        Show package version\n"
-               "  -p --order=path     Order by path\n"
-               "  -t --order=tasks    Order by number of tasks/processes\n"
-               "  -c --order=cpu      Order by CPU load (default)\n"
-               "  -m --order=memory   Order by memory load\n"
-               "  -i --order=io       Order by IO load\n"
+
+               "     --order=path|tasks|cpu|memory|io\n"
+               "                      Order by specified property\n"
+               "  -p                  Same as --order=path, order by path\n"
+               "  -t                  Same as --order=tasks, order by number of\n"
+               "                      tasks/processes\n"
+               "  -c                  Same as --order=cpu, order by CPU load\n"
+               "  -m                  Same as --order=memory, order by memory load\n"
+               "  -i                  Same as --order=io, order by IO load\n"
                "  -r --raw            Provide raw (not human-readable) numbers\n"
-               "     --cpu=percentage Show CPU usage as percentage (default)\n"
+               "     --cpu[=percentage]\n"
+               "                      Show CPU usage as percentage (default)\n"
                "     --cpu=time       Show CPU usage as time\n"
                "  -P                  Count userspace processes instead of tasks (excl. kernel)\n"
                "  -k                  Count all processes instead of tasks (incl. kernel)\n"
@@ -908,7 +913,7 @@ static int loop(const char *root) {
 
                 if (t >= usec_add(last_refresh, arg_delay) || immediate_refresh) {
 
-                        r = refresh(root, a, b, iteration++, /* depth = */ 0, /* ret = */ NULL);
+                        r = refresh(root, a, b, iteration++, /* depth= */ 0, /* ret= */ NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to refresh: %m");
 

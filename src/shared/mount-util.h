@@ -121,6 +121,8 @@ int mount_image_in_namespace(
 int make_mount_point(const char *path);
 int fd_make_mount_point(int fd);
 
+int mount_fd_clone(int mount_fd, bool recursive, int *replacement_fd);
+
 typedef enum RemountIdmapping {
         REMOUNT_IDMAPPING_NONE,
         /* Include a mapping from UID_MAPPED_ROOT (i.e. UID 2^31-2) on the backing fs to UID 0 on the
@@ -164,7 +166,7 @@ int make_mount_point_inode_from_path(const char *source, const char *dest, mode_
 
 int trigger_automount_at(int dir_fd, const char *path);
 
-unsigned long credentials_fs_mount_flags(bool ro);
+unsigned long credentials_fs_mount_flags(bool ro) _const_;
 int fsmount_credentials_fs(int *ret_fsfd);
 int mount_credentials_fs(const char *path);
 

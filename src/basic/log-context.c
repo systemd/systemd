@@ -145,7 +145,7 @@ static LogContext* log_context_free(LogContext *c) {
 DEFINE_TRIVIAL_REF_UNREF_FUNC(LogContext, log_context, log_context_free);
 
 LogContext* log_context_new_strv_consume(char **fields) {
-        LogContext *c = log_context_new_strv(fields, /*owned=*/ true);
+        LogContext *c = log_context_new_strv(fields, /* owned= */ true);
         if (!c)
                 strv_free(fields);
 
@@ -153,7 +153,7 @@ LogContext* log_context_new_strv_consume(char **fields) {
 }
 
 LogContext* log_context_new_iov_consume(struct iovec *input_iovec, size_t n_input_iovec) {
-        LogContext *c = log_context_new_iov(input_iovec, n_input_iovec, /*owned=*/ true);
+        LogContext *c = log_context_new_iov(input_iovec, n_input_iovec, /* owned= */ true);
         if (!c)
                 iovec_array_free(input_iovec, n_input_iovec);
 

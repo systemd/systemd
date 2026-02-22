@@ -141,7 +141,8 @@ static int help(void) {
                "     --fsck=no                    Don't run file system check before mount\n"
                "     --description=TEXT           Description for unit\n"
                "  -p --property=NAME=VALUE        Set mount unit property\n"
-               "  -A --automount=BOOL             Create an auto-mount point\n"
+               "     --automount=BOOL             Create an automount point\n"
+               "  -A                              Same as --automount=yes\n"
                "     --timeout-idle-sec=SEC       Specify automount idle timeout\n"
                "     --automount-property=NAME=VALUE\n"
                "                                  Set automount unit property\n"
@@ -505,7 +506,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 _cleanup_free_ char *dev_bound = NULL;
                 r = fstab_filter_options(arg_mount_options, "x-systemd.device-bound\0",
-                                         /* ret_namefound = */ NULL, &dev_bound, /* ret_values = */ NULL, /* ret_filtered = */ NULL);
+                                         /* ret_namefound= */ NULL, &dev_bound, /* ret_values= */ NULL, /* ret_filtered= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse mount options for x-systemd.device-bound=: %m");
                 if (r > 0 && !isempty(dev_bound)) {
@@ -852,7 +853,7 @@ static int find_mount_points_by_source(const char *what, char ***ret) {
         /* Obtain all mount points with source being "what" from /proc/self/mountinfo, return value shows
          * the total number of them. */
 
-        r = libmount_parse_mountinfo(/* source = */ NULL, &table, &iter);
+        r = libmount_parse_mountinfo(/* source= */ NULL, &table, &iter);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse /proc/self/mountinfo: %m");
 
@@ -894,7 +895,7 @@ static int find_loop_device(const char *backing_file, sd_device **ret) {
         if (r < 0)
                 return log_oom();
 
-        r = sd_device_enumerator_add_match_subsystem(e, "block", /* match = */ true);
+        r = sd_device_enumerator_add_match_subsystem(e, "block", /* match= */ true);
         if (r < 0)
                 return log_error_errno(r, "Failed to add subsystem match: %m");
 
@@ -906,7 +907,7 @@ static int find_loop_device(const char *backing_file, sd_device **ret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add sysname match: %m");
 
-        r = sd_device_enumerator_add_match_sysattr(e, "loop/backing_file", /* value = */ NULL, /* match = */ true);
+        r = sd_device_enumerator_add_match_sysattr(e, "loop/backing_file", /* value= */ NULL, /* match= */ true);
         if (r < 0)
                 return log_error_errno(r, "Failed to add sysattr match: %m");
 
@@ -1113,7 +1114,7 @@ static int action_umount(sd_bus *bus, int argc, char **argv) {
                 if (fstat(fd, &st) < 0)
                         return log_error_errno(errno, "Can't stat '%s' (from %s): %m", p, argv[i]);
 
-                r = is_mount_point_at(fd, /* filename= */ NULL, /* flags= */ 0);
+                r = is_mount_point_at(fd, /* path= */ NULL, /* flags= */ 0);
                 fd = safe_close(fd); /* before continuing make sure the dir is not keeping anything busy */
                 if (r > 0)
                         RET_GATHER(ret, stop_mounts(bus, p));

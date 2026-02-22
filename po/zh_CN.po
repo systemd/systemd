@@ -11,12 +11,13 @@
 # z z <3397542367@qq.com>, 2025.
 # Hang Li <dabao1955@163.com>, 2025.
 # Jesse Guo <jesseguotech@outlook.com>, 2025.
+# Zongyuan He <lovenemesis@gmail.com>, 2025.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-11-26 01:17+0000\n"
-"PO-Revision-Date: 2025-11-26 09:52+0000\n"
-"Last-Translator: lumingzh <lumingzh@qq.com>\n"
+"PO-Revision-Date: 2025-12-31 07:58+0000\n"
+"Last-Translator: Zongyuan He <lovenemesis@gmail.com>\n"
 "Language-Team: Chinese (Simplified) <https://translate.fedoraproject.org/"
 "projects/systemd/main/zh_CN/>\n"
 "Language: zh_CN\n"
@@ -24,7 +25,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Weblate 5.14.3\n"
+"X-Generator: Weblate 5.15.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -101,7 +102,7 @@ msgstr "核验家区域的凭证"
 #: src/home/org.freedesktop.home1.policy:34
 msgid ""
 "Authentication is required to check credentials against a user's home area."
-msgstr "针对用户的家区域核验凭证需要身份认证。"
+msgstr "需要身份验证方可将凭证与用户的主目录区域进行比对。"
 
 #: src/home/org.freedesktop.home1.policy:43
 msgid "Update a home area"

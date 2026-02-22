@@ -19,6 +19,7 @@
 #include "process-util.h"
 #include "random-util.h"
 #include "rm-rf.h"
+#include "socket-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tests.h"
@@ -159,7 +160,7 @@ TEST(bind_remount_recursive) {
         assert_se(mkdir(subdir, 0755) >= 0);
 
         FOREACH_STRING(p, "/usr", "/sys", "/", tmp) {
-                ASSERT_OK(r = safe_fork("(bind-remount-recursive)", FORK_COMMON_FLAGS, NULL));
+                r = ASSERT_OK(pidref_safe_fork("(bind-remount-recursive)", FORK_COMMON_FLAGS, NULL));
                 if (r == 0) { /* child */
                         struct statvfs svfs;
 
@@ -195,7 +196,7 @@ TEST(bind_remount_one) {
 
         CHECK_PRIV;
 
-        ASSERT_OK(r = safe_fork("(remount-one-with-mountinfo)", FORK_COMMON_FLAGS, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(remount-one-with-mountinfo)", FORK_COMMON_FLAGS, NULL));
         if (r == 0) { /* child */
                 _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
 
@@ -210,7 +211,7 @@ TEST(bind_remount_one) {
                 _exit(EXIT_SUCCESS);
         }
 
-        ASSERT_OK(r = safe_fork("(remount-one)", FORK_COMMON_FLAGS, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(remount-one)", FORK_COMMON_FLAGS, NULL));
         if (r == 0) { /* child */
                 assert_se(bind_remount_one("/run", MS_RDONLY, MS_RDONLY) >= 0);
                 assert_se(bind_remount_one("/run", MS_NOEXEC, MS_RDONLY|MS_NOEXEC) >= 0);
@@ -290,7 +291,7 @@ TEST(make_mount_switch_root) {
         };
 
         FOREACH_ELEMENT(i, table) {
-                ASSERT_OK(r = safe_fork("(switch-root)", FORK_COMMON_FLAGS, NULL));
+                r = ASSERT_OK(pidref_safe_fork("(switch-root)", FORK_COMMON_FLAGS, NULL));
                 if (r == 0) {
                         assert_se(make_mount_point(i->path) >= 0);
                         assert_se(mount_switch_root_full(i->path, /* mount_propagation_flag= */ 0, i->force_ms_move) >= 0);
@@ -334,7 +335,7 @@ TEST(umount_recursive) {
         CHECK_PRIV;
 
         FOREACH_ELEMENT(t, test_table) {
-                ASSERT_OK(r = safe_fork("(umount-rec)", FORK_COMMON_FLAGS, NULL));
+                r = ASSERT_OK(pidref_safe_fork("(umount-rec)", FORK_COMMON_FLAGS, NULL));
                 if (r == 0) { /* child */
                         _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
                         _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
@@ -391,7 +392,7 @@ TEST(fd_make_mount_point) {
         assert_se(s);
         assert_se(mkdir(s, 0700) >= 0);
 
-        ASSERT_OK(r = safe_fork("(make-mount-point)", FORK_COMMON_FLAGS, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(make-mount-point)", FORK_COMMON_FLAGS, NULL));
         if (r == 0) {
                 _cleanup_close_ int fd = -EBADF, fd2 = -EBADF;
 
@@ -422,7 +423,7 @@ TEST(bind_mount_submounts) {
         assert_se(mkdtemp_malloc(NULL, &a) >= 0);
         assert_se(mkdtemp_malloc(NULL, &b) >= 0);
 
-        ASSERT_OK(r = safe_fork("(bind-mount-submounts)", FORK_COMMON_FLAGS, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(bind-mount-submounts)", FORK_COMMON_FLAGS, NULL));
         if (r == 0) {
                 char *x;
 
@@ -511,7 +512,7 @@ TEST(path_is_network_fs_harder) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         assert_se(mkdtemp_malloc("/tmp/test-mount-util.path_is_network_fs_harder.XXXXXXX", &t) >= 0);
 
-        ASSERT_OK(r = safe_fork("(path-is-network-fs-harder)", FORK_COMMON_FLAGS, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(path-is-network-fs-harder)", FORK_COMMON_FLAGS, NULL));
         if (r == 0) {
                 ASSERT_OK(mount_nofollow_verbose(LOG_INFO, "tmpfs", t, "tmpfs", 0, NULL));
                 ASSERT_OK_ZERO(path_is_network_fs_harder(t));
@@ -539,6 +540,68 @@ TEST(umountat) {
         ASSERT_OK(mount_nofollow_verbose(LOG_ERR, "tmpfs", q, "tmpfs", 0, NULL));
         ASSERT_OK(umountat_detach_verbose(LOG_ERR, dfd, "foo"));
         ASSERT_ERROR(umountat_detach_verbose(LOG_ERR, dfd, "foo"), EINVAL);
+}
+
+TEST(mount_fd_clone) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_pair_ int fds[2] = EBADF_PAIR;
+        int r;
+
+        CHECK_PRIV;
+
+        ASSERT_OK(mkdtemp_malloc(NULL, &t));
+
+        /* Set up a socket pair to transfer the mount fd from the child (in a different mountns) to us. */
+        ASSERT_OK_ERRNO(socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, fds));
+
+        r = ASSERT_OK(pidref_safe_fork_full(
+                        "(mount-fd-clone-setup)",
+                        /* stdio_fds= */ NULL,
+                        &fds[1], 1,
+                        FORK_COMMON_FLAGS,
+                        NULL));
+        if (r == 0) {
+                /* Create a tmpfs mount in this child's mountns. */
+                ASSERT_OK(mount_nofollow_verbose(LOG_ERR, "tmpfs", t, "tmpfs", 0, NULL));
+
+                /* Create a file in it to verify the mount later. */
+                _cleanup_free_ char *marker = ASSERT_NOT_NULL(path_join(t, "marker"));
+                ASSERT_OK(touch(marker));
+
+                /* Clone the mount as a detached mount fd. */
+                _cleanup_close_ int mount_fd = ASSERT_OK_ERRNO(open_tree(AT_FDCWD, t, OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC));
+
+                /* Send the mount fd to the parent. */
+                ASSERT_OK(send_one_fd(fds[1], mount_fd, 0));
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        fds[1] = safe_close(fds[1]);
+
+        /* Parent: Receive the mount fd, clone it with mount_fd_clone(), and verify we can attach it. */
+        _cleanup_close_ int foreign_mount_fd = ASSERT_OK(receive_one_fd(fds[0], 0));
+        _cleanup_close_ int first_clone = ASSERT_OK(
+                        mount_fd_clone(foreign_mount_fd, /* recursive= */ true, &foreign_mount_fd));
+        _cleanup_close_ _unused_ int second_clone = ASSERT_OK(
+                        mount_fd_clone(foreign_mount_fd, /* recursive= */ true, /* replacement_fd= */ NULL));
+        _cleanup_free_ char *target = ASSERT_NOT_NULL(path_join(t, "target"));
+        ASSERT_OK_ERRNO(mkdir(target, 0755));
+
+        r = ASSERT_OK(pidref_safe_fork_full(
+                        "(mount-fd-clone-verify)",
+                        /* stdio_fds= */ NULL,
+                        &first_clone, 1,
+                        FORK_COMMON_FLAGS,
+                        NULL));
+        if (r == 0) {
+                ASSERT_OK_ERRNO(move_mount(first_clone, "", AT_FDCWD, target, MOVE_MOUNT_F_EMPTY_PATH));
+
+                _cleanup_free_ char *marker = ASSERT_NOT_NULL(path_join(target, "marker"));
+                ASSERT_OK_ERRNO(access(marker, F_OK));
+
+                _exit(EXIT_SUCCESS);
+        }
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

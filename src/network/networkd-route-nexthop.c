@@ -94,10 +94,12 @@ static void route_nexthop_hash_func_full(const RouteNextHop *nh, struct siphash 
         /* See nh_comp() in net/ipv4/fib_semantics.c of the kernel. */
 
         siphash24_compress_typesafe(nh->family, state);
-        if (!IN_SET(nh->family, AF_INET, AF_INET6))
-                return;
 
-        in_addr_hash_func(&nh->gw, nh->family, state);
+        /* For device-only nexthops parsed from config, family is AF_UNSPEC until verification.
+         * We still need to hash weight/ifindex/ifname to distinguish different device-only entries. */
+        if (IN_SET(nh->family, AF_INET, AF_INET6))
+                in_addr_hash_func(&nh->gw, nh->family, state);
+
         if (with_weight)
                 siphash24_compress_typesafe(nh->weight, state);
         siphash24_compress_typesafe(nh->ifindex, state);
@@ -115,12 +117,13 @@ static int route_nexthop_compare_func_full(const RouteNextHop *a, const RouteNex
         if (r != 0)
                 return r;
 
-        if (!IN_SET(a->family, AF_INET, AF_INET6))
-                return 0;
-
-        r = memcmp(&a->gw, &b->gw, FAMILY_ADDRESS_SIZE(a->family));
-        if (r != 0)
-                return r;
+        /* For device-only nexthops parsed from config, family is AF_UNSPEC until verification.
+         * We still need to compare weight/ifindex/ifname to distinguish different device-only entries. */
+        if (IN_SET(a->family, AF_INET, AF_INET6)) {
+                r = memcmp(&a->gw, &b->gw, FAMILY_ADDRESS_SIZE(a->family));
+                if (r != 0)
+                        return r;
+        }
 
         if (with_weight) {
                 r = CMP(a->weight, b->weight);
@@ -142,11 +145,11 @@ static int route_nexthop_compare_func_full(const RouteNextHop *a, const RouteNex
 }
 
 static void route_nexthop_hash_func(const RouteNextHop *nh, struct siphash *state) {
-        route_nexthop_hash_func_full(nh, state, /* with_weight = */ true);
+        route_nexthop_hash_func_full(nh, state, /* with_weight= */ true);
 }
 
 static int route_nexthop_compare_func(const RouteNextHop *a, const RouteNextHop *b) {
-        return route_nexthop_compare_func_full(a, b, /* with_weight = */ true);
+        return route_nexthop_compare_func_full(a, b, /* with_weight= */ true);
 }
 
 DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
@@ -178,7 +181,7 @@ void route_nexthops_hash_func(const Route *route, struct siphash *state) {
                 return;
 
         case 1:
-                route_nexthop_hash_func_full(&route->nexthop, state, /* with_weight = */ false);
+                route_nexthop_hash_func_full(&route->nexthop, state, /* with_weight= */ false);
                 return;
 
         default: {
@@ -205,7 +208,7 @@ int route_nexthops_compare_func(const Route *a, const Route *b) {
                 return CMP(a->nexthop_id, b->nexthop_id);
 
         case 1:
-                return route_nexthop_compare_func_full(&a->nexthop, &b->nexthop, /* with_weight = */ false);
+                return route_nexthop_compare_func_full(&a->nexthop, &b->nexthop, /* with_weight= */ false);
 
         default: {
                 RouteNextHop *nh;
@@ -414,7 +417,7 @@ static bool route_nexthop_is_ready_to_configure(const RouteNextHop *nh, Manager 
         if (route_nexthop_get_link(manager, nh, &link) < 0)
                 return false;
 
-        if (!link_is_ready_to_configure(link, /* allow_unmanaged = */ true))
+        if (!link_is_ready_to_configure(link, /* allow_unmanaged= */ true))
                 return false;
 
         /* If the interface is not managed by us, we request that the interface has carrier.
@@ -553,30 +556,34 @@ static int append_nexthop_one(const Route *route, const RouteNextHop *nh, struct
 
         (*rta)->rta_len += sizeof(struct rtnexthop);
 
-        if (nh->family == route->family) {
-                r = rtattr_append_attribute(rta, RTA_GATEWAY, &nh->gw, FAMILY_ADDRESS_SIZE(nh->family));
-                if (r < 0)
-                        goto clear;
+        /* For device-only nexthops, skip RTA_GATEWAY entirely. The kernel will use the
+         * interface specified in rtnh_ifindex without requiring a gateway address. */
+        if (in_addr_is_set(nh->family, &nh->gw)) {
+                if (nh->family == route->family) {
+                        r = rtattr_append_attribute(rta, RTA_GATEWAY, &nh->gw, FAMILY_ADDRESS_SIZE(nh->family));
+                        if (r < 0)
+                                goto clear;
 
-                rtnh = (struct rtnexthop *)((uint8_t *) *rta + offset);
-                rtnh->rtnh_len += RTA_SPACE(FAMILY_ADDRESS_SIZE(nh->family));
+                        rtnh = (struct rtnexthop *)((uint8_t *) *rta + offset);
+                        rtnh->rtnh_len += RTA_SPACE(FAMILY_ADDRESS_SIZE(nh->family));
 
-        } else if (nh->family == AF_INET6) {
-                assert(route->family == AF_INET);
+                } else if (nh->family == AF_INET6) {
+                        assert(route->family == AF_INET);
 
-                r = rtattr_append_attribute(rta, RTA_VIA,
-                                            &(RouteVia) {
-                                                    .family = nh->family,
-                                                    .address = nh->gw,
-                                            }, sizeof(RouteVia));
-                if (r < 0)
-                        goto clear;
+                        r = rtattr_append_attribute(rta, RTA_VIA,
+                                                    &(RouteVia) {
+                                                            .family = nh->family,
+                                                            .address = nh->gw,
+                                                    }, sizeof(RouteVia));
+                        if (r < 0)
+                                goto clear;
 
-                rtnh = (struct rtnexthop *)((uint8_t *) *rta + offset);
-                rtnh->rtnh_len += RTA_SPACE(sizeof(RouteVia));
+                        rtnh = (struct rtnexthop *)((uint8_t *) *rta + offset);
+                        rtnh->rtnh_len += RTA_SPACE(sizeof(RouteVia));
 
-        } else if (nh->family == AF_INET)
-                assert_not_reached();
+                } else if (nh->family == AF_INET)
+                        assert_not_reached();
+        }
 
         return 0;
 
@@ -1080,11 +1087,16 @@ int config_parse_multipath_route(
                 }
         }
 
-        r = in_addr_from_string_auto(word, &nh->family, &nh->gw);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Invalid multipath route gateway '%s', ignoring assignment: %m", rvalue);
-                return 0;
+        if (isempty(word)) {
+                if (!dev)
+                        return log_syntax_parse_error(unit, filename, line, SYNTHETIC_ERRNO(EINVAL), lvalue, rvalue);
+        } else {
+                r = in_addr_from_string_auto(word, &nh->family, &nh->gw);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Invalid multipath route gateway '%s', ignoring assignment: %m", rvalue);
+                        return 0;
+                }
         }
 
         if (!isempty(p)) {

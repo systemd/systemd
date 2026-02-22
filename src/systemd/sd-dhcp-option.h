@@ -25,8 +25,7 @@ _SD_BEGIN_DECLARATIONS;
 typedef struct sd_dhcp_option sd_dhcp_option;
 
 int sd_dhcp_option_new(uint8_t option, const void *data, size_t length, sd_dhcp_option **ret);
-sd_dhcp_option *sd_dhcp_option_ref(sd_dhcp_option *ra);
-sd_dhcp_option *sd_dhcp_option_unref(sd_dhcp_option *ra);
+_SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp_option);
 
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_dhcp_option, sd_dhcp_option_unref);
 

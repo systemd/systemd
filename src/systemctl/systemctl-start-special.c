@@ -26,7 +26,6 @@ static int load_kexec_kernel(void) {
         _cleanup_(boot_config_free) BootConfig config = BOOT_CONFIG_NULL;
         _cleanup_free_ char *kernel = NULL, *initrd = NULL, *options = NULL;
         const BootEntry *e;
-        pid_t pid;
         int r;
 
         if (kexec_loaded()) {
@@ -89,7 +88,10 @@ static int load_kexec_kernel(void) {
         if (arg_dry_run)
                 return 0;
 
-        r = safe_fork("(kexec)", FORK_WAIT|FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
+        r = pidref_safe_fork(
+                        "(kexec)",
+                        FORK_WAIT|FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG,
+                        /* ret= */ NULL);
         if (r < 0)
                 return r;
         if (r == 0) {

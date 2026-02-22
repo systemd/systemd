@@ -320,7 +320,7 @@ static void coredump_context_check_pidns(CoredumpContext *context) {
         assert(context);
         assert(pidref_is_set(&context->pidref));
 
-        r = pidref_in_same_namespace(/* pid1 = */ NULL, &context->pidref, NAMESPACE_PID);
+        r = pidref_in_same_namespace(/* pid1= */ NULL, &context->pidref, NAMESPACE_PID);
         if (r < 0)
                 log_debug_errno(r, "Failed to check pidns of crashing process, ignoring: %m");
 

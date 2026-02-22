@@ -46,8 +46,7 @@ int sd_netlink_open(sd_netlink **ret);
 int sd_netlink_open_fd(sd_netlink **ret, int fd);
 int sd_netlink_increase_rxbuf(sd_netlink *nl, size_t size);
 
-sd_netlink* sd_netlink_ref(sd_netlink *nl);
-sd_netlink* sd_netlink_unref(sd_netlink *nl);
+_SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_netlink);
 
 int sd_netlink_send(sd_netlink *nl, sd_netlink_message *message, uint32_t *ret_serial);
 int sd_netlink_call_async(sd_netlink *nl, sd_netlink_slot **ret_slot, sd_netlink_message *message,
@@ -129,8 +128,7 @@ int sd_netlink_message_rewind(sd_netlink_message *m, sd_netlink *nl);
 
 sd_netlink_message* sd_netlink_message_next(sd_netlink_message *m);
 
-sd_netlink_message* sd_netlink_message_ref(sd_netlink_message *m);
-sd_netlink_message* sd_netlink_message_unref(sd_netlink_message *m);
+_SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_netlink_message);
 
 int sd_netlink_message_set_request_dump(sd_netlink_message *m, int dump);
 int sd_netlink_message_is_error(sd_netlink_message *m);
@@ -242,8 +240,7 @@ int sd_genl_add_match(sd_netlink *nl, sd_netlink_slot **ret_slot, const char *fa
                       void *userdata, const char *description);
 
 /* slot */
-sd_netlink_slot *sd_netlink_slot_ref(sd_netlink_slot *slot);
-sd_netlink_slot *sd_netlink_slot_unref(sd_netlink_slot *slot);
+_SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_netlink_slot);
 
 sd_netlink* sd_netlink_slot_get_netlink(sd_netlink_slot *slot);
 void* sd_netlink_slot_get_userdata(sd_netlink_slot *slot);

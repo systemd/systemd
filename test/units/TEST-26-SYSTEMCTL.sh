@@ -376,6 +376,14 @@ systemctl show -P Markers "$UNIT_NAME" | grep needs-restart
 systemctl reload-or-restart --marked
 (! systemctl show -P Markers "$UNIT_NAME" | grep needs-restart)
 
+# again, but with varlinkctl instead
+systemctl restart "$UNIT_NAME"
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Unit.SetProperties "{\"runtime\": true, \"name\": \"$UNIT_NAME\", \"properties\": {\"Markers\": [\"needs-restart\"]}}"
+systemctl show -P Markers "$UNIT_NAME" | grep needs-restart
+varlinkctl call /run/systemd/io.systemd.Manager io.systemd.Manager.EnqueueMarkedJobs '{}'
+timeout 30 bash -c "until systemctl list-jobs $UNIT_NAME | grep \"No jobs\" 2>/dev/null; do sleep 1; done"
+(! systemctl show -P Markers "$UNIT_NAME" | grep needs-restart)
+
 # --dry-run with destructive verbs
 # kexec is skipped intentionally, as it requires a bit more involved setup
 VERBS=(
@@ -421,24 +429,24 @@ systemctl disable "$UNIT_NAME"
 
 # show/set-environment
 # Make sure PATH is set
-systemctl show-environment | grep -q '^PATH='
+systemctl show-environment | grep '^PATH=' >/dev/null
 # Let's add an entry and override a built-in one
 systemctl set-environment PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/testaddition FOO=BAR
 # Check that both are set
-systemctl show-environment | grep -q '^PATH=.*testaddition$'
-systemctl show-environment | grep -q '^FOO=BAR$'
+systemctl show-environment | grep '^PATH=.*testaddition$' >/dev/null
+systemctl show-environment | grep '^FOO=BAR$' >/dev/null
 systemctl daemon-reload
 # Check again after the reload
-systemctl show-environment | grep -q '^PATH=.*testaddition$'
-systemctl show-environment | grep -q '^FOO=BAR$'
+systemctl show-environment | grep '^PATH=.*testaddition$' >/dev/null
+systemctl show-environment | grep '^FOO=BAR$' >/dev/null
 # Check that JSON output is supported
-systemctl show-environment --output=json | grep -q '^{.*"FOO":"BAR".*}$'
+systemctl show-environment --output=json | grep '^{.*"FOO":"BAR".*}$' >/dev/null
 # Drop both
 systemctl unset-environment FOO PATH
 # Check that one is gone and the other reverted to the built-in
 systemctl show-environment | grep '^FOO=$' && exit 1
 systemctl show-environment | grep '^PATH=.*testaddition$' && exit 1
-systemctl show-environment | grep -q '^PATH='
+systemctl show-environment | grep '^PATH=' >/dev/null
 # Check import-environment
 export IMPORT_THIS=hello
 export IMPORT_THIS_TOO=world
@@ -448,118 +456,6 @@ systemctl show-environment | grep "^IMPORT_THIS_TOO=$IMPORT_THIS_TOO"
 systemctl unset-environment IMPORT_THIS IMPORT_THIS_TOO
 (! systemctl show-environment | grep "^IMPORT_THIS=")
 (! systemctl show-environment | grep "^IMPORT_THIS_TOO=")
-
-# test for sysv-generator (issue #24990)
-if [[ -x /usr/lib/systemd/system-generators/systemd-sysv-generator ]]; then
-    # This is configurable via -Dsysvinit-path=, but we can't get the value
-    # at runtime, so let's just support the two most common paths for now.
-    [[ -d /etc/rc.d/init.d ]] && SYSVINIT_PATH="/etc/rc.d/init.d" || SYSVINIT_PATH="/etc/init.d"
-
-    # OpenSUSE leaves sysvinit-path enabled, which means systemd-sysv-generator is built
-    # but may not create the directory if there's no services that use it.
-    mkdir -p "$SYSVINIT_PATH"
-
-    # invalid dependency
-    cat >"${SYSVINIT_PATH:?}/issue-24990" <<\EOF
-#!/usr/bin/env bash
-
-### BEGIN INIT INFO
-# Provides:test1 test2
-# Required-Start:test1 $remote_fs $network
-# Required-Stop:test1 $remote_fs $network
-# Description:Test
-# Short-Description: Test
-### END INIT INFO
-
-case "$1" in
-    start)
-        echo "Starting issue-24990.service"
-        sleep 1000 &
-        ;;
-    stop)
-        echo "Stopping issue-24990.service"
-        sleep 10 &
-        ;;
-    *)
-        echo "Usage: service test {start|stop|restart|status}"
-        ;;
-esac
-EOF
-
-    chmod +x "$SYSVINIT_PATH/issue-24990"
-    systemctl daemon-reload
-    [[ -L /run/systemd/generator.late/test1.service ]]
-    [[ -L /run/systemd/generator.late/test2.service ]]
-    assert_eq "$(readlink -f /run/systemd/generator.late/test1.service)" "/run/systemd/generator.late/issue-24990.service"
-    assert_eq "$(readlink -f /run/systemd/generator.late/test2.service)" "/run/systemd/generator.late/issue-24990.service"
-    output=$(systemctl cat issue-24990)
-    assert_in "SourcePath=$SYSVINIT_PATH/issue-24990" "$output"
-    assert_in "Description=LSB: Test" "$output"
-    assert_in "After=test1.service" "$output"
-    assert_in "After=remote-fs.target" "$output"
-    assert_in "After=network-online.target" "$output"
-    assert_in "Wants=network-online.target" "$output"
-    assert_in "ExecStart=$SYSVINIT_PATH/issue-24990 start" "$output"
-    assert_in "ExecStop=$SYSVINIT_PATH/issue-24990 stop" "$output"
-    systemctl status issue-24990 || :
-    systemctl show issue-24990
-    assert_not_in "issue-24990.service" "$(systemctl show --property=After --value)"
-    assert_not_in "issue-24990.service" "$(systemctl show --property=Before --value)"
-
-    if ! systemctl is-active network-online.target; then
-        systemctl start network-online.target
-    fi
-
-    systemctl restart issue-24990
-    systemctl stop issue-24990
-
-    # valid dependency
-    cat >"$SYSVINIT_PATH/issue-24990" <<\EOF
-#!/usr/bin/env bash
-
-### BEGIN INIT INFO
-# Provides:test1 test2
-# Required-Start:$remote_fs
-# Required-Stop:$remote_fs
-# Description:Test
-# Short-Description: Test
-### END INIT INFO
-
-case "$1" in
-    start)
-        echo "Starting issue-24990.service"
-        sleep 1000 &
-        ;;
-    stop)
-        echo "Stopping issue-24990.service"
-        sleep 10 &
-        ;;
-    *)
-        echo "Usage: service test {start|stop|restart|status}"
-        ;;
-esac
-EOF
-
-    chmod +x "$SYSVINIT_PATH/issue-24990"
-    systemctl daemon-reload
-    [[ -L /run/systemd/generator.late/test1.service ]]
-    [[ -L /run/systemd/generator.late/test2.service ]]
-    assert_eq "$(readlink -f /run/systemd/generator.late/test1.service)" "/run/systemd/generator.late/issue-24990.service"
-    assert_eq "$(readlink -f /run/systemd/generator.late/test2.service)" "/run/systemd/generator.late/issue-24990.service"
-    output=$(systemctl cat issue-24990)
-    assert_in "SourcePath=$SYSVINIT_PATH/issue-24990" "$output"
-    assert_in "Description=LSB: Test" "$output"
-    assert_in "After=remote-fs.target" "$output"
-    assert_in "ExecStart=$SYSVINIT_PATH/issue-24990 start" "$output"
-    assert_in "ExecStop=$SYSVINIT_PATH/issue-24990 stop" "$output"
-    systemctl status issue-24990 || :
-    systemctl show issue-24990
-    assert_not_in "issue-24990.service" "$(systemctl show --property=After --value)"
-    assert_not_in "issue-24990.service" "$(systemctl show --property=Before --value)"
-
-    systemctl restart issue-24990
-    systemctl stop issue-24990
-fi
 
 # %J in WantedBy= causes ABRT (#26467)
 cat >/run/systemd/system/test-WantedBy.service <<EOF
@@ -590,7 +486,7 @@ EOF
 test -f "/run/systemd/user/$GLOBAL_UNIT_NAME"
 
 # Test 2: Read the global unit with systemctl cat --global
-systemctl cat --global "$GLOBAL_UNIT_NAME" | grep -q "ExecStart=/bin/true"
+systemctl cat --global "$GLOBAL_UNIT_NAME" | grep "ExecStart=/bin/true" >/dev/null
 
 # Test 3: Edit existing global unit (add a drop-in)
 systemctl edit --global --runtime --stdin "$GLOBAL_UNIT_NAME" <<EOF
@@ -600,17 +496,17 @@ EOF
 
 # Verify drop-in was created
 test -f "/run/systemd/user/$GLOBAL_UNIT_NAME.d/override.conf"
-systemctl cat --global "$GLOBAL_UNIT_NAME" | grep -q "Environment=TEST=value"
+systemctl cat --global "$GLOBAL_UNIT_NAME" | grep "Environment=TEST=value" >/dev/null
 
 # Test 4: Create a masked global unit in /run/
 mkdir -p /run/systemd/user
 ln -sf /dev/null "/run/systemd/user/$GLOBAL_MASKED_UNIT"
 
 # Test 5: Verify cat shows it's masked
-systemctl cat --global "$GLOBAL_MASKED_UNIT" 2>&1 | grep -q "masked"
+systemctl cat --global "$GLOBAL_MASKED_UNIT" 2>&1 | grep "masked" >/dev/null
 
 # Test 6: Verify edit refuses to edit masked unit
-(! systemctl edit --global --runtime --stdin --full "$GLOBAL_MASKED_UNIT" </dev/null 2>&1) | grep -q "masked"
+(! systemctl edit --global --runtime --stdin --full "$GLOBAL_MASKED_UNIT" </dev/null 2>&1) | grep "masked" >/dev/null
 
 # Cleanup global test units
 rm -f "/run/systemd/user/$GLOBAL_UNIT_NAME"

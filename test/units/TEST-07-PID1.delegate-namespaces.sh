@@ -39,8 +39,8 @@ testcase_pid() {
     # MountAPIVFS=yes always bind mounts child mounts of APIVFS filesystems, which means /proc/sys is always read-only
     # so we can't write to it when running in a container.
     if ! systemd-detect-virt --container; then
-        (! systemd-run -p PrivateUsersEx=self -p PrivatePIDs=yes -p MountAPIVFS=yes --wait --pipe -- sh -c 'echo 5 >/proc/sys/kernel/ns_last_pid')
-        systemd-run -p PrivateUsersEx=self -p PrivatePIDs=yes -p MountAPIVFS=yes -p DelegateNamespaces=pid --wait --pipe -- sh -c 'echo 5 >/proc/sys/kernel/ns_last_pid'
+        (! systemd-run -p PrivateUsersEx=self -p PrivatePIDs=yes -p MountAPIVFS=yes --wait --pipe -- bash -c 'echo 5 >/proc/sys/kernel/ns_last_pid')
+        systemd-run -p PrivateUsersEx=self -p PrivatePIDs=yes -p MountAPIVFS=yes -p DelegateNamespaces=pid --wait --pipe -- bash -c 'echo 5 >/proc/sys/kernel/ns_last_pid'
     fi
 }
 
@@ -70,7 +70,7 @@ testcase_user_manager() {
 }
 
 testcase_multiple_features() {
-    unsquashfs -no-xattrs -d /tmp/TEST-07-PID1-delegate-namespaces-root /usr/share/minimal_0.raw
+    unsquashfs -force -no-xattrs -d /tmp/TEST-07-PID1-delegate-namespaces-root /usr/share/minimal_0.raw
 
     systemd-run \
         -p PrivatePIDs=yes \
@@ -88,14 +88,14 @@ testcase_multiple_features() {
         -p PrivateTmp=yes \
         -p PrivateDevices=yes \
         -p PrivateNetwork=yes \
-        -p PrivateUsersEx=self \
+        -p PrivateUsers=self \
         -p PrivateIPC=yes \
         -p ProtectHostname=yes \
         -p ProtectClock=yes \
         -p ProtectKernelTunables=yes \
         -p ProtectKernelModules=yes \
         -p ProtectKernelLogs=yes \
-        -p ProtectControlGroupsEx=private \
+        -p ProtectControlGroups=private \
         -p LockPersonality=yes \
         -p Environment=ABC=QED \
         -p DelegateNamespaces=yes \

@@ -55,7 +55,7 @@ int action_verify(void) {
                         log_notice("Journal file %s has sealing enabled but verification key has not been passed using --verify-key=.", f->path);
 #endif
 
-                k = journal_file_verify(f, arg_verify_key, &first, &validated, &last, /* show_progress = */ !arg_quiet);
+                k = journal_file_verify(f, arg_verify_key, &first, &validated, &last, /* show_progress= */ !arg_quiet);
                 if (k == -EINVAL)
                         /* If the key was invalid give up right-away. */
                         return k;
@@ -172,8 +172,8 @@ int action_list_boots(void) {
 
         r = journal_get_boots(
                         j,
-                        /* advance_older = */ arg_lines_needs_seek_end(),
-                        /* max_ids = */ arg_lines >= 0 ? (size_t) arg_lines : SIZE_MAX,
+                        /* advance_older= */ arg_lines_needs_seek_end(),
+                        /* max_ids= */ arg_lines >= 0 ? (size_t) arg_lines : SIZE_MAX,
                         &ids, &n_ids);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine boots: %m");
@@ -267,9 +267,9 @@ int action_list_invocations(void) {
 
         r = journal_get_log_ids(
                         j, type,
-                        /* boot_id = */ arg_boot_id, /* unit = */ unit,
-                        /* advance_older = */ arg_lines_needs_seek_end(),
-                        /* max_ids = */ arg_lines >= 0 ? (size_t) arg_lines : SIZE_MAX,
+                        /* boot_id= */ arg_boot_id, /* unit= */ unit,
+                        /* advance_older= */ arg_lines_needs_seek_end(),
+                        /* max_ids= */ arg_lines >= 0 ? (size_t) arg_lines : SIZE_MAX,
                         &ids, &n_ids);
         if (r < 0)
                 return log_error_errno(r, "Failed to list invocation id for %s: %m", unit);

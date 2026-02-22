@@ -32,8 +32,6 @@
  * message.
  */
 
-struct iovec;
-
 typedef struct LogContext {
         unsigned n_ref;
         /* Depending on which destructor is used (log_context_free() or log_context_detach()) the memory
@@ -57,8 +55,7 @@ LogContext* log_context_new_iov(struct iovec *input_iovec, size_t n_input_iovec,
 LogContext* log_context_new_strv_consume(char **fields);
 LogContext* log_context_new_iov_consume(struct iovec *input_iovec, size_t n_input_iovec);
 
-LogContext *log_context_ref(LogContext *c);
-LogContext *log_context_unref(LogContext *c);
+DECLARE_TRIVIAL_REF_UNREF_FUNC(LogContext, log_context);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(LogContext*, log_context_unref);
 
@@ -90,13 +87,13 @@ void _reset_log_level(int *saved_log_level);
         _LOG_CONTEXT_PUSH_KEY_VALUE(key, value, UNIQ_T(c, UNIQ))
 
 #define _LOG_CONTEXT_PUSH_STRV(strv, c) \
-        _unused_ _cleanup_(log_context_unrefp) LogContext *c = log_context_new_strv(strv, /*owned=*/ false);
+        _unused_ _cleanup_(log_context_unrefp) LogContext *c = log_context_new_strv(strv, /* owned= */ false);
 
 #define LOG_CONTEXT_PUSH_STRV(strv) \
         _LOG_CONTEXT_PUSH_STRV(strv, UNIQ_T(c, UNIQ))
 
 #define _LOG_CONTEXT_PUSH_IOV(input_iovec, n_input_iovec, c) \
-        _unused_ _cleanup_(log_context_unrefp) LogContext *c = log_context_new_iov(input_iovec, n_input_iovec, /*owned=*/ false);
+        _unused_ _cleanup_(log_context_unrefp) LogContext *c = log_context_new_iov(input_iovec, n_input_iovec, /* owned= */ false);
 
 #define LOG_CONTEXT_PUSH_IOV(input_iovec, n_input_iovec) \
         _LOG_CONTEXT_PUSH_IOV(input_iovec, n_input_iovec, UNIQ_T(c, UNIQ))

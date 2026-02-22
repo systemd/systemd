@@ -256,58 +256,61 @@ int bus_verify_bypass_dump_ratelimit_async(Manager *m, sd_bus_message *call, sd_
                         reterr_error);
 }
 
-/* ret_format_str is an accumulator, so if it has any pre-existing content, new options will be appended to it */
+/* in_out_format_str is an accumulator, so if it has any pre-existing content it will be read, and new
+ * options will be appended to it */
 int bus_read_mount_options(
                 sd_bus_message *message,
                 sd_bus_error *reterr_error,
                 MountOptions **ret_options,
-                char **ret_format_str,
+                char **in_out_format_str,
                 const char *separator) {
 
         _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
         _cleanup_free_ char *format_str = NULL;
-        const char *mount_options, *partition;
         int r;
 
         assert(message);
         assert(ret_options);
-        assert(separator);
+        assert(!in_out_format_str == !separator);
 
         r = sd_bus_message_enter_container(message, 'a', "(ss)");
         if (r < 0)
                 return r;
 
+        const char *partition, *mount_options;
         while ((r = sd_bus_message_read(message, "(ss)", &partition, &mount_options)) > 0) {
-                _cleanup_free_ char *escaped = NULL;
-                _cleanup_free_ MountOptions *o = NULL;
                 PartitionDesignator partition_designator;
 
                 if (chars_intersect(mount_options, WHITESPACE))
                         return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
-                                                "Invalid mount options string, contains whitespace character(s): %s", mount_options);
+                                                 "Invalid mount options string, contains whitespace character(s): %s", mount_options);
 
                 partition_designator = partition_designator_from_string(partition);
                 if (partition_designator < 0)
                         return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid partition name %s", partition);
 
-                /* Need to store the options with the escapes, so that they can be parsed again */
-                escaped = shell_escape(mount_options, ":");
-                if (!escaped)
-                        return -ENOMEM;
+                if (!options) {
+                        options = new0(MountOptions, 1);
+                        if (!options)
+                                return -ENOMEM;
+                }
 
-                if (!strextend_with_separator(&format_str, separator, partition, ":", escaped))
-                        return -ENOMEM;
+                r = free_and_strdup(&options->options[partition_designator], mount_options);
+                if (r < 0)
+                        return r;
 
-                o = new(MountOptions, 1);
-                if (!o)
-                        return -ENOMEM;
-                *o = (MountOptions) {
-                        .partition_designator = partition_designator,
-                        .options = strdup(mount_options),
-                };
-                if (!o->options)
-                        return -ENOMEM;
-                LIST_APPEND(mount_options, options, TAKE_PTR(o));
+                if (in_out_format_str && !isempty(mount_options)) {
+                        /* Need to store the options with the escapes, so that they can be parsed again */
+                        _cleanup_free_ char *escaped = NULL;
+
+                        escaped = shell_escape(mount_options, ":");
+                        if (!escaped)
+                                return -ENOMEM;
+
+                        r = strextendf_with_separator(&format_str, separator, "%s:%s", partition, escaped);
+                        if (r < 0)
+                                return r;
+                }
         }
         if (r < 0)
                 return r;
@@ -316,15 +319,10 @@ int bus_read_mount_options(
         if (r < 0)
                 return r;
 
-        if (options) {
-                if (ret_format_str) {
-                        char *final = strjoin(*ret_format_str, !isempty(*ret_format_str) ? separator : "", format_str);
-                        if (!final)
-                                return -ENOMEM;
-                        free_and_replace(*ret_format_str, final);
-                }
-                LIST_JOIN(mount_options, *ret_options, options);
-        }
+        if (in_out_format_str && !strextend_with_separator(in_out_format_str, separator, format_str))
+                return -ENOMEM;
+
+        *ret_options = TAKE_PTR(options);
 
         return 0;
 }

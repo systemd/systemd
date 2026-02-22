@@ -175,7 +175,7 @@ if ! systemd-detect-virt -cq; then
     systemd-run --wait --pipe --unit "$SERVICE_NAME" "${ARGUMENTS[@]}" \
         bash -xec "test -r /dev/null; test ! -w /dev/null; test ! -r $LODEV; test -w $LODEV; test ! -r /dev/tty; test ! -w /dev/tty"
 
-    if ! systemctl --version | grep -qF -- "-BPF_FRAMEWORK"; then
+    if ! systemctl --version | grep -F -- "-BPF_FRAMEWORK" >/dev/null; then
         # SocketBind*=
         ARGUMENTS=(
             -p SocketBindAllow=
@@ -216,6 +216,23 @@ if ! systemd-detect-virt -cq; then
             bash -xec 'timeout 1s ncat -6 -l ::1 1234; exit 1'
         systemd-run --wait --pipe -p SuccessExitStatus=124 "${ARGUMENTS[@]}" \
             bash -xec 'timeout 1s ncat -6 -l ::1 6666; exit 1'
+
+        # BindNetworkInterface*=
+        # Create a VRF interface to later bind to and check if the binding is working
+        ip link add vrf-test type vrf table 100
+        ip link set vrf-test up
+        ip address add 127.0.0.1/8 dev vrf-test
+
+        # Verify that a socket with BindNetworkInterface set is correctly bound to the interface
+        systemd-run --wait --pipe -p BindNetworkInterface=vrf-test \
+            bash -xec 'ncat -l 127.0.0.1 9999 & sleep 0.5; ss -tlnp | grep "127.0.0.1%vrf-test:9999" > /dev/null'
+
+        # Verify that a socket without BindNetworkInterface is not bound to any interface
+        systemd-run --wait --pipe \
+            bash -xec 'ncat -l 127.0.0.1 9998 & sleep 0.5; ss -tlnp | grep "127.0.0.1:9998" > /dev/null'
+
+        ip link del vrf-test
+
     fi
 
     losetup -d "$LODEV"
@@ -356,7 +373,7 @@ systemd-run \
     -p DynamicUser=yes \
     -p EnvironmentFile=-/usr/lib/systemd/systemd-asan-env \
     -p NotifyAccess=all \
-    sh -c 'touch /tmp/a && touch /var/tmp/b && ! test -f /tmp/b && ! test -f /var/tmp/a && systemd-notify --ready && sleep infinity'
+    bash -c 'touch /tmp/a && touch /var/tmp/b && ! test -f /tmp/b && ! test -f /var/tmp/a && systemd-notify --ready && sleep infinity'
 (! ls /tmp/systemd-private-"$(tr -d '-' < /proc/sys/kernel/random/boot_id)"-test-07-dynamic-user-tmp.service-* &>/dev/null)
 (! ls /var/tmp/systemd-private-"$(tr -d '-' < /proc/sys/kernel/random/boot_id)"-test-07-dynamic-user-tmp.service-* &>/dev/null)
 systemctl is-active test-07-dynamic-user-tmp.service

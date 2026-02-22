@@ -6,6 +6,7 @@
 typedef enum ImportType {
         IMPORT_RAW,
         IMPORT_TAR,
+        IMPORT_OCI,
         _IMPORT_TYPE_MAX,
         _IMPORT_TYPE_INVALID = -EINVAL,
 } ImportType;
@@ -30,11 +31,9 @@ static inline int import_url_append_component(const char *url, const char *suffi
         return import_url_change_suffix(url, 0, suffix, ret);
 }
 
-const char* import_type_to_string(ImportType v) _const_;
-ImportType import_type_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(import_type, ImportType);
 
-const char* import_verify_to_string(ImportVerify v) _const_;
-ImportVerify import_verify_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(import_verify, ImportVerify);
 
 int tar_strip_suffixes(const char *name, char **ret);
 int raw_strip_suffixes(const char *name, char **ret);

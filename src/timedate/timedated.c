@@ -184,7 +184,9 @@ static int context_parse_ntp_services_from_disk(Context *c) {
         _cleanup_strv_free_ char **files = NULL;
         int r;
 
-        r = conf_files_list_strv(&files, ".list", NULL, CONF_FILES_FILTER_MASKED, UNIT_LIST_DIRS);
+        r = conf_files_list_strv(&files, ".list", /* root= */ NULL,
+                                 CONF_FILES_FILTER_MASKED | CONF_FILES_WARN,
+                                 UNIT_LIST_DIRS);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate .list files: %m");
 
@@ -891,7 +893,7 @@ static int method_set_time(sd_bus_message *m, void *userdata, sd_bus_error *erro
         } else
                 timespec_store(&ts, (usec_t) utc);
 
-        /* refuse the request when the time is before systemd build date time*/
+        /* refuse the request when the time is before systemd build date time */
         if (ts.tv_sec < TIME_EPOCH)
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Requested to set the clock to time before build time, refusing.");
 

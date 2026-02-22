@@ -1477,4 +1477,115 @@ TEST(unit_name) {
                                   &data), EINVAL);
 }
 
+TEST(access_mode) {
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        ASSERT_OK(sd_json_parse("{"
+                                " \"a\" : \"0755\", "
+                                " \"b\" : 448, "
+                                " \"c\" : null, "
+                                " \"d\" : \"01755\" "
+                                "}",
+                                /* flags= */ 0,
+                                &v,
+                                /* reterr_line= */ NULL,
+                                /* reterr_column= */ NULL));
+
+        struct {
+                mode_t a, b, c, d;
+        } mm = { 1, 2, 3, 4 };
+
+        ASSERT_OK(sd_json_dispatch(
+                                  v,
+                                  (const sd_json_dispatch_field[]) {
+                                          { "a", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_access_mode, voffsetof(mm, a), 0 },
+                                          { "b", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_access_mode, voffsetof(mm, b), 0 },
+                                          { "c", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_access_mode, voffsetof(mm, c), 0 },
+                                          { "d", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_access_mode, voffsetof(mm, d), 0 },
+                                          {},
+                                  },
+                                  /* flags= */ 0,
+                                  &mm));
+
+        ASSERT_EQ(mm.a, (mode_t) 0755);
+        ASSERT_EQ(mm.b, (mode_t) 0700);
+        ASSERT_EQ(mm.c, MODE_INVALID);
+        ASSERT_EQ(mm.d, (mode_t) 01755);
+
+        /* retry with SD_JSON_STRICT, where 'd' should not parse anymore */
+        ASSERT_ERROR(sd_json_dispatch(
+                                  v,
+                                  (const sd_json_dispatch_field[]) {
+                                          { "d", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_access_mode, voffsetof(mm, d), SD_JSON_STRICT },
+                                          {},
+                                  },
+                                  /* flags= */ SD_JSON_ALLOW_EXTENSIONS,
+                                  &mm), ERANGE);
+}
+
+static void test_json_variant_compare_one(const char *a, const char *b, int expected) {
+        int r;
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *aa = NULL;
+        if (!isempty(a))
+                ASSERT_OK(sd_json_parse(a, /* flags= */ 0, &aa, /* reterr_line= */ NULL, /* reterr_column= */ NULL));
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *bb = NULL;
+        if (!isempty(b))
+                ASSERT_OK(sd_json_parse(b, /* flags= */ 0, &bb, /* reterr_line= */ NULL, /* reterr_column= */ NULL));
+
+        r = json_variant_compare(aa, bb);
+
+        log_debug("%s vs %s → %i (expected %i)", a, b, r, expected);
+
+        if (expected < 0)
+                ASSERT_LT(r, 0);
+        else if (expected > 0)
+                ASSERT_GT(r, 0);
+        else
+                ASSERT_EQ(r, 0);
+
+        r = json_variant_compare(bb, aa);
+
+        if (expected < 0)
+                ASSERT_GT(r, 0);
+        else if (expected > 0)
+                ASSERT_LT(r, 0);
+        else
+                ASSERT_EQ(r, 0);
+}
+
+TEST(json_variant_compare) {
+        test_json_variant_compare_one("null", "\"a\"", -1);
+        test_json_variant_compare_one(NULL, "\"a\"", -1);
+        test_json_variant_compare_one("0", "1", -1);
+        test_json_variant_compare_one("1", "0", 1);
+        test_json_variant_compare_one("0", "0", 0);
+        test_json_variant_compare_one("1", "1", 0);
+        test_json_variant_compare_one("1", "null", 1);
+        test_json_variant_compare_one("null", "1", -1);
+        test_json_variant_compare_one("null", "null", 0);
+        test_json_variant_compare_one("false", "true", -1);
+        test_json_variant_compare_one("true", "false", 1);
+        test_json_variant_compare_one("true", "true", 0);
+        test_json_variant_compare_one("false", "false", 0);
+        test_json_variant_compare_one("\"a\"", "\"b\"", -1);
+        test_json_variant_compare_one("\"b\"", "\"a\"", 1);
+        test_json_variant_compare_one("18446744073709551615", "0", 1);
+        test_json_variant_compare_one("0", "18446744073709551615", -1);
+        test_json_variant_compare_one("18446744073709551615", "18446744073709551615", 0);
+        test_json_variant_compare_one("-9223372036854775808", "18446744073709551615", -1);
+        test_json_variant_compare_one("18446744073709551615", "-9223372036854775808", 1);
+        test_json_variant_compare_one("1.1", "3.4", -1);
+        test_json_variant_compare_one("1", "3.4", -1);
+        test_json_variant_compare_one("[1,2]", "[1,2]", 0);
+        test_json_variant_compare_one("[1,2]", "[2,1]", -1);
+        test_json_variant_compare_one("[1,2]", "[1,2,3]", -1);
+        test_json_variant_compare_one("{}", "{\"a\":\"b\"}", -1);
+        test_json_variant_compare_one("{\"a\":\"b\"}", "{\"a\":\"b\"}", 0);
+        test_json_variant_compare_one("{\"a\":\"b\"}", "{\"b\":\"c\"}", 1);
+        test_json_variant_compare_one("{\"a\":\"b\",\"b\":\"c\"}", "{\"b\":\"c\",\"a\":\"b\"}", 0);
+        test_json_variant_compare_one("{\"a\":\"b\",\"b\":\"c\"}", "{\"a\":\"b\"}", 1);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);

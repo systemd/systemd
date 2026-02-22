@@ -760,7 +760,7 @@ int append_unit_dependencies(sd_bus *bus, char **names, char ***ret) {
 
                 (void) unit_get_dependencies(bus, *name, &deps);
 
-                if (strv_extend_strv_consume(&with_deps, deps, /* filter_duplicates = */ true) < 0)
+                if (strv_extend_strv_consume(&with_deps, deps, /* filter_duplicates= */ true) < 0)
                         return log_oom();
         }
 

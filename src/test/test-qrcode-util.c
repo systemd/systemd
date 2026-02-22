@@ -11,7 +11,7 @@ static int run(int argc, char **argv) {
 
         test_setup_logging(LOG_DEBUG);
 
-        assert_se(setenv("SYSTEMD_COLORS", "1", 1) == 0); /* Force the qrcode to be printed */
+        assert_se(setenv("SYSTEMD_COLORS", "24bit", 1) == 0); /* Force the qrcode to be printed */
 
         r = print_qrcode(stdout, "This should say \"TEST\"", "TEST");
         if (r == -EOPNOTSUPP)

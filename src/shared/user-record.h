@@ -418,8 +418,7 @@ typedef struct UserRecord {
 } UserRecord;
 
 UserRecord* user_record_new(void);
-UserRecord* user_record_ref(UserRecord *h);
-UserRecord* user_record_unref(UserRecord *h);
+DECLARE_TRIVIAL_REF_UNREF_FUNC(UserRecord, user_record);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(UserRecord*, user_record_unref);
 
@@ -546,11 +545,8 @@ bool user_record_matches_user_name(const UserRecord *u, const char *username);
 
 int json_dispatch_dispositions_mask(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata);
 
-const char* user_storage_to_string(UserStorage t) _const_;
-UserStorage user_storage_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(user_storage, UserStorage);
 
-const char* user_disposition_to_string(UserDisposition t) _const_;
-UserDisposition user_disposition_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(user_disposition, UserDisposition);
 
-const char* auto_resize_mode_to_string(AutoResizeMode m) _const_;
-AutoResizeMode auto_resize_mode_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(auto_resize_mode, AutoResizeMode);

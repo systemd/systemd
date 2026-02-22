@@ -50,7 +50,7 @@ static void parse_credentials(void) {
         _cleanup_free_ char *value = NULL;
         int r;
 
-        r = read_credential("quotacheck.mode", (void**) &value, /* ret_size = */ NULL);
+        r = read_credential("quotacheck.mode", (void**) &value, /* ret_size= */ NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to read credential 'quotacheck.mode', ignoring: %m");
         else {
@@ -99,7 +99,10 @@ static int run(int argc, char *argv[]) {
                         return log_oom();
         }
 
-        r = safe_fork("(quotacheck)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_RLIMIT_NOFILE_SAFE|FORK_WAIT|FORK_LOG, NULL);
+        r = pidref_safe_fork(
+                        "(quotacheck)",
+                        FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_RLIMIT_NOFILE_SAFE|FORK_WAIT|FORK_LOG,
+                        /* ret= */ NULL);
         if (r < 0)
                 return r;
         if (r == 0) {

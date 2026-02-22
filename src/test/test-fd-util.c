@@ -157,10 +157,9 @@ TEST(fd_move_above_stdio) {
 }
 
 TEST(rearrange_stdio) {
-        pid_t pid;
         int r;
 
-        r = safe_fork("rearrange", FORK_WAIT|FORK_LOG, &pid);
+        r = pidref_safe_fork("rearrange", FORK_WAIT|FORK_LOG, NULL);
         assert_se(r >= 0);
 
         if (r == 0) {
@@ -335,27 +334,22 @@ static void test_close_all_fds_inner(int (*func)(const int except[], size_t n_ex
 }
 
 TEST(close_all_fds) {
+        ForkFlags flags = FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT;
         int r;
 
-        ASSERT_OK(r = safe_fork("(caf-plain)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(caf-plain)", flags, NULL));
         if (r == 0) {
                 test_close_all_fds_inner(close_all_fds);
                 _exit(EXIT_SUCCESS);
         }
 
-        ASSERT_OK(r = safe_fork("(caf-nomalloc)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(caf-nomalloc)", flags, NULL));
         if (r == 0) {
                 test_close_all_fds_inner(close_all_fds_without_malloc);
                 _exit(EXIT_SUCCESS);
         }
 
-        ASSERT_OK(r = safe_fork("(caf-proc)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL));
-        if (r == 0) {
-                test_close_all_fds_inner(close_all_fds_by_proc);
-                _exit(EXIT_SUCCESS);
-        }
-
-        ASSERT_OK(r = safe_fork("(caf-frugal)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(caf-frugal)", flags, NULL));
         if (r == 0) {
                 test_close_all_fds_inner(close_all_fds_frugal);
                 _exit(EXIT_SUCCESS);

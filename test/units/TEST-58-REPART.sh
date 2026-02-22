@@ -22,10 +22,6 @@ export SYSTEMD_UTF8=0
 
 seed=750b6cd5c4ae4012a15e7be3c29e6a47
 
-if ! systemd-detect-virt --quiet --container; then
-    udevadm control --log-level debug
-fi
-
 esp_guid=C12A7328-F81F-11D2-BA4B-00A0C93EC93B
 xbootldr_guid=BC13C2FF-59E6-4262-A352-B275FD6F7172
 
@@ -398,7 +394,7 @@ $imgs/zzz7 : start=     6291416, size=      131072, type=3B8F8425-20E0-4F3B-907F
 
     # Validate that the VolumeLabel= had the desired effect
     PASSWORD="" systemd-dissect "$imgs/zzz" -M "$imgs/mount"
-    udevadm info /dev/disk/by-label/schrupfel | grep -q ID_FS_TYPE=crypto_LUKS
+    udevadm info /dev/disk/by-label/schrupfel | grep ID_FS_TYPE=crypto_LUKS >/dev/null
     systemd-dissect -U "$imgs/mount"
 }
 
@@ -947,12 +943,12 @@ EOF
     fi
 
     systemd-dissect "$imgs/verity" --root-hash "$drh"
-    systemd-dissect "$imgs/verity" --root-hash "$drh" --json=short | grep -q '"imageUuid":"1d2ce291-7cce-4f7d-bc83-fdb49ad74ebd"'
+    systemd-dissect "$imgs/verity" --root-hash "$drh" --json=short | grep '"imageUuid":"1d2ce291-7cce-4f7d-bc83-fdb49ad74ebd"' >/dev/null
     systemd-dissect "$imgs/verity" --root-hash "$drh" -M "$imgs/mnt"
     systemd-dissect -U "$imgs/mnt"
 
     systemd-dissect "$imgs/offline" --root-hash "$offline_drh"
-    systemd-dissect "$imgs/offline" --root-hash "$offline_drh" --json=short | grep -q '"imageUuid":"1d2ce291-7cce-4f7d-bc83-fdb49ad74ebd"'
+    systemd-dissect "$imgs/offline" --root-hash "$offline_drh" --json=short | grep '"imageUuid":"1d2ce291-7cce-4f7d-bc83-fdb49ad74ebd"' >/dev/null
     systemd-dissect "$imgs/offline" --root-hash "$offline_drh" -M "$imgs/mnt"
     systemd-dissect -U "$imgs/mnt"
 }
@@ -1011,8 +1007,8 @@ EOF
     udevadm wait --timeout=60 --settle "${loop:?}p1" "${loop:?}p2"
 
     # Check that the verity block sizes are as expected
-    veritysetup dump "${loop}p2" | grep 'Data block size:' | grep -q '4096'
-    veritysetup dump "${loop}p2" | grep 'Hash block size:' | grep -q '1024'
+    veritysetup dump "${loop}p2" | grep 'Data block size:' | grep '4096' >/dev/null
+    veritysetup dump "${loop}p2" | grep 'Hash block size:' | grep '1024' >/dev/null
 }
 
 testcase_verity_hash_size_from_data_size() {
@@ -1089,7 +1085,7 @@ EOF
     assert_rc 0 test $data_bytes -lt $((100 * 1024 * 1024))
 
     # Check that the verity hash tree is created from the actual on-disk data, not the custom size
-    veritysetup dump "${loop}p2" | grep 'Data blocks:' | grep -q "$data_verity_blocks"
+    veritysetup dump "${loop}p2" | grep 'Data blocks:' | grep "$data_verity_blocks" >/dev/null
 }
 
 testcase_exclude_files() {
@@ -1712,7 +1708,7 @@ testcase_btrfs_compression() {
     # Must not be in tmpfs due to exclusions. It also must be large and
     # compressible so that the compression check succeeds later.
     src=/etc/test-source-file
-    dd if=/dev/zero of="$src" bs=1M count=1 2>/dev/null
+    fallocate -l 1M "$src"
 
     tee "$defs/btrfs-compressed.conf" <<EOF
 [Partition]
@@ -1836,6 +1832,231 @@ EOF
     varlinkctl --more --collect call "$REPART" io.systemd.Repart.Run '{"definitions":["'"$defs"'"],"empty":"force","seed":"'"$seed"'","dryRun":false,"node":"'"$imgs/disk3.img"'"}'
 
     cmp "$imgs/disk1.img" "$imgs/disk3.img"
+}
+
+_test_luks2_integrity() {
+    local defs imgs output root
+
+    if [[ "$OFFLINE" != "no" ]]; then
+        return 0
+    fi
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    root="$(mktemp --directory "/var/test-repart.root.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs' '$root'" RETURN
+    chmod 0755 "$defs"
+
+    echo "*** testcase for LUKS2 integrity ***"
+
+    tee "$defs/root.conf" <<EOF
+[Partition]
+Type=root
+Format=ext4
+Encrypt=key-file
+Integrity=inline
+EOF
+
+    [ -n "$1" ] && echo "IntegrityAlgorithm=$1" >> "$defs/root.conf"
+
+    systemd-repart --pretty=yes \
+                   --definitions "$defs" \
+                   --empty=create \
+                   --size=100M \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   --offline=no \
+                   "$imgs/encint.img"
+
+    loop="$(losetup -P --show --find "$imgs/encint.img")"
+    udevadm wait --timeout=60 --settle "${loop:?}p1"
+
+    volume="test-repart-luksint-$RANDOM"
+    dmstatus="$imgs/dmsetup-$RANDOM"
+
+    touch "$imgs/empty-password"
+
+    # the expectation for hmac-sha256 is 'integrity: hmac(sha256)'
+    cryptsetup luksDump "${loop}p1" | grep -q "integrity: $(echo "$1" | sed -r 's/^hmac-(.*)$/hmac(\1)/')"
+
+    cryptsetup open --type=luks2 --key-file="$imgs/empty-password" "${loop}p1" "$volume"
+    dmsetup status > "$dmstatus"
+    cryptsetup close "$volume"
+    losetup -d "$loop"
+    # Check that there's a dm-integrity entry
+    grep -q "$volume""_dif.* integrity " "$dmstatus"
+}
+
+testcase_luks2_integrity() {
+    _test_luks2_integrity ""
+    _test_luks2_integrity "hmac-sha1"
+    _test_luks2_integrity "hmac-sha256"
+    _test_luks2_integrity "hmac-sha512"
+}
+
+testcase_ext_reproducibility() {
+    local defs imgs ts
+
+    # Online mode mounts the filesystem which updates inode timestamps non-deterministically
+    if [[ "$OFFLINE" != "yes" ]]; then
+        echo "Skipping ext reproducibility test in online mode."
+        return 0
+    fi
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+
+    tee "$defs/root.conf" <<EOF
+[Partition]
+Type=root
+Format=ext4
+EOF
+
+    # Build the image twice with the same seed and verify they are identical
+    ts=$(date +%s)
+    env SOURCE_DATE_EPOCH="$ts" \
+        systemd-repart \
+        --offline="$OFFLINE" \
+        --definitions="$defs" \
+        --empty=create \
+        --size=50M \
+        --seed="$seed" \
+        --dry-run=no \
+        "$imgs/test1.img"
+
+    sleep 2
+
+    env SOURCE_DATE_EPOCH="$ts" \
+        systemd-repart \
+        --offline="$OFFLINE" \
+        --definitions="$defs" \
+        --empty=create \
+        --size=50M \
+        --seed="$seed" \
+        --dry-run=no \
+        "$imgs/test2.img"
+
+    cmp "$imgs/test1.img" "$imgs/test2.img"
+}
+
+testcase_luks2_keyhash() {
+    local defs imgs output root
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    root="$(mktemp --directory "/var/test-repart.root.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs' '$root'" RETURN
+    chmod 0755 "$defs"
+
+    echo "*** testcase for fixate-volume-key ***"
+
+    volume="test-repart-lukskeyhash-$RANDOM"
+
+    tee "$defs/root.conf" <<EOF
+[Partition]
+Type=linux-generic
+Format=ext4
+Encrypt=key-file
+EncryptedVolume=$volume:::fixate-volume-key
+EOF
+
+    systemd-repart --pretty=yes \
+                   --definitions "$defs" \
+                   --empty=create \
+                   --size=100M \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   --offline="$OFFLINE" \
+                   --generate-crypttab="$imgs/crypttab" \
+                   "$imgs/enckeyhash.img"
+
+    loop="$(losetup -P --show --find "$imgs/enckeyhash.img")"
+    udevadm wait --timeout=60 --settle "${loop:?}p1"
+
+    touch "$imgs/empty-password"
+
+    # Check that the volume can be attached with the correct hash
+    expected_hash="$(grep UUID= "$imgs/crypttab" | sed s,.*fixate-volume-key=,,)"
+    echo "Expected hash: $expected_hash"
+    echo "Trying to attach the volume"
+    systemd-cryptsetup attach $volume "${loop}p1" "$imgs/empty-password" "fixate-volume-key=$expected_hash"
+    echo "Trying to detach the volume"
+    systemd-cryptsetup detach $volume
+    echo "Success!"
+
+    # Check that the volume cannot be attached with incorrect hash
+    echo "Trying to attach the volume with wrong hash"
+    systemd-cryptsetup attach $volume "${loop}p1" "$imgs/empty-password" "fixate-volume-key=aaaaaabbbbbbccccccddddddeeeeeeffffff1111112222223333334444445555" && exit 1
+    # Verify the volume is not attached
+    [ ! -f "/dev/mapper/$volume" ] || exit 1
+
+    losetup -d "$loop"
+}
+
+testcase_fstab_crypttab_in_repart() {
+    local defs imgs root volume
+
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    root="$(mktemp --directory "/var/test-repart.root.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs' '$root'" RETURN
+    chmod 0755 "$defs"
+
+    echo "*** testcase for including fstab/crypttab into repart created volume ***"
+
+    volume="test-repart-fstab-crypttab-$RANDOM"
+
+    mkdir -p "$root/etc"
+    tee "$defs/root.conf" <<EOF
+[Partition]
+Type=linux-generic
+Format=ext4
+CopyFiles=/etc
+Encrypt=key-file
+EncryptedVolume=$volume
+MountPoint=/mnt/volume
+EOF
+
+    systemd-repart --pretty=yes \
+                   --definitions "$defs" \
+                   --empty=create \
+                   --size=100M \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   --offline="$OFFLINE" \
+                   --generate-fstab="/etc/fstab" \
+                   --generate-crypttab="/etc/crypttab" \
+                   --root="$root" \
+                   "$imgs/fstabcrypttabrepart.img"
+
+    loop="$(losetup -P --show --find "$imgs/fstabcrypttabrepart.img")"
+    udevadm wait --timeout=60 --settle "${loop:?}p1"
+
+    touch "$imgs/empty-password"
+
+    mkdir -p "$imgs/mount"
+
+    systemd-cryptsetup attach "$volume" "${loop}p1" "$imgs/empty-password"
+
+    mount -t ext4 "/dev/mapper/$volume" "$imgs/mount"
+
+    echo "Testing /etc/fstab presence"
+    test -f "$imgs/mount/etc/fstab"
+    grep -q "/mnt/volume" "$imgs/mount/etc/fstab"
+
+    echo "Testing /etc/crypttab presence"
+    test -f "$imgs/mount/etc/crypttab"
+    grep -q "$volume" "$imgs/mount/etc/crypttab"
+
+    umount "$imgs/mount"
+    systemd-cryptsetup detach "$volume"
+
+    losetup -d "$loop"
 }
 
 OFFLINE="yes"

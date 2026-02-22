@@ -8,6 +8,7 @@
 #include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
+#include "set.h"
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
@@ -80,8 +81,9 @@ int dlopen_libacl(void) {
                         DLSYM_ARG(acl_to_any_text));
 }
 
-int devnode_acl(int fd, uid_t uid) {
-        bool changed = false, found = false;
+int devnode_acl(int fd, const Set *uids) {
+        _cleanup_set_free_ Set *found = NULL;
+        bool changed = false;
         int r;
 
         assert(fd >= 0);
@@ -107,12 +109,12 @@ int devnode_acl(int fd, uid_t uid) {
                 if (tag != ACL_USER)
                         continue;
 
-                if (uid > 0) {
+                if (!set_isempty(uids)) {
                         uid_t *u = sym_acl_get_qualifier(entry);
                         if (!u)
                                 return -errno;
 
-                        if (*u == uid) {
+                        if (set_contains(uids, UID_TO_PTR(*u))) {
                                 acl_permset_t permset;
                                 if (sym_acl_get_permset(entry, &permset) < 0)
                                         return -errno;
@@ -132,7 +134,10 @@ int devnode_acl(int fd, uid_t uid) {
                                         changed = true;
                                 }
 
-                                found = true;
+                                r = set_ensure_put(&found, NULL, UID_TO_PTR(*u));
+                                if (r < 0)
+                                        return r;
+
                                 continue;
                         }
                 }
@@ -145,7 +150,16 @@ int devnode_acl(int fd, uid_t uid) {
         if (r < 0)
                 return -errno;
 
-        if (!found && uid > 0) {
+        void *p;
+        SET_FOREACH(p, uids) {
+                uid_t uid = PTR_TO_UID(p);
+
+                if (uid == 0)
+                        continue;
+
+                if (set_contains(found, UID_TO_PTR(uid)))
+                        continue;
+
                 if (sym_acl_create_entry(&acl, &entry) < 0)
                         return -errno;
 
@@ -668,14 +682,33 @@ int fd_add_uid_acl_permission(
 
         return 0;
 }
+#endif
+
+static int fd_acl_make_read_only_fallback(int fd) {
+        struct stat st;
+
+        assert(fd >= 0);
+
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        if ((st.st_mode & 0222) == 0)
+                return 0;
+
+        if (fchmod(fd, st.st_mode & 0555) < 0)
+                return -errno;
+
+        return 1;
+}
 
 int fd_acl_make_read_only(int fd) {
+        assert(fd >= 0);
+
+#if HAVE_ACL
         _cleanup_(acl_freep) acl_t acl = NULL;
         bool changed = false;
         acl_entry_t i;
         int r;
-
-        assert(fd >= 0);
 
         /* Safely drops all W bits from all relevant ACL entries of the file, without changing entries which
          * are masked by the ACL mask */
@@ -734,13 +767,13 @@ int fd_acl_make_read_only(int fd) {
 maybe_fallback:
         if (!ERRNO_IS_NEG_NOT_SUPPORTED(r))
                 return r;
+#endif
 
         /* No ACLs? Then just update the regular mode_t */
         return fd_acl_make_read_only_fallback(fd);
 }
-#endif
 
-int fd_acl_make_read_only_fallback(int fd) {
+static int fd_acl_make_writable_fallback(int fd) {
         struct stat st;
 
         assert(fd >= 0);
@@ -748,13 +781,81 @@ int fd_acl_make_read_only_fallback(int fd) {
         if (fstat(fd, &st) < 0)
                 return -errno;
 
-        if ((st.st_mode & 0222) == 0)
+        if ((st.st_mode & 0200) != 0) /* already set */
                 return 0;
 
-        if (fchmod(fd, st.st_mode & 0555) < 0)
+        if (fchmod(fd, (st.st_mode & 07777) | 0200) < 0)
                 return -errno;
 
         return 1;
+}
+
+int fd_acl_make_writable(int fd) {
+        assert(fd >= 0);
+
+#if HAVE_ACL
+        _cleanup_(acl_freep) acl_t acl = NULL;
+        acl_entry_t i;
+        int r;
+
+        /* Safely adds the writable bit to the owner's ACL entry of this inode. (And only the owner's! – This
+         * not the obvious inverse of fd_acl_make_read_only() hence!) */
+
+        r = dlopen_libacl();
+        if (r < 0)
+                goto maybe_fallback;
+
+        acl = sym_acl_get_fd(fd);
+        if (!acl) {
+                r = -errno;
+                goto maybe_fallback;
+        }
+
+        for (r = sym_acl_get_entry(acl, ACL_FIRST_ENTRY, &i);
+             r > 0;
+             r = sym_acl_get_entry(acl, ACL_NEXT_ENTRY, &i)) {
+                acl_permset_t permset;
+                acl_tag_t tag;
+                int b;
+
+                if (sym_acl_get_tag_type(i, &tag) < 0)
+                        return -errno;
+
+                if (tag != ACL_USER_OBJ)
+                        continue;
+
+                if (sym_acl_get_permset(i, &permset) < 0)
+                        return -errno;
+
+                b = sym_acl_get_perm(permset, ACL_WRITE);
+                if (b < 0)
+                        return -errno;
+
+                if (b)
+                        return 0; /* Already set? Then there's nothing to do. */
+
+                if (sym_acl_add_perm(permset, ACL_WRITE) < 0)
+                        return -errno;
+
+                break;
+        }
+        if (r < 0)
+                return -errno;
+
+        if (sym_acl_set_fd(fd, acl) < 0) {
+                r = -errno;
+                goto maybe_fallback;
+        }
+
+        return 1;
+
+maybe_fallback:
+        if (!ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                return r;
+#endif
+
+        /* No ACLs? Then just update the regular mode_t */
+        return fd_acl_make_writable_fallback(fd);
 }
 
 int inode_type_can_acl(mode_t mode) {

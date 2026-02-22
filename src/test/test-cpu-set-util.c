@@ -187,14 +187,14 @@ TEST(parse_cpu_set) {
         config_parse_cpu_set(                                           \
                         "unit",                                         \
                         "filename",                                     \
-                        /* line = */ 0,                                 \
+                        /* line= */ 0,                                  \
                         "[Section]",                                    \
-                        /* section_line = */ 0,                         \
+                        /* section_line= */ 0,                          \
                         "CPUAffinity",                                  \
-                        /* ltype = */ 0,                                \
+                        /* ltype= */ 0,                                 \
                         str,                                            \
                         c,                                              \
-                        /* userdata = */ NULL)
+                        /* userdata= */ NULL)
 
 TEST(config_parse_cpu_set) {
         CPUSet c = {};

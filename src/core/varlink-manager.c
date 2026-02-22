@@ -2,13 +2,18 @@
 
 #include <sys/prctl.h>
 
+#include "sd-bus.h"
 #include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "architecture.h"
+#include "bitfield.h"
 #include "build.h"
+#include "bus-error.h"
 #include "bus-polkit.h"
 #include "confidential-virt.h"
+#include "errno-util.h"
+#include "glyph-util.h"
 #include "json-util.h"
 #include "manager.h"
 #include "pidref.h"
@@ -20,6 +25,7 @@
 #include "version.h"
 #include "varlink-common.h"
 #include "varlink-manager.h"
+#include "varlink-unit.h"
 #include "varlink-util.h"
 #include "virt.h"
 #include "watchdog.h"
@@ -298,4 +304,90 @@ int vl_method_reexecute_manager(sd_varlink *link, sd_json_variant *parameters, s
         manager->objective = MANAGER_REEXECUTE;
 
         return 1;
+}
+
+int vl_method_enqueue_marked_jobs_manager(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
+        if (r != 0)
+                return r;
+
+        r = mac_selinux_access_check_varlink(link, "start");
+        if (r < 0)
+                return r;
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        manager->system_bus,
+                        "org.freedesktop.systemd1.manage-units",
+                        /* details= */ NULL,
+                        &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = varlink_set_sentinel(link, NULL);
+        if (r < 0)
+                return r;
+
+        log_info("Queuing reload/restart jobs for marked units%s", glyph(GLYPH_ELLIPSIS));
+
+        Unit *u;
+        char *k;
+        int ret = 0;
+        HASHMAP_FOREACH_KEY(u, k, manager->units) {
+                _cleanup_(sd_bus_error_free) sd_bus_error bus_error = SD_BUS_ERROR_NULL;
+                const char *error_id = NULL;
+                uint32_t job_id = 0; /* silence 'maybe-uninitialized' compiler warning */
+
+                /* ignore aliases */
+                if (u->id != k)
+                        continue;
+
+                if (u->markers == 0)
+                        continue;
+
+                r = mac_selinux_unit_access_check_varlink(u, link, job_type_to_access_method(JOB_TRY_RESTART));
+                if (r < 0)
+                        error_id = SD_VARLINK_ERROR_PERMISSION_DENIED;
+                else
+                        r = varlink_unit_queue_job_one(
+                                        u,
+                                        JOB_TRY_RESTART,
+                                        JOB_FAIL,
+                                        /* reload_if_possible= */ !BIT_SET(u->markers, UNIT_MARKER_NEEDS_RESTART),
+                                        &job_id,
+                                        &bus_error);
+                if (ERRNO_IS_NEG_RESOURCE(r))
+                        return r;
+                if (r < 0)
+                        RET_GATHER(ret, log_unit_warning_errno(u, r, "Failed to enqueue marked job: %s",
+                                                               bus_error_message(&bus_error, r)));
+
+                if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
+                        continue;
+
+                if (r < 0) {
+                        if (!error_id)
+                                error_id = varlink_error_id_from_bus_error(&bus_error);
+
+                        const char *error_msg = bus_error.message ?: error_id ? NULL : STRERROR(r);
+
+                        r = sd_varlink_replybo(link,
+                                               SD_JSON_BUILD_PAIR_STRING("unitID", u->id),
+                                               JSON_BUILD_PAIR_STRING_NON_EMPTY("error", error_id),
+                                               JSON_BUILD_PAIR_STRING_NON_EMPTY("errorMessage", error_msg));
+                } else
+                        r = sd_varlink_replybo(link,
+                                               SD_JSON_BUILD_PAIR_STRING("unitID", u->id),
+                                               SD_JSON_BUILD_PAIR_INTEGER("jobID", job_id));
+                if (r < 0)
+                        return r;
+        }
+
+        return ret;
 }

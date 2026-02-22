@@ -22,8 +22,6 @@ EOF
     udevadm control --reload
 }
 
-udevadm control --log-level=debug
-
 create_link_file test1
 ip link add address 00:50:56:c0:00:18 type dummy
 udevadm wait --settle --timeout=30 /sys/class/net/test1
@@ -81,6 +79,6 @@ assert_not_in "altname hoge" "$output"
 ip link del dev test3
 
 rm -f /run/systemd/network/10-test.link
-udevadm control --reload --log-level=info
+udevadm control --reload
 
 exit 0

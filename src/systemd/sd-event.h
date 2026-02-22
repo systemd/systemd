@@ -83,8 +83,7 @@ typedef _sd_destroy_t sd_event_destroy_t;
 int sd_event_default(sd_event **ret);
 
 int sd_event_new(sd_event **ret);
-sd_event* sd_event_ref(sd_event *e);
-sd_event* sd_event_unref(sd_event *e);
+_SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_event);
 
 int sd_event_add_io(sd_event *e, sd_event_source **ret, int fd, uint32_t events, sd_event_io_handler_t callback, void *userdata);
 int sd_event_add_time(sd_event *e, sd_event_source **ret, clockid_t clock, uint64_t usec, uint64_t accuracy, sd_event_time_handler_t callback, void *userdata);
@@ -119,8 +118,7 @@ int sd_event_set_signal_exit(sd_event *e, int b);
 int sd_event_set_exit_on_idle(sd_event *e, int b);
 int sd_event_get_exit_on_idle(sd_event *e);
 
-sd_event_source* sd_event_source_ref(sd_event_source *s);
-sd_event_source* sd_event_source_unref(sd_event_source *s);
+_SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_event_source);
 sd_event_source* sd_event_source_disable_unref(sd_event_source *s);
 
 sd_event* sd_event_source_get_event(sd_event_source *s);

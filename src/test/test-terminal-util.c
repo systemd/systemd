@@ -172,6 +172,27 @@ TEST(get_default_background_color) {
                 log_notice("R=%g G=%g B=%g", red, green, blue);
 }
 
+TEST(terminal_get_size_by_csi18) {
+        unsigned rows, columns;
+        int r;
+
+        usec_t n = now(CLOCK_MONOTONIC);
+        r = terminal_get_size_by_csi18(STDIN_FILENO, STDOUT_FILENO, &rows, &columns);
+        log_info("%s took %s", __func__+5,
+                 FORMAT_TIMESPAN(usec_sub_unsigned(now(CLOCK_MONOTONIC), n), USEC_PER_MSEC));
+        if (r < 0)
+                return (void) log_notice_errno(r, "Can't get screen dimensions via CSI 18: %m");
+
+        log_notice("terminal size via CSI 18: rows=%u columns=%u", rows, columns);
+
+        struct winsize ws = {};
+
+        if (ioctl(STDIN_FILENO, TIOCGWINSZ, &ws) < 0)
+                log_warning_errno(errno, "Can't get terminal size via ioctl, ignoring: %m");
+        else
+                log_notice("terminal size via ioctl: rows=%u columns=%u", ws.ws_row, ws.ws_col);
+}
+
 TEST(terminal_get_size_by_dsr) {
         unsigned rows, columns;
         int r;
@@ -311,13 +332,24 @@ TEST(get_color_mode) {
         test_get_color_mode_with_env("SYSTEMD_COLORS", "no",    COLOR_OFF);
         test_get_color_mode_with_env("SYSTEMD_COLORS", "16",    COLOR_16);
         test_get_color_mode_with_env("SYSTEMD_COLORS", "256",   COLOR_256);
-        test_get_color_mode_with_env("SYSTEMD_COLORS", "1",     COLOR_24BIT);
-        test_get_color_mode_with_env("SYSTEMD_COLORS", "yes",   COLOR_24BIT);
         test_get_color_mode_with_env("SYSTEMD_COLORS", "24bit", COLOR_24BIT);
 
+        test_get_color_mode_with_env("SYSTEMD_COLORS", "auto-16",    terminal_is_dumb() ? COLOR_OFF : COLOR_16);
+        test_get_color_mode_with_env("SYSTEMD_COLORS", "auto-256",   terminal_is_dumb() ? COLOR_OFF : COLOR_256);
+        test_get_color_mode_with_env("SYSTEMD_COLORS", "auto-24bit", terminal_is_dumb() ? COLOR_OFF : COLOR_24BIT);
+        ASSERT_OK_ERRNO(setenv("COLORTERM", "truecolor", true));
+        test_get_color_mode_with_env("SYSTEMD_COLORS", "1",          terminal_is_dumb() ? COLOR_OFF : COLOR_24BIT);
+        test_get_color_mode_with_env("SYSTEMD_COLORS", "yes",        terminal_is_dumb() ? COLOR_OFF : COLOR_24BIT);
+        ASSERT_OK_ERRNO(unsetenv("COLORTERM"));
+        test_get_color_mode_with_env("SYSTEMD_COLORS", "true",       terminal_is_dumb() ? COLOR_OFF : COLOR_256);
+
         ASSERT_OK_ERRNO(setenv("NO_COLOR", "1", true));
-        test_get_color_mode_with_env("SYSTEMD_COLORS", "42",      COLOR_OFF);
-        test_get_color_mode_with_env("SYSTEMD_COLORS", "invalid", COLOR_OFF);
+        test_get_color_mode_with_env("SYSTEMD_COLORS", "true",       terminal_is_dumb() ? COLOR_OFF : COLOR_256);
+        test_get_color_mode_with_env("SYSTEMD_COLORS", "auto-16",    COLOR_OFF);
+        test_get_color_mode_with_env("SYSTEMD_COLORS", "auto-256",   COLOR_OFF);
+        test_get_color_mode_with_env("SYSTEMD_COLORS", "auto-24bit", COLOR_OFF);
+        test_get_color_mode_with_env("SYSTEMD_COLORS", "42",         COLOR_OFF);
+        test_get_color_mode_with_env("SYSTEMD_COLORS", "invalid",    COLOR_OFF);
         ASSERT_OK_ERRNO(unsetenv("NO_COLOR"));
         ASSERT_OK_ERRNO(unsetenv("SYSTEMD_COLORS"));
 
@@ -364,11 +396,12 @@ TEST(terminal_new_session) {
         ASSERT_OK(pty_fd = openpt_allocate(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK, NULL));
         ASSERT_OK(peer_fd = pty_open_peer(pty_fd, O_RDWR|O_NOCTTY|O_CLOEXEC));
 
-        r = safe_fork_full("test-term-session",
-                           (int[]) { peer_fd, peer_fd, peer_fd },
-                           NULL, 0,
-                           FORK_DEATHSIG_SIGKILL|FORK_LOG|FORK_WAIT|FORK_REARRANGE_STDIO,
-                           NULL);
+        r = pidref_safe_fork_full(
+                        "test-term-session",
+                        (int[]) { peer_fd, peer_fd, peer_fd },
+                        NULL, 0,
+                        FORK_DEATHSIG_SIGKILL|FORK_LOG|FORK_WAIT|FORK_REARRANGE_STDIO,
+                        NULL);
         ASSERT_OK(r);
         if (r == 0) {
                 ASSERT_OK(terminal_new_session());

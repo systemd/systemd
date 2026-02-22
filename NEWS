@@ -1,6 +1,250 @@
 systemd System and Service Manager
 
-CHANGES WITH 259 in spe:
+CHANGES WITH 260 in spe:
+
+        Feature Removals and Incompatible Changes:
+
+        * Support for System V service scripts has been removed. Please make
+          sure to update your software *now* to include a native systemd unit
+          file instead of a legacy System V script.
+
+          The following components have been removed:
+
+          * systemd-rc-local-generator and rc-local.service,
+          * systemd-sysv-generator,
+          * systemd-sysv-install (hook for systemctl enable/disable/is-enabled).
+
+          The corresponding meson options '-Drc-local=', '-Dsysvinit-path=',
+          and '-Dsysvrcnd-path=' are deprecated, and will be dropped in a future
+          release.
+
+        * Meson options '-Dintegration-tests=' and '-Dcryptolib=' (deprecated
+          in v258) have been removed.
+
+        * Support for libidn has been removed. IDN functionality now requires
+          libidn2. The corresponding meson option '-Dlibidn=' is deprecated
+          too and will be dropped in a future release.
+
+        * Required versions of various dependencies have been raised:
+          cryptsetup 2.0.1/2.3.0 → 2.4.0,
+          elfutils 158 → 177,
+          libblkid 2.24 → 2.37,
+          libseccomp 2.3.1 → 2.4.0,
+          glibc 2.31 → 2.34,
+          libxcrypt or libcrypt from glibc → libxcrypt 4.4.0 only,
+          OpenSSL 1.1.0 → 3.0.0,
+          Python 3.7.0 → 3.9.0.
+
+          The Linux kernel version requirements have been updated too:
+          baseline 5.4 → 5.10, recommended baseline 5.7 → 5.14, 6.6 for full
+          functionality. Code for compatibility with versions older than the
+          baseline has been removed.
+
+        * The parsing of RootImageOptions= and the mount image parameters of
+          ExtensionImages= and MountImages= has been changed so that the last
+          definition for a given partition wins and is applied, rather than the
+          first, to keep these options coherent with other unit settings.
+
+        * Support for non-system users and groups in udev rules and
+          systemd-networkd configuration has been restored, but is deprecated
+          and discouraged. systemd-udevd will emits warnings if a non-system
+          user/group is specified in OWNER=/GROUP=. Similarly, systemd-networkd
+          will warn about User=/Group= settings with a non-system user/group
+          specified in .netdev files for Tun/Tap interfaces. This support will
+          be removed in a future release.
+
+          Device nodes should not be owned by a non-system user/group. It is
+          recommended to check udev rules files with 'udevadm verify' and/or
+          'udevadm test' commands .
+
+        New system interfaces and components:
+
+        * The os-release(3) gained a new field FANCY_NAME= that is similar
+          to PRETTY_NAME= but may contain ANSI sequences such as Unicode
+          emojis. The new field is also defined to NOT contain any version
+          specification, providing better separation between the OS name
+          and version.
+
+          The systemd manager, systemd-hostnamed, and hostnamectl will now
+          show FANCY_NAME= in preference to PRETTY_NAME=.
+
+        * The "Portability and Stability" policy has been simplified and
+          updated to strengthen the promises of avoiding user-visible
+          regressions in public interfaces. See
+          https://systemd.io/PORTABILITY_AND_STABILITY/ for details.
+
+        * Services providing a public Varlink interface can be symlinked under
+          /run/varlink/registry/, allowing services to be enumerated.
+          'varlinkctl list-registry' can be used to list running services.
+
+        * A new "metrics" or "report" framework has been defined. Any component
+          can hook into the reporting framework by providing a varlink endpoint
+          under /run/systemd/report. Such a hookup has been added to the manager.
+
+          systemd-report is a new command line tool which collects the reports
+          from all endpoints and prints them in JSON format.
+
+          The details of the structure of the reports should be considered
+          EXPERIMENTAL at this point. We reserve the right to make incompatible
+          changes to the JSON structure and/or place additional requirements.
+
+        Changes in the system and user managers:
+
+        * Systemd now uses ANSI CSI 18 sequence to query terminal size. This
+          allows the query to be made without changing the position of the
+          cursor. Terminal emulators which do not yet support the sequence are
+          encouraged to do so.
+
+        * Service units gained a RefreshOnReload= setting that configures
+          whether extensions and credentials are to be refreshed when the unit
+          is reloaded.
+
+        * A new unit setting BindNetworkInterface= has been introduced that
+          automatically binds all sockets created by the unit to a specific
+          network interface.
+
+        * EnqueueMarkedJobs() D-Bus method now has a Varlink counterpart.
+
+        * SetProperties() D-Bus method now has a Varlink counterpart. For now,
+          it only supports setting the Markers= property.
+
+        Changes in udev:
+
+        * Permissions for /dev/ptp* are now set to 0664 (previously 0660),
+          allowing unprivileged read-only access. This relies on the kernel fix
+          "ptp: Add PHC file mode checks. Allow RO adjtime() without
+          FMODE_WRITE." (commit b4e53b15c04e3852949003752f48f7a14ae39e86 in
+          v6.15, backported to LTS releases in v6.12.68, v6.6.122, v6.1.162,
+          v5.15.199, and v5.10.249), which adds missing PTP ioctl permission
+          checks and keeps clock-modifying operations write-restricted. Systems
+          running stable kernel branches should ensure they are updated to patch
+          levels that include the fix.
+
+        * Persistent network interface naming has bee extended to MCTP devices
+          with the "mc" prefix.
+
+        * The minimum backlight brightness value used when restoring backlight
+          levels at boot has been lowered from 5% to 1%. This lower value
+          should be sufficient to avoid blacked-out displays, but allows user
+          environments to use a wider range of values (without lower values
+          being reset during reboot). Note that environments may still set very
+          low brightness values at runtime independently of the systemd clamp
+          which only applies during boot.
+
+        Changes in systemd-networkd:
+
+        * MultiPathRoute= option now supports interface-bound ECMP routes.
+
+        * systemd-networkd gained integration with ModemManager via the "simple
+          connect" protocol. A new [ModemManager] section has been added with
+          SimpleConnectProperties= (currently apn=, allowed-auth=, user=,
+          password=, ip-type=, allow-roaming=, pin=, and operator-id=),
+          RouteMetric=, and UseGateway= settings. This allows systemd-networkd
+          to establish a cellular modem connection to a broadband network.
+
+        * systemd-networkd gained a pair of varlink methods LinkUp()/LinkDown().
+          networkctl up/down now utilizes the new varlink interfaces in place
+          of direct RTNL message for better interaction with networkd.
+
+        Changes in systemd-boot and the stub:
+
+        * The timeout in the boot menu can be configured with the
+          io.systemd.boot.timeout= SMBIOS type 11 string.
+
+        * bootctl's varlink interface gained a new Install() method for performing
+          systemd-boot installation/upgrade via IPC calls.
+
+        Changes in libsystemd:
+
+        * The varlink implementation now supports SD_VARLINK_ANY as a wildcard
+          type. This is useful to declare generic interfaces which need to
+          support multiple types.
+
+        Changes in systemd-resolved:
+
+        * Queries done through nss-resolve can be limited to a specific
+          interface with the $SYSTEMD_NSS_RESOLVE_INTERFACE environment
+          variable.
+
+        * systemd-resolved now supports marking of packets used for DNS
+          requests with a firewall mark.
+
+        * resolvectl now uses varlink to connect to systemd-resolved.
+
+        Changes in other components:
+
+        * systemd-repart gained basic support for integrity checks of encrypted
+          volumes. Two new options Integrity= and IntegrityAlgorithm= can be
+          used to configure integrity checks for LUKS volumes.
+
+        * Image dissection policies have been extended to allow restricting
+          file system types and requiring integrity checks for encrypted volumes
+          with a new 'encryptedwithinegrity' policy.
+
+        * systemd-dissect gained a --copy-ownership= switch to configure
+          ownership of copied files.
+
+        * systemd-portabled now also runs as a user service. Unprivileged users
+          can run portable services (on sufficiently fresh kernels).
+
+        * systemd-portabled will now generate a policy and pin the image for a
+          portable service, so that the image cannot be changed later without a
+          reattach.
+
+        * systemd-keyutil gained an 'extract-certificate' verb to print the X.509
+          certificate.
+
+        * systemd-sysupdate gained a new 'acquire' verb, allowing the download
+          and installation or update steps to be done separately.
+
+        * Support for polkit authorization has been added to systemd-sysext and
+          varlinkctl.
+
+        * A polkit policy was added for systemd-ask-password, allowing it to be
+          used by unprivileged callers.
+
+        * systemd-inhibit --list option gained support for JSON output
+          and filtering with --what= , --who=, --why=, and --mode=.
+
+        * systemd-vmspawn gained support for registering with systemd-machined
+          in the user session. New options --user/--system control which
+          instance is used.
+
+        * systemd-vmspawn gained support for ephemeral machines via a new
+          --ephemeral option. This is similar to the functionality provided via
+          the same switch in systemd-nspawn.
+
+        * New options SYSTEMD_COLORS=auto-16, SYSTEMD_COLORS=auto-256, and
+          SYSTEMD_COLORS=auto-24bit have been added. They are like
+          SYSTEMD_COLORS=16, SYSTEMD_COLORS=256, and SYSTEMD_COLORS=24bit
+          respectively when output is to a non-dumb TTY, and degrade to
+          SYSTEMD_COLORS=no otherwise.
+
+        * Standalone versions of the systemd-sysusers and systemd-tmpfiles
+          binaries now support full functionality. (Previously, those tools
+          were compiled without features which would require libmount and pull
+          in a lot of dependencies. After the conversion to dlopen the option
+          whether to support features requiring libmount is made by providing
+          libmount or not, at install time.)
+
+        * Internal code dealing with processes has been updated to use pidfds
+          in many places.
+
+        Changes in units:
+
+        * runlevel[0-6].target units that were removed in v258 have been
+          restored when the newly introduced -Dcompat-sysv-interfaces=BOOL
+          meson option is enabled. The installation of legacy.conf for tmpfiles
+          is now also conditionalized with the meson option.
+
+        * systemd-portabled now runs also in the user session in the new
+          systemd-portabled.service unit.
+
+        * getty@.service gained an [Install] and must now be explicitly enabled
+          to be active.
+
+
+CHANGES WITH 259:
 
         Announcements of Future Feature Removals and Incompatible Changes:
 
@@ -48,6 +292,8 @@ CHANGES WITH 259 in spe:
 
         * systemd-networkd and systemd-nspawn no longer support creating NAT
           rules via iptables/libiptc APIs; only nftables is now supported.
+          The corresponding meson option '-Dlibiptc=' is deprecated and will be
+          dropped in a future release.
 
         * systemd-boot's and systemd-stub's support for TPM 1.2 has been
           removed (only TPM 2.0 supported is retained). The security value of
@@ -537,38 +783,44 @@ CHANGES WITH 259 in spe:
           systemd, how many musl-specific bugs are reported, and feedback on
           the desirability of this effort provided by users and distributions.
 
-        Contributions from: Alan Brady, Alberto Planas, Aleksandr Mezin,
-        Allison Karlitskaya, Andreas Schneider, Anton Tiurin,
-        Antonio Alvarez Feijoo, Arian van Putten, Armin Brauns,
-        Armin Wolf, Bastian Almendras, Charlie Le, Chen Qi, Chris Down,
-        Christian Hesse, Christoph Anton Mitterer, Craig McLure,
+        Contributions from: 0x06, Abílio Costa, Alan Brady, Alberto Planas,
+        Aleksandr Mezin, Alexandru Tocar, Alexis-Emmanuel Haeringer,
+        Allison Karlitskaya, Andreas Schneider, Andrew Halaney,
+        Anton Tiurin, Antonio Alvarez Feijoo, Antonio Álvarez Feijoo,
+        Arian van Putten, Armin Brauns, Armin Wolf, Bastian Almendras,
+        Charlie Le, Chen Qi, Chris Down, Christian Hesse,
+        Christoph Anton Mitterer, Colin Walters, Craig McLure,
         Daan De Meyer, Daniel Brackenbury, Daniel Foster, Daniel Hast,
-        Danilo Spinella, David Tardon, Dimitri John Ledkov,
-        Dr. David Alan Gilbert, Duy Nguyen Van,
-        Emanuele Giuseppe Esposito, Emil Renner Berthing, Eric Curtin,
-        Erin Shepherd, Evgeny Vereshchagin, Felix Pehla, Florian,
+        Daniel Rusek, Danilo Spinella, David Santamaría Rogado,
+        David Tardon, Dimitri John Ledkov, Dr. David Alan Gilbert,
+        Duy Nguyen Van, Emanuele Giuseppe Esposito, Emil Renner Berthing,
+        Eric Curtin, Erin Shepherd, Evgeny Vereshchagin,
+        Fco. Javier F. Serrador, Felix Pehla, Fletcher Woodruff, Florian,
         Francesco Valla, Franck Bui, Frantisek Sumsal, Gero Schwäricke,
-        Goffredo Baroncelli, Govind Venugopal, Guido Günther,
-        Hans de Goede, Igor Opaniuk, Ingo Franzki, Itxaka, Ivan Kruglov,
-        Jelle van der Waa, Jim Spentzos, Joshua Krusell,
-        Justin Kromlinger, Jörg Behrmann, Kai Lueke, Kai Wohlfahrt,
-        Le_Futuriste, Lennart Poettering, Luca Boccassi,
-        Lucas Adriano Salles, Lukáš Nykrýn, Managor, Mantas Mikulėnas,
+        Goffredo Baroncelli, Govind Venugopal, Guido Günther, Haiyue Wang,
+        Hans de Goede, Henri Aunin, Igor Opaniuk, Ingo Franzki, Itxaka,
+        Ivan Kruglov, Jelle van der Waa, Jeremy Kerr, Jesse Guo,
+        Jim Spentzos, Joshua Krusell, João Rodrigues, Justin Kromlinger,
+        Jörg Behrmann, Kai Lueke, Kai Wohlfahrt, Le_Futuriste,
+        Lennart Poettering, Luca Boccassi, Lucas Adriano Salles,
+        Lukáš Nykrýn, Lukáš Zaoral, Managor, Mantas Mikulėnas,
         Marc-Antoine Riou, Marcel Leismann, Marcos Alano, Marien Zwart,
-        Markus Boehme, Martin Hundebøll, Masanari Iida, Matteo Croce,
-        Maximilian Bosch, Michal Sekletár, Mike Yuan, Miroslav Lichvar,
-        Moisticules, Natalie Vock, Nick Labich, Nick Rosbrook, Nils K,
-        Osama Abdelkader, Oğuz Ersen, Pascal Bachor, Peter Hutterer,
-        Philip Withnall, Pranay Pawar, Quentin Deslandes,
-        Rafael Fontenelle, Ronan Pigott, Ryan Brue, Sebastian Gross,
-        Septatrix, Simon Barth, Taylan Kammer, Thomas Blume,
-        Thomas Mühlbacher, Tobias Heider, Xarblu, Yu Watanabe,
-        Zbigniew Jędrzejewski-Szmek, anthisfan, cvlc12, dgengtek,
-        dramforever, gvenugo3, helpvisa, huyubiao, jouyouyun, jsks,
-        kanitha chim, n0099, ners, nkraetzschmar, nl6720, theSillywhat,
-        val4oss, 雪叶
+        Markus Boehme, Martin Hundebøll, Martin Srebotnjak, Masanari Iida,
+        Matteo Croce, Maximilian Bosch, Michal Sekletár, Mike Gilbert,
+        Mike Yuan, Miroslav Lichvar, Moisticules, Morgan, Natalie Vock,
+        Nick Labich, Nick Rosbrook, Nils K, Osama Abdelkader, Oğuz Ersen,
+        Pascal Bachor, Pasquale van Heumen, Pavel Borecki, Peter Hutterer,
+        Philip Withnall, Pranay Pawar, Priit Jõerüüt, Quentin Deslandes,
+        QuickSwift315490, Rafael Fontenelle, Rebecca Cran, Ricardo Salveti,
+        Ronan Pigott, Ryan Brue, Sebastian Gross, Septatrix, Simon Barth,
+        Stephanie Wilde-Hobbs, Taylan Kammer, Temuri Doghonadze,
+        Thomas Blume, Thomas Mühlbacher, Tobias Heider, Vivian Wang,
+        Xarblu, Yu Watanabe, Zbigniew Jędrzejewski-Szmek, anthisfan, cvlc12,
+        dgengtek, dramforever, gvenugo3, helpvisa, huyubiao, jouyouyun, jsks,
+        kanitha chim, lumingzh, n0099, ners, nkraetzschmar, nl6720, q66,
+        theSillywhat, val4oss, 雪叶
 
-        — Edinburgh, 2025/11/26
+        — Edinburgh, 2025/12/17
 
 CHANGES WITH 258:
 
@@ -633,6 +885,9 @@ CHANGES WITH 258:
           Similarly, systemd-networkd refuses User=/Group= settings with a
           non-system user/group specified in .netdev files for Tun/Tap
           interfaces.
+
+          NOTE: this change was partially reverted in v260 and the patch may be
+          backported to the v259-stable branch.
 
         * systemd-cryptenroll, systemd-repart and systemd-creds no longer
           default to locking TPM2 enrollments to the current, literal value of
@@ -4618,7 +4873,7 @@ CHANGES WITH 255:
         * A new component "systemd-storagetm" has been added, which exposes all
           local block devices as NVMe-TCP devices, fully automatically. It's
           hooked into a new target unit storage-target-mode.target that is
-          suppsoed to be booted into via
+          supposed to be booted into via
           rd.systemd.unit=storage-target-mode.target on the kernel command
           line. This is intended to be used for installers and debugging to
           quickly get access to the local disk. It's inspired by MacOS "target

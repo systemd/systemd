@@ -15,6 +15,7 @@
 #include "main-func.h"
 #include "mount-setup.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "signal-util.h"
 
@@ -42,15 +43,17 @@ static int track_pid(Hashmap **h, const char *path, pid_t pid) {
 }
 
 static int do_remount(const char *path, bool force_rw, Hashmap **pids) {
-        pid_t pid;
         int r;
 
         assert(path);
 
         log_debug("Remounting %s...", path);
 
-        r = safe_fork(force_rw ? "(remount-rw)" : "(remount)",
-                      FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        r = pidref_safe_fork(
+                        force_rw ? "(remount-rw)" : "(remount)",
+                        FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG,
+                        &pidref);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -65,7 +68,7 @@ static int do_remount(const char *path, bool force_rw, Hashmap **pids) {
         }
 
         /* Parent */
-        return track_pid(pids, path, pid);
+        return track_pid(pids, path, pidref.pid);
 }
 
 static int remount_by_fstab(Hashmap **ret_pids) {
@@ -106,7 +109,7 @@ static int remount_by_fstab(Hashmap **ret_pids) {
                 else if (!path_equal(target, "/usr") && !mount_point_is_api(target))
                         continue;
 
-                r = do_remount(target, /* force_rw = */ false, &pids);
+                r = do_remount(target, /* force_rw= */ false, &pids);
                 if (r < 0)
                         return r;
         }
@@ -140,7 +143,7 @@ static int run(int argc, char *argv[]) {
                         log_warning_errno(r, "Failed to parse $SYSTEMD_REMOUNT_ROOT_RW, ignoring: %m");
 
                 if (r > 0) {
-                        r = do_remount("/", /* force_rw = */ true, &pids);
+                        r = do_remount("/", /* force_rw= */ true, &pids);
                         if (r < 0)
                                 return r;
                 }

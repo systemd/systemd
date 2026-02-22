@@ -32,11 +32,11 @@ static inline int rtnl_get_ifname_full(sd_netlink **rtnl, int ifindex, char **re
                         ifindex,
                         ret_name,
                         ret_altnames,
-                        /* ret_iftype = */ NULL,
-                        /* ret_flags = */ NULL,
-                        /* ret_kind = */ NULL,
-                        /* ret_hw_addr = */ NULL,
-                        /* ret_permanent_hw_addr = */ NULL);
+                        /* ret_iftype= */ NULL,
+                        /* ret_flags= */ NULL,
+                        /* ret_kind= */ NULL,
+                        /* ret_hw_addr= */ NULL,
+                        /* ret_permanent_hw_addr= */ NULL);
 }
 static inline int rtnl_get_ifname(sd_netlink **rtnl, int ifindex, char **ret) {
         return rtnl_get_ifname_full(rtnl, ifindex, ret, NULL);
@@ -56,8 +56,8 @@ static inline int rtnl_get_link_info(
         return rtnl_get_link_info_full(
                         rtnl,
                         ifindex,
-                        /* ret_name = */ NULL,
-                        /* ret_altnames = */ NULL,
+                        /* ret_name= */ NULL,
+                        /* ret_altnames= */ NULL,
                         ret_iftype,
                         ret_flags,
                         ret_kind,
@@ -68,11 +68,11 @@ static inline int rtnl_get_link_hw_addr(sd_netlink **rtnl, int ifindex, struct h
         return rtnl_get_link_info(
                         rtnl,
                         ifindex,
-                        /* ret_iftype = */ NULL,
-                        /* ret_flags = */ NULL,
-                        /* ret_kind = */ NULL,
+                        /* ret_iftype= */ NULL,
+                        /* ret_flags= */ NULL,
+                        /* ret_kind= */ NULL,
                         ret,
-                        /* ret_permanent_hw_addr = */ NULL);
+                        /* ret_permanent_hw_addr= */ NULL);
 }
 
 typedef enum ResolveInterfaceNameFlag {

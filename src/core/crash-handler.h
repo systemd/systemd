@@ -11,8 +11,7 @@ typedef enum CrashAction {
         _CRASH_ACTION_INVALID = -EINVAL,
 } CrashAction;
 
-const char* crash_action_to_string(CrashAction action);
-CrashAction crash_action_from_string(const char *s);
+DECLARE_STRING_TABLE_LOOKUP(crash_action, CrashAction);
 
 _noreturn_ void freeze_or_exit_or_reboot(void);
 void install_crash_handler(void);

@@ -49,19 +49,19 @@ static void dhcp6_lease_set_lifetime(sd_dhcp6_lease *lease) {
         assert(lease->ia_na || lease->ia_pd);
 
         if (lease->ia_na) {
-                t1 = MIN(t1, be32_sec_to_usec(lease->ia_na->header.lifetime_t1, /* max_as_infinity = */ true));
-                t2 = MIN(t2, be32_sec_to_usec(lease->ia_na->header.lifetime_t2, /* max_as_infinity = */ true));
+                t1 = MIN(t1, be32_sec_to_usec(lease->ia_na->header.lifetime_t1, /* max_as_infinity= */ true));
+                t2 = MIN(t2, be32_sec_to_usec(lease->ia_na->header.lifetime_t2, /* max_as_infinity= */ true));
 
                 LIST_FOREACH(addresses, a, lease->ia_na->addresses)
-                        min_valid_lt = MIN(min_valid_lt, be32_sec_to_usec(a->iaaddr.lifetime_valid, /* max_as_infinity = */ true));
+                        min_valid_lt = MIN(min_valid_lt, be32_sec_to_usec(a->iaaddr.lifetime_valid, /* max_as_infinity= */ true));
         }
 
         if (lease->ia_pd) {
-                t1 = MIN(t1, be32_sec_to_usec(lease->ia_pd->header.lifetime_t1, /* max_as_infinity = */ true));
-                t2 = MIN(t2, be32_sec_to_usec(lease->ia_pd->header.lifetime_t2, /* max_as_infinity = */ true));
+                t1 = MIN(t1, be32_sec_to_usec(lease->ia_pd->header.lifetime_t1, /* max_as_infinity= */ true));
+                t2 = MIN(t2, be32_sec_to_usec(lease->ia_pd->header.lifetime_t2, /* max_as_infinity= */ true));
 
                 LIST_FOREACH(addresses, a, lease->ia_pd->addresses)
-                        min_valid_lt = MIN(min_valid_lt, be32_sec_to_usec(a->iapdprefix.lifetime_valid, /* max_as_infinity = */ true));
+                        min_valid_lt = MIN(min_valid_lt, be32_sec_to_usec(a->iapdprefix.lifetime_valid, /* max_as_infinity= */ true));
         }
 
         if (t2 == 0 || t2 > min_valid_lt) {
@@ -272,9 +272,9 @@ int sd_dhcp6_lease_get_address_lifetime(
         a = &lease->addr_iter->iaaddr;
 
         if (ret_lifetime_preferred)
-                *ret_lifetime_preferred = be32_sec_to_usec(a->lifetime_preferred, /* max_as_infinity = */ true);
+                *ret_lifetime_preferred = be32_sec_to_usec(a->lifetime_preferred, /* max_as_infinity= */ true);
         if (ret_lifetime_valid)
-                *ret_lifetime_valid = be32_sec_to_usec(a->lifetime_valid, /* max_as_infinity = */ true);
+                *ret_lifetime_valid = be32_sec_to_usec(a->lifetime_valid, /* max_as_infinity= */ true);
         return 0;
 }
 
@@ -334,9 +334,9 @@ int sd_dhcp6_lease_get_pd_lifetime(
         a = &lease->prefix_iter->iapdprefix;
 
         if (ret_lifetime_preferred)
-                *ret_lifetime_preferred = be32_sec_to_usec(a->lifetime_preferred, /* max_as_infinity = */ true);
+                *ret_lifetime_preferred = be32_sec_to_usec(a->lifetime_preferred, /* max_as_infinity= */ true);
         if (ret_lifetime_valid)
-                *ret_lifetime_valid = be32_sec_to_usec(a->lifetime_valid, /* max_as_infinity = */ true);
+                *ret_lifetime_valid = be32_sec_to_usec(a->lifetime_valid, /* max_as_infinity= */ true);
         return 0;
 }
 
@@ -429,7 +429,7 @@ int dhcp6_lease_add_domains(sd_dhcp6_lease *lease, const uint8_t *optval, size_t
         if (r < 0)
                 return r;
 
-        return strv_extend_strv_consume(&lease->domains, TAKE_PTR(domains), /* filter_duplicates = */ true);
+        return strv_extend_strv_consume(&lease->domains, TAKE_PTR(domains), /* filter_duplicates= */ true);
 }
 
 int sd_dhcp6_lease_get_domains(sd_dhcp6_lease *lease, char ***ret) {
@@ -665,7 +665,7 @@ int dhcp6_lease_add_sip_domains(sd_dhcp6_lease *lease, const uint8_t *optval, si
         if (r < 0)
                 return r;
 
-        return strv_extend_strv_consume(&lease->sip_domains, TAKE_PTR(domains), /* filter_duplicates = */ true);
+        return strv_extend_strv_consume(&lease->sip_domains, TAKE_PTR(domains), /* filter_duplicates= */ true);
 }
 
 int sd_dhcp6_lease_get_sip_domains(sd_dhcp6_lease *lease, char ***ret) {
@@ -1011,7 +1011,7 @@ static int dhcp6_lease_parse_message(
                                 return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL),
                                                               "Received information refresh time option with an invalid length (%zu).", optlen);
 
-                        irt = unaligned_be32_sec_to_usec(optval, /* max_as_infinity = */ false);
+                        irt = unaligned_be32_sec_to_usec(optval, /* max_as_infinity= */ false);
                         break;
 
                 case SD_DHCP6_OPTION_V6_DNR:

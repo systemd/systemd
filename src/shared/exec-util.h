@@ -56,11 +56,10 @@ typedef enum ExecCommandFlags {
 int exec_command_flags_from_strv(char * const *ex_opts, ExecCommandFlags *ret);
 int exec_command_flags_to_strv(ExecCommandFlags flags, char ***ret);
 
-const char* exec_command_flags_to_string(ExecCommandFlags i);
-ExecCommandFlags exec_command_flags_from_string(const char *s);
+DECLARE_STRING_TABLE_LOOKUP(exec_command_flags, ExecCommandFlags);
 
 int fexecve_or_execve(int executable_fd, const char *executable, char *const argv[], char *const envp[]);
 
 int shall_fork_agent(void);
-int _fork_agent(const char *name, char * const *argv, const int except[], size_t n_except, pid_t *ret_pid);
-#define fork_agent(name, except, n_except, ret_pid, ...) _fork_agent(name, STRV_MAKE(__VA_ARGS__), except, n_except, ret_pid)
+int _fork_agent(const char *name, char * const *argv, const int except[], size_t n_except, PidRef *ret);
+#define fork_agent(name, except, n_except, ret, ...) _fork_agent(name, STRV_MAKE(__VA_ARGS__), except, n_except, ret)

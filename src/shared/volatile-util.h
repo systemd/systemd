@@ -12,7 +12,6 @@ typedef enum VolatileMode {
         _VOLATILE_MODE_INVALID = -EINVAL,
 } VolatileMode;
 
-VolatileMode volatile_mode_from_string(const char *s);
-const char* volatile_mode_to_string(VolatileMode m);
+DECLARE_STRING_TABLE_LOOKUP(volatile_mode, VolatileMode);
 
 int query_volatile_mode(VolatileMode *ret);

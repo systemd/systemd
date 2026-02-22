@@ -158,7 +158,7 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(r, "Failed to rearrange stdout/stderr: %m");
 
         if (argc <= optind)
-                (void) execl("/bin/cat", "/bin/cat", NULL);
+                (void) execlp("cat", "cat", NULL);
         else {
                 struct stat st;
 
@@ -167,7 +167,7 @@ static int run(int argc, char *argv[]) {
                                                "Failed to fstat(%s): %m",
                                                FORMAT_PROC_FD_PATH(STDERR_FILENO));
 
-                r = setenvf("JOURNAL_STREAM", /* overwrite = */ true, DEV_FMT ":" INO_FMT, (dev_t) st.st_dev, st.st_ino);
+                r = setenvf("JOURNAL_STREAM", /* overwrite= */ true, DEV_FMT ":" INO_FMT, (dev_t) st.st_dev, st.st_ino);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set environment variable JOURNAL_STREAM: %m");
 

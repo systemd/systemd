@@ -26,8 +26,7 @@ struct ether_addr;
 
 typedef struct sd_ndisc_neighbor sd_ndisc_neighbor;
 
-sd_ndisc_neighbor *sd_ndisc_neighbor_ref(sd_ndisc_neighbor *na);
-sd_ndisc_neighbor *sd_ndisc_neighbor_unref(sd_ndisc_neighbor *na);
+_SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_ndisc_neighbor);
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_ndisc_neighbor, sd_ndisc_neighbor_unref);
 
 int sd_ndisc_neighbor_get_sender_address(sd_ndisc_neighbor *na, struct in6_addr *ret);

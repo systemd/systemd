@@ -40,8 +40,7 @@ static inline void clear_log_syntax_callback(dummy_t *dummy) {
           set_log_syntax_callback(/* cb= */ NULL, /* userdata= */ NULL);
 }
 
-const char* log_target_to_string(LogTarget target) _const_;
-LogTarget log_target_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(log_target, LogTarget);
 void log_set_target(LogTarget target);
 void log_set_target_and_open(LogTarget target);
 int log_set_target_from_string(const char *e);
@@ -374,7 +373,7 @@ int log_syntax_parse_error_internal(
         log_syntax_parse_error_internal(unit, config_file, config_line, error, critical, PROJECT_FILE, __LINE__, __func__, lvalue, rvalue)
 
 #define log_syntax_parse_error(unit, config_file, config_line, error, lvalue, rvalue) \
-        log_syntax_parse_error_full(unit, config_file, config_line, error, /* critical = */ false, lvalue, rvalue)
+        log_syntax_parse_error_full(unit, config_file, config_line, error, /* critical= */ false, lvalue, rvalue)
 
 #define DEBUG_LOGGING _unlikely_(log_get_max_level() >= LOG_DEBUG)
 

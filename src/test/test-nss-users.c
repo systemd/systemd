@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <gshadow.h>
 #include <pwd.h>
 #include <stdlib.h>
 
@@ -35,7 +36,22 @@ static void print_struct_group(const struct group *gr) {
                  gr->gr_name, gr->gr_gid);
         log_info("        passwd=\"%s\"", gr->gr_passwd);
 
-        assert_se(members = strv_join(gr->gr_mem, ", "));
+        assert_se(members = strv_join(ASSERT_PTR(gr->gr_mem), ", "));
+        // FIXME: use shell_maybe_quote(SHELL_ESCAPE_EMPTY) when it becomes available
+        log_info("        members=%s", members);
+}
+
+static void print_struct_sgrp(const struct sgrp *sg) {
+        _cleanup_free_ char *administrators = NULL, *members = NULL;
+
+        log_info("        \"%s\"", sg->sg_namp);
+        log_info("        passwd=\"%s\"", sg->sg_passwd);
+
+        assert_se(administrators = strv_join(ASSERT_PTR(sg->sg_adm), ", "));
+        // FIXME: use shell_maybe_quote(SHELL_ESCAPE_EMPTY) when it becomes available
+        log_info("        administrators=%s", administrators);
+
+        assert_se(members = strv_join(ASSERT_PTR(sg->sg_mem), ", "));
         // FIXME: use shell_maybe_quote(SHELL_ESCAPE_EMPTY) when it becomes available
         log_info("        members=%s", members);
 }
@@ -90,6 +106,32 @@ static void test_getgrnam_r(void *handle, const char *module, const char *name) 
                  errno1, errno1 > 0 ? ERRNO_NAME(errno1) : "---");
         if (status == NSS_STATUS_SUCCESS)
                 print_struct_group(&gr);
+}
+
+static void test_getsgnam_r(void *handle, const char *module, const char *name) {
+        const char *fname;
+        _nss_getsgnam_r_t f;
+        char buffer[arg_bufsize];
+        int errno1 = 999; /* nss-dns doesn't set those */
+        enum nss_status status;
+        char pretty_status[DECIMAL_STR_MAX(enum nss_status)];
+        struct sgrp sg;
+
+        fname = strjoina("_nss_", module, "_getsgnam_r");
+        f = dlsym(handle, fname);
+        log_debug("dlsym(0x%p, %s) → 0x%p", handle, fname, f);
+        if (!f) {
+                log_info("%s not defined", fname);
+                return;
+        }
+
+        status = f(name, &sg, buffer, sizeof buffer, &errno1);
+        log_info("%s(\"%s\") → status=%s%-20serrno=%d/%s",
+                 fname, name,
+                 nss_status_to_string(status, pretty_status, sizeof pretty_status), "\n",
+                 errno1, errno1 > 0 ? ERRNO_NAME(errno1) : "---");
+        if (status == NSS_STATUS_SUCCESS)
+                print_struct_sgrp(&sg);
 }
 
 static void test_getpwuid_r(void *handle, const char *module, uid_t uid) {
@@ -147,6 +189,7 @@ static void test_getgrgid_r(void *handle, const char *module, gid_t gid) {
 static void test_byname(void *handle, const char *module, const char *name) {
         test_getpwnam_r(handle, module, name);
         test_getgrnam_r(handle, module, name);
+        test_getsgnam_r(handle, module, name);
         puts("");
 }
 

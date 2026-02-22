@@ -77,10 +77,8 @@ int manager_handle_action(
                 bool is_edge,
                 const char *action_seat);
 
-const char* handle_action_verb_to_string(HandleAction h) _const_;
-
-const char* handle_action_to_string(HandleAction h) _const_;
-HandleAction handle_action_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP_TO_STRING(handle_action_verb, HandleAction);
+DECLARE_STRING_TABLE_LOOKUP(handle_action, HandleAction);
 
 const HandleActionData* handle_action_lookup(HandleAction action);
 

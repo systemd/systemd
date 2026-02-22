@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "initrd.h"
+#include "iovec-util-fundamental.h"
 #include "proto/device-path.h"
 #include "proto/load-file.h"
 #include "util.h"
@@ -11,8 +12,7 @@
 /* extend LoadFileProtocol */
 struct initrd_loader {
         EFI_LOAD_FILE_PROTOCOL load_file;
-        const void *address;
-        size_t length;
+        struct iovec data;
 };
 
 /* static structure for LINUX_INITRD_MEDIA device path
@@ -52,23 +52,21 @@ static EFIAPI EFI_STATUS initrd_load_file(
                 return EFI_UNSUPPORTED;
 
         loader = (struct initrd_loader *) this;
-
-        if (loader->length == 0 || !loader->address)
+        if (!iovec_is_set(&loader->data))
                 return EFI_NOT_FOUND;
 
-        if (!buffer || *buffer_size < loader->length) {
-                *buffer_size = loader->length;
+        if (!buffer || *buffer_size < loader->data.iov_len) {
+                *buffer_size = loader->data.iov_len;
                 return EFI_BUFFER_TOO_SMALL;
         }
 
-        memcpy(buffer, loader->address, loader->length);
-        *buffer_size = loader->length;
+        memcpy(buffer, loader->data.iov_base, loader->data.iov_len);
+        *buffer_size = loader->data.iov_len;
         return EFI_SUCCESS;
 }
 
 EFI_STATUS initrd_register(
-                const void *initrd_address,
-                size_t initrd_length,
+                const struct iovec *initrd,
                 EFI_HANDLE *ret_initrd_handle) {
 
         EFI_STATUS err;
@@ -78,7 +76,10 @@ EFI_STATUS initrd_register(
 
         assert(ret_initrd_handle);
 
-        if (!initrd_address || initrd_length == 0)
+        /* If no initrd is specified we'll not install any. This avoids registration of the protocol for that
+         * case, leaving it open for something else. */
+
+        if (!iovec_is_set(initrd))
                 return EFI_SUCCESS;
 
         /* check if a LINUX_INITRD_MEDIA_GUID DevicePath is already registered.
@@ -92,8 +93,7 @@ EFI_STATUS initrd_register(
         loader = xnew(struct initrd_loader, 1);
         *loader = (struct initrd_loader) {
                 .load_file.LoadFile = initrd_load_file,
-                .address = initrd_address,
-                .length = initrd_length
+                .data = *initrd,
         };
 
         /* create a new handle and register the LoadFile2 protocol with the InitrdMediaPath on it */

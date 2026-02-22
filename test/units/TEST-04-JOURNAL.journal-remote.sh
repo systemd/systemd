@@ -41,7 +41,7 @@ journalctl --sync
 #
 # Note: older OpenSSL requires a config file with some extra options, unfortunately
 # Note2: /run here is used on purpose, since the systemd-journal-remote service uses PrivateTmp=yes
-mkdir -p /run/systemd/journal-remote-tls
+mkdir -pZ /run/systemd/journal-remote-tls
 cat >/tmp/openssl.conf <<EOF
 [ req ]
 prompt = no
@@ -61,7 +61,7 @@ openssl req -x509 -nodes -newkey rsa:2048 -sha256 -days 7 \
 chown -R systemd-journal-remote /run/systemd/journal-remote-tls
 
 # Configure journal-upload to upload journals to journal-remote without client certificates
-mkdir -p /run/systemd/journal-{remote,upload}.conf.d
+mkdir -pZ /run/systemd/journal-{remote,upload}.conf.d
 cat >/run/systemd/journal-remote.conf.d/99-test.conf <<EOF
 [Remote]
 SplitMode=host
@@ -97,7 +97,7 @@ rm -rf /var/log/journal/remote/*
 echo "$TEST_MESSAGE" | systemd-cat -t "$TEST_TAG"
 journalctl --sync
 
-mkdir -p /run/systemd/remote-pki
+mkdir -pZ /run/systemd/remote-pki
 cat >/run/systemd/remote-pki/ca.conf <<EOF
 [ req ]
 prompt = no

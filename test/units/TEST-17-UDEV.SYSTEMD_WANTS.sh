@@ -13,10 +13,10 @@ udevadm trigger --settle "$ROOTDEV"
 
 while : ; do
     (
-        udevadm info "$ROOTDEV" | grep -q -v SYSTEMD_WANTS=foobar.service
-        udevadm info "$ROOTDEV" | grep -q -v SYSTEMD_WANTS=waldo.service
-        systemctl show -p WantedBy foobar.service | grep -q -v "${ROOTDEV#/dev/}"
-        systemctl show -p WantedBy waldo.service | grep -q -v "${ROOTDEV#/dev/}"
+        udevadm info "$ROOTDEV" | grep -v SYSTEMD_WANTS=foobar.service >/dev/null
+        udevadm info "$ROOTDEV" | grep -v SYSTEMD_WANTS=waldo.service >/dev/null
+        systemctl show -p WantedBy foobar.service | grep -v "${ROOTDEV#/dev/}" >/dev/null
+        systemctl show -p WantedBy waldo.service | grep -v "${ROOTDEV#/dev/}" >/dev/null
     ) && break
 
     sleep .5
@@ -31,10 +31,10 @@ udevadm trigger --settle "$ROOTDEV"
 
 while : ; do
     (
-        udevadm info "$ROOTDEV" | grep -q SYSTEMD_WANTS=foobar.service
-        udevadm info "$ROOTDEV" | grep -q -v SYSTEMD_WANTS=waldo.service
-        systemctl show -p WantedBy foobar.service | grep -q "${ROOTDEV#/dev/}"
-        systemctl show -p WantedBy waldo.service | grep -q -v "${ROOTDEV#/dev/}"
+        udevadm info "$ROOTDEV" | grep SYSTEMD_WANTS=foobar.service >/dev/null
+        udevadm info "$ROOTDEV" | grep -v SYSTEMD_WANTS=waldo.service >/dev/null
+        systemctl show -p WantedBy foobar.service | grep "${ROOTDEV#/dev/}" >/dev/null
+        systemctl show -p WantedBy waldo.service | grep -v "${ROOTDEV#/dev/}" >/dev/null
     ) && break
 
     sleep .5
@@ -49,10 +49,10 @@ udevadm trigger --settle "$ROOTDEV"
 
 while : ; do
     (
-        udevadm info "$ROOTDEV" | grep -q -v SYSTEMD_WANTS=foobar.service
-        udevadm info "$ROOTDEV" | grep -q SYSTEMD_WANTS=waldo.service
-        systemctl show -p WantedBy foobar.service | grep -q -v "${ROOTDEV#/dev/}"
-        systemctl show -p WantedBy waldo.service | grep -q "${ROOTDEV#/dev/}"
+        udevadm info "$ROOTDEV" | grep -v SYSTEMD_WANTS=foobar.service >/dev/null
+        udevadm info "$ROOTDEV" | grep SYSTEMD_WANTS=waldo.service >/dev/null
+        systemctl show -p WantedBy foobar.service | grep -v "${ROOTDEV#/dev/}" >/dev/null
+        systemctl show -p WantedBy waldo.service | grep "${ROOTDEV#/dev/}" >/dev/null
     ) && break
 
     sleep .5
@@ -65,10 +65,10 @@ udevadm trigger --settle "$ROOTDEV"
 
 while : ; do
     (
-        udevadm info "$ROOTDEV" | grep -q -v SYSTEMD_WANTS=foobar.service
-        udevadm info "$ROOTDEV" | grep -q -v SYSTEMD_WANTS=waldo.service
-        systemctl show -p WantedBy foobar.service | grep -q -v "${ROOTDEV#/dev/}"
-        systemctl show -p WantedBy waldo.service | grep -q -v "${ROOTDEV#/dev/}"
+        udevadm info "$ROOTDEV" | grep -v SYSTEMD_WANTS=foobar.service >/dev/null
+        udevadm info "$ROOTDEV" | grep -v SYSTEMD_WANTS=waldo.service >/dev/null
+        systemctl show -p WantedBy foobar.service | grep -v "${ROOTDEV#/dev/}" >/dev/null
+        systemctl show -p WantedBy waldo.service | grep -v "${ROOTDEV#/dev/}" >/dev/null
     ) && break
 
     sleep .5

@@ -29,14 +29,15 @@ _systemd_vmspawn() {
     local i verb comps
 
     local -A OPTS=(
-        [STANDALONE]='-h --help --version -q --quiet --no-pager -n --network-tap --network-user-mode'
+        [STANDALONE]='-h --help --version -q --quiet --no-pager -n --network-tap --network-user-mode --user --system -x --ephemeral'
         [PATH]='-D --directory -i --image --linux --initrd --extra-drive --forward-journal'
         [BOOL]='--kvm --vsock --tpm --secure-boot --discard-disk --register --pass-ssh-key'
         [FIRMWARE]='--firmware'
         [BIND]='--bind --bind-ro'
         [SSH_KEY]='--ssh-key'
         [CONSOLE]='--console'
-        [ARG]='--cpus --ram --vsock-cid -M --machine --uuid--private-users --background --set-credential --load-credential'
+        [ARG]='--cpus --ram --vsock-cid -M --machine --uuid --private-users --background --set-credential --load-credential'
+        [IMAGE_FORMAT]='--image-format'
     )
 
     _init_completion || return
@@ -56,6 +57,8 @@ _systemd_vmspawn() {
         comps='dsa ecdsa ecdsa-sk ed25519 ed25519-sk rsa'
     elif __contains_word "$prev" ${OPTS[CONSOLE]}; then
         comps='interactive native gui'
+    elif __contains_word "$prev" ${OPTS[IMAGE_FORMAT]}; then
+        comps='raw qcow2'
     elif __contains_word "$prev" ${OPTS[ARG]}; then
         comps=''
     else

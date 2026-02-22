@@ -53,6 +53,8 @@ typedef enum RecurseDirEvent {
 #define RECURSE_DIR_CONTINUE 0
 #define RECURSE_DIR_LEAVE_DIRECTORY INT_MIN
 #define RECURSE_DIR_SKIP_ENTRY (INT_MIN+1)
+#define RECURSE_DIR_UNLINK (INT_MIN+2)
+#define RECURSE_DIR_UNLINK_GRACEFUL (INT_MIN+3)
 
 /* Make sure that the negative errno range and these two special returns don't overlap */
 assert_cc(RECURSE_DIR_LEAVE_DIRECTORY < -ERRNO_MAX);

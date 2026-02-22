@@ -28,7 +28,6 @@ typedef void* (*mfree_func_t)(void *p);
         })
 
 #define _DEFINE_TRIVIAL_REF_FUNC(type, name, scope)                                     \
-        /* NOLINTNEXTLINE (readability-inconsistent-declaration-parameter-name) */      \
         scope type *name##_ref(type *p) {                                               \
                 if (!p)                                                                 \
                         return NULL;                                                    \
@@ -43,7 +42,6 @@ typedef void* (*mfree_func_t)(void *p);
         }
 
 #define _DEFINE_TRIVIAL_UNREF_FUNC(type, name, free_func, scope)                        \
-        /* NOLINTNEXTLINE (readability-inconsistent-declaration-parameter-name) */      \
         scope type *name##_unref(type *p) {                                             \
                 if (!p)                                                                 \
                         return NULL;                                                    \
@@ -73,6 +71,16 @@ typedef void* (*mfree_func_t)(void *p);
 #define DEFINE_TRIVIAL_REF_UNREF_FUNC(type, name, free_func)    \
         DEFINE_TRIVIAL_REF_FUNC(type, name);                    \
         DEFINE_TRIVIAL_UNREF_FUNC(type, name, free_func);
+
+#define DECLARE_TRIVIAL_REF_FUNC(type, name) \
+        type* name##_ref(type *p)
+
+#define DECLARE_TRIVIAL_UNREF_FUNC(type, name) \
+        type* name##_unref(type *p)
+
+#define DECLARE_TRIVIAL_REF_UNREF_FUNC(type, name)      \
+        DECLARE_TRIVIAL_REF_FUNC(type, name);           \
+        DECLARE_TRIVIAL_UNREF_FUNC(type, name)
 
 #define DEFINE_PRIVATE_TRIVIAL_REF_UNREF_FUNC(type, name, free_func)    \
         DEFINE_PRIVATE_TRIVIAL_REF_FUNC(type, name);                    \

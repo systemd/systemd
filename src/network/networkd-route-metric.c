@@ -131,7 +131,7 @@ static void route_metric_unset(RouteMetric *metric, uint16_t attr) {
         if (metric->n_metrics_set > attr)
                 metric->metrics_set[attr] = false;
 
-        assert_se(route_metric_set_full(metric, attr, 0, /* force = */ false) >= 0);
+        assert_se(route_metric_set_full(metric, attr, 0, /* force= */ false) >= 0);
 }
 
 uint32_t route_metric_get(const RouteMetric *metric, uint16_t attr) {
@@ -412,7 +412,7 @@ int config_parse_route_metric(
                             &route->metric,
                             ltype,
                             k,
-                            /* force = */ true) < 0)
+                            /* force= */ true) < 0)
                 return log_oom();
 
         return 1;

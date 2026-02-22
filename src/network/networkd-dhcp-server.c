@@ -761,7 +761,7 @@ static bool dhcp_server_is_ready_to_configure(Link *link) {
         assert(link->network);
         assert(link->network->dhcp_server_address);
 
-        if (!link_is_ready_to_configure(link, /* allow_unmanaged = */ false))
+        if (!link_is_ready_to_configure(link, /* allow_unmanaged= */ false))
                 return false;
 
         if (!link_has_carrier(link))

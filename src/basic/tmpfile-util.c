@@ -161,17 +161,12 @@ static int tempfn_build(const char *p, const char *pre, const char *post, bool c
                 if (!d)
                         return -ENOMEM;
         } else {
-                r = path_extract_directory(p, &d);
-                if (r < 0 && r != -EDESTADDRREQ) /* EDESTADDRREQ → No directory specified, just a filename */
-                        return r;
-
-                r = path_extract_filename(p, &fn);
+                r = path_split_prefix_filename(p, &d, &fn);
                 if (r < 0)
                         return r;
 
-                if (strlen(fn) > NAME_MAX - len_add)
-                        /* We cannot simply prepend and append strings to the filename. Let's truncate the filename. */
-                        fn[NAME_MAX - len_add] = '\0';
+                /* Truncate the filename if it would become too long after mangling. */
+                strshorten(fn, NAME_MAX - len_add);
         }
 
         nf = strjoin(".#", strempty(pre), strempty(fn), strempty(post));
@@ -202,7 +197,7 @@ int tempfn_xxxxxx(const char *p, const char *extra, char **ret) {
          *         /foo/bar/.#<extra>waldoXXXXXX
          */
 
-        return tempfn_build(p, extra, "XXXXXX", /* child = */ false, ret);
+        return tempfn_build(p, extra, "XXXXXX", /* child= */ false, ret);
 }
 
 int tempfn_random(const char *p, const char *extra, char **ret) {
@@ -222,7 +217,7 @@ int tempfn_random(const char *p, const char *extra, char **ret) {
         if (asprintf(&s, "%016" PRIx64, random_u64()) < 0)
                 return -ENOMEM;
 
-        return tempfn_build(p, extra, s, /* child = */ false, ret);
+        return tempfn_build(p, extra, s, /* child= */ false, ret);
 }
 
 int tempfn_random_child(const char *p, const char *extra, char **ret) {
@@ -246,7 +241,7 @@ int tempfn_random_child(const char *p, const char *extra, char **ret) {
         if (asprintf(&s, "%016" PRIx64, random_u64()) < 0)
                 return -ENOMEM;
 
-        return tempfn_build(p, extra, s, /* child = */ true, ret);
+        return tempfn_build(p, extra, s, /* child= */ true, ret);
 }
 
 int open_tmpfile_unlinkable(const char *directory, int flags) {
@@ -442,7 +437,7 @@ void cleanup_tmpfile_data_done(struct cleanup_tmpfile_data *d) {
         assert(d);
 
         if (!d->dir_fd ||
-            *d->dir_fd < 0 ||
+            (*d->dir_fd < 0 && *d->dir_fd != AT_FDCWD) ||
             !d->filename ||
             !*d->filename)
                 return;

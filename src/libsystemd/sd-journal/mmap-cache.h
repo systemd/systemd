@@ -29,8 +29,7 @@ static inline MMapCacheCategory type_to_category(ObjectType type) {
 }
 
 MMapCache* mmap_cache_new(void);
-MMapCache* mmap_cache_ref(MMapCache *m);
-MMapCache* mmap_cache_unref(MMapCache *m);
+DECLARE_TRIVIAL_REF_UNREF_FUNC(MMapCache, mmap_cache);
 DEFINE_TRIVIAL_CLEANUP_FUNC(MMapCache*, mmap_cache_unref);
 
 int mmap_cache_fd_get(

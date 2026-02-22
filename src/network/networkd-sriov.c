@@ -345,7 +345,7 @@ bool check_ready_for_all_sr_iov_ports(
         /* If this is a VF port, then also check the PF port. */
         if (link->sr_iov_phys_port_ifindex > 0) {
                 if (link_get_by_index(link->manager, link->sr_iov_phys_port_ifindex, &phys_link) < 0 ||
-                    !check_one(phys_link, /* allow_unmanaged = */ true))
+                    !check_one(phys_link, /* allow_unmanaged= */ true))
                         return false;
         } else
                 phys_link = link;
@@ -361,7 +361,7 @@ bool check_ready_for_all_sr_iov_ports(
                 if (link_get_by_index(link->manager, ifindex, &virt_link) < 0)
                         return false;
 
-                if (!check_one(virt_link, /* allow_unmanaged = */ true))
+                if (!check_one(virt_link, /* allow_unmanaged= */ true))
                         return false;
         }
 

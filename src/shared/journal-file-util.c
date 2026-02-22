@@ -511,7 +511,7 @@ int journal_file_open_reliably(
                         compress_threshold_bytes,
                         metrics,
                         mmap_cache,
-                        /* template = */ NULL,
+                        /* template= */ NULL,
                         ret);
         if (!IN_SET(r,
                     -EBADMSG,           /* Corrupted */
@@ -542,7 +542,7 @@ int journal_file_open_reliably(
         r = journal_file_open(-EBADF, fname,
                               (open_flags & ~(O_ACCMODE_STRICT|O_CREAT|O_EXCL)) | O_RDONLY,
                               file_flags, 0, compress_threshold_bytes, NULL,
-                              mmap_cache, /* template = */ NULL, &old_file);
+                              mmap_cache, /* template= */ NULL, &old_file);
         if (r < 0)
                 log_debug_errno(r, "Failed to continue sequence from file %s, ignoring: %m", fname);
 
@@ -551,7 +551,7 @@ int journal_file_open_reliably(
                 return r;
 
         return journal_file_open(-EBADF, fname, open_flags, file_flags, mode, compress_threshold_bytes, metrics,
-                                 mmap_cache, /* template = */ old_file, ret);
+                                 mmap_cache, /* template= */ old_file, ret);
 }
 
 DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(

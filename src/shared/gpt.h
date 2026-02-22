@@ -49,12 +49,11 @@ static inline bool partition_designator_is_verity(PartitionDesignator d) {
         return partition_verity_to_data(d) >= 0;
 }
 
-const char* partition_designator_to_string(PartitionDesignator d) _const_;
-PartitionDesignator partition_designator_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(partition_designator, PartitionDesignator);
 
-const char* partition_mountpoint_to_string(PartitionDesignator d) _const_;
+DECLARE_STRING_TABLE_LOOKUP_TO_STRING(partition_mountpoint, PartitionDesignator);
 
-const char* gpt_partition_type_uuid_to_string(sd_id128_t id) _const_;
+DECLARE_STRING_TABLE_LOOKUP_TO_STRING(gpt_partition_type_uuid, sd_id128_t);
 const char* gpt_partition_type_uuid_to_string_harder(
                 sd_id128_t id,
                 char buffer[static SD_ID128_UUID_STRING_MAX]);

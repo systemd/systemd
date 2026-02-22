@@ -5,6 +5,6 @@ Description=Test for ReadOnlyPaths=
 [Service]
 ReadOnlyPaths=/usr /etc /sys /dev -/i-dont-exist
 PrivateDevices=yes
-ExecStart=sh -x -c 'test ! -w /usr && test ! -w /etc && test ! -w /sys && test ! -w /sys/fs/cgroup'
-ExecStart=sh -x -c 'test ! -w /dev && test ! -w /dev/shm && test ! -e /i-dont-exist && test -w /var'
+ExecStart=bash -x -c 'test ! -w /usr && test ! -w /etc && test ! -w /sys && test ! -w /sys/fs/cgroup'
+ExecStart=bash -x -c 'test ! -w /dev && test ! -w /dev/shm && test ! -e /i-dont-exist && test -w /var'
 Type=oneshot

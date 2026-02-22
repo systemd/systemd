@@ -406,13 +406,13 @@ void job_dump(Job *j, FILE *f, const char *prefix) {
  * be merged with C either.
  */
 static const JobType job_merging_table[] = {
-/* What \ With       *  JOB_START         JOB_VERIFY_ACTIVE  JOB_STOP JOB_RELOAD */
+/* What \ With       *  JOB_START            JOB_VERIFY_ACTIVE JOB_STOP JOB_RELOAD */
 /*********************************************************************************/
-/*JOB_START          */
-/*JOB_VERIFY_ACTIVE  */ JOB_START,
-/*JOB_STOP           */ -1,                  -1,
-/*JOB_RELOAD         */ JOB_RELOAD_OR_START, JOB_RELOAD,          -1,
-/*JOB_RESTART        */ JOB_RESTART,         JOB_RESTART,         -1, JOB_RESTART,
+/* JOB_START         */
+/* JOB_VERIFY_ACTIVE */ JOB_START,
+/* JOB_STOP          */ -1,                  -1,
+/* JOB_RELOAD        */ JOB_RELOAD_OR_START, JOB_RELOAD,       -1,
+/* JOB_RESTART       */ JOB_RESTART,         JOB_RESTART,      -1,      JOB_RESTART,
 };
 
 JobType job_type_lookup_merge(JobType a, JobType b) {
@@ -787,7 +787,7 @@ static void job_emit_done_message(Unit *u, uint32_t job_id, JobType t, JobResult
                                 log_unit_struct(
                                         u,
                                         job_done_messages[result].log_level,
-                                        LOG_MESSAGE("%s was skipped because no trigger condition checks were met.",
+                                        LOG_MESSAGE("%s skipped, no trigger condition checks were met.",
                                                     ident),
                                         LOG_ITEM("JOB_ID=%" PRIu32, job_id),
                                         LOG_ITEM("JOB_TYPE=%s", job_type_to_string(t)),
@@ -798,7 +798,7 @@ static void job_emit_done_message(Unit *u, uint32_t job_id, JobType t, JobResult
                                 log_unit_struct(
                                         u,
                                         job_done_messages[result].log_level,
-                                        LOG_MESSAGE("%s was skipped because of an unmet condition check (%s=%s%s).",
+                                        LOG_MESSAGE("%s skipped, unmet condition check %s=%s%s",
                                                     ident,
                                                     condition_type_to_string(c->type),
                                                     c->negate ? "!" : "",

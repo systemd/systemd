@@ -17,7 +17,7 @@
  * MAX_SERIAL_LEN: the maximum length of the serial number, including
  * added prefixes such as vendor and product (model) strings.
  */
-#define MAX_SERIAL_LEN 256
+#define MAX_SERIAL_LEN 512
 
 /*
  * MAX_BUFFER_LEN: maximum buffer size and line length used while reading

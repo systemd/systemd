@@ -109,7 +109,7 @@ custom_target(
         input : 'logind.conf.in',
         output : 'logind.conf',
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
-        install : install_sysconfdir_samples and pkgsysconfdir != 'no',
+        install : install_sysconfdir_samples,
         install_dir : pkgconfigfiledir)
 
 custom_target(

@@ -18,7 +18,7 @@ extern "C" {
  * allows custom logging
  */
 struct udev;
-struct udev* udev_ref(struct udev *udev);
+struct udev* udev_ref(struct udev *p);
 struct udev* udev_unref(struct udev *udev);
 struct udev* udev_new(void);
 void udev_set_log_fn(
@@ -63,8 +63,8 @@ const char* udev_list_entry_get_value(struct udev_list_entry *list_entry);
  * access to sysfs/kernel devices
  */
 struct udev_device;
-struct udev_device* udev_device_ref(struct udev_device *udev_device);
-struct udev_device* udev_device_unref(struct udev_device *udev_device);
+struct udev_device* udev_device_ref(struct udev_device *p);
+struct udev_device* udev_device_unref(struct udev_device *p);
 struct udev* udev_device_get_udev(struct udev_device *udev_device);
 struct udev_device* udev_device_new_from_syspath(struct udev *udev, const char *syspath);
 struct udev_device* udev_device_new_from_devnum(struct udev *udev, char type, dev_t devnum);
@@ -108,8 +108,8 @@ int udev_device_has_current_tag(struct udev_device *udev_device, const char *tag
  * access to kernel uevents and udev events
  */
 struct udev_monitor;
-struct udev_monitor* udev_monitor_ref(struct udev_monitor *udev_monitor);
-struct udev_monitor* udev_monitor_unref(struct udev_monitor *udev_monitor);
+struct udev_monitor* udev_monitor_ref(struct udev_monitor *p);
+struct udev_monitor* udev_monitor_unref(struct udev_monitor *p);
 struct udev* udev_monitor_get_udev(struct udev_monitor *udev_monitor);
 /* kernel and udev generated events over netlink */
 struct udev_monitor* udev_monitor_new_from_netlink(struct udev *udev, const char *name);
@@ -133,8 +133,8 @@ int udev_monitor_filter_remove(struct udev_monitor *udev_monitor);
  * search sysfs for specific devices and provide a sorted list
  */
 struct udev_enumerate;
-struct udev_enumerate* udev_enumerate_ref(struct udev_enumerate *udev_enumerate);
-struct udev_enumerate* udev_enumerate_unref(struct udev_enumerate *udev_enumerate);
+struct udev_enumerate* udev_enumerate_ref(struct udev_enumerate *p);
+struct udev_enumerate* udev_enumerate_unref(struct udev_enumerate *p);
 struct udev* udev_enumerate_get_udev(struct udev_enumerate *udev_enumerate);
 struct udev_enumerate* udev_enumerate_new(struct udev *udev);
 /* device properties filter */
@@ -160,8 +160,8 @@ struct udev_list_entry* udev_enumerate_get_list_entry(struct udev_enumerate *ude
  * access to the currently running udev events
  */
 struct udev_queue;
-struct udev_queue* udev_queue_ref(struct udev_queue *udev_queue);
-struct udev_queue* udev_queue_unref(struct udev_queue *udev_queue);
+struct udev_queue* udev_queue_ref(struct udev_queue *p);
+struct udev_queue* udev_queue_unref(struct udev_queue *p);
 struct udev* udev_queue_get_udev(struct udev_queue *udev_queue);
 struct udev_queue* udev_queue_new(struct udev *udev);
 unsigned long long int udev_queue_get_kernel_seqnum(struct udev_queue *udev_queue) __attribute__((__deprecated__));
@@ -184,8 +184,8 @@ struct udev_list_entry* udev_queue_get_queued_list_entry(struct udev_queue *udev
  */
 struct udev_hwdb;
 struct udev_hwdb* udev_hwdb_new(struct udev *udev);
-struct udev_hwdb* udev_hwdb_ref(struct udev_hwdb *hwdb);
-struct udev_hwdb* udev_hwdb_unref(struct udev_hwdb *hwdb);
+struct udev_hwdb* udev_hwdb_ref(struct udev_hwdb *p);
+struct udev_hwdb* udev_hwdb_unref(struct udev_hwdb *p);
 struct udev_list_entry* udev_hwdb_get_properties_list_entry(struct udev_hwdb *hwdb, const char *modalias, unsigned flags);
 
 /*

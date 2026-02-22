@@ -4,6 +4,13 @@
 set -eux
 set -o pipefail
 
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
+
+if ! check_nss_module systemd; then
+    exit 0
+fi
+
 at_exit() {
     set +e
     systemctl --no-block stop capsule@foobar.service

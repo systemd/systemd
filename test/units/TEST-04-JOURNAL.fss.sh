@@ -5,7 +5,7 @@ set -o pipefail
 
 # Forward Secure Sealing
 
-if ! journalctl --version | grep -qF +GCRYPT; then
+if ! journalctl --version | grep -F +GCRYPT >/dev/null; then
     echo "Built without gcrypt, skipping the FSS tests"
     exit 0
 fi

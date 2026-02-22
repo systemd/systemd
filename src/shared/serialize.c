@@ -515,7 +515,7 @@ int deserialize_pidref(FDSet *fds, const char *value, PidRef *ret) {
                 _cleanup_free_ char *fdstr = NULL, *pidstr = NULL;
                 _cleanup_close_ int fd = -EBADF;
 
-                r = extract_many_words(&e, ":", /* flags = */ 0, &fdstr, &pidstr);
+                r = extract_many_words(&e, ":", /* flags= */ 0, &fdstr, &pidstr);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to deserialize pidref '%s': %m", e);
                 if (r == 0)

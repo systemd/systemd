@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 
 # We don't use mkosi.extra because /usr/sbin could be a symlink and cp doesn't handle that properly until
@@ -6,7 +6,7 @@ set -e
 mkdir -p "$BUILDROOT/sbin"
 rm -f "$BUILDROOT/sbin/init"
 cat >"$BUILDROOT/sbin/init" <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 echo "Hello from dummy init, beautiful day, innit?"
 ip link
 EOF

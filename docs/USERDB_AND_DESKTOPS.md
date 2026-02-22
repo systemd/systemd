@@ -8,7 +8,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 # `systemd-homed` and JSON User/Group Record Support in Desktop Environments
 
 Starting with version 245, systemd supports a new subsystem
-[`systemd-homed.service`](https://www.freedesktop.org/software/systemd/man/systemd-homed.service.html)
+[`systemd-homed.service`](https://www.freedesktop.org/software/systemd/man/latest/systemd-homed.service.html)
 for managing regular ("human") users and their home directories.
 Along with it a new concept `userdb` got merged that brings rich, extensible JSON user/group
 records, extending the classic UNIX/glibc NSS `struct passwd`/`struct group` structures.
@@ -60,7 +60,7 @@ A display manager which supports this kind of out-of-context screen lock
 operation needs to inform systemd-homed about this so that systemd-homed knows
 that it is safe to suspend the user's home directory on suspend.
 This is done via the `suspend=` argument to the
-[`pam_systemd_home`](https://www.freedesktop.org/software/systemd/man/pam_systemd_home.html)
+[`pam_systemd_home`](https://www.freedesktop.org/software/systemd/man/latest/pam_systemd_home.html)
 PAM module.
 A display manager should hence change its PAM stack configurationto set this parameter to on.
 `systemd-homed` will not suspend home directories if there's at least one active session of the user that does not support

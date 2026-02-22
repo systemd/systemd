@@ -504,10 +504,10 @@
         <term><option>--defer-partitions-empty=yes</option></term>
 
         <listitem><para>This is very similar to <option>--defer-partitions=</option> but automatically
-        selects all partitions for deferral that have <option>Format=empty</option> set. It may be used in
-        conjunction with <option>--defer-partitions=</option> or
-        <option>--defer-partitions-factory-reset=yes</option>, in which case all matching partitions are
-        deferred.</para>
+        selects all partitions for deferral that have <option>Format=empty</option> set and do not configure
+        a custom label, or which set <option>Label=_empty</option>. It may be used in conjunction with
+        <option>--defer-partitions=</option> or <option>--defer-partitions-factory-reset=yes</option>, in
+        which case all matching partitions are deferred.</para>
 
         <xi:include href="version-info.xml" xpointer="v259"/></listitem>
       </varlistentry>

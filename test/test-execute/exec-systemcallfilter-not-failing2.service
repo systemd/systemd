@@ -3,6 +3,6 @@
 Description=Test for SystemCallFilter
 
 [Service]
-ExecStart=sh -c 'echo "Foo bar"'
+ExecStart=bash -c 'echo "Foo bar"'
 Type=oneshot
 SystemCallFilter=

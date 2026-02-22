@@ -47,11 +47,9 @@ typedef struct NFTSetContext {
 void nft_set_context_clear(NFTSetContext *s);
 int nft_set_context_dup(const NFTSetContext *src, NFTSetContext *dst);
 
-const char* nfproto_to_string(int i) _const_;
-int nfproto_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(nfproto, int);
 
-const char* nft_set_source_to_string(int i) _const_;
-int nft_set_source_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(nft_set_source, int);
 
 int nft_set_element_modify_iprange(
                 sd_netlink *nfnl,

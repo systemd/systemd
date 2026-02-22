@@ -47,9 +47,7 @@ static DLSYM_PROTOTYPE(dwarf_formstring) = NULL;
 static DLSYM_PROTOTYPE(dwarf_getscopes) = NULL;
 static DLSYM_PROTOTYPE(dwarf_getscopes_die) = NULL;
 static DLSYM_PROTOTYPE(dwelf_elf_begin) = NULL;
-#if HAVE_DWELF_ELF_E_MACHINE_STRING
 static DLSYM_PROTOTYPE(dwelf_elf_e_machine_string) = NULL;
-#endif
 static DLSYM_PROTOTYPE(dwelf_elf_gnu_build_id) = NULL;
 static DLSYM_PROTOTYPE(dwarf_tag) = NULL;
 static DLSYM_PROTOTYPE(dwfl_addrmodule) = NULL;
@@ -111,9 +109,7 @@ int dlopen_dw(void) {
                         DLSYM_ARG(dwarf_diename),
                         DLSYM_ARG(dwelf_elf_gnu_build_id),
                         DLSYM_ARG(dwelf_elf_begin),
-#if HAVE_DWELF_ELF_E_MACHINE_STRING
                         DLSYM_ARG(dwelf_elf_e_machine_string),
-#endif
                         DLSYM_ARG(dwfl_addrmodule),
                         DLSYM_ARG(dwfl_frame_pc),
                         DLSYM_ARG(dwfl_module_addrdie),
@@ -773,7 +769,6 @@ static int parse_elf(
         if (r < 0)
                 return log_warning_errno(r, "Failed to build JSON object: %m");
 
-#if HAVE_DWELF_ELF_E_MACHINE_STRING
         const char *elf_architecture = sym_dwelf_elf_e_machine_string(elf_header.e_machine);
         if (elf_architecture) {
                 r = sd_json_variant_merge_objectbo(
@@ -785,7 +780,6 @@ static int parse_elf(
                 if (ret)
                         fprintf(c.m.f, "ELF object binary architecture: %s\n", elf_architecture);
         }
-#endif
 
         /* We always at least have the ELF type, so merge that (and possibly the arch). */
         r = sd_json_variant_merge_object(&elf_metadata, package_metadata);
@@ -863,12 +857,13 @@ int parse_elf_object(
          * bound since the core files have an upper size limit. It's also not doing any
          * system call or interacting with the system in any way, besides reading from
          * the file descriptor and writing into these four pipes. */
-        r = safe_fork_full("(sd-parse-elf)",
-                           NULL,
-                           (int[]){ fd, error_pipe[1], return_pipe[1], package_metadata_pipe[1], dlopen_metadata_pipe[1] },
-                           5,
-                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE|FORK_NEW_USERNS|FORK_WAIT|FORK_REOPEN_LOG,
-                           NULL);
+        r = pidref_safe_fork_full(
+                        "(sd-parse-elf)",
+                        /* stdio_fds= */ NULL,
+                        (int[]) { fd, error_pipe[1], return_pipe[1], package_metadata_pipe[1], dlopen_metadata_pipe[1] },
+                        5,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE|FORK_NEW_USERNS|FORK_WAIT|FORK_REOPEN_LOG,
+                        /* ret= */ NULL);
         if (r < 0) {
                 if (r == -EPROTO) { /* We should have the errno from the child, but don't clobber original error */
                         ssize_t k;

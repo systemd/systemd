@@ -85,7 +85,7 @@ TEST(dns_query_new_multi_question_different_domain) {
         ASSERT_NULL(query);
 }
 
-#if HAVE_LIBIDN || HAVE_LIBIDN2
+#if HAVE_LIBIDN2
 TEST(dns_query_new_same_utf8_and_idna) {
         Manager manager = {};
         _cleanup_(dns_question_unrefp) DnsQuestion *q_utf8 = NULL, *q_idna = NULL;
@@ -434,7 +434,7 @@ TEST(dns_query_process_cname_one_success_match_dname) {
         dns_resource_key_unref(key);
 }
 
-#if HAVE_LIBIDN || HAVE_LIBIDN2
+#if HAVE_LIBIDN2
 TEST(dns_query_process_cname_one_success_match_dname_utf8_same) {
         Manager manager = {};
         _cleanup_(dns_question_unrefp) DnsQuestion *q_utf8 = NULL, *q_idna = NULL;

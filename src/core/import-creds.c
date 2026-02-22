@@ -532,7 +532,7 @@ static int parse_smbios_strings(ImportCredentialsContext *c, const char *data, s
 
                 /* Optionally base64 decode the data, if requested, to allow binary credentials */
                 if (unbase64) {
-                        r = unbase64mem_full(eq + 1, nul - (eq + 1), /* secure = */ false, &buf, &buflen);
+                        r = unbase64mem_full(eq + 1, nul - (eq + 1), /* secure= */ false, &buf, &buflen);
                         if (r < 0) {
                                 log_warning_errno(r, "Failed to base64 decode credential '%s', ignoring: %m", cn);
                                 continue;
@@ -810,12 +810,10 @@ static int report_credentials_per_func(const char *title, int (*get_directory_fu
         assert(get_directory_func);
 
         r = get_directory_func(&d);
-        if (r < 0) {
-                if (r == -ENXIO) /* Env var not set */
-                        return 0;
-
+        if (r == -ENXIO) /* Env var not set */
+                return 0;
+        if (r < 0)
                 return log_warning_errno(r, "Failed to determine %s directory: %m", title);
-        }
 
         r = readdir_all_at(AT_FDCWD, d, RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT, &de);
         if (r < 0)

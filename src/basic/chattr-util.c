@@ -241,9 +241,9 @@ static int set_proj_id_cb(
 int set_proj_id_recursive(int fd, uint32_t proj_id) {
         return recurse_dir_at(
                         fd,
-                        /* path = */ NULL,
-                        /* statx_mask = */ 0,
-                        /* n_depth_max = */ UINT_MAX,
+                        /* path= */ NULL,
+                        /* statx_mask= */ 0,
+                        /* n_depth_max= */ UINT_MAX,
                         RECURSE_DIR_ENSURE_TYPE|RECURSE_DIR_TOPLEVEL|RECURSE_DIR_INODE_FD,
                         set_proj_id_cb,
                         UINT32_TO_PTR(proj_id));

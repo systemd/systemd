@@ -19,5 +19,4 @@ typedef enum ResolvConfMode {
 
 int resolv_conf_mode(void);
 
-const char* resolv_conf_mode_to_string(ResolvConfMode m) _const_;
-ResolvConfMode resolv_conf_mode_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(resolv_conf_mode, ResolvConfMode);

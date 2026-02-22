@@ -17,6 +17,7 @@ Conflicts=shutdown.target
 
 [Socket]
 ListenStream=/run/systemd/netif/io.systemd.Network
+Symlinks=/run/varlink/registry/io.systemd.Network
 FileDescriptorName=varlink
 SocketMode=0666
 Service=systemd-networkd.service

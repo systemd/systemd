@@ -113,7 +113,7 @@ int mkdirat_parents_internal(int dir_fd, const char *path, mode_t mode, uid_t ui
 
         /* drop the last component */
         path = strndupa_safe(path, e - path);
-        r = is_dir_at(dir_fd, path, /* follow = */ true);
+        r = is_dir_at(dir_fd, path, /* follow= */ true);
         if (r > 0)
                 return 0;
         if (r == 0)
@@ -255,8 +255,8 @@ int mkdir_p_root_full(const char *root, const char *p, uid_t uid, gid_t gid, mod
         if (nfd < 0)
                 return nfd;
 
-        if (ts == USEC_INFINITY && !uid_is_valid(uid) && !gid_is_valid(gid))
-                return 1;
+        if ((uid_is_valid(uid) || gid_is_valid(gid)) && fchown(nfd, uid, gid) < 0)
+                return -errno;
 
         if (ts != USEC_INFINITY) {
                 struct timespec tspec;
@@ -268,9 +268,6 @@ int mkdir_p_root_full(const char *root, const char *p, uid_t uid, gid_t gid, mod
                 if (futimens(nfd, (const struct timespec[2]) { tspec, tspec }) < 0)
                         return -errno;
         }
-
-        if ((uid_is_valid(uid) || gid_is_valid(gid)) && fchown(nfd, uid, gid) < 0)
-                return -errno;
 
         return 1;
 }

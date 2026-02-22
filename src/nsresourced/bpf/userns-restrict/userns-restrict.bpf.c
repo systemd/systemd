@@ -31,7 +31,7 @@ void* bpf_rdonly_cast(const void *, __u32) __ksym;
  * by their inode number in nsfs) that restricts creation of inodes (which would inherit the callers UID/GID)
  * or changing of ownership (similar).
  *
- * This hooks into the various path-based LSM entrypoints that control inode creation as well as chmod(), and
+ * This hooks into the various path-based LSM entrypoints that control inode creation as well as chown(), and
  * then looks up the calling process' user namespace in a global map of namespaces, which points us to
  * another map that is simply a list of allowed mnt_ids. */
 
@@ -68,7 +68,7 @@ static inline struct mount *real_mount(struct vfsmount *mnt) {
         return container_of(mnt, struct mount, mnt);
 }
 
-static int validate_inode_on_mount(struct inode *inode, struct vfsmount *v) {
+static int validate_mount(struct vfsmount *v) {
         struct user_namespace *mount_userns, *task_userns, *p;
         unsigned task_userns_inode;
         struct task_struct *task;
@@ -124,10 +124,9 @@ static int validate_path(const struct path *path, int ret) {
         if (ret != 0) /* propagate earlier error */
                 return ret;
 
-        inode = path->dentry->d_inode;
         v = path->mnt;
 
-        return validate_inode_on_mount(inode, v);
+        return validate_mount(v);
 }
 
 SEC("lsm/path_chown")
@@ -140,6 +139,8 @@ int BPF_PROG(userns_restrict_path_mkdir, struct path *dir, struct dentry *dentry
         return validate_path(dir, ret);
 }
 
+/* The mknod hook covers all file creations, including regular files, in case the reader is looking for a
+ * missing hook for open(). */
 SEC("lsm/path_mknod")
 int BPF_PROG(userns_restrict_path_mknod, const struct path *dir, struct dentry *dentry, umode_t mode, unsigned dev, int ret) {
         return validate_path(dir, ret);
@@ -155,25 +156,22 @@ int BPF_PROG(userns_restrict_path_link, struct dentry *old_dentry, const struct 
         return validate_path(new_dir, ret);
 }
 
-SEC("kprobe/free_user_ns")
-void BPF_KPROBE(userns_restrict_free_user_ns, struct work_struct *work) {
-        struct user_namespace *userns;
+SEC("kprobe/retire_userns_sysctls")
+int BPF_KPROBE(userns_restrict_retire_userns_sysctls, struct user_namespace *userns) {
         unsigned inode;
         void *mnt_id_map;
 
         /* Inform userspace that a user namespace just went away. I wish there was a nicer way to hook into
          * user namespaces being deleted than using kprobes, but couldn't find any. */
-
-        userns = bpf_rdonly_cast(container_of(work, struct user_namespace, work),
-                                 bpf_core_type_id_kernel(struct user_namespace));
-
+        userns = bpf_rdonly_cast(userns, bpf_core_type_id_kernel(struct user_namespace));
         inode = userns->ns.inum;
 
         mnt_id_map = bpf_map_lookup_elem(&userns_mnt_id_hash, &inode);
         if (!mnt_id_map) /* No rules installed for this userns? Then send no notification. */
-                return;
+                return 0;
 
         bpf_ringbuf_output(&userns_ringbuf, &inode, sizeof(inode), 0);
+        return 0;
 }
 
 static const char _license[] SEC("license") = "GPL";

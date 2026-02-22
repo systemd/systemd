@@ -274,6 +274,8 @@ SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(negativeTrustAnchors, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("DNSSEC mode."),
                 SD_VARLINK_DEFINE_FIELD(dnssec, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Indicates if the current DNS server supports DNSSEC. Always false if DNSSEC mode is \"no\"."),
+                SD_VARLINK_DEFINE_FIELD(dnssecSupported, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("DNSOverTLS mode."),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(dnsOverTLS, DNSOverTLSMode, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("LLMNR support."),
@@ -298,7 +300,7 @@ static SD_VARLINK_DEFINE_METHOD(
 
 static SD_VARLINK_DEFINE_METHOD_FULL(
                 BrowseServices,
-                SD_VARLINK_SUPPORTS_MORE,
+                SD_VARLINK_REQUIRES_MORE,
                 SD_VARLINK_FIELD_COMMENT("The domain to browse for services. If null, the default browsing domain local is used."),
                 SD_VARLINK_DEFINE_INPUT(domain, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The service type to browse for (e.g., '_http._tcp')."),

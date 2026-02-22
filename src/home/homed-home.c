@@ -1327,7 +1327,7 @@ static int home_start_work(
         if (r == 0) {
                 /* Child */
 
-                if (setenv("NOTIFY_SOCKET", h->manager->notify_socket_path, /* overwrite = */ true) < 0) {
+                if (setenv("NOTIFY_SOCKET", h->manager->notify_socket_path, /* overwrite= */ true) < 0) {
                         log_error_errno(errno, "Failed to set $NOTIFY_SOCKET: %m");
                         _exit(EXIT_FAILURE);
                 }
@@ -2011,7 +2011,7 @@ int home_passwd(Home *h,
                  * data. This is useful as a way to propagate updated user records into the LUKS backends
                  * properly. */
 
-                r = user_record_make_hashed_password(c, new_secret->password, /* extend = */ false);
+                r = user_record_make_hashed_password(c, new_secret->password, /* extend= */ false);
                 if (r < 0)
                         return r;
 
@@ -2233,9 +2233,10 @@ int home_killall(Home *h) {
         assert(h->uid > 0); /* We never should be UID 0 */
 
         /* Let's kill everything matching the specified UID */
-        r = safe_fork("(sd-killer)",
-                      FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL|FORK_WAIT|FORK_LOG|FORK_REOPEN_LOG,
-                      NULL);
+        r = pidref_safe_fork(
+                        "(sd-killer)",
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL|FORK_WAIT|FORK_LOG|FORK_REOPEN_LOG,
+                        /* ret= */ NULL);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -3299,11 +3300,14 @@ int home_wait_for_worker(Home *h) {
 
         log_info("Worker process for home %s is still running while exiting. Waiting for it to finish.", h->user_name);
 
-        r = wait_for_terminate_with_timeout(h->worker_pid.pid, 30 * USEC_PER_SEC);
+        siginfo_t si;
+        r = pidref_wait_for_terminate_full(&h->worker_pid, 30 * USEC_PER_SEC, &si);
         if (r == -ETIMEDOUT)
                 log_warning_errno(r, "Waiting for worker process for home %s timed out. Ignoring.", h->user_name);
         else if (r < 0)
-                log_warning_errno(r, "Failed to wait for worker process for home %s. Ignoring.", h->user_name);
+                log_warning_errno(r, "Failed to wait for worker process for home %s, ignoring: %m", h->user_name);
+        else if (si.si_code != CLD_EXITED || si.si_status != 0)
+                log_warning("Worker process for home %s failed with non-zero exit status. Ignoring.", h->user_name);
 
         (void) hashmap_remove_value(h->manager->homes_by_worker_pid, &h->worker_pid, h);
         pidref_done(&h->worker_pid);

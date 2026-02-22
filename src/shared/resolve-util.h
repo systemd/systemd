@@ -68,19 +68,15 @@ CONFIG_PARSER_PROTOTYPE(config_parse_dnssec_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_dns_over_tls_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_dns_cache_mode);
 
-const char* resolve_support_to_string(ResolveSupport p) _const_;
-ResolveSupport resolve_support_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(resolve_support, ResolveSupport);
 
-const char* dnssec_mode_to_string(DnssecMode p) _const_;
-DnssecMode dnssec_mode_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(dnssec_mode, DnssecMode);
 
-const char* dns_over_tls_mode_to_string(DnsOverTlsMode p) _const_;
-DnsOverTlsMode dns_over_tls_mode_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(dns_over_tls_mode, DnsOverTlsMode);
 
 bool dns_server_address_valid(int family, const union in_addr_union *sa);
 
-const char* dns_cache_mode_to_string(DnsCacheMode p) _const_;
-DnsCacheMode dns_cache_mode_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(dns_cache_mode, DnsCacheMode);
 
 /* A resolv.conf file containing the DNS server and domain data we learnt from uplink, i.e. the full uplink data */
 #define PRIVATE_UPLINK_RESOLV_CONF "/run/systemd/resolve/resolv.conf"

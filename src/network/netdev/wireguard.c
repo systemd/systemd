@@ -511,7 +511,7 @@ static int wireguard_decode_key_and_warn(
 
         cred_name = startswith(rvalue, "@");
         if (cred_name) {
-                r = read_credential(cred_name, (void**) &cred, /* ret_size = */ NULL);
+                r = read_credential(cred_name, (void**) &cred, /* ret_size= */ NULL);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
@@ -524,7 +524,7 @@ static int wireguard_decode_key_and_warn(
         } else if (!streq(lvalue, "PublicKey"))
                 (void) warn_file_is_world_accessible(filename, NULL, unit, line);
 
-        r = unbase64mem_full(cred ?: rvalue, SIZE_MAX, /* secure = */ true, &key, &len);
+        r = unbase64mem_full(cred ?: rvalue, SIZE_MAX, /* secure= */ true, &key, &len);
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0) {
@@ -776,7 +776,7 @@ int config_parse_wireguard_endpoint(
 
         cred_name = startswith(rvalue, "@");
         if (cred_name) {
-                r = read_credential(cred_name, (void**) &cred, /* ret_size = */ NULL);
+                r = read_credential(cred_name, (void**) &cred, /* ret_size= */ NULL);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0) {
@@ -1169,7 +1169,7 @@ static int wireguard_read_default_key_cred(NetDev *netdev, const char *filename)
 
         _cleanup_(erase_and_freep) char *cred = NULL;
 
-        r = read_credential(strjoina("network.wireguard.private.", config_name), (void**) &cred, /* ret_size = */ NULL);
+        r = read_credential(strjoina("network.wireguard.private.", config_name), (void**) &cred, /* ret_size= */ NULL);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r,
                                               "%s: No private key specified and default key isn't available, "
@@ -1179,7 +1179,7 @@ static int wireguard_read_default_key_cred(NetDev *netdev, const char *filename)
         _cleanup_(erase_and_freep) void *key = NULL;
         size_t len;
 
-        r = unbase64mem_full(cred, SIZE_MAX, /* secure = */ true, &key, &len);
+        r = unbase64mem_full(cred, SIZE_MAX, /* secure= */ true, &key, &len);
         if (r < 0)
                 return log_netdev_error_errno(netdev, r,
                                               "%s: No private key specified and default key cannot be parsed, "

@@ -283,18 +283,16 @@ TEST(is_mount_point_at) {
         fd = open("/", O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY);
         assert_se(fd >= 0);
 
-        /* Not allowed, since "/" is a path, not a plain filename */
-        assert_se(is_mount_point_at(fd, "/", 0) == -EINVAL);
-        assert_se(is_mount_point_at(fd, "..", 0) == -EINVAL);
-        assert_se(is_mount_point_at(fd, "../", 0) == -EINVAL);
-        assert_se(is_mount_point_at(fd, "/proc", 0) == -EINVAL);
-        assert_se(is_mount_point_at(fd, "/proc/", 0) == -EINVAL);
-        assert_se(is_mount_point_at(fd, "proc/sys", 0) == -EINVAL);
-        assert_se(is_mount_point_at(fd, "proc/sys/", 0) == -EINVAL);
-
-        /* This one definitely is a mount point */
-        assert_se(is_mount_point_at(fd, "proc", 0) > 0);
-        assert_se(is_mount_point_at(fd, "proc/", 0) > 0);
+        ASSERT_OK_POSITIVE(is_mount_point_at(fd, "/", /* flags= */ 0));
+        ASSERT_OK_POSITIVE(is_mount_point_at(fd, "..", /* flags= */ 0));
+        ASSERT_OK_POSITIVE(is_mount_point_at(fd, "../", /* flags= */ 0));
+        r = ASSERT_OK(proc_mounted());
+        ASSERT_OK_EQ(is_mount_point_at(fd, "/proc", /* flags= */ 0), r);
+        ASSERT_OK_EQ(is_mount_point_at(fd, "/proc/", /* flags= */ 0), r);
+        ASSERT_OK_EQ(is_mount_point_at(fd, "proc", /* flags= */ 0), r);
+        ASSERT_OK_EQ(is_mount_point_at(fd, "proc/", /* flags= */ 0), r);
+        ASSERT_OK_ZERO(is_mount_point_at(fd, "usr/lib", /* flags= */ 0));
+        ASSERT_OK_ZERO(is_mount_point_at(fd, "usr/lib", /* flags= */ 0));
 
         safe_close(fd);
         fd = open("/tmp", O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY);
@@ -359,10 +357,6 @@ TEST(is_mount_point_at) {
         ASSERT_STREQ(t, "/usr");
 
         ASSERT_OK(is_mount_point_at(fd, "regular", 0));
-}
-
-TEST(ms_nosymfollow_supported) {
-        log_info("MS_NOSYMFOLLOW supported: %s", yes_no(ms_nosymfollow_supported()));
 }
 
 TEST(mount_option_supported) {

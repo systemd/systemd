@@ -10,6 +10,7 @@
 #include "af-list.h"
 #include "alloc-util.h"
 #include "blockdev-util.h"
+#include "bpf-bind-iface.h"
 #include "bpf-devices.h"
 #include "bpf-firewall.h"
 #include "bpf-foreign.h"
@@ -33,6 +34,7 @@
 #include "ip-protocol-list.h"
 #include "limits-util.h"
 #include "manager.h"
+#include "mountpoint-util.h"
 #include "netlink-internal.h"
 #include "nulstr-util.h"
 #include "parse-util.h"
@@ -268,6 +270,8 @@ void cgroup_context_done(CGroupContext *c) {
 
         c->restrict_network_interfaces = set_free(c->restrict_network_interfaces);
 
+        c->bind_network_interface = mfree(c->bind_network_interface);
+
         cpu_set_done(&c->cpuset_cpus);
         cpu_set_done(&c->startup_cpuset_cpus);
         cpu_set_done(&c->cpuset_mems);
@@ -327,13 +331,13 @@ static int unit_compare_memory_limit(Unit *u, const char *property_name, uint64_
         bool startup = u->manager && IN_SET(manager_state(u->manager), MANAGER_STARTING, MANAGER_INITIALIZING, MANAGER_STOPPING);
 
         if (streq(property_name, "MemoryLow")) {
-                unit_value = unit_get_ancestor_memory_low(u);
+                unit_value = c->memory_low;
                 file = "memory.low";
         } else if (startup && streq(property_name, "StartupMemoryLow")) {
-                unit_value = unit_get_ancestor_startup_memory_low(u);
+                unit_value = c->startup_memory_low;
                 file = "memory.low";
         } else if (streq(property_name, "MemoryMin")) {
-                unit_value = unit_get_ancestor_memory_min(u);
+                unit_value = c->memory_min;
                 file = "memory.min";
         } else if (streq(property_name, "MemoryHigh")) {
                 unit_value = c->memory_high;
@@ -501,8 +505,6 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 "%sStartupAllowedMemoryNodes: %s\n"
                 "%sIOWeight: %" PRIu64 "\n"
                 "%sStartupIOWeight: %" PRIu64 "\n"
-                "%sDefaultMemoryMin: %" PRIu64 "\n"
-                "%sDefaultMemoryLow: %" PRIu64 "\n"
                 "%sMemoryMin: %" PRIu64 "%s\n"
                 "%sMemoryLow: %" PRIu64 "%s\n"
                 "%sStartupMemoryLow: %" PRIu64 "%s\n"
@@ -539,8 +541,6 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 prefix, strempty(startup_cpuset_mems),
                 prefix, c->io_weight,
                 prefix, c->startup_io_weight,
-                prefix, c->default_memory_min,
-                prefix, c->default_memory_low,
                 prefix, c->memory_min, format_cgroup_memory_limit_comparison(u, "MemoryMin", cda, sizeof(cda)),
                 prefix, c->memory_low, format_cgroup_memory_limit_comparison(u, "MemoryLow", cdb, sizeof(cdb)),
                 prefix, c->startup_memory_low, format_cgroup_memory_limit_comparison(u, "StartupMemoryLow", cdc, sizeof(cdc)),
@@ -567,6 +567,10 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
         if (c->delegate_subgroup)
                 fprintf(f, "%sDelegateSubgroup: %s\n",
                         prefix, c->delegate_subgroup);
+
+        if (c->bind_network_interface)
+                fprintf(f, "%sBindNetworkInterface: %s\n",
+                        prefix, c->bind_network_interface);
 
         if (c->memory_pressure_threshold_usec != USEC_INFINITY)
                 fprintf(f, "%sMemoryPressureThresholdSec: %s\n",
@@ -757,36 +761,6 @@ int cgroup_context_add_bpf_foreign_program(CGroupContext *c, uint32_t attach_typ
         return 0;
 }
 
-#define UNIT_DEFINE_ANCESTOR_MEMORY_LOOKUP(entry)                       \
-        uint64_t unit_get_ancestor_##entry(Unit *u) {                   \
-                CGroupContext *c;                                       \
-                                                                        \
-                /* 1. Is entry set in this unit? If so, use that.       \
-                 * 2. Is the default for this entry set in any          \
-                 *    ancestor? If so, use that.                        \
-                 * 3. Otherwise, return CGROUP_LIMIT_MIN. */            \
-                                                                        \
-                assert(u);                                              \
-                                                                        \
-                c = unit_get_cgroup_context(u);                         \
-                if (c && c->entry##_set)                                \
-                        return c->entry;                                \
-                                                                        \
-                while ((u = UNIT_GET_SLICE(u))) {                       \
-                        c = unit_get_cgroup_context(u);                 \
-                        if (c && c->default_##entry##_set)              \
-                                return c->default_##entry;              \
-                }                                                       \
-                                                                        \
-                /* We've reached the root, but nobody had default for   \
-                 * this entry set, so set it to the kernel default. */  \
-                return CGROUP_LIMIT_MIN;                                \
-}
-
-UNIT_DEFINE_ANCESTOR_MEMORY_LOOKUP(memory_low);
-UNIT_DEFINE_ANCESTOR_MEMORY_LOOKUP(startup_memory_low);
-UNIT_DEFINE_ANCESTOR_MEMORY_LOOKUP(memory_min);
-
 static void unit_set_xattr_graceful(Unit *u, const char *name, const void *data, size_t size) {
         int r;
 
@@ -937,39 +911,12 @@ static void cgroup_delegate_xattr_apply(Unit *u) {
 }
 
 static void cgroup_survive_xattr_apply(Unit *u) {
-        int r;
-
         assert(u);
 
-        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
-        if (!crt)
-                return;
-
-        if (u->survive_final_kill_signal) {
-                r = cg_set_xattr(
-                                crt->cgroup_path,
-                                "user.survive_final_kill_signal",
-                                "1",
-                                1,
-                                /* flags= */ 0);
-                /* user xattr support was added in kernel v5.7 */
-                if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
-                        r = cg_set_xattr(
-                                        crt->cgroup_path,
-                                        "trusted.survive_final_kill_signal",
-                                        "1",
-                                        1,
-                                        /* flags= */ 0);
-                if (r < 0)
-                        log_unit_debug_errno(u,
-                                             r,
-                                             "Failed to set 'survive_final_kill_signal' xattr on control "
-                                             "group %s, ignoring: %m",
-                                             empty_to_root(crt->cgroup_path));
-        } else {
+        if (u->survive_final_kill_signal)
+                unit_set_xattr_graceful(u, "user.survive_final_kill_signal", "1", 1);
+        else
                 unit_remove_xattr_graceful(u, "user.survive_final_kill_signal");
-                unit_remove_xattr_graceful(u, "trusted.survive_final_kill_signal");
-        }
 }
 
 static void cgroup_xattr_apply(Unit *u) {
@@ -1027,8 +974,7 @@ static int lookup_block_device(const char *p, dev_t *ret) {
         }
 
         /* If this is a LUKS/DM device, recursively try to get the originating block device */
-        while (block_get_originating(*ret, ret) >= 0)
-                ;
+        (void) block_get_originating(*ret, ret, /* recursive= */ true);
 
         /* If this is a partition, try to get the originating block device */
         (void) block_get_whole_disk(*ret, ret);
@@ -1170,8 +1116,9 @@ static void cgroup_apply_cpuset(Unit *u, const CPUSet *cpus, const char *name) {
 }
 
 static bool cgroup_context_has_io_config(CGroupContext *c) {
-        return c->io_accounting ||
-                c->io_weight != CGROUP_WEIGHT_INVALID ||
+        assert(c);
+
+        return c->io_weight != CGROUP_WEIGHT_INVALID ||
                 c->startup_io_weight != CGROUP_WEIGHT_INVALID ||
                 c->io_device_weights ||
                 c->io_device_latencies ||
@@ -1282,15 +1229,11 @@ static void cgroup_apply_io_device_limit(Unit *u, const char *dev_path, uint64_t
         (void) set_attribute_and_warn(u, "io.max", buf);
 }
 
-static bool unit_has_memory_config(Unit *u) {
-        CGroupContext *c;
+static bool cgroup_context_has_memory_config(CGroupContext *c) {
+        assert(c);
 
-        assert(u);
-
-        assert_se(c = unit_get_cgroup_context(u));
-
-        return unit_get_ancestor_memory_min(u) > 0 ||
-               unit_get_ancestor_memory_low(u) > 0 || unit_get_ancestor_startup_memory_low(u) > 0 ||
+        return c->memory_min > 0 ||
+               c->memory_low > 0 || c->startup_memory_low_set ||
                c->memory_high != CGROUP_LIMIT_MAX || c->startup_memory_high_set ||
                c->memory_max != CGROUP_LIMIT_MAX || c->startup_memory_max_set ||
                c->memory_swap_max != CGROUP_LIMIT_MAX || c->startup_memory_swap_max_set ||
@@ -1318,7 +1261,7 @@ static void cgroup_apply_firewall(Unit *u) {
         (void) bpf_firewall_install(u);
 }
 
-void unit_modify_nft_set(Unit *u, bool add) {
+static void unit_modify_nft_set(Unit *u, bool add) {
         int r;
 
         assert(u);
@@ -1367,6 +1310,12 @@ static void cgroup_apply_restrict_network_interfaces(Unit *u) {
         assert(u);
 
         (void) bpf_restrict_ifaces_install(u);
+}
+
+static void cgroup_apply_bind_network_interface(Unit *u) {
+        assert(u);
+
+        (void) bpf_bind_network_interface_install(u);
 }
 
 static int cgroup_apply_devices(Unit *u) {
@@ -1530,19 +1479,20 @@ static void cgroup_context_apply(
 
         /* 'memory' attributes do not exist on the root cgroup. */
         if ((apply_mask & CGROUP_MASK_MEMORY) && !is_local_root) {
-                uint64_t max = CGROUP_LIMIT_MAX, swap_max = CGROUP_LIMIT_MAX, zswap_max = CGROUP_LIMIT_MAX, high = CGROUP_LIMIT_MAX;
+                uint64_t low = CGROUP_LIMIT_MIN, max = CGROUP_LIMIT_MAX, swap_max = CGROUP_LIMIT_MAX, zswap_max = CGROUP_LIMIT_MAX, high = CGROUP_LIMIT_MAX;
 
-                if (unit_has_memory_config(u)) {
+                if (cgroup_context_has_memory_config(c)) {
                         bool startup = IN_SET(state, MANAGER_STARTING, MANAGER_INITIALIZING, MANAGER_STOPPING);
 
+                        low = startup && c->startup_memory_low_set ? c->startup_memory_low : c->memory_low;
                         high = startup && c->startup_memory_high_set ? c->startup_memory_high : c->memory_high;
                         max = startup && c->startup_memory_max_set ? c->startup_memory_max : c->memory_max;
                         swap_max = startup && c->startup_memory_swap_max_set ? c->startup_memory_swap_max : c->memory_swap_max;
                         zswap_max = startup && c->startup_memory_zswap_max_set ? c->startup_memory_zswap_max : c->memory_zswap_max;
                 }
 
-                cgroup_apply_memory_limit(u, "memory.min", unit_get_ancestor_memory_min(u));
-                cgroup_apply_memory_limit(u, "memory.low", unit_get_ancestor_memory_low(u));
+                cgroup_apply_memory_limit(u, "memory.min", c->memory_min);
+                cgroup_apply_memory_limit(u, "memory.low", low);
                 cgroup_apply_memory_limit(u, "memory.high", high);
                 cgroup_apply_memory_limit(u, "memory.max", max);
                 cgroup_apply_memory_limit(u, "memory.swap.max", swap_max);
@@ -1609,7 +1559,10 @@ static void cgroup_context_apply(
         if (apply_mask & CGROUP_MASK_BPF_RESTRICT_NETWORK_INTERFACES)
                 cgroup_apply_restrict_network_interfaces(u);
 
-        unit_modify_nft_set(u, /* add = */ true);
+        if (apply_mask & CGROUP_MASK_BPF_BIND_NETWORK_INTERFACE)
+                cgroup_apply_bind_network_interface(u);
+
+        unit_modify_nft_set(u, /* add= */ true);
 }
 
 static bool unit_get_needs_bpf_firewall(Unit *u) {
@@ -1674,6 +1627,17 @@ static bool unit_get_needs_restrict_network_interfaces(Unit *u) {
         return !set_isempty(c->restrict_network_interfaces);
 }
 
+static bool unit_get_needs_bind_network_interface(Unit *u) {
+        CGroupContext *c;
+        assert(u);
+
+        c = unit_get_cgroup_context(u);
+        if (!c)
+                return false;
+
+        return c->bind_network_interface;
+}
+
 static CGroupMask unit_get_cgroup_mask(Unit *u) {
         CGroupMask mask = 0;
         CGroupContext *c;
@@ -1691,11 +1655,12 @@ static CGroupMask unit_get_cgroup_mask(Unit *u) {
         if (cgroup_context_has_allowed_cpus(c) || cgroup_context_has_allowed_mems(c))
                 mask |= CGROUP_MASK_CPUSET;
 
-        if (cgroup_context_has_io_config(c))
+        if (c->io_accounting ||
+            cgroup_context_has_io_config(c))
                 mask |= CGROUP_MASK_IO;
 
         if (c->memory_accounting ||
-            unit_has_memory_config(u))
+            cgroup_context_has_memory_config(c))
                 mask |= CGROUP_MASK_MEMORY;
 
         if (cgroup_context_has_device_policy(c))
@@ -1725,6 +1690,9 @@ static CGroupMask unit_get_bpf_mask(Unit *u) {
 
         if (unit_get_needs_restrict_network_interfaces(u))
                 mask |= CGROUP_MASK_BPF_RESTRICT_NETWORK_INTERFACES;
+
+        if (unit_get_needs_bind_network_interface(u))
+                mask |= CGROUP_MASK_BPF_BIND_NETWORK_INTERFACE;
 
         return mask;
 }
@@ -1931,7 +1899,7 @@ static int unit_set_cgroup_path(Unit *u, const char *path) {
         if (crt && streq_ptr(crt->cgroup_path, path))
                 return 0;
 
-        unit_release_cgroup(u, /* drop_cgroup_runtime = */ true);
+        unit_release_cgroup(u, /* drop_cgroup_runtime= */ true);
 
         crt = unit_setup_cgroup_runtime(u);
         if (!crt)
@@ -2101,14 +2069,15 @@ static int unit_update_cgroup(
         CGroupRuntime *crt = ASSERT_PTR(unit_get_cgroup_runtime(u));
 
         uint64_t cgroup_id = 0;
-        r = cg_get_path(crt->cgroup_path, /* suffix = */ NULL, &cgroup_full_path);
-        if (r == 0) {
-                r = cg_path_get_cgroupid(cgroup_full_path, &cgroup_id);
+        r = cg_get_path(crt->cgroup_path, /* suffix= */ NULL, &cgroup_full_path);
+        if (r < 0)
+                log_unit_warning_errno(u, r, "Failed to get full cgroup path on cgroup %s, ignoring: %m", empty_to_root(crt->cgroup_path));
+        else {
+                r = path_to_handle_u64(cgroup_full_path, &cgroup_id);
                 if (r < 0)
                         log_unit_full_errno(u, ERRNO_IS_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING, r,
                                             "Failed to get cgroup ID of cgroup %s, ignoring: %m", cgroup_full_path);
-        } else
-                log_unit_warning_errno(u, r, "Failed to get full cgroup path on cgroup %s, ignoring: %m", empty_to_root(crt->cgroup_path));
+        }
 
         crt->cgroup_id = cgroup_id;
 
@@ -2735,7 +2704,7 @@ static bool unit_maybe_release_cgroup(Unit *u) {
                 /* Do not free CGroupRuntime when called from unit_prune_cgroup. Various accounting data
                  * we should keep, especially CPU usage and *_peak ones which would be shown even after
                  * the unit stops. */
-                unit_release_cgroup(u, /* drop_cgroup_runtime = */ false);
+                unit_release_cgroup(u, /* drop_cgroup_runtime= */ false);
                 return true;
         }
 
@@ -2793,13 +2762,13 @@ void unit_prune_cgroup(Unit *u) {
                 return;
 
         /* Cache the last resource usage values before we destroy the cgroup */
-        (void) unit_get_cpu_usage(u, /* ret = */ NULL);
+        (void) unit_get_cpu_usage(u, /* ret= */ NULL);
 
         for (CGroupMemoryAccountingMetric metric = 0; metric <= _CGROUP_MEMORY_ACCOUNTING_METRIC_CACHED_LAST; metric++)
-                (void) unit_get_memory_accounting(u, metric, /* ret = */ NULL);
+                (void) unit_get_memory_accounting(u, metric, /* ret= */ NULL);
 
         /* All IO metrics are read at once from the underlying cgroup, so issue just a single call */
-        (void) unit_get_io_accounting(u, _CGROUP_IO_ACCOUNTING_METRIC_INVALID, /* ret = */ NULL);
+        (void) unit_get_io_accounting(u, _CGROUP_IO_ACCOUNTING_METRIC_INVALID, /* ret= */ NULL);
 
         /* We do not cache IP metrics here because the firewall objects are not freed with cgroups */
 
@@ -2807,7 +2776,7 @@ void unit_prune_cgroup(Unit *u) {
         (void) bpf_restrict_fs_cleanup(u); /* Remove cgroup from the global LSM BPF map */
 #endif
 
-        unit_modify_nft_set(u, /* add = */ false);
+        unit_modify_nft_set(u, /* add= */ false);
 
         is_root_slice = unit_has_name(u, SPECIAL_ROOT_SLICE);
 
@@ -3020,9 +2989,7 @@ int unit_check_oom(Unit *u) {
         if (!crt || !crt->cgroup_path)
                 return 0;
 
-        CGroupContext *ctx = unit_get_cgroup_context(u);
-        if (!ctx)
-                return 0;
+        CGroupContext *ctx = ASSERT_PTR(unit_get_cgroup_context(u));
 
         /* If memory.oom.group=1, then look up the oom_group_kill field, which reports how many times the
          * kernel killed every process recursively in this cgroup and its descendants, similar to
@@ -3244,6 +3211,13 @@ static int cg_bpf_mask_supported(CGroupMask *ret) {
         if (r > 0)
                 mask |= CGROUP_MASK_BPF_RESTRICT_NETWORK_INTERFACES;
 
+        /* BPF-based cgroup/sock_create hooks */
+        r = bpf_bind_network_interface_supported();
+        if (r < 0)
+                return r;
+        if (r > 0)
+                mask |= CGROUP_MASK_BPF_BIND_NETWORK_INTERFACE;
+
         *ret = mask;
         return 0;
 }
@@ -3316,7 +3290,7 @@ int manager_setup_cgroup(Manager *m) {
 
         /* 5. Make sure we are in the special "init.scope" unit in the root slice. */
         const char *scope_path = strjoina(m->cgroup_root, "/" SPECIAL_INIT_SCOPE);
-        r = cg_create_and_attach(scope_path, /* pid = */ 0);
+        r = cg_create_and_attach(scope_path, /* pid= */ 0);
         if (r >= 0) {
                 /* Also, move all other userspace processes remaining in the root cgroup into that scope. */
                 r = cg_migrate(m->cgroup_root, scope_path, 0);
@@ -4164,13 +4138,15 @@ CGroupRuntime* cgroup_runtime_new(void) {
                 .ipv4_deny_map_fd = -EBADF,
                 .ipv6_deny_map_fd = -EBADF,
 
+                .initial_bind_network_interface_link_fd = -EBADF,
+
                 .cgroup_invalidated_mask = _CGROUP_MASK_ALL,
 
                 .deserialized_cgroup_realized = -1,
         };
 
-        unit_reset_cpu_accounting(/* unit = */ NULL, crt);
-        unit_reset_io_accounting(/* unit = */ NULL, crt);
+        unit_reset_cpu_accounting(/* unit= */ NULL, crt);
+        unit_reset_io_accounting(/* unit= */ NULL, crt);
         cgroup_runtime_reset_memory_accounting_last(crt);
         assert_se(cgroup_runtime_reset_ip_accounting(crt) >= 0);
 
@@ -4193,8 +4169,12 @@ CGroupRuntime* cgroup_runtime_free(CGroupRuntime *crt) {
 #if BPF_FRAMEWORK
         bpf_link_free(crt->restrict_ifaces_ingress_bpf_link);
         bpf_link_free(crt->restrict_ifaces_egress_bpf_link);
+
+        bpf_link_free(crt->bpf_bind_network_interface_link);
 #endif
+
         fdset_free(crt->initial_restrict_ifaces_link_fds);
+        safe_close(crt->initial_bind_network_interface_link_fd);
 
         bpf_firewall_close(crt);
 
@@ -4317,6 +4297,8 @@ int cgroup_runtime_serialize(Unit *u, FILE *f, FDSet *fds) {
 
         (void) bpf_restrict_ifaces_serialize(u, f, fds);
 
+        (void) bpf_bind_network_interface_serialize(u, f, fds);
+
         return 0;
 }
 
@@ -4419,33 +4401,23 @@ int cgroup_runtime_deserialize_one(Unit *u, const char *key, const char *value, 
         if (MATCH_DESERIALIZE_IMMEDIATE(u, "cgroup-invalidated-mask", key, value, cg_mask_from_string, cgroup_invalidated_mask))
                 return 1;
 
-        if (STR_IN_SET(key, "ipv4-socket-bind-bpf-link-fd", "ipv6-socket-bind-bpf-link-fd")) {
-                int fd;
-
-                fd = deserialize_fd(fds, value);
-                if (fd >= 0)
-                        (void) bpf_socket_bind_add_initial_link_fd(u, fd);
-
-                return 1;
-        }
-
         if (STR_IN_SET(key,
-                       "ip-bpf-ingress-installed", "ip-bpf-egress-installed",
                        "bpf-device-control-installed",
+                       "ip-bpf-ingress-installed", "ip-bpf-egress-installed",
                        "ip-bpf-custom-ingress-installed", "ip-bpf-custom-egress-installed")) {
 
                 CGroupRuntime *crt = unit_setup_cgroup_runtime(u);
                 if (!crt)
                         log_oom_debug();
                 else {
+                        if (streq(key, "bpf-device-control-installed"))
+                                (void) bpf_program_deserialize_attachment(value, fds, &crt->bpf_device_control_installed);
+
                         if (streq(key, "ip-bpf-ingress-installed"))
                                 (void) bpf_program_deserialize_attachment(value, fds, &crt->ip_bpf_ingress_installed);
 
                         if (streq(key, "ip-bpf-egress-installed"))
                                 (void) bpf_program_deserialize_attachment(value, fds, &crt->ip_bpf_egress_installed);
-
-                        if (streq(key, "bpf-device-control-installed"))
-                                (void) bpf_program_deserialize_attachment(value, fds, &crt->bpf_device_control_installed);
 
                         if (streq(key, "ip-bpf-custom-ingress-installed"))
                                 (void) bpf_program_deserialize_attachment_set(value, fds, &crt->ip_bpf_custom_ingress_installed);
@@ -4457,12 +4429,47 @@ int cgroup_runtime_deserialize_one(Unit *u, const char *key, const char *value, 
                 return 1;
         }
 
-        if (streq(key, "restrict-ifaces-bpf-fd")) {
-                int fd;
+        /* We keep the previous bpf link fds stashed until we reattach anew, to close the window where
+         * the cgroup restrictions would otherwise be lifted. */
+
+        if (STR_IN_SET(key, "ipv4-socket-bind-bpf-link-fd", "ipv6-socket-bind-bpf-link-fd")) {
+                _cleanup_close_ int fd = -EBADF;
 
                 fd = deserialize_fd(fds, value);
-                if (fd >= 0)
-                        (void) bpf_restrict_ifaces_add_initial_link_fd(u, fd);
+                if (fd >= 0) {
+                        r = bpf_socket_bind_add_initial_link_fd(u, fd);
+                        if (r >= 0)
+                                TAKE_FD(fd);
+                }
+
+                return 1;
+        }
+
+        if (streq(key, "restrict-ifaces-bpf-fd")) {
+                _cleanup_close_ int fd = -EBADF;
+
+                fd = deserialize_fd(fds, value);
+                if (fd >= 0) {
+                        r = bpf_restrict_ifaces_add_initial_link_fd(u, fd);
+                        if (r >= 0)
+                                TAKE_FD(fd);
+                }
+
+                return 1;
+        }
+
+        if (streq(key, "bind-iface-bpf-fd")) {
+                _cleanup_close_ int fd = -EBADF;
+
+                fd = deserialize_fd(fds, value);
+                if (fd >= 0) {
+                        CGroupRuntime *crt = unit_setup_cgroup_runtime(u);
+                        if (!crt)
+                                log_oom_debug();
+                        else
+                                close_and_replace(crt->initial_bind_network_interface_link_fd, fd);
+                }
+
                 return 1;
         }
 

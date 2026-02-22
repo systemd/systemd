@@ -215,7 +215,7 @@ static int link_address_label_process_request(Request *req, Link *link, void *us
         assert(link);
         assert(link->manager);
 
-        if (!link_is_ready_to_configure(link, /* allow_unmanaged = */ false))
+        if (!link_is_ready_to_configure(link, /* allow_unmanaged= */ false))
                 return 0;
 
         if (!link->manager->static_address_labels_configured)

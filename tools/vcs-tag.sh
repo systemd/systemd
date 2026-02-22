@@ -8,7 +8,7 @@ ENABLED="$3"
 
 if ! ((ENABLED)) || ! [[ -d .git ]] || ! command -v git >/dev/null || git describe --tags --exact-match &>/dev/null
 then
-    sed "$INPUT" -e "s/@VCS_TAG@//"
+    sed -e "s/@VCS_TAG@//" "$INPUT"
     exit 0
 fi
 
@@ -20,4 +20,4 @@ fi
 
 TAG="-g$(git describe --abbrev=7 --match="" --always $DIRTY)"
 
-sed "$INPUT" -e "s/@VCS_TAG@/$TAG/"
+sed -e "s/@VCS_TAG@/$TAG/" "$INPUT"

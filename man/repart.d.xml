@@ -869,17 +869,24 @@
         <term><varname>EncryptedVolume=</varname></term>
 
         <listitem><para>Specifies how the encrypted partition should be set up. Takes at least one and at most
-        three fields separated with a colon (<literal>:</literal>). The first field specifies the encrypted
+        four fields separated with a colon (<literal>:</literal>). The first field specifies the encrypted
         volume name under <filename>/dev/mapper/</filename>. If not specified, <literal>luks-UUID</literal>
         will be used where <literal>UUID</literal> is the LUKS UUID. The second field specifies the keyfile
         to use following the same format as specified in crypttab. The third field specifies a
-        comma-delimited list of crypttab options. These fields correspond to the first, third and fourth
+        comma-delimited list of crypttab options. These three fields correspond to the first, third and fourth
         column of the
         <citerefentry><refentrytitle>crypttab</refentrytitle><manvolnum>5</manvolnum></citerefentry> format.
+        The fourth field contains extra options, which are not directly reflected to crypttab options. Currently,
+        the only supported extra option is <varname>fixate-volume-key</varname>. When specified, the volume key
+        hash will be taken upon LUKS volume formatting and the result will be added to the list of crypttab options,
+        i.e. <varname>fixate-volume-key=expected-hash</varname> will be added to the fourth column of the generated
+        crypttab.
         </para>
 
         <para>Note that this setting is only taken into account when <option>--generate-crypttab=</option>
-        is specified on the <command>systemd-repart</command> command line.</para>
+        is specified on the <command>systemd-repart</command> command line. As the crypttab with the expected
+        hashes can only be generated after LUKS volumes are formatted, the crypttab itself cannot be put to
+        the generated volume.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
@@ -907,6 +914,27 @@
         <varname>--key-file=</varname> option.</para>
 
         <xi:include href="version-info.xml" xpointer="v259"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Integrity=</varname></term>
+
+        <listitem><para>Enable integrity checking for the partition. Currently, the only supported option
+        is <varname>Integrity=inline</varname> which enables authenticated disk encryption for LUKS2 devices.
+        The option requires <varname>Encrypt=</varname> setting and can only be used in online image build.
+        Defaults to <literal>off</literal>, i.e. integrity protection is disabled.</para>
+        <para>Note: authenticated disk encryption is considered EXPERIMENTAL by cryptsetup.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>IntegrityAlgorithm=</varname></term>
+        <listitem><para>Specify the integrity algorithm to be used for integrity verification. For
+        <varname>Integrity=inline</varname> the supported values are: <literal>hmac-sha1</literal>,
+        <literal>hmac-sha256</literal>(default), and <literal>hmac-sha512</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
       </varlistentry>
 
       <varlistentry>

@@ -56,7 +56,7 @@ typedef struct JsonSource {
         char name[];
 } JsonSource;
 
-/* On x86-64 this whole structure should have a size of 6 * 64 bit = 48 bytes */
+/* On x86-64 this whole structure should have a size of 5 * 64 bit = 40 bytes */
 struct sd_json_variant {
         union {
                 /* We either maintain a reference counter for this variant itself, or we are embedded into an
@@ -132,7 +132,7 @@ struct sd_json_variant {
 
 /* Let's make sure this structure isn't increased in size accidentally. This check is only for our most relevant arch
  * (x86-64). */
-#if defined(__x86_64__) && __SIZEOF_POINTER__ == 8
+#if defined(__x86_64__) && __SIZEOF_POINTER__ == 8 && !defined(__EDG__)
 assert_cc(sizeof(sd_json_variant) == 40U);
 assert_cc(INLINE_STRING_MAX == 7U);
 #endif
@@ -3370,8 +3370,8 @@ done:
         r = 0;
 
 finish:
-        for (size_t i = 0; i < n_stack; i++)
-                json_stack_release(stack + i);
+        FOREACH_ARRAY(i, stack, n_stack)
+                json_stack_release(i);
 
         free(stack);
 
@@ -4666,63 +4666,9 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         break;
                 }
 
-                case _JSON_BUILD_PAIR_IN4_ADDR_NON_NULL: {
-                        const struct in_addr *a;
-                        const char *n;
-
-                        if (current->expect != EXPECT_OBJECT_KEY) {
-                                r = -EINVAL;
-                                goto finish;
-                        }
-
-                        n = va_arg(ap, const char *);
-                        a = va_arg(ap, const struct in_addr *);
-
-                        if (a && in4_addr_is_set(a) && current->n_suppress == 0) {
-                                r = sd_json_variant_new_string(&add, n);
-                                if (r < 0)
-                                        goto finish;
-
-                                r = sd_json_variant_new_array_bytes(&add_more, a, sizeof(struct in_addr));
-                                if (r < 0)
-                                        goto finish;
-                        }
-
-                        n_subtract = 2; /* we generated two items */
-
-                        current->expect = EXPECT_OBJECT_KEY;
-                        break;
-                }
-
-                case _JSON_BUILD_PAIR_IN6_ADDR_NON_NULL: {
-                        const struct in6_addr *a;
-                        const char *n;
-
-                        if (current->expect != EXPECT_OBJECT_KEY) {
-                                r = -EINVAL;
-                                goto finish;
-                        }
-
-                        n = va_arg(ap, const char *);
-                        a = va_arg(ap, const struct in6_addr *);
-
-                        if (a && in6_addr_is_set(a) && current->n_suppress == 0) {
-                                r = sd_json_variant_new_string(&add, n);
-                                if (r < 0)
-                                        goto finish;
-
-                                r = sd_json_variant_new_array_bytes(&add_more, a, sizeof(struct in6_addr));
-                                if (r < 0)
-                                        goto finish;
-                        }
-
-                        n_subtract = 2; /* we generated two items */
-
-                        current->expect = EXPECT_OBJECT_KEY;
-                        break;
-                }
-
-                case _JSON_BUILD_PAIR_IN_ADDR_NON_NULL: {
+                case _JSON_BUILD_PAIR_IN_ADDR_NON_NULL:
+                case _JSON_BUILD_PAIR_IN_ADDR_WITH_STRING_NON_NULL:
+                case _JSON_BUILD_PAIR_IN_ADDR_WITH_STRING: {
                         const union in_addr_union *a;
                         const char *n;
                         int f;
@@ -4733,20 +4679,53 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         }
 
                         n = va_arg(ap, const char *);
-                        a = va_arg(ap, const union in_addr_union *);
                         f = va_arg(ap, int);
+                        a = va_arg(ap, const union in_addr_union *);
 
-                        if (a && in_addr_is_set(f, a) && current->n_suppress == 0) {
+                        if (current->n_suppress == 0 &&
+                            ((a && in_addr_is_set(f, a)) ||
+                             command == _JSON_BUILD_PAIR_IN_ADDR_WITH_STRING)) {
+
+                                if (!a)
+                                        a = &IN_ADDR_NULL;
+
                                 r = sd_json_variant_new_string(&add, n);
                                 if (r < 0)
                                         goto finish;
 
-                                r = sd_json_variant_new_array_bytes(&add_more, a->bytes, FAMILY_ADDRESS_SIZE(f));
+                                r = sd_json_variant_new_array_bytes(&add_more, a->bytes, FAMILY_ADDRESS_SIZE_SAFE(f));
                                 if (r < 0)
                                         goto finish;
+
+                                if (IN_SET(command, _JSON_BUILD_PAIR_IN_ADDR_WITH_STRING, _JSON_BUILD_PAIR_IN_ADDR_WITH_STRING_NON_NULL)) {
+                                        _cleanup_free_ char *string_key_name = NULL;
+                                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *string_key = NULL, *string_value = NULL;
+
+                                        string_key_name = strjoin(n, "String");
+                                        if (!string_key_name) {
+                                                r = -ENOMEM;
+                                                goto finish;
+                                        }
+
+                                        r = sd_json_variant_new_string(&string_key, string_key_name);
+                                        if (r < 0)
+                                                goto finish;
+
+                                        r = sd_json_variant_new_string(&string_value, IN_ADDR_TO_STRING(f, a));
+                                        if (r < 0)
+                                                goto finish;
+
+                                        if (!GREEDY_REALLOC(current->elements, current->n_elements + 2)) {
+                                                r = -ENOMEM;
+                                                goto finish;
+                                        }
+
+                                        current->elements[current->n_elements++] = TAKE_PTR(string_key);
+                                        current->elements[current->n_elements++] = TAKE_PTR(string_value);
+                                }
                         }
 
-                        n_subtract = 2; /* we generated two items */
+                        n_subtract = command == _JSON_BUILD_PAIR_IN_ADDR_NON_NULL ? 2 : 4;
 
                         current->expect = EXPECT_OBJECT_KEY;
                         break;
@@ -5026,8 +5005,8 @@ done:
         r = 0;
 
 finish:
-        for (size_t i = 0; i < n_stack; i++)
-                json_stack_release(stack + i);
+        FOREACH_ARRAY(i, stack, n_stack)
+                json_stack_release(i);
 
         free(stack);
 
@@ -5251,7 +5230,7 @@ _public_ int sd_json_dispatch_full(
                                 } else
                                         done++;
 
-                        } else  {
+                        } else {
                                 if (flags & SD_JSON_ALLOW_EXTENSIONS) {
                                         json_log(value, flags|SD_JSON_DEBUG, 0, "Unrecognized object field '%s', assuming extension.", sd_json_variant_string(key));
                                         continue;

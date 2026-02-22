@@ -44,4 +44,4 @@ void dynamic_creds_close(DynamicCreds *creds);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DynamicCreds*, dynamic_creds_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DynamicCreds*, dynamic_creds_destroy);
 
-DynamicUser *dynamic_user_ref(DynamicUser *user);
+DECLARE_TRIVIAL_REF_FUNC(DynamicUser, dynamic_user);

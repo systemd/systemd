@@ -157,6 +157,63 @@ static int dhcp_pd_get_assigned_subnet_prefix(Link *link, const struct in6_addr 
         return -ENOENT;
 }
 
+static void dhcp_pd_route_modify_nft_set(Route *route, Link *link, bool add) {
+        int r;
+
+        assert(route);
+        assert(link);
+        assert(link->manager);
+        assert(link->network);
+
+        if (!link->manager->nfnl)
+                return;
+
+        if (route->family != AF_INET6)
+                return;
+
+        if (route->source != NETWORK_CONFIG_SOURCE_DHCP_PD)
+                return;
+
+        /* When Assign=yes, address_modify_nft_set() manages the NFT set, not this function. */
+        if (link->network->dhcp_pd_assign)
+                return;
+
+        NFTSetContext *nft_set_context = &link->network->dhcp_pd_nft_set_context;
+
+        FOREACH_ARRAY(nft_set, nft_set_context->sets, nft_set_context->n_sets) {
+                assert(nft_set);
+
+                switch (nft_set->source) {
+                case NFT_SET_SOURCE_ADDRESS:
+                        /* Should be already warned in network_adjust_dhcp_prefix_delegation(). */
+                        continue;
+                case NFT_SET_SOURCE_PREFIX:
+                        r = nft_set_element_modify_iprange(link->manager->nfnl, add, nft_set->nfproto, route->family, nft_set->table, nft_set->set,
+                                                           &route->dst, route->dst_prefixlen);
+                        break;
+                case NFT_SET_SOURCE_IFINDEX: {
+                        uint32_t ifindex = link->ifindex;
+                        r = nft_set_element_modify_any(link->manager->nfnl, add, nft_set->nfproto, nft_set->table, nft_set->set,
+                                                       &ifindex, sizeof(ifindex));
+                        break;
+                }
+                default:
+                        assert_not_reached();
+                }
+
+                if (r < 0)
+                        log_warning_errno(r, "Failed to %s NFT set entry: family %s, table %s, set %s, IP prefix %s, ignoring: %m",
+                                          add ? "add" : "delete",
+                                          nfproto_to_string(nft_set->nfproto), nft_set->table, nft_set->set,
+                                          IN_ADDR_PREFIX_TO_STRING(route->family, &route->dst, route->dst_prefixlen));
+                else
+                        log_debug("%s NFT set entry: family %s, table %s, set %s, IP prefix %s",
+                                  add ? "Added" : "Deleted",
+                                  nfproto_to_string(nft_set->nfproto), nft_set->table, nft_set->set,
+                                  IN_ADDR_PREFIX_TO_STRING(route->family, &route->dst, route->dst_prefixlen));
+        }
+}
+
 int dhcp_pd_remove(Link *link, bool only_marked) {
         int ret = 0;
 
@@ -184,6 +241,9 @@ int dhcp_pd_remove(Link *link, bool only_marked) {
                                 sd_radv_remove_prefix(link->radv, &route->dst.in6, 64);
 
                         link_remove_dhcp_pd_subnet_prefix(link, &route->dst.in6);
+
+                        /* Remove NFTSet entries before removing the route */
+                        dhcp_pd_route_modify_nft_set(route, link, /* add= */ false);
 
                         RET_GATHER(ret, route_remove_and_cancel(route, link->manager));
                 }
@@ -266,7 +326,7 @@ static int dhcp_pd_check_ready(Link *link) {
 
         log_link_debug(link, "DHCP-PD addresses and routes set.");
 
-        r = dhcp_pd_remove(link, /* only_marked = */ true);
+        r = dhcp_pd_remove(link, /* only_marked= */ true);
         if (r < 0)
                 return r;
 
@@ -284,6 +344,9 @@ static int dhcp_pd_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Reques
         r = route_configure_handler_internal(m, req, route);
         if (r <= 0)
                 return r;
+
+        /* Update NFTSet entries when route is successfully configured */
+        dhcp_pd_route_modify_nft_set(route, link, /* add= */ true);
 
         r = dhcp_pd_check_ready(link);
         if (r < 0)
@@ -611,7 +674,7 @@ static int dhcp_pd_finalize(Link *link) {
         if (link->dhcp_pd_messages == 0) {
                 link->dhcp_pd_configured = false;
 
-                r = dhcp_pd_remove(link, /* only_marked = */ true);
+                r = dhcp_pd_remove(link, /* only_marked= */ true);
                 if (r < 0)
                         return r;
         }
@@ -673,15 +736,15 @@ static void dhcp_pd_prefix_lost(Link *uplink, NetworkConfigSource source) {
         assert(uplink->manager);
 
         HASHMAP_FOREACH(link, uplink->manager->links_by_index) {
-                if (!dhcp_pd_is_uplink(link, uplink, /* accept_auto = */ true))
+                if (!dhcp_pd_is_uplink(link, uplink, /* accept_auto= */ true))
                         continue;
 
-                r = dhcp_pd_remove(link, /* only_marked = */ false);
+                r = dhcp_pd_remove(link, /* only_marked= */ false);
                 if (r < 0)
                         link_enter_failed(link);
         }
 
-        (void) dhcp_pd_remove_unreachable_route(uplink->manager, source, /* only_marked = */ false);
+        (void) dhcp_pd_remove_unreachable_route(uplink->manager, source, /* only_marked= */ false);
 
         set_clear(uplink->dhcp_pd_prefixes);
 }
@@ -977,7 +1040,7 @@ static int dhcp4_pd_assign_subnet_prefix(Link *link, Link *uplink) {
                         return r;
         }
 
-        r = dhcp_pd_assign_subnet_prefix(link, &pd_prefix, pd_prefixlen, lifetime_usec, lifetime_usec, /* is_uplink = */ false);
+        r = dhcp_pd_assign_subnet_prefix(link, &pd_prefix, pd_prefixlen, lifetime_usec, lifetime_usec, /* is_uplink= */ false);
         if (r < 0)
                 return r;
 
@@ -1054,7 +1117,7 @@ int dhcp4_pd_prefix_acquired(Link *uplink) {
         r = dhcp4_request_unreachable_route(uplink, &pd_prefix, pd_prefixlen, lifetime_usec, &server_address);
         if (r < 0)
                 return r;
-        (void) dhcp_pd_remove_unreachable_route(uplink->manager, NETWORK_CONFIG_SOURCE_DHCP4, /* only_marked = */ true);
+        (void) dhcp_pd_remove_unreachable_route(uplink->manager, NETWORK_CONFIG_SOURCE_DHCP4, /* only_marked= */ true);
 
         /* Create or update 6rd SIT tunnel device. */
         r = dhcp4_pd_create_6rd_tunnel(uplink, dhcp4_pd_6rd_tunnel_create_handler);
@@ -1063,7 +1126,7 @@ int dhcp4_pd_prefix_acquired(Link *uplink) {
 
         /* Then, assign subnet prefixes to downstream interfaces. */
         HASHMAP_FOREACH(link, uplink->manager->links_by_index) {
-                if (!dhcp_pd_is_uplink(link, uplink, /* accept_auto = */ true))
+                if (!dhcp_pd_is_uplink(link, uplink, /* accept_auto= */ true))
                         continue;
 
                 r = dhcp4_pd_assign_subnet_prefix(link, uplink);
@@ -1117,7 +1180,7 @@ static int dhcp6_pd_assign_subnet_prefixes(Link *link, Link *uplink) {
 
                 r = dhcp_pd_assign_subnet_prefix(link, &pd_prefix, pd_prefix_len,
                                                  lifetime_preferred_usec, lifetime_valid_usec,
-                                                 /* is_uplink = */ link == uplink);
+                                                 /* is_uplink= */ link == uplink);
                 if (r < 0)
                         return r;
         }
@@ -1170,11 +1233,11 @@ int dhcp6_pd_prefix_acquired(Link *uplink) {
                         return r;
         }
 
-        (void) dhcp_pd_remove_unreachable_route(uplink->manager, NETWORK_CONFIG_SOURCE_DHCP6, /* only_marked = */ true);
+        (void) dhcp_pd_remove_unreachable_route(uplink->manager, NETWORK_CONFIG_SOURCE_DHCP6, /* only_marked= */ true);
 
         /* Then, assign subnet prefixes. */
         HASHMAP_FOREACH(link, uplink->manager->links_by_index) {
-                if (!dhcp_pd_is_uplink(link, uplink, /* accept_auto = */ true))
+                if (!dhcp_pd_is_uplink(link, uplink, /* accept_auto= */ true))
                         continue;
 
                 r = dhcp6_pd_assign_subnet_prefixes(link, uplink);
@@ -1312,7 +1375,7 @@ int link_drop_dhcp_pd_config(Link *link, Network *network) {
                 return 0; /* .network file is unchanged. It is not necessary to reconfigure the client. */
 
         if (!link_dhcp_pd_is_enabled(link)) /* Disabled now, drop all configs. */
-                return dhcp_pd_remove(link, /* only_marked = */ false);
+                return dhcp_pd_remove(link, /* only_marked= */ false);
 
         /* If previously explicitly disabled, then there is nothing we need to drop.
          * If this is called on start up, we do not know the previous settings, assume nothing changed. */
@@ -1328,9 +1391,30 @@ int link_drop_dhcp_pd_config(Link *link, Network *network) {
             link->network->dhcp_pd_route_metric != network->dhcp_pd_route_metric ||
             link->network->dhcp_pd_uplink_index != network->dhcp_pd_uplink_index ||
             !streq_ptr(link->network->dhcp_pd_uplink_name, network->dhcp_pd_uplink_name))
-                return dhcp_pd_remove(link, /* only_marked = */ false);
+                return dhcp_pd_remove(link, /* only_marked= */ false);
 
         return 0;
+}
+
+void network_adjust_dhcp_prefix_delegation(Network *network) {
+        assert(network);
+
+        if (!network->dhcp_pd)
+                return;
+
+        if (network->dhcp_pd_assign)
+                return;
+
+        /* If Assign=no, then DHCPv6 PD will create routes instead of addresses.
+         * NFTSet=address:... is not supported in this case. */
+
+        FOREACH_ARRAY(nft_set, network->dhcp_pd_nft_set_context.sets, network->dhcp_pd_nft_set_context.n_sets)
+                if (nft_set->source == NFT_SET_SOURCE_ADDRESS) {
+                        log_warning("%s: In [DHCPPrefixDelegation] section, when Assign= is disabled, "
+                                    "NFTSet=address:... is not supported and will be ignored.",
+                                    network->filename);
+                        break;
+                }
 }
 
 int config_parse_dhcp_pd_subnet_id(

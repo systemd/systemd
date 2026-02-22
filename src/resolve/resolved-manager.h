@@ -123,7 +123,7 @@ typedef struct Manager {
         struct stat etc_hosts_stat;
         bool read_etc_hosts;
 
-        /* List of refused DNS Record Types*/
+        /* List of refused DNS Record Types */
         Set *refuse_record_types;
 
         OrderedSet *dns_extra_stub_listeners;

@@ -807,7 +807,7 @@ static int parse_request(uint8_t code, uint8_t len, const void *option, void *us
         switch (code) {
         case SD_DHCP_OPTION_IP_ADDRESS_LEASE_TIME:
                 if (len == 4)
-                        req->lifetime = unaligned_be32_sec_to_usec(option, /* max_as_infinity = */ true);
+                        req->lifetime = unaligned_be32_sec_to_usec(option, /* max_as_infinity= */ true);
 
                 break;
         case SD_DHCP_OPTION_REQUESTED_IP_ADDRESS:
@@ -884,7 +884,7 @@ static int ensure_sane_request(sd_dhcp_server *server, DHCPRequest *req, DHCPMes
                 if (!client_id_data_size_is_valid(message->hlen))
                         return -EBADMSG;
 
-                r = sd_dhcp_client_id_set(&req->client_id, /* type = */ 1, message->chaddr, message->hlen);
+                r = sd_dhcp_client_id_set(&req->client_id, /* type= */ 1, message->chaddr, message->hlen);
                 if (r < 0)
                         return r;
         }

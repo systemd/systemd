@@ -1827,7 +1827,7 @@ static int maybe_compress_payload(
                 return 0;
         }
 
-        r = compress_blob(c, src, size, dst, size - 1, rsize, /* level = */ -1);
+        r = compress_blob(c, src, size, dst, size - 1, rsize, /* level= */ -1);
         if (r < 0)
                 return log_debug_errno(r, "Failed to compress data object using %s, ignoring: %m", compression_to_string(c));
 
@@ -1940,8 +1940,10 @@ static int maybe_decompress_payload(
         assert(f);
 
         /* We can't read objects larger than 4G on a 32-bit machine */
-        if ((uint64_t) (size_t) size != size)
+#if __SIZEOF_SIZE_T__ == 4
+        if (size > UINT32_MAX)
                 return -E2BIG;
+#endif
 
         if (compression != COMPRESSION_NONE) {
 #if HAVE_COMPRESSION
@@ -3318,7 +3320,9 @@ use_extra:
 
 static int test_object_offset(JournalFile *f, uint64_t p, uint64_t needle) {
         assert(f);
-        assert(p > 0);
+
+        if (p <= 0)
+                return -EBADMSG;
 
         if (p == needle)
                 return TEST_FOUND;
@@ -3354,7 +3358,6 @@ static int test_object_seqnum(JournalFile *f, uint64_t p, uint64_t needle) {
         int r;
 
         assert(f);
-        assert(p > 0);
 
         r = journal_file_move_to_object(f, OBJECT_ENTRY, p, &o);
         if (r < 0)
@@ -3395,7 +3398,6 @@ static int test_object_realtime(JournalFile *f, uint64_t p, uint64_t needle) {
         int r;
 
         assert(f);
-        assert(p > 0);
 
         r = journal_file_move_to_object(f, OBJECT_ENTRY, p, &o);
         if (r < 0)
@@ -3436,7 +3438,6 @@ static int test_object_monotonic(JournalFile *f, uint64_t p, uint64_t needle) {
         int r;
 
         assert(f);
-        assert(p > 0);
 
         r = journal_file_move_to_object(f, OBJECT_ENTRY, p, &o);
         if (r < 0)

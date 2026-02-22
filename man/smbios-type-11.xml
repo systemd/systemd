@@ -94,6 +94,16 @@
 
         <xi:include href="version-info.xml" xpointer="v259"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>io.systemd.boot.timeout=</varname><replaceable>TIMEOUT</replaceable></term>
+
+        <listitem><para>This allows configuration of the menu timeout in seconds, and is read by <command>systemd-boot</command>.
+        For details see
+        <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

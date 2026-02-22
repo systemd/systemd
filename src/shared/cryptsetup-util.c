@@ -7,6 +7,9 @@
 #include "alloc-util.h"
 #include "cryptsetup-util.h"
 #include "dlfcn-util.h"
+#include "escape.h"
+#include "hexdecoct.h"
+#include "hmac.h"
 #include "log.h"
 #include "parse-util.h"
 #include "string-util.h"
@@ -39,11 +42,7 @@ DLSYM_PROTOTYPE(crypt_keyslot_max) = NULL;
 DLSYM_PROTOTYPE(crypt_load) = NULL;
 DLSYM_PROTOTYPE(crypt_metadata_locking) = NULL;
 DLSYM_PROTOTYPE(crypt_reencrypt_init_by_passphrase) = NULL;
-#if HAVE_CRYPT_REENCRYPT_RUN
 DLSYM_PROTOTYPE(crypt_reencrypt_run);
-#else
-DLSYM_PROTOTYPE(crypt_reencrypt);
-#endif
 DLSYM_PROTOTYPE(crypt_resize) = NULL;
 DLSYM_PROTOTYPE(crypt_resume_by_volume_key) = NULL;
 DLSYM_PROTOTYPE(crypt_set_data_device) = NULL;
@@ -55,21 +54,15 @@ DLSYM_PROTOTYPE(crypt_set_pbkdf_type) = NULL;
 DLSYM_PROTOTYPE(crypt_suspend) = NULL;
 DLSYM_PROTOTYPE(crypt_token_json_get) = NULL;
 DLSYM_PROTOTYPE(crypt_token_json_set) = NULL;
-#if HAVE_CRYPT_TOKEN_MAX
 DLSYM_PROTOTYPE(crypt_token_max) = NULL;
-#else
-int crypt_token_max(_unused_ const char *type) {
-    assert(streq(type, CRYPT_LUKS2));
-
-    return 32;
-}
-#endif
 #if HAVE_CRYPT_TOKEN_SET_EXTERNAL_PATH
 DLSYM_PROTOTYPE(crypt_token_set_external_path) = NULL;
 #endif
 DLSYM_PROTOTYPE(crypt_token_status) = NULL;
 DLSYM_PROTOTYPE(crypt_volume_key_get) = NULL;
 DLSYM_PROTOTYPE(crypt_volume_key_keyring) = NULL;
+DLSYM_PROTOTYPE(crypt_wipe) = NULL;
+DLSYM_PROTOTYPE(crypt_get_integrity_info) = NULL;
 
 static void cryptsetup_log_glue(int level, const char *msg, void *usrptr) {
 
@@ -208,6 +201,64 @@ int cryptsetup_add_token_json(struct crypt_device *cd, sd_json_variant *v) {
 
         return 0;
 }
+
+int cryptsetup_get_volume_key_prefix(
+                struct crypt_device *cd,
+                const char *volume_name,
+                char **ret) {
+
+        _cleanup_free_ char *volume = NULL;
+        const char *uuid;
+        char *s;
+
+        uuid = sym_crypt_get_uuid(cd);
+        if (!uuid)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to get LUKS UUID.");
+
+        if (volume_name)
+                /* avoid ambiguity around ":" once we join things below */
+                volume = xescape(volume_name, ":");
+        else
+                volume = strjoin("luks-", uuid);
+        if (!volume)
+                return log_oom_debug();
+
+        s = strjoin("cryptsetup:", volume, ":", uuid);
+        if (!s)
+                return log_oom_debug();
+
+        *ret = s;
+
+        return 0;
+}
+
+/* The hash must match what measure_volume_key() extends to the SHA256 bank of the TPM2. */
+int cryptsetup_get_volume_key_id(
+                struct crypt_device *cd,
+                const char *volume_name,
+                const void *volume_key,
+                size_t volume_key_size,
+                char **ret) {
+
+        _cleanup_free_ char *prefix = NULL;
+        uint8_t digest[SHA256_DIGEST_SIZE];
+        char *hex;
+        int r;
+
+        r = cryptsetup_get_volume_key_prefix(cd, volume_name, &prefix);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get LUKS volume key prefix.");
+
+        hmac_sha256(volume_key, volume_key_size, prefix, strlen(prefix), digest);
+
+        hex = hexmem(digest, sizeof(digest));
+        if (!hex)
+                return log_oom_debug();
+
+        *ret = hex;
+
+        return 0;
+}
 #endif
 
 int dlopen_cryptsetup(void) {
@@ -250,11 +301,7 @@ int dlopen_cryptsetup(void) {
                         DLSYM_ARG(crypt_load),
                         DLSYM_ARG(crypt_metadata_locking),
                         DLSYM_ARG(crypt_reencrypt_init_by_passphrase),
-#if HAVE_CRYPT_REENCRYPT_RUN
                         DLSYM_ARG(crypt_reencrypt_run),
-#else
-                        DLSYM_ARG(crypt_reencrypt),
-#endif
                         DLSYM_ARG(crypt_resize),
                         DLSYM_ARG(crypt_resume_by_volume_key),
                         DLSYM_ARG(crypt_set_data_device),
@@ -266,15 +313,15 @@ int dlopen_cryptsetup(void) {
                         DLSYM_ARG(crypt_suspend),
                         DLSYM_ARG(crypt_token_json_get),
                         DLSYM_ARG(crypt_token_json_set),
-#if HAVE_CRYPT_TOKEN_MAX
                         DLSYM_ARG(crypt_token_max),
-#endif
 #if HAVE_CRYPT_TOKEN_SET_EXTERNAL_PATH
                         DLSYM_ARG(crypt_token_set_external_path),
 #endif
                         DLSYM_ARG(crypt_token_status),
                         DLSYM_ARG(crypt_volume_key_get),
-                        DLSYM_ARG(crypt_volume_key_keyring));
+                        DLSYM_ARG(crypt_volume_key_keyring),
+                        DLSYM_ARG(crypt_wipe),
+                        DLSYM_ARG(crypt_get_integrity_info));
         if (r <= 0)
                 return r;
 

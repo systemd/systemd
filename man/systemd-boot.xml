@@ -57,7 +57,7 @@
       <listitem><para>A <literal>Reboot Into Firmware Interface</literal> option, if supported by the UEFI
       firmware.</para></listitem>
 
-      <listitem><para>Secure Boot variables enrollment if the UEFI firmware is in setup-mode and files are provided
+      <listitem><para>Secure Boot variable enrollment if the UEFI firmware is in setup mode and files are provided
       on the ESP.</para></listitem>
     </itemizedlist>
 
@@ -97,7 +97,7 @@
       entropy pool initialization, providing a full entropy pool during early boot.</para></listitem>
 
       <listitem><para>The boot manager allows for Secure Boot variables to be enrolled if the UEFI firmware is
-      in setup-mode. Additionally, variables can be automatically enrolled if configured.</para></listitem>
+      in setup mode. Additionally, variables can be automatically enrolled if configured.</para></listitem>
     </itemizedlist>
 
     <para><citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
@@ -147,11 +147,20 @@
 
       <varlistentry>
         <term><keycap>d</keycap></term>
-        <listitem><para>Make selected entry the default</para>
+        <listitem><para>Make selected entry the preferred boot entry</para>
 
         <para>An EFI variable is set to allow this setting to persist.</para>
 
-        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><keycap>D</keycap></term>
+        <listitem><para>Make selected entry the default boot entry</para>
+
+        <para>An EFI variable is set to allow this setting to persist.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -386,8 +395,8 @@
     <para>During initialization, <command>systemd-boot</command> automatically loads all driver files placed
     in the <filename>/EFI/systemd/drivers/</filename> directory of the ESP. The files placed there must have
     an extension of the EFI architecture ID followed by <filename>.efi</filename> (e.g. for x86-64 this means
-    a suffix of <filename>x64.efi</filename>). This may be used to automatically load file system drivers and
-    similar, to extend the native firmware support.</para>
+    a suffix of <filename>x64.efi</filename>). This may be used e.g. to add support for hardware not
+    supported natively by the firmware.</para>
 
     <para>Enrollment of Secure Boot variables can be performed manually or automatically if files are available
     under <filename>/loader/keys/<replaceable>NAME</replaceable>/{db,dbx,KEK,PK}.auth</filename>, <replaceable>NAME</replaceable>
@@ -472,6 +481,7 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>LoaderEntryPreferred</varname></term>
         <term><varname>LoaderEntryDefault</varname></term>
         <term><varname>LoaderEntrySysFail</varname></term>
         <term><varname>LoaderEntryOneShot</varname></term>
@@ -479,6 +489,8 @@
         <listitem><para>The identifier of the default boot loader entry. Can be set in the OS and the boot
         loader. <varname>LoaderEntryOneShot</varname> sets the default entry for the next boot only, while
         <varname>LoaderEntryDefault</varname> sets it persistently for all future boots.
+        <varname>LoaderEntryPreferred</varname> is like <varname>LoaderEntryDefault</varname> but additionally
+        takes into account boot assessment and skips boot entries with a tries-left counter equal to zero.
         <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
         <option>set-default</option> and <option>set-oneshot</option> commands make use of these variables.
         The boot loader modifies <varname>LoaderEntryDefault</varname> on request, when the

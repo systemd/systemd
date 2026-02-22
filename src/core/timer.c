@@ -300,7 +300,7 @@ static void timer_set_state(Timer *t, TimerState state) {
         if (state != old_state)
                 log_unit_debug(UNIT(t), "Changed %s -> %s", timer_state_to_string(old_state), timer_state_to_string(state));
 
-        unit_notify(UNIT(t), state_translation_table[old_state], state_translation_table[state], /* reload_success = */ true);
+        unit_notify(UNIT(t), state_translation_table[old_state], state_translation_table[state], /* reload_success= */ true);
 }
 
 static void timer_enter_waiting(Timer *t, bool time_change);
@@ -324,7 +324,7 @@ static int timer_coldplug(Unit *u) {
 static void timer_enter_dead(Timer *t, TimerResult f) {
         assert(t);
 
-        if (t->result == TIMER_SUCCESS)
+        if (t->result == TIMER_SUCCESS || f == TIMER_FAILURE_START_LIMIT_HIT)
                 t->result = f;
 
         unit_log_result(UNIT(t), t->result == TIMER_SUCCESS, timer_result_to_string(t->result));
@@ -668,10 +668,6 @@ static int timer_start(Unit *u) {
 
         assert(IN_SET(t->state, TIMER_DEAD, TIMER_FAILED));
 
-        r = unit_test_trigger_loaded(u);
-        if (r < 0)
-                return r;
-
         r = unit_acquire_invocation_id(u);
         if (r < 0)
                 return r;
@@ -916,6 +912,10 @@ static int timer_can_clean(Unit *u, ExecCleanMask *ret) {
 static int timer_test_startable(Unit *u) {
         Timer *t = ASSERT_PTR(TIMER(u));
         int r;
+
+        r = unit_test_trigger_loaded(u);
+        if (r < 0)
+                return r;
 
         r = unit_test_start_limit(u);
         if (r < 0) {

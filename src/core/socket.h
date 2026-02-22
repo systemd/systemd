@@ -204,20 +204,16 @@ const char* socket_fdname(Socket *s);
 
 extern const UnitVTable socket_vtable;
 
-const char* socket_exec_command_to_string(SocketExecCommand i) _const_;
-SocketExecCommand socket_exec_command_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(socket_exec_command, SocketExecCommand);
 
-const char* socket_result_to_string(SocketResult i) _const_;
-SocketResult socket_result_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(socket_result, SocketResult);
 
 const char* socket_port_type_to_string(SocketPort *p) _pure_;
 SocketType socket_port_type_from_string(const char *s) _pure_;
 
-const char* socket_timestamping_to_string(SocketTimestamping p) _const_;
-SocketTimestamping socket_timestamping_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(socket_timestamping, SocketTimestamping);
 SocketTimestamping socket_timestamping_from_string_harder(const char *s) _pure_;
 
-const char* socket_defer_trigger_to_string(SocketDeferTrigger i) _const_;
-SocketDeferTrigger socket_defer_trigger_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(socket_defer_trigger, SocketDeferTrigger);
 
 DEFINE_CAST(SOCKET, Socket);

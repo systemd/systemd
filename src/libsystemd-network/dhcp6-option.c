@@ -613,8 +613,8 @@ static int dhcp6_option_parse_ia_address(sd_dhcp6_client *client, DHCP6IA *ia, c
 
         memcpy(&a->iaaddr, data, sizeof(struct iaaddr));
 
-        lt_valid = be32_sec_to_usec(a->iaaddr.lifetime_valid, /* max_as_infinity = */ true);
-        lt_pref = be32_sec_to_usec(a->iaaddr.lifetime_preferred, /* max_as_infinity = */ true);
+        lt_valid = be32_sec_to_usec(a->iaaddr.lifetime_valid, /* max_as_infinity= */ true);
+        lt_pref = be32_sec_to_usec(a->iaaddr.lifetime_preferred, /* max_as_infinity= */ true);
 
         if (lt_valid == 0)
                 return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL),
@@ -657,8 +657,8 @@ static int dhcp6_option_parse_ia_pdprefix(sd_dhcp6_client *client, DHCP6IA *ia, 
 
         memcpy(&a->iapdprefix, data, sizeof(struct iapdprefix));
 
-        lt_valid = be32_sec_to_usec(a->iapdprefix.lifetime_valid, /* max_as_infinity = */ true);
-        lt_pref = be32_sec_to_usec(a->iapdprefix.lifetime_preferred, /* max_as_infinity = */ true);
+        lt_valid = be32_sec_to_usec(a->iapdprefix.lifetime_valid, /* max_as_infinity= */ true);
+        lt_pref = be32_sec_to_usec(a->iapdprefix.lifetime_preferred, /* max_as_infinity= */ true);
 
         if (lt_valid == 0)
                 return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL),
@@ -739,8 +739,8 @@ int dhcp6_option_parse_ia(
                                               "from the one chosen by the client, ignoring.");
 
         /* It is not necessary to check if the lifetime_t2 is zero here, as in that case it will be updated later. */
-        lt_t1 = be32_sec_to_usec(ia->header.lifetime_t1, /* max_as_infinity = */ true);
-        lt_t2 = be32_sec_to_usec(ia->header.lifetime_t2, /* max_as_infinity = */ true);
+        lt_t1 = be32_sec_to_usec(ia->header.lifetime_t1, /* max_as_infinity= */ true);
+        lt_t2 = be32_sec_to_usec(ia->header.lifetime_t2, /* max_as_infinity= */ true);
 
         if (lt_t1 > lt_t2)
                 return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL),

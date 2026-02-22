@@ -499,6 +499,36 @@ TEST(chaseat) {
 
         fd = safe_close(fd);
 
+        /* Same but with XAT_FDROOT */
+        _cleanup_close_ int found_fd1 = -EBADF;
+        ASSERT_OK(chaseat(XAT_FDROOT, p, 0, &result, &found_fd1));
+        ASSERT_STREQ(result, "/usr");
+        result = mfree(result);
+
+        _cleanup_close_ int found_fd2 = -EBADF;
+        ASSERT_OK(chaseat(XAT_FDROOT, p, CHASE_AT_RESOLVE_IN_ROOT, &result, &found_fd2));
+        ASSERT_STREQ(result, "/usr");
+        result = mfree(result);
+        assert(fd_inode_same(found_fd1, found_fd2) > 0);
+
+        /* Do the same XAT_FDROOT tests again, this time without querying the path, so that the open_tree()
+         * shortcut can work */
+        _cleanup_close_ int found_fd3 = -EBADF;
+        ASSERT_OK(chaseat(XAT_FDROOT, p, 0, NULL, &found_fd3));
+        assert(fd_inode_same(found_fd1, found_fd3) > 0);
+        assert(fd_inode_same(found_fd2, found_fd3) > 0);
+
+        _cleanup_close_ int found_fd4 = -EBADF;
+        ASSERT_OK(chaseat(XAT_FDROOT, p, CHASE_AT_RESOLVE_IN_ROOT, NULL, &found_fd4));
+        assert(fd_inode_same(found_fd1, found_fd4) > 0);
+        assert(fd_inode_same(found_fd2, found_fd4) > 0);
+        assert(fd_inode_same(found_fd3, found_fd4) > 0);
+
+        found_fd1 = safe_close(found_fd1);
+        found_fd2 = safe_close(found_fd2);
+        found_fd3 = safe_close(found_fd3);
+        found_fd4 = safe_close(found_fd4);
+
         /* If the file descriptor does not point to the root directory, the result will be relative
          * unless the result is outside of the specified file descriptor. */
 

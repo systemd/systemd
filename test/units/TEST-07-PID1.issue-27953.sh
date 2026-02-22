@@ -7,5 +7,5 @@ set -o pipefail
 # Issue: https://github.com/systemd/systemd/issues/27953
 
 systemctl start issue27953.service
-timeout 10 sh -c 'while systemctl is-active issue27953.service; do sleep .5; done'
+timeout 10 bash -c 'while systemctl is-active issue27953.service; do sleep .5; done'
 [[ "$(systemctl show -P ExitType issue27953.service)" == main ]]

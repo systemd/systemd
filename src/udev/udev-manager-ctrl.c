@@ -38,7 +38,7 @@ static int on_ctrl_msg(UdevCtrl *uctrl, UdevCtrlMessageType type, const UdevCtrl
                 break;
         case UDEV_CTRL_RELOAD:
                 log_debug("Received udev control message (RELOAD)");
-                manager_reload(manager, /* force = */ true);
+                manager_reload(manager, /* force= */ true);
                 break;
         case UDEV_CTRL_SET_ENV:
                 if (!udev_property_assignment_is_valid(value->buf)) {

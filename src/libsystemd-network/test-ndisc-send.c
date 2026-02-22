@@ -425,7 +425,7 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        fd = icmp6_bind(arg_ifindex, /* is_router = */ false);
+        fd = icmp6_bind(arg_ifindex, /* is_router= */ false);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to bind socket to interface: %m");
 

@@ -6,12 +6,14 @@
 #include "sd-event.h"
 
 #include "alloc-util.h"
+#include "event-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "log.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "pidfd-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "random-util.h"
 #include "rm-rf.h"
@@ -91,7 +93,7 @@ static int signal_handler(sd_event_source *s, const struct signalfd_siginfo *si,
 
         ASSERT_PTR_EQ(userdata, INT_TO_PTR('e'));
 
-        ASSERT_OK(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, SIGUSR2));
+        ASSERT_OK(sigprocmask_many(SIG_BLOCK, NULL, SIGUSR2));
 
         ASSERT_OK_ERRNO(pid = fork());
 
@@ -566,8 +568,6 @@ TEST(pidfd) {
         int pidfd;
         pid_t pid, pid2;
 
-        ASSERT_OK(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD));
-
         ASSERT_OK_ERRNO(pid = fork());
         if (pid == 0)
                 /* child */
@@ -851,7 +851,7 @@ TEST(fork) {
         ASSERT_OK_ZERO(sd_event_prepare(e));
 
         /* Check that after a fork the cleanup functions return NULL */
-        r = safe_fork("(bus-fork-test)", FORK_WAIT|FORK_LOG, NULL);
+        r = pidref_safe_fork("(bus-fork-test)", FORK_WAIT|FORK_LOG, NULL);
         if (r == 0) {
                 ASSERT_NOT_NULL(e);
                 ASSERT_NULL(sd_event_ref(e));
@@ -999,8 +999,6 @@ static int child_handler_wnowait(sd_event_source *s, const siginfo_t *si, void *
 TEST(child_wnowait) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
 
-        ASSERT_OK(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD));
-
         ASSERT_OK(sd_event_default(&e));
 
         /* Fork a subprocess */
@@ -1031,8 +1029,6 @@ TEST(child_wnowait) {
 
 TEST(child_pidfd_wnowait) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
-
-        ASSERT_OK(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD));
 
         ASSERT_OK(sd_event_default(&e));
 
@@ -1165,6 +1161,33 @@ TEST(defer_fair_scheduling) {
                 ASSERT_EQ(counters[i], 5u);
                 sd_event_source_unref(sources[i]);
         }
+}
+
+TEST(child_autoreap_ebusy) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
+
+        /* Test that sd_event_add_child() fails with EBUSY when kernel autoreaping is enabled
+         * by setting SIGCHLD disposition to SIG_IGN */
+
+        ASSERT_OK(sd_event_new(&e));
+
+        /* First, verify that adding a child source works with default signal disposition */
+        ASSERT_OK_POSITIVE(pidref_safe_fork("(child-autoreaping-ebusy)", FORK_DEATHSIG_SIGKILL|FORK_FREEZE, &pidref));
+
+        ASSERT_OK(event_add_child_pidref(e, &s, &pidref, WEXITED, NULL, NULL));
+        s = sd_event_source_unref(s);
+
+        /* Now set SIGCHLD to SIG_IGN to enable kernel autoreaping */
+        struct sigaction old_sa, new_sa = {};
+        new_sa.sa_handler = SIG_IGN;
+        ASSERT_OK_ERRNO(sigaction(SIGCHLD, &new_sa, &old_sa));
+
+        ASSERT_ERROR(event_add_child_pidref(e, &s, &pidref, WEXITED, NULL, NULL), EBUSY);
+
+        /* Restore original SIGCHLD disposition */
+        ASSERT_OK_ERRNO(sigaction(SIGCHLD, &old_sa, NULL));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

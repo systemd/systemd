@@ -627,17 +627,20 @@ static EFI_STATUS load_addons(
                         return log_error_status(err, "Failed to find protocol in %ls: %m", items[i]);
 
                 err = pe_memory_locate_sections(loaded_addon->ImageBase, unified_sections, sections);
-                if (err != EFI_SUCCESS ||
-                    (!PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_CMDLINE) &&
-                     !PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_DTB) &&
-                     !PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_DTBAUTO) &&
-                     !PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_INITRD) &&
-                     !PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_UCODE))) {
-                        if (err == EFI_SUCCESS)
-                                err = EFI_NOT_FOUND;
+                if (err != EFI_SUCCESS) {
                         log_error_status(err,
                                          "Unable to locate embedded .cmdline/.dtb/.dtbauto/.initrd/.ucode sections in %ls, ignoring: %m",
                                          items[i]);
+                        continue;
+                }
+
+                if (!PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_CMDLINE) &&
+                    !PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_DTB) &&
+                    !PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_DTBAUTO) &&
+                    !PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_INITRD) &&
+                    !PE_SECTION_VECTOR_IS_SET(sections + UNIFIED_SECTION_UCODE)) {
+                        log_debug("No applicable .cmdline/.dtb/.dtbauto/.initrd/.ucode sections found in %ls, ignoring.",
+                                  items[i]);
                         continue;
                 }
 
@@ -1299,9 +1302,9 @@ static EFI_STATUS run(EFI_HANDLE image) {
 
         /* Combine the initrds into one */
         _cleanup_pages_ Pages initrd_pages = {};
-        struct iovec final_initrd;
+        struct iovec final_initrd = {};
         if (n_all_initrds > 1) {
-                /* There will always be a base initrd, if this counter is higher, we need to combine them */
+                /* If there is more then 1 initrd we need to combine them */
                 err = combine_initrds(all_initrds, n_all_initrds, &initrd_pages, &final_initrd.iov_len);
                 if (err != EFI_SUCCESS)
                         return err;
@@ -1310,7 +1313,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
 
                 /* Given these might be large let's free them explicitly before we pass control to Linux */
                 initrds_free(&initrds);
-        } else
+        } else if (n_all_initrds == 1)
                 final_initrd = all_initrds[0];
 
         struct iovec kernel = IOVEC_MAKE(

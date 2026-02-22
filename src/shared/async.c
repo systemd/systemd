@@ -149,7 +149,7 @@ int asynchronous_rm_rf(const char *p, RemoveFlags flags) {
         /* Forks off a child that destroys the specified path. This will be best effort only, i.e. the child
          * will attempt to do its thing, but we won't wait for it or check its success. */
 
-        r = safe_fork("(sd-rmrf)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DETACH, NULL);
+        r = pidref_safe_fork("(sd-rmrf)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DETACH, /* ret= */ NULL);
         if (r != 0)
                 return r;
 

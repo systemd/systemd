@@ -17,7 +17,7 @@ static int parse_condition(Unit *u, const char *line) {
         assert(u);
         assert(line);
 
-        line = skip_leading_chars(line, /* bad = */ NULL);
+        line = skip_leading_chars(line, /* bad= */ NULL);
 
         const char *eq = strchr(line, '=');
         if (!eq)
@@ -27,7 +27,7 @@ static int parse_condition(Unit *u, const char *line) {
         if (!type_string)
                 return log_oom();
 
-        delete_trailing_chars(type_string, /* bad = */ NULL);
+        delete_trailing_chars(type_string, /* bad= */ NULL);
 
         Condition **target;
         ConditionType type;
@@ -41,7 +41,7 @@ static int parse_condition(Unit *u, const char *line) {
         if (type < 0)
                 return log_error_errno(type, "Cannot parse \"%s\".", line);
 
-        const char *val = skip_leading_chars(eq + 1, /* bad = */ NULL);
+        const char *val = skip_leading_chars(eq + 1, /* bad= */ NULL);
 
         ConfigParserCallback callback;
         if (condition_takes_path(type))
@@ -49,16 +49,16 @@ static int parse_condition(Unit *u, const char *line) {
         else
                 callback = config_parse_unit_condition_string;
 
-        return callback(/* unit = */ NULL,
-                        /* filename = */ "(cmdline)",
-                        /* line = */ 0,
-                        /* section = */ NULL,
-                        /* section_line = */ 0,
-                        /* lvalue = */ type_string,
-                        /* ltype = */ type,
-                        /* rvalue = */ val,
-                        /* data = */ target,
-                        /* userdata = */ u);
+        return callback(/* unit= */ NULL,
+                        /* filename= */ "(cmdline)",
+                        /* line= */ 0,
+                        /* section= */ NULL,
+                        /* section_line= */ 0,
+                        /* lvalue= */ type_string,
+                        /* ltype= */ type,
+                        /* rvalue= */ val,
+                        /* data= */ target,
+                        /* userdata= */ u);
 }
 
 _printf_(7, 8)
@@ -72,10 +72,10 @@ static int log_helper(void *userdata, int level, int error, const char *file, in
 
         va_start(ap, format);
         r = log_object_internalv(level, error, file, line, func,
-                                 /* object_field = */ unit_log_field(u),
-                                 /* object = */ u->id,
-                                 /* extra_field = */ NULL,
-                                 /* extra = */ NULL,
+                                 /* object_field= */ unit_log_field(u),
+                                 /* object= */ u->id,
+                                 /* extra_field= */ NULL,
+                                 /* extra= */ NULL,
                                  format, ap);
         va_end(ap);
 

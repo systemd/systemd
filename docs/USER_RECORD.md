@@ -13,22 +13,22 @@ pairs, encoded as JSON.
 
 Specifically:
 
-1. [`systemd-homed.service`](https://www.freedesktop.org/software/systemd/man/systemd-homed.service.html)
+1. [`systemd-homed.service`](https://www.freedesktop.org/software/systemd/man/latest/systemd-homed.service.html)
    manages `human` user home directories and embeds these JSON records
    directly in the home directory images
    (see [Home Directories](/HOME_DIRECTORY) for details).
 
-2. [`pam_systemd`](https://www.freedesktop.org/software/systemd/man/pam_systemd.html)
+2. [`pam_systemd`](https://www.freedesktop.org/software/systemd/man/latest/pam_systemd.html)
    processes these JSON records for users that log in, and applies various
    settings to the activated session, including environment variables, nice
    levels and more.
 
-3. [`systemd-logind.service`](https://www.freedesktop.org/software/systemd/man/systemd-logind.service.html)
+3. [`systemd-logind.service`](https://www.freedesktop.org/software/systemd/man/latest/systemd-logind.service.html)
    processes these JSON records of users that log in, and applies various
    resource management settings to the per-user slice units it manages.
    This allows setting global limits on resource consumption by a specific user.
 
-4. [`nss-systemd`](https://www.freedesktop.org/software/systemd/man/nss-systemd.html)
+4. [`nss-systemd`](https://www.freedesktop.org/software/systemd/man/latest/nss-systemd.html)
    is a glibc NSS module that synthesizes classic NSS records from these JSON
    records, providing full backwards compatibility with the classic UNIX APIs
    both for look-up and enumeration.
@@ -37,7 +37,7 @@ Specifically:
    effect of `DynamicUser=` in service unit files) as these advanced JSON
    records, making them discoverable to the rest of the system.
 
-6. [`systemd-userdbd.service`](https://www.freedesktop.org/software/systemd/man/systemd-userdbd.service.html)
+6. [`systemd-userdbd.service`](https://www.freedesktop.org/software/systemd/man/latest/systemd-userdbd.service.html)
    is a small service that can translate UNIX/glibc NSS records to these JSON user records.
    It also provides a unified [Varlink](https://varlink.org/) API for querying and enumerating records of this type,
    optionally acquiring them from various other services.
@@ -82,7 +82,7 @@ JSON User Records may be transferred or written to disk in various protocols
 and formats. To inquire about such records defined on the local system use the
 [User/Group Lookup API via Varlink](/USER_GROUP_API). User/group records may
 also be dropped in number of drop-in directories as files. See
-[`nss-systemd(8)`](https://www.freedesktop.org/software/systemd/man/nss-systemd.html)
+[`nss-systemd(8)`](https://www.freedesktop.org/software/systemd/man/latest/nss-systemd.html)
 for details.
 
 ## Why JSON?
@@ -260,7 +260,7 @@ This field must not contain control characters (such as `\n`) or colons (`:`), s
 as record separators in classic `/etc/passwd` files and similar formats.
 
 `emailAddress` → The email address of the user, formatted as string.
-[`pam_systemd`](https://www.freedesktop.org/software/systemd/man/pam_systemd.html)
+[`pam_systemd`](https://www.freedesktop.org/software/systemd/man/latest/pam_systemd.html)
 initializes the `$EMAIL` environment variable from this value for all login
 sessions.
 
@@ -310,19 +310,19 @@ Takes an integer. Note that usually on UNIX the umask is noted in octal, but JSO
 integers are generally written in decimal, hence in this context we denote it umask in decimal too.
 The specified value should be in the valid range for umasks, i.e. 0000…0777 (in octal as typical in UNIX), or 0…511 (in decimal, how
 it actually appears in the JSON record).
-This `umask` is automatically set by [`pam_systemd`](https://www.freedesktop.org/software/systemd/man/pam_systemd.html)
+This `umask` is automatically set by [`pam_systemd`](https://www.freedesktop.org/software/systemd/man/latest/pam_systemd.html)
 for all login sessions of the user.
 
 `environment` → An array of strings, each containing an environment variable
 and its value to set for the user's login session, in a format compatible with
 [`putenv()`](https://man7.org/linux/man-pages/man3/putenv.3.html). Any
 environment variable listed here is automatically set by
-[`pam_systemd`](https://www.freedesktop.org/software/systemd/man/pam_systemd.html)
+[`pam_systemd`](https://www.freedesktop.org/software/systemd/man/latest/pam_systemd.html)
 for all login sessions of the user.
 
 `timeZone` → A string indicating a preferred timezone to use for the user. When
 logging in
-[`pam_systemd`](https://www.freedesktop.org/software/systemd/man/pam_systemd.html)
+[`pam_systemd`](https://www.freedesktop.org/software/systemd/man/latest/pam_systemd.html)
 will automatically initialize the `$TZ` environment variable from this
 string.
 The string should be a `tzdata` compatible location string, for example: `Europe/Berlin`.
@@ -340,13 +340,13 @@ specify all the languages that they know, so software lacking translations in th
 primary language can try another language that the user knows rather than falling back to
 the default English. All entries in this field must be valid locale names, compatible with
 the `$LANG` variable, for example: `de_DE.UTF-8`. When logging in
-[`pam_systemd`](https://www.freedesktop.org/software/systemd/man/pam_systemd.html)
+[`pam_systemd`](https://www.freedesktop.org/software/systemd/man/latest/pam_systemd.html)
 will prepend `preferredLanguage` (if set) to this list (if set), remove duplicates,
 and then automatically initialize the `$LANGUAGE` variable with the resulting list.
 It will also initialize `$LANG` variable with the first entry in the resulting list.
 
 `niceLevel` → An integer value in the range -20…19. When logging in
-[`pam_systemd`](https://www.freedesktop.org/software/systemd/man/pam_systemd.html)
+[`pam_systemd`](https://www.freedesktop.org/software/systemd/man/latest/pam_systemd.html)
 will automatically initialize the login process' nice level to this value with,
 which is then inherited by all the user's processes, see
 [`setpriority()`](https://man7.org/linux/man-pages/man2/setpriority.2.html) for
@@ -356,7 +356,7 @@ more information.
 (such as `RLIMIT_NOFILE` and similar).
 Their values should be an object with two keys `cur` and `max` for the soft and hard resource limit.
 When logging in
-[`pam_systemd`](https://www.freedesktop.org/software/systemd/man/pam_systemd.html)
+[`pam_systemd`](https://www.freedesktop.org/software/systemd/man/latest/pam_systemd.html)
 will automatically initialize the login process' resource limits to these
 values, which is then inherited by all the user's processes, see
 [`setrlimit()`](https://man7.org/linux/man-pages/man2/setrlimit.2.html) for more
@@ -408,7 +408,7 @@ access mask for the home directory when it is first created.
 tasks the user may start in parallel during system runtime.
 This counts all tasks (i.e. threads, where each process is at least one thread) the user starts or that are
 forked from these processes even if the user identity is changed (for example by setuid binaries/`su`/`sudo` and similar).
-[`systemd-logind.service`](https://www.freedesktop.org/software/systemd/man/systemd-logind.service.html)
+[`systemd-logind.service`](https://www.freedesktop.org/software/systemd/man/latest/systemd-logind.service.html)
 enforces this by setting the `TasksMax` slice property for the user's slice
 `user-$UID.slice`.
 
@@ -416,14 +416,14 @@ enforces this by setting the `TasksMax` slice property for the user's slice
 memory limits for all processes of the user (plus all processes forked off them
 that might have changed user identity),
 in bytes. Enforced by
-[`systemd-logind.service`](https://www.freedesktop.org/software/systemd/man/systemd-logind.service.html),
+[`systemd-logind.service`](https://www.freedesktop.org/software/systemd/man/latest/systemd-logind.service.html),
 similar to `tasksMax`.
 
 `cpuWeight`/`ioWeight` → These take unsigned integers in the range 1…10000
 (defaults to 100) and configure the CPU and IO scheduling weights for the
 user's processes as a whole.
 Also enforced by
-[`systemd-logind.service`](https://www.freedesktop.org/software/systemd/man/systemd-logind.service.html),
+[`systemd-logind.service`](https://www.freedesktop.org/software/systemd/man/latest/systemd-logind.service.html),
 similar to `tasksMax`, `memoryHigh` and `memoryMax`.
 
 `mountNoDevices`/`mountNoSuid`/`mountNoExecute` → Three booleans that control
@@ -574,7 +574,7 @@ display manager to pre-select the correct environment to launch when the user lo
 `stopDelayUSec` → An unsigned 64-bit integer, indicating the time in µs the
 per-user service manager is kept around after the user fully logged out.  This
 value is honored by
-[`systemd-logind.service`](https://www.freedesktop.org/software/systemd/man/systemd-logind.service.html). If
+[`systemd-logind.service`](https://www.freedesktop.org/software/systemd/man/latest/systemd-logind.service.html). If
 set to zero the per-user service manager is immediately terminated when the
 user logs out, and longer values optimize high-frequency log-ins as the
 necessary work to set up and tear down a log-in is reduced if the service manager stays running.
@@ -582,7 +582,7 @@ necessary work to set up and tear down a log-in is reduced if the service manage
 `killProcesses` → A boolean.
 If true all processes of the user are automatically killed when the user logs out.
 This is enforced by
-[`systemd-logind.service`](https://www.freedesktop.org/software/systemd/man/systemd-logind.service.html).
+[`systemd-logind.service`](https://www.freedesktop.org/software/systemd/man/latest/systemd-logind.service.html).
 If false any processes left around when the user logs out are left running.
 
 `passwordChangeMinUSec`/`passwordChangeMaxUSec` → An unsigned 64-bit integer,

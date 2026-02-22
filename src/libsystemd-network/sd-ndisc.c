@@ -487,7 +487,7 @@ static int ndisc_setup_recv_event(sd_ndisc *nd) {
         assert(nd->ifindex > 0);
 
         _cleanup_close_ int fd = -EBADF;
-        fd = icmp6_bind(nd->ifindex, /* is_router = */ false);
+        fd = icmp6_bind(nd->ifindex, /* is_router= */ false);
         if (fd < 0)
                 return fd;
 

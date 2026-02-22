@@ -210,12 +210,12 @@ static int print_device_chain(sd_device *device) {
                "and the attributes from one single parent device.\n"
                "\n");
 
-        r = print_all_attributes(device, /* is_parent = */ false);
+        r = print_all_attributes(device, /* is_parent= */ false);
         if (r < 0)
                 return r;
 
         for (child = device; sd_device_get_parent(child, &parent) >= 0; child = parent) {
-                r = print_all_attributes(parent, /* is_parent = */ true);
+                r = print_all_attributes(parent, /* is_parent= */ true);
                 if (r < 0)
                         return r;
         }
@@ -313,12 +313,12 @@ static int print_device_chain_in_json(sd_device *device) {
 
         arg_json_format_flags |=SD_JSON_FORMAT_SEQ;
 
-        r = print_all_attributes_in_json(device, /* is_parent = */ false);
+        r = print_all_attributes_in_json(device, /* is_parent= */ false);
         if (r < 0)
                 return r;
 
         for (child = device; sd_device_get_parent(child, &parent) >= 0; child = parent) {
-                r = print_all_attributes_in_json(parent, /* is_parent = */ true);
+                r = print_all_attributes_in_json(parent, /* is_parent= */ true);
                 if (r < 0)
                         return r;
         }
@@ -346,7 +346,7 @@ static int print_record(sd_device *device, const char *prefix) {
          *
          * Coloring: let's be conservative with coloring. Let's use it to group related fields. Right now:
          *
-         *     • white for fields that give the device a name
+         *     • highlight fields that give the device a name
          *     • green for fields that categorize the device into subsystem/devtype and similar
          *     • cyan for fields about associated device nodes/symlinks/network interfaces and such
          *     • magenta for block device diskseq
@@ -354,16 +354,16 @@ static int print_record(sd_device *device, const char *prefix) {
          *     • no color for regular properties */
 
         assert_se(sd_device_get_devpath(device, &str) >= 0);
-        printf("%sP: %s%s%s\n", prefix, ansi_highlight_white(), str, ansi_normal());
+        printf("%sP: %s%s%s\n", prefix, ansi_highlight(), str, ansi_normal());
 
         if (sd_device_get_sysname(device, &str) >= 0)
-                printf("%sM: %s%s%s\n", prefix, ansi_highlight_white(), str, ansi_normal());
+                printf("%sM: %s%s%s\n", prefix, ansi_highlight(), str, ansi_normal());
 
         if (sd_device_get_sysnum(device, &str) >= 0)
-                printf("%sR: %s%s%s\n", prefix, ansi_highlight_white(), str, ansi_normal());
+                printf("%sR: %s%s%s\n", prefix, ansi_highlight(), str, ansi_normal());
 
         if (sd_device_get_device_id(device, &str) >= 0)
-                printf("%sJ: %s%s%s\n", prefix, ansi_highlight_white(), str, ansi_normal());
+                printf("%sJ: %s%s%s\n", prefix, ansi_highlight(), str, ansi_normal());
 
         if (sd_device_get_subsystem(device, &subsys) >= 0)
                 printf("%sU: %s%s%s\n", prefix, ansi_highlight_green(), subsys, ansi_normal());
@@ -1302,7 +1302,7 @@ int info_main(int argc, char *argv[], void *userdata) {
         STRV_FOREACH(p, arg_devices) {
                 _cleanup_(sd_device_unrefp) sd_device *device = NULL;
 
-                r = find_device(*p, /* prefix = */ NULL, &device);
+                r = find_device(*p, /* prefix= */ NULL, &device);
                 if (r < 0) {
                         if (r == -EINVAL)
                                 log_error_errno(r, "Bad argument \"%s\", expected an absolute path in /dev/ or /sys/, device ID, or a unit name: %m", *p);

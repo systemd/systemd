@@ -7,8 +7,7 @@
 
 #define _RLIMIT_MAX RLIMIT_NLIMITS
 
-const char* rlimit_to_string(int i) _const_;
-int rlimit_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(rlimit, int);
 int rlimit_from_string_harder(const char *s) _pure_;
 void rlimits_list(const char *prefix);
 

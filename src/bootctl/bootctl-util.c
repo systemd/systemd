@@ -75,6 +75,8 @@ int get_file_version(int fd, char **ret) {
         assert(fd >= 0);
         assert(ret);
 
+        /* Does not reposition file offset (as it uses mmap()) */
+
         if (fstat(fd, &st) < 0)
                 return log_error_errno(errno, "Failed to stat EFI binary: %m");
 
@@ -126,7 +128,7 @@ int settle_entry_token(void) {
                         arg_root,
                         secure_getenv("KERNEL_INSTALL_CONF_ROOT"),
                         arg_machine_id,
-                        /* machine_id_is_random = */ false,
+                        /* machine_id_is_random= */ false,
                         &arg_entry_token_type,
                         &arg_entry_token);
         if (r < 0)

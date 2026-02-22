@@ -27,7 +27,7 @@ ConditionVersion=glibc " >= 2" " <= 9000 " "!= 1"
 ConditionVersion=glibc " >= 2" " * "
 
 [Service]
-ExecStart=touch /tmp/a ; /bin/sh -c 'touch /tmp/b' ; touch /tmp/c
+ExecStart=touch /tmp/a ; bash -c 'touch /tmp/b' ; touch /tmp/c
 ExecStart=test -f /tmp/a
 ExecStart=!test -f /tmp/b
 ExecStart=!!test -f /tmp/c

@@ -194,6 +194,7 @@ link	4009
 linkat	4296
 listen	4174
 listmount	4458
+listns	4470
 listxattr	4230
 listxattrat	4465
 llistxattr	4231
@@ -513,6 +514,7 @@ uname	4122
 unlink	4010
 unlinkat	4294
 unshare	4303
+uprobe
 uretprobe
 userfaultfd	4357
 usr26

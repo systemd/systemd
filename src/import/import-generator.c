@@ -332,7 +332,7 @@ static int transfer_generate(const Transfer *t) {
                 return log_error_errno(r, "Failed to build import unit name from '%s': %m", local_path);
 
         _cleanup_fclose_ FILE *f = NULL;
-        r = generator_open_unit_file(arg_dest, /* source = */ NULL, service, &f);
+        r = generator_open_unit_file(arg_dest, /* source= */ NULL, service, &f);
         if (r < 0)
                 return r;
 
@@ -357,9 +357,11 @@ static int transfer_generate(const Transfer *t) {
                         arg_failure_action);
 
         if (t->class == IMAGE_SYSEXT)
-                fputs("Before=systemd-sysext.service\n", f);
+                fprintf(f, "Before=systemd-sysext%s.service\n",
+                        in_initrd() ? "-initrd" : "");
         else if (t->class == IMAGE_CONFEXT)
-                fputs("Before=systemd-confext.service\n", f);
+                fprintf(f, "Before=systemd-confext%s.service\n",
+                        in_initrd() ? "-initrd" : "");
 
         /* Assume network resource unless URL is file:// */
         if (!file_url_is_valid(t->remote))

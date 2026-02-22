@@ -143,7 +143,7 @@ struct udev_list_entry* udev_list_get_entry(struct udev_list *list) {
                 else {
                         _cleanup_free_ struct udev_list_entry **buf = NULL;
 
-                        if (hashmap_dump_sorted(list->unique_entries, (void***) &buf, /* ret_n = */ NULL) < 0)
+                        if (hashmap_dump_sorted(list->unique_entries, (void***) &buf, /* ret_n= */ NULL) < 0)
                                 return NULL;
 
                         for (size_t j = n; j > 0; j--)

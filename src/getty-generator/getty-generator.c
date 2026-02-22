@@ -207,7 +207,7 @@ static int parse_getty_sources(const char *s, GettySourceFlag *ret) {
         for (const char *p = s;;) {
                 _cleanup_free_ char *word = NULL;
 
-                r = extract_first_word(&p, &word, ",", /* flags = */ 0);
+                r = extract_first_word(&p, &word, ",", /* flags= */ 0);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -262,7 +262,7 @@ static void parse_credentials(void) {
         _cleanup_free_ char *value = NULL;
         int r;
 
-        r = read_credential_with_decryption("getty.auto", (void**) &value, /* ret_size = */ NULL);
+        r = read_credential_with_decryption("getty.auto", (void**) &value, /* ret_size= */ NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to read credential 'getty.auto', ignoring: %m");
         else if (r > 0) {

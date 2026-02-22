@@ -437,7 +437,7 @@ static int dns_trust_anchor_load_files(
         assert(suffix);
         assert(loader);
 
-        r = conf_files_list_nulstr(&files, suffix, NULL, 0, trust_anchor_dirs);
+        r = conf_files_list_nulstr(&files, suffix, /* root= */ NULL, CONF_FILES_WARN, trust_anchor_dirs);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate %s trust anchor files: %m", suffix);
 
@@ -502,7 +502,7 @@ static int dns_trust_anchor_dump(DnsTrustAnchor *d) {
         else {
                 _cleanup_free_ char **l = NULL, *j = NULL;
 
-                if (set_dump_sorted(d->negative_by_name, (void***) &l, /* ret_n = */ NULL) < 0)
+                if (set_dump_sorted(d->negative_by_name, (void***) &l, /* ret_n= */ NULL) < 0)
                         return log_oom();
 
                 j = strv_join(l, " ");

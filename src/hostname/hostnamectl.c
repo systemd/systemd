@@ -29,6 +29,7 @@
 #include "runtime-scope.h"
 #include "string-util.h"
 #include "time-util.h"
+#include "utf8.h"
 #include "verbs.h"
 
 static bool arg_ask_password = true;
@@ -51,6 +52,7 @@ typedef struct StatusInfo {
         const char *kernel_name;
         const char *kernel_release;
         const char *os_pretty_name;
+        const char *os_fancy_name;
         const char *os_cpe_name;
         usec_t os_support_end;
         const char *os_image_id;
@@ -83,11 +85,11 @@ static const char* chassis_string_to_glyph(const char *chassis) {
         if (streq_ptr(chassis, "watch"))
                 return UTF8("⌚"); /* Watch */
         if (streq_ptr(chassis, "handset"))
-                return UTF8("🕻"); /* Left Hand Telephone Receiver */
+                return UTF8("📱"); /* Mobile Phone */
         if (streq_ptr(chassis, "vm"))
-                return UTF8("🖴"); /* Hard disk */
+                return UTF8("💽"); /* Computer disk */
         if (streq_ptr(chassis, "container"))
-                return UTF8("☐"); /* Ballot Box  */
+                return UTF8("📦"); /* Package  */
         return NULL;
 }
 
@@ -234,7 +236,14 @@ static int print_status_info(StatusInfo *i) {
                         return table_log_add_error(r);
         }
 
-        if (!isempty(i->os_pretty_name)) {
+        if (!isempty(i->os_fancy_name) && (emoji_enabled() || ascii_is_valid(i->os_fancy_name)) && colors_enabled()) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "Operating System",
+                                   TABLE_STRING_WITH_ANSI, i->os_fancy_name,
+                                   TABLE_SET_URL, i->home_url);
+                if (r < 0)
+                        return table_log_add_error(r);
+        } else if (!isempty(i->os_pretty_name)) {
                 r = table_add_many(table,
                                    TABLE_FIELD, "Operating System",
                                    TABLE_STRING, i->os_pretty_name,
@@ -425,6 +434,7 @@ static int show_all_names(sd_bus *bus) {
                 { "KernelName",                  "s",  NULL,          offsetof(StatusInfo, kernel_name)      },
                 { "KernelRelease",               "s",  NULL,          offsetof(StatusInfo, kernel_release)   },
                 { "OperatingSystemPrettyName",   "s",  NULL,          offsetof(StatusInfo, os_pretty_name)   },
+                { "OperatingSystemFancyName",    "s",  NULL,          offsetof(StatusInfo, os_fancy_name)    },
                 { "OperatingSystemCPEName",      "s",  NULL,          offsetof(StatusInfo, os_cpe_name)      },
                 { "OperatingSystemSupportEnd",   "t",  NULL,          offsetof(StatusInfo, os_support_end)   },
                 { "OperatingSystemImageID",      "s",  NULL,          offsetof(StatusInfo, os_image_id)      },

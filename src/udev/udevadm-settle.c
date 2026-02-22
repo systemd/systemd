@@ -130,7 +130,7 @@ static int emit_deprecation_warning(void) {
                                 NULL,
                                 &b);
 
-                r = strv_extend_strv_consume(&a, TAKE_PTR(b), /* filter_duplicates = */ true);
+                r = strv_extend_strv_consume(&a, TAKE_PTR(b), /* filter_duplicates= */ true);
                 if (r < 0)
                         return r;
         }
@@ -200,7 +200,7 @@ int settle_main(int argc, char *argv[], void *userdata) {
         (void) emit_deprecation_warning();
 
         if (getuid() == 0) {
-                r = udev_ping(MAX(5 * USEC_PER_SEC, arg_timeout_usec), /* ignore_connection_failure = */ true);
+                r = udev_ping(MAX(5 * USEC_PER_SEC, arg_timeout_usec), /* ignore_connection_failure= */ true);
                 if (r <= 0)
                         return r;
         } else {

@@ -199,12 +199,10 @@ static Virtualization detect_vm_dmi_vendor(void) {
                 _cleanup_free_ char *s = NULL;
 
                 r = read_one_line_file(*vendor, &s);
-                if (r < 0) {
-                        if (r == -ENOENT)
-                                continue;
-
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0)
                         return r;
-                }
 
                 FOREACH_ELEMENT(dmi_vendor, dmi_vendor_table)
                         if (startswith(s, dmi_vendor->vendor)) {
@@ -816,7 +814,7 @@ int running_in_chroot(void) {
         if (getenv_bool("SYSTEMD_IGNORE_CHROOT") > 0)
                 return 0;
 
-        r = inode_same("/proc/1/root", "/", /* flags = */ 0);
+        r = inode_same("/proc/1/root", "/", /* flags= */ 0);
         if (r == -ENOENT) {
                 r = proc_mounted();
                 if (r == 0) {

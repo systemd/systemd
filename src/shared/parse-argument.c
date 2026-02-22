@@ -20,10 +20,12 @@ int parse_boolean_argument(const char *optname, const char *s, bool *ret) {
 
         /* Returns the result through *ret and the return value. */
 
+        assert(optname);
+
         if (s) {
                 r = parse_boolean(s);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse boolean argument to %s: %s.", optname, s);
+                        return log_error_errno(r, "Failed to parse boolean argument to '%s': %s", optname, s);
 
                 if (ret)
                         *ret = r;
@@ -36,24 +38,20 @@ int parse_boolean_argument(const char *optname, const char *s, bool *ret) {
         }
 }
 
-int parse_tristate_argument(const char *optname, const char *s, int *ret) {
+int parse_tristate_argument_with_auto(const char *optname, const char *s, int *ret) {
         int r;
 
-        if (s) {
-                r = parse_boolean(s);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to parse boolean argument to %s: %s.", optname, s);
+        assert(optname);
+        assert(s); /* We refuse NULL optarg here, since that would be ambiguous on cmdline:
+                      for --enable-a[=BOOL], --enable-a is intuitively interpreted as true rather than "auto"
+                      (parse_boolean_argument() does exactly that). IOW, tristate options should require
+                      arguments. */
 
-                if (ret)
-                        *ret = r;
+        r = parse_tristate_full(s, "auto", ret);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse tristate argument to '%s': %s", optname, s);
 
-                return r;
-        } else {
-                if (ret)
-                        *ret = -1;
-
-                return 0;
-        }
+        return 0;
 }
 
 int parse_json_argument(const char *s, sd_json_format_flags_t *ret) {

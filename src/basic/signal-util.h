@@ -31,8 +31,7 @@ int sigset_add_many_internal(sigset_t *ss, ...);
 int sigprocmask_many_internal(int how, sigset_t *ret_old_mask, ...);
 #define sigprocmask_many(...) sigprocmask_many_internal(__VA_ARGS__, -1)
 
-const char* signal_to_string(int signo) _const_;
-int signal_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(signal, int);
 
 void nop_signal_handler(int sig);
 
@@ -65,6 +64,8 @@ static inline const char* signal_to_string_with_check(int n) {
 }
 
 int signal_is_blocked(int sig);
+
+int autoreaping_enabled(void);
 
 int pop_pending_signal_internal(int sig, ...);
 #define pop_pending_signal(...) pop_pending_signal_internal(__VA_ARGS__, -1)

@@ -34,7 +34,7 @@ static int acquire_image_policy(ImagePolicy **ret) {
                 return 0;
         }
 
-        r = image_policy_from_string(value, ret);
+        r = image_policy_from_string(value, /* graceful= */ false, ret);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse image policy '%s': %m", value);
 

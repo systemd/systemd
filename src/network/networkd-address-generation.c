@@ -344,7 +344,7 @@ static int generate_addresses(
                         if (in6_addr_is_set(&j->address) && !in6_addr_equal(&j->address, &masked))
                                 continue;
 
-                        if (generate_stable_private_address(link, app_id, &j->secret_key, &masked, /* previous = */ NULL, &addr) < 0)
+                        if (generate_stable_private_address(link, app_id, &j->secret_key, &masked, /* previous= */ NULL, &addr) < 0)
                                 continue;
 
                         break;
@@ -367,7 +367,7 @@ static int generate_addresses(
                         r = generate_eui64_address(link, &masked, &addr);
                 } else {
                         type = ADDRESS_GENERATION_PREFIXSTABLE;
-                        r = generate_stable_private_address(link, app_id, &SD_ID128_NULL, &masked, /* previous = */ NULL, &addr);
+                        r = generate_stable_private_address(link, app_id, &SD_ID128_NULL, &masked, /* previous= */ NULL, &addr);
                 }
                 if (r < 0)
                         return r;

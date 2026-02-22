@@ -11,6 +11,7 @@ int verify_regular_at(int fd, const char *path, bool follow);
 int fd_verify_regular(int fd);
 
 int stat_verify_directory(const struct stat *st);
+int statx_verify_directory(const struct statx *stx);
 int fd_verify_directory(int fd);
 int is_dir_at(int fd, const char *path, bool follow);
 int is_dir(const char *path, bool follow);
@@ -18,6 +19,9 @@ int is_dir(const char *path, bool follow);
 int stat_verify_symlink(const struct stat *st);
 int fd_verify_symlink(int fd);
 int is_symlink(const char *path);
+
+int stat_verify_socket(const struct stat *st);
+int is_socket(const char *path);
 
 int stat_verify_linked(const struct stat *st);
 int fd_verify_linked(int fd);
@@ -39,6 +43,24 @@ int null_or_empty_path_with_root(const char *fn, const char *root);
 
 static inline int null_or_empty_path(const char *fn) {
         return null_or_empty_path_with_root(fn, NULL);
+}
+
+int xstatx_full(int fd,
+                const char *path,
+                int flags,
+                unsigned mandatory_mask,
+                unsigned optional_mask,
+                uint64_t mandatory_attributes,
+                struct statx *ret);
+
+static inline int xstatx(
+                int fd,
+                const char *path,
+                int flags,
+                unsigned mandatory_mask,
+                struct statx *ret) {
+
+        return xstatx_full(fd, path, flags, mandatory_mask, 0, 0, ret);
 }
 
 int fd_is_read_only_fs(int fd);
@@ -97,8 +119,7 @@ void inode_hash_func(const struct stat *q, struct siphash *state);
 int inode_compare_func(const struct stat *a, const struct stat *b);
 extern const struct hash_ops inode_hash_ops;
 
-const char* inode_type_to_string(mode_t m) _const_;
-mode_t inode_type_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(inode_type, mode_t);
 
 /* Macros that check whether the stat/statx structures have been initialized already. For "struct stat" we
  * use a check for .st_dev being non-zero, since the kernel unconditionally fills that in, mapping the file

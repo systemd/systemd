@@ -25,7 +25,7 @@ netdev=hoge
 ip link add $netdev type dummy
 
 blk="$(mktemp)"
-dd if=/dev/zero of="$blk" bs=1M count=1
+truncate -s 1M "$blk"
 loopdev="$(losetup --show -f "$blk")"
 
 # Wait for devices created in the above being processed.
@@ -38,7 +38,7 @@ udevadm cat 99-systemd
 udevadm cat 99-systemd.rules
 udevadm cat /usr/lib/udev/rules.d/99-systemd.rules
 udevadm cat /usr/lib/udev/rules.d
-(! udevadm cat /dev/null)
+udevadm cat /dev/null
 udevadm cat --config
 udevadm cat -h
 

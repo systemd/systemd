@@ -426,7 +426,7 @@ static int run(int argc, char *argv[]) {
         if (target_fd < 0)
                 return log_error_errno(target_fd, "Failed to open directory '%s': %m", arg_target);
 
-        r = is_mount_point_at(target_fd, /* filename= */ NULL, /* flags= */ 0);
+        r = is_mount_point_at(target_fd, /* path= */ NULL, /* flags= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine whether '%s' is a mount point: %m", resolved);
         if (!r)

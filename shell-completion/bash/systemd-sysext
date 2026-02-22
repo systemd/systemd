@@ -36,6 +36,7 @@ _systemd-sysext() {
         [ARG]='--root
                --json
                --noexec
+               --always-refresh
                --image-policy
                --mutable'
     )
@@ -59,7 +60,7 @@ _systemd-sysext() {
             --json)
                 comps='pretty short off'
                 ;;
-            --noexec)
+            --noexec|--always-refresh)
                 comps='no yes'
                 ;;
             --image-policy)

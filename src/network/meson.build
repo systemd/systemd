@@ -87,8 +87,11 @@ systemd_networkd_extract_sources = files(
         'networkd-state-file.c',
         'networkd-sysctl.c',
         'networkd-util.c',
+        'networkd-varlink-metrics.c',
         'networkd-wifi.c',
         'networkd-wiphy.c',
+        'networkd-wwan.c',
+        'networkd-wwan-bus.c',
         'tc/cake.c',
         'tc/codel.c',
         'tc/drr.c',
@@ -116,7 +119,6 @@ systemd_networkd_extract_sources = files(
 )
 
 systemd_networkd_wait_online_sources = files(
-        'wait-online/dns-configuration.c',
         'wait-online/wait-online-link.c',
         'wait-online/wait-online-manager.c',
         'wait-online/wait-online.c',

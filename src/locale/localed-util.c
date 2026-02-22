@@ -6,7 +6,6 @@
 #include "sd-bus.h"
 
 #include "alloc-util.h"
-#include "copy.h"
 #include "env-file.h"
 #include "errno-util.h"
 #include "escape.h"
@@ -19,12 +18,16 @@
 #include "localed-util.h"
 #include "log.h"
 #include "mkdir-label.h"
-#include "process-util.h"
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"
 #include "xkbcommon-util.h"
+
+#if HAVE_LOCALEGEN
+#include "copy.h"
+#include "process-util.h"
+#endif
 
 int x11_context_verify_and_warn(const X11Context *xc, int log_level, sd_bus_error *error) {
         int r;
@@ -573,10 +576,12 @@ int locale_gen_enable_locale(const char *locale) {
 
 int locale_gen_run(void) {
 #if HAVE_LOCALEGEN
-        pid_t pid;
         int r;
 
-        r = safe_fork("(sd-localegen)", FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_WAIT, &pid);
+        r = pidref_safe_fork(
+                        "(locale-gen)",
+                        FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_WAIT,
+                        /* ret= */ NULL);
         if (r < 0)
                 return r;
         if (r == 0) {

@@ -7,6 +7,7 @@
 #include "ansi-color.h"
 #include "bitfield.h"
 #include "boot-entry.h"
+#include "chase.h"
 #include "constants.h"
 #include "creds-util.h"
 #include "cryptsetup-util.h"
@@ -4353,7 +4354,7 @@ int tpm2_tpm2b_public_to_openssl_pkey(const TPM2B_PUBLIC *public, EVP_PKEY **ret
  * "name", because it would break unsealing of previously-sealed objects that used (for example)
  * tpm2_calculate_policy_authorize(). See bug #30546. */
 int tpm2_tpm2b_public_from_openssl_pkey(const EVP_PKEY *pkey, TPM2B_PUBLIC *ret) {
-        int key_id, r;
+        int r;
 
         assert(pkey);
         assert(ret);
@@ -4367,12 +4368,7 @@ int tpm2_tpm2b_public_from_openssl_pkey(const EVP_PKEY *pkey, TPM2B_PUBLIC *ret)
                 },
         };
 
-#if OPENSSL_VERSION_MAJOR >= 3
-        key_id = EVP_PKEY_get_id(pkey);
-#else
-        key_id = EVP_PKEY_id(pkey);
-#endif
-
+        int key_id = EVP_PKEY_get_id(pkey);
         switch (key_id) {
         case EVP_PKEY_EC: {
                 public.type = TPM2_ALG_ECC;
@@ -5445,6 +5441,11 @@ int tpm2_seal(Tpm2Context *c,
                                                seal_key_handle);
 
                 primary_alg = primary_public->publicArea.type;
+
+                /* Propagate fixedTPM/fixedParent flags from sealing key to hmac key */
+                hmac_template.objectAttributes = (hmac_template.objectAttributes & ~(TPMA_OBJECT_FIXEDTPM|TPMA_OBJECT_FIXEDPARENT)) |
+                                                 (primary_public->publicArea.objectAttributes & (TPMA_OBJECT_FIXEDTPM|TPMA_OBJECT_FIXEDPARENT));
+
         } else {
                 if (seal_key_handle != 0)
                         log_debug("Using primary alg sealing, but seal key handle also provided; ignoring seal key handle.");
@@ -6477,6 +6478,7 @@ static const char* tpm2_userspace_event_type_table[_TPM2_USERSPACE_EVENT_TYPE_MA
         [TPM2_EVENT_KEYSLOT]         = "keyslot",
         [TPM2_EVENT_NVPCR_INIT]      = "nvpcr-init",
         [TPM2_EVENT_NVPCR_SEPARATOR] = "nvpcr-separator",
+        [TPM2_EVENT_DM_VERITY]       = "dm-verity",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(tpm2_userspace_event_type, Tpm2UserspaceEventType);
@@ -6947,9 +6949,10 @@ static int tpm2_nvpcr_write_anchor_secret(
 
         /* Writes the encrypted credential of the anchor secret to directory 'dir' and file 'fname' */
 
-        _cleanup_close_ int dfd = open_mkdir(dir, O_CLOEXEC, 0755);
-        if (dfd < 0)
-                return log_error_errno(dfd, "Failed to create '%s' directory: %m", dir);
+        _cleanup_close_ int dfd = -EBADF;
+        r = chase(dir, /* root= */ NULL, CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY, /* ret_path= */ NULL, &dfd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create '%s' directory: %m", dir);
 
         _cleanup_free_ char *joined = path_join(dir, fname);
         if (!joined)
@@ -7015,7 +7018,7 @@ static int tpm2_nvpcr_write_anchor_secret_to_boot(const struct iovec *credential
                         /* root= */ NULL,
                         /* conf_root= */ NULL,
                         machine_id,
-                        /* machine_id_is_random = */ false,
+                        /* machine_id_is_random= */ false,
                         &entry_token_type,
                         &entry_token);
         if (r < 0)
@@ -7477,6 +7480,21 @@ int tpm2_nvpcr_read(
         if (r < 0)
                 return r;
 
+        /* Check if the NvPCR is already anchored */
+        const char *anchor_fname = strjoina("/run/systemd/nvpcr/", name, ".anchor");
+        r = access_nofollow(anchor_fname, F_OK);
+        if (r < 0) {
+                if (r != -ENOENT)
+                        return log_debug_errno(r, "Failed to check if '%s' exists: %m", anchor_fname);
+
+                /* valid, but not anchored */
+                *ret_value = (struct iovec) {};
+                if (ret_nv_index)
+                        *ret_nv_index = p.nv_index;
+
+                return 0;
+        }
+
         _cleanup_(tpm2_handle_freep) Tpm2Handle *nv_handle = NULL;
         r = tpm2_index_to_handle(
                         c,
@@ -7491,19 +7509,26 @@ int tpm2_nvpcr_read(
 
         log_debug("Successfully acquired handle to NV index 0x%" PRIx32 ".", p.nv_index);
 
-        r = tpm2_read_nv_index(
-                        c,
-                        /* session= */ NULL,
-                        p.nv_index,
-                        nv_handle,
-                        ret_value);
-        if (r < 0)
-                return r;
+        if (r > 0) {
+                r = tpm2_read_nv_index(
+                                c,
+                                /* session= */ NULL,
+                                p.nv_index,
+                                nv_handle,
+                                ret_value);
+                if (r < 0)
+                        return r;
+
+                r = 1;
+        } else {
+                *ret_value = (struct iovec) {};
+                r = 0;
+        }
 
         if (ret_nv_index)
                 *ret_nv_index = p.nv_index;
 
-        return 0;
+        return r;
 #else /* HAVE_OPENSSL */
         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL support is disabled.");
 #endif
@@ -8060,7 +8085,7 @@ int tpm2_pcrlock_policy_load(
         r = sd_json_parse_file(
                         f,
                         discovered_path,
-                        /* flags = */ 0,
+                        /* flags= */ 0,
                         &v,
                         /* reterr_line= */ NULL,
                         /* ret_column= */ NULL);

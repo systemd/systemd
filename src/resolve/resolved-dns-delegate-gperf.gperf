@@ -21,3 +21,4 @@ struct ConfigPerfItem;
 Delegate.DNS,          config_parse_delegate_dns_servers, 0, 0
 Delegate.Domains,      config_parse_delegate_domains,     0, 0
 Delegate.DefaultRoute, config_parse_tristate,             0, offsetof(DnsDelegate, default_route)
+Delegate.FirewallMark, config_parse_unsigned,             0, offsetof(DnsDelegate, fwmark)

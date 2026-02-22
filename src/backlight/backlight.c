@@ -58,12 +58,12 @@ static int has_multiple_graphics_cards(void) {
         if (r < 0)
                 return r;
 
-        r = sd_device_enumerator_add_match_subsystem(e, "pci", /* match = */ true);
+        r = sd_device_enumerator_add_match_subsystem(e, "pci", /* match= */ true);
         if (r < 0)
                 return r;
 
         /* class is an unsigned number, let's validate the value later. */
-        r = sd_device_enumerator_add_match_sysattr(e, "class", NULL, /* match = */ true);
+        r = sd_device_enumerator_add_match_sysattr(e, "class", NULL, /* match= */ true);
         if (r < 0)
                 return r;
 
@@ -233,7 +233,7 @@ static int validate_device(sd_device *device) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to allow uninitialized devices: %m");
 
-        r = sd_device_enumerator_add_match_subsystem(enumerate, "backlight", /* match = */ true);
+        r = sd_device_enumerator_add_match_subsystem(enumerate, "backlight", /* match= */ true);
         if (r < 0)
                 return log_debug_errno(r, "Failed to add subsystem match: %m");
 
@@ -241,11 +241,11 @@ static int validate_device(sd_device *device) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to add sysname unmatch: %m");
 
-        r = sd_device_enumerator_add_match_sysattr(enumerate, "type", "platform", /* match = */ true);
+        r = sd_device_enumerator_add_match_sysattr(enumerate, "type", "platform", /* match= */ true);
         if (r < 0)
                 return log_debug_errno(r, "Failed to add sysattr match: %m");
 
-        r = sd_device_enumerator_add_match_sysattr(enumerate, "type", "firmware", /* match = */ true);
+        r = sd_device_enumerator_add_match_sysattr(enumerate, "type", "firmware", /* match= */ true);
         if (r < 0)
                 return log_debug_errno(r, "Failed to add sysattr match: %m");
 
@@ -348,8 +348,8 @@ static int clamp_brightness(
         assert(brightness);
 
         /* Some systems turn the backlight all the way off at the lowest levels. This clamps the saved
-         * brightness to at least 1 or 5% of max_brightness in case of 'backlight' subsystem. This
-         * avoids preserving an unreadably dim screen, which would otherwise force the user to disable
+         * brightness to at least 1 or 1% of max_brightness (whichever is bigger) in case of 'backlight' subsystem.
+         * This avoids preserving an unreadably dim screen, which would otherwise force the user to disable
          * state restoration. */
 
         min_brightness = (unsigned) ((double) max_brightness * percent / 100);
@@ -372,6 +372,9 @@ static int clamp_brightness(
         return 0;
 }
 
+/* used as the default for devices in the backlight subsystem, or when ID_BACKLIGHT_CLAMP/ID_LEDS_CLAMP=yes. */
+#define DEFAULT_CLAMP_PERCENT 1u
+
 static int shall_clamp(sd_device *device, unsigned *ret) {
         const char *property, *s;
         unsigned default_percent;
@@ -385,10 +388,10 @@ static int shall_clamp(sd_device *device, unsigned *ret) {
                 return r;
         if (r > 0) {
                 property = "ID_BACKLIGHT_CLAMP";
-                default_percent = 5;
+                default_percent = DEFAULT_CLAMP_PERCENT;
         } else {
                 property = "ID_LEDS_CLAMP";
-                default_percent = 0;
+                default_percent = 0; /* The clamping is disabled by default. */
         }
 
         r = sd_device_get_property_value(device, property, &s);
@@ -401,7 +404,7 @@ static int shall_clamp(sd_device *device, unsigned *ret) {
 
         r = parse_boolean(s);
         if (r >= 0) {
-                *ret = r ? 5 : 0;
+                *ret = r ? DEFAULT_CLAMP_PERCENT : 0;
                 return r;
         }
 
@@ -591,9 +594,9 @@ static int verb_load(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return log_device_error_errno(device, r, "Failed to read current brightness: %m");
 
-                (void) clamp_brightness(device, percent, /* saved = */ false, max_brightness, &brightness);
+                (void) clamp_brightness(device, percent, /* saved= */ false, max_brightness, &brightness);
         } else if (clamp)
-                (void) clamp_brightness(device, percent, /* saved = */ true, max_brightness, &brightness);
+                (void) clamp_brightness(device, percent, /* saved= */ true, max_brightness, &brightness);
 
         r = sd_device_set_sysattr_valuef(device, "brightness", "%u", brightness);
         if (r < 0)

@@ -62,7 +62,7 @@ int proc_cmdline_filter_pid1_args(char **argv, char ***ret) {
                 if (a[1] == '-') {
                         if (a[2] == '\0') {
                                 /* "--" is specified, accepting remaining strings. */
-                                r = strv_extend_strv(&filtered, strv_skip(p, 1), /* filter_duplicates = */ false);
+                                r = strv_extend_strv(&filtered, strv_skip(p, 1), /* filter_duplicates= */ false);
                                 if (r < 0)
                                         return r;
                                 break;
@@ -137,7 +137,7 @@ static int proc_cmdline_strv_internal(char ***ret, bool filter_pid1_args) {
         if (detect_container() > 0) {
                 _cleanup_strv_free_ char **args = NULL;
 
-                r = pid_get_cmdline_strv(1, /* flags = */ 0, &args);
+                r = pid_get_cmdline_strv(1, /* flags= */ 0, &args);
                 if (r < 0)
                         return r;
 
@@ -159,7 +159,7 @@ static int proc_cmdline_strv_internal(char ***ret, bool filter_pid1_args) {
 }
 
 int proc_cmdline_strv(char ***ret) {
-        return proc_cmdline_strv_internal(ret, /* filter_pid1_args = */ false);
+        return proc_cmdline_strv_internal(ret, /* filter_pid1_args= */ false);
 }
 
 static char *mangle_word(const char *word, ProcCmdlineFlags flags) {
@@ -216,7 +216,7 @@ int proc_cmdline_parse(proc_cmdline_parse_t parse_item, void *data, ProcCmdlineF
          * for proc_cmdline_parse(), let's make this clear. */
         assert(!(flags & (PROC_CMDLINE_VALUE_OPTIONAL|PROC_CMDLINE_TRUE_WHEN_MISSING)));
 
-        r = proc_cmdline_strv_internal(&args, /* filter_pid1_args = */ true);
+        r = proc_cmdline_strv_internal(&args, /* filter_pid1_args= */ true);
         if (r < 0)
                 return r;
 
@@ -326,7 +326,7 @@ int proc_cmdline_get_key(const char *key, ProcCmdlineFlags flags, char **ret_val
         if (FLAGS_SET(flags, PROC_CMDLINE_VALUE_OPTIONAL) && !ret_value)
                 return -EINVAL;
 
-        r = proc_cmdline_strv_internal(&args, /* filter_pid1_args = */ true);
+        r = proc_cmdline_strv_internal(&args, /* filter_pid1_args= */ true);
         if (r < 0)
                 return r;
 

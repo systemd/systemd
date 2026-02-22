@@ -17,7 +17,7 @@ mechanism: the service manager creates and listens on some sockets (and similar
 UNIX file descriptors) on behalf of a service, and then passes them to the
 service during activation of the service via UNIX file descriptor (short: *fd*)
 passing over `execve()`. This is primarily exposed in the
-[.socket](https://www.freedesktop.org/software/systemd/man/systemd.socket.html)
+[.socket](https://www.freedesktop.org/software/systemd/man/latest/systemd.socket.html)
 unit type.
 
 The *file* *descriptor* *store* (short: *fdstore*) extends this concept, and
@@ -50,14 +50,14 @@ passed over.
 ## Basic Mechanism
 
 The fdstore is enabled per-service via the
-[`FileDescriptorStoreMax=`](https://www.freedesktop.org/software/systemd/man/systemd.service.html#FileDescriptorStoreMax=)
+[`FileDescriptorStoreMax=`](https://www.freedesktop.org/software/systemd/man/latest/systemd.service.html#FileDescriptorStoreMax=)
 service setting. It defaults to zero (which means the fdstore logic is turned
 off), but can take an unsigned integer value that controls how many fds to
 permit the service to upload to the service manager to keep simultaneously.
 
 If set to values > 0, the fdstore is enabled. When invoked the service may now
 (asynchronously) upload file descriptors to the fdstore via the
-[`sd_pid_notify_with_fds()`](https://www.freedesktop.org/software/systemd/man/sd_pid_notify_with_fds.html)
+[`sd_pid_notify_with_fds()`](https://www.freedesktop.org/software/systemd/man/latest/sd_pid_notify_with_fds.html)
 API call (or an equivalent re-implementation). When uploading the fds it is
 necessary to set the `FDSTORE=1` field in the message, to indicate what the fd
 is intended for. It's recommended to also set the `FDNAME=…` field to any
@@ -68,7 +68,7 @@ new instance following the same protocol as for socket activation fds. i.e. the
 `$LISTEN_FDS`, `$LISTEN_PID`, `$LISTEN_PIDFDID`, and `$LISTEN_FDNAMES`
 environment variables will be set (the latter will be populated from the
 `FDNAME=…` field mentioned above). See
-[`sd_listen_fds()`](https://www.freedesktop.org/software/systemd/man/sd_listen_fds.html)
+[`sd_listen_fds()`](https://www.freedesktop.org/software/systemd/man/latest/sd_listen_fds.html)
 for details on receiving such fds in a service. (Note that the name set in
 `FDNAME=…` does not need to be unique, which is useful when operating with
 multiple fully equivalent sockets or similar, for example for a service that
@@ -120,7 +120,7 @@ service will leave the fdstore intact, but a separate stop and start job for
 it — executed synchronously one after the other — will likely not.
 
 This behavior can be modified via the
-[`FileDescriptorStorePreserve=`](https://www.freedesktop.org/software/systemd/man/systemd.service.html#FileDescriptorStorePreserve=)
+[`FileDescriptorStorePreserve=`](https://www.freedesktop.org/software/systemd/man/latest/systemd.service.html#FileDescriptorStorePreserve=)
 setting in service unit files. If set to `yes` the fdstore will be kept as long
 as the service definition is loaded into memory by the service manager, i.e. as
 long as at least one other loaded unit has a reference to it.
@@ -138,7 +138,7 @@ to be unique, as mentioned, in which case *all* matching fds are
 closed). Generally it's a good idea to send such messages to the service
 manager during initialization of the service whenever an unrecognized fd is
 received, to make the service robust for code updates: if an old version
-uploaded an fd that the new version doesn't recognize anymore it's good idea to
+uploaded an fd that the new version doesn't recognize anymore it's a good idea to
 close it both in the service and in the fdstore.
 
 Note that storing a duplicate of an fd in the fdstore means the resource pinned
@@ -154,7 +154,7 @@ Access to the fds in the file descriptor store is generally restricted to the
 service code itself. Pushing fds into or removing fds from the fdstore is
 subject to the access control restrictions of any other `sd_notify()` message,
 which is controlled via
-[`NotifyAccess=`](https://www.freedesktop.org/software/systemd/man/systemd.service.html#NotifyAccess=).
+[`NotifyAccess=`](https://www.freedesktop.org/software/systemd/man/latest/systemd.service.html#NotifyAccess=).
 
 By default only the main service process hence can push/remove fds, but by
 setting `NotifyAccess=all` this may be relaxed to allow arbitrary service
@@ -163,7 +163,7 @@ child processes to do the same.
 ## Soft Reboot
 
 The fdstore is particularly interesting in [soft
-reboot](https://www.freedesktop.org/software/systemd/man/systemd-soft-reboot.service.html)
+reboot](https://www.freedesktop.org/software/systemd/man/latest/systemd-soft-reboot.service.html)
 scenarios, as per `systemctl soft-reboot` (which restarts userspace like in a
 real reboot, but leaves the kernel running). File descriptor stores that remain
 loaded at the very end of the system cycle — just before the soft-reboot – are
@@ -179,7 +179,7 @@ or by setting `FileDescriptorStorePreserve=yes` (and referencing the unit
 continuously).
 
 For further details see [Resource
-Pass-Through](https://www.freedesktop.org/software/systemd/man/systemd-soft-reboot.service.html#Resource%20Pass-Through).
+Pass-Through](https://www.freedesktop.org/software/systemd/man/latest/systemd-soft-reboot.service.html#Resource%20Pass-Through).
 
 ## Initrd Transitions
 
@@ -201,12 +201,12 @@ recommended to use the fdstore if pinned resources shall be passed over.
 ## Debugging
 
 The
-[`systemd-analyze`](https://www.freedesktop.org/software/systemd/man/systemd-analyze.html#systemd-analyze%20fdstore%20%5BUNIT...%5D)
+[`systemd-analyze`](https://www.freedesktop.org/software/systemd/man/latest/systemd-analyze.html#systemd-analyze%20fdstore%20%5BUNIT...%5D)
 tool may be used to list the current contents of the fdstore of any running
 service.
 
 The
-[`systemd-run`](https://www.freedesktop.org/software/systemd/man/systemd-run.html)
+[`systemd-run`](https://www.freedesktop.org/software/systemd/man/latest/systemd-run.html)
 tool may be used to quickly start a testing binary or similar as a service. Use
 `-p FileDescriptorStoreMax=4711` to enable the fdstore from `systemd-run`'s
 command line. By using the `-t` switch you can even interactively communicate

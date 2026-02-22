@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
                 assert_se(sd_journal_seek_head(j) == 0);
                 assert_se(j->current_location.type == LOCATION_HEAD);
 
-                r = safe_fork("(journal-fork-test)", FORK_WAIT|FORK_LOG, NULL);
+                r = pidref_safe_fork("(journal-fork-test)", FORK_WAIT|FORK_LOG, NULL);
                 if (r == 0) {
                         assert_se(j);
                         ASSERT_RETURN_EXPECTED_SE(sd_journal_get_realtime_usec(j, NULL) == -ECHILD);

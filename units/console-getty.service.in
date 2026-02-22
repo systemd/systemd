@@ -11,16 +11,13 @@
 Description=Console Getty
 Documentation=man:agetty(8) man:systemd-getty-generator(8)
 After=systemd-user-sessions.service plymouth-quit-wait.service getty-pre.target
-{% if HAVE_SYSV_COMPAT %}
-After=rc-local.service
-{% endif %}
 Before=getty.target
 
 # OCI containers may be run without a console
 ConditionPathExists=/dev/console
 
 [Service]
-ExecStart=-{{AGETTY}} --noreset --noclear --issue-file=/etc/issue:/etc/issue.d:/run/issue.d:/usr/lib/issue.d --keep-baud 115200,57600,38400,9600 - ${TERM}
+ExecStart=-{{AGETTY}} --noreset --noclear --keep-baud 115200,57600,38400,9600 - ${TERM}
 Type=idle
 Restart=always
 UtmpIdentifier=cons

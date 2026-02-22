@@ -470,11 +470,11 @@ static int request_parse_range(
 
         range_after_eq = startswith(range, "entries=");
         if (range_after_eq)
-                return request_parse_range_entries(m, skip_leading_chars(range_after_eq, /* bad = */ NULL));
+                return request_parse_range_entries(m, skip_leading_chars(range_after_eq, /* bad= */ NULL));
 
         range_after_eq = startswith(range, "realtime=");
         if (range_after_eq)
-                return request_parse_range_time(m, skip_leading_chars(range_after_eq, /* bad = */ NULL));
+                return request_parse_range_time(m, skip_leading_chars(range_after_eq, /* bad= */ NULL));
 
         return 0;
 }
@@ -947,9 +947,9 @@ static ssize_t request_reader_boots(
                                 m->journal,
                                 LOG_BOOT_ID,
                                 /* boot_id */ SD_ID128_NULL,
-                                /* unit = */ NULL,
+                                /* unit= */ NULL,
                                 m->previous_boot_id,
-                                /* advance_older = */ true,
+                                /* advance_older= */ true,
                                 &boot);
                 if (r < 0) {
                         log_error_errno(r, "Failed to advance boot index: %m");

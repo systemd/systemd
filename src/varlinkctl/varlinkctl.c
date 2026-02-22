@@ -9,6 +9,8 @@
 #include "sd-varlink.h"
 
 #include "build.h"
+#include "bus-util.h"
+#include "chase.h"
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -20,9 +22,14 @@
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
+#include "path-lookup.h"
+#include "path-util.h"
 #include "pidfd-util.h"
+#include "polkit-agent.h"
 #include "pretty-print.h"
 #include "process-util.h"
+#include "recurse-dir.h"
+#include "runtime-scope.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -46,6 +53,9 @@ static char **arg_graceful = NULL;
 static usec_t arg_timeout = 0;
 static bool arg_exec = false;
 static PushFds arg_push_fds = {};
+static bool arg_ask_password = true;
+static bool arg_legend = true;
+static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
 
 static void push_fds_done(PushFds *p) {
         assert(p);
@@ -82,12 +92,16 @@ static int help(void) {
                "                         Invoke method\n"
                "  --exec call ADDRESS METHOD PARAMS -- CMDLINE…\n"
                "                         Invoke method and pass response and fds to command\n"
+               "  list-registry          Show list of services in the service registry\n"
                "  validate-idl [FILE]    Validate interface description\n"
                "  help                   Show this help\n"
                "\n%3$sOptions:%4$s\n"
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
+               "     --no-ask-password   Do not prompt for password\n"
                "     --no-pager          Do not pipe output into a pager\n"
+               "     --system            Enumerate system registry\n"
+               "     --user              Enumerate user registry\n"
                "     --more              Request multiple responses\n"
                "     --collect           Collect multiple responses in a JSON array\n"
                "     --oneway            Do not request response\n"
@@ -126,21 +140,27 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_TIMEOUT,
                 ARG_EXEC,
                 ARG_PUSH_FD,
+                ARG_NO_ASK_PASSWORD,
+                ARG_USER,
+                ARG_SYSTEM,
         };
 
         static const struct option options[] = {
-                { "help",     no_argument,       NULL, 'h'          },
-                { "version",  no_argument,       NULL, ARG_VERSION  },
-                { "no-pager", no_argument,       NULL, ARG_NO_PAGER },
-                { "more",     no_argument,       NULL, ARG_MORE     },
-                { "oneway",   no_argument,       NULL, ARG_ONEWAY   },
-                { "json",     required_argument, NULL, ARG_JSON     },
-                { "collect",  no_argument,       NULL, ARG_COLLECT  },
-                { "quiet",    no_argument,       NULL, 'q'          },
-                { "graceful", required_argument, NULL, ARG_GRACEFUL },
-                { "timeout",  required_argument, NULL, ARG_TIMEOUT  },
-                { "exec",     no_argument,       NULL, ARG_EXEC     },
-                { "push-fd",  required_argument, NULL, ARG_PUSH_FD  },
+                { "help",            no_argument,       NULL, 'h'                },
+                { "version",         no_argument,       NULL, ARG_VERSION         },
+                { "no-pager",        no_argument,       NULL, ARG_NO_PAGER        },
+                { "more",            no_argument,       NULL, ARG_MORE            },
+                { "oneway",          no_argument,       NULL, ARG_ONEWAY          },
+                { "json",            required_argument, NULL, ARG_JSON            },
+                { "collect",         no_argument,       NULL, ARG_COLLECT         },
+                { "quiet",           no_argument,       NULL, 'q'                 },
+                { "graceful",        required_argument, NULL, ARG_GRACEFUL        },
+                { "timeout",         required_argument, NULL, ARG_TIMEOUT         },
+                { "exec",            no_argument,       NULL, ARG_EXEC            },
+                { "push-fd",         required_argument, NULL, ARG_PUSH_FD         },
+                { "no-ask-password", no_argument,       NULL, ARG_NO_ASK_PASSWORD },
+                { "user",            no_argument,       NULL, ARG_USER            },
+                { "system",          no_argument,       NULL, ARG_SYSTEM          },
                 {},
         };
 
@@ -252,6 +272,18 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_push_fds.fds[arg_push_fds.n_fds++] = TAKE_FD(add_fd);
                         break;
                 }
+
+                case ARG_NO_ASK_PASSWORD:
+                        arg_ask_password = false;
+                        break;
+
+                case ARG_USER:
+                        arg_runtime_scope = RUNTIME_SCOPE_USER;
+                        break;
+
+                case ARG_SYSTEM:
+                        arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
+                        break;
 
                 case '?':
                         return -EINVAL;
@@ -619,6 +651,8 @@ static int verb_call(int argc, char *argv[], void *userdata) {
         if (arg_exec && (arg_collect || (arg_method_flags & (SD_VARLINK_METHOD_ONEWAY|SD_VARLINK_METHOD_MORE))) != 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--exec and --collect/--more/--oneway may not be combined.");
 
+        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
+
         url = argv[1];
         method = argv[2];
         parameter = argc > 3 && !streq(argv[3], "-") ? argv[3] : NULL;
@@ -961,15 +995,115 @@ static int verb_validate_idl(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static int verb_list_registry(int argc, char *argv[], void *userdata) {
+        int r;
+
+        assert(argc <= 1);
+
+        _cleanup_free_ char *reg_path = NULL;
+        r = runtime_directory_generic(arg_runtime_scope, "varlink/registry", &reg_path);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine registry path: %m");
+
+        _cleanup_(table_unrefp) Table *table = table_new("interface", "entrypoint");
+        if (!table)
+                return log_oom();
+
+        (void) table_set_sort(table, (size_t) 0);
+
+        _cleanup_close_ int regfd = open(reg_path, O_DIRECTORY|O_CLOEXEC);
+        if (regfd < 0)  {
+                if (errno != ENOENT)
+                        return log_error_errno(errno, "Failed to open '%s': %m", reg_path);
+        } else {
+                _cleanup_free_ DirectoryEntries *des = NULL;
+                r = readdir_all(regfd, RECURSE_DIR_IGNORE_DOT|RECURSE_DIR_ENSURE_TYPE, &des);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to enumerate '%s': %m", reg_path);
+
+                FOREACH_ARRAY(i, des->entries, des->n_entries) {
+                        struct dirent *de = *i;
+
+                        if (!varlink_idl_interface_name_is_valid(de->d_name)) {
+                                log_debug("Found file '%s' whose names does not qualify as valid Varlink interface name, skipping.", de->d_name);
+                                continue;
+                        }
+
+                        _cleanup_free_ char *j = path_join(reg_path, de->d_name);
+                        if (!j)
+                                return log_oom();
+
+                        switch (de->d_type) {
+                        case DT_LNK: {
+                                _cleanup_free_ char *resolved = NULL;
+
+                                r = chase(j, /* root= */ NULL, CHASE_MUST_BE_SOCKET, &resolved, /* ret_fd= */ NULL);
+                                if (r < 0) {
+                                        log_warning_errno(r, "Failed to resolve '%s', skipping: %m", j);
+                                        continue;
+                                }
+
+                                _cleanup_free_ char *address = strjoin("unix:", resolved);
+                                if (!address)
+                                        return log_oom();
+
+                                r = table_add_many(
+                                                table,
+                                                TABLE_STRING, de->d_name,
+                                                TABLE_STRING, address);
+                                if (r < 0)
+                                        return r;
+
+                                break;
+                        }
+
+                        case DT_SOCK: {
+                                _cleanup_free_ char *address = strjoin("unix:", j);
+                                if (!address)
+                                        return log_oom();
+
+                                r = table_add_many(
+                                                table,
+                                                TABLE_STRING, de->d_name,
+                                                TABLE_STRING, address);
+                                if (r < 0)
+                                        return r;
+
+                                break;
+                        }
+
+                        default:
+                                log_debug("Ignoring inode '%s' of unexpected type: %m", de->d_name);
+                        }
+                }
+        }
+
+        if (!table_isempty(table) || sd_json_format_enabled(arg_json_format_flags)) {
+                r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, /* show_header= */ true);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to output table: %m");
+        }
+
+        if (arg_legend && !sd_json_format_enabled(arg_json_format_flags)) {
+                if (table_isempty(table))
+                        printf("No services registered.\n");
+                else
+                        printf("\n%zu registered services listed.\n", table_get_rows(table) - 1);
+        }
+
+        return 0;
+}
+
 static int varlinkctl_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "info",            2,        2,        0, verb_info         },
-                { "list-interfaces", 2,        2,        0, verb_info         },
-                { "introspect",      2,        VERB_ANY, 0, verb_introspect   },
-                { "list-methods",    2,        VERB_ANY, 0, verb_introspect   },
-                { "call",            3,        VERB_ANY, 0, verb_call         },
-                { "validate-idl",    1,        2,        0, verb_validate_idl },
-                { "help",            VERB_ANY, VERB_ANY, 0, verb_help         },
+                { "info",            2,        2,        0, verb_info          },
+                { "list-interfaces", 2,        2,        0, verb_info          },
+                { "introspect",      2,        VERB_ANY, 0, verb_introspect    },
+                { "list-methods",    2,        VERB_ANY, 0, verb_introspect    },
+                { "call",            3,        VERB_ANY, 0, verb_call          },
+                { "list-registry",   VERB_ANY, 1,        0, verb_list_registry },
+                { "validate-idl",    1,        2,        0, verb_validate_idl  },
+                { "help",            VERB_ANY, VERB_ANY, 0, verb_help          },
                 {}
         };
 

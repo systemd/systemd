@@ -29,8 +29,7 @@ static inline int udev_ctrl_new(UdevCtrl **ret) {
 }
 
 int udev_ctrl_enable_receiving(UdevCtrl *uctrl);
-UdevCtrl *udev_ctrl_ref(UdevCtrl *uctrl);
-UdevCtrl *udev_ctrl_unref(UdevCtrl *uctrl);
+DECLARE_TRIVIAL_REF_UNREF_FUNC(UdevCtrl, udev_ctrl);
 int udev_ctrl_attach_event(UdevCtrl *uctrl, sd_event *event);
 int udev_ctrl_start(UdevCtrl *uctrl, udev_ctrl_handler_t callback, void *userdata);
 sd_event_source *udev_ctrl_get_event_source(UdevCtrl *uctrl);

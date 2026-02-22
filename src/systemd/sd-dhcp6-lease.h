@@ -83,8 +83,7 @@ int sd_dhcp6_lease_get_fqdn(sd_dhcp6_lease *lease, const char **ret);
 int sd_dhcp6_lease_get_captive_portal(sd_dhcp6_lease *lease, const char **ret);
 int sd_dhcp6_lease_get_vendor_options(sd_dhcp6_lease *lease, sd_dhcp6_option ***ret);
 
-sd_dhcp6_lease *sd_dhcp6_lease_ref(sd_dhcp6_lease *lease);
-sd_dhcp6_lease *sd_dhcp6_lease_unref(sd_dhcp6_lease *lease);
+_SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp6_lease);
 
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_dhcp6_lease, sd_dhcp6_lease_unref);
 

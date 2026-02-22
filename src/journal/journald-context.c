@@ -176,7 +176,6 @@ static void client_context_reset(Manager *m, ClientContext *c) {
         c->invocation_id = SD_ID128_NULL;
 
         c->label = mfree(c->label);
-        c->label_size = 0;
 
         c->extra_fields_iovec = mfree(c->extra_fields_iovec);
         c->extra_fields_n_iovec = 0;
@@ -248,26 +247,21 @@ static void client_context_read_basic(ClientContext *c) {
 
 static int client_context_read_label(
                 ClientContext *c,
-                const char *label, size_t label_size) {
+                const char *label) {
+
+        int r;
 
         assert(c);
         assert(pid_is_valid(c->pid));
-        assert(label_size == 0 || label);
 
         if (!mac_selinux_use())
                 return 0;
 
-        if (label_size > 0) {
-                char *l;
-
+        if (label) {
                 /* If we got an SELinux label passed in it counts. */
-
-                l = newdup_suffix0(char, label, label_size);
-                if (!l)
+                r = free_and_strdup(&c->label, label);
+                if (r < 0)
                         return -ENOMEM;
-
-                free_and_replace(c->label, l);
-                c->label_size = label_size;
         }
 #if HAVE_SELINUX
         else {
@@ -275,10 +269,8 @@ static int client_context_read_label(
 
                 /* If we got no SELinux label passed in, let's try to acquire one */
 
-                if (sym_getpidcon_raw(c->pid, &con) >= 0 && con) {
+                if (sym_getpidcon_raw(c->pid, &con) >= 0 && con)
                         free_and_replace(c->label, con);
-                        c->label_size = strlen(c->label);
-                }
         }
 #endif
 
@@ -533,7 +525,7 @@ static void client_context_really_refresh(
                 Manager *m,
                 ClientContext *c,
                 const struct ucred *ucred,
-                const char *label, size_t label_size,
+                const char *label,
                 const char *unit_id,
                 usec_t timestamp) {
 
@@ -546,7 +538,7 @@ static void client_context_really_refresh(
 
         client_context_read_uid_gid(c, ucred);
         client_context_read_basic(c);
-        (void) client_context_read_label(c, label, label_size);
+        (void) client_context_read_label(c, label);
 
         (void) audit_session_from_pid(&PIDREF_MAKE_FROM_PID(c->pid), &c->auditid);
         (void) audit_loginuid_from_pid(&PIDREF_MAKE_FROM_PID(c->pid), &c->loginuid);
@@ -570,7 +562,7 @@ void client_context_maybe_refresh(
                 Manager *m,
                 ClientContext *c,
                 const struct ucred *ucred,
-                const char *label, size_t label_size,
+                const char *label,
                 const char *unit_id,
                 usec_t timestamp) {
 
@@ -602,13 +594,13 @@ void client_context_maybe_refresh(
         if (ucred && gid_is_valid(ucred->gid) && c->gid != ucred->gid)
                 goto refresh;
 
-        if (label_size > 0 && (label_size != c->label_size || memcmp(label, c->label, label_size) != 0))
+        if (label && !streq_ptr(label, c->label))
                 goto refresh;
 
         return;
 
 refresh:
-        client_context_really_refresh(m, c, ucred, label, label_size, unit_id, timestamp);
+        client_context_really_refresh(m, c, ucred, label, unit_id, timestamp);
 }
 
 static void client_context_refresh_on_reload(Manager *m, ClientContext *c) {
@@ -710,7 +702,7 @@ static int client_context_get_internal(
                 Manager *m,
                 pid_t pid,
                 const struct ucred *ucred,
-                const char *label, size_t label_len,
+                const char *label,
                 const char *unit_id,
                 bool add_ref,
                 ClientContext **ret) {
@@ -738,7 +730,7 @@ static int client_context_get_internal(
                         c->n_ref++;
                 }
 
-                client_context_maybe_refresh(m, c, ucred, label, label_len, unit_id, USEC_INFINITY);
+                client_context_maybe_refresh(m, c, ucred, label, unit_id, USEC_INFINITY);
 
                 *ret = c;
                 return 0;
@@ -762,7 +754,7 @@ static int client_context_get_internal(
                 c->in_lru = true;
         }
 
-        client_context_really_refresh(m, c, ucred, label, label_len, unit_id, USEC_INFINITY);
+        client_context_really_refresh(m, c, ucred, label, unit_id, USEC_INFINITY);
 
         *ret = c;
         return 0;
@@ -772,22 +764,22 @@ int client_context_get(
                 Manager *m,
                 pid_t pid,
                 const struct ucred *ucred,
-                const char *label, size_t label_len,
+                const char *label,
                 const char *unit_id,
                 ClientContext **ret) {
 
-        return client_context_get_internal(m, pid, ucred, label, label_len, unit_id, false, ret);
+        return client_context_get_internal(m, pid, ucred, label, unit_id, /* add_ref= */ false, ret);
 }
 
 int client_context_acquire(
                 Manager *m,
                 pid_t pid,
                 const struct ucred *ucred,
-                const char *label, size_t label_len,
+                const char *label,
                 const char *unit_id,
                 ClientContext **ret) {
 
-        return client_context_get_internal(m, pid, ucred, label, label_len, unit_id, true, ret);
+        return client_context_get_internal(m, pid, ucred, label, unit_id, /* add_ref= */ true, ret);
 };
 
 ClientContext *client_context_release(Manager *m, ClientContext *c) {
@@ -829,7 +821,7 @@ void client_context_acquire_default(Manager *m) {
                         .gid = getgid(),
                 };
 
-                r = client_context_acquire(m, ucred.pid, &ucred, NULL, 0, NULL, &m->my_context);
+                r = client_context_acquire(m, ucred.pid, &ucred, /* label= */ NULL, /* unit_id= */ NULL, &m->my_context);
                 if (r < 0)
                         log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
                                                     "Failed to acquire our own context, ignoring: %m");
@@ -839,7 +831,7 @@ void client_context_acquire_default(Manager *m) {
                 /* Acquire PID1's context, but only if we are in non-namespaced mode, since PID 1 is only
                  * going to log to the non-namespaced journal instance. */
 
-                r = client_context_acquire(m, 1, NULL, NULL, 0, NULL, &m->pid1_context);
+                r = client_context_acquire(m, 1, /* ucred= */ NULL, /* label= */ NULL, /* unit_id= */ NULL, &m->pid1_context);
                 if (r < 0)
                         log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
                                                     "Failed to acquire PID1's context, ignoring: %m");

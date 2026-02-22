@@ -30,7 +30,7 @@ so if this document and the code disagree, the code is right.
 That said we'll of course try hard to keep this document up-to-date and accurate.
 
 Instead of implementing your own reader or writer for journal files we ask you to use the
-[Journal's native CAPI](https://www.freedesktop.org/software/systemd/man/sd-journal.html)
+[Journal's native CAPI](https://www.freedesktop.org/software/systemd/man/latest/sd-journal.html)
 to access these files.
 It provides you with full access to the files, and will not withhold any data.
 If you find a limitation, please ping us and we might add some additional interfaces for you.
@@ -42,7 +42,7 @@ The export format is much simpler to parse, but complete and accurate.
 Due to its stream-based nature it is not indexed.
 
 _Or, to put this in other words: this low-level document is probably not what you want to use as base of your project.
-You want our [C API](https://www.freedesktop.org/software/systemd/man/sd-journal.html) instead!
+You want our [C API](https://www.freedesktop.org/software/systemd/man/latest/sd-journal.html) instead!
 And if you really don't want the C API, then you want the
 [Journal Export Format or Journal JSON Format](/JOURNAL_EXPORT_FORMATS) instead!
 This document is primarily for your entertainment and education.
@@ -51,7 +51,7 @@ Thank you!_
 This document assumes you have a basic understanding of the journal concepts, the properties of a journal entry and so on.
 If not, please go and read up, then come back!
 This is a good opportunity to read about the
-[basic properties of journal entries](https://www.freedesktop.org/software/systemd/man/systemd.journal-fields.html),
+[basic properties of journal entries](https://www.freedesktop.org/software/systemd/man/latest/systemd.journal-fields.html),
 in particular realize that they may include binary non-text data (though usually don't),
 and the same field might have multiple values assigned within the same entry.
 
@@ -587,7 +587,7 @@ If the hash table fill level is increasing over a certain fill level (Learning
 from Java's Hashtable for example: > 75%), the writer should rotate the file
 and create a new one.
 
-The DATA_HASH_TABLE should be sized taking into account to the maximum size the
+The DATA_HASH_TABLE should be sized taking into account the maximum size the
 file is expected to grow, as configured by the administrator or disk space
 considerations. The FIELD_HASH_TABLE should be sized to a fixed size; the
 number of fields should be pretty static as it depends only on developers'

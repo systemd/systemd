@@ -20,6 +20,7 @@
 # ELF dynamic relocations at runtime.
 
 # pylint: disable=attribute-defined-outside-init
+# mypy: untyped-calls-exclude=elftools
 
 import argparse
 import hashlib
@@ -39,19 +40,8 @@ from ctypes import (
     sizeof,
 )
 
-from elftools.elf.constants import SH_FLAGS
-from elftools.elf.elffile import ELFFile
-from elftools.elf.enums import (
-    ENUM_DT_FLAGS_1,
-    ENUM_RELOC_TYPE_AARCH64,
-    ENUM_RELOC_TYPE_ARM,
-    ENUM_RELOC_TYPE_i386,
-    ENUM_RELOC_TYPE_x64,
-)
-from elftools.elf.relocation import (
-    Relocation as ElfRelocation,
-    RelocationTable as ElfRelocationTable,
-)
+from elftools import elf
+from elftools.elf import elffile
 
 
 class PeCoffHeader(LittleEndianStructure):
@@ -81,7 +71,7 @@ class PeRelocationBlock(LittleEndianStructure):
 
     def __init__(self, PageRVA: int):
         super().__init__(PageRVA)
-        self.entries: typing.List[PeRelocationEntry] = []
+        self.entries: list[PeRelocationEntry] = []
 
 
 class PeRelocationEntry(LittleEndianStructure):
@@ -193,7 +183,7 @@ class PeSection(LittleEndianStructure):
         ("Characteristics",      c_uint32),
     )
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.data = bytearray()
 
@@ -248,7 +238,7 @@ def align_down(x: int, align: int) -> int:
     return x & ~(align - 1)
 
 
-def next_section_address(sections: typing.List[PeSection]) -> int:
+def next_section_address(sections: list[PeSection]) -> int:
     return align_to(sections[-1].VirtualAddress + sections[-1].VirtualSize,
                     SECTION_ALIGNMENT)
 
@@ -257,7 +247,7 @@ class BadSectionError(ValueError):
     "One of the sections is in a bad state"
 
 
-def iter_copy_sections(elf: ELFFile) -> typing.Iterator[PeSection]:
+def iter_copy_sections(file: elffile.ELFFile) -> typing.Iterator[PeSection]:
     pe_s = None
 
     # This is essentially the same as copying by ELF load segments, except that we assemble them
@@ -265,16 +255,16 @@ def iter_copy_sections(elf: ELFFile) -> typing.Iterator[PeSection]:
     # about so that there are no surprises.
 
     relro = None
-    for elf_seg in elf.iter_segments():
+    for elf_seg in file.iter_segments():
         if elf_seg["p_type"] == "PT_LOAD" and elf_seg["p_align"] != SECTION_ALIGNMENT:
             raise BadSectionError(f"ELF segment {elf_seg['p_type']} is not properly aligned"
                                   f" ({elf_seg['p_align']} != {SECTION_ALIGNMENT})")
         if elf_seg["p_type"] == "PT_GNU_RELRO":
             relro = elf_seg
 
-    for elf_s in elf.iter_sections():
+    for elf_s in file.iter_sections():
         if (
-            elf_s["sh_flags"] & SH_FLAGS.SHF_ALLOC == 0
+            elf_s["sh_flags"] & elf.constants.SH_FLAGS.SHF_ALLOC == 0
             or elf_s["sh_type"] in IGNORE_SECTION_TYPES
             or elf_s.name in IGNORE_SECTIONS
             or elf_s["sh_size"] == 0
@@ -286,9 +276,9 @@ def iter_copy_sections(elf: ELFFile) -> typing.Iterator[PeSection]:
             # FIXME: figure out why those sections are inserted
             print("WARNING: Non-empty .got section", file=sys.stderr)
 
-        if elf_s["sh_flags"] & SH_FLAGS.SHF_EXECINSTR:
+        if elf_s["sh_flags"] & elf.constants.SH_FLAGS.SHF_EXECINSTR:
             rwx = PE_CHARACTERISTICS_RX
-        elif elf_s["sh_flags"] & SH_FLAGS.SHF_WRITE:
+        elif elf_s["sh_flags"] & elf.constants.SH_FLAGS.SHF_WRITE:
             rwx = PE_CHARACTERISTICS_RW
         else:
             rwx = PE_CHARACTERISTICS_R
@@ -315,11 +305,14 @@ def iter_copy_sections(elf: ELFFile) -> typing.Iterator[PeSection]:
         yield pe_s
 
 
-def convert_sections(elf: ELFFile, opt: PeOptionalHeader) -> typing.List[PeSection]:
+def convert_sections(
+        file: elffile.ELFFile,
+        opt: PeOptionalHeader,
+) -> list[PeSection]:
     last_vma = (0, 0)
     sections = []
 
-    for pe_s in iter_copy_sections(elf):
+    for pe_s in iter_copy_sections(file):
         # Truncate the VMA to the nearest page and insert appropriate padding. This should not
         # cause any overlap as this is pretty much how ELF *segments* are loaded/mmapped anyways.
         # The ELF sections inside should also be properly aligned as we reuse the ELF VMA layout
@@ -357,18 +350,18 @@ def convert_sections(elf: ELFFile, opt: PeOptionalHeader) -> typing.List[PeSecti
 
 
 def copy_sections(
-    elf: ELFFile,
+    file: elffile.ELFFile,
     opt: PeOptionalHeader,
     input_names: str,
-    sections: typing.List[PeSection],
-):
+    sections: list[PeSection],
+) -> None:
     for name in input_names.split(","):
-        elf_s = elf.get_section_by_name(name)
+        elf_s = file.get_section_by_name(name)
         if not elf_s:
             continue
         if elf_s.data_alignment > 1 and SECTION_ALIGNMENT % elf_s.data_alignment != 0:
             raise BadSectionError(f"ELF section {name} is not aligned")
-        if elf_s["sh_flags"] & (SH_FLAGS.SHF_EXECINSTR | SH_FLAGS.SHF_WRITE) != 0:
+        if elf_s["sh_flags"] & (elf.constants.SH_FLAGS.SHF_EXECINSTR | elf.constants.SH_FLAGS.SHF_WRITE) != 0:
             raise BadSectionError(f"ELF section {name} is not read-only data")
 
         pe_s = PeSection()
@@ -383,11 +376,11 @@ def copy_sections(
 
 
 def apply_elf_relative_relocation(
-    reloc: ElfRelocation,
+    reloc: elf.relocation.Relocation,
     image_base: int,
-    sections: typing.List[PeSection],
+    sections: list[PeSection],
     addend_size: int,
-):
+) -> None:
     [target] = [pe_s for pe_s in sections
                 if pe_s.VirtualAddress <= reloc["r_offset"] < pe_s.VirtualAddress + len(pe_s.data)]
 
@@ -404,29 +397,29 @@ def apply_elf_relative_relocation(
 
 
 def convert_elf_reloc_table(
-    elf: ELFFile,
-    elf_reloc_table: ElfRelocationTable,
+    file: elffile.ELFFile,
+    elf_reloc_table: elf.relocation.RelocationTable,
     elf_image_base: int,
-    sections: typing.List[PeSection],
-    pe_reloc_blocks: typing.Dict[int, PeRelocationBlock],
-):
+    sections: list[PeSection],
+    pe_reloc_blocks: dict[int, PeRelocationBlock],
+) -> None:
     NONE_RELOC = {
-        "EM_386": ENUM_RELOC_TYPE_i386["R_386_NONE"],
-        "EM_AARCH64": ENUM_RELOC_TYPE_AARCH64["R_AARCH64_NONE"],
-        "EM_ARM": ENUM_RELOC_TYPE_ARM["R_ARM_NONE"],
+        "EM_386":       elf.enums.ENUM_RELOC_TYPE_i386["R_386_NONE"],
+        "EM_AARCH64":   elf.enums.ENUM_RELOC_TYPE_AARCH64["R_AARCH64_NONE"],
+        "EM_ARM":       elf.enums.ENUM_RELOC_TYPE_ARM["R_ARM_NONE"],
         "EM_LOONGARCH": 0,
-        "EM_RISCV": 0,
-        "EM_X86_64": ENUM_RELOC_TYPE_x64["R_X86_64_NONE"],
-    }[elf["e_machine"]]
+        "EM_RISCV":     0,
+        "EM_X86_64":    elf.enums.ENUM_RELOC_TYPE_x64["R_X86_64_NONE"],
+    }[file["e_machine"]]
 
     RELATIVE_RELOC = {
-        "EM_386": ENUM_RELOC_TYPE_i386["R_386_RELATIVE"],
-        "EM_AARCH64": ENUM_RELOC_TYPE_AARCH64["R_AARCH64_RELATIVE"],
-        "EM_ARM": ENUM_RELOC_TYPE_ARM["R_ARM_RELATIVE"],
+        "EM_386":       elf.enums.ENUM_RELOC_TYPE_i386["R_386_RELATIVE"],
+        "EM_AARCH64":   elf.enums.ENUM_RELOC_TYPE_AARCH64["R_AARCH64_RELATIVE"],
+        "EM_ARM":       elf.enums.ENUM_RELOC_TYPE_ARM["R_ARM_RELATIVE"],
         "EM_LOONGARCH": 3,
-        "EM_RISCV": 3,
-        "EM_X86_64": ENUM_RELOC_TYPE_x64["R_X86_64_RELATIVE"],
-    }[elf["e_machine"]]
+        "EM_RISCV":     3,
+        "EM_X86_64":    elf.enums.ENUM_RELOC_TYPE_x64["R_X86_64_RELATIVE"],
+    }[file["e_machine"]]
 
     for reloc in elf_reloc_table.iter_relocations():
         if reloc["r_info_type"] == NONE_RELOC:
@@ -436,7 +429,7 @@ def convert_elf_reloc_table(
             apply_elf_relative_relocation(reloc,
                                           elf_image_base,
                                           sections,
-                                          elf.elfclass // 8)
+                                          file.elfclass // 8)
 
             # Now that the ELF relocation has been applied, we can create a PE relocation.
             block_rva = reloc["r_offset"] & ~0xFFF
@@ -446,7 +439,7 @@ def convert_elf_reloc_table(
             entry = PeRelocationEntry()
             entry.Offset = reloc["r_offset"] & 0xFFF
             # REL_BASED_HIGHLOW or REL_BASED_DIR64
-            entry.Type = 3 if elf.elfclass == 32 else 10
+            entry.Type = 3 if file.elfclass == 32 else 10
             pe_reloc_blocks[block_rva].entries.append(entry)
 
             continue
@@ -455,21 +448,21 @@ def convert_elf_reloc_table(
 
 
 def convert_elf_relocations(
-    elf: ELFFile,
+    file: elffile.ELFFile,
     opt: PeOptionalHeader,
-    sections: typing.List[PeSection],
+    sections: list[PeSection],
     minimum_sections: int,
 ) -> typing.Optional[PeSection]:
-    dynamic = elf.get_section_by_name(".dynamic")
+    dynamic = file.get_section_by_name(".dynamic")
     if dynamic is None:
         raise BadSectionError("ELF .dynamic section is missing")
 
     [flags_tag] = dynamic.iter_tags("DT_FLAGS_1")
-    if not flags_tag["d_val"] & ENUM_DT_FLAGS_1["DF_1_PIE"]:
+    if not flags_tag["d_val"] & elf.enums.ENUM_DT_FLAGS_1["DF_1_PIE"]:
         raise ValueError("ELF file is not a PIE")
 
     # This checks that the ELF image base is 0.
-    symtab = elf.get_section_by_name(".symtab")
+    symtab = file.get_section_by_name(".symtab")
     if symtab:
         exe_start = symtab.get_symbol_by_name("__executable_start")
         if exe_start and exe_start[0]["st_value"] != 0:
@@ -492,16 +485,16 @@ def convert_elf_relocations(
         segment_offset = align_to(opt.SizeOfHeaders - sections[0].VirtualAddress,
                                   SECTION_ALIGNMENT)
 
-    opt.AddressOfEntryPoint = elf["e_entry"] + segment_offset
+    opt.AddressOfEntryPoint = file["e_entry"] + segment_offset
     opt.BaseOfCode += segment_offset
     if isinstance(opt, PeOptionalHeader32):
         opt.BaseOfData += segment_offset
 
-    pe_reloc_blocks: typing.Dict[int, PeRelocationBlock] = {}
+    pe_reloc_blocks: dict[int, PeRelocationBlock] = {}
     for reloc_type, reloc_table in dynamic.get_relocation_tables().items():
         if reloc_type not in ["REL", "RELA"]:
             raise BadSectionError(f"Unsupported relocation type {reloc_type}")
-        convert_elf_reloc_table(elf,
+        convert_elf_reloc_table(file,
                                 reloc_table,
                                 opt.ImageBase + segment_offset,
                                 sections,
@@ -545,11 +538,11 @@ def convert_elf_relocations(
 
 
 def write_pe(
-    file,
+    file: typing.IO[bytes],
     coff: PeCoffHeader,
     opt: PeOptionalHeader,
-    sections: typing.List[PeSection],
-):
+    sections: list[PeSection],
+) -> None:
     file.write(b"MZ")
     file.seek(0x3C, io.SEEK_SET)
     file.write(PE_OFFSET.to_bytes(2, byteorder="little"))
@@ -577,38 +570,38 @@ def write_pe(
     file.truncate(offset)
 
 
-def elf2efi(args: argparse.Namespace):
-    elf = ELFFile(args.ELF)
-    if not elf.little_endian:
+def elf2efi(args: argparse.Namespace) -> None:
+    file = elffile.ELFFile(args.ELF)
+    if not file.little_endian:
         raise ValueError("ELF file is not little-endian")
-    if elf["e_type"] not in ["ET_DYN", "ET_EXEC"]:
-        raise ValueError(f"Unsupported ELF type {elf['e_type']}")
+    if file["e_type"] not in ["ET_DYN", "ET_EXEC"]:
+        raise ValueError(f"Unsupported ELF type {file['e_type']}")
 
     pe_arch = {
         "EM_386": 0x014C,
         "EM_AARCH64": 0xAA64,
         "EM_ARM": 0x01C2,
-        "EM_LOONGARCH": 0x6232 if elf.elfclass == 32 else 0x6264,
-        "EM_RISCV": 0x5032 if elf.elfclass == 32 else 0x5064,
+        "EM_LOONGARCH": 0x6232 if file.elfclass == 32 else 0x6264,
+        "EM_RISCV": 0x5032 if file.elfclass == 32 else 0x5064,
         "EM_X86_64": 0x8664,
-    }.get(elf["e_machine"])
+    }.get(file["e_machine"])
     if pe_arch is None:
-        raise ValueError(f"Unsupported ELF architecture {elf['e_machine']}")
+        raise ValueError(f"Unsupported ELF architecture {file['e_machine']}")
 
     coff = PeCoffHeader()
-    opt = PeOptionalHeader32() if elf.elfclass == 32 else PeOptionalHeader32Plus()
+    opt = PeOptionalHeader32() if file.elfclass == 32 else PeOptionalHeader32Plus()
 
     # We relocate to a unique image base to reduce the chances for runtime relocation to occur.
     base_name = pathlib.Path(args.PE.name).name.encode()
     opt.ImageBase = int(hashlib.sha1(base_name).hexdigest()[0:8], 16)
-    if elf.elfclass == 32:
+    if file.elfclass == 32:
         opt.ImageBase = (0x400000 + opt.ImageBase) & 0xFFFF0000
     else:
         opt.ImageBase = (0x100000000 + opt.ImageBase) & 0x1FFFF0000
 
-    sections = convert_sections(elf, opt)
-    copy_sections(elf, opt, args.copy_sections, sections)
-    pe_reloc_s = convert_elf_relocations(elf, opt, sections, args.minimum_sections)
+    sections = convert_sections(file, opt)
+    copy_sections(file, opt, args.copy_sections, sections)
+    pe_reloc_s = convert_elf_relocations(file, opt, sections, args.minimum_sections)
 
     coff.Machine = pe_arch
     coff.NumberOfSections = len(sections)
@@ -616,7 +609,7 @@ def elf2efi(args: argparse.Namespace):
     coff.SizeOfOptionalHeader = sizeof(opt)
     # EXECUTABLE_IMAGE|LINE_NUMS_STRIPPED|LOCAL_SYMS_STRIPPED|DEBUG_STRIPPED
     # and (32BIT_MACHINE or LARGE_ADDRESS_AWARE)
-    coff.Characteristics = 0x30E if elf.elfclass == 32 else 0x22E
+    coff.Characteristics = 0x30E if file.elfclass == 32 else 0x22E
 
     opt.SectionAlignment = SECTION_ALIGNMENT
     opt.FileAlignment = FILE_ALIGNMENT
@@ -625,11 +618,11 @@ def elf2efi(args: argparse.Namespace):
     opt.MajorSubsystemVersion = args.efi_major
     opt.MinorSubsystemVersion = args.efi_minor
     opt.Subsystem = args.subsystem
-    opt.Magic = 0x10B if elf.elfclass == 32 else 0x20B
+    opt.Magic = 0x10B if file.elfclass == 32 else 0x20B
     opt.SizeOfImage = next_section_address(sections)
 
     # DYNAMIC_BASE|NX_COMPAT|HIGH_ENTROPY_VA or DYNAMIC_BASE|NX_COMPAT
-    opt.DllCharacteristics = 0x160 if elf.elfclass == 64 else 0x140
+    opt.DllCharacteristics = 0x160 if file.elfclass == 64 else 0x140
 
     # These values are taken from a natively built PE binary (although, unused by EDK2/EFI).
     opt.SizeOfStackReserve = 0x100000
@@ -703,7 +696,7 @@ def create_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main():
+def main() -> None:
     parser = create_parser()
     elf2efi(parser.parse_args())
 

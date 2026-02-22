@@ -12,8 +12,28 @@ sync_in() {
 }
 
 wait_for_signal() {
+    local notify="${1:?}"
+    local p
+    local c
+
     sleep infinity &
-    wait "$!" || :
+    p=$!
+    c="${COUNTER:-0}"
+
+    # Notify readiness after 'sleep' is running to avoid race
+    # condition where the SIGHUP is sent before 'sleep' is ready to
+    # receive it and we get stuck
+    if [ "$notify" -eq 1 ]; then
+        systemd-notify --ready
+    fi
+
+    # ...but even that is not sufficient sometimes, so check if the
+    # callback has already ran by checking the counter
+    if [ "$c" -ne "$COUNTER" ]; then
+        kill -TERM "$p" || :
+    else
+        wait "$p" || :
+    fi
 }
 
 sighup_handler() {
@@ -24,17 +44,14 @@ trap sighup_handler SIGHUP
 
 export SYSTEMD_LOG_LEVEL=debug
 
-systemd-notify --ready
-
-wait_for_signal
+wait_for_signal 1
 systemd-notify --reloading
 
-wait_for_signal
+wait_for_signal 0
 systemd-notify --reloading
 sync_in ready
-systemd-notify --ready
 
-wait_for_signal
+wait_for_signal 1
 systemd-notify --reloading --ready
 
 exec sleep infinity

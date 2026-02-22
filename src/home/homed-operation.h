@@ -48,8 +48,7 @@ typedef struct Operation {
 } Operation;
 
 Operation *operation_new(OperationType type, sd_bus_message *m);
-Operation *operation_ref(Operation *operation);
-Operation *operation_unref(Operation *operation);
+DECLARE_TRIVIAL_REF_UNREF_FUNC(Operation, operation);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Operation*, operation_unref);
 

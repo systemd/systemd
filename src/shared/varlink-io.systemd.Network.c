@@ -1,6 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "bus-polkit.h"
 #include "varlink-io.systemd.Network.h"
+
+/* Helper macro to define address fields with both binary and string representation */
+#define VARLINK_DEFINE_IN_ADDR_WITH_STRING_FIELD(field_name, comment, flags) \
+        SD_VARLINK_FIELD_COMMENT(comment), \
+        SD_VARLINK_DEFINE_FIELD(field_name, SD_VARLINK_INT, SD_VARLINK_ARRAY | (flags)), \
+        SD_VARLINK_FIELD_COMMENT(comment " (human-readable format)"), \
+        SD_VARLINK_DEFINE_FIELD(field_name##String, SD_VARLINK_STRING, (flags))
 
 static SD_VARLINK_DEFINE_ENUM_TYPE(
                 LinkState,
@@ -35,12 +43,10 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 RoutingPolicyRule,
                 SD_VARLINK_FIELD_COMMENT("Address family (AF_INET or AF_INET6)"),
                 SD_VARLINK_DEFINE_FIELD(Family, SD_VARLINK_INT, 0),
-                SD_VARLINK_FIELD_COMMENT("Source address prefix to match"),
-                SD_VARLINK_DEFINE_FIELD(FromPrefix, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                VARLINK_DEFINE_IN_ADDR_WITH_STRING_FIELD(FromPrefix, "Source address prefix to match", SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Length of source prefix in bits"),
                 SD_VARLINK_DEFINE_FIELD(FromPrefixLength, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("Destination address prefix to match"),
-                SD_VARLINK_DEFINE_FIELD(ToPrefix, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                VARLINK_DEFINE_IN_ADDR_WITH_STRING_FIELD(ToPrefix, "Destination address prefix to match", SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Length of destination prefix in bits"),
                 SD_VARLINK_DEFINE_FIELD(ToPrefixLength, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Routing protocol identifier"),
@@ -92,18 +98,14 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 Route,
                 SD_VARLINK_FIELD_COMMENT("Address family (AF_INET or AF_INET6)"),
                 SD_VARLINK_DEFINE_FIELD(Family, SD_VARLINK_INT, 0),
-                SD_VARLINK_FIELD_COMMENT("Destination network address"),
-                SD_VARLINK_DEFINE_FIELD(Destination, SD_VARLINK_INT, SD_VARLINK_ARRAY),
+                VARLINK_DEFINE_IN_ADDR_WITH_STRING_FIELD(Destination, "Destination network address", 0),
                 SD_VARLINK_FIELD_COMMENT("Destination network prefix length"),
                 SD_VARLINK_DEFINE_FIELD(DestinationPrefixLength, SD_VARLINK_INT, 0),
-                SD_VARLINK_FIELD_COMMENT("Gateway address for this route"),
-                SD_VARLINK_DEFINE_FIELD(Gateway, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("Source address prefix for route selection"),
-                SD_VARLINK_DEFINE_FIELD(Source, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                VARLINK_DEFINE_IN_ADDR_WITH_STRING_FIELD(Gateway, "Gateway address for this route", SD_VARLINK_NULLABLE),
+                VARLINK_DEFINE_IN_ADDR_WITH_STRING_FIELD(Source, "Source address prefix for route selection", SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Source prefix length"),
                 SD_VARLINK_DEFINE_FIELD(SourcePrefixLength, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("Preferred source address for outgoing packets"),
-                SD_VARLINK_DEFINE_FIELD(PreferredSource, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                VARLINK_DEFINE_IN_ADDR_WITH_STRING_FIELD(PreferredSource, "Preferred source address for outgoing packets", SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Type of Service (TOS) field"),
                 SD_VARLINK_DEFINE_FIELD(TOS, SD_VARLINK_INT, 0),
                 SD_VARLINK_FIELD_COMMENT("Route scope (RT_SCOPE_* value)"),
@@ -138,8 +140,7 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(LifetimeUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Configuration source for this route"),
                 SD_VARLINK_DEFINE_FIELD(ConfigSource, SD_VARLINK_STRING, 0),
-                SD_VARLINK_FIELD_COMMENT("Address of the configuration provider"),
-                SD_VARLINK_DEFINE_FIELD(ConfigProvider, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                VARLINK_DEFINE_IN_ADDR_WITH_STRING_FIELD(ConfigProvider, "Address of the configuration provider", SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Configuration state of this route"),
                 SD_VARLINK_DEFINE_FIELD(ConfigState, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Interface index for serialization"),
@@ -162,8 +163,7 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(ID, SD_VARLINK_INT, 0),
                 SD_VARLINK_FIELD_COMMENT("Address family (AF_INET or AF_INET6)"),
                 SD_VARLINK_DEFINE_FIELD(Family, SD_VARLINK_INT, 0),
-                SD_VARLINK_FIELD_COMMENT("Gateway address for this next hop"),
-                SD_VARLINK_DEFINE_FIELD(Gateway, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                VARLINK_DEFINE_IN_ADDR_WITH_STRING_FIELD(Gateway, "Gateway address for this next hop", SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Next hop flags (RTNH_F_* values)"),
                 SD_VARLINK_DEFINE_FIELD(Flags, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Human-readable flags string"),
@@ -178,8 +178,7 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(Group, NextHopGroup, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Configuration source for this next hop"),
                 SD_VARLINK_DEFINE_FIELD(ConfigSource, SD_VARLINK_STRING, 0),
-                SD_VARLINK_FIELD_COMMENT("Address of the configuration provider"),
-                SD_VARLINK_DEFINE_FIELD(ConfigProvider, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                VARLINK_DEFINE_IN_ADDR_WITH_STRING_FIELD(ConfigProvider, "Address of the configuration provider", SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Configuration state of this next hop"),
                 SD_VARLINK_DEFINE_FIELD(ConfigState, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
@@ -210,8 +209,7 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 DNS,
                 SD_VARLINK_FIELD_COMMENT("Address family (AF_INET or AF_INET6)"),
                 SD_VARLINK_DEFINE_FIELD(Family, SD_VARLINK_INT, 0),
-                SD_VARLINK_FIELD_COMMENT("DNS server IP address"),
-                SD_VARLINK_DEFINE_FIELD(Address, SD_VARLINK_INT, SD_VARLINK_ARRAY),
+                VARLINK_DEFINE_IN_ADDR_WITH_STRING_FIELD(Address, "DNS server IP address", 0),
                 SD_VARLINK_FIELD_COMMENT("DNS server port number"),
                 SD_VARLINK_DEFINE_FIELD(Port, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Interface index for link-local DNS servers"),
@@ -220,34 +218,29 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(ServerName, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Configuration source for this DNS server"),
                 SD_VARLINK_DEFINE_FIELD(ConfigSource, SD_VARLINK_STRING, 0),
-                SD_VARLINK_FIELD_COMMENT("Address of the configuration provider"),
-                SD_VARLINK_DEFINE_FIELD(ConfigProvider, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE));
+                VARLINK_DEFINE_IN_ADDR_WITH_STRING_FIELD(ConfigProvider, "Address of the configuration provider", SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 NTP,
                 SD_VARLINK_FIELD_COMMENT("Address family (AF_INET or AF_INET6) for address-based servers"),
                 SD_VARLINK_DEFINE_FIELD(Family, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("NTP server IP address"),
-                SD_VARLINK_DEFINE_FIELD(Address, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                VARLINK_DEFINE_IN_ADDR_WITH_STRING_FIELD(Address, "NTP server IP address", SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("NTP server"),
                 SD_VARLINK_DEFINE_FIELD(Server, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Configuration source for this NTP server"),
                 SD_VARLINK_DEFINE_FIELD(ConfigSource, SD_VARLINK_STRING, 0),
-                SD_VARLINK_FIELD_COMMENT("Address of the configuration provider"),
-                SD_VARLINK_DEFINE_FIELD(ConfigProvider, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE));
+                VARLINK_DEFINE_IN_ADDR_WITH_STRING_FIELD(ConfigProvider, "Address of the configuration provider", SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SIP,
                 SD_VARLINK_FIELD_COMMENT("Address family (AF_INET or AF_INET6) for address-based servers"),
                 SD_VARLINK_DEFINE_FIELD(Family, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("SIP server IP address"),
-                SD_VARLINK_DEFINE_FIELD(Address, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                VARLINK_DEFINE_IN_ADDR_WITH_STRING_FIELD(Address, "SIP server IP address", SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("SIP server domain name"),
                 SD_VARLINK_DEFINE_FIELD(Domain, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Configuration source for this SIP server"),
                 SD_VARLINK_DEFINE_FIELD(ConfigSource, SD_VARLINK_STRING, 0),
-                SD_VARLINK_FIELD_COMMENT("Address of the configuration provider"),
-                SD_VARLINK_DEFINE_FIELD(ConfigProvider, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE));
+                VARLINK_DEFINE_IN_ADDR_WITH_STRING_FIELD(ConfigProvider, "Address of the configuration provider", SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 Domain,
@@ -255,8 +248,7 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(Domain, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("Configuration source for this domain"),
                 SD_VARLINK_DEFINE_FIELD(ConfigSource, SD_VARLINK_STRING, 0),
-                SD_VARLINK_FIELD_COMMENT("Address of the configuration provider"),
-                SD_VARLINK_DEFINE_FIELD(ConfigProvider, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE));
+                VARLINK_DEFINE_IN_ADDR_WITH_STRING_FIELD(ConfigProvider, "Address of the configuration provider", SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 DNSSECNegativeTrustAnchor,
@@ -282,12 +274,13 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 Pref64,
                 SD_VARLINK_FIELD_COMMENT("IPv6 prefix for NAT64/DNS64"),
                 SD_VARLINK_DEFINE_FIELD(Prefix, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Human-readable IPv6 prefix"),
+                SD_VARLINK_DEFINE_FIELD(PrefixString, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Length of the prefix in bits"),
                 SD_VARLINK_DEFINE_FIELD(PrefixLength, SD_VARLINK_INT, 0),
                 SD_VARLINK_FIELD_COMMENT("Lifetime of the prefix in microseconds"),
                 SD_VARLINK_DEFINE_FIELD(LifetimeUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("Address of router that provided this prefix"),
-                SD_VARLINK_DEFINE_FIELD(ConfigProvider, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE));
+                VARLINK_DEFINE_IN_ADDR_WITH_STRING_FIELD(ConfigProvider, "Address of router that provided this prefix", SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 NDisc,
@@ -298,18 +291,14 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 Address,
                 SD_VARLINK_FIELD_COMMENT("Address family (AF_INET or AF_INET6)"),
                 SD_VARLINK_DEFINE_FIELD(Family, SD_VARLINK_INT, 0),
-                SD_VARLINK_FIELD_COMMENT("IP address"),
-                SD_VARLINK_DEFINE_FIELD(Address, SD_VARLINK_INT, SD_VARLINK_ARRAY),
-                SD_VARLINK_FIELD_COMMENT("Peer address for point-to-point interfaces"),
-                SD_VARLINK_DEFINE_FIELD(Peer, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                VARLINK_DEFINE_IN_ADDR_WITH_STRING_FIELD(Address, "IP address", 0),
+                VARLINK_DEFINE_IN_ADDR_WITH_STRING_FIELD(Peer, "Peer address for point-to-point interfaces", SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Network prefix length"),
                 SD_VARLINK_DEFINE_FIELD(PrefixLength, SD_VARLINK_INT, 0),
                 SD_VARLINK_FIELD_COMMENT("Configuration source for this address"),
                 SD_VARLINK_DEFINE_FIELD(ConfigSource, SD_VARLINK_STRING, 0),
-                SD_VARLINK_FIELD_COMMENT("Address of the configuration provider (DHCP server, router, etc.)"),
-                SD_VARLINK_DEFINE_FIELD(ConfigProvider, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("Broadcast address for IPv4 networks"),
-                SD_VARLINK_DEFINE_FIELD(Broadcast, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                VARLINK_DEFINE_IN_ADDR_WITH_STRING_FIELD(ConfigProvider, "Address of the configuration provider (DHCP server, router, etc.)", SD_VARLINK_NULLABLE),
+                VARLINK_DEFINE_IN_ADDR_WITH_STRING_FIELD(Broadcast, "Broadcast address for IPv4 networks", SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Address scope (RT_SCOPE_* value)"),
                 SD_VARLINK_DEFINE_FIELD(Scope, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Human-readable scope string"),
@@ -335,8 +324,7 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 Neighbor,
                 SD_VARLINK_FIELD_COMMENT("Address family (AF_INET or AF_INET6)"),
                 SD_VARLINK_DEFINE_FIELD(Family, SD_VARLINK_INT, 0),
-                SD_VARLINK_FIELD_COMMENT("IP address of the neighbor"),
-                SD_VARLINK_DEFINE_FIELD(Destination, SD_VARLINK_INT, SD_VARLINK_ARRAY),
+                VARLINK_DEFINE_IN_ADDR_WITH_STRING_FIELD(Destination, "IP address of the neighbor", 0),
                 SD_VARLINK_FIELD_COMMENT("Link layer (MAC) address of the neighbor"),
                 SD_VARLINK_DEFINE_FIELD(LinkLayerAddress, SD_VARLINK_INT, SD_VARLINK_ARRAY),
                 SD_VARLINK_FIELD_COMMENT("Configuration source for this neighbor entry"),
@@ -366,12 +354,14 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 DHCPv6ClientPD,
                 SD_VARLINK_FIELD_COMMENT("Delegated IPv6 prefix"),
                 SD_VARLINK_DEFINE_FIELD(Prefix, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Human-readable delegated IPv6 prefix"),
+                SD_VARLINK_DEFINE_FIELD(PrefixString, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Length of the delegated prefix in bits"),
                 SD_VARLINK_DEFINE_FIELD(PrefixLength, SD_VARLINK_INT, 0),
                 SD_VARLINK_FIELD_COMMENT("Preferred lifetime of the prefix in microseconds"),
-                SD_VARLINK_DEFINE_FIELD(PreferredLifetimeUsec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_FIELD(PreferredLifetimeUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Valid lifetime of the prefix in microseconds"),
-                SD_VARLINK_DEFINE_FIELD(ValidLifetimeUsec, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_FIELD(ValidLifetimeUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 DHCPv6ClientVendorOption,
@@ -397,8 +387,7 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 DHCPServerLease,
                 SD_VARLINK_FIELD_COMMENT("DHCP client identifier"),
                 SD_VARLINK_DEFINE_FIELD(ClientId, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("Address assigned to the client"),
-                SD_VARLINK_DEFINE_FIELD(Address, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                VARLINK_DEFINE_IN_ADDR_WITH_STRING_FIELD(Address, "Address assigned to the client", SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Hostname provided by the DHCP client"),
                 SD_VARLINK_DEFINE_FIELD(Hostname, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Hardware address type (ARPHRD_* value)"),
@@ -459,8 +448,7 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(PermanentHardwareAddress, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Broadcast address for Ethernet interfaces"),
                 SD_VARLINK_DEFINE_FIELD(BroadcastAddress, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("IPv6 link-local address"),
-                SD_VARLINK_DEFINE_FIELD(IPv6LinkLocalAddress, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                VARLINK_DEFINE_IN_ADDR_WITH_STRING_FIELD(IPv6LinkLocalAddress, "IPv6 link-local address", SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Wireless LAN interface type (NL80211_IFTYPE_* value)"),
                 SD_VARLINK_DEFINE_FIELD(WirelessLanInterfaceType, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Human-readable wireless LAN interface type"),
@@ -606,6 +594,22 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("Whether persistent storage is ready and writable"),
                 SD_VARLINK_DEFINE_INPUT(Ready, SD_VARLINK_BOOL, 0));
 
+static SD_VARLINK_DEFINE_METHOD(
+                LinkUp,
+                SD_VARLINK_FIELD_COMMENT("Index of the interface. If specified together with InterfaceName, both must reference the same link."),
+                SD_VARLINK_DEFINE_INPUT(InterfaceIndex, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Name of the interface. If specified together with InterfaceIndex, both must reference the same link."),
+                SD_VARLINK_DEFINE_INPUT(InterfaceName, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                VARLINK_DEFINE_POLKIT_INPUT);
+
+static SD_VARLINK_DEFINE_METHOD(
+                LinkDown,
+                SD_VARLINK_FIELD_COMMENT("Index of the interface. If specified together with InterfaceName, both must reference the same link."),
+                SD_VARLINK_DEFINE_INPUT(InterfaceIndex, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Name of the interface. If specified together with InterfaceIndex, both must reference the same link."),
+                SD_VARLINK_DEFINE_INPUT(InterfaceName, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                VARLINK_DEFINE_POLKIT_INPUT);
+
 static SD_VARLINK_DEFINE_ERROR(StorageReadOnly);
 
 SD_VARLINK_DEFINE_INTERFACE(
@@ -616,6 +620,10 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_GetNamespaceId,
                 &vl_method_GetLLDPNeighbors,
                 &vl_method_SetPersistentStorage,
+                SD_VARLINK_SYMBOL_COMMENT("Bring the specified link up."),
+                &vl_method_LinkUp,
+                SD_VARLINK_SYMBOL_COMMENT("Bring the specified link down."),
+                &vl_method_LinkDown,
                 &vl_type_Address,
                 &vl_type_DHCPLease,
                 &vl_type_DHCPServer,

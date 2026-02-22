@@ -117,7 +117,7 @@ int bus_link_method_set_ntp_servers(sd_bus_message *message, void *userdata, sd_
 
         strv_free_and_replace(l->ntp, ntp);
 
-        r = link_save_and_clean_full(l, /* also_save_manager = */ true);
+        r = link_save_and_clean_full(l, /* also_save_manager= */ true);
         if (r < 0)
                 return r;
 
@@ -160,7 +160,7 @@ static int bus_link_method_set_dns_servers_internal(sd_bus_message *message, voi
         free_and_replace(l->dns, dns);
         l->n_dns = n;
 
-        r = link_save_and_clean_full(l, /* also_save_manager = */ true);
+        r = link_save_and_clean_full(l, /* also_save_manager= */ true);
         if (r < 0)
                 return r;
 
@@ -257,7 +257,7 @@ int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_
         l->search_domains = TAKE_PTR(search_domains);
         l->route_domains = TAKE_PTR(route_domains);
 
-        r = link_save_and_clean_full(l, /* also_save_manager = */ true);
+        r = link_save_and_clean_full(l, /* also_save_manager= */ true);
         if (r < 0)
                 return r;
 
@@ -292,7 +292,7 @@ int bus_link_method_set_default_route(sd_bus_message *message, void *userdata, s
         if (l->dns_default_route != b) {
                 l->dns_default_route = b;
 
-                r = link_save_and_clean_full(l, /* also_save_manager = */ true);
+                r = link_save_and_clean_full(l, /* also_save_manager= */ true);
                 if (r < 0)
                         return r;
         }
@@ -338,7 +338,7 @@ int bus_link_method_set_llmnr(sd_bus_message *message, void *userdata, sd_bus_er
         if (l->llmnr != mode) {
                 l->llmnr = mode;
 
-                r = link_save_and_clean_full(l, /* also_save_manager = */ true);
+                r = link_save_and_clean_full(l, /* also_save_manager= */ true);
                 if (r < 0)
                         return r;
         }
@@ -384,7 +384,7 @@ int bus_link_method_set_mdns(sd_bus_message *message, void *userdata, sd_bus_err
         if (l->mdns != mode) {
                 l->mdns = mode;
 
-                r = link_save_and_clean_full(l, /* also_save_manager = */ true);
+                r = link_save_and_clean_full(l, /* also_save_manager= */ true);
                 if (r < 0)
                         return r;
         }
@@ -430,7 +430,7 @@ int bus_link_method_set_dns_over_tls(sd_bus_message *message, void *userdata, sd
         if (l->dns_over_tls_mode != mode) {
                 l->dns_over_tls_mode = mode;
 
-                r = link_save_and_clean_full(l, /* also_save_manager = */ true);
+                r = link_save_and_clean_full(l, /* also_save_manager= */ true);
                 if (r < 0)
                         return r;
         }
@@ -476,7 +476,7 @@ int bus_link_method_set_dnssec(sd_bus_message *message, void *userdata, sd_bus_e
         if (l->dnssec_mode != mode) {
                 l->dnssec_mode = mode;
 
-                r = link_save_and_clean_full(l, /* also_save_manager = */ true);
+                r = link_save_and_clean_full(l, /* also_save_manager= */ true);
                 if (r < 0)
                         return r;
         }
@@ -533,7 +533,7 @@ int bus_link_method_set_dnssec_negative_trust_anchors(sd_bus_message *message, v
 
         set_free_and_replace(l->dnssec_negative_trust_anchors, ns);
 
-        r = link_save_and_clean_full(l, /* also_save_manager = */ true);
+        r = link_save_and_clean_full(l, /* also_save_manager= */ true);
         if (r < 0)
                 return r;
 
@@ -562,7 +562,7 @@ int bus_link_method_revert_ntp(sd_bus_message *message, void *userdata, sd_bus_e
 
         link_ntp_settings_clear(l);
 
-        r = link_save_and_clean_full(l, /* also_save_manager = */ true);
+        r = link_save_and_clean_full(l, /* also_save_manager= */ true);
         if (r < 0)
                 return r;
 
@@ -592,7 +592,7 @@ int bus_link_method_revert_dns(sd_bus_message *message, void *userdata, sd_bus_e
 
         link_dns_settings_clear(l);
 
-        r = link_save_and_clean_full(l, /* also_save_manager = */ true);
+        r = link_save_and_clean_full(l, /* also_save_manager= */ true);
         if (r < 0)
                 return r;
 
@@ -672,7 +672,7 @@ int bus_link_method_reconfigure(sd_bus_message *message, void *userdata, sd_bus_
         if (r == 0)
                 return 1; /* Polkit will call us back */
 
-        r = link_reconfigure_full(l, LINK_RECONFIGURE_UNCONDITIONALLY | LINK_RECONFIGURE_CLEANLY, message, /* counter = */ NULL);
+        r = link_reconfigure_full(l, LINK_RECONFIGURE_UNCONDITIONALLY | LINK_RECONFIGURE_CLEANLY, message, /* counter= */ NULL);
         if (r != 0)
                 return r; /* Will reply later when r > 0. */
 

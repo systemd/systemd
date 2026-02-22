@@ -649,7 +649,7 @@ static int nft_add_element(
          * This replicated here and each element gets added to the set
          * one-by-one.
          */
-        r = sd_nfnl_nft_message_new_setelems(nfnl, &m, /* add = */ true, nfproto, table_name, set_name);
+        r = sd_nfnl_nft_message_new_setelems(nfnl, &m, /* add= */ true, nfproto, table_name, set_name);
         if (r < 0)
                 return r;
 
@@ -693,7 +693,7 @@ static int nft_del_element(
         assert(key);
         assert(data || dlen == 0);
 
-        r = sd_nfnl_nft_message_new_setelems(nfnl, &m, /* add = */ false, nfproto, table_name, set_name);
+        r = sd_nfnl_nft_message_new_setelems(nfnl, &m, /* add= */ false, nfproto, table_name, set_name);
         if (r < 0)
                return r;
 
@@ -1060,7 +1060,6 @@ static int fw_nftables_add_local_dnat_internal(
 
         sd_netlink_message *messages[3] = {};
         _unused_ _cleanup_(netlink_message_unref_manyp) sd_netlink_message **unref = messages;
-        static bool ipv6_supported = true;
         uint32_t data[5], key[2], dlen;
         size_t msgcnt = 0;
         int r;
@@ -1068,9 +1067,6 @@ static int fw_nftables_add_local_dnat_internal(
         assert(nfnl);
         assert(add || !previous_remote);
         assert(IN_SET(af, AF_INET, AF_INET6));
-
-        if (!ipv6_supported && af == AF_INET6)
-                return -EOPNOTSUPP;
 
         if (!IN_SET(protocol, IPPROTO_TCP, IPPROTO_UDP))
                 return -EPROTONOSUPPORT;
@@ -1125,14 +1121,6 @@ static int fw_nftables_add_local_dnat_internal(
 
         assert(msgcnt < ELEMENTSOF(messages));
         r = sd_nfnl_call_batch(nfnl, messages, msgcnt, NFNL_DEFAULT_TIMEOUT_USECS);
-        if (r == -EOVERFLOW && af == AF_INET6) {
-                /* The current implementation of DNAT in systemd requires kernel's
-                 * fdb9c405e35bdc6e305b9b4e20ebc141ed14fc81 (v5.8), and the older kernel returns
-                 * -EOVERFLOW. Let's treat the error as -EOPNOTSUPP. */
-                log_debug_errno(r, "The current implementation of IPv6 DNAT in systemd requires kernel 5.8 or newer, ignoring: %m");
-                ipv6_supported = false;
-                return -EOPNOTSUPP;
-        }
         if (r < 0)
                 return r;
 

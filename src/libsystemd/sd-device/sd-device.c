@@ -274,7 +274,7 @@ static int device_new_from_syspath(sd_device **ret, const char *syspath, bool st
 }
 
 _public_ int sd_device_new_from_syspath(sd_device **ret, const char *syspath) {
-        return device_new_from_syspath(ret, syspath, /* strict = */ true);
+        return device_new_from_syspath(ret, syspath, /* strict= */ true);
 }
 
 int device_new_from_mode_and_devnum(sd_device **ret, mode_t mode, dev_t devnum) {
@@ -486,13 +486,13 @@ _public_ int sd_device_new_from_subsystem_sysname(
 
         if (streq(subsystem, "subsystem")) {
                 FOREACH_STRING(s, "/sys/bus/", "/sys/class/") {
-                        r = device_new_from_path_join(&device, subsystem, /* driver_subsystem = */ NULL, sysname, s, name, NULL, NULL);
+                        r = device_new_from_path_join(&device, subsystem, /* driver_subsystem= */ NULL, sysname, s, name, NULL, NULL);
                         if (r < 0)
                                 return r;
                 }
 
         } else if (streq(subsystem, "module")) {
-                r = device_new_from_path_join(&device, subsystem, /* driver_subsystem = */ NULL, sysname, "/sys/module/", name, NULL, NULL);
+                r = device_new_from_path_join(&device, subsystem, /* driver_subsystem= */ NULL, sysname, "/sys/module/", name, NULL, NULL);
                 if (r < 0)
                         return r;
 
@@ -514,17 +514,17 @@ _public_ int sd_device_new_from_subsystem_sysname(
                 }
         }
 
-        r = device_new_from_path_join(&device, subsystem, /* driver_subsystem = */ NULL, sysname, "/sys/bus/", subsystem, "/devices/", name);
+        r = device_new_from_path_join(&device, subsystem, /* driver_subsystem= */ NULL, sysname, "/sys/bus/", subsystem, "/devices/", name);
         if (r < 0)
                 return r;
 
-        r = device_new_from_path_join(&device, subsystem, /* driver_subsystem = */ NULL, sysname, "/sys/class/", subsystem, name, NULL);
+        r = device_new_from_path_join(&device, subsystem, /* driver_subsystem= */ NULL, sysname, "/sys/class/", subsystem, name, NULL);
         if (r < 0)
                 return r;
 
         /* Note that devices under /sys/firmware/ (e.g. /sys/firmware/devicetree/base/) do not have
          * subsystem. Hence, pass NULL for subsystem. See issue #35861. */
-        r = device_new_from_path_join(&device, /* subsystem = */ NULL, /* driver_subsystem = */ NULL, sysname, "/sys/firmware/", subsystem, name, NULL);
+        r = device_new_from_path_join(&device, /* subsystem= */ NULL, /* driver_subsystem= */ NULL, sysname, "/sys/firmware/", subsystem, name, NULL);
         if (r < 0)
                 return r;
 
@@ -564,7 +564,7 @@ static int device_new_from_devname(sd_device **ret, const char *devname, bool st
 
         _cleanup_free_ char *resolved = NULL;
         struct stat st;
-        r = chase_and_stat(devname, /* root = */ NULL, /* chase_flags = */ 0, &resolved, &st);
+        r = chase_and_stat(devname, /* root= */ NULL, /* chase_flags= */ 0, &resolved, &st);
         if (ERRNO_IS_NEG_DEVICE_ABSENT(r))
                 return -ENODEV;
         if (r < 0)
@@ -577,17 +577,17 @@ static int device_new_from_devname(sd_device **ret, const char *devname, bool st
 }
 
 _public_ int sd_device_new_from_devname(sd_device **ret, const char *devname) {
-        return device_new_from_devname(ret, devname, /* strict = */ true);
+        return device_new_from_devname(ret, devname, /* strict= */ true);
 }
 
 _public_ int sd_device_new_from_path(sd_device **ret, const char *path) {
         assert_return(ret, -EINVAL);
         assert_return(path, -EINVAL);
 
-        if (device_new_from_devname(ret, path, /* strict = */ false) >= 0)
+        if (device_new_from_devname(ret, path, /* strict= */ false) >= 0)
                 return 0;
 
-        return device_new_from_syspath(ret, path, /* strict = */ false);
+        return device_new_from_syspath(ret, path, /* strict= */ false);
 }
 
 int device_set_devtype(sd_device *device, const char *devtype) {
@@ -1802,12 +1802,10 @@ int device_read_db_internal_filename(sd_device *device, const char *filename) {
         assert(filename);
 
         r = read_full_file(filename, &db, &db_len);
-        if (r < 0) {
-                if (r == -ENOENT)
-                        return 0;
-
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
                 return log_device_debug_errno(device, r, "sd-device: Failed to read db '%s': %m", filename);
-        }
 
         /* devices with a database entry are initialized */
         device->is_initialized = true;
@@ -2447,7 +2445,7 @@ static int device_cache_sysattr_value_full(sd_device *device, char *key, char *v
 }
 
 int device_cache_sysattr_value(sd_device *device, char *key, char *value, int error) {
-        return device_cache_sysattr_value_full(device, key, value, strlen(value), error, /* ignore_uevent = */ true);
+        return device_cache_sysattr_value_full(device, key, value, strlen(value), error, /* ignore_uevent= */ true);
 }
 
 static int device_get_cached_sysattr_value(sd_device *device, const char *key, const char **ret_value, size_t *ret_size) {
@@ -2497,7 +2495,7 @@ int device_chase(sd_device *device, const char *path, ChaseFlags flags, char **r
 
         _cleanup_free_ char *resolved = NULL;
         _cleanup_close_ int fd = -EBADF;
-        r = chase(path, /* root = */ NULL, CHASE_NO_AUTOFS | flags, &resolved, ret_fd ? &fd : NULL);
+        r = chase(path, /* root= */ NULL, CHASE_NO_AUTOFS | flags, &resolved, ret_fd ? &fd : NULL);
         if (r < 0)
                 return r;
 
@@ -2582,7 +2580,7 @@ cache_result:
                         return RET_GATHER(r, -ENOMEM);
         }
 
-        int k = device_cache_sysattr_value_full(device, resolved, value, size, -r, /* ignore_uevent = */ false);
+        int k = device_cache_sysattr_value_full(device, resolved, value, size, -r, /* ignore_uevent= */ false);
         if (k < 0) {
                 if (r < 0)
                         log_device_debug_errno(device, k,
@@ -2713,7 +2711,7 @@ static int device_remove_cached_sysattr_value(sd_device *device, const char *sys
         assert(sysattr);
 
         _cleanup_free_ char *resolved = NULL;
-        r = device_chase(device, sysattr, CHASE_PREFIX_ROOT | CHASE_NONEXISTENT, &resolved, /* ret_fd = */ NULL);
+        r = device_chase(device, sysattr, CHASE_PREFIX_ROOT | CHASE_NONEXISTENT, &resolved, /* ret_fd= */ NULL);
         if (r < 0)
                 return r;
 

@@ -22,7 +22,7 @@ ConditionPathExists=|/.autorelabel
 SuccessAction=reboot
 
 [Service]
-ExecStart=sh -xec 'echo 0 >/sys/fs/selinux/enforce; fixfiles -f -F relabel; rm /.autorelabel;'
+ExecStart=bash -xec 'echo 0 >/sys/fs/selinux/enforce; fixfiles -f -F relabel; rm /.autorelabel;'
 Type=oneshot
 TimeoutSec=infinity
 

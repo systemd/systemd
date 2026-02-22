@@ -183,7 +183,7 @@ int convert_meminfo_value_to_uint64_bytes(const char *s, uint64_t *ret) {
         assert(s);
         assert(ret);
 
-        r = extract_first_word(&s, &w, /* separators = */ NULL, /* flags = */ 0);
+        r = extract_first_word(&s, &w, /* separators= */ NULL, /* flags= */ 0);
         if (r < 0)
                 return r;
         if (r == 0)

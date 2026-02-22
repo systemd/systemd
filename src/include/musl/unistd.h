@@ -10,3 +10,9 @@
  * found. Let's always use getopt_long(). */
 int getopt_fix(int argc, char * const *argv, const char *optstring);
 #define getopt(argc, argv, optstring) getopt_fix(argc, argv, optstring)
+
+int missing_close_range(unsigned first_fd, unsigned end_fd, unsigned flags);
+#define close_range missing_close_range
+
+int missing_execveat(int dirfd, const char *pathname, char * const argv[], char * const envp[], int flags);
+#define execveat missing_execveat

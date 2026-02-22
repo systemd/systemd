@@ -125,16 +125,17 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
  **********************************************************************/
 
 static int spawn_child(const char *child, char **argv) {
-        pid_t child_pid;
         int fd[2], r;
 
         if (pipe(fd) < 0)
                 return log_error_errno(errno, "Failed to create pager pipe: %m");
 
-        r = safe_fork_full("(remote)",
-                           (int[]) {STDIN_FILENO, fd[1], STDERR_FILENO },
-                           NULL, 0,
-                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REARRANGE_STDIO|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE, &child_pid);
+        r = pidref_safe_fork_full(
+                        "(remote)",
+                        (int[]) {STDIN_FILENO, fd[1], STDERR_FILENO },
+                        NULL, 0,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REARRANGE_STDIO|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE,
+                        /* ret= */ NULL);
         if (r < 0) {
                 safe_close_pair(fd);
                 return r;
@@ -994,7 +995,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'o':
-                        r = parse_path_argument(optarg, /* suppress_root = */ false, &arg_output);
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_output);
                         if (r < 0)
                                 return r;
                         break;

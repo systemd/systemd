@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # SPDX-License-Identifier: LGPL-2.1-or-later
 set -e
 
@@ -59,6 +59,8 @@ EOF
 TS="${SOURCE_DATE_EPOCH:-$(date +%s)}"
 
 sed "pkg/$PKG_SUBDIR/PKGBUILD" \
+    --expression "/-Dsysvinit-path=/d" \
+    --expression "/-Dsysvrcnd-path=/d" \
     --expression "s/^pkgver=.*/pkgver=$(cat meson.version)/" \
     --expression "s/^pkgrel=.*/pkgrel=$(date "+%Y%m%d%H%M%S" --date "@$TS")/" >/tmp/PKGBUILD
 mount --bind /tmp/PKGBUILD "pkg/$PKG_SUBDIR/PKGBUILD"

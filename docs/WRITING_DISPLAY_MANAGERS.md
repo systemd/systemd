@@ -16,11 +16,11 @@ true automatic multi-seat support, proper tracking of session processes, (option
 This document should be read together with [Writing Desktop Environments](/WRITING_DESKTOP_ENVIRONMENTS) which focuses on the porting work necessary for desktop environments.
 
 If required it is possible to implement ConsoleKit and systemd-logind support in the same display manager, detecting at runtime which interface is needed.
-The [sd_booted()](http://www.freedesktop.org/software/systemd/man/sd_booted.html) call may be used to determine at runtime whether systemd is used.
+The [sd_booted()](https://www.freedesktop.org/software/systemd/man/latest/sd_booted.html) call may be used to determine at runtime whether systemd is used.
 
 To a certain level ConsoleKit and systemd-logind may be used side-by-side, but a number of features are not available if ConsoleKit is used, for example automatic multi-seat support.
 
-Please have a look at the [Bus API of logind](https://www.freedesktop.org/software/systemd/man/latest/org.freedesktop.login1.html) and the C API as documented in [sd-login(7)](http://www.freedesktop.org/software/systemd/man/sd-login.html).
+Please have a look at the [Bus API of logind](https://www.freedesktop.org/software/systemd/man/latest/org.freedesktop.login1.html) and the C API as documented in [sd-login(7)](https://www.freedesktop.org/software/systemd/man/latest/sd-login.html).
 (Also see below)
 
 Minimal porting (without multi-seat) requires the following:
@@ -51,7 +51,7 @@ In summary: porting a display manager from ConsoleKit to systemd primarily means
    And that's already it.
 
 While most information about seats, sessions and users is available on systemd-logind's D-Bus interface, this is not the only API.
-The synchronous [sd-login(7)](http://www.freedesktop.org/software/systemd/man/sd-login.html) C interface is often easier to use and much faster too.
+The synchronous [sd-login(7)](https://www.freedesktop.org/software/systemd/man/latest/sd-login.html) C interface is often easier to use and much faster too.
 In fact it is possible to implement the scheme above entirely without D-Bus relying only on this API.
 Note however, that this C API is purely passive, and if you want to execute an actually state changing operation you need to use the bus interface (for example, to switch sessions, or to kill sessions and suchlike).
 Also have a look at the [logind Bus API](https://www.freedesktop.org/software/systemd/man/latest/org.freedesktop.login1.html).

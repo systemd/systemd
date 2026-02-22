@@ -3,7 +3,7 @@
 Description=Test for CPUAffinity (reset)
 
 [Service]
-ExecStart=sh -c 'test $$(cat /proc/self/status | grep Cpus_allowed: | rev | cut -c 1) = 1'
+ExecStart=bash -c 'test $$(cat /proc/self/status | grep Cpus_allowed: | rev | cut -c 1) = 1'
 CPUAffinity=0-1 3
 CPUAffinity=
 CPUAffinity=0

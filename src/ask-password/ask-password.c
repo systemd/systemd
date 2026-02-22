@@ -282,15 +282,15 @@ typedef struct MethodAskParameters {
 static int vl_method_ask(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "message",      SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(MethodAskParameters, message),       0 },
-                { "keyname",      SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(MethodAskParameters, keyring),       0 },
-                { "icon",         SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(MethodAskParameters, icon),          0 },
-                { "id",           SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(MethodAskParameters, id),            0 },
-                { "timeoutUSec",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,       offsetof(MethodAskParameters, timeout_usec),  0 },
-                { "untilUSec",    _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,       offsetof(MethodAskParameters, until_usec),    0 },
-                { "acceptCached", SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate,     offsetof(MethodAskParameters, accept_cached), 0 },
-                { "pushCache",    SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate,     offsetof(MethodAskParameters, push_cache) ,   0 },
-                { "echo",         SD_JSON_VARIANT_STRING,        dispatch_echo_mode,            offsetof(MethodAskParameters, echo_mode),     0 },
+                { "message",      SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(MethodAskParameters, message),       SD_JSON_STRICT },
+                { "keyname",      SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(MethodAskParameters, keyring),       SD_JSON_STRICT },
+                { "icon",         SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(MethodAskParameters, icon),          SD_JSON_STRICT },
+                { "id",           SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(MethodAskParameters, id),            SD_JSON_STRICT },
+                { "timeoutUSec",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,       offsetof(MethodAskParameters, timeout_usec),  0              },
+                { "untilUSec",    _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,       offsetof(MethodAskParameters, until_usec),    0              },
+                { "acceptCached", SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate,     offsetof(MethodAskParameters, accept_cached), 0              },
+                { "pushCache",    SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate,     offsetof(MethodAskParameters, push_cache) ,   0              },
+                { "echo",         SD_JSON_VARIANT_STRING,        dispatch_echo_mode,            offsetof(MethodAskParameters, echo_mode),     0              },
                 VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };

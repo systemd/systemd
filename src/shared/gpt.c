@@ -325,6 +325,8 @@ bool gpt_partition_type_knows_read_only(GptPartitionType type) {
                       /* pretty much implied, but let's set the bit to make things really clear */
                       PARTITION_ROOT_VERITY,
                       PARTITION_USR_VERITY,
+                      PARTITION_ROOT_VERITY_SIG,
+                      PARTITION_USR_VERITY_SIG,
                       PARTITION_HOME,
                       PARTITION_SRV,
                       PARTITION_VAR,

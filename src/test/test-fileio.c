@@ -12,6 +12,7 @@
 #include "memfd-util.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "random-util.h"
 #include "rm-rf.h"
@@ -492,7 +493,6 @@ TEST(read_full_file_socket) {
         union sockaddr_union sa;
         const char *j, *jj;
         size_t size;
-        pid_t pid;
         int r;
 
         ASSERT_OK(listener = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0));
@@ -513,7 +513,8 @@ TEST(read_full_file_socket) {
         /* Bind the *client* socket to some randomized name, to verify that this works correctly. */
         ASSERT_OK(asprintf(&clientname, "@%" PRIx64 "/test-bindname", random_u64()));
 
-        ASSERT_OK(r = safe_fork("(server)", FORK_DEATHSIG_SIGTERM|FORK_LOG, &pid));
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        r = ASSERT_OK(pidref_safe_fork("(server)", FORK_DEATHSIG_SIGTERM|FORK_LOG, &pidref));
         if (r == 0) {
                 union sockaddr_union peer = {};
                 socklen_t peerlen = sizeof(peer);
@@ -540,7 +541,7 @@ TEST(read_full_file_socket) {
         ASSERT_EQ(size, strlen(TEST_STR));
         ASSERT_STREQ(data, TEST_STR);
 
-        ASSERT_OK(wait_for_terminate_and_check("(server)", pid, WAIT_LOG));
+        ASSERT_OK(pidref_wait_for_terminate_and_check("(server)", &pidref, WAIT_LOG));
 #undef TEST_STR
 }
 

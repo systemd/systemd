@@ -113,7 +113,7 @@
 /* How many units and jobs to process of the bus queue before returning to the event loop. */
 #define MANAGER_BUS_MESSAGE_BUDGET 100U
 
-#define DEFAULT_TASKS_MAX ((CGroupTasksMax) { 15U, 100U }) /* 15% */
+#define DEFAULT_TASKS_MAX ((const CGroupTasksMax) { 15U, 100U }) /* 15% */
 
 static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata);
 static int manager_dispatch_signal_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata);
@@ -697,6 +697,7 @@ int manager_default_environment(Manager *m) {
                                     "XDG_SESSION_CLASS",
                                     "XDG_SESSION_TYPE",
                                     "XDG_SESSION_DESKTOP",
+                                    "XDG_SESSION_EXTRA_DEVICE_ACCESS",
                                     "XDG_SEAT",
                                     "XDG_VTNR");
         }
@@ -1005,7 +1006,7 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
                         return r;
 
 #if HAVE_LIBBPF
-                if (MANAGER_IS_SYSTEM(m) && bpf_restrict_fs_supported(/* initialize = */ true)) {
+                if (MANAGER_IS_SYSTEM(m) && bpf_restrict_fs_supported(/* initialize= */ true)) {
                         r = bpf_restrict_fs_setup(m);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to setup LSM BPF, ignoring: %m");
@@ -1510,7 +1511,7 @@ static unsigned manager_dispatch_stop_when_unneeded_queue(Manager *m) {
                 }
 
                 /* Ok, nobody needs us anymore. Sniff. Then let's commit suicide */
-                r = manager_add_job(u->manager, JOB_STOP, u, JOB_FAIL, &error, /* ret = */ NULL);
+                r = manager_add_job(u->manager, JOB_STOP, u, JOB_FAIL, &error, /* ret= */ NULL);
                 if (r < 0)
                         log_unit_warning_errno(u, r, "Failed to enqueue stop job, ignoring: %s", bus_error_message(&error, r));
         }
@@ -1551,7 +1552,7 @@ static unsigned manager_dispatch_start_when_upheld_queue(Manager *m) {
                         continue;
                 }
 
-                r = manager_add_job(u->manager, JOB_START, u, JOB_FAIL, &error, /* ret = */ NULL);
+                r = manager_add_job(u->manager, JOB_START, u, JOB_FAIL, &error, /* ret= */ NULL);
                 if (r < 0)
                         log_unit_warning_errno(u, r, "Failed to enqueue start job, ignoring: %s", bus_error_message(&error, r));
         }
@@ -1592,7 +1593,7 @@ static unsigned manager_dispatch_stop_when_bound_queue(Manager *m) {
                         continue;
                 }
 
-                r = manager_add_job(u->manager, JOB_STOP, u, JOB_REPLACE, &error, /* ret = */ NULL);
+                r = manager_add_job(u->manager, JOB_STOP, u, JOB_REPLACE, &error, /* ret= */ NULL);
                 if (r < 0)
                         log_unit_warning_errno(u, r, "Failed to enqueue stop job, ignoring: %s", bus_error_message(&error, r));
         }
@@ -1887,13 +1888,15 @@ static bool manager_dbus_is_running(Manager *m, bool deserialized) {
         u = manager_get_unit(m, SPECIAL_DBUS_SERVICE);
         if (!u)
                 return false;
-        if (!IN_SET((deserialized ? SERVICE(u)->deserialized_state : SERVICE(u)->state),
+        if (!IN_SET(deserialized ? SERVICE(u)->deserialized_state : SERVICE(u)->state,
                     SERVICE_RUNNING,
-                    SERVICE_MOUNTING,
-                    SERVICE_RELOAD,
-                    SERVICE_RELOAD_NOTIFY,
                     SERVICE_REFRESH_EXTENSIONS,
-                    SERVICE_RELOAD_SIGNAL))
+                    SERVICE_REFRESH_CREDENTIALS,
+                    SERVICE_RELOAD,
+                    SERVICE_RELOAD_SIGNAL,
+                    SERVICE_RELOAD_NOTIFY,
+                    SERVICE_RELOAD_POST,
+                    SERVICE_MOUNTING))
                 return false;
 
         return true;
@@ -1944,13 +1947,10 @@ static void manager_preset_all(Manager *m) {
         CLEANUP_ARRAY(changes, n_changes, install_changes_free);
 
         log_info("Applying preset policy.");
-        r = unit_file_preset_all(RUNTIME_SCOPE_SYSTEM, /* file_flags = */ 0,
-                                 /* root_dir = */ NULL, mode, &changes, &n_changes);
-        install_changes_dump(r, "preset", changes, n_changes, /* quiet = */ false);
-        if (r < 0)
-                log_full_errno(r == -EEXIST ? LOG_NOTICE : LOG_WARNING, r,
-                               "Failed to populate /etc with preset unit settings, ignoring: %m");
-        else
+        r = unit_file_preset_all(RUNTIME_SCOPE_SYSTEM, /* file_flags= */ 0,
+                                 /* root_dir= */ NULL, mode, &changes, &n_changes);
+        r = install_changes_dump(r, "preset all", changes, n_changes, /* quiet= */ false);
+        if (r >= 0)
                 log_info("Populated /etc with preset unit settings.");
 }
 
@@ -2232,7 +2232,7 @@ int manager_add_job_by_name(Manager *m, JobType type, const char *name, JobMode 
                 return r;
         assert(unit);
 
-        return manager_add_job_full(m, type, unit, mode, /* extra_flags = */ 0, affected_jobs, e, ret);
+        return manager_add_job_full(m, type, unit, mode, /* extra_flags= */ 0, affected_jobs, e, ret);
 }
 
 int manager_add_job_by_name_and_warn(Manager *m, JobType type, const char *name, JobMode mode, Set *affected_jobs, Job **ret) {
@@ -2277,6 +2277,11 @@ int manager_propagate_reload(Manager *m, Unit *unit, JobMode mode, sd_bus_error 
                         unit,
                         tr->anchor_job,
                         mode == JOB_IGNORE_DEPENDENCIES ? TRANSACTION_IGNORE_ORDER : 0);
+
+        /* Only activate the transaction if it contains jobs other than NOP anchor.
+         * Short-circuiting here avoids unnecessary processing, such as emitting D-Bus signals. */
+        if (hashmap_size(tr->jobs) <= 1)
+                return 0;
 
         r = transaction_activate(tr, m, mode, NULL, e);
         if (r < 0)
@@ -3924,7 +3929,7 @@ void manager_send_reloading(Manager *m) {
         assert(m);
 
         /* Let whoever invoked us know that we are now reloading */
-        (void) notify_reloading_full(/* status = */ NULL);
+        (void) notify_reloading_full(/* status= */ NULL);
 
         /* And ensure that we'll send READY=1 again as soon as we are ready again */
         m->ready_sent = false;
@@ -4133,7 +4138,7 @@ static int manager_run_generators(Manager *m) {
         if (is_dir("/tmp", /* follow= */ false) > 0 && !MANAGER_IS_TEST_RUN(m))
                 flags |= FORK_PRIVATE_TMP;
 
-        r = safe_fork("(sd-gens)", flags, NULL);
+        r = pidref_safe_fork("(sd-gens)", flags, /* ret= */ NULL);
         if (r == 0) {
                 r = manager_execute_generators(m, paths, /* remount_ro= */ true);
                 _exit(r >= 0 ? EXIT_SUCCESS : EXIT_FAILURE);
@@ -4350,7 +4355,7 @@ static bool manager_journal_is_running(Manager *m) {
         u = manager_get_unit(m, SPECIAL_JOURNALD_SERVICE);
         if (!u)
                 return false;
-        if (!IN_SET(SERVICE(u)->state, SERVICE_RELOAD, SERVICE_RUNNING))
+        if (!UNIT_IS_ACTIVE_OR_RELOADING(unit_active_state(u)) || SERVICE(u)->state == SERVICE_EXITED)
                 return false;
 
         return true;

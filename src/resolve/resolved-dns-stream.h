@@ -102,8 +102,7 @@ int dns_stream_new(
 #if ENABLE_DNS_OVER_TLS
 int dns_stream_connect_tls(DnsStream *s, void *tls_session);
 #endif
-DnsStream *dns_stream_unref(DnsStream *s);
-DnsStream *dns_stream_ref(DnsStream *s);
+DECLARE_TRIVIAL_REF_UNREF_FUNC(DnsStream, dns_stream);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsStream*, dns_stream_unref);
 

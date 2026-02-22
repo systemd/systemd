@@ -65,16 +65,6 @@ endif
 
 ############################################################
 
-if want_tests != 'false' and conf.get('HAVE_SYSV_COMPAT') == 1
-        exe = executables_by_name.get('systemd-sysv-generator')
-        test('sysv-generator-test',
-             files('sysv-generator-test.py'),
-             depends : exe,
-             suite : 'sysv')
-endif
-
-############################################################
-
 if want_tests != 'false' and conf.get('HAVE_BLKID') == 1
         exe = executables_by_name.get('bootctl')
         test('test-bootctl-json',
@@ -342,7 +332,6 @@ if install_tests
                 'journal-data',
                 'knot-data',
                 'test-cgroup-mask',
-                'test-cgroup-unit-default',
                 'test-engine',
                 'test-execute',
                 'test-fstab-generator',
@@ -362,6 +351,7 @@ if install_tests
                 'integration-tests/TEST-30-ONCLOCKCHANGE/TEST-30-ONCLOCKCHANGE.units',
                 'integration-tests/TEST-38-FREEZER/TEST-38-FREEZER.units',
                 'integration-tests/TEST-52-HONORFIRSTSHUTDOWN/TEST-52-HONORFIRSTSHUTDOWN.units',
+                'integration-tests/TEST-54-CREDS/TEST-54-CREDS.units',
                 'integration-tests/TEST-55-OOMD/TEST-55-OOMD.units',
                 'integration-tests/TEST-62-RESTRICT-IFACES/TEST-62-RESTRICT-IFACES.units',
                 'integration-tests/TEST-63-PATH/TEST-63-PATH.units',

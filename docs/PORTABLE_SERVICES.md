@@ -17,7 +17,8 @@ two specific features of container management:
 2. Stricter default security policies, i.e. sand-boxing of applications.
 
 The primary tool for interacting with Portable Services is `portablectl`,
-and they are managed by the `systemd-portabled` service.
+and they are managed by the `systemd-portabled` service. `systemd-portabled` can
+run as a system or a user service.
 
 Portable services don't bring anything inherently new to the table.
 All they do is put together known concepts to cover a specific set of use-cases in a
@@ -131,7 +132,7 @@ And that's already it.
 
 Note that the images need to stay around (and in the same location) as long as the
 portable service is attached.
-If an image is moved, the `RootImage=` line written to the unit drop-in would point to an non-existent path, and break access to the image.
+If an image is moved, the `RootImage=` line written to the unit drop-in would point to a non-existent path, and break access to the image.
 
 The `portablectl detach` command executes the reverse operation:
 it looks for the drop-ins and the unit files associated with the image, and removes them.
@@ -239,7 +240,7 @@ image.
 As mentioned, `mkosi -b` takes care of all of that for you, but any other image generator should work too.
 
 The
-[os-release(5)](https://www.freedesktop.org/software/systemd/man/os-release.html)
+[os-release(5)](https://www.freedesktop.org/software/systemd/man/latest/os-release.html)
 file may optionally be extended with a `PORTABLE_PREFIXES=` field listing all
 supported portable service prefixes for the image (see above).
 This is useful for informational purposes (as it allows recognizing portable service images
@@ -249,6 +250,14 @@ This is particularly relevant if the images are cryptographically authenticated 
 validated against the (authenticated) image contents.
 If the field is not specified the image will work fine, but is not necessarily recognizable as
 portable service image, and any set of units included in the image may be attached, there are no restrictions enforced.
+
+The [os-release(5)](https://www.freedesktop.org/software/systemd/man/latest/os-release.html) may
+optionally be extended with a `PORTABLE_SCOPE=` field listing the scope in which the portable
+service may be used. This field may be set to either `system`, in which case the portable service
+can only be attached to the system instance of `systemd-portabled`, `user` in which case the portable
+can only be attached to a user instance of `systemd-portabled`, or `any` in which case it can be
+attached to either the system instance or user instances of `systemd-portabled`. If not specified, the
+`system` scope is implied.
 
 ## Extension Images
 
@@ -361,7 +370,7 @@ PORTABLE_EXTENSION_NAME_AND_VERSION=app_1
 
 ## Links
 
-[`portablectl(1)`](https://www.freedesktop.org/software/systemd/man/portablectl.html)<br>
-[`systemd-portabled.service(8)`](https://www.freedesktop.org/software/systemd/man/systemd-portabled.service.html)<br>
+[`portablectl(1)`](https://www.freedesktop.org/software/systemd/man/latest/portablectl.html)<br>
+[`systemd-portabled.service(8)`](https://www.freedesktop.org/software/systemd/man/latest/systemd-portabled.service.html)<br>
 [Walkthrough for Portable Services](https://0pointer.net/blog/walkthrough-for-portable-services.html)<br>
 [Repo with examples](https://github.com/systemd/portable-walkthrough)

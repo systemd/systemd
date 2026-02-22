@@ -5,10 +5,11 @@
 
 #include "dirent-util.h"
 #include "path-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 
 int dirent_ensure_type(int dir_fd, struct dirent *de) {
-        struct statx sx;
+        int r;
 
         assert(dir_fd >= 0);
         assert(de);
@@ -22,8 +23,16 @@ int dirent_ensure_type(int dir_fd, struct dirent *de) {
         }
 
         /* Let's ask only for the type, nothing else. */
-        if (statx(dir_fd, de->d_name, AT_SYMLINK_NOFOLLOW|AT_NO_AUTOMOUNT, STATX_TYPE, &sx) < 0)
-                return -errno;
+        struct statx sx;
+        r = xstatx_full(dir_fd,
+                        de->d_name,
+                        AT_SYMLINK_NOFOLLOW|AT_NO_AUTOMOUNT,
+                        /* mandatory_mask= */ STATX_TYPE,
+                        /* optional_mask= */ STATX_INO,
+                        /* mandatory_attributes= */ 0,
+                        &sx);
+        if (r < 0)
+                return r;
 
         assert(FLAGS_SET(sx.stx_mask, STATX_TYPE));
         de->d_type = IFTODT(sx.stx_mode);

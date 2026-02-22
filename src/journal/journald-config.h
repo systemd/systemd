@@ -99,11 +99,9 @@ int manager_dispatch_reload_signal(sd_event_source *s, const struct signalfd_sig
 /* Defined in generated journald-gperf.c */
 const struct ConfigPerfItem* journald_gperf_lookup(const char *str, GPERF_LEN_TYPE length);
 
-const char* storage_to_string(Storage s) _const_;
-Storage storage_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(storage, Storage);
 
-const char* split_mode_to_string(SplitMode s) _const_;
-SplitMode split_mode_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(split_mode, SplitMode);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_storage);
 CONFIG_PARSER_PROTOTYPE(config_parse_line_max);

@@ -525,7 +525,7 @@ static int display_user(int argc, char *argv[], void *userdata) {
                 if (arg_boundaries) {
                         _cleanup_(uid_range_freep) UIDRange *uid_range = NULL;
 
-                        r = uid_range_load_userns(/* path = */ NULL, UID_RANGE_USERNS_INSIDE, &uid_range);
+                        r = uid_range_load_userns(/* path= */ NULL, UID_RANGE_USERNS_INSIDE, &uid_range);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to load /proc/self/uid_map, ignoring: %m");
 
@@ -865,7 +865,7 @@ static int display_group(int argc, char *argv[], void *userdata) {
 
                 if (arg_boundaries) {
                         _cleanup_(uid_range_freep) UIDRange *gid_range = NULL;
-                        r = uid_range_load_userns(/* path = */ NULL, GID_RANGE_USERNS_INSIDE, &gid_range);
+                        r = uid_range_load_userns(/* path= */ NULL, GID_RANGE_USERNS_INSIDE, &gid_range);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to load /proc/self/gid_map, ignoring: %m");
 
@@ -1488,7 +1488,7 @@ static int load_credential_one(
                                 return log_error_errno(errno, "Failed to chown %s: %m", hd);
 
                         r = copy_tree(user_record_skeleton_directory(ur), hd, ur->uid, user_record_gid(ur),
-                                      COPY_REFLINK|COPY_MERGE, /* denylist= */ NULL, /* subvolumes= */NULL);
+                                      COPY_REFLINK|COPY_MERGE, /* denylist= */ NULL, /* subvolumes= */ NULL);
                         if (r < 0 && r != -ENOENT)
                                 return log_error_errno(r, "Failed to copy skeleton directory to %s: %m", hd);
                 }
@@ -1572,6 +1572,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --chain                 Chain another command\n"
                "     --uid-min=ID            Filter by minimum UID/GID (default 0)\n"
                "     --uid-max=ID            Filter by maximum UID/GID (default 4294967294)\n"
+               "     --uuid=UUID             Filter by UUID\n"
                "  -z --fuzzy                 Do a fuzzy name search\n"
                "     --disposition=VALUE     Filter by disposition\n"
                "  -I                         Equivalent to --disposition=intrinsic\n"
@@ -1710,7 +1711,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (isempty(optarg))
                                 arg_services = strv_free(arg_services);
                         else {
-                                r = strv_split_and_extend(&arg_services, optarg, ":", /* filter_duplicates = */ true);
+                                r = strv_split_and_extend(&arg_services, optarg, ":", /* filter_duplicates= */ true);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to parse -s/--service= argument: %m");
                         }

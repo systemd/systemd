@@ -1,0 +1,27 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Portable Service Manager
+Documentation=man:systemd-portabled.service(8)
+Documentation=man:org.freedesktop.portable1(5)
+
+[Service]
+ExecStart={{LIBEXECDIR}}/systemd-portabled --user
+BusName=org.freedesktop.portable1
+MemoryDenyWriteExecute=yes
+NoNewPrivileges=yes
+RestrictRealtime=yes
+RestrictAddressFamilies=AF_UNIX AF_NETLINK AF_INET AF_INET6
+SystemCallFilter=@system-service @mount
+SystemCallErrorNumber=EPERM
+SystemCallArchitectures=native
+LockPersonality=yes
+IPAddressDeny=any
+{{SERVICE_WATCHDOG}}

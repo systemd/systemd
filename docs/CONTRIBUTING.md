@@ -7,7 +7,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 # Contributing
 
-We welcome contributions from everyone. However, please follow the following guidelines when posting a GitHub Pull Request or filing a GitHub Issue on the systemd project:
+We welcome contributions from everyone. However, please follow these guidelines when posting a GitHub Pull Request or filing a GitHub Issue on the systemd project:
 
 ## Filing Issues
 

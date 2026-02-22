@@ -18,6 +18,7 @@
 #include "glyph-util.h"
 #include "hostname-util.h"
 #include "log.h"
+#include "mountpoint-util.h"
 #include "nulstr-util.h"
 #include "output-mode.h"
 #include "path-util.h"
@@ -108,7 +109,7 @@ static int show_cgroup_one_by_path(
                  *
                  * ENODEV is generated when we enumerate processes from a cgroup and the cgroup is removed
                  * concurrently. */
-                r = cg_read_pid(f, &pid, /* flags = */ 0);
+                r = cg_read_pid(f, &pid, /* flags= */ 0);
                 if (IN_SET(r, 0, -EOPNOTSUPP, -ENODEV))
                         break;
                 if (r < 0)
@@ -150,7 +151,7 @@ static int show_cgroup_name(
         delegate = r > 0;
 
         if (FLAGS_SET(flags, OUTPUT_CGROUP_ID)) {
-                r = cg_fd_get_cgroupid(fd, &cgroupid);
+                r = fd_to_handle_u64(fd, &cgroupid);
                 if (r < 0)
                         log_debug_errno(r, "Failed to determine cgroup ID of %s, ignoring: %m", path);
         }
@@ -306,7 +307,7 @@ int show_cgroup(const char *path,
 
         assert(path);
 
-        r = cg_get_path(path, /* suffix = */ NULL, &p);
+        r = cg_get_path(path, /* suffix= */ NULL, &p);
         if (r < 0)
                 return r;
 

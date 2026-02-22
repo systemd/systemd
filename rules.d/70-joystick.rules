@@ -6,7 +6,11 @@ KERNEL!="event*", GOTO="joystick_end"
 
 # joystick:<bustype>:v<vid>p<pid>:name:<name>:*
 KERNELS=="input*", ENV{ID_BUS}!="", \
-        IMPORT{builtin}="hwdb 'joystick:$env{ID_BUS}:v$attr{id/vendor}p$attr{id/product}:name:$attr{name}:'", \
-        GOTO="joystick_end"
+        IMPORT{builtin}="hwdb 'joystick:$env{ID_BUS}:v$attr{id/vendor}p$attr{id/product}:name:$attr{name}:'"
+
+# Spread the hwdb override to ID_INTEGRATION, in the future we could remove the
+# joystick hwdb entirely or retain it using the generic ID_INTEGRATION instead
+# specific ID_INPUT_JOYSTICK_INTEGRATION.
+ENV{ID_INPUT_JOYSTICK_INTEGRATION}!="", ENV{ID_INTEGRATION}="$env{ID_INPUT_JOYSTICK_INTEGRATION}"
 
 LABEL="joystick_end"

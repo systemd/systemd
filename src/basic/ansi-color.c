@@ -55,11 +55,11 @@ static ColorMode get_color_mode_impl(void) {
 
         /* First, we check $SYSTEMD_COLORS, which is the explicit way to change the mode. */
         ColorMode m = parse_systemd_colors();
-        if (m >= 0)
+        if (m >= 0 && m < _COLOR_MODE_FIXED_MAX)
                 return m;
 
         /* Next, check for the presence of $NO_COLOR; value is ignored. */
-        if (getenv("NO_COLOR"))
+        if (m != COLOR_TRUE && getenv("NO_COLOR"))
                 return COLOR_OFF;
 
         /* If the above didn't work, we turn colors off unless we are on a TTY. And if we are on a TTY we
@@ -70,6 +70,13 @@ static ColorMode get_color_mode_impl(void) {
                 return COLOR_OFF;
 
         /* We failed to figure out any reason to *disable* colors. Let's see how many colors we shall use. */
+        if (m == COLOR_AUTO_16)
+                return COLOR_16;
+        if (m == COLOR_AUTO_256)
+                return COLOR_256;
+        if (m == COLOR_AUTO_24BIT)
+                return COLOR_24BIT;
+
         if (STRPTR_IN_SET(getenv("COLORTERM"),
                           "truecolor",
                           "24bit"))
@@ -85,21 +92,26 @@ static ColorMode get_color_mode_impl(void) {
 }
 
 ColorMode get_color_mode(void) {
-        if (cached_color_mode < 0)
+        if (cached_color_mode < 0) {
                 cached_color_mode = get_color_mode_impl();
+                assert(cached_color_mode >= 0 && cached_color_mode < _COLOR_MODE_FIXED_MAX);
+        }
 
         return cached_color_mode;
 }
 
-
 static const char* const color_mode_table[_COLOR_MODE_MAX] = {
-        [COLOR_OFF]   = "off",
-        [COLOR_16]    = "16",
-        [COLOR_256]   = "256",
-        [COLOR_24BIT] = "24bit",
+        [COLOR_OFF]        = "off",
+        [COLOR_16]         = "16",
+        [COLOR_256]        = "256",
+        [COLOR_24BIT]      = "24bit",
+        [COLOR_AUTO_16]    = "auto-16",
+        [COLOR_AUTO_256]   = "auto-256",
+        [COLOR_AUTO_24BIT] = "auto-24bit",
+        [COLOR_TRUE]       = "true",
 };
 
-DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(color_mode, ColorMode, COLOR_24BIT);
+DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(color_mode, ColorMode, COLOR_TRUE);
 
 /*
  * Check that the string is formatted like an ANSI color code, i.e. that it consists of one or more

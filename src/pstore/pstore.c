@@ -194,7 +194,7 @@ static int process_dmesg_files(PStoreList *list) {
          * The dmesg- filename contains the backend-type and the Common Platform Error Record, CPER,
          * record id, a 64-bit number.
          *
-         * Files are processed in reverse lexigraphical order so as to properly reconstruct original dmesg. */
+         * Files are processed in reverse lexicographical order so as to properly reconstruct original dmesg. */
 
         for (size_t n = list->n_entries; n > 0; n--) {
                 PStoreEntry *pe;

@@ -39,11 +39,9 @@ int link_set_sysctl(Link *link);
 int link_set_ipv6_mtu(Link *link, int log_level);
 int link_set_ipv6_mtu_async(Link *link);
 
-const char* ipv6_privacy_extensions_to_string(IPv6PrivacyExtensions i) _const_;
-IPv6PrivacyExtensions ipv6_privacy_extensions_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(ipv6_privacy_extensions, IPv6PrivacyExtensions);
 
-const char* ip_reverse_path_filter_to_string(IPReversePathFilter i) _const_;
-IPReversePathFilter ip_reverse_path_filter_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(ip_reverse_path_filter, IPReversePathFilter);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_ipv6_privacy_extensions);
 CONFIG_PARSER_PROTOTYPE(config_parse_ip_reverse_path_filter);
@@ -59,7 +57,6 @@ typedef enum IPv4ForceIgmpVersion {
         _IPV4_FORCE_IGMP_VERSION_INVALID = -EINVAL,
 } IPv4ForceIgmpVersion;
 
-const char* ipv4_force_igmp_version_to_string(IPv4ForceIgmpVersion i) _const_;
-IPv4ForceIgmpVersion ipv4_force_igmp_version_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(ipv4_force_igmp_version, IPv4ForceIgmpVersion);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_ipv4_force_igmp_version);

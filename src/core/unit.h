@@ -1005,6 +1005,7 @@ int unit_acquire_invocation_id(Unit *u);
 
 int unit_set_exec_params(Unit *u, ExecParameters *p);
 
+int unit_fork_helper_process_full(Unit *u, const char *name, bool into_cgroup, ForkFlags flags, PidRef *ret);
 int unit_fork_helper_process(Unit *u, const char *name, bool into_cgroup, PidRef *ret);
 int unit_fork_and_watch_rm_rf(Unit *u, char **paths, PidRef *ret);
 
@@ -1086,12 +1087,14 @@ int unit_compare_priority(Unit *a, Unit *b);
 const char* unit_log_field(const Unit *u);
 const char* unit_invocation_log_field(const Unit *u);
 
-UnitMountDependencyType unit_mount_dependency_type_from_string(const char *s) _const_;
-const char* unit_mount_dependency_type_to_string(UnitMountDependencyType t) _const_;
+DECLARE_STRING_TABLE_LOOKUP(unit_mount_dependency_type, UnitMountDependencyType);
 UnitDependency unit_mount_dependency_type_to_dependency_type(UnitMountDependencyType t) _pure_;
 
-const char* oom_policy_to_string(OOMPolicy i) _const_;
-OOMPolicy oom_policy_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(oom_policy, OOMPolicy);
+
+int unit_queue_job_check_and_mangle_type(Unit *u, JobType *type, bool reload_if_possible, sd_bus_error *reterr_error);
+
+int parse_unit_marker(const char *marker, unsigned *settings, unsigned *mask);
 
 /* Macros which append UNIT= or USER_UNIT= to the message */
 
@@ -1167,8 +1170,7 @@ OOMPolicy oom_policy_from_string(const char *s) _pure_;
 #define LOG_UNIT_ID(unit) LOG_ITEM("%s%s", unit_log_field((unit)), (unit)->id)
 #define LOG_UNIT_INVOCATION_ID(unit) LOG_ITEM("%s%s", unit_invocation_log_field((unit)), (unit)->invocation_id_string)
 
-const char* collect_mode_to_string(CollectMode m) _const_;
-CollectMode collect_mode_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(collect_mode, CollectMode);
 
 typedef struct UnitForEachDependencyData {
         /* Stores state for the FOREACH macro below for iterating through all deps that have any of the

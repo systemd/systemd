@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#if HAVE_APPARMOR
-
 #include <syslog.h>
 
 #include "alloc-util.h"
@@ -67,4 +65,3 @@ bool mac_apparmor_use(void) {
 
         return (cached_use = true);
 }
-#endif

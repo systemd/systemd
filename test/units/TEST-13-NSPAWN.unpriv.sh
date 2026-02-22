@@ -13,6 +13,7 @@ if ! can_do_rootless_nspawn; then
 fi
 
 at_exit() {
+    rm -rf /home/testuser/.local/state/machines/.tar-file* ||:
     rm -rf /home/testuser/.local/state/machines/zurps ||:
     rm -rf /home/testuser/.local/state/machines/nurps ||:
     rm -rf /home/testuser/.local/state/machines/kurps ||:

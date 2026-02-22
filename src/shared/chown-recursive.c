@@ -27,7 +27,7 @@ static int chown_one(
 
         /* Drop any ACL if there is one */
         FOREACH_STRING(n, "system.posix_acl_access", "system.posix_acl_default") {
-                r = xremovexattr(fd, /* path = */ NULL, AT_EMPTY_PATH, n);
+                r = xremovexattr(fd, /* path= */ NULL, AT_EMPTY_PATH, n);
                 if (r < 0 && !ERRNO_IS_NEG_XATTR_ABSENT(r))
                         return r;
         }

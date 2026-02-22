@@ -957,8 +957,11 @@
         <literal>isolate</literal>,
         <literal>flush</literal>,
         <literal>ignore-dependencies</literal> or
-        <literal>ignore-requirements</literal>. Defaults to
-        <literal>replace</literal>. Specifies how the units listed in
+        <literal>ignore-requirements</literal>.
+        <literal>OnFailureJobMode=</literal> defaults to
+        <literal>replace</literal>,
+        <literal>OnSuccessJobMode=</literal> defaults to
+        <literal>fail</literal>. Specifies how the units listed in
         <varname>OnSuccess=</varname>/<varname>OnFailure=</varname> will be enqueued. See
         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
         <option>--job-mode=</option> option for details on the

@@ -19,6 +19,7 @@
 #include "sd-id128.h"
 #include "sd-netlink.h"
 #include "sd-path.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "barrier.h"
@@ -69,6 +70,7 @@
 #include "mkdir.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
+#include "mstack.h"
 #include "namespace-util.h"
 #include "netlink-internal.h"
 #include "notify-recv.h"
@@ -107,6 +109,7 @@
 #include "shift-uid.h"
 #include "signal-util.h"
 #include "siphash24.h"
+#include "snapshot-util.h"
 #include "socket-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
@@ -203,6 +206,7 @@ struct ether_addr arg_network_provided_mac = {};
 static PagerFlags arg_pager_flags = 0;
 static unsigned long arg_personality = PERSONALITY_INVALID;
 static char *arg_image = NULL;
+static char *arg_mstack = NULL;
 static char *arg_oci_bundle = NULL;
 static VolatileMode arg_volatile_mode = VOLATILE_NO;
 static ExposePort *arg_expose_ports = NULL;
@@ -271,6 +275,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_network_bridge, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_network_zone, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_network_namespace_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_mstack, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_oci_bundle, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_property, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_property_message, sd_bus_message_unrefp);
@@ -290,6 +295,71 @@ STATIC_DESTRUCTOR_REGISTER(arg_bind_user_groups, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_settings_filename, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_background, freep);
+
+static int parse_private_users(
+                const char *s,
+                UserNamespaceMode *ret_userns_mode,
+                uid_t *ret_uid_shift,
+                uid_t *ret_uid_range) {
+
+        int boolean, r;
+
+        assert(ret_userns_mode);
+        assert(ret_uid_shift);
+        assert(ret_uid_range);
+
+        if (!s)
+                boolean = true;
+        else if (!in_charset(s, DIGITS))
+                /* do *not* parse numbers as booleans */
+                boolean = parse_boolean(s);
+        else
+                boolean = -1;
+
+        if (boolean == 0) {
+                /* no: User namespacing off */
+                *ret_userns_mode = USER_NAMESPACE_NO;
+                *ret_uid_shift = UID_INVALID;
+                *ret_uid_range = UINT32_C(0x10000);
+
+        } else if (boolean > 0) {
+                /* yes: User namespacing on, UID range is read from root dir */
+                *ret_userns_mode = USER_NAMESPACE_FIXED;
+                *ret_uid_shift = UID_INVALID;
+                *ret_uid_range = UINT32_C(0x10000);
+
+        } else if (streq(s, "pick")) {
+                /* pick: User namespacing on, UID range is picked randomly */
+                *ret_userns_mode = USER_NAMESPACE_PICK; /* Note that arg_userns_ownership is
+                                                         * implied by USER_NAMESPACE_PICK
+                                                         * further down. */
+                *ret_uid_shift = UID_INVALID;
+                *ret_uid_range = UINT32_C(0x10000);
+
+        } else if (streq(s, "identity")) {
+                /* identity: User namespaces on, UID range is map of the 0…0xFFFF range to
+                 * itself, i.e. we don't actually map anything, but do take benefit of
+                 * isolation of capability sets. */
+                *ret_userns_mode = USER_NAMESPACE_FIXED;
+                *ret_uid_shift = 0;
+                *ret_uid_range = UINT32_C(0x10000);
+
+        } else if (streq(optarg, "managed")) {
+                /* managed: User namespace on, and acquire it from systemd-nsresourced */
+                *ret_userns_mode = USER_NAMESPACE_MANAGED;
+                *ret_uid_shift = UID_INVALID;
+                *ret_uid_range = UINT32_C(0x10000);
+
+        } else {
+                /* anything else: User namespacing on, UID range is explicitly configured */
+                r = parse_userns_uid_range(optarg, ret_uid_shift, ret_uid_range);
+                if (r < 0)
+                        return r;
+                *ret_userns_mode = USER_NAMESPACE_FIXED;
+        }
+
+        return 0;
+}
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -672,6 +742,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_BACKGROUND,
                 ARG_CLEANUP,
                 ARG_NO_ASK_PASSWORD,
+                ARG_MSTACK,
         };
 
         static const struct option options[] = {
@@ -751,6 +822,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "background",             required_argument, NULL, ARG_BACKGROUND             },
                 { "cleanup",                no_argument,       NULL, ARG_CLEANUP                },
                 { "no-ask-password",        no_argument,       NULL, ARG_NO_ASK_PASSWORD        },
+                { "mstack",                 required_argument, NULL, ARG_MSTACK                 },
                 {}
         };
 
@@ -791,6 +863,14 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'i':
                         r = parse_path_argument(optarg, false, &arg_image);
+                        if (r < 0)
+                                return r;
+
+                        arg_settings_mask |= SETTING_DIRECTORY;
+                        break;
+
+                case ARG_MSTACK:
+                        r = parse_path_argument(optarg, false, &arg_mstack);
                         if (r < 0)
                                 return r;
 
@@ -941,31 +1021,23 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 case 'M':
-                        if (isempty(optarg))
-                                arg_machine = mfree(arg_machine);
-                        else {
-                                if (!hostname_is_valid(optarg, 0))
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "Invalid machine name: %s", optarg);
+                        if (!isempty(optarg) && !hostname_is_valid(optarg, /* flags= */ 0))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Invalid machine name: %s", optarg);
 
-                                r = free_and_strdup(&arg_machine, optarg);
-                                if (r < 0)
-                                        return log_oom();
-                        }
+                        r = free_and_strdup_warn(&arg_machine, optarg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_HOSTNAME:
-                        if (isempty(optarg))
-                                arg_hostname = mfree(arg_hostname);
-                        else {
-                                if (!hostname_is_valid(optarg, 0))
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "Invalid hostname: %s", optarg);
+                        if (!isempty(optarg) && !hostname_is_valid(optarg, /* flags= */ 0))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Invalid hostname: %s", optarg);
 
-                                r = free_and_strdup(&arg_hostname, optarg);
-                                if (r < 0)
-                                        return log_oom();
-                        }
+                        r = free_and_strdup_warn(&arg_hostname, optarg);
+                        if (r < 0)
+                                return r;
 
                         arg_settings_mask |= SETTING_HOSTNAME;
                         break;
@@ -1140,58 +1212,13 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
-                case ARG_PRIVATE_USERS: {
-                        int boolean;
-
-                        if (!optarg)
-                                boolean = true;
-                        else if (!in_charset(optarg, DIGITS))
-                                /* do *not* parse numbers as booleans */
-                                boolean = parse_boolean(optarg);
-                        else
-                                boolean = -1;
-
-                        if (boolean == 0) {
-                                /* no: User namespacing off */
-                                arg_userns_mode = USER_NAMESPACE_NO;
-                                arg_uid_shift = UID_INVALID;
-                                arg_uid_range = UINT32_C(0x10000);
-                        } else if (boolean > 0) {
-                                /* yes: User namespacing on, UID range is read from root dir */
-                                arg_userns_mode = USER_NAMESPACE_FIXED;
-                                arg_uid_shift = UID_INVALID;
-                                arg_uid_range = UINT32_C(0x10000);
-                        } else if (streq(optarg, "pick")) {
-                                /* pick: User namespacing on, UID range is picked randomly */
-                                arg_userns_mode = USER_NAMESPACE_PICK; /* Note that arg_userns_ownership is
-                                                                        * implied by USER_NAMESPACE_PICK
-                                                                        * further down. */
-                                arg_uid_shift = UID_INVALID;
-                                arg_uid_range = UINT32_C(0x10000);
-
-                        } else if (streq(optarg, "identity")) {
-                                /* identity: User namespaces on, UID range is map of the 0…0xFFFF range to
-                                 * itself, i.e. we don't actually map anything, but do take benefit of
-                                 * isolation of capability sets. */
-                                arg_userns_mode = USER_NAMESPACE_FIXED;
-                                arg_uid_shift = 0;
-                                arg_uid_range = UINT32_C(0x10000);
-                        } else if (streq(optarg, "managed")) {
-                                /* managed: User namespace on, and acquire it from systemd-nsresourced */
-                                arg_userns_mode = USER_NAMESPACE_MANAGED;
-                                arg_uid_shift = UID_INVALID;
-                                arg_uid_range = UINT32_C(0x10000);
-                        } else {
-                                /* anything else: User namespacing on, UID range is explicitly configured */
-                                r = parse_userns_uid_range(optarg, &arg_uid_shift, &arg_uid_range);
-                                if (r < 0)
-                                        return r;
-                                arg_userns_mode = USER_NAMESPACE_FIXED;
-                        }
+                case ARG_PRIVATE_USERS:
+                        r = parse_private_users(optarg, &arg_userns_mode, &arg_uid_shift, &arg_uid_range);
+                        if (r < 0)
+                                return r;
 
                         arg_settings_mask |= SETTING_USERNS;
                         break;
-                }
 
                 case 'U':
                         if (userns_supported()) {
@@ -1641,17 +1668,20 @@ static int verify_arguments(void) {
         if (has_custom_root_mount(arg_custom_mounts, arg_n_custom_mounts))
                 arg_read_only = true;
 
-        if (arg_directory && arg_image)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--directory= and --image= may not be combined.");
+        if (!!arg_directory + !!arg_image + !!arg_mstack > 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--directory=, --image= --mstack= may not be combined.");
 
-        if (arg_template && arg_image)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--template= and --image= may not be combined.");
+        if (arg_template && (arg_image || arg_mstack))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--template= and --image=/--mstack= may not be combined.");
 
         if (arg_template && !(arg_directory || arg_machine))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--template= needs --directory= or --machine=.");
 
         if (arg_ephemeral && arg_template)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--ephemeral and --template= may not be combined.");
+
+        if (arg_ephemeral && arg_mstack)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--ephemeral and --mstack= may not be combined.");
 
         /* Permit --ephemeral with --link-journal=try-* to satisfy principle of the least astonishment
          * (by common sense, "try" means "do not fail if not possible") */
@@ -2235,14 +2265,14 @@ static int copy_devnodes(const char *dest) {
 
         /* Required basic device nodes. */
         FOREACH_STRING(node, "null", "zero", "full", "random", "urandom", "tty") {
-                r = copy_devnode_one(dest, node, /* check = */ false);
+                r = copy_devnode_one(dest, node, /* check= */ false);
                 if (r < 0)
                         return r;
         }
 
         /* Optional device nodes. */
         FOREACH_STRING(node, "fuse", "net/tun") {
-                r = copy_devnode_one(dest, node, /* check = */ true);
+                r = copy_devnode_one(dest, node, /* check= */ true);
                 if (r < 0)
                         return r;
         }
@@ -2689,7 +2719,7 @@ static int setup_journal(const char *directory, uid_t uid_shift, uid_t uid_range
                                 .destination = p,
                                 .destination_uid = UID_INVALID,
                         },
-                        /* n = */ 1,
+                        /* n= */ 1,
                         uid_shift,
                         uid_range,
                         arg_selinux_apifs_context,
@@ -2767,16 +2797,8 @@ static int reset_audit_loginuid(void) {
                 return 0;
 
         r = write_string_file("/proc/self/loginuid", "4294967295", WRITE_STRING_FILE_DISABLE_BUFFER);
-        if (r < 0) {
-                log_error_errno(r,
-                                "Failed to reset audit login UID. This probably means that your kernel is too\n"
-                                "old and you have audit enabled. Note that the auditing subsystem is known to\n"
-                                "be incompatible with containers on old kernels. Please make sure to upgrade\n"
-                                "your kernel or to off auditing with 'audit=0' on the kernel command line before\n"
-                                "using systemd-nspawn. Sleeping for 5s... (%m)");
-
-                sleep(5);
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to reset audit login UID: %m");
 
         return 0;
 }
@@ -2884,7 +2906,7 @@ static int recursive_chown(const char *directory, uid_t shift, uid_t range) {
 
 /*
  * Return values:
- * < 0 : wait_for_terminate() failed to get the state of the
+ * < 0 : pidref_wait_for_terminate() failed to get the state of the
  *       container, the container was terminated by a signal, or
  *       failed for an unknown reason.  No change is made to the
  *       container argument.
@@ -3013,13 +3035,14 @@ static int pick_paths(void) {
 
         if (arg_directory) {
                 _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
-                PickFilter filter = pick_filter_image_dir;
+                PickFilter filter = *pick_filter_image_dir;
 
                 filter.architecture = arg_architecture;
 
                 r = path_pick_update_warn(
                                 &arg_directory,
                                 &filter,
+                                /* n_filters= */ 1,
                                 PICK_ARCHITECTURE|PICK_TRIES,
                                 &result);
                 if (r < 0) {
@@ -3032,13 +3055,32 @@ static int pick_paths(void) {
 
         if (arg_image) {
                 _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
-                PickFilter filter = pick_filter_image_raw;
+                PickFilter filter = *pick_filter_image_raw;
 
                 filter.architecture = arg_architecture;
 
                 r = path_pick_update_warn(
                                 &arg_image,
                                 &filter,
+                                /* n_filters= */ 1,
+                                PICK_ARCHITECTURE|PICK_TRIES,
+                                &result);
+                if (r < 0)
+                        return r;
+
+                arg_architecture = result.architecture;
+        }
+
+        if (arg_mstack) {
+                _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
+                PickFilter filter = *pick_filter_image_mstack;
+
+                filter.architecture = arg_architecture;
+
+                r = path_pick_update_warn(
+                                &arg_mstack,
+                                &filter,
+                                /* n_filters= */ 1,
                                 PICK_ARCHITECTURE|PICK_TRIES,
                                 &result);
                 if (r < 0)
@@ -3049,13 +3091,14 @@ static int pick_paths(void) {
 
         if (arg_template) {
                 _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
-                PickFilter filter = pick_filter_image_dir;
+                PickFilter filter = *pick_filter_image_dir;
 
                 filter.architecture = arg_architecture;
 
                 r = path_pick_update_warn(
                                 &arg_template,
                                 &filter,
+                                /* n_filters= */ 1,
                                 PICK_ARCHITECTURE,
                                 &result);
                 if (r < 0)
@@ -3080,7 +3123,7 @@ static int determine_names(void) {
                         return log_oom();
         }
 
-        if (!arg_image && !arg_directory) {
+        if (!arg_image && !arg_directory && !arg_mstack) {
                 if (arg_machine) {
                         _cleanup_(image_unrefp) Image *i = NULL;
 
@@ -3091,10 +3134,24 @@ static int determine_names(void) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to find image for machine '%s': %m", arg_machine);
 
-                        if (IN_SET(i->type, IMAGE_RAW, IMAGE_BLOCK))
+                        switch (i->type) {
+                        case IMAGE_RAW:
+                        case IMAGE_BLOCK:
                                 r = free_and_strdup(&arg_image, i->path);
-                        else
+                                break;
+
+                        case IMAGE_DIRECTORY:
+                        case IMAGE_SUBVOLUME:
                                 r = free_and_strdup(&arg_directory, i->path);
+                                break;
+
+                        case IMAGE_MSTACK:
+                                r = free_and_strdup(&arg_mstack, i->path);
+                                break;
+
+                        default:
+                                assert_not_reached();
+                        }
                         if (r < 0)
                                 return log_oom();
 
@@ -3106,31 +3163,40 @@ static int determine_names(void) {
                                 return log_error_errno(r, "Failed to determine current directory: %m");
                 }
 
-                if (!arg_directory && !arg_image)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to determine path, please use -D or -i.");
+                if (!arg_directory && !arg_image && !arg_mstack)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to determine path, please use --directory=, --image= or --mstack=.");
         }
 
         if (!arg_machine) {
-                if (arg_directory && path_equal(arg_directory, "/")) {
-                        arg_machine = gethostname_malloc();
-                        if (!arg_machine)
-                                return log_oom();
+                if (arg_directory) {
+                        if (path_equal(arg_directory, "/")) {
+                                arg_machine = gethostname_malloc();
+                                if (!arg_machine)
+                                        return log_oom();
+                        } else {
+                                r = path_extract_filename(arg_directory, &arg_machine);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to extract file name from '%s': %m", arg_directory);
+                        }
                 } else if (arg_image) {
-                        char *e;
-
                         r = path_extract_filename(arg_image, &arg_machine);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to extract file name from '%s': %m", arg_image);
 
                         /* Truncate suffix if there is one */
-                        e = endswith(arg_machine, ".raw");
+                        char *e = endswith(arg_machine, ".raw");
                         if (e)
                                 *e = 0;
-                } else {
-                        r = path_extract_filename(arg_directory, &arg_machine);
+                } else if (arg_mstack)  {
+                        r = path_extract_filename(arg_mstack, &arg_machine);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to extract file name from '%s': %m", arg_directory);
-                }
+                                return log_error_errno(r, "Failed to extract file name from '%s': %m", arg_mstack);
+
+                        char *e = endswith(arg_machine, ".mstack");
+                        if (e)
+                                *e = 0;
+                } else
+                        assert_not_reached();
 
                 hostname_cleanup(arg_machine);
                 if (!hostname_is_valid(arg_machine, 0))
@@ -3395,7 +3461,7 @@ static int inner_child(
                 if (r < 0)
                         return log_error_errno(errno, "Failed to unshare cgroup namespace: %m");
 
-                r = mount_cgroups(/* dest = */ NULL, /* accept_existing = */ false);
+                r = mount_cgroups(/* dest= */ NULL, /* accept_existing= */ false);
         } else
                 r = bind_mount_cgroup_hierarchy();
         if (r < 0)
@@ -3772,7 +3838,7 @@ static int setup_unix_export_dir_outside(char **ret) {
                         "tmpfs",
                         q,
                         "tmpfs",
-                        MS_NODEV|MS_NOEXEC|MS_NOSUID|ms_nosymfollow_supported(),
+                        MS_NODEV|MS_NOEXEC|MS_NOSUID|MS_NOSYMFOLLOW,
                         "size=4M,nr_inodes=64,mode=0755");
         if (r < 0)
                 return r;
@@ -3786,7 +3852,7 @@ static int setup_unix_export_dir_outside(char **ret) {
                         /* what= */ NULL,
                         w,
                         /* fstype= */ NULL,
-                        MS_BIND|MS_REMOUNT|MS_RDONLY|MS_NODEV|MS_NOEXEC|MS_NOSUID|ms_nosymfollow_supported(),
+                        MS_BIND|MS_REMOUNT|MS_RDONLY|MS_NODEV|MS_NOEXEC|MS_NOSUID|MS_NOSYMFOLLOW,
                         /* options= */ NULL);
         if (r < 0)
                 return r;
@@ -3831,7 +3897,7 @@ static int setup_unix_export_host_inside(const char *directory, const char *unix
                         /* what= */ NULL,
                         p,
                         /* fstype= */ NULL,
-                        MS_BIND|MS_REMOUNT|MS_NODEV|MS_NOEXEC|MS_NOSUID|ms_nosymfollow_supported(),
+                        MS_BIND|MS_REMOUNT|MS_NODEV|MS_NOEXEC|MS_NOSUID|MS_NOSYMFOLLOW,
                         /* options= */ NULL);
         if (r < 0)
                 return r;
@@ -3865,6 +3931,7 @@ static int outer_child(
                 const char *directory,
                 int mount_fd,
                 DissectedImage *dissected_image,
+                MStack *mstack,
                 int fd_outer_socket,
                 int fd_inner_socket,
                 FDSet *fds,
@@ -3920,6 +3987,7 @@ static int outer_child(
         if (mount_fd >= 0) {
                 assert(arg_directory);
                 assert(!arg_image);
+                assert(!arg_mstack);
 
                 if (move_mount(mount_fd, "", AT_FDCWD, directory, MOVE_MOUNT_F_EMPTY_PATH) < 0)
                         return log_error_errno(errno, "Failed to attach root directory: %m");
@@ -3930,6 +3998,7 @@ static int outer_child(
         } else if (dissected_image) {
                 assert(!arg_directory);
                 assert(arg_image);
+                assert(!arg_mstack);
 
                 /* If we are operating on a disk image, then mount its root directory now, but leave out the
                  * rest. We can read the UID shift from it if we need to. Further down we'll mount the rest,
@@ -3947,9 +4016,38 @@ static int outer_child(
                                 (arg_start_mode == START_BOOT ? DISSECT_IMAGE_VALIDATE_OS : 0));
                 if (r < 0)
                         return r;
+
+        } else if (arg_mstack) {
+                assert(!arg_directory);
+                assert(!arg_image);
+                assert(arg_mstack);
+
+                MStackFlags mstack_flags = arg_read_only ? MSTACK_RDONLY : 0;
+
+                /* This creates the needed overlayfs or tmpfs, owned by our target userns. Note that we pass
+                 * the target mount dir as temporary mount dir here. We after all just need some dir here
+                 * that definitely exists, and the temporary mounts on it are not going to be visible
+                 * outside. */
+                r = mstack_make_mounts(
+                                mstack,
+                                /* temp_mount_dir= */ directory, /* !! */
+                                mstack_flags);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to make .mstack/ mounts: %m");
+
+                /* And then attaches all mounts to the directory */
+                r = mstack_bind_mounts(
+                                mstack,
+                                directory,
+                                /* where_fd= */ -EBADF,
+                                mstack_flags,
+                                /* ret_root_fd= */ NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed bind mount .mstack/ mounts: %m");
         } else {
                 assert(arg_directory);
                 assert(!arg_image);
+                assert(!arg_mstack);
 
                 r = mount_nofollow_verbose(LOG_ERR, arg_directory, directory, /* fstype= */ NULL, MS_BIND|MS_REC, /* options= */ NULL);
                 if (r < 0)
@@ -4290,7 +4388,7 @@ static int outer_child(
         (void) write_string_filef(p, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MODE_0444, SD_ID128_UUID_FORMAT_STR, SD_ID128_FORMAT_VAL(arg_uuid));
 
         if (!arg_use_cgns) {
-                r = mount_cgroups(directory, /* accept_existing = */ true);
+                r = mount_cgroups(directory, /* accept_existing= */ true);
                 if (r < 0)
                         return r;
         }
@@ -4360,15 +4458,8 @@ static int outer_child(
                 /* The inner child has all namespaces that are requested, so that we all are owned by the
                  * user if user namespaces are turned on. */
 
-                if (arg_network_namespace_path) {
-                        r = namespace_enter(/* pidns_fd = */ -EBADF,
-                                            /* mntns_fd = */ -EBADF,
-                                            netns_fd,
-                                            /* userns_fd = */ -EBADF,
-                                            /* root_fd = */ -EBADF);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to join network namespace: %m");
-                }
+                if (arg_network_namespace_path && setns(netns_fd, CLONE_NEWNET) < 0)
+                        return log_error_errno(errno, "Failed to join network namespace: %m");
 
                 if (arg_userns_mode == USER_NAMESPACE_MANAGED) {
                         /* In managed usernamespace operation, sysfs + procfs are special, we'll have to
@@ -5022,6 +5113,10 @@ static int load_settings(void) {
                         r = file_in_same_dir(arg_directory, arg_settings_filename, &p);
                         if (r < 0 && r != -EADDRNOTAVAIL) /* if directory is root fs, don't complain */
                                 return log_error_errno(r, "Failed to generate settings path from directory path: %m");
+                } else if (arg_mstack) {
+                        r = file_in_same_dir(arg_mstack, arg_settings_filename, &p);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to generate settings path from mstack path: %m");
                 }
 
                 if (p) {
@@ -5072,6 +5167,7 @@ static int run_container(
                 const char *directory,
                 int mount_fd,
                 DissectedImage *dissected_image,
+                MStack *mstack,
                 int userns_fd,
                 FDSet *fds,
                 char veth_name[IFNAMSIZ],
@@ -5222,6 +5318,7 @@ static int run_container(
                                 directory,
                                 mount_fd,
                                 dissected_image,
+                                mstack,
                                 fd_outer_socket_pair[1],
                                 fd_inner_socket_pair[1],
                                 fds,
@@ -5346,7 +5443,13 @@ static int run_container(
                         } else {
                                 _cleanup_free_ char *host_ifname = NULL;
 
-                                r = nsresource_add_netif_veth(userns_fd, child_netns_fd, /* namespace_ifname= */ NULL, &host_ifname, /* ret_namespace_ifname= */ NULL);
+                                r = nsresource_add_netif_veth(
+                                                /* vl= */ NULL,
+                                                userns_fd,
+                                                child_netns_fd,
+                                                /* namespace_ifname= */ NULL,
+                                                &host_ifname,
+                                                /* ret_namespace_ifname= */ NULL);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to add network interface to container: %m");
 
@@ -5686,7 +5789,7 @@ static int run_container(
                         } else if (!isempty(arg_background))
                                 (void) pty_forward_set_background_color(forward, arg_background);
 
-                        (void) pty_forward_set_window_title(forward, GLYPH_BLUE_CIRCLE, /* hostname = */ NULL,
+                        (void) pty_forward_set_window_title(forward, GLYPH_BLUE_CIRCLE, /* hostname= */ NULL,
                                                             STRV_MAKE("Container", arg_machine));
 
                         pty_forward_set_hotkey_handler(forward, ptyfwd_hotkey, pid);
@@ -5920,7 +6023,7 @@ static int do_cleanup(void) {
 }
 
 static int run(int argc, char *argv[]) {
-        bool remove_directory = false, remove_image = false, veth_created = false;
+        bool remove_image = false, veth_created = false;
         _cleanup_close_ int master = -EBADF, userns_fd = -EBADF, mount_fd = -EBADF;
         _cleanup_fdset_free_ FDSet *fds = NULL;
         int r, ret = EXIT_SUCCESS;
@@ -5928,10 +6031,13 @@ static int run(int argc, char *argv[]) {
         struct ExposeArgs expose_args = {};
         _cleanup_(release_lock_file) LockFile tree_global_lock = LOCK_FILE_INIT, tree_local_lock = LOCK_FILE_INIT;
         _cleanup_(rmdir_and_freep) char *rootdir = NULL;
+        _cleanup_(rm_rf_subvolume_and_freep) char *snapshot_dir = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
+        _cleanup_(mstack_freep) MStack *mstack = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *nfnl = NULL;
         _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
+        _cleanup_(sd_varlink_unrefp) sd_varlink *nsresource_link = NULL, *mountfsd_link = NULL;
 
         log_setup();
 
@@ -6004,7 +6110,7 @@ static int run(int argc, char *argv[]) {
          * so just turning this off here means we only turn it off in nspawn itself, not any children. */
         (void) ignore_signals(SIGPIPE);
 
-        r = fdset_new_listen_fds(&fds, /* unset = */ false);
+        r = fdset_new_listen_fds(&fds, /* unset= */ false);
         if (r < 0) {
                 log_error_errno(r, "Failed to collect file descriptors: %m");
                 goto finish;
@@ -6034,13 +6140,28 @@ static int run(int argc, char *argv[]) {
         if (arg_userns_mode == USER_NAMESPACE_MANAGED) {
                 /* Let's allocate a 64K userns first, if managed mode is chosen */
 
+                r = nsresource_connect(&nsresource_link);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to connect to nsresourced: %m");
+                        goto finish;
+                }
+
+                r = mountfsd_connect(&mountfsd_link);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to connect to mountsd: %m");
+                        goto finish;
+                }
+
                 _cleanup_free_ char *userns_name = NULL;
                 if (asprintf(&userns_name, "nspawn-" PID_FMT "-%s", getpid_cached(), arg_machine) < 0) {
                         r = log_oom();
                         goto finish;
                 }
 
-                userns_fd = nsresource_allocate_userns(userns_name, NSRESOURCE_UIDS_64K); /* allocate 64K UIDs */
+                userns_fd = nsresource_allocate_userns(
+                                nsresource_link,
+                                userns_name,
+                                NSRESOURCE_UIDS_64K); /* allocate 64K UIDs */
                 if (userns_fd < 0) {
                         r = log_error_errno(userns_fd, "Failed to allocate user namespace with 64K users: %m");
                         goto finish;
@@ -6069,63 +6190,27 @@ static int run(int argc, char *argv[]) {
                 }
 
                 if (arg_ephemeral) {
-                        _cleanup_free_ char *np = NULL;
-
                         r = chase_and_update(&arg_directory, 0);
                         if (r < 0)
                                 goto finish;
 
-                        /* If the specified path is a mount point we generate the new snapshot immediately
-                         * inside it under a random name. However if the specified is not a mount point we
-                         * create the new snapshot in the parent directory, just next to it. */
-                        r = path_is_mount_point(arg_directory);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to determine whether directory %s is mount point: %m", arg_directory);
-                                goto finish;
-                        }
-                        if (r > 0)
-                                r = tempfn_random_child(arg_directory, "machine.", &np);
-                        else
-                                r = tempfn_random(arg_directory, "machine.", &np);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to generate name for directory snapshot: %m");
-                                goto finish;
-                        }
-
-                        /* We take an exclusive lock on this image, since it's our private, ephemeral copy
-                         * only owned by us and no one else. */
-                        r = image_path_lock(
+                        r = create_ephemeral_snapshot(
+                                        arg_directory,
                                         arg_privileged ? RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER,
-                                        np,
-                                        LOCK_EX|LOCK_NB,
-                                        arg_privileged ? &tree_global_lock : NULL,
-                                        &tree_local_lock);
+                                        arg_read_only,
+                                        &tree_global_lock,
+                                        &tree_local_lock,
+                                        &snapshot_dir);
                         if (r < 0) {
-                                log_error_errno(r, "Failed to lock %s: %m", np);
+                                log_error_errno(r, "Failed to create ephemeral snapshot: %m");
                                 goto finish;
                         }
 
-                        {
-                                BLOCK_SIGNALS(SIGINT);
-                                r = btrfs_subvol_snapshot_at(AT_FDCWD, arg_directory, AT_FDCWD, np,
-                                                             (arg_read_only ? BTRFS_SNAPSHOT_READ_ONLY : 0) |
-                                                             BTRFS_SNAPSHOT_FALLBACK_COPY |
-                                                             BTRFS_SNAPSHOT_FALLBACK_DIRECTORY |
-                                                             BTRFS_SNAPSHOT_RECURSIVE |
-                                                             BTRFS_SNAPSHOT_QUOTA |
-                                                             BTRFS_SNAPSHOT_SIGINT);
-                        }
-                        if (r == -EINTR) {
-                                log_error_errno(r, "Interrupted while copying file system tree to %s, removed again.", np);
-                                goto finish;
-                        }
+                        r = free_and_strdup(&arg_directory, snapshot_dir);
                         if (r < 0) {
-                                log_error_errno(r, "Failed to create snapshot %s from %s: %m", np, arg_directory);
+                                log_oom();
                                 goto finish;
                         }
-
-                        free_and_replace(arg_directory, np);
-                        remove_directory = true;
                 } else {
                         r = chase_and_update(&arg_directory, arg_template ? CHASE_NONEXISTENT : 0);
                         if (r < 0)
@@ -6229,20 +6314,23 @@ static int run(int argc, char *argv[]) {
                         }
                 }
 
-                if (arg_userns_mode == USER_NAMESPACE_MANAGED) {
+                if (userns_fd >= 0) {
                         r = mountfsd_mount_directory(
+                                        mountfsd_link,
                                         arg_directory,
                                         userns_fd,
                                         determine_dissect_image_flags(),
                                         &mount_fd);
-                        if (r < 0)
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to mount directory via mountfsd: %m");
                                 goto finish;
+                        }
                 }
-        } else {
+
+        } else if (arg_image) {
                 DissectImageFlags dissect_image_flags =
                         determine_dissect_image_flags();
 
-                assert(arg_image);
                 assert(!arg_template);
 
                 r = chase_and_update(&arg_image, 0);
@@ -6379,14 +6467,18 @@ static int run(int argc, char *argv[]) {
                                 goto finish;
                 } else {
                         r = mountfsd_mount_image(
+                                        mountfsd_link,
                                         arg_image,
                                         userns_fd,
+                                        /* options= */ NULL,
                                         arg_image_policy,
                                         &arg_verity_settings,
                                         dissect_image_flags,
                                         &dissected_image);
-                        if (r < 0)
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to mount image via mountfsd: %m");
                                 goto finish;
+                        }
                 }
 
                 /* Now that we mounted the image, let's try to remove it again, if it is ephemeral */
@@ -6395,7 +6487,40 @@ static int run(int argc, char *argv[]) {
 
                 if (arg_architecture < 0)
                         arg_architecture = dissected_image_architecture(dissected_image);
-        }
+
+        } else if (arg_mstack) {
+                assert(!arg_template);
+                assert(!arg_ephemeral);
+
+                r = chase_and_update(&arg_mstack, CHASE_MUST_BE_DIRECTORY);
+                if (r < 0)
+                        goto finish;
+
+                if (!IN_SET(arg_userns_mode, USER_NAMESPACE_NO, USER_NAMESPACE_MANAGED))
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "--mstack= requires managed user namespacing, or user namespace turned off.");
+
+                MStackFlags mstack_flags = arg_read_only ? MSTACK_RDONLY : 0;
+                r = mstack_load(arg_mstack,
+                                /* dir_fd= */ -EBADF,
+                                &mstack);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to load .mstack/ directory '%s': %m", arg_mstack);
+                        goto finish;
+                }
+
+                r = mstack_open_images(
+                                mstack,
+                                mountfsd_link,
+                                userns_fd,
+                                arg_image_policy,
+                                /* image_filter= */ NULL,
+                                mstack_flags);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to open .mstack/ layer images '%s': %m", arg_mstack);
+                        goto finish;
+                }
+        } else
+                assert_not_reached();
 
         /* Create a temporary place to mount stuff. */
         r = mkdtemp_malloc("/tmp/nspawn-root-XXXXXX", &rootdir);
@@ -6408,8 +6533,11 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 goto finish;
 
+        mountfsd_link = sd_varlink_unref(mountfsd_link);
+        nsresource_link = sd_varlink_unref(nsresource_link);
+
         if (!arg_quiet) {
-                const char *t = arg_image ?: arg_directory;
+                const char *t = arg_mstack ?: arg_image ?: arg_directory;
                 _cleanup_free_ char *u = NULL;
                 (void) terminal_urlify_path(t, t, &u);
 
@@ -6445,9 +6573,11 @@ static int run(int argc, char *argv[]) {
                                 rootdir,
                                 mount_fd,
                                 dissected_image,
+                                mstack,
                                 userns_fd,
                                 fds,
-                                veth_name, &veth_created,
+                                veth_name,
+                                &veth_created,
                                 &expose_args, &master,
                                 &pid, &ret);
                 if (r <= 0)
@@ -6474,14 +6604,6 @@ finish:
         }
 
         pager_close();
-
-        if (remove_directory && arg_directory) {
-                int k;
-
-                k = rm_rf(arg_directory, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
-                if (k < 0)
-                        log_warning_errno(k, "Cannot remove '%s', ignoring: %m", arg_directory);
-        }
 
         if (remove_image && arg_image) {
                 if (unlink(arg_image) < 0)

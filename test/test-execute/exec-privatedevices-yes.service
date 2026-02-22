@@ -3,6 +3,6 @@
 Description=Test for PrivateDevices=yes
 
 [Service]
-ExecStart=sh -c 'test ! -c /dev/kmsg'
+ExecStart=bash -c 'test ! -c /dev/kmsg'
 Type=oneshot
 PrivateDevices=yes

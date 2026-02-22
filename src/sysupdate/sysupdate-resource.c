@@ -12,6 +12,7 @@
 #include "device-util.h"
 #include "devnum-util.h"
 #include "dirent-util.h"
+#include "env-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fdisk-util.h"
@@ -21,6 +22,8 @@
 #include "gpt.h"
 #include "hexdecoct.h"
 #include "import-util.h"
+#include "iovec-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "sort-util.h"
 #include "stat-util.h"
@@ -28,6 +31,7 @@
 #include "strv.h"
 #include "sysupdate-cache.h"
 #include "sysupdate-instance.h"
+#include "sysupdate-partition.h"
 #include "sysupdate-pattern.h"
 #include "sysupdate-resource.h"
 #include "time-util.h"
@@ -77,15 +81,22 @@ static int resource_load_from_directory_recursive(
                 Resource *rr,
                 DIR* d,
                 const char* relpath,
-                mode_t m) {
+                const char* relpath_for_matching,
+                mode_t m,
+                bool ancestor_is_partial,
+                bool ancestor_is_pending) {
         int r;
 
         for (;;) {
                 _cleanup_(instance_metadata_destroy) InstanceMetadata extracted_fields = INSTANCE_METADATA_NULL;
                 _cleanup_free_ char *joined = NULL, *rel_joined = NULL;
+                _cleanup_free_ char *rel_joined_for_matching = NULL;
                 Instance *instance;
                 struct dirent *de;
+                const char *de_d_name_stripped;
                 struct stat st;
+                bool is_partial = ancestor_is_partial, is_pending = ancestor_is_pending;
+                const char *stripped;
 
                 errno = 0;
                 de = readdir_no_dot(d);
@@ -125,11 +136,26 @@ static int resource_load_from_directory_recursive(
                 if (!(S_ISDIR(st.st_mode) && S_ISREG(m)) && ((st.st_mode & S_IFMT) != m))
                         continue;
 
+                if ((stripped = startswith(de->d_name, ".sysupdate.partial."))) {
+                        de_d_name_stripped = stripped;
+                        is_partial = true;
+                } else if ((stripped = startswith(de->d_name, ".sysupdate.pending."))) {
+                        de_d_name_stripped = stripped;
+                        is_pending = true;
+                } else
+                        de_d_name_stripped = de->d_name;
+
                 rel_joined = path_join(relpath, de->d_name);
                 if (!rel_joined)
                         return log_oom();
 
-                r = pattern_match_many(rr->patterns, rel_joined, &extracted_fields);
+                /* Match against the filename with any `.sysupdate.partial.` (etc.) prefix stripped, so the
+                 * user’s patterns still apply. But don’t use the stripped version in any paths or recursion. */
+                rel_joined_for_matching = path_join(relpath_for_matching, de_d_name_stripped);
+                if (!rel_joined_for_matching)
+                        return log_oom();
+
+                r = pattern_match_many(rr->patterns, rel_joined_for_matching, &extracted_fields);
                 if (r == PATTERN_MATCH_RETRY) {
                         _cleanup_closedir_ DIR *subdir = NULL;
 
@@ -137,7 +163,7 @@ static int resource_load_from_directory_recursive(
                         if (!subdir)
                                 continue;
 
-                        r = resource_load_from_directory_recursive(rr, subdir, rel_joined, m);
+                        r = resource_load_from_directory_recursive(rr, subdir, rel_joined, rel_joined_for_matching, m, is_partial, is_pending);
                         if (r < 0)
                                 return r;
                         if (r == 0)
@@ -165,6 +191,9 @@ static int resource_load_from_directory_recursive(
 
                 if (instance->metadata.mode == MODE_INVALID)
                         instance->metadata.mode = st.st_mode & 0775; /* mask out world-writability and suid and stuff, for safety */
+
+                instance->is_partial = is_partial;
+                instance->is_pending = is_pending;
         }
 
         return 0;
@@ -189,7 +218,7 @@ static int resource_load_from_directory(
                 return log_error_errno(errno, "Failed to open directory '%s': %m", rr->path);
         }
 
-        return resource_load_from_directory_recursive(rr, d, NULL, m);
+        return resource_load_from_directory_recursive(rr, d, NULL, NULL, m, false, false);
 }
 
 static int resource_load_from_blockdev(Resource *rr) {
@@ -216,6 +245,7 @@ static int resource_load_from_blockdev(Resource *rr) {
                 _cleanup_(instance_metadata_destroy) InstanceMetadata extracted_fields = INSTANCE_METADATA_NULL;
                 _cleanup_(partition_info_destroy) PartitionInfo pinfo = PARTITION_INFO_NULL;
                 Instance *instance;
+                bool is_partial = false, is_pending = false;
 
                 r = read_partition_info(c, t, i, &pinfo);
                 if (r < 0)
@@ -223,9 +253,28 @@ static int resource_load_from_blockdev(Resource *rr) {
                 if (r == 0) /* not assigned */
                         continue;
 
-                /* Check if partition type matches */
-                if (rr->partition_type_set && !sd_id128_equal(pinfo.type, rr->partition_type.uuid))
-                        continue;
+                /* Check if partition type matches, either directly or via derived partial/pending type
+                 * UUIDs. The derived UUIDs are computed from the configured partition type by hashing it
+                 * with a fixed app-specific ID, so we can detect the state without relying on label
+                 * prefixes. */
+                if (rr->partition_type_set) {
+                        sd_id128_t partial_type, pending_type;
+
+                        r = gpt_partition_type_uuid_for_sysupdate_partial(rr->partition_type.uuid, &partial_type);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to derive partial partition type UUID: %m");
+
+                        r = gpt_partition_type_uuid_for_sysupdate_pending(rr->partition_type.uuid, &pending_type);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to derive pending partition type UUID: %m");
+
+                        if (sd_id128_equal(pinfo.type, partial_type))
+                                is_partial = true;
+                        else if (sd_id128_equal(pinfo.type, pending_type))
+                                is_pending = true;
+                        else if (!sd_id128_equal(pinfo.type, rr->partition_type.uuid))
+                                continue;
+                }
 
                 /* A label of "_empty" means "not used so far" for us */
                 if (streq_ptr(pinfo.label, "_empty")) {
@@ -259,6 +308,9 @@ static int resource_load_from_blockdev(Resource *rr) {
 
                 if (instance->metadata.read_only < 0)
                         instance->metadata.read_only = instance->partition_info.read_only;
+
+                instance->is_partial = is_partial;
+                instance->is_pending = is_pending;
         }
 
         return 0;
@@ -274,7 +326,6 @@ static int download_manifest(
         _cleanup_close_pair_ int pfd[2] = EBADF_PAIR;
         _cleanup_fclose_ FILE *manifest = NULL;
         size_t size = 0;
-        pid_t pid;
         int r;
 
         assert(url);
@@ -293,11 +344,13 @@ static int download_manifest(
         log_info("%s Acquiring manifest file %s%s", glyph(GLYPH_DOWNLOAD),
                  suffixed_url, glyph(GLYPH_ELLIPSIS));
 
-        r = safe_fork_full("(sd-pull)",
-                           (int[]) { -EBADF, pfd[1], STDERR_FILENO },
-                           NULL, 0,
-                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REARRANGE_STDIO|FORK_LOG,
-                           &pid);
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        r = pidref_safe_fork_full(
+                        "(sd-pull)",
+                        (int[]) { -EBADF, pfd[1], STDERR_FILENO },
+                        NULL, 0,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REARRANGE_STDIO|FORK_LOG,
+                        &pidref);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -337,7 +390,7 @@ static int download_manifest(
 
         manifest = safe_fclose(manifest);
 
-        r = wait_for_terminate_and_check("(sd-pull)", pid, WAIT_LOG);
+        r = pidref_wait_for_terminate_and_check("(sd-pull)", &pidref, WAIT_LOG);
         if (r < 0)
                 return r;
         if (r != 0)
@@ -347,6 +400,82 @@ static int download_manifest(
         *ret_size = size;
 
         return 0;
+}
+
+static int process_magic_file(
+                const char *fn,
+                const struct iovec *hash) {
+
+        int r;
+
+        assert(fn);
+        assert(iovec_is_set(hash));
+
+        /* Validates "BEST-BEFORE-*" magic files we find in SHA256SUMS manifests. For now we ignore the
+         * contents of such files (which might change one day), and only look at the file name.
+         *
+         * Note that if multiple BEST-BEFORE-* files exist in the same listing we'll honour them all, and
+         * fail whenever *any* of them indicate a date that's already in the past. */
+
+        const char *e = startswith(fn, "BEST-BEFORE-");
+        if (!e)
+                return 0;
+
+        /* SHA256 hash of an empty file */
+        static const uint8_t expected_hash[] = {
+                0xe3, 0xb0, 0xc4, 0x42, 0x98, 0xfc, 0x1c, 0x14, 0x9a, 0xfb, 0xf4, 0xc8, 0x99, 0x6f, 0xb9, 0x24,
+                0x27, 0xae, 0x41, 0xe4, 0x64, 0x9b, 0x93, 0x4c, 0xa4, 0x95, 0x99, 0x1b, 0x78, 0x52, 0xb8, 0x55,
+        };
+
+        /* Even if we ignore if people have non-empty files for this file, let's nonetheless warn about it,
+         * so that people fix it. After all we want to retain liberty to maybe one day place some useful data
+         * inside it */
+        if (iovec_memcmp(&IOVEC_MAKE(expected_hash, sizeof(expected_hash)), hash) != 0)
+                log_warning("Hash of best before marker file '%s' has unexpected value, proceeding anyway.", fn);
+
+        struct tm parsed_tm = {};
+        const char *n = strptime(e, "%Y-%m-%d", &parsed_tm);
+        if (!n || *n != 0) {
+                /* Doesn't parse? Then it's not a best-before date */
+                log_warning("Found best before marker with an invalid date, ignoring: %s", fn);
+                return 0;
+        }
+
+        struct tm copy_tm = parsed_tm;
+        usec_t best_before;
+        r = mktime_or_timegm_usec(&copy_tm, /* utc= */ true, &best_before);
+        if (r < 0)
+                return log_error_errno(r, "Failed to convert best before time: %m");
+        if (copy_tm.tm_mday != parsed_tm.tm_mday ||
+            copy_tm.tm_mon != parsed_tm.tm_mon ||
+            copy_tm.tm_year != parsed_tm.tm_year) {
+                /* date was not normalized? (e.g. "30th of feb") */
+                log_warning("Found best before marker with a non-normalized data, ignoring: %s", fn);
+                return 0;
+        }
+
+        usec_t nw = now(CLOCK_REALTIME);
+        if (best_before < nw) {
+                /* We are past the best before date! Yikes! */
+
+                r = secure_getenv_bool("SYSTEMD_SYSUPDATE_VERIFY_FRESHNESS");
+                if (r < 0 && r != -ENXIO)
+                        log_debug_errno(r, "Failed to parse $SYSTEMD_SYSUPDATE_VERIFY_FRESHNESS, ignoring: %m");
+
+                if (r == 0) {
+                        log_warning("Best before marker indicates out-of-date file list, but told to ignore this, hence ignoring (%s < %s).",
+                                    FORMAT_TIMESTAMP(best_before), FORMAT_TIMESTAMP(nw));
+                        return 1; /* we processed this line, don't use for pattern matching */
+                }
+
+                return log_error_errno(
+                                SYNTHETIC_ERRNO(ESTALE),
+                                "Best before marker indicates out-of-date file list, refusing (%s < %s).",
+                                FORMAT_TIMESTAMP(best_before), FORMAT_TIMESTAMP(nw));
+        }
+
+        log_info("Found best before marker, and it checks out, proceeding.");
+        return 1; /* we processed this line, don't use for pattern matching */
 }
 
 static int resource_load_from_web(
@@ -389,11 +518,10 @@ static int resource_load_from_web(
 
         while (left > 0) {
                 _cleanup_(instance_metadata_destroy) InstanceMetadata extracted_fields = INSTANCE_METADATA_NULL;
+                _cleanup_(iovec_done) struct iovec h = {};
                 _cleanup_free_ char *fn = NULL;
-                _cleanup_free_ void *h = NULL;
                 Instance *instance;
                 const char *e;
-                size_t hlen;
 
                 /* 64 character hash + separator + filename + newline */
                 if (left < 67)
@@ -402,7 +530,7 @@ static int resource_load_from_web(
                 if (p[0] == '\\')
                         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "File names with escapes not supported in manifest at line %zu, refusing.", line_nr);
 
-                r = unhexmem_full(p, 64, /* secure = */ false, &h, &hlen);
+                r = unhexmem_full(p, 64, /* secure= */ false, &h.iov_base, &h.iov_len);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse digest at manifest line %zu, refusing.", line_nr);
 
@@ -431,28 +559,40 @@ static int resource_load_from_web(
                 if (string_has_cc(fn, NULL))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Filename contains control characters at manifest line %zu, refusing.", line_nr);
 
-                r = pattern_match_many(rr->patterns, fn, &extracted_fields);
+                r = process_magic_file(fn, &h);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to match pattern: %m");
-                if (r == PATTERN_MATCH_YES) {
-                        _cleanup_free_ char *path = NULL;
+                        return r;
+                if (r == 0) {
+                        /* If this isn't a magic file, then do the pattern matching */
 
-                        r = import_url_append_component(rr->path, fn, &path);
+                        r = pattern_match_many(rr->patterns, fn, &extracted_fields);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to build instance URL: %m");
+                                return log_error_errno(r, "Failed to match pattern: %m");
+                        if (r == PATTERN_MATCH_YES) {
+                                _cleanup_free_ char *path = NULL;
 
-                        r = resource_add_instance(rr, path, &extracted_fields, &instance);
-                        if (r < 0)
-                                return r;
+                                r = import_url_append_component(rr->path, fn, &path);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to build instance URL: %m");
 
-                        assert(hlen == sizeof(instance->metadata.sha256sum));
+                                r = resource_add_instance(rr, path, &extracted_fields, &instance);
+                                if (r < 0)
+                                        return r;
 
-                        if (instance->metadata.sha256sum_set) {
-                                if (memcmp(instance->metadata.sha256sum, h, hlen) != 0)
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "SHA256 sum parsed from filename and manifest don't match at line %zu, refusing.", line_nr);
-                        } else {
-                                memcpy(instance->metadata.sha256sum, h, hlen);
-                                instance->metadata.sha256sum_set = true;
+                                assert(h.iov_len == sizeof(instance->metadata.sha256sum));
+
+                                if (instance->metadata.sha256sum_set) {
+                                        if (memcmp(instance->metadata.sha256sum, h.iov_base, h.iov_len) != 0)
+                                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "SHA256 sum parsed from filename and manifest don't match at line %zu, refusing.", line_nr);
+                                } else {
+                                        memcpy(instance->metadata.sha256sum, h.iov_base, h.iov_len);
+                                        instance->metadata.sha256sum_set = true;
+                                }
+
+                                /* Web resources can only be a source, not a target, so
+                                 * can never be partial or pending. */
+                                instance->is_partial = false;
+                                instance->is_pending = false;
                         }
                 }
 
@@ -592,7 +732,7 @@ static int get_sysext_overlay_block(const char *p, dev_t *ret) {
                 return 0;
         }
 
-        (void) block_get_originating(*ret, ret);
+        (void) block_get_originating(*ret, ret, /* recursive= */ false);
         return 1;
 }
 

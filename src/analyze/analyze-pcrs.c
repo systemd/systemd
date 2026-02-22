@@ -53,7 +53,7 @@ static int get_current_pcr(const char *alg, uint32_t pcr, void **ret, size_t *re
         if (r < 0)
                 return log_error_errno(r, "Failed to read '%s': %m", p);
 
-        r = unhexmem_full(s, ss, /* secure = */ false, &buf, &bufsize);
+        r = unhexmem_full(s, ss, /* secure= */ false, &buf, &bufsize);
         if (r < 0)
                 return log_error_errno(r, "Failed to decode hex PCR data '%s': %m", s);
 
@@ -141,7 +141,7 @@ int verb_pcrs(int argc, char *argv[], void *userdata) {
                                 return r;
                 }
 
-        r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, /* show_header= */true);
+        r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, /* show_header= */ true);
         if (r < 0)
                 return r;
 

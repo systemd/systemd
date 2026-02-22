@@ -96,7 +96,7 @@ static int device_rename(sd_device *device, const char *name) {
 
         /* At the time this is called, the renamed device may not exist yet. Hence, we cannot validate
          * the new syspath. */
-        r = device_set_syspath(device, new_syspath, /* verify = */ false);
+        r = device_set_syspath(device, new_syspath, /* verify= */ false);
         if (r < 0)
                 return r;
 
@@ -219,7 +219,7 @@ revert:
         (void) device_update_db(event->dev_db_clone);
 
         /* Restore 'dev' */
-        (void) device_set_syspath(dev, old_syspath, /* verify = */ false);
+        (void) device_set_syspath(dev, old_syspath, /* verify= */ false);
         if (sd_device_get_property_value(dev, "INTERFACE_OLD", &s) >= 0) {
                 (void) device_add_property_internal(dev, "INTERFACE", s);
                 (void) device_add_property_internal(dev, "INTERFACE_OLD", NULL);

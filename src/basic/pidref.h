@@ -96,8 +96,19 @@ int pidref_kill(const PidRef *pidref, int sig);
 int pidref_kill_and_sigcont(const PidRef *pidref, int sig);
 int pidref_sigqueue(const PidRef *pidref, int sig, int value);
 
-int pidref_wait(PidRef *pidref, siginfo_t *ret, int options);
-int pidref_wait_for_terminate(PidRef *pidref, siginfo_t *ret);
+int pidref_wait_for_terminate_full(PidRef *pidref, usec_t timeout, siginfo_t *ret_si);
+static inline int pidref_wait_for_terminate(PidRef *pidref, siginfo_t *ret_si) {
+        return pidref_wait_for_terminate_full(pidref, USEC_INFINITY, ret_si);
+}
+
+static inline void pidref_done_sigterm_wait(PidRef *pidref) {
+        if (!pidref_is_set(pidref))
+                return;
+
+        (void) pidref_kill(pidref, SIGTERM);
+        (void) pidref_wait_for_terminate(pidref, NULL);
+        pidref_done(pidref);
+}
 
 static inline void pidref_done_sigkill_wait(PidRef *pidref) {
         if (!pidref_is_set(pidref))
@@ -105,6 +116,14 @@ static inline void pidref_done_sigkill_wait(PidRef *pidref) {
 
         (void) pidref_kill(pidref, SIGKILL);
         (void) pidref_wait_for_terminate(pidref, NULL);
+        pidref_done(pidref);
+}
+
+static inline void pidref_done_sigkill_nowait(PidRef *pidref) {
+        if (!pidref_is_set(pidref))
+                return;
+
+        (void) pidref_kill(pidref, SIGKILL);
         pidref_done(pidref);
 }
 

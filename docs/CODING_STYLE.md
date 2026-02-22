@@ -247,6 +247,24 @@ SPDX-License-Identifier: LGPL-2.1-or-later
                   const char *input);
   ```
 
+- When passing `NULL` or another value meaning "unset" to a function, use a comment
+  to indicate the argument name to make it more clear where we're passing an "unset"
+  value.
+
+  Bad:
+
+  ```c
+  myfunction(NULL, NULL, NULL);
+  ```
+
+  Good:
+
+  ```c
+  myfunction(/* a= */ NULL, /* b= */ NULL, /* c= */ NULL);
+  ```
+
+  This guidance should be applied tree-wide, including in test files.
+
 - Please do not introduce new circular dependencies between header files.
   Effectively this means that if a.h includes b.h, then b.h cannot include a.h,
   directly or transitively via another header. Circular header dependencies can
@@ -418,6 +436,16 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   and Linux/GNU-specific APIs, we generally prefer the POSIX APIs. If there
   aren't, we are happy to use GNU or Linux APIs, and expect non-GNU
   implementations of libc to catch up with glibc.
+
+- Very often we pass a pair of file descriptor and a path to functions, which
+  are to be understood in combination. For example `openat()` style functions
+  typically take a directory fd and a filename relative to that as argument. In
+  other cases where operations operate relative to a root directory it makes
+  sense to have a pair of root path and root fd. Whenever possible the function
+  arguments should be in the order "fd first, path second" when the path shall
+  be understood relative to the fd. And an order "path first, fd second"
+  shall be used when the root path is the path of the referenced fd, i.e. two
+  references to the same object.
 
 ## Using C Constructs
 
@@ -670,6 +698,26 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   if (n != sizeof s)
           return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to read ...");
   ```
+
+- When generating log messages that contain filenames, user controlled strings,
+  or similar, please enclose them in single ticks.
+
+- Think about the log level you choose: for functions that are of the "logging"
+  kind (see above), please ensure that failures we propagate should be logged
+  about at `LOG_ERR` level. Failures that are noteworthy, but we proceed anyway,
+  should be logged at `LOG_WARN` level. Important informational messages should
+  use `LOG_NOTICE` and regular informational messages should use
+  `LOG_INFO`. Note that the latter is the default maximum log level, i.e. only
+  `LOG_DEBUG` messages are hidden by default.
+
+- All log messages that show some failure which is not fatal for the immediate
+  operation (i.e. generally those you'd log at `LOG_WARN` level, as described
+  above) should be suffixed with a `…, ignoring: %m"` or similar. Or in other
+  words, they should make clear not only in log level but also in English
+  language that the issue is not fatal, but ignored. Depending on context you
+  can also use `…, proceeding anyway: %m"`, `…, skipping: %m` or other language
+  that makes clear that the failure is not actionable and doesn't strictly
+  require immediate administrator attention.
 
 ## Memory Allocation
 
@@ -999,3 +1047,44 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 - When modifying existing tests, please convert the test to use the new assertion
   macros from `tests.h` if it is not already using those.
+
+## Integration Tests
+
+- Never use `grep -q` in a pipeline, use `grep >/dev/null` instead. The former
+  will generate `SIGPIPE` for the previous command in the pipeline when it finds
+  a match which will cause the test to fail unexpectedly.
+
+## Kernel Version Dependencies
+
+- For entirely new functionality it's fine to rely on features of very recent
+  (released!) kernel versions. If a feature is added to the upstream kernel,
+  and a stable release is made, then it's immediately OK to merge *new*
+  functionality into systemd relying on it, as long as that functionality is
+  optional. (In some cases, it might be OK to merge a feature into systemd
+  slightly before the final kernel release that it is based on, as long as the
+  kernel development cycle has already progressed far enough that the feature
+  is unlikely to be still reverted – for example once RC2 of the kernel release
+  has been released.)
+
+- For components that already have been released in a stable version
+  compatibility with older kernels must be retained, down to the "minimum
+  baseline" version as listed in the README, or the version current when the
+  component was added to our tree, whichever is newer.
+
+- When adding a fallback path, please avoid checking for kernel versions, as
+  downstream distributions tend to backport features, and version checks are
+  not great replacements for feature checks hence.
+
+- When adding a compatibility code path for an older kernel version, please add
+  a comment in the following style to the relevant codepath:
+
+```c
+        // FIXME: This compatibility code path shall be removed once kernel X.Y
+        //        becomes the new minimal baseline
+```
+
+  When this syntax is followed we'll have an easier time tracking down these
+  codepaths and removing them when bumping baselines.
+
+- Whenever support for a new kernel API feature is added, please update the
+  kernel feature/version list in README as well (as part of the same PR).

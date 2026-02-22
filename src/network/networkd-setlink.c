@@ -5,7 +5,9 @@
 #include <netinet/in.h>
 
 #include "sd-netlink.h"
+#include "sd-varlink.h"
 
+#include "alloc-util.h"
 #include "device-private.h"
 #include "missing-network.h"
 #include "netif-util.h"
@@ -88,7 +90,7 @@ static int set_link_handler_internal(
 static int link_set_addrgen_mode_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, void *userdata) {
         int r;
 
-        r = set_link_handler_internal(rtnl, m, req, link, /* ignore = */ true, NULL);
+        r = set_link_handler_internal(rtnl, m, req, link, /* ignore= */ true, NULL);
         if (r <= 0)
                 return r;
 
@@ -102,11 +104,11 @@ static int link_set_addrgen_mode_handler(sd_netlink *rtnl, sd_netlink_message *m
 }
 
 static int link_set_bond_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, void *userdata) {
-        return set_link_handler_internal(rtnl, m, req, link, /* ignore = */ false, NULL);
+        return set_link_handler_internal(rtnl, m, req, link, /* ignore= */ false, NULL);
 }
 
 static int link_set_bridge_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, void *userdata) {
-        return set_link_handler_internal(rtnl, m, req, link, /* ignore = */ true, NULL);
+        return set_link_handler_internal(rtnl, m, req, link, /* ignore= */ true, NULL);
 }
 
 static int link_set_bridge_vlan_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, void *userdata) {
@@ -114,7 +116,7 @@ static int link_set_bridge_vlan_handler(sd_netlink *rtnl, sd_netlink_message *m,
 
         assert(link);
 
-        r = set_link_handler_internal(rtnl, m, req, link, /* ignore = */ false, NULL);
+        r = set_link_handler_internal(rtnl, m, req, link, /* ignore= */ false, NULL);
         if (r <= 0)
                 return r;
 
@@ -123,27 +125,27 @@ static int link_set_bridge_vlan_handler(sd_netlink *rtnl, sd_netlink_message *m,
 }
 
 static int link_del_bridge_vlan_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, void *userdata) {
-        return set_link_handler_internal(rtnl, m, req, link, /* ignore = */ false, NULL);
+        return set_link_handler_internal(rtnl, m, req, link, /* ignore= */ false, NULL);
 }
 
 static int link_set_can_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, void *userdata) {
-        return set_link_handler_internal(rtnl, m, req, link, /* ignore = */ false, NULL);
+        return set_link_handler_internal(rtnl, m, req, link, /* ignore= */ false, NULL);
 }
 
 static int link_set_flags_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, void *userdata) {
-        return set_link_handler_internal(rtnl, m, req, link, /* ignore = */ false, get_link_default_handler);
+        return set_link_handler_internal(rtnl, m, req, link, /* ignore= */ false, get_link_default_handler);
 }
 
 static int link_set_group_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, void *userdata) {
-        return set_link_handler_internal(rtnl, m, req, link, /* ignore = */ false, NULL);
+        return set_link_handler_internal(rtnl, m, req, link, /* ignore= */ false, NULL);
 }
 
 static int link_set_ipoib_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, void *userdata) {
-        return set_link_handler_internal(rtnl, m, req, link, /* ignore = */ true, NULL);
+        return set_link_handler_internal(rtnl, m, req, link, /* ignore= */ true, NULL);
 }
 
 static int link_set_mac_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, void *userdata) {
-        return set_link_handler_internal(rtnl, m, req, link, /* ignore = */ true, get_link_default_handler);
+        return set_link_handler_internal(rtnl, m, req, link, /* ignore= */ true, get_link_default_handler);
 }
 
 static int link_set_mac_allow_retry_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, void *userdata) {
@@ -160,7 +162,7 @@ static int link_set_mac_allow_retry_handler(sd_netlink *rtnl, sd_netlink_message
 
                 log_link_message_debug_errno(link, m, r, "Failed to set MAC address, retrying again");
 
-                r = link_request_to_set_mac(link, /* allow_retry = */ false);
+                r = link_request_to_set_mac(link, /* allow_retry= */ false);
                 if (r < 0)
                         link_enter_failed(link);
 
@@ -171,16 +173,16 @@ static int link_set_mac_allow_retry_handler(sd_netlink *rtnl, sd_netlink_message
 }
 
 static int link_set_master_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, void *userdata) {
-        return set_link_handler_internal(rtnl, m, req, link, /* ignore = */ false, get_link_master_handler);
+        return set_link_handler_internal(rtnl, m, req, link, /* ignore= */ false, get_link_master_handler);
 }
 
 static int link_unset_master_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, void *userdata) {
         /* Some devices do not support setting master ifindex. Let's ignore error on unsetting master ifindex. */
-        return set_link_handler_internal(rtnl, m, req, link, /* ignore = */ true, get_link_master_handler);
+        return set_link_handler_internal(rtnl, m, req, link, /* ignore= */ true, get_link_master_handler);
 }
 
 static int link_set_mtu_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, void *userdata) {
-        return set_link_handler_internal(rtnl, m, req, link, /* ignore = */ true, get_link_default_handler);
+        return set_link_handler_internal(rtnl, m, req, link, /* ignore= */ true, get_link_default_handler);
 }
 
 static int link_get_arp(Link *link) {
@@ -372,12 +374,12 @@ static int link_configure_fill_message(
                         return r;
                 break;
         case REQUEST_TYPE_SET_LINK_BRIDGE_VLAN:
-                r = bridge_vlan_set_message(link, req, /* is_set = */ true);
+                r = bridge_vlan_set_message(link, req, /* is_set= */ true);
                 if (r < 0)
                         return r;
                 break;
         case REQUEST_TYPE_DEL_LINK_BRIDGE_VLAN:
-                r = bridge_vlan_set_message(link, req, /* is_set = */ false);
+                r = bridge_vlan_set_message(link, req, /* is_set= */ false);
                 if (r < 0)
                         return r;
                 break;
@@ -908,7 +910,7 @@ int link_request_to_set_mac(Link *link, bool allow_retry) {
                 return 0;
 
         link->requested_hw_addr = link->network->hw_addr;
-        r = net_verify_hardware_address(link->ifname, /* is_static = */ true,
+        r = net_verify_hardware_address(link->ifname, /* is_static= */ true,
                                         link->iftype, &link->hw_addr, &link->requested_hw_addr);
         if (r < 0)
                 return r;
@@ -1049,12 +1051,12 @@ static int link_up_dsa_slave(Link *link) {
         if (master->state == LINK_STATE_UNMANAGED) {
                 /* If the DSA master interface is unmanaged, then it will never become up.
                  * Let's request to bring up the master. */
-                r = link_request_to_bring_up_or_down(master, /* up = */ true);
+                r = link_request_to_bring_up_or_down(master, /* up= */ true);
                 if (r < 0)
                         return r;
         }
 
-        r = link_request_to_bring_up_or_down(link, /* up = */ true);
+        r = link_request_to_bring_up_or_down(link, /* up= */ true);
         if (r < 0)
                 return r;
 
@@ -1140,7 +1142,7 @@ static bool link_is_ready_to_activate_one(Link *link, bool allow_unmanaged) {
  static bool link_is_ready_to_activate(Link *link, bool up) {
         assert(link);
 
-        if (!check_ready_for_all_sr_iov_ports(link, /* allow_unmanaged = */ false,
+        if (!check_ready_for_all_sr_iov_ports(link, /* allow_unmanaged= */ false,
                                               link_is_ready_to_activate_one))
                 return false;
 
@@ -1305,11 +1307,11 @@ static int link_up_or_down_now_handler(sd_netlink *rtnl, sd_netlink_message *m, 
 }
 
 static int link_up_now_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return link_up_or_down_now_handler(rtnl, m, link, /* up = */ true);
+        return link_up_or_down_now_handler(rtnl, m, link, /* up= */ true);
 }
 
 static int link_down_now_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
-        return link_up_or_down_now_handler(rtnl, m, link, /* up = */ false);
+        return link_up_or_down_now_handler(rtnl, m, link, /* up= */ false);
 }
 
 int link_up_or_down_now(Link *link, bool up) {
@@ -1338,6 +1340,103 @@ int link_up_or_down_now(Link *link, bool up) {
 
         link->set_flags_messages++;
         link_ref(link);
+        return 0;
+}
+
+typedef struct SetLinkVarlinkContext {
+        Link *link;
+        sd_varlink *vlink;
+        bool up;
+} SetLinkVarlinkContext;
+
+static SetLinkVarlinkContext* set_link_varlink_context_free(SetLinkVarlinkContext *ctx) {
+        if (!ctx)
+                return NULL;
+
+        if (ctx->vlink)
+                sd_varlink_unref(ctx->vlink);
+        if (ctx->link)
+                link_unref(ctx->link);
+        return mfree(ctx);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(SetLinkVarlinkContext*, set_link_varlink_context_free);
+
+static void set_link_varlink_context_destroy(SetLinkVarlinkContext *ctx) {
+        set_link_varlink_context_free(ctx);
+}
+
+static int link_up_or_down_now_varlink_handler(sd_netlink *rtnl, sd_netlink_message *m, SetLinkVarlinkContext *ctx) {
+        int r;
+
+        assert(m);
+        assert(ctx);
+
+        Link *link = ASSERT_PTR(ctx->link);
+        sd_varlink *vlink = ASSERT_PTR(ctx->vlink);
+        bool up = ctx->up;
+
+        assert(link->set_flags_messages > 0);
+
+        link->set_flags_messages--;
+
+        r = sd_netlink_message_get_errno(m);
+        if (r < 0) {
+                (void) sd_varlink_error_errno(vlink, r);
+                log_link_message_warning_errno(link, m, r, "Could not bring %s interface", up_or_down(up));
+        } else
+                (void) sd_varlink_reply(vlink, NULL);
+
+        if (link->state == LINK_STATE_LINGER)
+                return 0;
+
+        r = link_call_getlink(link, get_link_update_flag_handler);
+        if (r < 0) {
+                link_enter_failed(link);
+                return 0;
+        }
+
+        link->set_flags_messages++;
+        return 0;
+}
+
+int link_up_or_down_now_by_varlink(Link *link, bool up, sd_varlink *vlink) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        int r;
+
+        assert(link);
+        assert(link->manager);
+        assert(link->manager->rtnl);
+
+        log_link_debug(link, "Bringing link %s (varlink)", up_or_down(up));
+
+        r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_SETLINK, link->ifindex);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Could not allocate RTM_SETLINK message: %m");
+
+        r = sd_rtnl_message_link_set_flags(req, up ? IFF_UP : 0, IFF_UP);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Could not set link flags: %m");
+
+        _cleanup_(set_link_varlink_context_freep) SetLinkVarlinkContext *ctx = new(SetLinkVarlinkContext, 1);
+        if (!ctx)
+                return log_oom();
+
+        *ctx = (SetLinkVarlinkContext) {
+                .link = link_ref(link),
+                .vlink = sd_varlink_ref(vlink),
+                .up = up,
+        };
+
+        r = netlink_call_async(link->manager->rtnl, NULL, req,
+                               link_up_or_down_now_varlink_handler,
+                               set_link_varlink_context_destroy,
+                               ctx);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Could not send rtnetlink message: %m");
+
+        TAKE_PTR(ctx);
+        link->set_flags_messages++;
         return 0;
 }
 

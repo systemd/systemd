@@ -15,5 +15,6 @@ Documentation=man:machine-info(5)
 
 [Socket]
 ListenStream=/run/systemd/io.systemd.Hostname
+Symlinks=/run/varlink/registry/io.systemd.Hostname
 FileDescriptorName=varlink
 SocketMode=0666

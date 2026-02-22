@@ -29,12 +29,12 @@ unsigned routes_max(void) {
 
         /* The kernel internally stores these maximum size in int. */
 
-        if (sysctl_read_ip_property_int(AF_INET, /* ifname = */ NULL, "route/max_size", &val4) >= 0)
+        if (sysctl_read_ip_property_int(AF_INET, /* ifname= */ NULL, "route/max_size", &val4) >= 0)
                 if (val4 == INT_MAX)
                         /* This is the default "no limit" value in the kernel */
                         val4 = ROUTES_DEFAULT_MAX_PER_FAMILY;
 
-        if (sysctl_read_ip_property_int(AF_INET6, /* ifname = */ NULL, "route/max_size", &val6) >= 0)
+        if (sysctl_read_ip_property_int(AF_INET6, /* ifname= */ NULL, "route/max_size", &val6) >= 0)
                 if (val6 == INT_MAX)
                         /* This is the default "no limit" value in the kernel */
                         val6 = ROUTES_DEFAULT_MAX_PER_FAMILY;

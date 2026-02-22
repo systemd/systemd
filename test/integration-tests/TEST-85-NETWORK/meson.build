@@ -22,6 +22,7 @@ foreach testcase : [
         'NetworkdDHCPPDTests',
         'NetworkdIPv6PrefixTests',
         'NetworkdMTUTests',
+        'NetworkdSysctlTest',
 ]
         integration_tests += [
                 integration_test_template + {

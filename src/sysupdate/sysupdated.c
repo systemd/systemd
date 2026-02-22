@@ -238,8 +238,8 @@ static int job_parse_child_output(int _fd, sd_json_variant **ret) {
                 return 0;
         }
 
-        r = sd_json_parse_file_at(/* f = */ NULL, fd, /* path = */ NULL, /* flags = */ 0,
-                                  &v, /* reterr_line = */ NULL, /* reterr_column = */ NULL);
+        r = sd_json_parse_file_at(/* f= */ NULL, fd, /* path= */ NULL, /* flags= */ 0,
+                                  &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
         if (r < 0)
                 return log_debug_errno(r, "Failed to parse child output as JSON: %m");
 
@@ -543,7 +543,7 @@ static int job_start(Job *j) {
         r = sd_event_source_set_child_process_own(j->child, true);
         if (r < 0)
                 return log_error_errno(r, "Event loop failed to take ownership of child process: %m");
-        TAKE_PIDREF(pid);
+        pidref_done(&pid); /* disarm sigkill_wait */
 
         j->stdout_fd = TAKE_FD(stdout_fd);
 
@@ -1738,7 +1738,7 @@ static int manager_new(Manager **ret) {
 
         r = notify_socket_prepare(
                         m->event,
-                        SD_EVENT_PRIORITY_NORMAL - 1, /* Make this processed before SIGCHLD. */
+                        SD_EVENT_PRIORITY_NORMAL - 1, /* Make this processed before worker exit. */
                         manager_on_notify,
                         m,
                         &m->notify_socket_path);
@@ -1959,7 +1959,7 @@ static int method_list_appstream(sd_bus_message *msg, void *userdata, sd_bus_err
                 if (r < 0)
                         return r;
 
-                r = strv_extend_strv_consume(&urls, target_appstream, /* filter_duplicates = */ true);
+                r = strv_extend_strv_consume(&urls, target_appstream, /* filter_duplicates= */ true);
                 if (r < 0)
                         return r;
         }
@@ -2077,9 +2077,6 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         umask(0022);
-
-        /* SIGCHLD signal must be blocked for sd_event_add_child to work */
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD) >= 0);
 
         r = manager_new(&m);
         if (r < 0)

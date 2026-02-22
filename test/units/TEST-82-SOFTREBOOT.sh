@@ -253,7 +253,9 @@ EOF
 #!/usr/bin/env bash
 systemd-notify --ready
 rm "$survive_argv"
-exec -a @sleep sleep infinity
+# Here, we use our own sleep implementation, to support coreutils built with
+#  --enable-single-binary=symlinks, in that case we cannot rename COMM of sleep command.
+exec -a @sleep /usr/lib/systemd/tests/unit-tests/manual/test-sleep infinity
 EOF
     chmod +x "$survive_argv"
     # This sets DefaultDependencies=no so that they remain running until the very end, and
@@ -272,6 +274,8 @@ EOF
     # '@', and the second will use SurviveFinalKillSignal=yes. Both should survive.
     # By writing to stdout, which is connected to the journal, we also ensure logging doesn't break across
     # soft reboots due to journald being temporarily stopped.
+    # Note, when coreutils is built with --enable-single-binary=symlinks, unfortunately we cannot freely rename
+    # sleep command, hence we cannot test the feature.
     systemd-run --service-type=notify --unit=TEST-82-SOFTREBOOT-survive-argv.service \
         --property SurviveFinalKillSignal=no \
         --property IgnoreOnIsolate=yes \
@@ -280,7 +284,7 @@ EOF
         --property "Conflicts=reboot.target kexec.target poweroff.target halt.target emergency.target rescue.target" \
         --property "Before=reboot.target kexec.target poweroff.target halt.target emergency.target rescue.target" \
         --property SetCredential=preserve:yay \
-         "$survive_argv"
+        "$survive_argv"
     # shellcheck disable=SC2016
     systemd-run --service-type=exec --unit=TEST-82-SOFTREBOOT-survive.service \
         --property TemporaryFileSystem="/run /tmp /var" \

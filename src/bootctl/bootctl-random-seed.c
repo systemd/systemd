@@ -175,26 +175,22 @@ int install_random_seed(const char *esp) {
         if (fd < 0)
                 return log_error_errno(fd, "Failed to open random seed file for writing: %m");
 
+        CLEANUP_TMPFILE_AT(loader_dir_fd, tmp);
+
         if (!warned) /* only warn once per seed file */
                 (void) random_seed_verify_permissions(fd, S_IFREG);
 
         r = loop_write(fd, buffer, sizeof(buffer));
-        if (r < 0) {
-                log_error_errno(r, "Failed to write random seed file: %m");
-                goto fail;
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to write random seed file: %m");
 
-        if (fsync(fd) < 0 || fsync(loader_dir_fd) < 0) {
-                r = log_error_errno(errno, "Failed to sync random seed file: %m");
-                goto fail;
-        }
+        if (fsync(fd) < 0 || fsync(loader_dir_fd) < 0)
+                return log_error_errno(errno, "Failed to sync random seed file: %m");
 
-        if (renameat(loader_dir_fd, tmp, loader_dir_fd, "random-seed") < 0) {
-                r = log_error_errno(errno, "Failed to move random seed file into place: %m");
-                goto fail;
-        }
+        if (renameat(loader_dir_fd, tmp, loader_dir_fd, "random-seed") < 0)
+                return log_error_errno(errno, "Failed to move random seed file into place: %m");
 
-        tmp = mfree(tmp);
+        tmp = mfree(tmp); /* disarm CLEANUP_TMPFILE_AT() */
 
         if (syncfs(fd) < 0)
                 return log_error_errno(errno, "Failed to sync ESP file system: %m");
@@ -202,12 +198,6 @@ int install_random_seed(const char *esp) {
         log_info("Random seed file %s/loader/random-seed successfully %s (%zu bytes).", esp, refreshed ? "refreshed" : "written", sizeof(buffer));
 
         return set_system_token();
-
-fail:
-        assert(tmp);
-        (void) unlinkat(loader_dir_fd, tmp, 0);
-
-        return r;
 }
 
 int verb_random_seed(int argc, char *argv[], void *userdata) {

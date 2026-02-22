@@ -54,13 +54,9 @@ int pid_get_start_time(pid_t pid, usec_t *ret);
 int pidref_get_start_time(const PidRef *pid, usec_t *ret);
 int get_process_umask(pid_t pid, mode_t *ret);
 
-int container_get_leader(const char *machine, pid_t *pid);
-
 static inline bool SIGINFO_CODE_IS_DEAD(int code) {
         return IN_SET(code, CLD_EXITED, CLD_KILLED, CLD_DUMPED);
 }
-
-int wait_for_terminate(pid_t pid, siginfo_t *ret);
 
 typedef enum WaitFlags {
         WAIT_LOG_ABNORMAL             = 1 << 0,
@@ -71,15 +67,6 @@ typedef enum WaitFlags {
 } WaitFlags;
 
 int pidref_wait_for_terminate_and_check(const char *name, PidRef *pidref, WaitFlags flags);
-int wait_for_terminate_and_check(const char *name, pid_t pid, WaitFlags flags);
-
-int wait_for_terminate_with_timeout(pid_t pid, usec_t timeout);
-
-void sigkill_wait(pid_t pid);
-void sigkill_waitp(pid_t *pid);
-void sigterm_wait(pid_t pid);
-void sigkill_nowait(pid_t pid);
-void sigkill_nowaitp(pid_t *pid);
 
 int kill_and_sigcont(pid_t pid, int sig);
 
@@ -98,8 +85,6 @@ int pidref_from_same_root_fs(PidRef *a, PidRef *b);
 
 bool is_main_thread(void);
 
-bool oom_score_adjust_is_valid(int oa);
-
 #ifndef PERSONALITY_INVALID
 /* personality(2) documents that 0xFFFFFFFFUL is used for querying the
  * current personality, hence let's use that here as error
@@ -112,17 +97,14 @@ bool oom_score_adjust_is_valid(int oa);
  * personality we're interested in. */
 #define OPINIONATED_PERSONALITY_MASK 0xFFUL
 
-unsigned long personality_from_string(const char *p);
-const char* personality_to_string(unsigned long);
+unsigned long personality_from_string(const char *s);
+const char* personality_to_string(unsigned long p);
 
 int safe_personality(unsigned long p);
 int opinionated_personality(unsigned long *ret);
 
-const char* sigchld_code_to_string(int i) _const_;
-int sigchld_code_from_string(const char *s) _pure_;
-
-int sched_policy_to_string_alloc(int i, char **ret);
-int sched_policy_from_string(const char *s);
+DECLARE_STRING_TABLE_LOOKUP(sigchld_code, int);
+DECLARE_STRING_TABLE_LOOKUP_WITH_FALLBACK(sched_policy, int);
 
 static inline pid_t PTR_TO_PID(const void *p) {
         return (pid_t) ((uintptr_t) p);
@@ -138,8 +120,10 @@ int pid_compare_func(const pid_t *a, const pid_t *b);
 
 bool nice_is_valid(int n) _const_;
 
-bool sched_policy_is_valid(int i) _const_;
-bool sched_priority_is_valid(int i) _const_;
+bool sched_policy_is_valid(int policy) _const_;
+bool sched_policy_supported(int policy);
+int sched_get_priority_min_safe(int policy);
+int sched_get_priority_max_safe(int policy);
 
 #define PID_AUTOMATIC ((pid_t) INT_MIN) /* special value indicating "acquire pid from connection peer" */
 
@@ -187,8 +171,7 @@ typedef enum ForkFlags {
         FORK_NEW_NETNS          = 1 << 20, /* Run child in its own network namespace                             💣 DO NOT USE IN THREADED PROGRAMS! 💣 */
         FORK_NEW_PIDNS          = 1 << 21, /* Run child in its own PID namespace                                 💣 DO NOT USE IN THREADED PROGRAMS! 💣 */
         FORK_FREEZE             = 1 << 22, /* Don't return in child, just call freeze() instead */
-
-        _FORK_PID_ONLY          = 1 << 23, /* Don't open a pidfd referencing the child process */
+        FORK_ALLOW_DLOPEN       = 1 << 23, /* Do not block dlopen() in child */
 } ForkFlags;
 
 int pidref_safe_fork_full(
@@ -197,25 +180,13 @@ int pidref_safe_fork_full(
                 int except_fds[],
                 size_t n_except_fds,
                 ForkFlags flags,
-                PidRef *ret_pid);
+                PidRef *ret);
 
-static inline int pidref_safe_fork(const char *name, ForkFlags flags, PidRef *ret_pid) {
-        return pidref_safe_fork_full(name, NULL, NULL, 0, flags, ret_pid);
+static inline int pidref_safe_fork(const char *name, ForkFlags flags, PidRef *ret) {
+        return pidref_safe_fork_full(name, NULL, NULL, 0, flags, ret);
 }
 
-int safe_fork_full(
-                const char *name,
-                const int stdio_fds[3],
-                int except_fds[],
-                size_t n_except_fds,
-                ForkFlags flags,
-                pid_t *ret_pid);
-
-static inline int safe_fork(const char *name, ForkFlags flags, pid_t *ret_pid) {
-        return safe_fork_full(name, NULL, NULL, 0, flags, ret_pid);
-}
-
-int namespace_fork(
+int namespace_fork_full(
                 const char *outer_name,
                 const char *inner_name,
                 int except_fds[],
@@ -226,8 +197,25 @@ int namespace_fork(
                 int netns_fd,
                 int userns_fd,
                 int root_fd,
-                pid_t *ret_pid);
+                PidRef *ret);
 
+static inline int namespace_fork(
+                const char *outer_name,
+                const char *inner_name,
+                ForkFlags flags,
+                int pidns_fd,
+                int mntns_fd,
+                int netns_fd,
+                int userns_fd,
+                int root_fd,
+                PidRef *ret) {
+
+        return namespace_fork_full(outer_name, inner_name, NULL, 0, flags,
+                                   pidns_fd, mntns_fd, netns_fd, userns_fd, root_fd,
+                                   ret);
+}
+
+bool oom_score_adjust_is_valid(int oa);
 int set_oom_score_adjust(int value);
 int get_oom_score_adjust(int *ret);
 
@@ -242,9 +230,6 @@ int get_oom_score_adjust(int *ret);
 #define TASKS_MAX 4194303U
 
 assert_cc(TASKS_MAX <= (unsigned long) PID_T_MAX);
-
-/* Like TAKE_PTR() but for pid_t, resetting them to 0 */
-#define TAKE_PID(pid) TAKE_GENERIC(pid, pid_t, 0)
 
 int setpriority_closest(int priority);
 
@@ -265,6 +250,8 @@ int posix_spawn_wrapper(
 int proc_dir_open(DIR **ret);
 int proc_dir_read(DIR *d, pid_t *ret);
 int proc_dir_read_pidref(DIR *d, PidRef *ret);
+
+int safe_mlockall(int flags);
 
 _noreturn_ void report_errno_and_exit(int errno_fd, int error);
 int read_errno(int errno_fd);

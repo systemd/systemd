@@ -72,7 +72,7 @@ int action_setup_keys(void) {
 
         assert(arg_action == ACTION_SETUP_KEYS);
 
-        r = is_dir("/var/log/journal/", /* follow = */ false);
+        r = is_dir("/var/log/journal/", /* follow= */ false);
         if (r == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTDIR),
                                        "/var/log/journal is not a directory, must be using persistent logging for FSS.");
@@ -159,7 +159,7 @@ int action_setup_keys(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to write state: %m");
 
-        r = link_tmpfile(fd, tmpfile, path, /* flags = */ 0);
+        r = link_tmpfile(fd, tmpfile, path, /* flags= */ 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to link file: %m");
 
@@ -200,7 +200,7 @@ int action_setup_keys(void) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to build json object: %m");
 
-                r = sd_json_variant_dump(v, arg_json_format_flags, /* f = */ NULL, /* prefix = */ NULL);
+                r = sd_json_variant_dump(v, arg_json_format_flags, /* f= */ NULL, /* prefix= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to dump json object: %m");
 

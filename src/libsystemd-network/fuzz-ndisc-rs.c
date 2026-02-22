@@ -71,7 +71,7 @@ static void test_with_icmp6_packet(const uint8_t *data, size_t size) {
                 return;
 
         if (ndisc_send(fd_pair[1], &IN6_ADDR_ALL_ROUTERS_MULTICAST,
-                       icmp6_packet_get_header(packet), options, /* timestamp = */ 0) < 0)
+                       icmp6_packet_get_header(packet), options, /* timestamp= */ 0) < 0)
                 return;
 
         packet = icmp6_packet_unref(packet);

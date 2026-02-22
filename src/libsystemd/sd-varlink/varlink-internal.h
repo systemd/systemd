@@ -6,6 +6,7 @@
 #include "sd-varlink.h"
 
 #include "list.h"
+#include "pidref.h"
 #include "sd-forward.h"
 
 typedef enum VarlinkState {
@@ -81,7 +82,7 @@ struct VarlinkJsonQueueItem {
         int fds[];
 };
 
-struct sd_varlink {
+typedef struct sd_varlink {
         unsigned n_ref;
 
         sd_varlink_server *server;
@@ -156,6 +157,9 @@ struct sd_varlink {
         sd_varlink_reply_flags_t current_reply_flags;
         sd_varlink_symbol *current_method;
 
+        VarlinkJsonQueueItem *previous;
+        char *sentinel;
+
         int peer_pidfd;
         struct ucred ucred;
         bool ucred_acquired:1;
@@ -187,8 +191,8 @@ struct sd_varlink {
         sd_event_source *quit_event_source;
         sd_event_source *defer_event_source;
 
-        pid_t exec_pid;
-};
+        PidRef exec_pidref;
+} sd_varlink;
 
 typedef struct VarlinkServerSocket VarlinkServerSocket;
 
@@ -203,7 +207,7 @@ struct VarlinkServerSocket {
         LIST_FIELDS(VarlinkServerSocket, sockets);
 };
 
-struct sd_varlink_server {
+typedef struct sd_varlink_server {
         unsigned n_ref;
         sd_varlink_server_flags_t flags;
 
@@ -233,7 +237,7 @@ struct sd_varlink_server {
         unsigned connections_per_uid_max;
 
         bool exit_on_idle;
-};
+} sd_varlink_server;
 
 #define varlink_log_errno(v, error, fmt, ...)                           \
         log_debug_errno(error, "%s: " fmt, varlink_description(v), ##__VA_ARGS__)
@@ -258,4 +262,4 @@ static inline const char* varlink_server_description(sd_varlink_server *s) {
 VarlinkServerSocket* varlink_server_socket_free(VarlinkServerSocket *ss);
 DEFINE_TRIVIAL_CLEANUP_FUNC(VarlinkServerSocket *, varlink_server_socket_free);
 
-int varlink_server_add_socket_event_source(sd_varlink_server *s, VarlinkServerSocket *ss, int64_t priority);
+int varlink_server_add_socket_event_source(sd_varlink_server *s, VarlinkServerSocket *ss);

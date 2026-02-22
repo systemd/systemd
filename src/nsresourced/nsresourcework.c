@@ -541,7 +541,7 @@ static int allocate_now(
 }
 
 static int write_userns(int usernsfd, const UserNamespaceInfo *userns_info) {
-        _cleanup_(sigkill_waitp) pid_t pid = 0;
+        _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
         _cleanup_close_ int efd = -EBADF;
         uint64_t u;
         int r;
@@ -560,7 +560,7 @@ static int write_userns(int usernsfd, const UserNamespaceInfo *userns_info) {
         if (efd < 0)
                 return log_error_errno(errno, "Failed to allocate eventfd(): %m");
 
-        r = safe_fork("(sd-userns)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_LOG, &pid);
+        r = pidref_safe_fork("(sd-userns)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_LOG, &pidref);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -590,7 +590,7 @@ static int write_userns(int usernsfd, const UserNamespaceInfo *userns_info) {
 
         _cleanup_free_ char *pmap = NULL;
 
-        if (asprintf(&pmap, "/proc/" PID_FMT "/uid_map", pid) < 0)
+        if (asprintf(&pmap, "/proc/" PID_FMT "/uid_map", pidref.pid) < 0)
                 return log_oom();
 
         r = write_string_filef(pmap, 0, UID_FMT " " UID_FMT " %" PRIu32 "\n", userns_info->target_uid, userns_info->start_uid, userns_info->size);
@@ -598,7 +598,7 @@ static int write_userns(int usernsfd, const UserNamespaceInfo *userns_info) {
                 return log_error_errno(r, "Failed to write 'uid_map' file of user namespace: %m");
 
         pmap = mfree(pmap);
-        if (asprintf(&pmap, "/proc/" PID_FMT "/gid_map", pid) < 0)
+        if (asprintf(&pmap, "/proc/" PID_FMT "/gid_map", pidref.pid) < 0)
                 return log_oom();
 
         r = write_string_filef(pmap, 0, GID_FMT " " GID_FMT " %" PRIu32 "\n", userns_info->target_gid, userns_info->start_gid, userns_info->size);
@@ -1354,7 +1354,7 @@ static int validate_cgroup(sd_varlink *link, int fd, uint64_t *ret_cgroup_id) {
         if (r == 0)
                 return sd_varlink_error_invalid_parameter_name(link, "controlGroupFileDescriptor");
 
-        r = cg_fd_get_cgroupid(fd, ret_cgroup_id);
+        r = fd_to_handle_u64(fd, ret_cgroup_id);
         if (r < 0)
                 return log_debug_errno(r, "Failed to read cgroup ID from cgroupfs: %m");
 

@@ -268,7 +268,7 @@ static int verify_fsroot_dir(
         bool searching = FLAGS_SET(flags, VERIFY_ESP_SEARCHING),
                 unprivileged_mode = FLAGS_SET(flags, VERIFY_ESP_UNPRIVILEGED_MODE);
         _cleanup_free_ char *f = NULL;
-        struct statx sxa, sxb;
+        struct statx sx;
         int r;
 
         /* Checks if the specified directory is at the root of its file system, and returns device
@@ -283,52 +283,34 @@ static int verify_fsroot_dir(
 
         r = path_extract_filename(path, &f);
         if (r < 0 && r != -EADDRNOTAVAIL)
-                return log_error_errno(r, "Failed to extract filename of %s: %m", path);
+                return log_error_errno(r, "Failed to extract filename of \"%s\": %m", path);
 
-        if (statx(dir_fd, strempty(f),
-                  AT_SYMLINK_NOFOLLOW|(isempty(f) ? AT_EMPTY_PATH : 0),
-                  STATX_TYPE|STATX_INO|STATX_MNT_ID, &sxa) < 0)
-                return log_full_errno((searching && errno == ENOENT) ||
-                                      (unprivileged_mode && ERRNO_IS_PRIVILEGE(errno)) ? LOG_DEBUG : LOG_ERR, errno,
+        r = xstatx_full(dir_fd, f,
+                        AT_SYMLINK_NOFOLLOW,
+                        STATX_TYPE|STATX_INO,
+                        /* optional_mask = */ 0,
+                        STATX_ATTR_MOUNT_ROOT,
+                        &sx);
+        if (r < 0)
+                return log_full_errno((searching && r == -ENOENT) ||
+                                      (unprivileged_mode && ERRNO_IS_NEG_PRIVILEGE(r)) ? LOG_DEBUG : LOG_ERR, r,
                                       "Failed to determine block device node of \"%s\": %m", path);
 
-        assert(S_ISDIR(sxa.stx_mode)); /* We used O_DIRECTORY above, when opening, so this must hold */
+        if (!S_ISDIR(sx.stx_mode))
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTDIR), "Path \"%s\" is not a directory", path);
 
-        if (FLAGS_SET(sxa.stx_attributes_mask, STATX_ATTR_MOUNT_ROOT)) {
-
-                /* If we have STATX_ATTR_MOUNT_ROOT, we are happy, that's all we need. We operate under the
-                 * assumption that a top of a mount point is also the top of the file system. (Which of
-                 * course is strictly speaking not always true...) */
-
-                if (!FLAGS_SET(sxa.stx_attributes, STATX_ATTR_MOUNT_ROOT))
-                        return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
-                                              SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
-                                              "Directory \"%s\" is not the root of the file system.", path);
-
-                goto success;
-        }
-
-        /* Now let's look at the parent */
-        if (statx(dir_fd, "", AT_EMPTY_PATH, STATX_TYPE|STATX_INO|STATX_MNT_ID, &sxb) < 0)
-                return log_full_errno(unprivileged_mode && ERRNO_IS_PRIVILEGE(errno) ? LOG_DEBUG : LOG_ERR, errno,
-                                      "Failed to determine block device node of parent of \"%s\": %m", path);
-
-        if (statx_inode_same(&sxa, &sxb)) /* for the root dir inode nr for both inodes will be the same */
-                goto success;
-
-        if (statx_mount_same(&sxa, &sxb))
+        if (!FLAGS_SET(sx.stx_attributes, STATX_ATTR_MOUNT_ROOT))
                 return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
                                       SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
                                       "Directory \"%s\" is not the root of the file system.", path);
 
-success:
         if (!ret_dev)
                 return 0;
 
-        if (sxa.stx_dev_major == 0) /* Hmm, maybe a btrfs device, and the caller asked for the backing device? Then let's try to get it. */
+        if (sx.stx_dev_major == 0) /* Hmm, maybe a btrfs device, and the caller asked for the backing device? Then let's try to get it. */
                 return btrfs_get_block_device_at(dir_fd, strempty(f), ret_dev);
 
-        *ret_dev = makedev(sxa.stx_dev_major, sxa.stx_dev_minor);
+        *ret_dev = makedev(sx.stx_dev_major, sx.stx_dev_minor);
         return 0;
 }
 
@@ -350,7 +332,7 @@ static int verify_esp(
         dev_t devid = 0;
         int r;
 
-        assert(rfd >= 0 || rfd == AT_FDCWD);
+        assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
         assert(path);
 
         /* This logs about all errors, except:
@@ -375,13 +357,13 @@ static int verify_esp(
 
                 r = path_extract_filename(p, &f);
                 if (r < 0 && r != -EADDRNOTAVAIL)
-                        return log_error_errno(r, "Failed to extract filename of %s: %m", p);
+                        return log_error_errno(r, "Failed to extract filename of \"%s\": %m", p);
 
                 /* Trigger any automounts so that xstatfsat() operates on the mount instead of the mountpoint
                  * directory. */
                 r = trigger_automount_at(pfd, f);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to trigger automount at %s: %m", p);
+                        return log_error_errno(r, "Failed to trigger automount at \"%s\": %m", p);
 
                 r = xstatfsat(pfd, strempty(f), &sfs);
                 if (r < 0)
@@ -460,13 +442,13 @@ int find_esp_and_warn_at(
         VerifyESPFlags flags;
         int r;
 
+        assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
+
         /* This logs about all errors except:
          *
          *    -ENOKEY → when we can't find the partition
          *   -EACCESS → when unprivileged_mode is true, and we can't access something
          */
-
-        assert(rfd >= 0 || rfd == AT_FDCWD);
 
         flags = verify_esp_flags_init(unprivileged_mode, "SYSTEMD_RELAX_ESP_CHECKS");
 
@@ -481,12 +463,12 @@ int find_esp_and_warn_at(
 
                 if (!path_is_valid(path) || !path_is_absolute(path))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "$SYSTEMD_ESP_PATH does not refer to an absolute path, refusing to use it: %s",
+                                               "$SYSTEMD_ESP_PATH does not refer to an absolute path, refusing to use it: \"%s\"",
                                                path);
 
                 r = chaseat(rfd, path, CHASE_AT_RESOLVE_IN_ROOT|CHASE_TRIGGER_AUTOFS, &p, &fd);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to resolve path %s: %m", path);
+                        return log_error_errno(r, "Failed to resolve path \"%s\": %m", path);
 
                 /* Note: when the user explicitly configured things with an env var we won't validate the
                  * path beyond checking it refers to a directory. After all we want this to be useful for
@@ -545,9 +527,13 @@ int find_esp_and_warn(
         dev_t devid;
         int r;
 
-        rfd = open(empty_to_root(root), O_PATH|O_DIRECTORY|O_CLOEXEC);
-        if (rfd < 0)
-                return -errno;
+        if (empty_or_root(root))
+                rfd = XAT_FDROOT;
+        else {
+                rfd = open(root, O_PATH|O_DIRECTORY|O_CLOEXEC);
+                if (rfd < 0)
+                        return -errno;
+        }
 
         r = find_esp_and_warn_at(
                         rfd,
@@ -755,7 +741,7 @@ static int verify_xbootldr(
         dev_t devid = 0;
         int r;
 
-        assert(rfd >= 0 || rfd == AT_FDCWD);
+        assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
         assert(path);
 
         r = chaseat(rfd, path, CHASE_AT_RESOLVE_IN_ROOT|CHASE_PARENT|CHASE_TRIGGER_AUTOFS, &p, &pfd);
@@ -818,7 +804,7 @@ int find_xbootldr_and_warn_at(
 
         /* Similar to find_esp_and_warn(), but finds the XBOOTLDR partition. Returns the same errors. */
 
-        assert(rfd >= 0 || rfd == AT_FDCWD);
+        assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
 
         flags = verify_esp_flags_init(unprivileged_mode, "SYSTEMD_RELAX_XBOOTLDR_CHECKS");
 
@@ -833,12 +819,12 @@ int find_xbootldr_and_warn_at(
 
                 if (!path_is_valid(path) || !path_is_absolute(path))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "$SYSTEMD_XBOOTLDR_PATH does not refer to an absolute path, refusing to use it: %s",
+                                               "$SYSTEMD_XBOOTLDR_PATH does not refer to an absolute path, refusing to use it: \"%s\"",
                                                path);
 
                 r = chaseat(rfd, path, CHASE_AT_RESOLVE_IN_ROOT|CHASE_TRIGGER_AUTOFS, &p, &fd);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to resolve path %s: %m", p);
+                        return log_error_errno(r, "Failed to resolve path \"%s\": %m", p);
 
                 if (fstat(fd, &st) < 0)
                         return log_error_errno(errno, "Failed to stat '%s': %m", p);
@@ -880,9 +866,13 @@ int find_xbootldr_and_warn(
         dev_t devid;
         int r;
 
-        rfd = open(empty_to_root(root), O_PATH|O_DIRECTORY|O_CLOEXEC);
-        if (rfd < 0)
-                return -errno;
+        if (empty_or_root(root))
+                rfd = XAT_FDROOT;
+        else {
+                rfd = open(root, O_PATH|O_DIRECTORY|O_CLOEXEC);
+                if (rfd < 0)
+                        return -errno;
+        }
 
         r = find_xbootldr_and_warn_at(
                         rfd,

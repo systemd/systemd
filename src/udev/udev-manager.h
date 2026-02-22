@@ -17,13 +17,13 @@
 /* This must have a higher priority than the worker notification, to make IN_IGNORED event received earlier
  * than notifications about requests of adding/removing inotify watches. */
 #define EVENT_PRIORITY_INOTIFY_WATCH  (SD_EVENT_PRIORITY_NORMAL - 4)
-/* This must have a higher priority than the worker SIGCHLD event, to make notifications about completions of
- * processing events received before SIGCHLD. */
+/* This must have a higher priority than the worker exit event, to make notifications about completions of
+ * processing events received before exit. */
 #define EVENT_PRIORITY_WORKER_NOTIFY  (SD_EVENT_PRIORITY_NORMAL - 3)
 /* This should have a higher priority than timer events about killing long running worker processes or idle
  * worker processes. */
-#define EVENT_PRIORITY_WORKER_SIGCHLD (SD_EVENT_PRIORITY_NORMAL - 2)
-/* As said in the above, this should have a lower proority than the SIGCHLD event source. */
+#define EVENT_PRIORITY_WORKER_EXIT    (SD_EVENT_PRIORITY_NORMAL - 2)
+/* As said in the above, this should have a lower proority than the exit event source. */
 #define EVENT_PRIORITY_WORKER_TIMER   (SD_EVENT_PRIORITY_NORMAL - 1)
 /* This should have a lower priority than most event sources, but let's process earlier than varlink and the
  * legacy control socket. */
@@ -54,6 +54,8 @@ typedef struct Manager {
         int inotify_fd;
         sd_event_source *inotify_event;
         Set *synthesize_change_child_event_sources;
+        Set *synthesized_events;
+        sd_event_source *synthesized_events_clear_event_source;
 
         sd_event_source *kill_workers_event;
 
@@ -91,3 +93,5 @@ int manager_reset_kill_workers_timer(Manager *manager);
 bool devpath_conflict(const char *a, const char *b);
 
 int manager_requeue_locked_events_by_device(Manager *manager, sd_device *dev);
+
+int manager_create_queue_file(Manager *manager);

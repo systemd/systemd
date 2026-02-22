@@ -27,6 +27,7 @@
 #include "parse-util.h"
 #include "pkcs11-util.h"
 #include "pretty-print.h"
+#include "process-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "tpm2-pcr.h"
@@ -151,7 +152,7 @@ static int determine_default_node(void) {
                 return log_error_errno(SYNTHETIC_ERRNO(ENXIO), "Block device backing /var/ is not a LUKS2 device.");
 
         _cleanup_(sd_device_unrefp) sd_device *origin = NULL;
-        r = block_device_get_originating(dev, &origin);
+        r = block_device_get_originating(dev, &origin, /* recursive= */ false);
         if (r < 0)
                 return log_error_errno(r, "Failed to get originating device of LUKS2 device backing /var/: %m");
 
@@ -166,6 +167,58 @@ static int determine_default_node(void) {
 
         log_info("No device specified, defaulting to '%s'.", arg_node);
         return 0;
+}
+
+static int parse_wipe_slot(const char *arg) {
+        int r;
+
+        assert(arg);
+
+        if (isempty(arg)) {
+                arg_wipe_slots_mask = 0;
+                arg_wipe_slots_scope = WIPE_EXPLICIT;
+                return 0;
+        }
+
+        for (const char *p = arg;;) {
+                _cleanup_free_ char *slot = NULL;
+
+                r = extract_first_word(&p, &slot, ",", EXTRACT_DONT_COALESCE_SEPARATORS);
+                if (r == 0)
+                        return 0;
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse slot list: %s", arg);
+
+                if (streq(slot, "all"))
+                        arg_wipe_slots_scope = WIPE_ALL;
+                else if (streq(slot, "empty")) {
+                        if (arg_wipe_slots_scope != WIPE_ALL) /* if "all" was specified before, that wins */
+                                arg_wipe_slots_scope = WIPE_EMPTY_PASSPHRASE;
+                } else if (streq(slot, "password"))
+                        arg_wipe_slots_mask |= 1U << ENROLL_PASSWORD;
+                else if (streq(slot, "recovery"))
+                        arg_wipe_slots_mask |= 1U << ENROLL_RECOVERY;
+                else if (streq(slot, "pkcs11"))
+                        arg_wipe_slots_mask |= 1U << ENROLL_PKCS11;
+                else if (streq(slot, "fido2"))
+                        arg_wipe_slots_mask |= 1U << ENROLL_FIDO2;
+                else if (streq(slot, "tpm2"))
+                        arg_wipe_slots_mask |= 1U << ENROLL_TPM2;
+                else {
+                        unsigned n;
+
+                        r = safe_atou(slot, &n);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse slot index: %s", slot);
+                        if (n > INT_MAX)
+                                return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Slot index out of range: %u", n);
+
+                        if (!GREEDY_REALLOC(arg_wipe_slots, arg_n_wipe_slots + 1))
+                                return log_oom();
+
+                        arg_wipe_slots[arg_n_wipe_slots++] = (int) n;
+                }
+        }
 }
 
 static int help(void) {
@@ -491,7 +544,7 @@ static int parse_argv(int argc, char *argv[]) {
                         _cleanup_free_ char *device = NULL;
 
                         if (streq(optarg, "list"))
-                                return tpm2_list_devices(/* legend = */ true, /* quiet = */ false);
+                                return tpm2_list_devices(/* legend= */ true, /* quiet= */ false);
 
                         if (arg_enroll_type >= 0 || arg_tpm2_device)
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -579,62 +632,16 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
-                case ARG_WIPE_SLOT: {
-                        const char *p = optarg;
-
-                        if (isempty(optarg)) {
-                                arg_wipe_slots_mask = 0;
-                                arg_wipe_slots_scope = WIPE_EXPLICIT;
-                                break;
-                        }
-
-                        for (;;) {
-                                _cleanup_free_ char *slot = NULL;
-                                unsigned n;
-
-                                r = extract_first_word(&p, &slot, ",", EXTRACT_DONT_COALESCE_SEPARATORS);
-                                if (r == 0)
-                                        break;
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse slot list: %s", optarg);
-
-                                if (streq(slot, "all"))
-                                        arg_wipe_slots_scope = WIPE_ALL;
-                                else if (streq(slot, "empty")) {
-                                        if (arg_wipe_slots_scope != WIPE_ALL) /* if "all" was specified before, that wins */
-                                                arg_wipe_slots_scope = WIPE_EMPTY_PASSPHRASE;
-                                } else if (streq(slot, "password"))
-                                        arg_wipe_slots_mask |= 1U << ENROLL_PASSWORD;
-                                else if (streq(slot, "recovery"))
-                                        arg_wipe_slots_mask |= 1U << ENROLL_RECOVERY;
-                                else if (streq(slot, "pkcs11"))
-                                        arg_wipe_slots_mask |= 1U << ENROLL_PKCS11;
-                                else if (streq(slot, "fido2"))
-                                        arg_wipe_slots_mask |= 1U << ENROLL_FIDO2;
-                                else if (streq(slot, "tpm2"))
-                                        arg_wipe_slots_mask |= 1U << ENROLL_TPM2;
-                                else {
-                                        r = safe_atou(slot, &n);
-                                        if (r < 0)
-                                                return log_error_errno(r, "Failed to parse slot index: %s", slot);
-                                        if (n > INT_MAX)
-                                                return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Slot index out of range: %u", n);
-
-                                        if (!GREEDY_REALLOC(arg_wipe_slots, arg_n_wipe_slots + 1))
-                                                return log_oom();
-
-                                        arg_wipe_slots[arg_n_wipe_slots++] = (int) n;
-                                }
-                        }
-                        break;
-                }
-
-                case ARG_LIST_DEVICES:
-                        r = blockdev_list(BLOCKDEV_LIST_SHOW_SYMLINKS|BLOCKDEV_LIST_REQUIRE_LUKS, /* ret_devices= */ NULL, /* ret_n_devices= */ NULL);
+                case ARG_WIPE_SLOT:
+                        r = parse_wipe_slot(optarg);
                         if (r < 0)
                                 return r;
+                        break;
 
-                        return 0;
+                case ARG_LIST_DEVICES:
+                        return blockdev_list(BLOCKDEV_LIST_SHOW_SYMLINKS|BLOCKDEV_LIST_REQUIRE_LUKS,
+                                             /* ret_devices= */ NULL,
+                                             /* ret_n_devices= */ NULL);
 
                 case '?':
                         return -EINVAL;
@@ -850,7 +857,7 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         /* A delicious drop of snake oil */
-        (void) mlockall(MCL_FUTURE);
+        (void) safe_mlockall(MCL_CURRENT|MCL_FUTURE|MCL_ONFAULT);
 
         cryptsetup_enable_logging(NULL);
 

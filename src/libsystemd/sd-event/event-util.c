@@ -272,7 +272,7 @@ static int event_forward_signal_callback(sd_event_source *s, const struct signal
         si.si_int = ssi->ssi_int;
         si.si_ptr = UINT64_TO_PTR(ssi->ssi_ptr);
 
-        return sd_event_source_send_child_signal(child, ssi->ssi_signo, &si, /* flags = */ 0);
+        return sd_event_source_send_child_signal(child, ssi->ssi_signo, &si, /* flags= */ 0);
 }
 
 static void event_forward_signal_destroy(void *userdata) {

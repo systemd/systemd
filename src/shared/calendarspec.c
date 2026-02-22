@@ -326,7 +326,7 @@ static void _format_chain(FILE *f, int space, const CalendarComponent *c, bool s
 }
 
 static void format_chain(FILE *f, int space, const CalendarComponent *c, bool usec) {
-        _format_chain(f, space, c, /* start = */ true, usec);
+        _format_chain(f, space, c, /* start= */ true, usec);
 }
 
 int calendar_spec_to_string(const CalendarSpec *c, char **ret) {
@@ -1194,9 +1194,10 @@ static int tm_within_bounds(struct tm *tm, bool utc) {
          * other sub time units are already reset in find_next().
          */
         int cmp;
-        if ((cmp = CMP(t.tm_year, tm->tm_year)) != 0)
+        if ((cmp = CMP(t.tm_year, tm->tm_year)) != 0) {
                 t.tm_mon = 0;
-        else if ((cmp = CMP(t.tm_mon, tm->tm_mon)) != 0)
+                t.tm_mday = 1;
+        } else if ((cmp = CMP(t.tm_mon, tm->tm_mon)) != 0)
                 t.tm_mday = 1;
         else if ((cmp = CMP(t.tm_mday, tm->tm_mday)) != 0)
                 t.tm_hour = 0;
@@ -1436,7 +1437,7 @@ int calendar_spec_next_usec(const CalendarSpec *spec, usec_t usec, usec_t *ret_n
 
         SAVE_TIMEZONE;
 
-        r = RET_NERRNO(setenv("TZ", spec->timezone, /* overwrite = */ true));
+        r = RET_NERRNO(setenv("TZ", spec->timezone, /* overwrite= */ true));
         if (r < 0)
                 return r;
 

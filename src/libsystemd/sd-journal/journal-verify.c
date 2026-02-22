@@ -756,7 +756,7 @@ static int verify_entry_array(
                         if (r < 0)
                                 return r;
 
-                        r = verify_entry(f, o, p, cache_data_fd, n_data, /*last=*/ i + 1 == n);
+                        r = verify_entry(f, o, p, cache_data_fd, n_data, /* last= */ i + 1 == n);
                         if (r < 0)
                                 return r;
 

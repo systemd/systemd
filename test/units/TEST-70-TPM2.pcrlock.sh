@@ -42,6 +42,9 @@ PCRS="1+2+3+4+5+16"
 # (as the PCR values simply won't match the log).
 rm -f /run/log/systemd/tpm2-measure.log
 
+# Reset TPM PCR 16 ("debug") explicitly, so that we can use it in a known good state
+tpm2_pcrreset 16
+
 # Ensure a truncated log doesn't crash pcrlock
 echo -n -e \\x1e >/tmp/borked
 set +e

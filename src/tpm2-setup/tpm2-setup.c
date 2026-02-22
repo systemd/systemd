@@ -98,7 +98,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_TPM2_DEVICE:
                         if (streq(optarg, "list"))
-                                return tpm2_list_devices(/* legend = */ true, /* quiet = */ false);
+                                return tpm2_list_devices(/* legend= */ true, /* quiet= */ false);
 
                         if (free_and_strdup(&arg_tpm2_device, streq(optarg, "auto") ? NULL : optarg) < 0)
                                 return log_oom();
@@ -450,7 +450,7 @@ static int setup_nvpcr(void) {
                         &l,
                         ".nvpcr",
                         /* root= */ NULL,
-                        CONF_FILES_REGULAR|CONF_FILES_BASENAME|CONF_FILES_FILTER_MASKED|CONF_FILES_TRUNCATE_SUFFIX,
+                        CONF_FILES_REGULAR|CONF_FILES_BASENAME|CONF_FILES_FILTER_MASKED|CONF_FILES_TRUNCATE_SUFFIX|CONF_FILES_WARN,
                         CONF_PATHS_NULSTR("nvpcr"));
         if (r < 0)
                 return log_error_errno(r, "Failed to find .nvpcr files: %m");

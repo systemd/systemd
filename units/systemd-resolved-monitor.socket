@@ -17,6 +17,7 @@ Conflicts=shutdown.target
 [Socket]
 Service=systemd-resolved.service
 ListenStream=/run/systemd/resolve/io.systemd.Resolve.Monitor
+Symlinks=/run/varlink/registry/io.systemd.Resolve.Monitor
 FileDescriptorName=varlink-monitor
 SocketMode=0666
 

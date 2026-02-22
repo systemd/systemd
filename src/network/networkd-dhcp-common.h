@@ -73,8 +73,7 @@ static inline bool in6_prefix_is_filtered(const struct in6_addr *prefix, uint8_t
 
 int link_get_captive_portal(Link *link, const char **ret);
 
-const char* dhcp_option_data_type_to_string(DHCPOptionDataType d) _const_;
-DHCPOptionDataType dhcp_option_data_type_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(dhcp_option_data_type, DHCPOptionDataType);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp);
 CONFIG_PARSER_PROTOTYPE(config_parse_dhcp_route_metric);

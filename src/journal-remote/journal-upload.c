@@ -682,7 +682,7 @@ static int parse_config(void) {
                 { "Upload",  "TrustedCertificateFile", config_parse_path_or_ignore, 0,                        &arg_trust                },
                 { "Upload",  "NetworkTimeoutSec",      config_parse_sec,            0,                        &arg_network_timeout_usec },
                 { "Upload",  "Header",                 config_parse_header,         0,                        &arg_headers              },
-                { "Upload",  "Compression",            config_parse_compression,    /* with_level = */ true,  &arg_compression          },
+                { "Upload",  "Compression",            config_parse_compression,    /* with_level= */ true,   &arg_compression          },
                 { "Upload",  "ForceCompression",       config_parse_bool,           0,                        &arg_force_compression    },
                 {}
         };
@@ -775,8 +775,6 @@ static int parse_argv(int argc, char *argv[]) {
 
         assert(argc >= 0);
         assert(argv);
-
-        opterr = 0;
 
         while ((c = getopt_long(argc, argv, "hu:mM:D:", options, NULL)) >= 0)
                 switch (c) {
@@ -882,14 +880,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case '?':
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Unknown option %s.",
-                                               argv[optind - 1]);
-
-                case ':':
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "Missing argument to %s.",
-                                               argv[optind - 1]);
+                        return -EINVAL;
 
                 default:
                         assert_not_reached();

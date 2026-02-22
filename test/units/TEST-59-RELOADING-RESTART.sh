@@ -174,6 +174,6 @@ systemctl daemon-reload
 systemctl start testservice-fail-restart-debug-59.service
 wait_on_state_or_fail "testservice-fail-restart-debug-59.service" "failed" "15"
 journalctl --sync
-journalctl -b | grep -q "Failed to follow symlinks on /nonexistent-debug-59: No such file or directory"
+journalctl -b | grep "Failed to follow symlinks on /nonexistent-debug-59: No such file or directory" >/dev/null
 
 touch /testok

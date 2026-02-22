@@ -3,6 +3,7 @@
 #include "alloc-util.h"
 #include "env-file.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "kernel-image.h"
 #include "log.h"
 #include "pe-binary.h"
@@ -42,7 +43,7 @@ static int uki_read_pretty_name(
                         pe_header,
                         sections,
                         ".osrel",
-                        /* max_size=*/ PE_SECTION_READ_MAX,
+                        /* max_size= */ PE_SECTION_READ_MAX,
                         &osrel,
                         &osrel_size);
         if (r == -ENXIO) { /* Section not found */
@@ -134,12 +135,12 @@ int inspect_kernel(
         _cleanup_close_ int fd = -EBADF;
         int r;
 
-        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+        assert(dir_fd >= 0 || IN_SET(dir_fd, AT_FDCWD, XAT_FDROOT));
         assert(filename);
 
-        fd = openat(dir_fd, filename, O_RDONLY|O_CLOEXEC);
+        fd = xopenat(dir_fd, filename, O_RDONLY|O_CLOEXEC);
         if (fd < 0)
-                return log_error_errno(errno, "Failed to open kernel image file '%s': %m", filename);
+                return log_error_errno(fd, "Failed to open kernel image file '%s': %m", filename);
 
         r = pe_load_headers(fd, &dos_header, &pe_header);
         if (r == -EBADMSG) /* not a valid PE file */

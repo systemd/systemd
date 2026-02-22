@@ -17,7 +17,8 @@ typedef struct Manager {
         LIST_HEAD(Operation, operations);
         unsigned n_operations;
 
-        RuntimeScope runtime_scope; /* for now always RUNTIME_SCOPE_SYSTEM */
+        RuntimeScope runtime_scope;
+        char *state_dir;
 } Manager;
 
 extern const BusObjectImplementation manager_object;

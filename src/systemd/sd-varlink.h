@@ -93,8 +93,7 @@ int sd_varlink_connect_url(sd_varlink **ret, const char *url);
 int sd_varlink_connect_fd(sd_varlink **ret, int fd);
 int sd_varlink_connect_fd_pair(sd_varlink **ret, int input_fd, int output_fd, const struct ucred *override_ucred);
 
-sd_varlink* sd_varlink_ref(sd_varlink *link);
-sd_varlink* sd_varlink_unref(sd_varlink *v);
+_SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_varlink);
 
 int sd_varlink_get_fd(sd_varlink *v);
 int sd_varlink_get_input_fd(sd_varlink *v);
@@ -223,8 +222,7 @@ int sd_varlink_set_input_sensitive(sd_varlink *v);
 
 /* Create a varlink server */
 int sd_varlink_server_new(sd_varlink_server **ret, sd_varlink_server_flags_t flags);
-sd_varlink_server* sd_varlink_server_ref(sd_varlink_server *s);
-sd_varlink_server* sd_varlink_server_unref(sd_varlink_server *s);
+_SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_varlink_server);
 
 int sd_varlink_server_set_info(
                 sd_varlink_server *s,

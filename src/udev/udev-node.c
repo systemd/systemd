@@ -545,7 +545,7 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
 
         /* This device has the equal or a higher priority than the current. Let's create the devlink to our
          * device node. */
-        return node_create_symlink(dev, /* devnode = */ NULL, slink);
+        return node_create_symlink(dev, /* devnode= */ NULL, slink);
 }
 
 static int device_get_devpath_by_devnum(sd_device *dev, char **ret) {
@@ -583,7 +583,7 @@ int udev_node_update(sd_device *dev, sd_device *dev_old) {
                                  "Removing/updating old device symlink '%s', which is no longer belonging to this device.",
                                  devlink);
 
-                r = link_update(dev, devlink, /* add = */ false);
+                r = link_update(dev, devlink, /* add= */ false);
                 if (r < 0)
                         log_device_warning_errno(dev, r,
                                                  "Failed to remove/update device symlink '%s', ignoring: %m",
@@ -592,7 +592,7 @@ int udev_node_update(sd_device *dev, sd_device *dev_old) {
 
         /* create/update symlinks, add symlinks to name index */
         FOREACH_DEVICE_DEVLINK(dev, devlink) {
-                r = link_update(dev, devlink, /* add = */ true);
+                r = link_update(dev, devlink, /* add= */ true);
                 if (r < 0)
                         log_device_warning_errno(dev, r,
                                                  "Failed to create/update device symlink '%s', ignoring: %m",
@@ -604,7 +604,7 @@ int udev_node_update(sd_device *dev, sd_device *dev_old) {
                 return log_device_debug_errno(dev, r, "Failed to get device path: %m");
 
         /* always add /dev/{block,char}/$major:$minor */
-        r = node_create_symlink(dev, /* devnode = */ NULL, filename);
+        r = node_create_symlink(dev, /* devnode= */ NULL, filename);
         if (r < 0)
                 return log_device_warning_errno(dev, r, "Failed to create device symlink '%s': %m", filename);
 
@@ -619,7 +619,7 @@ int udev_node_remove(sd_device *dev) {
 
         /* remove/update symlinks, remove symlinks from name index */
         FOREACH_DEVICE_DEVLINK(dev, devlink) {
-                r = link_update(dev, devlink, /* add = */ false);
+                r = link_update(dev, devlink, /* add= */ false);
                 if (r < 0)
                         log_device_warning_errno(dev, r,
                                                  "Failed to remove/update device symlink '%s', ignoring: %m",

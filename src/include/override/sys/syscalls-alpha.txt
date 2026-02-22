@@ -194,6 +194,7 @@ link	9
 linkat	458
 listen	106
 listmount	568
+listns	580
 listxattr	388
 listxattrat	575
 llistxattr	389
@@ -513,6 +514,7 @@ uname	339
 unlink	10
 unlinkat	456
 unshare	465
+uprobe
 uretprobe
 userfaultfd	516
 usr26

@@ -87,5 +87,4 @@ static inline bool inhibit_what_is_valid(InhibitWhat w) {
 const char* inhibit_what_to_string(InhibitWhat w);
 int inhibit_what_from_string(const char *s);
 
-const char* inhibit_mode_to_string(InhibitMode k);
-InhibitMode inhibit_mode_from_string(const char *s);
+DECLARE_STRING_TABLE_LOOKUP(inhibit_mode, InhibitMode);

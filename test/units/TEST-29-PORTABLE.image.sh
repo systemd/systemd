@@ -25,6 +25,10 @@ systemctl is-active minimal-app0.service
 systemctl is-active minimal-app0-foo.service
 systemctl is-active minimal-app0-bar.service && exit 1
 
+# Ensure pinning by policy works
+cat /run/systemd/system.attached/minimal-app0-foo.service.d/20-portable.conf
+grep -q -F 'root=signed+squashfs:' /run/systemd/system.attached/minimal-app0-foo.service.d/20-portable.conf
+
 portablectl "${ARGS[@]}" reattach --now --runtime /usr/share/minimal_1.raw minimal-app0
 
 portablectl is-attached minimal-app0
@@ -33,13 +37,13 @@ systemctl is-active minimal-app0.service
 systemctl is-active minimal-app0-bar.service
 systemctl is-active minimal-app0-foo.service && exit 1
 
-portablectl list | grep -q -F "minimal_1"
-busctl tree org.freedesktop.portable1 --no-pager | grep -q -F '/org/freedesktop/portable1/image/minimal_5f1'
+portablectl list | grep -F "minimal_1" >/dev/null
+busctl tree org.freedesktop.portable1 --no-pager | grep -F '/org/freedesktop/portable1/image/minimal_5f1' >/dev/null
 
 portablectl detach --now --runtime /usr/share/minimal_1.raw minimal-app0
 
-portablectl list | grep -q -F "No images."
-busctl tree org.freedesktop.portable1 --no-pager | grep -q -F '/org/freedesktop/portable1/image/minimal_5f1' && exit 1
+portablectl list | grep -F "No images." >/dev/null
+busctl tree org.freedesktop.portable1 --no-pager | grep -F '/org/freedesktop/portable1/image/minimal_5f1' && exit 1 >/dev/null
 
 # Ensure we don't regress (again) when using --force
 
@@ -74,13 +78,13 @@ systemctl is-active minimal-app0.service
 systemctl is-active minimal-app0-bar.service
 systemctl is-active minimal-app0-foo.service && exit 1
 
-portablectl list | grep -q -F "minimal_1"
-busctl tree org.freedesktop.portable1 --no-pager | grep -q -F '/org/freedesktop/portable1/image/minimal_5f1'
+portablectl list | grep -F "minimal_1" >/dev/null
+busctl tree org.freedesktop.portable1 --no-pager | grep -F '/org/freedesktop/portable1/image/minimal_5f1' >/dev/null
 
 portablectl detach --force --now --runtime /usr/share/minimal_1.raw minimal-app0
 
-portablectl list | grep -q -F "No images."
-busctl tree org.freedesktop.portable1 --no-pager | grep -q -F '/org/freedesktop/portable1/image/minimal_5f1' && exit 1
+portablectl list | grep -F "No images." >/dev/null
+busctl tree org.freedesktop.portable1 --no-pager | grep -F '/org/freedesktop/portable1/image/minimal_5f1' >/dev/null && exit 1
 
 portablectl "${ARGS[@]}" attach --now --runtime --extension /tmp/app0.raw /usr/share/minimal_0.raw app0
 
@@ -91,6 +95,9 @@ status="$(portablectl is-attached --extension app0 minimal_0)"
 grep -q -F "LogExtraFields=PORTABLE_ROOT=minimal_0.raw" /run/systemd/system.attached/app0.service.d/20-portable.conf
 grep -q -F "LogExtraFields=PORTABLE_EXTENSION=app0.raw" /run/systemd/system.attached/app0.service.d/20-portable.conf
 grep -q -F "LogExtraFields=PORTABLE_EXTENSION_NAME_AND_VERSION=app" /run/systemd/system.attached/app0.service.d/20-portable.conf
+# Ensure pinning by policy works
+grep -q -F 'RootImagePolicy=root=signed+squashfs:' /run/systemd/system.attached/app0.service.d/20-portable.conf >/dev/null
+grep -q -F 'ExtensionImagePolicy=root=signed+squashfs:' /run/systemd/system.attached/app0.service.d/20-portable.conf >/dev/null
 
 portablectl "${ARGS[@]}" reattach --now --runtime --extension /tmp/app0.raw /usr/share/minimal_1.raw app0
 
@@ -182,7 +189,11 @@ systemctl is-active app0.service
 status="$(portablectl is-attached --extension /tmp/app10.raw /usr/share/minimal_0.raw)"
 [[ "${status}" == "running-runtime" ]]
 
-portablectl inspect --force --cat --extension /tmp/app10.raw /usr/share/minimal_0.raw app0 | grep -q -F "Extension Release: /tmp/app10.raw"
+# Ensure --force adds relax-extension-release-check for image extensions
+grep -q -F "ExtensionImages=" /run/systemd/system.attached/app0.service.d/20-portable.conf
+grep -q -F "ExtensionImagePolicy=" /run/systemd/system.attached/app0.service.d/20-portable.conf
+
+portablectl inspect --force --cat --extension /tmp/app10.raw /usr/share/minimal_0.raw app0 | grep -F "Extension Release: /tmp/app10.raw" >/dev/null
 
 # Ensure that we can detach even when an image has been deleted already (stop the unit manually as
 # portablectl won't find it)
@@ -197,7 +208,7 @@ systemctl is-active app0.service
 status="$(portablectl is-attached --extension /tmp/app0.raw --extension /tmp/conf0.raw /usr/share/minimal_0.raw)"
 [[ "${status}" == "running-runtime" ]]
 
-portablectl inspect --force --cat --extension /tmp/app0.raw --extension /tmp/conf0.raw /usr/share/minimal_0.raw app0 | grep -q -F "Extension Release: /tmp/conf0.raw"
+portablectl inspect --force --cat --extension /tmp/app0.raw --extension /tmp/conf0.raw /usr/share/minimal_0.raw app0 | grep -F "Extension Release: /tmp/conf0.raw" >/dev/null
 
 portablectl detach --now --runtime --extension /tmp/app0.raw --extension /tmp/conf0.raw /usr/share/minimal_0.raw app0
 
@@ -228,9 +239,9 @@ status="$(portablectl is-attached --extension app1 minimal_0)"
 
 # Ensure 'portablectl list' shows the correct status for both images
 portablectl list
-portablectl list | grep -F "minimal_0" | grep -q -F "attached-runtime"
-portablectl list | grep -F "app0" | grep -q -F "attached-runtime"
-portablectl list | grep -F "app1" | grep -q -F "attached-runtime"
+portablectl list | grep -F "minimal_0" | grep -F "attached-runtime" >/dev/null
+portablectl list | grep -F "app0" | grep -F "attached-runtime" >/dev/null
+portablectl list | grep -F "app1" | grep -F "attached-runtime" >/dev/null
 
 portablectl detach --runtime --extension /tmp/app0.raw /usr/share/minimal_0.raw app
 
@@ -238,3 +249,19 @@ status="$(portablectl is-attached --extension app1 minimal_0)"
 [[ "${status}" == "attached-runtime" ]]
 
 portablectl detach --runtime --extension /tmp/app1.raw /usr/share/minimal_0.raw app
+
+# Ensure that when mixing directory and image extensions, ExtensionImagePolicy= is only
+# applied to image extensions and not to directory extensions
+mkdir -p /tmp/app1
+mount /tmp/app1.raw /tmp/app1
+portablectl "${ARGS[@]}" attach --copy=symlink --now --runtime --extension /tmp/app1 --extension /tmp/app0.raw /usr/share/minimal_0.raw app0
+
+systemctl is-active app0.service
+
+grep -q -F "ExtensionDirectories=/tmp/app1" /run/systemd/system.attached/app0.service.d/20-portable.conf
+grep -q -F "ExtensionImages=/tmp/app0.raw" /run/systemd/system.attached/app0.service.d/20-portable.conf
+# ExtensionImagePolicy= should appear exactly once (for the image, not the directory)
+[[ "$(grep -c -F "ExtensionImagePolicy=" /run/systemd/system.attached/app0.service.d/20-portable.conf)" == "1" ]]
+
+portablectl detach --now --runtime --extension /tmp/app1 --extension /tmp/app0.raw /usr/share/minimal_0.raw app0
+umount -l /tmp/app1

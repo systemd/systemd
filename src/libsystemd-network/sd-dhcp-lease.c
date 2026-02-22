@@ -903,7 +903,7 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
         switch (code) {
 
         case SD_DHCP_OPTION_IP_ADDRESS_LEASE_TIME:
-                r = lease_parse_be32_seconds(option, len, /* max_as_infinity = */ true, &lease->lifetime);
+                r = lease_parse_be32_seconds(option, len, /* max_as_infinity= */ true, &lease->lifetime);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse lease time, ignoring: %m");
 
@@ -1047,13 +1047,13 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                 break;
         }
         case SD_DHCP_OPTION_RENEWAL_TIME:
-                r = lease_parse_be32_seconds(option, len, /* max_as_infinity = */ true, &lease->t1);
+                r = lease_parse_be32_seconds(option, len, /* max_as_infinity= */ true, &lease->t1);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse T1 time, ignoring: %m");
                 break;
 
         case SD_DHCP_OPTION_REBINDING_TIME:
-                r = lease_parse_be32_seconds(option, len, /* max_as_infinity = */ true, &lease->t2);
+                r = lease_parse_be32_seconds(option, len, /* max_as_infinity= */ true, &lease->t2);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse T2 time, ignoring: %m");
                 break;
@@ -1116,7 +1116,7 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                 break;
 
         case SD_DHCP_OPTION_IPV6_ONLY_PREFERRED:
-                r = lease_parse_be32_seconds(option, len, /* max_as_infinity = */ false, &lease->ipv6_only_preferred_usec);
+                r = lease_parse_be32_seconds(option, len, /* max_as_infinity= */ false, &lease->ipv6_only_preferred_usec);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse IPv6 only preferred option, ignoring: %m");
 

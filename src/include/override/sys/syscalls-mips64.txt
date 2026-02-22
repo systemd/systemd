@@ -194,6 +194,7 @@ link	5084
 linkat	5255
 listen	5049
 listmount	5458
+listns	5470
 listxattr	5186
 listxattrat	5465
 llistxattr	5187
@@ -513,6 +514,7 @@ uname	5061
 unlink	5085
 unlinkat	5253
 unshare	5262
+uprobe
 uretprobe
 userfaultfd	5317
 usr26

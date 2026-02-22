@@ -270,7 +270,7 @@ int fstab_filter_options(
                 }
 
                 if (ret_filtered) {
-                        filtered = strv_join_full(filtered_strv, ",", NULL, /* escape_separator = */ true);
+                        filtered = strv_join_full(filtered_strv, ",", NULL, /* escape_separator= */ true);
                         if (!filtered)
                                 return -ENOMEM;
                 }

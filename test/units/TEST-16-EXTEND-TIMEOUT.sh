@@ -70,21 +70,21 @@ runtime_max_sec=5
 systemd-run \
     --property=RuntimeMaxSec=${runtime_max_sec}s \
     -u runtime-max-sec-test-1.service \
-    sh -c "while true; do sleep 1; done"
+    bash -c "while true; do sleep 1; done"
 wait_for_timeout runtime-max-sec-test-1.service $((runtime_max_sec + 2))
 
 systemd-run \
     --property=RuntimeMaxSec=${runtime_max_sec}s \
     --scope \
     -u runtime-max-sec-test-2.scope \
-    sh -c "while true; do sleep 1; done" &
+    bash -c "while true; do sleep 1; done" &
 wait_for_timeout runtime-max-sec-test-2.scope $((runtime_max_sec + 2))
 
 # These ensure that RuntimeMaxSec is honored for scope and service
 # units if the value is changed and then the manager is reloaded.
 systemd-run \
     -u runtime-max-sec-test-3.service \
-    sh -c "while true; do sleep 1; done"
+    bash -c "while true; do sleep 1; done"
 mkdir -p /etc/systemd/system/runtime-max-sec-test-3.service.d/
 cat >/etc/systemd/system/runtime-max-sec-test-3.service.d/override.conf <<EOF
 [Service]
@@ -96,7 +96,7 @@ wait_for_timeout runtime-max-sec-test-3.service $((runtime_max_sec + 2))
 systemd-run \
     --scope \
     -u runtime-max-sec-test-4.scope \
-    sh -c "while true; do sleep 1; done" &
+    bash -c "while true; do sleep 1; done" &
 
 # Wait until the unit is running to avoid race with creating the override.
 until systemctl is-active runtime-max-sec-test-4.scope; do

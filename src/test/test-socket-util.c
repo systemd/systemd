@@ -153,8 +153,7 @@ TEST(in_addr_is_multicast) {
 TEST(getpeercred_getpeergroups) {
         int r;
 
-        r = safe_fork("(getpeercred)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL);
-        assert_se(r >= 0);
+        r = ASSERT_OK(pidref_safe_fork("(getpeercred)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL));
 
         if (r == 0) {
                 static const gid_t gids[] = { 3, 4, 5, 6, 7 };
@@ -220,8 +219,7 @@ TEST(passfd_read) {
 
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) >= 0);
 
-        r = safe_fork("(passfd_read)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL);
-        assert_se(r >= 0);
+        r = ASSERT_OK(pidref_safe_fork("(passfd_read)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL));
 
         if (r == 0) {
                 /* Child */
@@ -262,8 +260,7 @@ TEST(passfd_contents_read) {
 
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) >= 0);
 
-        r = safe_fork("(passfd_contents_read)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL);
-        assert_se(r >= 0);
+        r = ASSERT_OK(pidref_safe_fork("(passfd_contents_read)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL));
 
         if (r == 0) {
                 /* Child */
@@ -302,71 +299,6 @@ TEST(passfd_contents_read) {
         ASSERT_STREQ(buf, file_contents);
 }
 
-TEST(pass_many_fds_contents_read) {
-        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
-        static const char file_contents[][STRLEN("test contents in the fileX") + 1] = {
-                "test contents in the file0",
-                "test contents in the file1",
-                "test contents in the file2"
-        };
-        static const char wire_contents[] = "test contents on the wire";
-        int r;
-
-        assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) >= 0);
-
-        r = safe_fork("(passfd_contents_read)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL);
-        assert_se(r >= 0);
-
-        if (r == 0) {
-                /* Child */
-                struct iovec iov = IOVEC_MAKE_STRING(wire_contents);
-                char tmpfile[][STRLEN("/tmp/test-socket-util-passfd-contents-read-XXXXXX") + 1] = {
-                        "/tmp/test-socket-util-passfd-contents-read-XXXXXX",
-                        "/tmp/test-socket-util-passfd-contents-read-XXXXXX",
-                        "/tmp/test-socket-util-passfd-contents-read-XXXXXX"
-                };
-                int tmpfds[3] = EBADF_TRIPLET;
-
-                pair[0] = safe_close(pair[0]);
-
-                for (size_t i = 0; i < 3; ++i) {
-                        assert_se(write_tmpfile(tmpfile[i], file_contents[i]) == 0);
-                        tmpfds[i] = open(tmpfile[i], O_RDONLY);
-                        assert_se(tmpfds[i] >= 0);
-                        assert_se(unlink(tmpfile[i]) == 0);
-                }
-
-                assert_se(send_many_fds_iov(pair[1], tmpfds, 3, &iov, 1, MSG_DONTWAIT) > 0);
-                close_many(tmpfds, 3);
-                _exit(EXIT_SUCCESS);
-        }
-
-        /* Parent */
-        char buf[64];
-        struct iovec iov = IOVEC_MAKE(buf, sizeof(buf)-1);
-        _cleanup_free_ int *fds = NULL;
-        size_t n_fds = 0;
-        ssize_t k;
-
-        pair[1] = safe_close(pair[1]);
-
-        k = receive_many_fds_iov(pair[0], &iov, 1, &fds, &n_fds, MSG_DONTWAIT);
-        assert_se(k > 0);
-        buf[k] = 0;
-        ASSERT_STREQ(buf, wire_contents);
-
-        assert_se(n_fds == 3);
-
-        for (size_t i = 0; i < 3; ++i) {
-                assert_se(fds[i] >= 0);
-                r = read(fds[i], buf, sizeof(buf)-1);
-                assert_se(r >= 0);
-                buf[r] = 0;
-                ASSERT_STREQ(buf, file_contents[i]);
-                safe_close(fds[i]);
-        }
-}
-
 TEST(receive_nopassfd) {
         _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
         static const char wire_contents[] = "no fd passed here";
@@ -374,7 +306,7 @@ TEST(receive_nopassfd) {
 
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) >= 0);
 
-        r = safe_fork("(receive_nopassfd)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL);
+        r = ASSERT_OK(pidref_safe_fork("(receive_nopassfd)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL));
         assert_se(r >= 0);
 
         if (r == 0) {
@@ -410,8 +342,7 @@ TEST(send_nodata_nofd) {
 
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) >= 0);
 
-        r = safe_fork("(send_nodata_nofd)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL);
-        assert_se(r >= 0);
+        r = ASSERT_OK(pidref_safe_fork("(send_nodata_nofd)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL));
 
         if (r == 0) {
                 /* Child */
@@ -443,8 +374,7 @@ TEST(send_emptydata) {
 
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) >= 0);
 
-        r = safe_fork("(send_emptydata)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL);
-        assert_se(r >= 0);
+        r = ASSERT_OK(pidref_safe_fork("(send_emptydata)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL));
 
         if (r == 0) {
                 /* Child */

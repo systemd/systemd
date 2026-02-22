@@ -163,7 +163,7 @@ static int list_sessions_table_add(Table *table, sd_bus_message *reply) {
                                         &tty,
                                         &idle,
                                         &idle_timestamp_monotonic,
-                                        /* object = */ NULL);
+                                        /* object= */ NULL);
                 if (r < 0)
                         return bus_log_parse_error(r);
                 if (r == 0)
@@ -721,21 +721,21 @@ static int print_session_status_info(sd_bus *bus, const char *path) {
                 return table_log_print_error(r);
 
         if (i.scope) {
-                show_unit_cgroup(bus, i.scope, i.leader, /* prefix = */ strrepa(" ", STRLEN("Display: ")));
+                show_unit_cgroup(bus, i.scope, i.leader, /* prefix= */ strrepa(" ", STRLEN("Display: ")));
 
                 if (arg_transport == BUS_TRANSPORT_LOCAL)
                         show_journal_by_unit(
                                         stdout,
                                         i.scope,
-                                        /* namespace = */ NULL,
+                                        /* namespace= */ NULL,
                                         arg_output,
-                                        /* n_columns = */ 0,
+                                        /* n_columns= */ 0,
                                         i.timestamp.monotonic,
                                         arg_lines,
                                         get_output_flags() | OUTPUT_BEGIN_NEWLINE,
                                         SD_JOURNAL_LOCAL_ONLY,
-                                        /* system_unit = */ true,
-                                        /* ellipsized = */ NULL);
+                                        /* system_unit= */ true,
+                                        /* ellipsized= */ NULL);
         }
 
         return 0;
@@ -826,21 +826,21 @@ static int print_user_status_info(sd_bus *bus, const char *path) {
                 return table_log_print_error(r);
 
         if (i.slice) {
-                show_unit_cgroup(bus, i.slice, /* leader = */ 0, /* prefix = */ strrepa(" ", STRLEN("Sessions: ")));
+                show_unit_cgroup(bus, i.slice, /* leader= */ 0, /* prefix= */ strrepa(" ", STRLEN("Sessions: ")));
 
                 if (arg_transport == BUS_TRANSPORT_LOCAL)
                         show_journal_by_unit(
                                         stdout,
                                         i.slice,
-                                        /* namespace = */ NULL,
+                                        /* namespace= */ NULL,
                                         arg_output,
-                                        /* n_columns = */ 0,
+                                        /* n_columns= */ 0,
                                         i.timestamp.monotonic,
                                         arg_lines,
                                         get_output_flags() | OUTPUT_BEGIN_NEWLINE,
                                         SD_JOURNAL_LOCAL_ONLY,
-                                        /* system_unit = */ true,
-                                        /* ellipsized = */ NULL);
+                                        /* system_unit= */ true,
+                                        /* ellipsized= */ NULL);
         }
 
         return 0;

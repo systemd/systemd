@@ -23,6 +23,7 @@ typedef enum CGroupController {
         CGROUP_CONTROLLER_BPF_FOREIGN,
         CGROUP_CONTROLLER_BPF_SOCKET_BIND,
         CGROUP_CONTROLLER_BPF_RESTRICT_NETWORK_INTERFACES,
+        CGROUP_CONTROLLER_BPF_BIND_NETWORK_INTERFACE,
         /* The BPF hook implementing RestrictFileSystems= is not defined here.
          * It's applied as late as possible in exec_invoke() so we don't block
          * our own unit setup code. */
@@ -48,6 +49,7 @@ typedef enum CGroupMask {
         CGROUP_MASK_BPF_FOREIGN = CGROUP_CONTROLLER_TO_MASK(CGROUP_CONTROLLER_BPF_FOREIGN),
         CGROUP_MASK_BPF_SOCKET_BIND = CGROUP_CONTROLLER_TO_MASK(CGROUP_CONTROLLER_BPF_SOCKET_BIND),
         CGROUP_MASK_BPF_RESTRICT_NETWORK_INTERFACES = CGROUP_CONTROLLER_TO_MASK(CGROUP_CONTROLLER_BPF_RESTRICT_NETWORK_INTERFACES),
+        CGROUP_MASK_BPF_BIND_NETWORK_INTERFACE = CGROUP_CONTROLLER_TO_MASK(CGROUP_CONTROLLER_BPF_BIND_NETWORK_INTERFACE),
 
         /* All real cgroup v1 controllers */
         CGROUP_MASK_V1 = CGROUP_MASK_CPU|CGROUP_MASK_CPUACCT|CGROUP_MASK_BLKIO|CGROUP_MASK_MEMORY|CGROUP_MASK_DEVICES|CGROUP_MASK_PIDS,
@@ -59,7 +61,7 @@ typedef enum CGroupMask {
         CGROUP_MASK_DELEGATE = CGROUP_MASK_V2,
 
         /* All cgroup v2 BPF pseudo-controllers */
-        CGROUP_MASK_BPF = CGROUP_MASK_BPF_FIREWALL|CGROUP_MASK_BPF_DEVICES|CGROUP_MASK_BPF_FOREIGN|CGROUP_MASK_BPF_SOCKET_BIND|CGROUP_MASK_BPF_RESTRICT_NETWORK_INTERFACES,
+        CGROUP_MASK_BPF = CGROUP_MASK_BPF_FIREWALL|CGROUP_MASK_BPF_DEVICES|CGROUP_MASK_BPF_FOREIGN|CGROUP_MASK_BPF_SOCKET_BIND|CGROUP_MASK_BPF_RESTRICT_NETWORK_INTERFACES|CGROUP_MASK_BPF_BIND_NETWORK_INTERFACE,
 
         _CGROUP_MASK_ALL = CGROUP_CONTROLLER_TO_MASK(_CGROUP_CONTROLLER_MAX) - 1,
 } CGroupMask;
@@ -93,8 +95,7 @@ typedef enum CGroupIOLimitType {
 
 extern const uint64_t cgroup_io_limit_defaults[_CGROUP_IO_LIMIT_TYPE_MAX];
 
-const char* cgroup_io_limit_type_to_string(CGroupIOLimitType t) _const_;
-CGroupIOLimitType cgroup_io_limit_type_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(cgroup_io_limit_type, CGroupIOLimitType);
 void cgroup_io_limits_list(void);
 
 /* Special values for the io.bfq.weight attribute */
@@ -124,13 +125,6 @@ int cg_path_open(const char *path);
 int cg_cgroupid_open(int cgroupfs_fd, uint64_t id);
 
 int cg_path_from_cgroupid(int cgroupfs_fd, uint64_t id, char **ret);
-int cg_get_cgroupid_at(int dfd, const char *path, uint64_t *ret);
-static inline int cg_path_get_cgroupid(const char *path, uint64_t *ret) {
-        return cg_get_cgroupid_at(AT_FDCWD, path, ret);
-}
-static inline int cg_fd_get_cgroupid(int fd, uint64_t *ret) {
-        return cg_get_cgroupid_at(fd, NULL, ret);
-}
 
 typedef enum CGroupFlags {
         CGROUP_SIGCONT            = 1 << 0,
@@ -241,8 +235,7 @@ int cg_mask_to_string(CGroupMask mask, char **ret);
 
 bool cg_kill_supported(void);
 
-const char* cgroup_controller_to_string(CGroupController c) _const_;
-CGroupController cgroup_controller_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(cgroup_controller, CGroupController);
 
 typedef enum ManagedOOMMode {
         MANAGED_OOM_AUTO,
@@ -251,8 +244,7 @@ typedef enum ManagedOOMMode {
         _MANAGED_OOM_MODE_INVALID = -EINVAL,
 } ManagedOOMMode;
 
-const char* managed_oom_mode_to_string(ManagedOOMMode m) _const_;
-ManagedOOMMode managed_oom_mode_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(managed_oom_mode, ManagedOOMMode);
 
 typedef enum ManagedOOMPreference {
         MANAGED_OOM_PREFERENCE_NONE = 0,
@@ -262,5 +254,4 @@ typedef enum ManagedOOMPreference {
         _MANAGED_OOM_PREFERENCE_INVALID = -EINVAL,
 } ManagedOOMPreference;
 
-const char* managed_oom_preference_to_string(ManagedOOMPreference a) _const_;
-ManagedOOMPreference managed_oom_preference_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(managed_oom_preference, ManagedOOMPreference);

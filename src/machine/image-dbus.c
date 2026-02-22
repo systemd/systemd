@@ -32,7 +32,7 @@ int bus_image_method_remove(
         _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR;
         Image *image = ASSERT_PTR(userdata);
         Manager *m = image->userdata;
-        pid_t child;
+        _cleanup_(pidref_done_sigkill_wait) PidRef child = PIDREF_NULL;
         int r;
 
         assert(message);
@@ -62,7 +62,7 @@ int bus_image_method_remove(
         if (pipe2(errno_pipe_fd, O_CLOEXEC|O_NONBLOCK) < 0)
                 return sd_bus_error_set_errnof(error, errno, "Failed to create pipe: %m");
 
-        r = safe_fork("(sd-imgrm)", FORK_RESET_SIGNALS, &child);
+        r = pidref_safe_fork("(sd-imgrm)", FORK_RESET_SIGNALS, &child);
         if (r < 0)
                 return sd_bus_error_set_errnof(error, r, "Failed to fork(): %m");
         if (r == 0) {
@@ -73,11 +73,11 @@ int bus_image_method_remove(
 
         errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
 
-        r = operation_new_with_bus_reply(m, /* machine= */ NULL, child, message, errno_pipe_fd[0], /* ret= */ NULL);
-        if (r < 0) {
-                sigkill_wait(child);
+        r = operation_new_with_bus_reply(m, /* machine= */ NULL, &child, message, errno_pipe_fd[0], /* ret= */ NULL);
+        if (r < 0)
                 return r;
-        }
+
+        TAKE_PIDREF(child);
 
         errno_pipe_fd[0] = -EBADF;
 
@@ -140,7 +140,7 @@ int bus_image_method_clone(
         Manager *m = ASSERT_PTR(image->userdata);
         const char *new_name;
         int r, read_only;
-        pid_t child;
+        _cleanup_(pidref_done_sigkill_wait) PidRef child = PIDREF_NULL;
 
         assert(message);
 
@@ -177,7 +177,7 @@ int bus_image_method_clone(
         if (pipe2(errno_pipe_fd, O_CLOEXEC|O_NONBLOCK) < 0)
                 return sd_bus_error_set_errnof(error, errno, "Failed to create pipe: %m");
 
-        r = safe_fork("(sd-imgclone)", FORK_RESET_SIGNALS, &child);
+        r = pidref_safe_fork("(sd-imgclone)", FORK_RESET_SIGNALS, &child);
         if (r < 0)
                 return sd_bus_error_set_errnof(error, r, "Failed to fork(): %m");
         if (r == 0) {
@@ -188,11 +188,11 @@ int bus_image_method_clone(
 
         errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
 
-        r = operation_new_with_bus_reply(m, /* machine= */ NULL, child, message, errno_pipe_fd[0], /* ret= */ NULL);
-        if (r < 0) {
-                sigkill_wait(child);
+        r = operation_new_with_bus_reply(m, /* machine= */ NULL, &child, message, errno_pipe_fd[0], /* ret= */ NULL);
+        if (r < 0)
                 return r;
-        }
+
+        TAKE_PIDREF(child);
 
         errno_pipe_fd[0] = -EBADF;
 
@@ -295,7 +295,7 @@ int bus_image_method_get_hostname(
         int r;
 
         if (!image->metadata_valid) {
-                r = image_read_metadata(image, &image_policy_container, m->runtime_scope);
+                r = image_read_metadata(image, /* root= */ NULL, &image_policy_container, m->runtime_scope);
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Failed to read image metadata: %m");
         }
@@ -314,7 +314,7 @@ int bus_image_method_get_machine_id(
         int r;
 
         if (!image->metadata_valid) {
-                r = image_read_metadata(image, &image_policy_container, m->runtime_scope);
+                r = image_read_metadata(image, /* root= */ NULL, &image_policy_container, m->runtime_scope);
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Failed to read image metadata: %m");
         }
@@ -343,7 +343,7 @@ int bus_image_method_get_machine_info(
         int r;
 
         if (!image->metadata_valid) {
-                r = image_read_metadata(image, &image_policy_container, m->runtime_scope);
+                r = image_read_metadata(image, /* root= */ NULL, &image_policy_container, m->runtime_scope);
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Failed to read image metadata: %m");
         }
@@ -361,7 +361,7 @@ int bus_image_method_get_os_release(
         int r;
 
         if (!image->metadata_valid) {
-                r = image_read_metadata(image, &image_policy_container, m->runtime_scope);
+                r = image_read_metadata(image, /* root= */ NULL, &image_policy_container, m->runtime_scope);
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Failed to read image metadata: %m");
         }

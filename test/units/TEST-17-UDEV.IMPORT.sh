@@ -14,8 +14,8 @@ udevadm control --reload
 SYSTEMD_LOG_LEVEL=debug udevadm trigger --verbose --settle --action add /dev/null
 
 test -f /run/udev/data/c1:3
-udevadm info /dev/null | grep -q 'E: HOGE=aa\\x20\\x20\\x20bb'
-udevadm info /dev/null | grep -q 'E: FOO=\\x20aaa\\x20'
+udevadm info /dev/null | grep 'E: HOGE=aa\\x20\\x20\\x20bb' >/dev/null
+udevadm info /dev/null | grep 'E: FOO=\\x20aaa\\x20' >/dev/null
 
 rm /run/udev/rules.d/50-testsuite.rules
 udevadm control --reload

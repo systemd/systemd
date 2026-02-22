@@ -158,7 +158,7 @@ int glob_extend(char ***strv, const char *path, int flags) {
         if (r < 0)
                 return r;
 
-        return strv_extend_strv_consume(strv, v, /* filter_duplicates = */ false);
+        return strv_extend_strv_consume(strv, v, /* filter_duplicates= */ false);
 }
 
 int glob_non_glob_prefix(const char *path, char **ret) {

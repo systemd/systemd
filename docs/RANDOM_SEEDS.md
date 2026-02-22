@@ -153,7 +153,7 @@ boot, in order to ensure the entropy pool is filled up quickly.
    provides virtualized RNG hardware (and VM environments really should!).
 
 2. The
-   [`systemd-random-seed.service`](https://www.freedesktop.org/software/systemd/man/systemd-random-seed.service.html)
+   [`systemd-random-seed.service`](https://www.freedesktop.org/software/systemd/man/latest/systemd-random-seed.service.html)
    system service will load a random seed from `/var/lib/systemd/random-seed`
    into the kernel entropy pool.
    By default it does not credit entropy for it though, since the seed is — more often than not — not reset when 'golden' master images of an OS are created, and thus replicated into every installation.
@@ -167,12 +167,12 @@ boot, in order to ensure the entropy pool is filled up quickly.
    require an initialized entropy pool to operate correctly.
 
 3. The
-   [`systemd-boot`](https://www.freedesktop.org/software/systemd/man/systemd-boot.html)
+   [`systemd-boot`](https://www.freedesktop.org/software/systemd/man/latest/systemd-boot.html)
    EFI boot loader included in systemd is able to maintain and provide a random
    seed stored in the EFI System Partition (ESP) to the booted OS, which allows
    booting up with a fully initialized entropy pool from earliest boot on.
    During installation of the boot loader (or when invoking
-   [`bootctlrandom-seed`](https://www.freedesktop.org/software/systemd/man/bootctl.html#random-seed))
+   [`bootctlrandom-seed`](https://www.freedesktop.org/software/systemd/man/latest/bootctl.html#random-seed))
    a seed file with an initial seed is placed in a file `/loader/random-seed` in the ESP.
    In addition, an identically sized randomized EFI variable called the 'system token' is set, which is written to the machine's firmware NVRAM.
 
@@ -301,8 +301,8 @@ This primarily leaves two kind of systems in the cold:
 
 5. *Why don't you use
    [`rngd`](https://github.com/nhorman/rng-tools),
-   [`haveged`](http://www.issihosts.com/haveged/),
-   [`egd`](http://egd.sourceforge.net/)?
+   [`haveged`](https://www.issihosts.com/haveged/),
+   [`egd`](https://egd.sourceforge.net/)?
    That's all you need!*
 
    Like `uuidd` above these are system services, hence come too late for our use-case.
@@ -362,7 +362,7 @@ This primarily leaves two kind of systems in the cold:
     loader random seeds too!*
 
     Well, consider just switching to `systemd-boot`, it's worth it. See
-    [systemd-boot(7)](https://www.freedesktop.org/software/systemd/man/systemd-boot.html)
+    [systemd-boot(7)](https://www.freedesktop.org/software/systemd/man/latest/systemd-boot.html)
     for an introduction why. That said, any boot loader can re-implement the
     logic described above, and can pass a random seed that systemd as PID 1
     will then upload into the kernel's entropy pool. For details see the

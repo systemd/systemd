@@ -194,6 +194,7 @@ link	6084
 linkat	6259
 listen	6049
 listmount	6458
+listns	6470
 listxattr	6186
 listxattrat	6465
 llistxattr	6187
@@ -513,6 +514,7 @@ uname	6061
 unlink	6085
 unlinkat	6257
 unshare	6266
+uprobe
 uretprobe
 userfaultfd	6321
 usr26

@@ -21,6 +21,7 @@
 #include "serialize.h"
 #include "siphash24.h"
 #include "socket-util.h"
+#include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "uid-classification.h"
@@ -145,44 +146,6 @@ static int dynamic_user_acquire(Manager *m, const char *name, DynamicUser** ret)
         return 1;
 }
 
-static int make_uid_symlinks(uid_t uid, const char *name, bool b) {
-        char path1[STRLEN("/run/systemd/dynamic-uid/direct:") + DECIMAL_STR_MAX(uid_t) + 1];
-        const char *path2;
-        int r = 0, k;
-
-        /* Add direct additional symlinks for direct lookups of dynamic UIDs and their names by userspace code. The
-         * only reason we have this is because dbus-daemon cannot use D-Bus for resolving users and groups (since it
-         * would be its own client then). We hence keep these world-readable symlinks in place, so that the
-         * unprivileged dbus user can read the mappings when it needs them via these symlinks instead of having to go
-         * via the bus. Ideally, we'd use the lock files we keep for this anyway, but we can't since we use BSD locks
-         * on them and as those may be taken by any user with read access we can't make them world-readable. */
-
-        xsprintf(path1, "/run/systemd/dynamic-uid/direct:" UID_FMT, uid);
-        if (unlink(path1) < 0 && errno != ENOENT)
-                r = -errno;
-
-        if (b && symlink(name, path1) < 0) {
-                k = log_warning_errno(errno, "Failed to symlink \"%s\": %m", path1);
-                if (r == 0)
-                        r = k;
-        }
-
-        path2 = strjoina("/run/systemd/dynamic-uid/direct:", name);
-        if (unlink(path2) < 0 && errno != ENOENT) {
-                k = -errno;
-                if (r == 0)
-                        r = k;
-        }
-
-        if (b && symlink(path1 + STRLEN("/run/systemd/dynamic-uid/direct:"), path2) < 0) {
-                k = log_warning_errno(errno,  "Failed to symlink \"%s\": %m", path2);
-                if (r == 0)
-                        r = k;
-        }
-
-        return r;
-}
-
 static int pick_uid(char **suggested_paths, const char *name, uid_t *ret_uid) {
 
         /* Find a suitable free UID. We use the following strategy to find a suitable UID:
@@ -270,24 +233,23 @@ static int pick_uid(char **suggested_paths, const char *name, uid_t *ret_uid) {
                 xsprintf(lock_path, "/run/systemd/dynamic-uid/" UID_FMT, candidate);
 
                 for (;;) {
-                        struct stat st;
-
                         lock_fd = open(lock_path, O_CREAT|O_RDWR|O_NOFOLLOW|O_CLOEXEC|O_NOCTTY, 0600);
                         if (lock_fd < 0)
                                 return -errno;
 
                         r = flock(lock_fd, LOCK_EX|LOCK_NB); /* Try to get a BSD file lock on the UID lock file */
                         if (r < 0) {
-                                if (IN_SET(errno, EBUSY, EAGAIN))
+                                if (errno == EAGAIN)
                                         goto next; /* already in use */
 
                                 return -errno;
                         }
 
-                        if (fstat(lock_fd, &st) < 0)
-                                return -errno;
-                        if (st.st_nlink > 0)
+                        r = fd_verify_linked(lock_fd);
+                        if (r >= 0)
                                 break;
+                        if (r != -EIDRM)
+                                return r;
 
                         /* Oh, bummer, we got the lock, but the file was unlinked between the time we opened it and
                          * got the lock. Close it, and try again. */
@@ -315,7 +277,6 @@ static int pick_uid(char **suggested_paths, const char *name, uid_t *ret_uid) {
                 }
 
                 (void) ftruncate(lock_fd, l);
-                (void) make_uid_symlinks(candidate, name, true); /* also add direct lookup symlinks */
 
                 *ret_uid = candidate;
                 return TAKE_FD(lock_fd);
@@ -359,7 +320,7 @@ static int dynamic_user_push(DynamicUser *d, uid_t uid, int lock_fd) {
         return send_one_fd_iov(d->storage_socket[1], lock_fd, &iov, 1, MSG_DONTWAIT);
 }
 
-static void unlink_uid_lock(int lock_fd, uid_t uid, const char *name) {
+static void unlink_uid_lock(int lock_fd, uid_t uid) {
         char lock_path[STRLEN("/run/systemd/dynamic-uid/") + DECIMAL_STR_MAX(uid_t) + 1];
 
         if (lock_fd < 0)
@@ -367,8 +328,6 @@ static void unlink_uid_lock(int lock_fd, uid_t uid, const char *name) {
 
         xsprintf(lock_path, "/run/systemd/dynamic-uid/" UID_FMT, uid);
         (void) unlink(lock_path);
-
-        (void) make_uid_symlinks(uid, name, false); /* remove direct lookup symlinks */
 }
 
 static int dynamic_user_realize(
@@ -456,7 +415,7 @@ static int dynamic_user_realize(
                 /* So, we found a working UID/lock combination. Let's see if we actually still need it. */
                 r = posix_lock(d->storage_socket[0], LOCK_EX);
                 if (r < 0) {
-                        unlink_uid_lock(uid_lock_fd, num, d->name);
+                        unlink_uid_lock(uid_lock_fd, num);
                         return r;
                 }
 
@@ -464,14 +423,14 @@ static int dynamic_user_realize(
                 if (r < 0) {
                         if (r != -EAGAIN) {
                                 /* OK, something bad happened, let's get rid of the bits we acquired. */
-                                unlink_uid_lock(uid_lock_fd, num, d->name);
+                                unlink_uid_lock(uid_lock_fd, num);
                                 return r;
                         }
                 } else {
                         /* Hmm, so as it appears there's now something stored in the storage socket.
                          * Throw away what we acquired, and use what's stored now. */
 
-                        unlink_uid_lock(uid_lock_fd, num, d->name);
+                        unlink_uid_lock(uid_lock_fd, num);
                         safe_close(uid_lock_fd);
 
                         num = new_uid;
@@ -570,7 +529,7 @@ static int dynamic_user_close(DynamicUser *d) {
                 return r;
 
         /* This dynamic user was realized and dynamically allocated. In this case, let's remove the lock file. */
-        unlink_uid_lock(lock_fd, uid, d->name);
+        unlink_uid_lock(lock_fd, uid);
 
         return 1;
 }
@@ -736,11 +695,20 @@ int dynamic_user_lookup_name(Manager *m, const char *name, uid_t *ret) {
         if (!d)
                 return -ESRCH;
 
-        r = dynamic_user_current(d, ret);
+        uid_t uid;
+        r = dynamic_user_current(d, &uid);
         if (r == -EAGAIN) /* not realized yet? */
                 return -ESRCH;
+        if (r < 0)
+                return r;
 
-        return r;
+        if (!uid_is_dynamic(uid))
+                return -ESRCH;
+
+        if (ret)
+                *ret = uid;
+
+        return 0;
 }
 
 int dynamic_creds_make(Manager *m, const char *user, const char *group, DynamicCreds **ret) {

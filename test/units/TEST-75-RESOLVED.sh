@@ -60,6 +60,7 @@ monitor_check_rr() (
     # displayed. We turn off pipefail for this, since we don't care about the
     # lhs of this pipe expression, we only care about the rhs' result to be
     # clean
+    set +o pipefail
     timeout -v 30s journalctl -u resolvectl-monitor.service --since "$since" -f --full | grep -m1 "$match"
 )
 
@@ -349,7 +350,7 @@ manual_testcase_02_mdns_llmnr() {
     # defaults to yes (both the global and per-link settings are yes)
     assert_in 'yes' "$(resolvectl mdns hoge)"
     assert_in 'yes' "$(resolvectl llmnr hoge)"
-    lsof -p "$(systemctl show --property MainPID --value systemd-resolved.service)" | grep -q ":mdns\|:5353"
+    lsof -p "$(systemctl show --property MainPID --value systemd-resolved.service)" | grep ":mdns\|:5353" >/dev/null
     # set per-link setting
     resolvectl mdns hoge yes
     resolvectl llmnr hoge yes
@@ -390,7 +391,7 @@ manual_testcase_02_mdns_llmnr() {
         echo "LLMNR=no"
     } >/run/systemd/resolved.conf.d/90-mdns-llmnr.conf
     systemctl reload systemd-resolved.service
-    (! lsof -p "$(systemctl show --property MainPID --value systemd-resolved.service)" | grep -q ":mdns\|:5353")
+    (! lsof -p "$(systemctl show --property MainPID --value systemd-resolved.service)" | grep ":mdns\|:5353" >/dev/null)
     # set per-link setting
     resolvectl mdns hoge yes
     resolvectl llmnr hoge yes
@@ -408,6 +409,11 @@ manual_testcase_02_mdns_llmnr() {
 
 testcase_03_23951() {
     : "--- nss-resolve/nss-myhostname tests"
+
+    if ! check_nss_module resolve; then
+        return 0
+    fi
+
     # Sanity check
     TIMESTAMP=$(date '+%F %T')
     # Issue: https://github.com/systemd/systemd/issues/23951
@@ -426,6 +432,10 @@ testcase_03_23951() {
 }
 
 testcase_04_18812() {
+    if ! check_nss_module resolve; then
+        return 0
+    fi
+
     # Issue: https://github.com/systemd/systemd/issues/18812
     # PR: https://github.com/systemd/systemd/pull/18896
     # Follow-up issue: https://github.com/systemd/systemd/issues/23152
@@ -446,6 +456,10 @@ testcase_04_18812() {
 }
 
 testcase_05_25088() {
+    if ! check_nss_module resolve; then
+        return 0
+    fi
+
     # Issue: https://github.com/systemd/systemd/issues/25088
     run getent -s resolve hosts 127.128.0.5
     grep -qEx '127\.128\.0\.5\s+localhost5(\s+localhost5?\.localdomain[45]?){4}' "$RUN_OUT"
@@ -946,12 +960,15 @@ testcase_10_resolvectl_json() {
 
     assert_eq "$(resolvectl --json=short nta dns0 | jq -rc '.[0].negativeTrustAnchors | .[0]')" 'bar'
     assert_eq "$(jq -rc '.[0].negativeTrustAnchors | .[0]' "$status_json")" 'bar'
+
+    # Test that currentServer is non-empty.
+    jq -rce '.[0].currentServer' "$status_json"
 }
 
 # Test serve stale feature and NFTSet= if nftables is installed
 testcase_11_nft() {
     if ! command -v nft >/dev/null; then
-        echo "nftables is not installed. Skipped serve stale feature and NFTSet= tests."
+        echo "nftables is not installed. Skipped serve stale feature tests."
         return 0
     fi
 
@@ -978,6 +995,12 @@ testcase_11_nft() {
     set -eux
     grep -qE "no servers could be reached" "$RUN_OUT"
     nft flush ruleset
+
+    . /etc/os-release
+    if [[ "${ID_LIKE:-}" == alpine ]]; then
+        # FIXME: For some reasons, the following tests will fail on alpine/postmarketos.
+        return 0
+    fi
 
     ### Test TIMEOUT with serve stale feature ###
 
@@ -1011,62 +1034,6 @@ testcase_11_nft() {
     sleep 2
     run dig stale1.unsigned.test -t A
     grep -qE "NXDOMAIN" "$RUN_OUT"
-
-    nft flush ruleset
-
-    ### NFTSet= test
-    nft add table inet sd_test
-    nft add set inet sd_test c '{ type cgroupsv2; }'
-    nft add set inet sd_test u '{ typeof meta skuid; }'
-    nft add set inet sd_test g '{ typeof meta skgid; }'
-
-    # service
-    systemd-run --unit test-nft.service --service-type=exec -p DynamicUser=yes \
-                -p 'NFTSet=cgroup:inet:sd_test:c user:inet:sd_test:u group:inet:sd_test:g' sleep 10000
-    run nft list set inet sd_test c
-    grep -qF "test-nft.service" "$RUN_OUT"
-    uid=$(getent passwd test-nft | cut -d':' -f3)
-    run nft list set inet sd_test u
-    grep -qF "$uid" "$RUN_OUT"
-    gid=$(getent passwd test-nft | cut -d':' -f4)
-    run nft list set inet sd_test g
-    grep -qF "$gid" "$RUN_OUT"
-    systemctl stop test-nft.service
-
-    # scope
-    run systemd-run --scope -u test-nft.scope -p 'NFTSet=cgroup:inet:sd_test:c' nft list set inet sd_test c
-    grep -qF "test-nft.scope" "$RUN_OUT"
-
-    mkdir -p /run/systemd/system
-    # socket
-    {
-        echo "[Socket]"
-        echo "ListenStream=12345"
-        echo "BindToDevice=lo"
-        echo "NFTSet=cgroup:inet:sd_test:c"
-    } >/run/systemd/system/test-nft.socket
-    {
-        echo "[Service]"
-        echo "ExecStart=sleep 10000"
-    } >/run/systemd/system/test-nft.service
-    systemctl daemon-reload
-    systemctl start test-nft.socket
-    systemctl status test-nft.socket
-    run nft list set inet sd_test c
-    grep -qF "test-nft.socket" "$RUN_OUT"
-    systemctl stop test-nft.socket
-    rm -f /run/systemd/system/test-nft.{socket,service}
-
-    # slice
-    mkdir /run/systemd/system/system.slice.d
-    {
-        echo "[Slice]"
-        echo "NFTSet=cgroup:inet:sd_test:c"
-    } >/run/systemd/system/system.slice.d/00-test-nft.conf
-    systemctl daemon-reload
-    run nft list set inet sd_test c
-    grep -qF "system.slice" "$RUN_OUT"
-    rm -rf /run/systemd/system/system.slice.d
 
     nft flush ruleset
 }
@@ -1454,7 +1421,7 @@ testcase_15_wait_online_dns() {
         /usr/lib/systemd/systemd-networkd-wait-online --timeout=0 --dns --interface=dns0
 
     # Wait until it blocks waiting for updated DNS config
-    timeout 30 bash -c "journalctl -b -u $unit -f | grep -q -m1 'dns0: No.*DNS server is accessible'"
+    timeout 30 bash -c "journalctl -b -u $unit -f | grep -m1 'dns0: No.*DNS server is accessible'" >/dev/null
 
     # Update the global configuration. Restart rather than reload systemd-resolved so that
     # systemd-networkd-wait-online has to re-connect to the varlink service.
@@ -1485,6 +1452,7 @@ testcase_delegate() {
 [Delegate]
 DNS=192.168.77.78
 Domains=exercise.test
+FirewallMark=42
 EOF
     systemctl reload systemd-resolved
     resolvectl status

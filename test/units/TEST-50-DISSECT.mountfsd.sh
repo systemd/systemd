@@ -55,7 +55,7 @@ if (SYSTEMD_LOG_TARGET=console varlinkctl call \
         /run/systemd/userdb/io.systemd.NamespaceResource \
         io.systemd.NamespaceResource.AllocateUserRange \
         '{"name":"test-supported","size":65536,"userNamespaceFileDescriptor":0}' 2>&1 || true) |
-            grep -q "io.systemd.NamespaceResource.UserNamespaceInterfaceNotSupported"; then
+            grep "io.systemd.NamespaceResource.UserNamespaceInterfaceNotSupported" >/dev/null; then
     echo "User namespace interface not supported, skipping mountfsd/nsresourced tests"
     exit 0
 fi
@@ -76,7 +76,7 @@ if [ "$VERITY_SIG_SUPPORTED" -eq 1 ]; then
     systemd-run -M testuser@ --user --pipe --wait \
         --property RootImage="$MINIMAL_IMAGE.raw" \
         --property ExtensionImages=/tmp/app0.raw \
-        sh -c "test -e \"/dev/mapper/${MINIMAL_IMAGE_ROOTHASH}-verity\" && test -e \"/dev/mapper/$(</tmp/app0.roothash)-verity\""
+        bash -c "test -e \"/dev/mapper/${MINIMAL_IMAGE_ROOTHASH}-verity\" && test -e \"/dev/mapper/$(</tmp/app0.roothash)-verity\""
 
     # Without a signature this should not work, as mountfsd should reject it, even if we explicitly ask to
     # trust it
@@ -84,13 +84,50 @@ if [ "$VERITY_SIG_SUPPORTED" -eq 1 ]; then
     (! systemd-run -M testuser@ --user --pipe --wait \
         --property RootImage="$MINIMAL_IMAGE.raw" \
         --property ExtensionImages=/tmp/app0.raw \
-        sh -c "test -e \"/dev/mapper/${MINIMAL_IMAGE_ROOTHASH}-verity\" && test -e \"/dev/mapper/$(</tmp/app0.roothash)-verity\"")
+        bash -c "test -e \"/dev/mapper/${MINIMAL_IMAGE_ROOTHASH}-verity\" && test -e \"/dev/mapper/$(</tmp/app0.roothash)-verity\"")
     (! systemd-run -M testuser@ --user --pipe --wait \
         --property RootImage="$MINIMAL_IMAGE.raw" \
         --property ExtensionImages=/tmp/app0.raw \
         --property ExtensionImagePolicy=root=verity+signed+absent:usr=verity+signed+absent \
-        sh -c "test -e \"/dev/mapper/${MINIMAL_IMAGE_ROOTHASH}-verity\" && test -e \"/dev/mapper/$(</tmp/app0.roothash)-verity\"")
+        bash -c "test -e \"/dev/mapper/${MINIMAL_IMAGE_ROOTHASH}-verity\" && test -e \"/dev/mapper/$(</tmp/app0.roothash)-verity\"")
     mv /tmp/app0.roothash.p7s.bak /tmp/app0.roothash.p7s
+
+    # Mount options should not be allowed without elevated privileges
+    (! systemd-run -M testuser@ --user --pipe --wait \
+        --property RootImage="$MINIMAL_IMAGE.gpt" \
+        --property RootImageOptions="root:ro,noatime,nosuid home:ro,dev nosuid,dev" \
+        --property RootImageOptions="home:ro,dev nosuid,dev,%%foo" \
+        true)
+    (! systemd-run -M testuser@ --user --pipe --wait \
+        --property RootImage="$MINIMAL_IMAGE.raw" \
+        --property ExtensionImages=/tmp/app0.raw \
+        --property MountImages=/tmp/app0.raw:/var/tmp:noatime,nosuid \
+        true)
+
+    mkdir -p /etc/polkit-1/rules.d
+    cat >/etc/polkit-1/rules.d/mountoptions.rules <<'EOF'
+polkit.addRule(function(action, subject) {
+    if (action.id == "io.systemd.mount-file-system.mount-untrusted-image-privately" &&
+            action.lookup("mount_options") == "root:nosuid") {
+        return polkit.Result.YES;
+    }
+});
+EOF
+    systemctl try-reload-or-restart polkit.service
+
+    systemd-run -M testuser@ --user --pipe --wait \
+        --property RootImage="$MINIMAL_IMAGE.gpt" \
+        --property RootImageOptions="root:nosuid" \
+        sh -c "test -e \"/dev/mapper/${MINIMAL_IMAGE_ROOTHASH}-verity\" && mount | grep -F squashfs | grep -q -F nosuid"
+
+    systemd-run -M testuser@ --user --pipe --wait \
+        --property RootImage="$MINIMAL_IMAGE.raw" \
+        --property ExtensionImages=/tmp/app0.raw \
+        --property MountImages=/tmp/app0.raw:/var/tmp:nosuid \
+        sh -c "test -e \"/dev/mapper/${MINIMAL_IMAGE_ROOTHASH}-verity\" && test -e \"/dev/mapper/$(</tmp/app0.roothash)-verity\" && mount | grep -F /var/tmp | grep -q -F nosuid"
+
+    rm -f /etc/polkit-1/rules.d/mountoptions.rules
+    systemctl try-reload-or-restart polkit.service
 fi
 
 # Bare squashfs without any verity or signature also should be rejected, even if we ask to trust it
