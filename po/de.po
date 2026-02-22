@@ -5,7 +5,7 @@
 # Benjamin Steinwender <b@stbe.at>, 2014.
 # Bernd Homuth <dev@hmt.im>, 2015.
 # Fabian Affolter <mail@fabian-affolter.ch>, 2020.
-# Ettore Atalan <atalanttore@googlemail.com>, 2021, 2024.
+# Ettore Atalan <atalanttore@googlemail.com>, 2021, 2024, 2026.
 # Christian Wehrli <christian@chw.onl>, 2021.
 # Christian Kirbach <christian.kirbach@gmail.com>, 2023.
 # Jarne Förster <fedora@mymailclient.de>, 2024.
@@ -16,8 +16,8 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2025-11-26 01:17+0000\n"
-"PO-Revision-Date: 2025-11-11 11:42+0000\n"
-"Last-Translator: Marcel Leismann <tiixrigjekfv@use.startmail.com>\n"
+"PO-Revision-Date: 2026-02-22 23:58+0000\n"
+"Last-Translator: Ettore Atalan <atalanttore@googlemail.com>\n"
 "Language-Team: German <https://translate.fedoraproject.org/projects/systemd/"
 "main/de/>\n"
 "Language: de\n"
@@ -25,7 +25,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 5.14.3\n"
+"X-Generator: Weblate 5.16\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -592,8 +592,8 @@ msgstr "Nicht angemeldetem Benutzer die Ausführung von Programmen erlauben"
 #: src/login/org.freedesktop.login1.policy:129
 msgid "Explicit request is required to run programs as a non-logged-in user."
 msgstr ""
-"Eine explizite Anfrage ist notwendig, um Programme als nicht angemeldeter "
-"Benutzer auszuführen."
+"Explizite Anfrage ist erforderlich, damit nicht angemeldete Benutzer "
+"Programme ausführen dürfen."
 
 #: src/login/org.freedesktop.login1.policy:138
 msgid "Allow non-logged-in users to run programs"
