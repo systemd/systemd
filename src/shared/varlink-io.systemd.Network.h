@@ -7,3 +7,4 @@ extern const sd_varlink_interface vl_interface_io_systemd_Network;
 extern const sd_varlink_symbol vl_type_LinkAddressState;
 extern const sd_varlink_symbol vl_type_LinkOnlineState;
 extern const sd_varlink_symbol vl_type_LinkRequiredAddressFamily;
+extern const sd_varlink_symbol vl_type_NetworkInterface;
