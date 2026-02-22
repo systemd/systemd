@@ -533,7 +533,7 @@ static int signal_restart_callback(sd_event_source *s, const struct signalfd_sig
 static int signal_reload_callback(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
 
-        (void) manager_reload(m, /* message= */ NULL);
+        (void) manager_reload(m, /* message= */ NULL, /* varlink= */ NULL);
 
         return 0;
 }
@@ -1257,11 +1257,12 @@ int manager_set_timezone(Manager *m, const char *tz) {
         return 0;
 }
 
-int manager_reload(Manager *m, sd_bus_message *message) {
+int manager_reload(Manager *m, sd_bus_message *message, sd_varlink *varlink) {
         Link *link;
         int r;
 
         assert(m);
+        assert(!message || !varlink); /* D-Bus and Varlink callers are mutually exclusive */
 
         log_debug("Reloading...");
         (void) notify_reloading();
@@ -1279,8 +1280,12 @@ int manager_reload(Manager *m, sd_bus_message *message) {
         }
 
         HASHMAP_FOREACH(link, m->links_by_index)
-                (void) link_reconfigure_full(link, /* flags= */ 0, message,
-                                             /* counter= */ message ? &m->reloading : NULL);
+                (void) link_reconfigure_full(
+                                link,
+                                /* flags= */ 0,
+                                message,
+                                varlink,
+                                /* counter= */ (message || varlink) ? &m->reloading : NULL);
 
         log_debug("Reloaded.");
         r = 0;
