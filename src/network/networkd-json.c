@@ -1639,6 +1639,23 @@ int link_build_json(Link *link, sd_json_variant **ret) {
         if (r < 0)
                 return r;
 
+        /* Append BitRates if speed meter is active */
+        {
+                uint64_t tx = UINT64_MAX, rx = UINT64_MAX;
+
+                link_get_bit_rates(link, &tx, &rx);
+                if (tx != UINT64_MAX && rx != UINT64_MAX) {
+                        r = sd_json_variant_merge_objectbo(
+                                        &v,
+                                        SD_JSON_BUILD_PAIR("BitRates",
+                                                SD_JSON_BUILD_OBJECT(
+                                                        SD_JSON_BUILD_PAIR_UNSIGNED("TxBitRate", tx),
+                                                        SD_JSON_BUILD_PAIR_UNSIGNED("RxBitRate", rx))));
+                        if (r < 0)
+                                return r;
+                }
+        }
+
         *ret = TAKE_PTR(v);
         return 0;
 }
