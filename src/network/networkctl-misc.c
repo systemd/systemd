@@ -104,6 +104,33 @@ int link_delete(int argc, char *argv[], void *userdata) {
         return ret;
 }
 
+int verb_force_renew(int argc, char *argv[], void *userdata) {
+        int r, ret = 0;
+
+        _cleanup_ordered_set_free_ OrderedSet *indexes = NULL;
+        r = parse_interfaces(/* rtnl= */ NULL, argv, &indexes);
+        if (r < 0)
+                return r;
+
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *vl = NULL;
+        r = varlink_connect_networkd(&vl);
+        if (r < 0)
+                return r;
+
+        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
+
+        void *p;
+        ORDERED_SET_FOREACH(p, indexes)
+                RET_GATHER(ret, varlink_callbo_and_log(
+                                           vl,
+                                           "io.systemd.Network.ForceRenewLink",
+                                           /* reply= */ NULL,
+                                           SD_JSON_BUILD_PAIR_INTEGER("InterfaceIndex", PTR_TO_INT(p)),
+                                           SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", arg_ask_password)));
+
+        return ret;
+}
+
 int verb_renew(int argc, char *argv[], void *userdata) {
         int r, ret = 0;
 
