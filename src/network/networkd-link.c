@@ -18,6 +18,7 @@
 #include "sd-ndisc.h"
 #include "sd-netlink.h"
 #include "sd-radv.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "arphrd-util.h"
@@ -1513,6 +1514,7 @@ typedef struct LinkReconfigurationData {
         Link *link;
         LinkReconfigurationFlag flags;
         sd_bus_message *message;
+        sd_varlink *varlink;
         unsigned *counter;
 } LinkReconfigurationData;
 
@@ -1522,6 +1524,7 @@ static LinkReconfigurationData* link_reconfiguration_data_free(LinkReconfigurati
 
         link_unref(data->link);
         sd_bus_message_unref(data->message);
+        sd_varlink_unref(data->varlink);
 
         return mfree(data);
 }
@@ -1532,23 +1535,29 @@ static void link_reconfiguration_data_destroy_callback(LinkReconfigurationData *
         int r;
 
         assert(data);
+        assert(!data->message || !data->varlink); /* D-Bus and Varlink callers are mutually exclusive */
 
-        if (data->message) {
-                if (data->counter) {
-                        assert(*data->counter > 0);
-                        (*data->counter)--;
-                }
+        if (data->counter) {
+                assert(*data->counter > 0);
+                (*data->counter)--;
+        }
 
-                if (!data->counter || *data->counter <= 0) {
-                        /* Update the state files before replying the bus method. Otherwise,
-                         * systemd-networkd-wait-online following networkctl reload/reconfigure may read an
-                         * outdated state file and wrongly handle an interface is already in the configured
-                         * state. */
-                        (void) manager_clean_all(data->manager);
+        if (!data->counter || *data->counter == 0) {
+                /* Update the state files before replying. Otherwise, systemd-networkd-wait-online following
+                 * networkctl reload/reconfigure may read an outdated state file and wrongly consider an
+                 * interface already in the configured state. */
+                (void) manager_clean_all(data->manager);
 
+                if (data->message) {
                         r = sd_bus_reply_method_return(data->message, NULL);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to reply for DBus method, ignoring: %m");
+                }
+
+                if (data->varlink) {
+                        r = sd_varlink_reply(data->varlink, NULL);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to reply to Varlink request, ignoring: %m");
                 }
         }
 
@@ -1572,7 +1581,7 @@ static int link_reconfigure_handler(sd_netlink *rtnl, sd_netlink_message *m, Lin
         return r;
 }
 
-int link_reconfigure_full(Link *link, LinkReconfigurationFlag flags, sd_bus_message *message, unsigned *counter) {
+int link_reconfigure_full(Link *link, LinkReconfigurationFlag flags, sd_bus_message *message, sd_varlink *varlink, unsigned *counter) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
         _cleanup_(link_reconfiguration_data_freep) LinkReconfigurationData *data = NULL;
         int r;
@@ -1580,6 +1589,7 @@ int link_reconfigure_full(Link *link, LinkReconfigurationFlag flags, sd_bus_mess
         assert(link);
         assert(link->manager);
         assert(link->manager->rtnl);
+        assert(!message || !varlink); /* D-Bus and Varlink callers are mutually exclusive */
 
         /* When the link is in the pending or initialized state, link_reconfigure_impl() will be called later
          * by link_initialized() or link_initialized_and_synced(). To prevent the function from being called
@@ -1598,6 +1608,7 @@ int link_reconfigure_full(Link *link, LinkReconfigurationFlag flags, sd_bus_mess
                 .link = link_ref(link),
                 .flags = flags,
                 .message = sd_bus_message_ref(message), /* message may be NULL, but _ref() works fine. */
+                .varlink = sd_varlink_ref(varlink),     /* varlink may be NULL, but _ref() works fine. */
                 .counter = counter,
         };
 
