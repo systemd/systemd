@@ -133,4 +133,4 @@ typedef struct LinkInfo {
 LinkInfo* link_info_array_free(LinkInfo *array);
 DEFINE_TRIVIAL_CLEANUP_FUNC(LinkInfo*, link_info_array_free);
 
-int acquire_link_info(sd_bus *bus, sd_netlink *rtnl, char * const *patterns, LinkInfo **ret);
+int acquire_link_info(sd_varlink *vl, sd_netlink *rtnl, char * const *patterns, LinkInfo **ret);

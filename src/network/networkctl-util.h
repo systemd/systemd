@@ -20,3 +20,5 @@ int link_get_property(
 void operational_state_to_color(const char *name, const char *state, const char **on, const char **off);
 void setup_state_to_color(const char *state, const char **on, const char **off);
 void online_state_to_color(const char *state, const char **on, const char **off);
+
+int get_link_description(sd_varlink *vl, int ifindex, char * const *object_names, sd_json_variant **ret);
