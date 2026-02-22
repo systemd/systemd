@@ -1536,6 +1536,72 @@ class NetworkctlTests(unittest.TestCase, Utilities):
         networkctl_reload()
         self.wait_operstate('test1', 'degraded')
 
+    def test_varlink_reload(self):
+        NETWORKD_VARLINK = '/run/systemd/netif/io.systemd.Network'
+
+        start_networkd()
+
+        copy_network_unit('11-dummy.netdev')
+        check_output('varlinkctl', 'call', NETWORKD_VARLINK,
+                     'io.systemd.Network.Reload', '{"allowInteractiveAuthentication":false}')
+        self.wait_operstate('test1', 'off', setup_state='unmanaged')
+
+        copy_network_unit('11-dummy.network')
+        check_output('varlinkctl', 'call', NETWORKD_VARLINK,
+                     'io.systemd.Network.Reload', '{"allowInteractiveAuthentication":false}')
+        self.wait_online('test1:degraded')
+
+        remove_network_unit('11-dummy.network')
+        check_output('varlinkctl', 'call', NETWORKD_VARLINK,
+                     'io.systemd.Network.Reload', '{"allowInteractiveAuthentication":false}')
+        self.wait_operstate('test1', 'degraded', setup_state='unmanaged')
+
+        copy_network_unit('11-dummy.network')
+        check_output('varlinkctl', 'call', NETWORKD_VARLINK,
+                     'io.systemd.Network.Reload', '{"allowInteractiveAuthentication":false}')
+        self.wait_online('test1:degraded')
+
+    def test_varlink_reconfigure_link(self):
+        NETWORKD_VARLINK = '/run/systemd/netif/io.systemd.Network'
+
+        copy_network_unit('25-address-static.network', '12-dummy.netdev', copy_dropins=False)
+        start_networkd()
+        self.wait_online('dummy98:routable')
+
+        check_output('ip address del 10.1.2.3/16 dev dummy98')
+        check_output('ip address del 10.1.2.4/16 dev dummy98')
+        check_output('ip address del 10.2.2.4/16 dev dummy98')
+
+        check_output('varlinkctl', 'call', NETWORKD_VARLINK,
+                     'io.systemd.Network.ReconfigureLink',
+                     '{"InterfaceName":"dummy98","allowInteractiveAuthentication":false}')
+        self.wait_online('dummy98:routable')
+
+        output = check_output('ip -4 address show dev dummy98')
+        print(output)
+        self.assertIn('inet 10.1.2.3/16 brd 10.1.255.255 scope global dummy98', output)
+        self.assertIn('inet 10.1.2.4/16 brd 10.1.255.255 scope global secondary dummy98', output)
+        self.assertIn('inet 10.2.2.4/16 brd 10.2.255.255 scope global dummy98', output)
+
+    def test_varlink_describe_link(self):
+        NETWORKD_VARLINK = '/run/systemd/netif/io.systemd.Network'
+
+        copy_network_unit('12-dummy.netdev', '25-address-static.network', copy_dropins=False)
+        start_networkd()
+        self.wait_online('dummy98:routable')
+
+        output = check_output('varlinkctl', '--json=short', 'call', NETWORKD_VARLINK,
+                              'io.systemd.Network.DescribeLink', '{"InterfaceName":"dummy98"}')
+        print(output)
+        check_json(output)
+        j = json.loads(output)
+        self.assertIn('Interface', j)
+        iface = j['Interface']
+        self.assertEqual(iface['Name'], 'dummy98')
+        self.assertIn('AdministrativeState', iface)
+        self.assertIn('OperationalState', iface)
+        self.assertIn('Addresses', iface)
+
     def test_glob(self):
         copy_network_unit('11-dummy.netdev', '11-dummy.network')
         start_networkd()

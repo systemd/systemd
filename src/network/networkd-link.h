@@ -242,12 +242,14 @@ DECLARE_STRING_TABLE_LOOKUP(link_state, LinkState);
 int link_request_stacked_netdevs(Link *link, NetDevLocalAddressType type);
 
 int link_reconfigure_impl(Link *link, LinkReconfigurationFlag flags);
-int link_reconfigure_full(Link *link, LinkReconfigurationFlag flags, sd_bus_message *message, unsigned *counter);
+int link_reconfigure_full(Link *link, LinkReconfigurationFlag flags, sd_bus_message *message, unsigned *counter, sd_varlink *varlink);
 static inline int link_reconfigure(Link *link, LinkReconfigurationFlag flags) {
-        return link_reconfigure_full(link, flags, NULL, NULL);
+        return link_reconfigure_full(link, flags, NULL, NULL, NULL);
 }
 
 int link_check_initialized(Link *link);
+
+void link_get_bit_rates(Link *link, uint64_t *ret_tx, uint64_t *ret_rx);
 
 int manager_udev_process_link(Manager *m, sd_device *device, sd_device_action_t action);
 int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);

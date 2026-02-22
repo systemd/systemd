@@ -2,13 +2,10 @@
 
 #include <linux/if_tunnel.h>
 
-#include "sd-bus.h"
 #include "sd-netlink.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
-#include "bus-common-errors.h"
-#include "bus-error.h"
-#include "bus-util.h"
 #include "device-util.h"
 #include "fd-util.h"
 #include "glob-util.h"
@@ -20,6 +17,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "strxcpyx.h"
+#include "varlink-util.h"
 #include "wifi-util.h"
 
 /* use 128 kB for receive socket kernel queue, we shouldn't need more here */
@@ -280,32 +278,37 @@ static int decode_link(
         return 1;
 }
 
-static int acquire_link_bitrates(sd_bus *bus, LinkInfo *link) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+static int acquire_link_bitrates(sd_varlink *vl, LinkInfo *link) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
         int r;
 
-        assert(bus);
+        assert(vl);
         assert(link);
 
-        r = link_get_property(bus, link->ifindex, &error, &reply, "org.freedesktop.network1.Link", "BitRates", "(tt)");
-        if (r < 0) {
-                bool quiet = sd_bus_error_has_names(&error, SD_BUS_ERROR_UNKNOWN_PROPERTY,
-                                                            BUS_ERROR_SPEED_METER_INACTIVE);
+        r = varlink_callbo_and_log(
+                        vl,
+                        "io.systemd.Network.DescribeLink",
+                        &reply,
+                        SD_JSON_BUILD_PAIR_INTEGER("InterfaceIndex", link->ifindex));
+        if (r < 0)
+                return log_debug_errno(r, "Failed to query link description for bitrates: %m");
 
-                return log_full_errno(quiet ? LOG_DEBUG : LOG_WARNING,
-                                      r, "Failed to query link bit rates: %s", bus_error_message(&error, r));
+        sd_json_variant *iface = sd_json_variant_by_key(reply, "Interface");
+        if (!iface)
+                return 0;
+
+        sd_json_variant *bitrates = sd_json_variant_by_key(iface, "BitRates");
+        if (!bitrates || sd_json_variant_is_null(bitrates))
+                return 0;
+
+        sd_json_variant *tx = sd_json_variant_by_key(bitrates, "TxBitRate");
+        sd_json_variant *rx = sd_json_variant_by_key(bitrates, "RxBitRate");
+
+        if (tx && !sd_json_variant_is_null(tx) && rx && !sd_json_variant_is_null(rx)) {
+                link->tx_bitrate = sd_json_variant_unsigned(tx);
+                link->rx_bitrate = sd_json_variant_unsigned(rx);
+                link->has_bitrates = true;
         }
-
-        r = sd_bus_message_read(reply, "(tt)", &link->tx_bitrate, &link->rx_bitrate);
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        r = sd_bus_message_exit_container(reply);
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        link->has_bitrates = link->tx_bitrate != UINT64_MAX && link->rx_bitrate != UINT64_MAX;
 
         return 0;
 }
@@ -356,7 +359,7 @@ static void acquire_wlan_link_info(LinkInfo *link) {
         link->has_wlan_link_info = r > 0 || k > 0;
 }
 
-int acquire_link_info(sd_bus *bus, sd_netlink *rtnl, char * const *patterns, LinkInfo **ret) {
+int acquire_link_info(sd_varlink *vl, sd_netlink *rtnl, char * const *patterns, LinkInfo **ret) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         _cleanup_(link_info_array_freep) LinkInfo *links = NULL;
         _cleanup_free_ bool *matched_patterns = NULL;
@@ -421,9 +424,9 @@ int acquire_link_info(sd_bus *bus, sd_netlink *rtnl, char * const *patterns, Lin
 
         typesafe_qsort(links, c, link_info_compare);
 
-        if (bus)
+        if (vl)
                 FOREACH_ARRAY(link, links, c)
-                        (void) acquire_link_bitrates(bus, link);
+                        (void) acquire_link_bitrates(vl, link);
 
         *ret = TAKE_PTR(links);
 
