@@ -29,6 +29,11 @@ static SD_VARLINK_DEFINE_METHOD(
                 VARLINK_NETWORK_INTERFACE_INPUTS,
                 VARLINK_DEFINE_POLKIT_INPUT);
 
+static SD_VARLINK_DEFINE_METHOD(
+                Reconfigure,
+                VARLINK_NETWORK_INTERFACE_INPUTS,
+                VARLINK_DEFINE_POLKIT_INPUT);
+
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Network_Link,
                 "io.systemd.Network.Link",
@@ -39,4 +44,6 @@ SD_VARLINK_DEFINE_INTERFACE(
                 SD_VARLINK_SYMBOL_COMMENT("Renew DHCP leases on the specified link."),
                 &vl_method_Renew,
                 SD_VARLINK_SYMBOL_COMMENT("Force-renew DHCP server leases on the specified link."),
-                &vl_method_ForceRenew);
+                &vl_method_ForceRenew,
+                SD_VARLINK_SYMBOL_COMMENT("Unconditionally reconfigure the specified link."),
+                &vl_method_Reconfigure);
