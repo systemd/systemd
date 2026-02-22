@@ -628,6 +628,14 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("Interface description"),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(Interface, Interface, 0));
 
+static SD_VARLINK_DEFINE_METHOD(
+                RenewLink,
+                SD_VARLINK_FIELD_COMMENT("Index of the interface. If specified together with InterfaceName, both must reference the same link."),
+                SD_VARLINK_DEFINE_INPUT(InterfaceIndex, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Name of the interface. If specified together with InterfaceIndex, both must reference the same link."),
+                SD_VARLINK_DEFINE_INPUT(InterfaceName, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                VARLINK_DEFINE_POLKIT_INPUT);
+
 static SD_VARLINK_DEFINE_ERROR(StorageReadOnly);
 
 SD_VARLINK_DEFINE_INTERFACE(
@@ -644,6 +652,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_LinkDown,
                 SD_VARLINK_SYMBOL_COMMENT("Describe a single link by index or name."),
                 &vl_method_DescribeLink,
+                SD_VARLINK_SYMBOL_COMMENT("Renew DHCP leases on the specified link."),
+                &vl_method_RenewLink,
                 &vl_type_Address,
                 &vl_type_BitRates,
                 &vl_type_DHCPLease,

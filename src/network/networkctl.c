@@ -230,7 +230,7 @@ static int networkctl_main(int argc, char *argv[]) {
                 { "delete",             2,        VERB_ANY, 0,                             link_delete             },
                 { "up",                 2,        VERB_ANY, 0,                             link_up_down            },
                 { "down",               2,        VERB_ANY, 0,                             link_up_down            },
-                { "renew",              2,        VERB_ANY, VERB_ONLINE_ONLY,              link_bus_simple_method  },
+                { "renew",              2,        VERB_ANY, VERB_ONLINE_ONLY,              verb_renew              },
                 { "forcerenew",         2,        VERB_ANY, VERB_ONLINE_ONLY,              link_bus_simple_method  },
                 { "reconfigure",        2,        VERB_ANY, VERB_ONLINE_ONLY,              link_bus_simple_method  },
                 { "reload",             1,        1,        VERB_ONLINE_ONLY,              verb_reload             },
