@@ -30,6 +30,7 @@ struct DnssdDiscoveredService {
         sd_event_source *schedule_event;
         DnsResourceRecord *rr;
         int family;
+        int ifindex;
         usec_t until;
         DnsRecordTTLState rr_ttl_state;
         DnsQuery *query;
@@ -66,7 +67,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(DnssdDiscoveredService *, dnssd_discovered_service_u
 
 bool dns_service_match_and_update(DnssdDiscoveredService *services, DnsResourceRecord *rr, int owner_family, usec_t until);
 int mdns_manage_services_answer(DnsServiceBrowser *sb, DnsAnswer *answer, int owner_family);
-int dns_add_new_service(DnsServiceBrowser *sb, DnsResourceRecord *rr, int owner_family, usec_t until);
+int dns_add_new_service(DnsServiceBrowser *sb, DnsResourceRecord *rr, int owner_family, int ifindex, usec_t until);
 int mdns_service_update(DnssdDiscoveredService *service, DnsResourceRecord *rr, usec_t t, usec_t until);
 int mdns_browser_revisit_cache(DnsServiceBrowser *sb, int owner_family);
 int dns_subscribe_browse_service(
