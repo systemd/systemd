@@ -310,7 +310,7 @@ static int event_execute_rules_on_remove(UdevEvent *event, UdevRules *rules) {
                 log_device_debug_errno(dev, r, "Failed to read database under /run/udev/data/: %m");
 
         if (EVENT_MODE_DESTRUCTIVE(event)) {
-                r = device_tag_index(dev, NULL, false);
+                r = device_tag_index(dev, /* add= */ false);
                 if (r < 0)
                         log_device_debug_errno(dev, r, "Failed to remove corresponding tag files under /run/udev/tag/, ignoring: %m");
 
@@ -327,23 +327,6 @@ static int event_execute_rules_on_remove(UdevEvent *event, UdevRules *rules) {
         }
 
         return r;
-}
-
-static int copy_all_tags(sd_device *d, sd_device *s) {
-        int r;
-
-        assert(d);
-
-        if (!s)
-                return 0;
-
-        FOREACH_DEVICE_TAG(s, tag) {
-                r = device_add_tag(d, tag, false);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
 }
 
 static int update_clone(UdevEvent *event) {
@@ -398,7 +381,7 @@ int udev_event_execute_rules(UdevEvent *event, UdevRules *rules) {
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to clone sd_device object: %m");
 
-        r = copy_all_tags(dev, event->dev_db_clone);
+        r = device_copy_all_tags(dev, event->dev_db_clone);
         if (r < 0)
                 log_device_warning_errno(dev, r, "Failed to copy all tags from old database entry, ignoring: %m");
 
@@ -433,7 +416,7 @@ int udev_event_execute_rules(UdevEvent *event, UdevRules *rules) {
 
         if (EVENT_MODE_DESTRUCTIVE(event)) {
                 /* (re)write database file */
-                r = device_tag_index(dev, event->dev_db_clone, true);
+                r = device_tag_index(dev, /* add= */ true);
                 if (r < 0)
                         return log_device_debug_errno(dev, r, "Failed to update tags under /run/udev/tag/: %m");
         }

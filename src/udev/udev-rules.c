@@ -2900,8 +2900,11 @@ static int udev_rule_apply_token_to_event(
 
                 assert(IN_SET(token->op, OP_ASSIGN, OP_ADD));
 
-                if (token->op == OP_ASSIGN)
-                        device_cleanup_tags(dev);
+                if (token->op == OP_ASSIGN) {
+                        r = device_cleanup_tags(dev, event->dev_db_clone);
+                        if (r < 0)
+                                log_event_warning_errno(event, token, r, "Failed to clear previously assigned tags, ignoring: %m");
+                }
 
                 r = device_add_tag(dev, buf, /* both= */ true);
                 if (r == -ENOMEM)
