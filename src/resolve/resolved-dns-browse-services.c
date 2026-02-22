@@ -482,19 +482,62 @@ finish:
 
 int mdns_browser_revisit_cache(DnsServiceBrowser *sb, int owner_family) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *lookup_ret_answer = NULL;
-        DnsScope *scope;
         int r;
 
         assert(sb);
         assert(sb->manager);
 
-        scope = manager_find_scope_from_protocol(sb->manager, sb->ifindex, DNS_PROTOCOL_MDNS, owner_family);
+        /* Implement Avahi's AVAHI_IF_UNSPEC semantics where ifindex=-1 means
+         * "all interfaces". Also accept 0 for the same purpose. */
+        if (sb->ifindex <= 0) {
+                LIST_FOREACH(scopes, scope, sb->manager->dns_scopes) {
+                        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+
+                        if (scope->protocol != DNS_PROTOCOL_MDNS)
+                                continue;
+
+                        if (scope->family != owner_family)
+                                continue;
+
+                        dns_cache_prune(&scope->cache);
+
+                        r = dns_cache_lookup(
+                                        &scope->cache,
+                                        sb->key,
+                                        sb->flags,
+                                        /* ret_rcode= */ NULL,
+                                        &answer,
+                                        /* ret_full_packet= */ NULL,
+                                        /* ret_query_flags= */ NULL,
+                                        /* ret_dnssec_result= */ NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to look up DNS cache for service browser key on scope %s: %m",
+                                                       dns_scope_ifname(scope) ?: "global");
+
+                        r = mdns_manage_services_answer(sb, answer, owner_family);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to manage mDNS services after cache lookup on scope %s: %m",
+                                                       dns_scope_ifname(scope) ?: "global");
+                }
+                return 0;
+        }
+
+        /* Single scope for specifically requested interface */
+        DnsScope *scope = manager_find_scope_from_protocol(sb->manager, sb->ifindex, DNS_PROTOCOL_MDNS, owner_family);
         if (!scope)
                 return 0;
 
         dns_cache_prune(&scope->cache);
 
-        r = dns_cache_lookup(&scope->cache, sb->key, sb->flags, NULL, &lookup_ret_answer, NULL, NULL, NULL);
+        r = dns_cache_lookup(
+                        &scope->cache,
+                        sb->key,
+                        sb->flags,
+                        /* ret_rcode= */ NULL,
+                        &lookup_ret_answer,
+                        /* ret_full_packet= */ NULL,
+                        /* ret_query_flags= */ NULL,
+                        /* ret_dnssec_result= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to look up DNS cache for service browser key: %m");
 
@@ -673,8 +716,13 @@ int dns_subscribe_browse_service(
         assert(m);
         assert(link);
 
-        if (ifindex < 0)
+        /* Implement Avahi's AVAHI_IF_UNSPEC semantics where ifindex=-1 means
+         * "all interfaces". Also accept 0 for the same purpose. */
+        if (ifindex < -1)
                 return sd_varlink_error_invalid_parameter_name(link, "ifindex");
+
+        if (ifindex <= 0)
+                log_debug("BrowseServices: browsing all mDNS interfaces (ifindex=%d)", ifindex);
 
         if (isempty(type))
                 type = NULL;
