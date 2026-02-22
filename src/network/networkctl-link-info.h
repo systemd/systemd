@@ -35,6 +35,7 @@ typedef struct LinkInfo {
         char name[IFNAMSIZ+1];
         char *netdev_kind;
         sd_device *sd_device;
+        sd_json_variant *description;
         int ifindex;
         unsigned short iftype;
         struct hw_addr_data hw_address;
@@ -133,4 +134,4 @@ typedef struct LinkInfo {
 LinkInfo* link_info_array_free(LinkInfo *array);
 DEFINE_TRIVIAL_CLEANUP_FUNC(LinkInfo*, link_info_array_free);
 
-int acquire_link_info(sd_bus *bus, sd_netlink *rtnl, char * const *patterns, LinkInfo **ret);
+int acquire_link_info(sd_varlink *vl, sd_netlink *rtnl, char * const *patterns, LinkInfo **ret);
