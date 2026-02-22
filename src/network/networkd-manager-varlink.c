@@ -303,6 +303,7 @@ int manager_varlink_init(Manager *m, int fd) {
                         "io.systemd.Network.GetNamespaceId",       vl_method_get_namespace_id,
                         "io.systemd.Network.GetLLDPNeighbors",     vl_method_get_lldp_neighbors,
                         "io.systemd.Network.SetPersistentStorage", vl_method_set_persistent_storage,
+                        "io.systemd.Network.Link.Describe",        vl_method_link_describe,
                         "io.systemd.Network.Link.Up",              vl_method_link_up,
                         "io.systemd.Network.Link.Down",            vl_method_link_down,
                         "io.systemd.Network.Link.Renew",           vl_method_link_renew,
