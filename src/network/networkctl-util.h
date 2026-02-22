@@ -4,6 +4,8 @@
 #include "shared-forward.h"
 
 int varlink_connect_networkd(sd_varlink **ret_varlink);
+int reload_networkd(void);
+int reload_udevd(void);
 bool networkd_is_running(void);
 int acquire_bus(sd_bus **ret);
 int link_get_property(

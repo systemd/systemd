@@ -7,9 +7,11 @@
 
 #include "alloc-util.h"
 #include "ansi-color.h"
+#include "bus-util.h"
 #include "log.h"
 #include "networkctl.h"
 #include "networkctl-util.h"
+#include "polkit-agent.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -60,6 +62,40 @@ int varlink_connect_networkd(sd_varlink **ret_varlink) {
         if (ret_varlink)
                 *ret_varlink = TAKE_PTR(vl);
         return 0;
+}
+
+int reload_networkd(void) {
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *vl = NULL;
+        int r;
+
+        r = varlink_connect_networkd(&vl);
+        if (r < 0)
+                return r;
+
+        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
+
+        return varlink_callbo_and_log(
+                        vl,
+                        "io.systemd.service.Reload",
+                        /* reply= */ NULL,
+                        SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", arg_ask_password));
+}
+
+int reload_udevd(void) {
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *vl = NULL;
+        int r;
+
+        r = sd_varlink_connect_address(&vl, "/run/udev/io.systemd.Udev");
+        if (r == -ENOENT) {
+                log_debug("systemd-udevd is not running, skipping reload.");
+                return 0;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to udev: %m");
+
+        (void) sd_varlink_set_description(vl, "udev");
+
+        return varlink_call_and_log(vl, "io.systemd.service.Reload", /* parameters= */ NULL, /* reply= */ NULL);
 }
 
 bool networkd_is_running(void) {
