@@ -2,13 +2,10 @@
 
 #include <linux/if_tunnel.h>
 
-#include "sd-bus.h"
 #include "sd-netlink.h"
+#include "sd-json.h"
 
 #include "alloc-util.h"
-#include "bus-common-errors.h"
-#include "bus-error.h"
-#include "bus-util.h"
 #include "device-util.h"
 #include "fd-util.h"
 #include "glob-util.h"
@@ -28,6 +25,7 @@
 LinkInfo* link_info_array_free(LinkInfo *array) {
         for (unsigned i = 0; array && array[i].needs_freeing; i++) {
                 sd_device_unref(array[i].sd_device);
+                sd_json_variant_unref(array[i].description);
                 free(array[i].netdev_kind);
                 free(array[i].ssid);
                 free(array[i].qdisc);
@@ -280,33 +278,31 @@ static int decode_link(
         return 1;
 }
 
-static int acquire_link_bitrates(sd_bus *bus, LinkInfo *link) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+static int acquire_link_bitrates(LinkInfo *link) {
         int r;
 
-        assert(bus);
         assert(link);
 
-        r = link_get_property(bus, link->ifindex, &error, &reply, "org.freedesktop.network1.Link", "BitRates", "(tt)");
-        if (r < 0) {
-                bool quiet = sd_bus_error_has_names(&error, SD_BUS_ERROR_UNKNOWN_PROPERTY,
-                                                            BUS_ERROR_SPEED_METER_INACTIVE);
-
-                return log_full_errno(quiet ? LOG_DEBUG : LOG_WARNING,
-                                      r, "Failed to query link bit rates: %s", bus_error_message(&error, r));
-        }
-
-        r = sd_bus_message_read(reply, "(tt)", &link->tx_bitrate, &link->rx_bitrate);
+        sd_json_variant *v;
+        r = json_variant_find_object(link->description, STRV_MAKE("Interface", "BitRates"), &v);
+        if (r == -ENODATA)
+                return 0;
         if (r < 0)
-                return bus_log_parse_error(r);
+                return r;
 
-        r = sd_bus_message_exit_container(reply);
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "TxBitRate", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, offsetof(LinkInfo, tx_bitrate), SD_JSON_MANDATORY },
+                { "RxBitRate", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64, offsetof(LinkInfo, rx_bitrate), SD_JSON_MANDATORY },
+                {}
+        };
+
+        r = sd_json_dispatch(v, dispatch_table,
+                             SD_JSON_LOG | SD_JSON_WARNING | SD_JSON_ALLOW_EXTENSIONS,
+                             link);
         if (r < 0)
-                return bus_log_parse_error(r);
+                return r;
 
-        link->has_bitrates = link->tx_bitrate != UINT64_MAX && link->rx_bitrate != UINT64_MAX;
-
+        link->has_bitrates = true;
         return 0;
 }
 
@@ -356,7 +352,7 @@ static void acquire_wlan_link_info(LinkInfo *link) {
         link->has_wlan_link_info = r > 0 || k > 0;
 }
 
-int acquire_link_info(sd_bus *bus, sd_netlink *rtnl, char * const *patterns, LinkInfo **ret) {
+int acquire_link_info(sd_varlink *vl, sd_netlink *rtnl, char * const *patterns, LinkInfo **ret) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         _cleanup_(link_info_array_freep) LinkInfo *links = NULL;
         _cleanup_free_ bool *matched_patterns = NULL;
@@ -402,6 +398,10 @@ int acquire_link_info(sd_bus *bus, sd_netlink *rtnl, char * const *patterns, Lin
                 acquire_ether_link_info(&fd, &links[c]);
                 acquire_wlan_link_info(&links[c]);
 
+                if (vl)
+                        (void) acquire_link_description(vl, links[c].ifindex, &links[c].description);
+                (void) acquire_link_bitrates(&links[c]);
+
                 c++;
         }
 
@@ -420,10 +420,6 @@ int acquire_link_info(sd_bus *bus, sd_netlink *rtnl, char * const *patterns, Lin
         }
 
         typesafe_qsort(links, c, link_info_compare);
-
-        if (bus)
-                FOREACH_ARRAY(link, links, c)
-                        (void) acquire_link_bitrates(bus, link);
 
         *ret = TAKE_PTR(links);
 
