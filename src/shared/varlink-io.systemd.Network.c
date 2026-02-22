@@ -602,6 +602,7 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("Whether persistent storage is ready and writable"),
                 SD_VARLINK_DEFINE_INPUT(Ready, SD_VARLINK_BOOL, 0));
 
+static SD_VARLINK_DEFINE_ERROR(AlreadyReloading);
 static SD_VARLINK_DEFINE_ERROR(StorageReadOnly);
 
 SD_VARLINK_DEFINE_INTERFACE(
@@ -641,4 +642,5 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_Route,
                 &vl_type_RoutingPolicyRule,
                 &vl_type_SIP,
+                &vl_error_AlreadyReloading,
                 &vl_error_StorageReadOnly);

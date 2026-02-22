@@ -236,6 +236,38 @@ static int vl_method_set_persistent_storage(sd_varlink *vlink, sd_json_variant *
         return sd_varlink_reply(vlink, NULL);
 }
 
+static int vl_method_reload(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        assert(vlink);
+
+        if (m->reloading > 0)
+                return sd_varlink_error(vlink, "io.systemd.Network.AlreadyReloading", NULL);
+
+        r = sd_varlink_dispatch(vlink, parameters, dispatch_table_polkit_only, /* userdata= */ NULL);
+        if (r != 0)
+                return r;
+
+        r = varlink_verify_polkit_async(
+                        vlink,
+                        m->bus,
+                        "org.freedesktop.network1.reload",
+                        /* details= */ NULL,
+                        &m->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = manager_reload(m, /* message= */ NULL, vlink);
+        if (r < 0)
+                return log_error_errno(r, "Failed to reload: %m");
+
+        if (m->reloading > 0)
+                return 0; /* Reply will be sent asynchronously. */
+
+        return sd_varlink_reply(vlink, NULL);
+}
+
 int manager_varlink_init(Manager *m, int fd) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
         _unused_ _cleanup_close_ int fd_close = fd; /* take possession */
@@ -277,6 +309,7 @@ int manager_varlink_init(Manager *m, int fd) {
                         "io.systemd.Network.Link.ForceRenew",      vl_method_link_force_renew,
                         "io.systemd.Network.Link.Reconfigure",     vl_method_link_reconfigure,
                         "io.systemd.service.Ping",                 varlink_method_ping,
+                        "io.systemd.service.Reload",               vl_method_reload,
                         "io.systemd.service.SetLogLevel",          varlink_method_set_log_level,
                         "io.systemd.service.GetEnvironment",       varlink_method_get_environment);
         if (r < 0)
