@@ -26,6 +26,7 @@
 #include "networkctl-config-file.h"
 #include "networkctl-util.h"
 #include "pager.h"
+#include "varlink-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
 #include "selinux-util.h"
@@ -435,7 +436,6 @@ static int udevd_reload(sd_bus *bus) {
 }
 
 static int reload_daemons(ReloadFlags flags) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r, ret = 1;
 
         if (arg_no_reload)
@@ -449,20 +449,29 @@ static int reload_daemons(ReloadFlags flags) {
                 return 0;
         }
 
-        r = sd_bus_open_system(&bus);
-        if (r < 0)
-                return log_error_errno(r, "Failed to connect to system bus: %m");
+        if (FLAGS_SET(flags, RELOAD_UDEVD)) {
+                _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
 
-        if (FLAGS_SET(flags, RELOAD_UDEVD))
+                r = sd_bus_open_system(&bus);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to connect to system bus: %m");
+
                 RET_GATHER(ret, udevd_reload(bus));
+        }
 
         if (FLAGS_SET(flags, RELOAD_NETWORKD)) {
                 if (networkd_is_running()) {
-                        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *vl = NULL;
 
-                        r = bus_call_method(bus, bus_network_mgr, "Reload", &error, NULL, NULL);
+                        r = varlink_connect_networkd(&vl);
                         if (r < 0)
-                                RET_GATHER(ret, log_error_errno(r, "Failed to reload systemd-networkd: %s", bus_error_message(&error, r)));
+                                RET_GATHER(ret, r);
+                        else
+                                RET_GATHER(ret, varlink_callbo_and_log(
+                                                       vl,
+                                                       "io.systemd.Network.Reload",
+                                                       /* reply= */ NULL,
+                                                       SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", false)));
                 } else
                         log_debug("systemd-networkd is not running, skipping reload.");
         }
