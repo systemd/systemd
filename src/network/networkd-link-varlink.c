@@ -6,6 +6,7 @@
 #include "bus-polkit.h"
 #include "json-util.h"
 #include "networkd-dhcp4.h"
+#include "networkd-json.h"
 #include "networkd-link.h"
 #include "networkd-link-varlink.h"
 #include "networkd-manager.h"
@@ -65,6 +66,27 @@ int dispatch_link(sd_varlink *vlink, sd_json_variant *parameters, Manager *manag
         /* If the DISPATCH_LINK_MANDATORY flag is not set, this function may return NULL. */
         *ret = link;
         return 0;
+}
+
+int vl_method_link_describe(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        Manager *manager = ASSERT_PTR(userdata);
+        Link *link;
+        int r;
+
+        assert(vlink);
+
+        r = dispatch_link(vlink, parameters, manager, DISPATCH_LINK_MANDATORY, &link);
+        if (r != 0)
+                return r;
+
+        r = link_build_json(link, &v);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to format JSON data: %m");
+
+        return sd_varlink_replybo(
+                        vlink,
+                        SD_JSON_BUILD_PAIR_VARIANT("Interface", v));
 }
 
 static int vl_method_link_up_or_down(sd_varlink *vlink, sd_json_variant *parameters, Manager *manager, bool up) {
