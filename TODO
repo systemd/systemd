@@ -121,6 +121,9 @@ Deprecations and removals:
 
 Features:
 
+* sd-lldp: pick up 802.3 maximum frame size/mtu, to be able to detect jumbo
+  frame capable networks
+
 * networkd: maintain a file in /run/ that can be symlinked into /run/issue.d/
   that always shows the current primary IP address
 
