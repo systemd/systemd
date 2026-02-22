@@ -19,10 +19,17 @@ static SD_VARLINK_DEFINE_METHOD(
                 VARLINK_NETWORK_INTERFACE_INPUTS,
                 VARLINK_DEFINE_POLKIT_INPUT);
 
+static SD_VARLINK_DEFINE_METHOD(
+                Renew,
+                VARLINK_NETWORK_INTERFACE_INPUTS,
+                VARLINK_DEFINE_POLKIT_INPUT);
+
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Network_Link,
                 "io.systemd.Network.Link",
                 SD_VARLINK_SYMBOL_COMMENT("Bring the specified link up."),
                 &vl_method_Up,
                 SD_VARLINK_SYMBOL_COMMENT("Bring the specified link down."),
-                &vl_method_Down);
+                &vl_method_Down,
+                SD_VARLINK_SYMBOL_COMMENT("Renew DHCP leases on the specified link."),
+                &vl_method_Renew);
