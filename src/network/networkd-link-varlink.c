@@ -158,3 +158,36 @@ int vl_method_link_force_renew(sd_varlink *vlink, sd_json_variant *parameters, s
 
         return sd_varlink_reply(vlink, NULL);
 }
+
+int vl_method_link_reconfigure(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+        Link *link;
+        int r;
+
+        assert(vlink);
+
+        r = dispatch_link(vlink, parameters, manager, DISPATCH_LINK_POLKIT | DISPATCH_LINK_MANDATORY, &link);
+        if (r != 0)
+                return r;
+
+        r = varlink_verify_polkit_async(
+                        vlink,
+                        manager->bus,
+                        "org.freedesktop.network1.reconfigure",
+                        /* details= */ NULL,
+                        &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = link_reconfigure_full(link,
+                                  LINK_RECONFIGURE_UNCONDITIONALLY | LINK_RECONFIGURE_CLEANLY,
+                                  /* message= */ NULL,
+                                  /* varlink= */ vlink,
+                                  /* counter= */ NULL);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to reconfigure link: %m");
+        if (r > 0)
+                return 0; /* Reply will be sent asynchronously via vlink */
+
+        return sd_varlink_reply(vlink, NULL);
+}
