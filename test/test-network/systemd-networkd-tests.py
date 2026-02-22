@@ -7420,6 +7420,19 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         self.assertIn('192.168.5.2', output)
 
 
+    def test_dhcp_server_ipv4ll_managed(self):
+        copy_network_unit('25-veth.netdev', '25-dhcp-server-ipv4ll.network', '25-dhcp-client-ipv4ll-managed.network', copy_dropins=False)
+        start_networkd()
+        self.wait_online('veth99:degraded', 'veth-peer:degraded')
+
+        self.wait_address('veth99', r'inet 169\.254\.10\.[0-9]+/24', ipv='-4')
+
+        output = check_output('ip -4 route show dev veth99')
+        print(output)
+        self.assertRegex(output, r'default via 169\.254\.10\.1 proto dhcp src 169\.254\.10\.[0-9]+ metric 1024')
+
+        call_check('ping', '-c', '1', '169.254.10.1')
+
 class NetworkdDHCPServerRelayAgentTests(unittest.TestCase, Utilities):
 
     def setUp(self):
