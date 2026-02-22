@@ -1105,6 +1105,7 @@ TEST(unit_properties) {
                         "ConditionPathIsMountPoint=|foo",
                         "ConditionPathIsReadWrite=|foo",
                         "ConditionPathIsEncrypted=|foo",
+                        "ConditionPathIsSocket=|foo",
                         "ConditionDirectoryNotEmpty=|foo",
                         "ConditionFileNotEmpty=|foo",
                         "ConditionFileIsExecutable=|foo",
