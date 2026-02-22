@@ -324,6 +324,30 @@ static int vl_method_link_down(sd_varlink *vlink, sd_json_variant *parameters, s
         return vl_method_link_up_or_down(vlink, parameters, userdata, /* up= */ false);
 }
 
+static int vl_method_describe_link(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        Manager *manager = ASSERT_PTR(userdata);
+        Link *link;
+        int r;
+
+        assert(vlink);
+
+        r = dispatch_interface(vlink, parameters, manager, /* polkit= */ false, &link);
+        if (r != 0)
+                return r;
+
+        if (!link)
+                return sd_varlink_error_invalid_parameter(vlink, JSON_VARIANT_STRING_CONST("InterfaceIndex"));
+
+        r = link_build_json(link, &v);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to format JSON data: %m");
+
+        return sd_varlink_replybo(
+                        vlink,
+                        SD_JSON_BUILD_PAIR_VARIANT("Interface", v));
+}
+
 int manager_varlink_init(Manager *m, int fd) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
         _unused_ _cleanup_close_ int fd_close = fd; /* take possession */
@@ -354,6 +378,7 @@ int manager_varlink_init(Manager *m, int fd) {
         r = sd_varlink_server_bind_method_many(
                         s,
                         "io.systemd.Network.Describe",             vl_method_describe,
+                        "io.systemd.Network.DescribeLink",         vl_method_describe_link,
                         "io.systemd.Network.GetStates",            vl_method_get_states,
                         "io.systemd.Network.GetNamespaceId",       vl_method_get_namespace_id,
                         "io.systemd.Network.GetLLDPNeighbors",     vl_method_get_lldp_neighbors,
