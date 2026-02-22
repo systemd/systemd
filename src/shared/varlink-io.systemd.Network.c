@@ -412,6 +412,13 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(StaticLeases, DHCPServerLease, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                BitRates,
+                SD_VARLINK_FIELD_COMMENT("Transmit bitrate in bits per second"),
+                SD_VARLINK_DEFINE_FIELD(TxBitRate, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("Receive bitrate in bits per second"),
+                SD_VARLINK_DEFINE_FIELD(RxBitRate, SD_VARLINK_INT, 0));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 Interface,
                 SD_VARLINK_FIELD_COMMENT("Network interface index"),
                 SD_VARLINK_DEFINE_FIELD(Index, SD_VARLINK_INT, 0),
@@ -533,7 +540,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("DHCPv6 client configuration and lease information"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(DHCPv6Client, DHCPv6Client, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("LLDP neighbors discovered on this interface"),
-                SD_VARLINK_DEFINE_FIELD_BY_TYPE(LLDP, LLDPNeighbor, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(LLDP, LLDPNeighbor, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Current transmit/receive bitrates from speed meter"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(BitRates, BitRates, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_METHOD(
                 Describe,
@@ -604,6 +613,7 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_GetLLDPNeighbors,
                 &vl_method_SetPersistentStorage,
                 &vl_type_Address,
+                &vl_type_BitRates,
                 &vl_type_DHCPLease,
                 &vl_type_DHCPServer,
                 &vl_type_DHCPServerLease,
