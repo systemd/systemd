@@ -2,17 +2,13 @@
 
 #include <unistd.h>
 
-#include "sd-bus.h"
 #include "sd-daemon.h"
 #include "sd-device.h"
 #include "sd-netlink.h"
 #include "sd-network.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
-#include "bus-error.h"
-#include "bus-locator.h"
-#include "bus-util.h"
-#include "bus-wait-for-jobs.h"
 #include "conf-files.h"
 #include "edit-util.h"
 #include "errno-util.h"
@@ -396,41 +392,23 @@ static int add_config_to_edit(
         return edit_files_add(context, dropin_path, old_dropin, comment_paths);
 }
 
-static int udevd_reload(sd_bus *bus) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
-        const char *job_path;
+static int udevd_reload(void) {
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *vl = NULL;
         int r;
 
-        assert(bus);
-
-        r = bus_wait_for_jobs_new(bus, &w);
-        if (r < 0)
-                return log_error_errno(r, "Could not watch jobs: %m");
-
-        r = bus_call_method(bus,
-                            bus_systemd_mgr,
-                            "ReloadUnit",
-                            &error,
-                            &reply,
-                            "ss",
-                            "systemd-udevd.service",
-                            "replace");
-        if (r < 0)
-                return log_error_errno(r, "Failed to reload systemd-udevd: %s", bus_error_message(&error, r));
-
-        r = sd_bus_message_read(reply, "o", &job_path);
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        r = bus_wait_for_jobs_one(w, job_path, /* flags= */ 0, NULL);
-        if (r == -ENOEXEC) {
+        r = sd_varlink_connect_address(&vl, "/run/udev/io.systemd.Udev");
+        if (r == -ENOENT) {
                 log_debug("systemd-udevd is not running, skipping reload.");
                 return 0;
         }
         if (r < 0)
-                return log_error_errno(r, "Failed to reload systemd-udevd: %m");
+                return log_error_errno(r, "Failed to connect to udev: %m");
+
+        (void) sd_varlink_set_description(vl, "udev");
+
+        r = varlink_call_and_log(vl, "io.systemd.service.Reload", /* parameters= */ NULL, /* reply= */ NULL);
+        if (r < 0)
+                return r;
 
         return 1;
 }
@@ -449,15 +427,8 @@ static int reload_daemons(ReloadFlags flags) {
                 return 0;
         }
 
-        if (FLAGS_SET(flags, RELOAD_UDEVD)) {
-                _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-
-                r = sd_bus_open_system(&bus);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to connect to system bus: %m");
-
-                RET_GATHER(ret, udevd_reload(bus));
-        }
+        if (FLAGS_SET(flags, RELOAD_UDEVD))
+                RET_GATHER(ret, udevd_reload());
 
         if (FLAGS_SET(flags, RELOAD_NETWORKD)) {
                 if (networkd_is_running()) {
@@ -467,11 +438,11 @@ static int reload_daemons(ReloadFlags flags) {
                         if (r < 0)
                                 RET_GATHER(ret, r);
                         else
-                                RET_GATHER(ret, varlink_callbo_and_log(
+                                RET_GATHER(ret, varlink_call_and_log(
                                                        vl,
-                                                       "io.systemd.Network.Reload",
-                                                       /* reply= */ NULL,
-                                                       SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", false)));
+                                                       "io.systemd.service.Reload",
+                                                       /* parameters= */ NULL,
+                                                       /* reply= */ NULL));
                 } else
                         log_debug("systemd-networkd is not running, skipping reload.");
         }
