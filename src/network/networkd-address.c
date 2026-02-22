@@ -132,8 +132,16 @@ void link_get_address_states(
                 if (!address_is_ready(address))
                         continue;
 
-                if (address->family == AF_INET)
-                        ipv4_scope = MIN(ipv4_scope, address->scope);
+                if (address->family == AF_INET) {
+                        uint8_t effective_scope = address->scope;
+
+                        /* Elevate managed IPv4LL addresses to prevent degraded operstate locking */
+                        if (in4_addr_is_link_local(&address->in_addr.in) &&
+                            IN_SET(address->source, NETWORK_CONFIG_SOURCE_STATIC, NETWORK_CONFIG_SOURCE_DHCP4))
+                                effective_scope = RT_SCOPE_UNIVERSE;
+
+                        ipv4_scope = MIN(ipv4_scope, effective_scope);
+                }
 
                 if (address->family == AF_INET6)
                         ipv6_scope = MIN(ipv6_scope, address->scope);
@@ -605,9 +613,9 @@ bool address_can_update(const Address *existing, const Address *requesting) {
                 } else {
                         /* When a null address is requested, then the broadcast address will be
                          * automatically calculated from the acquired address, e.g.
-                         *     192.168.0.10/24 -> 192.168.0.255
+                         * 192.168.0.10/24 -> 192.168.0.255
                          * So, here let's only check if the broadcast is the last address in the range, e.g.
-                         *     0.0.0.0/24 -> 0.0.0.255 */
+                         * 0.0.0.0/24 -> 0.0.0.255 */
                         if (!FLAGS_SET(existing->broadcast.s_addr, htobe32(UINT32_C(0xffffffff) >> existing->prefixlen)))
                                 return false;
                 }

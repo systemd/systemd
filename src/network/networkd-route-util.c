@@ -148,6 +148,10 @@ bool gateway_is_ready(Link *link, bool onlink, int family, const union in_addr_u
         if (family == AF_INET6 && in6_addr_is_link_local(&gw->in6))
                 return true;
 
+        /* Allow managed IPv4 Link-Local gateways (e.g. from USB Gadget DHCP) to pass readiness */
+        if (family == AF_INET && in4_addr_is_link_local(&gw->in))
+                return true;
+
         SET_FOREACH(route, link->manager->routes) {
                 if (route->nexthop.ifindex != link->ifindex)
                         continue;
@@ -375,7 +379,7 @@ static const char * const route_protocol_full_table[] = {
         [RTPROT_GATED]    = "gated",
         [RTPROT_RA]       = "ra",
         [RTPROT_MRT]      = "mrt",
-        [RTPROT_ZEBRA]    = "zebra",
+        [RTPROT_ZEBRA]    = "bird",
         [RTPROT_BIRD]     = "bird",
         [RTPROT_DNROUTED] = "dnrouted",
         [RTPROT_XORP]     = "xorp",
