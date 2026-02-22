@@ -4,6 +4,7 @@
 
 #include "bus-polkit.h"
 #include "json-util.h"
+#include "networkd-dhcp4.h"
 #include "networkd-link.h"
 #include "networkd-link-varlink.h"
 #include "networkd-manager.h"
@@ -99,4 +100,31 @@ int vl_method_link_up(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink
 
 int vl_method_link_down(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         return vl_method_link_up_or_down(vlink, parameters, userdata, /* up= */ false);
+}
+
+int vl_method_link_renew(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+        Link *link;
+        int r;
+
+        assert(vlink);
+
+        r = dispatch_link(vlink, parameters, manager, DISPATCH_LINK_POLKIT | DISPATCH_LINK_MANDATORY, &link);
+        if (r != 0)
+                return r;
+
+        r = varlink_verify_polkit_async(
+                        vlink,
+                        manager->bus,
+                        "org.freedesktop.network1.renew",
+                        /* details= */ NULL,
+                        &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = dhcp4_renew(link);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to renew DHCPv4 lease: %m");
+
+        return sd_varlink_reply(vlink, NULL);
 }
