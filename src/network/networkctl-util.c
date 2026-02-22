@@ -232,3 +232,37 @@ void online_state_to_color(const char *state, const char **on, const char **off)
                         *off = "";
         }
 }
+
+int acquire_link_description(sd_varlink *vl, int ifindex, sd_json_variant **ret) {
+        int r;
+
+        assert(vl);
+        assert(ifindex > 0);
+        assert(ret);
+
+        sd_json_variant *v; /* borrowed from vl, do not unref */
+        r = varlink_callbo_and_log(
+                        vl,
+                        "io.systemd.Network.Link.Describe",
+                        &v,
+                        SD_JSON_BUILD_PAIR_INTEGER("InterfaceIndex", ifindex));
+        if (r < 0)
+                return r;
+
+        *ret = sd_json_variant_ref(v);
+        return 0;
+}
+
+int json_variant_find_object(sd_json_variant *v, char * const *object_names, sd_json_variant **ret) {
+        if (!v || sd_json_variant_is_null(v))
+                return -ENODATA;
+
+        STRV_FOREACH(name, object_names) {
+                v = sd_json_variant_by_key(v, *name);
+                if (!v || sd_json_variant_is_null(v))
+                        return -ENODATA;
+        }
+
+        *ret = v;
+        return 0;
+}
