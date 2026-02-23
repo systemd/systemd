@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "bus-polkit.h"
 #include "varlink-io.systemd.Network.h"
 
 /* Helper macro to define address fields with both binary and string representation */
@@ -10,7 +9,7 @@
         SD_VARLINK_FIELD_COMMENT(comment " (human-readable format)"), \
         SD_VARLINK_DEFINE_FIELD(field_name##String, SD_VARLINK_STRING, (flags))
 
-static SD_VARLINK_DEFINE_ENUM_TYPE(
+SD_VARLINK_DEFINE_ENUM_TYPE(
                 LinkState,
                 SD_VARLINK_DEFINE_ENUM_VALUE(pending),
                 SD_VARLINK_DEFINE_ENUM_VALUE(initialized),
@@ -94,7 +93,7 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Configuration state of this rule"),
                 SD_VARLINK_DEFINE_FIELD(ConfigState, SD_VARLINK_STRING, 0));
 
-static SD_VARLINK_DEFINE_STRUCT_TYPE(
+SD_VARLINK_DEFINE_STRUCT_TYPE(
                 Route,
                 SD_VARLINK_FIELD_COMMENT("Address family (AF_INET or AF_INET6)"),
                 SD_VARLINK_DEFINE_FIELD(Family, SD_VARLINK_INT, 0),
@@ -150,14 +149,14 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("TCP congestion control algorithm for this route"),
                 SD_VARLINK_DEFINE_FIELD(TCPCongestionControlAlgorithm, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
-static SD_VARLINK_DEFINE_STRUCT_TYPE(
+SD_VARLINK_DEFINE_STRUCT_TYPE(
                 NextHopGroup,
                 SD_VARLINK_FIELD_COMMENT("Next hop identifier in the multipath group"),
                 SD_VARLINK_DEFINE_FIELD(ID, SD_VARLINK_INT, 0),
                 SD_VARLINK_FIELD_COMMENT("Weight for load balancing (higher means more traffic)"),
                 SD_VARLINK_DEFINE_FIELD(Weight, SD_VARLINK_INT, 0));
 
-static SD_VARLINK_DEFINE_STRUCT_TYPE(
+SD_VARLINK_DEFINE_STRUCT_TYPE(
                 NextHop,
                 SD_VARLINK_FIELD_COMMENT("Next hop identifier"),
                 SD_VARLINK_DEFINE_FIELD(ID, SD_VARLINK_INT, 0),
@@ -182,7 +181,7 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Configuration state of this next hop"),
                 SD_VARLINK_DEFINE_FIELD(ConfigState, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
-static SD_VARLINK_DEFINE_STRUCT_TYPE(
+SD_VARLINK_DEFINE_STRUCT_TYPE(
                 LLDPNeighbor,
                 SD_VARLINK_FIELD_COMMENT("Chassis identifier in human-readable format"),
                 SD_VARLINK_DEFINE_FIELD(ChassisID, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
@@ -205,7 +204,7 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("VLAN identifier"),
                 SD_VARLINK_DEFINE_FIELD(VlanID, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
 
-static SD_VARLINK_DEFINE_STRUCT_TYPE(
+SD_VARLINK_DEFINE_STRUCT_TYPE(
                 DNS,
                 SD_VARLINK_FIELD_COMMENT("Address family (AF_INET or AF_INET6)"),
                 SD_VARLINK_DEFINE_FIELD(Family, SD_VARLINK_INT, 0),
@@ -220,7 +219,7 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(ConfigSource, SD_VARLINK_STRING, 0),
                 VARLINK_DEFINE_IN_ADDR_WITH_STRING_FIELD(ConfigProvider, "Address of the configuration provider", SD_VARLINK_NULLABLE));
 
-static SD_VARLINK_DEFINE_STRUCT_TYPE(
+SD_VARLINK_DEFINE_STRUCT_TYPE(
                 NTP,
                 SD_VARLINK_FIELD_COMMENT("Address family (AF_INET or AF_INET6) for address-based servers"),
                 SD_VARLINK_DEFINE_FIELD(Family, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
@@ -231,7 +230,7 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(ConfigSource, SD_VARLINK_STRING, 0),
                 VARLINK_DEFINE_IN_ADDR_WITH_STRING_FIELD(ConfigProvider, "Address of the configuration provider", SD_VARLINK_NULLABLE));
 
-static SD_VARLINK_DEFINE_STRUCT_TYPE(
+SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SIP,
                 SD_VARLINK_FIELD_COMMENT("Address family (AF_INET or AF_INET6) for address-based servers"),
                 SD_VARLINK_DEFINE_FIELD(Family, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
@@ -242,7 +241,7 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(ConfigSource, SD_VARLINK_STRING, 0),
                 VARLINK_DEFINE_IN_ADDR_WITH_STRING_FIELD(ConfigProvider, "Address of the configuration provider", SD_VARLINK_NULLABLE));
 
-static SD_VARLINK_DEFINE_STRUCT_TYPE(
+SD_VARLINK_DEFINE_STRUCT_TYPE(
                 Domain,
                 SD_VARLINK_FIELD_COMMENT("DNS search or route domain name"),
                 SD_VARLINK_DEFINE_FIELD(Domain, SD_VARLINK_STRING, 0),
@@ -250,14 +249,14 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(ConfigSource, SD_VARLINK_STRING, 0),
                 VARLINK_DEFINE_IN_ADDR_WITH_STRING_FIELD(ConfigProvider, "Address of the configuration provider", SD_VARLINK_NULLABLE));
 
-static SD_VARLINK_DEFINE_STRUCT_TYPE(
+SD_VARLINK_DEFINE_STRUCT_TYPE(
                 DNSSECNegativeTrustAnchor,
                 SD_VARLINK_FIELD_COMMENT("Domain name for which DNSSEC validation is disabled"),
                 SD_VARLINK_DEFINE_FIELD(DNSSECNegativeTrustAnchor, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("Configuration source for this negative trust anchor"),
                 SD_VARLINK_DEFINE_FIELD(ConfigSource, SD_VARLINK_STRING, 0));
 
-static SD_VARLINK_DEFINE_STRUCT_TYPE(
+SD_VARLINK_DEFINE_STRUCT_TYPE(
                 DNSSetting,
                 SD_VARLINK_FIELD_COMMENT("Link-Local Multicast Name Resolution setting"),
                 SD_VARLINK_DEFINE_FIELD(LLMNR, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
@@ -270,7 +269,7 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Configuration source for this DNS setting"),
                 SD_VARLINK_DEFINE_FIELD(ConfigSource, SD_VARLINK_STRING, 0));
 
-static SD_VARLINK_DEFINE_STRUCT_TYPE(
+SD_VARLINK_DEFINE_STRUCT_TYPE(
                 Pref64,
                 SD_VARLINK_FIELD_COMMENT("IPv6 prefix for NAT64/DNS64"),
                 SD_VARLINK_DEFINE_FIELD(Prefix, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
@@ -282,12 +281,12 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(LifetimeUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 VARLINK_DEFINE_IN_ADDR_WITH_STRING_FIELD(ConfigProvider, "Address of router that provided this prefix", SD_VARLINK_NULLABLE));
 
-static SD_VARLINK_DEFINE_STRUCT_TYPE(
+SD_VARLINK_DEFINE_STRUCT_TYPE(
                 NDisc,
                 SD_VARLINK_FIELD_COMMENT("PREF64 (RFC8781) prefixes advertised via IPv6 Router Advertisements"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(PREF64, Pref64, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE));
 
-static SD_VARLINK_DEFINE_STRUCT_TYPE(
+SD_VARLINK_DEFINE_STRUCT_TYPE(
                 Address,
                 SD_VARLINK_FIELD_COMMENT("Address family (AF_INET or AF_INET6)"),
                 SD_VARLINK_DEFINE_FIELD(Family, SD_VARLINK_INT, 0),
@@ -320,7 +319,7 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Configuration state of this address"),
                 SD_VARLINK_DEFINE_FIELD(ConfigState, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
-static SD_VARLINK_DEFINE_STRUCT_TYPE(
+SD_VARLINK_DEFINE_STRUCT_TYPE(
                 Neighbor,
                 SD_VARLINK_FIELD_COMMENT("Address family (AF_INET or AF_INET6)"),
                 SD_VARLINK_DEFINE_FIELD(Family, SD_VARLINK_INT, 0),
@@ -332,7 +331,7 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Configuration state of this neighbor entry"),
                 SD_VARLINK_DEFINE_FIELD(ConfigState, SD_VARLINK_STRING, 0));
 
-static SD_VARLINK_DEFINE_STRUCT_TYPE(
+SD_VARLINK_DEFINE_STRUCT_TYPE(
                 DHCPLease,
                 SD_VARLINK_FIELD_COMMENT("Timestamp when the lease was acquired in microseconds"),
                 SD_VARLINK_DEFINE_FIELD(LeaseTimestampUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
@@ -350,7 +349,7 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Raw data of the private DHCP option"),
                 SD_VARLINK_DEFINE_FIELD(PrivateOptionData, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
-static SD_VARLINK_DEFINE_STRUCT_TYPE(
+SD_VARLINK_DEFINE_STRUCT_TYPE(
                 DHCPv6ClientPD,
                 SD_VARLINK_FIELD_COMMENT("Delegated IPv6 prefix"),
                 SD_VARLINK_DEFINE_FIELD(Prefix, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
@@ -363,7 +362,7 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Valid lifetime of the prefix in microseconds"),
                 SD_VARLINK_DEFINE_FIELD(ValidLifetimeUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
 
-static SD_VARLINK_DEFINE_STRUCT_TYPE(
+SD_VARLINK_DEFINE_STRUCT_TYPE(
                 DHCPv6ClientVendorOption,
                 SD_VARLINK_FIELD_COMMENT("IANA enterprise number identifying the vendor"),
                 SD_VARLINK_DEFINE_FIELD(EnterpriseId, SD_VARLINK_INT, 0),
@@ -372,7 +371,7 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Raw data of the vendor-specific sub-option"),
                 SD_VARLINK_DEFINE_FIELD(SubOptionData, SD_VARLINK_STRING, 0));
 
-static SD_VARLINK_DEFINE_STRUCT_TYPE(
+SD_VARLINK_DEFINE_STRUCT_TYPE(
                 DHCPv6Client,
                 SD_VARLINK_FIELD_COMMENT("DHCPv6 lease information including timestamps and timeouts"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(Lease, DHCPLease, SD_VARLINK_NULLABLE),
@@ -383,7 +382,7 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("DHCP Unique Identifier (DUID) of the client"),
                 SD_VARLINK_DEFINE_FIELD(DUID, SD_VARLINK_INT, SD_VARLINK_ARRAY));
 
-static SD_VARLINK_DEFINE_STRUCT_TYPE(
+SD_VARLINK_DEFINE_STRUCT_TYPE(
                 DHCPServerLease,
                 SD_VARLINK_FIELD_COMMENT("DHCP client identifier"),
                 SD_VARLINK_DEFINE_FIELD(ClientId, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
@@ -401,7 +400,7 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Lease expiration time in realtime microseconds"),
                 SD_VARLINK_DEFINE_FIELD(ExpirationRealtimeUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
 
-static SD_VARLINK_DEFINE_STRUCT_TYPE(
+SD_VARLINK_DEFINE_STRUCT_TYPE(
                 DHCPServer,
                 SD_VARLINK_FIELD_COMMENT("Offset from the network address for the DHCP address pool"),
                 SD_VARLINK_DEFINE_FIELD(PoolOffset, SD_VARLINK_INT, 0),
@@ -412,7 +411,14 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Static DHCP leases configured for specific clients"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(StaticLeases, DHCPServerLease, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE));
 
-static SD_VARLINK_DEFINE_STRUCT_TYPE(
+SD_VARLINK_DEFINE_STRUCT_TYPE(
+                BitRates,
+                SD_VARLINK_FIELD_COMMENT("Transmit bitrate in bits per second"),
+                SD_VARLINK_DEFINE_FIELD(TxBitRate, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Receive bitrate in bits per second"),
+                SD_VARLINK_DEFINE_FIELD(RxBitRate, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
+
+SD_VARLINK_DEFINE_STRUCT_TYPE(
                 Interface,
                 SD_VARLINK_FIELD_COMMENT("Network interface index"),
                 SD_VARLINK_DEFINE_FIELD(Index, SD_VARLINK_INT, 0),
@@ -533,8 +539,10 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(DHCPv4Client, SD_VARLINK_OBJECT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("DHCPv6 client configuration and lease information"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(DHCPv6Client, DHCPv6Client, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("LLDP neighbors discovered on this interface"),
-                SD_VARLINK_DEFINE_FIELD_BY_TYPE(LLDP, LLDPNeighbor, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE));
+                SD_VARLINK_FIELD_COMMENT("LLDP advertisement sent by this interface (our own link description)"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(LLDP, LLDPNeighbor, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Current transmit/receive bitrates from speed meter"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(BitRates, BitRates, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_METHOD(
                 Describe,
@@ -594,22 +602,8 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("Whether persistent storage is ready and writable"),
                 SD_VARLINK_DEFINE_INPUT(Ready, SD_VARLINK_BOOL, 0));
 
-static SD_VARLINK_DEFINE_METHOD(
-                LinkUp,
-                SD_VARLINK_FIELD_COMMENT("Index of the interface. If specified together with InterfaceName, both must reference the same link."),
-                SD_VARLINK_DEFINE_INPUT(InterfaceIndex, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("Name of the interface. If specified together with InterfaceIndex, both must reference the same link."),
-                SD_VARLINK_DEFINE_INPUT(InterfaceName, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                VARLINK_DEFINE_POLKIT_INPUT);
 
-static SD_VARLINK_DEFINE_METHOD(
-                LinkDown,
-                SD_VARLINK_FIELD_COMMENT("Index of the interface. If specified together with InterfaceName, both must reference the same link."),
-                SD_VARLINK_DEFINE_INPUT(InterfaceIndex, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("Name of the interface. If specified together with InterfaceIndex, both must reference the same link."),
-                SD_VARLINK_DEFINE_INPUT(InterfaceName, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                VARLINK_DEFINE_POLKIT_INPUT);
-
+static SD_VARLINK_DEFINE_ERROR(AlreadyReloading);
 static SD_VARLINK_DEFINE_ERROR(StorageReadOnly);
 
 SD_VARLINK_DEFINE_INTERFACE(
@@ -620,11 +614,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_GetNamespaceId,
                 &vl_method_GetLLDPNeighbors,
                 &vl_method_SetPersistentStorage,
-                SD_VARLINK_SYMBOL_COMMENT("Bring the specified link up."),
-                &vl_method_LinkUp,
-                SD_VARLINK_SYMBOL_COMMENT("Bring the specified link down."),
-                &vl_method_LinkDown,
                 &vl_type_Address,
+                &vl_type_BitRates,
                 &vl_type_DHCPLease,
                 &vl_type_DHCPServer,
                 &vl_type_DHCPServerLease,
@@ -652,4 +643,5 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_Route,
                 &vl_type_RoutingPolicyRule,
                 &vl_type_SIP,
+                &vl_error_AlreadyReloading,
                 &vl_error_StorageReadOnly);

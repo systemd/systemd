@@ -1,10 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "sd-bus.h"
 #include "sd-netlink.h"
 
-#include "bus-error.h"
-#include "bus-locator.h"
 #include "bus-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -67,7 +64,7 @@ int link_up_down(int argc, char *argv[], void *userdata) {
         ORDERED_SET_FOREACH(p, indexes)
                 RET_GATHER(ret, varlink_callbo_and_log(
                                            vl,
-                                           up ? "io.systemd.Network.LinkUp" : "io.systemd.Network.LinkDown",
+                                           up ? "io.systemd.Network.Link.Up" : "io.systemd.Network.Link.Down",
                                            /* reply= */ NULL,
                                            SD_JSON_BUILD_PAIR_INTEGER("InterfaceIndex", PTR_TO_INT(p)),
                                            SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", arg_ask_password)));
@@ -104,77 +101,96 @@ int link_delete(int argc, char *argv[], void *userdata) {
         return ret;
 }
 
-int link_bus_simple_method(int argc, char *argv[], void *userdata) {
+int verb_reconfigure(int argc, char *argv[], void *userdata) {
         int r, ret = 0;
-
-        typedef struct LinkBusAction {
-                const char *verb;
-                const char *bus_method;
-                const char *error_message;
-        } LinkBusAction;
-
-        static const LinkBusAction link_bus_action_table[] = {
-                { "renew",       "RenewLink",       "Failed to renew dynamic configuration of interface"          },
-                { "forcerenew",  "ForceRenewLink",  "Failed to forcibly renew dynamic configuration of interface" },
-                { "reconfigure", "ReconfigureLink", "Failed to reconfigure network interface"                     },
-        };
-
-        /* Common implementation for 'simple' method calls that just take an ifindex, and nothing else. */
-
-        const LinkBusAction *a = NULL;
-        FOREACH_ELEMENT(i, link_bus_action_table)
-                if (streq(argv[0], i->verb)) {
-                        a = i;
-                        break;
-                }
-        assert(a);
 
         _cleanup_ordered_set_free_ OrderedSet *indexes = NULL;
         r = parse_interfaces(/* rtnl= */ NULL, argv, &indexes);
         if (r < 0)
                 return r;
 
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        r = acquire_bus(&bus);
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *vl = NULL;
+        r = varlink_connect_networkd(&vl);
         if (r < 0)
                 return r;
 
         (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
         void *p;
-        ORDERED_SET_FOREACH(p, indexes) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                int index = PTR_TO_INT(p);
-
-                r = bus_call_method(bus, bus_network_mgr, a->bus_method, &error, /* ret_reply= */ NULL, "i", index);
-                if (r < 0) {
-                        RET_GATHER(ret, r);
-                        log_error_errno(r, "%s %s: %s",
-                                        a->error_message,
-                                        FORMAT_IFNAME_FULL(index, FORMAT_IFNAME_IFINDEX),
-                                        bus_error_message(&error, r));
-                }
-        }
+        ORDERED_SET_FOREACH(p, indexes)
+                RET_GATHER(ret, varlink_callbo_and_log(
+                                           vl,
+                                           "io.systemd.Network.Link.Reconfigure",
+                                           /* reply= */ NULL,
+                                           SD_JSON_BUILD_PAIR_INTEGER("InterfaceIndex", PTR_TO_INT(p)),
+                                           SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", arg_ask_password)));
 
         return ret;
 }
 
-int verb_reload(int argc, char *argv[], void *userdata) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        int r;
+int verb_force_renew(int argc, char *argv[], void *userdata) {
+        int r, ret = 0;
 
-        r = acquire_bus(&bus);
+        _cleanup_ordered_set_free_ OrderedSet *indexes = NULL;
+        r = parse_interfaces(/* rtnl= */ NULL, argv, &indexes);
+        if (r < 0)
+                return r;
+
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *vl = NULL;
+        r = varlink_connect_networkd(&vl);
         if (r < 0)
                 return r;
 
         (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
-        r = bus_call_method(bus, bus_network_mgr, "Reload", &error, NULL, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to reload network settings: %s", bus_error_message(&error, r));
+        void *p;
+        ORDERED_SET_FOREACH(p, indexes)
+                RET_GATHER(ret, varlink_callbo_and_log(
+                                           vl,
+                                           "io.systemd.Network.Link.ForceRenew",
+                                           /* reply= */ NULL,
+                                           SD_JSON_BUILD_PAIR_INTEGER("InterfaceIndex", PTR_TO_INT(p)),
+                                           SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", arg_ask_password)));
 
-        return 0;
+        return ret;
+}
+
+int verb_renew(int argc, char *argv[], void *userdata) {
+        int r, ret = 0;
+
+        _cleanup_ordered_set_free_ OrderedSet *indexes = NULL;
+        r = parse_interfaces(/* rtnl= */ NULL, argv, &indexes);
+        if (r < 0)
+                return r;
+
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *vl = NULL;
+        r = varlink_connect_networkd(&vl);
+        if (r < 0)
+                return r;
+
+        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
+
+        void *p;
+        ORDERED_SET_FOREACH(p, indexes)
+                RET_GATHER(ret, varlink_callbo_and_log(
+                                           vl,
+                                           "io.systemd.Network.Link.Renew",
+                                           /* reply= */ NULL,
+                                           SD_JSON_BUILD_PAIR_INTEGER("InterfaceIndex", PTR_TO_INT(p)),
+                                           SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", arg_ask_password)));
+
+        return ret;
+}
+
+int verb_reload(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *vl = NULL;
+        int r;
+
+        r = varlink_connect_networkd(&vl);
+        if (r < 0)
+                return r;
+
+        return varlink_call_and_log(vl, "io.systemd.service.Reload", /* parameters= */ NULL, /* reply= */ NULL);
 }
 
 int verb_persistent_storage(int argc, char *argv[], void *userdata) {
