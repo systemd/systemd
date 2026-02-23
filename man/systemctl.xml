@@ -2855,10 +2855,10 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
       <varlistentry>
         <term><option>--marked</option></term>
 
-        <listitem><para>Only allowed with <command>reload-or-restart</command>. Enqueues restart jobs for all
-        units that have the <literal>needs-restart</literal> mark, and reload jobs for units that have the
-        <literal>needs-reload</literal> mark. When a unit marked for reload does not support reload, restart
-        will be queued. Those properties can be set using <command>set-property Markers=…</command>.</para>
+        <listitem><para>Only allowed with <command>reload-or-restart</command>, <command>start</command>, or
+        <command>stop</command>. Enqueues jobs for all units that are marked. When a unit marked for reload
+        does not support reload, restart will be queued. Those properties can be set using
+        <command>set-property Markers=…</command>.</para>
 
         <para>Unless <option>--no-block</option> is used, <command>systemctl</command> will wait for the
         queued jobs to finish.</para>

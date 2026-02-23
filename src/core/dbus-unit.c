@@ -2151,9 +2151,8 @@ static int bus_unit_set_live_property(
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         if (some_absolute)
-                                u->markers = settings;
-                        else
-                                u->markers = settings | (u->markers & ~mask);
+                                mask = UINT_MAX;
+                        u->markers = unit_normalize_markers((u->markers & ~mask), settings);
                 }
 
                 return 1;
