@@ -55,19 +55,19 @@ int vl_method_get_entries(sd_varlink *link, sd_json_variant *parameters, sd_varl
          * do not need to do extra sd_varlink_get_peer_uid() or policykit checks here */
         r = sd_journal_open_namespace(&j, p.namespace, SD_JOURNAL_LOCAL_ONLY | SD_JOURNAL_ASSUME_IMMUTABLE);
         if (r < 0)
-                return log_error_errno(r, "Failed to open journal: %m");
+                return r;
 
         r = journal_add_unit_matches(j, MATCH_UNIT_ALL, /* mangle_flags= */ 0, p.units, p.user_units);
         if (r == -ENODATA)
                 return sd_varlink_error(link, "io.systemd.JournalAccess.NoMatches", NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to add unit matches: %m");
+                return r;
 
         if (p.priority >= 0) {
                 for (int i = 0; i <= p.priority; i++) {
                         r = journal_add_matchf(j, "PRIORITY=%d", i);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to add priority match: %m");
+                                return r;
                 }
 
                 r = sd_journal_add_conjunction(j);
@@ -78,13 +78,17 @@ int vl_method_get_entries(sd_varlink *link, sd_json_variant *parameters, sd_varl
         /* this simulates "journalctl -n $p.limit" */
         r = sd_journal_seek_tail(j);
         if (r < 0)
-                return log_error_errno(r, "Failed to seek to tail: %m");
+                return r;
 
         /* FIXME: this restriction should be removed eventually */
         if (p.limit > 10000)
                 return sd_varlink_error_invalid_parameter_name(link, "limit");
 
         uint64_t n = p.limit == 0 ? 100 : p.limit;
+
+        r = sd_journal_previous_skip(j, n + 1);
+        if (r < 0)
+                return r;
 
         r = varlink_set_sentinel(link, "io.systemd.JournalAccess.NoEntries");
         if (r < 0)
@@ -93,9 +97,9 @@ int vl_method_get_entries(sd_varlink *link, sd_json_variant *parameters, sd_varl
         for (uint64_t i = 0; i < n; i++) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *entry = NULL;
 
-                r = sd_journal_previous(j);
+                r = sd_journal_next(j);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to iterate journal: %m");
+                        return r;
                 if (r == 0)
                         break;
 
