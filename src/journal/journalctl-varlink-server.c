@@ -59,7 +59,7 @@ int vl_method_get_entries(sd_varlink *link, sd_json_variant *parameters, sd_varl
 
         r = journal_add_unit_matches(j, MATCH_UNIT_ALL, /* mangle_flags= */ 0, p.units, p.user_units);
         if (r == -ENODATA)
-                return sd_varlink_error(link, SD_VARLINK_ERROR_INVALID_PARAMETER, NULL);
+                return sd_varlink_error(link, "io.systemd.JournalAccess.NoMatches", NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to add unit matches: %m");
 
