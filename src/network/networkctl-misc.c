@@ -64,7 +64,7 @@ int link_up_down(int argc, char *argv[], void *userdata) {
         ORDERED_SET_FOREACH(p, indexes)
                 RET_GATHER(ret, varlink_callbo_and_log(
                                            vl,
-                                           up ? "io.systemd.Network.LinkUp" : "io.systemd.Network.LinkDown",
+                                           up ? "io.systemd.Network.Link.Up" : "io.systemd.Network.Link.Down",
                                            /* reply= */ NULL,
                                            SD_JSON_BUILD_PAIR_INTEGER("InterfaceIndex", PTR_TO_INT(p)),
                                            SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", arg_ask_password)));
@@ -120,7 +120,7 @@ int verb_reconfigure(int argc, char *argv[], void *userdata) {
         ORDERED_SET_FOREACH(p, indexes)
                 RET_GATHER(ret, varlink_callbo_and_log(
                                            vl,
-                                           "io.systemd.Network.ReconfigureLink",
+                                           "io.systemd.Network.Link.Reconfigure",
                                            /* reply= */ NULL,
                                            SD_JSON_BUILD_PAIR_INTEGER("InterfaceIndex", PTR_TO_INT(p)),
                                            SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", arg_ask_password)));
@@ -147,7 +147,7 @@ int verb_force_renew(int argc, char *argv[], void *userdata) {
         ORDERED_SET_FOREACH(p, indexes)
                 RET_GATHER(ret, varlink_callbo_and_log(
                                            vl,
-                                           "io.systemd.Network.ForceRenewLink",
+                                           "io.systemd.Network.Link.ForceRenew",
                                            /* reply= */ NULL,
                                            SD_JSON_BUILD_PAIR_INTEGER("InterfaceIndex", PTR_TO_INT(p)),
                                            SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", arg_ask_password)));
@@ -174,7 +174,7 @@ int verb_renew(int argc, char *argv[], void *userdata) {
         ORDERED_SET_FOREACH(p, indexes)
                 RET_GATHER(ret, varlink_callbo_and_log(
                                            vl,
-                                           "io.systemd.Network.RenewLink",
+                                           "io.systemd.Network.Link.Renew",
                                            /* reply= */ NULL,
                                            SD_JSON_BUILD_PAIR_INTEGER("InterfaceIndex", PTR_TO_INT(p)),
                                            SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", arg_ask_password)));
