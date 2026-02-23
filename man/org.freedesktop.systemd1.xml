@@ -2644,12 +2644,33 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       </para>
 
       <para><varname>Markers</varname> is an array of string flags that can be set using
-      <function>SetUnitProperties()</function> to indicate that the service should be reloaded or
-      restarted. Currently known values are <literal>needs-restart</literal> and
-      <literal>needs-reload</literal>. Package scripts may use the first to mark units for later restart when
-      a new version of the package is installed. Configuration management scripts may use the second to mark
-      units for a later reload when the configuration is adjusted. Those flags are not set by the manager,
-      except to unset as appropriate when the unit is stopped, restarted, or reloaded.</para>
+      <function>SetUnitProperties()</function> to indicate that the service should be reloaded or restarted.
+      Currently known values are <literal>needs-restart</literal>, <literal>needs-stop</literal>,
+      <literal>needs-start</literal> and <literal>needs-reload</literal>. Package scripts may use the first
+      three to mark units for later restart or start or stop when a new version of the package is installed
+      or removed. Configuration management scripts may use the fourth to mark units for a later reload when
+      the configuration is adjusted. Those flags are not set by the manager, except to unset as appropriate
+      when the unit is stopped, restarted, or reloaded. When markers are set, they are normalized according
+      to the following precedence rules, modeled after the job type merging logic. When new markers are
+      applied incrementally (using the <literal>+</literal> prefix), conflicting existing markers are
+      cleared before the new markers are merged in:
+      <itemizedlist>
+        <listitem><para><literal>needs-reload</literal> loses against all other markers. If any of
+        <literal>needs-restart</literal>, <literal>needs-start</literal>, or <literal>needs-stop</literal>
+        is set, <literal>needs-reload</literal> is cleared.</para></listitem>
+        <listitem><para><literal>needs-stop</literal> wins against <literal>needs-restart</literal> and
+        <literal>needs-reload</literal>, clearing both.</para></listitem>
+        <listitem><para><literal>needs-start</literal> wins against <literal>needs-stop</literal>, clearing
+        it.</para></listitem>
+        <listitem><para><literal>needs-restart</literal> wins against <literal>needs-start</literal>. If
+        both are set, <literal>needs-start</literal> is cleared.</para></listitem>
+      </itemizedlist>
+      For example, if a unit currently has <literal>needs-stop</literal> set and a new
+      <literal>+needs-start</literal> marker is applied, the existing <literal>needs-stop</literal> is
+      cleared and only <literal>needs-start</literal> remains. Conversely, applying
+      <literal>+needs-stop</literal> to any existing marker will clear all other markers, as
+      <literal>needs-stop</literal> takes precedence over <literal>needs-restart</literal> and
+      <literal>needs-reload</literal>, and the new marker clears conflicting existing ones.</para>
 
       <para><varname>JobTimeoutUSec</varname> maps directly to the corresponding configuration setting in the
       unit file.</para>

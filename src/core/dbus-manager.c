@@ -2132,17 +2132,26 @@ static int method_enqueue_marked_jobs(sd_bus_message *message, void *userdata, s
                         continue;
 
                 BusUnitQueueFlags flags;
-                if (BIT_SET(u->markers, UNIT_MARKER_NEEDS_RESTART))
+                JobType job;
+                if (BIT_SET(u->markers, UNIT_MARKER_NEEDS_RESTART)) {
                         flags = 0;
-                else if (BIT_SET(u->markers, UNIT_MARKER_NEEDS_RELOAD))
+                        job = JOB_TRY_RESTART;
+                } else if (BIT_SET(u->markers, UNIT_MARKER_NEEDS_RELOAD)) {
                         flags = BUS_UNIT_QUEUE_RELOAD_IF_POSSIBLE;
-                else
+                        job = JOB_TRY_RESTART;
+                } else if (BIT_SET(u->markers, UNIT_MARKER_NEEDS_STOP)) {
+                        flags = 0;
+                        job = JOB_STOP;
+                } else if (BIT_SET(u->markers, UNIT_MARKER_NEEDS_START)) {
+                        flags = 0;
+                        job = JOB_START;
+                } else
                         continue;
 
-                r = mac_selinux_unit_access_check(u, message, "start", &error);
+                r = mac_selinux_unit_access_check(u, message, job_type_to_access_method(job), &error);
                 if (r >= 0)
                         r = bus_unit_queue_job_one(message, u,
-                                                   JOB_TRY_RESTART, JOB_FAIL, flags,
+                                                   job, JOB_FAIL, flags,
                                                    reply, &error);
                 if (ERRNO_IS_NEG_RESOURCE(r))
                         return r;

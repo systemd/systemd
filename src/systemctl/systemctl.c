@@ -1069,14 +1069,13 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "--wait may not be combined with --no-block.");
 
-        bool do_reload_or_restart = streq_ptr(argv[optind], "reload-or-restart");
         if (arg_marked) {
-                if (!do_reload_or_restart)
+                if (!STRPTR_IN_SET(argv[optind], "reload-or-restart", "start", "stop"))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "--marked may only be used with 'reload-or-restart'.");
+                                               "--marked may only be used with 'reload-or-restart', 'start', or 'stop'.");
                 if (optind + 1 < argc)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "No additional arguments allowed with 'reload-or-restart --marked'.");
+                                               "No additional arguments allowed with '%s --marked'.", strna(argv[optind]));
                 if (arg_wait)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "--marked --wait is not supported.");
@@ -1084,10 +1083,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "--marked --show-transaction is not supported.");
 
-        } else if (do_reload_or_restart) {
+        } else if (STRPTR_IN_SET(argv[optind], "reload-or-restart", "start", "stop")) {
                 if (optind + 1 >= argc)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "List of units to restart/reload is required.");
+                                               "List of units to %s is required.", strna(argv[optind]));
         }
 
         if (arg_image && arg_root)
