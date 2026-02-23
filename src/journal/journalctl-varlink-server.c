@@ -105,7 +105,7 @@ int vl_method_get_entries(sd_varlink *link, sd_json_variant *parameters, sd_varl
                 if (r == 0)
                         continue; /* skip corrupted entry */
 
-                r = sd_varlink_replybo(link, SD_JSON_BUILD_PAIR("entry", SD_JSON_BUILD_VARIANT(entry)));
+                r = sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_VARIANT("entry", entry));
                 if (r < 0)
                         return r;
         }
