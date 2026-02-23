@@ -12,4 +12,4 @@ Description=Journal Log Access Service
 Documentation=man:journalctl(1)
 
 [Service]
-ExecStart=journalctl
+ExecStart=journalctl --user
