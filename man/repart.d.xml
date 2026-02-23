@@ -497,17 +497,6 @@
         in a user namespace with the current user mapped to the root user to make sure the files and
         directories in the image are owned by the root user.</para>
 
-        <para>Note that when populating XFS filesystems with <command>systemd-repart</command> and loop
-        devices are not available, populating XFS filesystems with files containing spaces, tabs or newlines
-        might fail on old versions of
-        <citerefentry project='man-pages'><refentrytitle>mkfs.xfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        due to limitations of its protofile format.</para>
-
-        <para>Note that when populating XFS filesystems with <command>systemd-repart</command> and loop
-        devices are not available, extended attributes will not be copied into generated XFS filesystems
-        due to limitations <citerefentry project='man-pages'><refentrytitle>mkfs.xfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>'s
-        protofile format.</para>
-
         <para>This option cannot be combined with <varname>CopyBlocks=</varname>.</para>
 
         <para>When
@@ -516,6 +505,9 @@
         relative to the specified directory. If <option>--copy-source=</option> is not used, but the
         <option>--image=</option> or <option>--root=</option> switches are used, the source paths are taken
         relative to the specified root directory or disk image root.</para>
+
+        <para>Note that when <varname>CopyFiles=</varname> is used with <varname>Format=xfs</varname>,
+        <command>xfsprogs</command> 6.17 or newer is required.</para>
 
         <xi:include href="version-info.xml" xpointer="v247"/></listitem>
       </varlistentry>
