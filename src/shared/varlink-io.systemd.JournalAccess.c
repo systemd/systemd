@@ -16,7 +16,7 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_FIELD_COMMENT("Maximum number of entries to return. Defaults to 100, capped at 10000."),
                 SD_VARLINK_DEFINE_INPUT(limit, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The journal entry in flat JSON format, matching journalctl --output=json."),
-                SD_VARLINK_DEFINE_OUTPUT(entry, SD_VARLINK_OBJECT, SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_OUTPUT(entry, SD_VARLINK_OBJECT, 0));
 
 static SD_VARLINK_DEFINE_ERROR(NoMatches);
 static SD_VARLINK_DEFINE_ERROR(NoEntries);
