@@ -5,5 +5,4 @@
 #  the Free Software Foundation; either version 2.1 of the License, or
 #  (at your option) any later version.
 
-g  systemd-journal {{SYSTEMD_JOURNAL_GID}} -
-u! systemd-journal {{SYSTEMD_JOURNAL_UID}} "systemd Journal"
+g systemd-journal {{SYSTEMD_JOURNAL_GID}} -
