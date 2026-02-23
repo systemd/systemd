@@ -9,6 +9,7 @@
 #include "chase.h"
 #include "devnum-util.h"
 #include "fileio.h"
+#include "glob-util.h"
 #include "journal-internal.h"
 #include "journalctl.h"
 #include "journalctl-filter.h"
@@ -71,6 +72,116 @@ static int add_dmesg(sd_journal *j) {
         return sd_journal_add_conjunction(j);
 }
 
+int journal_add_unit_matches(
+                sd_journal *j,
+                MatchUnitFlag flags,
+                UnitNameMangle mangle_flags,
+                char * const *system_units,
+                uid_t uid,
+                char * const *user_units) {
+
+        _cleanup_strv_free_ char **patterns = NULL;
+        bool added = false;
+        int r;
+
+        assert(j);
+
+        if (strv_isempty(system_units) && strv_isempty(user_units))
+                return 0;
+
+        STRV_FOREACH(i, system_units) {
+                _cleanup_free_ char *u = NULL;
+
+                r = unit_name_mangle(*i, UNIT_NAME_MANGLE_GLOB | mangle_flags, &u);
+                if (r < 0)
+                        return r;
+
+                if (string_is_glob(u)) {
+                        r = strv_consume(&patterns, TAKE_PTR(u));
+                        if (r < 0)
+                                return r;
+                } else {
+                        r = add_matches_for_unit_full(j, flags, u);
+                        if (r < 0)
+                                return r;
+                        r = sd_journal_add_disjunction(j);
+                        if (r < 0)
+                                return r;
+                        added = true;
+                }
+        }
+
+        if (!strv_isempty(patterns)) {
+                _cleanup_set_free_ Set *units = NULL;
+
+                r = get_possible_units(j, SYSTEM_UNITS_FULL, patterns, &units);
+                if (r < 0)
+                        return r;
+
+                char *u;
+                SET_FOREACH(u, units) {
+                        r = add_matches_for_unit_full(j, flags, u);
+                        if (r < 0)
+                                return r;
+                        r = sd_journal_add_disjunction(j);
+                        if (r < 0)
+                                return r;
+                        added = true;
+                }
+        }
+
+        patterns = strv_free(patterns);
+
+        STRV_FOREACH(i, user_units) {
+                _cleanup_free_ char *u = NULL;
+
+                r = unit_name_mangle(*i, UNIT_NAME_MANGLE_GLOB | mangle_flags, &u);
+                if (r < 0)
+                        return r;
+
+                if (string_is_glob(u)) {
+                        r = strv_consume(&patterns, TAKE_PTR(u));
+                        if (r < 0)
+                                return r;
+                } else {
+                        r = add_matches_for_user_unit_full(j, flags, uid, u);
+                        if (r < 0)
+                                return r;
+                        r = sd_journal_add_disjunction(j);
+                        if (r < 0)
+                                return r;
+                        added = true;
+                }
+        }
+
+
+        if (!strv_isempty(patterns)) {
+                _cleanup_set_free_ Set *units = NULL;
+
+                r = get_possible_units(j, USER_UNITS_FULL, patterns, &units);
+                if (r < 0)
+                        return r;
+
+                char *u;
+                SET_FOREACH(u, units) {
+                        r = add_matches_for_user_unit_full(j, flags, uid, u);
+                        if (r < 0)
+                                return r;
+                        r = sd_journal_add_disjunction(j);
+                        if (r < 0)
+                                return r;
+                        added = true;
+                }
+        }
+
+        /* Complain if the user request matches but nothing whatsoever was found, since otherwise everything
+         * would be matched. */
+        if (!added)
+                return -ENODATA;
+
+        return sd_journal_add_conjunction(j);
+}
+
 static int add_units(sd_journal *j) {
         MatchUnitFlag flags = MATCH_UNIT_ALL;
 
@@ -82,7 +193,9 @@ static int add_units(sd_journal *j) {
         if (arg_directory || arg_root || arg_file_stdin || arg_file || arg_machine)
                 flags &= ~MATCH_UNIT_COREDUMP_UID;
 
-        return journal_add_unit_matches(j, flags, arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN, arg_system_units, arg_user_units);
+        return journal_add_unit_matches(j, flags, arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN,
+                                        arg_system_units,
+                                        UID_INVALID, arg_user_units);
 }
 
 static int add_syslog_identifier(sd_journal *j) {
