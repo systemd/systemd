@@ -193,6 +193,50 @@ testcase_single_service_multiple_times() {
     done
 }
 
+# Helper function to run browse services with a custom ifindex
+run_and_check_services_with_ifindex() {
+    local service_id="${1:?}"
+    local check_func="${2:?}"
+    local ifindex="${3:?}"
+    local unit_name="varlinkctl-$service_id-$SRANDOM.service"
+    local i out_file parameters service_type svc tmp_file
+
+    out_file="$(mktemp)"
+    error_file="$(mktemp)"
+    tmp_file="$(mktemp)"
+    service_type="_testService$service_id._udp"
+    parameters="{ \"domain\": \"$service_type.local\", \"type\": \"\", \"ifindex\": $ifindex, \"flags\": 16785432 }"
+
+    systemd-run --unit="$unit_name" --service-type=exec -p StandardOutput="file:$out_file" -p StandardError="file:$error_file" \
+        varlinkctl call --more /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.BrowseServices "$parameters"
+
+    # shellcheck disable=SC2064
+    # Note: same as above about unregistering the trap once it's fired
+    trap "trap - RETURN; systemctl stop $unit_name" RETURN
+
+    for _ in {0..14}; do
+        if [[ -s "$out_file" ]]; then
+            grep -o '"name":"[^"]*"' "$out_file" | sed 's/"name":"//;s/"//g' | sort | tee "$tmp_file"
+            if "$check_func" "$service_id" "$tmp_file"; then
+                return 0
+            fi
+        fi
+
+        sleep 2
+    done
+
+    cat "$out_file"
+    cat "$error_file"
+    return 1
+}
+
+testcase_browse_all_interfaces_ifindex_zero() {
+    : "Test browsing all interfaces with ifindex=0"
+    resolvectl flush-caches
+    # Using ifindex=0 should discover services on all mDNS interfaces
+    run_and_check_services_with_ifindex 0 check_both 0
+}
+
 testcase_second_unreachable() {
     : "Test each service type while the second container is unreachable"
     systemd-run -M "$CONTAINER_2" --wait --pipe -- networkctl down host0
