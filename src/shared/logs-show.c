@@ -1767,12 +1767,14 @@ int add_matches_for_unit_full(sd_journal *j, MatchUnitFlag flags, const char *un
         return r;
 }
 
-int add_matches_for_user_unit_full(sd_journal *j, MatchUnitFlag flags, const char *unit) {
-        uid_t uid = getuid();
+int add_matches_for_user_unit_full(sd_journal *j, MatchUnitFlag flags, uid_t uid, const char *unit) {
         int r;
 
         assert(j);
         assert(unit);
+
+        if (uid == UID_INVALID)
+                uid = getuid();
 
         (void) (
                 /* Look for messages from the user service itself */
@@ -2010,7 +2012,7 @@ static int set_matches_for_discover_id(
                 return add_matches_for_unit_full(j, /* flags= */ 0, unit);
 
         if (type == LOG_USER_UNIT_INVOCATION_ID)
-                return add_matches_for_user_unit_full(j, /* flags= */ 0, unit);
+                return add_matches_for_user_unit_full(j, /* flags= */ 0, UID_INVALID, unit);
 
         return -EINVAL;
 }
