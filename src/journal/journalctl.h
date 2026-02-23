@@ -94,3 +94,6 @@ extern bool arg_synchronize_on_exit;
 static inline bool arg_lines_needs_seek_end(void) {
         return arg_lines >= 0 && !arg_lines_oldest;
 }
+
+/* Only used for varlink server invocation */
+extern RuntimeScope arg_varlink_runtime_scope;
