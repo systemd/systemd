@@ -17,4 +17,3 @@ Symlinks=%t/varlink/registry/io.systemd.JournalAccess
 FileDescriptorName=varlink
 SocketMode=0600
 Accept=yes
-MaxConnectionsPerSource=16
