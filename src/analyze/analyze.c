@@ -310,7 +310,6 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --debugger=DEBUGGER     Use the given debugger\n"
                "  -A --debugger-arguments=ARGS\n"
                "                             Pass the given arguments to the debugger\n"
-
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
