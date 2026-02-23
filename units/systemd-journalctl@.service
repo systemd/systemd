@@ -16,7 +16,7 @@ Before=shutdown.target
 RequiresMountsFor=/var/log/journal
 
 [Service]
-ExecStart=journalctl
+ExecStart=journalctl --system
 DynamicUser=yes
 User=systemd-journal-access
 SupplementaryGroups=systemd-journal
