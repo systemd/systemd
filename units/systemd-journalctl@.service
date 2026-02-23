@@ -13,6 +13,7 @@ Documentation=man:journalctl(1)
 DefaultDependencies=no
 Conflicts=shutdown.target
 Before=shutdown.target
+RequiresMountsFor=/var/log/journal
 
 [Service]
 ExecStart=journalctl
