@@ -895,7 +895,6 @@ foreach option : ['adm-gid',
                   'video-gid',
                   'wheel-gid',
                   'systemd-journal-gid',
-                  'systemd-journal-uid',
                   'systemd-network-uid',
                   'systemd-resolve-uid',
                   'systemd-timesync-uid']
