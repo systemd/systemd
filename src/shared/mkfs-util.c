@@ -4,10 +4,6 @@
 #include <sys/mount.h>
 #include <unistd.h>
 
-#include "fd-util.h"
-#include "fileio.h"
-#include "format-util.h"
-#include "fs-util.h"
 #include "log.h"
 #include "mkfs-util.h"
 #include "mount-util.h"
@@ -15,12 +11,10 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "recurse-dir.h"
-#include "rm-rf.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
-#include "tmpfile-util.h"
 #include "utf8.h"
 
 int mkfs_exists(const char *fstype) {
@@ -171,154 +165,6 @@ static int do_mcopy(const char *node, const char *root) {
         return 0;
 }
 
-typedef struct ProtofileData {
-        FILE *file;
-        bool has_filename_with_spaces;
-        const char *tmpdir;
-} ProtofileData;
-
-static int protofile_print_item(
-                RecurseDirEvent event,
-                const char *path,
-                int dir_fd,
-                int inode_fd,
-                const struct dirent *de,
-                const struct statx *sx,
-                void *userdata) {
-
-        ProtofileData *data = ASSERT_PTR(userdata);
-        _cleanup_free_ char *copy = NULL;
-        int r;
-
-        if (event == RECURSE_DIR_LEAVE) {
-                fputs("$\n", data->file);
-                return 0;
-        }
-
-        if (!IN_SET(event, RECURSE_DIR_ENTER, RECURSE_DIR_ENTRY))
-                return RECURSE_DIR_CONTINUE;
-
-        char type = S_ISDIR(sx->stx_mode)  ? 'd' :
-                    S_ISREG(sx->stx_mode)  ? '-' :
-                    S_ISLNK(sx->stx_mode)  ? 'l' :
-                    S_ISFIFO(sx->stx_mode) ? 'p' :
-                    S_ISBLK(sx->stx_mode)  ? 'b' :
-                    S_ISCHR(sx->stx_mode)  ? 'c' : 0;
-        if (type == 0)
-                return RECURSE_DIR_CONTINUE;
-
-        /* The protofile format does not support spaces in filenames as whitespace is used as a token
-         * delimiter. To work around this limitation, mkfs.xfs allows escaping whitespace by using the /
-         * character (which isn't allowed in filenames and as such can be used to escape whitespace). See
-         * https://lore.kernel.org/linux-xfs/20230222090303.h6tujm7y32gjhgal@andromeda/T/#m8066b3e7d62a080ee7434faac4861d944e64493b
-         * for more information. */
-
-        if (strchr(de->d_name, ' ')) {
-                copy = strdup(de->d_name);
-                if (!copy)
-                        return log_oom();
-
-                string_replace_char(copy, ' ', '/');
-                data->has_filename_with_spaces = true;
-        }
-
-        fprintf(data->file, "%s %c%c%c%03o "UID_FMT" "GID_FMT" ",
-                copy ?: de->d_name,
-                type,
-                sx->stx_mode & S_ISUID ? 'u' : '-',
-                sx->stx_mode & S_ISGID ? 'g' : '-',
-                (unsigned) (sx->stx_mode & 0777),
-                sx->stx_uid, sx->stx_gid);
-
-        if (S_ISREG(sx->stx_mode)) {
-                _cleanup_free_ char *p = NULL;
-
-                /* While we can escape whitespace in the filename, we cannot escape whitespace in the source
-                 * path, so hack around that by creating a symlink to the path in a temporary directory and
-                 * using the symlink as the source path instead. */
-
-                if (strchr(path, ' ')) {
-                        r = tempfn_random_child(data->tmpdir, "mkfs-xfs", &p);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to generate random child name in %s: %m", data->tmpdir);
-
-                        if (symlink(path, p) < 0)
-                                return log_error_errno(errno, "Failed to symlink %s to %s: %m", p, path);
-                }
-
-                fputs(p ?: path, data->file);
-        } else if (S_ISLNK(sx->stx_mode)) {
-                _cleanup_free_ char *p = NULL;
-
-                r = readlinkat_malloc(dir_fd, de->d_name, &p);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to read symlink %s: %m", path);
-
-                /* If we have a symlink to a path with whitespace in it, we're out of luck, as there's no way
-                 * to encode that in the mkfs.xfs protofile format. */
-
-                if (strchr(p, ' '))
-                        return log_error_errno(r, "Symlinks to paths containing whitespace are not supported by mkfs.xfs: %m");
-
-                fputs(p, data->file);
-        } else if (S_ISBLK(sx->stx_mode) || S_ISCHR(sx->stx_mode))
-                fprintf(data->file, "%" PRIu32 " %" PRIu32, sx->stx_rdev_major, sx->stx_rdev_minor);
-
-        fputc('\n', data->file);
-
-        return RECURSE_DIR_CONTINUE;
-}
-
-static int make_protofile(const char *root, char **ret_path, bool *ret_has_filename_with_spaces, char **ret_tmpdir) {
-        _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_(unlink_and_freep) char *p = NULL;
-        struct ProtofileData data = {};
-        const char *vt;
-        int r;
-
-        assert(ret_path);
-        assert(ret_has_filename_with_spaces);
-        assert(ret_tmpdir);
-
-        r = var_tmp_dir(&vt);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get persistent temporary directory: %m");
-
-        r = fopen_temporary_child(vt, &f, &p);
-        if (r < 0)
-                return log_error_errno(r, "Failed to open temporary file: %m");
-
-        /* Explicitly use /tmp here because this directory cannot have spaces its path. */
-        r = mkdtemp_malloc("/tmp/systemd-mkfs-XXXXXX", &tmpdir);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create temporary directory: %m");
-
-        data.file = f;
-        data.tmpdir = tmpdir;
-
-        fputs("/\n"
-              "0 0\n"
-              "d--755 0 0\n", f);
-
-        r = recurse_dir_at(AT_FDCWD, root, STATX_TYPE|STATX_MODE|STATX_UID|STATX_GID, UINT_MAX,
-                           RECURSE_DIR_SORT, protofile_print_item, &data);
-        if (r < 0)
-                return log_error_errno(r, "Failed to recurse through %s: %m", root);
-
-        fputs("$\n", f);
-
-        r = fflush_and_check(f);
-        if (r < 0)
-                return log_error_errno(r, "Failed to flush %s: %m", p);
-
-        *ret_path = TAKE_PTR(p);
-        *ret_has_filename_with_spaces = data.has_filename_with_spaces;
-        *ret_tmpdir = TAKE_PTR(tmpdir);
-
-        return 0;
-}
-
 int make_filesystem(
                 const char *node,
                 const char *fstype,
@@ -333,8 +179,6 @@ int make_filesystem(
 
         _cleanup_free_ char *mkfs = NULL, *mangled_label = NULL;
         _cleanup_strv_free_ char **argv = NULL, **env = NULL;
-        _cleanup_(rm_rf_physical_and_freep) char *protofile_tmpdir = NULL;
-        _cleanup_(unlink_and_freep) char *protofile = NULL;
         char vol_id[CONST_MAX(SD_ID128_UUID_STRING_MAX, 8U + 1U)] = {};
         int stdio_fds[3] = { -EBADF, STDERR_FILENO, STDERR_FILENO};
         ForkFlags fork_flags = FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT|
@@ -560,26 +404,8 @@ int make_filesystem(
                 if (!FLAGS_SET(flags, MKFS_DISCARD) && strv_extend(&argv, "-K") < 0)
                         return log_oom();
 
-                if (root) {
-                        bool has_filename_with_spaces = false;
-                        _cleanup_free_ char *protofile_with_opt = NULL;
-
-                        r = make_protofile(root, &protofile, &has_filename_with_spaces, &protofile_tmpdir);
-                        if (r < 0)
-                                return r;
-
-                        /* Gross hack to make mkfs.xfs interpret slashes as spaces so we can encode filenames
-                         * with spaces in the protofile format. */
-                        if (has_filename_with_spaces)
-                                protofile_with_opt = strjoin("slashes_are_spaces=1,", protofile);
-                        else
-                                protofile_with_opt = strdup(protofile);
-                        if (!protofile_with_opt)
-                                return -ENOMEM;
-
-                        if (strv_extend_many(&argv, "-p", protofile_with_opt) < 0)
-                                return log_oom();
-                }
+                if (root && strv_extend_many(&argv, "-p", root) < 0)
+                        return log_oom();
 
                 if (sector_size > 0) {
                         if (strv_extend(&argv, "-s") < 0)
