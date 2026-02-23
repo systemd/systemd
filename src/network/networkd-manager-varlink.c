@@ -21,6 +21,7 @@
 #include "networkd-setlink.h"
 #include "stat-util.h"
 #include "varlink-io.systemd.Network.h"
+#include "varlink-io.systemd.Network.Link.h"
 #include "varlink-io.systemd.service.h"
 #include "varlink-util.h"
 
@@ -503,6 +504,7 @@ int manager_varlink_init(Manager *m, int fd) {
         r = sd_varlink_server_add_interface_many(
                         s,
                         &vl_interface_io_systemd_Network,
+                        &vl_interface_io_systemd_Network_Link,
                         &vl_interface_io_systemd_service);
         if (r < 0)
                 return log_error_errno(r, "Failed to add Network interface to varlink server: %m");
@@ -510,16 +512,16 @@ int manager_varlink_init(Manager *m, int fd) {
         r = sd_varlink_server_bind_method_many(
                         s,
                         "io.systemd.Network.Describe",             vl_method_describe,
-                        "io.systemd.Network.DescribeLink",         vl_method_describe_link,
-                        "io.systemd.Network.ForceRenewLink",       vl_method_force_renew_link,
-                        "io.systemd.Network.ReconfigureLink",      vl_method_reconfigure_link,
-                        "io.systemd.Network.RenewLink",            vl_method_renew_link,
                         "io.systemd.Network.GetStates",            vl_method_get_states,
                         "io.systemd.Network.GetNamespaceId",       vl_method_get_namespace_id,
                         "io.systemd.Network.GetLLDPNeighbors",     vl_method_get_lldp_neighbors,
                         "io.systemd.Network.SetPersistentStorage", vl_method_set_persistent_storage,
-                        "io.systemd.Network.LinkUp",               vl_method_link_up,
-                        "io.systemd.Network.LinkDown",             vl_method_link_down,
+                        "io.systemd.Network.Link.Describe",        vl_method_describe_link,
+                        "io.systemd.Network.Link.Up",              vl_method_link_up,
+                        "io.systemd.Network.Link.Down",            vl_method_link_down,
+                        "io.systemd.Network.Link.Renew",           vl_method_renew_link,
+                        "io.systemd.Network.Link.ForceRenew",      vl_method_force_renew_link,
+                        "io.systemd.Network.Link.Reconfigure",     vl_method_reconfigure_link,
                         "io.systemd.service.Ping",                 varlink_method_ping,
                         "io.systemd.service.Reload",               vl_method_reload,
                         "io.systemd.service.SetLogLevel",          varlink_method_set_log_level,
