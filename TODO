@@ -1518,12 +1518,6 @@ Features:
   UEFI firmware (for example, ovmf supports that via qemu cmdline option), and
   use it to load stuff from the ESP.
 
-* mount /var/ from initrd, so that we can apply sysext and stuff before the
-  initrd transition. Specifically:
-  1. There should be a var= kernel cmdline option, matching root= and usr=
-  2. systemd-gpt-auto-generator should auto-mount /var if it finds it on disk
-  3. mount.x-initrd mount option in fstab should be implied for /var
-
 * make persistent restarts easier by adding a new setting OpenPersistentFile=
   or so, which allows opening one or more files that is "persistent" across
   service restarts, hot reboot, cold reboots (depending on configuration): the
