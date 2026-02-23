@@ -52,7 +52,7 @@ static int dump_dhcp_leases(Table *table, const char *prefix, sd_varlink *vl, co
 
         r = varlink_callbo_and_log(
                         vl,
-                        "io.systemd.Network.DescribeLink",
+                        "io.systemd.Network.Link.Describe",
                         &reply,
                         SD_JSON_BUILD_PAIR_INTEGER("InterfaceIndex", link->ifindex));
         if (r < 0) {
