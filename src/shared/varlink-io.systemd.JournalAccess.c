@@ -18,6 +18,7 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_FIELD_COMMENT("The journal entry in flat JSON format, matching journalctl --output=json."),
                 SD_VARLINK_DEFINE_OUTPUT(entry, SD_VARLINK_OBJECT, SD_VARLINK_NULLABLE));
 
+static SD_VARLINK_DEFINE_ERROR(NoMatches);
 static SD_VARLINK_DEFINE_ERROR(NoEntries);
 
 SD_VARLINK_DEFINE_INTERFACE(
@@ -26,5 +27,7 @@ SD_VARLINK_DEFINE_INTERFACE(
                 SD_VARLINK_INTERFACE_COMMENT("Journal log read APIs"),
                 SD_VARLINK_SYMBOL_COMMENT("Retrieve journal log entries, optionally filtered by unit, priority, etc."),
                 &vl_method_GetEntries,
+                SD_VARLINK_SYMBOL_COMMENT("No matches found for specified unit patterns"),
+                &vl_error_NoMatches,
                 SD_VARLINK_SYMBOL_COMMENT("No journal entries matched the specified filters."),
                 &vl_error_NoEntries);
