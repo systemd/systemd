@@ -159,7 +159,7 @@ struct Table {
         bool *reverse_map;
 };
 
-Table *table_new_raw(size_t n_columns) {
+Table* table_new_raw(size_t n_columns) {
         _cleanup_(table_unrefp) Table *t = NULL;
 
         assert(n_columns > 0);
@@ -179,7 +179,7 @@ Table *table_new_raw(size_t n_columns) {
         return TAKE_PTR(t);
 }
 
-Table *table_new_internal(const char *first_header, ...) {
+Table* table_new_internal(const char *first_header, ...) {
         _cleanup_(table_unrefp) Table *t = NULL;
         size_t n_columns = 1;
         va_list ap;
@@ -216,7 +216,7 @@ Table *table_new_internal(const char *first_header, ...) {
         return TAKE_PTR(t);
 }
 
-Table *table_new_vertical(void) {
+Table* table_new_vertical(void) {
         _cleanup_(table_unrefp) Table *t = NULL;
         TableCell *cell;
 
@@ -242,7 +242,7 @@ Table *table_new_vertical(void) {
         return TAKE_PTR(t);
 }
 
-static TableData *table_data_free(TableData *d) {
+static TableData* table_data_free(TableData *d) {
         assert(d);
 
         free(d->formatted);
@@ -260,7 +260,7 @@ static TableData *table_data_free(TableData *d) {
 DEFINE_PRIVATE_TRIVIAL_REF_UNREF_FUNC(TableData, table_data, table_data_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(TableData*, table_data_unref);
 
-Table *table_unref(Table *t) {
+Table* table_unref(Table *t) {
         if (!t)
                 return NULL;
 
@@ -425,7 +425,7 @@ static bool table_data_matches(
         return memcmp_safe(data, d->data, l) == 0;
 }
 
-static TableData *table_data_new(
+static TableData* table_data_new(
                 TableDataType type,
                 const void *data,
                 size_t minimum_width,
@@ -1602,7 +1602,7 @@ static char* format_strv_width(char **strv, size_t column_width) {
         return buf;
 }
 
-static const char *table_data_format(
+static const char* table_data_format(
                 Table *t,
                 TableData *d,
                 bool avoid_uppercasing,
@@ -2115,7 +2115,7 @@ static const char *table_data_format(
         return d->formatted;
 }
 
-static const char *table_data_format_strip_ansi(
+static const char* table_data_format_strip_ansi(
                 Table *t,
                 TableData *d,
                 bool avoid_uppercasing,
@@ -2252,7 +2252,7 @@ static int table_data_requested_width_height(
         return truncation_applied;
 }
 
-static char *align_string_mem(const char *str, const char *url, size_t new_length, unsigned percent) {
+static char* align_string_mem(const char *str, const char *url, size_t new_length, unsigned percent) {
         size_t w = 0, space, lspace, old_length, clickable_length;
         _cleanup_free_ char *clickable = NULL;
         const char *p;
@@ -2851,7 +2851,7 @@ int table_set_reverse(Table *t, size_t column, bool b) {
         return 0;
 }
 
-TableCell *table_get_cell(Table *t, size_t row, size_t column) {
+TableCell* table_get_cell(Table *t, size_t row, size_t column) {
         size_t i;
 
         assert(t);
@@ -2866,7 +2866,7 @@ TableCell *table_get_cell(Table *t, size_t row, size_t column) {
         return TABLE_INDEX_TO_CELL(i);
 }
 
-const void *table_get(Table *t, TableCell *cell) {
+const void* table_get(Table *t, TableCell *cell) {
         TableData *d;
 
         assert(t);
@@ -3124,7 +3124,7 @@ static int table_make_json_field_name(Table *t, TableData *d, char **ret) {
         return 0;
 }
 
-static const char *table_get_json_field_name(Table *t, size_t idx) {
+static const char* table_get_json_field_name(Table *t, size_t idx) {
         assert(t);
 
         return idx < t->n_json_fields ? t->json_fields[idx] : NULL;
