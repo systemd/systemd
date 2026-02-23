@@ -2,6 +2,7 @@
 
 #include <unistd.h>
 
+#include "sd-dhcp-server.h"
 #include "sd-event.h"
 #include "sd-varlink.h"
 
@@ -12,6 +13,7 @@
 #include "lldp-rx-internal.h"
 #include "network-util.h"
 #include "networkd-dhcp-server.h"
+#include "networkd-dhcp4.h"
 #include "networkd-json.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
@@ -19,6 +21,7 @@
 #include "networkd-setlink.h"
 #include "stat-util.h"
 #include "varlink-io.systemd.Network.h"
+#include "varlink-io.systemd.Network.Link.h"
 #include "varlink-io.systemd.service.h"
 #include "varlink-util.h"
 
@@ -324,6 +327,160 @@ static int vl_method_link_down(sd_varlink *vlink, sd_json_variant *parameters, s
         return vl_method_link_up_or_down(vlink, parameters, userdata, /* up= */ false);
 }
 
+static int vl_method_describe_link(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        Manager *manager = ASSERT_PTR(userdata);
+        Link *link;
+        int r;
+
+        assert(vlink);
+
+        r = dispatch_interface(vlink, parameters, manager, /* polkit= */ false, &link);
+        if (r != 0)
+                return r;
+
+        if (!link)
+                return sd_varlink_error_invalid_parameter(vlink, JSON_VARIANT_STRING_CONST("InterfaceIndex"));
+
+        r = link_build_json(link, &v);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to format JSON data: %m");
+
+        return sd_varlink_replybo(
+                        vlink,
+                        SD_JSON_BUILD_PAIR_VARIANT("Interface", v));
+}
+
+static int vl_method_reload(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        assert(vlink);
+
+        if (m->reloading > 0)
+                return sd_varlink_error(vlink, "io.systemd.Network.AlreadyReloading", NULL);
+
+        r = sd_varlink_dispatch(vlink, parameters, dispatch_table_polkit_only, /* userdata= */ NULL);
+        if (r != 0)
+                return r;
+
+        r = varlink_verify_polkit_async(
+                        vlink,
+                        m->bus,
+                        "org.freedesktop.network1.reload",
+                        /* details= */ NULL,
+                        &m->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = manager_reload(m, /* message= */ NULL, vlink);
+        if (r < 0)
+                return log_error_errno(r, "Failed to reload: %m");
+
+        if (m->reloading > 0)
+                return 0; /* Reply will be sent asynchronously. */
+
+        return sd_varlink_reply(vlink, NULL);
+}
+
+static int vl_method_reconfigure_link(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+        Link *link;
+        int r;
+
+        assert(vlink);
+
+        r = dispatch_interface(vlink, parameters, manager, /* polkit= */ true, &link);
+        if (r != 0)
+                return r;
+
+        if (!link)
+                return sd_varlink_error_invalid_parameter(vlink, JSON_VARIANT_STRING_CONST("InterfaceIndex"));
+
+        r = varlink_verify_polkit_async(
+                        vlink,
+                        manager->bus,
+                        "org.freedesktop.network1.reconfigure",
+                        /* details= */ NULL,
+                        &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = link_reconfigure_full(link,
+                                  LINK_RECONFIGURE_UNCONDITIONALLY | LINK_RECONFIGURE_CLEANLY,
+                                  /* message= */ NULL,
+                                  /* varlink= */ vlink,
+                                  /* counter= */ NULL);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to reconfigure link: %m");
+        if (r > 0)
+                return 0; /* Reply will be sent asynchronously via vlink */
+
+        return sd_varlink_reply(vlink, NULL);
+}
+
+static int vl_method_force_renew_link(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+        Link *link;
+        int r;
+
+        assert(vlink);
+
+        r = dispatch_interface(vlink, parameters, manager, /* polkit= */ true, &link);
+        if (r != 0)
+                return r;
+
+        if (!link)
+                return sd_varlink_error_invalid_parameter(vlink, JSON_VARIANT_STRING_CONST("InterfaceIndex"));
+
+        r = varlink_verify_polkit_async(
+                        vlink,
+                        manager->bus,
+                        "org.freedesktop.network1.forcerenew",
+                        /* details= */ NULL,
+                        &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        if (sd_dhcp_server_is_running(link->dhcp_server)) {
+                r = sd_dhcp_server_forcerenew(link->dhcp_server);
+                if (r < 0)
+                        return log_link_warning_errno(link, r, "Failed to force-renew DHCP server leases: %m");
+        }
+
+        return sd_varlink_reply(vlink, NULL);
+}
+
+static int vl_method_renew_link(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+        Link *link;
+        int r;
+
+        assert(vlink);
+
+        r = dispatch_interface(vlink, parameters, manager, /* polkit= */ true, &link);
+        if (r != 0)
+                return r;
+
+        if (!link)
+                return sd_varlink_error_invalid_parameter(vlink, JSON_VARIANT_STRING_CONST("InterfaceIndex"));
+
+        r = varlink_verify_polkit_async(
+                        vlink,
+                        manager->bus,
+                        "org.freedesktop.network1.renew",
+                        /* details= */ NULL,
+                        &manager->polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = dhcp4_renew(link);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to renew DHCPv4 lease: %m");
+
+        return sd_varlink_reply(vlink, NULL);
+}
+
 int manager_varlink_init(Manager *m, int fd) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
         _unused_ _cleanup_close_ int fd_close = fd; /* take possession */
@@ -347,6 +504,7 @@ int manager_varlink_init(Manager *m, int fd) {
         r = sd_varlink_server_add_interface_many(
                         s,
                         &vl_interface_io_systemd_Network,
+                        &vl_interface_io_systemd_Network_Link,
                         &vl_interface_io_systemd_service);
         if (r < 0)
                 return log_error_errno(r, "Failed to add Network interface to varlink server: %m");
@@ -358,8 +516,13 @@ int manager_varlink_init(Manager *m, int fd) {
                         "io.systemd.Network.GetNamespaceId",       vl_method_get_namespace_id,
                         "io.systemd.Network.GetLLDPNeighbors",     vl_method_get_lldp_neighbors,
                         "io.systemd.Network.SetPersistentStorage", vl_method_set_persistent_storage,
-                        "io.systemd.Network.LinkUp",               vl_method_link_up,
-                        "io.systemd.Network.LinkDown",             vl_method_link_down,
+                        "io.systemd.Network.Reload",               vl_method_reload,
+                        "io.systemd.Network.Link.Describe",        vl_method_describe_link,
+                        "io.systemd.Network.Link.Up",              vl_method_link_up,
+                        "io.systemd.Network.Link.Down",            vl_method_link_down,
+                        "io.systemd.Network.Link.Renew",           vl_method_renew_link,
+                        "io.systemd.Network.Link.ForceRenew",      vl_method_force_renew_link,
+                        "io.systemd.Network.Link.Reconfigure",     vl_method_reconfigure_link,
                         "io.systemd.service.Ping",                 varlink_method_ping,
                         "io.systemd.service.SetLogLevel",          varlink_method_set_log_level,
                         "io.systemd.service.GetEnvironment",       varlink_method_get_environment);
