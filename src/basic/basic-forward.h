@@ -97,6 +97,7 @@ typedef enum RuntimeScope RuntimeScope;
 typedef enum TimestampStyle TimestampStyle;
 typedef enum UnitActiveState UnitActiveState;
 typedef enum UnitDependency UnitDependency;
+typedef enum UnitNameMangle UnitNameMangle;
 typedef enum UnitType UnitType;
 typedef enum WaitFlags WaitFlags;
 
