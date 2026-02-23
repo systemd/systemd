@@ -274,6 +274,29 @@ _noreturn_ void log_test_failed_internal(const char *file, int line, const char 
         })
 #endif
 
+#ifdef __COVERITY__
+#  define ASSERT_OK_NE(expr1, expr2)                                                                            \
+        ({                                                                                                      \
+                typeof(expr1) _expr1 = (expr1);                                                                 \
+                typeof(expr2) _expr2 = (expr2);                                                                 \
+                __coverity_check__(_expr1 != _expr2);                                                           \
+                _expr1;                                                                                         \
+        })
+#else
+#  define ASSERT_OK_NE(expr1, expr2)                                                                            \
+        ({                                                                                                      \
+                typeof(expr1) _expr1 = (expr1);                                                                 \
+                typeof(expr2) _expr2 = (expr2);                                                                 \
+                if (_expr1 < 0)                                                                                 \
+                        log_test_failed("Expected \"%s\" to succeed, but got error: %"PRIiMAX"/%s",             \
+                                        #expr1, (intmax_t) _expr1, ERRNO_NAME(_expr1));                         \
+                if (_expr1 == _expr2)                                                                           \
+                        log_test_failed("Expected \"%s != %s\", got %"PRIiMAX" != %"PRIiMAX,                    \
+                                        #expr1, #expr2, (intmax_t) _expr1, (intmax_t) _expr2);                  \
+                _expr1;                                                                                         \
+        })
+#endif
+
 /* For functions that return a boolean on success and set errno on failure. */
 #ifdef __COVERITY__
 #  define ASSERT_OK_ERRNO(expr)                                                                                 \
