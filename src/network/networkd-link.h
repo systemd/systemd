@@ -242,9 +242,9 @@ DECLARE_STRING_TABLE_LOOKUP(link_state, LinkState);
 int link_request_stacked_netdevs(Link *link, NetDevLocalAddressType type);
 
 int link_reconfigure_impl(Link *link, LinkReconfigurationFlag flags);
-int link_reconfigure_full(Link *link, LinkReconfigurationFlag flags, sd_bus_message *message, unsigned *counter);
+int link_reconfigure_full(Link *link, LinkReconfigurationFlag flags, sd_bus_message *message, sd_varlink *varlink, unsigned *counter);
 static inline int link_reconfigure(Link *link, LinkReconfigurationFlag flags) {
-        return link_reconfigure_full(link, flags, NULL, NULL);
+        return link_reconfigure_full(link, flags, NULL, NULL, NULL);
 }
 
 int link_check_initialized(Link *link);
