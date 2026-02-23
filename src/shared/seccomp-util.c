@@ -880,6 +880,9 @@ const SyscallFilterSet syscall_filter_sets[_SYSCALL_FILTER_SET_MAX] = {
                 "landlock_add_rule\0"
                 "landlock_create_ruleset\0"
                 "landlock_restrict_self\0"
+                "lsm_get_self_attr\0"
+                "lsm_list_modules\0"
+                "lsm_set_self_attr\0"
                 "seccomp\0"
         },
         [SYSCALL_FILTER_SET_SETUID] = {
