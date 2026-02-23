@@ -17,4 +17,6 @@ RequiresMountsFor=/var/log/journal
 
 [Service]
 ExecStart=journalctl
-User=systemd-journal
+DynamicUser=yes
+User=systemd-journal-access
+SupplementaryGroups=systemd-journal
