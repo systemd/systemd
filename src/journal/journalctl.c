@@ -30,6 +30,7 @@
 #include "parse-util.h"
 #include "pcre2-util.h"
 #include "pretty-print.h"
+#include "runtime-scope.h"
 #include "set.h"
 #include "static-destruct.h"
 #include "string-table.h"
@@ -111,7 +112,9 @@ pcre2_code *arg_compiled_pattern = NULL;
 PatternCompileCase arg_case = PATTERN_COMPILE_CASE_AUTO;
 ImagePolicy *arg_image_policy = NULL;
 bool arg_synchronize_on_exit = false;
+
 static bool arg_varlink = false;
+RuntimeScope arg_varlink_runtime_scope = _RUNTIME_SCOPE_INVALID;
 
 STATIC_DESTRUCTOR_REGISTER(arg_cursor, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_cursor_file, freep);
@@ -486,7 +489,35 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(r, "Failed to check if invoked in Varlink mode: %m");
         if (r > 0) {
                 arg_varlink = true;
-                arg_pager_flags |= PAGER_DISABLE;
+
+                static const struct option varlink_options[] = {
+                        { "system", no_argument, NULL, ARG_SYSTEM },
+                        { "user",   no_argument, NULL, ARG_USER   },
+                        {}
+                };
+
+                while ((c = getopt_long(argc, argv, "", varlink_options, NULL)) >= 0)
+
+                        switch (c) {
+
+                        case ARG_SYSTEM:
+                                arg_varlink_runtime_scope = RUNTIME_SCOPE_SYSTEM;
+                                break;
+
+                        case ARG_USER:
+                                arg_varlink_runtime_scope = RUNTIME_SCOPE_USER;
+                                break;
+
+                        case '?':
+                                return -EINVAL;
+
+                        default:
+                                assert_not_reached();
+                        }
+
+                if (arg_varlink_runtime_scope < 0)
+                        return log_error_errno(arg_varlink_runtime_scope, "Cannot run in Varlink mode with no runtime scope specified.");
+
                 return 1;
         }
 
