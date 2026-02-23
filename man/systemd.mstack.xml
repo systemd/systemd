@@ -50,7 +50,7 @@
       they be missing.</para></listitem>
 
       <listitem><para>A <filename>bind@<replaceable>location</replaceable>/</filename> directory will be bind
-      mounted to the mount point indicated by the <variable>location</variable> identifier, in read-write
+      mounted to the mount point indicated by the <varname>location</varname> identifier, in read-write
       fashion. The location is encoded via the same escaping logic used for naming <literal>.mount</literal>
       units, i.e. slashes become dashes.</para></listitem>
 
