@@ -280,7 +280,7 @@ _public_ int sd_varlink_connect_exec(sd_varlink **ret, const char *_command, cha
                 }
 
                 execvp(command, argv);
-                log_debug_errno(r, "Failed to invoke process '%s': %m", command);
+                log_debug_errno(errno, "Failed to invoke process '%s': %m", command);
                 _exit(EXIT_FAILURE);
         }
 
