@@ -13,7 +13,10 @@ Documentation=man:journalctl(1)
 DefaultDependencies=no
 Conflicts=shutdown.target
 Before=shutdown.target
+RequiresMountsFor=/var/log/journal
 
 [Service]
-ExecStart=journalctl
-User=systemd-journal
+ExecStart=journalctl --system
+DynamicUser=yes
+User=systemd-journal-access
+SupplementaryGroups=systemd-journal
