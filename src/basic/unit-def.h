@@ -62,6 +62,8 @@ typedef enum FreezerState {
 typedef enum UnitMarker {
         UNIT_MARKER_NEEDS_RELOAD,
         UNIT_MARKER_NEEDS_RESTART,
+        UNIT_MARKER_NEEDS_STOP,
+        UNIT_MARKER_NEEDS_START,
         _UNIT_MARKER_MAX,
         _UNIT_MARKER_INVALID = -EINVAL,
 } UnitMarker;

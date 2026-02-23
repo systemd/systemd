@@ -11,6 +11,7 @@
 #include "all-units.h"
 #include "alloc-util.h"
 #include "ansi-color.h"
+#include "bitfield.h"
 #include "bpf-restrict-fs.h"
 #include "bus-common-errors.h"
 #include "bus-internal.h"
@@ -478,6 +479,9 @@ bool unit_may_gc(Unit *u) {
         r = unit_cgroup_is_empty(u);
         if (r <= 0 && !IN_SET(r, -ENXIO, -EOWNERDEAD))
                 return false; /* ENXIO/EOWNERDEAD means: currently not realized */
+
+        if (unit_can_start(u) && BIT_SET(u->markers, UNIT_MARKER_NEEDS_START))
+                return false;
 
         if (!UNIT_VTABLE(u)->may_gc)
                 return true;
@@ -2758,11 +2762,13 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
         /* Make sure the cgroup and state files are always removed when we become inactive */
         if (UNIT_IS_INACTIVE_OR_FAILED(ns)) {
                 SET_FLAG(u->markers,
-                         (1u << UNIT_MARKER_NEEDS_RELOAD)|(1u << UNIT_MARKER_NEEDS_RESTART),
+                         (1u << UNIT_MARKER_NEEDS_RELOAD)|(1u << UNIT_MARKER_NEEDS_RESTART)|(1u << UNIT_MARKER_NEEDS_STOP),
                          false);
                 unit_prune_cgroup(u);
                 unit_unlink_state_files(u);
-        } else if (ns != os && ns == UNIT_RELOADING)
+        } else if (UNIT_IS_ACTIVE_OR_ACTIVATING(ns))
+                SET_FLAG(u->markers, 1u << UNIT_MARKER_NEEDS_START, false);
+        else if (ns != os && ns == UNIT_RELOADING)
                 SET_FLAG(u->markers, 1u << UNIT_MARKER_NEEDS_RELOAD, false);
 
         unit_update_on_console(u);
@@ -7086,8 +7092,45 @@ int parse_unit_marker(const char *marker, unsigned *settings, unsigned *mask) {
         if (m < 0)
                 return -EINVAL;
 
+        /* When +- are not used, last one wins, so reset the bitmask before storing the new result */
+        if (!some_plus_minus)
+                *settings = 0;
+
         SET_FLAG(*settings, 1u << m, b);
         SET_FLAG(*mask, 1u << m, true);
 
         return some_plus_minus;
+}
+
+unsigned unit_normalize_markers(unsigned existing_markers, unsigned new_markers) {
+        /* Follow the job merging logic: when new markers conflict with existing ones, the new marker
+         * takes precedence and clears out conflicting existing markers. Then standard normalization
+         * resolves any remaining conflicts. */
+
+        /* New stop wins against all existing markers */
+        if (BIT_SET(new_markers, UNIT_MARKER_NEEDS_STOP))
+                CLEAR_BITS(existing_markers, UNIT_MARKER_NEEDS_RESTART, UNIT_MARKER_NEEDS_START, UNIT_MARKER_NEEDS_RELOAD);
+        /* New start wins against existing stop */
+        if (BIT_SET(new_markers, UNIT_MARKER_NEEDS_START))
+                CLEAR_BIT(existing_markers, UNIT_MARKER_NEEDS_STOP);
+        /* New restart wins against existing start and reload */
+        if (BIT_SET(new_markers, UNIT_MARKER_NEEDS_RESTART))
+                CLEAR_BITS(existing_markers, UNIT_MARKER_NEEDS_START, UNIT_MARKER_NEEDS_RELOAD);
+
+        unsigned markers = existing_markers | new_markers;
+
+        /* Standard normalization: reload loses against everything */
+        if (BIT_SET(markers, UNIT_MARKER_NEEDS_RESTART) || BIT_SET(markers, UNIT_MARKER_NEEDS_START) || BIT_SET(markers, UNIT_MARKER_NEEDS_STOP))
+                CLEAR_BIT(markers, UNIT_MARKER_NEEDS_RELOAD);
+        /* Stop wins against restart and reload */
+        if (BIT_SET(markers, UNIT_MARKER_NEEDS_STOP))
+                CLEAR_BITS(markers, UNIT_MARKER_NEEDS_RESTART, UNIT_MARKER_NEEDS_RELOAD);
+        /* Start wins against stop */
+        if (BIT_SET(markers, UNIT_MARKER_NEEDS_START))
+                CLEAR_BIT(markers, UNIT_MARKER_NEEDS_STOP);
+        /* Restart wins against start */
+        if (BITS_SET(markers, UNIT_MARKER_NEEDS_RESTART, UNIT_MARKER_NEEDS_START))
+                CLEAR_BIT(markers, UNIT_MARKER_NEEDS_START);
+
+        return markers;
 }
