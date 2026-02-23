@@ -286,7 +286,7 @@ static int acquire_link_bitrates(sd_varlink *vl, LinkInfo *link) {
 
         r = varlink_callbo_and_log(
                         vl,
-                        "io.systemd.Network.DescribeLink",
+                        "io.systemd.Network.Link.Describe",
                         &reply,
                         SD_JSON_BUILD_PAIR_INTEGER("InterfaceIndex", link->ifindex));
         if (r < 0)
