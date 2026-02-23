@@ -110,6 +110,16 @@ TEST(condition_test_path) {
         ASSERT_OK_ZERO(condition_test(condition, environ));
         condition_free(condition);
 
+        if (access("/run/dbus/system_bus_socket", F_OK) >= 0) {
+                ASSERT_NOT_NULL((condition = condition_new(CONDITION_PATH_IS_SOCKET, "/run/dbus/system_bus_socket", false, false)));
+                ASSERT_OK_POSITIVE(condition_test(condition, environ));
+                condition_free(condition);
+        }
+
+        ASSERT_NOT_NULL((condition = condition_new(CONDITION_PATH_IS_SOCKET, "/sys", false, false)));
+        ASSERT_OK_ZERO(condition_test(condition, environ));
+        condition_free(condition);
+
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_PATH_IS_SYMBOLIC_LINK, "/dev/stdout", false, false)));
         ASSERT_OK_POSITIVE(condition_test(condition, environ));
         condition_free(condition);
@@ -187,15 +197,15 @@ TEST(condition_test_ac_power) {
         Condition *condition;
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_AC_POWER, "true", false, false)));
-        assert_se(condition_test(condition, environ) == on_ac_power());
+        ASSERT_OK_EQ(condition_test(condition, environ), on_ac_power());
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_AC_POWER, "false", false, false)));
-        assert_se(condition_test(condition, environ) != on_ac_power());
+        ASSERT_OK_NE(condition_test(condition, environ), on_ac_power());
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_AC_POWER, "false", false, true)));
-        assert_se(condition_test(condition, environ) == on_ac_power());
+        ASSERT_OK_EQ(condition_test(condition, environ), on_ac_power());
         condition_free(condition);
 }
 
@@ -714,8 +724,8 @@ TEST(condition_test_credential) {
         _cleanup_free_ char *d1 = NULL, *d2 = NULL, *j = NULL;
         Condition *condition;
 
-        assert_se(free_and_strdup(&d1, getenv("CREDENTIALS_DIRECTORY")) >= 0);
-        assert_se(free_and_strdup(&d2, getenv("ENCRYPTED_CREDENTIALS_DIRECTORY")) >= 0);
+        ASSERT_OK(free_and_strdup(&d1, getenv("CREDENTIALS_DIRECTORY")));
+        ASSERT_OK(free_and_strdup(&d2, getenv("ENCRYPTED_CREDENTIALS_DIRECTORY")));
 
         ASSERT_OK_ERRNO(unsetenv("CREDENTIALS_DIRECTORY"));
         ASSERT_OK_ERRNO(unsetenv("ENCRYPTED_CREDENTIALS_DIRECTORY"));
@@ -729,8 +739,8 @@ TEST(condition_test_credential) {
         ASSERT_OK_ZERO(condition_test(condition, environ));
         condition_free(condition);
 
-        assert_se(mkdtemp_malloc(NULL, &n1) >= 0);
-        assert_se(mkdtemp_malloc(NULL, &n2) >= 0);
+        ASSERT_OK(mkdtemp_malloc(NULL, &n1));
+        ASSERT_OK(mkdtemp_malloc(NULL, &n2));
 
         ASSERT_OK_ERRNO(setenv("CREDENTIALS_DIRECTORY", n1, /* overwrite= */ true));
         ASSERT_OK_ERRNO(setenv("ENCRYPTED_CREDENTIALS_DIRECTORY", n2, /* overwrite= */ true));
@@ -740,20 +750,20 @@ TEST(condition_test_credential) {
         condition_free(condition);
 
         ASSERT_NOT_NULL((j = path_join(n1, "existing")));
-        assert_se(touch(j) >= 0);
+        ASSERT_OK(touch(j));
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_CREDENTIAL, "existing", /* trigger= */ false, /* negate= */ false)));
         ASSERT_OK_POSITIVE(condition_test(condition, environ));
         condition_free(condition);
         free(j);
 
         ASSERT_NOT_NULL((j = path_join(n2, "existing-encrypted")));
-        assert_se(touch(j) >= 0);
+        ASSERT_OK(touch(j));
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_CREDENTIAL, "existing-encrypted", /* trigger= */ false, /* negate= */ false)));
         ASSERT_OK_POSITIVE(condition_test(condition, environ));
         condition_free(condition);
 
-        assert_se(set_unset_env("CREDENTIALS_DIRECTORY", d1, /* overwrite= */ true) >= 0);
-        assert_se(set_unset_env("ENCRYPTED_CREDENTIALS_DIRECTORY", d2, /* overwrite= */ true) >= 0);
+        ASSERT_OK(set_unset_env("CREDENTIALS_DIRECTORY", d1, /* overwrite= */ true));
+        ASSERT_OK(set_unset_env("ENCRYPTED_CREDENTIALS_DIRECTORY", d2, /* overwrite= */ true));
 }
 
 #if defined(__i386__) || defined(__x86_64__)
@@ -782,36 +792,36 @@ TEST(condition_test_security) {
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_SECURITY, "selinux", false, true)));
-        assert_se(condition_test(condition, environ) != mac_selinux_use());
+        ASSERT_OK_NE(condition_test(condition, environ), mac_selinux_use());
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_SECURITY, "apparmor", false, false)));
-        assert_se(condition_test(condition, environ) == mac_apparmor_use());
+        ASSERT_OK_EQ(condition_test(condition, environ), mac_apparmor_use());
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_SECURITY, "tomoyo", false, false)));
-        assert_se(condition_test(condition, environ) == mac_tomoyo_use());
+        ASSERT_OK_EQ(condition_test(condition, environ), mac_tomoyo_use());
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_SECURITY, "ima", false, false)));
-        assert_se(condition_test(condition, environ) == use_ima());
+        ASSERT_OK_EQ(condition_test(condition, environ), use_ima());
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_SECURITY, "smack", false, false)));
-        assert_se(condition_test(condition, environ) == mac_smack_use());
+        ASSERT_OK_EQ(condition_test(condition, environ), mac_smack_use());
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_SECURITY, "audit", false, false)));
-        assert_se(condition_test(condition, environ) == use_audit());
+        ASSERT_OK_EQ(condition_test(condition, environ), use_audit());
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_SECURITY, "uefi-secureboot", false, false)));
-        assert_se(condition_test(condition, environ) == is_efi_secure_boot());
+        ASSERT_OK_EQ(condition_test(condition, environ), is_efi_secure_boot());
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_SECURITY, "cvm", false, false)));
-        assert_se(condition_test(condition, environ) ==
-                  (detect_confidential_virtualization() != CONFIDENTIAL_VIRTUALIZATION_NONE));
+        ASSERT_OK_EQ(condition_test(condition, environ),
+                     (detect_confidential_virtualization() != CONFIDENTIAL_VIRTUALIZATION_NONE));
         condition_free(condition);
 }
 
@@ -844,19 +854,19 @@ TEST(condition_test_virtualization) {
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VIRTUALIZATION, "container", false, false)));
         r = condition_test(condition, environ);
         log_info("ConditionVirtualization=container → %i", r);
-        assert_se(r == !!detect_container());
+        ASSERT_OK_EQ(r, !!detect_container());
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VIRTUALIZATION, "vm", false, false)));
         r = condition_test(condition, environ);
         log_info("ConditionVirtualization=vm → %i", r);
-        assert_se(r == (detect_vm() && !detect_container()));
+        ASSERT_OK_EQ(r, (detect_vm() && !detect_container()));
         condition_free(condition);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_VIRTUALIZATION, "private-users", false, false)));
         r = condition_test(condition, environ);
         log_info("ConditionVirtualization=private-users → %i", r);
-        assert_se(r == !!running_in_userns());
+        ASSERT_OK_EQ(r, !!running_in_userns());
         condition_free(condition);
 
         NULSTR_FOREACH(virt,
@@ -963,13 +973,12 @@ TEST(condition_test_group) {
         ASSERT_OK_POSITIVE(r);
         condition_free(condition);
 
-        ngroups_max = sysconf(_SC_NGROUPS_MAX);
-        assert_se(ngroups_max > 0);
+        ngroups_max = ASSERT_OK_ERRNO(sysconf(_SC_NGROUPS_MAX));
+        ASSERT_GT(ngroups_max, 0);
 
         gids = newa(gid_t, ngroups_max);
 
-        ngroups = getgroups(ngroups_max, gids);
-        assert_se(ngroups >= 0);
+        ngroups = ASSERT_OK_ERRNO(getgroups(ngroups_max, gids));
 
         max_gid = getgid();
         for (i = 0; i < ngroups; i++) {
@@ -1019,15 +1028,12 @@ TEST(condition_test_group) {
 
 static void test_condition_test_cpus_one(const char *s, bool result) {
         Condition *condition;
-        int r;
 
         log_debug("%s=%s", condition_type_to_string(CONDITION_CPUS), s);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_CPUS, s, false, false)));
 
-        r = condition_test(condition, environ);
-        assert_se(r >= 0);
-        assert_se(r == result);
+        ASSERT_OK_EQ(condition_test(condition, environ), result);
         condition_free(condition);
 }
 
@@ -1035,8 +1041,7 @@ TEST(condition_test_cpus) {
         _cleanup_free_ char *t = NULL;
         int cpus;
 
-        cpus = cpus_in_affinity_mask();
-        assert_se(cpus >= 0);
+        cpus = ASSERT_OK(cpus_in_affinity_mask());
 
         test_condition_test_cpus_one("> 0", true);
         test_condition_test_cpus_one(">= 0", true);
@@ -1052,42 +1057,39 @@ TEST(condition_test_cpus) {
         test_condition_test_cpus_one("!= 100000", true);
         test_condition_test_cpus_one("<= 100000", true);
 
-        assert_se(asprintf(&t, "= %i", cpus) >= 0);
+        ASSERT_OK(asprintf(&t, "= %i", cpus));
         test_condition_test_cpus_one(t, true);
         t = mfree(t);
 
-        assert_se(asprintf(&t, "<= %i", cpus) >= 0);
+        ASSERT_OK(asprintf(&t, "<= %i", cpus));
         test_condition_test_cpus_one(t, true);
         t = mfree(t);
 
-        assert_se(asprintf(&t, ">= %i", cpus) >= 0);
+        ASSERT_OK(asprintf(&t, ">= %i", cpus));
         test_condition_test_cpus_one(t, true);
         t = mfree(t);
 
-        assert_se(asprintf(&t, "!= %i", cpus) >= 0);
+        ASSERT_OK(asprintf(&t, "!= %i", cpus));
         test_condition_test_cpus_one(t, false);
         t = mfree(t);
 
-        assert_se(asprintf(&t, "< %i", cpus) >= 0);
+        ASSERT_OK(asprintf(&t, "< %i", cpus));
         test_condition_test_cpus_one(t, false);
         t = mfree(t);
 
-        assert_se(asprintf(&t, "> %i", cpus) >= 0);
+        ASSERT_OK(asprintf(&t, "> %i", cpus));
         test_condition_test_cpus_one(t, false);
         t = mfree(t);
 }
 
 static void test_condition_test_memory_one(const char *s, bool result) {
         Condition *condition;
-        int r;
 
         log_debug("%s=%s", condition_type_to_string(CONDITION_MEMORY), s);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_MEMORY, s, false, false)));
 
-        r = condition_test(condition, environ);
-        assert_se(r >= 0);
-        assert_se(r == result);
+        ASSERT_OK_EQ(condition_test(condition, environ), result);
         condition_free(condition);
 }
 
@@ -1132,42 +1134,39 @@ TEST(condition_test_memory) {
         test_condition_test_memory_one("!= 100 T 1 G", true);
         test_condition_test_memory_one("<= 100 T 1 G", true);
 
-        assert_se(asprintf(&t, "= %" PRIu64, memory) >= 0);
+        ASSERT_OK(asprintf(&t, "= %" PRIu64, memory));
         test_condition_test_memory_one(t, true);
         t = mfree(t);
 
-        assert_se(asprintf(&t, "<= %" PRIu64, memory) >= 0);
+        ASSERT_OK(asprintf(&t, "<= %" PRIu64, memory));
         test_condition_test_memory_one(t, true);
         t = mfree(t);
 
-        assert_se(asprintf(&t, ">= %" PRIu64, memory) >= 0);
+        ASSERT_OK(asprintf(&t, ">= %" PRIu64, memory));
         test_condition_test_memory_one(t, true);
         t = mfree(t);
 
-        assert_se(asprintf(&t, "!= %" PRIu64, memory) >= 0);
+        ASSERT_OK(asprintf(&t, "!= %" PRIu64, memory));
         test_condition_test_memory_one(t, false);
         t = mfree(t);
 
-        assert_se(asprintf(&t, "< %" PRIu64, memory) >= 0);
+        ASSERT_OK(asprintf(&t, "< %" PRIu64, memory));
         test_condition_test_memory_one(t, false);
         t = mfree(t);
 
-        assert_se(asprintf(&t, "> %" PRIu64, memory) >= 0);
+        ASSERT_OK(asprintf(&t, "> %" PRIu64, memory));
         test_condition_test_memory_one(t, false);
         t = mfree(t);
 }
 
 static void test_condition_test_environment_one(const char *s, bool result) {
         Condition *condition;
-        int r;
 
         log_debug("%s=%s", condition_type_to_string(CONDITION_ENVIRONMENT), s);
 
         ASSERT_NOT_NULL((condition = condition_new(CONDITION_ENVIRONMENT, s, false, false)));
 
-        r = condition_test(condition, environ);
-        assert_se(r >= 0);
-        assert_se(r == result);
+        ASSERT_OK_EQ(condition_test(condition, environ), result);
         condition_free(condition);
 }
 
@@ -1463,13 +1462,11 @@ TEST(condition_test_kernel_module_loaded) {
         Condition *condition;
         int r;
 
-        condition = condition_new(CONDITION_KERNEL_MODULE_LOADED, "", /* trigger= */ false, /* negate= */ false);
-        assert_se(condition);
+        condition = ASSERT_NOT_NULL(condition_new(CONDITION_KERNEL_MODULE_LOADED, "", /* trigger= */ false, /* negate= */ false));
         ASSERT_OK_ZERO(condition_test(condition, environ));
         condition_free(condition);
 
-        condition = condition_new(CONDITION_KERNEL_MODULE_LOADED, "..", /* trigger= */ false, /* negate= */ false);
-        assert_se(condition);
+        condition = ASSERT_NOT_NULL(condition_new(CONDITION_KERNEL_MODULE_LOADED, "..", /* trigger= */ false, /* negate= */ false));
         ASSERT_OK_ZERO(condition_test(condition, environ));
         condition_free(condition);
 
@@ -1477,8 +1474,7 @@ TEST(condition_test_kernel_module_loaded) {
                 return (void) log_tests_skipped("/sys/module not available, skipping.");
 
         FOREACH_STRING(m, "random", "vfat", "fat", "cec", "binfmt_misc", "binfmt-misc") {
-                condition = condition_new(CONDITION_KERNEL_MODULE_LOADED, m, /* trigger= */ false, /* negate= */ false);
-                assert_se(condition);
+                condition = ASSERT_NOT_NULL(condition_new(CONDITION_KERNEL_MODULE_LOADED, m, /* trigger= */ false, /* negate= */ false));
                 r = condition_test(condition, environ);
                 ASSERT_OK(r);
                 condition_free(condition);
@@ -1486,8 +1482,7 @@ TEST(condition_test_kernel_module_loaded) {
                 log_notice("kmod %s is loaded: %s", m, yes_no(r));
         }
 
-        condition = condition_new(CONDITION_KERNEL_MODULE_LOADED, "idefinitelydontexist", /* trigger= */ false, /* negate= */ false);
-        assert_se(condition);
+        condition = ASSERT_NOT_NULL(condition_new(CONDITION_KERNEL_MODULE_LOADED, "idefinitelydontexist", /* trigger= */ false, /* negate= */ false));
         ASSERT_OK_ZERO(condition_test(condition, environ));
         condition_free(condition);
 }
