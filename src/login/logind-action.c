@@ -124,10 +124,14 @@ static const HandleActionData handle_action_data_table[_HANDLE_ACTION_MAX] = {
         [HANDLE_FACTORY_RESET] = {
                 .handle                          = HANDLE_FACTORY_RESET,
                 .target                          = SPECIAL_FACTORY_RESET_TARGET,
-                .inhibit_what                    = _INHIBIT_WHAT_INVALID,
+                .inhibit_what                    = INHIBIT_SHUTDOWN,
+                .polkit_action                   = "org.freedesktop.login1.factory-reset",
+                .polkit_action_multiple_sessions = "org.freedesktop.login1.factory-reset-multiple-sessions",
+                .polkit_action_ignore_inhibit    = "org.freedesktop.login1.factory-reset-ignore-inhibit",
                 .sleep_operation                 = _SLEEP_OPERATION_INVALID,
                 .message_id                      = SD_MESSAGE_FACTORY_RESET_STR,
                 .message                         = "System is performing factory reset",
+                .log_verb                        = "factory-reset",
         },
 };
 

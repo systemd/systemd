@@ -328,6 +328,41 @@
                 <annotate key="org.freedesktop.policykit.imply">org.freedesktop.login1.hibernate</annotate>
         </action>
 
+          <action id="org.freedesktop.login1.factory-reset">
+                <description gettext-domain="systemd">Factory reset the system</description>
+                <message gettext-domain="systemd">Authentication is required to factory reset the system.</message>
+                <defaults>
+                        <allow_any>auth_admin</allow_any>
+                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_active>auth_admin</allow_active>
+                </defaults>
+                <annotate key="org.freedesktop.policykit.imply">org.freedesktop.login1.reboot</annotate>
+        </action>
+
+        <action id="org.freedesktop.login1.factory-reset-multiple-sessions">
+                <description gettext-domain="systemd">Factory reset the system while other users are logged in</description>
+                <message gettext-domain="systemd">Authentication is required to factory reset the system while other users are logged in.</message>
+                <defaults>
+                        <allow_any>auth_admin</allow_any>
+                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_active>auth_admin</allow_active>
+                </defaults>
+                <annotate key="org.freedesktop.policykit.imply">org.freedesktop.login1.factory-reset</annotate>
+                <annotate key="org.freedesktop.policykit.imply">org.freedesktop.login1.reboot-multiple-sessions</annotate>
+        </action>
+
+        <action id="org.freedesktop.login1.factory-reset-ignore-inhibit">
+                <description gettext-domain="systemd">Factory reset the system while an application is inhibiting reboot</description>
+                <message gettext-domain="systemd">Authentication is required to factory reset the system while an application is inhibiting reboot.</message>
+                <defaults>
+                        <allow_any>auth_admin</allow_any>
+                        <allow_inactive>auth_admin</allow_inactive>
+                        <allow_active>auth_admin</allow_active>
+                </defaults>
+                <annotate key="org.freedesktop.policykit.imply">org.freedesktop.login1.factory-reset</annotate>
+                <annotate key="org.freedesktop.policykit.imply">org.freedesktop.login1.reboot-ignore-inhibit</annotate>
+        </action>
+
         <action id="org.freedesktop.login1.manage">
                 <description gettext-domain="systemd">Manage active sessions, users and seats</description>
                 <message gettext-domain="systemd">Authentication is required to manage active sessions, users and seats.</message>
