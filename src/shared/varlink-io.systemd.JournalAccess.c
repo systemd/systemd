@@ -7,6 +7,8 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_REQUIRES_MORE,
                 SD_VARLINK_FIELD_COMMENT("Show messages for the specified systemd units (e.g. ['foo.service'])."),
                 SD_VARLINK_DEFINE_INPUT(units, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
+                SD_VARLINK_FIELD_COMMENT("UID to match user units for"),
+                SD_VARLINK_DEFINE_INPUT(uid, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Show messages for the specified user units (e.g. ['foo.service'])."),
                 SD_VARLINK_DEFINE_INPUT(userUnits, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
                 SD_VARLINK_FIELD_COMMENT("If specified, shows the log data of the specified namespace, otherwise the default namespace."),

@@ -57,9 +57,9 @@ int add_matches_for_unit_full(sd_journal *j, MatchUnitFlag flags, const char *un
 static inline int add_matches_for_unit(sd_journal *j, const char *unit) {
         return add_matches_for_unit_full(j, MATCH_UNIT_ALL, unit);
 }
-int add_matches_for_user_unit_full(sd_journal *j, MatchUnitFlag flags, const char *unit);
+int add_matches_for_user_unit_full(sd_journal *j, MatchUnitFlag flags, uid_t uid, const char *unit);
 static inline int add_matches_for_user_unit(sd_journal *j, const char *unit) {
-        return add_matches_for_user_unit_full(j, MATCH_UNIT_ALL, unit);
+        return add_matches_for_user_unit_full(j, MATCH_UNIT_ALL, UID_INVALID, unit);
 }
 
 int show_journal_by_unit(
