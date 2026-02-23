@@ -26,6 +26,7 @@ typedef enum DnssecMode DnssecMode;
 typedef enum Fido2EnrollFlags Fido2EnrollFlags;
 typedef enum KeySourceType KeySourceType;
 typedef enum LabelFixFlags LabelFixFlags;
+typedef enum MatchUnitFlag MatchUnitFlag;
 typedef enum MountInNamespaceFlags MountInNamespaceFlags;
 typedef enum NamePolicy NamePolicy;
 typedef enum OutputFlags OutputFlags;
