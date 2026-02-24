@@ -160,9 +160,10 @@ CHANGES WITH 260 in spe:
           RouteMetric=, and UseGateway= settings. This allows systemd-networkd
           to establish a cellular modem connection to a broadband network.
 
-        * systemd-networkd gained a pair of varlink methods LinkUp()/LinkDown().
-          networkctl up/down now utilizes the new varlink interfaces in place
-          of direct RTNL message for better interaction with networkd.
+        * systemd-networkd gained a pair of varlink methods
+          io.systemd.Network.Link.Up()/Down(). networkctl up/down now utilizes
+          the new varlink interfaces in place of direct RTNL message for better
+          interaction with networkd.
 
         Changes in systemd-boot and the stub:
 
