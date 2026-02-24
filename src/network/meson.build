@@ -59,6 +59,7 @@ systemd_networkd_extract_sources = files(
         'networkd-ipv6ll.c',
         'networkd-json.c',
         'networkd-link-bus.c',
+        'networkd-link-varlink.c',
         'networkd-link.c',
         'networkd-lldp-rx.c',
         'networkd-lldp-tx.c',

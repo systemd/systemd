@@ -215,7 +215,7 @@ static int bus_method_reload(sd_bus_message *message, void *userdata, sd_bus_err
         if (r == 0)
                 return 1; /* Polkit will call us back */
 
-        r = manager_reload(manager, message);
+        r = manager_reload(manager, message, /* varlink= */ NULL);
         if (r < 0)
                 return r;
 
