@@ -2394,7 +2394,6 @@ static int exec_shared_runtime_add(
         if (r < 0)
                 return r;
 
-        assert(!!rt->tmp_dir == !!rt->var_tmp_dir); /* We require both to be set together */
         rt->tmp_dir = TAKE_PTR(*tmp_dir);
         rt->var_tmp_dir = TAKE_PTR(*var_tmp_dir);
 
@@ -2438,16 +2437,24 @@ static int exec_shared_runtime_make(
 
         /* It is not necessary to create ExecSharedRuntime object. */
         if (!c->user_namespace_path && !exec_needs_network_namespace(c) && !exec_needs_ipc_namespace(c) &&
-            c->private_tmp != PRIVATE_TMP_CONNECTED) {
+            c->private_tmp != PRIVATE_TMP_CONNECTED && c->private_var_tmp != PRIVATE_TMP_CONNECTED) {
                 *ret = NULL;
                 return 0;
         }
 
         if (c->private_tmp == PRIVATE_TMP_CONNECTED &&
-            !(prefixed_path_strv_contains(c->inaccessible_paths, "/tmp") &&
-              (prefixed_path_strv_contains(c->inaccessible_paths, "/var/tmp") ||
-               prefixed_path_strv_contains(c->inaccessible_paths, "/var")))) {
-                r = setup_tmp_dirs(id, &tmp_dir, &var_tmp_dir);
+            !prefixed_path_strv_contains(c->inaccessible_paths, "/tmp")) {
+
+                r = setup_tmp_dir_one(id, "/tmp", &tmp_dir);
+                if (r < 0)
+                        return r;
+        }
+
+        if (c->private_var_tmp == PRIVATE_TMP_CONNECTED &&
+            !prefixed_path_strv_contains(c->inaccessible_paths, "/var/tmp") &&
+            !prefixed_path_strv_contains(c->inaccessible_paths, "/var")) {
+
+                r = setup_tmp_dir_one(id, "/var/tmp", &var_tmp_dir);
                 if (r < 0)
                         return r;
         }
