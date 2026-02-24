@@ -441,17 +441,20 @@
           <term><varname>HWIDs=<replaceable>PATH</replaceable></varname></term>
           <term><option>--hwids=<replaceable>PATH</replaceable></option></term>
 
-          <listitem><para>The hardware ID device table (the <literal>.hwids</literal> section). The argument is a
-          path to a directory with JSON HWID device description files. Each file needs to contain a single JSON object with a <literal>name</literal>, <literal>compatible</literal> and <literal>hwids</literal> keys. The <literal>name</literal> and <literal>compatible</literal> keys must have string values and the <literal>hwids</literal> key must have a list of strings as value, where the strings must be valid UUIDs that represent CHIDs/HWIDs.
+          <listitem><para>The hardware ID device table (the <literal>.hwids</literal> section). The argument
+          is a path to a directory with JSON HWID device description files. Each file needs to contain a
+          single JSON object with a <literal>name</literal>, <literal>compatible</literal> and
+          <literal>hwids</literal> keys. The <literal>name</literal> and <literal>compatible</literal> keys
+          must have string values and the <literal>hwids</literal> key must have a list of strings as value,
+          where the strings must be valid UUIDs that represent CHIDs/HWIDs.
           Example:
           <programlisting><xi:include href="ukify_hwid.json.example" parse="text" /></programlisting>
-          Here <literal>Example Laptop 16 Gen 7</literal> is the device <literal>name</literal> (as defined by the manufacturer),
-          <literal>example,laptop-16-g7</literal> is the <literal>compatible</literal> (as defined by the kernel) and <literal>hwids</literal>
-          is an array of CHIDs/HWIDs (extracted i.e. from <command>fwupdtool hwids</command> output).
-          If not specified, the section will not be present. It is recommended to specify this parameter if automatically
-          selectable DeviceTrees are to be used.
-
-          </para>
+          Here <literal>Example Laptop 16 Gen 7</literal> is the device <literal>name</literal> (as defined
+          by the manufacturer), <literal>example,laptop-16-g7</literal> is the <literal>compatible</literal>
+          (as defined by the kernel) and <literal>hwids</literal> is an array of CHIDs/HWIDs (extracted i.e.
+          from <command>fwupdtool hwids</command> output). If not specified, the section will not be
+          present. It is recommended to specify this parameter if automatically selectable DeviceTrees are
+          to be used.</para>
 
           <xi:include href="version-info.xml" xpointer="v257"/></listitem>
         </varlistentry>
