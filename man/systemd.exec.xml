@@ -63,15 +63,26 @@
 
       <listitem><para>Units with <varname>PrivateTmp=yes</varname> automatically gain dependencies of type
       <varname>Wants=</varname> and <varname>After=</varname> on all mounts required to access
-      <filename>/tmp/</filename> and <filename>/var/tmp/</filename>. They will also gain an automatic
+      <filename>/tmp/</filename> and <filename>/var/tmp/</filename> and an automatic
       <varname>After=</varname> dependency on
-      <citerefentry><refentrytitle>systemd-tmpfiles-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-      </para></listitem>
+      <citerefentry><refentrytitle>systemd-tmpfiles-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      unless <varname>DefaultDependencies=no</varname> is specified. If
+      <varname>DefaultDependencies=no</varname> is specified, and a
+      <varname>RequiresMountsFor=/tmp/</varname>, <varname>WantsMountsFor=/tmp/</varname>,
+      <varname>After=tmp.mount</varname>, or <varname>RootDirectory=</varname>/<varname>RootImage=</varname>
+      are not specified, <varname>PrivateTmp=yes</varname> is converted to
+      <varname>PrivateTmp=disconnected</varname>.</para></listitem>
 
       <listitem><para>Units with <varname>PrivateTmp=disconnected</varname> automatically gain dependencies
       of type <varname>Wants=</varname> and <varname>After=</varname> on the mount required to access
       <filename>/var/</filename>, unless <varname>DefaultDependencies=no</varname> and/or
-      <varname>RootDirectory=/RootImage=</varname> are specified.</para></listitem>
+      <varname>RootDirectory=</varname>/<varname>RootImage=</varname> are specified. If
+      <varname>DefaultDependencies=no</varname> is specified, and a
+      <varname>RequiresMountsFor=/var/</varname>, <varname>WantsMountsFor=/var/</varname>,
+      <varname>After=var.mount</varname>, <varname>RootDirectory=</varname>/<varname>RootImage=</varname> are
+      not specified, the private mount on <filename>/tmp/</filename> is reused for
+      <filename>/var/tmp/</filename> by setting <varname>$TMPDIR</varname> appropriately.</para>
+      </listitem>
 
       <listitem><para>Units whose standard output or error output is connected to <option>journal</option> or
       <option>kmsg</option> (or their combinations with console output, see below) automatically acquire
