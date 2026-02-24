@@ -1,0 +1,13 @@
+{
+    "type": "devicetree",
+    "name": "LENOVO ThinkPad T14s Gen 6 (OLED)",
+    "compatible": "lenovo,thinkpad-t14s-oled",
+    "hwids": [
+        "27378ce5-d999-5c3b-acde-0404805afd3b",
+        "7c09107d-0ac3-5582-837f-c614d518cf62",
+        "77ffaabe-038a-550f-b6ea-485dc49d4b45",
+        "e78c4e7a-68c3-5b29-b2a0-dbd2785e28cd",
+        "c012b92d-a6a6-57fa-ba06-4f3062d891d4",
+        "08ba7f5b-8136-5938-835a-fd99143d34a5"
+    ]
+}

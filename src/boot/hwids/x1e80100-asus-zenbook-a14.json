@@ -1,0 +1,20 @@
+{
+    "type": "devicetree",
+    "name": "ASUSTeK COMPUTER INC. ASUS Zenbook A14",
+    "compatible": "asus,zenbook-a14-ux3407ra",
+    "hwids": [
+        "c41d2cda-fda7-522c-b1a7-4a835c15c43d",
+        "0bfddfaf-e393-5dfe-a805-39b8b1098c81",
+        "f0bb1cd4-995a-5c90-946b-9bb958f35f42",
+        "2d610a5e-ef69-5e60-b15e-7786d0ebd79e",
+        "6f892377-a51e-5f99-a363-b79f28fc55f9",
+        "0c3f5e9c-eddb-5ba2-88ee-06ae0221a53d",
+        "20b8b77d-e450-550b-b1ff-55d3317f59a6",
+        "24652d54-00f4-59ae-96fb-f7adbfa4a939",
+        "5c9fc73f-f915-52bf-a82d-9c7fe2274ecc",
+        "3884ad58-4d63-589a-be98-b8ab1ddf3b93",
+        "cedbcc19-3a5a-5bae-9973-f8e158188de7",
+        "1f2f1045-a811-5e42-b31e-b433e384fc79",
+        "b307ab54-c79d-58ca-a3b2-d1b1e325bfc3"
+    ]
+}
