@@ -1397,8 +1397,13 @@ def make_uki(opts: UkifyConfig) -> None:
 
     hwids = None
 
-    if opts.hwids is not None:
+    if opts.hwids is not None and opts.hwids != '':
         hwids = parse_hwid_dir(opts.hwids)
+    elif opts.efi_arch == 'aa64' and opts.hwids != '':
+        hwids_dir = Path('/usr/lib/systemd/boot/hwids')
+        if hwids_dir.is_dir():
+            print(f'Automatically building .hwids section from {hwids_dir}', file=sys.stderr)
+            hwids = parse_hwid_dir(hwids_dir)
 
     sections = [
         # name,      content,         measure?
@@ -1994,7 +1999,6 @@ CONFIG_ITEMS = [
     ConfigItem(
         '--hwids',
         metavar='DIR',
-        type=Path,
         help='Directory with HWID text files [.hwids section]',
         config_key='UKI/HWIDs',
     ),

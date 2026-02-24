@@ -1,0 +1,18 @@
+{
+    "type": "devicetree",
+    "name": "LENOVO ThinkPad X13s Gen 1",
+    "compatible": "lenovo,thinkpad-x13s",
+    "hwids": [
+        "b265d777-007e-56e5-b0e2-bd666ab867be",
+        "3f9d2d91-73b2-5316-8c72-a0ecb3f0dae5",
+        "4b189129-8eb2-585c-a1bb-a4cfc979433a",
+        "fbf92a11-bb6f-5adb-b5a7-8abf9acbd7d9",
+        "0909a1c3-3a02-59a0-b1ea-04f1449c104f",
+        "69acf6bf-ed33-5806-857f-c76971d7061e",
+        "ddfbdaa2-7c46-5103-be64-84a9f88c485f",
+        "b41f58ed-7631-561f-9b0c-449a9c293afa",
+        "9f47e28f-e1ee-5cb5-b4ce-8f0605752b3d",
+        "873455fb-b2c5-5c0c-9c2c-90e80d44da57",
+        "a1dfe209-99e5-5ff2-9922-aa4c11491b49"
+    ]
+}
