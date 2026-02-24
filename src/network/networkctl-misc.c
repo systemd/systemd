@@ -46,35 +46,6 @@ static int parse_interfaces(sd_netlink **rtnl, char *argv[], OrderedSet **ret) {
         return 0;
 }
 
-int link_up_down(int argc, char *argv[], void *userdata) {
-        int r, ret = 0;
-
-        bool up = streq_ptr(argv[0], "up");
-
-        _cleanup_ordered_set_free_ OrderedSet *indexes = NULL;
-        r = parse_interfaces(/* rtnl= */ NULL, argv, &indexes);
-        if (r < 0)
-                return r;
-
-        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *vl = NULL;
-        r = varlink_connect_networkd(&vl);
-        if (r < 0)
-                return r;
-
-        (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
-
-        void *p;
-        ORDERED_SET_FOREACH(p, indexes)
-                RET_GATHER(ret, varlink_callbo_and_log(
-                                           vl,
-                                           up ? "io.systemd.Network.Link.Up" : "io.systemd.Network.Link.Down",
-                                           /* reply= */ NULL,
-                                           SD_JSON_BUILD_PAIR_INTEGER("InterfaceIndex", PTR_TO_INT(p)),
-                                           SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", arg_ask_password)));
-
-        return ret;
-}
-
 int link_delete(int argc, char *argv[], void *userdata) {
         int r, ret = 0;
 
@@ -104,25 +75,26 @@ int link_delete(int argc, char *argv[], void *userdata) {
         return ret;
 }
 
-int link_bus_simple_method(int argc, char *argv[], void *userdata) {
+int link_varlink_simple_method(int argc, char *argv[], void *userdata) {
         int r, ret = 0;
 
-        typedef struct LinkBusAction {
+        typedef struct LinkVarlinkAction {
                 const char *verb;
-                const char *bus_method;
-                const char *error_message;
-        } LinkBusAction;
+                const char *method;
+        } LinkVarlinkAction;
 
-        static const LinkBusAction link_bus_action_table[] = {
-                { "renew",       "RenewLink",       "Failed to renew dynamic configuration of interface"          },
-                { "forcerenew",  "ForceRenewLink",  "Failed to forcibly renew dynamic configuration of interface" },
-                { "reconfigure", "ReconfigureLink", "Failed to reconfigure network interface"                     },
+        static const LinkVarlinkAction link_varlink_action_table[] = {
+                { "up",          "io.systemd.Network.Link.Up",          },
+                { "down",        "io.systemd.Network.Link.Down",        },
+                { "renew",       "io.systemd.Network.Link.Renew",       },
+                { "forcerenew",  "io.systemd.Network.Link.ForceRenew",  },
+                { "reconfigure", "io.systemd.Network.Link.Reconfigure", },
         };
 
         /* Common implementation for 'simple' method calls that just take an ifindex, and nothing else. */
 
-        const LinkBusAction *a = NULL;
-        FOREACH_ELEMENT(i, link_bus_action_table)
+        const LinkVarlinkAction *a = NULL;
+        FOREACH_ELEMENT(i, link_varlink_action_table)
                 if (streq(argv[0], i->verb)) {
                         a = i;
                         break;
@@ -134,27 +106,21 @@ int link_bus_simple_method(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        r = acquire_bus(&bus);
+        _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *vl = NULL;
+        r = varlink_connect_networkd(&vl);
         if (r < 0)
                 return r;
 
         (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
         void *p;
-        ORDERED_SET_FOREACH(p, indexes) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                int index = PTR_TO_INT(p);
-
-                r = bus_call_method(bus, bus_network_mgr, a->bus_method, &error, /* ret_reply= */ NULL, "i", index);
-                if (r < 0) {
-                        RET_GATHER(ret, r);
-                        log_error_errno(r, "%s %s: %s",
-                                        a->error_message,
-                                        FORMAT_IFNAME_FULL(index, FORMAT_IFNAME_IFINDEX),
-                                        bus_error_message(&error, r));
-                }
-        }
+        ORDERED_SET_FOREACH(p, indexes)
+                RET_GATHER(ret, varlink_callbo_and_log(
+                                           vl,
+                                           a->method,
+                                           /* reply= */ NULL,
+                                           SD_JSON_BUILD_PAIR_INTEGER("InterfaceIndex", PTR_TO_INT(p)),
+                                           SD_JSON_BUILD_PAIR_BOOLEAN("allowInteractiveAuthentication", arg_ask_password)));
 
         return ret;
 }
