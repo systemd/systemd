@@ -336,10 +336,6 @@ int verb_start(int argc, char *argv[], void *userdata) {
                                 is_enqueue_marked_jobs = true;
                                 method = job_type = mode = NULL;
 
-                                if (arg_wait)
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "--wait is not supported for enqueue-marked-jobs.");
-
                                 if (arg_show_transaction)
                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                                "--show-transaction is not supported for enqueue-marked-jobs.");
