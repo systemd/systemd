@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "bus-polkit.h"
 #include "varlink-io.systemd.Network.h"
 
 /* Helper macro to define address fields with both binary and string representation */
@@ -413,7 +412,14 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(StaticLeases, DHCPServerLease, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
-                Interface,
+                BitRates,
+                SD_VARLINK_FIELD_COMMENT("Transmit bitrate in bits per second"),
+                SD_VARLINK_DEFINE_FIELD(TxBitRate, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("Receive bitrate in bits per second"),
+                SD_VARLINK_DEFINE_FIELD(RxBitRate, SD_VARLINK_INT, 0));
+
+SD_VARLINK_DEFINE_STRUCT_TYPE(
+                NetworkInterface,
                 SD_VARLINK_FIELD_COMMENT("Network interface index"),
                 SD_VARLINK_DEFINE_FIELD(Index, SD_VARLINK_INT, 0),
                 SD_VARLINK_FIELD_COMMENT("Primary interface name"),
@@ -534,12 +540,14 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("DHCPv6 client configuration and lease information"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(DHCPv6Client, DHCPv6Client, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("LLDP neighbors discovered on this interface"),
-                SD_VARLINK_DEFINE_FIELD_BY_TYPE(LLDP, LLDPNeighbor, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE));
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(LLDP, LLDPNeighbor, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Current transmit/receive bitrates from speed meter"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(BitRates, BitRates, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_METHOD(
                 Describe,
                 SD_VARLINK_FIELD_COMMENT("All network interfaces managed by systemd-networkd"),
-                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(Interfaces, Interface, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(Interfaces, NetworkInterface, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("All configured next hops for multipath routing"),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(NextHops, NextHop, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("All configured routes across all interfaces"),
@@ -594,22 +602,7 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("Whether persistent storage is ready and writable"),
                 SD_VARLINK_DEFINE_INPUT(Ready, SD_VARLINK_BOOL, 0));
 
-static SD_VARLINK_DEFINE_METHOD(
-                LinkUp,
-                SD_VARLINK_FIELD_COMMENT("Index of the interface. If specified together with InterfaceName, both must reference the same link."),
-                SD_VARLINK_DEFINE_INPUT(InterfaceIndex, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("Name of the interface. If specified together with InterfaceIndex, both must reference the same link."),
-                SD_VARLINK_DEFINE_INPUT(InterfaceName, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                VARLINK_DEFINE_POLKIT_INPUT);
-
-static SD_VARLINK_DEFINE_METHOD(
-                LinkDown,
-                SD_VARLINK_FIELD_COMMENT("Index of the interface. If specified together with InterfaceName, both must reference the same link."),
-                SD_VARLINK_DEFINE_INPUT(InterfaceIndex, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("Name of the interface. If specified together with InterfaceIndex, both must reference the same link."),
-                SD_VARLINK_DEFINE_INPUT(InterfaceName, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                VARLINK_DEFINE_POLKIT_INPUT);
-
+static SD_VARLINK_DEFINE_ERROR(AlreadyReloading);
 static SD_VARLINK_DEFINE_ERROR(StorageReadOnly);
 
 SD_VARLINK_DEFINE_INTERFACE(
@@ -620,11 +613,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_GetNamespaceId,
                 &vl_method_GetLLDPNeighbors,
                 &vl_method_SetPersistentStorage,
-                SD_VARLINK_SYMBOL_COMMENT("Bring the specified link up."),
-                &vl_method_LinkUp,
-                SD_VARLINK_SYMBOL_COMMENT("Bring the specified link down."),
-                &vl_method_LinkDown,
                 &vl_type_Address,
+                &vl_type_BitRates,
                 &vl_type_DHCPLease,
                 &vl_type_DHCPServer,
                 &vl_type_DHCPServerLease,
@@ -635,13 +625,13 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_DNSSECNegativeTrustAnchor,
                 &vl_type_DNSSetting,
                 &vl_type_Domain,
-                &vl_type_Interface,
                 &vl_type_LinkState,
                 &vl_type_LinkAddressState,
                 &vl_type_LinkOnlineState,
                 &vl_type_LinkRequiredAddressFamily,
                 &vl_type_LLDPNeighbor,
                 &vl_type_LLDPNeighborsByInterface,
+                &vl_type_NetworkInterface,
                 &vl_type_NDisc,
                 &vl_type_Neighbor,
                 &vl_type_NextHop,
@@ -652,4 +642,5 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_Route,
                 &vl_type_RoutingPolicyRule,
                 &vl_type_SIP,
+                &vl_error_AlreadyReloading,
                 &vl_error_StorageReadOnly);
