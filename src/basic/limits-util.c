@@ -155,25 +155,24 @@ uint64_t system_tasks_max(void) {
 }
 
 uint64_t system_tasks_max_scale(uint64_t v, uint64_t max) {
-        uint64_t t, m;
+        return apply_scale(system_tasks_max(), v, max);
+}
 
-        /* Shortcut two special cases */
+uint64_t apply_scale(uint64_t limit, uint64_t v, uint64_t max) {
+        uint64_t m;
+
         if (v == 0)
                 return 0;
         if (v == max)
-                return system_tasks_max();
+                return limit;
 
         assert(max > 0);
 
-        /* Multiply the system's task value by the fraction v/max. Hence, if max==100 this calculates percentages
-         * relative to the system's maximum number of tasks. Returns UINT64_MAX on overflow. */
+        /* Multiply limit by the fraction v/max. Returns UINT64_MAX on overflow. */
 
-        t = system_tasks_max();
-        assert(t > 0);
-
-        if (v > UINT64_MAX / t) /* overflow? */
+        if (v > UINT64_MAX / limit) /* overflow? */
                 return UINT64_MAX;
 
-        m = t * v;
+        m = limit * v;
         return m / max;
 }
