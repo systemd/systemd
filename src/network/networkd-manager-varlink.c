@@ -115,7 +115,7 @@ static int vl_method_get_lldp_neighbors(sd_varlink *vlink, sd_json_variant *para
         assert(vlink);
         assert(manager);
 
-        r = dispatch_interface(vlink, parameters, manager, /* polkit= */ false, &link);
+        r = dispatch_link(vlink, parameters, manager, /* flags= */ 0, &link);
         if (r != 0)
                 return r;
 

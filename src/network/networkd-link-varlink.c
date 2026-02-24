@@ -9,7 +9,7 @@
 #include "networkd-manager.h"
 #include "networkd-setlink.h"
 
-int dispatch_interface(sd_varlink *vlink, sd_json_variant *parameters, Manager *manager, bool polkit, Link **ret) {
+int dispatch_link(sd_varlink *vlink, sd_json_variant *parameters, Manager *manager, DispatchLinkFlag flags, Link **ret) {
         struct {
                 int ifindex;
                 const char *ifname;
@@ -32,7 +32,11 @@ int dispatch_interface(sd_varlink *vlink, sd_json_variant *parameters, Manager *
         assert(manager);
         assert(ret);
 
-        r = sd_varlink_dispatch(vlink, parameters, polkit ? dispatch_polkit_table : dispatch_table, &info);
+        r = sd_varlink_dispatch(
+                        vlink,
+                        parameters,
+                        FLAGS_SET(flags, DISPATCH_LINK_POLKIT) ? dispatch_polkit_table : dispatch_table,
+                        &info);
         if (r != 0)
                 return r;
 
@@ -53,7 +57,10 @@ int dispatch_interface(sd_varlink *vlink, sd_json_variant *parameters, Manager *
                 link = link_by_name;
         }
 
-        /* If neither InterfaceIndex nor InterfaceName specified, this function returns NULL. */
+        if (!link && FLAGS_SET(flags, DISPATCH_LINK_MANDATORY))
+                return sd_varlink_error_invalid_parameter(vlink, JSON_VARIANT_STRING_CONST("InterfaceIndex"));
+
+        /* If the DISPATCH_LINK_MANDATORY flag is not set, this function may return NULL. */
         *ret = link;
         return 0;
 }
@@ -65,13 +72,9 @@ static int vl_method_link_up_or_down(sd_varlink *vlink, sd_json_variant *paramet
         assert(vlink);
         assert(manager);
 
-        r = dispatch_interface(vlink, parameters, manager, /* polkit= */ true, &link);
+        r = dispatch_link(vlink, parameters, manager, DISPATCH_LINK_POLKIT | DISPATCH_LINK_MANDATORY, &link);
         if (r != 0)
                 return r;
-
-        /* Require a specific link to be specified. */
-        if (!link)
-                return sd_varlink_error_invalid_parameter(vlink, JSON_VARIANT_STRING_CONST("InterfaceIndex"));
 
         r = varlink_verify_polkit_async(
                         vlink,
