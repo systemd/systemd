@@ -3392,16 +3392,15 @@ static int make_tmp_prefix(const char *prefix) {
         return 0;
 }
 
-static int setup_one_tmp_dir(const char *id, const char *prefix, char **path, char **tmp_path) {
-        _cleanup_free_ char *x = NULL;
-        _cleanup_free_ char *y = NULL;
+int setup_tmp_dir_one(const char *id, const char *prefix, char **ret_path) {
+        _cleanup_free_ char *d = NULL;
         sd_id128_t boot_id;
         bool rw = true;
         int r;
 
         assert(id);
         assert(prefix);
-        assert(path);
+        assert(ret_path);
 
         /* We include the boot id in the directory so that after a
          * reboot we can easily identify obsolete directories. */
@@ -3410,8 +3409,8 @@ static int setup_one_tmp_dir(const char *id, const char *prefix, char **path, ch
         if (r < 0)
                 return r;
 
-        x = strjoin(prefix, "/systemd-private-", SD_ID128_TO_STRING(boot_id), "-", id, "-XXXXXX");
-        if (!x)
+        d = strjoin(prefix, "/systemd-private-", SD_ID128_TO_STRING(boot_id), "-", id, "-XXXXXX");
+        if (!d)
                 return -ENOMEM;
 
         r = make_tmp_prefix(prefix);
@@ -3419,7 +3418,7 @@ static int setup_one_tmp_dir(const char *id, const char *prefix, char **path, ch
                 return r;
 
         WITH_UMASK(0077)
-                if (!mkdtemp(x)) {
+                if (!mkdtemp(d)) {
                         if (errno == EROFS || ERRNO_IS_DISK_SPACE(errno))
                                 rw = false;
                         else
@@ -3427,20 +3426,25 @@ static int setup_one_tmp_dir(const char *id, const char *prefix, char **path, ch
                 }
 
         if (rw) {
-                y = strjoin(x, "/tmp");
-                if (!y)
+                _cleanup_free_ char *inner_dir = path_join(d, "tmp");
+                if (!inner_dir) {
+                        (void) rmdir(d);
                         return -ENOMEM;
+                }
 
                 WITH_UMASK(0000)
-                        if (mkdir(y, 0777 | S_ISVTX) < 0)
-                                return -errno;
-
-                r = label_fix_full(AT_FDCWD, y, prefix, 0);
-                if (r < 0)
+                        r = RET_NERRNO(mkdir(inner_dir, 0777 | S_ISVTX));
+                if (r < 0) {
+                        (void) rmdir(d);
                         return r;
+                }
 
-                if (tmp_path)
-                        *tmp_path = TAKE_PTR(y);
+                r = label_fix_full(AT_FDCWD, inner_dir, prefix, 0);
+                if (r < 0) {
+                        (void) rmdir(inner_dir);
+                        (void) rmdir(d);
+                        return r;
+                }
         } else {
                 /* Trouble: we failed to create the directory. Instead of failing, let's simulate /tmp being
                  * read-only. This way the service will get the EROFS result as if it was writing to the real
@@ -3450,37 +3454,12 @@ static int setup_one_tmp_dir(const char *id, const char *prefix, char **path, ch
                 if (r < 0)
                         return r;
 
-                r = free_and_strdup(&x, RUN_SYSTEMD_EMPTY);
+                r = free_and_strdup(&d, RUN_SYSTEMD_EMPTY);
                 if (r < 0)
                         return r;
         }
 
-        *path = TAKE_PTR(x);
-        return 0;
-}
-
-int setup_tmp_dirs(const char *id, char **tmp_dir, char **var_tmp_dir) {
-        _cleanup_(namespace_cleanup_tmpdirp) char *a = NULL;
-        _cleanup_(rmdir_and_freep) char *a_tmp = NULL;
-        char *b;
-        int r;
-
-        assert(id);
-        assert(tmp_dir);
-        assert(var_tmp_dir);
-
-        r = setup_one_tmp_dir(id, "/tmp", &a, &a_tmp);
-        if (r < 0)
-                return r;
-
-        r = setup_one_tmp_dir(id, "/var/tmp", &b, NULL);
-        if (r < 0)
-                return r;
-
-        a_tmp = mfree(a_tmp); /* avoid rmdir */
-        *tmp_dir = TAKE_PTR(a);
-        *var_tmp_dir = TAKE_PTR(b);
-
+        *ret_path = TAKE_PTR(d);
         return 0;
 }
 
