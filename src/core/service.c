@@ -5800,7 +5800,7 @@ static int service_can_live_mount(Unit *u, sd_bus_error *reterr_error) {
         Service *s = ASSERT_PTR(SERVICE(u));
 
         /* Ensure that the unit runs in a private mount namespace */
-        if (!exec_needs_mount_namespace(&s->exec_context, /* params= */ NULL, s->exec_runtime))
+        if (!exec_needs_mount_namespace(&s->exec_context, /* params= */ NULL))
                 return sd_bus_error_setf(
                                 reterr_error,
                                 SD_BUS_ERROR_INVALID_ARGS,

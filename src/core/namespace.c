@@ -751,58 +751,69 @@ static int append_tmpfs_mounts(MountList *ml, const TemporaryFileSystem *tmpfs, 
         return 0;
 }
 
-static int append_private_tmp(MountList *ml, const NamespaceParameters *p) {
-        MountEntry *me;
+static int append_private_tmp_one(
+                MountList *ml,
+                PrivateTmp mode,
+                const char *path,
+                const char *connected_source) {
 
         assert(ml);
-        assert(p);
-        assert(p->private_tmp == p->private_var_tmp ||
-               (p->private_tmp == PRIVATE_TMP_DISCONNECTED && p->private_var_tmp == PRIVATE_TMP_NO));
+        assert(mode >= 0 && mode < _PRIVATE_TMP_MAX);
+        assert(path);
 
-        if (p->tmp_dir) {
-                assert(p->private_tmp == PRIVATE_TMP_CONNECTED);
-
-                me = mount_list_extend(ml);
-                if (!me)
-                        return log_oom_debug();
-                *me = (MountEntry) {
-                        .path_const = "/tmp/",
-                        .mode = MOUNT_PRIVATE_TMP,
-                        .read_only = streq(p->tmp_dir, RUN_SYSTEMD_EMPTY),
-                        .source_const = p->tmp_dir,
-                };
-        }
-
-        if (p->var_tmp_dir) {
-                assert(p->private_var_tmp == PRIVATE_TMP_CONNECTED);
-
-                me = mount_list_extend(ml);
-                if (!me)
-                        return log_oom_debug();
-                *me = (MountEntry) {
-                        .path_const = "/var/tmp/",
-                        .mode = MOUNT_PRIVATE_TMP,
-                        .read_only = streq(p->var_tmp_dir, RUN_SYSTEMD_EMPTY),
-                        .source_const = p->var_tmp_dir,
-                };
-        }
-
-        if (p->private_tmp != PRIVATE_TMP_DISCONNECTED)
+        if (mode == PRIVATE_TMP_NO)
                 return 0;
 
-        if (p->private_var_tmp == PRIVATE_TMP_NO) {
-                me = mount_list_extend(ml);
-                if (!me)
-                        return log_oom_debug();
+        MountEntry *me = mount_list_extend(ml);
+        if (!me)
+                return log_oom_debug();
+
+        if (mode == PRIVATE_TMP_CONNECTED) {
+                if (!connected_source)
+                        return 0; /* The private tmp dir was suppressed as it would be made inaccessible
+                                     anyways? Then do nothing. */
+
                 *me = (MountEntry) {
-                        .path_const = "/tmp/",
+                        .path_const = path,
+                        .mode = MOUNT_PRIVATE_TMP,
+                        .read_only = streq(connected_source, RUN_SYSTEMD_EMPTY),
+                        .source_const = connected_source,
+                };
+        } else
+                *me = (MountEntry) {
+                        .path_const = path,
                         .mode = MOUNT_PRIVATE_TMPFS,
                         .options_const = "mode=0700" NESTED_TMPFS_LIMITS,
                         .flags = MS_NODEV|MS_STRICTATIME,
                 };
 
+        return 0;
+}
+
+static int append_private_tmp(MountList *ml, const NamespaceParameters *p) {
+        int r;
+
+        assert(ml);
+        assert(p);
+        assert(p->private_tmp >= 0 && p->private_tmp < _PRIVATE_TMP_MAX);
+        assert(p->private_var_tmp >= 0 && p->private_var_tmp < _PRIVATE_TMP_MAX);
+
+        if (p->private_tmp != PRIVATE_TMP_DISCONNECTED || p->private_var_tmp != PRIVATE_TMP_DISCONNECTED) {
+                r = append_private_tmp_one(ml, p->private_tmp, "/tmp/", p->tmp_dir);
+                if (r < 0)
+                        return r;
+
+                r = append_private_tmp_one(ml, p->private_var_tmp, "/var/tmp/", p->var_tmp_dir);
+                if (r < 0)
+                        return r;
+
                 return 0;
         }
+
+        /* Fully disconnected private tmp: we mount a single tmpfs instance with two subdirs which are
+         * bind mounted to /tmp/ and /var/tmp/. */
+
+        MountEntry *me;
 
         _cleanup_free_ char *tmpfs_dir = NULL, *tmp_dir = NULL, *var_tmp_dir = NULL;
         tmpfs_dir = path_join(p->private_namespace_dir, "unit-private-tmp");
@@ -3449,27 +3460,29 @@ char* namespace_cleanup_tmpdir(char *p) {
         return mfree(p);
 }
 
-int setup_tmp_dirs(const char *id, char **tmp_dir, char **var_tmp_dir) {
+int setup_tmp_dirs(const char *id, char **ret_tmp_dir, char **ret_var_tmp_dir) {
         _cleanup_(namespace_cleanup_tmpdirp) char *a = NULL;
         _cleanup_(rmdir_and_freep) char *a_tmp = NULL;
-        char *b;
         int r;
 
         assert(id);
-        assert(tmp_dir);
-        assert(var_tmp_dir);
 
-        r = setup_one_tmp_dir(id, "/tmp", &a, &a_tmp);
-        if (r < 0)
-                return r;
+        if (ret_tmp_dir) {
+                r = setup_one_tmp_dir(id, "/tmp", &a, &a_tmp);
+                if (r < 0)
+                        return r;
+        }
 
-        r = setup_one_tmp_dir(id, "/var/tmp", &b, NULL);
-        if (r < 0)
-                return r;
+        if (ret_var_tmp_dir) {
+                r = setup_one_tmp_dir(id, "/var/tmp", ret_var_tmp_dir, NULL);
+                if (r < 0)
+                        return r;
+        }
 
-        a_tmp = mfree(a_tmp); /* avoid rmdir */
-        *tmp_dir = TAKE_PTR(a);
-        *var_tmp_dir = TAKE_PTR(b);
+        if (ret_tmp_dir) {
+                a_tmp = mfree(a_tmp); /* avoid rmdir */
+                *ret_tmp_dir = TAKE_PTR(a);
+        }
 
         return 0;
 }

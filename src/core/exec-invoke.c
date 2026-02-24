@@ -2089,7 +2089,7 @@ static int build_environment(
 
         /* If this is D-Bus, tell the nss-systemd module, since it relies on being able to use blocking
          * Varlink calls back to us for look up dynamic users in PID 1. Break the deadlock between D-Bus and
-         * PID 1 by disabling use of PID1' NSS interface for looking up dynamic users. */
+         * PID 1 by disabling use of PID1's NSS interface for looking up dynamic users. */
         if (p->flags & EXEC_NSS_DYNAMIC_BYPASS) {
                 r = strv_extend_with_size(&e, &n, "SYSTEMD_NSS_DYNAMIC_BYPASS=1");
                 if (r < 0)
@@ -2097,8 +2097,8 @@ static int build_environment(
         }
 
         /* We query "root" if this is a system unit and User= is not specified. $USER is always set. $HOME
-         * could cause problem for e.g. getty, since login doesn't override $HOME, and $LOGNAME and $SHELL don't
-         * really make much sense since we're not logged in. Hence we conditionalize the three based on
+         * could cause problem for e.g. getty, since login doesn't override $HOME, and $LOGNAME and $SHELL
+         * don't really make much sense since we're not logged in. Hence we conditionalize the three based on
          * SetLoginEnvironment= switch. */
         if (!username && !c->dynamic_user && p->runtime_scope == RUNTIME_SCOPE_SYSTEM) {
                 assert(!c->user);
@@ -2248,10 +2248,8 @@ static int build_environment(
         }
 
         assert(c->private_var_tmp >= 0 && c->private_var_tmp < _PRIVATE_TMP_MAX);
-        if (needs_sandboxing && c->private_tmp != c->private_var_tmp) {
-                assert(c->private_tmp == PRIVATE_TMP_DISCONNECTED);
-                assert(c->private_var_tmp == PRIVATE_TMP_NO);
-
+        if (needs_sandboxing &&
+            c->private_var_tmp == PRIVATE_TMP_NO && c->private_tmp != PRIVATE_TMP_NO) {
                 /* When private tmpfs is enabled only on /tmp/, then explicitly set $TMPDIR to suggest the
                  * service to use /tmp/. */
 
@@ -3907,14 +3905,16 @@ static int apply_mount_namespace(
         if (needs_sandboxing) {
                 /* The runtime struct only contains the parent of the private /tmp, which is non-accessible
                  * to world users. Inside of it there's a /tmp that is sticky, and that's the one we want to
-                 * use here.  This does not apply when we are using /run/systemd/empty as fallback. */
+                 * use here. This does not apply when we are using /run/systemd/empty as fallback. */
 
                 if (context->private_tmp == PRIVATE_TMP_CONNECTED && runtime->shared) {
                         if (streq_ptr(runtime->shared->tmp_dir, RUN_SYSTEMD_EMPTY))
                                 tmp_dir = runtime->shared->tmp_dir;
                         else if (runtime->shared->tmp_dir)
                                 tmp_dir = strjoina(runtime->shared->tmp_dir, "/tmp");
+                }
 
+                if (context->private_var_tmp == PRIVATE_TMP_CONNECTED && runtime->shared) {
                         if (streq_ptr(runtime->shared->var_tmp_dir, RUN_SYSTEMD_EMPTY))
                                 var_tmp_dir = runtime->shared->var_tmp_dir;
                         else if (runtime->shared->var_tmp_dir)
@@ -4624,7 +4624,7 @@ static bool exec_needs_cap_sys_admin(const ExecContext *context, const ExecParam
                 return false;
 
         return context->private_users != PRIVATE_USERS_NO ||
-               context->private_tmp != PRIVATE_TMP_NO ||
+               context->private_tmp != PRIVATE_TMP_NO || /* no need to check for private_var_tmp here, private_tmp is never demoted to "no" */
                context->private_devices ||
                context->private_network ||
                context->user_namespace_path ||
@@ -4833,7 +4833,7 @@ static int setup_delegated_namespaces(
 
         /* If PrivatePIDs= yes is configured, we're now running as pid 1 in a pid namespace! */
 
-        if (exec_needs_mount_namespace(context, params, runtime) &&
+        if (exec_needs_mount_namespace(context, params) &&
             exec_namespace_is_delegated(context, params, have_cap_sys_admin, CLONE_NEWNS) == delegate) {
                 _cleanup_free_ char *error_path = NULL;
 
@@ -5829,7 +5829,7 @@ int exec_invoke(
                         return log_error_errno(r, "Failed to connect to nsresourced: %m");
         }
 
-        needs_mount_namespace = exec_needs_mount_namespace(context, params, runtime);
+        needs_mount_namespace = exec_needs_mount_namespace(context, params);
 
         for (ExecDirectoryType dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++) {
                 r = setup_exec_directory(context, params, uid, gid, dt, needs_mount_namespace, exit_status);
