@@ -151,7 +151,7 @@ int manager_enumerate(Manager *m);
 int manager_set_hostname(Manager *m, const char *hostname);
 int manager_set_timezone(Manager *m, const char *tz);
 
-int manager_reload(Manager *m, sd_bus_message *message);
+int manager_reload(Manager *m, sd_bus_message *message, sd_varlink *varlink);
 
 static inline Hashmap** manager_get_sysctl_shadow(Manager *manager) {
 #if ENABLE_SYSCTL_BPF
