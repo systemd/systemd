@@ -4323,7 +4323,7 @@ static int unit_verify_contexts(const Unit *u) {
                 return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "WorkingDirectory=~ is not allowed under DynamicUser=yes. Refusing.");
 
         if (ec->working_directory && path_below_api_vfs(ec->working_directory) &&
-            exec_needs_mount_namespace(ec, /* params= */ NULL, /* runtime= */ NULL))
+            exec_needs_mount_namespace(ec, /* params= */ NULL))
                 return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "WorkingDirectory= may not be below /proc/, /sys/ or /dev/ when using mount namespacing. Refusing.");
 
         if (exec_needs_pid_namespace(ec, /* params= */ NULL) && !UNIT_VTABLE(u)->notify_pidref)
