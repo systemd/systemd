@@ -68,24 +68,17 @@ const Verb* verbs_find_verb(const char *name, const Verb verbs[]) {
         return NULL;
 }
 
-int dispatch_verb(int argc, char *argv[], const Verb verbs[], void *userdata) {
-        const Verb *verb;
-        const char *name;
-        int r, left;
+int dispatch_verb_with_args(char **args, const Verb verbs[], void *userdata) {
+        int r;
 
         assert(verbs);
         assert(verbs[0].dispatch);
         assert(verbs[0].verb);
-        assert(argc >= 0);
-        assert(argv);
-        assert(argc >= optind);
 
-        left = argc - optind;
-        argv += optind;
-        optind = 0;
-        name = argv[0];
+        const char *name = args ? args[0] : NULL;
+        size_t left = strv_length(args);
 
-        verb = verbs_find_verb(name, verbs);
+        const Verb *verb = verbs_find_verb(name, verbs);
         if (!verb) {
                 _cleanup_strv_free_ char **verb_strv = NULL;
 
@@ -120,12 +113,10 @@ int dispatch_verb(int argc, char *argv[], const Verb verbs[], void *userdata) {
         if (!name)
                 left = 1;
 
-        if (verb->min_args != VERB_ANY &&
-            (unsigned) left < verb->min_args)
+        if (verb->min_args != VERB_ANY && left < verb->min_args)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Too few arguments.");
 
-        if (verb->max_args != VERB_ANY &&
-            (unsigned) left > verb->max_args)
+        if (verb->max_args != VERB_ANY && left > verb->max_args)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Too many arguments.");
 
         if ((verb->flags & VERB_ONLINE_ONLY) && running_in_chroot_or_offline()) {
@@ -136,5 +127,15 @@ int dispatch_verb(int argc, char *argv[], const Verb verbs[], void *userdata) {
         if (!name)
                 return verb->dispatch(1, STRV_MAKE(verb->verb), userdata);
 
-        return verb->dispatch(left, argv, userdata);
+        return verb->dispatch(left, args, userdata);
+}
+
+int dispatch_verb(int argc, char *argv[], const Verb verbs[], void *userdata) {
+        /* getopt wrapper for dispatch_verb_adjusted */
+
+        assert(argc >= 0);
+        assert(argv);
+        assert(argc >= optind);
+
+        return dispatch_verb_with_args(strv_skip(argv, optind), verbs, userdata);
 }
