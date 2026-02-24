@@ -23,4 +23,5 @@ bool running_in_chroot_or_offline(void);
 bool should_bypass(const char *env_prefix);
 
 const Verb* verbs_find_verb(const char *name, const Verb verbs[]);
+int dispatch_verb_with_args(char **args, const Verb verbs[], void *userdata);
 int dispatch_verb(int argc, char *argv[], const Verb verbs[], void *userdata);
