@@ -13,6 +13,7 @@ Documentation=man:systemd-mountfsd.service(8)
 DefaultDependencies=no
 Conflicts=shutdown.target
 Before=sockets.target shutdown.target
+ConditionPathExists=!/run/host/io.systemd.MountFileSystem
 
 [Socket]
 ListenStream=/run/systemd/io.systemd.MountFileSystem

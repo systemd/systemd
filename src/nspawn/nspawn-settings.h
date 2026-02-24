@@ -175,6 +175,7 @@ typedef struct Settings {
         char *pivot_root_old;
         UserNamespaceMode userns_mode;
         uid_t uid_shift, uid_range;
+        unsigned delegate_container_ranges;
         int notify_ready;
         char **syscall_allow_list;
         char **syscall_deny_list;
