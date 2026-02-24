@@ -134,7 +134,7 @@ _systemctl () {
                       --help -h --no-ask-password --no-block --legend=no --no-pager --no-reload --no-wall --now
                       --quiet -q --system --user --version --runtime --recursive -r --firmware-setup
                       --show-types --plain --failed --value --fail --dry-run --wait --no-warn --with-dependencies
-                      --show-transaction -T --mkdir --marked --read-only'
+                      --show-transaction -T --mkdir --read-only'
         [ARG]='--host -H --kill-whom --property -p -P --signal -s --type -t --state --job-mode --root
                --preset-mode -n --lines -o --output -M --machine --message --timestamp --check-inhibitors --what
                --image --boot-loader-menu --boot-loader-entry --reboot-argument --drop-in'
@@ -233,7 +233,8 @@ _systemctl () {
                              suspend-then-hibernate kexec soft-reboot list-jobs list-sockets
                              list-timers list-units list-unit-files poweroff
                              reboot rescue show-environment suspend get-default
-                             is-system-running preset-all list-automounts list-paths'
+                             is-system-running preset-all list-automounts list-paths
+                             enqueue-marked-jobs'
         [FILE]='link switch-root'
         [TARGETS]='set-default'
         [MACHINES]='list-machines'
