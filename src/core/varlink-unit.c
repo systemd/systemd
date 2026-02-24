@@ -3,6 +3,7 @@
 #include "sd-json.h"
 
 #include "bitfield.h"
+#include "bus-polkit.h"
 #include "cgroup.h"
 #include "condition.h"
 #include "dbus-job.h"
@@ -665,6 +666,19 @@ int vl_method_set_unit_properties(sd_varlink *link, sd_json_variant *parameters,
 
         r = load_unit_and_check(link, manager, p.name, &unit);
         if (r < 0)
+                return r;
+
+        r = mac_selinux_unit_access_check_varlink(unit, link, "start");
+        if (r < 0)
+                return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        manager->system_bus,
+                        "org.freedesktop.systemd1.manage-units",
+                        /* details= */ NULL,
+                        &manager->polkit_registry);
+        if (r <= 0)
                 return r;
 
         if (p.markers_found)
