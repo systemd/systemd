@@ -997,7 +997,7 @@ static int oci_pull_save_nspawn_settings(OciPull *i) {
                 return log_oom();
 
         _cleanup_free_ char *j = path_join(i->image_root, fn);
-        if (!fn)
+        if (!j)
                 return log_oom();
 
         _cleanup_fclose_ FILE *f = NULL;
@@ -1085,7 +1085,7 @@ static int oci_pull_save_oci_config(OciPull *i) {
                 return log_oom();
 
         _cleanup_free_ char *j = path_join(i->image_root, fn);
-        if (!fn)
+        if (!j)
                 return log_oom();
 
         _cleanup_close_ int fd = -EBADF;
@@ -1116,7 +1116,7 @@ static int oci_pull_save_mstack(OciPull *i) {
                 return log_oom();
 
         _cleanup_free_ char *j = path_join(i->image_root, dn);
-        if (!dn)
+        if (!j)
                 return log_oom();
 
         log_notice("Creating '%s'", j);
