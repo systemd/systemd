@@ -3853,6 +3853,139 @@ int config_parse_memory_limit(
         return 0;
 }
 
+int config_parse_device_memory_limit(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+        CGroupContext *c = data;
+        uint64_t scale = CGROUP_LIMIT_MAX;
+        int r;
+
+        if (startswith(lvalue, "Default")) {
+                if (isempty(rvalue)) {
+                        if (streq(lvalue, "DefaultDeviceMemoryMin"))
+                                c->default_device_memory_min_set = false;
+                        else if (streq(lvalue, "DefaultDeviceMemoryLow"))
+                                c->default_device_memory_low_set = false;
+                        else if (streq(lvalue, "DefaultDeviceMemoryMax"))
+                                c->default_device_memory_max_set = false;
+                        return 0;
+                }
+
+                if (!streq(rvalue, "infinity")) {
+                        r = parse_permyriad(rvalue);
+                        if (r < 0) {
+                                log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid device memory limit '%s', ignoring: %m", rvalue);
+                                return 0;
+                        }
+                        scale = r;
+
+                        if (scale > 10000U) {
+                                log_syntax(unit, LOG_WARNING, filename, line, 0, "Device memory limit '%s' out of range, ignoring.", rvalue);
+                                return 0;
+                        }
+                }
+
+                if (streq(lvalue, "DefaultDeviceMemoryMin")) {
+                        c->default_device_memory_min = scale;
+                        c->default_device_memory_min_set = true;
+                } else if (streq(lvalue, "DefaultDeviceMemoryLow")) {
+                        c->default_device_memory_low = scale;
+                        c->default_device_memory_low_set = true;
+                } else if (streq(lvalue, "DefaultDeviceMemoryMax")) {
+                        c->default_device_memory_max = scale;
+                        c->default_device_memory_max_set = true;
+                }
+        } else {
+                char *region;
+                char *capacity;
+                uint64_t capacity_bytes = 0;
+                uint64_t bytes = CGROUP_LIMIT_MAX;
+                CGroupDeviceMemoryLimit *l = NULL;
+
+                r = extract_first_word(&rvalue, &region, NULL, EXTRACT_UNQUOTE);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to extract region and limit from '%s', ignoring.", rvalue);
+                        return 0;
+                }
+                if (r == 0 || isempty(rvalue)) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "Invalid region or limit specified in '%s', ignoring.", rvalue);
+                        return 0;
+                }
+
+                r = cg_get_keyed_attribute("", "dmem.capacity", STRV_MAKE(region), &capacity);
+                if (r == -ENXIO) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "Region '%s' does not exist, ignoring.", region);
+                        return 0;
+                } else if (r < 0)
+                        return log_error_errno(r, "Failed to read dmem region capacity!\n");
+
+                if (!streq(rvalue, "infinity")) {
+                        r = safe_atou64(capacity, &capacity_bytes);
+                        if (r < 0)
+                                return log_error_errno(r, "Invalid dmem region capacity '%s'!\n", capacity);
+
+                        r = parse_permyriad(rvalue);
+                        if (r < 0) {
+                                r = parse_size(rvalue, 1024, &bytes);
+                                if (r < 0) {
+                                        log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid device memory limit '%s', ignoring: %m", rvalue);
+                                        return 0;
+                                }
+                        } else {
+                                scale = r;
+                                bytes = apply_scale(capacity_bytes, scale, 1000U);
+                        }
+
+                        if (bytes > capacity_bytes) {
+                                log_syntax(unit, LOG_WARNING, filename, line, 0, "Device memory limit '%s' out of range, ignoring.", rvalue);
+                                return 0;
+                        }
+                }
+
+                LIST_FOREACH(dev_limits, b, c->dev_mem_limits)
+                        if (streq(b->region, region)) {
+                                l = b;
+                                break;
+                        }
+
+                if (!l) {
+                        l = new0(CGroupDeviceMemoryLimit , 1);
+                        if (!l)
+                                return log_oom_debug();
+
+                        l->region = TAKE_PTR(region);
+
+                        LIST_PREPEND(dev_limits, c->dev_mem_limits, l);
+                }
+
+                if (streq(lvalue, "DeviceMemoryMin")) {
+                        l->min_valid = true;
+                        l->min = bytes;
+                } else if (streq(lvalue, "DeviceMemoryLow")) {
+                        l->low_valid = true;
+                        l->low = bytes;
+                } else if (streq(lvalue, "DeviceMemoryMax")) {
+                        l->max_valid = true;
+                        l->max = bytes;
+                }
+        }
+
+        return 0;
+}
+
 int config_parse_tasks_max(
                 const char *unit,
                 const char *filename,
