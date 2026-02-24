@@ -499,6 +499,20 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
                  do not document that. -->
           </listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><command>enqueue-marked-jobs</command></term>
+
+          <listitem><para>Enqueue start/stop/restart/reload jobs for all units that have the respective
+          <literal>needs-*</literal> markers set. When a unit marked for reload does not support reload,
+          restart will be queued. Those properties can be set using <command>set-property Markers=…</command>.</para>
+
+          <para>Unless <option>--no-block</option> is used, <command>systemctl</command> will wait for the
+          queued jobs to finish.</para>
+
+          <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+        </varlistentry>
+
         <varlistentry>
           <term><command>reload-or-restart <replaceable>PATTERN</replaceable>…</command></term>
 

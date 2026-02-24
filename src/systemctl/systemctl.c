@@ -143,6 +143,7 @@ static int systemctl_help(void) {
                "  reload UNIT...                      Reload one or more units\n"
                "  restart UNIT...                     Start or restart one or more units\n"
                "  try-restart UNIT...                 Restart one or more units if active\n"
+               "  enqueue-marked-jobs                 Enqueue all jobs on units with job marker set\n"
                "  reload-or-restart UNIT...           Reload one or more units if possible,\n"
                "                                      otherwise start or restart\n"
                "  try-reload-or-restart UNIT...       If active, reload one or more units,\n"
@@ -1077,12 +1078,6 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 if (optind + 1 < argc)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "No additional arguments allowed with 'reload-or-restart --marked'.");
-                if (arg_wait)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "--marked --wait is not supported.");
-                if (arg_show_transaction)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "--marked --show-transaction is not supported.");
 
         } else if (do_reload_or_restart) {
                 if (optind + 1 >= argc)
