@@ -256,11 +256,7 @@ bool exec_needs_pid_namespace(const ExecContext *context, const ExecParameters *
         return context->private_pids != PRIVATE_PIDS_NO && namespace_type_supported(NAMESPACE_PID);
 }
 
-bool exec_needs_mount_namespace(
-                const ExecContext *context,
-                const ExecParameters *params,
-                const ExecRuntime *runtime) {
-
+bool exec_needs_mount_namespace(const ExecContext *context, const ExecParameters *params) {
         assert(context);
 
         if (context->root_image ||
@@ -295,13 +291,8 @@ bool exec_needs_mount_namespace(
         if (!IN_SET(context->mount_propagation_flag, 0, MS_SHARED))
                 return true;
 
-        if (context->private_tmp == PRIVATE_TMP_DISCONNECTED)
-                return true;
-
-        if (context->private_tmp == PRIVATE_TMP_CONNECTED && runtime && runtime->shared && (runtime->shared->tmp_dir || runtime->shared->var_tmp_dir))
-                return true;
-
         if (context->private_devices ||
+            context->private_tmp != PRIVATE_TMP_NO || /* no need to check for private_var_tmp here, private_tmp is never demoted to "no" */
             context->private_mounts > 0 ||
             (context->private_mounts < 0 && exec_needs_network_namespace(context)) ||
             context->protect_system != PROTECT_SYSTEM_NO ||
