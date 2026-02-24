@@ -826,18 +826,13 @@ units = [
           'install_tag' : 'udev',
         },
         {
-          'file' : 'systemd-udevd-control.socket',
-          'symlinks' : ['sockets.target.wants/'],
-          'install_tag' : 'udev',
-        },
-        {
           'file' : 'systemd-udevd-kernel.socket',
           'symlinks' : ['sockets.target.wants/'],
           'install_tag' : 'udev',
         },
         {
           'file' : 'systemd-udevd-varlink.socket',
-          'symlinks' : ['sockets.target.wants/'],
+          'symlinks' : ['sockets.target.wants/', 'systemd-udevd-control.socket'],
           'install_tag' : 'udev',
         },
         {

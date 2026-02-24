@@ -33,10 +33,8 @@
 #include "time-util.h"
 #include "udev-builtin.h"
 #include "udev-config.h"
-#include "udev-ctrl.h"
 #include "udev-error.h"
 #include "udev-manager.h"
-#include "udev-manager-ctrl.h"
 #include "udev-rules.h"
 #include "udev-spawn.h"
 #include "udev-trace.h"
@@ -216,7 +214,6 @@ Manager* manager_free(Manager *manager) {
 
         sd_device_monitor_unref(manager->monitor);
 
-        udev_ctrl_unref(manager->ctrl);
         sd_varlink_server_unref(manager->varlink_server);
 
         sd_event_source_unref(manager->inotify_event);
@@ -305,7 +302,6 @@ void manager_exit(Manager *manager) {
         (void) sd_notify(/* unset_environment= */ false, NOTIFY_STOPPING_MESSAGE);
 
         /* close sources of new events and discard buffered events */
-        manager->ctrl = udev_ctrl_unref(manager->ctrl);
         manager->varlink_server = sd_varlink_server_unref(manager->varlink_server);
         (void) manager_serialize_config(manager);
 
@@ -1446,9 +1442,7 @@ static int manager_listen_fds(Manager *manager, int *ret_varlink_fd) {
                 if (streq(names[i], "varlink")) {
                         varlink_fd = fd;
                         r = 0;
-                } else if (streq(names[i], "systemd-udevd-control.socket"))
-                        r = manager_init_ctrl(manager, fd);
-                else if (streq(names[i], "systemd-udevd-kernel.socket"))
+                } else if (streq(names[i], "systemd-udevd-kernel.socket"))
                         r = manager_init_device_monitor(manager, fd);
                 else if (streq(names[i], "inotify"))
                         r = manager_init_inotify(manager, fd);
@@ -1488,10 +1482,6 @@ int manager_main(Manager *manager) {
                 return r;
 
         r = manager_listen_fds(manager, &varlink_fd);
-        if (r < 0)
-                return r;
-
-        r = manager_start_ctrl(manager);
         if (r < 0)
                 return r;
 
