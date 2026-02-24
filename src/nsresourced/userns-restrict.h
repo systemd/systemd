@@ -13,4 +13,7 @@ int userns_restrict_put_by_inode(struct userns_restrict_bpf *obj, uint64_t usern
 
 int userns_restrict_reset_by_inode(struct userns_restrict_bpf *obj, uint64_t userns_inode);
 
+int userns_restrict_setgroups_deny_by_fd(struct userns_restrict_bpf *obj, int userns_fd);
+int userns_restrict_setgroups_deny_by_inode(struct userns_restrict_bpf *obj, uint64_t userns_inode);
+
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct userns_restrict_bpf*, userns_restrict_bpf_free);
