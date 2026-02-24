@@ -34,6 +34,7 @@
 #include "varlink-io.systemd.MuteConsole.h"
 #include "varlink-io.systemd.NamespaceResource.h"
 #include "varlink-io.systemd.Network.h"
+#include "varlink-io.systemd.Network.Link.h"
 #include "varlink-io.systemd.PCRExtend.h"
 #include "varlink-io.systemd.PCRLock.h"
 #include "varlink-io.systemd.Repart.h"
@@ -199,6 +200,7 @@ TEST(parse_format) {
                 &vl_interface_io_systemd_MuteConsole,
                 &vl_interface_io_systemd_NamespaceResource,
                 &vl_interface_io_systemd_Network,
+                &vl_interface_io_systemd_Network_Link,
                 &vl_interface_io_systemd_PCRExtend,
                 &vl_interface_io_systemd_PCRLock,
                 &vl_interface_io_systemd_Repart,
