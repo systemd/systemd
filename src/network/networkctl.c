@@ -223,22 +223,22 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int networkctl_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "list",               VERB_ANY, VERB_ANY, VERB_DEFAULT|VERB_ONLINE_ONLY, list_links              },
-                { "status",             VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,              link_status             },
-                { "lldp",               VERB_ANY, VERB_ANY, 0,                             link_lldp_status        },
-                { "label",              1,        1,        0,                             list_address_labels     },
-                { "delete",             2,        VERB_ANY, 0,                             link_delete             },
-                { "up",                 2,        VERB_ANY, 0,                             link_up_down            },
-                { "down",               2,        VERB_ANY, 0,                             link_up_down            },
-                { "renew",              2,        VERB_ANY, VERB_ONLINE_ONLY,              link_bus_simple_method  },
-                { "forcerenew",         2,        VERB_ANY, VERB_ONLINE_ONLY,              link_bus_simple_method  },
-                { "reconfigure",        2,        VERB_ANY, VERB_ONLINE_ONLY,              link_bus_simple_method  },
-                { "reload",             1,        1,        VERB_ONLINE_ONLY,              verb_reload             },
-                { "edit",               2,        VERB_ANY, 0,                             verb_edit               },
-                { "cat",                1,        VERB_ANY, 0,                             verb_cat                },
-                { "mask",               2,        VERB_ANY, 0,                             verb_mask               },
-                { "unmask",             2,        VERB_ANY, 0,                             verb_unmask             },
-                { "persistent-storage", 2,        2,        0,                             verb_persistent_storage },
+                { "list",               VERB_ANY, VERB_ANY, VERB_DEFAULT|VERB_ONLINE_ONLY, list_links                 },
+                { "status",             VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY,              link_status                },
+                { "lldp",               VERB_ANY, VERB_ANY, 0,                             link_lldp_status           },
+                { "label",              1,        1,        0,                             list_address_labels        },
+                { "delete",             2,        VERB_ANY, 0,                             link_delete                },
+                { "up",                 2,        VERB_ANY, 0,                             link_varlink_simple_method },
+                { "down",               2,        VERB_ANY, 0,                             link_varlink_simple_method },
+                { "renew",              2,        VERB_ANY, VERB_ONLINE_ONLY,              link_varlink_simple_method },
+                { "forcerenew",         2,        VERB_ANY, VERB_ONLINE_ONLY,              link_varlink_simple_method },
+                { "reconfigure",        2,        VERB_ANY, VERB_ONLINE_ONLY,              link_varlink_simple_method },
+                { "reload",             1,        1,        VERB_ONLINE_ONLY,              verb_reload                },
+                { "edit",               2,        VERB_ANY, 0,                             verb_edit                  },
+                { "cat",                1,        VERB_ANY, 0,                             verb_cat                   },
+                { "mask",               2,        VERB_ANY, 0,                             verb_mask                  },
+                { "unmask",             2,        VERB_ANY, 0,                             verb_unmask                },
+                { "persistent-storage", 2,        2,        0,                             verb_persistent_storage    },
                 {}
         };
 
