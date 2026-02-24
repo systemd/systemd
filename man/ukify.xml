@@ -452,9 +452,11 @@
           Here <literal>Example Laptop 16 Gen 7</literal> is the device <literal>name</literal> (as defined
           by the manufacturer), <literal>example,laptop-16-g7</literal> is the <literal>compatible</literal>
           (as defined by the kernel) and <literal>hwids</literal> is an array of CHIDs/HWIDs (extracted i.e.
-          from <command>fwupdtool hwids</command> output). If not specified, the section will not be
-          present. It is recommended to specify this parameter if automatically selectable DeviceTrees are
-          to be used.</para>
+          from <command>fwupdtool hwids</command> output). If not specified, and the
+          <literal>/usr/lib/systemd/boot/hwids/[EFI_ARCH]/</literal> directory exists, then the section will
+          be automatically populated from that directory (specify an empty string as the parameter for this
+          option to disable this behavior), otherwise it will not be present. It is recommended to specify
+          this parameter if automatically selectable DeviceTrees are to be used.</para>
 
           <xi:include href="version-info.xml" xpointer="v257"/></listitem>
         </varlistentry>
