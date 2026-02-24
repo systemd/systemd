@@ -440,6 +440,7 @@ int tmpfs_patch_options(
 int mount_sysfs(const char *dest, MountSettingsMask mount_settings) {
         _cleanup_free_ char *top = NULL, *full = NULL;;
         unsigned long extra_flags = 0;
+        bool is_mount_point;
         int r;
 
         top = path_join(dest, "/sys");
@@ -449,12 +450,9 @@ int mount_sysfs(const char *dest, MountSettingsMask mount_settings) {
         r = path_is_mount_point(top);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine if '%s' is a mountpoint: %m", top);
-        if (r == 0) {
-                /* If this is not a mount point yet, then mount a tmpfs there */
-                r = mount_nofollow_verbose(LOG_ERR, "tmpfs", top, "tmpfs", MS_NOSUID|MS_NOEXEC|MS_NODEV, "mode=0555" TMPFS_LIMITS_SYS);
-                if (r < 0)
-                        return r;
-        } else {
+        is_mount_point = r > 0;
+
+        if (is_mount_point) {
                 r = path_is_fs_type(top, SYSFS_MAGIC);
                 if (r < 0)
                         return log_error_errno(r, "Failed to determine filesystem type of %s: %m", top);
@@ -465,6 +463,21 @@ int mount_sysfs(const char *dest, MountSettingsMask mount_settings) {
                  */
                 if (r > 0)
                         return 0;
+        }
+
+        /* When running in a user namespace, to enable mounting sysfs in nested containers, we cannot
+         * overmount it, so we mount it as is. While the user namespace won't be able to write to sysfs, we
+         * still have to mount it read-only as that's part of the container interface and various units
+         * conditionalize themselves based on whether /sys is mounted read-only or not. */
+        if (!FLAGS_SET(mount_settings, MOUNT_APPLY_APIVFS_RO))
+                return mount_nofollow_verbose(LOG_ERR, "sysfs", top, "sysfs",
+                                              MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_RDONLY, NULL);
+
+        if (!is_mount_point) {
+                /* If this is not a mount point yet, then mount a tmpfs there */
+                r = mount_nofollow_verbose(LOG_ERR, "tmpfs", top, "tmpfs", MS_NOSUID|MS_NOEXEC|MS_NODEV, "mode=0555" TMPFS_LIMITS_SYS);
+                if (r < 0)
+                        return r;
         }
 
         full = path_join(top, "/full");
