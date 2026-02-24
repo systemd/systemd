@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-11-26 01:17+0000\n"
+"POT-Creation-Date: 2026-02-24 18:43+0000\n"
 "PO-Revision-Date: 2025-09-28 10:07+0000\n"
 "Last-Translator: kanitha chim <kchim@redhat.com>\n"
 "Language-Team: Khmer (Central) <https://translate.fedoraproject.org/projects/"
@@ -148,7 +148,7 @@ msgstr "គ្រប់គ្រង​ Home Directory Signing Keys"
 msgid "Authentication is required to manage signing keys for home directories."
 msgstr "Authentication គឺតម្រូវឱ្យគ្រប់គ្រង signing keys សម្រាប់ home directories។"
 
-#: src/home/pam_systemd_home.c:333
+#: src/home/pam_systemd_home.c:330
 #, c-format
 msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
@@ -156,49 +156,49 @@ msgid ""
 msgstr ""
 "Home របស់អ្នកប្រើប្រាស់ %s បច្ចុប្បន្នគឺអវត្តមាន សូមដោតឧបករណ៍ផ្ទុកចាំបាច់ ឬប្រព័ន្ធឯកសារបម្រុងទុក។"
 
-#: src/home/pam_systemd_home.c:338
+#: src/home/pam_systemd_home.c:335
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
 msgstr "ការព្យាយាមចូល​​ login ញឹកញាប់ពេកសម្រាប់អ្នកប្រើប្រាស់ %s សូមព្យាយាមម្តងទៀតនៅពេលក្រោយ។"
 
-#: src/home/pam_systemd_home.c:350
+#: src/home/pam_systemd_home.c:347
 msgid "Password: "
 msgstr "ពាក្យសម្ងាត់: "
 
-#: src/home/pam_systemd_home.c:352
+#: src/home/pam_systemd_home.c:349
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
 msgstr "ពាក្យសម្ងាត់មិនត្រឹមត្រូវ ឬមិនគ្រប់គ្រាន់សម្រាប់ការផ្ទៀងផ្ទាត់អ្នកប្រើប្រាស់ %s ។"
 
-#: src/home/pam_systemd_home.c:353
+#: src/home/pam_systemd_home.c:350
 msgid "Sorry, try again: "
 msgstr "សូមអភ័យទោស សូមព្យាយាមម្តងទៀត៖ "
 
-#: src/home/pam_systemd_home.c:375
+#: src/home/pam_systemd_home.c:372
 msgid "Recovery key: "
 msgstr "Recovery key៖ "
 
-#: src/home/pam_systemd_home.c:377
+#: src/home/pam_systemd_home.c:374
 #, c-format
 msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
 "%s."
 msgstr "លេខសំងាត់/កូនសោសង្គ្រោះមិនត្រឹមត្រូវ ឬមិនគ្រប់គ្រាន់សម្រាប់ការផ្ទៀងផ្ទាត់អ្នកប្រើប្រាស់ %s ។"
 
-#: src/home/pam_systemd_home.c:378
+#: src/home/pam_systemd_home.c:375
 msgid "Sorry, reenter recovery key: "
 msgstr "សូមអភ័យទោស សូមបញ្ចូលសោសង្គ្រោះឡើងវិញ៖ "
 
-#: src/home/pam_systemd_home.c:398
+#: src/home/pam_systemd_home.c:395
 #, c-format
 msgid "Security token of user %s not inserted."
 msgstr "និមិត្តសញ្ញាសុវត្ថិភាពរបស់អ្នកប្រើ %s មិនត្រូវបានបញ្ចូលទេ។"
 
-#: src/home/pam_systemd_home.c:399 src/home/pam_systemd_home.c:402
+#: src/home/pam_systemd_home.c:396 src/home/pam_systemd_home.c:399
 msgid "Try again with password: "
 msgstr "ព្យាយាមម្តងទៀតដោយប្រើពាក្យសម្ងាត់៖ "
 
-#: src/home/pam_systemd_home.c:401
+#: src/home/pam_systemd_home.c:398
 #, c-format
 msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
@@ -207,26 +207,26 @@ msgstr ""
 "ពាក្យ​សម្ងាត់​មិន​ត្រឹមត្រូវ ឬ​មិន​គ្រប់គ្រាន់ ហើយ​ configured security token ​របស់​អ្នក​ប្រើ %s មិន​ត្រូវ​"
 "បាន​បញ្ចូល​ទេ។"
 
-#: src/home/pam_systemd_home.c:421
+#: src/home/pam_systemd_home.c:418
 msgid "Security token PIN: "
 msgstr "កូដ token PIN សុវត្ថិភាព៖ "
 
-#: src/home/pam_systemd_home.c:438
+#: src/home/pam_systemd_home.c:435
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
 msgstr "សូមផ្ទៀងផ្ទាត់ physically on security token របស់អ្នកប្រើប្រាស់ %s ។"
 
-#: src/home/pam_systemd_home.c:449
+#: src/home/pam_systemd_home.c:446
 #, c-format
 msgid "Please confirm presence on security token of user %s."
 msgstr "សូមបញ្ជាក់វត្តមាននៅលើនិមិត្តសញ្ញាសុវត្ថិភាពរបស់អ្នកប្រើប្រាស់ %s។"
 
-#: src/home/pam_systemd_home.c:460
+#: src/home/pam_systemd_home.c:457
 #, c-format
 msgid "Please verify user on security token of user %s."
 msgstr "សូមផ្ទៀងផ្ទាត់អ្នកប្រើប្រាស់លើសញ្ញាសម្ងាត់សុវត្ថិភាពរបស់អ្នកប្រើប្រាស់ %s ។"
 
-#: src/home/pam_systemd_home.c:469
+#: src/home/pam_systemd_home.c:466
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
@@ -234,75 +234,75 @@ msgstr ""
 "កូដ PIN និមិត្តសញ្ញាសុវត្ថិភាពត្រូវបានចាក់សោ សូមដោះសោជាមុនសិន។ (ព័ត៌មានជំនួយ៖ ការដក "
 "និងការបញ្ចូលឡើងវិញអាចគ្រប់គ្រាន់។ )"
 
-#: src/home/pam_systemd_home.c:477
+#: src/home/pam_systemd_home.c:474
 #, c-format
 msgid "Security token PIN incorrect for user %s."
 msgstr "កូដ PIN និមិត្តសញ្ញាសុវត្ថិភាពមិនត្រឹមត្រូវសម្រាប់អ្នកប្រើប្រាស់ %s ។"
 
-#: src/home/pam_systemd_home.c:478 src/home/pam_systemd_home.c:497
-#: src/home/pam_systemd_home.c:516
+#: src/home/pam_systemd_home.c:475 src/home/pam_systemd_home.c:494
+#: src/home/pam_systemd_home.c:513
 msgid "Sorry, retry security token PIN: "
 msgstr "សូមអភ័យទោស សូមសាកល្បងកូដ PIN និមិត្តសញ្ញាសុវត្ថិភាពម្តងទៀត៖ "
 
-#: src/home/pam_systemd_home.c:496
+#: src/home/pam_systemd_home.c:493
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr "កូដ PIN និមិត្តសញ្ញាសុវត្ថិភាពរបស់អ្នកប្រើ %s មិនត្រឹមត្រូវ (នៅសល់តែព្យាយាមពីរបីដងប៉ុណ្ណោះ!)"
 
-#: src/home/pam_systemd_home.c:515
+#: src/home/pam_systemd_home.c:512
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr "កូដ PIN និមិត្តសញ្ញាសុវត្ថិភាពរបស់អ្នកប្រើ %s មិនត្រឹមត្រូវ (ព្យាយាមនៅសល់តែមួយប៉ុណ្ណោះ!)"
 
-#: src/home/pam_systemd_home.c:682
+#: src/home/pam_systemd_home.c:679
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr "ទំព័រដើមរបស់អ្នកប្រើ %s បច្ចុប្បន្នមិនសកម្មទេ សូម log in locally ជាមុនសិន។"
 
-#: src/home/pam_systemd_home.c:684
+#: src/home/pam_systemd_home.c:681
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr "ទំព័រដើមរបស់អ្នកប្រើ %s បច្ចុប្បន្នត្រូវបានចាក់សោ សូមដោះសោនៅក្នុងមូលដ្ឋានជាមុនសិន។"
 
-#: src/home/pam_systemd_home.c:718
+#: src/home/pam_systemd_home.c:715
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr "ការប៉ុនប៉ង log in មិនជោគជ័យច្រើនពេកសម្រាប់អ្នកប្រើប្រាស់ %s, បដិសេធ។"
 
-#: src/home/pam_systemd_home.c:1017
+#: src/home/pam_systemd_home.c:1012
 msgid "User record is blocked, prohibiting access."
 msgstr "កំណត់ត្រាអ្នកប្រើប្រាស់ត្រូវបានរារាំង, ហាមឃាត់ការចូលប្រើប្រាស់។"
 
-#: src/home/pam_systemd_home.c:1021
+#: src/home/pam_systemd_home.c:1016
 msgid "User record is not valid yet, prohibiting access."
 msgstr "កំណត់​ត្រា​អ្នក​ប្រើ​មិន​ទាន់​មាន​សុពលភាព​នៅ​ឡើយ​ទេ, ​ហាម​ឃាត់​ការ​ចូល​ប្រើប្រាស់។"
 
-#: src/home/pam_systemd_home.c:1025
+#: src/home/pam_systemd_home.c:1020
 msgid "User record is not valid anymore, prohibiting access."
 msgstr "កំណត់​ត្រា​អ្នក​ប្រើ​មិន​ត្រឹមត្រូវ​ទៀត​ទេ, ​ហាម​ឃាត់​ការ​ចូល​ប្រើ។"
 
-#: src/home/pam_systemd_home.c:1030 src/home/pam_systemd_home.c:1079
+#: src/home/pam_systemd_home.c:1025 src/home/pam_systemd_home.c:1074
 msgid "User record not valid, prohibiting access."
 msgstr "កំណត់​ត្រា​អ្នក​ប្រើ​មិន​ត្រឹមត្រូវ, ហាម​ឃាត់​ការ​ចូល​ប្រើ។"
 
-#: src/home/pam_systemd_home.c:1040
+#: src/home/pam_systemd_home.c:1035
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "ការ log in ច្រើនពេក សូមព្យាយាមម្តងទៀតក្នុង %s ។"
 
-#: src/home/pam_systemd_home.c:1051
+#: src/home/pam_systemd_home.c:1046
 msgid "Password change required."
 msgstr "ទាមទារការផ្លាស់ប្តូរពាក្យសម្ងាត់។"
 
-#: src/home/pam_systemd_home.c:1055
+#: src/home/pam_systemd_home.c:1050
 msgid "Password expired, change required."
 msgstr "ពាក្យសម្ងាត់ផុតកំណត់ ទាមទារការផ្លាស់ប្តូរ។"
 
-#: src/home/pam_systemd_home.c:1061
+#: src/home/pam_systemd_home.c:1056
 msgid "Password is expired, but can't change, refusing login."
 msgstr "ពាក្យ​សម្ងាត់​បាន​ផុត​កំណត់ ប៉ុន្តែ​មិន​អាច​ផ្លាស់​ប្តូរ​បាន, ​បដិសេធ​ការ​ log in។"
 
-#: src/home/pam_systemd_home.c:1065
+#: src/home/pam_systemd_home.c:1060
 msgid "Password will expire soon, please change."
 msgstr "ពាក្យសម្ងាត់នឹងផុតកំណត់ក្នុងពេលឆាប់ៗនេះ សូមផ្លាស់ប្តូរ។"
 
@@ -983,6 +983,14 @@ msgstr ""
 "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យបញ្ជាក់ថាតើ persistent storage សម្រាប់ systemd-networkd "
 "អាចប្រើបានដែរឬទេ។"
 
+#: src/network/org.freedesktop.network1.policy:198
+msgid "Manage network links"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:199
+msgid "Authentication is required to manage network links."
+msgstr ""
+
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
 msgstr "ពិនិត្យសេវារូបភាពចល័ត"
@@ -1159,49 +1167,49 @@ msgid ""
 "shall be enabled."
 msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យត្រួតពិនិត្យថាតើការធ្វើសមកាលកម្មពេលវេលាបណ្តាញនឹងត្រូវបានបើកដំណើរការដែរឬទេ។"
 
-#: src/core/dbus-unit.c:371
+#: src/core/dbus-unit.c:372
 msgid "Authentication is required to start '$(unit)'."
 msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យចាប់ផ្តើម '$(unit)'។"
 
-#: src/core/dbus-unit.c:372
+#: src/core/dbus-unit.c:373
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យបញ្ឈប់ '$(unit)'។"
 
-#: src/core/dbus-unit.c:373
+#: src/core/dbus-unit.c:374
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យផ្ទុក '$(unit)' ឡើងវិញ។"
 
-#: src/core/dbus-unit.c:374 src/core/dbus-unit.c:375
+#: src/core/dbus-unit.c:375 src/core/dbus-unit.c:376
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យចាប់ផ្តើម '$(unit)' ឡើងវិញ។"
 
-#: src/core/dbus-unit.c:567
+#: src/core/dbus-unit.c:568
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of '$"
 "(unit)'."
 msgstr "ការផ្ទៀងផ្ទាត់តម្រូវឱ្យផ្ញើសញ្ញា UNIX ទៅកាន់ដំណើរការនៃ '$(unit)'។"
 
-#: src/core/dbus-unit.c:620
+#: src/core/dbus-unit.c:621
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "subgroup of '$(unit)'."
 msgstr "ការផ្ទៀងផ្ទាត់តម្រូវឱ្យផ្ញើសញ្ញា UNIX ទៅកាន់ដំណើរការនៃក្រុមរងនៃ '$(unit)'។"
 
-#: src/core/dbus-unit.c:648
+#: src/core/dbus-unit.c:649
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr "ការផ្ទៀងផ្ទាត់តម្រូវឱ្យកំណត់ឡើងវិញនូវស្ថានភាព \"failed\" នៃ '$(unit)' ។"
 
-#: src/core/dbus-unit.c:678
+#: src/core/dbus-unit.c:679
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យកំណត់លក្ខណសម្បត្តិនៅលើ '$(unit)'។"
 
-#: src/core/dbus-unit.c:775
+#: src/core/dbus-unit.c:776
 msgid ""
 "Authentication is required to delete files and directories associated with '$"
 "(unit)'."
 msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យលុបឯកសារ និងថតឯកសារដែលពាក់ព័ន្ធជាមួយ '$(unit)'។"
 
-#: src/core/dbus-unit.c:812
+#: src/core/dbus-unit.c:813
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr "ការផ្ទៀងផ្ទាត់គឺតម្រូវឱ្យបង្កក ឬរលាយដំណើរការនៃឯកតា '$(unit)'។"
