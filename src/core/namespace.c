@@ -751,58 +751,70 @@ static int append_tmpfs_mounts(MountList *ml, const TemporaryFileSystem *tmpfs, 
         return 0;
 }
 
+static int append_private_tmp_one(
+                MountList *ml,
+                PrivateTmp mode,
+                const char *path,
+                const char *connected_source) {
+
+        assert(ml);
+        assert(mode >= 0 && mode < _PRIVATE_TMP_MAX);
+        assert(path);
+
+        if (mode == PRIVATE_TMP_NO)
+                return 0;
+
+        if (mode == PRIVATE_TMP_CONNECTED && !connected_source)
+                /* Do nothing if the private tmp dir was suppressed as it would be made inaccessible anyways
+                 * (see exec_shared_runtime_make()). */
+                return 0;
+
+        MountEntry *me = mount_list_extend(ml);
+        if (!me)
+                return log_oom_debug();
+
+        if (mode == PRIVATE_TMP_CONNECTED)
+                *me = (MountEntry) {
+                        .path_const = path,
+                        .mode = MOUNT_PRIVATE_TMP,
+                        .read_only = streq(connected_source, RUN_SYSTEMD_EMPTY),
+                        .source_const = connected_source,
+                };
+        else
+                *me = (MountEntry) {
+                        .path_const = path,
+                        .mode = MOUNT_PRIVATE_TMPFS,
+                        .options_const = "mode=0700" NESTED_TMPFS_LIMITS,
+                        .flags = MS_NODEV|MS_STRICTATIME,
+                };
+
+        return 0;
+}
+
 static int append_private_tmp(MountList *ml, const NamespaceParameters *p) {
-        MountEntry *me;
+        int r;
 
         assert(ml);
         assert(p);
         assert(p->private_tmp >= 0 && p->private_tmp < _PRIVATE_TMP_MAX);
         assert(p->private_var_tmp >= 0 && p->private_var_tmp < _PRIVATE_TMP_MAX);
 
-        if (p->tmp_dir) {
-                assert(p->private_tmp == PRIVATE_TMP_CONNECTED);
+        if (p->private_tmp != PRIVATE_TMP_DISCONNECTED || p->private_var_tmp != PRIVATE_TMP_DISCONNECTED) {
+                r = append_private_tmp_one(ml, p->private_tmp, "/tmp/", p->tmp_dir);
+                if (r < 0)
+                        return r;
 
-                me = mount_list_extend(ml);
-                if (!me)
-                        return log_oom_debug();
-                *me = (MountEntry) {
-                        .path_const = "/tmp/",
-                        .mode = MOUNT_PRIVATE_TMP,
-                        .read_only = streq(p->tmp_dir, RUN_SYSTEMD_EMPTY),
-                        .source_const = p->tmp_dir,
-                };
-        }
-
-        if (p->var_tmp_dir) {
-                assert(p->private_var_tmp == PRIVATE_TMP_CONNECTED);
-
-                me = mount_list_extend(ml);
-                if (!me)
-                        return log_oom_debug();
-                *me = (MountEntry) {
-                        .path_const = "/var/tmp/",
-                        .mode = MOUNT_PRIVATE_TMP,
-                        .read_only = streq(p->var_tmp_dir, RUN_SYSTEMD_EMPTY),
-                        .source_const = p->var_tmp_dir,
-                };
-        }
-
-        if (p->private_tmp != PRIVATE_TMP_DISCONNECTED)
-                return 0;
-
-        if (p->private_var_tmp == PRIVATE_TMP_NO) {
-                me = mount_list_extend(ml);
-                if (!me)
-                        return log_oom_debug();
-                *me = (MountEntry) {
-                        .path_const = "/tmp/",
-                        .mode = MOUNT_PRIVATE_TMPFS,
-                        .options_const = "mode=0700" NESTED_TMPFS_LIMITS,
-                        .flags = MS_NODEV|MS_STRICTATIME,
-                };
+                r = append_private_tmp_one(ml, p->private_var_tmp, "/var/tmp/", p->var_tmp_dir);
+                if (r < 0)
+                        return r;
 
                 return 0;
         }
+
+        /* Fully disconnected private tmp: we mount a single tmpfs instance with two subdirs which are
+         * bind mounted to /tmp/ and /var/tmp/. */
+
+        MountEntry *me;
 
         _cleanup_free_ char *tmpfs_dir = NULL, *tmp_dir = NULL, *var_tmp_dir = NULL;
         tmpfs_dir = path_join(p->private_namespace_dir, "unit-private-tmp");
