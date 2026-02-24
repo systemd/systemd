@@ -35,6 +35,8 @@ if conf.get('ENABLE_UKIFY') == 1
                            meson.current_source_dir()/'hwids/test'],
                 capture : true,
                 build_by_default : want_tests != 'false')
+        install_subdir('hwids/aa64',
+                       install_dir : libexecdir / 'boot/hwids/',)
 else
         test_hwids_section_c = []
 endif
