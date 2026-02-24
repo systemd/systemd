@@ -16,6 +16,7 @@ typedef enum CGroupController {
         CGROUP_CONTROLLER_MEMORY,
         CGROUP_CONTROLLER_DEVICES,    /* v1 only */
         CGROUP_CONTROLLER_PIDS,
+        CGROUP_CONTROLLER_DMEM,
 
         /* BPF-based pseudo-controllers, v2 only */
         CGROUP_CONTROLLER_BPF_FIREWALL,
@@ -44,6 +45,7 @@ typedef enum CGroupMask {
         CGROUP_MASK_MEMORY = CGROUP_CONTROLLER_TO_MASK(CGROUP_CONTROLLER_MEMORY),
         CGROUP_MASK_DEVICES = CGROUP_CONTROLLER_TO_MASK(CGROUP_CONTROLLER_DEVICES),
         CGROUP_MASK_PIDS = CGROUP_CONTROLLER_TO_MASK(CGROUP_CONTROLLER_PIDS),
+        CGROUP_MASK_DMEM = CGROUP_CONTROLLER_TO_MASK(CGROUP_CONTROLLER_DMEM),
         CGROUP_MASK_BPF_FIREWALL = CGROUP_CONTROLLER_TO_MASK(CGROUP_CONTROLLER_BPF_FIREWALL),
         CGROUP_MASK_BPF_DEVICES = CGROUP_CONTROLLER_TO_MASK(CGROUP_CONTROLLER_BPF_DEVICES),
         CGROUP_MASK_BPF_FOREIGN = CGROUP_CONTROLLER_TO_MASK(CGROUP_CONTROLLER_BPF_FOREIGN),
@@ -55,7 +57,7 @@ typedef enum CGroupMask {
         CGROUP_MASK_V1 = CGROUP_MASK_CPU|CGROUP_MASK_CPUACCT|CGROUP_MASK_BLKIO|CGROUP_MASK_MEMORY|CGROUP_MASK_DEVICES|CGROUP_MASK_PIDS,
 
         /* All real cgroup v2 controllers */
-        CGROUP_MASK_V2 = CGROUP_MASK_CPU|CGROUP_MASK_CPUSET|CGROUP_MASK_IO|CGROUP_MASK_MEMORY|CGROUP_MASK_PIDS,
+        CGROUP_MASK_V2 = CGROUP_MASK_CPU|CGROUP_MASK_CPUSET|CGROUP_MASK_IO|CGROUP_MASK_MEMORY|CGROUP_MASK_PIDS|CGROUP_MASK_DMEM,
 
         /* All controllers we want to delegate in case of Delegate=yes. Which are pretty much the v2 controllers only, as delegation on v1 is not safe, and bpf stuff isn't a real controller */
         CGROUP_MASK_DELEGATE = CGROUP_MASK_V2,
@@ -165,6 +167,7 @@ int cg_get_attribute_as_uint64(const char *path, const char *attribute, uint64_t
 int cg_get_attribute_as_bool(const char *path, const char *attribute);
 
 int cg_get_keyed_attribute(const char *path, const char *attribute, char * const *keys, char **values);
+int cg_get_all_keyed_attributes(const char *path, const char *attribute, char ***keyvals);
 
 int cg_get_owner(const char *path, uid_t *ret_uid);
 
