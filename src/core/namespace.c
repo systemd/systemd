@@ -3449,27 +3449,29 @@ char* namespace_cleanup_tmpdir(char *p) {
         return mfree(p);
 }
 
-int setup_tmp_dirs(const char *id, char **tmp_dir, char **var_tmp_dir) {
+int setup_tmp_dirs(const char *id, char **ret_tmp_dir, char **ret_var_tmp_dir) {
         _cleanup_(namespace_cleanup_tmpdirp) char *a = NULL;
         _cleanup_(rmdir_and_freep) char *a_tmp = NULL;
-        char *b;
         int r;
 
         assert(id);
-        assert(tmp_dir);
-        assert(var_tmp_dir);
 
-        r = setup_one_tmp_dir(id, "/tmp", &a, &a_tmp);
-        if (r < 0)
-                return r;
+        if (ret_tmp_dir) {
+                r = setup_one_tmp_dir(id, "/tmp", &a, &a_tmp);
+                if (r < 0)
+                        return r;
+        }
 
-        r = setup_one_tmp_dir(id, "/var/tmp", &b, NULL);
-        if (r < 0)
-                return r;
+        if (ret_var_tmp_dir) {
+                r = setup_one_tmp_dir(id, "/var/tmp", ret_var_tmp_dir, NULL);
+                if (r < 0)
+                        return r;
+        }
 
-        a_tmp = mfree(a_tmp); /* avoid rmdir */
-        *tmp_dir = TAKE_PTR(a);
-        *var_tmp_dir = TAKE_PTR(b);
+        if (ret_tmp_dir) {
+                a_tmp = mfree(a_tmp); /* avoid rmdir */
+                *ret_var_tmp_dir = TAKE_PTR(a);
+        }
 
         return 0;
 }
