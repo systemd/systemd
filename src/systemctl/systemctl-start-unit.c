@@ -295,6 +295,7 @@ int verb_start(int argc, char *argv[], void *userdata) {
         const char *method, *job_type, *mode, *one_name, *suffix = NULL;
         _cleanup_free_ char **stopped_units = NULL; /* Do not use _cleanup_strv_free_ */
         _cleanup_strv_free_ char **names = NULL;
+        bool is_enqueue_marked_jobs = false;
         int r, ret = EXIT_SUCCESS;
         sd_bus *bus;
 
@@ -331,13 +332,27 @@ int verb_start(int argc, char *argv[], void *userdata) {
                                 job_type = "start";
                                 mode = "isolate";
                                 suffix = ".target";
-                        } else if (!arg_marked) {
+                        } else if (streq(argv[0], "enqueue-marked-jobs") || arg_marked) {
+                                is_enqueue_marked_jobs = true;
+                                method = job_type = mode = NULL;
+
+                                if (arg_wait)
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "--wait is not supported for enqueue-marked-jobs.");
+
+                                if (arg_show_transaction)
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "--show-transaction is not supported for enqueue-marked-jobs.");
+
+                                if (arg_marked)
+                                        log_warning("--marked is deprecated. Please use systemctl enqueue-marked-jobs instead.");
+
+                        } else {
                                 /* A command in style of "systemctl start <unit1> <unit2> …", "systemctl stop <unit1> <unit2> …" and so on */
                                 method = verb_to_method(argv[0]);
                                 job_type = verb_to_job_type(argv[0]);
                                 mode = arg_job_mode();
-                        } else
-                                method = job_type = mode = NULL;
+                        }
 
                         one_name = NULL;
                 }
@@ -357,7 +372,7 @@ int verb_start(int argc, char *argv[], void *userdata) {
                 names = strv_new(one_name);
                 if (!names)
                         return log_oom();
-        } else if (!arg_marked) {
+        } else if (!is_enqueue_marked_jobs) {
                 bool expanded;
 
                 r = expand_unit_names(bus, strv_skip(argv, 1), suffix, &names, &expanded);
@@ -387,7 +402,7 @@ int verb_start(int argc, char *argv[], void *userdata) {
         }
 
         _cleanup_(fork_notify_terminate) PidRef journal_pid = PIDREF_NULL;
-        if (arg_marked)
+        if (is_enqueue_marked_jobs)
                 ret = enqueue_marked_jobs(bus, w);
         else {
                 if (arg_verbose)
