@@ -520,8 +520,8 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             <para>Reload one or more units if they support it. If not, stop and then start them instead. If the units
             are not running yet, they will be started.</para>
 
-            <para>This has a slightly differing functionality when used in combination with <option>--marked</option>,
-            see below.</para>
+            <para>When used in combination with <option>--marked</option>, it is a deprecated alias of
+            <command>enqueue-marked-jobs</command>.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -2862,20 +2862,6 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         applying the bind mount. Note that even though the name of this option suggests that it is suitable only for
         directories, this option also creates the destination file node to mount over if the object to mount is not
         a directory, but a regular file, device node, socket or FIFO.</para>
-
-        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
-      </varlistentry>
-
-      <varlistentry>
-        <term><option>--marked</option></term>
-
-        <listitem><para>Only allowed with <command>reload-or-restart</command>. Enqueues restart jobs for all
-        units that have the <literal>needs-restart</literal> mark, and reload jobs for units that have the
-        <literal>needs-reload</literal> mark. When a unit marked for reload does not support reload, restart
-        will be queued. Those properties can be set using <command>set-property Markers=…</command>.</para>
-
-        <para>Unless <option>--no-block</option> is used, <command>systemctl</command> will wait for the
-        queued jobs to finish.</para>
 
         <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
