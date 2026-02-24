@@ -4833,7 +4833,7 @@ static int setup_delegated_namespaces(
 
         /* If PrivatePIDs= yes is configured, we're now running as pid 1 in a pid namespace! */
 
-        if (exec_needs_mount_namespace(context, params, runtime) &&
+        if (exec_needs_mount_namespace(context, params) &&
             exec_namespace_is_delegated(context, params, have_cap_sys_admin, CLONE_NEWNS) == delegate) {
                 _cleanup_free_ char *error_path = NULL;
 
@@ -5829,7 +5829,7 @@ int exec_invoke(
                         return log_error_errno(r, "Failed to connect to nsresourced: %m");
         }
 
-        needs_mount_namespace = exec_needs_mount_namespace(context, params, runtime);
+        needs_mount_namespace = exec_needs_mount_namespace(context, params);
 
         for (ExecDirectoryType dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++) {
                 r = setup_exec_directory(context, params, uid, gid, dt, needs_mount_namespace, exit_status);

@@ -638,7 +638,7 @@ DECLARE_STRING_TABLE_LOOKUP(exec_resource_type, ExecDirectoryType);
 
 DECLARE_STRING_TABLE_LOOKUP(memory_thp, MemoryTHP);
 
-bool exec_needs_mount_namespace(const ExecContext *context, const ExecParameters *params, const ExecRuntime *runtime);
+bool exec_needs_mount_namespace(const ExecContext *context, const ExecParameters *params);
 bool exec_needs_network_namespace(const ExecContext *context);
 bool exec_needs_ipc_namespace(const ExecContext *context);
 bool exec_needs_pid_namespace(const ExecContext *context, const ExecParameters *params);
