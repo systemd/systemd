@@ -216,6 +216,7 @@ shared_sources = files(
         'varlink-io.systemd.MuteConsole.c',
         'varlink-io.systemd.NamespaceResource.c',
         'varlink-io.systemd.Network.c',
+        'varlink-io.systemd.Network.Link.c',
         'varlink-io.systemd.PCRExtend.c',
         'varlink-io.systemd.PCRLock.c',
         'varlink-io.systemd.Repart.c',
