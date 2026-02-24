@@ -3,16 +3,12 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "sd-bus.h"
-
-#include "alloc-util.h"
 #include "ansi-color.h"
 #include "bus-util.h"
 #include "log.h"
 #include "networkctl.h"
 #include "networkctl-util.h"
 #include "polkit-agent.h"
-#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "varlink-util.h"
@@ -115,59 +111,6 @@ bool networkd_is_running(void) {
         }
 
         return cached;
-}
-
-int acquire_bus(sd_bus **ret) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        int r;
-
-        assert(ret);
-
-        r = sd_bus_open_system(&bus);
-        if (r < 0)
-                return log_error_errno(r, "Failed to connect to system bus: %m");
-
-        (void) sd_bus_set_allow_interactive_authorization(bus, arg_ask_password);
-
-        if (networkd_is_running()) {
-                r = varlink_connect_networkd(/* ret_varlink= */ NULL);
-                if (r < 0)
-                        return r;
-        } else
-                log_warning("systemd-networkd is not running, output might be incomplete.");
-
-        *ret = TAKE_PTR(bus);
-        return 0;
-}
-
-int link_get_property(
-                sd_bus *bus,
-                int ifindex,
-                sd_bus_error *error,
-                sd_bus_message **reply,
-                const char *iface,
-                const char *propname,
-                const char *type) {
-
-        _cleanup_free_ char *path = NULL;
-        char ifindex_str[DECIMAL_STR_MAX(int)];
-        int r;
-
-        assert(bus);
-        assert(ifindex >= 0);
-        assert(error);
-        assert(reply);
-        assert(iface);
-        assert(propname);
-        assert(type);
-
-        xsprintf(ifindex_str, "%i", ifindex);
-
-        r = sd_bus_path_encode("/org/freedesktop/network1/link", ifindex_str, &path);
-        if (r < 0)
-                return r;
-
-        return sd_bus_get_property(bus, "org.freedesktop.network1", path, iface, propname, error, reply, type);
 }
 
 void operational_state_to_color(const char *name, const char *state, const char **on, const char **off) {
