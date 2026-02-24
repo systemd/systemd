@@ -12,6 +12,7 @@ Description=Journal Log Access Socket
 Documentation=man:journalctl(1)
 DefaultDependencies=no
 Before=sockets.target
+After=systemd-sysusers.service
 
 [Socket]
 ListenStream=/run/systemd/io.systemd.JournalAccess
