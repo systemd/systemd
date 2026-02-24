@@ -5953,7 +5953,9 @@ static int cant_be_in_netns(void) {
          * for loopback block devices) won't work, and we will hang. Detect this case and exit early with a
          * nice message. */
 
-        if (!arg_image) /* only matters if --image= us used, i.e. we actually need to use loopback devices */
+         /* Only matters if --image= is used without --private-users=managed, i.e. we actually need to use
+          * loopback devices. */
+        if (!arg_image || arg_userns_mode == USER_NAMESPACE_MANAGED)
                 return 0;
 
         fd = socket(AF_UNIX, SOCK_SEQPACKET|SOCK_NONBLOCK|SOCK_CLOEXEC, 0);
