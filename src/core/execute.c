@@ -2437,7 +2437,8 @@ static int exec_shared_runtime_make(
         assert(id);
 
         /* It is not necessary to create ExecSharedRuntime object. */
-        if (!exec_needs_network_namespace(c) && !exec_needs_ipc_namespace(c) && c->private_tmp != PRIVATE_TMP_CONNECTED) {
+        if (!c->user_namespace_path && !exec_needs_network_namespace(c) && !exec_needs_ipc_namespace(c) &&
+            c->private_tmp != PRIVATE_TMP_CONNECTED) {
                 *ret = NULL;
                 return 0;
         }
