@@ -59,12 +59,13 @@ static int systemctl_main(int argc, char *argv[]) {
                 { "list-machines",         VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_list_machines           },
                 { "clear-jobs",            VERB_ANY, 1,        VERB_ONLINE_ONLY, verb_trivial_method          },
                 { "cancel",                VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_cancel                  },
-                { "start",                 VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_start                   },
-                { "stop",                  VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_start                   },
+                { "start",                 2,        VERB_ANY, VERB_ONLINE_ONLY, verb_start                   },
+                { "stop",                  2,        VERB_ANY, VERB_ONLINE_ONLY, verb_start                   },
                 { "condstop",              2,        VERB_ANY, VERB_ONLINE_ONLY, verb_start                   }, /* For compatibility with ALTLinux */
                 { "reload",                2,        VERB_ANY, VERB_ONLINE_ONLY, verb_start                   },
                 { "restart",               2,        VERB_ANY, VERB_ONLINE_ONLY, verb_start                   },
                 { "try-restart",           2,        VERB_ANY, VERB_ONLINE_ONLY, verb_start                   },
+                { "enqueue-marked-jobs",   1,        1,        VERB_ONLINE_ONLY, verb_start                   },
                 { "reload-or-restart",     VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_start                   },
                 { "reload-or-try-restart", 2,        VERB_ANY, VERB_ONLINE_ONLY, verb_start                   }, /* For compatibility with old systemctl <= 228 */
                 { "try-reload-or-restart", 2,        VERB_ANY, VERB_ONLINE_ONLY, verb_start                   },
