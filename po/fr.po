@@ -11,7 +11,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-11-26 01:17+0000\n"
+"POT-Creation-Date: 2026-02-24 18:43+0000\n"
 "PO-Revision-Date: 2025-07-24 14:54+0000\n"
 "Last-Translator: Léane GRASSER <leane.grasser@proton.me>\n"
 "Language-Team: French <https://translate.fedoraproject.org/projects/systemd/"
@@ -177,7 +177,7 @@ msgstr ""
 "Une authentification est requise pour gérer les clés de signature des "
 "répertoires personnels."
 
-#: src/home/pam_systemd_home.c:333
+#: src/home/pam_systemd_home.c:330
 #, c-format
 msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
@@ -186,32 +186,32 @@ msgstr ""
 "L'espace personnel de %s est actuellement absent, veuillez connecter le "
 "périphérique ou le système de fichiers qui le contient."
 
-#: src/home/pam_systemd_home.c:338
+#: src/home/pam_systemd_home.c:335
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
 msgstr ""
 "Trop de tentatives de connexion à l'utilisateur %s, réessayez plus tard."
 
-#: src/home/pam_systemd_home.c:350
+#: src/home/pam_systemd_home.c:347
 msgid "Password: "
 msgstr "Mot de passe : "
 
-#: src/home/pam_systemd_home.c:352
+#: src/home/pam_systemd_home.c:349
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
 msgstr ""
 "Mot de passe incorrect ou insuffisant pour l'authentification de "
 "l'utilisateur %s."
 
-#: src/home/pam_systemd_home.c:353
+#: src/home/pam_systemd_home.c:350
 msgid "Sorry, try again: "
 msgstr "Désolé, réessayez : "
 
-#: src/home/pam_systemd_home.c:375
+#: src/home/pam_systemd_home.c:372
 msgid "Recovery key: "
 msgstr "Clé de récupération : "
 
-#: src/home/pam_systemd_home.c:377
+#: src/home/pam_systemd_home.c:374
 #, c-format
 msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
@@ -220,20 +220,20 @@ msgstr ""
 "Mot de passe ou clé de récupération incorrecte ou insuffisante pour "
 "l'authentification de l'utilisateur %s."
 
-#: src/home/pam_systemd_home.c:378
+#: src/home/pam_systemd_home.c:375
 msgid "Sorry, reenter recovery key: "
 msgstr "Désolé, saisissez à nouveau la clé de récupération : "
 
-#: src/home/pam_systemd_home.c:398
+#: src/home/pam_systemd_home.c:395
 #, c-format
 msgid "Security token of user %s not inserted."
 msgstr "Clé de sécurité de l'utilisateur %s non insérée."
 
-#: src/home/pam_systemd_home.c:399 src/home/pam_systemd_home.c:402
+#: src/home/pam_systemd_home.c:396 src/home/pam_systemd_home.c:399
 msgid "Try again with password: "
 msgstr "Réessayez avec un mot de passe : "
 
-#: src/home/pam_systemd_home.c:401
+#: src/home/pam_systemd_home.c:398
 #, c-format
 msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
@@ -242,30 +242,30 @@ msgstr ""
 "Mot de passe incorrect ou insuffisant, et la clé de sécurité de "
 "l'utilisateur %s n'est pas insérée."
 
-#: src/home/pam_systemd_home.c:421
+#: src/home/pam_systemd_home.c:418
 msgid "Security token PIN: "
 msgstr "PIN de la clé de sécurité : "
 
-#: src/home/pam_systemd_home.c:438
+#: src/home/pam_systemd_home.c:435
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
 msgstr ""
 "Veuillez vous authentifier physiquement à l'aide de la clé de sécurité de "
 "l'utilisateur %s."
 
-#: src/home/pam_systemd_home.c:449
+#: src/home/pam_systemd_home.c:446
 #, c-format
 msgid "Please confirm presence on security token of user %s."
 msgstr ""
 "Veuillez confirmer votre présence sur la clé de sécurité de l'utilisateur %s."
 
-#: src/home/pam_systemd_home.c:460
+#: src/home/pam_systemd_home.c:457
 #, c-format
 msgid "Please verify user on security token of user %s."
 msgstr ""
 "Veuillez confirmer l'utilisateur sur la clé de sécurité de l'utilisateur %s."
 
-#: src/home/pam_systemd_home.c:469
+#: src/home/pam_systemd_home.c:466
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
@@ -273,83 +273,83 @@ msgstr ""
 "Le PIN de la clé de sécurité est verrouillé, veuillez commencer par le "
 "déverrouiller. (Astuce : débrancher et rebrancher peut suffire.)"
 
-#: src/home/pam_systemd_home.c:477
+#: src/home/pam_systemd_home.c:474
 #, c-format
 msgid "Security token PIN incorrect for user %s."
 msgstr "PIN de la clé de sécurité incorrect pour l'utilisateur %s."
 
-#: src/home/pam_systemd_home.c:478 src/home/pam_systemd_home.c:497
-#: src/home/pam_systemd_home.c:516
+#: src/home/pam_systemd_home.c:475 src/home/pam_systemd_home.c:494
+#: src/home/pam_systemd_home.c:513
 msgid "Sorry, retry security token PIN: "
 msgstr "Désolé, saisissez à nouveau le PIN de la clé de sécurité : "
 
-#: src/home/pam_systemd_home.c:496
+#: src/home/pam_systemd_home.c:493
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
 "PIN de la clé de sécurité de l'utilisateur %s incorrect (plus que quelques "
 "essais restants !)"
 
-#: src/home/pam_systemd_home.c:515
+#: src/home/pam_systemd_home.c:512
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
 "PIN de la clé de sécurité de l'utilisateur %s incorrect (plus qu'un essai "
 "restant !)"
 
-#: src/home/pam_systemd_home.c:682
+#: src/home/pam_systemd_home.c:679
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr ""
 "L'espace personnel de l'utilisateur %s est actuellement inactif, veuillez "
 "vous connecter localement dans un premier temps."
 
-#: src/home/pam_systemd_home.c:684
+#: src/home/pam_systemd_home.c:681
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr ""
 "L'espace personnel de l'utilisateur %s est actuellement verrouillé, veuillez "
 "commencer par un déverrouillage local."
 
-#: src/home/pam_systemd_home.c:718
+#: src/home/pam_systemd_home.c:715
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr "Trop d'échecs de connexion pour l'utilisateur %s, refus."
 
-#: src/home/pam_systemd_home.c:1017
+#: src/home/pam_systemd_home.c:1012
 msgid "User record is blocked, prohibiting access."
 msgstr "L'utilisateur est bloqué, accès refusé."
 
-#: src/home/pam_systemd_home.c:1021
+#: src/home/pam_systemd_home.c:1016
 msgid "User record is not valid yet, prohibiting access."
 msgstr "L'utilisateur n'est pas encore valide, accès refusé."
 
-#: src/home/pam_systemd_home.c:1025
+#: src/home/pam_systemd_home.c:1020
 msgid "User record is not valid anymore, prohibiting access."
 msgstr "L'utilisateur n'est plus valide, accès refusé."
 
-#: src/home/pam_systemd_home.c:1030 src/home/pam_systemd_home.c:1079
+#: src/home/pam_systemd_home.c:1025 src/home/pam_systemd_home.c:1074
 msgid "User record not valid, prohibiting access."
 msgstr "Utilisateur invalide, accès refusé."
 
-#: src/home/pam_systemd_home.c:1040
+#: src/home/pam_systemd_home.c:1035
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "Trop de tentatives de connexion, réessayez dans %s."
 
-#: src/home/pam_systemd_home.c:1051
+#: src/home/pam_systemd_home.c:1046
 msgid "Password change required."
 msgstr "Modification du mot de passe obligatoire."
 
-#: src/home/pam_systemd_home.c:1055
+#: src/home/pam_systemd_home.c:1050
 msgid "Password expired, change required."
 msgstr "Mot de passe expiré, modification obligatoire."
 
-#: src/home/pam_systemd_home.c:1061
+#: src/home/pam_systemd_home.c:1056
 msgid "Password is expired, but can't change, refusing login."
 msgstr "Mot de passe expiré et impossible à modifier, connexion refusée."
 
-#: src/home/pam_systemd_home.c:1065
+#: src/home/pam_systemd_home.c:1060
 msgid "Password will expire soon, please change."
 msgstr "Le mot de passe va bientôt expirer, veuillez le modifier."
 
@@ -1134,6 +1134,14 @@ msgstr ""
 "Une authentification est requise pour spécifier si un espace de stockage "
 "persistant pour systemd-networkd est disponible."
 
+#: src/network/org.freedesktop.network1.policy:198
+msgid "Manage network links"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:199
+msgid "Authentication is required to manage network links."
+msgstr ""
+
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
 msgstr "Inspecter une image portable de service"
@@ -1335,23 +1343,23 @@ msgstr ""
 "Une authentification est requise pour activer ou désactiver la "
 "synchronisation de l'heure par le réseau."
 
-#: src/core/dbus-unit.c:371
+#: src/core/dbus-unit.c:372
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Une authentification est requise pour démarrer '$(unit)'."
 
-#: src/core/dbus-unit.c:372
+#: src/core/dbus-unit.c:373
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Une authentification est requise pour arrêter '$(unit)'."
 
-#: src/core/dbus-unit.c:373
+#: src/core/dbus-unit.c:374
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "Une authentification est requise pour recharger '$(unit)'."
 
-#: src/core/dbus-unit.c:374 src/core/dbus-unit.c:375
+#: src/core/dbus-unit.c:375 src/core/dbus-unit.c:376
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Une authentification est requise pour redémarrer '$(unit)'."
 
-#: src/core/dbus-unit.c:567
+#: src/core/dbus-unit.c:568
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of '$"
 "(unit)'."
@@ -1359,7 +1367,7 @@ msgstr ""
 "Une authentification est requise pour envoyer un signal UNIX aux processus "
 "de '$(unit)'."
 
-#: src/core/dbus-unit.c:620
+#: src/core/dbus-unit.c:621
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "subgroup of '$(unit)'."
@@ -1367,18 +1375,18 @@ msgstr ""
 "Une authentification est requise pour envoyer un signal UNIX aux processus "
 "du sous-groupe de '$(unit)'."
 
-#: src/core/dbus-unit.c:648
+#: src/core/dbus-unit.c:649
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 "Une authentification est requise pour réinitialiser l'état \"failed\" de '$"
 "(unit)'."
 
-#: src/core/dbus-unit.c:678
+#: src/core/dbus-unit.c:679
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr ""
 "Une authentification est requise pour définir des propriétés de '$(unit)'."
 
-#: src/core/dbus-unit.c:775
+#: src/core/dbus-unit.c:776
 msgid ""
 "Authentication is required to delete files and directories associated with '$"
 "(unit)'."
@@ -1386,7 +1394,7 @@ msgstr ""
 "Une authentification est requise pour supprimer les fichiers et les "
 "répertoires associés à '$(unit)'."
 
-#: src/core/dbus-unit.c:812
+#: src/core/dbus-unit.c:813
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""
