@@ -80,6 +80,7 @@ NAME_TO_MAGIC = {
     'nsfs':            ['NSFS_MAGIC'],
     'ntfs':            ['NTFS_SB_MAGIC'],
     'ntfs3':           ['NTFS3_SUPER_MAGIC'],
+    'nullfs':          ['NULL_FS_MAGIC'],
     'ocfs2':           ['OCFS2_SUPER_MAGIC'],
     'openpromfs':      ['OPENPROM_SUPER_MAGIC'],
     'orangefs':        ['ORANGEFS_DEVREQ_MAGIC'],
