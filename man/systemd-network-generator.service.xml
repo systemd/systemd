@@ -100,10 +100,26 @@
         </listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>BOOTIF=</varname></term>
+        <term><varname>rd.bootif=</varname></term>
+        <listitem>
+          <para>When combined with <literal>ip=...:BOOTIF:...</literal>, where <literal>BOOTIF</literal> is treated
+          as a special placeholder rather than a real interface name, <literal>BOOTIF=</literal> is translated into a
+          <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          file which matches on the MAC address provided by <literal>BOOTIF=</literal>. When <literal>rd.bootif=0</literal>
+          is passed, this functionality is disabled, the the <literal>BOOTIF=</literal> option is ignored.</para>
+
+          <para>See <citerefentry project='man-pages'><refentrytitle>dracut.cmdline</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+          for details on the usage of these options.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
       <!-- unsupported:
            team=<teammaster>:<teamslaves>
            bootdev=
-           BOOTIF=
            bootdev=
            bootdev=
            bootdev=
