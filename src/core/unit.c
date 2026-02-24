@@ -4329,13 +4329,16 @@ static int unit_verify_contexts(const Unit *u) {
         if (exec_needs_pid_namespace(ec, /* params= */ NULL) && !UNIT_VTABLE(u)->notify_pidref)
                 return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "PrivatePIDs= setting is only supported for service units. Refusing.");
 
+        if ((ec->user || ec->dynamic_user || ec->group || ec->pam_name) && ec->private_users == PRIVATE_USERS_MANAGED)
+                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "PrivateUsers=managed may not be used in combination with User=/DynamicUser=/Group=/PAMName=, refusing.");
+
+        if (ec->user_namespace_path && ec->private_users != PRIVATE_USERS_NO)
+                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "PrivateUsers= may not be used with custom UserNamespacePath=, refusing.");
+
         const KillContext *kc = unit_get_kill_context(u);
 
         if (ec->pam_name && kc && !IN_SET(kc->kill_mode, KILL_CONTROL_GROUP, KILL_MIXED))
                 return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "Unit has PAM enabled. Kill mode must be set to 'control-group' or 'mixed'. Refusing.");
-
-        if ((ec->user || ec->dynamic_user || ec->group || ec->pam_name) && ec->private_users == PRIVATE_USERS_MANAGED)
-                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "PrivateUsers=managed may not be used in combination with User=/DynamicUser=/Group=/PAMName=, refusing.");
 
         return 0;
 }
