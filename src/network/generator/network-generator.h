@@ -54,6 +54,7 @@ struct Route {
 struct Network {
         /* [Match] */
         char *ifname;
+        struct ether_addr match_mac;
 
         /* [Link] */
         struct ether_addr mac;
@@ -101,11 +102,15 @@ typedef struct Context {
         Hashmap *networks_by_name;
         Hashmap *netdevs_by_name;
         Hashmap *links_by_filename;
+
+        /* If rd.bootif=0, ignore BOOTIF= parsing */
+        bool skip_bootif;
 } Context;
 
 int parse_cmdline_item(const char *key, const char *value, void *data);
 int context_merge_networks(Context *context);
 void context_clear(Context *context);
+int context_finalize_bootif(Context *context);
 
 Network *network_get(Context *context, const char *ifname);
 void network_dump(Network *network, FILE *f);
