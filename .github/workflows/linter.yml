@@ -72,7 +72,12 @@ jobs:
       - name: Run ruff check
         run: |
           mkosi box -- ruff --version
-          mkosi box -- ruff check
+          if ! mkosi box -- ruff check
+          then
+              echo "Please fix the errors shown by 'ruff check' on the above files or add noqa comments where appropriate."
+              echo "Diffs for fixes that can be programmatically generated are shown below:"
+              mkosi box -- ruff check --diff
+          fi
 
       - name: Configure meson
         run: mkosi box -- env CC=clang CXX=clang++ meson setup build
