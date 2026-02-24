@@ -1,8 +1,8 @@
 #
 #	List of PCI IDs
 #
-#	Version: 2026.02.17
-#	Date:    2026-02-17 03:15:02
+#	Version: 2026.02.24
+#	Date:    2026-02-24 03:15:02
 #
 #	Maintained by Albert Pool, Martin Mares, and other volunteers from
 #	the PCI ID Project at https://pci-ids.ucw.cz/.
@@ -2384,7 +2384,7 @@
 	6667  Jet ULT [Radeon R5 M230]
 	666f  Sun LE [Radeon HD 8550M / R5 M230]
 	66a0  Vega 20 [Radeon Pro/Radeon Instinct]
-	66a1  Vega 20 [Radeon Pro VII/Radeon Instinct MI50 32GB]
+	66a1  Vega 20 [Radeon Pro VII/Radeon Instinct MI50]
 	66a2  Vega 20
 	66a3  Vega 20 [Radeon Pro Vega II/Radeon Pro Vega II Duo]
 	66a7  Vega 20 [Radeon Pro Vega 20]
@@ -17681,6 +17681,7 @@
 	2263  SM2263EN/SM2263XT (DRAM-less) NVMe SSD Controllers
 	2268  SM2268XT (DRAM-less) NVMe SSD Controller
 	2269  SM2269XT (DRAM-less) NVMe SSD Controller
+	2504  SM2504XT NVMe 2.0 SSD Controller (DRAM-less)
 	2508  SM2508 NVMe 2.0 SSD Controller
 	8366  SM8366 NVMe SSD Controller [MonTitan]
 1270  Olympus Optical Co., Ltd.
@@ -18285,6 +18286,9 @@
 1303  Innovative Integration
 	0030  X3-SDF 4-channel XMC acquisition board
 1304  Juniper Networks
+	007b  TMC Chassis Interface
+	007c  TMC PFE Interface
+	00c5  Supercon FPGA
 1305  Netphone, Inc
 1306  Duet Technologies
 # Nee ComputerBoards
@@ -21881,7 +21885,9 @@
 	9027  CN99xx [ThunderX2] Integrated AHCI/SATA 3 Host Controller
 	a8d8  BCM43224/5 Wireless Network Adapter
 	aa52  BCM43602 802.11ac Wireless LAN SoC
+	b070  BCM56070 Switch ASIC [Firelight]
 	b080  BCM56080 Firelight2 Switch ASIC
+	b172  BCM56172 Hurricane3-MG
 	b302  BCM56302 StrataXGS 24x1GE 2x10GE Switch Controller
 	b334  BCM56334 StrataXGS 24x1GE 4x10GE Switch Controller
 	b370  BCM56370 Switch ASIC
@@ -21897,6 +21903,7 @@
 	b800  BCM56800 StrataXGS 10GE Switch Controller
 	b842  BCM56842 Trident 10GE Switch Controller
 	b850  BCM56850 Switch ASIC [Trident2]
+	b854  BCM56854 Trident2 switch ASIC
 	b880  BCM56880 Switch ASIC
 	b960  BCM56960 Switch ASIC [Tomahawk]
 	b990  BCM56990 Switch ASIC [Tomahawk4]
@@ -22694,6 +22701,9 @@
 	02a1  NVLink-8 Switch RMA
 	02a2  Spectrum-7 in Flash Recovery Mode
 	02a3  Spectrum-7 RMA
+# 400G Retimer
+	02a6  OrionR
+	02a7  OrionR RMA
 	1002  MT25400 Family [ConnectX-2 Virtual Function]
 	1003  MT27500 Family [ConnectX-3]
 		1014 04b5  PCIe3 40GbE RoCE Converged Host Bus Adapter for Power
@@ -22833,8 +22843,8 @@
 	2024  MT43244 Family [BlueField-3 SoC Emulated PCIe Bridge]
 	2025  ConnectX/BlueField Family mlx5Gen Emulated PCIe Bridge [Emulated PCIe Bridge]
 	2100  CX8 Family [CX8 Data Direct Interface]
-# Chip to Chip Link
-	2101  CX10 Family [ConnectX-10 C2C]
+# NVLink Chip to Chip Link
+	2101  CX10 Family [ConnectX-10 NVLink-C2C]
 	4117  MT27712A0-FDCF-AE
 		1bd4 0039  SN10XMP2P25
 		1bd4 003a  25G SFP28 SP EO251FM9 Adapter
@@ -22902,6 +22912,7 @@
 	b201  LibraE
 	b202  Arcus2
 	b203  Arcus3
+	b204  OrionR
 	c2d1  BlueField DPU Family Auxiliary Communication Channel [BlueField Family]
 	c2d2  MT416842 BlueField SoC management interfac
 	c2d3  MT42822 BlueField-2 SoC Management Interface
@@ -26231,8 +26242,9 @@
 	5236  PCIe 4TG2-P Controller
 1bcd  Apacer Technology
 	0120  NVMe SSD Drive 960GB
-	0180  PB4480 NVMe PCIe SSD (DRAM-less)
+	0180  PB4480 NVMe SSD (DRAM-less)
 	0310  NVMe SSD Drive 480GB
+	5027  AS2280Q4 NVMe SSD
 1bcf  NEC Corporation
 	001c  Vector Engine 1.0
 1bd0  Astronics Corporation
@@ -26295,7 +26307,7 @@
 	1000  G7200 series U.2 NVMe SSD
 1bfc  Duagon AG
 1bfd  EeeTOP
-1c00  Nanjing Qinheng Microelectronics Co., Ltd.
+1c00  WCH (Nanjing Qinheng Microelectronics Co., Ltd.)
 	2170  CH351 PCIe Parallel Port Adapter
 	2273  CH351 PCIe Dual Port Serial Adapter
 	3050  CH382L PCIe Parallel Port Adapter
@@ -26616,6 +26628,13 @@
 	0557  PBlaze5 910/916
 1c63  Science and Research Centre of Computer Technology (JSC "NICEVT")
 	0008  K1927BB1Ya [EC8430] Angara Interconnection Network Adapter
+1c67  PreSonus Audio Electronics Inc.
+	0101  Quantum
+	0102  Quantum 2
+	0103  Quantum 4848
+	0104  Quantum 2626
+# Unreleased product
+	0105  Quantum Mobile
 # Other World Computing
 1c7a  OWC
 1c7e  TTTech Computertechnik AG
@@ -28847,6 +28866,7 @@
 	1202  MAP1202-Based NVMe SSD (DRAM-less)
 	2262  SM2262EN-based OEM SSD
 	2263  SM2263XT-Based NVMe SSD (DRAM-less)
+	2268  SM2268XT-Based NVMe SSD (DRAM-less)
 	2269  SM2269XT-Based NVMe SSD (DRAM-less)
 	5216  IG5216-based NVMe SSD (DRAM-less)
 	5220  IG5220-Based NVMe SSD
@@ -29167,7 +29187,7 @@
 	0100  Default ID for Titanium FPGA PCIe Interface (AXI)
 1f82  d-Matrix
 	0011  Corsair [DMX 1000 Series]
-	00f1  Jetstream [DMX F1 Transparent NIC]
+	00f1  JetStream [DMX F1 Transparent NIC]
 1f90  Quside Technologies
 	7024  QRNG PCIe Device
 	7025  QRNG PCIe Device
@@ -29198,6 +29218,7 @@
 	610b  XE4406 Series NVMe PCIe Gen4x4 SSD
 	610c  TE3410 Series NVMe PCIe Gen3x4 SSD
 1f9d  Axelera AI
+	0001  Europa AIPU
 	1100  Metis AIPU (rev 02)
 	11aa  Metis AIPU (rev 01)
 1fa4  Shandong SinoChip Semiconductors Co., Ltd

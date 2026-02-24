@@ -276,6 +276,9 @@ acpi:MIPI*:
 acpi:MITH*:
  ID_VENDOR_FROM_DATABASE=Mesiontech
 
+acpi:MPTR*:
+ ID_VENDOR_FROM_DATABASE=Megapolis-Telecom Region LLC
+
 acpi:MRVL*:
  ID_VENDOR_FROM_DATABASE=Marvell Technology Group Ltd.
 
@@ -305,6 +308,9 @@ acpi:NVTN*:
 
 acpi:NXGO*:
  ID_VENDOR_FROM_DATABASE=Nexstgo Company Limited
+
+acpi:NXHP*:
+ ID_VENDOR_FROM_DATABASE=Nexthop Systems Inc.
 
 acpi:OBDA*:
  ID_VENDOR_FROM_DATABASE=REALTEK Semiconductor Corp.
