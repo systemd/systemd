@@ -32,7 +32,8 @@ typedef enum ChaseFlags {
         CHASE_MUST_BE_SOCKET     = 1 << 16, /* Fail if returned inode fd is not a socket */
 } ChaseFlags;
 
-bool unsafe_transition(const struct stat *a, const struct stat *b);
+int statx_unsafe_transition(const struct statx *a, const struct statx *b);
+int stat_unsafe_transition(const struct stat *a, const struct stat *b);
 
 /* How many iterations to execute before returning -ELOOP */
 #define CHASE_MAX 32

@@ -31,15 +31,36 @@
          CHASE_MUST_BE_REGULAR |                        \
          CHASE_MUST_BE_SOCKET)
 
-bool unsafe_transition(const struct stat *a, const struct stat *b) {
-        /* Returns true if the transition from a to b is safe, i.e. that we never transition from unprivileged to
-         * privileged files or directories. Why bother? So that unprivileged code can't symlink to privileged files
-         * making us believe we read something safe even though it isn't safe in the specific context we open it in. */
+#define CHASE_STEPS_MAX 256U
 
-        if (a->st_uid == 0) /* Transitioning from privileged to unprivileged is always fine */
+static bool uid_unsafe_transition(uid_t a, uid_t b) {
+        /* Returns true if the transition from a to b is safe, i.e. that we never transition from
+         * unprivileged to privileged files or directories. Why bother? So that unprivileged code can't
+         * symlink to privileged files making us believe we read something safe even though it isn't safe in
+         * the specific context we open it in. */
+
+        if (a == 0) /* Transitioning from privileged to unprivileged is always fine */
                 return false;
 
-        return a->st_uid != b->st_uid; /* Otherwise we need to stay within the same UID */
+        return a != b; /* Otherwise we need to stay within the same UID */
+}
+
+int statx_unsafe_transition(const struct statx *a, const struct statx *b) {
+        assert(a);
+        assert(b);
+
+        if (!FLAGS_SET(a->stx_mask, STATX_UID) ||
+                !FLAGS_SET(b->stx_mask, STATX_UID))
+                return -ENODATA;
+
+        return uid_unsafe_transition(a->stx_uid, b->stx_uid);
+}
+
+int stat_unsafe_transition(const struct stat *a, const struct stat *b) {
+        assert(a);
+        assert(b);
+
+        return uid_unsafe_transition(a->st_uid, b->st_uid);
 }
 
 static int log_unsafe_transition(int a, int b, const char *path, ChaseFlags flags) {
@@ -130,9 +151,10 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
         _cleanup_close_ int fd = -EBADF, root_fd = -EBADF;
         unsigned max_follow = CHASE_MAX; /* how many symlinks to follow before giving up and returning ELOOP */
         bool exists = true, append_trail_slash = false;
-        struct stat st; /* stat obtained from fd */
+        struct statx root_stx, stx;
         bool need_absolute = false; /* allocate early to avoid compiler warnings around goto */
         const char *todo;
+        unsigned mask = STATX_TYPE|STATX_UID|STATX_INO|STATX_MNT_ID;
         int r;
 
         assert(!FLAGS_SET(flags, CHASE_PREFIX_ROOT));
@@ -226,7 +248,6 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
         if (r < 0)
                 return r;
         if (r > 0) {
-
                 /* Shortcut the common case where no root dir is specified, and no special flags are given to
                  * a regular open() */
                 if (!ret_path &&
@@ -246,8 +267,9 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                         if (fd < 0)
                                 return -errno;
 
-                        if (fstat(fd, &st) < 0)
-                                return -errno;
+                        r = xstatx(fd, /* path= */ NULL, /* flags= */ 0, mask, &stx);
+                        if (r < 0)
+                                return r;
 
                         exists = true;
                         goto success;
@@ -259,15 +281,6 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
 
                 dir_fd = _dir_fd;
                 flags &= ~CHASE_AT_RESOLVE_IN_ROOT;
-        } else if (FLAGS_SET(flags, CHASE_AT_RESOLVE_IN_ROOT)) {
-                /* If we get AT_FDCWD or dir_fd points to "/", then we always resolve symlinks relative to
-                 * the host's root. Hence, CHASE_AT_RESOLVE_IN_ROOT is meaningless. */
-
-                r = dir_fd_is_root_or_cwd(dir_fd);
-                if (r < 0)
-                        return r;
-                if (r > 0)
-                        flags &= ~CHASE_AT_RESOLVE_IN_ROOT;
         }
 
         if (!ret_path && ret_fd && (flags & (CHASE_AT_RESOLVE_IN_ROOT|CHASE_NO_SHORTCUT_MASK)) == 0) {
@@ -307,8 +320,10 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
         if (fd < 0)
                 return -errno;
 
-        if (fstat(fd, &st) < 0)
-                return -errno;
+        r = xstatx(fd, /* path= */ NULL, /* flags= */ 0, mask, &stx);
+        if (r < 0)
+                return r;
+        root_stx = stx; /* remember stat data of the root, so that we can recognize it later */
 
         /* If we get AT_FDCWD, we always resolve symlinks relative to the host's root. Only if a positive
          * directory file descriptor is provided we will look at CHASE_AT_RESOLVE_IN_ROOT to determine
@@ -334,11 +349,17 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
         if (FLAGS_SET(flags, CHASE_MUST_BE_DIRECTORY) + FLAGS_SET(flags, CHASE_MUST_BE_REGULAR) + FLAGS_SET(flags, CHASE_MUST_BE_SOCKET) > 1)
                 return -EBADSLT;
 
-        for (todo = buffer;;) {
+        todo = buffer;
+        for (size_t n_steps = 0;; n_steps++) {
                 _cleanup_free_ char *first = NULL;
                 _cleanup_close_ int child = -EBADF;
-                struct stat st_child;
+                struct statx stx_child;
                 const char *e;
+
+                /* If people change our tree behind our back, they might send us in circles. Put a limit on
+                 * things */
+                if (n_steps > CHASE_STEPS_MAX)
+                        return -ELOOP;
 
                 r = path_find_first_component(&todo, /* accept_dot_dot= */ true, &e);
                 if (r < 0)
@@ -354,11 +375,16 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                 if (streq(first, "..")) {
                         _cleanup_free_ char *parent = NULL;
                         _cleanup_close_ int fd_parent = -EBADF;
-                        struct stat st_parent;
+                        struct statx stx_parent;
 
                         /* If we already are at the top, then going up will not change anything. This is
-                         * in-line with how the kernel handles this. */
-                        if (empty_or_root(done) && FLAGS_SET(flags, CHASE_AT_RESOLVE_IN_ROOT)) {
+                         * in-line with how the kernel handles this. We check this both by path and by
+                         * inode/mount identity check. The latter is load-bearing if concurrent access of the
+                         * root tree we operate in is allowed, where an inode is moved up the tree while we
+                         * look at it, and thus get the current path wrong and think we are deeper down than
+                         * we actually are. */
+                        if (FLAGS_SET(flags, CHASE_AT_RESOLVE_IN_ROOT) &&
+                            (empty_or_root(done) || (statx_inode_same(&stx, &root_stx) && statx_mount_same(&stx, &root_stx)))) {
                                 if (FLAGS_SET(flags, CHASE_STEP))
                                         goto chased_one;
                                 continue;
@@ -368,13 +394,14 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                         if (fd_parent < 0)
                                 return -errno;
 
-                        if (fstat(fd_parent, &st_parent) < 0)
-                                return -errno;
+                        r = xstatx(fd_parent, /* path= */ NULL, /* flags= */ 0, mask, &stx_parent);
+                        if (r < 0)
+                                return r;
 
                         /* If we opened the same directory, that _may_ indicate that we're at the host root
                          * directory. Let's confirm that in more detail with dir_fd_is_root(). And if so,
                          * going up won't change anything. */
-                        if (stat_inode_same(&st_parent, &st)) {
+                        if (statx_inode_same(&stx_parent, &stx)) {
                                 r = dir_fd_is_root(fd);
                                 if (r < 0)
                                         return r;
@@ -414,35 +441,44 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                         if (FLAGS_SET(flags, CHASE_STEP))
                                 goto chased_one;
 
-                        if (FLAGS_SET(flags, CHASE_SAFE) &&
-                            unsafe_transition(&st, &st_parent))
-                                return log_unsafe_transition(fd, fd_parent, path, flags);
+                        if (FLAGS_SET(flags, CHASE_SAFE)) {
+                                r = statx_unsafe_transition(&stx, &stx_parent);
+                                if (r < 0)
+                                        return r;
+                                if (r > 0)
+                                        return log_unsafe_transition(fd, fd_parent, path, flags);
+                        }
 
                         /* If the path ends on a "..", and CHASE_PARENT is specified then our current 'fd' is
                          * the child of the returned normalized path, not the parent as requested. To correct
                          * this we have to go *two* levels up. */
                         if (FLAGS_SET(flags, CHASE_PARENT) && isempty(todo)) {
                                 _cleanup_close_ int fd_grandparent = -EBADF;
-                                struct stat st_grandparent;
+                                struct statx stx_grandparent;
 
                                 fd_grandparent = openat(fd_parent, "..", O_CLOEXEC|O_NOFOLLOW|O_PATH|O_DIRECTORY);
                                 if (fd_grandparent < 0)
                                         return -errno;
 
-                                if (fstat(fd_grandparent, &st_grandparent) < 0)
-                                        return -errno;
+                                r = xstatx(fd_grandparent, /* path= */ NULL, /* flags= */ 0, mask, &stx_grandparent);
+                                if (r < 0)
+                                        return r;
 
-                                if (FLAGS_SET(flags, CHASE_SAFE) &&
-                                    unsafe_transition(&st_parent, &st_grandparent))
-                                        return log_unsafe_transition(fd_parent, fd_grandparent, path, flags);
+                                if (FLAGS_SET(flags, CHASE_SAFE)) {
+                                        r = statx_unsafe_transition(&stx_parent, &stx_grandparent);
+                                        if (r < 0)
+                                                return r;
+                                        if (r > 0)
+                                                return log_unsafe_transition(fd_parent, fd_grandparent, path, flags);
+                                }
 
-                                st = st_grandparent;
+                                stx = stx_grandparent;
                                 close_and_replace(fd, fd_grandparent);
                                 break;
                         }
 
                         /* update fd and stat */
-                        st = st_parent;
+                        stx = stx_parent;
                         close_and_replace(fd, fd_parent);
                         continue;
                 }
@@ -478,18 +514,23 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                 }
 
                 /* ... and then check what it actually is. */
-                if (fstat(child, &st_child) < 0)
-                        return -errno;
+                r = xstatx(child, /* path= */ NULL, /* flags= */ 0, mask, &stx_child);
+                if (r < 0)
+                        return r;
 
-                if (FLAGS_SET(flags, CHASE_SAFE) &&
-                    unsafe_transition(&st, &st_child))
-                        return log_unsafe_transition(fd, child, path, flags);
+                if (FLAGS_SET(flags, CHASE_SAFE)) {
+                        r = statx_unsafe_transition(&stx, &stx_child);
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
+                                return log_unsafe_transition(fd, child, path, flags);
+                }
 
                 if (FLAGS_SET(flags, CHASE_NO_AUTOFS) &&
                     fd_is_fs_type(child, AUTOFS_SUPER_MAGIC) > 0)
                         return log_autofs_mount_point(child, path, flags);
 
-                if (S_ISLNK(st_child.st_mode) && !(FLAGS_SET(flags, CHASE_NOFOLLOW) && isempty(todo))) {
+                if (S_ISLNK(stx_child.stx_mode) && !(FLAGS_SET(flags, CHASE_NOFOLLOW) && isempty(todo))) {
                         _cleanup_free_ char *destination = NULL;
 
                         if (FLAGS_SET(flags, CHASE_PROHIBIT_SYMLINKS))
@@ -516,12 +557,17 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                                 if (fd < 0)
                                         return fd;
 
-                                if (fstat(fd, &st) < 0)
-                                        return -errno;
+                                r = xstatx(fd, /* path= */ NULL, /* flags= */ 0, mask, &stx);
+                                if (r < 0)
+                                        return r;
 
-                                if (FLAGS_SET(flags, CHASE_SAFE) &&
-                                    unsafe_transition(&st_child, &st))
-                                        return log_unsafe_transition(child, fd, path, flags);
+                                if (FLAGS_SET(flags, CHASE_SAFE)) {
+                                        r = statx_unsafe_transition(&stx_child, &stx);
+                                        if (r < 0)
+                                                return r;
+                                        if (r > 0)
+                                                return log_unsafe_transition(child, fd, path, flags);
+                                }
 
                                 /* When CHASE_AT_RESOLVE_IN_ROOT is not set, now the chased path may be
                                  * outside of the specified dir_fd. Let's make the result absolute. */
@@ -555,26 +601,26 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                         break;
 
                 /* And iterate again, but go one directory further down. */
-                st = st_child;
+                stx = stx_child;
                 close_and_replace(fd, child);
         }
 
 success:
         if (exists) {
                 if (FLAGS_SET(flags, CHASE_MUST_BE_DIRECTORY)) {
-                        r = stat_verify_directory(&st);
+                        r = statx_verify_directory(&stx);
                         if (r < 0)
                                 return r;
                 }
 
                 if (FLAGS_SET(flags, CHASE_MUST_BE_REGULAR)) {
-                        r = stat_verify_regular(&st);
+                        r = statx_verify_regular(&stx);
                         if (r < 0)
                                 return r;
                 }
 
                 if (FLAGS_SET(flags, CHASE_MUST_BE_SOCKET)) {
-                        r = stat_verify_socket(&st);
+                        r = statx_verify_socket(&stx);
                         if (r < 0)
                                 return r;
                 }
