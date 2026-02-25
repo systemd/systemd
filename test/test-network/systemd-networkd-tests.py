@@ -816,14 +816,15 @@ def stop_by_pid_file(pid_file):
     rm_f(pid_file)
 
 
+class SvcParam(enum.Enum):
+    ALPN = 1
+    DOHPATH = 7
+
+
 def dnr_v4_instance_data(adn, addrs=None, prio=1, alpns=('dot',), dohpath=None):
     pack = lambda c, w=1: struct.pack('>' + '_BH_I'[w], len(c)) + c
     pyton = lambda n, w=2: struct.pack('>' + '_BH_I'[w], n)
     ipv4 = ipaddress.IPv4Address
-
-    class SvcParam(enum.Enum):
-        ALPN = 1
-        DOHPATH = 7
 
     data = pyton(prio)
 
@@ -845,10 +846,6 @@ def dnr_v6_instance_data(adn, addrs=None, prio=1, alpns=('dot',), dohpath=None):
     pack = lambda c, w=1: struct.pack('>' + '_BH_I'[w], len(c)) + c
     pyton = lambda n, w=2: struct.pack('>' + '_BH_I'[w], n)
     ipv6 = ipaddress.IPv6Address
-
-    class SvcParam(enum.Enum):
-        ALPN = 1
-        DOHPATH = 7
 
     data = pyton(prio)
 
