@@ -9738,6 +9738,9 @@ Address={ipv6_address}
 
             check_json(networkctl_json())
 
+        def masq(bs):
+            return ':'.join(f'{b:02x}' for b in bs)
+
         copy_network_unit(
             '25-veth.netdev',
             '25-dhcp-server-veth-peer.network',
@@ -9761,7 +9764,6 @@ Address={ipv6_address}
             adn='dns.google',
             addrs=['2001:4860:4860::8888', '2001:4860:4860::8844'],
         )
-        masq = lambda bs: ':'.join(f'{b:02x}' for b in bs)
         start_dnsmasq(f'--dhcp-option=162,{masq(dnr_v4)}', f'--dhcp-option=option6:144,{masq(dnr_v6)}')
 
         check(self, True, True)
