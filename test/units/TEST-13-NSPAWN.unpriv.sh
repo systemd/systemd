@@ -21,6 +21,7 @@ at_exit() {
     rm -rf /home/testuser/.local/state/machines/wamms ||:
     rm -rf /home/testuser/.local/state/machines/inodetest ||:
     rm -rf /home/testuser/.local/state/machines/inodetest2 ||:
+    rm -rf /home/testuser/.local/state/machines/mangletest ||:
     machinectl terminate zurps ||:
     rm -f /etc/polkit-1/rules.d/registermachinetest.rules
     machinectl terminate nurps ||:
