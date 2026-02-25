@@ -15,6 +15,7 @@ ConditionCapability=CAP_SYS_ADMIN
 ConditionDirectoryNotEmpty=|/etc/extensions
 ConditionDirectoryNotEmpty=|/run/extensions
 ConditionDirectoryNotEmpty=|/var/lib/extensions
+ConditionDirectoryNotEmpty=|/var/lib/extensions.mutable
 ConditionPathExists=!/etc/initrd-release
 
 DefaultDependencies=no
