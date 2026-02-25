@@ -151,10 +151,10 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
         _cleanup_close_ int fd = -EBADF, root_fd = -EBADF;
         unsigned max_follow = CHASE_MAX; /* how many symlinks to follow before giving up and returning ELOOP */
         bool exists = true, append_trail_slash = false;
-        struct statx stx; /* statx obtained from fd */
+        struct statx root_stx, stx;
         bool need_absolute = false; /* allocate early to avoid compiler warnings around goto */
         const char *todo;
-        unsigned mask = STATX_TYPE|STATX_UID|STATX_INO;
+        unsigned mask = STATX_TYPE|STATX_UID|STATX_INO|STATX_MNT_ID;
         int r;
 
         assert(!FLAGS_SET(flags, CHASE_PREFIX_ROOT));
@@ -248,7 +248,6 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
         if (r < 0)
                 return r;
         if (r > 0) {
-
                 /* Shortcut the common case where no root dir is specified, and no special flags are given to
                  * a regular open() */
                 if (!ret_path &&
@@ -333,6 +332,7 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
         r = xstatx(fd, /* path= */ NULL, /* flags= */ 0, mask, &stx);
         if (r < 0)
                 return r;
+        root_stx = stx; /* remember stat data of the root, so that we can recognize it later */
 
         /* If we get AT_FDCWD, we always resolve symlinks relative to the host's root. Only if a positive
          * directory file descriptor is provided we will look at CHASE_AT_RESOLVE_IN_ROOT to determine
@@ -387,8 +387,13 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                         struct statx stx_parent;
 
                         /* If we already are at the top, then going up will not change anything. This is
-                         * in-line with how the kernel handles this. */
-                        if (empty_or_root(done) && FLAGS_SET(flags, CHASE_AT_RESOLVE_IN_ROOT)) {
+                         * in-line with how the kernel handles this. We check this both by path and by
+                         * inode/mount identity check. The latter is load-bearing if concurrent access of the
+                         * root tree we operate in is allowed, where an inode is moved up the tree while we
+                         * look at it, and thus get the current path wrong and think we are deeper down than
+                         * we actually are. */
+                        if (FLAGS_SET(flags, CHASE_AT_RESOLVE_IN_ROOT) &&
+                            (empty_or_root(done) || (statx_inode_same(&stx, &root_stx) && statx_mount_same(&stx, &root_stx)))) {
                                 if (FLAGS_SET(flags, CHASE_STEP))
                                         goto chased_one;
                                 continue;
