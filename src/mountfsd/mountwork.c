@@ -865,7 +865,8 @@ static DirectoryOwnership validate_directory_fd(
         r = xstatx_full(fd,
                         /* path= */ NULL,
                         AT_EMPTY_PATH,
-                        /* mandatory_mask= */ STATX_TYPE|STATX_UID|STATX_MNT_ID|STATX_INO,
+                        /* xstatx_flags= */ XSTATX_MNT_ID_BEST,
+                        /* mandatory_mask= */ STATX_TYPE|STATX_UID|STATX_INO,
                         /* optional_mask= */ 0,
                         /* mandatory_attributes= */ STATX_ATTR_MOUNT_ROOT,
                         &stx);
@@ -932,7 +933,8 @@ static DirectoryOwnership validate_directory_fd(
                 r = xstatx_full(new_parent_fd,
                                 /* path= */ NULL,
                                 AT_EMPTY_PATH,
-                                /* mandatory_mask= */ STATX_UID|STATX_MNT_ID|STATX_INO,
+                                /* xstatx_flags= */ XSTATX_MNT_ID_BEST,
+                                /* mandatory_mask= */ STATX_UID|STATX_INO,
                                 /* optional_mask= */ 0,
                                 /* mandatory_attributes= */ STATX_ATTR_MOUNT_ROOT,
                                 &new_stx);
@@ -946,7 +948,10 @@ static DirectoryOwnership validate_directory_fd(
                         return DIRECTORY_IS_OTHERWISE_OWNED;
                 }
 
-                if (stx.stx_mnt_id != new_stx.stx_mnt_id) {
+                r = statx_mount_same(&stx, &new_stx);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to compare mount IDs: %m");
+                if (!r) {
                         /* NB, this check is probably redundant, given we also check
                          * STATX_ATTR_MOUNT_ROOT. The only reason we have it here is to provide extra safety
                          * in case the mount tree is rearranged concurrently with our traversal, so that
