@@ -91,6 +91,13 @@ if conf.get('ENABLE_TIMESYNC_NTS') == 1
                         'link_with' : libshared,
                         'dependencies' : crypto_deps,
                 },
+                libexec_template + {
+                        'name' : 'nts-mock-server',
+                        'sources' : files('test-server.c', 'nts_crypto_openssl.c', 'nts_extfields.c'),
+                        'extract' : timesyncd_extract_sources,
+                        'dependencies' : [libm, crypto_deps],
+                        'install' : false,
+                },
         ]
 endif
 
