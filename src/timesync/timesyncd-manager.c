@@ -162,10 +162,21 @@ static int manager_send_request(Manager *m) {
          * Add NTS extension fields if NTS is supported for this NTP time source
          */
         if (m->nts_cookies->data) {
+                /* Select an arbitrary cookie to use, to keep cookies fresh.
+                 * This has the added benefit to detect NTS servers that try to sequence cookies.
+                 * We re-use a byte from the identifier, since this information does not need to be
+                 * hidden (it is enough that it is unpredictable).
+                 */
+                int num_cookies = ELEMENTSOF(m->nts_cookies) - m->nts_missing_cookies;
+                int randidx = m->nts_identifier[0] % num_cookies;
+                NTS_Cookie *bottom_cookie = &m->nts_cookies[num_cookies-1];
+                swap_cookies(bottom_cookie, &m->nts_cookies[randidx]);
+                assert(bottom_cookie->data);
+
                 packet_len = NTS_add_extension_fields(
                         packet.raw_data,
                         &(NTS_Query) {
-                            .cookie = m->nts_cookies[m->nts_missing_cookies],
+                            .cookie = *bottom_cookie,
                             .c2s_key = m->nts_keys.c2s,
                             .s2c_key = m->nts_keys.s2c,
                             .cipher = m->nts_aead,
@@ -178,23 +189,14 @@ static int manager_send_request(Manager *m) {
                         },
                         &m->nts_identifier);
 
+                /* Consume and invalidate the cookie */
+                bottom_cookie->data[0] ^= 1;
+                m->nts_missing_cookies++;
+
                 if (packet_len <= (int)sizeof(struct ntp_msg)) {
                         log_error("Failed to encode extension fields");
                         return -EINVAL;
                 }
-
-                /* Select an arbitrary cookie to rotate to the top, to keep cookies fresh.
-                 * This has the added benefit to detect NTS servers that try to sequence cookies.
-                 * We re-use a byte from the identifier, since this information does not need to be
-                 * hidden (it is enough that it is unpredictable).
-                 */
-                NTS_Cookie *jar = m->nts_cookies + m->nts_missing_cookies;
-                int randidx = m->nts_identifier[0] % (ELEMENTSOF(m->nts_cookies) - m->nts_missing_cookies);
-                swap_cookies(jar, &jar[randidx]);
-
-                /* Consume and invalidate the cookie */
-                m->nts_cookies[m->nts_missing_cookies].data[0] ^= 1;
-                m->nts_missing_cookies++;
         } else {
 #else
         {
@@ -577,15 +579,19 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                         if (m->nts_missing_cookies == 0 || new_cookie->data == NULL)
                                 break;
 
-                        m->nts_missing_cookies--;
-                        NTS_Cookie *cookie = &m->nts_cookies[m->nts_missing_cookies];
-                        /* re-use the existing storage */
+                        NTS_Cookie *cookie = &m->nts_cookies[ELEMENTSOF(m->nts_cookies) - m->nts_missing_cookies];
+                        /* re-use the existing storage if possible */
                         if (rcpt.new_cookie->length > cookie->length) {
-                                log_info("Server returned a fresh cookie that was longer than the original one. Disconnecting.");
-                                return manager_connect(m);
+                                log_info("Server returned a fresh cookie that was longer than the original one.");
+                                mfree(cookie->data);
+                                cookie->length = 0;
+                                cookie->data = malloc(rcpt.new_cookie->length);
+                                if (cookie->data == NULL)
+                                        return -ENOMEM;
                         }
                         memcpy(cookie->data, new_cookie->data, new_cookie->length);
                         cookie->length = new_cookie->length;
+                        m->nts_missing_cookies--;
                 }
 
                 log_debug("NTP packet is authentic.");
