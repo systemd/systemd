@@ -6,7 +6,7 @@
 #include "sd-daemon.h"
 
 #include "bpf-dlopen.h"
-#if HAVE_VMLINUX_H
+#if BPF_FRAMEWORK
 #include "bpf-link.h"
 #include "bpf/userns-restrict/userns-restrict-skel.h"
 #endif
@@ -141,7 +141,7 @@ Manager* manager_free(Manager *m) {
 
         safe_close(m->listen_fd);
 
-#if HAVE_VMLINUX_H
+#if BPF_FRAMEWORK
         sd_event_source_disable_unref(m->userns_restrict_bpf_ring_buffer_event_source);
         bpf_ring_buffer_free(m->userns_restrict_bpf_ring_buffer);
         userns_restrict_bpf_free(m->userns_restrict_bpf);
@@ -221,7 +221,7 @@ static int start_one_worker(Manager *m) {
                         _exit(EXIT_FAILURE);
                 }
 
-#if HAVE_VMLINUX_H
+#if BPF_FRAMEWORK
                 bool supported = m->userns_restrict_bpf;
 #else
                 bool supported = false;
@@ -311,7 +311,7 @@ static int start_workers(Manager *m, bool explicit_request) {
 }
 
 static void manager_release_userns_bpf(Manager *m, uint64_t inode) {
-#if HAVE_VMLINUX_H
+#if BPF_FRAMEWORK
         int r;
 
         assert(m);
@@ -529,7 +529,7 @@ static int manager_scan_listen_fds(Manager *m, Set **fdstore_inodes) {
         return 0;
 }
 
-#if HAVE_VMLINUX_H
+#if BPF_FRAMEWORK
 static int ringbuf_event(void *userdata, void *data, size_t size) {
         Manager *m = ASSERT_PTR(userdata);
         size_t n;
