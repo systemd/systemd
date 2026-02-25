@@ -1085,6 +1085,9 @@ int fds_inode_and_mount_same(int fd1, int fd2) {
         if (r < 0)
                 return r;
 
+        if (fd1 == fd2) /* Shortcut things if fds are the same (only after validating the fd) */
+                return true;
+
         r = xstatx(fd2, /* path = */ NULL, AT_EMPTY_PATH,
                    STATX_TYPE|STATX_INO|STATX_MNT_ID,
                    &sx2);
