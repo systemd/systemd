@@ -179,7 +179,7 @@ static inline int dir_fd_is_root_or_cwd(int dir_fd) {
         return IN_SET(dir_fd, AT_FDCWD, XAT_FDROOT) ? true : path_is_root_at(dir_fd, NULL);
 }
 
-int fds_are_same_mount(int fd1, int fd2);
+int fds_inode_and_mount_same(int fd1, int fd2);
 
 int resolve_xat_fdroot(int *fd, const char **path, char **ret_buffer);
 
