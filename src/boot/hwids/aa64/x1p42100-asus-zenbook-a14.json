@@ -1,0 +1,20 @@
+{
+    "type": "devicetree",
+    "name": "ASUSTeK COMPUTER INC. ASUS Zenbook A14",
+    "compatible": "asus,zenbook-a14-ux3407qa-lcd",
+    "hwids": [
+        "c6d100b1-9de7-5636-a3cc-f28fa46fb926",
+        "85f50d27-f4cb-54df-9aae-f6f09700b132",
+        "8a72a2ea-3971-55e3-b982-cb6b82868f0e",
+        "a034eff6-2891-5de0-b0db-9c5ff350b968",
+        "a5b5becc-2a55-5017-b159-087f3846da26",
+        "59793319-4344-5755-9194-17f29f030d5d",
+        "14643426-35fa-5a20-bc31-3b6095d2b451",
+        "24652d54-00f4-59ae-96fb-f7adbfa4a939",
+        "a8425d85-573a-56f8-9d9d-98a196d712fa",
+        "7e6d3df4-bf5f-59ab-ad7b-e00677c0ae5a",
+        "00bc5418-646d-5bab-b772-4efb06f4e7f1",
+        "3ca4e2d9-50df-51a5-a87f-4636d425e97d",
+        "0b8b84da-462b-5620-bdb5-70272e0ddd94"
+    ]
+}

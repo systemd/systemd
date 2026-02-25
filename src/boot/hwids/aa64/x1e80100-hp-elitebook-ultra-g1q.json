@@ -1,0 +1,20 @@
+{
+    "type": "devicetree",
+    "name": "HP 103C_5336AN HP EliteBook Ultra",
+    "compatible": "hp,elitebook-ultra-g1q",
+    "hwids": [
+        "ba2ddd3d-a06b-5b1f-9b2a-ce58f748486c",
+        "9145c311-f1b1-5f0f-902d-f6828baf8c46",
+        "5275e89b-e839-589e-9e90-e1bd6854255b",
+        "7bfc4a0e-15c1-58b3-b27b-4e5f60d4397e",
+        "a3c9ef57-67ab-5f75-a4cb-48cb7475b025",
+        "72a81f9e-c30b-5bf0-8449-948f8e593e92",
+        "829d699c-f082-5835-967a-8e7022cb20b5",
+        "25f49237-b3b4-58b2-9e58-6cc379781901",
+        "07be634a-0442-51fb-8a77-ecb370b5262b",
+        "e4944bcc-a1c3-540e-b400-cd91953b7ba9",
+        "ec4cdb9c-e6ff-581c-ac22-d597b5e880a2",
+        "b7f376e9-f5f8-5718-b00e-6bd7c265aeab",
+        "5473ba61-2807-585b-b2ac-f0366d84bdc0"
+    ]
+}
