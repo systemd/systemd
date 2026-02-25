@@ -328,7 +328,8 @@ DEFINE_STATX_BITS_TO_STRING(statx_attributes, uint64_t, statx_attribute_to_name,
 
 int xstatx_full(int fd,
                 const char *path,
-                int flags,
+                int statx_flags,
+                XStatXFlags xstatx_flags,
                 unsigned mandatory_mask,
                 unsigned optional_mask,
                 uint64_t mandatory_attributes,
@@ -344,6 +345,8 @@ int xstatx_full(int fd,
          * 3. Takes separate mandatory and optional mask params, plus mandatory attributes.
          *    Returns -EUNATCH if statx() does not return all masks specified as mandatory,
          *    > 0 if all optional masks are supported, 0 otherwise.
+         * 4. Supports a new flags XSTATX_MNT_ID_BEST which acquires STATX_MNT_ID_UNIQUE if available and
+         *    STATX_MNT_ID if not.
          */
 
         assert(fd >= 0 || IN_SET(fd, AT_FDCWD, XAT_FDROOT));
@@ -355,11 +358,25 @@ int xstatx_full(int fd,
         if (r < 0)
                 return r;
 
+        if (FLAGS_SET(xstatx_flags, XSTATX_MNT_ID_BEST)) {
+                optional_mask |= STATX_MNT_ID|STATX_MNT_ID_UNIQUE;
+                mandatory_mask &= ~(STATX_MNT_ID|STATX_MNT_ID_UNIQUE);
+        } else if (FLAGS_SET(optional_mask, STATX_MNT_ID_UNIQUE))
+                /* If the unique ID is requested, then also be fine with the regular ID */
+                optional_mask |= STATX_MNT_ID;
+
         if (statx(fd, strempty(path),
-                  flags|(isempty(path) ? AT_EMPTY_PATH : 0),
+                  statx_flags|(isempty(path) ? AT_EMPTY_PATH : 0),
                   mandatory_mask|optional_mask,
                   &sx) < 0)
                 return negative_errno();
+
+        if (FLAGS_SET(xstatx_flags, XSTATX_MNT_ID_BEST) &&
+            !(sx.stx_mask & (STATX_MNT_ID|STATX_MNT_ID_UNIQUE))) {
+                if (DEBUG_LOGGING)
+                        log_debug("statx() did not return either STATX_MNT_ID nor STATX_MNT_ID_UNIQUE.");
+                return -EUNATCH;
+        }
 
         if (!FLAGS_SET(sx.stx_mask, mandatory_mask)) {
                 if (DEBUG_LOGGING) {
