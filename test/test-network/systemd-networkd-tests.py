@@ -817,7 +817,6 @@ def stop_by_pid_file(pid_file):
 
 
 def dnr_v4_instance_data(adn, addrs=None, prio=1, alpns=('dot',), dohpath=None):
-    b = b''
     pack = lambda c, w=1: struct.pack('>' + '_BH_I'[w], len(c)) + c
     pyton = lambda n, w=2: struct.pack('>' + '_BH_I'[w], n)
     ipv4 = ipaddress.IPv4Address
@@ -829,13 +828,13 @@ def dnr_v4_instance_data(adn, addrs=None, prio=1, alpns=('dot',), dohpath=None):
     data = pyton(prio)
 
     adn = adn.rstrip('.') + '.'
-    data += pack(b.join(pack(label.encode('ascii')) for label in adn.split('.')))
+    data += pack(b''.join(pack(label.encode('ascii')) for label in adn.split('.')))
 
     if not addrs:  # adn-only mode
         return pack(data, 2)
 
-    data += pack(b.join(ipv4(addr).packed for addr in addrs))
-    data += pyton(SvcParam.ALPN.value) + pack(b.join(pack(alpn.encode('ascii')) for alpn in alpns), 2)
+    data += pack(b''.join(ipv4(addr).packed for addr in addrs))
+    data += pyton(SvcParam.ALPN.value) + pack(b''.join(pack(alpn.encode('ascii')) for alpn in alpns), 2)
     if dohpath is not None:
         data += pyton(SvcParam.DOHPATH.value) + pack(dohpath.encode('utf-8'), 2)
 
@@ -843,7 +842,6 @@ def dnr_v4_instance_data(adn, addrs=None, prio=1, alpns=('dot',), dohpath=None):
 
 
 def dnr_v6_instance_data(adn, addrs=None, prio=1, alpns=('dot',), dohpath=None):
-    b = b''
     pack = lambda c, w=1: struct.pack('>' + '_BH_I'[w], len(c)) + c
     pyton = lambda n, w=2: struct.pack('>' + '_BH_I'[w], n)
     ipv6 = ipaddress.IPv6Address
@@ -855,13 +853,13 @@ def dnr_v6_instance_data(adn, addrs=None, prio=1, alpns=('dot',), dohpath=None):
     data = pyton(prio)
 
     adn = adn.rstrip('.') + '.'
-    data += pack(b.join(pack(label.encode('ascii')) for label in adn.split('.')), 2)
+    data += pack(b''.join(pack(label.encode('ascii')) for label in adn.split('.')), 2)
 
     if not addrs:  # adn-only mode
         return data
 
-    data += pack(b.join(ipv6(addr).packed for addr in addrs), 2)
-    data += pyton(SvcParam.ALPN.value) + pack(b.join(pack(alpn.encode('ascii')) for alpn in alpns), 2)
+    data += pack(b''.join(ipv6(addr).packed for addr in addrs), 2)
+    data += pyton(SvcParam.ALPN.value) + pack(b''.join(pack(alpn.encode('ascii')) for alpn in alpns), 2)
     if dohpath is not None:
         data += pyton(SvcParam.DOHPATH.value) + pack(dohpath.encode('utf-8'), 2)
 
