@@ -151,7 +151,7 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
         struct statx root_stx, stx;
         bool need_absolute = false; /* allocate early to avoid compiler warnings around goto */
         const char *todo;
-        unsigned mask = STATX_TYPE|STATX_UID|STATX_INO|STATX_MNT_ID;
+        unsigned mask = STATX_TYPE|STATX_UID|STATX_INO;
         int r;
 
         assert(!FLAGS_SET(flags, CHASE_PREFIX_ROOT));
@@ -264,7 +264,14 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                         if (fd < 0)
                                 return -errno;
 
-                        r = xstatx(fd, /* path= */ NULL, /* flags= */ 0, mask, &stx);
+                        r = xstatx_full(fd,
+                                        /* path= */ NULL,
+                                        /* statx_flags= */ 0,
+                                        XSTATX_MNT_ID_BEST,
+                                        mask,
+                                        /* optional_mask= */ 0,
+                                        /* mandatory_attributes= */ 0,
+                                        &stx);
                         if (r < 0)
                                 return r;
 
@@ -317,7 +324,14 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
         if (fd < 0)
                 return -errno;
 
-        r = xstatx(fd, /* path= */ NULL, /* flags= */ 0, mask, &stx);
+        r = xstatx_full(fd,
+                        /* path= */ NULL,
+                        /* statx_flags= */ 0,
+                        XSTATX_MNT_ID_BEST,
+                        mask,
+                        /* optional_mask= */ 0,
+                        /* mandatory_attributes= */ 0,
+                        &stx);
         if (r < 0)
                 return r;
         root_stx = stx; /* remember stat data of the root, so that we can recognize it later */
@@ -400,7 +414,14 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                         if (fd_parent < 0)
                                 return -errno;
 
-                        r = xstatx(fd_parent, /* path= */ NULL, /* flags= */ 0, mask, &stx_parent);
+                        r = xstatx_full(fd_parent,
+                                        /* path= */ NULL,
+                                        /* statx_flags= */ 0,
+                                        XSTATX_MNT_ID_BEST,
+                                        mask,
+                                        /* optional_mask= */ 0,
+                                        /* mandatory_attributes= */ 0,
+                                        &stx_parent);
                         if (r < 0)
                                 return r;
 
@@ -466,7 +487,14 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                                 if (fd_grandparent < 0)
                                         return -errno;
 
-                                r = xstatx(fd_grandparent, /* path= */ NULL, /* flags= */ 0, mask, &stx_grandparent);
+                                r = xstatx_full(fd_grandparent,
+                                                /* path= */ NULL,
+                                                /* statx_flags= */ 0,
+                                                XSTATX_MNT_ID_BEST,
+                                                mask,
+                                                /* optional_mask= */ 0,
+                                                /* mandatory_attributes= */ 0,
+                                                &stx_grandparent);
                                 if (r < 0)
                                         return r;
 
@@ -520,7 +548,14 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                 }
 
                 /* ... and then check what it actually is. */
-                r = xstatx(child, /* path= */ NULL, /* flags= */ 0, mask, &stx_child);
+                r = xstatx_full(child,
+                                /* path= */ NULL,
+                                /* statx_flags= */ 0,
+                                XSTATX_MNT_ID_BEST,
+                                mask,
+                                /* optional_mask= */ 0,
+                                /* mandatory_attributes= */ 0,
+                                &stx_child);
                 if (r < 0)
                         return r;
 
@@ -558,7 +593,14 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                                 if (fd < 0)
                                         return fd;
 
-                                r = xstatx(fd, /* path= */ NULL, /* flags= */ 0, mask, &stx);
+                                r = xstatx_full(fd,
+                                                /* path= */ NULL,
+                                                /* statx_flags= */ 0,
+                                                XSTATX_MNT_ID_BEST,
+                                                mask,
+                                                /* optional_mask= */ 0,
+                                                /* mandatory_attributes= */ 0,
+                                                &stx);
                                 if (r < 0)
                                         return r;
 
