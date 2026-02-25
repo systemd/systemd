@@ -871,10 +871,10 @@ TEST(xat_fdroot) {
         ASSERT_OK_POSITIVE(path_is_root_at(fd, "."));
         ASSERT_OK_POSITIVE(path_is_root_at(fd, "/"));
 
-        ASSERT_OK_POSITIVE(fds_are_same_mount(fd, fd));
-        ASSERT_OK_POSITIVE(fds_are_same_mount(XAT_FDROOT, XAT_FDROOT));
-        ASSERT_OK_POSITIVE(fds_are_same_mount(fd, XAT_FDROOT));
-        ASSERT_OK_POSITIVE(fds_are_same_mount(XAT_FDROOT, fd));
+        ASSERT_OK_POSITIVE(fds_inode_and_mount_same(fd, fd));
+        ASSERT_OK_POSITIVE(fds_inode_and_mount_same(XAT_FDROOT, XAT_FDROOT));
+        ASSERT_OK_POSITIVE(fds_inode_and_mount_same(fd, XAT_FDROOT));
+        ASSERT_OK_POSITIVE(fds_inode_and_mount_same(XAT_FDROOT, fd));
 
         ASSERT_OK_POSITIVE(dir_fd_is_root(XAT_FDROOT));
         ASSERT_OK_POSITIVE(dir_fd_is_root(fd));
