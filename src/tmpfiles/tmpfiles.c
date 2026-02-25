@@ -2633,7 +2633,7 @@ static int rm_if_wrong_type_safe(
         }
 
         /* Fail before removing anything if this is an unsafe transition. */
-        if (follow_links && unsafe_transition(parent_st, &st)) {
+        if (follow_links && stat_unsafe_transition(parent_st, &st)) {
                 (void) fd_get_path(parent_fd, &parent_name);
                 return log_error_errno(SYNTHETIC_ERRNO(ENOLINK),
                                        "Unsafe transition from \"%s\" to \"%s\".", parent_name ?: "...", name);
