@@ -1573,6 +1573,7 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
                 if (r < 0) {
                         log_error("Could not set up TLS session with server");
                         NTS_TLS_close(&m->nts_handshake);
+                        m->nts_timeout = sd_event_source_unref(m->nts_timeout);
                         return manager_connect(m);
                 }
 
@@ -1610,6 +1611,7 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
                 if (r <= 0) {
                         log_error("Error sending NTS key request");
                         NTS_TLS_close(&m->nts_handshake);
+                        m->nts_timeout = sd_event_source_unref(m->nts_timeout);
                         return manager_connect(m);
                 } else if (r < size) {
                         m->nts_bytes_processed += r;
@@ -1630,6 +1632,7 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
                 if (r < 0) {
                         log_error("Error receiving NTS key response");
                         NTS_TLS_close(&m->nts_handshake);
+                        m->nts_timeout = sd_event_source_unref(m->nts_timeout);
                         return manager_connect(m);
                 }
 
@@ -1642,6 +1645,7 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
 
                         log_error("NTS Error: %s", NTS_error_string(NTS.error));
                         NTS_TLS_close(&m->nts_handshake);
+                        m->nts_timeout = sd_event_source_unref(m->nts_timeout);
                         return manager_connect(m);
                 }
 
