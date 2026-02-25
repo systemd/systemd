@@ -946,7 +946,7 @@ static DirectoryOwnership validate_directory_fd(
                         return DIRECTORY_IS_OTHERWISE_OWNED;
                 }
 
-                if (stx.stx_mnt_id != new_stx.stx_mnt_id) {
+                if (!statx_mount_same(&stx, &new_stx)) {
                         /* NB, this check is probably redundant, given we also check
                          * STATX_ATTR_MOUNT_ROOT. The only reason we have it here is to provide extra safety
                          * in case the mount tree is rearranged concurrently with our traversal, so that
