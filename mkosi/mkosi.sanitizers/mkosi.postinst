@@ -62,6 +62,8 @@ wrap=(
     findmnt
     getent
     getfacl
+    groupadd
+    groupmod
     groups
     id
     integritysetup
