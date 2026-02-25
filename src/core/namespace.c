@@ -3338,6 +3338,8 @@ static int make_tmp_prefix(const char *prefix) {
         _cleanup_close_ int fd = -EBADF;
         int r;
 
+        assert(prefix);
+
         /* Don't do anything unless we know the dir is actually missing */
         r = access(prefix, F_OK);
         if (r >= 0)
@@ -3369,7 +3371,7 @@ static int make_tmp_prefix(const char *prefix) {
         r = RET_NERRNO(rename(t, prefix));
         if (r < 0) {
                 (void) rmdir(t);
-                return r == -EEXIST ? 0 : r; /* it's fine if someone else created the dir by now */
+                return IN_SET(r, -EEXIST, -ENOTEMPTY) ? 0 : r; /* it's fine if someone else created the dir by now */
         }
 
         return 0;
