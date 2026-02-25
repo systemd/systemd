@@ -29,12 +29,15 @@ efi_fuzz_template = fuzz_template + efitest_base
 
 if conf.get('ENABLE_UKIFY') == 1
         test_hwids_section_c = custom_target(
-                input : ['hwids/device1.json', 'hwids/device2.json', 'hwids/device3.json', 'hwids/device4.json'],
+                input : ['hwids/test/device1.json', 'hwids/test/device2.json', 'hwids/test/device3.json', 'hwids/test/device4.json'],
                 output : 'test-hwids-section.c',
                 command : [files('generate-hwids-section.py'),
-                           meson.current_source_dir()/'hwids'],
+                           meson.current_source_dir()/'hwids/test'],
                 capture : true,
                 build_by_default : want_tests != 'false')
+        install_subdir('hwids',
+                       install_dir : libexecdir / 'boot/',
+                       exclude_directories : ['test'])
 else
         test_hwids_section_c = []
 endif

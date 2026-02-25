@@ -1,0 +1,20 @@
+{
+    "type": "devicetree",
+    "name": "Acer Swift 14 AI",
+    "compatible": "acer,swift-sf14-11",
+    "hwids": [
+        "27d2dba8-e6f1-5c19-ba1c-c25a4744c161",
+        "676172cd-d185-53ed-aac6-245d0caa02c4",
+        "20c2cf2f-231c-5d02-ae9b-c837ab5653ed",
+        "f2ea7095-999d-5e5b-8f2a-4b636a1e399f",
+        "331d7526-8b88-5923-bf98-450cf3ea82a4",
+        "98ad068a-f812-5f13-920c-3ff3d34d263f",
+        "3f49141c-d8fb-5a6f-8b4a-074a2397874d",
+        "7c107a7f-2d77-51aa-aef8-8d777e26ffbc",
+        "6a12c9bc-bcfa-5448-9f66-4159dbe8c326",
+        "f55122fb-303f-58bc-b342-6ef653956d1d",
+        "ee8fa049-e5f4-51e4-89d8-89a0140b8f38",
+        "058c0739-1843-5a10-bab7-fae8aaf30add",
+        "100917f4-9c0a-5ac3-a297-794222da9bc9"
+    ]
+}
