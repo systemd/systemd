@@ -7,6 +7,7 @@
 #include "basic-forward.h"
 
 int stat_verify_regular(const struct stat *st);
+int statx_verify_regular(const struct statx *stx);
 int verify_regular_at(int fd, const char *path, bool follow);
 int fd_verify_regular(int fd);
 
@@ -21,6 +22,7 @@ int fd_verify_symlink(int fd);
 int is_symlink(const char *path);
 
 int stat_verify_socket(const struct stat *st);
+int statx_verify_socket(const struct statx *stx);
 int is_socket(const char *path);
 
 int stat_verify_linked(const struct stat *st);
