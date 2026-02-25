@@ -49,22 +49,35 @@ static int verify_stat_at(
         return verify ? r : r >= 0;
 }
 
+static int mode_verify_regular(mode_t mode) {
+        if (S_ISDIR(mode))
+                return -EISDIR;
+
+        if (S_ISLNK(mode))
+                return -ELOOP;
+
+        if (!S_ISREG(mode))
+                return -EBADFD;
+
+        return 0;
+}
+
 int stat_verify_regular(const struct stat *st) {
         assert(st);
 
         /* Checks whether the specified stat() structure refers to a regular file. If not returns an
          * appropriate error code. */
 
-        if (S_ISDIR(st->st_mode))
-                return -EISDIR;
+        return mode_verify_regular(st->st_mode);
+}
 
-        if (S_ISLNK(st->st_mode))
-                return -ELOOP;
+int statx_verify_regular(const struct statx *stx) {
+        assert(stx);
 
-        if (!S_ISREG(st->st_mode))
-                return -EBADFD;
+        if (!FLAGS_SET(stx->stx_mask, STATX_TYPE))
+                return -ENODATA;
 
-        return 0;
+        return mode_verify_regular(stx->stx_mode);
 }
 
 int verify_regular_at(int fd, const char *path, bool follow) {
@@ -78,16 +91,20 @@ int fd_verify_regular(int fd) {
         return verify_regular_at(fd, /* path= */ NULL, /* follow= */ false);
 }
 
-int stat_verify_directory(const struct stat *st) {
-        assert(st);
-
-        if (S_ISLNK(st->st_mode))
+static int mode_verify_directory(mode_t mode) {
+        if (S_ISLNK(mode))
                 return -ELOOP;
 
-        if (!S_ISDIR(st->st_mode))
+        if (!S_ISDIR(mode))
                 return -ENOTDIR;
 
         return 0;
+}
+
+int stat_verify_directory(const struct stat *st) {
+        assert(st);
+
+        return mode_verify_directory(st->st_mode);
 }
 
 int statx_verify_directory(const struct statx *stx) {
@@ -96,13 +113,7 @@ int statx_verify_directory(const struct statx *stx) {
         if (!FLAGS_SET(stx->stx_mask, STATX_TYPE))
                 return -ENODATA;
 
-        if (S_ISLNK(stx->stx_mode))
-                return -ELOOP;
-
-        if (!S_ISDIR(stx->stx_mode))
-                return -ENOTDIR;
-
-        return 0;
+        return mode_verify_directory(stx->stx_mode);
 }
 
 int fd_verify_directory(int fd) {
@@ -142,19 +153,29 @@ int is_symlink(const char *path) {
         return verify_stat_at(AT_FDCWD, path, false, stat_verify_symlink, false);
 }
 
-int stat_verify_socket(const struct stat *st) {
-        assert(st);
-
-        if (S_ISLNK(st->st_mode))
+static mode_t mode_verify_socket(mode_t mode) {
+        if (S_ISLNK(mode))
                 return -ELOOP;
 
-        if (S_ISDIR(st->st_mode))
+        if (S_ISDIR(mode))
                 return -EISDIR;
 
-        if (!S_ISSOCK(st->st_mode))
+        if (!S_ISSOCK(mode))
                 return -ENOTSOCK;
 
         return 0;
+}
+
+int stat_verify_socket(const struct stat *st) {
+        assert(st);
+
+        return mode_verify_socket(st->st_mode);
+}
+
+int statx_verify_socket(const struct statx *stx) {
+        assert(stx);
+
+        return mode_verify_socket(stx->stx_mode);
 }
 
 int is_socket(const char *path) {
