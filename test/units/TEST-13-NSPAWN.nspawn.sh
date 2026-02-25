@@ -396,6 +396,46 @@ EOF
     (! systemd-nspawn --rlimit==)
 }
 
+testcase_check_default_inaccessible_paths() {
+    local root container inaccessible_paths path exp
+
+    # Taken from src/nspawn/nspawn-mount.c:mount_all()
+    inaccessible_paths=(
+        "/proc/kallsyms"
+        "/proc/kcore"
+        "/proc/keys"
+        "/proc/sysrq-trigger"
+        "/proc/timer_list"
+    )
+
+    root="$(mktemp -d /var/lib/machines/TEST-13-NSPAWN.default_inaccessible_paths.XXX)"
+    container="$(basename "$root")"
+    create_dummy_container "$root"
+
+    # Each inaccessible path should have zeroed permissions, which stat's %a reports as a single 0
+    for path in "${inaccessible_paths[@]}"; do
+        systemd-nspawn --directory="$root" \
+                       bash -xec "ls -l $path; [[ \$(stat --format=%a $path) -eq 0 ]]"
+    done
+
+    # SYSTEMD_NSPAWN_API_VFS_WRITABLE=yes mounts certain API directories under /sys/ and /proc/sys/
+    # as writable, and it also skips the path masking (by dropping the MOUNT_APPLY_APIVFS_RO flag)
+    for path in "${inaccessible_paths[@]}"; do
+        exp="$(stat --format=%a "$path")"
+        SYSTEMD_NSPAWN_API_VFS_WRITABLE=yes systemd-nspawn --directory="$root" \
+                       bash -xec "ls -l $path; [[ \$(stat --format=%a $path) -eq $exp ]]"
+    done
+
+    # SYSTEMD_NSPAWN_API_VFS_WRITABLE=network mounts only /proc/sys/net/ as writable but doesn't
+    # drop the MOUNT_APPLY_APIVFS_RO flag, so the masking should still apply
+    for path in "${inaccessible_paths[@]}"; do
+        SYSTEMD_NSPAWN_API_VFS_WRITABLE=network systemd-nspawn --directory="$root" \
+                       bash -xec "ls -l $path; [[ \$(stat --format=%a $path) -eq 0 ]]"
+    done
+
+    rm -fr "$root"
+}
+
 nspawn_settings_cleanup() {
     for dev in sd-host-only sd-shared{1,2,3} sd-macvlan{1,2} sd-ipvlan{1,2}; do
         ip link del "$dev" || :
