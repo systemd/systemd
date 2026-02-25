@@ -380,11 +380,20 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                          * root tree we operate in is allowed, where an inode is moved up the tree while we
                          * look at it, and thus get the current path wrong and think we are deeper down than
                          * we actually are. */
-                        if (FLAGS_SET(flags, CHASE_AT_RESOLVE_IN_ROOT) &&
-                            (empty_or_root(done) || (statx_inode_same(&stx, &root_stx) && statx_mount_same(&stx, &root_stx)))) {
-                                if (FLAGS_SET(flags, CHASE_STEP))
-                                        goto chased_one;
-                                continue;
+                        if (FLAGS_SET(flags, CHASE_AT_RESOLVE_IN_ROOT)) {
+                                bool is_root = empty_or_root(done);
+                                if (!is_root && statx_inode_same(&stx, &root_stx)) {
+                                        r = statx_mount_same(&stx, &root_stx);
+                                        if (r < 0)
+                                                return r;
+
+                                        is_root = r > 0;
+                                }
+                                if (is_root) {
+                                        if (FLAGS_SET(flags, CHASE_STEP))
+                                                goto chased_one;
+                                        continue;
+                                }
                         }
 
                         fd_parent = openat(fd, "..", O_CLOEXEC|O_NOFOLLOW|O_PATH|O_DIRECTORY);
