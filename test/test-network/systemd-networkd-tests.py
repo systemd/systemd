@@ -816,14 +816,23 @@ def stop_by_pid_file(pid_file):
     rm_f(pid_file)
 
 
+def pack(c, width=1):
+    # big-endian unsigned char/short/integer
+    fmt = {1: '>B', 2: '>H', 4: '>I'}
+    return struct.pack(fmt[width], len(c)) + c
+
+
+def pyton(n, width=2):
+    fmt = {1: '>B', 2: '>H', 4: '>I'}
+    return struct.pack(fmt[width], n)
+
+
 class SvcParam(enum.Enum):
     ALPN = 1
     DOHPATH = 7
 
 
 def dnr_v4_instance_data(adn, addrs=None, prio=1, alpns=('dot',), dohpath=None):
-    pack = lambda c, w=1: struct.pack('>' + '_BH_I'[w], len(c)) + c
-    pyton = lambda n, w=2: struct.pack('>' + '_BH_I'[w], n)
     ipv4 = ipaddress.IPv4Address
 
     data = pyton(prio)
@@ -843,8 +852,6 @@ def dnr_v4_instance_data(adn, addrs=None, prio=1, alpns=('dot',), dohpath=None):
 
 
 def dnr_v6_instance_data(adn, addrs=None, prio=1, alpns=('dot',), dohpath=None):
-    pack = lambda c, w=1: struct.pack('>' + '_BH_I'[w], len(c)) + c
-    pyton = lambda n, w=2: struct.pack('>' + '_BH_I'[w], n)
     ipv6 = ipaddress.IPv6Address
 
     data = pyton(prio)
