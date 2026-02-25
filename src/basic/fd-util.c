@@ -1098,7 +1098,11 @@ int fds_inode_and_mount_same(int fd1, int fd2) {
         if (r < 0)
                 return r;
 
-        return statx_inode_same(&sx1, &sx2) && statx_mount_same(&sx1, &sx2);
+        r = statx_mount_same(&sx1, &sx2);
+        if (r <= 0)
+                return r;
+
+        return statx_inode_same(&sx1, &sx2);
 }
 
 int resolve_xat_fdroot(int *fd, const char **path, char **ret_buffer) {
