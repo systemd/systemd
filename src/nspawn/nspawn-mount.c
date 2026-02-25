@@ -534,7 +534,7 @@ int mount_all(const char *dest,
               const char *selinux_apifs_context) {
 
 #define PROC_INACCESSIBLE_REG(path)                                     \
-        { "/run/systemd/inaccessible/reg", (path), NULL, NULL, MS_BIND, \
+        { "/run/host/inaccessible/reg", (path), NULL, NULL, MS_BIND,    \
           MOUNT_IN_USERNS|MOUNT_APPLY_APIVFS_RO }, /* Bind mount first ... */ \
         { NULL, (path), NULL, NULL, MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT, \
           MOUNT_IN_USERNS|MOUNT_APPLY_APIVFS_RO } /* Then, make it r/o */
