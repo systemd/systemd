@@ -429,11 +429,13 @@ int getcrtime_at(
          * concept is useful for determining how "old" a file really is, and hence using the older of the two makes
          * most sense. */
 
-        r = xstatx_full(fd, path,
+        r = xstatx_full(fd,
+                        path,
                         at_flags_normalize_nofollow(at_flags)|AT_STATX_DONT_SYNC,
-                        /* mandatory_mask = */ 0,
+                        /* xstatx_flags= */ 0,
+                        /* mandatory_mask= */ 0,
                         STATX_BTIME,
-                        /* mandatory_attributes = */ 0,
+                        /* mandatory_attributes= */ 0,
                         &sx);
         if (r > 0 && sx.stx_btime.tv_sec != 0) /* > 0: all optional masks are supported */
                 a = statx_timestamp_load(&sx.stx_btime);
