@@ -35,7 +35,7 @@ typedef enum ChaseFlags {
 bool unsafe_transition(const struct stat *a, const struct stat *b);
 
 /* How many iterations to execute before returning -ELOOP */
-#define CHASE_MAX 32
+#define CHASE_MAX 128U
 
 int chase(const char *path_with_prefix, const char *root, ChaseFlags flags, char **ret_path, int *ret_fd);
 
