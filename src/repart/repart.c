@@ -200,6 +200,7 @@ static size_t arg_n_defer_partitions = 0;
 static bool arg_defer_partitions_empty = false;
 static bool arg_defer_partitions_factory_reset = false;
 static uint64_t arg_sector_size = 0;
+static uint64_t arg_grain_size = 0;
 static ImagePolicy *arg_image_policy = NULL;
 static Architecture arg_architecture = _ARCHITECTURE_INVALID;
 static int arg_offline = -1;
@@ -1717,6 +1718,8 @@ static void context_place_partitions(Context *context) {
                 left = a->size;
 
                 LIST_FOREACH(partitions, p, context->partitions) {
+                        uint64_t gap;
+
                         if (p->allocated_to_area != a)
                                 continue;
 
@@ -1730,6 +1733,17 @@ static void context_place_partitions(Context *context) {
                         assert(left >= p->new_padding);
                         start += p->new_padding;
                         left -= p->new_padding;
+
+                        /* Re-align start to the grain after each partition, so that the next
+                         * partition placed into this free area also starts on a grain boundary.
+                         * This matters when the grain is larger than the default (e.g. 1 MiB via
+                         * --grain-size=) and a small partition like verity-sig (16 KiB) precedes
+                         * a larger one: without this, the successor would start at an unaligned
+                         * offset. */
+                        gap = round_up_size(start, context->grain_size) - start;
+                        assert(left >= gap);
+                        start += gap;
+                        left -= gap;
                 }
         }
 }
@@ -3579,7 +3593,7 @@ static int context_load_fallback_metrics(Context *context) {
         assert(context);
 
         context->sector_size = arg_sector_size > 0 ? arg_sector_size : 512;
-        context->grain_size = MAX(context->sector_size, 4096U);
+        context->grain_size = arg_grain_size > 0 ? arg_grain_size : MAX(context->sector_size, 4096U);
         context->default_fs_sector_size = arg_sector_size > 0 ? arg_sector_size : DEFAULT_FILESYSTEM_SECTOR_SIZE;
         return 1; /* Starting from scratch */
 }
@@ -3672,7 +3686,7 @@ static int context_load_partition_table(Context *context) {
                         /* Use the fallback values if we have no better idea */
                         context->sector_size = fdisk_get_sector_size(c);
                         context->default_fs_sector_size = fs_secsz;
-                        context->grain_size = MAX(context->sector_size, 4096U);
+                        context->grain_size = arg_grain_size > 0 ? arg_grain_size : MAX(context->sector_size, 4096U);
                         return /* from_scratch= */ true;
                 }
 
@@ -3703,7 +3717,7 @@ static int context_load_partition_table(Context *context) {
 
         /* Use at least 4K, and ensure it's a multiple of the sector size, regardless if that is smaller or
          * larger */
-        grainsz = MAX(secsz, 4096U);
+        grainsz = arg_grain_size > 0 ? arg_grain_size : MAX(secsz, 4096U);
 
         log_debug("Sector size of device is %lu bytes. Using default filesystem sector size of %" PRIu64 " and grain size of %" PRIu64 ".", secsz, fs_secsz, grainsz);
 
@@ -9069,6 +9083,7 @@ static int help(void) {
                "     --offline=BOOL       Whether to build the image offline\n"
                "     --discard=BOOL       Whether to discard backing blocks for new partitions\n"
                "     --sector-size=SIZE   Set the logical sector size for the image\n"
+               "     --grain-size=BYTES  Set the grain size for partition alignment\n"
                "     --architecture=ARCH  Set the generic architecture for the image\n"
                "     --size=BYTES         Grow loopback file to specified size\n"
                "     --seed=UUID          128-bit seed UUID to derive all UUIDs from\n"
@@ -9199,6 +9214,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_DEFER_PARTITIONS_EMPTY,
                 ARG_DEFER_PARTITIONS_FACTORY_RESET,
                 ARG_SECTOR_SIZE,
+                ARG_GRAIN_SIZE,
                 ARG_SKIP_PARTITIONS,
                 ARG_ARCHITECTURE,
                 ARG_OFFLINE,
@@ -9248,6 +9264,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "defer-partitions-empty",         required_argument, NULL, ARG_DEFER_PARTITIONS_EMPTY         },
                 { "defer-partitions-factory-reset", required_argument, NULL, ARG_DEFER_PARTITIONS_FACTORY_RESET },
                 { "sector-size",                    required_argument, NULL, ARG_SECTOR_SIZE                    },
+                { "grain-size",                     required_argument, NULL, ARG_GRAIN_SIZE                     },
                 { "architecture",                   required_argument, NULL, ARG_ARCHITECTURE                   },
                 { "offline",                        required_argument, NULL, ARG_OFFLINE                        },
                 { "copy-from",                      required_argument, NULL, ARG_COPY_FROM                      },
@@ -9567,6 +9584,15 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_sector_size(optarg, &arg_sector_size);
                         if (r < 0)
                                 return r;
+
+                        break;
+
+                case ARG_GRAIN_SIZE:
+                        r = parse_size(optarg, 1024, &arg_grain_size);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --grain-size= parameter: %s", optarg);
+                        if (arg_grain_size < 512 || !ISPOWEROF2(arg_grain_size))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Grain size must be a power of 2 >= 512.");
 
                         break;
 
