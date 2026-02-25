@@ -671,11 +671,15 @@ static void unit_clear_dependencies(Unit *u) {
 }
 
 static void unit_remove_transient(Unit *u) {
+        const char *dropin_directory;
+
         assert(u);
         assert(u->manager);
 
         if (!u->transient)
                 return;
+
+        dropin_directory = strjoina(u->id, ".d");
 
         STRV_FOREACH(i, u->dropin_paths) {
                 _cleanup_free_ char *p = NULL, *pp = NULL;
@@ -689,6 +693,10 @@ static void unit_remove_transient(Unit *u) {
                 /* Only drop transient drop-ins */
                 if (!path_equal(u->manager->lookup_paths.transient, pp))
                         continue;
+
+                /* Drop the transient drop-in directory also from unit path cache. */
+                if (path_equal(last_path_component(p), dropin_directory))
+                        free(set_remove(u->manager->unit_path_cache, p));
 
                 (void) unlink(*i);
                 (void) rmdir(p);
