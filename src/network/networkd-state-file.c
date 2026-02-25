@@ -999,6 +999,12 @@ void link_dirty(Link *link) {
         /* Also mark manager dirty as link is dirty */
         link->manager->dirty = true;
 
+        /* The interface has been already removed, and the state file for the interface has been or will be
+         * removed. The file should not be recreated. Note, even in that case, we may need to recreate the
+         * manager state file. Hence the dirty flag for the manager should be set in the above. */
+        if (link->state == LINK_STATE_LINGER)
+                return;
+
         if (set_ensure_put(&link->manager->dirty_links, &link_hash_ops, link) <= 0)
                 return; /* Ignore allocation errors and don't take another ref if the link was already dirty */
 
