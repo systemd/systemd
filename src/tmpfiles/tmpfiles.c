@@ -586,9 +586,12 @@ static int opendir_and_stat(
                 return 0;
         }
 
-        r = xstatx_full(dirfd(d), /* path = */ NULL, AT_EMPTY_PATH,
+        r = xstatx_full(dirfd(d),
+                        /* path= */ NULL,
+                        AT_EMPTY_PATH,
+                        /* xstatx_full= */ 0,
                         STATX_MODE|STATX_INO|STATX_ATIME|STATX_MTIME,
-                        /* optional_mask = */ 0,
+                        /* optional_mask= */ 0,
                         STATX_ATTR_MOUNT_ROOT,
                         &sx);
         if (r < 0)
@@ -687,6 +690,7 @@ static int dir_cleanup(
                 struct statx sx;
                 r = xstatx_full(dirfd(d), de->d_name,
                                 AT_SYMLINK_NOFOLLOW|AT_NO_AUTOMOUNT,
+                                /* xstatx_flags= */ 0,
                                 STATX_TYPE|STATX_MODE|STATX_UID,
                                 STATX_ATIME|STATX_MTIME|STATX_CTIME|STATX_BTIME,
                                 STATX_ATTR_MOUNT_ROOT,

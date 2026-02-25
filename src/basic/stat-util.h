@@ -47,9 +47,14 @@ static inline int null_or_empty_path(const char *fn) {
         return null_or_empty_path_with_root(fn, NULL);
 }
 
+typedef enum XStatXFlags {
+        XSTATX_MNT_ID_BEST = 1 << 0, /* Like STATX_MNT_ID_UNIQUE if available, STATX_MNT_ID otherwise */
+} XStatXFlags;
+
 int xstatx_full(int fd,
                 const char *path,
-                int flags,
+                int statx_flags,
+                XStatXFlags xstatx_flags,
                 unsigned mandatory_mask,
                 unsigned optional_mask,
                 uint64_t mandatory_attributes,
@@ -58,11 +63,11 @@ int xstatx_full(int fd,
 static inline int xstatx(
                 int fd,
                 const char *path,
-                int flags,
+                int statx_flags,
                 unsigned mandatory_mask,
                 struct statx *ret) {
 
-        return xstatx_full(fd, path, flags, mandatory_mask, 0, 0, ret);
+        return xstatx_full(fd, path, statx_flags, 0, mandatory_mask, 0, 0, ret);
 }
 
 int fd_is_read_only_fs(int fd);
