@@ -31,6 +31,8 @@
          CHASE_MUST_BE_REGULAR |                        \
          CHASE_MUST_BE_SOCKET)
 
+#define CHASE_STEPS_MAX 256U
+
 bool unsafe_transition(const struct stat *a, const struct stat *b) {
         /* Returns true if the transition from a to b is safe, i.e. that we never transition from unprivileged to
          * privileged files or directories. Why bother? So that unprivileged code can't symlink to privileged files
@@ -334,11 +336,17 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
         if (FLAGS_SET(flags, CHASE_MUST_BE_DIRECTORY) + FLAGS_SET(flags, CHASE_MUST_BE_REGULAR) + FLAGS_SET(flags, CHASE_MUST_BE_SOCKET) > 1)
                 return -EBADSLT;
 
-        for (todo = buffer;;) {
+        todo = buffer;
+        for (size_t n_steps = 0;; n_steps++) {
                 _cleanup_free_ char *first = NULL;
                 _cleanup_close_ int child = -EBADF;
                 struct stat st_child;
                 const char *e;
+
+                /* If people change our tree behind our back, they might send us in circles. Put a limit on
+                 * things */
+                if (n_steps > CHASE_STEPS_MAX)
+                        return -ELOOP;
 
                 r = path_find_first_component(&todo, /* accept_dot_dot= */ true, &e);
                 if (r < 0)
