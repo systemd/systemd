@@ -711,9 +711,10 @@ node /org/freedesktop/login1 {
       <function>CanRebootToBootLoaderMenu()</function>, and <function>CanRebootToBootLoaderEntry()</function>
       test whether the system supports the respective operation and whether the calling user is allowed to
       execute it. Returns one of <literal>na</literal>, <literal>yes</literal>, <literal>no</literal>,
-      <literal>challenge</literal>, and <literal>inhibited</literal>. If <literal>na</literal> is returned,
-      the operation is not available because hardware, kernel, or drivers do not support it. If <literal>yes</literal>
-      is returned, the operation is supported and the user may execute the operation without further authentication.
+      <literal>challenge</literal>, <literal>inhibited</literal>, <literal>inhibitor-blocked</literal>,
+      and <literal>challenge-inhibitor-blocked</literal>. If <literal>na</literal> is returned, the operation
+      is not available because hardware, kernel, or drivers do not support it. If <literal>yes</literal> is
+      returned, the operation is supported and the user may execute the operation without further authentication.
       If <literal>no</literal> is returned, the operation is available but the user is not allowed to execute
       the operation. If <literal>challenge</literal> is returned, the operation is available but only after
       authorization. If <literal>inhibited</literal> is returned, the operation is normally available without
