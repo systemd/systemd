@@ -378,7 +378,7 @@
         for sysext and <filename>/etc/</filename> for confext, ignore when the existing merged extensions
         already match what would be merged.
         By default the refresh is skipped when no changes are found. Note that changes done to an extension
-        directory while it's merged are ignored without this flag (unless an other extension got changed).
+        directory while it's merged are ignored without this flag (unless another extension got changed).
         Note that changing the contents while merged is also undefined behavior in overlayfs.</para>
 
         <xi:include href="version-info.xml" xpointer="v260"/></listitem>
