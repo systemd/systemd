@@ -123,11 +123,12 @@ NTS_TLS* NTS_TLS_setup(const char *hostname, int socket);
 int NTS_TLS_handshake(NTS_TLS *session);
 
 /* Shutdowns a TLS session and frees all resources, closes the associated socket
+ * Also sets the NTS_TLS* object itself to NULL.
  *
  * RETURNS
  *      Nothing
  */
-void NTS_TLS_close(NTS_TLS *session);
+void NTS_TLS_close(NTS_TLS **session);
 
 /* Reading and writing data
  *
