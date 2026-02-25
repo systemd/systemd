@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-11-26 01:17+0000\n"
+"POT-Creation-Date: 2026-02-24 18:43+0000\n"
 "PO-Revision-Date: 2026-02-14 06:27+0000\n"
 "Last-Translator: Baurzhan Muftakhidinov <baurthefirst@gmail.com>\n"
 "Language-Team: Kazakh <https://translate.fedoraproject.org/projects/systemd/"
@@ -43,7 +43,8 @@ msgstr "Жүйелік қызмет немесе юнит файлдарын б�
 
 #: src/core/org.freedesktop.systemd1.policy.in:44
 msgid "Authentication is required to manage system service or unit files."
-msgstr "Жүйелік қызмет немесе юнит файлдарын басқару үшін аутентификация қажет."
+msgstr ""
+"Жүйелік қызмет немесе юнит файлдарын басқару үшін аутентификация қажет."
 
 #: src/core/org.freedesktop.systemd1.policy.in:54
 msgid "Set or unset system and service manager environment variables"
@@ -151,7 +152,7 @@ msgstr "Үй бумасының қолтаңба кілттерін басқар
 msgid "Authentication is required to manage signing keys for home directories."
 msgstr "Үй бумалары үшін қолтаңба кілттерін басқару үшін аутентификация қажет."
 
-#: src/home/pam_systemd_home.c:333
+#: src/home/pam_systemd_home.c:330
 #, c-format
 msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
@@ -160,31 +161,31 @@ msgstr ""
 "%s пайдаланушысының үй бумасы қазір жоқ, қажетті сақтау құрылғысын немесе "
 "негізгі файлдық жүйені қосыңыз."
 
-#: src/home/pam_systemd_home.c:338
+#: src/home/pam_systemd_home.c:335
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
 msgstr ""
 "%s пайдаланушысы үшін кіру әрекеттері тым жиі, кейінірек қайталап көріңіз."
 
-#: src/home/pam_systemd_home.c:350
+#: src/home/pam_systemd_home.c:347
 msgid "Password: "
 msgstr "Пароль: "
 
-#: src/home/pam_systemd_home.c:352
+#: src/home/pam_systemd_home.c:349
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
 msgstr ""
 "%s пайдаланушысының аутентификациясы үшін пароль қате немесе жеткіліксіз."
 
-#: src/home/pam_systemd_home.c:353
+#: src/home/pam_systemd_home.c:350
 msgid "Sorry, try again: "
 msgstr "Кешіріңіз, қайталап көріңіз: "
 
-#: src/home/pam_systemd_home.c:375
+#: src/home/pam_systemd_home.c:372
 msgid "Recovery key: "
 msgstr "Қалпына келтіру кілті: "
 
-#: src/home/pam_systemd_home.c:377
+#: src/home/pam_systemd_home.c:374
 #, c-format
 msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
@@ -193,20 +194,20 @@ msgstr ""
 "%s пайдаланушысының аутентификациясы үшін пароль/қалпына келтіру кілті қате "
 "немесе жеткіліксіз."
 
-#: src/home/pam_systemd_home.c:378
+#: src/home/pam_systemd_home.c:375
 msgid "Sorry, reenter recovery key: "
 msgstr "Кешіріңіз, қалпына келтіру кілтін қайта енгізіңіз: "
 
-#: src/home/pam_systemd_home.c:398
+#: src/home/pam_systemd_home.c:395
 #, c-format
 msgid "Security token of user %s not inserted."
 msgstr "%s пайдаланушысының қауіпсіздік токені салынбаған."
 
-#: src/home/pam_systemd_home.c:399 src/home/pam_systemd_home.c:402
+#: src/home/pam_systemd_home.c:396 src/home/pam_systemd_home.c:399
 msgid "Try again with password: "
 msgstr "Парольмен қайталап көріңіз: "
 
-#: src/home/pam_systemd_home.c:401
+#: src/home/pam_systemd_home.c:398
 #, c-format
 msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
@@ -215,28 +216,28 @@ msgstr ""
 "Пароль қате немесе жеткіліксіз және %s пайдаланушысының бапталған "
 "қауіпсіздік токені салынбаған."
 
-#: src/home/pam_systemd_home.c:421
+#: src/home/pam_systemd_home.c:418
 msgid "Security token PIN: "
 msgstr "Қауіпсіздік токенінің PIN коды: "
 
-#: src/home/pam_systemd_home.c:438
+#: src/home/pam_systemd_home.c:435
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
 msgstr ""
 "%s пайдаланушысының қауіпсіздік токенінде физикалық түрде аутентификациядан "
 "өтіңіз."
 
-#: src/home/pam_systemd_home.c:449
+#: src/home/pam_systemd_home.c:446
 #, c-format
 msgid "Please confirm presence on security token of user %s."
 msgstr "%s пайдаланушысының қауіпсіздік токені болуын растаңыз."
 
-#: src/home/pam_systemd_home.c:460
+#: src/home/pam_systemd_home.c:457
 #, c-format
 msgid "Please verify user on security token of user %s."
 msgstr "%s пайдаланушысының қауіпсіздік токенінде пайдаланушыны тексеріңіз."
 
-#: src/home/pam_systemd_home.c:469
+#: src/home/pam_systemd_home.c:466
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
@@ -244,85 +245,85 @@ msgstr ""
 "Қауіпсіздік токенінің PIN коды құлыпталған, алдымен оның құлпын ашыңыз. "
 "(Тұспал: Алып тастау және қайта салу жеткілікті болуы мүмкін.)"
 
-#: src/home/pam_systemd_home.c:477
+#: src/home/pam_systemd_home.c:474
 #, c-format
 msgid "Security token PIN incorrect for user %s."
 msgstr "%s пайдаланушысы үшін қауіпсіздік токенінің PIN коды қате."
 
-#: src/home/pam_systemd_home.c:478 src/home/pam_systemd_home.c:497
-#: src/home/pam_systemd_home.c:516
+#: src/home/pam_systemd_home.c:475 src/home/pam_systemd_home.c:494
+#: src/home/pam_systemd_home.c:513
 msgid "Sorry, retry security token PIN: "
 msgstr "Кешіріңіз, қауіпсіздік токенінің PIN кодын қайталап көріңіз: "
 
-#: src/home/pam_systemd_home.c:496
+#: src/home/pam_systemd_home.c:493
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
 "%s пайдаланушысының қауіпсіздік токенінің PIN коды қате (тек бірнеше талап "
 "қалды!)"
 
-#: src/home/pam_systemd_home.c:515
+#: src/home/pam_systemd_home.c:512
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
 "%s пайдаланушысының қауіпсіздік токенінің PIN коды қате (тек бір талап "
 "қалды!)"
 
-#: src/home/pam_systemd_home.c:682
+#: src/home/pam_systemd_home.c:679
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr ""
 "%s пайдаланушысының үй бумасы қазір белсенді емес, алдымен жергілікті түрде "
 "жүйеге кіріңіз."
 
-#: src/home/pam_systemd_home.c:684
+#: src/home/pam_systemd_home.c:681
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr ""
 "%s пайдаланушысының үй бумасы қазір құлыпталған, алдымен жергілікті түрде "
 "құлпын ашыңыз."
 
-#: src/home/pam_systemd_home.c:718
+#: src/home/pam_systemd_home.c:715
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr "%s пайдаланушысы үшін сәтсіз кіру әрекеттері тым көп, бас тартылды."
 
-#: src/home/pam_systemd_home.c:1017
+#: src/home/pam_systemd_home.c:1012
 msgid "User record is blocked, prohibiting access."
 msgstr "Пайдаланушы жазбасы блокталған, қол жеткізуге тыйым салынған."
 
-#: src/home/pam_systemd_home.c:1021
+#: src/home/pam_systemd_home.c:1016
 msgid "User record is not valid yet, prohibiting access."
 msgstr "Пайдаланушы жазбасы әлі жарамсыз, қол жеткізуге тыйым салынған."
 
-#: src/home/pam_systemd_home.c:1025
+#: src/home/pam_systemd_home.c:1020
 msgid "User record is not valid anymore, prohibiting access."
 msgstr "Пайдаланушы жазбасы енді жарамсыз, қол жеткізуге тыйым салынған."
 
-#: src/home/pam_systemd_home.c:1030 src/home/pam_systemd_home.c:1079
+#: src/home/pam_systemd_home.c:1025 src/home/pam_systemd_home.c:1074
 msgid "User record not valid, prohibiting access."
 msgstr "Пайдаланушы жазбасы жарамсыз, қол жеткізуге тыйым салынған."
 
-#: src/home/pam_systemd_home.c:1040
+#: src/home/pam_systemd_home.c:1035
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "Кіру әрекеттері тым көп, %s кейін қайталап көріңіз."
 
-#: src/home/pam_systemd_home.c:1051
+#: src/home/pam_systemd_home.c:1046
 msgid "Password change required."
 msgstr "Парольді өзгерту қажет."
 
-#: src/home/pam_systemd_home.c:1055
+#: src/home/pam_systemd_home.c:1050
 msgid "Password expired, change required."
 msgstr "Парольдің мерзімі өткен, өзгерту қажет."
 
-#: src/home/pam_systemd_home.c:1061
+#: src/home/pam_systemd_home.c:1056
 msgid "Password is expired, but can't change, refusing login."
 msgstr ""
 "Парольдің мерзімі өткен, бірақ оны өзгерту мүмкін емес, жүйеге кіруден бас "
 "тартылды."
 
-#: src/home/pam_systemd_home.c:1065
+#: src/home/pam_systemd_home.c:1060
 msgid "Password will expire soon, please change."
 msgstr "Парольдің мерзімі жақында өтеді, оны өзгертіңіз."
 
@@ -490,7 +491,8 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:86
 msgid "Allow applications to inhibit system handling of the suspend key"
-msgstr "Қолданбаларға жүйенің тоқтату пернесін өңдеуіне тыйым салуға рұқсат ету"
+msgstr ""
+"Қолданбаларға жүйенің тоқтату пернесін өңдеуіне тыйым салуға рұқсат ету"
 
 #: src/login/org.freedesktop.login1.policy:87
 msgid ""
@@ -551,7 +553,8 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:138
 msgid "Allow non-logged-in users to run programs"
-msgstr "Жүйеге кірмеген пайдаланушыларға бағдарламаларды іске қосуға рұқсат ету"
+msgstr ""
+"Жүйеге кірмеген пайдаланушыларға бағдарламаларды іске қосуға рұқсат ету"
 
 #: src/login/org.freedesktop.login1.policy:139
 msgid "Authentication is required to run programs as a non-logged-in user."
@@ -781,7 +784,8 @@ msgstr "Жүктеуішке жүктеу мәзіріне жүктелуді к
 msgid ""
 "Authentication is required to indicate to the boot loader to boot to the "
 "boot loader menu."
-msgstr "Жүктеуішке жүктеу мәзіріне жүктелуді көрсету үшін аутентификация қажет."
+msgstr ""
+"Жүктеуішке жүктеу мәзіріне жүктелуді көрсету үшін аутентификация қажет."
 
 #: src/login/org.freedesktop.login1.policy:385
 msgid "Indicate to the boot loader to boot a specific entry"
@@ -1052,6 +1056,14 @@ msgstr ""
 "systemd-networkd үшін тұрақты сақтау орнының қолжетімділігін көрсету үшін "
 "аутентификация қажет."
 
+#: src/network/org.freedesktop.network1.policy:198
+msgid "Manage network links"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:199
+msgid "Authentication is required to manage network links."
+msgstr ""
+
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
 msgstr "Портативті қызмет бейнесін тексеру"
@@ -1235,23 +1247,23 @@ msgstr ""
 "Желілік уақытты синхрондаудың іске қосылуын бақылау үшін аутентификация "
 "қажет."
 
-#: src/core/dbus-unit.c:371
+#: src/core/dbus-unit.c:372
 msgid "Authentication is required to start '$(unit)'."
 msgstr "'$(unit)' юнитын іске қосу үшін аутентификация қажет."
 
-#: src/core/dbus-unit.c:372
+#: src/core/dbus-unit.c:373
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "'$(unit)' юнитын тоқтату үшін аутентификация қажет."
 
-#: src/core/dbus-unit.c:373
+#: src/core/dbus-unit.c:374
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "'$(unit)' юнитын қайта жүктеу үшін аутентификация қажет."
 
-#: src/core/dbus-unit.c:374 src/core/dbus-unit.c:375
+#: src/core/dbus-unit.c:375 src/core/dbus-unit.c:376
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "'$(unit)' юнитын қайта іске қосу үшін аутентификация қажет."
 
-#: src/core/dbus-unit.c:567
+#: src/core/dbus-unit.c:568
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of '$"
 "(unit)'."
@@ -1259,7 +1271,7 @@ msgstr ""
 "'$(unit)' юнитының процестеріне UNIX сигналын жіберу үшін аутентификация "
 "қажет."
 
-#: src/core/dbus-unit.c:620
+#: src/core/dbus-unit.c:621
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "subgroup of '$(unit)'."
@@ -1267,15 +1279,15 @@ msgstr ""
 "'$(unit)' юнитының ішкі тобының процестеріне UNIX сигналын жіберу үшін "
 "аутентификация қажет."
 
-#: src/core/dbus-unit.c:648
+#: src/core/dbus-unit.c:649
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr "'$(unit)' юнитының \"failed\" күйін ысыру үшін аутентификация қажет."
 
-#: src/core/dbus-unit.c:678
+#: src/core/dbus-unit.c:679
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "'$(unit)' юнитының қасиеттерін орнату үшін аутентификация қажет."
 
-#: src/core/dbus-unit.c:775
+#: src/core/dbus-unit.c:776
 msgid ""
 "Authentication is required to delete files and directories associated with '$"
 "(unit)'."
@@ -1283,7 +1295,7 @@ msgstr ""
 "'$(unit)' юнитымен байланысты файлдарды және бумаларды өшіру үшін "
 "аутентификация қажет."
 
-#: src/core/dbus-unit.c:812
+#: src/core/dbus-unit.c:813
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""

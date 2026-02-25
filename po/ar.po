@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-11-26 01:17+0000\n"
+"POT-Creation-Date: 2026-02-24 18:43+0000\n"
 "PO-Revision-Date: 2025-07-24 14:54+0000\n"
 "Last-Translator: joo es <jonnyse@users.noreply.translate.fedoraproject.org>\n"
 "Language-Team: Arabic <https://translate.fedoraproject.org/projects/systemd/"
@@ -147,7 +147,7 @@ msgstr "أدر مفاتيح توقيع مجلد المنزل"
 msgid "Authentication is required to manage signing keys for home directories."
 msgstr "الاستيثاق مطلوب لإدارة مفاتيح التوقيع لوحدات مجلد المنزل."
 
-#: src/home/pam_systemd_home.c:333
+#: src/home/pam_systemd_home.c:330
 #, c-format
 msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
@@ -156,49 +156,49 @@ msgstr ""
 "منزل المستخدم %s غير متواجد حالياً، يُرجى توصيل جهاز التخزين اللازم أو نظام "
 "الملفات الاحتياطي."
 
-#: src/home/pam_systemd_home.c:338
+#: src/home/pam_systemd_home.c:335
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
 msgstr "محاولات الولوج متكررة جدًا للمستخدم %s، حاول مرة أخرى لاحقًا."
 
-#: src/home/pam_systemd_home.c:350
+#: src/home/pam_systemd_home.c:347
 msgid "Password: "
 msgstr "كلمة السر: "
 
-#: src/home/pam_systemd_home.c:352
+#: src/home/pam_systemd_home.c:349
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
 msgstr "كلمة السر غير صحيحة أو غير كافية لاستيثاق المستخدم %s."
 
-#: src/home/pam_systemd_home.c:353
+#: src/home/pam_systemd_home.c:350
 msgid "Sorry, try again: "
 msgstr "عذرًا، حاول مرة أخرى: "
 
-#: src/home/pam_systemd_home.c:375
+#: src/home/pam_systemd_home.c:372
 msgid "Recovery key: "
 msgstr "مفتاح الاسترداد: "
 
-#: src/home/pam_systemd_home.c:377
+#: src/home/pam_systemd_home.c:374
 #, c-format
 msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
 "%s."
 msgstr "كلمة السر/مفتاح الاسترداد غير صحيح أو غير كافٍ لاستيثاق المستخدم %s."
 
-#: src/home/pam_systemd_home.c:378
+#: src/home/pam_systemd_home.c:375
 msgid "Sorry, reenter recovery key: "
 msgstr "عذرًا، أعد إدخال مفتاح الاسترداد: "
 
-#: src/home/pam_systemd_home.c:398
+#: src/home/pam_systemd_home.c:395
 #, c-format
 msgid "Security token of user %s not inserted."
 msgstr "لم يُدرج رمز الأمان للمستخدم %s."
 
-#: src/home/pam_systemd_home.c:399 src/home/pam_systemd_home.c:402
+#: src/home/pam_systemd_home.c:396 src/home/pam_systemd_home.c:399
 msgid "Try again with password: "
 msgstr "حاول مرة أخرى باستخدام كلمة السر: "
 
-#: src/home/pam_systemd_home.c:401
+#: src/home/pam_systemd_home.c:398
 #, c-format
 msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
@@ -206,26 +206,26 @@ msgid ""
 msgstr ""
 "كلمة السر غير صحيحة أو غير كافية، ورمز الأمان المُعدّ للمستخدم %s لم يُدرج."
 
-#: src/home/pam_systemd_home.c:421
+#: src/home/pam_systemd_home.c:418
 msgid "Security token PIN: "
 msgstr "رمز (PIN) لرمز الأمان: "
 
-#: src/home/pam_systemd_home.c:438
+#: src/home/pam_systemd_home.c:435
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
 msgstr "يُرجى لاستيثاق فعليًا باستخدام رمز الأمان للمستخدم %s."
 
-#: src/home/pam_systemd_home.c:449
+#: src/home/pam_systemd_home.c:446
 #, c-format
 msgid "Please confirm presence on security token of user %s."
 msgstr "يُرجى تأكيد وجود رمز الأمان للمستخدم %s."
 
-#: src/home/pam_systemd_home.c:460
+#: src/home/pam_systemd_home.c:457
 #, c-format
 msgid "Please verify user on security token of user %s."
 msgstr "يُرجى التحقق من المستخدم على رمز الأمان للمستخدم %s."
 
-#: src/home/pam_systemd_home.c:469
+#: src/home/pam_systemd_home.c:466
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
@@ -233,75 +233,75 @@ msgstr ""
 "رمز PIN لرمز الأمان مُقفل، يُرجى فتحه أولاً. (تلميح: قد يكون الإزالة وإعادة "
 "الإدخال كافيين.)"
 
-#: src/home/pam_systemd_home.c:477
+#: src/home/pam_systemd_home.c:474
 #, c-format
 msgid "Security token PIN incorrect for user %s."
 msgstr "رمز (PIN) غير صحيح للمستخدم %s."
 
-#: src/home/pam_systemd_home.c:478 src/home/pam_systemd_home.c:497
-#: src/home/pam_systemd_home.c:516
+#: src/home/pam_systemd_home.c:475 src/home/pam_systemd_home.c:494
+#: src/home/pam_systemd_home.c:513
 msgid "Sorry, retry security token PIN: "
 msgstr "عذرًا، أعد إدخال رمز PIN لرمز الأمان: "
 
-#: src/home/pam_systemd_home.c:496
+#: src/home/pam_systemd_home.c:493
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr "رمز PIN لرمز الأمان للمستخدم %s غير صحيح (تبقى محاولات قليلة فقط!)"
 
-#: src/home/pam_systemd_home.c:515
+#: src/home/pam_systemd_home.c:512
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr "رمز PIN لرمز الأمان للمستخدم %s غير صحيح (تبقى محاولة واحدة فقط!)"
 
-#: src/home/pam_systemd_home.c:682
+#: src/home/pam_systemd_home.c:679
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr "مجلد منزل المستخدم %s غير نشط حاليًا، يُرجى الولوج محليًا أولاً."
 
-#: src/home/pam_systemd_home.c:684
+#: src/home/pam_systemd_home.c:681
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr "مجلد منزل المستخدم %s مُقفل حاليًا، يُرجى فتحه محليًا أولاً."
 
-#: src/home/pam_systemd_home.c:718
+#: src/home/pam_systemd_home.c:715
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr "عدد محاولات ولوج الفاشلة للمستخدم %s كبير جدًا، يتم الرفض."
 
-#: src/home/pam_systemd_home.c:1017
+#: src/home/pam_systemd_home.c:1012
 msgid "User record is blocked, prohibiting access."
 msgstr "حُظر سجلّ المستخدم، يُمنع الوصول."
 
-#: src/home/pam_systemd_home.c:1021
+#: src/home/pam_systemd_home.c:1016
 msgid "User record is not valid yet, prohibiting access."
 msgstr "سجلّ المستخدم غير صالح بعد، يُمنع الوصول."
 
-#: src/home/pam_systemd_home.c:1025
+#: src/home/pam_systemd_home.c:1020
 msgid "User record is not valid anymore, prohibiting access."
 msgstr "سجلّ المستخدم لم يعد صالحًا، يُمنع الوصول."
 
-#: src/home/pam_systemd_home.c:1030 src/home/pam_systemd_home.c:1079
+#: src/home/pam_systemd_home.c:1025 src/home/pam_systemd_home.c:1074
 msgid "User record not valid, prohibiting access."
 msgstr "سجلّ المستخدم غير صالح، يُمنع الوصول."
 
-#: src/home/pam_systemd_home.c:1040
+#: src/home/pam_systemd_home.c:1035
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "عدد الولوج كبير جدًا، حاول مرة أخرى بعد %s."
 
-#: src/home/pam_systemd_home.c:1051
+#: src/home/pam_systemd_home.c:1046
 msgid "Password change required."
 msgstr "مطلوب تغيير كلمة السر."
 
-#: src/home/pam_systemd_home.c:1055
+#: src/home/pam_systemd_home.c:1050
 msgid "Password expired, change required."
 msgstr "انتهت صلاحية كلمة السر، يتطلب التغيير."
 
-#: src/home/pam_systemd_home.c:1061
+#: src/home/pam_systemd_home.c:1056
 msgid "Password is expired, but can't change, refusing login."
 msgstr "كلمة السر منتهية الصلاحية، ولا يمكن تغييرها، يتم رفض الولوج."
 
-#: src/home/pam_systemd_home.c:1065
+#: src/home/pam_systemd_home.c:1060
 msgid "Password will expire soon, please change."
 msgstr "ستنتهي صلاحية كلمة السر قريبًا، يُرجى تغييرها."
 
@@ -976,6 +976,14 @@ msgid ""
 msgstr ""
 "الاستيثاق مطلوب لتحديد ما إذا كان التخزين الدائم لـ systemd-networkd متاحًا."
 
+#: src/network/org.freedesktop.network1.policy:198
+msgid "Manage network links"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:199
+msgid "Authentication is required to manage network links."
+msgstr ""
+
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
 msgstr "افحص صورة خدمة محمولة"
@@ -1156,50 +1164,50 @@ msgid ""
 "shall be enabled."
 msgstr "الاستيثاق مطلوب للتحكم فيما إذا كان يجب تفعيل مزامنة وقت الشبكة."
 
-#: src/core/dbus-unit.c:371
+#: src/core/dbus-unit.c:372
 msgid "Authentication is required to start '$(unit)'."
 msgstr "الاستيثاق مطلوب لبدء '$(unit)'."
 
-#: src/core/dbus-unit.c:372
+#: src/core/dbus-unit.c:373
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "الاستيثاق مطلوب لوقف '$(unit)'."
 
-#: src/core/dbus-unit.c:373
+#: src/core/dbus-unit.c:374
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "الاستيثاق مطلوب ﻹعادة تحميل '$(unit)'."
 
-#: src/core/dbus-unit.c:374 src/core/dbus-unit.c:375
+#: src/core/dbus-unit.c:375 src/core/dbus-unit.c:376
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "الاستيثاق مطلوب ﻹعادة تشغيل '$(unit)'."
 
-#: src/core/dbus-unit.c:567
+#: src/core/dbus-unit.c:568
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of '$"
 "(unit)'."
 msgstr "الاستيثاق مطلوب لإرسال إشارة UNIX إلى عمليات '$(unit)'."
 
-#: src/core/dbus-unit.c:620
+#: src/core/dbus-unit.c:621
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "subgroup of '$(unit)'."
 msgstr ""
 "الاستيثاق مطلوب لإرسال إشارة UNIX إلى عمليات المجموعة الفرعية ل '$(unit)'."
 
-#: src/core/dbus-unit.c:648
+#: src/core/dbus-unit.c:649
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr "الاستيثاق مطلوب لتصفير حالة \"فشل\" الوحدة '$(unit)'."
 
-#: src/core/dbus-unit.c:678
+#: src/core/dbus-unit.c:679
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "الاستيثاق مطلوب لتعيين الخصائص على '$(unit)'."
 
-#: src/core/dbus-unit.c:775
+#: src/core/dbus-unit.c:776
 msgid ""
 "Authentication is required to delete files and directories associated with '$"
 "(unit)'."
 msgstr "الاستيثاق مطلوب لحذف الملفات والمجلدات المرتبطة بـ '$(unit)'."
 
-#: src/core/dbus-unit.c:812
+#: src/core/dbus-unit.c:813
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr "الاستيثاق مطلوب لتجميد أو إذابة عمليات وحدة '$(unit)'."

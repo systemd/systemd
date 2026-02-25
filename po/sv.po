@@ -11,7 +11,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-11-26 01:17+0000\n"
+"POT-Creation-Date: 2026-02-24 18:43+0000\n"
 "PO-Revision-Date: 2025-07-29 19:53+0000\n"
 "Last-Translator: Luna Jernberg <bittin@reimu.nl>\n"
 "Language-Team: Swedish <https://translate.fedoraproject.org/projects/systemd/"
@@ -159,7 +159,7 @@ msgid "Authentication is required to manage signing keys for home directories."
 msgstr ""
 "Autentisering krävs för att hantera signeringsnycklar för hemkataloger."
 
-#: src/home/pam_systemd_home.c:333
+#: src/home/pam_systemd_home.c:330
 #, c-format
 msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
@@ -168,31 +168,31 @@ msgstr ""
 "Hem för användaren %s är för närvarande inte tillgängligt, vänligen koppla "
 "in nödvändiga lagringsenheter eller säkerhetskopieringsfilsystem."
 
-#: src/home/pam_systemd_home.c:338
+#: src/home/pam_systemd_home.c:335
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
 msgstr "För ofta inloggningsförsök från användare %s, försök igen senare."
 
-#: src/home/pam_systemd_home.c:350
+#: src/home/pam_systemd_home.c:347
 msgid "Password: "
 msgstr "Lösenord: "
 
-#: src/home/pam_systemd_home.c:352
+#: src/home/pam_systemd_home.c:349
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
 msgstr ""
 "Lösenordet är felaktigt eller inte tillräckligt för autentisering av "
 "användare %s."
 
-#: src/home/pam_systemd_home.c:353
+#: src/home/pam_systemd_home.c:350
 msgid "Sorry, try again: "
 msgstr "Tyvärr, försök igen: "
 
-#: src/home/pam_systemd_home.c:375
+#: src/home/pam_systemd_home.c:372
 msgid "Recovery key: "
 msgstr "Återställningsnyckel: "
 
-#: src/home/pam_systemd_home.c:377
+#: src/home/pam_systemd_home.c:374
 #, c-format
 msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
@@ -201,20 +201,20 @@ msgstr ""
 "Lösenord/återställningsnyckel är felaktig eller inte tillräcklig för "
 "autentisering av användare %s."
 
-#: src/home/pam_systemd_home.c:378
+#: src/home/pam_systemd_home.c:375
 msgid "Sorry, reenter recovery key: "
 msgstr "Tyvärr, ange återställningsnyckel igen: "
 
-#: src/home/pam_systemd_home.c:398
+#: src/home/pam_systemd_home.c:395
 #, c-format
 msgid "Security token of user %s not inserted."
 msgstr "Säkerhetstoken för användare %s har inte kopplats in."
 
-#: src/home/pam_systemd_home.c:399 src/home/pam_systemd_home.c:402
+#: src/home/pam_systemd_home.c:396 src/home/pam_systemd_home.c:399
 msgid "Try again with password: "
 msgstr "Prova igen med lösenord: "
 
-#: src/home/pam_systemd_home.c:401
+#: src/home/pam_systemd_home.c:398
 #, c-format
 msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
@@ -223,26 +223,26 @@ msgstr ""
 "Lösenordet är felaktigt eller inte tillräckligt, och konfigurerad "
 "säkerhetstoken för användare %s har inte kopplats in."
 
-#: src/home/pam_systemd_home.c:421
+#: src/home/pam_systemd_home.c:418
 msgid "Security token PIN: "
 msgstr "Säkerhetstoken-PIN: "
 
-#: src/home/pam_systemd_home.c:438
+#: src/home/pam_systemd_home.c:435
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
 msgstr "Vänligen autentisera fysiskt på säkerhetstoken för användare %s."
 
-#: src/home/pam_systemd_home.c:449
+#: src/home/pam_systemd_home.c:446
 #, c-format
 msgid "Please confirm presence on security token of user %s."
 msgstr "Vänligen bekräfta närvaro på säkerhetstoken för användare %s."
 
-#: src/home/pam_systemd_home.c:460
+#: src/home/pam_systemd_home.c:457
 #, c-format
 msgid "Please verify user on security token of user %s."
 msgstr "Vänligen verifiera användare på säkerhetstoken för användare %s."
 
-#: src/home/pam_systemd_home.c:469
+#: src/home/pam_systemd_home.c:466
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
@@ -250,80 +250,80 @@ msgstr ""
 "PIN-kod för säkerhetstoken är låst. Lås upp den först. (Tips: Det kan räcka "
 "med borttagning och återinsättning.)"
 
-#: src/home/pam_systemd_home.c:477
+#: src/home/pam_systemd_home.c:474
 #, c-format
 msgid "Security token PIN incorrect for user %s."
 msgstr "Felaktig PIN-kod för säkerhetstoken för användare %s."
 
-#: src/home/pam_systemd_home.c:478 src/home/pam_systemd_home.c:497
-#: src/home/pam_systemd_home.c:516
+#: src/home/pam_systemd_home.c:475 src/home/pam_systemd_home.c:494
+#: src/home/pam_systemd_home.c:513
 msgid "Sorry, retry security token PIN: "
 msgstr "Tyvärr, försök igen med PIN-kod för säkerhetstoken: "
 
-#: src/home/pam_systemd_home.c:496
+#: src/home/pam_systemd_home.c:493
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
 "Säkerhetstoken-PIN för användare %s är felaktig (bara några försök kvar!)"
 
-#: src/home/pam_systemd_home.c:515
+#: src/home/pam_systemd_home.c:512
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
 "Säkerhetstoken-PIN för användare %s är felaktig (endast ett försök kvar!)"
 
-#: src/home/pam_systemd_home.c:682
+#: src/home/pam_systemd_home.c:679
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr ""
 "Hem för användare %s är för närvarande inte aktivt, vänligen logga in lokalt "
 "först."
 
-#: src/home/pam_systemd_home.c:684
+#: src/home/pam_systemd_home.c:681
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr ""
 "Hem för användare %s är för närvarande låst, vänligen lås upp lokalt först."
 
-#: src/home/pam_systemd_home.c:718
+#: src/home/pam_systemd_home.c:715
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
 msgstr "För många misslyckade inloggningsförsök för användare %s, vägrar."
 
-#: src/home/pam_systemd_home.c:1017
+#: src/home/pam_systemd_home.c:1012
 msgid "User record is blocked, prohibiting access."
 msgstr "Användarposten är blockerad, vilket förbjuder åtkomst."
 
-#: src/home/pam_systemd_home.c:1021
+#: src/home/pam_systemd_home.c:1016
 msgid "User record is not valid yet, prohibiting access."
 msgstr "Användarposten är inte giltig ännu, vilket förbjuder åtkomst."
 
-#: src/home/pam_systemd_home.c:1025
+#: src/home/pam_systemd_home.c:1020
 msgid "User record is not valid anymore, prohibiting access."
 msgstr "Användarposten är inte längre giltig, vilket förbjuder åtkomst."
 
-#: src/home/pam_systemd_home.c:1030 src/home/pam_systemd_home.c:1079
+#: src/home/pam_systemd_home.c:1025 src/home/pam_systemd_home.c:1074
 msgid "User record not valid, prohibiting access."
 msgstr "Användarposten är inte giltig, förbjuder åtkomst."
 
-#: src/home/pam_systemd_home.c:1040
+#: src/home/pam_systemd_home.c:1035
 #, c-format
 msgid "Too many logins, try again in %s."
 msgstr "För många inloggningsförsök, försök igen om %s."
 
-#: src/home/pam_systemd_home.c:1051
+#: src/home/pam_systemd_home.c:1046
 msgid "Password change required."
 msgstr "Lösenordsbyte krävs."
 
-#: src/home/pam_systemd_home.c:1055
+#: src/home/pam_systemd_home.c:1050
 msgid "Password expired, change required."
 msgstr "Lösenordet har löpt ut, byte av lösenord krävs."
 
-#: src/home/pam_systemd_home.c:1061
+#: src/home/pam_systemd_home.c:1056
 msgid "Password is expired, but can't change, refusing login."
 msgstr "Lösenordet har löpt ut, men kan inte ändras, vägrar inloggning."
 
-#: src/home/pam_systemd_home.c:1065
+#: src/home/pam_systemd_home.c:1060
 msgid "Password will expire soon, please change."
 msgstr "Lösenordet upphör snart, vänligen byt."
 
@@ -1059,6 +1059,14 @@ msgstr ""
 "Autentisering krävs för att specificera om beständig lagring för systemd-"
 "networkd är tillgänglig."
 
+#: src/network/org.freedesktop.network1.policy:198
+msgid "Manage network links"
+msgstr ""
+
+#: src/network/org.freedesktop.network1.policy:199
+msgid "Authentication is required to manage network links."
+msgstr ""
+
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
 msgstr "Inspektera en portabel tjänsteavbild"
@@ -1246,23 +1254,23 @@ msgstr ""
 "Autentisering krävs för att kontrollera huruvida synkronisering av "
 "nätverkstid ska vara aktiverat."
 
-#: src/core/dbus-unit.c:371
+#: src/core/dbus-unit.c:372
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Autentisering krävs för att starta \"$(unit)\"."
 
-#: src/core/dbus-unit.c:372
+#: src/core/dbus-unit.c:373
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Autentisering krävs för att stoppa \"$(unit)\"."
 
-#: src/core/dbus-unit.c:373
+#: src/core/dbus-unit.c:374
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "Autentisering krävs för att läsa om \"$(unit)\"."
 
-#: src/core/dbus-unit.c:374 src/core/dbus-unit.c:375
+#: src/core/dbus-unit.c:375 src/core/dbus-unit.c:376
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Autentisering krävs för att starta om \"$(unit)\"."
 
-#: src/core/dbus-unit.c:567
+#: src/core/dbus-unit.c:568
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of '$"
 "(unit)'."
@@ -1270,7 +1278,7 @@ msgstr ""
 "Autentisering krävs för att skicka en UNIX-signal till processerna i ”$"
 "(unit)”."
 
-#: src/core/dbus-unit.c:620
+#: src/core/dbus-unit.c:621
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "subgroup of '$(unit)'."
@@ -1278,17 +1286,17 @@ msgstr ""
 "Autentisering krävs för att skicka en UNIX-signal till processerna i "
 "undergruppen '$(unit)'."
 
-#: src/core/dbus-unit.c:648
+#: src/core/dbus-unit.c:649
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr ""
 "Autentisering krävs för att återställa det \"fallerade\" tillståndet för \"$"
 "(unit)\"."
 
-#: src/core/dbus-unit.c:678
+#: src/core/dbus-unit.c:679
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "Autentisering krävs för att ställa in egenskaper på \"$(unit)\"."
 
-#: src/core/dbus-unit.c:775
+#: src/core/dbus-unit.c:776
 msgid ""
 "Authentication is required to delete files and directories associated with '$"
 "(unit)'."
@@ -1296,7 +1304,7 @@ msgstr ""
 "Autentisering krävs för att radera filer och kataloger associerade med ”$"
 "(unit)”."
 
-#: src/core/dbus-unit.c:812
+#: src/core/dbus-unit.c:813
 msgid ""
 "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr ""

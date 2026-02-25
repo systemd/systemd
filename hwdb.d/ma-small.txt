@@ -8207,6 +8207,24 @@ B0E000-B0EFFF     (base 16)		Watthour Engineering Co., Inc.
 				Yokohama  Kanagawa Prefecture  2310023
 				JP
 
+8C-1F-64   (hex)		Becton Dickinson
+597000-597FFF     (base 16)		Becton Dickinson
+				7 Loveton Circle
+				Sparks  MD  21152
+				US
+
+8C-1F-64   (hex)		RoboCore Tecnologia
+8C9000-8C9FFF     (base 16)		RoboCore Tecnologia
+				Av Honorio Alvares Penteado, 97 - Galpao 77
+				Santana de Parnaiba  SP  06543-320
+				BR
+
+8C-1F-64   (hex)		Corespan Systems
+584000-584FFF     (base 16)		Corespan Systems
+				200 Innovative Way Suite 1360
+				Nashua    03062
+				US
+
 8C-1F-64   (hex)		Jacobs Technology, Inc.
 A98000-A98FFF     (base 16)		Jacobs Technology, Inc.
 				7765 Old Telegraph Road
@@ -16528,6 +16546,15 @@ FBB000-FBBFFF     (base 16)		Telica
 				Tower A-411, 40 Imi-ro
 				Uiwang-si  Gyeonggi-do  16006
 				KR
+
+8C-1F-64   (hex)		vtt systems Inc.
+A66000-A66FFF     (base 16)		vtt systems Inc.
+				8 THE GREEN
+				Dover  DE  19901
+				US
+
+8C-1F-64   (hex)		Private
+D26000-D26FFF     (base 16)		Private
 
 8C-1F-64   (hex)		Vision Systems Safety Tech
 E6F000-E6FFFF     (base 16)		Vision Systems Safety Tech
@@ -24857,6 +24884,24 @@ B53000-B53FFF     (base 16)		ASI
 				Lilydale     3140 
 				AU
 
+8C-1F-64   (hex)		Blackline Systems Corp.
+BE5000-BE5FFF     (base 16)		Blackline Systems Corp.
+				2794 Fenton Road
+				Ottawa  ON  K1T 3T7
+				CA
+
+8C-1F-64   (hex)		Grossenbacher Systeme AG
+99B000-99BFFF     (base 16)		Grossenbacher Systeme AG
+				Spinnereistrasse 10
+				St. Gallen    9008
+				CH
+
+8C-1F-64   (hex)		therlys GmbH
+D25000-D25FFF     (base 16)		therlys GmbH
+				Heidenkampsweg 40
+				Hamburg    20097
+				DE
+
 8C-1F-64   (hex)		Flow Power
 82B000-82BFFF     (base 16)		Flow Power
 				Suite 2, Level 3, 18 - 20 York St
@@ -33080,6 +33125,12 @@ A78000-A78FFF     (base 16)		TAIT Global LLC
 				Seoul    05855 
 				KR
 
+8C-1F-64   (hex)		inomatic GmbH
+96E000-96EFFF     (base 16)		inomatic GmbH
+				Karl-Braun-Straße 12-13
+				Nordhorn  Germany  48531
+				DE
+
 8C-1F-64   (hex)		Mobileye
 D63000-D63FFF     (base 16)		Mobileye
 				13 Hartom st.
@@ -36610,12 +36661,6 @@ D7C000-D7CFFF     (base 16)		D.T.S Illuminazione Srl
 				Via Fagnano Selve,  12 / 14
 				Misano Adriatico   Rimini   47843
 				IT
-
-70-B3-D5   (hex)		RoboCore Tecnologia
-0AC000-0ACFFF     (base 16)		RoboCore Tecnologia
-				Estrada das Lagrimas 1986 sala 22
-				Sao Caetano do Sul  SP  09580500
-				BR
 
 70-B3-D5   (hex)		Enyx SA
 21C000-21CFFF     (base 16)		Enyx SA
@@ -41221,3 +41266,33 @@ CEA000-CEAFFF     (base 16)		Mootek Technologies Private Limited
 
 8C-1F-64   (hex)		Private
 B94000-B94FFF     (base 16)		Private
+
+8C-1F-64   (hex)		Vojensky Technicky Ustav, s.p.
+B51000-B51FFF     (base 16)		Vojensky Technicky Ustav, s.p.
+				Mladoboleslavska 944, Kbely, Praha 9Reg. n: 24272523VAT n.: CZ24272523
+				Praha    19700
+				CZ
+
+8C-1F-64   (hex)		BAOLIHDER CO.,LTD.
+1CF000-1CFFFF     (base 16)		BAOLIHDER CO.,LTD.
+				5 F., No. 46, Ln. 394, Longjiang Rd., Zhongshan Dist., Taipei City 10474, Taiwan (R.O.C.)
+				Taipei    10474
+				TW
+
+70-B3-D5   (hex)		RoboCore Tecnologia
+0AC000-0ACFFF     (base 16)		RoboCore Tecnologia
+				Av Honorio Alvares Penteado, 97 - Galpao 77
+				Santana de Parnaiba  SP  06543-320
+				BR
+
+8C-1F-64   (hex)		Terragene
+248000-248FFF     (base 16)		Terragene
+				Ruta Nacional N°9 - Km 280. Parque Industrial Micropi
+				Alvear  Santa Fe  2130
+				AR
+
+8C-1F-64   (hex)		Campus Genevois de Haute Horlogerie
+BA5000-BA5FFF     (base 16)		Campus Genevois de Haute Horlogerie
+				Rue André-De-Garrini 7
+				Meyrin    1217
+				CH
