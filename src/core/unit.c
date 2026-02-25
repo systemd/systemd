@@ -1310,24 +1310,25 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
         assert(c->private_var_tmp >= 0 && c->private_var_tmp < _PRIVATE_TMP_MAX);
 
         if (c->private_tmp == PRIVATE_TMP_CONNECTED) {
-                assert(c->private_var_tmp == PRIVATE_TMP_CONNECTED);
-
                 r = unit_add_mounts_for(u, "/tmp/", UNIT_DEPENDENCY_FILE, UNIT_MOUNT_WANTS);
                 if (r < 0)
                         return r;
+        }
 
+        if (c->private_var_tmp == PRIVATE_TMP_CONNECTED) {
                 r = unit_add_mounts_for(u, "/var/tmp/", UNIT_DEPENDENCY_FILE, UNIT_MOUNT_WANTS);
                 if (r < 0)
                         return r;
-
-                r = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_TMPFILES_SETUP_SERVICE, true, UNIT_DEPENDENCY_FILE);
-                if (r < 0)
-                        return r;
-
         } else if (c->private_var_tmp == PRIVATE_TMP_DISCONNECTED && !exec_context_with_rootfs(c)) {
                 /* Even if PrivateTmp=disconnected, we still require /var/tmp/ mountpoint to be present,
                  * i.e. /var/ needs to be mounted. See comments in unit_patch_contexts(). */
                 r = unit_add_mounts_for(u, "/var/", UNIT_DEPENDENCY_FILE, UNIT_MOUNT_WANTS);
+                if (r < 0)
+                        return r;
+        }
+
+        if (c->private_tmp == PRIVATE_TMP_CONNECTED || c->private_var_tmp == PRIVATE_TMP_CONNECTED) {
+                r = unit_add_dependency_by_name(u, UNIT_AFTER, SPECIAL_TMPFILES_SETUP_SERVICE, true, UNIT_DEPENDENCY_FILE);
                 if (r < 0)
                         return r;
         }
@@ -4323,19 +4324,22 @@ static int unit_verify_contexts(const Unit *u) {
                 return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "WorkingDirectory=~ is not allowed under DynamicUser=yes. Refusing.");
 
         if (ec->working_directory && path_below_api_vfs(ec->working_directory) &&
-            exec_needs_mount_namespace(ec, /* params= */ NULL, /* runtime= */ NULL))
+            exec_needs_mount_namespace(ec, /* params= */ NULL))
                 return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "WorkingDirectory= may not be below /proc/, /sys/ or /dev/ when using mount namespacing. Refusing.");
 
         if (exec_needs_pid_namespace(ec, /* params= */ NULL) && !UNIT_VTABLE(u)->notify_pidref)
                 return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "PrivatePIDs= setting is only supported for service units. Refusing.");
 
+        if ((ec->user || ec->dynamic_user || ec->group || ec->pam_name) && ec->private_users == PRIVATE_USERS_MANAGED)
+                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "PrivateUsers=managed may not be used in combination with User=/DynamicUser=/Group=/PAMName=, refusing.");
+
+        if (ec->user_namespace_path && ec->private_users != PRIVATE_USERS_NO)
+                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "PrivateUsers= may not be used with custom UserNamespacePath=, refusing.");
+
         const KillContext *kc = unit_get_kill_context(u);
 
         if (ec->pam_name && kc && !IN_SET(kc->kill_mode, KILL_CONTROL_GROUP, KILL_MIXED))
                 return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "Unit has PAM enabled. Kill mode must be set to 'control-group' or 'mixed'. Refusing.");
-
-        if ((ec->user || ec->dynamic_user || ec->group || ec->pam_name) && ec->private_users == PRIVATE_USERS_MANAGED)
-                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "PrivateUsers=managed may not be used in combination with User=/DynamicUser=/Group=/PAMName=, refusing.");
 
         return 0;
 }
@@ -4346,8 +4350,8 @@ static PrivateTmp unit_get_private_var_tmp(const Unit *u, const ExecContext *c) 
         assert(c->private_tmp >= 0 && c->private_tmp < _PRIVATE_TMP_MAX);
 
         /* Disable disconnected private tmpfs on /var/tmp/ when DefaultDependencies=no and
-         * RootImage=/RootDirectory= are not set, as /var/ may be a separated partition.
-         * See issue #37258. */
+         * RootImage=/RootDirectory= are not set, as /var/ may be a separate partition.
+         * See https://github.com/systemd/systemd/issues/37258. */
 
         /* PrivateTmp=yes/no also enables/disables private tmpfs on /var/tmp/. */
         if (c->private_tmp != PRIVATE_TMP_DISCONNECTED)
@@ -4369,20 +4373,48 @@ static PrivateTmp unit_get_private_var_tmp(const Unit *u, const ExecContext *c) 
                 if (hashmap_contains(u->mounts_for[t], "/var/"))
                         return PRIVATE_TMP_DISCONNECTED;
 
-        /* Check the same but for After= with Requires=/Requisite=/Wants= or friends. */
+        /* Check the same but for After=. */
         Unit *m = manager_get_unit(u->manager, "var.mount");
-        if (!m)
-                return PRIVATE_TMP_NO;
-
-        if (!unit_has_dependency(u, UNIT_ATOM_AFTER, m))
-                return PRIVATE_TMP_NO;
-
-        if (unit_has_dependency(u, UNIT_ATOM_PULL_IN_START, m) ||
-            unit_has_dependency(u, UNIT_ATOM_PULL_IN_VERIFY, m) ||
-            unit_has_dependency(u, UNIT_ATOM_PULL_IN_START_IGNORED, m))
+        if (m && unit_has_dependency(u, UNIT_ATOM_AFTER, m))
                 return PRIVATE_TMP_DISCONNECTED;
 
         return PRIVATE_TMP_NO;
+}
+
+static PrivateTmp unit_get_private_tmp(const Unit *u, const ExecContext *c) {
+        assert(u);
+        assert(c);
+        assert(c->private_tmp >= 0 && c->private_tmp < _PRIVATE_TMP_MAX);
+
+        /* Upgrade "PrivateTmp=yes" (a.k.a. 'connected') to 'disconnected' when
+         * DefaultDependencies=no and RootImage=/RootDirectory= are not set, as /tmp/ may be a
+         * separate partition. See https://github.com/systemd/systemd/issues/28515.
+         *
+         * Note that the change goes in the opposite direction than unit_get_private_var_tmp()
+         * above. For /var/tmp/, we need to disable the setting, because we don't want to create
+         * the /var/tmp/ directory if /var/ is a mount point. We don't have this problem with
+         * /tmp/ because there is no nesting. */
+
+        if (c->private_tmp != PRIVATE_TMP_CONNECTED ||
+            u->default_dependencies ||
+            exec_context_with_rootfs(c))
+                return c->private_tmp;
+
+        /* Even if DefaultDependencies=no, honour tmpfs setting when
+         * RequiresMountsFor=/WantsMountsFor=/tmp/ is explicitly set. */
+        for (UnitMountDependencyType t = 0; t < _UNIT_MOUNT_DEPENDENCY_TYPE_MAX; t++)
+                if (hashmap_contains(u->mounts_for[t], "/tmp/"))
+                        return c->private_tmp;
+
+        /* Check the same but for After=. */
+        Unit *m = manager_get_unit(u->manager, "tmp.mount");
+        if (!m)
+                return c->private_tmp;
+
+        if (unit_has_dependency(u, UNIT_ATOM_AFTER, m))
+                return c->private_tmp;
+
+        return PRIVATE_TMP_DISCONNECTED;
 }
 
 int unit_patch_contexts(Unit *u) {
@@ -4461,7 +4493,14 @@ int unit_patch_contexts(Unit *u) {
                         ec->restrict_suid_sgid = true;
                 }
 
+                /* Table of possible combinations:
+                 *                           /var/tmp          /tmp
+                 * PrivateTmp=no             no                no
+                 * PrivateTmp=connected      connected         connected,disconnected
+                 * PrivateTmp=disconnected   disconnected,no   disconnected
+                 */
                 ec->private_var_tmp = unit_get_private_var_tmp(u, ec);
+                ec->private_tmp = unit_get_private_tmp(u, ec);
 
                 FOREACH_ARRAY(d, ec->directories, _EXEC_DIRECTORY_TYPE_MAX)
                         exec_directory_sort(d);
