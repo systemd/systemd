@@ -880,6 +880,16 @@ Unit* unit_free(Unit *u) {
         strv_free(u->documentation);
         free(u->fragment_path);
         free(u->source_path);
+
+        /* Maybe we have put unit specific dropin dir into unit_path_cache. */
+        STRV_FOREACH(dropin, u->dropin_paths) {
+                _cleanup_free_ char *d = NULL;
+
+                (void) path_extract_directory(*dropin, &d);
+
+                if (d && endswith(d, strjoina(u->id, ".d")))
+                        free(set_remove(u->manager->unit_path_cache, d));
+        }
         strv_free(u->dropin_paths);
         free(u->instance);
 
