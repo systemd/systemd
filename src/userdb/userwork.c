@@ -270,7 +270,7 @@ static int build_group_json(sd_varlink *link, GroupRecord *gr, sd_json_variant *
                 (FLAGS_SET(gr->mask, USER_RECORD_PRIVILEGED) &&
                  !FLAGS_SET(stripped->mask, USER_RECORD_PRIVILEGED));
 
-        v = sd_json_variant_ref(gr->json);
+        v = sd_json_variant_ref(stripped->json);
         r = add_nss_service(&v);
         if (r < 0)
                 return r;

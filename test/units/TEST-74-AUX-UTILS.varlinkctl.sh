@@ -52,6 +52,19 @@ if command -v userdbctl >/dev/null; then
     varlinkctl call --more -j /run/systemd/userdb/io.systemd.Multiplexer io.systemd.UserDatabase.GetMemberships '{ "service" : "io.systemd.Multiplexer" }' --graceful=io.systemd.UserDatabase.NoRecordFound | jq --seq .
     varlinkctl call --oneway /run/systemd/userdb/io.systemd.Multiplexer io.systemd.UserDatabase.GetMemberships '{ "service" : "io.systemd.Multiplexer" }'
     (! varlinkctl call --oneway /run/systemd/userdb/io.systemd.Multiplexer io.systemd.UserDatabase.GetMemberships '{ "service" : "io.systemd.Multiplexer" }' | grep .)
+
+    if command -v openssl >/dev/null && command -v groupadd >/dev/null; then
+        group=haldo
+        salt=waldo
+        getent group "$group" >/dev/null 2>&1 || groupadd "$group"
+        HASH="$(openssl passwd -6 -salt "$salt" baldo)"
+        groupmod -p "$HASH" "$group"
+
+        (! run0 -u testuser varlinkctl call --json=pretty \
+            /run/systemd/userdb/io.systemd.Multiplexer \
+            io.systemd.UserDatabase.GetGroupRecord \
+            '{"groupName":"haldo","service":"io.systemd.NameServiceSwitch"}' | grep waldo)
+    fi
 fi
 
 IDL_FILE="$(mktemp)"
