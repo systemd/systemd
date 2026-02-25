@@ -34,6 +34,7 @@ Exec.MachineID,               config_parse_id128,              0,               
 Exec.WorkingDirectory,        config_parse_path,               0,                        offsetof(Settings, working_directory)
 Exec.PivotRoot,               config_parse_pivot_root,         0,                        0
 Exec.PrivateUsers,            config_parse_private_users,      0,                        0
+Exec.PrivateUsersDelegate,    config_parse_unsigned,           0,                        offsetof(Settings, delegate_container_ranges)
 Exec.NotifyReady,             config_parse_tristate,           0,                        offsetof(Settings, notify_ready)
 Exec.SystemCallFilter,        config_parse_syscall_filter,     0,                        0
 Exec.LimitCPU,                config_parse_rlimit,             RLIMIT_CPU,               offsetof(Settings, rlimit)

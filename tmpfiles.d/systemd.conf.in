@@ -18,6 +18,7 @@ d$ /run/systemd/sessions 0755 root root -
 d$ /run/systemd/users 0755 root root -
 d /run/systemd/machines 0755 root root -
 d$ /run/systemd/shutdown 0755 root root -
+d /run/systemd/dissect-root 0000 root root -
 
 d /run/log 0755 root root -
 

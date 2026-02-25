@@ -2,9 +2,11 @@
 
 #include <getopt.h>
 #include <poll.h>
+#include <sched.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/mount.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -17,6 +19,7 @@
 #include "alloc-util.h"
 #include "architecture.h"
 #include "bootspec.h"
+#include "build-path.h"
 #include "build.h"
 #include "bus-error.h"
 #include "bus-internal.h"
@@ -72,6 +75,7 @@
 #include "sync-util.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
+#include "uid-classification.h"
 #include "unit-name.h"
 #include "user-record.h"
 #include "user-util.h"
@@ -806,6 +810,22 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_ephemeral && arg_extra_drives.n_drives > 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot use --ephemeral with --extra-drive=");
 
+        if (arg_uid_shift != UID_INVALID && !arg_directory)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--private-users= is only supported in combination with --directory=.");
+
+        if (arg_directory && arg_uid_shift == UID_INVALID) {
+                struct stat st;
+                if (stat(arg_directory, &st) < 0)
+                        return log_error_errno(errno, "Failed to stat '%s': %m", arg_directory);
+
+                r = stat_verify_directory(&st);
+                if (r < 0)
+                        return log_error_errno(r, "'%s' is not a directory: %m", arg_directory);
+
+                arg_uid_shift = st.st_uid;
+                arg_uid_range = 0x10000;
+        }
+
         if (argc > optind) {
                 arg_kernel_cmdline_extra = strv_copy(argv + optind);
                 if (!arg_kernel_cmdline_extra)
@@ -1487,7 +1507,6 @@ static int start_virtiofsd(
                 uid_t target_uid,
                 uid_t uid_range,
                 const char *runtime_dir,
-                const char *sd_socket_activate,
                 char **ret_listen_address,
                 PidRef *ret_pidref) {
 
@@ -1511,19 +1530,55 @@ static int start_virtiofsd(
         if (asprintf(&listen_address, "%s/sock-%"PRIx64, runtime_dir, random_u64()) < 0)
                 return log_oom();
 
+        union sockaddr_union su;
+        r = sockaddr_un_set_path(&su.un, listen_address);
+        if (r < 0)
+                return r;
+
+        _cleanup_close_ int sock = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
+        if (sock < 0)
+                return log_error_errno(errno, "Failed to create unix socket: %m");
+
+        if (bind(sock, &su.sa, r) < 0)
+                return log_error_errno(errno, "Failed to bind unix socket to '%s': %m", listen_address);
+
+        if (listen(sock, SOMAXCONN_DELUXE) < 0)
+                return log_error_errno(errno, "Failed to listen on unix socket '%s': %m", listen_address);
+
+        _cleanup_free_ char *sockstr = NULL;
+        if (asprintf(&sockstr, "%i", sock) < 0)
+                return log_oom();
+
         /* QEMU doesn't support submounts so don't announce them */
         _cleanup_strv_free_ char **argv = strv_new(
-                        sd_socket_activate,
-                        "--listen", listen_address,
                         virtiofsd,
-                        "--shared-dir", directory,
+                        "--shared-dir", source_uid == FOREIGN_UID_MIN ? "/run/systemd/mount-rootfs" : directory,
                         "--xattr",
-                        "--fd", "3",
+                        "--fd", sockstr,
+                        "--sandbox=chroot",
                         "--no-announce-submounts");
         if (!argv)
                 return log_oom();
 
-        if (source_uid != UID_INVALID && target_uid != UID_INVALID && uid_range != UID_INVALID) {
+        _cleanup_close_ int userns_fd = -EBADF, mapped_fd = -EBADF;
+
+        if (source_uid == FOREIGN_UID_MIN) {
+                assert(target_uid == 0);
+                assert(uid_range == 0x10000);
+
+                userns_fd = nsresource_allocate_userns(/* vl= */ NULL, /* name= */ NULL, NSRESOURCE_UIDS_64K);
+                if (userns_fd < 0)
+                        return log_error_errno(userns_fd, "Failed to allocate user namespace for virtiofsd: %m");
+
+                _cleanup_close_ int directory_fd = open(directory, O_DIRECTORY|O_CLOEXEC|O_PATH);
+                if (directory_fd < 0)
+                        return log_error_errno(directory_fd, "Failed to open '%s': %m", directory);
+
+                r = mountfsd_mount_directory_fd(/* vl= */ NULL, directory_fd, userns_fd, DISSECT_IMAGE_FOREIGN_UID, &mapped_fd);
+                if (r < 0)
+                        return r;
+
+        } else if (!IN_SET(source_uid, FOREIGN_UID_MIN, UID_INVALID) && target_uid != UID_INVALID && uid_range != UID_INVALID) {
                 r = strv_extend(&argv, "--translate-uid");
                 if (r < 0)
                         return log_oom();
@@ -1541,9 +1596,49 @@ static int start_virtiofsd(
                         return log_oom();
         }
 
-        r = fork_notify(argv, ret_pidref);
+        r = pidref_safe_fork_full(
+                        "(virtiofsd)",
+                        (const int[3]) { -EBADF, STDOUT_FILENO, STDERR_FILENO },
+                        (int[]) { sock, userns_fd, mapped_fd },
+                        source_uid == FOREIGN_UID_MIN ? 3 : 1,
+                        FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_CLOSE_ALL_FDS|FORK_REOPEN_LOG|FORK_REARRANGE_STDIO,
+                        ret_pidref);
         if (r < 0)
                 return r;
+        if (r == 0) {
+                /* Child */
+
+                r = namespace_enter(
+                                /* pidns_fd= */ -EBADF,
+                                /* mntns_fd= */ -EBADF,
+                                /* netns_fd= */ -EBADF,
+                                userns_fd,
+                                /* root_fd= */ -EBADF);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to enter user namespace for virtiofsd: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                if (userns_fd >= 0 && unshare(CLONE_NEWNS) < 0) {
+                        log_error_errno(errno, "Failed to unshare mount namespace %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                if (mapped_fd >= 0 && move_mount(mapped_fd, "", AT_FDCWD, "/run/systemd/mount-rootfs", MOVE_MOUNT_F_EMPTY_PATH) < 0) {
+                        log_error_errno(errno, "Failed to move mount file descriptor to '/run/systemd/mount-rootfs': %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                r = fd_cloexec(sock, false);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to disable cloexec on socket: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                invoke_callout_binary(argv[0], argv);
+                log_error_errno(errno, "Failed to execute '%s': %m", argv[0]);
+                _exit(EXIT_FAILURE);
+        }
 
         if (ret_listen_address)
                 *ret_listen_address = TAKE_PTR(listen_address);
@@ -2413,7 +2508,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                 /* target_uid= */ 0,
                                 /* uid_range= */ arg_uid_range,
                                 runtime_dir,
-                                sd_socket_activate,
                                 &listen_address,
                                 &child);
                 if (r < 0)
@@ -2512,7 +2606,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                 /* target_uid= */ m->target_uid,
                                 /* uid_range= */ 1U,
                                 runtime_dir,
-                                sd_socket_activate,
                                 &listen_address,
                                 &child);
                 if (r < 0)

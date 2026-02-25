@@ -2178,10 +2178,10 @@ static int run(int argc, char *argv[]) {
                         else
                                 r = loop_device_make_by_path(arg_image, open_flags, /* sector_size= */ UINT32_MAX, loop_flags, LOCK_SH, &d);
                         if (r < 0) {
-                                if (!ERRNO_IS_PRIVILEGE(r) || !IN_SET(arg_action, ACTION_MOUNT, ACTION_UMOUNT, ACTION_WITH, ACTION_DISSECT, ACTION_LIST, ACTION_MTREE, ACTION_COPY_FROM, ACTION_COPY_TO, ACTION_SHIFT))
+                                if ((r != -ENOENT && !ERRNO_IS_PRIVILEGE(r)) || arg_action == ACTION_ATTACH)
                                         return log_error_errno(r, "Failed to set up loopback device for %s: %m", arg_image);
 
-                                log_debug_errno(r, "Lacking permissions to set up loopback block device for %s, using service: %m", arg_image);
+                                log_debug_errno(r, "Lacking permissions or missing /dev/loop-control to set up loopback block device for %s, using service: %m", arg_image);
                                 arg_via_service = true;
                         } else {
                                 if (arg_loop_ref) {
