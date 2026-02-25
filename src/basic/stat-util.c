@@ -675,14 +675,15 @@ bool statx_inode_same(const struct statx *a, const struct statx *b) {
                 a->stx_ino == b->stx_ino;
 }
 
-bool statx_mount_same(const struct statx *a, const struct statx *b) {
+int statx_mount_same(const struct statx *a, const struct statx *b) {
         if (!statx_is_set(a) || !statx_is_set(b))
                 return false;
 
-        assert(FLAGS_SET(a->stx_mask, STATX_MNT_ID));
-        assert(FLAGS_SET(b->stx_mask, STATX_MNT_ID));
+        if ((FLAGS_SET(a->stx_mask, STATX_MNT_ID) && FLAGS_SET(b->stx_mask, STATX_MNT_ID)) ||
+            (FLAGS_SET(a->stx_mask, STATX_MNT_ID_UNIQUE) && FLAGS_SET(b->stx_mask, STATX_MNT_ID_UNIQUE)))
+                return a->stx_mnt_id == b->stx_mnt_id;
 
-        return a->stx_mnt_id == b->stx_mnt_id;
+        return -ENODATA;
 }
 
 usec_t statx_timestamp_load(const struct statx_timestamp *ts) {

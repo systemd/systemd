@@ -110,7 +110,7 @@ bool stat_inode_same(const struct stat *a, const struct stat *b);
 bool stat_inode_unmodified(const struct stat *a, const struct stat *b);
 
 bool statx_inode_same(const struct statx *a, const struct statx *b);
-bool statx_mount_same(const struct statx *a, const struct statx *b);
+int statx_mount_same(const struct statx *a, const struct statx *b);
 
 int xstatfsat(int dir_fd, const char *path, struct statfs *ret);
 
