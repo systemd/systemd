@@ -128,7 +128,6 @@ static int chaseat_needs_absolute(int dir_fd, const char *path) {
 int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int *ret_fd) {
         _cleanup_free_ char *buffer = NULL, *done = NULL;
         _cleanup_close_ int fd = -EBADF, root_fd = -EBADF;
-        unsigned max_follow = CHASE_MAX; /* how many symlinks to follow before giving up and returning ELOOP */
         bool exists = true, append_trail_slash = false;
         struct stat st; /* stat obtained from fd */
         bool need_absolute = false; /* allocate early to avoid compiler warnings around goto */
@@ -334,11 +333,17 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
         if (FLAGS_SET(flags, CHASE_MUST_BE_DIRECTORY) + FLAGS_SET(flags, CHASE_MUST_BE_REGULAR) + FLAGS_SET(flags, CHASE_MUST_BE_SOCKET) > 1)
                 return -EBADSLT;
 
-        for (todo = buffer;;) {
+        todo = buffer;
+        for (unsigned n_steps = 0;; n_steps++) {
                 _cleanup_free_ char *first = NULL;
                 _cleanup_close_ int child = -EBADF;
                 struct stat st_child;
                 const char *e;
+
+                /* If people change our tree behind our back, they might send us in circles. Put a limit on
+                 * things */
+                if (n_steps > CHASE_MAX)
+                        return -ELOOP;
 
                 r = path_find_first_component(&todo, /* accept_dot_dot= */ true, &e);
                 if (r < 0)
@@ -494,11 +499,6 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
 
                         if (FLAGS_SET(flags, CHASE_PROHIBIT_SYMLINKS))
                                 return log_prohibited_symlink(child, flags);
-
-                        /* This is a symlink, in this case read the destination. But let's make sure we
-                         * don't follow symlinks without bounds. */
-                        if (--max_follow <= 0)
-                                return -ELOOP;
 
                         r = readlinkat_malloc(fd, first, &destination);
                         if (r < 0)
