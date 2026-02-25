@@ -3333,6 +3333,21 @@ int temporary_filesystem_add(
         return 0;
 }
 
+char* namespace_cleanup_tmpdir(char *p) {
+        if (!p)
+                return NULL;
+
+        if (!streq(p, RUN_SYSTEMD_EMPTY)) {
+                _cleanup_free_ char *child = strjoin(p, "/tmp");
+                if (child)
+                        (void) rmdir(child);
+
+                (void) rmdir(p);
+        }
+
+        return mfree(p);
+}
+
 static int make_tmp_prefix(const char *prefix) {
         _cleanup_free_ char *t = NULL;
         _cleanup_close_ int fd = -EBADF;
@@ -3442,13 +3457,6 @@ static int setup_one_tmp_dir(const char *id, const char *prefix, char **path, ch
 
         *path = TAKE_PTR(x);
         return 0;
-}
-
-char* namespace_cleanup_tmpdir(char *p) {
-        PROTECT_ERRNO;
-        if (!streq_ptr(p, RUN_SYSTEMD_EMPTY))
-                (void) rmdir(p);
-        return mfree(p);
 }
 
 int setup_tmp_dirs(const char *id, char **tmp_dir, char **var_tmp_dir) {
