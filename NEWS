@@ -126,10 +126,9 @@ CHANGES WITH 260 in spe:
           automatically binds all sockets created by the unit to a specific
           network interface.
 
-        * A new pair of unit settings ConditionPathIsSocket= and
-          AssertPathIsSocket have been introduced that evaluate whether the
-          given path is a socket, and respectively skips or fails the unit
-          otherwise.
+        * Two new unit settings ConditionPathIsSocket= and AssertPathIsSocket=
+          can be used to skip or fail the unit if the given path is not a
+          socket.
 
         * A new unit setting RootMStack= has been introduced, to support the
           new "mstack" feature for services.
@@ -137,6 +136,11 @@ CHANGES WITH 260 in spe:
         * The unit setting PrivateUsers= gained a new possible value "managed",
           which automatically assigns a dynamic and transient range of 65536
           UIDs/GIDs to the unit.
+
+        * The implementation for PrivateUsers=full has been updated map the
+          full range of IDs. The workaround to allow nested systemd older than
+          257 to correctly detect that it is under such a mapping has been
+          dropped.
 
         * EnqueueMarkedJobs() D-Bus method now has a Varlink counterpart.
 
@@ -169,17 +173,18 @@ CHANGES WITH 260 in spe:
           low brightness values at runtime independently of the systemd clamp
           which only applies during boot.
 
-        * A new variable ID_INTEGRATION is now exposed to devices that have
-          ID_BUS defined. This variable can be set to internal when the device
-          is integral part of the system or external otherwise. Actually,
-          internal buses like PCI, I2C, SPI... makes it to be internal and
-          external buses like bluetooth set it to external, while for USB the
-          removable attribute of the port the device is connected tells us to
-          decide, fixed is set to internal and removable or unknown to external.
+        * A new property ID_INTEGRATION is now exposed on devices that have
+          ID_BUS defined. This variable can be set to 'internal' when the
+          device is integral part of the system or 'external' otherwise.
+          Internal buses like PCI, I2C, SPI... imply 'internal' and external
+          buses like bluetooth imply 'external'. For USB the 'removable'
+          attribute of the port the device is connected to determines the
+          result: 'fixed' implies 'internal' and 'removable' or 'unknown'
+          implies 'external'.
 
-        * ID_INPUT_JOYSTICK_INTEGRATION variable has been dropped in favor of
-          ID_INTEGRATION because it was never used and the new variable cover
-          better the idea that variable was intended for.
+        * ID_INPUT_JOYSTICK_INTEGRATION property has been dropped in favour of
+          ID_INTEGRATION because it was never used and the new variable covers
+          the idea that variable was intended for better.
 
         Changes in systemd-networkd:
 
@@ -193,9 +198,9 @@ CHANGES WITH 260 in spe:
           to establish a cellular modem connection to a broadband network.
 
         * systemd-networkd gained a pair of varlink methods
-          io.systemd.Network.Link.Up()/Down(). networkctl up/down now utilizes
-          the new varlink interfaces in place of direct RTNL message for better
-          interaction with networkd.
+          io.systemd.Network.Link.Up()/Down(). 'networkctl up/down' now
+          utilizes those varlink interfaces in place of direct RTNL messages
+          for better interaction with networkd.
 
         Changes in systemd-boot and the stub:
 
@@ -204,7 +209,7 @@ CHANGES WITH 260 in spe:
 
         * A new LoaderEntryPreferred setting has been added to systemd-boot that
           is similar to LoaderEntryDefault, but that takes into the account boot
-          assessment logic, and will skip entires that have the tries-left counter
+          assessment logic, and will skip entries that have the tries-left counter
           set to zero.
 
         * bootctl's varlink interface gained a new Install() method for performing
@@ -309,9 +314,9 @@ CHANGES WITH 260 in spe:
         Changes in units:
 
         * runlevel[0-6].target units that were removed in v258 have been
-          restored when the newly introduced -Dcompat-sysv-interfaces=BOOL
-          meson option is enabled. The installation of legacy.conf for tmpfiles
-          is now also conditionalized with the meson option.
+          restored and can be enabled with the new -Dcompat-sysv-interfaces=yes
+          meson option. The installation of legacy.conf for tmpfiles is now
+          also conditionalized under the same option.
 
         * systemd-portabled now runs also in the user session in the new
           systemd-portabled.service unit.
