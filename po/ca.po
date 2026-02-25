@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-02-24 18:43+0000\n"
+"POT-Creation-Date: 2026-02-24 18:42+0000\n"
 "PO-Revision-Date: 2025-07-28 17:25+0000\n"
 "Last-Translator: naly zzwd <xeanhort007@gmail.com>\n"
 "Language-Team: Catalan <https://translate.fedoraproject.org/projects/systemd/"

@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-02-24 18:43+0000\n"
+"POT-Creation-Date: 2026-02-24 18:42+0000\n"
 "PO-Revision-Date: 2016-06-09 19:50+0300\n"
 "Last-Translator: Viktar Vaŭčkievič <victorenator@gmail.com>\n"
 "Language-Team: \n"
