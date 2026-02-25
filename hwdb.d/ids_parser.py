@@ -31,9 +31,12 @@ NUM6 = Word('0123456789abcdefABCDEF', exact=6)
 TAB = White('\t', exact=1).suppress()
 COMMENTLINE = pythonStyleComment + EOL
 EMPTYLINE = LineEnd()
-text_eol = lambda name: Regex(r'[^\n]+')(name) + EOL
 
 ParserElement.setDefaultWhitespaceChars(' \n')
+
+
+def text_eol(name):
+    return Regex(r'[^\n]+')(name) + EOL
 
 
 def klass_grammar():
