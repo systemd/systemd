@@ -30,6 +30,7 @@ typedef struct CGroupIODeviceLimit CGroupIODeviceLimit;
 typedef struct CGroupIODeviceWeight CGroupIODeviceWeight;
 typedef struct CGroupRuntime CGroupRuntime;
 typedef struct CGroupSocketBindItem CGroupSocketBindItem;
+typedef struct CGroupDeviceMemoryLimit CGroupDeviceMemoryLimit;
 typedef struct DynamicCreds DynamicCreds;
 typedef struct DynamicUser DynamicUser;
 typedef struct ExecCommand ExecCommand;
