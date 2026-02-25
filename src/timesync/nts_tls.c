@@ -99,10 +99,11 @@ ssize_t NTS_TLS_read(NTS_TLS *opaque, void *buffer, size_t size) {
         }
 }
 
-void NTS_TLS_close(NTS_TLS *opaque) {
+void NTS_TLS_close(NTS_TLS **opaque) {
         assert(opaque);
 
-        SSL *session = (void *)opaque;
+        SSL *session = (SSL*) *opaque;
+        *opaque = NULL;
 
         /* unidirectional closing is enough */
         (void) SSL_shutdown(session);

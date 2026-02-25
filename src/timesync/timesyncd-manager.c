@@ -1480,8 +1480,8 @@ static int manager_nts_handshake_timeout(sd_event_source *source, usec_t usec, v
         m->event_timeout = sd_event_source_unref(m->event_timeout);
 
         if (m->nts_handshake)
-                NTS_TLS_close(m->nts_handshake);
-        m->nts_handshake = NULL;
+                NTS_TLS_close(&m->nts_handshake);
+
         manager_listen_stop(m);
 
         server_address_pretty(m->current_server_address, &pretty);
@@ -1572,7 +1572,7 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
 
                 if (r < 0) {
                         log_error("Could not set up TLS session with server");
-                        NTS_TLS_close(m->nts_handshake);
+                        NTS_TLS_close(&m->nts_handshake);
                         return manager_connect(m);
                 }
 
@@ -1609,7 +1609,7 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
 
                 if (r <= 0) {
                         log_error("Error sending NTS key request");
-                        NTS_TLS_close(m->nts_handshake);
+                        NTS_TLS_close(&m->nts_handshake);
                         return manager_connect(m);
                 } else if (r < size) {
                         m->nts_bytes_processed += r;
@@ -1629,7 +1629,7 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
 
                 if (r < 0) {
                         log_error("Error receiving NTS key response");
-                        NTS_TLS_close(m->nts_handshake);
+                        NTS_TLS_close(&m->nts_handshake);
                         return manager_connect(m);
                 }
 
@@ -1641,7 +1641,7 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
                                 return 1;
 
                         log_error("NTS Error: %s", NTS_error_string(NTS.error));
-                        NTS_TLS_close(m->nts_handshake);
+                        NTS_TLS_close(&m->nts_handshake);
                         return manager_connect(m);
                 }
 
@@ -1663,8 +1663,7 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
                     m->nts_keys.s2c,
                     MAX_NTS_AEAD_KEY_LEN);
 
-        NTS_TLS_close(m->nts_handshake);
-        m->nts_handshake = NULL;
+        NTS_TLS_close(&m->nts_handshake);
         manager_listen_stop(m);
 
         if (r != 0) {
