@@ -9,7 +9,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-02-24 18:43+0000\n"
+"POT-Creation-Date: 2026-02-24 18:42+0000\n"
 "PO-Revision-Date: 2023-05-13 19:20+0000\n"
 "Last-Translator: Maksim Kliazovich <maxklezovich@gmail.com>\n"
 "Language-Team: Belarusian <https://translate.fedoraproject.org/projects/"
