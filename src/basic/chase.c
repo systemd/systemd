@@ -277,15 +277,6 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
 
                 dir_fd = _dir_fd;
                 flags &= ~CHASE_AT_RESOLVE_IN_ROOT;
-        } else if (FLAGS_SET(flags, CHASE_AT_RESOLVE_IN_ROOT)) {
-                /* If we get AT_FDCWD or dir_fd points to "/", then we always resolve symlinks relative to
-                 * the host's root. Hence, CHASE_AT_RESOLVE_IN_ROOT is meaningless. */
-
-                r = dir_fd_is_root_or_cwd(dir_fd);
-                if (r < 0)
-                        return r;
-                if (r > 0)
-                        flags &= ~CHASE_AT_RESOLVE_IN_ROOT;
         }
 
         if (!ret_path && ret_fd && (flags & (CHASE_AT_RESOLVE_IN_ROOT|CHASE_NO_SHORTCUT_MASK)) == 0) {
