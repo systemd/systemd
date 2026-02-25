@@ -475,6 +475,19 @@ LOCAL"
     fi
 }
 
+install_mock_certificate() {
+    servername="$1"
+    # this also installs a fake CA since we don't allow self-signed certificates
+    mkdir -p /etc/ssl/certs
+    openssl genrsa -out CA.key 2048
+    openssl req -x509 -noenc -key CA.key -subj "/CN=$servername" -out /etc/ssl/certs/CA.crt
+    openssl genrsa -out server.key 2048
+    openssl req -new -key server.key -subj "/CN=$servername" -out server.csr
+    openssl req -CA /etc/ssl/certs/CA.crt -in server.csr -CAkey CA.key -out server.crt
+    cat /etc/ssl/certs/CA.crt >> server.crt
+    openssl rehash
+}
+
 testcase_nts() {
     if systemd-detect-virt -cq; then
         echo "This test case requires a VM, skipping..."
@@ -482,17 +495,21 @@ testcase_nts() {
     fi
 
     # configure a few NTP servers to test that they are ignored if NTS support is enabled
-    mock_server="time.cloudflare.com"
+    mock_server="localhost"
     cat >/etc/systemd/timesyncd.conf <<EOF
 [Time]
 NTP=debian.pool.ntp.org
 NTS=does.not.exist $mock_server not.found
 FallbackNTP=0.debian.pool.ntp.org
 EOF
+    install_mock_certificate "$mock_server"
 
     systemctl unmask systemd-timesyncd
     systemctl restart systemd-timesyncd
     timedatectl set-ntp false
+
+    # this will handle exactly one KE and one NTP request
+    /work/build/nts-mock-server &
 
     systemd-run --unit busctl-monitor.service --service-type=notify \
         busctl monitor --json=short --match="type=signal,sender=org.freedesktop.timesync1,member=PropertiesChanged,path=/org/freedesktop/timesync1"
@@ -508,6 +525,7 @@ EOF
     [[ "$chosen_server" == "s \"$mock_server\"" ]]
 
     # Cleanup
+    rm server.key server.crt /etc/ssl/certs/CA.crt /etc/systemd/timesyncd.conf
     systemctl stop systemd-timesyncd busctl-monitor.service
 }
 
