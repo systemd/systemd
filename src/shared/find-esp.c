@@ -287,6 +287,7 @@ static int verify_fsroot_dir(
 
         r = xstatx_full(dir_fd, f,
                         AT_SYMLINK_NOFOLLOW,
+                        /* xstatx_flags= */ 0,
                         STATX_TYPE|STATX_INO,
                         /* optional_mask = */ 0,
                         STATX_ATTR_MOUNT_ROOT,

@@ -250,6 +250,7 @@ int is_mount_point_at(int dir_fd, const char *path, int flags) {
                         at_flags_normalize_nofollow(flags) |
                         AT_NO_AUTOMOUNT |            /* don't trigger automounts – mounts are a local concept, hence no need to trigger automounts to determine STATX_ATTR_MOUNT_ROOT */
                         AT_STATX_DONT_SYNC,          /* don't go to the network for this – for similar reasons */
+                        /* xstatx_flags = */ 0,
                         STATX_TYPE|STATX_INO,
                         /* optional_mask = */ 0,
                         STATX_ATTR_MOUNT_ROOT,
