@@ -1069,10 +1069,10 @@ int path_is_root_at(int dir_fd, const char *path) {
          * $ mount --bind / /tmp/x
          */
 
-        return fds_are_same_mount(dir_fd, XAT_FDROOT);
+        return fds_inode_and_mount_same(dir_fd, XAT_FDROOT);
 }
 
-int fds_are_same_mount(int fd1, int fd2) {
+int fds_inode_and_mount_same(int fd1, int fd2) {
         struct statx sx1, sx2;
         int r;
 
