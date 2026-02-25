@@ -65,11 +65,12 @@ CHANGES WITH 260 in spe:
           support for the old way using protofiles.
 
         * The org.systemd.login1.Manager D-Bus interface has a minor API break.
-          The `CanPowerOff()`, `CanReboot()`, `CanSuspend()`, etc. family of
+          The 'CanPowerOff()', 'CanReboot()', 'CanSuspend()', etc. family of
           methods have introduced new return values which may break downstream
           consumers, such as desktop environments. The new return values more
-          precisely communicate the status of inhibitors. This allows desktops
-          to differentiate between system administrator policy and
+          precisely communicate the status of inhibitors: 'inhibited',
+          'inhibitor-blocked', and 'challenge-inhibitor-blocked'. This allows
+          desktops to differentiate between system administrator policy and
           temporary restrictions imposed by inhibitors.
 
         New system interfaces and components:
