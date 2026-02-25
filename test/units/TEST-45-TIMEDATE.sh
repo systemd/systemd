@@ -320,6 +320,28 @@ assert_timesyncd_signal() {
     return 1
 }
 
+assert_timesyncd_ntp_message() {
+    local timestamp="${1:?}"
+    local property="NTPMessage"
+    local value="(uuuuittayttttbtt)"
+    local args=(-q --since="$timestamp" -p info -t busctl)
+
+    journalctl --sync
+
+    for _ in {0..9}; do
+        if journalctl "${args[@]}" --grep .; then
+            # Make the found entry in the archived journal, to avoid the following failure:
+            # Journal file /run/log/journal/.../system.journal is truncated, ignoring file.
+            journalctl --rotate
+            [[ "$(journalctl "${args[@]}" -o cat | jq -r ".payload.data[1].$property.type")" == "$value" ]];
+            return 0
+        fi
+
+        sleep .5
+    done
+
+    return 1
+}
 assert_networkd_ntp() {
     local interface="${1:?}"
     local value="${2:?}"
@@ -451,6 +473,42 @@ LOCAL"
         echo "/run/alternate-path/myadjtime still exists" >&2
         exit 1
     fi
+}
+
+testcase_nts() {
+    if systemd-detect-virt -cq; then
+        echo "This test case requires a VM, skipping..."
+        return 0
+    fi
+
+    # configure a few NTP servers to test that they are ignored if NTS support is enabled
+    mock_server="time.cloudflare.com"
+    cat >/etc/systemd/timesyncd.conf <<EOF
+[Time]
+NTP=debian.pool.ntp.org
+NTS=does.not.exist $mock_server not.found
+FallbackNTP=0.debian.pool.ntp.org
+EOF
+
+    systemctl unmask systemd-timesyncd
+    systemctl restart systemd-timesyncd
+    timedatectl set-ntp false
+
+    systemd-run --unit busctl-monitor.service --service-type=notify \
+        busctl monitor --json=short --match="type=signal,sender=org.freedesktop.timesync1,member=PropertiesChanged,path=/org/freedesktop/timesync1"
+
+    ts="$(date +"%F %T.%6N")"
+    timedatectl set-ntp true
+    # test that we received a message from the mock time server
+    assert_timesyncd_ntp_message "$ts"
+
+    servers="$(busctl get-property org.freedesktop.timesync1 /org/freedesktop/timesync1 org.freedesktop.timesync1.Manager NTSKeyExchangeServers)"
+    chosen_server="$(busctl get-property org.freedesktop.timesync1 /org/freedesktop/timesync1 org.freedesktop.timesync1.Manager ServerName)"
+    [[ "$servers" == "as 3 \"does.not.exist\" \"$mock_server\" \"not.found\"" ]]
+    [[ "$chosen_server" == "s \"$mock_server\"" ]]
+
+    # Cleanup
+    systemctl stop systemd-timesyncd busctl-monitor.service
 }
 
 run_testcases
