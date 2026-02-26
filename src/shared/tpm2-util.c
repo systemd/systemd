@@ -7325,7 +7325,7 @@ int tpm2_nvpcr_initialize(
 
         _cleanup_close_ int dfd = open_mkdir("/run/systemd/nvpcr", O_CLOEXEC, 0755);
         if (dfd < 0)
-                return log_error_errno(dfd, "Failed to open directory '/run/systemd/nvpcr': %m");
+                return log_debug_errno(dfd, "Failed to open directory '/run/systemd/nvpcr': %m");
 
         const char *anchor_fname = strjoina(name, ".anchor");
         if (faccessat(dfd, anchor_fname, F_OK, AT_SYMLINK_NOFOLLOW) < 0) {
