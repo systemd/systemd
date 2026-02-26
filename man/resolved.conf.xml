@@ -363,10 +363,31 @@ DNSStubListenerExtra=udp:[2001:db8:0:f102::13]:9953</programlisting>
         <term><varname>ReadEtcHosts=</varname></term>
         <listitem><para>Takes a boolean argument. If <literal>yes</literal> (the default),
         <command>systemd-resolved</command> will read <filename>/etc/hosts</filename>, and try to resolve
-        hosts or address by using the entries in the file before sending query to DNS servers.
+        hosts or addresses by using the entries in the file before sending query to DNS servers.
         </para>
 
         <xi:include href="version-info.xml" xpointer="v240"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>ReadStaticRecords=</varname></term>
+        <listitem><para>Takes a boolean argument. If <literal>yes</literal> (the default),
+        <command>systemd-resolved</command> will read
+        <filename>/etc/systemd/resolve/static.d/*.rr</filename>,
+        <filename>/run/systemd/resolve/static.d/*.rr</filename>,
+        <filename>/usr/local/lib/systemd/resolve/static.d/*.rr</filename>,
+        <filename>/usr/lib/systemd/resolve/static.d/*.rr</filename>, and try to resolve lookups by using the
+        entries in these files before sending query to DNS servers. This functionality is very similar to the
+        one controlled by <varname>ReadEtcHosts=</varname>, but allows more flexible control of DNS resource
+        records fields beyond just A/AAAA/PTR. See
+        <citerefentry><refentrytitle>systemd.rr</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+        details.</para>
+
+        <para>If both this option and <varname>ReadEtcHosts=</varname> are enabled then this mechanism takes
+        precedence: any records discovered via static resource records will take precedence over records
+        under the same name from <filename>/etc/hosts</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -418,6 +439,7 @@ DNSStubListenerExtra=udp:[2001:db8:0:f102::13]:9953</programlisting>
       <member><citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>dnssec-trust-anchors.d</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.rr</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
       <member><citerefentry project='man-pages'><refentrytitle>resolv.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
       </simplelist></para>
   </refsect1>
