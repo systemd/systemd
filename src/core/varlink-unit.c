@@ -516,7 +516,7 @@ int vl_method_list_units(sd_varlink *link, sd_json_variant *parameters, sd_varli
         if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
                 return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
 
-        r = varlink_set_sentinel(link, "io.systemd.Manager.NoSuchUnit");
+        r = varlink_set_sentinel(link, "io.systemd.Unit.NoSuchUnit");
         if (r < 0)
                 return r;
 
