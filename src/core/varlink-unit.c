@@ -467,7 +467,7 @@ static int lookup_unit_by_parameters(sd_varlink *link, Manager *manager, UnitLoo
         }
 
         if (p->cgroup) {
-                if (!path_is_safe(p->cgroup))
+                if (!path_is_absolute(p->cgroup) || !path_is_normalized(p->cgroup))
                         return sd_varlink_error_invalid_parameter_name(link, "cgroup");
 
                 Unit *cgroup_unit = manager_get_unit_by_cgroup(manager, p->cgroup);
