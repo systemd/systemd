@@ -161,7 +161,7 @@ static int unit_file_find_dirs(
         assert(suffix);
 
         path = strjoina(unit_path, "/", name, suffix);
-        if (!unit_path_cache || set_get(unit_path_cache, path)) {
+        if (!unit_path_cache || set_contains(unit_path_cache, path)) {
                 r = unit_file_add_dir(original_root, path, dirs);
                 if (r < 0)
                         return r;
