@@ -2215,6 +2215,12 @@ int dns_resource_key_from_json(sd_json_variant *v, DnsResourceKey **ret) {
         if (r < 0)
                 return r;
 
+        r = dns_name_is_valid(p.name);
+        if (r < 0)
+                return r;
+        if (!r)
+                return -EBADMSG;
+
         key = dns_resource_key_new(p.class, p.type, p.name);
         if (!key)
                 return -ENOMEM;
@@ -2555,6 +2561,8 @@ int dns_resource_record_from_json(sd_json_variant *v, DnsResourceRecord **ret) {
                 r = dns_name_is_valid(name);
                 if (r < 0)
                         return r;
+                if (!r)
+                        return -EBADMSG;
 
                 rr->ptr.name = TAKE_PTR(name);
                 break;
@@ -2564,8 +2572,8 @@ int dns_resource_record_from_json(sd_json_variant *v, DnsResourceRecord **ret) {
                 struct in_addr addr = {};
 
                 static const struct sd_json_dispatch_field table[] = {
-                        { "address", SD_JSON_VARIANT_ARRAY, json_dispatch_in_addr, 0, SD_JSON_MANDATORY },
-                        { "key",     SD_JSON_VARIANT_OBJECT, NULL,                 0, SD_JSON_MANDATORY },
+                        { "address", SD_JSON_VARIANT_ARRAY,  json_dispatch_in_addr, 0, SD_JSON_MANDATORY },
+                        { "key",     SD_JSON_VARIANT_OBJECT, NULL,                  0, SD_JSON_MANDATORY },
                         {}
                 };
 
