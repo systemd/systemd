@@ -499,7 +499,7 @@ testcase_nts() {
     fi
 
     # configure a few NTP servers to test that they are ignored if NTS support is enabled
-    mock_server="localhost"
+    local mock_server="localhost"
     cat >/etc/systemd/timesyncd.conf <<EOF
 [Time]
 NTP=debian.pool.ntp.org
@@ -513,7 +513,7 @@ EOF
     timedatectl set-ntp false
 
     # this will handle exactly one KE and one NTP request
-    /work/build/nts-mock-server &
+    /usr/lib/systemd/tests/unit-tests/manual/test-nts-mockserver &
 
     systemd-run --unit busctl-monitor.service --service-type=notify \
         busctl monitor --json=short --match="type=signal,sender=org.freedesktop.timesync1,member=PropertiesChanged,path=/org/freedesktop/timesync1"
