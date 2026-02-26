@@ -2235,7 +2235,7 @@ _public_ int sd_json_variant_append_array(sd_json_variant **v, sd_json_variant *
 
                         if (old != *v)
                                 /* Readjust the parent pointers to the new address */
-                                for (size_t i = 1; i < size; i++)
+                                for (size_t i = 0; i < size; i++)
                                         (*v)[1 + i].parent = *v;
 
                         return json_variant_array_put_element(*v, element);
