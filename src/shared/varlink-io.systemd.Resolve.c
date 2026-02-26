@@ -345,6 +345,7 @@ static SD_VARLINK_DEFINE_ERROR(ResourceRecordTypeInvalidForQuery);
 static SD_VARLINK_DEFINE_ERROR(ZoneTransfersNotPermitted);
 static SD_VARLINK_DEFINE_ERROR(ResourceRecordTypeObsolete);
 static SD_VARLINK_DEFINE_ERROR(InconsistentServiceRecords);
+static SD_VARLINK_DEFINE_ERROR(ServiceNotProvided);
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Resolve,
@@ -415,4 +416,6 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_error_ZoneTransfersNotPermitted,
                 &vl_error_ResourceRecordTypeObsolete,
                 SD_VARLINK_SYMBOL_COMMENT("The DNS resource records of the specified service are not consistent (e.g. lacks a DNS-SD service type when resolved)."),
-                &vl_error_InconsistentServiceRecords);
+                &vl_error_InconsistentServiceRecords,
+                SD_VARLINK_SYMBOL_COMMENT("The service is explicitly not provided on the queried domain (RFC 2782 root domain SRV record)."),
+                &vl_error_ServiceNotProvided);
