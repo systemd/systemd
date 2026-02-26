@@ -2215,6 +2215,12 @@ int dns_resource_key_from_json(sd_json_variant *v, DnsResourceKey **ret) {
         if (r < 0)
                 return r;
 
+        r = dns_name_is_valid(p.name);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EBADMSG;
+
         key = dns_resource_key_new(p.class, p.type, p.name);
         if (!key)
                 return -ENOMEM;
