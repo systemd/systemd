@@ -5,13 +5,13 @@
 # Gökhan Gurbetoğlu <ggurbet@gmail.com>, 2015.
 # Oğuz Ersen <oguzersen@protonmail.com>, 2020.
 # Muhammet Kara <muhammetk@gmail.com>, 2015-2020.
-# Oğuz Ersen <oguz@ersen.moe>, 2022, 2023, 2024, 2025.
+# Oğuz Ersen <oguz@ersen.moe>, 2022, 2023, 2024, 2025, 2026.
 # Emir SARI <emir_sari@icloud.com>, 2025.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-02-24 18:42+0000\n"
-"PO-Revision-Date: 2025-10-04 19:48+0000\n"
+"PO-Revision-Date: 2026-02-26 13:58+0000\n"
 "Last-Translator: Oğuz Ersen <oguz@ersen.moe>\n"
 "Language-Team: Turkish <https://translate.fedoraproject.org/projects/systemd/"
 "main/tr/>\n"
@@ -20,7 +20,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Weblate 5.13.3\n"
+"X-Generator: Weblate 5.16.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -1112,11 +1112,11 @@ msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:198
 msgid "Manage network links"
-msgstr ""
+msgstr "Ağ bağlantılarını yönet"
 
 #: src/network/org.freedesktop.network1.policy:199
 msgid "Authentication is required to manage network links."
-msgstr ""
+msgstr "Ağ bağlantılarını yönetmek için kimlik doğrulaması gereklidir."
 
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"

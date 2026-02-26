@@ -3,13 +3,13 @@
 # Ukrainian translation for systemd.
 # Eugene Melnik <jeka7js@gmail.com>, 2014.
 # Daniel Korostil <ted.korostiled@gmail.com>, 2014, 2016, 2018.
-# Yuri Chornoivan <yurchor@ukr.net>, 2019, 2020, 2021, 2022, 2023, 2024.
+# Yuri Chornoivan <yurchor@ukr.net>, 2019, 2020, 2021, 2022, 2023, 2024, 2026.
 # Dmytro Markevych <hotr1pak@gmail.com>, 2024.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-02-24 18:42+0000\n"
-"PO-Revision-Date: 2024-11-29 12:38+0000\n"
+"PO-Revision-Date: 2026-02-26 13:58+0000\n"
 "Last-Translator: Yuri Chornoivan <yurchor@ukr.net>\n"
 "Language-Team: Ukrainian <https://translate.fedoraproject.org/projects/"
 "systemd/main/uk/>\n"
@@ -19,7 +19,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
 "n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
-"X-Generator: Weblate 5.8.2\n"
+"X-Generator: Weblate 5.16.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -156,13 +156,12 @@ msgstr "Для активації області домівки користув
 
 #: src/home/org.freedesktop.home1.policy:93
 msgid "Manage Home Directory Signing Keys"
-msgstr ""
+msgstr "Керування ключами підписування домашнього каталогу"
 
 #: src/home/org.freedesktop.home1.policy:94
-#, fuzzy
 msgid "Authentication is required to manage signing keys for home directories."
 msgstr ""
-"Для керування системними службами й іншими одиницями systemd слід пройти "
+"Для керування ключами підписування для домашніх каталогів слід пройти "
 "розпізнавання."
 
 #: src/home/pam_systemd_home.c:330
@@ -923,17 +922,15 @@ msgstr ""
 "пройти розпізнавання."
 
 #: src/machine/org.freedesktop.machine1.policy:106
-#, fuzzy
 msgid "Register a local virtual machine or container"
-msgstr "Створення локальної віртуальної машини або контейнера"
+msgstr "Реєстрація локальної віртуальної машини або контейнера"
 
 #: src/machine/org.freedesktop.machine1.policy:107
-#, fuzzy
 msgid ""
 "Authentication is required to register a local virtual machine or container."
 msgstr ""
-"Для доступу до створення локальної віртуальної машини або контейнера слід "
-"пройти розпізнавання."
+"Для реєстрації локальної віртуальної машини або контейнера слід пройти "
+"розпізнавання."
 
 #: src/machine/org.freedesktop.machine1.policy:116
 msgid "Manage local virtual machine and container images"
@@ -1103,11 +1100,11 @@ msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:198
 msgid "Manage network links"
-msgstr ""
+msgstr "Керування посиланнями мережі"
 
 #: src/network/org.freedesktop.network1.policy:199
 msgid "Authentication is required to manage network links."
-msgstr ""
+msgstr "Для керування посиланнями мережі слід пройти розпізнавання."
 
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
@@ -1175,12 +1172,11 @@ msgstr "Для підписування на результати запиту �
 
 #: src/resolve/org.freedesktop.resolve1.policy:154
 msgid "Subscribe to DNS configuration"
-msgstr ""
+msgstr "Підписування налаштувань DNS"
 
 #: src/resolve/org.freedesktop.resolve1.policy:155
-#, fuzzy
 msgid "Authentication is required to subscribe to DNS configuration."
-msgstr "Для підписування на результати запиту слід пройти розпізнавання."
+msgstr "Для підписування на налаштування DNS слід пройти розпізнавання."
 
 #: src/resolve/org.freedesktop.resolve1.policy:165
 msgid "Dump cache"
@@ -1323,12 +1319,12 @@ msgstr ""
 "Для надсилання сигналу UNIX до процесів «$(unit)» слід пройти розпізнавання."
 
 #: src/core/dbus-unit.c:621
-#, fuzzy
 msgid ""
 "Authentication is required to send a UNIX signal to the processes of "
 "subgroup of '$(unit)'."
 msgstr ""
-"Для надсилання сигналу UNIX до процесів «$(unit)» слід пройти розпізнавання."
+"Для надсилання сигналу UNIX до процесів підгрупи «$(unit)» слід пройти "
+"розпізнавання."
 
 #: src/core/dbus-unit.c:649
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
