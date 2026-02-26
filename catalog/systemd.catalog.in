@@ -1002,3 +1002,16 @@ device nodes appear early in boot, while regular users may appear only later.
 For devices managed by systemd-udevd, it is instead recommended to use the
 "uaccess"/"xaccess" mechanisms to grant limited and temporary access to device
 nodes, see sd-login(8).
+
+-- ab984ea008964fb88d6e389fb513fb94
+Subject: TPM NV index space exhausted, unable to initialize NvPCR
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+The Trusted Platform Module's (TPM) NV index space has been exhausted, and an
+additional NvPCR, i.e. additional Platform Configuration Register (PCR) stored in
+non-volatile indexes (NV Indexes), could not be initialized.
+
+This typically means the persistent NV index memory available on the TPM is
+taken up by other resources, or is extremely limited. A TPM reset might help
+recovering space (but will invalidate all TPM bound keys and resources).

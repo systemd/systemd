@@ -6031,6 +6031,9 @@ int tpm2_define_nvpcr_nv_index(
                         /* auth= */ NULL,
                         &public_info,
                         &new_handle->esys_handle);
+        if (rc == TPM2_RC_NV_SPACE)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOSPC),
+                                       "NV index space on TPM exhausted, cannot allocate NvPCR.");
         if (rc == TPM2_RC_NV_DEFINED) {
                 log_debug("NV index 0x%" PRIu32 " already registered.", nv_index);
 
