@@ -76,15 +76,16 @@
 # be identical to the display-accelerometer's readings (when the lid is
 # closed).
 #
-# Sort by brand, model (groupped by same matrices)
+# Sort by brand, model (grouped by same matrices)
 
 #########################################
 # Acer
 #########################################
-# Acer most reliable way to match is by system manufacturer and board product
-# name because system product name can have different formats like SW5-017,
-# TP-SW5-017-17BU for a device and board manufaturer can vary Acer, APL, GLK.
-# Always comment the product to be able to identify them.
+# For Acer products most reliable way to match is by the system manufacturer
+# and the board product name, because the system product name can have
+# different formats like SW5-017, TP-SW5-017-17BU for a device, and the board
+# manufacturer can vary: Acer, APL, GLK. Always mention the product in a
+# comment to be able to identify them.
 
 sensor:modalias:acpi:BOSC0200:*:dmi:*:svnAcer:*:rnAlien_AP:*    # Spin 1 (SP111-32N)
 sensor:modalias:acpi:BOSC0200:*:dmi:*:svnAcer:*:rnHamm_GL:*     # Spin 1 (SP111-33)
@@ -205,13 +206,13 @@ sensor:modalias:acpi:BOSC0200:*:dmi:*:svnAYANEO:pnAIRPlus*:*    # AIR Plus AMD, 
 #########################################
 
 # FIXME: location could be not needed because correctly detected, base sensor is acpi:KIOX020A:*
-# this should requiere good testing of both accels to match their lid close position.
+# this should require good testing of both accels to match their lid close position.
 sensor:modalias:acpi:KIOX010A:*:dmi:*:svnAMI:*:skuH2M6:*    # MaxBook Y13
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, -1
  ACCEL_LOCATION=display
 
 # FIXME: location could be not needed because correctly detected, base sensor is acpi:KIOX020A:*
-# this should requiere good testing of both accels to match their lid close position.
+# this should require good testing of both accels to match their lid close position.
 sensor:modalias:acpi:KIOX010A:*:dmi:*:svnAMI:*:skuH8Y6:*    # MaxBook Y14
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, -1, 0; 0, 0, 1
  ACCEL_LOCATION=display

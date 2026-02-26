@@ -253,7 +253,7 @@ def check_matches(groups):
     matches = sum((group[0] for group in groups), [])
 
     # This is a partial check. The other cases could be also done, but those
-    # two are most commonly wrong.
+    # three are the most commonly wrong.
     grammars = {
         'bluetooth' : 'v' + upperhex_word(4) + Optional('p' + upperhex_word(4) + Optional(':')) + '*',
         'usb' : 'v' + upperhex_word(4) + Optional('p' + upperhex_word(4) + Optional(':')) + '*',
@@ -262,8 +262,7 @@ def check_matches(groups):
 
     for match in matches:
         prefix, rest = match.split(':', maxsplit=1)
-        gr = grammars.get(prefix)
-        if gr:
+        if gr := grammars.get(prefix):
             # we check this first to provide an easy error message
             if rest[-1] not in '*:':
                 error('Pattern {!r} does not end with "*" or ":"', match)
