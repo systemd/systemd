@@ -139,6 +139,7 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         umask(0022);
+        signal(SIGPIPE, SIG_IGN);
 
         if (argc != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program does not take arguments.");
