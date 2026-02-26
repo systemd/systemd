@@ -1347,30 +1347,29 @@ static int mq_address_create(
 }
 
 static int socket_symlink(Socket *s) {
-        const char *p;
         int r;
 
         assert(s);
 
-        p = socket_find_symlink_target(s);
-        if (!p)
+        const char *target = socket_find_symlink_target(s);
+        if (!target)
                 return 0;
 
-        STRV_FOREACH(i, s->symlinks) {
-                (void) mkdir_parents_label(*i, s->directory_mode);
+        STRV_FOREACH(linkpath, s->symlinks) {
+                (void) mkdir_parents_label(*linkpath, s->directory_mode);
 
-                r = symlink_idempotent(p, *i, false);
+                r = symlink_idempotent(target, *linkpath, false);
                 if (r == -EEXIST && s->remove_on_stop) {
-                        /* If there's already something where we want to create the symlink, and the destructive
-                         * RemoveOnStop= mode is set, then we might as well try to remove what already exists and try
-                         * again. */
+                        /* If there's already something where we want to create the symlink, and the
+                         * destructive RemoveOnStop= mode is set, then we might as well try to remove what
+                         * already exists and try again. */
 
-                        if (unlink(*i) >= 0)
-                                r = symlink_idempotent(p, *i, false);
+                        if (unlink(*linkpath) >= 0)
+                                r = symlink_idempotent(target, *linkpath, false);
                 }
                 if (r < 0)
                         log_unit_warning_errno(UNIT(s), r, "Failed to create symlink %s %s %s, ignoring: %m",
-                                               p, glyph(GLYPH_ARROW_RIGHT), *i);
+                                               *linkpath, glyph(GLYPH_ARROW_RIGHT), target);
         }
 
         return 0;
