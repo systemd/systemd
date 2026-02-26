@@ -6031,6 +6031,9 @@ int tpm2_define_nvpcr_nv_index(
                         /* auth= */ NULL,
                         &public_info,
                         &new_handle->esys_handle);
+        if (rc == TPM2_RC_NV_SPACE)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOSPC),
+                                       "NV index space on TPM exhausted, cannot allocate NvPCR.");
         if (rc == TPM2_RC_NV_DEFINED) {
                 log_debug("NV index 0x%" PRIu32 " already registered.", nv_index);
 
@@ -7326,7 +7329,7 @@ int tpm2_nvpcr_initialize(
 
         _cleanup_close_ int dfd = open_mkdir("/run/systemd/nvpcr", O_CLOEXEC, 0755);
         if (dfd < 0)
-                return log_error_errno(dfd, "Failed to open directory '/run/systemd/nvpcr': %m");
+                return log_debug_errno(dfd, "Failed to open directory '/run/systemd/nvpcr': %m");
 
         const char *anchor_fname = strjoina(name, ".anchor");
         if (faccessat(dfd, anchor_fname, F_OK, AT_SYMLINK_NOFOLLOW) < 0) {

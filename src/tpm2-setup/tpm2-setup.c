@@ -385,7 +385,7 @@ static int setup_srk(void) {
 typedef struct SetupNvPCRContext {
         Tpm2Context *tpm2_context;
         struct iovec anchor_secret;
-        size_t n_already, n_anchored;
+        size_t n_already, n_anchored, n_failed;
         Set *done;
 } SetupNvPCRContext;
 
@@ -404,15 +404,10 @@ static int setup_nvpcr_one(
 
         assert(c);
         assert(name);
+        assert(c->tpm2_context);
 
         if (set_contains(c->done, name))
                 return 0;
-
-        if (!c->tpm2_context) {
-                r = tpm2_context_new_or_warn(arg_tpm2_device, &c->tpm2_context);
-                if (r < 0)
-                        return r;
-        }
 
         r = tpm2_nvpcr_initialize(c->tpm2_context, /* session= */ NULL, name, &c->anchor_secret);
         if (r == -EUNATCH) {
@@ -427,8 +422,16 @@ static int setup_nvpcr_one(
 
                 r = tpm2_nvpcr_initialize(c->tpm2_context, /* session= */ NULL, name, &c->anchor_secret);
         }
-        if (r < 0)
+        if (r == -ENOSPC) {
+                c->n_failed++;
+                return log_struct_errno(LOG_ERR, r,
+                                        LOG_MESSAGE("The TPM's NV index space is exhausted, unable to allocate NvPCR '%s': %m", name),
+                                        LOG_MESSAGE_ID(SD_MESSAGE_TPM_INVINDEX_EXHAUSTED_STR));
+        }
+        if (r < 0) {
+                c->n_failed++;
                 return log_error_errno(r, "Failed to extend NvPCR index with anchor secret: %m");
+        }
 
         if (r > 0)
                 c->n_anchored++;
@@ -455,10 +458,17 @@ static int setup_nvpcr(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to find .nvpcr files: %m");
 
+        int ret = 0;
         STRV_FOREACH(i, l) {
-                r = setup_nvpcr_one(&c, *i);
-                if (r < 0)
-                        return r;
+                if (!c.tpm2_context) {
+                        /* Inability to contact the TPM shall be fatal for us */
+                        r = tpm2_context_new_or_warn(arg_tpm2_device, &c.tpm2_context);
+                        if (r < 0)
+                                return r;
+                }
+
+                /* But if we fail to initialize some NvPCR, we go on */
+                RET_GATHER(ret, setup_nvpcr_one(&c, *i));
         }
 
         if (c.n_already > 0 && c.n_anchored == 0 && !arg_early) {
@@ -466,10 +476,11 @@ static int setup_nvpcr(void) {
                  * have happened in the initrd, and thus the anchor ID was not committed to /var/ or the ESP
                  * yet. Hence, let's explicitly do so now, to catch up. */
 
-                r = tpm2_nvpcr_acquire_anchor_secret(/* ret= */ NULL, /* sync_secondary= */ true);
-                if (r < 0)
-                        return r;
+                RET_GATHER(ret, tpm2_nvpcr_acquire_anchor_secret(/* ret= */ NULL, /* sync_secondary= */ true));
         }
+
+        if (c.n_failed > 0)
+                log_warning("%zu NvPCRs failed to initialize, proceeding anyway.", c.n_failed);
 
         if (c.n_anchored > 0) {
                 if (c.n_already == 0)
@@ -478,10 +489,10 @@ static int setup_nvpcr(void) {
                         log_info("%zu NvPCRs initialized. (%zu NvPCRs were already initialized.)", c.n_anchored, c.n_already);
         } else if (c.n_already > 0)
                 log_info("%zu NvPCRs already initialized.", c.n_already);
-        else
+        else if (c.n_failed == 0)
                 log_debug("No NvPCRs defined, nothing initialized.");
 
-        return r;
+        return ret;
 }
 
 static int run(int argc, char *argv[]) {
