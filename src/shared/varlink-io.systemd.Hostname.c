@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "bus-polkit.h"
-#include "varlink-io.systemd.Credentials.h"
+#include "varlink-io.systemd.Hostname.h"
 
 static SD_VARLINK_DEFINE_METHOD(
                 Describe,
@@ -28,8 +28,8 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_OUTPUT(OperatingSystemHomeURL, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_OUTPUT(OperatingSystemSupportEnd, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_OUTPUT(OperatingSystemReleaseData, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
-                SD_VARLINK_DEFINE_OUTPUT(OperatingSystemImageID, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
-                SD_VARLINK_DEFINE_OUTPUT(OperatingSystemImageVersion, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_OUTPUT(OperatingSystemImageID, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_DEFINE_OUTPUT(OperatingSystemImageVersion, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_OUTPUT(MachineInformationData, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
                 SD_VARLINK_DEFINE_OUTPUT(HardwareVendor, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_OUTPUT(HardwareModel, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
