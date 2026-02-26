@@ -1039,7 +1039,7 @@ conf.set10('HAVE_LIBCRYPT', have)
 
 bpf_framework = get_option('bpf-framework')
 bpf_compiler = get_option('bpf-compiler')
-libbpf = dependency('libbpf',
+libbpf = dependency('libbpfx',
                     required : bpf_framework,
                     version : bpf_compiler == 'gcc' ? '>= 1.4.0' : '>= 0.1.0')
 libbpf_cflags = libbpf.partial_dependency(includes: true, compile_args: true)
@@ -1968,7 +1968,7 @@ endif
 
 conf.set10('HAVE_VMLINUX_H', use_provided_vmlinux_h or use_generated_vmlinux_h)
 
-conf.set10('ENABLE_SYSCTL_BPF', conf.get('HAVE_VMLINUX_H') == 1 and libbpf.version().version_compare('>= 0.7'))
+conf.set10('ENABLE_SYSCTL_BPF', 0)
 
 #####################################################################
 
