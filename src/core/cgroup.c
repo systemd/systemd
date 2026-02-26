@@ -173,6 +173,10 @@ void cgroup_context_init(CGroupContext *c) {
 
                 .memory_zswap_writeback = true,
 
+                .dmem_min = CGROUP_LIMIT_MIN,
+                .dmem_low = CGROUP_LIMIT_MIN,
+                .dmem_max = CGROUP_LIMIT_MAX,
+
                 .io_weight = CGROUP_WEIGHT_INVALID,
                 .startup_io_weight = CGROUP_WEIGHT_INVALID,
 
@@ -391,6 +395,45 @@ static int unit_compare_memory_limit(Unit *u, const char *property_name, uint64_
         return *ret_kernel_value == *ret_unit_value;
 }
 
+static int unit_compare_dmem_limit(Unit *u, const char *property_name, uint64_t *ret_unit_value, uint64_t *ret_kernel_value) {
+        CGroupContext *c;
+        CGroupMask m;
+        const char *file;
+        uint64_t unit_value;
+        int r;
+
+        assert(u);
+
+        if (unit_has_name(u, SPECIAL_ROOT_SLICE))
+                return -ENODATA;
+
+        m = unit_get_target_mask(u);
+        if (!FLAGS_SET(m, CGROUP_MASK_DMEM))
+                return -ENODATA;
+
+        assert_se(c = unit_get_cgroup_context(u));
+
+        if (streq(property_name, "DmemMin")) {
+                unit_value = c->dmem_min;
+                file = "dmem.min";
+        } else if (streq(property_name, "DmemLow")) {
+                unit_value = c->dmem_low;
+                file = "dmem.low";
+        } else if (streq(property_name, "DmemMax")) {
+                unit_value = c->dmem_max;
+                file = "dmem.max";
+        } else
+                return -EINVAL;
+
+        r = unit_get_kernel_memory_limit(u, file, ret_kernel_value);
+        if (r < 0)
+                return log_unit_debug_errno(u, r, "Failed to parse %s: %m", file);
+
+        *ret_unit_value = unit_value;
+
+        return *ret_kernel_value == *ret_unit_value;
+}
+
 #define FORMAT_CGROUP_DIFF_MAX 128
 
 static char *format_cgroup_memory_limit_comparison(Unit *u, const char *property_name, char *buf, size_t l) {
@@ -414,6 +457,28 @@ static char *format_cgroup_memory_limit_comparison(Unit *u, const char *property
                                         "StartupMemorySwapMax",
                                         "MemoryZSwapMax",
                                         "StartupMemoryZSwapMax")))
+                buf[0] = 0;
+        else if (r < 0) {
+                errno = -r;
+                (void) snprintf(buf, l, " (error getting kernel value: %m)");
+        } else
+                (void) snprintf(buf, l, " (different value in kernel: %" PRIu64 ")", kval);
+
+        return buf;
+}
+
+static char *format_cgroup_dmem_limit_comparison(Unit *u, const char *property_name, char *buf, size_t l) {
+        uint64_t kval, sval;
+        int r;
+
+        assert(u);
+        assert(property_name);
+        assert(buf);
+        assert(l > 0);
+
+        r = unit_compare_dmem_limit(u, property_name, &sval, &kval);
+
+        if (r > 0 || IN_SET(r, -ENODATA, -EOWNERDEAD))
                 buf[0] = 0;
         else if (r < 0) {
                 errno = -r;
@@ -470,7 +535,8 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
         struct in_addr_prefix *iaai;
         char cda[FORMAT_CGROUP_DIFF_MAX], cdb[FORMAT_CGROUP_DIFF_MAX], cdc[FORMAT_CGROUP_DIFF_MAX], cdd[FORMAT_CGROUP_DIFF_MAX],
                 cde[FORMAT_CGROUP_DIFF_MAX], cdf[FORMAT_CGROUP_DIFF_MAX], cdg[FORMAT_CGROUP_DIFF_MAX], cdh[FORMAT_CGROUP_DIFF_MAX],
-                cdi[FORMAT_CGROUP_DIFF_MAX], cdj[FORMAT_CGROUP_DIFF_MAX], cdk[FORMAT_CGROUP_DIFF_MAX];
+                cdi[FORMAT_CGROUP_DIFF_MAX], cdj[FORMAT_CGROUP_DIFF_MAX], cdk[FORMAT_CGROUP_DIFF_MAX], cdl[FORMAT_CGROUP_DIFF_MAX],
+                cdm[FORMAT_CGROUP_DIFF_MAX], cdn[FORMAT_CGROUP_DIFF_MAX];
 
         assert(u);
         assert(f);
@@ -493,6 +559,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
         fprintf(f,
                 "%sIOAccounting: %s\n"
                 "%sMemoryAccounting: %s\n"
+                "%sDmemAccounting: %s\n"
                 "%sTasksAccounting: %s\n"
                 "%sIPAccounting: %s\n"
                 "%sCPUWeight: %" PRIu64 "\n"
@@ -517,6 +584,9 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 "%sMemoryZSwapMax: %" PRIu64 "%s\n"
                 "%sStartupMemoryZSwapMax: %" PRIu64 "%s\n"
                 "%sMemoryZSwapWriteback: %s\n"
+                "%sDmemMin: %" PRIu64 "%s\n"
+                "%sDmemLow: %" PRIu64 "%s\n"
+                "%sDmemMax: %" PRIu64 "%s\n"
                 "%sTasksMax: %" PRIu64 "\n"
                 "%sDevicePolicy: %s\n"
                 "%sDisableControllers: %s\n"
@@ -529,6 +599,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 "%sCoredumpReceive: %s\n",
                 prefix, yes_no(c->io_accounting),
                 prefix, yes_no(c->memory_accounting),
+                prefix, yes_no(c->dmem_accounting),
                 prefix, yes_no(c->tasks_accounting),
                 prefix, yes_no(c->ip_accounting),
                 prefix, c->cpu_weight,
@@ -553,6 +624,9 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 prefix, c->memory_zswap_max, format_cgroup_memory_limit_comparison(u, "MemoryZSwapMax", cdj, sizeof(cdj)),
                 prefix, c->startup_memory_zswap_max, format_cgroup_memory_limit_comparison(u, "StartupMemoryZSwapMax", cdk, sizeof(cdk)),
                 prefix, yes_no(c->memory_zswap_writeback),
+                prefix, c->dmem_min, format_cgroup_dmem_limit_comparison(u, "DmemMin", cdl, sizeof(cdl)),
+                prefix, c->dmem_low, format_cgroup_dmem_limit_comparison(u, "DmemLow", cdm, sizeof(cdm)),
+                prefix, c->dmem_max, format_cgroup_dmem_limit_comparison(u, "DmemMax", cdn, sizeof(cdn)),
                 prefix, cgroup_tasks_max_resolve(&c->tasks_max),
                 prefix, cgroup_device_policy_to_string(c->device_policy),
                 prefix, strempty(disable_controllers_str),
@@ -1240,6 +1314,14 @@ static bool cgroup_context_has_memory_config(CGroupContext *c) {
                c->memory_zswap_max != CGROUP_LIMIT_MAX || c->startup_memory_zswap_max_set;
 }
 
+static bool cgroup_context_has_dmem_config(CGroupContext *c) {
+        assert(c);
+
+        return c->dmem_min > 0 ||
+               c->dmem_low > 0 ||
+               c->dmem_max != CGROUP_LIMIT_MAX;
+}
+
 static void cgroup_apply_memory_limit(Unit *u, const char *file, uint64_t v) {
         char buf[DECIMAL_STR_MAX(uint64_t) + 1] = "max\n";
 
@@ -1502,6 +1584,12 @@ static void cgroup_context_apply(
                 (void) set_attribute_and_warn(u, "memory.zswap.writeback", one_zero(c->memory_zswap_writeback));
         }
 
+        if ((apply_mask & CGROUP_MASK_DMEM) && cgroup_context_has_dmem_config(c) && !is_local_root) {
+                cgroup_apply_memory_limit(u, "dmem.min", c->dmem_min);
+                cgroup_apply_memory_limit(u, "dmem.low", c->dmem_low);
+                cgroup_apply_memory_limit(u, "dmem.max", c->dmem_max);
+        }
+
         if (apply_mask & CGROUP_MASK_PIDS) {
 
                 if (is_host_root) {
@@ -1662,6 +1750,10 @@ static CGroupMask unit_get_cgroup_mask(Unit *u) {
         if (c->memory_accounting ||
             cgroup_context_has_memory_config(c))
                 mask |= CGROUP_MASK_MEMORY;
+
+        if (c->dmem_accounting ||
+            cgroup_context_has_dmem_config(c))
+                mask |= CGROUP_MASK_DMEM;
 
         if (cgroup_context_has_device_policy(c))
                 mask |= CGROUP_MASK_BPF_DEVICES;
@@ -3527,6 +3619,35 @@ finish:
         if (ret)
                 *ret = bytes;
 
+        return 0;
+}
+
+int unit_get_dmem_current(Unit *u, uint64_t *ret) {
+        uint64_t bytes;
+        int r;
+
+        assert(u);
+        assert(ret);
+
+        if (!UNIT_CGROUP_BOOL(u, dmem_accounting))
+                return -ENODATA;
+
+        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
+        if (!crt || !crt->cgroup_path)
+                return -ENODATA;
+
+        /* The root cgroup doesn't expose this information. */
+        if (unit_has_host_root_cgroup(u))
+                return -ENODATA;
+
+        if (!FLAGS_SET(crt->cgroup_realized_mask, CGROUP_MASK_DMEM))
+                return -ENODATA;
+
+        r = cg_get_attribute_as_uint64(crt->cgroup_path, "dmem.current", &bytes);
+        if (r < 0)
+                return r == -ENODATA ? -ENODATA : r;
+
+        *ret = bytes;
         return 0;
 }
 

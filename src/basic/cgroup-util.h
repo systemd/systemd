@@ -28,6 +28,8 @@ typedef enum CGroupController {
          * It's applied as late as possible in exec_invoke() so we don't block
          * our own unit setup code. */
 
+        CGROUP_CONTROLLER_DMEM,      /* v2 only */
+
         _CGROUP_CONTROLLER_MAX,
         _CGROUP_CONTROLLER_INVALID = -EINVAL,
 } CGroupController;
@@ -50,12 +52,13 @@ typedef enum CGroupMask {
         CGROUP_MASK_BPF_SOCKET_BIND = CGROUP_CONTROLLER_TO_MASK(CGROUP_CONTROLLER_BPF_SOCKET_BIND),
         CGROUP_MASK_BPF_RESTRICT_NETWORK_INTERFACES = CGROUP_CONTROLLER_TO_MASK(CGROUP_CONTROLLER_BPF_RESTRICT_NETWORK_INTERFACES),
         CGROUP_MASK_BPF_BIND_NETWORK_INTERFACE = CGROUP_CONTROLLER_TO_MASK(CGROUP_CONTROLLER_BPF_BIND_NETWORK_INTERFACE),
+        CGROUP_MASK_DMEM = CGROUP_CONTROLLER_TO_MASK(CGROUP_CONTROLLER_DMEM),
 
         /* All real cgroup v1 controllers */
         CGROUP_MASK_V1 = CGROUP_MASK_CPU|CGROUP_MASK_CPUACCT|CGROUP_MASK_BLKIO|CGROUP_MASK_MEMORY|CGROUP_MASK_DEVICES|CGROUP_MASK_PIDS,
 
         /* All real cgroup v2 controllers */
-        CGROUP_MASK_V2 = CGROUP_MASK_CPU|CGROUP_MASK_CPUSET|CGROUP_MASK_IO|CGROUP_MASK_MEMORY|CGROUP_MASK_PIDS,
+        CGROUP_MASK_V2 = CGROUP_MASK_CPU|CGROUP_MASK_CPUSET|CGROUP_MASK_IO|CGROUP_MASK_MEMORY|CGROUP_MASK_PIDS|CGROUP_MASK_DMEM,
 
         /* All controllers we want to delegate in case of Delegate=yes. Which are pretty much the v2 controllers only, as delegation on v1 is not safe, and bpf stuff isn't a real controller */
         CGROUP_MASK_DELEGATE = CGROUP_MASK_V2,
