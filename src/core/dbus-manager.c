@@ -652,6 +652,12 @@ static int method_get_unit_by_control_group(sd_bus_message *message, void *userd
         if (r < 0)
                 return r;
 
+        if (!path_is_absolute(cgroup))
+                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Control group path is not absolute: %s", cgroup);
+
+        if (!path_is_normalized(cgroup))
+                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Control group path is not normalized: %s", cgroup);
+
         u = manager_get_unit_by_cgroup(m, cgroup);
         if (!u)
                 return sd_bus_error_setf(reterr_error, BUS_ERROR_NO_SUCH_UNIT,
