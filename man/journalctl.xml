@@ -954,27 +954,27 @@
         <listitem><para><option>--vacuum-size=</option> removes the oldest archived journal files until the
         disk space they use falls below the specified size. Accepts the usual <literal>K</literal>,
         <literal>M</literal>, <literal>G</literal> and <literal>T</literal> suffixes (to the base of
-        1024). Default value of 0 means to do nothing.</para>
+        1024). Default value of 0 means the option does nothing.</para>
 
         <para><option>--vacuum-time=</option> removes archived journal files older than the specified
         timespan. Accepts the usual <literal>s</literal> (default), <literal>m</literal>,
         <literal>h</literal>, <literal>days</literal>, <literal>weeks</literal>, <literal>months</literal>,
         and <literal>years</literal> suffixes, see
         <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
-        details. Default value of 0 means to do nothing.</para>
+        details. Default value of 0 means the option does nothing.</para>
 
         <para><option>--vacuum-files=</option> leaves only the specified number of archived journal
-        files. Default value of 0 means to do nothing.</para>
+        files. Default value of 0 means the option does nothing.</para>
 
         <para><option>--vacuum-size=</option>, <option>--vacuum-time=</option> and
-        <option>--vacuum-files=</option> may be used together as a combined limit for size, time and a number
-        of archived files. Zero values are equivalent to not enforcing the specific limit, and is thus
+        <option>--vacuum-files=</option> may be used together as a combined limit for size, time and the
+        number of archived files. Zero values are equivalent to not enforcing the specific limit, and is thus
         redundant. The resulting command can be combined with <option>--rotate</option> as well.</para>
 
         <para>Note that all three vacuum commands operate on archived journal files and don't clean active
         files that are also reported by <option>--disk-usage</option>. To vacuum entries in active journals,
-        add <option>--rotate</option> that archives all active files first, and then the requested vacuum
-        operation is executed.</para>
+        add <option>--rotate</option>, which causes all active journal files to be archived, before the
+        requested vacuuming operation is performed.</para>
           
         <xi:include href="version-info.xml" xpointer="v218"/></listitem>
       </varlistentry>
