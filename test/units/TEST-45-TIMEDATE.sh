@@ -426,6 +426,10 @@ EOF
     [[ "$servers" == 'as 4 "10.0.0.1" "foo" "192.168.99.1" "bar"' ]]
     assert_timesyncd_signal "$ts" RuntimeNTPServers "10.0.0.1 foo 192.168.99.1 bar"
 
+    # SecureTime
+    secure="$(busctl get-property org.freedesktop.timesync1 /org/freedesktop/timesync1 org.freedesktop.timesync1.Manager SecureTime)"
+    [[ "$secure" == "b false" ]]
+
     # Cleanup
     systemctl stop systemd-networkd systemd-timesyncd
     rm -f /run/systemd/network/ntp99.*
@@ -520,9 +524,11 @@ EOF
     assert_timesyncd_ntp_message "$ts"
 
     servers="$(busctl get-property org.freedesktop.timesync1 /org/freedesktop/timesync1 org.freedesktop.timesync1.Manager NTSKeyExchangeServers)"
+    secure="$(busctl get-property org.freedesktop.timesync1 /org/freedesktop/timesync1 org.freedesktop.timesync1.Manager SecureTime)"
     chosen_server="$(busctl get-property org.freedesktop.timesync1 /org/freedesktop/timesync1 org.freedesktop.timesync1.Manager ServerName)"
     [[ "$servers" == "as 3 \"does.not.exist\" \"$mock_server\" \"not.found\"" ]]
     [[ "$chosen_server" == "s \"$mock_server\"" ]]
+    [[ "$secure" == "b true" ]]
 
     # Cleanup
     rm server.key server.crt /etc/ssl/certs/CA.crt /etc/systemd/timesyncd.conf
