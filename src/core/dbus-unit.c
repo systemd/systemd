@@ -1559,9 +1559,9 @@ static int property_get_effective_limit(
 }
 
 int bus_unit_method_attach_processes(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
+        Unit *u = ASSERT_PTR(userdata);
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         _cleanup_set_free_ Set *pids = NULL;
-        Unit *u = userdata;
         const char *path;
         int r;
 
@@ -1599,12 +1599,22 @@ int bus_unit_method_attach_processes(sd_bus_message *message, void *userdata, sd
         if (r < 0)
                 return r;
 
+        /* Let's query the sender's UID, so that we can make our security decisions */
+        uid_t sender_uid;
+        r = sd_bus_creds_get_euid(creds, &sender_uid);
+        if (r < 0)
+                return r;
+        bool validate_ownership = sender_uid != 0 && sender_uid != getuid();
+
+        if (validate_ownership && !uid_is_valid(u->ref_uid)) /* process_is_owned_by_uid() requires a valid uid */
+                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_ACCESS_DENIED,
+                                         "Refusing to attach processes to unit with unknown user credentials.");
+
         r = sd_bus_message_enter_container(message, 'a', "u");
         if (r < 0)
                 return r;
         for (;;) {
                 _cleanup_(pidref_freep) PidRef *pidref = NULL;
-                uid_t sender_uid;
                 uint32_t upid;
 
                 r = sd_bus_message_read(message, "u", &upid);
@@ -1634,24 +1644,16 @@ int bus_unit_method_attach_processes(sd_bus_message *message, void *userdata, sd
                 if (r < 0)
                         return r;
 
-                /* Let's query the sender's UID, so that we can make our security decisions */
-                r = sd_bus_creds_get_euid(creds, &sender_uid);
-                if (r < 0)
-                        return r;
-
                 /* Let's validate security: if the sender is root or the owner of the service manager, then
                  * all is OK. If the sender is any other user, then the process in question must be owned by
                  * both the sender and the target unit's UID. Note that ownership here means either direct
                  * ownership, or indirect via a userns that is owned by the right UID. */
-                if (sender_uid != 0 && sender_uid != getuid()) {
+                if (validate_ownership) {
                         r = process_is_owned_by_uid(pidref, sender_uid);
                         if (r < 0)
                                 return sd_bus_error_set_errnof(reterr_error, r, "Failed to check if process " PID_FMT " is owned by client's UID: %m", pidref->pid);
                         if (r == 0)
                                 return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_ACCESS_DENIED, "Process " PID_FMT " not owned by client's UID. Refusing.", pidref->pid);
-
-                        if (!uid_is_valid(u->ref_uid)) /* process_is_owned_by_uid() requires a valid uid */
-                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_ACCESS_DENIED, "Unit does not have a valid ref_uid, refusing to attach process " PID_FMT ".", pidref->pid);
 
                         r = process_is_owned_by_uid(pidref, u->ref_uid);
                         if (r < 0)

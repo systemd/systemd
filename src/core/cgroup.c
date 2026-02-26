@@ -2145,12 +2145,13 @@ static int unit_update_cgroup(
         return 0;
 }
 
-static int unit_attach_pid_to_cgroup_via_bus(Unit *u, pid_t pid, const char *suffix_path) {
+static int unit_attach_pid_to_cgroup_via_bus(Unit *u, const char *cgroup_path, pid_t pid) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        char *pp;
         int r;
 
         assert(u);
+        assert(cgroup_path);
+        assert(pid_is_valid(pid));
 
         if (MANAGER_IS_SYSTEM(u->manager))
                 return -EINVAL;
@@ -2158,17 +2159,12 @@ static int unit_attach_pid_to_cgroup_via_bus(Unit *u, pid_t pid, const char *suf
         if (!u->manager->system_bus)
                 return -EIO;
 
-        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
-        if (!crt || !crt->cgroup_path)
-                return -EOWNERDEAD;
-
         /* Determine this unit's cgroup path relative to our cgroup root */
-        pp = path_startswith(crt->cgroup_path, u->manager->cgroup_root);
+        const char *pp = path_startswith_full(cgroup_path,
+                                              u->manager->cgroup_root,
+                                              PATH_STARTSWITH_RETURN_LEADING_SLASH|PATH_STARTSWITH_REFUSE_DOT_DOT);
         if (!pp)
                 return -EINVAL;
-
-        pp = strjoina("/", pp, suffix_path);
-        path_simplify(pp);
 
         r = bus_call_method(u->manager->system_bus,
                             bus_systemd_mgr,
@@ -2202,8 +2198,10 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
         CGroupRuntime *crt = ASSERT_PTR(unit_get_cgroup_runtime(u));
 
         if (isempty(suffix_path))
-                p = crt->cgroup_path;
+                p = empty_to_root(crt->cgroup_path);
         else {
+                assert(path_is_absolute(suffix_path));
+
                 joined = path_join(crt->cgroup_path, suffix_path);
                 if (!joined)
                         return -ENOMEM;
@@ -2219,7 +2217,7 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
                  * before we use it */
                 r = pidref_verify(pid);
                 if (r < 0) {
-                        log_unit_info_errno(u, r, "PID " PID_FMT " vanished before we could move it to target cgroup '%s', skipping: %m", pid->pid, empty_to_root(p));
+                        log_unit_info_errno(u, r, "PID " PID_FMT " vanished before we could move it to target cgroup '%s', skipping: %m", pid->pid, p);
                         continue;
                 }
 
@@ -2229,7 +2227,7 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
 
                         log_unit_full_errno(u, again ? LOG_DEBUG : LOG_INFO,  r,
                                             "Couldn't move process "PID_FMT" to%s requested cgroup '%s': %m",
-                                            pid->pid, again ? " directly" : "", empty_to_root(p));
+                                            pid->pid, again ? " directly" : "", p);
 
                         if (again) {
                                 int z;
@@ -2239,11 +2237,11 @@ int unit_attach_pids_to_cgroup(Unit *u, Set *pids, const char *suffix_path) {
                                  * Since it's more privileged it might be able to move the process across the
                                  * leaves of a subtree whose top node is not owned by us. */
 
-                                z = unit_attach_pid_to_cgroup_via_bus(u, pid->pid, suffix_path);
+                                z = unit_attach_pid_to_cgroup_via_bus(u, p, pid->pid);
                                 if (z >= 0)
                                         goto success;
 
-                                log_unit_info_errno(u, z, "Couldn't move process "PID_FMT" to requested cgroup '%s' (directly or via the system bus): %m", pid->pid, empty_to_root(p));
+                                log_unit_info_errno(u, z, "Couldn't move process "PID_FMT" to requested cgroup '%s' (directly or via the system bus): %m", pid->pid, p);
                         }
 
                         RET_GATHER(ret, r);
