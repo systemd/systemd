@@ -581,7 +581,7 @@ int dns_trust_anchor_lookup_negative(DnsTrustAnchor *d, const char *name) {
                 if (hashmap_contains(d->positive_by_key, &DNS_RESOURCE_KEY_CONST(DNS_CLASS_IN, DNS_TYPE_DS, name)))
                         return false;
 
-                if (hashmap_contains(d->positive_by_key, &DNS_RESOURCE_KEY_CONST(DNS_CLASS_IN, DNS_TYPE_KEY, name)))
+                if (hashmap_contains(d->positive_by_key, &DNS_RESOURCE_KEY_CONST(DNS_CLASS_IN, DNS_TYPE_DNSKEY, name)))
                         return false;
 
                 /* And now, let's look at the parent, and check that too */
