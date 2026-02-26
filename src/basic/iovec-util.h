@@ -24,6 +24,12 @@ struct iovec* iovec_make_string(struct iovec *iovec, const char *s);
                 .iov_len = STRLEN(s),           \
         }
 
+#define IOVEC_MAKE_BYTE(c)                                      \
+        (const struct iovec) {                                  \
+                .iov_base = (char*) ((const char[]) { c }),     \
+                .iov_len = 1,                                   \
+        }
+
 void iovec_done_erase(struct iovec *iovec);
 
 char* set_iovec_string_field(struct iovec *iovec, size_t *n_iovec, const char *field, const char *value);
