@@ -39,6 +39,7 @@
 #DNSStubListener=yes
 #DNSStubListenerExtra=
 #ReadEtcHosts=yes
+#ReadStaticRecords=yes
 #ResolveUnicastSingleLabel=no
 #StaleRetentionSec=0
 #RefuseRecordTypes=
