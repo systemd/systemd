@@ -75,7 +75,7 @@ CHANGES WITH 260 in spe:
 
         New system interfaces and components:
 
-        * The os-release(3) gained a new field FANCY_NAME= that is similar
+        * The os-release(5) gained a new field FANCY_NAME= that is similar
           to PRETTY_NAME= but may contain ANSI sequences such as Unicode
           emojis. The new field is also defined to NOT contain any version
           specification, providing better separation between the OS name
