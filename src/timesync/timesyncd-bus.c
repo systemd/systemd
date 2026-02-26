@@ -158,6 +158,27 @@ static usec_t ntp_ts_to_usec(const struct ntp_ts *ts) {
         return (be32toh(ts->sec) - OFFSET_1900_1970) * USEC_PER_SEC + (be32toh(ts->frac) * USEC_PER_SEC) / (usec_t) 0x100000000ULL;
 }
 
+static int property_get_nts_status(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        assert(bus);
+        assert(reply);
+
+#if ENABLE_TIMESYNC_NTS
+        NTS_Cookie *cookie = ASSERT_PTR(userdata);
+
+        return sd_bus_message_append(reply, "b", cookie->data != NULL);
+#else
+        return sd_bus_message_append(reply, "b", false);
+#endif
+}
+
 static int property_get_ntp_message(
                 sd_bus *bus,
                 const char *path,
@@ -221,6 +242,11 @@ static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_PROPERTY("PollIntervalUSec", "t", bus_property_get_usec, offsetof(Manager, poll_interval_usec), 0),
         SD_BUS_PROPERTY("NTPMessage", "(uuuuittayttttbtt)", property_get_ntp_message, 0, SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Frequency", "x", NULL, offsetof(Manager, drift_freq), 0),
+#if ENABLE_TIMESYNC_NTS
+        SD_BUS_PROPERTY("SecureTime", "b", property_get_nts_status, offsetof(Manager, nts_cookies), 0),
+#else
+        SD_BUS_PROPERTY("SecureTime", "b", property_get_nts_status, offsetof(Manager, current_server_name), 0),
+#endif
 
         SD_BUS_METHOD_WITH_ARGS("SetRuntimeNTPServers",
                                 SD_BUS_ARGS("as", runtime_servers),
