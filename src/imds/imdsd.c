@@ -1318,7 +1318,7 @@ static int vl_method_get_vendor_info(sd_varlink *link, sd_json_variant *paramete
                         JSON_BUILD_PAIR_STRV_NON_EMPTY("extraHeader", arg_extra_header),
                         JSON_BUILD_PAIR_IN4_ADDR_NON_NULL("addressIPv4", &arg_address_ipv4),
                         JSON_BUILD_PAIR_IN6_ADDR_NON_NULL("addressIPv6", &arg_address_ipv6),
-                        JSON_BUILD_PAIR_VARIANT_NON_EMPTY("wellKnownProperty", wkj));
+                        JSON_BUILD_PAIR_VARIANT_NON_EMPTY("wellKnown", wkj));
 }
 
 static int vl_server(void) {
@@ -1415,7 +1415,6 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_FWMARK,
                 ARG_CACHE,
                 ARG_WAIT,
-                ARG_WELL_KNOWN,
                 ARG_VENDOR,
                 ARG_TOKEN_URL,
                 ARG_REFRESH_HEADER_NAME,
@@ -1435,7 +1434,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "fwmark",              required_argument, NULL, ARG_FWMARK              },
                 { "cache",               required_argument, NULL, ARG_CACHE               },
                 { "wait",                required_argument, NULL, ARG_WAIT                },
-                { "well-known",          required_argument, NULL, ARG_WELL_KNOWN          },
+                { "well-known",          required_argument, NULL, 'K'                     },
                 { "token-url",           required_argument, NULL, ARG_TOKEN_URL           },
                 { "refresh-header-name", required_argument, NULL, ARG_REFRESH_HEADER_NAME },
                 { "data-url",            required_argument, NULL, ARG_DATA_URL            },
@@ -1532,7 +1531,7 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_wait = true;
                         break;
 
-                case ARG_WELL_KNOWN: {
+                case 'K': {
                         if (isempty(optarg)) {
                                 arg_well_known = _IMDS_WELL_KNOWN_INVALID;
                                 break;
@@ -1712,6 +1711,7 @@ static const char *imds_well_known_udev_table[] = {
         [IMDS_ZONE]            = "IMDS_KEY_ZONE",
         [IMDS_IPV4_PUBLIC]     = "IMDS_KEY_IPV4_PUBLIC",
         [IMDS_IPV6_PUBLIC]     = "IMDS_KEY_IPV6_PUBLIC",
+        [IMDS_SSH_KEY]         = "IMDS_KEY_SSH_KEY",
         [IMDS_USERDATA]        = "IMDS_KEY_USERDATA",
         [IMDS_USERDATA_BASE]   = "IMDS_KEY_USERDATA_BASE",
         [IMDS_USERDATA_BASE64] = "IMDS_KEY_USERDATA_BASE64",

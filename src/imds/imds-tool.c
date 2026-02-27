@@ -117,6 +117,9 @@ static int parse_argv(int argc, char *argv[]) {
                                 break;
                         }
 
+                        if (streq(optarg, "help"))
+                                return DUMP_STRING_TABLE(imds_well_known, ImdsWellKnown, _IMDS_WELL_KNOWN_MAX);
+
                         ImdsWellKnown wk = imds_well_known_from_string(optarg);
                         if (wk < 0)
                                 return log_error_errno(wk, "Failed to parse --well-known= argument: %s", optarg);
@@ -171,24 +174,29 @@ static int parse_argv(int argc, char *argv[]) {
         } else {
                 assert(arg_action < 0);
 
-                if (argc == optind)
+                if (argc > optind + 1)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "None or one argument expected.");
+
+                if (argc == optind && arg_well_known < 0)
                         arg_action = ACTION_SUMMARY;
-                else if (argc == optind+1) {
-                        if (!imds_key_is_valid(argv[optind]))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Specified IMDS key is not valid, refusing: %s", argv[optind]);
-
-                        r = free_and_strdup_warn(&arg_key, argv[optind]);
-                        if (r < 0)
-                                return r;
-
+                else {
                         if (arg_well_known < 0)
                                 arg_well_known = IMDS_BASE;
-                        else if (!imds_well_known_can_suffix(arg_well_known))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Well known key '%s' does not take a key suffix, refusing.", imds_well_known_to_string(arg_well_known));
+
+                        if (argc > optind) {
+                                if (!imds_key_is_valid(argv[optind]))
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Specified IMDS key is not valid, refusing: %s", argv[optind]);
+
+                                if (!imds_well_known_can_suffix(arg_well_known))
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Well known key '%s' does not take a key suffix, refusing.", imds_well_known_to_string(arg_well_known));
+
+                                r = free_and_strdup_warn(&arg_key, argv[optind]);
+                                if (r < 0)
+                                        return r;
+                        }
 
                         arg_action = ACTION_GET;
-                } else
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "None or one argument expected.");
+                }
         }
 
         return 1;
@@ -208,7 +216,7 @@ static int acquire_imds_key(
         assert(ret);
 
         const char *error_id = NULL;
-        /* _cleanup_(sd_json_variant_unrefp) */ sd_json_variant *reply = NULL;
+        sd_json_variant *reply = NULL;
         r = sd_varlink_callbo(
                         link,
                         "io.systemd.InstanceMetadata.Get",
@@ -272,6 +280,35 @@ static int acquire_imds_key_as_string(
         return 1;
 }
 
+static int acquire_imds_key_as_ip_address(
+                sd_varlink *link,
+                ImdsWellKnown wk,
+                const char *key,
+                int family,
+                union in_addr_union *ret) {
+        int r;
+
+        assert(link);
+        assert(wk >= 0);
+        assert(wk < _IMDS_WELL_KNOWN_MAX);
+        assert(ret);
+
+        _cleanup_free_ char *s = NULL;
+        r = acquire_imds_key_as_string(link, wk, key, &s);
+        if (r < 0)
+                return r;
+        if (r == 0 || isempty(s)) {
+                *ret = (union in_addr_union) {};
+                return 0;
+        }
+
+        r = in_addr_from_string(family, s, ret);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
 static int action_summary(sd_varlink *link) {
         int r;
 
@@ -282,7 +319,7 @@ static int action_summary(sd_varlink *link) {
                 return log_oom();
 
         const char *error_id = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
+        sd_json_variant *reply = NULL;
         r = sd_varlink_call(
                         link,
                         "io.systemd.InstanceMetadata.GetVendorInfo",
@@ -522,18 +559,19 @@ static int import_credentials(const char *text) {
         return ret;
 }
 
-static int add_address_to_json_array(sd_json_variant **array, int family, const union in_addr_union *addr) {
+static int add_address_to_json_array(sd_json_variant **array, int family, const union in_addr_union *addr, const char *name) {
         int r;
 
         assert(array);
         assert(IN_SET(family, AF_INET, AF_INET6));
         assert(addr);
+        assert(name);
 
         if (in_addr_is_null(family, addr))
                 return 0;
 
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
-        if (dns_resource_record_new_address(&rr, family, addr, "_imds") < 0)
+        if (dns_resource_record_new_address(&rr, family, addr, name) < 0)
                 return log_oom();
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *rrj = NULL;
@@ -549,13 +587,19 @@ static int add_address_to_json_array(sd_json_variant **array, int family, const 
         return 1;
 }
 
-static int import_imds_hostname(sd_varlink *link) {
+static int get_imds_server_addresses(
+                sd_varlink *link,
+                struct in_addr *ret_in4,
+                struct in6_addr *ret_in6) {
+
         int r;
 
         assert(link);
+        assert(ret_in4);
+        assert(ret_in6);
 
         const char *error_id = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
+        sd_json_variant *reply = NULL;
         r = sd_varlink_call(
                         link,
                         "io.systemd.InstanceMetadata.GetVendorInfo",
@@ -576,20 +620,59 @@ static int import_imds_hostname(sd_varlink *link) {
                 { "addressIPv6", SD_JSON_VARIANT_ARRAY, json_dispatch_in6_addr, voffsetof(p, in6), 0 },
                 {}
         };
-        r = sd_json_dispatch(reply, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &p);
+        r = sd_json_dispatch(reply, dispatch_table, SD_JSON_LOG|SD_JSON_WARNING|SD_JSON_ALLOW_EXTENSIONS, &p);
         if (r < 0)
                 return r;
+
+        *ret_in4 = p.in4;
+        *ret_in6 = p.in6;
+        return 1;
+}
+
+static int import_imds_hostnames(sd_varlink *link) {
+        int r, ret = 0;
+
+        assert(link);
+
+        /* Creates local RRs from the IMDS endpoint address, as well as our public addresses. */
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *aj = NULL;
-        r = add_address_to_json_array(&aj, AF_INET, &IN_ADDR_UNION_FROM_IN4(p.in4));
+
+        union in_addr_union in4 = {}, in6 = {};
+        r = get_imds_server_addresses(link, &in4.in, &in6.in6);
         if (r < 0)
-                return r;
-        r = add_address_to_json_array(&aj, AF_INET6, &IN_ADDR_UNION_FROM_IN6(p.in6));
+                RET_GATHER(ret, r);
+        else {
+                r = add_address_to_json_array(&aj, AF_INET, &in4, "_imds");
+                if (r < 0)
+                        return r;
+                r = add_address_to_json_array(&aj, AF_INET6, &in6, "_imds");
+                if (r < 0)
+                        return r;
+        }
+
+        union in_addr_union u = {};
+        r = acquire_imds_key_as_ip_address(link, IMDS_IPV4_PUBLIC, /* key= */ NULL, AF_INET, &u);
         if (r < 0)
-                return r;
+                RET_GATHER(ret, r);
+        else if (r > 0) {
+                r = add_address_to_json_array(&aj, AF_INET, &u, "_public");
+                if (r < 0)
+                        return r;
+        }
+
+        u = (union in_addr_union) {};
+        r = acquire_imds_key_as_ip_address(link, IMDS_IPV6_PUBLIC, /* key= */ NULL, AF_INET6, &u);
+        if (r < 0)
+                RET_GATHER(ret, r);
+        else if (r > 0) {
+                r = add_address_to_json_array(&aj, AF_INET6, &u, "_public");
+                if (r < 0)
+                        return r;
+        }
 
         if (sd_json_variant_elements(aj) == 0) {
-                log_debug("No IMDS server addresses known, not writing our RRs.");
+                log_debug("No IMDS addresses known, not writing our RRs.");
                 return 0;
         }
 
@@ -723,12 +806,13 @@ static int action_import(sd_varlink *link) {
 
         assert(link);
 
-        int ret = import_imds_hostname(link);
+        int ret = import_imds_hostnames(link);
+        /* RET_GATHER(ret, import_imds_ssh_key(link)); */
 
         _cleanup_(iovec_done) struct iovec data = {};
         r = acquire_imds_userdata(link, &data);
         if (r < 0)
-                return r;
+                return RET_GATHER(ret, r);
         if (r == 0) {
                 log_info("Not IMDS data available, not importing credentials.");
                 (void) remove_userdata("/run/systemd/imds/userdata");
