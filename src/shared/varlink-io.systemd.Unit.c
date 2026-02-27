@@ -137,6 +137,16 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#AllowedMemoryNodes="),
                 SD_VARLINK_DEFINE_FIELD(StartupAllowedMemoryNodes, SD_VARLINK_INT, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
 
+                /* Dmem Accounting and Control */
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#DmemAccounting="),
+                SD_VARLINK_DEFINE_FIELD(DmemAccounting, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#DmemMin=bytes"),
+                SD_VARLINK_DEFINE_FIELD(DmemMin, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#DmemLow=bytes"),
+                SD_VARLINK_DEFINE_FIELD(DmemLow, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#DmemMax=bytes"),
+                SD_VARLINK_DEFINE_FIELD(DmemMax, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+
                 /* Process Accounting and Control
                  * https://www.freedesktop.org/software/systemd/man/latest/systemd.resource-control.html#Process%20Accounting%20and%20Control */
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#TasksAccounting="),

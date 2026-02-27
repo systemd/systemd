@@ -407,6 +407,10 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("MemoryZSwapMax", "t", NULL, offsetof(CGroupContext, memory_zswap_max), 0),
         SD_BUS_PROPERTY("StartupMemoryZSwapMax", "t", NULL, offsetof(CGroupContext, startup_memory_zswap_max), 0),
         SD_BUS_PROPERTY("MemoryZSwapWriteback", "b", bus_property_get_bool, offsetof(CGroupContext, memory_zswap_writeback), 0),
+        SD_BUS_PROPERTY("DmemAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, dmem_accounting), 0),
+        SD_BUS_PROPERTY("DmemMin", "t", NULL, offsetof(CGroupContext, dmem_min), 0),
+        SD_BUS_PROPERTY("DmemLow", "t", NULL, offsetof(CGroupContext, dmem_low), 0),
+        SD_BUS_PROPERTY("DmemMax", "t", NULL, offsetof(CGroupContext, dmem_max), 0),
         SD_BUS_PROPERTY("DevicePolicy", "s", property_get_cgroup_device_policy, offsetof(CGroupContext, device_policy), 0),
         SD_BUS_PROPERTY("DeviceAllow", "a(ss)", property_get_device_allow, 0, 0),
         SD_BUS_PROPERTY("TasksAccounting", "b", bus_property_get_bool, offsetof(CGroupContext, tasks_accounting), 0),
@@ -918,6 +922,8 @@ BUS_DEFINE_SET_CGROUP_LIMIT(memory, CGROUP_MASK_MEMORY, physical_memory_scale, 1
 BUS_DEFINE_SET_CGROUP_LIMIT(memory_protection, CGROUP_MASK_MEMORY, physical_memory_scale, 0);
 BUS_DEFINE_SET_CGROUP_LIMIT(swap, CGROUP_MASK_MEMORY, physical_memory_scale, 0);
 BUS_DEFINE_SET_CGROUP_LIMIT(zswap, CGROUP_MASK_MEMORY, physical_memory_scale, 0);
+BUS_DEFINE_SET_CGROUP_LIMIT(dmem, CGROUP_MASK_DMEM, physical_memory_scale, 1);
+BUS_DEFINE_SET_CGROUP_LIMIT(dmem_protection, CGROUP_MASK_DMEM, physical_memory_scale, 0);
 REENABLE_WARNING;
 
 static int bus_cgroup_set_cpu_weight(
@@ -1127,6 +1133,18 @@ int bus_cgroup_set_property(
 
         if (streq(name, "MemoryZSwapWriteback"))
                 return bus_cgroup_set_boolean(u, name, &c->memory_zswap_writeback, CGROUP_MASK_MEMORY, message, flags, reterr_error);
+
+        if (streq(name, "DmemAccounting"))
+                return bus_cgroup_set_boolean(u, name, &c->dmem_accounting, CGROUP_MASK_DMEM, message, flags, reterr_error);
+
+        if (streq(name, "DmemMin"))
+                return bus_cgroup_set_dmem_protection(u, name, &c->dmem_min, message, flags, reterr_error);
+
+        if (streq(name, "DmemLow"))
+                return bus_cgroup_set_dmem_protection(u, name, &c->dmem_low, message, flags, reterr_error);
+
+        if (streq(name, "DmemMax"))
+                return bus_cgroup_set_dmem(u, name, &c->dmem_max, message, flags, reterr_error);
 
         if (streq(name, "TasksAccounting"))
                 return bus_cgroup_set_boolean(u, name, &c->tasks_accounting, CGROUP_MASK_PIDS, message, flags, reterr_error);
