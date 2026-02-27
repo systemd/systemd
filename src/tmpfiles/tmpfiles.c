@@ -2423,8 +2423,8 @@ static int create_symlink(Context *c, Item *i) {
                 r = chase(i->argument, arg_root, CHASE_SAFE|CHASE_PREFIX_ROOT|CHASE_NOFOLLOW, /* ret_path= */ NULL, /* ret_fd= */ NULL);
                 if (r == -ENOENT) {
                         /* Silently skip over lines where the source file is missing. */
-                        log_info("Symlink source path '%s/%s' does not exist, skipping line.",
-                                 strempty(arg_root), skip_leading_slash(i->argument));
+                        log_debug_errno(r, "Symlink source path '%s/%s' does not exist, skipping line.",
+                                        strempty(arg_root), skip_leading_slash(i->argument));
                         return 0;
                 }
                 if (r < 0)
