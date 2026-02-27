@@ -3853,6 +3853,53 @@ int config_parse_memory_limit(
         return 0;
 }
 
+int config_parse_dmem_limit(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        CGroupContext *c = data;
+        uint64_t bytes = CGROUP_LIMIT_MAX;
+        int r;
+
+        if (isempty(rvalue)) {
+                if (STR_IN_SET(lvalue, "DmemMin", "DmemLow"))
+                        bytes = CGROUP_LIMIT_MIN;
+                else
+                        bytes = CGROUP_LIMIT_MAX;
+        } else if (!streq(rvalue, "infinity")) {
+                r = parse_size(rvalue, 1024, &bytes);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid dmem limit '%s', ignoring: %m", rvalue);
+                        return 0;
+                }
+
+                if (bytes >= UINT64_MAX ||
+                    (bytes <= 0 && !STR_IN_SET(lvalue, "DmemMin", "DmemLow"))) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Dmem limit '%s' out of range, ignoring.", rvalue);
+                        return 0;
+                }
+        }
+
+        if (streq(lvalue, "DmemMin")) {
+                c->dmem_min = bytes;
+        } else if (streq(lvalue, "DmemLow")) {
+                c->dmem_low = bytes;
+        } else if (streq(lvalue, "DmemMax")) {
+                c->dmem_max = bytes;
+        } else
+                return -EINVAL;
+
+        return 0;
+}
+
 int config_parse_tasks_max(
                 const char *unit,
                 const char *filename,

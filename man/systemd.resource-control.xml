@@ -520,6 +520,88 @@ CPUWeight=20   DisableControllers=cpu              /          \
 
     </variablelist>
 
+    </refsect2><refsect2><title>Dmem Accounting and Control</title>
+
+    <variablelist class='unit-directives'>
+
+      <varlistentry>
+        <term><varname>DmemAccounting=</varname></term>
+
+        <listitem>
+          <para>This setting controls the <option>dmem</option> controller in the unified hierarchy.</para>
+
+          <para>Turn on Dmem accounting for this unit. Takes a boolean argument. If enabled, the kernel will
+          keep track of the total amount of Dmem used by the unit and its children. This number includes both
+          kernel threads and userspace processes, with each thread counted individually. Note that turning on
+          Dmem accounting for one unit will also implicitly turn it on for all units contained in the same
+          slice and for all its parent slices and the units contained therein. The system default for this
+          setting may be controlled with <varname>DefaultDmemAccounting=</varname> in
+          <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v259"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>DmemMin=<replaceable>bytes</replaceable></varname></term>
+
+        <listitem>
+          <para>This setting controls the <option>dmem</option> controller in the unified hierarchy.</para>
+
+          <para>Specify a minimum amount of Dmem to protect from reclaim for the unit. This is a hard protection:
+          reclaim will avoid Dmem of the unit as long as usage is below this value.</para>
+
+          <para>Takes a size in bytes. If the value is suffixed with K, M, G or T, the specified size is
+          parsed as Kilobytes, Megabytes, Gigabytes, or Terabytes (with the base 1024), respectively. If assigned the
+          special value <literal>infinity</literal>, all available Dmem is protected, which may be useful in order to always
+          inherit all of the protection afforded by ancestors. This controls the <literal>dmem.min</literal> control group
+          attribute. For details about this control group attribute,
+          see <ulink url="https://docs.kernel.org/admin-guide/cgroup-v2.html#dmem-interface-files">Dmem Interface Files</ulink>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v259"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>DmemLow=<replaceable>bytes</replaceable></varname></term>
+
+        <listitem>
+          <para>This setting controls the <option>dmem</option> controller in the unified hierarchy.</para>
+
+          <para>Specify a low amount of Dmem to protect from reclaim for the unit. This is a best-effort protection:
+          reclaim will prefer other cgroups but may still reclaim Dmem from the unit if necessary.</para>
+
+          <para>Takes a size in bytes. If the value is suffixed with K, M, G or T, the specified size is
+          parsed as Kilobytes, Megabytes, Gigabytes, or Terabytes (with the base 1024), respectively. If assigned the
+          special value <literal>infinity</literal>, all available Dmem is protected, which may be useful in order to
+          always inherit all of the protection afforded by ancestors. This controls the <literal>dmem.low</literal>
+          control group attribute. For details about this control group attribute,
+          see <ulink url="https://docs.kernel.org/admin-guide/cgroup-v2.html#dmem-interface-files">Dmem Interface Files</ulink>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v259"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>DmemMax=<replaceable>bytes</replaceable></varname></term>
+
+        <listitem>
+          <para>This setting controls the <option>dmem</option> controller in the unified hierarchy.</para>
+
+          <para>Specify the maximum amount of Dmem that may be used by the unit. This ensures that the amount of Dmem
+          used by the unit stays below a specific limit</para>
+
+          <para>Takes a size in bytes. If the value is suffixed with K, M, G or T, the specified size is
+          parsed as Kilobytes, Megabytes, Gigabytes, or Terabytes (with the base 1024), respectively. If assigned the
+          special value <literal>infinity</literal>, no Dmem limit is applied. This controls the <literal>dmem.max</literal>
+          control group attribute. For details about this control group attribute,
+          see <ulink url="https://docs.kernel.org/admin-guide/cgroup-v2.html#dmem-interface-files">Dmem Interface Files</ulink>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v259"/>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+
     </refsect2><refsect2><title>Process Accounting and Control</title>
 
     <variablelist class='unit-directives'>

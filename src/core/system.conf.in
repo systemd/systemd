@@ -57,6 +57,7 @@
 #DefaultIOAccounting=no
 #DefaultIPAccounting=no
 #DefaultMemoryAccounting={{ 'yes' if MEMORY_ACCOUNTING_DEFAULT else 'no' }}
+#DefaultDmemAccounting=no
 #DefaultTasksAccounting=yes
 #DefaultTasksMax=15%
 #DefaultLimitCPU=

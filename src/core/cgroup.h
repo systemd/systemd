@@ -111,6 +111,7 @@ typedef struct CGroupContext {
         bool memory_accounting;
         bool tasks_accounting;
         bool ip_accounting;
+        bool dmem_accounting;
 
         /* Configures the memory.oom.group attribute (on unified) */
         bool memory_oom_group;
@@ -156,6 +157,10 @@ typedef struct CGroupContext {
         bool startup_memory_zswap_max_set:1;
 
         bool memory_zswap_writeback;
+
+        uint64_t dmem_min;
+        uint64_t dmem_low;
+        uint64_t dmem_max;
 
         Set *ip_address_allow;
         Set *ip_address_deny;
@@ -412,6 +417,7 @@ int unit_search_main_pid(Unit *u, PidRef *ret);
 
 int unit_get_memory_available(Unit *u, uint64_t *ret);
 int unit_get_memory_accounting(Unit *u, CGroupMemoryAccountingMetric metric, uint64_t *ret);
+int unit_get_dmem_current(Unit *u, uint64_t *ret);
 int unit_get_tasks_current(Unit *u, uint64_t *ret);
 int unit_get_cpu_usage(Unit *u, nsec_t *ret);
 int unit_get_io_accounting(Unit *u, CGroupIOAccountingMetric metric, uint64_t *ret);

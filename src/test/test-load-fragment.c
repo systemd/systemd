@@ -878,6 +878,42 @@ TEST(config_parse_memory_limit) {
         }
 }
 
+TEST(config_parse_dmem_limit) {
+        CGroupContext c;
+        struct limit_test {
+                const char *limit;
+                const char *value;
+                uint64_t *result;
+                uint64_t expected;
+        } limit_tests[]= {
+                { "DmemMin", "",         &c.dmem_min, CGROUP_LIMIT_MIN },
+                { "DmemMin", "0",        &c.dmem_min, CGROUP_LIMIT_MIN },
+                { "DmemMin", "10",       &c.dmem_min, 10 },
+                { "DmemMin", "infinity", &c.dmem_min, CGROUP_LIMIT_MAX },
+                { "DmemLow", "",         &c.dmem_low, CGROUP_LIMIT_MIN },
+                { "DmemLow", "0",        &c.dmem_low, CGROUP_LIMIT_MIN },
+                { "DmemLow", "10",       &c.dmem_low, 10 },
+                { "DmemLow", "infinity", &c.dmem_low, CGROUP_LIMIT_MAX },
+                { "DmemMax", "",         &c.dmem_max, CGROUP_LIMIT_MAX },
+                { "DmemMax", "0",        &c.dmem_max, CGROUP_LIMIT_DUMMY },
+                { "DmemMax", "10",       &c.dmem_max, 10 },
+                { "DmemMax", "infinity", &c.dmem_max, CGROUP_LIMIT_MAX },
+        };
+
+        FOREACH_ELEMENT(test, limit_tests) {
+                c.dmem_min = CGROUP_LIMIT_DUMMY;
+                c.dmem_low = CGROUP_LIMIT_DUMMY;
+                c.dmem_max = CGROUP_LIMIT_DUMMY;
+                log_info("%s=%s\t%"PRIu64"==%"PRIu64,
+                         test->limit, test->value,
+                         *test->result, test->expected);
+                ASSERT_OK(config_parse_dmem_limit(NULL, "fake", 1, "section", 1,
+                                                  test->limit, 1,
+                                                  test->value, &c, NULL));
+                ASSERT_EQ(*test->result, test->expected);
+        }
+}
+
 TEST(contains_instance_specifier_superset) {
         ASSERT_TRUE(contains_instance_specifier_superset("foobar@a%i"));
         ASSERT_TRUE(contains_instance_specifier_superset("foobar@%ia"));

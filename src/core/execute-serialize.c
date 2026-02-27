@@ -52,6 +52,10 @@ static int exec_cgroup_context_serialize(const CGroupContext *c, FILE *f) {
         if (r < 0)
                 return r;
 
+        r = serialize_bool_elide(f, "exec-cgroup-context-dmem-accounting", c->dmem_accounting);
+        if (r < 0)
+                return r;
+
         r = serialize_bool_elide(f, "exec-cgroup-context-tasks-accounting", c->tasks_accounting);
         if (r < 0)
                 return r;
@@ -201,6 +205,25 @@ static int exec_cgroup_context_serialize(const CGroupContext *c, FILE *f) {
         r = serialize_bool(f, "exec-cgroup-context-memory-zswap-writeback", c->memory_zswap_writeback);
         if (r < 0)
                 return r;
+
+
+        if (c->dmem_min > 0) {
+                r = serialize_item_format(f, "exec-cgroup-context-dmem-min", "%" PRIu64, c->dmem_min);
+                if (r < 0)
+                        return r;
+        }
+
+        if (c->dmem_low > 0) {
+                r = serialize_item_format(f, "exec-cgroup-context-dmem-low", "%" PRIu64, c->dmem_low);
+                if (r < 0)
+                        return r;
+        }
+
+        if (c->dmem_max != CGROUP_LIMIT_MAX) {
+                r = serialize_item_format(f, "exec-cgroup-context-dmem-max", "%" PRIu64, c->dmem_max);
+                if (r < 0)
+                        return r;
+        }
 
         if (c->tasks_max.value != UINT64_MAX) {
                 r = serialize_item_format(f, "exec-cgroup-context-tasks-max-value", "%" PRIu64, c->tasks_max.value);
@@ -433,6 +456,11 @@ static int exec_cgroup_context_deserialize(CGroupContext *c, FILE *f) {
                         if (r < 0)
                                 return r;
                         c->memory_accounting = r;
+                } else if ((val = startswith(l, "exec-cgroup-context-dmem-accounting="))) {
+                        r = parse_boolean(val);
+                        if (r < 0)
+                                return r;
+                        c->dmem_accounting = r;
                 } else if ((val = startswith(l, "exec-cgroup-context-tasks-accounting="))) {
                         r = parse_boolean(val);
                         if (r < 0)
@@ -549,6 +577,18 @@ static int exec_cgroup_context_deserialize(CGroupContext *c, FILE *f) {
                         if (r < 0)
                                 return r;
                         c->memory_zswap_writeback = r;
+                } else if ((val = startswith(l, "exec-cgroup-context-dmem-min="))) {
+                        r = safe_atou64(val, &c->dmem_min);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-dmem-low="))) {
+                        r = safe_atou64(val, &c->dmem_low);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-cgroup-context-dmem-max="))) {
+                        r = safe_atou64(val, &c->dmem_max);
+                        if (r < 0)
+                                return r;
                 } else if ((val = startswith(l, "exec-cgroup-context-tasks-max-value="))) {
                         r = safe_atou64(val, &c->tasks_max.value);
                         if (r < 0)

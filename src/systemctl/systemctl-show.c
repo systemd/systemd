@@ -292,6 +292,10 @@ typedef struct UnitStatusInfo {
         uint64_t startup_memory_swap_max;
         uint64_t memory_zswap_max;
         uint64_t startup_memory_zswap_max;
+        uint64_t dmem_current;
+        uint64_t dmem_min;
+        uint64_t dmem_low;
+        uint64_t dmem_max;
         uint64_t memory_limit;
         uint64_t memory_available;
         uint64_t cpu_usage_nsec;
@@ -894,6 +898,30 @@ static void print_status_info(
                         printf(" (swap: %s)", FORMAT_BYTES(i->memory_swap_peak));
 
                 putchar('\n');
+        }
+
+        if (i->dmem_current != UINT64_MAX) {
+                printf("     Dmem: %s", FORMAT_BYTES(i->dmem_current));
+
+                if (i->dmem_min > 0 || i->dmem_low > 0 || i->dmem_max != CGROUP_LIMIT_MAX) {
+                        const char *prefix = "";
+
+                        printf(" (");
+                        if (i->dmem_min > 0) {
+                                printf("%smin: %s", prefix, FORMAT_BYTES(i->dmem_min));
+                                prefix = ", ";
+                        }
+                        if (i->dmem_low > 0) {
+                                printf("%slow: %s", prefix, FORMAT_BYTES(i->dmem_low));
+                                prefix = ", ";
+                        }
+                        if (i->dmem_max != CGROUP_LIMIT_MAX) {
+                                printf("%smax: %s", prefix, FORMAT_BYTES(i->dmem_max));
+                                prefix = ", ";
+                        }
+                        printf(")");
+                }
+                printf("\n");
         }
 
         if (i->cpu_usage_nsec != UINT64_MAX)
@@ -2256,6 +2284,10 @@ static int show_one(
                 { "MemoryZSwapMax",                 "t",               NULL,           offsetof(UnitStatusInfo, memory_zswap_max)                  },
                 { "StartupMemoryZSwapMax",          "t",               NULL,           offsetof(UnitStatusInfo, startup_memory_zswap_max)          },
                 { "MemoryLimit",                    "t",               NULL,           offsetof(UnitStatusInfo, memory_limit)                      },
+                { "DmemCurrent",                    "t",               NULL,           offsetof(UnitStatusInfo, dmem_current)                      },
+                { "DmemMin",                        "t",               NULL,           offsetof(UnitStatusInfo, dmem_min)                          },
+                { "DmemLow",                        "t",               NULL,           offsetof(UnitStatusInfo, dmem_low)                          },
+                { "DmemMax",                        "t",               NULL,           offsetof(UnitStatusInfo, dmem_max)                          },
                 { "CPUUsageNSec",                   "t",               NULL,           offsetof(UnitStatusInfo, cpu_usage_nsec)                    },
                 { "TasksCurrent",                   "t",               NULL,           offsetof(UnitStatusInfo, tasks_current)                     },
                 { "TasksMax",                       "t",               NULL,           offsetof(UnitStatusInfo, tasks_max)                         },
@@ -2306,6 +2338,8 @@ static int show_one(
                 .memory_swap_peak = CGROUP_LIMIT_MAX,
                 .memory_zswap_current = CGROUP_LIMIT_MAX,
                 .memory_available = CGROUP_LIMIT_MAX,
+                .dmem_current = UINT64_MAX,
+                .dmem_max = CGROUP_LIMIT_MAX,
                 .cpu_usage_nsec = UINT64_MAX,
                 .tasks_current = UINT64_MAX,
                 .tasks_max = UINT64_MAX,

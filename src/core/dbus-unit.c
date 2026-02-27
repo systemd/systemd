@@ -1159,6 +1159,29 @@ static int property_get_memory_accounting(
         return sd_bus_message_append(reply, "t", sz);
 }
 
+static int property_get_dmem_current(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *reterr_error) {
+
+        uint64_t sz = UINT64_MAX;
+        Unit *u = ASSERT_PTR(userdata);
+        int r;
+
+        assert(bus);
+        assert(reply);
+
+        r = unit_get_dmem_current(u, &sz);
+        if (r < 0 && r != -ENODATA)
+                log_unit_warning_errno(u, r, "Failed to get dmem.current attribute: %m");
+
+        return sd_bus_message_append(reply, "t", sz);
+}
+
 static int property_get_current_tasks(
                 sd_bus *bus,
                 const char *path,
@@ -1741,6 +1764,7 @@ const sd_bus_vtable bus_unit_cgroup_vtable[] = {
         SD_BUS_PROPERTY("MemorySwapCurrent", "t", property_get_memory_accounting, 0, 0),
         SD_BUS_PROPERTY("MemorySwapPeak", "t", property_get_memory_accounting, 0, 0),
         SD_BUS_PROPERTY("MemoryZSwapCurrent", "t", property_get_memory_accounting, 0, 0),
+        SD_BUS_PROPERTY("DmemCurrent", "t", property_get_dmem_current, 0, 0),
         SD_BUS_PROPERTY("MemoryAvailable", "t", property_get_available_memory, 0, 0),
         SD_BUS_PROPERTY("EffectiveMemoryMax", "t", property_get_effective_limit, 0, 0),
         SD_BUS_PROPERTY("EffectiveMemoryHigh", "t", property_get_effective_limit, 0, 0),

@@ -134,6 +134,7 @@ typedef struct UnitDefaults {
         RateLimit start_limit;
 
         bool memory_accounting;
+        bool dmem_accounting;
         bool io_accounting;
         bool tasks_accounting;
         bool ip_accounting;

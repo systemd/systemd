@@ -274,6 +274,12 @@ int unit_cgroup_context_build_json(sd_json_variant **ret, const char *name, void
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("AllowedMemoryNodes", cpuset_build_json, &c->cpuset_mems),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("StartupAllowedMemoryNodes", cpuset_build_json, &c->startup_cpuset_mems),
 
+                        /* Dmem Accounting and Control */
+                        SD_JSON_BUILD_PAIR_BOOLEAN("DmemAccounting", c->dmem_accounting),
+                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("DmemMin", c->dmem_min, CGROUP_LIMIT_MIN),
+                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("DmemLow", c->dmem_low, CGROUP_LIMIT_MIN),
+                        JSON_BUILD_PAIR_UNSIGNED_NOT_EQUAL("DmemMax", c->dmem_max, CGROUP_LIMIT_MAX),
+
                         /* Process Accounting and Control */
                         SD_JSON_BUILD_PAIR_BOOLEAN("TasksAccounting", c->tasks_accounting),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("TasksMax", tasks_max_build_json, &c->tasks_max),
