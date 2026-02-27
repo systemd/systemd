@@ -14,6 +14,7 @@ typedef enum ImdsWellKnown {
         IMDS_ZONE,
         IMDS_IPV4_PUBLIC,
         IMDS_IPV6_PUBLIC,
+        IMDS_SSH_KEY,
         IMDS_USERDATA,
         IMDS_USERDATA_BASE,   /* typically suffixed */
         IMDS_USERDATA_BASE64,

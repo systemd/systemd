@@ -22,6 +22,7 @@
 #   IMDS_KEY_ZONE=              → IMDS key for the region, if that concept applies
 #   IMDS_KEY_IPV4_PUBLIC=       → IMDS key for the primary public IPv4 address if there is any
 #   IMDS_KEY_IPV6_PUBLIC=       → IMDS key for the primary public IPv6 address if there is any
+#   IMDS_KEY_SSH_KEY=           → IMDS key for am SSH public key to install in the root account
 #   IMDS_KEY_USERDATA=          → IMDS key for arbitrary userdata (if there's only one)
 #   IMDS_KEY_USERDATA_BASE=     → IMDS key for arbitrary userdata (if there are multiple, this is the common prefix)
 #   IMDS_KEY_USERDATA_BASE64=   → IMDS key for arbitrary userdata (if there's only one, but it is base64 encoded)
@@ -40,6 +41,7 @@ dmi:bvnAmazonEC2:*
  IMDS_KEY_ZONE=/meta-data/placement/availability-zone
  IMDS_KEY_IPV4_PUBLIC=/meta-data/public-ipv4
  IMDS_KEY_IPV6_PUBLIC=/meta-data/ipv6
+ IMDS_KEY_SSH_KEY=/meta-data/public-keys/0/openssh-key
  IMDS_KEY_USERDATA=/user-data
 
 # https://learn.microsoft.com/en-us/azure/virtual-machines/instance-metadata-service#instance-metadata
@@ -54,6 +56,7 @@ dmi:*:cat7783-7084-3265-9085-8269-3286-77:*
  IMDS_KEY_ZONE=/instance/compute/physicalZone
  IMDS_KEY_IPV4_PUBLIC=/instance/network/interface/0/ipv4/ipAddress/0/publicIpAddress
  IMDS_KEY_IPV6_PUBLIC=/instance/network/interface/0/ipv6/ipAddress/0/publicIpAddress
+ IMDS_KEY_SSH_KEY=/instance/compute/publicKeys/0/keyData
  IMDS_KEY_USERDATA_BASE64=/instance/compute/userData
 
 # https://docs.cloud.google.com/compute/docs/metadata/predefined-metadata-keys
@@ -76,4 +79,5 @@ dmi:bvnHetzner:*
  IMDS_KEY_REGION=/region
  IMDS_KEY_ZONE=/availability-zone
  IMDS_KEY_IPV4_PUBLIC=/public-ipv4
+ IMDS_KEY_SSH_KEY=/public-keys/0
  IMDS_KEY_USERDATA=/userdata
