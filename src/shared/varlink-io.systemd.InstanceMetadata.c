@@ -11,6 +11,7 @@ static SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_DEFINE_ENUM_VALUE(zone),
                 SD_VARLINK_DEFINE_ENUM_VALUE(ipv4_public),
                 SD_VARLINK_DEFINE_ENUM_VALUE(ipv6_public),
+                SD_VARLINK_DEFINE_ENUM_VALUE(ssh_key),
                 SD_VARLINK_DEFINE_ENUM_VALUE(userdata),
                 SD_VARLINK_DEFINE_ENUM_VALUE(userdata_base),
                 SD_VARLINK_DEFINE_ENUM_VALUE(userdata_base64));
