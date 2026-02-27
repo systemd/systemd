@@ -260,7 +260,7 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_in_memory = true;
                         break;
 
-                OPTION_LONG("root-hash", "HASH", "Specify root hash for verity"):
+                OPTION_LONG("root-hash", "HASH", "Specify root hash for verity"): {}
                 OPTION_LONG("usr-hash", "HASH", "Same, but for the usr partition"): {
                         _cleanup_(iovec_done) struct iovec roothash = {};
 
@@ -286,7 +286,7 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_LONG("root-hash-sig", "SIG",
                             "Specify signature of root hash for verity as DER-encoded PKCS7, "
                             "either as a path to a file or as an ASCII base64-encoded string "
-                            "prefixed by 'base64:'"):
+                            "prefixed by 'base64:'"): {}
                 OPTION_LONG("usr-hash-sig", "SIG", "Same, but for the usr partition"): {
                         const char *value;
                         _cleanup_(iovec_done) struct iovec sig = {};
@@ -410,7 +410,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 /************************************ Commands ***************************************/
-                OPTION_GROUP("Commands"):
+                OPTION_GROUP("Commands"): {}
 
                 OPTION_COMMON_HELP:
                         return help();
