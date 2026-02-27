@@ -167,7 +167,7 @@ static int bus_print_property(const char *name, const char *expected_value, sd_b
                         bus_print_property_value(name, expected_value, flags, "idle");
 
                 else if ((STR_IN_SET(name, "CPUWeight", "StartupCPUWeight", "IOWeight", "StartupIOWeight") && u == CGROUP_WEIGHT_INVALID) ||
-                           (STR_IN_SET(name, "MemoryCurrent", "MemoryAvailable", "TasksCurrent") && u == UINT64_MAX) ||
+                           (STR_IN_SET(name, "MemoryCurrent", "MemoryAvailable", "TasksCurrent", "DmemCurrent") && u == UINT64_MAX) ||
                            (startswith(name, "Memory") && ENDSWITH_SET(name, "Current", "Peak") && u == CGROUP_LIMIT_MAX) ||
                            (startswith(name, "IO") && ENDSWITH_SET(name, "Bytes", "Operations") && u == UINT64_MAX) ||
                            (endswith(name, "NSec") && u == UINT64_MAX))
@@ -176,7 +176,8 @@ static int bus_print_property(const char *name, const char *expected_value, sd_b
 
                 else if ((ENDSWITH_SET(name, "MemoryLow", "MemoryMin",
                                              "MemoryHigh", "MemoryMax",
-                                             "MemorySwapMax", "MemoryZSwapMax", "MemoryLimit") &&
+                                             "MemorySwapMax", "MemoryZSwapMax", "MemoryLimit",
+                                             "DmemLow", "DmemMin", "DmemMax") &&
                           u == CGROUP_LIMIT_MAX) ||
                          (endswith(name, "TasksMax") && u == UINT64_MAX) ||
                          (startswith(name, "Limit") && u == UINT64_MAX) ||
