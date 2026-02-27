@@ -14,6 +14,7 @@ static const char* imds_well_known_table[_IMDS_WELL_KNOWN_MAX] = {
         [IMDS_ZONE]            = "zone",
         [IMDS_IPV4_PUBLIC]     = "ipv4-public",
         [IMDS_IPV6_PUBLIC]     = "ipv6-public",
+        [IMDS_SSH_KEY]         = "ssh-key",
         [IMDS_USERDATA]        = "userdata",
         [IMDS_USERDATA_BASE]   = "userdata-base",
         [IMDS_USERDATA_BASE64] = "userdata-base64",
