@@ -313,6 +313,7 @@ int enroll_tpm2(struct crypt_device *cd,
         ssize_t base64_encoded_size;
         int r, keyslot, slot_to_wipe = -1;
         TPM2Flags flags = 0;
+        uint16_t primary_alg = 0;
         uint8_t binary_salt[SHA256_DIGEST_SIZE] = {};
         /*
          * erase the salt, we'd rather attempt to not have this in a coredump
@@ -402,6 +403,8 @@ int enroll_tpm2(struct crypt_device *cd,
                 if (!tpm2_pcr_values_has_all_values(hash_pcr_values, n_hash_pcr_values))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Must provide all PCR values when using TPM2 device key.");
+
+                primary_alg = device_key_public.publicArea.type;
         } else {
                 r = tpm2_context_new_or_warn(device, &tpm2_context);
                 if (r < 0)
@@ -515,7 +518,7 @@ int enroll_tpm2(struct crypt_device *cd,
                               &secret,
                               &blobs,
                               &n_blobs,
-                              /* ret_primary_alg= */ NULL,
+                              &primary_alg,
                               &srk);
         if (r < 0)
                 return log_error_errno(r, "Failed to seal to TPM2: %m");
@@ -553,7 +556,7 @@ int enroll_tpm2(struct crypt_device *cd,
                                 signature_json,
                                 pin_str,
                                 pcrlock_path ? &pcrlock_policy : NULL,
-                                /* primary_alg= */ 0,
+                                primary_alg,
                                 blobs,
                                 n_blobs,
                                 policy_hash_as_iovec,
@@ -592,7 +595,7 @@ int enroll_tpm2(struct crypt_device *cd,
                         hash_pcr_bank,
                         &pubkey,
                         pubkey_pcr_mask,
-                        /* primary_alg= */ 0,
+                        primary_alg,
                         blobs,
                         n_blobs,
                         policy_hash_as_iovec,
