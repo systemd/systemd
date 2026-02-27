@@ -225,3 +225,6 @@ static inline void* IN4_ADDR_TO_PTR(const struct in_addr *a) {
         (be32toh((address).s_addr) >> 16) & 0xFFu, \
         (be32toh((address).s_addr) >> 8) & 0xFFu,  \
         be32toh((address).s_addr) & 0xFFu
+
+#define IN_ADDR_UNION_FROM_IN4(a) (union in_addr_union) { .in = (a) }
+#define IN_ADDR_UNION_FROM_IN6(a) (union in_addr_union) { .in6 = (a) }
