@@ -4274,68 +4274,48 @@ out:
         return r;
 }
 
-static void append_socket_pair(int *array, size_t *n, const int pair[static 2]) {
-        assert(array);
-        assert(n);
-        assert(pair);
+#define FD_PAIR_CONDITION(cond, pair)                           \
+        (cond) ? pair[0] : -EBADF, (cond) ? pair[1] : -EBADF
 
-        if (pair[0] >= 0)
-                array[(*n)++] = pair[0];
-        if (pair[1] >= 0)
-                array[(*n)++] = pair[1];
-}
+#define FD_PAIR(pair) FD_PAIR_CONDITION(true, pair)
 
 static int close_remaining_fds(
                 const ExecParameters *params,
                 const ExecRuntime *runtime,
                 int socket_fd,
-                const int *fds,
+                const int fds[],
                 size_t n_fds) {
-
-        size_t n_dont_close = 0;
-        int dont_close[n_fds + 18];
 
         assert(params);
         assert(runtime);
+        assert(fds || n_fds == 0);
 
-        if (params->stdin_fd >= 0)
-                dont_close[n_dont_close++] = params->stdin_fd;
-        if (params->stdout_fd >= 0)
-                dont_close[n_dont_close++] = params->stdout_fd;
-        if (params->stderr_fd >= 0)
-                dont_close[n_dont_close++] = params->stderr_fd;
+        /* fds listed here shall be closed before second close_all_fds() call to avoid double close! */
+        int static_fds[] = {
+                params->stdin_fd, params->stdout_fd, params->stderr_fd,
+                socket_fd,
+                FD_PAIR(runtime->ephemeral_storage_socket),
+                FD_PAIR_CONDITION(runtime->shared, runtime->shared->userns_storage_socket),
+                FD_PAIR_CONDITION(runtime->shared, runtime->shared->netns_storage_socket),
+                FD_PAIR_CONDITION(runtime->shared, runtime->shared->ipcns_storage_socket),
+                FD_PAIR_CONDITION(runtime->dynamic_creds && runtime->dynamic_creds->user,
+                                  runtime->dynamic_creds->user->storage_socket),
+                FD_PAIR_CONDITION(runtime->dynamic_creds && runtime->dynamic_creds->group,
+                                  runtime->dynamic_creds->group->storage_socket),
+                params->user_lookup_fd,
+                params->pidref_transport_fd,
+        };
 
-        if (socket_fd >= 0)
-                dont_close[n_dont_close++] = socket_fd;
+        _cleanup_free_ int *accum_fds = NULL;
         if (n_fds > 0) {
-                memcpy(dont_close + n_dont_close, fds, sizeof(int) * n_fds);
-                n_dont_close += n_fds;
+                accum_fds = new(int, ELEMENTSOF(static_fds) + n_fds);
+                if (!accum_fds)
+                        return -ENOMEM;
+
+                memcpy(mempcpy_typesafe(accum_fds, static_fds, ELEMENTSOF(static_fds)), fds, sizeof(int) * n_fds);
         }
 
-        append_socket_pair(dont_close, &n_dont_close, runtime->ephemeral_storage_socket);
-
-        if (runtime->shared) {
-                append_socket_pair(dont_close, &n_dont_close, runtime->shared->userns_storage_socket);
-                append_socket_pair(dont_close, &n_dont_close, runtime->shared->netns_storage_socket);
-                append_socket_pair(dont_close, &n_dont_close, runtime->shared->ipcns_storage_socket);
-        }
-
-        if (runtime->dynamic_creds) {
-                if (runtime->dynamic_creds->user)
-                        append_socket_pair(dont_close, &n_dont_close, runtime->dynamic_creds->user->storage_socket);
-                if (runtime->dynamic_creds->group)
-                        append_socket_pair(dont_close, &n_dont_close, runtime->dynamic_creds->group->storage_socket);
-        }
-
-        if (params->user_lookup_fd >= 0)
-                dont_close[n_dont_close++] = params->user_lookup_fd;
-
-        if (params->pidref_transport_fd >= 0)
-                dont_close[n_dont_close++] = params->pidref_transport_fd;
-
-        assert(n_dont_close <= ELEMENTSOF(dont_close));
-
-        return close_all_fds(dont_close, n_dont_close);
+        return close_all_fds(accum_fds ?: static_fds, ELEMENTSOF(static_fds) + n_fds);
 }
 
 static int send_user_lookup(
