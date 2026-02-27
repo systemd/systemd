@@ -1712,6 +1712,7 @@ static const char *imds_well_known_udev_table[] = {
         [IMDS_ZONE]            = "IMDS_KEY_ZONE",
         [IMDS_IPV4_PUBLIC]     = "IMDS_KEY_IPV4_PUBLIC",
         [IMDS_IPV6_PUBLIC]     = "IMDS_KEY_IPV6_PUBLIC",
+        [IMDS_SSH_KEY]         = "IMDS_KEY_SSH_KEY",
         [IMDS_USERDATA]        = "IMDS_KEY_USERDATA",
         [IMDS_USERDATA_BASE]   = "IMDS_KEY_USERDATA_BASE",
         [IMDS_USERDATA_BASE64] = "IMDS_KEY_USERDATA_BASE64",
