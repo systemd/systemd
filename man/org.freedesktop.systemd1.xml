@@ -481,6 +481,8 @@ node /org/freedesktop/systemd1 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b DefaultMemoryAccounting = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b DefaultDmemAccounting = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b DefaultTasksAccounting = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t DefaultLimitCPU = ...;
@@ -3015,6 +3017,16 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       readonly t StartupMemoryZSwapMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b MemoryZSwapWriteback = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t DmemCurrent = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly b DmemAccounting = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t DmemMin = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t DmemLow = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
+      readonly t DmemMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly s DevicePolicy = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")

@@ -294,6 +294,7 @@ All cgroup/resource control settings are available for transient units
 ✓ DelegateSubgroup=
 ✓ ManagedOOMMemoryPressureLimit=
 ✓ MemoryAccounting=
+✓ DmemAccounting=
 ✓ MemoryZSwapWriteback=
 ✓ IOAccounting=
 ✓ TasksAccounting=
@@ -317,6 +318,9 @@ All cgroup/resource control settings are available for transient units
 ✓ MemoryMax=
 ✓ MemorySwapMax=
 ✓ MemoryZSwapMax=
+✓ DmemMin=
+✓ DmemLow=
+✓ DmemMax=
 ✓ TasksMax=
 ✓ CPUQuota=
 ✓ CPUQuotaPeriodSec=
