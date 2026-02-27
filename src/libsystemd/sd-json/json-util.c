@@ -200,6 +200,27 @@ int json_dispatch_in_addr(const char *name, sd_json_variant *variant, sd_json_di
         return 0;
 }
 
+int json_dispatch_in6_addr(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        struct in6_addr *address = ASSERT_PTR(userdata);
+        _cleanup_(iovec_done) struct iovec iov = {};
+        int r;
+
+        if (sd_json_variant_is_null(variant)) {
+                *address = (struct in6_addr) {};
+                return 0;
+        }
+
+        r = json_dispatch_byte_array_iovec(name, variant, flags, &iov);
+        if (r < 0)
+                return r;
+
+        if (iov.iov_len != sizeof(struct in6_addr))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is array of unexpected size.", strna(name));
+
+        memcpy(address, iov.iov_base, iov.iov_len);
+        return 0;
+}
+
 int json_dispatch_const_path(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         const char **p = ASSERT_PTR(userdata), *path;
 
