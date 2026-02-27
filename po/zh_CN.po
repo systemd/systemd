@@ -7,7 +7,7 @@
 # Charles Lee <lchopn@gmail.com>, 2020, 2021, 2022, 2023.
 # Whired Planck <fungdaat31@outlook.com>, 2020.
 # hanjinpeng <hanjinpeng127@gmail.com>, 2024.
-# lumingzh <lumingzh@qq.com>, 2024, 2025.
+# lumingzh <lumingzh@qq.com>, 2024, 2025, 2026.
 # z z <3397542367@qq.com>, 2025.
 # Hang Li <dabao1955@163.com>, 2025.
 # Jesse Guo <jesseguotech@outlook.com>, 2025.
@@ -16,8 +16,8 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-02-24 18:42+0000\n"
-"PO-Revision-Date: 2025-12-31 07:58+0000\n"
-"Last-Translator: Zongyuan He <lovenemesis@gmail.com>\n"
+"PO-Revision-Date: 2026-02-27 16:58+0000\n"
+"Last-Translator: lumingzh <lumingzh@qq.com>\n"
 "Language-Team: Chinese (Simplified) <https://translate.fedoraproject.org/"
 "projects/systemd/main/zh_CN/>\n"
 "Language: zh_CN\n"
@@ -25,7 +25,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Weblate 5.15.1\n"
+"X-Generator: Weblate 5.16.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -987,11 +987,11 @@ msgstr "指定systemd-networkd的永久存储是否可用需要认证。"
 
 #: src/network/org.freedesktop.network1.policy:198
 msgid "Manage network links"
-msgstr ""
+msgstr "管理网络连接"
 
 #: src/network/org.freedesktop.network1.policy:199
 msgid "Authentication is required to manage network links."
-msgstr ""
+msgstr "管理网络连接需要身份验证。"
 
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
