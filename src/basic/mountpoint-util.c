@@ -384,15 +384,14 @@ bool fstype_is_api_vfs(const char *fstype) {
                          filesystem_sets + FILESYSTEM_SET_BASIC_API,
                          filesystem_sets + FILESYSTEM_SET_AUXILIARY_API,
                          filesystem_sets + FILESYSTEM_SET_PRIVILEGED_API,
-                         filesystem_sets + FILESYSTEM_SET_TEMPORARY)
+                         filesystem_sets + FILESYSTEM_SET_TEMPORARY,
+                         filesystem_sets + FILESYSTEM_SET_APPLICATION)
                 if (nulstr_contains(fs->value, fstype))
                     return true;
 
         /* Filesystems not present in the internal database */
         return STR_IN_SET(fstype,
-                          "autofs",
-                          "cpuset",
-                          "devtmpfs");
+                          "cpuset");
 }
 
 bool fstype_is_blockdev_backed(const char *fstype) {
