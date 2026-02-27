@@ -8,12 +8,13 @@ static SD_VARLINK_DEFINE_ENUM_TYPE(
                 SD_VARLINK_DEFINE_ENUM_VALUE(sysext),
                 SD_VARLINK_DEFINE_ENUM_VALUE(confext));
 
-static SD_VARLINK_DEFINE_ENUM_TYPE(
+SD_VARLINK_DEFINE_ENUM_TYPE(
                 ImageType,
                 SD_VARLINK_DEFINE_ENUM_VALUE(directory),
                 SD_VARLINK_DEFINE_ENUM_VALUE(subvolume),
                 SD_VARLINK_DEFINE_ENUM_VALUE(raw),
-                SD_VARLINK_DEFINE_ENUM_VALUE(block));
+                SD_VARLINK_DEFINE_ENUM_VALUE(block),
+                SD_VARLINK_DEFINE_ENUM_VALUE(mstack));
 
 static SD_VARLINK_DEFINE_METHOD(
                 Merge,
