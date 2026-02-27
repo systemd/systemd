@@ -652,6 +652,7 @@ static int run(int argc, char* argv[]) {
         }
 
         our_env[i++] = NULL;
+        assert(i <= ELEMENTSOF(our_env));
 
         final_env = strv_env_merge((char**) our_env, arg_env);
         if (!final_env)
