@@ -804,6 +804,7 @@ static int parse_config_file(void) {
                 { "Manager", "DefaultIPAccounting",          config_parse_bool,                  0,                        &arg_defaults.ip_accounting       },
                 { "Manager", "DefaultBlockIOAccounting",     config_parse_warn_compat,           DISABLED_LEGACY,          NULL                              },
                 { "Manager", "DefaultMemoryAccounting",      config_parse_bool,                  0,                        &arg_defaults.memory_accounting   },
+                { "Manager", "DefaultDmemAccounting",        config_parse_bool,                  0,                        &arg_defaults.dmem_accounting     },
                 { "Manager", "DefaultTasksAccounting",       config_parse_bool,                  0,                        &arg_defaults.tasks_accounting    },
                 { "Manager", "DefaultTasksMax",              config_parse_tasks_max,             0,                        &arg_defaults.tasks_max           },
                 { "Manager", "DefaultMemoryPressureThresholdSec", config_parse_sec,              0,                        &arg_defaults.memory_pressure_threshold_usec },
