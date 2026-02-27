@@ -779,6 +779,7 @@ static int vl_method_mount_image(
                         SD_JSON_BUILD_PAIR_STRING("imagePolicy", ps),
                         SD_JSON_BUILD_PAIR_UNSIGNED("imageSize", di->image_size),
                         SD_JSON_BUILD_PAIR_UNSIGNED("sectorSize", di->sector_size),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("imageName", di->image_name),
                         SD_JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(di->image_uuid), "imageUuid", SD_JSON_BUILD_UUID(di->image_uuid)));
 }
 
