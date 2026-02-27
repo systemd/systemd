@@ -69,28 +69,28 @@ static const struct group root_group = {
         .gr_name = (char*) "root",
         .gr_gid = 0,
         .gr_passwd = (char*) PASSWORD_SEE_SHADOW,
-        .gr_mem = (char*[]) { NULL },
+        .gr_mem = STRV_EMPTY,
 };
 
 static const struct sgrp root_sgrp = {
         .sg_namp = (char*) "root",
         .sg_passwd = (char*) PASSWORD_LOCKED_AND_INVALID,
-        .sg_adm = (char*[]) { NULL },
-        .sg_mem = (char*[]) { NULL },
+        .sg_adm = STRV_EMPTY,
+        .sg_mem = STRV_EMPTY,
 };
 
 static const struct group nobody_group = {
         .gr_name = (char*) NOBODY_GROUP_NAME,
         .gr_gid = GID_NOBODY,
         .gr_passwd = (char*) PASSWORD_LOCKED_AND_INVALID,
-        .gr_mem = (char*[]) { NULL },
+        .gr_mem = STRV_EMPTY,
 };
 
 static const struct sgrp nobody_sgrp = {
         .sg_namp = (char*) NOBODY_GROUP_NAME,
         .sg_passwd = (char*) PASSWORD_LOCKED_AND_INVALID,
-        .sg_adm = (char*[]) { NULL },
-        .sg_mem = (char*[]) { NULL },
+        .sg_adm = STRV_EMPTY,
+        .sg_mem = STRV_EMPTY,
 };
 
 typedef struct GetentData {
