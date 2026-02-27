@@ -26,10 +26,10 @@
       <command>systemd-notify</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="opt" rep="repeat">VARIABLE=VALUE</arg>
     </cmdsynopsis>
     <cmdsynopsis>
-      <command>systemd-notify</command> <arg choice="plain">--exec</arg> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="opt" rep="repeat">VARIABLE=VALUE</arg> <arg choice="plain">; --</arg> <arg choice="req" rep="repeat">CMDLINE</arg>
+      <command>systemd-notify</command> <arg choice="plain">--exec</arg> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="opt" rep="repeat">VARIABLE=VALUE</arg> <arg choice="plain">;</arg> <arg choice="req" rep="repeat">CMDLINE</arg>
     </cmdsynopsis>
     <cmdsynopsis>
-      <command>systemd-notify</command> <arg choice="plain">--fork</arg> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="plain">--</arg> <arg choice="req" rep="repeat">CMDLINE</arg>
+      <command>systemd-notify</command> <arg choice="plain">--fork</arg> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="req" rep="repeat">CMDLINE</arg>
     </cmdsynopsis>
   </refsynopsisdiv>
 
@@ -271,7 +271,7 @@
           <literal>READY=1</literal>.</para></listitem>
         </orderedlist></para>
 
-        <para>Example use:<programlisting># PID=$(systemd-notify --fork -- mycommand)
+        <para>Example use:<programlisting># PID=$(systemd-notify --fork mycommand)
 …
 kill "$PID"
 unset PID</programlisting></para>
