@@ -8,6 +8,7 @@
 #include "sd-varlink-idl.h"
 
 #include "bootspec.h"
+#include "discover-image.h"
 #include "fd-util.h"
 #include "gpt.h"
 #include "json-util.h"
@@ -541,6 +542,9 @@ TEST(enums_idl) {
 
         TEST_IDL_ENUM(DnsOverTlsMode, dns_over_tls_mode, vl_type_DNSOverTLSMode);
         TEST_IDL_ENUM(ResolveSupport, resolve_support, vl_type_ResolveSupport);
+
+        TEST_IDL_ENUM(ImageType, image_type, vl_type_ImageType);
+        TEST_IDL_ENUM_TO_STRING(ImageType, image_type, vl_type_ImageType);
 }
 
 static SD_VARLINK_DEFINE_METHOD(
