@@ -70,8 +70,8 @@ static int help(void) {
                 return r;
 
         printf("%1$s [OPTIONS...] [VARIABLE=VALUE...]\n"
-               "%1$s [OPTIONS...] --exec [VARIABLE=VALUE...] ; -- CMDLINE...\n"
-               "%1$s [OPTIONS...] --fork -- CMDLINE...\n"
+               "%1$s [OPTIONS...] --exec [VARIABLE=VALUE...] ; CMDLINE...\n"
+               "%1$s [OPTIONS...] --fork CMDLINE...\n"
                "\n%2$sNotify the init system about service status updates.%3$s\n\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -218,7 +218,8 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         arg_no_block = true;
                         break;
 
-                OPTION_LONG("exec", NULL, "Execute command line separated by ';' once done"):
+                OPTION_FULL(OPTION_STOPS_PARSING, /* sc= */ 0, "exec", NULL,
+                            "Execute command line separated by ';' once done"):
                         do_exec = true;
                         break;
 
@@ -269,7 +270,8 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
                         break;
 
-                OPTION_LONG("fork", NULL, "Receive notifications from child rather than sending them"):
+                OPTION_FULL(OPTION_STOPS_PARSING, /* sc= */ 0, "fork", NULL,
+                            "Receive notifications from child rather than sending them"):
                         arg_action = ACTION_FORK;
                         break;
 
