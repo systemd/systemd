@@ -31,6 +31,7 @@ at_exit() {
     rm -f /usr/share/polkit-1/rules.d/registermachinetest.rules
     rm -rf /var/tmp/mangletest
     rm -f /var/tmp/mangletest.tar.gz
+    rm -f /shouldnotwork
 }
 
 trap at_exit EXIT
@@ -103,6 +104,24 @@ run0 -u testuser \
 (! run0 -u testuser machinectl shell root@shouldnotwork2 /usr/bin/id -u)
 (! run0 -u testuser machinectl shell 0@shouldnotwork2 /usr/bin/id -u)
 (! run0 -u testuser machinectl shell testuser@shouldnotwork2 /usr/bin/id -u)
+
+run0 -u testuser \
+    systemd-run --unit sleep.service --user sleep infinity
+sleep_pid="$(run0 -u testuser systemctl show --user -P MainPID sleep.service)"
+run0 -u testuser  \
+    varlinkctl \
+        call \
+        /run/systemd/machine/io.systemd.Machine \
+        io.systemd.Machine.Register \
+        "{\"name\":\"shouldnotwork3\", \"class\":\"container\", \"leader\": $sleep_pid}"
+(! run0 -u testuser \
+    varlinkctl \
+        call \
+        /run/systemd/machine/io.systemd.Machine \
+        io.systemd.Machine.Open \
+        '{"name":"shouldnotwork3", "mode": "shell", "user":"root","path":"/usr/bin/bash","args":["bash","-c","''touch /shouldnotwork; sleep 20''"]}')
+systemctl --user --machine testuser@ stop sleep.service
+test ! -f /shouldnotwork
 
 run0 -u testuser mkdir /var/tmp/image-tar
 run0 -u testuser importctl --user export-tar zurps /var/tmp/image-tar/kurps.tar.gz -m
