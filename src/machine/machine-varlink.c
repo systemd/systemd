@@ -552,6 +552,24 @@ int vl_method_open(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
                 return r;
 
         if (manager->runtime_scope != RUNTIME_SCOPE_USER) {
+                /* Ensure only root can shell into the root namespace, unless it's specifically the host machine,
+                 * which is owned by uid 0 anyway and cannot be self-registered. This is to avoid unprivileged
+                 * users registering a process they own in the root user namespace, and then shelling in as root
+                 * or another user. Note that the shell operation is privileged and requires 'auth_admin', so we
+                 * do not need to check the caller's uid, as that will be checked by polkit, and if they machine's
+                 * and the caller's do not match, authorization will be required. It's only the case where the
+                 * caller owns the machine that will be shortcut and needs to be checked here. */
+                if (machine->uid != 0 && machine->class != MACHINE_HOST) {
+                        r = pidref_in_same_namespace(&PIDREF_MAKE_FROM_PID(1), &machine->leader, NAMESPACE_USER);
+                        if (r < 0)
+                                return log_debug_errno(
+                                                r,
+                                                "Failed to check if machine '%s' is running in the root user namespace: %m",
+                                                machine->name);
+                        if (r > 0)
+                                return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
+                }
+
                 _cleanup_strv_free_ char **polkit_details = NULL;
 
                 polkit_details = machine_open_polkit_details(p.mode, machine->name, user, path, command_line);
