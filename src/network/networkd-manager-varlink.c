@@ -21,6 +21,7 @@
 #include "varlink-io.systemd.Network.h"
 #include "varlink-io.systemd.Network.Link.h"
 #include "varlink-io.systemd.service.h"
+#include "varlink-log-control-api.h"
 #include "varlink-util.h"
 
 static int vl_method_describe(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -278,6 +279,10 @@ int manager_varlink_init(Manager *m, int fd) {
                         "io.systemd.service.GetEnvironment",       varlink_method_get_environment);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
+
+        r = varlink_log_control_api_register(s);
+        if (r < 0)
+                return log_error_errno(r, "Failed to register LogControl methods: %m");
 
         if (fd < 0)
                 r = sd_varlink_server_listen_address(s, "/run/systemd/netif/io.systemd.Network", /* mode= */ 0666);

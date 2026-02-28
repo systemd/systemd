@@ -793,13 +793,21 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           project='man-pages'><refentrytitle>syslog</refentrytitle><manvolnum>3</manvolnum></citerefentry>
           for details.</para>
 
-          <para>The service must have the appropriate
+          <para>The service must implement either the D-Bus or the Varlink LogControl protocol.
+          For D-Bus, the service must have the appropriate
           <varname>BusName=<replaceable>destination</replaceable></varname> property and also implement the
           generic
           <citerefentry><refentrytitle>org.freedesktop.LogControl1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
           interface. (<filename>systemctl</filename> will use the generic D-Bus protocol to access the
           <interfacename>org.freedesktop.LogControl1.LogLevel</interfacename> interface for the D-Bus name
-          <replaceable>destination</replaceable>.)</para>
+          <replaceable>destination</replaceable>.) For Varlink, the service must be triggered by a
+          socket unit with the <varname>FileDescriptorName=varlink</varname> property set, and implement the
+          generic
+          <citerefentry><refentrytitle>org.freedesktop.LogControl</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          interface on that socket. (<filename>systemctl</filename> will use the generic Varlink protocol to
+          call the <interfacename>org.freedesktop.LogControl.SetLogLevel</interfacename> and
+          <interfacename>org.freedesktop.LogControl.GetLogLevel</interfacename> methods on the varlink
+          socket.)</para>
 
           <xi:include href="version-info.xml" xpointer="v247"/></listitem>
         </varlistentry>
@@ -827,13 +835,20 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           and <constant>null</constant>. Anything else is only appropriate for low-level services that
           are active in very early boot before proper logging is established.</para>
 
-          <para>The service must have the appropriate
+          <para>The service must implement either the D-Bus or the Varlink LogControl protocol.
+          For D-Bus, the service must have the appropriate
           <varname>BusName=<replaceable>destination</replaceable></varname> property and also implement the
           generic
           <citerefentry><refentrytitle>org.freedesktop.LogControl1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
           interface. (<filename>systemctl</filename> will use the generic D-Bus protocol to access the
           <interfacename>org.freedesktop.LogControl1.LogLevel</interfacename> interface for the D-Bus name
-          <replaceable>destination</replaceable>.)</para>
+          <replaceable>destination</replaceable>.) For Varlink, the service must be triggered by a
+          socket unit with the <varname>FileDescriptorName=varlink</varname> property set, and implement the generic
+          <citerefentry><refentrytitle>org.freedesktop.LogControl</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          interface on that socket. (<filename>systemctl</filename> will use the generic Varlink protocol to
+          call the <interfacename>org.freedesktop.LogControl.SetLogTarget</interfacename> and
+          <interfacename>org.freedesktop.LogControl.GetLogTarget</interfacename> methods on the varlink
+          socket.)</para>
 
           <xi:include href="version-info.xml" xpointer="v247"/></listitem>
         </varlistentry>

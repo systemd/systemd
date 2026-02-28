@@ -65,6 +65,7 @@
 #include "user-util.h"
 #include "varlink-io.systemd.UserDatabase.h"
 #include "varlink-io.systemd.service.h"
+#include "varlink-log-control-api.h"
 #include "varlink-util.h"
 
 /* Where to look for private/public keys that are used to sign the user records. We are not using
@@ -1087,6 +1088,10 @@ static int manager_bind_varlink(Manager *m) {
                         "io.systemd.service.GetEnvironment",      varlink_method_get_environment);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
+
+        r = varlink_log_control_api_register(m->varlink_server);
+        if (r < 0)
+                return log_error_errno(r, "Failed to register LogControl methods: %m");
 
         /* To make things easier to debug, when working from a homed managed home directory, let's optionally
          * use a different varlink socket name */

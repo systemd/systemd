@@ -51,6 +51,7 @@ manpages = [
  ['nss-systemd', '8', ['libnss_systemd.so.2'], 'ENABLE_NSS_SYSTEMD'],
  ['oomctl', '1', [], 'ENABLE_OOMD'],
  ['oomd.conf', '5', ['oomd.conf.d'], 'ENABLE_OOMD'],
+ ['org.freedesktop.LogControl', '5', [], ''],
  ['org.freedesktop.LogControl1', '5', [], ''],
  ['org.freedesktop.home1', '5', [], 'ENABLE_HOMED'],
  ['org.freedesktop.hostname1', '5', [], 'ENABLE_HOSTNAMED'],

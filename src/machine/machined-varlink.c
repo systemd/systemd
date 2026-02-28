@@ -30,6 +30,7 @@
 #include "varlink-io.systemd.UserDatabase.h"
 #include "varlink-io.systemd.Resolve.Hook.h"
 #include "varlink-io.systemd.service.h"
+#include "varlink-log-control-api.h"
 #include "varlink-util.h"
 
 typedef struct LookupParameters {
@@ -809,6 +810,10 @@ static int manager_varlink_init_machine(Manager *m) {
                         "io.systemd.service.GetEnvironment",    varlink_method_get_environment);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
+
+        r = varlink_log_control_api_register(s);
+        if (r < 0)
+                return log_error_errno(r, "Failed to register LogControl methods: %m");
 
         r = sd_varlink_server_listen_auto(s);
         if (r < 0)

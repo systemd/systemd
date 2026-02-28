@@ -6,6 +6,7 @@
 #include "log.h"
 #include "varlink-io.systemd.Journal.h"
 #include "varlink-io.systemd.service.h"
+#include "varlink-log-control-api.h"
 #include "varlink-util.h"
 
 void sync_req_varlink_reply(SyncReq *req) {
@@ -208,6 +209,10 @@ int manager_open_varlink(Manager *m, const char *socket, int fd) {
                         "io.systemd.service.GetEnvironment", varlink_method_get_environment);
         if (r < 0)
                 return r;
+
+        r = varlink_log_control_api_register(m->varlink_server);
+        if (r < 0)
+                return log_error_errno(r, "Failed to register LogControl methods: %m");
 
         r = sd_varlink_server_bind_connect(m->varlink_server, vl_connect);
         if (r < 0)

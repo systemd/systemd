@@ -46,6 +46,7 @@
 #include "syslog-util.h"
 #include "varlink-io.systemd.Import.h"
 #include "varlink-io.systemd.service.h"
+#include "varlink-log-control-api.h"
 #include "varlink-util.h"
 #include "web-util.h"
 
@@ -2022,6 +2023,10 @@ static int manager_connect_varlink(Manager *m) {
                         "io.systemd.service.GetEnvironment", varlink_method_get_environment);
         if (r < 0)
                 return log_error_errno(r, "Failed to bind Varlink method calls: %m");
+
+        r = varlink_log_control_api_register(m->varlink_server);
+        if (r < 0)
+                return log_error_errno(r, "Failed to register LogControl methods: %m");
 
         r = sd_varlink_server_attach_event(m->varlink_server, m->event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)
