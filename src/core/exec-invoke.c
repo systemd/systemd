@@ -3697,7 +3697,7 @@ static int close_remaining_fds(
                 const int *fds, size_t n_fds) {
 
         size_t n_dont_close = 0;
-        int dont_close[n_fds + 17];
+        int dont_close[n_fds + 19];
 
         assert(params);
 
