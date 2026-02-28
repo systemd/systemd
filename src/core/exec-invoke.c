@@ -6191,6 +6191,8 @@ int exec_invoke(
 
         /* Kill unnecessary process, for the case that e.g. when the bpffs mount point is hidden. */
         pidref_done_sigkill_wait(&bpffs_pidref);
+        bpffs_socket_fd = safe_close(bpffs_socket_fd);
+        bpffs_errno_pipe = safe_close(bpffs_errno_pipe);
 
         if (needs_sandboxing && exec_needs_cgroup_namespace(context) && params->cgroup_path) {
                 /* Move ourselves into the subcgroup now *after* we've unshared the cgroup namespace, which
@@ -6267,6 +6269,7 @@ int exec_invoke(
          * them open until the final execve(). But first, close the remaining sockets in the context
          * objects. */
 
+        socket_fd = safe_close(socket_fd);
         exec_runtime_close(runtime);
         exec_params_close(params);
 
