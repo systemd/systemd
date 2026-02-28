@@ -1808,7 +1808,7 @@ int namespace_fork_full(
                         return 0;
                 }
 
-                log_close();
+                log_forget_fds();
                 log_set_open_when_needed(true);
 
                 (void) close_all_fds(&pidref_inner.fd, 1);
