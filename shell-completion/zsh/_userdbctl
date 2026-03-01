@@ -1,0 +1,86 @@
+#compdef userdbctl
+
+local context state state_descr line
+typeset -A opt_args
+local expl
+local -a opt_common=(
+	{-h,--help}'[Show a help message and exit]'
+	'--version[Show the package version and exit]'
+	'--no-pager[Do not pipe output into a pager]'
+	'--no-legend[Do not show the headers and footers]'
+	'(-j)--output=[Select output mode]:mode:(classic table friendly json)'
+	'(--output)-j[Equivalent to --output=json]'
+	{-s+,--service=}'[Query the specified service]'
+	'(-N)--with-nss=[Control whether to include glibc NSS data]:bool:(yes no)'
+	'--with-dropin=[Control whether to include drop-in records]:bool:(yes no)'
+	'--with-varlink=[Control whether to talk to services at all]:bool:(yes no)'
+	'(-N)--synthesize=[Synthesize root/nobody user]:bool:(yes no)'
+	'(--with-nss --synthesize)-N[Do not synthesize or include glibc NSS data]'
+	'--multiplexer=[Control whether to use the multiplexer]:bool:(yes no)'
+	'--json=[JSON output mode]:json-mode:(short pretty)'
+)
+local -a opt_user_group=(
+	{-z,--fuzzy}'[Do a fuzzy name search]'
+	'*--disposition=[Filter by disposition]:disposition:(intrinsic system regular dynamic container)'
+	'-I[Equivalent to --disposition=intrinsic]'
+	'-S[Equivalent to --disposition=system]'
+	'-R[Equivalent to --disposition=regular]'
+	'--uid-min=[Filter by minimum UID/GID]:uid:_numbers -t uids uid -d 0'
+	'--uid-max=[Filter by maximum UID/GID]:gid:_numbers -t gids gid -d 4294967294'
+	'--uuid=[Filter by UUID]:uuid'
+	'(-B)--boundaries=[Show/hide UID/GID range boundaries in output]:bool:(yes no)'
+	'(--boundaries)-B[Equivalent to --boundaries=no]'
+	{-F+,--from-file=}'[Read JSON record from file]:file:_files'
+)
+
+local -a userdbctl_commands=(
+  'user:Inspect user'
+  'group:Inspect group'
+  'users-in-group:Show users that are members of specified groups'
+  'groups-of-user:Show groups the specified users are members of'
+  'services:Show enabled database services'
+  'ssh-authorized-keys:Show SSH authorized keys for user'
+  'load-credentials:Write static user/group records from credentials'
+)
+
+local ret=1
+_arguments -s \
+	"$opt_common[@]" \
+	':userdbctl command:->command' \
+	'*:: :->option-or-argument' && ret=0
+
+case $state in
+	command)
+		_describe -t command 'userdbctl command' userdbctl_commands && ret=0
+		;;
+	option-or-argument)
+		local curcontext=${curcontext%:*:*}:userdbctl-$words[1]:
+		case $words[1] in
+			user)
+				_arguments -s "$opt_common[@]" "$opt_user_group[@]" '*:users:_users' && ret=0
+				;;
+			groups-of-user)
+				_arguments -s "$opt_common[@]" '*:users:_users' && ret=0
+				;;
+			group)
+				_arguments -s "$opt_common[@]" "$opt_user_group[@]" '*:groups:_groups' && ret=0
+				;;
+			users-in-group)
+				_arguments -s "$opt_common[@]" '*:groups:_groups' && ret=0
+				;;
+			ssh-authorized-keys)
+				_arguments -s "$opt_common[@]" ':users:_users' \
+					'(-):chain:((--chain:"Chain another command"))' \
+					':command:_absolute_command_paths' \
+					'*: :->chain' && ret=0
+				if [[ $state == chain ]] && compset -N --chain; then
+					_normal && ret=0
+				fi
+				;;
+			services|load-credentials)
+				_message "no more arguments"
+				;;
+		esac
+		;;
+esac
+return ret
