@@ -62,3 +62,8 @@ int _verbs_get_help_table(const Verb verbs[], const Verb verbs_end[], Table **re
         static int verb_help(int argc, char **argv, void *userdata) {   \
                 return help();                                          \
         }
+
+int _introspect_verbs(const Verb verbs[], const Verb verbs_end[], sd_json_format_flags_t flags);
+#define introspect_verbs(flags)                                         \
+        _introspect_verbs(ALIGN_PTR(__start_SYSTEMD_VERBS), __stop_SYSTEMD_VERBS, flags)
+#define introspect_verbs_dummy() _introspect_verbs(NULL, NULL, /* flags= */ 0)
