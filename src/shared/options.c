@@ -88,7 +88,7 @@ int option_parse(
 
         /* Look for the next option */
 
-        const Option *option;
+        const Option *option = NULL;  /* initialization to appease gcc 13 */
         const char *optname = NULL, *optval = NULL;
         _cleanup_free_ char *_optname = NULL;  /* allocated option name */
         bool separate_optval = false;
@@ -199,6 +199,8 @@ int option_parse(
                 }
         }
 
+        assert(option);
+
         if (optval && !option_takes_arg(option))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "%s: option '%s' doesn't allow an argument",
@@ -267,7 +269,7 @@ int _option_parser_get_help_table(
                         /* No help string — we do not show the option */
                         continue;
 
-                char sc[3] = "";
+                char sc[3] = "  ";
                 if (opt->short_code != 0)
                         xsprintf(sc, "-%c", opt->short_code);
 
