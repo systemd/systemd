@@ -49,6 +49,8 @@ SUBSYSTEM=="drm", KERNEL=="card*", TAG+="uaccess"
 SUBSYSTEM=="drm", KERNEL=="renderD*", TAG+="uaccess", TAG+="xaccess-render"
 # DRI accel nodes
 SUBSYSTEM=="accel", KERNEL=="accel*", TAG+="uaccess", TAG+="xaccess-accel"
+# AMD KFD nodes
+SUBSYSTEM=="kfd", KERNEL=="kfd", TAG+="uaccess", TAG+="xaccess-render"
 {% endif %}
 {% if DEV_KVM_UACCESS %}
 # KVM
