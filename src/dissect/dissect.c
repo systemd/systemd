@@ -60,6 +60,7 @@
 #include "tmpfile-util.h"
 #include "uid-classification.h"
 #include "user-util.h"
+#include "verbs.h"
 #include "vpick.h"
 
 static enum {
@@ -488,6 +489,15 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_LONG("shift", NULL, "Shift UID range to selected base"):
                         arg_action = ACTION_SHIFT;
                         break;
+
+                OPTION_COMMON_INTROSPECT:
+                        if (streq(arg, "options"))
+                                return introspect_options(arg_json_format_flags);
+                        else if (streq(arg, "verbs"))
+                                return introspect_verbs_dummy();
+                        else
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unknown introspection argument: %s", arg);
                 }
 
         if (system_scope_requested || user_scope_requested)
