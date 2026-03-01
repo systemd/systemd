@@ -50,7 +50,7 @@ int option_parse(
 
         /* Look for the next option */
 
-        const Option *option;
+        const Option *option = NULL;  /* initialization to appease gcc 13 */
         const char *optname = NULL, *optval = NULL;
         _cleanup_free_ char *_optname = NULL;  /* allocated option name */
         bool separate_optval = false;
@@ -161,6 +161,8 @@ int option_parse(
                         break;
                 }
         }
+
+        assert(option);
 
         if (optval && !option_takes_arg(option))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
