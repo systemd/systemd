@@ -95,6 +95,14 @@ assert_cc(sizeof(Option) % sizeof(void*) == 0);
 #define OPTION_COMMON_VERSION                                           \
         OPTION_LONG("version", NULL, "Show package version")
 
+#define OPTION_COMMON_INTROSPECT_CLI                                    \
+        /* This option is internal-only for now and not shown in --help */ \
+        OPTION_LONG("introspect-cli", NULL, /* help= */ NULL)
+
+/* For programs which do not do option parsing, but check the argv array directly. */
+#define OPTION_COMMON_INTROSPECT_CLI_ENTRY                              \
+        _OPTION_ENTRY(__COUNTER__, /* fl= */ 0, /* sc= */ 0, "introspect-cli", /* mv= */ NULL, /* d= */ 0u, /* h= */ NULL)
+
 #define OPTION_COMMON_NO_PAGER                                          \
         OPTION_LONG("no-pager", NULL, "Do not start a pager")
 
@@ -291,3 +299,11 @@ int options_get_help_table_group(
                 const Option options_end[],
                 Table **ret,
                 const char **ret_group);
+
+/* Build a JSON array of CLI-introspection option objects for the options in the given namespace.
+ * Returns NULL in *ret if the namespace defines no options. */
+int options_build_json(
+                const Option options[],
+                const Option options_end[],
+                const char *namespace,
+                sd_json_variant **ret);
