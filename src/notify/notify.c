@@ -279,6 +279,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION('q', "quiet", NULL, "Do not show PID of child when forking"):
                         arg_quiet = true;
                         break;
+
+                OPTION_COMMON_INTROSPECT:
+                        return introspect_options_and_dummy_verbs(arg, SD_JSON_FORMAT_OFF);
                 }
 
         bool have_env = arg_ready || arg_stopping || arg_reloading || arg_status || pidref_is_set(&arg_pid) || !fdset_isempty(arg_fds);
