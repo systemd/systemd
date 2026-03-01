@@ -1,5 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-json.h"
+
+#include "build.h"
 #include "env-util.h"
 #include "format-table.h"
 #include "help-util.h"
@@ -466,6 +469,162 @@ int _command_print_help(
         r = print_man_links(cmd->man_pages);
         if (r < 0)
                 return log_error_errno(r, "Failed to print man page links: %m");
+
+        return 0;
+}
+
+static int verb_build_json(const Verb *verb, sd_json_variant **ret) {
+        int r;
+
+        assert(verb);
+        assert(verb->verb);
+        assert(ret);
+
+        /* Verbs are represented as command objects, as described in the CLI-Introspection
+         * Specification (https://uapi-group.org/specifications/specs/cli_introspection/).
+         *
+         * The "minArguments", "maxArguments", "isDefault", and "isOnlineOnly" fields
+         * are extensions not (yet) covered by the specification. Note that the argument
+         * counts include the verb itself. */
+
+        r = sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_STRV("names", STRV_MAKE(verb->verb)),
+                        SD_JSON_BUILD_PAIR_CONDITION(
+                                        !!verb->help,
+                                        "abstract", SD_JSON_BUILD_STRV(STRV_MAKE(verb->help))),
+                        SD_JSON_BUILD_PAIR_CONDITION(
+                                        verb->min_args != VERB_ANY,
+                                        "minArguments", SD_JSON_BUILD_UNSIGNED(verb->min_args)),
+                        SD_JSON_BUILD_PAIR_CONDITION(
+                                        verb->max_args != VERB_ANY,
+                                        "maxArguments", SD_JSON_BUILD_UNSIGNED(verb->max_args)),
+                        SD_JSON_BUILD_PAIR_CONDITION(
+                                        FLAGS_SET(verb->flags, VERB_DEFAULT),
+                                        "isDefault", SD_JSON_BUILD_BOOLEAN(true)),
+                        SD_JSON_BUILD_PAIR_CONDITION(
+                                        FLAGS_SET(verb->flags, VERB_ONLINE_ONLY),
+                                        "isOnlineOnly", SD_JSON_BUILD_BOOLEAN(true)));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build JSON object: %m");
+
+        return 0;
+}
+
+static int command_build_json(
+                const Verb *cmdverb,
+                const Verb verbs_end[],
+                const Option options[],
+                const Option options_end[],
+                sd_json_variant **ret) {
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *names = NULL, *opts = NULL, *cmds = NULL;
+        int r;
+
+        assert(cmdverb);
+        assert(FLAGS_SET(cmdverb->flags, VERB_COMMAND_MARKER));
+        assert(ret);
+
+        const CommandDescription *cmd = (const CommandDescription*) ASSERT_PTR(cmdverb->data);
+
+        NULSTR_FOREACH(name, cmd->names) {
+                r = sd_json_variant_append_arrayb(&names, SD_JSON_BUILD_STRING(name));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to append JSON string to array: %m");
+        }
+        assert(names);  /* At least the primary name must be defined */
+
+        r = options_build_json(options, options_end, cmd->option_namespace, &opts);
+        if (r < 0)
+                return r;
+
+        for (const Verb *verb = cmdverb + 1; verb < verbs_end; verb++) {
+                if (FLAGS_SET(verb->flags, VERB_COMMAND_MARKER))
+                        break;  /* Start of entries for another command */
+
+                if (FLAGS_SET(verb->flags, VERB_GROUP_MARKER))
+                        continue;
+
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *o = NULL;
+                r = verb_build_json(verb, &o);
+                if (r < 0)
+                        return r;
+
+                r = sd_json_variant_append_array(&cmds, o);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to append JSON object to array: %m");
+        }
+
+        _cleanup_strv_free_ char **features = strv_split(systemd_features, /* separators= */ NULL);
+        if (!features)
+                return log_oom();
+
+        r = sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_VARIANT("names", names),
+                        SD_JSON_BUILD_PAIR_STRING("version", PROJECT_VERSION_FULL),
+                        SD_JSON_BUILD_PAIR_STRV("features", features),
+                        SD_JSON_BUILD_PAIR_CONDITION(
+                                        !!cmd->abstract,
+                                        "abstract", SD_JSON_BUILD_STRV(STRV_MAKE(cmd->abstract))),
+                        SD_JSON_BUILD_PAIR_CONDITION(
+                                        !!cmd->footer,
+                                        "footer", SD_JSON_BUILD_STRV(STRV_MAKE(cmd->footer))),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!opts, "options", SD_JSON_BUILD_VARIANT(opts)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!cmds, "verbs", SD_JSON_BUILD_VARIANT(cmds)));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build JSON object: %m");
+
+        return 0;
+}
+
+int _introspect_cli(
+                const Verb verbs[],
+                const Verb verbs_end[],
+                const Option options[],
+                const Option options_end[],
+                sd_json_format_flags_t flags) {
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *commands = NULL, *w = NULL;
+        int r;
+
+        assert(verbs);
+        assert(verbs_end > verbs);
+        assert((uintptr_t) verbs % sizeof(void*) == 0);
+
+        if (flags == SD_JSON_FORMAT_OFF)
+                flags = SD_JSON_FORMAT_PRETTY_AUTO;
+
+        for (const Verb *verb = verbs; verb < verbs_end; verb++) {
+                if (!FLAGS_SET(verb->flags, VERB_COMMAND_MARKER))
+                        continue;
+
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *c = NULL;
+                r = command_build_json(verb, verbs_end, options, options_end, &c);
+                if (r < 0)
+                        return r;
+
+                r = sd_json_variant_append_array(&commands, c);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to append JSON object to array: %m");
+        }
+
+        if (!commands)
+                return log_error_errno(SYNTHETIC_ERRNO(ENODATA),
+                                       "No command description defined, cannot introspect.");
+
+        r = sd_json_buildo(
+                        &w,
+                        SD_JSON_BUILD_PAIR_STRING(
+                                        "mediaType",
+                                        "application/vnd.io.systemd.cli-introspection-0"),
+                        SD_JSON_BUILD_PAIR_VARIANT("commands", commands));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build JSON object: %m");
+
+        r = sd_json_variant_dump(w, flags, stdout, /* prefix= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to print JSON object: %m");
 
         return 0;
 }

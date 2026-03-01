@@ -151,3 +151,18 @@ int _command_print_help(
 static inline int verb_help_auto(int argc, char **argv, uintptr_t data, void *userdata) {
         return command_print_help((const char*) ASSERT_PTR(data));
 }
+
+/* Print a machine-readable description of the program's commands, verbs, and options in the format
+ * defined by the CLI-Introspection Specification. One command object is emitted for each
+ * VERB_COMMAND() in the verb table, so multicall binaries are described in full. */
+int _introspect_cli(
+                const Verb verbs[],
+                const Verb verbs_end[],
+                const Option options[],
+                const Option options_end[],
+                sd_json_format_flags_t flags);
+#define introspect_cli(flags)                                           \
+        _introspect_cli(                                                \
+                __start_SYSTEMD_VERBS, __stop_SYSTEMD_VERBS,            \
+                __start_SYSTEMD_OPTIONS, __stop_SYSTEMD_OPTIONS,        \
+                flags)
