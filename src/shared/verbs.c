@@ -5,6 +5,7 @@
 #include "env-util.h"
 #include "format-table.h"
 #include "log.h"
+#include "options.h"
 #include "string-util.h"
 #include "strv.h"
 #include "verbs.h"
@@ -182,5 +183,58 @@ int _verbs_get_help_table(const Verb verbs[], const Verb verbs_end[], Table **re
 
         table_set_header(table, false);
         *ret = TAKE_PTR(table);
+        return 0;
+}
+
+int _introspect_verbs(const Verb verbs[], const Verb verbs_end[], sd_json_format_flags_t flags) {
+        int r;
+
+        assert(verbs ? verbs_end > verbs : verbs == verbs_end);
+
+        if (flags == SD_JSON_FORMAT_OFF)
+                flags = SD_JSON_FORMAT_PRETTY_AUTO;
+
+        for (const Verb *verb = verbs; verb < verbs_end; verb++) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *o = NULL;
+
+                assert(verb->dispatch);
+
+                r = sd_json_buildo(
+                                &o,
+                                SD_JSON_BUILD_PAIR_STRING("type", "verb"),
+                                SD_JSON_BUILD_PAIR_STRING("verb", verb->verb),
+                                SD_JSON_BUILD_PAIR_CONDITION(
+                                                verb->min_args != VERB_ANY,
+                                                "minArguments",
+                                                SD_JSON_BUILD_UNSIGNED(verb->min_args)
+                                ),
+                                SD_JSON_BUILD_PAIR_CONDITION(
+                                                verb->max_args != VERB_ANY,
+                                                "maxArguments",
+                                                SD_JSON_BUILD_UNSIGNED(verb->max_args)
+                                ),
+                                SD_JSON_BUILD_PAIR_CONDITION(
+                                                verb->flags & VERB_DEFAULT,
+                                                "isDefault",
+                                                SD_JSON_BUILD_BOOLEAN(true)
+                                ),
+                                SD_JSON_BUILD_PAIR_CONDITION(
+                                                verb->flags & VERB_ONLINE_ONLY,
+                                                "isOnlineOnly",
+                                                SD_JSON_BUILD_BOOLEAN(true)
+                                ),
+                                SD_JSON_BUILD_PAIR_CONDITION(
+                                                !!verb->help,
+                                                "help",
+                                                SD_JSON_BUILD_STRING(verb->help)
+                                ));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to build JSON object: %m");
+
+                r = sd_json_variant_dump(o, flags, stdout, /* prefix= */ NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to print JSON object: %m");
+        }
+
         return 0;
 }
