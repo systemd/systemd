@@ -7,16 +7,21 @@ ACTION=="remove", GOTO="integration_end"
 ENV{ID_BUS}=="", GOTO="integration_end"
 
 # ACPI, platform, PS/2, I2C, RMI, SPI and PCI devices: Internal by default.
-ENV{ID_BUS}=="acpi|platform|i8042|i2c|rmi|spi|pci", ENV{ID_INTEGRATION}="internal"
+ENV{ID_BUS}=="acpi|platform|i8042|i2c|rmi|spi|pci", ENV{ID_INTEGRATION}="internal", GOTO="libinput_integration_compat"
 
 # Bluetooth devices: External by default.
-ENV{ID_BUS}=="bluetooth", ENV{ID_INTEGRATION}="external"
+ENV{ID_BUS}=="bluetooth", ENV{ID_INTEGRATION}="external", GOTO="libinput_integration_compat"
 
-# USB devices: Internal if it's connected to a fixed port, external to a removable or unknown.
-ENV{ID_BUS}=="usb", DRIVERS=="usb", ATTRS{maxchild}=="0", ATTRS{removable}=="fixed", ENV{ID_INTEGRATION}="internal"
-ENV{ID_BUS}=="usb", DRIVERS=="usb", ATTRS{maxchild}=="0", ATTRS{removable}=="removable|unknown", ENV{ID_INTEGRATION}="external"
+# USB devices: Internal if it's connected to a fixed port, external to a removable and if it's unknown we use the main parent device attribute.
+ENV{ID_BUS}!="usb", GOTO="usb_integration_end"
+DRIVERS=="usb", ATTRS{maxchild}=="0", ATTRS{removable}=="fixed", ENV{ID_INTEGRATION}="internal", GOTO="libinput_integration_compat"
+DRIVERS=="usb", ATTRS{maxchild}=="0", ATTRS{removable}=="removable", ENV{ID_INTEGRATION}="external", GOTO="libinput_integration_compat"
+DRIVERS=="usb", ATTRS{devnum}!="1", ATTRS{removable}=="fixed", ENV{ID_INTEGRATION}="internal", GOTO="libinput_integration_compat"
+DRIVERS=="usb", ATTRS{devnum}!="1", ATTRS{removable}=="removable|unknown", ENV{ID_INTEGRATION}="external"
+LABEL="usb_integration_end"
 
 # libinput compatibility, must be loaded before 70-touchpad.rules to allow hwdb quirks to override.
+LABEL="libinput_integration_compat"
 ENV{ID_INPUT_TOUCHPAD}=="1", ENV{ID_INPUT_TOUCHPAD_INTEGRATION}="$env{ID_INTEGRATION}"
 
 LABEL="integration_end"
