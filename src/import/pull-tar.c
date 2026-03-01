@@ -430,7 +430,7 @@ static void tar_pull_job_on_finished(PullJob *j) {
                 clear_progress_bar(/* prefix= */ NULL);
 
                 if (j == p->tar_job) {
-                        if (j->error == ENOMEDIUM) /* HTTP 404 */
+                        if (j->error == -ENOMEDIUM) /* HTTP 404 */
                                 r = log_error_errno(j->error, "Failed to retrieve image file. (Wrong URL?)");
                         else
                                 r = log_error_errno(j->error, "Failed to retrieve image file.");
