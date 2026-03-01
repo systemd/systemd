@@ -93,11 +93,11 @@ typedef enum TableErsatz {
 typedef struct Table Table;
 typedef struct TableCell TableCell;
 
-Table *table_new_internal(const char *first_header, ...) _sentinel_;
+Table* table_new_internal(const char *first_header, ...) _sentinel_;
 #define table_new(...) table_new_internal(__VA_ARGS__, NULL)
-Table *table_new_raw(size_t n_columns);
-Table *table_new_vertical(void);
-Table *table_unref(Table *t);
+Table* table_new_raw(size_t n_columns);
+Table* table_new_vertical(void);
+Table* table_unref(Table *t);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Table*, table_unref);
 
@@ -159,10 +159,10 @@ size_t table_get_columns(Table *t);
 
 size_t table_get_current_column(Table *t);
 
-TableCell *table_get_cell(Table *t, size_t row, size_t column);
+TableCell* table_get_cell(Table *t, size_t row, size_t column);
 
-const void *table_get(Table *t, TableCell *cell);
-const void *table_get_at(Table *t, size_t row, size_t column);
+const void* table_get(Table *t, TableCell *cell);
+const void* table_get_at(Table *t, size_t row, size_t column);
 
 int table_to_json(Table *t, sd_json_variant **ret);
 int table_print_json(Table *t, FILE *f, sd_json_format_flags_t json_flags);
