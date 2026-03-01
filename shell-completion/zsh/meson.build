@@ -37,6 +37,7 @@ foreach item : [
         ['_systemd-analyze',          ''],
         ['_systemd-delta',            ''],
         ['_systemd-inhibit',          'ENABLE_LOGIND'],
+        ['_systemd-id128',            ''],
         ['_systemd-nspawn',           ''],
         ['_systemd-path',             ''],
         ['_systemd-run',              ''],
