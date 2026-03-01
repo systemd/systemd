@@ -288,6 +288,13 @@ static int close_all_fds_special_case(const int except[], size_t n_except) {
 
         switch (n_except) {
 
+        case 0:
+                /* Close everything. Yay! */
+                if (close_range(3, INT_MAX, 0) < 0)
+                        return -errno;
+
+                return 1;
+
         case 1:
                 if (except[0] > 3 && except[0] < INT_MAX) {
                         /* Close all but exactly one, then we don't need no sorting. This is a pretty common
@@ -302,8 +309,6 @@ static int close_all_fds_special_case(const int except[], size_t n_except) {
                         return 1;
                 }
 
-                _fallthrough_;
-        case 0:
                 /* Close everything. Yay! */
                 if (close_range(3, INT_MAX, 0) < 0)
                         return -errno;
