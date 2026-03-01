@@ -527,7 +527,7 @@ static void raw_pull_job_on_finished(PullJob *j) {
                  * checksum file. */
 
                 if (j == i->raw_job) {
-                        if (j->error == ENOMEDIUM) /* HTTP 404 */
+                        if (j->error == -ENOMEDIUM) /* HTTP 404 */
                                 r = log_error_errno(j->error, "Failed to retrieve image file. (Wrong URL?)");
                         else
                                 r = log_error_errno(j->error, "Failed to retrieve image file.");
