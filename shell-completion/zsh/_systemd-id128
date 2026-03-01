@@ -1,0 +1,55 @@
+#compdef systemd-id128
+
+local context state state_descr line
+typeset -A opt_args
+local expl
+
+local -a opt_common=(
+	{-h,--help}'[show a help message and exit]'
+	'--no-pager[do not pipe output into a pager]'
+	'--no-legend[do not show the headers and footers]'
+	'(-j)--json=[output inspection data in json format]:json-mode:(pretty short off)'
+	'(--json)-j[equivalent to --json=short or --json=pretty on TTY]'
+	'-p[generate samples of program code]'
+	'(-P --value)'{-P,--value}'[only print the value]'
+	'(-a --app-specific)'{-a+,--app-specific=}'[generate app-specific IDs]'
+	'(-u --uuid)'{-u,--uuid}'[output in uuid format]'
+)
+
+local -a id128_commands=(
+	'new:generate a new id'
+	'machine-id:print the id of the current machine'
+	'boot-id:print the id of the current boot'
+	'invocation-id:print the id of the current invocation'
+	'var-partition-uuid:print the uuid of the /var partition'
+	'show:print one or more uuids'
+)
+
+_systemd-id128_names() {
+	local expl
+	local -a names=( ${${(@f)"$(_call_program -l id128-name systemd-id128 show)"}%% *} )
+	_wanted id128-name expl "name" compadd "$@" -a - names
+}
+
+local ret=1
+_arguments -s "$opt_common[@]" \
+	':command:->command' \
+	'*:: :->option-or-argument' && ret=0
+
+case $state in
+	command)
+		_describe -t command 'id128 command' id128_commands && ret=0
+		;;
+	option-or-argument)
+		local curcontext=${curcontext%:*:*}:systemd-id128-$words[1]:
+		case $words[1] in
+			*-id)
+				_arguments -s "$opt_common[@]" && ret=0
+				;;
+			show)
+				_arguments -s "$opt_common[@]" ':name:_systemd-id128_names' && ret=0
+				;;
+		esac
+		;;
+esac
+return ret
