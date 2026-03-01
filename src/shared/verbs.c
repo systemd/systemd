@@ -178,3 +178,53 @@ int _verbs_get_help_table(const Verb verbs[], const Verb verbs_end[], Table **re
         *ret = TAKE_PTR(table);
         return 0;
 }
+
+int _introspect_verbs(const Verb verbs[], const Verb verbs_end[], sd_json_format_flags_t flags) {
+        int r;
+
+        assert(verbs ? verbs_end > verbs : verbs == verbs_end);
+
+        if (flags == SD_JSON_FORMAT_OFF)
+                flags = SD_JSON_FORMAT_PRETTY_AUTO;
+
+        for (const Verb *verb = verbs; verb < verbs_end; verb++) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *o = NULL;
+
+                assert(verb->dispatch);
+
+                r = sd_json_buildo(
+                                &o,
+                                SD_JSON_BUILD_PAIR_STRING("verb", verb->verb),
+                                SD_JSON_BUILD_PAIR_CONDITION(
+                                                verb->min_args != VERB_ANY,
+                                                "min_args",
+                                                SD_JSON_BUILD_UNSIGNED(verb->min_args)
+                                ),
+                                SD_JSON_BUILD_PAIR_CONDITION(
+                                                verb->max_args != VERB_ANY,
+                                                "max_args",
+                                                SD_JSON_BUILD_UNSIGNED(verb->max_args)
+                                ),
+                                SD_JSON_BUILD_PAIR_CONDITION(
+                                                verb->flags & VERB_DEFAULT,
+                                                "default",
+                                                SD_JSON_BUILD_BOOLEAN(true)
+                                ),
+                                SD_JSON_BUILD_PAIR_CONDITION(
+                                                verb->flags & VERB_ONLINE_ONLY,
+                                                "online_only",
+                                                SD_JSON_BUILD_BOOLEAN(true)
+                                ),
+                                SD_JSON_BUILD_PAIR_CONDITION(
+                                                !!verb->help,
+                                                "help",
+                                                SD_JSON_BUILD_STRING(verb->help)
+                                ));
+
+                r = sd_json_variant_dump(o, flags, stdout, /* prefix= */ NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}

@@ -50,7 +50,10 @@ typedef struct Option {
         OPTION('h', "help", NULL, "Show this help")
 #define OPTION_COMMON_VERSION \
         OPTION_LONG("version", NULL, "Show package version")
-#define OPTION_COMMON_NO_PAGER \
+#define OPTION_COMMON_INTROSPECT \
+        /* This option is internal-only and not show in --help */ \
+        OPTION_LONG("introspect", "WHAT", /* help= */ NULL)
+#define OPTION_COMMON_NO_PAGER                                  \
         OPTION_LONG("no-pager", NULL, "Do not start a pager")
 #define OPTION_COMMON_NO_LEGEND \
         OPTION_LONG("no-legend", NULL, "Do not show headers and footers")
@@ -100,3 +103,10 @@ int _option_parser_get_help_table(
         _option_parser_get_help_table(ALIGN_PTR(__start_SYSTEMD_OPTIONS), __stop_SYSTEMD_OPTIONS, group, ret)
 #define option_parser_get_help_table(ret)                               \
         option_parser_get_help_table_group(/* group= */ NULL, ret)
+
+int _introspect_options(
+                const Option options_start[],
+                const Option options_end[],
+                sd_json_format_flags_t flags);
+#define introspect_options(flags)                                       \
+        _introspect_options(ALIGN_PTR(__start_SYSTEMD_OPTIONS), __stop_SYSTEMD_OPTIONS, flags)

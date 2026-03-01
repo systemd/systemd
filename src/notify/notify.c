@@ -30,6 +30,7 @@
 #include "strv.h"
 #include "time-util.h"
 #include "user-util.h"
+#include "verbs.h"
 
 static enum {
         ACTION_NOTIFY,
@@ -276,6 +277,15 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION('q', "quiet", NULL, "Do not show PID of child when forking"):
                         arg_quiet = true;
                         break;
+
+                OPTION_COMMON_INTROSPECT:
+                        if (streq(arg, "options"))
+                                return introspect_options(/* flags= */ 0);
+                        else if (streq(arg, "verbs"))
+                                return introspect_verbs_dummy();
+                        else
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Unknown introspection argument: %s", arg);
                 }
 
         bool have_env = arg_ready || arg_stopping || arg_reloading || arg_status || pidref_is_set(&arg_pid) || !fdset_isempty(arg_fds);
