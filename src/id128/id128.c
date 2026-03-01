@@ -14,7 +14,6 @@
 #include "main-func.h"
 #include "options.h"
 #include "parse-argument.h"
-#include "pretty-print.h"
 #include "string-util.h"
 #include "strv.h"
 #include "verbs.h"
