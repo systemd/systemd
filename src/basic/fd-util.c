@@ -296,7 +296,7 @@ static int close_all_fds_special_case(const int except[], size_t n_except) {
                         if (close_range(3, except[0] - 1, 0) < 0)
                                 return -errno;
 
-                        if (close_range(except[0] + 1, INT_MAX, 0) < 0)
+                        if (close_range(except[0] + 1, -1, 0) < 0)
                                 return -errno;
 
                         return 1;
