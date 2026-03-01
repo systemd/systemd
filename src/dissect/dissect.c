@@ -486,6 +486,9 @@ static int parse_argv(int argc, char *argv[]) {
                 OPTION_LONG("shift", NULL, "Shift UID range to selected base"):
                         arg_action = ACTION_SHIFT;
                         break;
+
+                OPTION_COMMON_INTROSPECT:
+                        return introspect_options_and_dummy_verbs(arg, arg_json_format_flags);
                 }
 
         if (system_scope_requested || user_scope_requested)
