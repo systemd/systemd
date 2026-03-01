@@ -2,6 +2,7 @@
 #pragma once
 
 #include "shared-forward.h"
+#include "verbs.h"
 
 typedef enum OptionFlags {
         OPTION_OPTIONAL_ARG  = 1U << 0,  /* Same as optional_argument in getopt */
@@ -50,6 +51,9 @@ typedef struct Option {
         OPTION('h', "help", NULL, "Show this help")
 #define OPTION_COMMON_VERSION \
         OPTION_LONG("version", NULL, "Show package version")
+#define OPTION_COMMON_INTROSPECT \
+        /* This option is internal-only and not shown in --help */ \
+        OPTION_LONG("introspect", "WHAT", /* help= */ NULL)
 #define OPTION_COMMON_NO_PAGER \
         OPTION_LONG("no-pager", NULL, "Do not start a pager")
 #define OPTION_COMMON_NO_LEGEND \
@@ -100,3 +104,22 @@ int _option_parser_get_help_table(
         _option_parser_get_help_table(ALIGN_PTR(__start_SYSTEMD_OPTIONS), __stop_SYSTEMD_OPTIONS, group, ret)
 #define option_parser_get_help_table(ret)                               \
         option_parser_get_help_table_group(/* group= */ NULL, ret)
+
+int _introspect_options(
+                const Option options_start[],
+                const Option options_end[],
+                sd_json_format_flags_t flags);
+#define introspect_options(flags)                                       \
+        _introspect_options(ALIGN_PTR(__start_SYSTEMD_OPTIONS), __stop_SYSTEMD_OPTIONS, flags)
+
+#define introspect_options_and_dummy_verbs(arg, flags)                  \
+        streq(arg, "options") ? introspect_options(flags) :             \
+                streq(arg, "verbs") ? introspect_verbs_dummy() :        \
+                log_error_errno(SYNTHETIC_ERRNO(EINVAL),                \
+                                "Unknown introspection argument: %s", arg)
+
+#define introspect_options_and_verbs(arg, flags)                        \
+        streq(arg, "options") ? introspect_options(flags) :             \
+                streq(arg, "verbs") ? introspect_verbs(flags) :         \
+                log_error_errno(SYNTHETIC_ERRNO(EINVAL),                \
+                                "Unknown introspection argument: %s", arg)

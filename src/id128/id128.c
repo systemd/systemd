@@ -283,6 +283,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION('u', "uuid", NULL, "Output in UUID format"):
                         arg_mode = ID128_PRINT_UUID;
                         break;
+
+                OPTION_COMMON_INTROSPECT:
+                        return introspect_options_and_verbs(arg, arg_json_format_flags);
                 }
 
         *ret_args = option_parser_get_args(&state, argc, argv);

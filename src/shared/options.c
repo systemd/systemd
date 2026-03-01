@@ -306,3 +306,75 @@ int _option_parser_get_help_table(
         *ret = TAKE_PTR(table);
         return 0;
 }
+
+int _introspect_options(
+                const Option options_start[],
+                const Option options_end[],
+                sd_json_format_flags_t flags) {
+        const char *group = NULL;
+        int r;
+
+        if (flags == SD_JSON_FORMAT_OFF)
+                flags = SD_JSON_FORMAT_PRETTY_AUTO;
+
+        for (const Option *opt = options_start; opt < options_end; opt++) {
+                bool group_marker = FLAGS_SET(opt->flags, OPTION_GROUP_MARKER);
+                if (group_marker) {
+                        group = opt->long_code;
+                        continue;
+                }
+
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *names = NULL, *o = NULL;
+
+                assert(opt->short_code != 0 || opt->long_code);
+
+                if (opt->short_code != 0) {
+                        char s[3] = {'-', opt->short_code};
+
+                        r = sd_json_variant_append_arrayb(&names, SD_JSON_BUILD_STRING(s));
+                        if (r < 0)
+                                return r;
+                }
+
+                if (opt->long_code) {
+                        _cleanup_free_ char *s = strjoin("--", opt->long_code);
+                        if (!s)
+                                return log_oom_debug();
+
+                        r = sd_json_variant_append_arrayb(&names, SD_JSON_BUILD_STRING(s));
+                        if (r < 0)
+                                return r;
+                }
+
+                const char *argtype =
+                        option_arg_required(opt) ? "required_argument" :
+                        option_arg_optional(opt) ? "optional_argument" :
+                        "no_argument";
+
+                r = sd_json_buildo(
+                                &o,
+                                SD_JSON_BUILD_PAIR_VARIANT("names", names),
+                                SD_JSON_BUILD_PAIR_CONDITION(
+                                                !!opt->metavar,
+                                                "metavar",
+                                                SD_JSON_BUILD_STRING(opt->metavar)
+                                ),
+                                SD_JSON_BUILD_PAIR_STRING("type", argtype),
+                                SD_JSON_BUILD_PAIR_CONDITION(
+                                                !!opt->help,
+                                                "help",
+                                                SD_JSON_BUILD_STRING(opt->help)
+                                ),
+                                SD_JSON_BUILD_PAIR_CONDITION(
+                                                !!group,
+                                                "group",
+                                                SD_JSON_BUILD_STRING(group)
+                                ));
+
+                r = sd_json_variant_dump(o, flags, stdout, /* prefix= */ NULL);
+                if (r < 0)
+                        return r;
+        };
+
+        return 0;
+}
