@@ -124,6 +124,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_image_filter, image_filter_freep);
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         _cleanup_(table_unrefp) Table *options = NULL, *commands = NULL;
+        size_t w1, w2;
         int r;
 
         pager_open(arg_pager_flags);
@@ -139,6 +140,19 @@ static int help(void) {
         r = option_parser_get_help_table_group("Commands", &commands);
         if (r < 0)
                 return r;
+
+        /* Make the 1st column same width in both tables */
+
+        r = table_data_requested_width(options, /* column= */ 0, &w1);
+        if (r < 0)
+                return log_error_errno(r, "Failed to query table column width: %m");
+
+        r = table_data_requested_width(commands, /* column= */ 0, &w2);
+        if (r < 0)
+                return log_error_errno(r, "Failed to query table column width: %m");
+
+        (void) table_set_column_width(options, 0, MAX(w1, w2));
+        (void) table_set_column_width(commands, 0, MAX(w1, w2));
 
         printf("%1$s [OPTIONS...] IMAGE\n"
                "%1$s [OPTIONS...] --mount IMAGE PATH\n"
