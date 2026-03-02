@@ -202,7 +202,7 @@ int _introspect_verbs(const Verb verbs[], const Verb verbs_end[], sd_json_format
                 r = sd_json_buildo(
                                 &o,
                                 SD_JSON_BUILD_PAIR_STRING("type", "verb"),
-                                SD_JSON_BUILD_PAIR_STRING("verb", verb->verb),
+                                SD_JSON_BUILD_PAIR_STRING("name", verb->verb),
                                 SD_JSON_BUILD_PAIR_CONDITION(
                                                 verb->min_args != VERB_ANY,
                                                 "minArguments",
