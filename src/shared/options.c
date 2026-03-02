@@ -243,8 +243,10 @@ int _option_parser_get_help_table(
                 const Option options[],
                 const Option options_end[],
                 const char *group,
-                Table **ret) {
+                Table **ret,
+                size_t *ret_width_of_first_column) {
         int r;
+        size_t w = 0;
 
         assert(ret);
 
@@ -293,6 +295,8 @@ int _option_parser_get_help_table(
                 if (r < 0)
                         return table_log_add_error(r);
 
+                w = MAX(w, strlen(s));
+
                 _cleanup_strv_free_ char **t = strv_split(opt->help, /* separators= */ NULL);
                 if (!t)
                         return log_oom();
@@ -303,7 +307,10 @@ int _option_parser_get_help_table(
         };
 
         table_set_header(table, false);
+
         *ret = TAKE_PTR(table);
+        if (ret_width_of_first_column)
+                *ret_width_of_first_column = w;
         return 0;
 }
 

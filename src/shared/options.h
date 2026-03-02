@@ -99,11 +99,12 @@ int _option_parser_get_help_table(
                 const Option options[],
                 const Option options_end[],
                 const char *group,
-                Table **ret);
-#define option_parser_get_help_table_group(group, ret)                  \
-        _option_parser_get_help_table(ALIGN_PTR(__start_SYSTEMD_OPTIONS), __stop_SYSTEMD_OPTIONS, group, ret)
-#define option_parser_get_help_table(ret)                               \
-        option_parser_get_help_table_group(/* group= */ NULL, ret)
+                Table **ret,
+                size_t *ret_width_of_first_column);
+#define option_parser_get_help_table_group(group, ret, ret_width_of_first_column) \
+        _option_parser_get_help_table(ALIGN_PTR(__start_SYSTEMD_OPTIONS), __stop_SYSTEMD_OPTIONS, group, ret, ret_width_of_first_column)
+#define option_parser_get_help_table(ret, ret_width_of_first_column)    \
+        option_parser_get_help_table_group(/* group= */ NULL, ret, ret_width_of_first_column)
 
 int _introspect_options(
                 const Option options_start[],
