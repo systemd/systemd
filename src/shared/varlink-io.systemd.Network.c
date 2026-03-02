@@ -412,6 +412,29 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(StaticLeases, DHCPServerLease, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                LLDP,
+                SD_VARLINK_FIELD_COMMENT("Unique chassis ID to be sent."),
+                SD_VARLINK_DEFINE_FIELD(ChassisID, SD_VARLINK_INT, SD_VARLINK_ARRAY),
+                SD_VARLINK_FIELD_COMMENT("Chassis ID field with header."),
+                SD_VARLINK_DEFINE_FIELD(RawChassisID, SD_VARLINK_INT, SD_VARLINK_ARRAY),
+                SD_VARLINK_FIELD_COMMENT("Port ID field, typically the interface name."),
+                SD_VARLINK_DEFINE_FIELD(PortID, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("Port ID field with header."),
+                SD_VARLINK_DEFINE_FIELD(RawPortID, SD_VARLINK_INT, SD_VARLINK_ARRAY),
+                SD_VARLINK_FIELD_COMMENT("Port description."),
+                SD_VARLINK_DEFINE_FIELD(PortDescription, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("System name, typically hostname."),
+                SD_VARLINK_DEFINE_FIELD(SystemName, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Host description, typically pretty hostname."),
+                SD_VARLINK_DEFINE_FIELD(SystemDescription, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Bitmask of the enabled capabilities."),
+                SD_VARLINK_DEFINE_FIELD(EnabledCapabilities, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("MUD URL."),
+                SD_VARLINK_DEFINE_FIELD(MUDURL, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("VLAN ID of the interface."),
+                SD_VARLINK_DEFINE_FIELD(VlanID, SD_VARLINK_INT, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 Interface,
                 SD_VARLINK_FIELD_COMMENT("Network interface index"),
                 SD_VARLINK_DEFINE_FIELD(Index, SD_VARLINK_INT, 0),
@@ -532,8 +555,8 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(DHCPv4Client, SD_VARLINK_OBJECT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("DHCPv6 client configuration and lease information"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(DHCPv6Client, DHCPv6Client, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("LLDP neighbors discovered on this interface"),
-                SD_VARLINK_DEFINE_FIELD_BY_TYPE(LLDP, LLDPNeighbor, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE));
+                SD_VARLINK_FIELD_COMMENT("LLDP transmit configuration for this interface"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(LLDP, LLDP, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_METHOD(
                 Describe,
@@ -619,6 +642,7 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_type_LinkAddressState,
                 &vl_type_LinkOnlineState,
                 &vl_type_LinkRequiredAddressFamily,
+                &vl_type_LLDP,
                 &vl_type_LLDPNeighbor,
                 &vl_type_LLDPNeighborsByInterface,
                 &vl_type_NDisc,
