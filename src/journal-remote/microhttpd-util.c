@@ -68,9 +68,7 @@ int mhd_respondf_internal(
         assert(connection);
         assert(format);
 
-        if (error < 0)
-                error = -error;
-        errno = -error;
+        errno = ERRNO_VALUE(error);
         va_start(ap, format);
         r = vasprintf(&m, format, ap);
         va_end(ap);
