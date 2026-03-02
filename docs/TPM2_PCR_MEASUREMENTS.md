@@ -20,7 +20,7 @@ See
 [UAPI.7 Linux TPM PCR Registry](https://uapi-group.org/specifications/specs/linux_tpm_pcr_registry/)
 for an overview of PCRs.
 
-systemd will measure to PCRs 5 (`boot-loader-config`), 11 (`kernel-boot`),
+systemd will measure to PCRs 5 (`boot-loader-config`), 7 (`secure-boot`), 11 (`kernel-boot`),
 12 (`kernel-config`), 13 (`sysexts`), 15 (`system-identity`).
 
 Currently, four components will issue TPM2 PCR measurements:
@@ -216,6 +216,17 @@ hexadecimal. Example:
 `nvpcr-init:hardware:0x1d10200:sha256:de3857f637c61e82f02e3722e1b207585fe9711045d863238904be8db10683f2`
 
 ## PCR/NvPCR Measurements Made by `systemd-pcrextend` (Userspace)
+
+### PCR 7, leave-initrd barrier
+
+systemd-pcrphase-initrd extends PCR 7 with leave-initrd only when leaving the
+initrd (no extend on enter-initrd). So PCR 7 in the initrd stays the firmware
+value and existing PCR7-only sealed volumes still unseal in the initrd; in the
+main OS, PCR 7 differs.
+
+If we extended PCR 7 on enter-initrd: PCR 7 would change as soon as we enter
+the initrd. Keys sealed to the firmware-only PCR 7 value would then fail to
+unseal in the initrd.
 
 ### PCR 11, boot phases
 
