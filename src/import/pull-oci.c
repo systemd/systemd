@@ -489,7 +489,7 @@ static int oci_pull_job_on_open_disk(PullJob *j) {
                                 DISSECT_IMAGE_FOREIGN_UID,
                                 &st->tree_fd);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to mount directory via mountsd: %m");
+                        return log_error_errno(r, "Failed to mount directory via mountfsd: %m");
         } else {
                 if (i->flags & IMPORT_BTRFS_SUBVOL)
                         r = btrfs_subvol_make_fallback(AT_FDCWD, st->temp_path, 0755);
