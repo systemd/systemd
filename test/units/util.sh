@@ -401,6 +401,16 @@ EOF
         echo MARKER=1 >"$initdir/usr/lib/systemd/system/other_file"
         mksquashfs "$initdir" /tmp/app1.raw -noappend
 
+        # Create a data-only extension image (no unit files) to test that
+        # ExtensionImages= is added to the drop-in even when the extension
+        # does not carry any units.
+        initdir="/var/tmp/app-data-only"
+        mkdir -p "$initdir/usr/lib/extension-release.d" "$initdir/opt"
+        grep "^ID=" "$os_release" >"$initdir/usr/lib/extension-release.d/extension-release.app-data-only"
+        echo "$version_id" >>"$initdir/usr/lib/extension-release.d/extension-release.app-data-only"
+        echo "MARKER_DATA_ONLY=1" >"$initdir/opt/data-file"
+        mksquashfs "$initdir" /tmp/app-data-only.raw -noappend
+
         initdir="/var/tmp/app-nodistro"
         mkdir -p "$initdir/usr/lib/extension-release.d" "$initdir/usr/lib/systemd/system"
         (
