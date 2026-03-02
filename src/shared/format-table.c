@@ -2139,6 +2139,19 @@ static const char* table_data_rgap_underline(const TableData *d) {
         return NULL;
 }
 
+int table_set_column_width(Table *t, size_t column, size_t width) {
+        int r = 0;
+
+        for (size_t row = 0;; row++) {
+                TableCell *cell = table_get_cell(t, row, column);
+                if (!cell)
+                        break;
+                RET_GATHER(r, table_set_minimum_width(t, cell, width));
+        }
+
+        return r;
+}
+
 int table_print(Table *t, FILE *f) {
         size_t n_rows, *minimum_width, *maximum_width, display_columns, *requested_width,
                 table_minimum_width, table_maximum_width, table_requested_width, table_effective_width,
