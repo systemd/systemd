@@ -954,20 +954,20 @@
         <listitem><para><option>--vacuum-size=</option> removes the oldest archived journal files until the
         disk space they use falls below the specified size. Accepts the usual <literal>K</literal>,
         <literal>M</literal>, <literal>G</literal> and <literal>T</literal> suffixes (to the base of
-        1024). Default value of 0 means the option does nothing.</para>
+        1024). Default value of 0 means the limit is not active.</para>
 
         <para><option>--vacuum-time=</option> removes archived journal files older than the specified
         timespan. Accepts the usual <literal>s</literal> (default), <literal>m</literal>,
         <literal>h</literal>, <literal>days</literal>, <literal>weeks</literal>, <literal>months</literal>,
         and <literal>years</literal> suffixes, see
         <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
-        details. Default value of 0 means the option does nothing.</para>
+        details. Default value of 0 means the limit is not active.</para>
 
         <para><option>--vacuum-files=</option> leaves only the specified number of archived journal
-        files. Default value of 0 means the option does nothing.</para>
+        files. Default value of 0 means the limit is not active.</para>
 
         <para><option>--vacuum-size=</option>, <option>--vacuum-time=</option> and
-        <option>--vacuum-files=</option> may be used together as a combined limit for size, time and the
+        <option>--vacuum-files=</option> may be used together as a combined limit for size, time, and the
         number of archived files. Zero values are equivalent to not enforcing the specific limit, and is thus
         redundant. The resulting command can be combined with <option>--rotate</option> as well.</para>
 
