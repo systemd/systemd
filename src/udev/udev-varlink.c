@@ -18,7 +18,9 @@ static int vl_method_reload(sd_varlink *link, sd_json_variant *parameters, sd_va
 
         assert(link);
 
-        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
+        /* Currently, udevd does not support polkit, but the varlink IDL says that io.systemd.service.Reload
+         * optionally takes the polkit field. Let's silently ignore the field. */
+        r = sd_varlink_dispatch(link, parameters, dispatch_table_polkit_only, /* userdata= */ NULL);
         if (r != 0)
                 return r;
 
