@@ -2139,6 +2139,48 @@ static const char* table_data_rgap_underline(const TableData *d) {
         return NULL;
 }
 
+int table_data_requested_width(Table *table, size_t column, size_t *ret) {
+        size_t width = 0;
+        int r;
+
+        assert(table);
+        assert(ret);
+
+        for (size_t row = 0; row < table_get_rows(table); row++) {
+                TableCell *cell = table_get_cell(table, row, column);
+                if (cell) {
+                        TableData *data = table_get_data(table, cell);
+                        if (data) {
+                                size_t w;
+
+                                r = table_data_requested_width_height(
+                                                table, data, SIZE_MAX, &w, /* ret_height= */ NULL, /* have_soft= */ NULL);
+                                if (r < 0)
+                                        return r;
+
+                                width = MAX(width, w);
+                        }
+                }
+        }
+
+        *ret = width;
+        return 0;
+}
+
+int table_set_column_width(Table *t, size_t column, size_t width) {
+        int r = 0;
+
+        assert(t);
+
+        for (size_t row = 0; row < table_get_rows(t); row++) {
+                TableCell *cell = table_get_cell(t, row, column);
+                if (cell)
+                        RET_GATHER(r, table_set_minimum_width(t, cell, width));
+        }
+
+        return r;
+}
+
 int table_print(Table *t, FILE *f) {
         size_t n_rows, *minimum_width, *maximum_width, display_columns, *requested_width,
                 table_minimum_width, table_maximum_width, table_requested_width, table_effective_width,
