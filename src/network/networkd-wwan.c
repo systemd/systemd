@@ -17,6 +17,7 @@
 #include "sd-dhcp6-client.h"
 #include "sd-ndisc.h"
 #include "set.h"
+#include "string-table.h"
 #include "string-util.h"
 
 Bearer* bearer_free(Bearer *b) {
@@ -637,5 +638,104 @@ int config_parse_mm_route_metric(
                 return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
 
         network->mm_route_metric_set = true;
+        return 0;
+}
+
+static const char* const mm_bearer_allowed_auth_table[] = {
+        [MM_BEARER_ALLOWED_AUTH_NONE]     = "none",
+        [MM_BEARER_ALLOWED_AUTH_PAP]      = "pap",
+        [MM_BEARER_ALLOWED_AUTH_CHAP]     = "chap",
+        [MM_BEARER_ALLOWED_AUTH_MSCHAP]   = "mschap",
+        [MM_BEARER_ALLOWED_AUTH_MSCHAPV2] = "mschapv2",
+        [MM_BEARER_ALLOWED_AUTH_EAP]      = "eap",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(mm_bearer_allowed_auth, MMBearerAllowedAuth);
+
+int config_parse_mm_allowed_auth(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = ASSERT_PTR(data);
+        MMBearerAllowedAuth allowed_auth;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                network->mm_allowed_auth = MM_BEARER_ALLOWED_AUTH_NONE;
+                return 0;
+        }
+
+        allowed_auth = mm_bearer_allowed_auth_from_string(rvalue);
+        if (allowed_auth < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, allowed_auth,
+                           "Failed to parse '%s=', ignoring assignment: %s",
+                           lvalue, rvalue);
+                return 0;
+        }
+
+        network->mm_allowed_auth = allowed_auth;
+
+        return 0;
+}
+
+static const char* const mm_bearer_address_family_table[] = {
+        [MM_BEARER_IP_FAMILY_NONE]   = "none",
+        [MM_BEARER_IP_FAMILY_IPV4]   = "ipv4",
+        [MM_BEARER_IP_FAMILY_IPV6]   = "ipv6",
+        [MM_BEARER_IP_FAMILY_IPV4V6] = "ipv4v6",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(mm_bearer_address_family, MMBearerIpFamily);
+
+int config_parse_mm_ip_family(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = ASSERT_PTR(data);
+        MMBearerIpFamily ip_family;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                network->mm_ip_family = MM_BEARER_IP_FAMILY_ANY;
+                return 0;
+        }
+
+        /* Handle "any" separately as MM_BEARER_IP_FAMILY_ANY will make the string array waste too much space. */
+        if (streq(rvalue, "any"))
+                ip_family = MM_BEARER_IP_FAMILY_ANY;
+        else {
+                ip_family = mm_bearer_address_family_from_string(rvalue);
+                if (ip_family < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, ip_family,
+                                   "Failed to parse '%s=', ignoring assignment: %s",
+                                   lvalue, rvalue);
+                        return 0;
+                }
+        }
+
+        network->mm_ip_family = ip_family;
+
         return 0;
 }
