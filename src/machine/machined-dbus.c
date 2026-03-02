@@ -464,7 +464,7 @@ static int method_create_or_register_machine(
                         supervisor_pidref = TAKE_PIDREF(client_pidref);
         }
 
-        if (hashmap_get(manager->machines, name))
+        if (hashmap_contains(manager->machines, name))
                 return sd_bus_error_setf(error, BUS_ERROR_MACHINE_EXISTS, "Machine '%s' already exists", name);
 
         return machine_add_from_params(
@@ -616,7 +616,7 @@ static int method_create_or_register_machine_ex(
         if (!isempty(root_directory) && (!path_is_absolute(root_directory) || !path_is_valid(root_directory)))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Root directory must be empty or an absolute path");
 
-        if (hashmap_get(manager->machines, name))
+        if (hashmap_contains(manager->machines, name))
                 return sd_bus_error_setf(error, BUS_ERROR_MACHINE_EXISTS, "Machine '%s' already exists", name);
 
         /* If a PID is specified that's the leader, but if the client process is different from it, than that's the supervisor */

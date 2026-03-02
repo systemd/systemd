@@ -3499,7 +3499,7 @@ static int pattern_match_multiple_instances(
                 if (r < 0)
                         return r;
 
-                if (strv_find(rule.instances, instance_name))
+                if (strv_contains(rule.instances, instance_name))
                         return 1;
         }
         return 0;

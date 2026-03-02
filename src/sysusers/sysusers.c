@@ -1053,7 +1053,7 @@ static int uid_is_ok(
         assert(c);
 
         /* Let's see if we already have assigned the UID a second time */
-        if (ordered_hashmap_get(c->todo_uids, UID_TO_PTR(uid)))
+        if (ordered_hashmap_contains(c->todo_uids, UID_TO_PTR(uid)))
                 return 0;
 
         /* Try to avoid using uids that are already used by a group
@@ -1292,7 +1292,7 @@ static int gid_is_ok(
         assert(c);
         assert(groupname);
 
-        if (ordered_hashmap_get(c->todo_gids, GID_TO_PTR(gid)))
+        if (ordered_hashmap_contains(c->todo_gids, GID_TO_PTR(gid)))
                 return 0;
 
         /* Avoid reusing gids that are already used by a different user */
@@ -1568,7 +1568,7 @@ static int add_implicit(Context *c) {
         /* Implicitly create additional users and groups, if they were listed in "m" lines */
         ORDERED_HASHMAP_FOREACH_KEY(l, g, c->members) {
                 STRV_FOREACH(m, l)
-                        if (!ordered_hashmap_get(c->users, *m)) {
+                        if (!ordered_hashmap_contains(c->users, *m)) {
                                 _cleanup_(item_freep) Item *j =
                                         item_new(ADD_USER, *m, /* filename= */ NULL, /* line= */ 0);
                                 if (!j)
@@ -1584,8 +1584,8 @@ static int add_implicit(Context *c) {
                                 TAKE_PTR(j);
                         }
 
-                if (!(ordered_hashmap_get(c->users, g) ||
-                      ordered_hashmap_get(c->groups, g))) {
+                if (!(ordered_hashmap_contains(c->users, g) ||
+                      ordered_hashmap_contains(c->groups, g))) {
                         _cleanup_(item_freep) Item *j =
                                 item_new(ADD_GROUP, g, /* filename= */ NULL, /* line= */ 0);
                         if (!j)

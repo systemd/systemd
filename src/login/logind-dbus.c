@@ -3880,7 +3880,7 @@ static int method_inhibit(sd_bus_message *message, void *userdata, sd_bus_error 
                 if (asprintf(&id, "%" PRIu64, ++m->inhibit_counter) < 0)
                         return -ENOMEM;
 
-        } while (hashmap_get(m->inhibitors, id));
+        } while (hashmap_contains(m->inhibitors, id));
 
         _cleanup_(inhibitor_freep) Inhibitor *i = NULL;
         r = manager_add_inhibitor(m, id, &i);

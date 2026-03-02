@@ -381,7 +381,7 @@ static int extract_now(
                                 continue;
 
                         /* Filter out duplicates */
-                        if (hashmap_get(unit_files, de->d_name))
+                        if (hashmap_contains(unit_files, de->d_name))
                                 continue;
 
                         if (!IN_SET(de->d_type, DT_LNK, DT_REG))
