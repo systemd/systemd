@@ -513,6 +513,9 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .ipoib_mode = _IP_OVER_INFINIBAND_MODE_INVALID,
                 .ipoib_umcast = -1,
 
+                .mm_allow_roaming = 1,
+                .mm_allowed_auth = MM_BEARER_ALLOWED_AUTH_UNKNOWN,
+                .mm_ip_family = MM_BEARER_IP_FAMILY_NONE,
                 .mm_use_gateway = -1,
         };
 
@@ -553,7 +556,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                         "LLDP\0"
                         "TrafficControlQueueingDiscipline\0"
                         "CAN\0"
-                        "ModemManager\0"
+                        "MobileNetwork\0"
                         "QDisc\0"
                         "BFIFO\0"
                         "CAKE\0"
@@ -851,7 +854,11 @@ static Network *network_free(Network *network) {
         hashmap_free(network->tclasses_by_section);
 
         /* ModemManager */
-        strv_free(network->mm_simple_connect_props);
+        free(network->mm_apn);
+        free(network->mm_operator_id);
+        free(network->mm_user);
+        free(network->mm_password);
+        free(network->mm_pin);
 
         return mfree(network);
 }
