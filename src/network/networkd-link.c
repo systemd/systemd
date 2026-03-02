@@ -869,7 +869,7 @@ static int link_put_carrier(Link *link, Link *carrier, Hashmap **h) {
         if (link == carrier)
                 return 0;
 
-        if (hashmap_get(*h, INT_TO_PTR(carrier->ifindex)))
+        if (hashmap_contains(*h, INT_TO_PTR(carrier->ifindex)))
                 return 0;
 
         r = hashmap_ensure_put(h, NULL, INT_TO_PTR(carrier->ifindex), carrier);
