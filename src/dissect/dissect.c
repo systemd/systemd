@@ -124,6 +124,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_image_filter, image_filter_freep);
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         _cleanup_(table_unrefp) Table *options = NULL, *commands = NULL;
+        size_t w1, w2;
         int r;
 
         pager_open(arg_pager_flags);
@@ -132,13 +133,17 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        r = option_parser_get_help_table(&options);
+        r = option_parser_get_help_table(&options, &w1);
         if (r < 0)
                 return r;
 
-        r = option_parser_get_help_table_group("Commands", &commands);
+        r = option_parser_get_help_table_group("Commands", &commands, &w2);
         if (r < 0)
                 return r;
+
+        /* Make the 1st column same width in both tables */
+        (void) table_set_column_width(options, 0, MAX(w1, w2));
+        (void) table_set_column_width(commands, 0, MAX(w1, w2));
 
         printf("%1$s [OPTIONS...] IMAGE\n"
                "%1$s [OPTIONS...] --mount IMAGE PATH\n"
