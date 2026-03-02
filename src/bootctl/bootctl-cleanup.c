@@ -33,7 +33,7 @@ static int list_remove_orphaned_file(
         if (event != RECURSE_DIR_ENTRY)
                 return RECURSE_DIR_CONTINUE;
 
-        if (hashmap_get(known_files, path))
+        if (hashmap_contains(known_files, path))
                 return RECURSE_DIR_CONTINUE; /* keep! */
 
         if (arg_dry_run)
