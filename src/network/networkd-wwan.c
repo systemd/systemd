@@ -529,7 +529,7 @@ static int link_apply_bearer_impl(Link *link, Bearer *b) {
                         continue;
 
                 r = route_remove(route, link->manager);
-                if (ret)
+                if (r < 0)
                         ret = r;
         }
 
