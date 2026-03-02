@@ -121,6 +121,26 @@ Deprecations and removals:
 
 Features:
 
+* drop NV_ORDERLY flag from the product uuid nvpcr. Effect of the flag is that
+  it pushes the thing into TPM RAM, but a TPM usually has very little of that,
+  less than NVRAM. hence setting the flag amplifies space issues. Unsetting the
+  flag increases wear issues on the NVRAM, however, but this should be limited
+  for the product uuid nvpcr, since its only changed once per boot. this needs
+  to be configurable by nvpcr however, as other nvpcrs are differnt,
+  i.e. verity one receives many writes during system uptime quite
+  possibly. (also, NV_ORDERLY makes stuff faster, and dropping it costs
+  possibly up to 100ms supposedly)
+
+* create a hwdb database that contains tpm quirks, i.e. knows whether NV_ORDERLY
+  + TPM2_NT_EXTEND can be safely mixed or
+  not. (see https://github.com/systemd/systemd/issues/40485#issuecomment-3984855537)
+
+* instead of going directly for DefineSpace when initializing nvpcrs, check if
+  they exist first. apparently DEfineSpace is broken on some tpms, and also
+  creates log spam if the nvindex already exists.
+
+* on first login of a user, measure its identity to some nvpcr
+
 * sd-lldp: pick up 802.3 maximum frame size/mtu, to be able to detect jumbo
   frame capable networks
 
