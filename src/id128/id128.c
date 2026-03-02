@@ -193,6 +193,7 @@ static int verb_show(int argc, char *argv[], uintptr_t _data, void *userdata) {
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         _cleanup_(table_unrefp) Table *options = NULL, *verbs = NULL;
+        size_t w1, w2;
         int r;
 
         r = terminal_urlify_man("systemd-id128", "1", &link);
@@ -206,6 +207,19 @@ static int help(void) {
         r = verbs_get_help_table(&verbs);
         if (r < 0)
                 return r;
+
+        /* Make the 1st column same width in both tables */
+
+        r = table_data_requested_width(options, /* column= */ 0, &w1);
+        if (r < 0)
+                return log_error_errno(r, "Failed to query table column width: %m");
+
+        r = table_data_requested_width(verbs, /* column= */ 0, &w2);
+        if (r < 0)
+                return log_error_errno(r, "Failed to query table column width: %m");
+
+        (void) table_set_column_width(options, 0, MAX(w1, w2));
+        (void) table_set_column_width(verbs, 0, MAX(w1, w2));
 
         printf("%s [OPTIONS...] COMMAND\n\n"
                "%sGenerate and print 128-bit identifiers.%s\n"
