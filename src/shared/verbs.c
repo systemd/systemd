@@ -146,7 +146,8 @@ int dispatch_verb(int argc, char *argv[], const Verb verbs[], void *userdata) {
         return _dispatch_verb_with_args(strv_skip(argv, optind), verbs, verbs + n, userdata);
 }
 
-int _verbs_get_help_table(const Verb verbs[], const Verb verbs_end[], Table **ret) {
+int _verbs_get_help_table(const Verb verbs[], const Verb verbs_end[], Table **ret, size_t *ret_width_of_first_column) {
+        size_t w = 0;
         int r;
 
         assert(ret);
@@ -161,12 +162,15 @@ int _verbs_get_help_table(const Verb verbs[], const Verb verbs_end[], Table **re
                 /* We indent the option string by two spaces. We could set the minimum cell width and
                  * right-align for a similar result, but that'd be more work. This is only used for
                  * display. */
-                r = table_add_cell_stringf(table, NULL, "  %s%s%s",
+                TableCell *cell;
+                r = table_add_cell_stringf(table, &cell, "  %s%s%s",
                                            verb->verb,
                                            verb->argspec ? " " : "",
                                            strempty(verb->argspec));
                 if (r < 0)
                         return table_log_add_error(r);
+
+                w = MAX(w, strlen(table_get(table, cell)));
 
                 _cleanup_strv_free_ char **s = strv_split(verb->help, /* separators= */ NULL);
                 if (!s)
@@ -178,7 +182,10 @@ int _verbs_get_help_table(const Verb verbs[], const Verb verbs_end[], Table **re
         };
 
         table_set_header(table, false);
+
         *ret = TAKE_PTR(table);
+        if (ret_width_of_first_column)
+                *ret_width_of_first_column = w;
         return 0;
 }
 

@@ -193,19 +193,24 @@ static int verb_show(int argc, char *argv[], uintptr_t _data, void *userdata) {
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         _cleanup_(table_unrefp) Table *options = NULL, *verbs = NULL;
+        size_t w1, w2;
         int r;
 
         r = terminal_urlify_man("systemd-id128", "1", &link);
         if (r < 0)
                 return log_oom();
 
-        r = option_parser_get_help_table(&options);
+        r = option_parser_get_help_table(&options, &w1);
         if (r < 0)
                 return r;
 
-        r = verbs_get_help_table(&verbs);
+        r = verbs_get_help_table(&verbs, &w2);
         if (r < 0)
                 return r;
+
+        /* Make the 1st column same width in both tables */
+        (void) table_set_column_width(options, 0, MAX(w1, w2));
+        (void) table_set_column_width(verbs, 0, MAX(w1, w2));
 
         printf("%s [OPTIONS...] COMMAND\n\n"
                "%sGenerate and print 128-bit identifiers.%s\n"
