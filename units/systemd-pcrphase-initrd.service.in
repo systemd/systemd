@@ -23,3 +23,5 @@ Type=oneshot
 RemainAfterExit=yes
 ExecStart={{LIBEXECDIR}}/systemd-pcrextend --graceful enter-initrd
 ExecStop={{LIBEXECDIR}}/systemd-pcrextend --graceful leave-initrd
+# PCR7 barrier at leave-initrd only; no enter-initrd (systemd#40567).
+ExecStop={{LIBEXECDIR}}/systemd-pcrextend --graceful --pcr=7 leave-initrd
