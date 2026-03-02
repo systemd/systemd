@@ -63,9 +63,9 @@ int _dispatch_verb_with_args(char **args, const Verb verbs[], const Verb verbs_e
 
 int dispatch_verb(int argc, char *argv[], const Verb verbs[], void *userdata);
 
-int _verbs_get_help_table(const Verb verbs[], const Verb verbs_end[], Table **ret);
-#define verbs_get_help_table(ret) \
-        _verbs_get_help_table(ALIGN_PTR(__start_SYSTEMD_VERBS), __stop_SYSTEMD_VERBS, ret)
+int _verbs_get_help_table(const Verb verbs[], const Verb verbs_end[], Table **ret, size_t *ret_width_of_first_column);
+#define verbs_get_help_table(ret, ret_width_of_first_column)            \
+        _verbs_get_help_table(ALIGN_PTR(__start_SYSTEMD_VERBS), __stop_SYSTEMD_VERBS, ret, ret_width_of_first_column)
 
 #define VERB_COMMON_HELP(impl)                                          \
         VERB(verb_help, "help", NULL, VERB_ANY, VERB_ANY, 0, "Show this help"); \
