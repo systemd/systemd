@@ -65,7 +65,7 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        r = option_parser_get_help_table(&options);
+        r = option_parser_get_help_table(&options, /* ret_width_of_first_column= */ NULL);
         if (r < 0)
                 return r;
 
