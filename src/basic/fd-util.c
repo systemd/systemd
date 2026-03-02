@@ -1061,10 +1061,6 @@ int path_is_root_at(int dir_fd, const char *path) {
                 dir_fd = fd;
         }
 
-        _cleanup_close_ int root_fd = open("/", O_PATH|O_DIRECTORY|O_CLOEXEC);
-        if (root_fd < 0)
-                return -errno;
-
         /* Even if the root directory has the same inode as our fd, the fd may not point to the root
          * directory "/", and we also need to check that the mount ids are the same. Otherwise, a construct
          * like the following could be used to trick us:
@@ -1073,7 +1069,7 @@ int path_is_root_at(int dir_fd, const char *path) {
          * $ mount --bind / /tmp/x
          */
 
-        return fds_are_same_mount(dir_fd, root_fd);
+        return fds_are_same_mount(dir_fd, XAT_FDROOT);
 }
 
 int fds_are_same_mount(int fd1, int fd2) {
