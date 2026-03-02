@@ -332,7 +332,7 @@ int dump_introspection_header(sd_json_format_flags_t flags) {
         r = sd_json_buildo(
                         &o,
                         SD_JSON_BUILD_PAIR_STRING("type", "metainformation"),
-                        SD_JSON_BUILD_PAIR_STRING("introspection_format_version", "0"));
+                        SD_JSON_BUILD_PAIR_STRING("introspectionFormatVersion", "0"));
         if (r < 0)
                 return log_error_errno(r, "Failed to build JSON object: %m");
 
@@ -395,7 +395,7 @@ int _introspect_options(
                                                 "metavar",
                                                 SD_JSON_BUILD_STRING(opt->metavar)
                                 ),
-                                SD_JSON_BUILD_PAIR_STRING("argtype", argtype),
+                                SD_JSON_BUILD_PAIR_STRING("argument", argtype),
                                 SD_JSON_BUILD_PAIR_CONDITION(
                                                 !!opt->help,
                                                 "help",
