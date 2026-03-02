@@ -528,7 +528,7 @@ static int run(int argc, char* argv[]) {
         _cleanup_strv_free_ char **final_env = NULL;
         const char *our_env[10];
         size_t i = 0;
-        char **args;
+        char **args = NULL;  /* unnecessary initialization to appease gcc */
         int r;
 
         log_setup();
@@ -536,6 +536,7 @@ static int run(int argc, char* argv[]) {
         r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
+        assert(args);
 
         if (arg_action == ACTION_FORK)
                 return action_fork(args);
