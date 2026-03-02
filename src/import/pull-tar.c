@@ -280,7 +280,7 @@ static int tar_pull_make_local_copy(TarPull *p) {
                         _cleanup_(sd_varlink_unrefp) sd_varlink *mountfsd_link = NULL;
                         r = mountfsd_connect(&mountfsd_link);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to connect to mountsd: %m");
+                                return log_error_errno(r, "Failed to connect to mountfsd: %m");
 
                         /* Usually, tar_pull_job_on_open_disk_tar() would allocate ->tree_fd for us, but if
                          * already downloaded the image before, and are just making a copy of the original

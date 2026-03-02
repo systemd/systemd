@@ -6212,7 +6212,7 @@ static int run(int argc, char *argv[]) {
 
                 r = mountfsd_connect(&mountfsd_link);
                 if (r < 0) {
-                        log_error_errno(r, "Failed to connect to mountsd: %m");
+                        log_error_errno(r, "Failed to connect to mountfsd: %m");
                         goto finish;
                 }
 
