@@ -236,11 +236,11 @@ CHANGES WITH 260 in spe:
         * MultiPathRoute= option now supports interface-bound ECMP routes.
 
         * systemd-networkd gained integration with ModemManager via the "simple
-          connect" protocol. A new [ModemManager] section has been added with
-          SimpleConnectProperties= (currently apn=, allowed-auth=, user=,
-          password=, ip-type=, allow-roaming=, pin=, and operator-id=),
-          RouteMetric=, and UseGateway= settings. This allows systemd-networkd
-          to establish a cellular modem connection to a broadband network.
+          connect" protocol. A new [MobileNetwork] section has been added with
+          APN=, AllowedAuthenticationMechanisms=, User=, Password=, IPFamily=,
+          AllowRoaming=, PIN=, OperatorId=, RouteMetric=, and UseGateway=
+          settings. This allows systemd-networkd to establish a cellular modem
+          connection to a broadband network.
 
         * systemd-networkd gained a pair of varlink methods
           io.systemd.Network.Link.Up()/Down(). 'networkctl up/down' now
