@@ -1491,65 +1491,64 @@ static int install_chroot_dropin(
                 if (r < 0)
                         return r;
 
-                if (m->image_path && !path_equal(m->image_path, image_path))
-                        ORDERED_HASHMAP_FOREACH(ext, extension_images) {
+                ORDERED_HASHMAP_FOREACH(ext, extension_images) {
 
-                                const char *extension_setting = extension_setting_from_image(ext->type);
-                                if (!extension_setting)
-                                        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Image type '%s' not supported for extensions: %m", image_type_to_string(ext->type));
+                        const char *extension_setting = extension_setting_from_image(ext->type);
+                        if (!extension_setting)
+                                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Image type '%s' not supported for extensions: %m", image_type_to_string(ext->type));
 
-                                _cleanup_free_ char *extension_base_name = NULL;
-                                r = path_extract_filename(ext->path, &extension_base_name);
+                        _cleanup_free_ char *extension_base_name = NULL;
+                        r = path_extract_filename(ext->path, &extension_base_name);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to extract basename from '%s': %m", ext->path);
+
+                        if (!strextend(&text,
+                                       "\n",
+                                       extension_setting,
+                                       ext->path,
+                                       /* With --force tell PID1 to avoid enforcing that the image <name> and
+                                        * extension-release.<name> have to match. */
+                                       !IN_SET(ext->type, IMAGE_DIRECTORY, IMAGE_SUBVOLUME) &&
+                                           FLAGS_SET(flags, PORTABLE_FORCE_EXTENSION) ?
+                                               ":x-systemd.relax-extension-release-check\n" :
+                                               "\n",
+                                       /* In PORTABLE= we list the 'main' image name for this unit
+                                        * (the image where the unit was extracted from), but we are
+                                        * stacking multiple images, so list those too. */
+                                       "LogExtraFields=PORTABLE_EXTENSION=", extension_base_name, "\n"))
+                                return -ENOMEM;
+
+                        if (pinned_ext_image_policy && !IN_SET(ext->type, IMAGE_DIRECTORY, IMAGE_SUBVOLUME)) {
+                                _cleanup_free_ char *policy_str = NULL;
+
+                                r = image_policy_to_string(pinned_ext_image_policy, /* simplify= */ true, &policy_str);
                                 if (r < 0)
-                                        return log_debug_errno(r, "Failed to extract basename from '%s': %m", ext->path);
+                                        return log_debug_errno(r, "Failed to serialize pinned image policy: %m");
 
                                 if (!strextend(&text,
-                                               "\n",
-                                               extension_setting,
-                                               ext->path,
-                                               /* With --force tell PID1 to avoid enforcing that the image <name> and
-                                                * extension-release.<name> have to match. */
-                                               !IN_SET(ext->type, IMAGE_DIRECTORY, IMAGE_SUBVOLUME) &&
-                                                   FLAGS_SET(flags, PORTABLE_FORCE_EXTENSION) ?
-                                                       ":x-systemd.relax-extension-release-check\n" :
-                                                       "\n",
-                                               /* In PORTABLE= we list the 'main' image name for this unit
-                                                * (the image where the unit was extracted from), but we are
-                                                * stacking multiple images, so list those too. */
-                                               "LogExtraFields=PORTABLE_EXTENSION=", extension_base_name, "\n"))
+                                               "ExtensionImagePolicy=", policy_str, "\n"))
                                         return -ENOMEM;
-
-                                if (pinned_ext_image_policy && !IN_SET(ext->type, IMAGE_DIRECTORY, IMAGE_SUBVOLUME)) {
-                                        _cleanup_free_ char *policy_str = NULL;
-
-                                        r = image_policy_to_string(pinned_ext_image_policy, /* simplify= */ true, &policy_str);
-                                        if (r < 0)
-                                                return log_debug_errno(r, "Failed to serialize pinned image policy: %m");
-
-                                        if (!strextend(&text,
-                                                       "ExtensionImagePolicy=", policy_str, "\n"))
-                                                return -ENOMEM;
-                                }
-
-                                /* Look for image/version identifiers in the extension release files. We
-                                 * look for all possible IDs, but typically only 1 or 2 will be set, so
-                                 * the number of fields added shouldn't be too large. We prefix the DDI
-                                 * name to the value, so that we can add the same field multiple times and
-                                 * still be able to identify what applies to what. */
-                                r = append_release_log_fields(&text,
-                                                              ordered_hashmap_get(extension_releases, ext->name),
-                                                              IMAGE_SYSEXT,
-                                                              "PORTABLE_EXTENSION_NAME_AND_VERSION");
-                                if (r < 0)
-                                        return r;
-
-                                r = append_release_log_fields(&text,
-                                                              ordered_hashmap_get(extension_releases, ext->name),
-                                                              IMAGE_CONFEXT,
-                                                              "PORTABLE_EXTENSION_NAME_AND_VERSION");
-                                if (r < 0)
-                                        return r;
                         }
+
+                        /* Look for image/version identifiers in the extension release files. We
+                         * look for all possible IDs, but typically only 1 or 2 will be set, so
+                         * the number of fields added shouldn't be too large. We prefix the DDI
+                         * name to the value, so that we can add the same field multiple times and
+                         * still be able to identify what applies to what. */
+                        r = append_release_log_fields(&text,
+                                                      ordered_hashmap_get(extension_releases, ext->name),
+                                                      IMAGE_SYSEXT,
+                                                      "PORTABLE_EXTENSION_NAME_AND_VERSION");
+                        if (r < 0)
+                                return r;
+
+                        r = append_release_log_fields(&text,
+                                                      ordered_hashmap_get(extension_releases, ext->name),
+                                                      IMAGE_CONFEXT,
+                                                      "PORTABLE_EXTENSION_NAME_AND_VERSION");
+                        if (r < 0)
+                                return r;
+                }
         }
 
         r = write_string_file(dropin, text, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_SYNC);
