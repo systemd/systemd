@@ -1036,7 +1036,8 @@ DnsServer *manager_set_dns_server(Manager *m, DnsServer *s) {
         dns_server_unref(m->current_dns_server);
         m->current_dns_server = dns_server_ref(s);
 
-        if (m->unicast_scope)
+        /* Skip flushing the cache if server stale feature is enabled. */
+        if (m->unicast_scope && m->stale_retention_usec == 0)
                 dns_cache_flush(&m->unicast_scope->cache);
 
         (void) manager_send_changed(m, "CurrentDNSServer");
@@ -1153,6 +1154,10 @@ void dns_server_flush_cache(DnsServer *s) {
                 s->delegate ? s->delegate->scope :
                               s->manager->unicast_scope;
         if (!scope)
+                return;
+
+        /* Skip flushing the cache if server stale feature is enabled. */
+        if (s->manager->stale_retention_usec > 0)
                 return;
 
         dns_cache_flush(&scope->cache);
