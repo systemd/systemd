@@ -453,7 +453,7 @@ static int setup_nvpcr_one(
 
 static int setup_nvpcr(void) {
         _cleanup_(setup_nvpcr_context_done) SetupNvPCRContext c = {};
-        int r = 0;
+        int r;
 
         _cleanup_strv_free_ char **l = NULL;
         r = conf_files_list_nulstr(
@@ -478,13 +478,11 @@ static int setup_nvpcr(void) {
                 RET_GATHER(ret, setup_nvpcr_one(&c, *i));
         }
 
-        if (c.n_already > 0 && c.n_anchored == 0 && !arg_early) {
+        if (c.n_already > 0 && c.n_anchored == 0 && !arg_early)
                 /* If we didn't anchor anything right now, but we anchored something earlier, then it might
                  * have happened in the initrd, and thus the anchor ID was not committed to /var/ or the ESP
                  * yet. Hence, let's explicitly do so now, to catch up. */
-
                 RET_GATHER(ret, tpm2_nvpcr_acquire_anchor_secret(/* ret= */ NULL, /* sync_secondary= */ true));
-        }
 
         if (c.n_failed > 0)
                 log_warning("%zu NvPCRs failed to initialize, proceeding anyway.", c.n_failed);
@@ -498,6 +496,13 @@ static int setup_nvpcr(void) {
                 log_info("%zu NvPCRs already initialized.", c.n_already);
         else if (c.n_failed == 0)
                 log_debug("No NvPCRs defined, nothing initialized.");
+
+        /* Turn some errors into recognizable ones, which we can catch with
+         * SuccessExitStatus= in the service unit file. */
+        if (ret == -EOPNOTSUPP)
+                return EX_UNAVAILABLE;   /* e.g. no NvPCR support in TPM */
+        if (ret == -ENOSPC)
+                return EX_CANTCREAT;     /* NV index space on TPM exhausted */
 
         return ret;
 }
@@ -518,10 +523,15 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
+        /* Execute both jobs, and then return unlisted errors preferably, and listed errors
+         * (i.e. EX_UNAVAILABLE, EX_CANTCREAT, EX_PROTOCOL) otherwise. */
         r = setup_srk();
-        RET_GATHER(r, setup_nvpcr());
-
-        return r;
+        int k = setup_nvpcr();
+        if (r < 0)
+                return r;
+        if (k < 0)
+                return k;
+        return r != EXIT_SUCCESS ? r : k;
 }
 
 DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);
