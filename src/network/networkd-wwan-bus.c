@@ -59,7 +59,6 @@
 #include "networkd-manager.h"
 #include "networkd-wwan.h"
 #include "networkd-wwan-bus.h"
-#include "parse-util.h"
 #include "string-util.h"
 #include "strv.h"
 
@@ -507,78 +506,6 @@ static int modem_connect_handler(sd_bus_message *message, void *userdata, sd_bus
         return 0;
 }
 
-static MMBearerIpFamily prop_iptype_lookup(const char *key) {
-        static const struct {
-                MMBearerIpFamily family;
-                const char *str;
-        } table[] = {
-                { MM_BEARER_IP_FAMILY_NONE,   "none"   },
-                { MM_BEARER_IP_FAMILY_IPV4,   "ipv4"   },
-                { MM_BEARER_IP_FAMILY_IPV6,   "ipv6"   },
-                { MM_BEARER_IP_FAMILY_IPV4V6, "ipv4v6" },
-                { MM_BEARER_IP_FAMILY_ANY,    "any"    },
-                {}
-        };
-
-        assert(key);
-
-        FOREACH_ELEMENT(item, table)
-                if (streq(item->str, key))
-                        return item->family;
-
-        log_warning("ModemManager: ignoring unknown ip-type: %s, using any", key);
-        return MM_BEARER_IP_FAMILY_ANY;
-}
-
-static MMBearerAllowedAuth prop_auth_lookup(const char *key) {
-        static const struct {
-                MMBearerAllowedAuth auth;
-                const char *str;
-        } table[] = {
-                { MM_BEARER_ALLOWED_AUTH_NONE,     "none"     },
-                { MM_BEARER_ALLOWED_AUTH_PAP,      "pap"      },
-                { MM_BEARER_ALLOWED_AUTH_CHAP,     "chap"     },
-                { MM_BEARER_ALLOWED_AUTH_MSCHAP,   "mschap"   },
-                { MM_BEARER_ALLOWED_AUTH_MSCHAPV2, "mschapv2" },
-                { MM_BEARER_ALLOWED_AUTH_EAP,      "eap"      },
-                {}
-        };
-
-        assert(key);
-
-        FOREACH_ELEMENT(item, table)
-                if (streq(item->str, key))
-                        return item->auth;
-
-        log_warning("ModemManager: ignoring unknown allowed-auth: %s, using none", key);
-        return MM_BEARER_ALLOWED_AUTH_NONE;
-}
-
-static const char* prop_type_lookup(const char *key) {
-        static const struct {
-                const char *prop;
-                const char *type;
-        } table[] = {
-                { "apn",           "s" },
-                { "allowed-auth",  "u" },
-                { "user",          "s" },
-                { "password",      "s" },
-                { "ip-type",       "u" },
-                { "allow-roaming", "b" },
-                { "pin",           "s" },
-                { "operator-id",   "s" },
-                {}
-        };
-
-        if (!key)
-                return NULL;
-
-        FOREACH_ELEMENT(item, table)
-                if (streq(item->prop, key))
-                        return item->type;
-        return NULL;
-}
-
 static int bus_call_method_async_props(
                 sd_bus *bus,
                 sd_bus_slot **slot,
@@ -591,6 +518,7 @@ static int bus_call_method_async_props(
                 Link *link) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        Network *network = ASSERT_PTR(ASSERT_PTR(link)->network);
         int r;
 
         assert(bus);
@@ -603,38 +531,50 @@ static int bus_call_method_async_props(
         if (r < 0)
                 return bus_log_create_error(r);
 
-        STRV_FOREACH(prop, link->network->mm_simple_connect_props) {
-                const char *type;
-                _cleanup_free_ char *left = NULL, *right = NULL;
-
-                r = split_pair(*prop, "=", &left, &right);
+        if (network->mm_apn) {
+                r = sd_bus_message_append(m, "{sv}", "apn", "s", network->mm_apn);
                 if (r < 0)
-                        return log_warning_errno(SYNTHETIC_ERRNO(r),
-                                                 "ModemManager: failed to parse simple connect option: %s, file: %s",
-                                                 *prop, link->network->filename);
+                        return bus_log_create_error(r);
+        }
 
-                type = prop_type_lookup(left);
-                if (!type)
-                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                 "ModemManager: unknown simple connect option: %s, file: %s",
-                                                 *prop, link->network->filename);
+        if (network->mm_allow_roaming >= 0) {
+                r = sd_bus_message_append(m, "{sv}", "allow-roaming", "b", network->mm_allow_roaming);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
 
-                if (streq(left, "ip-type")) {
-                        MMBearerIpFamily ip_type = prop_iptype_lookup(right);
+        if (network->mm_allowed_auth > MM_BEARER_ALLOWED_AUTH_UNKNOWN) {
+                r = sd_bus_message_append(m, "{sv}", "allowed-auth", "u", (uint32_t) network->mm_allowed_auth);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
 
-                        r = sd_bus_message_append(m, "{sv}", left, type, (uint32_t)ip_type);
-                } if (streq(left, "allowed-auth")) {
-                        MMBearerAllowedAuth auth = prop_auth_lookup(right);
+        if (network->mm_ip_family > MM_BEARER_IP_FAMILY_NONE) {
+                r = sd_bus_message_append(m, "{sv}", "ip-type", "u", (uint32_t) network->mm_ip_family);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
 
-                        r = sd_bus_message_append(m, "{sv}", left, type, (uint32_t)auth);
-                } else if (streq(type, "b")) {
-                        r = parse_boolean(right);
-                        if (r < 0)
-                                return -EINVAL;
-                        r = sd_bus_message_append(m, "{sv}", left, type, r);
-                } else if (streq(type, "s"))
-                        r = sd_bus_message_append(m, "{sv}", left, type, right);
+        if (network->mm_operator_id) {
+                r = sd_bus_message_append(m, "{sv}", "operator-id", "s", network->mm_operator_id);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
 
+        if (network->mm_user) {
+                r = sd_bus_message_append(m, "{sv}", "user", "s", network->mm_user);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
+        if (network->mm_password) {
+                r = sd_bus_message_append(m, "{sv}", "password", "s", network->mm_password);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
+        if (network->mm_pin) {
+                r = sd_bus_message_append(m, "{sv}", "pin", "s", network->mm_pin);
                 if (r < 0)
                         return bus_log_create_error(r);
         }
@@ -675,9 +615,9 @@ static void modem_simple_connect(Modem *modem) {
                 return (void) log_debug("ModemManager: no .network file provided for %s",
                                         modem->port_name);
 
-        /* Check if we are provided with simple connection properties */
-        if (!link->network->mm_simple_connect_props)
-                return (void) log_debug("ModemManager: no simple connect properties provided for %s",
+        /* Check if we are provided with at least APN which is required. */
+        if (!link->network->mm_apn)
+                return (void) log_debug("ModemManager: not enough simple connect properties provided for %s",
                                         modem->port_name);
 
         log_info("ModemManager: starting simple connect on %s %s interface %s",
