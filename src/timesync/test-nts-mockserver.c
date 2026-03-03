@@ -42,17 +42,8 @@ static struct ntp_ts ntp_time(uint32_t secs) {
         return (struct ntp_ts){ .sec = htobe32(secs), .frac = 0 };
 }
 
-static void serve_ntp_request(AEADKey c2s, AEADKey s2c) {
-        int sock = socket(AF_INET, SOCK_DGRAM, 0);
-        assert(sock > 0);
-
-        struct sockaddr_in server = {}, client = {};
-        server.sin_family = AF_INET;
-        server.sin_port = htobe16(Port);
-        inet_aton("127.0.0.1", &server.sin_addr);
-
-        assert(bind(sock, (struct sockaddr*)&server, sizeof(server)) == 0);
-
+static void serve_ntp_request(int sock, AEADKey c2s, AEADKey s2c, int sabotage) {
+        struct sockaddr_in client = {};
         struct ntp_msg packet;
         uint8_t buf[1280];
 
@@ -95,7 +86,7 @@ static void serve_ntp_request(AEADKey c2s, AEADKey s2c) {
         packet.recv_time      = ntp_time(reply_time);
         packet.trans_time     = ntp_time(reply_time);
 
-        if (len > 48) {
+        if (len > 48 && sabotage <= 1) {
                 int padding = 0;
                 uint16_t payload[] = {
                         /* Always send two cookies to see what happens */
@@ -136,6 +127,12 @@ static void serve_ntp_request(AEADKey c2s, AEADKey s2c) {
 
                 assert(ciphertext > 0);
                 p += cipher->nonce_size + ciphertext + padding;
+                if (sabotage) {
+                        /* flip a random bit */
+                        uint8_t index;
+                        getrandom(&index, 1, 0);
+                        buf[index % 48] ^= 1;
+                }
 
                 sendto(sock, buf, p - buf, MSG_CONFIRM, (struct sockaddr*)&client, addrlen);
         } else {
@@ -182,11 +179,11 @@ static void wait_for_nts_ke(AEADKey c2s, AEADKey s2c, int sabotage) {
 
         assert(bio);
 
-        if (sabotage > 4) {
+        if (sabotage > 5) {
                 /* refuse to shake hands */
                 sleep(20);
         }
-        if (sabotage > 3) {
+        if (sabotage > 4) {
                 /* drop the horn */
                 exit(0);
         }
@@ -202,7 +199,7 @@ static void wait_for_nts_ke(AEADKey c2s, AEADKey s2c, int sabotage) {
         readbytes = SSL_read(tls, buf, sizeof(buf));
         assert(readbytes > 0);
 
-        if (sabotage > 2) {
+        if (sabotage > 3) {
                 /* silent treatment */
                 exit(0);
         }
@@ -213,10 +210,7 @@ static void wait_for_nts_ke(AEADKey c2s, AEADKey s2c, int sabotage) {
         }
 
         /* store the key */
-        if (sabotage > 0) {
-                ; /* make sure encryption/decryption of extension fields fails */
-        } else
-                assert(NTS_TLS_extract_keys((void*)tls, algo, c2s, s2c, sizeof(AEADKey)) == 0);
+        assert(NTS_TLS_extract_keys((void*)tls, algo, c2s, s2c, sizeof(AEADKey)) == 0);
 
         /* send a static reply */
         const char ntphost[] = "127.0.0.01";
@@ -233,7 +227,7 @@ static void wait_for_nts_ke(AEADKey c2s, AEADKey s2c, int sabotage) {
                 htobe16(0/*EndOfMessage*/ | 0x8000),  htobe16(0),
         };
         memcpy(reply+2, ntphost, sizeof(ntphost));
-        if (sabotage > 1) {
+        if (sabotage > 2) {
                 /* tamper with the length of the ntp server field, make sure it's not "10" */
                 unsigned char *p = (unsigned char*) reply;
                 getrandom(p+3, 1, 0);
@@ -252,12 +246,23 @@ int main(int argc, char **argv) {
         AEADKey c2s, s2c;
         int sabo = argc>1? atoi(argv[1]) : 0;
 
+        /* bind the NTP socket ahead of time to prevent a race */
+        int sock = socket(AF_INET, SOCK_DGRAM, 0);
+        assert(sock > 0);
+
+        struct sockaddr_in server = {};
+        server.sin_family = AF_INET;
+        server.sin_port = htobe16(Port);
+        inet_aton("127.0.0.1", &server.sin_addr);
+
+        assert(bind(sock, (struct sockaddr*)&server, sizeof(server)) == 0);
+
         printf("KE: ");
         wait_for_nts_ke(c2s, s2c, sabo);
         puts("OK");
 
         printf("NTP: ");
-        serve_ntp_request(c2s, s2c);
+        serve_ntp_request(sock, c2s, s2c, sabo);
         puts("OK");
 
         return 0;
