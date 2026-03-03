@@ -143,7 +143,7 @@ static int systemctl_help(void) {
                "  reload UNIT...                      Reload one or more units\n"
                "  restart UNIT...                     Start or restart one or more units\n"
                "  try-restart UNIT...                 Restart one or more units if active\n"
-               "  enqueue-marked-jobs                 Enqueue all marked unit jobs\n"
+               "  enqueue-marked                      Enqueue jobs for all marked units\n"
                "  reload-or-restart UNIT...           Reload one or more units if possible,\n"
                "                                      otherwise start or restart\n"
                "  try-reload-or-restart UNIT...       If active, reload one or more units,\n"

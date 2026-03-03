@@ -170,7 +170,7 @@ CHANGES WITH 260 in spe:
 
         * EnqueueMarkedJobs() D-Bus method now has a Varlink counterpart.
 
-        * systemctl gained a new 'enqueue-marked-jobs' verb, which calls the
+        * systemctl gained a new 'enqueue-marked' verb, which calls the
           EnqueueMarkedJobs() D-Bus method. The '--marked' parameter, which was
           previously used for the same purpose, is now deprecated.
 

@@ -332,16 +332,16 @@ int verb_start(int argc, char *argv[], void *userdata) {
                                 job_type = "start";
                                 mode = "isolate";
                                 suffix = ".target";
-                        } else if (streq(argv[0], "enqueue-marked-jobs") || arg_marked) {
+                        } else if (streq(argv[0], "enqueue-marked") || arg_marked) {
                                 is_enqueue_marked_jobs = true;
                                 method = job_type = mode = NULL;
 
                                 if (arg_show_transaction)
                                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                               "--show-transaction is not supported for enqueue-marked-jobs.");
+                                                               "--show-transaction is not supported for enqueue-marked.");
 
                                 if (arg_marked)
-                                        log_warning("--marked is deprecated. Please use systemctl enqueue-marked-jobs instead.");
+                                        log_warning("--marked is deprecated. Please use systemctl enqueue-marked instead.");
 
                         } else {
                                 /* A command in style of "systemctl start <unit1> <unit2> …", "systemctl stop <unit1> <unit2> …" and so on */
