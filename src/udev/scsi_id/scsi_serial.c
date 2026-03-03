@@ -15,6 +15,7 @@
 #include <unistd.h>
 
 #include "devnum-util.h"
+#include "hexdecoct.h"
 #include "log.h"
 #include "random-util.h"
 #include "scsi.h"
@@ -54,8 +55,6 @@ static const struct scsi_id_search_values id_search_list[] = {
         { SCSI_ID_VENDOR_SPECIFIC, SCSI_ID_NAA_DONT_CARE, SCSI_ID_BINARY },
         { SCSI_ID_VENDOR_SPECIFIC, SCSI_ID_NAA_DONT_CARE, SCSI_ID_ASCII  },
 };
-
-static const char hex_str[]="0123456789abcdef";
 
 /*
  * Values returned in the result/status, only the ones used by the code
@@ -483,7 +482,7 @@ static int check_fill_0x83_id(struct scsi_id_device *dev_scsi,
                 return 1;
         }
 
-        serial[0] = hex_str[id_search->id_type];
+        serial[0] = hexchar(id_search->id_type);
 
         /*
          * For SCSI_ID_VENDOR_SPECIFIC prepend the vendor and model before
@@ -509,8 +508,8 @@ static int check_fill_0x83_id(struct scsi_id_device *dev_scsi,
                  * ASCII for each byte in the page_83.
                  */
                 while (i < (4 + page_83[3])) {
-                        serial[j++] = hex_str[(page_83[i] & 0xf0) >> 4];
-                        serial[j++] = hex_str[page_83[i] & 0x0f];
+                        serial[j++] = hexchar(page_83[i] >> 4);
+                        serial[j++] = hexchar(page_83[i]);
                         i++;
                 }
         }
@@ -533,13 +532,13 @@ static int check_fill_0x83_prespc3(struct scsi_id_device *dev_scsi,
                                    *id_search, char *serial, char *serial_short, int max_len) {
         int i, j;
 
-        serial[0] = hex_str[SCSI_ID_NAA];
+        serial[0] = hexchar(SCSI_ID_NAA);
         /* serial has been memset to zero before */
         j = strlen(serial);        /* j = 1; */
 
         for (i = 0; (i < page_83[3]) && (j < max_len-3); ++i) {
-                serial[j++] = hex_str[(page_83[4+i] & 0xf0) >> 4];
-                serial[j++] = hex_str[ page_83[4+i] & 0x0f];
+                serial[j++] = hexchar(page_83[4+i] >> 4);
+                serial[j++] = hexchar(page_83[4+i]);
         }
         serial[max_len-1] = 0;
         strncpy(serial_short, serial, max_len-1);
@@ -672,7 +671,7 @@ static int do_scsi_page83_prespc3_inquiry(struct scsi_id_device *dev_scsi, int f
         if (page_83[6] == 0)
                 return 2;
 
-        serial[0] = hex_str[SCSI_ID_NAA];
+        serial[0] = hexchar(SCSI_ID_NAA);
         /*
          * The first four bytes contain data, not a descriptor.
          */
@@ -684,8 +683,8 @@ static int do_scsi_page83_prespc3_inquiry(struct scsi_id_device *dev_scsi, int f
          * in the page_83.
          */
         while (i < (page_83[3]+4)) {
-                serial[j++] = hex_str[(page_83[i] & 0xf0) >> 4];
-                serial[j++] = hex_str[page_83[i] & 0x0f];
+                serial[j++] = hexchar(page_83[i] >> 4);
+                serial[j++] = hexchar(page_83[i]);
                 i++;
         }
         return 0;
