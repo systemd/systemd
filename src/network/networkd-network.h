@@ -418,7 +418,7 @@ typedef struct Network {
 
         /* ModemManager support */
         char *mm_apn;
-        int mm_allow_roaming;
+        bool mm_allow_roaming;
         MMBearerAllowedAuth mm_allowed_auth;
         MMBearerIpFamily mm_ip_family;
         char *mm_operator_id;

@@ -537,11 +537,9 @@ static int bus_call_method_async_props(
                         return bus_log_create_error(r);
         }
 
-        if (network->mm_allow_roaming >= 0) {
-                r = sd_bus_message_append(m, "{sv}", "allow-roaming", "b", network->mm_allow_roaming);
-                if (r < 0)
-                        return bus_log_create_error(r);
-        }
+        r = sd_bus_message_append(m, "{sv}", "allow-roaming", "b", network->mm_allow_roaming);
+        if (r < 0)
+                return bus_log_create_error(r);
 
         if (network->mm_allowed_auth > MM_BEARER_ALLOWED_AUTH_UNKNOWN) {
                 r = sd_bus_message_append(m, "{sv}", "allowed-auth", "u", (uint32_t) network->mm_allowed_auth);

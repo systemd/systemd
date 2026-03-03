@@ -513,9 +513,9 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .ipoib_mode = _IP_OVER_INFINIBAND_MODE_INVALID,
                 .ipoib_umcast = -1,
 
-                .mm_allow_roaming = 1,
+                .mm_allow_roaming = true,
                 .mm_allowed_auth = MM_BEARER_ALLOWED_AUTH_UNKNOWN,
-                .mm_ip_family = MM_BEARER_IP_FAMILY_NONE,
+                .mm_ip_family = MM_BEARER_IP_FAMILY_ANY,
                 .mm_use_gateway = -1,
         };
 

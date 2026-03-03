@@ -494,7 +494,7 @@ CAN.Termination,                                 config_parse_can_termination,  
 IPoIB.Mode,                                      config_parse_ipoib_mode,                        0,                                      offsetof(Network, ipoib_mode)
 IPoIB.IgnoreUserspaceMulticastGroups,            config_parse_tristate,                          0,                                      offsetof(Network, ipoib_umcast)
 MobileNetwork.APN,                               config_parse_string,                            CONFIG_PARSE_STRING_SAFE_AND_ASCII,     offsetof(Network, mm_apn)
-MobileNetwork.AllowRoaming,                      config_parse_tristate,                          0,                                      offsetof(Network, mm_allow_roaming)
+MobileNetwork.AllowRoaming,                      config_parse_bool,                              0,                                      offsetof(Network, mm_allow_roaming)
 MobileNetwork.AllowedAuthenticationMechanisms,   config_parse_mm_allowed_auth,                   0,                                      0
 MobileNetwork.IPFamily,                          config_parse_mm_ip_family,                      0,                                      0
 MobileNetwork.OperatorId,                        config_parse_string,                            CONFIG_PARSE_STRING_SAFE_AND_ASCII,     offsetof(Network, mm_operator_id)

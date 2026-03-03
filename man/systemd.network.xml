@@ -6477,7 +6477,9 @@ IPv6AcceptRA=no
         <term><varname>AllowedAuthenticationMechanisms=</varname></term>
         <listitem>
           <para>Authentication method to use. Specifies the white-space separated list of
-          "none", "pap", "chap", "mschap", "mschapv2" or "eap" methods. Optional in 3GPP.</para>
+          <literal>none</literal>, <literal>pap</literal>, <literal>chap</literal>,
+          <literal>mschap</literal>, <literal>mschapv2</literal> or <literal>eap</literal>
+          methods. Optional in 3GPP.</para>
 
           <xi:include href="version-info.xml" xpointer="v260"/>
         </listitem>
@@ -6486,7 +6488,8 @@ IPv6AcceptRA=no
       <varlistentry>
         <term><varname>User=</varname></term>
         <listitem>
-          <para>User name (if any) required by the network. Optional in 3GPP.</para>
+          <para>User name (if any) required by the network. Optional in 3GPP.
+          Defaults to unset.</para>
 
           <xi:include href="version-info.xml" xpointer="v260"/>
         </listitem>
@@ -6495,7 +6498,8 @@ IPv6AcceptRA=no
       <varlistentry>
         <term><varname>Password=</varname></term>
         <listitem>
-          <para>Password (if any) required by the network. Optional in 3GPP.</para>
+          <para>Password (if any) required by the network. Optional in 3GPP.
+          Defaults to unset.</para>
 
           <xi:include href="version-info.xml" xpointer="v260"/>
         </listitem>
@@ -6504,8 +6508,9 @@ IPv6AcceptRA=no
       <varlistentry>
         <term><varname>IPFamily=</varname></term>
         <listitem>
-          <para>Addressing type. Takes one of "none", "ipv4", "ipv6", "ipv4v6" or "any".
-          Optional in 3GPP and CDMA.</para>
+          <para>Addressing type. Takes one of <literal>none</literal>, <literal>ipv4</literal>,
+          <literal>ipv6</literal>, <literal>ipv4v6</literal> or <literal>any</literal>.
+          Optional in 3GPP and CDMA. Defaults to <literal>any</literal>.</para>
 
           <xi:include href="version-info.xml" xpointer="v260"/>
         </listitem>
@@ -6515,7 +6520,8 @@ IPv6AcceptRA=no
         <term><varname>AllowRoaming=</varname></term>
         <listitem>
           <para>A boolean. When true, connection is allowed during roaming. When false,
-          connection is not allowed during roaming. Optional in 3GPP.</para>
+          connection is not allowed during roaming.
+          Optional in 3GPP. Default value is <literal>yes</literal>.</para>
 
           <xi:include href="version-info.xml" xpointer="v260"/>
         </listitem>
@@ -6524,7 +6530,7 @@ IPv6AcceptRA=no
       <varlistentry>
         <term><varname>PIN=</varname></term>
         <listitem>
-          <para>SIM-PIN unlock code.</para>
+          <para>SIM-PIN unlock code. Defaults to unset.</para>
 
           <xi:include href="version-info.xml" xpointer="v260"/>
         </listitem>
@@ -6533,7 +6539,7 @@ IPv6AcceptRA=no
       <varlistentry>
         <term><varname>OperatorId=</varname></term>
         <listitem>
-          <para>ETSI MCC-MNC of a network to force registration.</para>
+          <para>ETSI MCC-MNC of a network to force registration. Defaults to unset.</para>
 
           <xi:include href="version-info.xml" xpointer="v260"/>
         </listitem>
@@ -6916,8 +6922,8 @@ RouteMetric=30
 UseGateway=yes</programlisting>
 
       <para>This connects a cellular modem to a broadband network matched with the network interface <literal>wwan0</literal>,
-      with APN name <literal>internet</literal>, allowed authentication <literal>none, pcap, or chap</literal>,
-      user name <literal>user</literal>, their password <literal>pass</literal>, allows both IPv4 and IPv6,
+      with APN name <literal>internet</literal>, allowed authentication <literal>none</literal>, <literal>pcap</literal>, or
+      <literal>chap</literal>, user name <literal>user</literal>, their password <literal>pass</literal>, allows both IPv4 and IPv6,
       does not allow roaming, SIM card pin unlock code <literal>1111</literal>, only allows connecting to operator with
       MCC <literal>25503</literal> and sets up a default gateway with route metric of 30.
       </para>

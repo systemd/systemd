@@ -657,12 +657,12 @@ int config_parse_mm_allowed_auth(
                 MMBearerAllowedAuth auth;
                 const char *str;
         } allowed_auth_map[] = {
-                { MM_BEARER_ALLOWED_AUTH_NONE,     "none"},
-                { MM_BEARER_ALLOWED_AUTH_PAP,      "pap"},
-                { MM_BEARER_ALLOWED_AUTH_CHAP,     "chap"},
-                { MM_BEARER_ALLOWED_AUTH_MSCHAP,   "mschap"},
-                { MM_BEARER_ALLOWED_AUTH_MSCHAPV2, "mschapv2"},
-                { MM_BEARER_ALLOWED_AUTH_EAP,      "eap"},
+                { MM_BEARER_ALLOWED_AUTH_NONE,     "none"     },
+                { MM_BEARER_ALLOWED_AUTH_PAP,      "pap"      },
+                { MM_BEARER_ALLOWED_AUTH_CHAP,     "chap"     },
+                { MM_BEARER_ALLOWED_AUTH_MSCHAP,   "mschap"   },
+                { MM_BEARER_ALLOWED_AUTH_MSCHAPV2, "mschapv2" },
+                { MM_BEARER_ALLOWED_AUTH_EAP,      "eap"      },
         };
         Network *network = ASSERT_PTR(data);
         MMBearerAllowedAuth allowed_auth;
@@ -681,14 +681,11 @@ int config_parse_mm_allowed_auth(
                 _cleanup_free_ char *auth = NULL;
                 int r;
 
-                r = extract_first_word(&p, &auth, NULL, 0);
+                r = extract_first_word(&p, &auth, /* separators */ NULL, /* flags */ 0);
                 if (r == -ENOMEM)
                         return log_oom();
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Invalid syntax, ignoring: %s", rvalue);
-                        return 0;
-                }
+                if (r < 0)
+                        return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
                 if (r == 0)
                         break;
 
@@ -722,7 +719,7 @@ int config_parse_mm_ip_family(
                 { MM_BEARER_IP_FAMILY_IPV4,   "ipv4" },
                 { MM_BEARER_IP_FAMILY_IPV6,   "ipv6" },
                 { MM_BEARER_IP_FAMILY_IPV4V6, "both" },
-                { MM_BEARER_IP_FAMILY_ANY,    "any" },
+                { MM_BEARER_IP_FAMILY_ANY,    "any"  },
         };
         Network *network = ASSERT_PTR(data);
 
@@ -741,8 +738,5 @@ int config_parse_mm_ip_family(
                         return 0;
                 }
 
-        log_syntax(unit, LOG_WARNING, filename, line, -EINVAL,
-                   "Invalid syntax, ignoring: %s", rvalue);
-
-        return 0;
+        return log_syntax_parse_error(unit, filename, line, -EINVAL, lvalue, rvalue);
 }
