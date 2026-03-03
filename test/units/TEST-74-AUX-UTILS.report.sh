@@ -35,3 +35,23 @@ varlinkctl info /run/systemd/report/io.systemd.Network
 varlinkctl list-methods /run/systemd/report/io.systemd.Network
 varlinkctl --more call /run/systemd/report/io.systemd.Network io.systemd.Metrics.List {}
 varlinkctl --more call /run/systemd/report/io.systemd.Network io.systemd.Metrics.Describe {}
+
+# Test facts verbs
+"$REPORT" facts
+"$REPORT" facts -j
+"$REPORT" facts --no-legend
+"$REPORT" describe-facts
+"$REPORT" describe-facts -j
+"$REPORT" describe-facts --no-legend
+
+# Test facts with match filters
+"$REPORT" facts io
+"$REPORT" facts io.systemd piff
+"$REPORT" facts piff
+"$REPORT" describe-facts io
+"$REPORT" describe-facts io.systemd piff
+"$REPORT" describe-facts piff
+
+# Test facts via direct Varlink call on existing socket
+varlinkctl --more call /run/systemd/report/io.systemd.Manager io.systemd.Facts.List {}
+varlinkctl --more call /run/systemd/report/io.systemd.Manager io.systemd.Facts.Describe {}
