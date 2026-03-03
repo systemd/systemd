@@ -234,7 +234,7 @@ _systemctl () {
                              list-timers list-units list-unit-files poweroff
                              reboot rescue show-environment suspend get-default
                              is-system-running preset-all list-automounts list-paths
-                             enqueue-marked-jobs'
+                             enqueue-marked'
         [FILE]='link switch-root'
         [TARGETS]='set-default'
         [MACHINES]='list-machines'
