@@ -425,16 +425,17 @@ static int setup_nvpcr_one(
         }
         if (r == -EOPNOTSUPP) {
                 c->n_failed++;
-                return log_struct_errno(LOG_ERR, r,
-                                        LOG_MESSAGE("The TPM does not correctly support NV indexes in NT_EXTEND mode, unable to allocate NvPCR '%s': %m", name),
-                                        LOG_MESSAGE_ID(SD_MESSAGE_TPM_NVPCR_UNSUPPORTED_STR));
-
+                log_struct_errno(LOG_ERR, r,
+                                 LOG_MESSAGE("The TPM does not correctly support NV indexes in NT_EXTEND mode, unable to allocate NvPCR '%s': %m", name),
+                                 LOG_MESSAGE_ID(SD_MESSAGE_TPM_NVPCR_UNSUPPORTED_STR));
+                return EX_UNAVAILABLE;
         }
         if (r == -ENOSPC) {
                 c->n_failed++;
-                return log_struct_errno(LOG_ERR, r,
-                                        LOG_MESSAGE("The TPM's NV index space is exhausted, unable to allocate NvPCR '%s': %m", name),
-                                        LOG_MESSAGE_ID(SD_MESSAGE_TPM_NVINDEX_EXHAUSTED_STR));
+                log_struct_errno(LOG_ERR, r,
+                                 LOG_MESSAGE("The TPM's NV index space is exhausted, unable to allocate NvPCR '%s': %m", name),
+                                 LOG_MESSAGE_ID(SD_MESSAGE_TPM_NVINDEX_EXHAUSTED_STR));
+                return EX_CANTCREAT;
         }
         if (r < 0) {
                 c->n_failed++;
