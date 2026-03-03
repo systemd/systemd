@@ -6,30 +6,36 @@
 # © 2017 Canonical Ltd.
 # Author: Dan Streetman <dan.streetman@canonical.com>
 
-import os, sys
+import os
 import shutil
+import sys
+
 
 def d(path, mode):
     os.mkdir(path, mode)
 
-def l(path, src):
+
+def l(path, src):  # noqa: E743
     os.symlink(src, path)
 
+
 def f(path, mode, contents):
-    with open(path, "wb") as f:
+    with open(path, 'wb') as f:
         f.write(contents)
     os.chmod(path, mode)
 
+
 if len(sys.argv) < 2:
-    exit("Usage: {} <target dir>".format(sys.argv[0]))
+    exit(f'Usage: {sys.argv[0]} <target dir>')
 
 if not os.path.isdir(sys.argv[1]):
-    exit("Target dir {} not found".format(sys.argv[1]))
+    exit(f'Target dir {sys.argv[1]} not found')
 
 os.chdir(sys.argv[1])
 
 if os.path.exists('sys'):
     shutil.rmtree('sys')
+# fmt: off
 d('sys', 0o755)
 d('sys/kernel', 0o775)
 f('sys/kernel/kexec_crash_loaded', 0o664, b'0\n')
@@ -16855,3 +16861,4 @@ f('sys/devices/platform/i8042/serio1/input/input1/capabilities/rel', 0o644, b'3\
 f('sys/devices/platform/i8042/serio1/input/input1/capabilities/sw', 0o644, b'0\n')
 f('sys/devices/platform/i8042/serio1/input/input1/capabilities/ev', 0o644, b'7\n')
 f('sys/devices/platform/i8042/serio1/input/input1/capabilities/led', 0o644, b'0\n')
+# fmt: on

@@ -21,13 +21,13 @@ from pathlib import Path
 from types import FrameType
 from typing import Optional
 
-EMERGENCY_EXIT_DROPIN = """\
+EMERGENCY_EXIT_DROPIN = '''\
 [Unit]
 Wants=emergency-exit.service
-"""
+'''
 
 
-EMERGENCY_EXIT_SERVICE = """\
+EMERGENCY_EXIT_SERVICE = '''\
 [Unit]
 DefaultDependencies=no
 Conflicts=shutdown.target
@@ -38,7 +38,7 @@ FailureAction=exit
 
 [Service]
 ExecStart=false
-"""
+'''
 
 
 @dataclasses.dataclass(frozen=True)
@@ -459,43 +459,43 @@ def main() -> None:
     name = args.name + (f'-{i}' if (i := os.getenv('MESON_TEST_ITERATION')) else '')
 
     dropin = textwrap.dedent(
-        """\
+        '''\
         [Service]
         StandardOutput=journal+console
-        """
+        '''
     )
 
     if not shell:
         dropin += textwrap.dedent(
-            """
+            '''
             [Unit]
             SuccessAction=exit
             SuccessActionExitStatus=123
-            """
+            '''
         )
 
     if os.getenv('TEST_MATCH_SUBTEST'):
         dropin += textwrap.dedent(
-            f"""
+            f'''
             [Service]
             Environment=TEST_MATCH_SUBTEST={os.environ['TEST_MATCH_SUBTEST']}
-            """
+            '''
         )
 
     if os.getenv('TEST_MATCH_TESTCASE'):
         dropin += textwrap.dedent(
-            f"""
+            f'''
             [Service]
             Environment=TEST_MATCH_TESTCASE={os.environ['TEST_MATCH_TESTCASE']}
-            """
+            '''
         )
 
     if os.getenv('TEST_RUN_DFUZZER'):
         dropin += textwrap.dedent(
-            f"""
+            f'''
             [Service]
             Environment=TEST_RUN_DFUZZER={os.environ['TEST_RUN_DFUZZER']}
-            """
+            '''
         )
 
     if os.getenv('TEST_JOURNAL_USE_TMP', '0') == '1':
@@ -512,14 +512,14 @@ def main() -> None:
 
     if not sys.stdin.isatty():
         dropin += textwrap.dedent(
-            """
+            '''
             [Unit]
             FailureAction=exit
-            """
+            '''
         )
     elif not shell:
         dropin += textwrap.dedent(
-            """
+            '''
             [Unit]
             Wants=multi-user.target getty-pre.target
             Before=getty-pre.target
@@ -533,17 +533,17 @@ def main() -> None:
             IgnoreSIGPIPE=no
             # bash ignores SIGTERM
             KillSignal=SIGHUP
-            """
+            '''
         )
 
     if sys.stdin.isatty():
         dropin += textwrap.dedent(
-            """
+            '''
             [Service]
             ExecStartPre=/usr/lib/systemd/tests/testdata/integration-test-setup.sh setup
             ExecStopPost=/usr/lib/systemd/tests/testdata/integration-test-setup.sh finalize
             StateDirectory=%N
-            """
+            '''
         )
 
     if args.rtc:
@@ -576,7 +576,7 @@ def main() -> None:
         *(['--forward-journal', journal_file] if journal_file else []),
         *(
             [
-                '--credential', f'systemd.extra-unit.emergency-exit.service={shlex.quote(EMERGENCY_EXIT_SERVICE)}',  # noqa: E501
+                '--credential', f'systemd.extra-unit.emergency-exit.service={shlex.quote(EMERGENCY_EXIT_SERVICE)}',
                 '--credential', f'systemd.unit-dropin.emergency.target={shlex.quote(EMERGENCY_EXIT_DROPIN)}',
             ]
             if not sys.stdin.isatty()
@@ -683,7 +683,7 @@ def main() -> None:
             iter = os.environ['GITHUB_RUN_ATTEMPT']
             runner = os.environ['TEST_RUNNER']
             artifact = (
-                f'ci-{wf}-{id}-{iter}-{summary.distribution}-{summary.release}-{runner}-failed-test-journals'  # noqa: E501
+                f'ci-{wf}-{id}-{iter}-{summary.distribution}-{summary.release}-{runner}-failed-test-journals'
             )
             ops += [f'gh run download {id} --name {artifact} -D ci/{artifact}']
             journal_file = Path(f'ci/{artifact}/test/journal/{name}.journal')

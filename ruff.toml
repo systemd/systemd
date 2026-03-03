@@ -1,6 +1,20 @@
 target-version = "py39"
 line-length = 109
-lint.select = ["E", "F", "I", "UP"]
+
+# This file is imported from an external project.
+extend-exclude = ["tools/chromiumos/gen_autosuspend_rules.py"]
+
+[lint]
+select = ["E", "F", "I", "Q", "UP"]
+# E501: line-too-long
+# E731: lambda-assignment
+ignore = ["E501", "E731"]
 
 [format]
-quote-style = "single"
+# The formatter prefers double quotes for multiline quotes,
+# Hence, let's make the formatter not change quotations.
+quote-style = "preserve"
+
+[lint.flake8-quotes]
+inline-quotes = "single"
+multiline-quotes = "single"
