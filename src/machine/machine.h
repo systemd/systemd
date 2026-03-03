@@ -34,6 +34,17 @@ typedef enum KillWhom {
 } KillWhom;
 
 typedef struct Machine {
+        /* Note: machine objects registered with the --system instance can be allocated by privileged *and*
+         * unprivileged clients. We generally do this to make DNS-style name resolution work, and since
+         * that's a system-wide concept, the machine registrations need to be system-wide too.
+         *
+         * polkit manages access to machines registered by unprivileged clients. The general rule should be
+         * that local users (i.e. those with a seat) may register machines, and do basic interaction with
+         * their own machines without having to authenticate as administrator – however any more complex
+         * (such as: copying files in + out of a container; or logging in interactively) should only be
+         * available after administrator authentication, following the logic that users better use their own
+         * per-user instance of systemd-machined for that. */
+
         Manager *manager;
 
         char *name;
