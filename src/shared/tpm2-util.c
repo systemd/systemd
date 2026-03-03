@@ -53,6 +53,7 @@
 static void *libtss2_esys_dl = NULL;
 static void *libtss2_rc_dl = NULL;
 static void *libtss2_mu_dl = NULL;
+static void *libtss2_tcti_device_dl = NULL;
 
 static DLSYM_PROTOTYPE(Esys_Create) = NULL;
 static DLSYM_PROTOTYPE(Esys_CreateLoaded) = NULL;
@@ -226,6 +227,20 @@ static int dlopen_tpm2_mu(void) {
                         DLSYM_ARG(Tss2_MU_UINT32_Marshal));
 }
 
+static int dlopen_tpm2_tcti_device(void) {
+        /* The "device" TCTI is the most relevant one, let's also load it explicitly on dlopen_tpm2(), even
+         * if we don't resolve any symbols here. */
+
+        ELF_NOTE_DLOPEN("tpm",
+                        "Support for TPM",
+                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        "libtss2-tcti-device.so.0");
+
+        return dlopen_or_warn(
+                        &libtss2_tcti_device_dl,
+                        "libtss2-tcti-device.so.0");
+}
+
 #endif
 
 int dlopen_tpm2(void) {
@@ -241,6 +256,10 @@ int dlopen_tpm2(void) {
                 return r;
 
         r = dlopen_tpm2_mu();
+        if (r < 0)
+                return r;
+
+        r = dlopen_tpm2_tcti_device();
         if (r < 0)
                 return r;
 
