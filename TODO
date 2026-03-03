@@ -126,7 +126,7 @@ Features:
   less than NVRAM. hence setting the flag amplifies space issues. Unsetting the
   flag increases wear issues on the NVRAM, however, but this should be limited
   for the product uuid nvpcr, since its only changed once per boot. this needs
-  to be configurable by nvpcr however, as other nvpcrs are differnt,
+  to be configurable by nvpcr however, as other nvpcrs are different,
   i.e. verity one receives many writes during system uptime quite
   possibly. (also, NV_ORDERLY makes stuff faster, and dropping it costs
   possibly up to 100ms supposedly)
