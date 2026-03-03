@@ -10,8 +10,8 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-02-24 18:42+0000\n"
-"PO-Revision-Date: 2026-02-27 16:58+0000\n"
-"Last-Translator: Efstathios Iosifidis <eiosifidis@yandex.com>\n"
+"PO-Revision-Date: 2026-03-03 08:58+0000\n"
+"Last-Translator: Jim Spentzos <jimspentzos2000@gmail.com>\n"
 "Language-Team: Greek <https://translate.fedoraproject.org/projects/systemd/"
 "main/el/>\n"
 "Language: el\n"
@@ -807,8 +807,7 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:363
 msgid "Indicate to the firmware to boot to setup interface"
-msgstr ""
-"Υπόδειξη στο υλικολογισμικό για εκκίνηση στη διεπαφή ρυθμίσεων (BIOS/UEFI)"
+msgstr "Υπόδειξη στο υλικολογισμικό για εκκίνηση στο περιβάλλον ρυθμίσεων"
 
 #: src/login/org.freedesktop.login1.policy:364
 msgid ""
