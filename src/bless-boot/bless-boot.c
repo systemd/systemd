@@ -15,6 +15,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "sync-util.h"
@@ -299,7 +300,7 @@ static int make_good(const char *prefix, const char *suffix, char **ret) {
 }
 
 static int make_bad(const char *prefix, uint64_t done, const char *suffix, char **ret) {
-        _cleanup_free_ char *bad = NULL;
+        char *bad;
 
         assert(prefix);
         assert(suffix);
@@ -308,16 +309,14 @@ static int make_bad(const char *prefix, uint64_t done, const char *suffix, char 
         /* Generate the path we'd use on bad boots. Let's simply set the 'left' counter to zero, and keep the 'done'
          * counter. The information might be interesting to boot loaders, after all. */
 
-        if (done == 0) {
+        if (done == 0)
                 bad = strjoin(prefix, "+0", suffix);
-                if (!bad)
-                        return -ENOMEM;
-        } else {
-                if (asprintf(&bad, "%s+0-%" PRIu64 "%s", prefix, done, suffix) < 0)
-                        return -ENOMEM;
-        }
+        else
+                bad = asprintf_safe("%s+0-%" PRIu64 "%s", prefix, done, suffix);
+        if (!bad)
+                return -ENOMEM;
 
-        *ret = TAKE_PTR(bad);
+        *ret = bad;
         return 0;
 }
 
