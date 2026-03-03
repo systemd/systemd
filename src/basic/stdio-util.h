@@ -21,6 +21,9 @@ static inline char* snprintf_ok(char *buf, size_t len, const char *format, ...) 
 #define xsprintf(buf, fmt, ...) \
         assert_message_se(snprintf_ok(buf, ELEMENTSOF(buf), fmt, ##__VA_ARGS__), "xsprintf: buffer too small")
 
+_printf_(1, 2)
+char* asprintf_sane(const char *restrict fmt, ...);
+
 #define VA_FORMAT_ADVANCE(format, ap)                                   \
 do {                                                                    \
         int _argtypes[128];                                             \
