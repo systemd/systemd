@@ -426,7 +426,7 @@ static int setup_nvpcr_one(
                 c->n_failed++;
                 return log_struct_errno(LOG_ERR, r,
                                         LOG_MESSAGE("The TPM's NV index space is exhausted, unable to allocate NvPCR '%s': %m", name),
-                                        LOG_MESSAGE_ID(SD_MESSAGE_TPM_INVINDEX_EXHAUSTED_STR));
+                                        LOG_MESSAGE_ID(SD_MESSAGE_TPM_NVINDEX_EXHAUSTED_STR));
         }
         if (r < 0) {
                 c->n_failed++;
