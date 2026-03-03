@@ -498,6 +498,19 @@ testcase_nts() {
         return 0
     fi
 
+    cleanup() {
+        systemctl stop systemd-timesyncd busctl-monitor.service
+        rm -f server.key server.crt /etc/ssl/certs/CA.crt /etc/systemd/timesyncd.conf
+    }
+
+    error() {
+        cleanup
+        [ "$mock_pid" ] && kill "$mock_pid"
+    }
+
+    trap cleanup RETURN
+    trap error ERR
+
     # configure a few NTP servers to test that they are ignored if NTS support is enabled
     local mock_server="localhost"
     cat >/etc/systemd/timesyncd.conf <<EOF
@@ -514,6 +527,7 @@ EOF
 
     # this will handle exactly one KE and one NTP request
     /usr/lib/systemd/tests/unit-tests/manual/test-nts-mockserver &
+    mock_pid="$!"
 
     systemd-run --unit busctl-monitor.service --service-type=notify \
         busctl monitor --json=short --match="type=signal,sender=org.freedesktop.timesync1,member=PropertiesChanged,path=/org/freedesktop/timesync1"
@@ -529,10 +543,83 @@ EOF
     [[ "$servers" == "as 3 \"does.not.exist\" \"$mock_server\" \"not.found\"" ]]
     [[ "$chosen_server" == "s \"$mock_server\"" ]]
     [[ "$secure" == "b true" ]]
+}
 
-    # Cleanup
-    rm server.key server.crt /etc/ssl/certs/CA.crt /etc/systemd/timesyncd.conf
-    systemctl stop systemd-timesyncd busctl-monitor.service
+assert_timesyncd_exhausted_servers() {
+    local timestamp="${1:?}"
+    local args=(-q --since="$timestamp" -u systemd-timesyncd --grep "Waiting after exhausting servers")
+
+    journalctl --sync
+
+    for _ in {0..9}; do
+        if journalctl "${args[@]}"; then
+            # Make the found entry in the archived journal, to avoid the following failure:
+            # Journal file /run/log/journal/.../system.journal is truncated, ignoring file.
+            journalctl --rotate
+            return 0
+        fi
+
+        sleep .5
+    done
+
+    return 1
+}
+
+testcase_nts_failure_modes() {
+    if systemd-detect-virt -cq; then
+        echo "This test case requires a VM, skipping..."
+        return 0
+    fi
+
+    cleanup() {
+        rm -f server.key server.crt /etc/ssl/certs/CA.crt /etc/systemd/timesyncd.conf
+    }
+
+    error() {
+        cleanup
+        [ "$mock_pid" ] && kill "$mock_pid"
+    }
+
+    trap cleanup RETURN
+    trap error ERR
+
+    # configure a few NTP servers so
+    local mock_server="localhost"
+    cat >/etc/systemd/timesyncd.conf <<EOF
+[Time]
+NTS=$mock_server
+KeyExchangeTimeoutSec=1
+ConnectionRetrySec=1
+PollIntervalMinSec=1
+PollIntervalMaxSec=1
+EOF
+    install_mock_certificate "$mock_server"
+
+    systemctl unmask systemd-timesyncd
+    systemctl restart systemd-timesyncd
+    timedatectl set-ntp false
+
+    # failure modes:
+    # - 1 NTP extension field error (causes NTP timeout)
+    # - 2 no NTP extension field (causes NTP timeout)
+    # - 3 malformed/malicious NTS response
+    # - 4 no reply on NTS handshake
+    # - 5 drop connection on NTS handshake
+    # - 6 timeout during NTS handshake, which slows down the test too much
+    for failure_mode in $(seq 6); do
+        /usr/lib/systemd/tests/unit-tests/manual/test-nts-mockserver "$failure_mode" &
+        mock_pid="$!"
+
+        local ts="$(date +"%F %T.%6N")"
+        timedatectl set-ntp true
+        # NTP timeout is not configurable
+	[ "$failure_mode" -gt 2 ] || sleep 10
+
+        assert_timesyncd_exhausted_servers "$ts"
+
+        timedatectl set-ntp false
+	kill "$mock_pid" || true
+    done
 }
 
 run_testcases
