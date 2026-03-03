@@ -121,5 +121,16 @@ int verb_identify_tpm2(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return table_log_add_error(r);
 
+        _cleanup_free_ char *m = NULL;
+        if (tpm2_vendor_info_to_modalias(&info, &m) < 0)
+                return log_oom();
+
+        r = table_add_many(
+                        table,
+                        TABLE_FIELD, "Modalias String",
+                        TABLE_STRING, m);
+        if (r < 0)
+                return table_log_add_error(r);
+
         return table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, /* show_header= */ false);
 }

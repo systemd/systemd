@@ -349,6 +349,43 @@ static int tpm2_get_capability(
         return more == TPM2_YES;
 }
 
+int tpm2_vendor_info_to_modalias(const Tpm2VendorInfo *info, char **ret) {
+        _cleanup_free_ char *m = NULL;
+
+        assert(info);
+        assert(ret);
+
+        /* Closely inspired by kernel modalias strings, that distill information from the TPM vendor data
+         * into a string suitable for matching hwdb */
+
+        if (asprintf(&m,
+                     "fi%s:"
+                     "lv%" PRIu32 ":"
+                     "rv%" PRIu32 ".%" PRIu32 ":"
+                     "sd%" PRIu32 ":"
+                     "sy%" PRIu32 ":"
+                     "mf%s:"
+                     "vs%s:"
+                     "ty%" PRIx32 ":"
+                     "fw%" PRIu16 ".%" PRIu16 ".%" PRIu32 ":",
+                     info->family_indicator,
+                     info->level,
+                     info->revision_major,
+                     info->revision_minor,
+                     info->day_of_year,
+                     info->year,
+                     info->manufacturer,
+                     info->vendor_string,
+                     info->vendor_tpm_type,
+                     info->firmware_version_major,
+                     info->firmware_version_minor,
+                     info->firmware_version2) < 0)
+                return -ENOMEM;
+
+        *ret = TAKE_PTR(m);
+        return 0;
+}
+
 static char *mangle_vendor_chars(char *c, size_t n) {
         char *end = c;
         assert(c || n == 0);

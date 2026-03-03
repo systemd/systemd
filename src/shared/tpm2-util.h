@@ -210,6 +210,7 @@ typedef struct Tpm2VendorInfo {
         char vendor_string[4*4+1];
 } Tpm2VendorInfo;
 
+int tpm2_vendor_info_to_modalias(const Tpm2VendorInfo *info, char **ret);
 int tpm2_get_vendor_info(Tpm2Context *c, Tpm2VendorInfo *ret);
 
 void tpm2_log_debug_tpml_pcr_selection(const TPML_PCR_SELECTION *l, const char *msg);
