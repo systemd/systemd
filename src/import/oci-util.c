@@ -79,10 +79,10 @@ bool oci_tag_is_valid(const char *n) {
          * [a-zA-Z0-9_][a-zA-Z0-9._-]{0,127}
          */
 
-        if (!strchr(LETTERS DIGITS "_", n[0]))
+        if (!strchr(ALPHANUMERICAL "_", n[0]))
                 return false;
 
-        size_t l = strspn(n + 1, LETTERS DIGITS "._-");
+        size_t l = strspn(n + 1, ALPHANUMERICAL "._-");
         if (l > 126)
                 return false;
         if (n[1+l] != 0)
@@ -387,7 +387,7 @@ char* urlescape(const char *s) {
 
         char *p = t;
         for (; s && *s; s++) {
-                if (strchr(LETTERS DIGITS ".-_", *s))
+                if (strchr(ALPHANUMERICAL ".-_", *s))
                         *(p++) = *s;
                 else {
                         *(p++) = '%';
