@@ -138,6 +138,18 @@ CHANGES WITH 260 in spe:
 
         Changes in the system and service manager:
 
+        * A new unit setting RootMStack= has been introduced, to support the
+          new "mstack" feature for services (see above).
+
+        * The unit setting PrivateUsers= gained a new possible value "managed",
+          which automatically assigns a dynamic and transient range of 65536
+          UIDs/GIDs to the unit, acquired via systemd-nsresourced.
+
+        * The implementation for PrivateUsers=full has been updated to map the
+          full range of IDs. The workaround to allow nested systemd older than
+          257 to correctly detect that it is under such a mapping has been
+          dropped.
+
         * systemd now uses the CSI 18 terminal sequence to query terminal
           size. This allows the query to be made without changing the position
           of the cursor. Terminal emulators which do not yet support the
@@ -156,17 +168,13 @@ CHANGES WITH 260 in spe:
           can be used to skip or fail the unit if the given path is not a
           socket.
 
-        * A new unit setting RootMStack= has been introduced, to support the
-          new "mstack" feature for services (see above).
-
-        * The unit setting PrivateUsers= gained a new possible value "managed",
-          which automatically assigns a dynamic and transient range of 65536
-          UIDs/GIDs to the unit, acquired via systemd-nsresourced.
-
-        * The implementation for PrivateUsers=full has been updated to map the
-          full range of IDs. The workaround to allow nested systemd older than
-          257 to correctly detect that it is under such a mapping has been
-          dropped.
+        * For units which specify PrivateTmp=yes and DefaultDependencies=no
+          without an explicit requirement for /tmp/, a disconnected /tmp/ will
+          be used, as if PrivateTmp=disconnected was specified. Also, if there
+          is no explicit ordering for /var/, the private mount for /var/tmp/
+          will not be created. Those changes avoid race conditions with
+          creation of those private directories during early boot and may
+          result in changes to unit ordering.
 
         * EnqueueMarkedJobs() D-Bus method now has a Varlink counterpart.
 
