@@ -209,8 +209,6 @@ static inline size_t size_add(size_t x, size_t y) {
 typedef void (*void_func_t)(void);
 
 static inline void dispatch_void_func(void_func_t *f) {
-        assert(f);
-        assert(*f);
         (*f)();
 }
 
