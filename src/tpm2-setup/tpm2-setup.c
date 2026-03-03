@@ -2,6 +2,7 @@
 
 #include <getopt.h>
 #include <sys/stat.h>
+#include <sysexits.h>
 
 #include "sd-messages.h"
 
@@ -291,8 +292,8 @@ static int setup_srk(void) {
                 log_struct_errno(LOG_INFO, r,
                                  LOG_MESSAGE("Insufficient permissions to access TPM, not generating SRK."),
                                  LOG_MESSAGE_ID(SD_MESSAGE_SRK_ENROLLMENT_NEEDS_AUTHORIZATION_STR));
-                return 76; /* Special return value which means "Insufficient permissions to access TPM,
-                            * cannot generate SRK". This isn't really an error when called at boot. */;
+                return EX_PROTOCOL; /* Special return value which means "Insufficient permissions to access TPM,
+                                     * cannot generate SRK". This isn't really an error when called at boot. */;
         }
         if (r < 0)
                 return r;
@@ -422,11 +423,19 @@ static int setup_nvpcr_one(
 
                 r = tpm2_nvpcr_initialize(c->tpm2_context, /* session= */ NULL, name, &c->anchor_secret);
         }
+        if (r == -EOPNOTSUPP) {
+                c->n_failed++;
+                log_struct_errno(LOG_ERR, r,
+                                 LOG_MESSAGE("The TPM does not correctly support NV indexes in NT_EXTEND mode, unable to allocate NvPCR '%s': %m", name),
+                                 LOG_MESSAGE_ID(SD_MESSAGE_TPM_NVPCR_UNSUPPORTED_STR));
+                return EX_UNAVAILABLE;
+        }
         if (r == -ENOSPC) {
                 c->n_failed++;
-                return log_struct_errno(LOG_ERR, r,
-                                        LOG_MESSAGE("The TPM's NV index space is exhausted, unable to allocate NvPCR '%s': %m", name),
-                                        LOG_MESSAGE_ID(SD_MESSAGE_TPM_NVINDEX_EXHAUSTED_STR));
+                log_struct_errno(LOG_ERR, r,
+                                 LOG_MESSAGE("The TPM's NV index space is exhausted, unable to allocate NvPCR '%s': %m", name),
+                                 LOG_MESSAGE_ID(SD_MESSAGE_TPM_NVINDEX_EXHAUSTED_STR));
+                return EX_CANTCREAT;
         }
         if (r < 0) {
                 c->n_failed++;

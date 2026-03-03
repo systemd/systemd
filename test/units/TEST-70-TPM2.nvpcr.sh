@@ -103,3 +103,6 @@ systemd-dissect --image-policy='root=signed:=absent+unused' --mtree /var/tmp/nvp
 
 set +o pipefail
 diff /tmp/nvpcr/log-before /run/log/systemd/tpm2-measure.log | grep -F '"content":{"nvIndexName":"verity","string":"verity:'
+
+systemd-analyze identify-tpm2
+udevadm test-builtin 'tpm2_id identify' /dev/tpmrm0
