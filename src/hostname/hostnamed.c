@@ -49,7 +49,7 @@
 #include "varlink-util.h"
 #include "virt.h"
 
-#define VALID_DEPLOYMENT_CHARS (DIGITS LETTERS "-.:")
+#define VALID_DEPLOYMENT_CHARS (ALPHANUMERICAL "-.:")
 
 /* Properties we cache are indexed by an enum, to make invalidation easy and systematic (as we can iterate
  * through them all, and they are uniformly strings). */

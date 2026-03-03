@@ -17,8 +17,7 @@
 
 /* Characters valid in a unit name. */
 #define VALID_CHARS                             \
-        DIGITS                                  \
-        LETTERS                                 \
+        ALPHANUMERICAL                          \
         ":-_.\\"
 
 /* The same, but also permits the single @ character that may appear */
