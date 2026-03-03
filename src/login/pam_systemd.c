@@ -279,7 +279,7 @@ static int socket_from_display(const char *display) {
         if (!display_is_local(display))
                 return -EINVAL;
 
-        k = strspn(display+1, "0123456789");
+        k = strspn(display + 1, DIGITS);
 
         /* Try abstract socket first. */
         f = new(char, STRLEN("@/tmp/.X11-unix/X") + k + 1);

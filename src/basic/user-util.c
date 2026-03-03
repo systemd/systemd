@@ -762,18 +762,17 @@ bool valid_user_group_name(const char *u, ValidUserFlags flags) {
                                        * don't allow slashes. */
                         return false;
 
-                if (in_charset(u, "0123456789")) /* Don't allow fully numeric strings, they might be confused
-                                                  * with UIDs (note that this test is more broad than
-                                                  * the parse_uid() test above, as it will cover more than
-                                                  * the 32-bit range, and it will detect 65535 (which is in
-                                                  * invalid UID, even though in the unsigned 32 bit range) */
+                if (in_charset(u, DIGITS)) /* Don't allow fully numeric strings, they might be confused with
+                                            * UIDs (note that this test is more broad than the parse_uid()
+                                            * test above, as it will cover more than the 32-bit range, and it
+                                            * will detect 65535 (which is in invalid UID, even though in the
+                                            * unsigned 32 bit range) */
                         return false;
 
-                if (u[0] == '-' && in_charset(u + 1, "0123456789")) /* Don't allow negative fully numeric
-                                                                     * strings either. After all some people
-                                                                     * write 65535 as -1 (even though that's
-                                                                     * not even true on 32-bit uid_t
-                                                                     * anyway) */
+                if (u[0] == '-' && in_charset(u + 1, DIGITS)) /* Don't allow negative fully numeric strings
+                                                               * either. After all some people write 65535 as
+                                                               * -1 (even though that's not even true on
+                                                               * 32-bit uid_t anyway) */
                         return false;
 
                 if (dot_or_dot_dot(u)) /* User names typically become home directory names, and these two are
