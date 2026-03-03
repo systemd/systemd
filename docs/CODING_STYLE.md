@@ -754,9 +754,9 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   section of the `alloca(3)` man page.
 
 - If you want to concatenate two or more strings, consider using `strjoina()`
-  or `strjoin()` rather than `asprintf()`, as the latter is a lot slower. This
-  matters particularly in inner loops (but note that `strjoina()` cannot be
-  used there).
+  or `strjoin()` rather than `asprintf()` or `asprintf_safe`, as the latter is
+  a lot slower. This matters particularly in inner loops (but note that
+  `strjoina()` cannot be used there).
 
 ## Runtime Behaviour
 
