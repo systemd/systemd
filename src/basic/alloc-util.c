@@ -34,6 +34,26 @@ void* memdup_suffix0(const void *p, size_t l) {
         return memcpy_safe(ret, p, l);
 }
 
+void* realloc0(void *p, size_t new_size) {
+        size_t old_size;
+        void *q;
+
+        /* Like realloc(), but initializes anything appended to zero */
+
+        old_size = MALLOC_SIZEOF_SAFE(p);
+
+        q = realloc(p, new_size);
+        if (!q)
+                return NULL;
+
+        new_size = MALLOC_SIZEOF_SAFE(q); /* Update with actually allocated space */
+
+        if (new_size > old_size)
+                memset((uint8_t*) q + old_size, 0, new_size - old_size);
+
+        return q;
+}
+
 void* greedy_realloc(
                 void **p,
                 size_t need,
@@ -141,4 +161,11 @@ size_t malloc_sizeof_safe(void **xp) {
         if (!*xp)
                 assert_not_reached();
         return sz;
+}
+
+void free_many(void **p, size_t n) {
+        assert(p || n == 0);
+
+        FOREACH_ARRAY(i, p, n)
+                *i = mfree(*i);
 }
