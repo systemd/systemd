@@ -8207,23 +8207,35 @@ B0E000-B0EFFF     (base 16)		Watthour Engineering Co., Inc.
 				Yokohama  Kanagawa Prefecture  2310023
 				JP
 
-8C-1F-64   (hex)		Becton Dickinson
-597000-597FFF     (base 16)		Becton Dickinson
-				7 Loveton Circle
-				Sparks  MD  21152
-				US
-
 8C-1F-64   (hex)		RoboCore Tecnologia
 8C9000-8C9FFF     (base 16)		RoboCore Tecnologia
 				Av Honorio Alvares Penteado, 97 - Galpao 77
 				Santana de Parnaiba  SP  06543-320
 				BR
 
+8C-1F-64   (hex)		Becton Dickinson
+597000-597FFF     (base 16)		Becton Dickinson
+				7 Loveton Circle
+				Sparks  MD  21152
+				US
+
 8C-1F-64   (hex)		Corespan Systems
 584000-584FFF     (base 16)		Corespan Systems
 				200 Innovative Way Suite 1360
 				Nashua    03062
 				US
+
+8C-1F-64   (hex)		Sensata Technologies Inc.
+DA0000-DA0FFF     (base 16)		Sensata Technologies Inc.
+				529 Pleasant Street
+				Attleboro  MA  02703
+				US
+
+8C-1F-64   (hex)		Hiwin Mikrosystem Corp.
+216000-216FFF     (base 16)		Hiwin Mikrosystem Corp.
+				NO 6 JINGKE CENTRAL RD  TAICHUNG CITY TAIWAN 40841
+				TAICHUNG    40841
+				TW
 
 8C-1F-64   (hex)		Jacobs Technology, Inc.
 A98000-A98FFF     (base 16)		Jacobs Technology, Inc.
@@ -16553,8 +16565,38 @@ A66000-A66FFF     (base 16)		vtt systems Inc.
 				Dover  DE  19901
 				US
 
+8C-1F-64   (hex)		Breas Medical AB
+1C5000-1C5FFF     (base 16)		Breas Medical AB
+				Företagsvägen 1
+				Mölnlycke    SE-435 33
+				SE
+
+8C-1F-64   (hex)		CloudRAN.ai
+522000-522FFF     (base 16)		CloudRAN.ai
+				12 WOODLANDS SQUARE, #10-73, WOODS, SQUARE, SINGAPORE (737715)
+				Singapore  Singapore  737715
+				CN
+
 8C-1F-64   (hex)		Private
 D26000-D26FFF     (base 16)		Private
+
+8C-1F-64   (hex)		Pneumax Spa
+5FE000-5FEFFF     (base 16)		Pneumax Spa
+				via cascina barbellina, 10
+				Lurano  Bergamo  24050
+				IT
+
+8C-1F-64   (hex)		Erba Lachema s.r.o.
+BCF000-BCFFFF     (base 16)		Erba Lachema s.r.o.
+				Karasek1d
+				Brno    62100
+				CZ
+
+8C-1F-64   (hex)		HEITEC AG
+E25000-E25FFF     (base 16)		HEITEC AG
+				Dr.-Otto-Leich-Str. 16
+				Eckental  Bavaria  90542
+				DE
 
 8C-1F-64   (hex)		Vision Systems Safety Tech
 E6F000-E6FFFF     (base 16)		Vision Systems Safety Tech
@@ -24902,6 +24944,24 @@ D25000-D25FFF     (base 16)		therlys GmbH
 				Hamburg    20097
 				DE
 
+8C-1F-64   (hex)		DORLET SAU
+BC5000-BC5FFF     (base 16)		DORLET SAU
+				C/ ALBERT EINSTEIN 34, PARQUE TECNOLOGICO DE ALAVA
+				VITORIA - GASTEIZ  ALAVA  01510
+				ES
+
+8C-1F-64   (hex)		ACS Motion Control
+64C000-64CFFF     (base 16)		ACS Motion Control
+				5 Ha'Tnufa st. 
+				Yokneam    2066717
+				IL
+
+8C-1F-64   (hex)		Vision Systems Safety Tech
+436000-436FFF     (base 16)		Vision Systems Safety Tech
+				5 Chemin de Chiradie
+				Brignais    69530
+				FR
+
 8C-1F-64   (hex)		Flow Power
 82B000-82BFFF     (base 16)		Flow Power
 				Suite 2, Level 3, 18 - 20 York St
@@ -33131,6 +33191,18 @@ A78000-A78FFF     (base 16)		TAIT Global LLC
 				Nordhorn  Germany  48531
 				DE
 
+8C-1F-64   (hex)		Diatech co.,ltd.
+26C000-26CFFF     (base 16)		Diatech co.,ltd.
+				201 City Dolce Iogi 2-2-9 Igusa
+				Suginami Ku  Tokyo  167-0021
+				JP
+
+8C-1F-64   (hex)		Pneumax Spa
+431000-431FFF     (base 16)		Pneumax Spa
+				via cascina barbellina, 10
+				Lurano  Bergamo  24050
+				IT
+
 8C-1F-64   (hex)		Mobileye
 D63000-D63FFF     (base 16)		Mobileye
 				13 Hartom st.
@@ -41267,6 +41339,24 @@ CEA000-CEAFFF     (base 16)		Mootek Technologies Private Limited
 8C-1F-64   (hex)		Private
 B94000-B94FFF     (base 16)		Private
 
+8C-1F-64   (hex)		Terragene
+248000-248FFF     (base 16)		Terragene
+				Ruta Nacional N°9 - Km 280. Parque Industrial Micropi
+				Alvear  Santa Fe  2130
+				AR
+
+8C-1F-64   (hex)		Campus Genevois de Haute Horlogerie
+BA5000-BA5FFF     (base 16)		Campus Genevois de Haute Horlogerie
+				Rue André-De-Garrini 7
+				Meyrin    1217
+				CH
+
+70-B3-D5   (hex)		RoboCore Tecnologia
+0AC000-0ACFFF     (base 16)		RoboCore Tecnologia
+				Av Honorio Alvares Penteado, 97 - Galpao 77
+				Santana de Parnaiba  SP  06543-320
+				BR
+
 8C-1F-64   (hex)		Vojensky Technicky Ustav, s.p.
 B51000-B51FFF     (base 16)		Vojensky Technicky Ustav, s.p.
 				Mladoboleslavska 944, Kbely, Praha 9Reg. n: 24272523VAT n.: CZ24272523
@@ -41279,20 +41369,14 @@ B51000-B51FFF     (base 16)		Vojensky Technicky Ustav, s.p.
 				Taipei    10474
 				TW
 
-70-B3-D5   (hex)		RoboCore Tecnologia
-0AC000-0ACFFF     (base 16)		RoboCore Tecnologia
-				Av Honorio Alvares Penteado, 97 - Galpao 77
-				Santana de Parnaiba  SP  06543-320
-				BR
+8C-1F-64   (hex)		ATAL s.r.o.
+805000-805FFF     (base 16)		ATAL s.r.o.
+				Lesni 47
+				Tabor    39001
+				CZ
 
-8C-1F-64   (hex)		Terragene
-248000-248FFF     (base 16)		Terragene
-				Ruta Nacional N°9 - Km 280. Parque Industrial Micropi
-				Alvear  Santa Fe  2130
-				AR
-
-8C-1F-64   (hex)		Campus Genevois de Haute Horlogerie
-BA5000-BA5FFF     (base 16)		Campus Genevois de Haute Horlogerie
-				Rue André-De-Garrini 7
-				Meyrin    1217
-				CH
+8C-1F-64   (hex)		DEUTA Werke GmbH
+D2C000-D2CFFF     (base 16)		DEUTA Werke GmbH
+				ET
+				Bergisch Gladbach  NRW  51465
+				DE
