@@ -18,9 +18,9 @@ static int help(void) {
         printf("%s test-builtin [OPTIONS] COMMAND DEVPATH\n\n"
                "Test a built-in command.\n\n"
                "  -h --help               Print this message\n"
-               "  -V --version            Print version of the program\n\n"
+               "  -V --version            Print version of the program\n"
                "  -a --action=ACTION|help Set action string\n"
-               "Commands:\n",
+               "\nCommands:\n",
                program_invocation_short_name);
 
         udev_builtin_list();
