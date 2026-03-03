@@ -24,6 +24,7 @@
 #define ALPHANUMERICAL      LETTERS DIGITS
 #define HEXDIGITS           DIGITS "abcdefABCDEF"
 #define LOWERCASE_HEXDIGITS DIGITS "abcdef"
+#define UPPERCASE_HEXDIGITS DIGITS "ABCDEF"
 #define URI_RESERVED        ":/?#[]@!$&'()*+;="         /* [RFC3986] */
 #define URI_UNRESERVED      ALPHANUMERICAL "-._~"       /* [RFC3986] */
 #define URI_VALID           URI_RESERVED URI_UNRESERVED /* [RFC3986] */

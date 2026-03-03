@@ -8,7 +8,7 @@
 #include "util.h"
 
 static char *write_cpio_word(char *p, uint32_t v) {
-        static const char hex[] = "0123456789abcdef";
+        const char *hex = LOWERCASE_HEXDIGITS;
 
         assert(p);
 
