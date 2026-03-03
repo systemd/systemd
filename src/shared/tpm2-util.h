@@ -53,6 +53,8 @@ typedef struct Tpm2Context {
         void *tcti_dl;
         TSS2_TCTI_CONTEXT *tcti_context;
         ESYS_CONTEXT *esys_context;
+        char *tcti_driver;
+        char *tcti_param;
 
         /* Some selected cached capabilities of the TPM */
         TPMS_ALG_PROPERTY *capability_algorithms;
