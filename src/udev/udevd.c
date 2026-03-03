@@ -19,6 +19,7 @@
 #include "process-util.h"
 #include "rlimit-util.h"
 #include "terminal-util.h"
+#include "tpm2-util.h"
 #include "udev-config.h"
 #include "udev-manager.h"
 #include "udevd.h"
@@ -61,6 +62,7 @@ int run_udevd(int argc, char *argv[]) {
         (void) dlopen_libblkid();
         (void) dlopen_libkmod();
         (void) dlopen_libmount();
+        (void) dlopen_tpm2();
 
         if (arg_daemonize) {
                 pid_t pid;
