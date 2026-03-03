@@ -238,9 +238,9 @@ static int help(void) {
                "                           Mount a file or directory from the host into the VM\n"
                "     --bind-ro=SOURCE[:TARGET]\n"
                "                           Mount a file or directory, but read-only\n"
-               "     --extra-drive=PATH[:FORMAT]\n"
+               "     --extra-drive=[[FORMAT]:]PATH\n"
                "                           Adds an additional disk to the virtual machine\n"
-               "                           (format: raw, qcow2; default: raw)\n"
+               "                           (FORMAT: raw, qcow2; default: raw)\n"
                "     --bind-user=NAME       Bind user from host to virtual machine\n"
                "     --bind-user-shell=BOOL|PATH\n"
                "                            Configure the shell to use for --bind-user= users\n"
@@ -559,23 +559,29 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_EXTRA_DRIVE: {
-                        _cleanup_free_ char *buf = NULL, *drive_path = NULL;
                         ImageFormat format = IMAGE_FORMAT_RAW;
+                        const char *dp = optarg;
 
-                        const char *colon = strrchr(optarg, ':');
-                        if (colon) {
-                                ImageFormat f = image_format_from_string(colon + 1);
+                        const char *colon = strchr(dp, ':');
+                        if (colon == dp)
+                                /* Leading ':'. Set path without overriding format. */
+                                dp++;
+                        else if (colon) {
+                                _cleanup_free_ char *fs = strndup(optarg, colon - optarg);
+                                if (!fs)
+                                        return log_oom();
+
+                                ImageFormat f = image_format_from_string(fs);
                                 if (f < 0)
-                                        log_debug_errno(f, "Failed to parse image format '%s', assuming it is a part of path, ignoring: %m", colon + 1);
+                                        log_debug_errno(f, "Cannot parse '%s' as an image format, assuming it is a part of path, ignoring.", fs);
                                 else {
                                         format = f;
-                                        buf = strndup(optarg, colon - optarg);
-                                        if (!buf)
-                                                return log_oom();
+                                        dp = colon + 1;
                                 }
                         }
 
-                        r = parse_path_argument(buf ?: optarg, /* suppress_root= */ false, &drive_path);
+                        _cleanup_free_ char *drive_path = NULL;
+                        r = parse_path_argument(dp, /* suppress_root= */ false, &drive_path);
                         if (r < 0)
                                 return r;
 

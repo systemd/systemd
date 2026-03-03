@@ -321,8 +321,8 @@ CHANGES WITH 260 in spe:
           the same switch in systemd-nspawn.
 
         * systemd-vmspawn gained a new switch --image-format= for selecting the
-          image format (i.e. support qcow2 in additin to raw) to boot
-          from. --extra-drive= now takes the image format as a colon separated
+          image format (i.e. support qcow2 in additin to raw) to boot from.
+          Also --extra-drive= now takes the image format as a colon separated
           parameter.
 
         Changes in systemd-nsresourced/systemd-mountfsd:
