@@ -5,6 +5,7 @@
 #include "constants.h"
 #include "errno-util.h"
 #include "manager.h"
+#include "facts.h"
 #include "metrics.h"
 #include "path-util.h"
 #include "pidref.h"
@@ -12,6 +13,7 @@
 #include "unit.h"
 #include "varlink.h"
 #include "varlink-dynamic-user.h"
+#include "varlink-facts.h"
 #include "varlink-io.systemd.ManagedOOM.h"
 #include "varlink-io.systemd.Manager.h"
 #include "varlink-io.systemd.Unit.h"
@@ -428,16 +430,29 @@ int manager_setup_varlink_server(Manager *m) {
 }
 
 int manager_setup_varlink_metrics_server(Manager *m) {
+        int r;
+
         assert(m);
 
         sd_varlink_server_flags_t flags = SD_VARLINK_SERVER_INHERIT_USERDATA;
         if (MANAGER_IS_SYSTEM(m))
                 flags |= SD_VARLINK_SERVER_ACCOUNT_UID;
 
-        return metrics_setup_varlink_server(&m->metrics_varlink_server, flags,
+        r = metrics_setup_varlink_server(&m->metrics_varlink_server, flags,
                                             m->event, EVENT_PRIORITY_IPC,
                                             vl_method_list_metrics, vl_method_describe_metrics,
                                             m);
+        if (r < 0)
+                return r;
+        if (r > 0) {
+                /* Server newly created — also register facts interface on it */
+                int q = facts_add_to_varlink_server(m->metrics_varlink_server,
+                                                     vl_method_list_facts, vl_method_describe_facts);
+                if (q < 0)
+                        return q;
+        }
+
+        return r;
 }
 
 static int varlink_server_listen_many_idempotent_sentinel(
