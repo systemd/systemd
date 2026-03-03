@@ -231,6 +231,11 @@ CHANGES WITH 260 in spe:
           ID_INTEGRATION= because it was never used and the new variable covers
           the idea that variable was intended for better.
 
+        * A new udev builtin "tpm2_id" is now available which will extract
+          vendor/model identification from connected TPM2 devices as they are
+          probed. This is then used to import data from the udev database,
+          possibly containing quirk and other information about specific TPMs.
+
         Changes in systemd-networkd:
 
         * MultiPathRoute= option now supports interface-bound ECMP routes.
@@ -468,6 +473,9 @@ CHANGES WITH 260 in spe:
         * systemd-oomd acquired "prekill hook" functionality, permitting other
           system components to synchronously hook into the OOM killing logic,
           by registering a Varlink socket in a special directory.
+
+        * systemd-analyze learnt a new verb "identify-tpm2" which shows
+          vendor/model information extracted from the system's TPM.
 
         Changes in units:
 
