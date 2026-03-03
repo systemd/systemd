@@ -1480,7 +1480,7 @@ int bus_set_address_system_remote(sd_bus *b, const char *host) {
                         got_forward_slash = true;
                 }
 
-                if (!in_charset(p, "0123456789") || *p == '\0') {
+                if (!in_charset(p, DIGITS) || *p == '\0') {
                         if (!hostname_is_valid(p, 0) || got_forward_slash)
                                 return -EINVAL;
 
@@ -1496,7 +1496,7 @@ int bus_set_address_system_remote(sd_bus *b, const char *host) {
 interpret_port_as_machine_old_syntax:
                 /* Let's make sure this is not a port of some kind,
                  * and is a valid machine name. */
-                if (!in_charset(m, "0123456789") && hostname_is_valid(m, 0))
+                if (!in_charset(m, DIGITS) && hostname_is_valid(m, 0))
                         c = strjoina(",argv", p ? "7" : "5", "=--machine=", m);
         }
 

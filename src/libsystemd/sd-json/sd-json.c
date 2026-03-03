@@ -2761,21 +2761,21 @@ static int json_parse_number(const char **p, JsonValue *ret) {
                         x = 10.0 * x + (*c - '0');
 
                         c++;
-                } while (strchr("0123456789", *c) && *c != 0);
+                } while (strchr(DIGITS, *c) && *c != 0);
         }
 
         if (*c == '.') {
                 is_real = true;
                 c++;
 
-                if (!strchr("0123456789", *c) || *c == 0)
+                if (!strchr(DIGITS, *c) || *c == 0)
                         return -EINVAL;
 
                 do {
                         y = 10.0 * y + (*c - '0');
                         shift = 10.0 * shift;
                         c++;
-                } while (strchr("0123456789", *c) && *c != 0);
+                } while (strchr(DIGITS, *c) && *c != 0);
         }
 
         if (IN_SET(*c, 'e', 'E')) {
@@ -2788,13 +2788,13 @@ static int json_parse_number(const char **p, JsonValue *ret) {
                 } else if (*c == '+')
                         c++;
 
-                if (!strchr("0123456789", *c) || *c == 0)
+                if (!strchr(DIGITS, *c) || *c == 0)
                         return -EINVAL;
 
                 do {
                         exponent = 10.0 * exponent + (*c - '0');
                         c++;
-                } while (strchr("0123456789", *c) && *c != 0);
+                } while (strchr(DIGITS, *c) && *c != 0);
         }
 
         *p = c;
@@ -2904,7 +2904,7 @@ int json_tokenize(
                         *state = INT_TO_PTR(STATE_VALUE_POST);
                         goto finish;
 
-                } else if (strchr("-0123456789", *c)) {
+                } else if (strchr("-" DIGITS, *c)) {
 
                         r = json_parse_number(&c, ret_value);
                         if (r < 0)

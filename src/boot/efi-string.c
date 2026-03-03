@@ -510,7 +510,7 @@ char* line_get_key_value(char *s, const char *sep, size_t *pos, char **ret_key, 
 }
 
 char16_t *hexdump(const void *data, size_t size) {
-        static const char hex[] = "0123456789abcdef";
+        const char *hex = LOWERCASE_HEXDIGITS;
         const uint8_t *d = data;
 
         assert(data || size == 0);
@@ -676,7 +676,7 @@ static bool push_str(FormatContext *ctx, SpecifierContext *sp) {
 }
 
 static bool push_num(FormatContext *ctx, SpecifierContext *sp, uint64_t u) {
-        const char *digits = sp->lowercase ? "0123456789abcdef" : "0123456789ABCDEF";
+        const char *digits = sp->lowercase ? LOWERCASE_HEXDIGITS : UPPERCASE_HEXDIGITS;
         char16_t tmp[32];
         size_t n = 0;
 
