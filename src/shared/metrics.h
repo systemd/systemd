@@ -37,7 +37,7 @@ int metrics_setup_varlink_server(
                 sd_varlink_method_t vl_method_describe_cb,
                 void *userdata);
 
-DECLARE_STRING_TABLE_LOOKUP_TO_STRING(metric_family_type, MetricFamilyType);
+const char* metric_family_type_to_string(MetricFamilyType i) _const_;
 
 int metrics_method_describe(const MetricFamily metric_family_table[], sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata);
 int metrics_method_list(const MetricFamily metric_family_table[], sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata);
