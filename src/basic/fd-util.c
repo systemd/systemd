@@ -1061,10 +1061,6 @@ int path_is_root_at(int dir_fd, const char *path) {
                 dir_fd = fd;
         }
 
-        _cleanup_close_ int root_fd = open("/", O_PATH|O_DIRECTORY|O_CLOEXEC);
-        if (root_fd < 0)
-                return -errno;
-
         /* Even if the root directory has the same inode as our fd, the fd may not point to the root
          * directory "/", and we also need to check that the mount ids are the same. Otherwise, a construct
          * like the following could be used to trick us:
@@ -1073,10 +1069,10 @@ int path_is_root_at(int dir_fd, const char *path) {
          * $ mount --bind / /tmp/x
          */
 
-        return fds_are_same_mount(dir_fd, root_fd);
+        return fds_inode_and_mount_same(dir_fd, XAT_FDROOT);
 }
 
-int fds_are_same_mount(int fd1, int fd2) {
+int fds_inode_and_mount_same(int fd1, int fd2) {
         struct statx sx1, sx2;
         int r;
 
@@ -1089,13 +1085,20 @@ int fds_are_same_mount(int fd1, int fd2) {
         if (r < 0)
                 return r;
 
+        if (fd1 == fd2) /* Shortcut things if fds are the same (only after validating the fd) */
+                return true;
+
         r = xstatx(fd2, /* path = */ NULL, AT_EMPTY_PATH,
                    STATX_TYPE|STATX_INO|STATX_MNT_ID,
                    &sx2);
         if (r < 0)
                 return r;
 
-        return statx_inode_same(&sx1, &sx2) && statx_mount_same(&sx1, &sx2);
+        r = statx_mount_same(&sx1, &sx2);
+        if (r <= 0)
+                return r;
+
+        return statx_inode_same(&sx1, &sx2);
 }
 
 int resolve_xat_fdroot(int *fd, const char **path, char **ret_buffer) {
