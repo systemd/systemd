@@ -23,3 +23,9 @@ Type=oneshot
 RemainAfterExit=yes
 ExecStart={{LIBEXECDIR}}/systemd-pcrextend --graceful enter-initrd
 ExecStop={{LIBEXECDIR}}/systemd-pcrextend --graceful leave-initrd
+# PCR7 can serve as the descriptor of the environment where the newly encrypted volume was created.
+# PCR7 barrier at leave-initrd only; no enter-initrd (systemd#40567).
+# By not extending on enter-initrd: PCR 7 stays at the firmware value for the
+# whole time we’re in the initrd, so those existing PCR7-only sealed volumes
+# still unseal in the initrd.
+ExecStop={{LIBEXECDIR}}/systemd-pcrextend --graceful --pcr=7 leave-initrd
