@@ -2,6 +2,7 @@
 
 #include <getopt.h>
 #include <sys/stat.h>
+#include <sysexits.h>
 
 #include "sd-messages.h"
 
@@ -291,8 +292,8 @@ static int setup_srk(void) {
                 log_struct_errno(LOG_INFO, r,
                                  LOG_MESSAGE("Insufficient permissions to access TPM, not generating SRK."),
                                  LOG_MESSAGE_ID(SD_MESSAGE_SRK_ENROLLMENT_NEEDS_AUTHORIZATION_STR));
-                return 76; /* Special return value which means "Insufficient permissions to access TPM,
-                            * cannot generate SRK". This isn't really an error when called at boot. */;
+                return EX_PROTOCOL; /* Special return value which means "Insufficient permissions to access TPM,
+                                     * cannot generate SRK". This isn't really an error when called at boot. */;
         }
         if (r < 0)
                 return r;
