@@ -1930,14 +1930,12 @@ char** exec_context_get_syscall_filter(const ExecContext *c) {
 
                 if (num >= 0) {
                         e = seccomp_errno_or_action_to_string(num);
-                        if (e) {
+                        if (e)
                                 s = strjoin(name, ":", e);
-                                if (!s)
-                                        return NULL;
-                        } else {
-                                if (asprintf(&s, "%s:%d", name, num) < 0)
-                                        return NULL;
-                        }
+                        else
+                                s = asprintf_safe("%s:%d", name, num);
+                        if (!s)
+                                return NULL;
                 } else
                         s = TAKE_PTR(name);
 
