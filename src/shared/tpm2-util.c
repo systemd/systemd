@@ -5976,7 +5976,8 @@ int tpm2_undefine_nv_index(
         return 0;
 }
 
-int tpm2_define_nvpcr_nv_index(
+#if HAVE_OPENSSL
+static int tpm2_define_nvpcr_nv_index(
                 Tpm2Context *c,
                 const Tpm2Handle *session,
                 TPM2_HANDLE nv_index,
@@ -6095,7 +6096,7 @@ int tpm2_define_nvpcr_nv_index(
         return 1;
 }
 
-int tpm2_extend_nvpcr_nv_index(
+static int tpm2_extend_nvpcr_nv_index(
                 Tpm2Context *c,
                 TPM2_HANDLE nv_index,
                 const Tpm2Handle *nv_handle,
@@ -6136,6 +6137,7 @@ int tpm2_extend_nvpcr_nv_index(
 
         return 0;
 }
+#endif
 
 int tpm2_read_nv_index(
                 Tpm2Context *c,
