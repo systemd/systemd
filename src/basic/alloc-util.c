@@ -142,3 +142,10 @@ size_t malloc_sizeof_safe(void **xp) {
                 assert_not_reached();
         return sz;
 }
+
+void free_many(void **p, size_t n) {
+        assert(p || n == 0);
+
+        FOREACH_ARRAY(i, p, n)
+                *i = mfree(*i);
+}
