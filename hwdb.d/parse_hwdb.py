@@ -105,6 +105,7 @@ GENERAL_MATCHES = {'acpi',
                    'OUI',
                    'pci',
                    'sdio',
+                   'tpm2',
                    'usb',
                    'vmbus',
                    }
@@ -213,6 +214,7 @@ def property_grammar():
              ('ID_SYSFS_ATTRIBUTE_MODEL', name_literal),
              ('ID_NET_NAME_FROM_DATABASE', name_literal),
              ('ID_NET_NAME_INCLUDE_DOMAIN', zero_one),
+             ('TPM2_BROKEN_NVPCR', zero_one),
             )
     fixed_props = [Literal(name)('NAME') - Suppress('=') - val('VALUE')
                    for name, val in props]
