@@ -100,13 +100,13 @@ TYPES = {'mouse':    ('usb', 'bluetooth', 'ps2', '*'),
 # Patterns that are used to set general properties on a device
 GENERAL_MATCHES = {'acpi',
                    'bluetooth',
-                   'usb',
+                   'dmi',
+                   'ieee1394',
+                   'OUI',
                    'pci',
                    'sdio',
+                   'usb',
                    'vmbus',
-                   'OUI',
-                   'ieee1394',
-                   'dmi',
                    }
 
 def upperhex_word(length):
