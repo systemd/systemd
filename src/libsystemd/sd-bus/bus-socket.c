@@ -1208,6 +1208,16 @@ int bus_socket_exec(sd_bus *b) {
         if (r == 0) {
                 /* Child */
 
+                /* We might be running ssh, which has the interesting behavior that it will try to invoke the
+                 * shell from $SHELL on the remote to execute the given command. When running more bespoke
+                 * shells, there's of course no guarantee these are installed on the remote. Hence let's
+                 * override $SHELL to /bin/sh to have somewhat of a guarantee that the shell ssh uses will
+                 * exist on the remote. Note that ssh places no requirements on the used shell except that it
+                 * needs to support "exec".
+                 */
+                if (setenv("SHELL", "/bin/sh", true) < 0)
+                        _exit(EXIT_FAILURE);
+
                 if (b->exec_argv)
                         execvp(b->exec_path, b->exec_argv);
                 else
