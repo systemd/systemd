@@ -339,8 +339,9 @@
         where credentials shall be generated. Note that decryption of such credentials is refused on systems
         that have a TPM2 chip and where UEFI SecureBoot is enabled (this is done so that such a locked down
         system cannot be tricked into loading a credential generated this way that lacks authentication
-        information). If set to <literal>auto-initrd</literal> a TPM2 key is used if a TPM2 is found. If not
-        a fixed zero length key is used, equivalent to <literal>null</literal> mode. This option is
+        information. If either UEFI SecureBoot or a TPM2 are not available, then loading such credentials is
+        allowed by default). If set to <literal>auto-initrd</literal> a TPM2 key is used if a TPM2 is found.
+        If not, a fixed zero length key is used, equivalent to <literal>null</literal> mode. This option is
         particularly useful to generate credentials files that are encrypted/authenticated against TPM2 where
         available but still work on systems lacking support for this. The special value
         <literal>help</literal> may be used to list supported key types.</para>
@@ -424,7 +425,9 @@
       <varlistentry>
         <term><option>--allow-null</option></term>
 
-        <listitem><para>Allow decrypting credentials that use a null key. By default decryption of credentials encrypted/authenticated with a null key is only allowed if UEFI SecureBoot is off.</para>
+        <listitem><para>Allow decrypting credentials that use a null key. By default decryption of
+        credentials encrypted/authenticated with a null key is only allowed if UEFI SecureBoot is off or if
+        a TPM2 is not available.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
@@ -432,7 +435,8 @@
       <varlistentry>
         <term><option>--refuse-null</option></term>
 
-        <listitem><para>Refuse decrypting credentials that use a null key, regardless of the UEFI SecureBoot state (see above).</para>
+        <listitem><para>Refuse decrypting credentials that use a null key, regardless of the UEFI SecureBoot
+        state or TPM2 availability (see above).</para>
 
         <xi:include href="version-info.xml" xpointer="v259"/></listitem>
       </varlistentry>
