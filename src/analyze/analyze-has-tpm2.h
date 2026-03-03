@@ -2,3 +2,4 @@
 #pragma once
 
 int verb_has_tpm2(int argc, char *argv[], void *userdata);
+int verb_identify_tpm2(int argc, char *argv[], void *userdata);
