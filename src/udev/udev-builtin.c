@@ -33,6 +33,7 @@ static const UdevBuiltin *const builtins[_UDEV_BUILTIN_MAX] = {
         [UDEV_BUILTIN_UACCESS]       = &udev_builtin_uaccess,
 #endif
         [UDEV_BUILTIN_USB_ID]        = &udev_builtin_usb_id,
+        [UDEV_BUILTIN_TPM2_ID]       = &udev_builtin_tpm2_id,
 };
 
 void udev_builtin_init(void) {
