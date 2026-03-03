@@ -881,7 +881,8 @@ int tpm2_context_new(const char *device, Tpm2Context **ret_context) {
         }
 
         if (device) {
-                const char *param, *driver, *fn;
+                _cleanup_free_ char *_driver = NULL;
+                const char *param, *driver;
                 const TSS2_TCTI_INFO* info;
                 TSS2_TCTI_INFO_FUNC func;
                 size_t sz = 0;
@@ -889,7 +890,9 @@ int tpm2_context_new(const char *device, Tpm2Context **ret_context) {
                 param = strchr(device, ':');
                 if (param) {
                         /* Syntax #1: Pair of driver string and arbitrary parameter */
-                        driver = strndupa_safe(device, param - device);
+                        driver = _driver = strndup(device, param - device);
+                        if (!driver)
+                                return log_oom_debug();
                         if (isempty(driver))
                                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 driver name is empty, refusing.");
 
@@ -903,7 +906,9 @@ int tpm2_context_new(const char *device, Tpm2Context **ret_context) {
 
                 log_debug("Using TPM2 TCTI driver '%s' with device '%s'.", driver, param);
 
-                fn = strjoina("libtss2-tcti-", driver, ".so.0");
+                _cleanup_free_ char *fn = strjoin("libtss2-tcti-", driver, ".so.0");
+                if (!fn)
+                        return log_oom_debug();
 
                 /* Better safe than sorry, let's refuse strings that cannot possibly be valid driver early, before going to disk. */
                 if (!filename_is_valid(fn))
