@@ -3,6 +3,8 @@
 #include <sys/file.h>
 #include <unistd.h>
 
+#include "sd-device.h"
+
 #include "alloc-util.h"
 #include "ansi-color.h"
 #include "bitfield.h"
@@ -11,6 +13,8 @@
 #include "constants.h"
 #include "creds-util.h"
 #include "cryptsetup-util.h"
+#include "device-private.h"
+#include "device-util.h"
 #include "dirent-util.h"
 #include "dlfcn-util.h"
 #include "efi-api.h"
@@ -836,6 +840,9 @@ static Tpm2Context *tpm2_context_free(Tpm2Context *c) {
         c->capability_commands = mfree(c->capability_commands);
         c->capability_ecc_curves = mfree(c->capability_ecc_curves);
 
+        c->tcti_driver = mfree(c->tcti_driver);
+        c->tcti_param = mfree(c->tcti_param);
+
         return mfree(c);
 }
 
@@ -948,6 +955,14 @@ int tpm2_context_new(const char *device, Tpm2Context **ret_context) {
                 if (rc != TPM2_RC_SUCCESS)
                         return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                                "Failed to initialize TCTI context: %s", sym_Tss2_RC_Decode(rc));
+
+                context->tcti_driver = strdup(driver);
+                if (!context->tcti_driver)
+                        return log_oom_debug();
+
+                context->tcti_param = strdup(param);
+                if (!context->tcti_param)
+                        return log_oom_debug();
         }
 
         rc = sym_Esys_Initialize(&context->esys_context, context->tcti_context, NULL);
@@ -7477,6 +7492,42 @@ int tpm2_nvpcr_acquire_anchor_secret(struct iovec *ret, bool sync_secondary) {
 #endif
 }
 
+static int tpm2_context_can_nvindex(Tpm2Context *c) {
+        int r;
+
+        assert(c);
+
+        if (!streq_ptr(c->tcti_driver, "device")) {
+                log_debug("Not checking udev database, because not using 'device' TCTI.");
+                return 1;
+        }
+
+        if (!c->tcti_param) {
+                log_debug("No device specified, not checking udev database.");
+                return 1;
+        }
+
+        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
+        r = sd_device_new_from_devname(&d, c->tcti_param);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to acquire udev entry for device '%s': %m", c->tcti_param);
+
+        r = device_get_property_bool(d, "TPM2_BROKEN_NVPCR");
+        if (r == -ENOENT) {
+                log_device_debug_errno(d, r, "No TPM2_BROKEN_NVPCR property for '%s', assuming NvPCRs work.", c->tcti_param);
+                return 1;
+        }
+        if (r < 0)
+                return log_device_debug_errno(d, r, "Failed to query TPM2_BROKEN_NVPCR for '%s': %m", c->tcti_param);
+        if (r > 0) {
+                log_device_debug(d, "TPM2_BROKEN_NVPCR property for '%s' explicitly set, NvPCRs do not work.", c->tcti_param);
+                return 0;
+        }
+
+        log_device_debug(d, "TPM2_BROKEN_NVPCR property for '%s' explicitly set to false, hence NvPCRs work.", c->tcti_param);
+        return 1;
+}
+
 int tpm2_nvpcr_initialize(
                 Tpm2Context *c,
                 const Tpm2Handle *session,
@@ -7489,6 +7540,12 @@ int tpm2_nvpcr_initialize(
 
         assert(c);
         assert(name);
+
+        r = tpm2_context_can_nvindex(c);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 device does not support NvPCRs, not initializing.");
 
         _cleanup_(nvpcr_data_done) NvPCRData p = {};
         r = nvpcr_data_load(name, &p);

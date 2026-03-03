@@ -422,6 +422,13 @@ static int setup_nvpcr_one(
 
                 r = tpm2_nvpcr_initialize(c->tpm2_context, /* session= */ NULL, name, &c->anchor_secret);
         }
+        if (r == -EOPNOTSUPP) {
+                c->n_failed++;
+                return log_struct_errno(LOG_ERR, r,
+                                        LOG_MESSAGE("The TPM does not correctly support NV indexes in NT_EXTEND mode, unable to allocate NvPCR '%s': %m", name),
+                                        LOG_MESSAGE_ID(SD_MESSAGE_TPM_NVPCR_UNSUPPORTED_STR));
+
+        }
         if (r == -ENOSPC) {
                 c->n_failed++;
                 return log_struct_errno(LOG_ERR, r,
