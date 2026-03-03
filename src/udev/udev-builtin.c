@@ -29,6 +29,7 @@ static const UdevBuiltin *const builtins[_UDEV_BUILTIN_MAX] = {
         [UDEV_BUILTIN_NET_ID]        = &udev_builtin_net_id,
         [UDEV_BUILTIN_NET_LINK]      = &udev_builtin_net_setup_link,
         [UDEV_BUILTIN_PATH_ID]       = &udev_builtin_path_id,
+        [UDEV_BUILTIN_TPM2_ID]       = &udev_builtin_tpm2_id,
 #if HAVE_ACL
         [UDEV_BUILTIN_UACCESS]       = &udev_builtin_uaccess,
 #endif
