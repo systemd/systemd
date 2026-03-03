@@ -1047,7 +1047,8 @@ default         ignore      -         -</programlisting>
 Specification Date: Mon 2023-01-09
       Manufacturer: STM
      Vendor String: ST33KTPM2XSPI
-  Firmware Version: 9.258</programlisting>
+  Firmware Version: 9.258
+   Modalias String: fi2.0:lv0:rv1.59:sd9:sy2023:mfSTM:vsST33KTPM2XSPI:ty0:fw9.258.0:</programlisting>
       </example>
 
       <xi:include href="version-info.xml" xpointer="v260"/>
