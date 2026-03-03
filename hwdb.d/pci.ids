@@ -1,8 +1,8 @@
 #
 #	List of PCI IDs
 #
-#	Version: 2026.02.24
-#	Date:    2026-02-24 03:15:02
+#	Version: 2026.03.03
+#	Date:    2026-03-03 03:15:02
 #
 #	Maintained by Albert Pool, Martin Mares, and other volunteers from
 #	the PCI ID Project at https://pci-ids.ucw.cz/.
@@ -4121,7 +4121,7 @@
 		1eae 7901  RX-79XMERCB9 [SPEEDSTER MERC 310 RX 7900 XTX]
 		1eae 790a  RX-79GMERCBR [XFX RX 7900 GRE]
 	745e  Navi 31 [Radeon Pro W7800]
-	7460  Navi32 GL-XL [AMD Radeon PRO V710]
+	7460  Navi 32 GL-XL [AMD Radeon PRO V710]
 	7461  Navi 32 [AMD Radeon PRO V710]
 	7470  Navi 32 [Radeon PRO W7700]
 	747e  Navi 32 [Radeon RX 7700 XT / 7800 XT]
@@ -13529,7 +13529,7 @@
 	2c34  GB203GL [RTX PRO 4000 Blackwell]
 	2c38  GB203GLM [RTX PRO 5000 Blackwell Generation Laptop GPU]
 	2c39  GB203GLM [RTX PRO 4000 Blackwell Generation Laptop GPU]
-	2c3a  GB203GL [RTX PRO 4500 Blackwell]
+	2c3a  GB203GL [RTX PRO 4500 Blackwell Server Edition]
 	2c58  GB203M / GN22-X11 [GeForce RTX 5090 Max-Q / Mobile]
 	2c59  GB203M / GN22-X9 [GeForce RTX 5080 Max-Q / Mobile]
 	2c77  GB203GLM [RTX PRO 5000 Blackwell Embedded GPU]
@@ -17535,7 +17535,7 @@
 		a000 2000  Parallel Port
 		a000 6000  SPI
 		a000 7000  Local Bus
-		ea50 1c10  RXi2-BP
+		ea50 1c10  RXi2-BP Serial Port
 	9105  AX99100 PCIe to I/O Bridge
 125c  Aurora Technologies, Inc.
 	0101  Saturn 4520P
@@ -20925,6 +20925,7 @@
 	7662  MT7662E 802.11ac PCI Express Wireless Network Adapter
 	7663  MT7663 802.11ac PCI Express Wireless Network Adapter
 	7902  MT7902 802.11ax PCIe Wireless Network Adapter [Filogic 310]
+	7906  MT7916A/MT7916D normal link PCIe Wi-Fi 6(802.11ax) 160MHz 2x2 Wireless Network Adapter [Filogic 630]
 	7915  MT7915A/MT7915D normal link PCIe Wi-Fi 6(802.11ax) 80MHz 4x4/2x2 Wireless Network Adapter [Filogic 615]
 # MT7905D/MT7975 contain MT7915. If it works at G1 speed this extra device appears for extra bandwidth
 	7916  MT7915A/MT7915D hif link PCIe Wi-Fi 6(802.11ax) 80MHz 4x4/2x2 Wireless Network Adapter [Filogic 615]
@@ -21879,6 +21880,7 @@
 	5f72  BCM4388 Bluetooth Controller
 # Bluetooth PCI function of the BRCM4377 Wireless Network Adapter
 	5fa0  BRCM4377 Bluetooth Controller
+	6865  BCM68650 [Aspen] XGSPON OLT
 	8411  BCM47xx PCIe Bridge
 	8602  BCM7400/BCM7405 Serial ATA Controller
 	9026  CN99xx [ThunderX2] Integrated USB 3.0 xHCI Host Controller
@@ -25418,6 +25420,7 @@
 		15d9 0821  X10DRW-i (AST2400 BMC)
 		15d9 0832  X10SRL-F (AST2400 BMC)
 		15d9 086b  X10DRS (AST2400 BMC)
+		15d9 086d  X10SDV (AST2400 BMC)
 		15d9 1b95  H12SSL-i (AST2500 BMC)
 		15d9 1d50  X14DBG-AP (AST2600 BMC)
 		1849 2000  Onboard Graphics
@@ -28945,6 +28948,7 @@
 	3504  M18305 Family BASE-T
 		1f0f 0001  S2025XT, 2x 10GbE, Base-T, PCIe 4.0 x8, Fan
 		1f0f 0002  S2025XT, 2x 10GbE, Base-T, PCIe 4.0 x8
+		1f0f 0003  S2045XT, 4x 10GbE, Base-T, PCIe 4.0 x8
 	350a  M18305 Family Virtual Function
 		1f0f 0001  M18305 Family Virtual Function
 	9088  D1055AS PCI Express Switch Downstream Port
@@ -28990,6 +28994,7 @@
 	4512  NE1N NVMe SSD
 	451b  NN4LE NVMe SSD (DRAM-less)
 	4622  NEM-PAC NVMe SSD (DRAM-less)
+1f32  Wuhan YuXin Semiconductor Co., Ltd.
 1f3f  3SNIC Ltd
 	2100  SSSHBA SAS/SATA HBA
 		1f3f 0120  HBA 32 Ports
@@ -29693,6 +29698,8 @@
 2106  ZCHL Technology Co., Ltd
 	0001  HL100 Accelerator Controller
 		2106 0001  HLC100 Accelerator Card
+# HXQ
+2108  HuiLink Technologies (Xiamen) Co., Ltd.
 2116  ZyDAS Technology Corp.
 21b4  Hunan Goke Microelectronics Co., Ltd
 21c3  21st Century Computer Corp.

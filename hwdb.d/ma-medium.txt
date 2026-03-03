@@ -7607,17 +7607,35 @@ E8-6C-C7   (hex)		ebblo Western Europe
 				Neuhausen am Rheinfall  Schaffhausen  8212
 				CH
 
+18-C3-E4   (hex)		Trusted Technology Solutions, Inc.
+400000-4FFFFF     (base 16)		Trusted Technology Solutions, Inc.
+				346 River Street
+				Lemont  IL  60439
+				US
+
 18-C3-E4   (hex)		BRS Sistemas Eletrônicos
 700000-7FFFFF     (base 16)		BRS Sistemas Eletrônicos
 				Rua Capistrano de Abreu, 68
 				Canoas  RS  92120130
 				BR
 
-18-C3-E4   (hex)		Trusted Technology Solutions, Inc.
-400000-4FFFFF     (base 16)		Trusted Technology Solutions, Inc.
-				346 River Street
-				Lemont  IL  60439
-				US
+C4-82-72   (hex)		Digisine Energytech Co., Ltd.
+200000-2FFFFF     (base 16)		Digisine Energytech Co., Ltd.
+				2F, No. 196, Sec. 2, Zhongxing Rd., Xindian Dist.,
+				New Taipei City    231
+				TW
+
+C4-82-72   (hex)		Mantenimiento y paileria
+600000-6FFFFF     (base 16)		Mantenimiento y paileria
+				Avenida 16 de Septiembre 21
+				Cuautitlán  Estado de México  54831
+				MX
+
+C4-82-72   (hex)		Satways Ltd
+900000-9FFFFF     (base 16)		Satways Ltd
+				15 Megalou Konstantinou Street
+				Irakleio, Attica    14122
+				GR
 
 B8-4C-87   (hex)		Shenzhen Link-all Technology Co., Ltd
 300000-3FFFFF     (base 16)		Shenzhen Link-all Technology Co., Ltd
@@ -14701,6 +14719,12 @@ A00000-AFFFFF     (base 16)		Prolink Surveillance Technology Co.Ltd
 				2 Stone Buildings
 				London    WC2A 3TH
 				GB
+
+C4-82-72   (hex)		MyPlace Australia Pty Ltd
+B00000-BFFFFF     (base 16)		MyPlace Australia Pty Ltd
+				115 Vulcan Rd
+				Canning Vale  WA  6155
+				AU
 
 6C-47-80   (hex)		Alban Giacomo S.p.a.
 E00000-EFFFFF     (base 16)		Alban Giacomo S.p.a.
@@ -22415,17 +22439,50 @@ D00000-DFFFFF     (base 16)		Schenker Storen AG
 				Saarbrücken  Saarland  66121
 				DE
 
-18-C3-E4   (hex)		Sodalec
-000000-0FFFFF     (base 16)		Sodalec
-				6 rue Allory
-				Pacé    35740
+C4-82-72   (hex)		E2-CAD
+C00000-CFFFFF     (base 16)		E2-CAD
+				13-17 Allée Rosa Luxemburg
+				Eragny sur oise    95610
 				FR
+
+C4-82-72   (hex)		Private
+100000-1FFFFF     (base 16)		Private
+
+C4-82-72   (hex)		Mode Sensors AS
+700000-7FFFFF     (base 16)		Mode Sensors AS
+				Sluppenveien 6
+				Trondheim    7037
+				NO
+
+C4-82-72   (hex)		Tolt Technologies LLC
+A00000-AFFFFF     (base 16)		Tolt Technologies LLC
+				19520 Mountain View Road NE
+				Duvall  WA  98019-8822
+				US
+
+C4-82-72   (hex)		Schunk SE & Co. KG
+500000-5FFFFF     (base 16)		Schunk SE & Co. KG
+				Bahnhofstraße 106-134
+				Lauffen am Neckar    74348
+				DE
 
 18-C3-E4   (hex)		Fime SAS
 A00000-AFFFFF     (base 16)		Fime SAS
 				8 rue du Commodore JH HALLET
 				CAEN    14000
 				FR
+
+18-C3-E4   (hex)		Sodalec
+000000-0FFFFF     (base 16)		Sodalec
+				6 rue Allory
+				Pacé    35740
+				FR
+
+C4-82-72   (hex)		Smart Radar System, Inc
+E00000-EFFFFF     (base 16)		Smart Radar System, Inc
+				7F, Innovalley A, 253 Pangyo-ro Bundang-gu
+				Seongnam-si   Gyeonggi-do Korea  13486
+				KR
 
 D0-14-11   (hex)		P.B. Elettronica srl
 100000-1FFFFF     (base 16)		P.B. Elettronica srl
@@ -29821,6 +29878,18 @@ C00000-CFFFFF     (base 16)		Bit Part LLC
 
 6C-47-80   (hex)		Private
 800000-8FFFFF     (base 16)		Private
+
+C4-82-72   (hex)		Gabriel Tecnologia
+000000-0FFFFF     (base 16)		Gabriel Tecnologia
+				Rua Doutor Virgilio de Carvalho Pinto, 142
+				São Paulo  SP  05415-020
+				BR
+
+C4-82-72   (hex)		Posital B.V.
+D00000-DFFFFF     (base 16)		Posital B.V.
+				ECI 13
+				Roermond    6041MA
+				NL
 
 C8-5C-E2   (hex)		Fela Management AG 
 000000-0FFFFF     (base 16)		Fela Management AG 
@@ -37378,3 +37447,27 @@ B00000-BFFFFF     (base 16)		Cascadia Motion LLC
 				ul. Piatkowska 163
 				Poznan    60-650
 				PL
+
+C4-82-72   (hex)		Shanghai Smart Logic Technology Ltd.
+800000-8FFFFF     (base 16)		Shanghai Smart Logic Technology Ltd.
+				Room 1010,No.2,Lane 288,Kangning Road,Jing'an IDistrict
+				shanghai  shanghai  200020
+				CN
+
+38-B1-4E   (hex)		QNION Co.,Ltd
+800000-8FFFFF     (base 16)		QNION Co.,Ltd
+				165, Jukdong-ro Yuseong-gu
+				Daejeon  Daejeon  34127
+				KR
+
+38-B1-4E   (hex)		Marssun
+200000-2FFFFF     (base 16)		Marssun
+				8 F., No. 13, Ln. 332, Sec. 2, Zhongshan Rd., Zhonghe Dist.
+				New Taipei    235
+				TW
+
+C4-82-72   (hex)		Melecs EWS GmbH
+400000-4FFFFF     (base 16)		Melecs EWS GmbH
+				GZO-Technologiestrasse 1
+				Siegendorf     7011
+				AT
