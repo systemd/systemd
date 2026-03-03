@@ -43,6 +43,7 @@
 #include "time-util.h"
 #include "tpm2-pcr.h"
 #include "tpm2-util.h"
+#include "unaligned.h"
 #include "virt.h"
 
 #if HAVE_OPENSSL
@@ -53,6 +54,7 @@
 static void *libtss2_esys_dl = NULL;
 static void *libtss2_rc_dl = NULL;
 static void *libtss2_mu_dl = NULL;
+static void *libtss2_tcti_device_dl = NULL;
 
 static DLSYM_PROTOTYPE(Esys_Create) = NULL;
 static DLSYM_PROTOTYPE(Esys_CreateLoaded) = NULL;
@@ -226,6 +228,20 @@ static int dlopen_tpm2_mu(void) {
                         DLSYM_ARG(Tss2_MU_UINT32_Marshal));
 }
 
+static int dlopen_tpm2_tcti_device(void) {
+        /* The "device" TCTI is the most relevant one, let's also load it explicitly on dlopen_tpm2(), even
+         * if we don't resolve any symbols here. */
+
+        ELF_NOTE_DLOPEN("tpm",
+                        "Support for TPM",
+                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        "libtss2-tcti-device.so.0");
+
+        return dlopen_or_warn(
+                        &libtss2_tcti_device_dl,
+                        "libtss2-tcti-device.so.0");
+}
+
 #endif
 
 int dlopen_tpm2(void) {
@@ -241,6 +257,10 @@ int dlopen_tpm2(void) {
                 return r;
 
         r = dlopen_tpm2_mu();
+        if (r < 0)
+                return r;
+
+        r = dlopen_tpm2_tcti_device();
         if (r < 0)
                 return r;
 
@@ -327,6 +347,151 @@ static int tpm2_get_capability(
                 *ret_capability_data = capabilities->data;
 
         return more == TPM2_YES;
+}
+
+int tpm2_vendor_info_to_modalias(const Tpm2VendorInfo *info, char **ret) {
+        _cleanup_free_ char *m = NULL;
+
+        assert(info);
+        assert(ret);
+
+        /* Closely inspired by kernel modalias strings, that distill information from the TPM vendor data
+         * into a string suitable for matching hwdb */
+
+        if (asprintf(&m,
+                     "fi%s:"
+                     "lv%" PRIu32 ":"
+                     "rv%" PRIu32 ".%" PRIu32 ":"
+                     "sd%" PRIu32 ":"
+                     "sy%" PRIu32 ":"
+                     "mf%s:"
+                     "vs%s:"
+                     "ty%" PRIx32 ":"
+                     "fw%" PRIu16 ".%" PRIu16 ".%" PRIu32 ":",
+                     info->family_indicator,
+                     info->level,
+                     info->revision_major,
+                     info->revision_minor,
+                     info->day_of_year,
+                     info->year,
+                     info->manufacturer,
+                     info->vendor_string,
+                     info->vendor_tpm_type,
+                     info->firmware_version_major,
+                     info->firmware_version_minor,
+                     info->firmware_version2) < 0)
+                return -ENOMEM;
+
+        *ret = TAKE_PTR(m);
+        return 0;
+}
+
+static char *mangle_vendor_chars(char *c, size_t n) {
+        char *end = c;
+        assert(c || n == 0);
+
+        /* Suppress all control characters, whitespace and non-ASCII bytes */
+        for (char *x = c; x < c + n; x++) {
+                if (!IN_SET(*x, ' ', 0))
+                        end = x + 1;
+
+                if ((unsigned char) *x <= (unsigned char) ' ' ||
+                    (unsigned char) *x >= 127)
+                        *x = '_';
+        }
+
+        /* Drop trailing spaces and NUL bytes */
+        *end = 0;
+        return c;
+}
+
+int tpm2_get_vendor_info(
+                Tpm2Context *c,
+                Tpm2VendorInfo *ret) {
+
+        int r;
+
+        assert(c);
+        assert(ret);
+
+        TPMU_CAPABILITIES capabilities = {};
+        r = tpm2_get_capability(
+                        c,
+                        TPM2_CAP_TPM_PROPERTIES,
+                        TPM2_PT_FAMILY_INDICATOR,
+                        TPM2_PT_FIRMWARE_VERSION_2 - TPM2_PT_FAMILY_INDICATOR + 1, /* get all relevant fields at once */
+                        &capabilities);
+        if (r < 0)
+                return r;
+
+        Tpm2VendorInfo info = {};
+
+        for (uint32_t i = 0; i < capabilities.tpmProperties.count; i++) {
+                TPMS_TAGGED_PROPERTY *p = capabilities.tpmProperties.tpmProperty + i;
+
+                switch (p->property) {
+
+                case TPM2_PT_FAMILY_INDICATOR:
+                        unaligned_write_be32(info.family_indicator, p->value);
+                        mangle_vendor_chars(info.family_indicator, sizeof(info.family_indicator));
+                        break;
+
+                case TPM2_PT_LEVEL:
+                        info.level = p->value;
+                        break;
+
+                case TPM2_PT_REVISION:
+                        info.revision_major = p->value / 100;
+                        info.revision_minor = p->value % 100;
+                        break;
+
+                case TPM2_PT_DAY_OF_YEAR:
+                        info.day_of_year = p->value;
+                        break;
+
+                case TPM2_PT_YEAR:
+                        info.year = p->value;
+                        break;
+
+                case TPM2_PT_MANUFACTURER:
+                        unaligned_write_be32(info.manufacturer, p->value);
+                        mangle_vendor_chars(info.manufacturer, sizeof(info.manufacturer));
+                        break;
+
+                case TPM2_PT_VENDOR_STRING_1:
+                        unaligned_write_be32(info.vendor_string+0, p->value);
+                        break;
+
+                case TPM2_PT_VENDOR_STRING_2:
+                        unaligned_write_be32(info.vendor_string+4, p->value);
+                        break;
+
+                case TPM2_PT_VENDOR_STRING_3:
+                        unaligned_write_be32(info.vendor_string+8, p->value);
+                        break;
+
+                case TPM2_PT_VENDOR_STRING_4:
+                        unaligned_write_be32(info.vendor_string+12, p->value);
+                        break;
+
+                case TPM2_PT_VENDOR_TPM_TYPE:
+                        info.vendor_tpm_type = p->value;
+                        break;
+
+                case TPM2_PT_FIRMWARE_VERSION_1:
+                        info.firmware_version_major = p->value >> 16;
+                        info.firmware_version_minor = p->value & 0xFFFFU;
+                        break;
+
+                case TPM2_PT_FIRMWARE_VERSION_2:
+                        info.firmware_version2 = p->value;
+                        break;
+                }
+        }
+
+        mangle_vendor_chars(info.vendor_string, sizeof(info.vendor_string));
+        *ret = TAKE_STRUCT(info);
+        return 0;
 }
 
 #define TPMA_CC_TO_TPM2_CC(cca) (((cca) & TPMA_CC_COMMANDINDEX_MASK) >> TPMA_CC_COMMANDINDEX_SHIFT)

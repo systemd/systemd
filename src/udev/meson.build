@@ -30,6 +30,7 @@ udevadm_extract_sources = files(
         'udev-builtin-net_id.c',
         'udev-builtin-net_setup_link.c',
         'udev-builtin-path_id.c',
+        'udev-builtin-tpm2_id.c',
         'udev-builtin-usb_id.c',
         'udev-config.c',
         'udev-ctrl.c',

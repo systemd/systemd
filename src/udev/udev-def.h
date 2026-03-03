@@ -55,6 +55,7 @@ typedef enum UdevBuiltinCommand {
         UDEV_BUILTIN_UACCESS,
 #endif
         UDEV_BUILTIN_USB_ID,
+        UDEV_BUILTIN_TPM2_ID,
         _UDEV_BUILTIN_MAX,
         _UDEV_BUILTIN_INVALID = -EINVAL,
 } UdevBuiltinCommand;

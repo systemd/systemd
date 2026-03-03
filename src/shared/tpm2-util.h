@@ -195,6 +195,24 @@ static inline int tpm2_digest_init(TPMI_ALG_HASH alg, TPM2B_DIGEST *digest) {
         return tpm2_digest_many(alg, digest, NULL, 0, false);
 }
 
+typedef struct Tpm2VendorInfo {
+        uint32_t level;
+        uint32_t revision_major;
+        uint32_t revision_minor;
+        uint32_t day_of_year;
+        uint32_t year;
+        uint32_t vendor_tpm_type;
+        uint16_t firmware_version_major;
+        uint16_t firmware_version_minor;
+        uint32_t firmware_version2;
+        char family_indicator[4+1];
+        char manufacturer[4+1];
+        char vendor_string[4*4+1];
+} Tpm2VendorInfo;
+
+int tpm2_vendor_info_to_modalias(const Tpm2VendorInfo *info, char **ret);
+int tpm2_get_vendor_info(Tpm2Context *c, Tpm2VendorInfo *ret);
+
 void tpm2_log_debug_tpml_pcr_selection(const TPML_PCR_SELECTION *l, const char *msg);
 void tpm2_log_debug_pcr_value(const Tpm2PCRValue *pcr_value, const char *msg);
 void tpm2_log_debug_buffer(const void *buffer, size_t size, const char *msg);

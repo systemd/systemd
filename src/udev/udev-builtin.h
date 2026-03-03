@@ -47,6 +47,7 @@ extern const UdevBuiltin udev_builtin_path_id;
 extern const UdevBuiltin udev_builtin_uaccess;
 #endif
 extern const UdevBuiltin udev_builtin_usb_id;
+extern const UdevBuiltin udev_builtin_tpm2_id;
 
 void udev_builtin_init(void);
 void udev_builtin_exit(void);
