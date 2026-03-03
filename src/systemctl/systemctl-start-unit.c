@@ -341,7 +341,7 @@ int verb_start(int argc, char *argv[], void *userdata) {
                                                                "--show-transaction is not supported for enqueue-marked.");
 
                                 if (arg_marked)
-                                        log_warning("--marked is deprecated. Please use systemctl enqueue-marked instead.");
+                                        log_warning("--marked is deprecated. Please use 'systemctl enqueue-marked' instead.");
 
                         } else {
                                 /* A command in style of "systemctl start <unit1> <unit2> …", "systemctl stop <unit1> <unit2> …" and so on */
