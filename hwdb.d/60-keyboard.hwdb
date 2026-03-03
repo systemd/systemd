@@ -2133,6 +2133,10 @@ evdev:atkbd:dmi:*:svnTUXEDO:*:rvnNB02:*
 evdev:atkbd:dmi:*:svnTUXEDO:*:rnDN50Z-140HC-YD:*
  KEYBOARD_KEY_6e=fn
 
+# Positron Proxima 15 (G1569)
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svn*Positron*:pnG1569*:*
+ KEYBOARD_KEY_6e=fn
+
 ###########################################################
 # VIA
 ###########################################################
