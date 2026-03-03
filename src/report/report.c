@@ -41,6 +41,8 @@ STATIC_DESTRUCTOR_REGISTER(arg_matches, strv_freep);
 typedef enum Action {
         ACTION_LIST,
         ACTION_DESCRIBE,
+        ACTION_LIST_FACTS,
+        ACTION_DESCRIBE_FACTS,
         _ACTION_MAX,
         _ACTION_INVALID = -EINVAL,
 } Action;
@@ -292,7 +294,14 @@ static int metrics_call(Context *context, const char *name, const char *path) {
         if (r < 0)
                 return log_error_errno(r, "Failed to bind reply callback: %m");
 
-        const char *method = context->action == ACTION_LIST ? "io.systemd.Metrics.List" : "io.systemd.Metrics.Describe";
+        const char *method;
+        switch (context->action) {
+        case ACTION_LIST:           method = "io.systemd.Metrics.List"; break;
+        case ACTION_DESCRIBE:       method = "io.systemd.Metrics.Describe"; break;
+        case ACTION_LIST_FACTS:     method = "io.systemd.Facts.List"; break;
+        case ACTION_DESCRIBE_FACTS: method = "io.systemd.Facts.Describe"; break;
+        default: assert_not_reached();
+        }
         r = sd_varlink_observe(vl,
                                method,
                                /* parameters= */ NULL);
@@ -426,6 +435,105 @@ static int metrics_output_describe(Context *context, Table **ret) {
         return 0;
 }
 
+static int facts_output_list(Context *context, Table **ret) {
+        int r;
+
+        assert(context);
+
+        _cleanup_(table_unrefp) Table *table = table_new("family", "object", "value");
+        if (!table)
+                return log_oom();
+
+        table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
+        table_set_sort(table, (size_t) 0, (size_t) 1, (size_t) 2);
+
+        FOREACH_ARRAY(m, context->metrics, context->n_metrics) {
+                struct {
+                        const char *name;
+                        const char *object;
+                        sd_json_variant *value;
+                } d = {};
+
+                static const sd_json_dispatch_field dispatch_table[] = {
+                        { "name",   SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  voffsetof(d, name),   SD_JSON_MANDATORY },
+                        { "object", SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string,  voffsetof(d, object), 0                 },
+                        { "value",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_variant_noref, voffsetof(d, value),  SD_JSON_MANDATORY },
+                        {}
+                };
+
+                r = sd_json_dispatch(*m, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &d);
+                if (r < 0) {
+                        _cleanup_free_ char *t = NULL;
+                        int k = sd_json_variant_format(*m, /* flags= */ 0, &t);
+                        if (k < 0)
+                                return log_error_errno(k, "Failed to format JSON: %m");
+
+                        log_warning_errno(r, "Cannot parse fact, skipping: %s", t);
+                        continue;
+                }
+
+                r = table_add_many(
+                                table,
+                                TABLE_STRING,     d.name,
+                                TABLE_STRING,     d.object,
+                                TABLE_JSON,       d.value,
+                                TABLE_SET_WEIGHT, 50U);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        *ret = TAKE_PTR(table);
+        return 0;
+}
+
+static int facts_output_describe(Context *context, Table **ret) {
+        int r;
+
+        assert(context);
+
+        _cleanup_(table_unrefp) Table *table = table_new("family", "description");
+        if (!table)
+                return log_oom();
+
+        table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
+        table_set_sort(table, (size_t) 0, (size_t) 1);
+
+        FOREACH_ARRAY(m, context->metrics, context->n_metrics) {
+                struct {
+                        const char *name;
+                        const char *description;
+                } d = {};
+
+                static const sd_json_dispatch_field dispatch_table[] = {
+                        { "name",        SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, voffsetof(d, name),        SD_JSON_MANDATORY },
+                        { "description", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, voffsetof(d, description), 0                 },
+                        {}
+                };
+
+                r = sd_json_dispatch(*m, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &d);
+                if (r < 0) {
+                        _cleanup_free_ char *t = NULL;
+                        int k = sd_json_variant_format(*m, /* flags= */ 0, &t);
+                        if (k < 0)
+                                return log_error_errno(k, "Failed to format JSON: %m");
+
+                        log_warning_errno(r, "Cannot parse fact description, skipping: %s", t);
+                        continue;
+                }
+
+                r = table_add_many(
+                                table,
+                                TABLE_STRING,     d.name,
+                                TABLE_STRING,     d.description,
+                                TABLE_SET_WEIGHT, 50U);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        *ret = TAKE_PTR(table);
+        return 0;
+}
+
 static int metrics_output(Context *context) {
         int r;
 
@@ -444,8 +552,12 @@ static int metrics_output(Context *context) {
                                 return log_error_errno(r, "Failed to write JSON: %m");
                 }
 
-                if (context->n_metrics == 0 && arg_legend)
-                        log_info("No metrics collected.");
+                if (context->n_metrics == 0 && arg_legend) {
+                        if (IN_SET(context->action, ACTION_LIST_FACTS, ACTION_DESCRIBE_FACTS))
+                                log_info("No facts collected.");
+                        else
+                                log_info("No metrics collected.");
+                }
 
                 return 0;
         }
@@ -461,6 +573,14 @@ static int metrics_output(Context *context) {
                 r = metrics_output_describe(context, &table);
                 break;
 
+        case ACTION_LIST_FACTS:
+                r = facts_output_list(context, &table);
+                break;
+
+        case ACTION_DESCRIBE_FACTS:
+                r = facts_output_describe(context, &table);
+                break;
+
         default:
                 assert_not_reached();
         }
@@ -474,10 +594,12 @@ static int metrics_output(Context *context) {
         }
 
         if (arg_legend && !sd_json_format_enabled(arg_json_format_flags)) {
+                bool is_facts = IN_SET(context->action, ACTION_LIST_FACTS, ACTION_DESCRIBE_FACTS);
+
                 if (table_isempty(table))
-                        printf("No metrics available.\n");
+                        printf("No %s available.\n", is_facts ? "facts" : "metrics");
                 else
-                        printf("\n%zu metrics listed.\n", table_get_rows(table) - 1);
+                        printf("\n%zu %s listed.\n", table_get_rows(table) - 1, is_facts ? "facts" : "metrics");
         }
 
         return 0;
@@ -665,6 +787,92 @@ static int verb_metrics(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static int verb_facts(int argc, char *argv[], void *userdata) {
+        Action action;
+        int r;
+
+        assert(argc >= 1);
+        assert(argv);
+
+        /* Enable JSON-SEQ mode here, since we'll dump a large series of JSON objects */
+        arg_json_format_flags |= SD_JSON_FORMAT_SEQ;
+
+        if (streq_ptr(argv[0], "facts"))
+                action = ACTION_LIST_FACTS;
+        else {
+                assert(streq_ptr(argv[0], "describe-facts"));
+                action = ACTION_DESCRIBE_FACTS;
+        }
+
+        r = parse_metrics_matches(argv + 1);
+        if (r < 0)
+                return r;
+
+        _cleanup_(context_done) Context context = {
+                .action = action,
+        };
+        size_t n_skipped_sources = 0;
+
+        _cleanup_free_ DirectoryEntries *de = NULL;
+        _cleanup_free_ char *sources_path = NULL;
+        r = readdir_sources(&sources_path, &de);
+        if (r < 0)
+                return r;
+        if (r > 0) {
+                r = sd_event_default(&context.event);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get event loop: %m");
+
+                r = sd_event_set_signal_exit(context.event, true);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to enable exit on SIGINT/SIGTERM: %m");
+
+                FOREACH_ARRAY(i, de->entries, de->n_entries) {
+                        struct dirent *d = *i;
+
+                        if (set_size(context.link_infos) >= METRICS_LINKS_MAX) {
+                                n_skipped_sources++;
+                                break;
+                        }
+
+                        _cleanup_free_ char *p = path_join(sources_path, d->d_name);
+                        if (!p)
+                                return log_oom();
+
+                        (void) metrics_call(&context, d->d_name, p);
+                }
+        }
+
+        if (set_isempty(context.link_infos)) {
+                if (arg_legend)
+                        log_info("No facts sources found.");
+        } else {
+                assert(context.event);
+
+                r = sd_event_loop(context.event);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to run event loop: %m");
+
+                r = metrics_output(&context);
+                if (r < 0)
+                        return r;
+        }
+
+        if (n_skipped_sources > 0)
+                return log_warning_errno(SYNTHETIC_ERRNO(EUCLEAN),
+                                         "Too many facts sources, only %u sources contacted, %zu sources skipped.",
+                                         set_size(context.link_infos), n_skipped_sources);
+        if (context.n_invalid_metrics > 0)
+                return log_warning_errno(SYNTHETIC_ERRNO(EUCLEAN),
+                                         "%zu facts are not valid.",
+                                         context.n_invalid_metrics);
+        if (context.n_skipped_metrics > 0)
+                return log_warning_errno(SYNTHETIC_ERRNO(EUCLEAN),
+                                         "Too many facts, only %zu facts collected, %zu facts skipped.",
+                                         context.n_metrics, context.n_skipped_metrics);
+        return 0;
+}
+
 static int verb_list_sources(int argc, char *argv[], void *userdata) {
         int r;
 
@@ -729,11 +937,14 @@ static int verb_help(int argc, char *argv[], void *userdata) {
                 return log_oom();
 
         printf("%1$s [OPTIONS...] COMMAND ...\n"
-               "\n%5$sAcquire metrics from local sources.%6$s\n"
+               "\n%5$sAcquire metrics and facts from local sources.%6$s\n"
                "\n%3$sCommands:%4$s\n"
                "  metrics [MATCH...]    Acquire list of metrics and their values\n"
                "  describe-metrics [MATCH...]\n"
                "                        Describe available metrics\n"
+               "  facts [MATCH...]      Acquire list of facts and their values\n"
+               "  describe-facts [MATCH...]\n"
+               "                        Describe available facts\n"
                "  list-sources          Show list of known metrics sources\n"
                "\n%3$sOptions:%4$s\n"
                "  -h --help             Show this help\n"
@@ -834,6 +1045,8 @@ static int report_main(int argc, char *argv[]) {
                 { "help",             VERB_ANY, 1,        0, verb_help         },
                 { "metrics",          VERB_ANY, VERB_ANY, 0, verb_metrics      },
                 { "describe-metrics", VERB_ANY, VERB_ANY, 0, verb_metrics      },
+                { "facts",            VERB_ANY, VERB_ANY, 0, verb_facts        },
+                { "describe-facts",   VERB_ANY, VERB_ANY, 0, verb_facts        },
                 { "list-sources",     VERB_ANY, 1,        0, verb_list_sources },
                 {}
         };
