@@ -58,6 +58,7 @@ executables += [
                 'sources' : files('test-chid-match.c') +
                             test_hwids_section_c,
                 'conditions' : ['ENABLE_BOOTLOADER', 'ENABLE_UKIFY'],
+                'include_directories' : [includes, include_directories('.')],
         },
         efi_fuzz_template + {
                 'sources' : files('fuzz-bcd.c'),
