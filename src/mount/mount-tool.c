@@ -40,7 +40,7 @@
 #include "unit-name.h"
 #include "user-util.h"
 
-enum {
+static enum {
         ACTION_DEFAULT,
         ACTION_MOUNT,
         ACTION_AUTOMOUNT,

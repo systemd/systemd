@@ -146,7 +146,7 @@ static int stub_packet_compare_func(const DnsPacket *x, const DnsPacket *y) {
         return memcmp(DNS_PACKET_HEADER(x), DNS_PACKET_HEADER(y), sizeof(DnsPacketHeader));
 }
 
-DEFINE_HASH_OPS(stub_packet_hash_ops, DnsPacket, stub_packet_hash_func, stub_packet_compare_func);
+DEFINE_PRIVATE_HASH_OPS(stub_packet_hash_ops, DnsPacket, stub_packet_hash_func, stub_packet_compare_func);
 
 static int reply_add_with_rrsig(
                 DnsAnswer **reply,

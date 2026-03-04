@@ -26,6 +26,7 @@
 #include "machine.h"
 #include "machine-dbus.h"
 #include "machined.h"
+#include "machined-dbus.h"
 #include "namespace-util.h"
 #include "operation.h"
 #include "os-util.h"
@@ -1219,7 +1220,7 @@ static int method_map_to_machine_group(sd_bus_message *message, void *userdata, 
         return sd_bus_reply_method_return(message, "sou", machine->name, o, (uint32_t) converted);
 }
 
-const sd_bus_vtable manager_vtable[] = {
+static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
         SD_BUS_PROPERTY("PoolPath", "s", property_get_pool_path, 0, 0),
@@ -1451,8 +1452,8 @@ const BusObjectImplementation manager_object = {
         "/org/freedesktop/machine1",
         "org.freedesktop.machine1.Manager",
         .vtables = BUS_VTABLES(manager_vtable),
-        .children = BUS_IMPLEMENTATIONS( &machine_object,
-                                         &image_object ),
+        .children = BUS_IMPLEMENTATIONS(&machine_object,
+                                        &image_object),
 };
 
 int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *error) {

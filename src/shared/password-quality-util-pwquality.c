@@ -18,14 +18,14 @@
 
 static void *pwquality_dl = NULL;
 
-DLSYM_PROTOTYPE(pwquality_check) = NULL;
-DLSYM_PROTOTYPE(pwquality_default_settings) = NULL;
-DLSYM_PROTOTYPE(pwquality_free_settings) = NULL;
-DLSYM_PROTOTYPE(pwquality_generate) = NULL;
-DLSYM_PROTOTYPE(pwquality_get_str_value) = NULL;
-DLSYM_PROTOTYPE(pwquality_read_config) = NULL;
-DLSYM_PROTOTYPE(pwquality_set_int_value) = NULL;
-DLSYM_PROTOTYPE(pwquality_strerror) = NULL;
+static DLSYM_PROTOTYPE(pwquality_check) = NULL;
+static DLSYM_PROTOTYPE(pwquality_default_settings) = NULL;
+static DLSYM_PROTOTYPE(pwquality_free_settings) = NULL;
+static DLSYM_PROTOTYPE(pwquality_generate) = NULL;
+static DLSYM_PROTOTYPE(pwquality_get_str_value) = NULL;
+static DLSYM_PROTOTYPE(pwquality_read_config) = NULL;
+static DLSYM_PROTOTYPE(pwquality_set_int_value) = NULL;
+static DLSYM_PROTOTYPE(pwquality_strerror) = NULL;
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(pwquality_settings_t*, sym_pwquality_free_settings, pwquality_free_settingsp, NULL);
 

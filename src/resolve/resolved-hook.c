@@ -328,7 +328,7 @@ static void manager_gc_hooks(Manager *m, usec_t seen_usec) {
         }
 }
 
-DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 hook_hash_ops,
                 char, string_hash_func, string_compare_func,
                 Hook, hook_unlink);
