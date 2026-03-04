@@ -408,9 +408,8 @@ static void unit_lookup_parameters_done(UnitLookupParameters *p) {
 }
 
 static int varlink_error_conflict_lookup_parameters(sd_varlink *v, const UnitLookupParameters *p) {
-        log_debug_errno(
-                        ESRCH,
-                        "Searching unit by lookup parameters name='%s' pid="PID_FMT" cgroup='%s' invocationID='%s' resulted in multiple different units",
+        log_debug_errno(SYNTHETIC_ERRNO(ESRCH),
+                        "Searching unit by lookup parameters name='%s' pid=" PID_FMT " cgroup='%s' invocationID='%s' resulted in multiple different units",
                         p->name,
                         p->pidref.pid,
                         p->cgroup,
