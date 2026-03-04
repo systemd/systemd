@@ -414,7 +414,7 @@ testcase_check_default_inaccessible_paths() {
 
     # Each inaccessible path should have zeroed permissions, which stat's %a reports as a single 0
     for path in "${inaccessible_paths[@]}"; do
-        systemd-nspawn --directory="$root" \
+        systemd-nspawn --register=no --directory="$root" \
                        bash -xec "ls -l $path; [[ \$(stat --format=%a $path) -eq 0 ]]"
     done
 
@@ -422,14 +422,14 @@ testcase_check_default_inaccessible_paths() {
     # as writable, and it also skips the path masking (by dropping the MOUNT_APPLY_APIVFS_RO flag)
     for path in "${inaccessible_paths[@]}"; do
         exp="$(stat --format=%a "$path")"
-        SYSTEMD_NSPAWN_API_VFS_WRITABLE=yes systemd-nspawn --directory="$root" \
+        SYSTEMD_NSPAWN_API_VFS_WRITABLE=yes systemd-nspawn --register=no --directory="$root" \
                        bash -xec "ls -l $path; [[ \$(stat --format=%a $path) -eq $exp ]]"
     done
 
     # SYSTEMD_NSPAWN_API_VFS_WRITABLE=network mounts only /proc/sys/net/ as writable but doesn't
     # drop the MOUNT_APPLY_APIVFS_RO flag, so the masking should still apply
     for path in "${inaccessible_paths[@]}"; do
-        SYSTEMD_NSPAWN_API_VFS_WRITABLE=network systemd-nspawn --directory="$root" \
+        SYSTEMD_NSPAWN_API_VFS_WRITABLE=network systemd-nspawn --register=no --directory="$root" \
                        bash -xec "ls -l $path; [[ \$(stat --format=%a $path) -eq 0 ]]"
     done
 
