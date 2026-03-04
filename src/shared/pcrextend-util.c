@@ -285,7 +285,7 @@ int pcrextend_verity_now(
                 return log_debug_errno(r, "Failed to issue io.systemd.PCRExtend.Extend() varlink call: %s", error_id);
         }
 
-        log_debug("Measurement of '%s' into 'images' NvPCR completed.", word);
+        log_debug("Measurement of '%s' into 'verity' NvPCR completed.", word);
         return 1;
 #else
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 support disabled, not measuring Verity root hashes and signatures.");
