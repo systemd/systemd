@@ -319,7 +319,7 @@ static int machine_add_from_params(
                 if (r < 0)
                         return r;
                 if (r == 0)
-                        return 0; /* Will call us back */
+                        return 1; /* Will call us back */
         }
 
         r = manager_add_machine(manager, name, &m);

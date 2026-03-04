@@ -152,11 +152,8 @@ Modem* modem_free(Modem *modem) {
         if (!modem)
                 return NULL;
 
-        if (modem->bearers_by_name)
-                hashmap_free(modem->bearers_by_name);
-
-        if (modem->bearers_by_path)
-                hashmap_free(modem->bearers_by_path);
+        hashmap_free(modem->bearers_by_name);
+        hashmap_free(modem->bearers_by_path);
 
         if (modem->manager)
                 hashmap_remove_value(modem->manager->modems_by_path, modem->path, modem);
