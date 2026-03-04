@@ -4,8 +4,8 @@ set -e
 
 # Exclude following paths from the Coccinelle transformations
 EXCLUDED_PATHS=(
-    "src/boot/efi/*"
-    "src/basic/include/linux/*"
+    "src/boot/*"
+    "src/include/uapi/*"
     # Symlinked to test-bus-vtable-cc.cc, which causes issues with the IN_SET macro
     "src/libsystemd/sd-bus/test-bus-vtable.c"
     "src/libsystemd/sd-journal/lookup3.c"
