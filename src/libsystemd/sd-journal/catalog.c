@@ -28,7 +28,7 @@
 #include "strv.h"
 #include "tmpfile-util.h"
 
-const char * const catalog_file_dirs[] = {
+static const char * const catalog_file_dirs[] = {
         "/usr/local/lib/systemd/catalog/",
         "/usr/lib/systemd/catalog/",
         NULL

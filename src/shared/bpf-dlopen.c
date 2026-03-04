@@ -19,6 +19,10 @@
 #define MODERN_LIBBPF 0
 #endif
 
+static void *bpf_dl = NULL;
+
+static DLSYM_PROTOTYPE(libbpf_get_error) = NULL;
+
 DLSYM_PROTOTYPE(bpf_link__destroy) = NULL;
 DLSYM_PROTOTYPE(bpf_link__fd) = NULL;
 DLSYM_PROTOTYPE(bpf_link__open) = NULL;
@@ -43,14 +47,11 @@ DLSYM_PROTOTYPE(bpf_program__attach) = NULL;
 DLSYM_PROTOTYPE(bpf_program__attach_cgroup) = NULL;
 DLSYM_PROTOTYPE(bpf_program__attach_lsm) = NULL;
 DLSYM_PROTOTYPE(bpf_program__name) = NULL;
-DLSYM_PROTOTYPE(libbpf_get_error) = NULL;
 DLSYM_PROTOTYPE(libbpf_set_print) = NULL;
 DLSYM_PROTOTYPE(ring_buffer__epoll_fd) = NULL;
 DLSYM_PROTOTYPE(ring_buffer__free) = NULL;
 DLSYM_PROTOTYPE(ring_buffer__new) = NULL;
 DLSYM_PROTOTYPE(ring_buffer__poll) = NULL;
-
-static void* bpf_dl = NULL;
 
 /* new symbols available from libbpf 0.7.0 */
 int (*sym_bpf_map_create)(enum bpf_map_type,  const char *, __u32, __u32, __u32, const struct bpf_map_create_opts *);

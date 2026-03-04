@@ -184,8 +184,9 @@ static Job *job_free(Job *j) {
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Job*, job_free);
-DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(job_hash_ops, uint64_t, uint64_hash_func, uint64_compare_func,
-                                      Job, job_free);
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(job_hash_ops,
+                                              uint64_t, uint64_hash_func, uint64_compare_func,
+                                              Job, job_free);
 
 static int job_new(JobType type, Target *t, sd_bus_message *msg, JobComplete complete_cb, Job **ret) {
         _cleanup_(job_freep) Job *j = NULL;
@@ -728,8 +729,9 @@ static Target *target_free(Target *t) {
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Target*, target_free);
-DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(target_hash_ops, char, string_hash_func, string_compare_func,
-                                      Target, target_free);
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(target_hash_ops,
+                                              char, string_hash_func, string_compare_func,
+                                              Target, target_free);
 
 static int target_new(Manager *m, TargetClass class, const char *name, const char *path, Target **ret) {
         _cleanup_(target_freep) Target *t = NULL;
