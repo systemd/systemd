@@ -41,7 +41,7 @@ struct bootp_addr_data {
         int netmask_offset;
         int ip_offset;
 };
-struct bootp_addr_data *bootp_test_context;
+static struct bootp_addr_data *bootp_test_context;
 
 static bool verbose = true;
 static int test_fd[2];
