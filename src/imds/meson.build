@@ -16,7 +16,19 @@ executables += [
                 'public' : true,
                 'sources' : files('imds-tool.c', 'imds-util.c'),
         },
+        generator_template + {
+                'name' : 'systemd-imds-generator',
+                'sources' : files('imds-generator.c'),
+        },
 ]
+
+install_data(
+        '85-imds-early.network',
+        install_dir : libexecdir / 'imds')
+
+install_data(
+        '85-imds-early-unlocked.network',
+        install_dir : libexecdir / 'imds')
 
 install_data(
         'io.systemd.imds.policy',
