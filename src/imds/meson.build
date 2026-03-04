@@ -16,6 +16,10 @@ executables += [
                 'public' : true,
                 'sources' : files('imds-tool.c', 'imds-util.c'),
         },
+        generator_template + {
+                'name' : 'systemd-imds-generator',
+                'sources' : files('imds-generator.c', 'imds-util.c'),
+        },
 ]
 
 install_data(
