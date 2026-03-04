@@ -393,6 +393,18 @@ units = [
           'conditions' : ['ENABLE_HIBERNATE'],
         },
         {
+          'file' : 'systemd-imdsd@.service.in',
+          'conditions' : ['ENABLE_IMDS'],
+        },
+        {
+          'file' : 'systemd-imdsd.socket',
+          'conditions' : ['ENABLE_IMDS'],
+        },
+        {
+          'file' : 'systemd-imds-early-network.service.in',
+          'conditions' : ['ENABLE_IMDS'],
+        },
+        {
           'file' : 'systemd-importd.service.in',
           'conditions' : ['ENABLE_IMPORTD'],
           'symlinks' : ['dbus-org.freedesktop.import1.service'],
