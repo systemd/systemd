@@ -3411,7 +3411,7 @@ _public_ int sd_varlink_set_allow_fd_passing_output(sd_varlink *v, int b) {
         if (r < 0)
                 return r;
 
-        v->allow_fd_passing_output = !!b;
+        v->allow_fd_passing_output = b;
         return 1;
 }
 

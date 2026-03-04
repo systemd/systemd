@@ -192,7 +192,7 @@ static int verb_probe(UdevEvent *event, sd_device *dev) {
                                 (void) image_policy_to_string(image_policy, /* simplify= */ false, &a);
                                 (void) image_policy_to_string(image_policy_mangled, /* simplify= */ false, &b);
 
-                                log_device_debug_errno(dev, ERFKILL, "Couldn't dissect block device with regular policy '%s', retrying with policy where root/usr are set to ignore '%s'.", a, b);
+                                log_device_debug_errno(dev, SYNTHETIC_ERRNO(ERFKILL), "Couldn't dissect block device with regular policy '%s', retrying with policy where root/usr are set to ignore '%s'.", a, b);
                         }
 
                         r = dissect_loop_device(

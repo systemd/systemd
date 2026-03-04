@@ -397,13 +397,12 @@ static int context_discover_update_sets_by_flag(Context *c, UpdateSetFlags flags
                                 assert(flags == UPDATE_INSTALLED);
 
                                 match = resource_find_instance(&t->target, cursor);
-                                if (!match && !(extra_flags & (UPDATE_PARTIAL|UPDATE_PENDING))) {
+                                if (!match && !(extra_flags & (UPDATE_PARTIAL|UPDATE_PENDING)))
                                         /* When we're looking for installed versions, let's be robust and treat
                                          * an incomplete installation as an installation. Otherwise, there are
                                          * situations that can lead to sysupdate wiping the currently booted OS.
                                          * See https://github.com/systemd/systemd/issues/33339 */
                                         extra_flags |= UPDATE_INCOMPLETE;
-                                }
                         }
 
                         cursor_instances[k] = match;

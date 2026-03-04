@@ -49,7 +49,7 @@ static Hook* hook_free(Hook *h) {
         if (!h)
                 return NULL;
 
-        mfree(h->socket_path);
+        free(h->socket_path);
         sd_varlink_unref(h->filter_link);
         set_free(h->idle_links);
 
