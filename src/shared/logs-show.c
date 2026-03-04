@@ -1099,9 +1099,9 @@ static JsonData* json_data_free(JsonData *d) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(JsonData*, json_data_free);
 
-DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(json_data_hash_ops_free,
-                                      char, string_hash_func, string_compare_func,
-                                      JsonData, json_data_free);
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(json_data_hash_ops_free,
+                                              char, string_hash_func, string_compare_func,
+                                              JsonData, json_data_free);
 
 static int update_json_data(
                 Hashmap *h,

@@ -250,13 +250,10 @@ static AsyncPolkitQuery* async_polkit_query_free(AsyncPolkitQuery *q) {
 DEFINE_PRIVATE_TRIVIAL_REF_UNREF_FUNC(AsyncPolkitQuery, async_polkit_query, async_polkit_query_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(AsyncPolkitQuery*, async_polkit_query_unref);
 
-DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 async_polkit_query_hash_ops,
-                void,
-                trivial_hash_func,
-                trivial_compare_func,
-                AsyncPolkitQuery,
-                async_polkit_query_unref);
+                void, trivial_hash_func, trivial_compare_func,
+                AsyncPolkitQuery, async_polkit_query_unref);
 
 static int async_polkit_defer(sd_event_source *s, void *userdata) {
         AsyncPolkitQuery *q = ASSERT_PTR(userdata);
