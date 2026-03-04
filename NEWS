@@ -13,6 +13,14 @@ CHANGES WITH 261 in spe:
           attestation environments which use hardware CC registers and not the
           TPM quote.
 
+        * By default networking to cloud IMDS services is now locked down, for
+          recognized clouds. This is recommended for secure installations, but
+          typically conflicts with traditional IMDS clients such as cloud-init,
+          which require direct IMDS access currently. The new meson option
+          "imds-network" can be used to change the default networking mode to
+          "unlocked" at build-time, for compatibility. This is probably what
+          general purpose distributions should set for now.
+
 CHANGES WITH 260:
 
         Feature Removals and Incompatible Changes:
