@@ -1109,7 +1109,7 @@ static const sd_bus_vtable timedate_vtable[] = {
         SD_BUS_VTABLE_END,
 };
 
-const BusObjectImplementation manager_object = {
+static const BusObjectImplementation manager_object = {
         "/org/freedesktop/timedate1",
         "org.freedesktop.timedate1",
         .vtables = BUS_VTABLES(timedate_vtable),

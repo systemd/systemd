@@ -21,6 +21,8 @@ extern char *arg_esp_path;
 extern char *arg_xbootldr_path;
 extern bool arg_print_esp_path;
 extern bool arg_print_dollar_boot_path;
+extern bool arg_print_loader_path;
+extern bool arg_print_stub_path;
 extern unsigned arg_print_root_device;
 extern int arg_touch_variables;
 extern bool arg_install_random_seed;
