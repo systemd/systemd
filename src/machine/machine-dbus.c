@@ -380,7 +380,7 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
                                         r,
                                         "Failed to check if machine '%s' is running in the root user namespace: %m",
                                         m->name);
-                if (r != 0)
+                if (r > 0)
                         return sd_bus_error_set(
                                         error,
                                         SD_BUS_ERROR_ACCESS_DENIED,
