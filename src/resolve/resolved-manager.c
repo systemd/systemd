@@ -659,6 +659,7 @@ static int manager_dispatch_reload_signal(sd_event_source *s, const struct signa
         m->unicast_scope = dns_scope_free(m->unicast_scope);
         m->delegates = hashmap_free(m->delegates);
         dns_trust_anchor_flush(&m->trust_anchor);
+        manager_etc_hosts_flush(m);
 
         manager_set_defaults(m);
 
