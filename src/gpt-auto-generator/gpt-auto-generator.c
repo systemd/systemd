@@ -890,7 +890,7 @@ static int add_root_mount(void) {
 
                 /* If a device /dev/disk/by-designator/root-verity or
                  * /dev/disk/by-designator/root-verity-data appears, then make it pull in
-                 * systemd-cryptsetup@root.service, which sets it up, and causes /dev/disk/by-designator/root
+                 * systemd-veritysetup@root.service, which sets it up, and causes /dev/disk/by-designator/root
                  * to appear. */
                 r = add_veritysetup(
                                 "root",
