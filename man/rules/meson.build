@@ -1260,6 +1260,7 @@ manpages = [
  ['systemd.pcrlock', '5', ['systemd.pcrlock.d'], ''],
  ['systemd.preset', '5', [], ''],
  ['systemd.resource-control', '5', [], ''],
+ ['systemd.rr', '5', [], 'ENABLE_RESOLVE'],
  ['systemd.scope', '5', [], ''],
  ['systemd.service', '5', [], ''],
  ['systemd.slice', '5', [], ''],
