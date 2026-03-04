@@ -72,6 +72,7 @@ void etc_hosts_clear(EtcHosts *hosts) {
 void manager_etc_hosts_flush(Manager *m) {
         etc_hosts_clear(&m->etc_hosts);
         m->etc_hosts_stat = (struct stat) {};
+        m->etc_hosts_last = USEC_INFINITY;
 }
 
 static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
