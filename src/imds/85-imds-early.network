@@ -1,0 +1,43 @@
+# SPDX-License-Identifier: MIT-0
+#
+# This config file is installed as part of systemd.
+# It may be freely copied and edited (following the MIT No Attribution license).
+
+# This configures Ethernet devices on cloud hosts that support IMDS, given that
+# before doing IMDS we need to activate the network. Note: this will create a
+# "prohibit" route to 169.254.169.254, blocking access to IMDS directly. Direct
+# IMDS access is then only available to traffic marked with fwmark 0x7FFF0815
+# (which can be set via SO_MARK for example, which requires privileges).
+
+[Match]
+Type=ether
+Kind=!*
+
+[Link]
+RequiredFamilyForOnline=ipv4
+
+[Network]
+DHCP=yes
+LinkLocalAddressing=ipv6
+
+[DHCP]
+UseTimezone=yes
+UseHostname=yes
+UseMTU=yes
+
+# Prohibit access to IMDS in the default route
+[Route]
+Destination=169.254.169.254
+Type=prohibit
+
+# But allow it in a special table
+[Route]
+Destination=169.254.169.254
+Scope=link
+Table=0x7FFF0815
+
+# Sockets marked with firewall mark 0x7FFF0815 get access to the IMDS route by
+# using the 0x7FFF0815 table populated above.
+[RoutingPolicyRule]
+FirewallMark=0x7FFF0815
+Table=0x7FFF0815
