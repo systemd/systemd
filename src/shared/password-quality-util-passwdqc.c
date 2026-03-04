@@ -15,12 +15,12 @@
 
 static void *passwdqc_dl = NULL;
 
-DLSYM_PROTOTYPE(passwdqc_params_reset) = NULL;
-DLSYM_PROTOTYPE(passwdqc_params_load) = NULL;
-DLSYM_PROTOTYPE(passwdqc_params_parse) = NULL;
-DLSYM_PROTOTYPE(passwdqc_params_free) = NULL;
-DLSYM_PROTOTYPE(passwdqc_check) = NULL;
-DLSYM_PROTOTYPE(passwdqc_random) = NULL;
+static DLSYM_PROTOTYPE(passwdqc_params_reset) = NULL;
+static DLSYM_PROTOTYPE(passwdqc_params_load) = NULL;
+static DLSYM_PROTOTYPE(passwdqc_params_parse) = NULL;
+static DLSYM_PROTOTYPE(passwdqc_params_free) = NULL;
+static DLSYM_PROTOTYPE(passwdqc_check) = NULL;
+static DLSYM_PROTOTYPE(passwdqc_random) = NULL;
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(passwdqc_params_t*, sym_passwdqc_params_free, passwdqc_params_freep, NULL);
 
