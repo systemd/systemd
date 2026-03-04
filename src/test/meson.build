@@ -332,6 +332,7 @@ executables += [
                 ) + [
                         test_hashmap_ordered_c,
                 ],
+                'include_directories' : [includes, include_directories('.')],
                 'timeout' : 180,
         },
         test_template + {
