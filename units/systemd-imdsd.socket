@@ -1,0 +1,28 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Cloud Instance Metadata Access (IMDS)
+Documentation=man:systemd-imdsd@.service(8)
+DefaultDependencies=no
+Before=sockets.target
+
+[Socket]
+ListenStream=/run/systemd/io.systemd.InstanceMetadata
+Symlinks=/run/varlink/registry/io.systemd.InstanceMetadata
+FileDescriptorName=varlink
+SocketMode=0666
+Accept=yes
+MaxConnectionsPerSource=16
+RemoveOnStop=yes
+
+# Note that this is typically pulled in automatically by
+# systemd-imds-generator, but you can also enable it manually if you like.
+[Install]
+WantedBy=sockets.target
