@@ -1025,6 +1025,7 @@ manpages = [
  ['systemd-hostnamed.service', '8', ['systemd-hostnamed'], 'ENABLE_HOSTNAMED'],
  ['systemd-hwdb', '8', [], 'ENABLE_HWDB'],
  ['systemd-id128', '1', [], ''],
+ ['systemd-imds', '1', ['systemd-imds-import.service'], 'ENABLE_IMDS'],
  ['systemd-imdsd@.service',
   '8',
   ['systemd-imdsd',
