@@ -1,0 +1,23 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Enable Pre-IMDS Networking (Locked IMDS Access)
+Documentation=man:systemd-imds-network.service(8)
+DefaultDependencies=no
+Before=network-pre.target
+Wants=network-pre.target
+Conflicts=shutdown.target initrd-switch-root.target
+Before=shutdown.target initrd-switch-root.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+StandardInputText=L /run/systemd/network/85-imds-early.network - - - - {{LIBEXECDIR}}/imds/85-imds-early.network
+ExecStart=systemd-tmpfiles --create -
