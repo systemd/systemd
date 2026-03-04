@@ -108,3 +108,9 @@ static inline const char* default_compression_extension(void) {
 }
 
 int decompress_stream(const char *filename, int fdf, int fdt, uint64_t max_bytes);
+
+/* Exported only for test-compress.c */
+extern DLSYM_PROTOTYPE(LZ4_compress_default);
+extern DLSYM_PROTOTYPE(LZ4_decompress_safe);
+extern DLSYM_PROTOTYPE(LZ4_decompress_safe_partial);
+extern DLSYM_PROTOTYPE(LZ4_versionNumber);
