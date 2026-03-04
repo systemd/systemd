@@ -24,11 +24,13 @@ __pycache__/
 /ID
 /build*
 /install-tree
-/mkosi/mkosi.key
 /mkosi/mkosi.crt
+/mkosi/mkosi.key
+/mkosi/mkosi.local.conf
+/mkosi/mkosi.tools
+/mkosi/mkosi.tools.manifest
 /mkosi.tools/
 /mkosi.tools.manifest
-/mkosi/mkosi.local.conf
 /tags
 .dir-locals-2.el
 .vscode/
