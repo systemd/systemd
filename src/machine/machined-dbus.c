@@ -26,6 +26,7 @@
 #include "machine.h"
 #include "machine-dbus.h"
 #include "machined.h"
+#include "machined-dbus.h"
 #include "namespace-util.h"
 #include "operation.h"
 #include "os-util.h"
@@ -1451,8 +1452,8 @@ const BusObjectImplementation manager_object = {
         "/org/freedesktop/machine1",
         "org.freedesktop.machine1.Manager",
         .vtables = BUS_VTABLES(manager_vtable),
-        .children = BUS_IMPLEMENTATIONS( &machine_object,
-                                         &image_object ),
+        .children = BUS_IMPLEMENTATIONS(&machine_object,
+                                        &image_object),
 };
 
 int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *error) {
