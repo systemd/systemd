@@ -45,7 +45,7 @@ static int method_something(sd_varlink *link, sd_json_variant *parameters, sd_va
 
         y = sd_json_variant_integer(b);
 
-        r = sd_json_build(&ret, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("sum", SD_JSON_BUILD_INTEGER(x + y))));
+        r = sd_json_build(&ret, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR_INTEGER("sum", x + y)));
         if (r < 0)
                 return r;
 
@@ -75,7 +75,7 @@ static int method_something_more(sd_varlink *link, sd_json_variant *parameters, 
         for (int i = 0; i < 5; i++) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
 
-                r = sd_json_build(&w, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("sum", SD_JSON_BUILD_INTEGER(s.x + (s.y * i)))));
+                r = sd_json_build(&w, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR_INTEGER("sum", s.x + (s.y * i))));
                 if (r < 0)
                         return r;
 
@@ -84,7 +84,7 @@ static int method_something_more(sd_varlink *link, sd_json_variant *parameters, 
                         return r;
         }
 
-        r = sd_json_build(&ret, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("sum", SD_JSON_BUILD_INTEGER(s.x + (s.y * 5)))));
+        r = sd_json_build(&ret, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR_INTEGER("sum", s.x + (s.y * 5))));
         if (r < 0)
                 return r;
 
@@ -125,7 +125,7 @@ static int method_passfd(sd_varlink *link, sd_json_variant *parameters, sd_varli
         ASSERT_OK(vv = memfd_new_and_seal_string("data", "miau"));
         ASSERT_OK(ww = memfd_new_and_seal_string("data", "wuff"));
 
-        r = sd_json_build(&ret, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("yo", SD_JSON_BUILD_INTEGER(88))));
+        r = sd_json_build(&ret, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR_INTEGER("yo", 88)));
         if (r < 0)
                 return r;
 
@@ -222,7 +222,7 @@ static void flood_test(const char *address) {
                 ASSERT_OK(asprintf(&t, "flood-%zu", k));
                 ASSERT_OK(sd_varlink_set_description(connections[k], t));
                 ASSERT_OK(sd_varlink_attach_event(connections[k], e, k));
-                ASSERT_OK(sd_varlink_sendb(connections[k], "io.test.Rubbish", SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("id", SD_JSON_BUILD_INTEGER(k)))));
+                ASSERT_OK(sd_varlink_sendb(connections[k], "io.test.Rubbish", SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR_INTEGER("id", k))));
         }
 
         /* Then, create one more, which should fail */
@@ -253,8 +253,8 @@ static void *thread(void *arg) {
         const char *error_id, *e;
         int x = 0;
 
-        ASSERT_OK(sd_json_build(&i, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("a", SD_JSON_BUILD_INTEGER(88)),
-                                                   SD_JSON_BUILD_PAIR("b", SD_JSON_BUILD_INTEGER(99)))));
+        ASSERT_OK(sd_json_build(&i, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR_INTEGER("a", 88),
+                                                   SD_JSON_BUILD_PAIR_INTEGER("b", 99))));
 
         ASSERT_OK(sd_varlink_connect_address(&c, arg));
         ASSERT_OK(sd_varlink_set_description(c, "thread-client"));
@@ -262,8 +262,8 @@ static void *thread(void *arg) {
         ASSERT_OK(sd_varlink_set_allow_fd_passing_output(c, true));
 
         /* Test that client is able to perform two sequential sd_varlink_collect calls if first resulted in an error */
-        ASSERT_OK(sd_json_build(&wrong, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("a", SD_JSON_BUILD_INTEGER(88)),
-                                                       SD_JSON_BUILD_PAIR("c", SD_JSON_BUILD_INTEGER(99)))));
+        ASSERT_OK(sd_json_build(&wrong, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR_INTEGER("a", 88),
+                                                       SD_JSON_BUILD_PAIR_INTEGER("c", 99))));
         ASSERT_OK(sd_varlink_collect(c, "io.test.DoSomethingMore", wrong, &j, &error_id));
         ASSERT_STREQ(error_id, "org.varlink.service.InvalidParameter");
 
@@ -292,7 +292,7 @@ static void *thread(void *arg) {
         ASSERT_OK_EQ(sd_varlink_push_fd(c, fd2), 1);
         ASSERT_OK_EQ(sd_varlink_push_fd(c, fd3), 2);
 
-        ASSERT_OK(sd_varlink_callb(c, "io.test.PassFD", &o, &e, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("fd", SD_JSON_BUILD_STRING("whoop")))));
+        ASSERT_OK(sd_varlink_callb(c, "io.test.PassFD", &o, &e, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR_STRING("fd", "whoop"))));
         ASSERT_NULL(e);
 
         int fd4, fd5;
@@ -302,7 +302,7 @@ static void *thread(void *arg) {
         test_fd(fd4, "miau", 4);
         test_fd(fd5, "wuff", 4);
 
-        ASSERT_OK(sd_varlink_callb(c, "io.test.PassFD", &o, &e, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("fdx", SD_JSON_BUILD_STRING("whoopx")))));
+        ASSERT_OK(sd_varlink_callb(c, "io.test.PassFD", &o, &e, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR_STRING("fdx", "whoopx"))));
         ASSERT_TRUE(sd_varlink_error_is_invalid_parameter(e, o, "fd"));
 
         ASSERT_OK(sd_varlink_callb(c, "io.test.IDontExist", &o, &e, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("x", SD_JSON_BUILD_REAL(5.5)))));
@@ -371,8 +371,8 @@ TEST(chat) {
         ASSERT_OK(sd_varlink_server_attach_event(s, e, 0));
         ASSERT_OK(sd_varlink_server_set_connections_max(s, OVERLOAD_CONNECTIONS));
 
-        ASSERT_OK(sd_json_build(&v, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("a", SD_JSON_BUILD_INTEGER(7)),
-                                                   SD_JSON_BUILD_PAIR("b", SD_JSON_BUILD_INTEGER(22)))));
+        ASSERT_OK(sd_json_build(&v, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR_INTEGER("a", 7),
+                                                   SD_JSON_BUILD_PAIR_INTEGER("b", 22))));
 
         ASSERT_OK(sd_varlink_connect_address(&c, sp));
         ASSERT_OK(sd_varlink_set_description(c, "main-client"));
