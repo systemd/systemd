@@ -1325,4 +1325,5 @@ static EFI_STATUS run(EFI_HANDLE image) {
         return err;
 }
 
+// NOLINTNEXTLINE(misc-use-internal-linkage)
 DEFINE_EFI_MAIN_FUNCTION(run, "systemd-stub", /* wait_for_debugger= */ false);
