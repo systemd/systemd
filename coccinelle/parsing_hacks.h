@@ -81,3 +81,8 @@
  * let's help it a little here by providing simplified one-line versions. */
 #define CMSG_BUFFER_TYPE(x) union { uint8_t align_check[(size) >= CMSG_SPACE(0) && (size) == CMSG_ALIGN(size) ? 1 : -1]; }
 #define SD_ID128_MAKE(...) ((const sd_id128) {})
+
+/* Work around a bug in zlib.h parsing on Fedora (and possibly others)
+ * See: https://github.com/coccinelle/coccinelle/issues/413 */
+#define Z_EXPORT
+#define Z_EXTERN

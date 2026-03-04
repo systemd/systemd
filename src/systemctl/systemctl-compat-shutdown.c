@@ -108,14 +108,13 @@ static int parse_shutdown_time_spec(const char *t, usec_t *ret) {
                         if (r < 0)
                                 return r;
 
-                        if (tm.tm_hour != requested_hour || tm.tm_min != requested_min) {
+                        if (tm.tm_hour != requested_hour || tm.tm_min != requested_min)
                                 log_warning("Requested shutdown time %02d:%02d does not exist. "
                                             "Rescheduling to %02d:%02d.",
                                             requested_hour,
                                             requested_min,
                                             tm.tm_hour,
                                             tm.tm_min);
-                        }
                 }
 
                 *ret = s;
