@@ -3255,4 +3255,5 @@ static EFI_STATUS run(EFI_HANDLE image) {
         }
 }
 
+// NOLINTNEXTLINE(misc-use-internal-linkage)
 DEFINE_EFI_MAIN_FUNCTION(run, "systemd-boot", /* wait_for_debugger= */ false);

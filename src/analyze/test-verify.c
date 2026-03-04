@@ -4,7 +4,7 @@
 #include "execute.h"
 #include "tests.h"
 
-const char *arg_instance = "test_instance";
+static const char *arg_instance = "test_instance";
 
 TEST(verify_nonexistent) {
         /* Negative cases */
