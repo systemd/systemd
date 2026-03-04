@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "hashmap.h"
+#include "test-hashmap.h"
 #include "tests.h"
 
 unsigned custom_counter = 0;
