@@ -154,7 +154,6 @@ int journal_add_unit_matches(
                 }
         }
 
-
         if (!strv_isempty(patterns)) {
                 _cleanup_set_free_ Set *units = NULL;
 
