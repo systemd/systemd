@@ -1244,7 +1244,7 @@ int fido2_list_devices(void) {
                 goto finish;
         }
 
-        if (table_get_rows(t) > 1)
+        if (!table_isempty(t))
                 printf("\n"
                        "%1$sLegend: RK        %2$s Resident key%3$s\n"
                        "%1$s        CLIENTPIN %2$s PIN request%3$s\n"
