@@ -209,13 +209,13 @@ static int parse_pull_expression(const char *v) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
         r = sd_json_buildo(
                         &j,
-                        SD_JSON_BUILD_PAIR("remote", SD_JSON_BUILD_STRING(remote)),
-                        SD_JSON_BUILD_PAIR("local", SD_JSON_BUILD_STRING(local)),
+                        SD_JSON_BUILD_PAIR_STRING("remote", remote),
+                        SD_JSON_BUILD_PAIR_STRING("local", local),
                         SD_JSON_BUILD_PAIR("class", JSON_BUILD_STRING_UNDERSCORIFY(image_class_to_string(class))),
                         SD_JSON_BUILD_PAIR("type", JSON_BUILD_STRING_UNDERSCORIFY(import_type_to_string(type))),
-                        SD_JSON_BUILD_PAIR("readOnly", SD_JSON_BUILD_BOOLEAN(ro)),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("readOnly", ro),
                         SD_JSON_BUILD_PAIR("verify", JSON_BUILD_STRING_UNDERSCORIFY(import_verify_to_string(verify))),
-                        SD_JSON_BUILD_PAIR("imageRoot", SD_JSON_BUILD_STRING(image_root)));
+                        SD_JSON_BUILD_PAIR_STRING("imageRoot", image_root));
         if (r < 0)
                 return log_error_errno(r, "Failed to build import JSON object: %m");
 

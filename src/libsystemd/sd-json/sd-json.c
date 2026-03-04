@@ -4182,8 +4182,8 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                 if (ratelimit_configured(rl)) {
                                         r = sd_json_buildo(
                                                         &add,
-                                                        SD_JSON_BUILD_PAIR("intervalUSec", SD_JSON_BUILD_UNSIGNED(rl->interval)),
-                                                        SD_JSON_BUILD_PAIR("burst", SD_JSON_BUILD_UNSIGNED(rl->burst)));
+                                                        SD_JSON_BUILD_PAIR_UNSIGNED("intervalUSec", rl->interval),
+                                                        SD_JSON_BUILD_PAIR_UNSIGNED("burst", rl->burst));
                                         if (r < 0)
                                                 goto finish;
                                 } else
@@ -4805,8 +4805,8 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                         goto finish;
 
                                 r = sd_json_buildo(&add_more,
-                                                SD_JSON_BUILD_PAIR("realtime", SD_JSON_BUILD_UNSIGNED(ts->realtime)),
-                                                SD_JSON_BUILD_PAIR("monotonic", SD_JSON_BUILD_UNSIGNED(ts->monotonic)));
+                                                SD_JSON_BUILD_PAIR_UNSIGNED("realtime", ts->realtime),
+                                                SD_JSON_BUILD_PAIR_UNSIGNED("monotonic", ts->monotonic));
                                 if (r < 0)
                                         goto finish;
                         }
@@ -4835,8 +4835,8 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                                         goto finish;
 
                                 r = sd_json_buildo(&add_more,
-                                                SD_JSON_BUILD_PAIR("intervalUSec", SD_JSON_BUILD_UNSIGNED(rl->interval)),
-                                                SD_JSON_BUILD_PAIR("burst", SD_JSON_BUILD_UNSIGNED(rl->burst)));
+                                                SD_JSON_BUILD_PAIR_UNSIGNED("intervalUSec", rl->interval),
+                                                SD_JSON_BUILD_PAIR_UNSIGNED("burst", rl->burst));
                                 if (r < 0)
                                         goto finish;
                         }
