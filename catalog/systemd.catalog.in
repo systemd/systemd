@@ -1015,3 +1015,12 @@ non-volatile indexes (NV Indexes), could not be initialized.
 This typically means the persistent NV index memory available on the TPM is
 taken up by other resources, or is extremely limited. A TPM reset might help
 recovering space (but will invalidate all TPM bound keys and resources).
+
+-- 8f07a5b814ca4762b89fcc3082e48aed
+Subject: TPM NV index backed PCRs not supported on the local TPM
+Defined-By: systemd
+Support: %SUPPORT_URL%
+
+The Trusted Platform Module's (TPM) NV index support is too limited to properly
+implement NV index backed additional PCRs. NvPCRs will not be allocated or
+initialized, and will not be available on the system.
