@@ -895,6 +895,7 @@ foreach option : ['adm-gid',
                   'video-gid',
                   'wheel-gid',
                   'systemd-journal-gid',
+                  'systemd-imds-uid',
                   'systemd-network-uid',
                   'systemd-resolve-uid',
                   'systemd-timesync-uid']
@@ -1608,6 +1609,7 @@ foreach tuple : [
                 ['idn',             conf.get('HAVE_NI_IDN') == 1, 'NI_IDN is not defined'],
                 ['ima'],
                 ['ipe'],
+                ['imds'],
                 ['initrd'],
                 ['kernel-install'],
                 ['ldconfig'],
@@ -2363,6 +2365,7 @@ subdir('src/home')
 subdir('src/hostname')
 subdir('src/hwdb')
 subdir('src/id128')
+subdir('src/imds')
 subdir('src/import')
 subdir('src/integritysetup')
 subdir('src/journal')
@@ -3134,6 +3137,7 @@ foreach tuple : [
         ['homed'],
         ['hostnamed'],
         ['hwdb'],
+        ['imds'],
         ['importd'],
         ['initrd'],
         ['kernel-install'],
