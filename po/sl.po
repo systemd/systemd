@@ -1,13 +1,13 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 #
-# Martin Srebotnjak <miles@filmsi.net>, 2024, 2025.
+# Martin Srebotnjak <miles@filmsi.net>, 2024, 2025, 2026.
 # Weblate Translation Memory <noreply-mt-weblate-translation-memory@weblate.org>, 2024.
 msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-02-24 18:42+0000\n"
-"PO-Revision-Date: 2025-12-09 15:58+0000\n"
+"PO-Revision-Date: 2026-03-04 19:58+0000\n"
 "Last-Translator: Martin Srebotnjak <miles@filmsi.net>\n"
 "Language-Team: Slovenian <https://translate.fedoraproject.org/projects/"
 "systemd/main/sl/>\n"
@@ -17,7 +17,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=4; plural=n%100==1 ? 0 : n%100==2 ? 1 : n%100==3 || "
 "n%100==4 ? 2 : 3;\n"
-"X-Generator: Weblate 5.14.3\n"
+"X-Generator: Weblate 5.16.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -1113,7 +1113,7 @@ msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:198
 msgid "Manage network links"
-msgstr ""
+msgstr "Upravljaj omrežne povezave"
 
 #: src/network/org.freedesktop.network1.policy:199
 msgid "Authentication is required to manage network links."
