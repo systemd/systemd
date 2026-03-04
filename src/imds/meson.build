@@ -11,6 +11,11 @@ executables += [
                 'sources' : files('imdsd.c', '../import/curl-util.c', 'imds-util.c'),
                 'dependencies' : [ libcurl ],
         },
+        libexec_template + {
+                'name' : 'systemd-imds',
+                'public' : true,
+                'sources' : files('imds-tool.c', 'imds-util.c'),
+        },
 ]
 
 install_data(
