@@ -143,37 +143,37 @@ static int units_by_state_total_build_json(MetricFamilyContext *context, void *u
         return 0;
 }
 
-const MetricFamily metric_family_table[] = {
+static const MetricFamily metric_family_table[] = {
         /* Keep metrics ordered alphabetically */
         {
-         .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "NRestarts",
-         .description = "Per unit metric: number of restarts",
-         .type = METRIC_FAMILY_TYPE_COUNTER,
-         .generate = nrestarts_build_json,
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "NRestarts",
+                .description = "Per unit metric: number of restarts",
+                .type = METRIC_FAMILY_TYPE_COUNTER,
+                .generate = nrestarts_build_json,
         },
         {
-         .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "UnitActiveState",
-         .description = "Per unit metric: active state",
-         .type = METRIC_FAMILY_TYPE_STRING,
-         .generate = unit_active_state_build_json,
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "UnitActiveState",
+                .description = "Per unit metric: active state",
+                .type = METRIC_FAMILY_TYPE_STRING,
+                .generate = unit_active_state_build_json,
         },
         {
-         .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "UnitLoadState",
-         .description = "Per unit metric: load state",
-         .type = METRIC_FAMILY_TYPE_STRING,
-         .generate = unit_load_state_build_json,
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "UnitLoadState",
+                .description = "Per unit metric: load state",
+                .type = METRIC_FAMILY_TYPE_STRING,
+                .generate = unit_load_state_build_json,
         },
         {
-         .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "UnitsByStateTotal",
-         .description = "Total number of units of different state",
-         .type = METRIC_FAMILY_TYPE_GAUGE,
-         .generate = units_by_state_total_build_json,
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "UnitsByStateTotal",
+                .description = "Total number of units of different state",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = units_by_state_total_build_json,
         },
         {
-         .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "UnitsByTypeTotal",
-         .description = "Total number of units of different types",
-         .type = METRIC_FAMILY_TYPE_GAUGE,
-         .generate = units_by_type_total_build_json,
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "UnitsByTypeTotal",
+                .description = "Total number of units of different types",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = units_by_type_total_build_json,
         },
         {}
 };
