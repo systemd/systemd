@@ -441,9 +441,9 @@ int mdns_manage_services_answer(DnsServiceBrowser *sb, DnsAnswer *answer, int ow
                                                 browse_service_update_event_to_string(
                                                                 BROWSE_SERVICE_UPDATE_REMOVED)),
                                 SD_JSON_BUILD_PAIR_INTEGER("family", owner_family),
-                                SD_JSON_BUILD_PAIR_STRING("name", name ?: ""),
-                                SD_JSON_BUILD_PAIR_STRING("type", type ?: ""),
-                                SD_JSON_BUILD_PAIR_STRING("domain", domain ?: ""),
+                                SD_JSON_BUILD_PAIR_STRING("name", strempty(name)),
+                                SD_JSON_BUILD_PAIR_STRING("type", strempty(type)),
+                                SD_JSON_BUILD_PAIR_STRING("domain", strempty(domain)),
                                 SD_JSON_BUILD_PAIR_INTEGER("ifindex", ifindex));
                 if (r < 0) {
                         log_error_errno(r, "Failed to build JSON for removed service: %m");
