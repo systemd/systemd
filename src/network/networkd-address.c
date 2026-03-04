@@ -162,7 +162,7 @@ DEFINE_HASH_OPS(
         address_hash_func,
         address_compare_func);
 
-DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
         address_section_hash_ops,
         ConfigSection,
         config_section_hash_func,

@@ -23,6 +23,7 @@
 #include "hostname-util.h"
 #include "machine.h"
 #include "machined.h"
+#include "machined-dbus.h"
 #include "machined-varlink.h"
 #include "main-func.h"
 #include "mkdir-label.h"
