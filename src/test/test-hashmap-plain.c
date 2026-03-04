@@ -8,6 +8,7 @@
 #include "nulstr-util.h"
 #include "stdio-util.h"
 #include "strv.h"
+#include "test-hashmap.h"
 #include "tests.h"
 #include "time-util.h"
 
@@ -712,9 +713,6 @@ TEST(hashmap_many) {
         }
 }
 
-extern unsigned custom_counter;
-extern const struct hash_ops boring_hash_ops, custom_hash_ops;
-
 TEST(hashmap_free) {
         Hashmap *h;
         bool slow = slow_tests_enabled();
@@ -1016,7 +1014,6 @@ TEST(hashmap_dump_sorted) {
 }
 
 /* Signal to test-hashmap.c that tests from this compilation unit were run. */
-extern int n_extern_tests_run;
 TEST(ensure_extern_hashmap_tests) {
         n_extern_tests_run++;
 }

@@ -17,8 +17,8 @@ hwids = ukify.parse_hwid_dir(Path(sys.argv[1]))
 
 print(
     """/* SPDX-License-Identifier: LGPL-2.1-or-later */
-#include <stddef.h>
-#include <stdint.h>
+
+#include "test-hwids-section.h"
 
 const uint8_t hwids_section_data[] = {
     """,
