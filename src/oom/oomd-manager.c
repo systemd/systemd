@@ -422,7 +422,7 @@ static int monitor_swap_contexts_handler(sd_event_source *s, uint64_t usec, void
                 if (r < 0)
                         log_error_errno(r, "Failed to select any cgroups based on swap: %m");
                 else {
-                        if (selected && r > 0) {
+                        if (selected && r > 0)
                                 log_notice("Marked %s for killing due to memory used (%"PRIu64") / total (%"PRIu64") and "
                                            "swap used (%"PRIu64") / total (%"PRIu64") being more than "
                                            PERMYRIAD_AS_PERCENT_FORMAT_STR,
@@ -430,7 +430,6 @@ static int monitor_swap_contexts_handler(sd_event_source *s, uint64_t usec, void
                                            m->system_context.mem_used, m->system_context.mem_total,
                                            m->system_context.swap_used, m->system_context.swap_total,
                                            PERMYRIAD_AS_PERCENT_FORMAT_VAL(m->swap_used_limit_permyriad));
-                        }
                         return 0;
                 }
         }

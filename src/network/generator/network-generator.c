@@ -1439,12 +1439,11 @@ void netdev_dump(NetDev *netdev, FILE *f) {
         if (netdev->mtu > 0)
                 fprintf(f, "MTUBytes=%" PRIu32 "\n", netdev->mtu);
 
-        if (streq(netdev->kind, "vlan")) {
+        if (streq(netdev->kind, "vlan"))
                 fprintf(f,
                         "\n[VLAN]\n"
                         "Id=%u\n",
                         netdev->vlan_id);
-        }
 }
 
 void link_dump(Link *link, FILE *f) {
