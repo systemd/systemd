@@ -23,6 +23,7 @@
 #include "alloc-util.h"
 #include "bitfield.h"
 #include "compress.h"
+#include "compress-lz4-dlsym.h"
 #include "dlfcn-util.h"
 #include "fileio.h"
 #include "io-util.h"

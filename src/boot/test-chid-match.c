@@ -4,10 +4,8 @@
 #include "edid.h"
 #include "efi-string.h"
 #include "smbios.h"
+#include "test-hwids-section.h"
 #include "tests.h"
-
-extern uint8_t hwids_section_data[];
-extern size_t hwids_section_len;
 
 static struct {
         const RawSmbiosInfo smbios_info;

@@ -154,13 +154,13 @@ TEST(errno_mapping_standard) {
         assert_se(sd_bus_error_set(NULL, "System.Error.WHATSIT", NULL) == -EIO);
 }
 
-BUS_ERROR_MAP_ELF_REGISTER const sd_bus_error_map test_errors[] = {
+BUS_ERROR_MAP_ELF_REGISTER static const sd_bus_error_map test_errors[] = {
         SD_BUS_ERROR_MAP("org.freedesktop.custom-dbus-error", 5),
         SD_BUS_ERROR_MAP("org.freedesktop.custom-dbus-error-2", 52),
         SD_BUS_ERROR_MAP_END
 };
 
-BUS_ERROR_MAP_ELF_REGISTER const sd_bus_error_map test_errors2[] = {
+BUS_ERROR_MAP_ELF_REGISTER static const sd_bus_error_map test_errors2[] = {
         SD_BUS_ERROR_MAP("org.freedesktop.custom-dbus-error-3", 33),
         SD_BUS_ERROR_MAP("org.freedesktop.custom-dbus-error-4", 44),
         SD_BUS_ERROR_MAP("org.freedesktop.custom-dbus-error-33", 333),
