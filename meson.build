@@ -1544,6 +1544,7 @@ have = get_option('imds').require(
         conf.get('HAVE_LIBCURL') == 1,
         error_message : 'curl required').allowed()
 conf.set10('ENABLE_IMDS', have)
+conf.set10('IMDS_NETWORK_LOCKED_DEFAULT', get_option('imds-network') == 'locked')
 
 have = get_option('importd').require(
         conf.get('HAVE_LIBCURL') == 1 and
@@ -3087,7 +3088,8 @@ summary({
         'default user $PATH'                        : default_user_path != '' ? default_user_path : '(same as system services)',
         'systemd service watchdog'                  : service_watchdog == '' ? 'disabled' : service_watchdog,
         'time epoch'                                : f'@time_epoch@ (@alt_time_epoch@)',
-        'TPM2 nvpcr base'                           : run_command(sh, '-c', 'printf 0x%x @0@'.format(get_option('tpm2-nvpcr-base')), check : true).stdout()
+        'TPM2 nvpcr base'                           : run_command(sh, '-c', 'printf 0x%x @0@'.format(get_option('tpm2-nvpcr-base')), check : true).stdout(),
+        'IMDS networking'                           : get_option('imds-network'),
 })
 
 # TODO:
