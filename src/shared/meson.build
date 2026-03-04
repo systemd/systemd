@@ -207,6 +207,7 @@ shared_sources = files(
         'varlink-io.systemd.FactoryReset.c',
         'varlink-io.systemd.Hostname.c',
         'varlink-io.systemd.Import.c',
+        'varlink-io.systemd.InstanceMetadata.c',
         'varlink-io.systemd.Journal.c',
         'varlink-io.systemd.JournalAccess.c',
         'varlink-io.systemd.Login.c',
