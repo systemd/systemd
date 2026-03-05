@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <time.h>
+
 #include "sd-id128.h"
 
 #include "bitfield.h"
@@ -266,6 +268,7 @@ typedef struct UserRecord {
         char *password_hint;
         char *icon_name;
         char *location;
+        struct tm birth_date; /* as populated by strptime(): tm_year is years since 1900, tm_mon is 0-11, tm_mday is 1-31; all -1 when unset */
 
         char *blob_directory;
         Hashmap *blob_manifest;
