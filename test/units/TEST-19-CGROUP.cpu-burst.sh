@@ -90,9 +90,32 @@ EOF
     burst=$(cat /sys/fs/cgroup"$CGROUP_PATH"/cpu.max.burst)
     [[ "$burst" -gt 0 ]]
 
+    # Verify burst survives a daemon-reload
+    systemctl daemon-reload
+    burst_after_reload=$(cat /sys/fs/cgroup"$CGROUP_PATH"/cpu.max.burst)
+    [[ "$burst_after_reload" -eq "$burst" ]]
+
     systemctl stop test-burst-unit.service
     rm -f /run/systemd/system/test-burst-unit.service
     systemctl daemon-reload
+}
+
+testcase_burst_survives_reexec() {
+    systemd-run --unit=test-burst-reexec.service \
+                -p CPUQuota=50% \
+                -p CPUBurst=30% \
+                sleep inf
+
+    CGROUP_PATH=$(systemctl show -P ControlGroup test-burst-reexec.service)
+    burst=$(cat /sys/fs/cgroup"$CGROUP_PATH"/cpu.max.burst)
+    [[ "$burst" -gt 0 ]]
+
+    # Verify burst survives a daemon-reexec (serialization/deserialization round-trip)
+    systemctl daemon-reexec
+    burst_after_reexec=$(cat /sys/fs/cgroup"$CGROUP_PATH"/cpu.max.burst)
+    [[ "$burst_after_reexec" -eq "$burst" ]]
+
+    systemctl stop test-burst-reexec.service
 }
 
 run_testcases
