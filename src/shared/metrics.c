@@ -163,7 +163,7 @@ static int metric_build_send(MetricFamilyContext *context, const char *object, s
         return sd_varlink_replybo(context->link,
                         SD_JSON_BUILD_PAIR_STRING("name", context->metric_family->name),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("object", object),
-                        SD_JSON_BUILD_PAIR("value", SD_JSON_BUILD_VARIANT(value)),
+                        SD_JSON_BUILD_PAIR_VARIANT("value", value),
                         JSON_BUILD_PAIR_VARIANT_NON_NULL("fields", fields));
 }
 

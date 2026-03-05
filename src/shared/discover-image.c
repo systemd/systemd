@@ -2187,10 +2187,8 @@ int image_setup_pool(RuntimeScope scope, ImageClass class, bool use_btrfs_subvol
                 return r;
 
         r = check_btrfs(pool);
-        if (r < 0)
+        if (r <= 0)
                 return r;
-        if (r == 0)
-                return 0;
 
         if (!use_btrfs_subvol)
                 return 0;

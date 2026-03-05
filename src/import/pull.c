@@ -454,8 +454,7 @@ static int parse_argv(int argc, char *argv[]) {
                                                                "64 hex character SHA256 hash required when specifying explicit checksum, %zu specified", n * 2);
 
                                 iovec_done(&arg_checksum);
-                                arg_checksum.iov_base = TAKE_PTR(h);
-                                arg_checksum.iov_len = n;
+                                arg_checksum = IOVEC_MAKE(TAKE_PTR(h), n);
 
                                 arg_import_flags &= ~(IMPORT_PULL_SETTINGS|IMPORT_PULL_ROOTHASH|IMPORT_PULL_ROOTHASH_SIGNATURE|IMPORT_PULL_VERITY);
                                 arg_verify = _IMPORT_VERIFY_INVALID;

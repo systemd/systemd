@@ -1150,10 +1150,8 @@ int flush_accept(int fd) {
                 r = fd_wait_for_event(fd, POLLIN, 0);
                 if (r == -EINTR)
                         continue;
-                if (r < 0)
+                if (r <= 0)
                         return r;
-                if (r == 0)
-                        return 0;
 
                 if (iteration >= MAX_FLUSH_ITERATIONS)
                         return log_debug_errno(SYNTHETIC_ERRNO(EBUSY),
