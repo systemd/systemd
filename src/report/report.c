@@ -226,7 +226,10 @@ static int metrics_on_query_reply(
         Context *context = ASSERT_PTR(li->context);
 
         if (error_id) {
-                if (streq(error_id, SD_VARLINK_ERROR_DISCONNECTED))
+                if (STR_IN_SET(error_id, SD_VARLINK_ERROR_METHOD_NOT_FOUND,
+                                         SD_VARLINK_ERROR_METHOD_NOT_IMPLEMENTED))
+                        log_debug("Ignoring Varlink endpoint '%s': %s", li->name, error_id);
+                else if (streq(error_id, SD_VARLINK_ERROR_DISCONNECTED))
                         log_warning("Varlink connection to '%s' disconnected prematurely, ignoring.", li->name);
                 else if (streq(error_id, SD_VARLINK_ERROR_TIMEOUT))
                         log_warning("Varlink connection to '%s' timed out, ignoring.", li->name);
