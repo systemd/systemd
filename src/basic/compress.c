@@ -46,10 +46,12 @@ static DLSYM_PROTOTYPE(LZ4F_freeDecompressionContext) = NULL;
 static DLSYM_PROTOTYPE(LZ4F_isError) = NULL;
 static DLSYM_PROTOTYPE(LZ4_compress_HC) = NULL;
 /* These are used in test-compress.c so we don't make them static. */
+// NOLINTBEGIN(misc-use-internal-linkage)
 DLSYM_PROTOTYPE(LZ4_compress_default) = NULL;
 DLSYM_PROTOTYPE(LZ4_decompress_safe) = NULL;
 DLSYM_PROTOTYPE(LZ4_decompress_safe_partial) = NULL;
 DLSYM_PROTOTYPE(LZ4_versionNumber) = NULL;
+// NOLINTEND(misc-use-internal-linkage)
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(LZ4F_compressionContext_t, sym_LZ4F_freeCompressionContext, LZ4F_freeCompressionContextp, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(LZ4F_decompressionContext_t, sym_LZ4F_freeDecompressionContext, LZ4F_freeDecompressionContextp, NULL);
