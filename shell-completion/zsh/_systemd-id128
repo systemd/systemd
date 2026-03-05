@@ -32,7 +32,7 @@ _systemd-id128_names() {
 }
 
 local ret=1
-_arguments -s "$opt_common[@]" \
+_arguments -s -A '-*' "$opt_common[@]" \
 	':command:->command' \
 	'*:: :->option-or-argument' && ret=0
 
