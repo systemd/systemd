@@ -405,17 +405,32 @@ TEST(sequential_policy_transaction_cycles_through_servers) {
         ASSERT_PTR_EQ(t->server, env.server1);
         ASSERT_PTR_EQ(t->sequential_next_server, env.server2);
 
+        /* Same-server retry (e.g., feature-level downgrade): should stay on server1 */
+        r = dns_transaction_pick_server(t);
+        ASSERT_EQ(r, 0); /* 0 = same server */
+        ASSERT_PTR_EQ(t->server, env.server1);
+        ASSERT_PTR_EQ(t->sequential_next_server, env.server2); /* iterator unchanged */
+
+        /* Simulate next-server retry: clear t->server (as dns_transaction_retry does) */
+        t->server = dns_server_unref(t->server);
+
         /* Second pick: should select server2, advance tracker to server3 */
         r = dns_transaction_pick_server(t);
         ASSERT_OK(r);
         ASSERT_PTR_EQ(t->server, env.server2);
         ASSERT_PTR_EQ(t->sequential_next_server, server3);
 
+        /* Simulate next-server retry */
+        t->server = dns_server_unref(t->server);
+
         /* Third pick: should select server3, advance tracker to NULL (end of list) */
         r = dns_transaction_pick_server(t);
         ASSERT_OK(r);
         ASSERT_PTR_EQ(t->server, server3);
         ASSERT_NULL(t->sequential_next_server);
+
+        /* Simulate next-server retry */
+        t->server = dns_server_unref(t->server);
 
         /* Fourth pick: sequential_next_server is NULL, should restart from first */
         r = dns_transaction_pick_server(t);
@@ -455,7 +470,8 @@ TEST(sequential_policy_two_transactions_independent_iteration) {
         ASSERT_PTR_EQ(t1->server, env.server1);
         ASSERT_PTR_EQ(t1->sequential_next_server, env.server2);
 
-        /* Transaction 1: second pick -> server2 */
+        /* Transaction 1: simulate next-server retry, then pick -> server2 */
+        t1->server = dns_server_unref(t1->server);
         r = dns_transaction_pick_server(t1);
         ASSERT_OK(r);
         ASSERT_PTR_EQ(t1->server, env.server2);
@@ -620,8 +636,9 @@ TEST(sequential_mode_latency_tradeoff_documented) {
         ASSERT_OK(r);
         ASSERT_PTR_EQ(t1->server, env.server1);
 
-        /* Simulate server1 timing out - in real code, this triggers retry.
-         * The key point: we had to WAIT for the timeout first. */
+        /* Simulate server1 timing out - in real code, dns_transaction_retry(t, true)
+         * clears t->server before calling go() -> pick_server(). */
+        t1->server = dns_server_unref(t1->server);
 
         /* Transaction 1 retries with server2 after timeout */
         r = dns_transaction_pick_server(t1);
@@ -716,7 +733,13 @@ TEST(sequential_policy_feature_probing_still_active) {
         log_debug("Feature level after pick: %s",
                   dns_server_feature_level_to_string(t->current_feature_level));
 
-        /* Verify server ordering is still sequential (the main guarantee) */
+        /* Same-server retry (feature-level downgrade) stays on server1 */
+        r = dns_transaction_pick_server(t);
+        ASSERT_EQ(r, 0); /* 0 = same server */
+        ASSERT_PTR_EQ(t->server, env.server1);
+
+        /* Simulate next-server retry to verify ordering is still sequential */
+        t->server = dns_server_unref(t->server);
         r = dns_transaction_pick_server(t);
         ASSERT_OK(r);
         ASSERT_PTR_EQ(t->server, env.server2);
