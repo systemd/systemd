@@ -621,8 +621,9 @@ Table=1234</programlisting></para>
           <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
           </para>
 
-          <para>Note that <literal>sequential</literal> mode only falls back on server failure (timeout,
-          network error), not on authoritative negative responses (NXDOMAIN, NODATA). For proper split-DNS
+          <para>Note that <literal>sequential</literal> mode only falls back on transport failure (timeout,
+          network error) or server error responses (SERVFAIL, REFUSED, FORMERR, NOTIMP), not on
+          authoritative negative responses (NXDOMAIN, NODATA). For proper split-DNS
           with different authoritative zones, use <varname>Domains=~.</varname> routing instead. See
           <citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
           for detailed caveats.</para>

@@ -434,8 +434,9 @@ DNSStubListenerExtra=udp:[2001:db8:0:f102::13]:9953</programlisting>
         consistent server ordering is more important than minimizing lookup latency—for example, when
         regulatory or policy requirements mandate trying an internal DNS server first.</para>
 
-        <para><emphasis>Important:</emphasis> Fallback only occurs when a server fails to respond (timeout,
-        network error, SERVFAIL). If a server returns an authoritative negative response such as NXDOMAIN
+        <para><emphasis>Important:</emphasis> Fallback only occurs on transport failure (timeout, network
+        error) or server error responses (SERVFAIL, REFUSED, FORMERR, NOTIMP). If a server returns an
+        authoritative negative response such as NXDOMAIN
         (domain does not exist) or NODATA (no records of requested type), no fallback occurs—this is
         correct DNS behavior. Consequently, <literal>sequential</literal> mode is
         <emphasis>not</emphasis> suitable for merging responses from DNS servers that are authoritative
