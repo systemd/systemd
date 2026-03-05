@@ -1,10 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-varlink.h"
+
 #include "facts.h"
 #include "json-util.h"
 #include "log.h"
 #include "varlink-io.systemd.Facts.h"
-#include "varlink-util.h"
 
 int facts_add_to_varlink_server(
                 sd_varlink_server *server,
