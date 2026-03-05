@@ -144,6 +144,10 @@ TEST(cgroup_properties) {
                         "CPUQuotaPeriodSec=1s",
                         "-ERANGE CPUQuota=0%",
 
+                        "CPUBurst=0%",
+                        "CPUBurst=20%",
+                        "CPUBurst=200%",
+
                         "DeviceAllow=/dev/null rw",
                         "DeviceAllow=/dev/zero r",
 
