@@ -1495,8 +1495,9 @@ EOF
 testcase_dns_server_policy() {
     # Test that DNSServerPolicy is displayed in resolvectl status
 
-    # Cleanup - follows same pattern as other tests in this file
-    # shellcheck disable=SC2317
+    # cleanup() is invoked indirectly via 'trap cleanup RETURN' below,
+    # which shellcheck cannot detect — suppress the false positive.
+    # shellcheck disable=SC2317,SC2329
     cleanup() {
         rm -f /run/systemd/resolved.conf.d/90-dns-server-policy.conf
         rm -f /run/systemd/network/10-dns0.network.d/dns-server-policy.conf
