@@ -1539,7 +1539,19 @@ EOF
     # Link should show adaptive (override)
     grep -qE "DNS Server Policy:.*adaptive" "$RUN_OUT"
 
-    # Test 4: Remove config and verify reversion to default
+    # Test 4: Remove per-link config and verify reversion to global policy
+    # With the per-link override removed, the link should inherit the global
+    # sequential policy set in Test 2
+    rm -f /run/systemd/network/10-dns0.network.d/dns-server-policy.conf
+    networkctl reload
+    networkctl reconfigure dns0
+    /usr/lib/systemd/systemd-networkd-wait-online --timeout=60 --interface=dns0:routable
+
+    run resolvectl status dns0
+    # Link should now show sequential (inherited from global)
+    grep -qE "DNS Server Policy:.*sequential" "$RUN_OUT"
+
+    # Test 5: Remove global config and verify reversion to default
     # This tests that manager_set_defaults() properly resets dns_server_policy on reload
     rm -f /run/systemd/resolved.conf.d/90-dns-server-policy.conf
     systemctl reload systemd-resolved.service
