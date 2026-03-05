@@ -334,8 +334,8 @@ TEST(validate_json) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
         assert_se(sd_json_build(&v, SD_JSON_BUILD_OBJECT(
-                                             SD_JSON_BUILD_PAIR("a", SD_JSON_BUILD_STRING("x")),
-                                             SD_JSON_BUILD_PAIR("b", SD_JSON_BUILD_UNSIGNED(44)),
+                                             SD_JSON_BUILD_PAIR_STRING("a", "x"),
+                                             SD_JSON_BUILD_PAIR_UNSIGNED("b", 44),
                                              SD_JSON_BUILD_PAIR("d", SD_JSON_BUILD_ARRAY(SD_JSON_BUILD_UNSIGNED(5), SD_JSON_BUILD_UNSIGNED(7), SD_JSON_BUILD_UNSIGNED(107))),
                                              SD_JSON_BUILD_PAIR("g", SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("f", SD_JSON_BUILD_REAL(0.5f)))))) >= 0);
 

@@ -1321,10 +1321,8 @@ static int acquire_removable(sd_device *d) {
                         return r;
 
                 r = device_in_subsystem(d, "block");
-                if (r < 0)
+                if (r <= 0)
                         return r;
-                if (r == 0)
-                        return 0;
         }
 
         if (parse_boolean(v) <= 0)

@@ -316,10 +316,8 @@ static int machine_add_from_params(
                                 details,
                                 &manager->polkit_registry,
                                 error);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        return 0; /* Will call us back */
+                if (r <= 0)
+                        return r; /* 0 means Polkit will call us back, see method_create_machine() */
         }
 
         r = manager_add_machine(manager, name, &m);
