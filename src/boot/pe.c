@@ -396,7 +396,7 @@ static void pe_locate_sections(
 
                         EFI_STATUS err = chid_match(hwids, hwids_section[0].memory_size, DEVICE_TYPE_DEVICETREE, &device);
                         if (err != EFI_SUCCESS) {
-                                log_full(err, (err == EFI_NOT_FOUND) ? LOG_DEBUG : LOG_ERR,
+                                log_full(err, err == EFI_NOT_FOUND ? LOG_DEBUG : LOG_ERR,
                                          "HWID matching failed, no DT blob will be selected: %m");
                                 hwids = NULL;
                         }
