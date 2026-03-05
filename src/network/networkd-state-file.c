@@ -932,6 +932,8 @@ static int link_save(Link *link) {
 
                 /************************************************************/
 
+                /* Write effective policy (link override, else network config value).
+                 * Consumers like systemd-resolved read this to determine per-link behavior. */
                 DnsServerPolicy dns_server_policy =
                         link->dns_server_policy != _DNS_SERVER_POLICY_INVALID ? link->dns_server_policy :
                         link->network->dns_server_policy;

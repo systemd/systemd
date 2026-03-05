@@ -224,8 +224,10 @@ DnsServer *dns_scope_get_first_dns_server(DnsScope *s) {
         if (s->protocol != DNS_PROTOCOL_DNS)
                 return NULL;
 
-        /* Returns the first DNS server in the list, regardless of current server state.
-         * Used for "sequential" policy where we always start with the first configured server. */
+        /* Returns the first DNS server in the configured list, regardless of current server state.
+         * The dns_servers linked list maintains stable configured order — it is never reordered.
+         * Adaptive mode only advances a cursor (current_dns_server), not the list itself.
+         * Used by sequential policy to always start with the first configured server. */
 
         if (s->link) {
                 assert(!s->delegate);
