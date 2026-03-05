@@ -361,6 +361,31 @@ TEST(sequential_policy_server_removed_during_iteration) {
         ASSERT_PTR_EQ(dns_scope_get_first_dns_server(env.scope), env.server1);
 }
 
+TEST(sequential_policy_head_server_removed_during_iteration) {
+        _cleanup_(policy_test_env_teardown) PolicyTestEnv env = {};
+        _cleanup_(dns_server_unrefp) DnsServer *server1_ref = NULL;
+
+        policy_test_env_setup(&env);
+        env.link->dns_server_policy = DNS_SERVER_POLICY_SEQUENTIAL;
+
+        /* Verify initial state: server1 -> server2 */
+        ASSERT_PTR_EQ(env.link->dns_servers, env.server1);
+        ASSERT_PTR_EQ(env.server1->servers_next, env.server2);
+
+        /* Take a reference before unlinking so the object survives */
+        server1_ref = dns_server_ref(env.server1);
+
+        /* Remove the head server (server1) */
+        dns_server_unlink(env.server1);
+        ASSERT_FALSE(server1_ref->linked);
+
+        /* After removal, list head should now be server2 */
+        ASSERT_PTR_EQ(env.link->dns_servers, env.server2);
+
+        /* get_first_dns_server should return the new head (server2) */
+        ASSERT_PTR_EQ(dns_scope_get_first_dns_server(env.scope), env.server2);
+}
+
 /* ================================================================
  * Transaction-level integration tests
  *
