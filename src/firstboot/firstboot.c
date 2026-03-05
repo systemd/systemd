@@ -655,6 +655,19 @@ static int prompt_hostname(int rfd, sd_varlink **mute_console_link) {
         if (arg_hostname)
                 return 0;
 
+        _cleanup_free_ char *hn = NULL;
+        r = read_credential("firstboot.hostname", (void**) &hn, NULL);
+        if (r < 0)
+                log_debug_errno(r, "Failed to read credential firstboot.hostname, ignoring: %m");
+        else if (!hostname_is_valid(hn, VALID_HOSTNAME_TRAILING_DOT|VALID_HOSTNAME_QUESTION_MARK))
+                log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Hostname '%s' supplied via credential is not valid, ignoring.", hn);
+        else {
+                log_debug("Acquired hostname from credentials.");
+                arg_hostname = TAKE_PTR(hn);
+                hostname_cleanup(arg_hostname);
+                return 0;
+        }
+
         if (!arg_prompt_hostname) {
                 log_debug("Prompting for hostname was not requested.");
                 return 0;
