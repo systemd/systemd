@@ -7,7 +7,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-02-24 18:42+0000\n"
+"POT-Creation-Date: 2026-03-06 03:46+0900\n"
 "PO-Revision-Date: 2016-06-09 19:50+0300\n"
 "Last-Translator: Viktar Vaŭčkievič <victorenator@gmail.com>\n"
 "Language-Team: \n"
@@ -1079,7 +1079,9 @@ msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:144
 #, fuzzy
-msgid "Authentication is required to send force renew message."
+msgid ""
+"Authentication is required to send a force renew message from the DHCP "
+"server."
 msgstr ""
 "Nieabchodna aŭtentyfikacyja dlia ŭstaliavannia ŭsieahuĺnaha paviedamliennia"
 

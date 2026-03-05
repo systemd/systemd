@@ -8,7 +8,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-02-24 18:42+0000\n"
+"POT-Creation-Date: 2026-03-06 03:46+0900\n"
 "PO-Revision-Date: 2024-08-04 03:41+0000\n"
 "Last-Translator: Marin Kresic <marinjurekresic@gmail.com>\n"
 "Language-Team: Croatian <https://translate.fedoraproject.org/projects/"
@@ -1029,7 +1029,11 @@ msgid "DHCP server sends force renew message"
 msgstr "DHCP poslužitelj šalje poruku prisilne ponovne uspostave"
 
 #: src/network/org.freedesktop.network1.policy:144
-msgid "Authentication is required to send force renew message."
+#, fuzzy
+#| msgid "Authentication is required to send force renew message."
+msgid ""
+"Authentication is required to send a force renew message from the DHCP "
+"server."
 msgstr "Potrebna je ovjera za slanje poruke prisilne ponovne uspostave."
 
 #: src/network/org.freedesktop.network1.policy:154
