@@ -46,6 +46,7 @@ UserRecord* user_record_new(void) {
                 .nice_level = INT_MAX,
                 .not_before_usec = UINT64_MAX,
                 .not_after_usec = UINT64_MAX,
+                .birth_date = BIRTH_DATE_UNSET,
                 .locked = -1,
                 .storage = _USER_STORAGE_INVALID,
                 .access_mode = MODE_INVALID,
@@ -410,6 +411,28 @@ static int json_dispatch_filename_or_path(const char *name, sd_json_variant *var
         r = free_and_strdup(s, n);
         if (r < 0)
                 return json_log(variant, flags, r, "Failed to allocate string: %m");
+
+        return 0;
+}
+
+static int json_dispatch_birth_date(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        struct tm *ret = ASSERT_PTR(userdata);
+        const char *s;
+        int r;
+
+        if (sd_json_variant_is_null(variant)) {
+                *ret = BIRTH_DATE_UNSET;
+                return 0;
+        }
+
+        if (!sd_json_variant_is_string(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
+
+        s = sd_json_variant_string(variant);
+
+        r = parse_birth_date(s, ret);
+        if (r < 0)
+                return json_log(variant, flags, r, "JSON field '%s' is not a valid ISO 8601 date (expected YYYY-MM-DD).", strna(name));
 
         return 0;
 }
@@ -1492,6 +1515,7 @@ int user_group_record_mangle(
          * that it is not included in debug output and erased from memory when we are done. We do this for
          * any record that passes through here. */
         sd_json_variant_sensitive(sd_json_variant_by_key(v, "secret"));
+        sd_json_variant_sensitive(sd_json_variant_by_key(v, "birthDate"));
 
         /* Check if we have the special sections and if they match our flags set */
         FOREACH_ELEMENT(i, mask_field) {
@@ -1585,6 +1609,7 @@ int user_record_load(UserRecord *h, sd_json_variant *v, UserRecordLoadFlags load
                 { "emailAddress",               SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,              offsetof(UserRecord, email_address),                 SD_JSON_STRICT },
                 { "iconName",                   SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,              offsetof(UserRecord, icon_name),                     SD_JSON_STRICT },
                 { "location",                   SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,              offsetof(UserRecord, location),                      0              },
+                { "birthDate",                  SD_JSON_VARIANT_STRING,        json_dispatch_birth_date,             offsetof(UserRecord, birth_date),                    0              },
                 { "disposition",                SD_JSON_VARIANT_STRING,        json_dispatch_user_disposition,       offsetof(UserRecord, disposition),                   0              },
                 { "lastChangeUSec",             _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,              offsetof(UserRecord, last_change_usec),              0              },
                 { "lastPasswordChangeUSec",     _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,              offsetof(UserRecord, last_password_change_usec),     0              },
@@ -2217,6 +2242,7 @@ const char** user_record_self_modifiable_fields(UserRecord *h) {
                 "emailAddress", /* Just the $EMAIL env var */
                 "iconName",
                 "location",
+                "birthDate",
 
                 /* Basic account settings */
                 "shell",
