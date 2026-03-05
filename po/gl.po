@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-02-24 18:42+0000\n"
+"POT-Creation-Date: 2026-03-06 03:46+0900\n"
 "PO-Revision-Date: 2023-04-14 18:20+0000\n"
 "Last-Translator: Fran Diéguez <frandieguez@gnome.org>\n"
 "Language-Team: Galician <https://translate.fedoraproject.org/projects/"
@@ -1045,7 +1045,11 @@ msgid "DHCP server sends force renew message"
 msgstr "O servidor DHCP envía un mensaxe de renovación forzada"
 
 #: src/network/org.freedesktop.network1.policy:144
-msgid "Authentication is required to send force renew message."
+#, fuzzy
+#| msgid "Authentication is required to send force renew message."
+msgid ""
+"Authentication is required to send a force renew message from the DHCP "
+"server."
 msgstr "Requírese autenticación para enviar o mensaxe de renovación forzada."
 
 #: src/network/org.freedesktop.network1.policy:154

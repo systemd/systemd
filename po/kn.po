@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: systemd\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-02-24 18:42+0000\n"
+"POT-Creation-Date: 2026-03-06 03:46+0900\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -923,7 +923,9 @@ msgid "DHCP server sends force renew message"
 msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:144
-msgid "Authentication is required to send force renew message."
+msgid ""
+"Authentication is required to send a force renew message from the DHCP "
+"server."
 msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:154

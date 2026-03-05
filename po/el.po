@@ -9,7 +9,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-02-24 18:42+0000\n"
+"POT-Creation-Date: 2026-03-06 03:46+0900\n"
 "PO-Revision-Date: 2026-03-03 08:58+0000\n"
 "Last-Translator: Jim Spentzos <jimspentzos2000@gmail.com>\n"
 "Language-Team: Greek <https://translate.fedoraproject.org/projects/systemd/"
@@ -338,7 +338,8 @@ msgstr "Ο κωδικός πρόσβασης έληξε, απαιτείται α
 
 #: src/home/pam_systemd_home.c:1056
 msgid "Password is expired, but can't change, refusing login."
-msgstr "Ο κωδικός πρόσβασης έληξε αλλά δεν μπορεί να αλλαχθεί, άρνηση σύνδεσης."
+msgstr ""
+"Ο κωδικός πρόσβασης έληξε αλλά δεν μπορεί να αλλαχθεί, άρνηση σύνδεσης."
 
 #: src/home/pam_systemd_home.c:1060
 msgid "Password will expire soon, please change."
@@ -350,7 +351,8 @@ msgstr "Ορισμός ονόματος οικοδεσπότη"
 
 #: src/hostname/org.freedesktop.hostname1.policy:21
 msgid "Authentication is required to set the local hostname."
-msgstr "Απαιτείται ταυτοποίηση για τον ορισμό του τοπικού ονόματος οικοδεσπότη."
+msgstr ""
+"Απαιτείται ταυτοποίηση για τον ορισμό του τοπικού ονόματος οικοδεσπότη."
 
 #: src/hostname/org.freedesktop.hostname1.policy:30
 msgid "Set static hostname"
@@ -475,7 +477,8 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:44
 msgid "Allow applications to inhibit system sleep"
-msgstr "Να επιτρέπεται στις εφαρμογές να εμποδίζουν την αναστολή του συστήματος"
+msgstr ""
+"Να επιτρέπεται στις εφαρμογές να εμποδίζουν την αναστολή του συστήματος"
 
 #: src/login/org.freedesktop.login1.policy:45
 msgid "Authentication is required for an application to inhibit system sleep."
@@ -864,7 +867,8 @@ msgstr "Σύνδεση σε τοπικό εμπορευματοκιβώτιο (c
 
 #: src/machine/org.freedesktop.machine1.policy:23
 msgid "Authentication is required to log into a local container."
-msgstr "Απαιτείται ταυτοποίηση για τη σύνδεση σε ένα τοπικό εμπορευματοκιβώτιο."
+msgstr ""
+"Απαιτείται ταυτοποίηση για τη σύνδεση σε ένα τοπικό εμπορευματοκιβώτιο."
 
 #: src/machine/org.freedesktop.machine1.policy:32
 msgid "Log into the local host"
@@ -1004,7 +1008,8 @@ msgstr "Ενεργοποίηση/απενεργοποίηση LLMNR"
 #: src/network/org.freedesktop.network1.policy:67
 #: src/resolve/org.freedesktop.resolve1.policy:78
 msgid "Authentication is required to enable or disable LLMNR."
-msgstr "Απαιτείται ταυτοποίηση για την ενεργοποίηση ή απενεργοποίηση του LLMNR."
+msgstr ""
+"Απαιτείται ταυτοποίηση για την ενεργοποίηση ή απενεργοποίηση του LLMNR."
 
 #: src/network/org.freedesktop.network1.policy:77
 #: src/resolve/org.freedesktop.resolve1.policy:88
@@ -1073,7 +1078,11 @@ msgid "DHCP server sends force renew message"
 msgstr "Ο διακομιστής DHCP στέλνει μήνυμα αναγκαστικής ανανέωσης"
 
 #: src/network/org.freedesktop.network1.policy:144
-msgid "Authentication is required to send force renew message."
+#, fuzzy
+#| msgid "Authentication is required to send force renew message."
+msgid ""
+"Authentication is required to send a force renew message from the DHCP "
+"server."
 msgstr ""
 "Απαιτείται ταυτοποίηση για την αποστολή μηνύματος αναγκαστικής ανανέωσης."
 
