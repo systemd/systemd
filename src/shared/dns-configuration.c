@@ -239,6 +239,7 @@ DNSConfiguration* dns_configuration_free(DNSConfiguration *c) {
         free(c->llmnr_mode_str);
         free(c->mdns_mode_str);
         free(c->resolv_conf_mode_str);
+        free(c->dns_server_policy_str);
         free(c->delegate);
         strv_free(c->negative_trust_anchors);
 
@@ -269,6 +270,7 @@ static int dispatch_dns_configuration(const char *name, sd_json_variant *variant
                 { "fallbackServers",      SD_JSON_VARIANT_ARRAY,    dispatch_dns_server_array,    offsetof(DNSConfiguration, fallback_dns_servers),   0             },
                 { "negativeTrustAnchors", SD_JSON_VARIANT_ARRAY,    sd_json_dispatch_strv,        offsetof(DNSConfiguration, negative_trust_anchors), 0             },
                 { "resolvConfMode",       SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,      offsetof(DNSConfiguration, resolv_conf_mode_str),   0             },
+                { "dnsServerPolicy",      SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,      offsetof(DNSConfiguration, dns_server_policy_str),  0             },
                 { "scopes",               SD_JSON_VARIANT_ARRAY,    dispatch_dns_scope_array,     offsetof(DNSConfiguration, dns_scopes),             0             },
                 { "delegate",             SD_JSON_VARIANT_STRING,   sd_json_dispatch_string,      offsetof(DNSConfiguration, delegate),               0             },
                 {},
