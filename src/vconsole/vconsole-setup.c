@@ -271,6 +271,14 @@ static int keyboard_load_and_wait(const char *vc, Context *c, bool utf8) {
         if (streq(keymap, "@kernel"))
                 return 0;
 
+        if (access(KBD_LOADKEYS, X_OK) < 0) {
+                if (errno != ENOENT)
+                        return log_error_errno(errno, "Failed to check if '" KBD_LOADKEYS "' is available: %m");
+
+                log_notice("'" KBD_LOADKEYS "' is not available, skipping keyboard mapping setup.");
+                return INT_MAX; /* Report that we skipped this */
+        }
+
         args[i++] = KBD_LOADKEYS;
         args[i++] = "-q";
         args[i++] = "-C";
@@ -317,6 +325,14 @@ static int font_load_and_wait(const char *vc, Context *c) {
         /* Any part can be set independently */
         if (!font && !font_map && !font_unimap)
                 return 0;
+
+        if (access(KBD_SETFONT, X_OK) < 0) {
+                if (errno != ENOENT)
+                        return log_error_errno(errno, "Failed to check if '" KBD_SETFONT "' is available: %m");
+
+                log_notice("'" KBD_SETFONT "' is not available, skipping console font setup.");
+                return INT_MAX; /* Report that we skipped this */
+        }
 
         args[i++] = KBD_SETFONT;
         args[i++] = "-C";
@@ -590,9 +606,8 @@ static int run(int argc, char **argv) {
         _cleanup_(context_done) Context c = {};
         _cleanup_free_ char *vc = NULL;
         _cleanup_close_ int fd = -EBADF, lock_fd = -EBADF;
-        bool utf8, keyboard_ok;
+        bool utf8;
         unsigned idx = 0;
-        int r;
 
         log_setup();
 
@@ -631,18 +646,19 @@ static int run(int argc, char **argv) {
 
         (void) toggle_utf8_vc(vc, fd, utf8);
 
-        r = font_load_and_wait(vc, &c);
-        keyboard_ok = keyboard_load_and_wait(vc, &c, utf8) == 0;
+        int setfont_status = font_load_and_wait(vc, &c);
+        int loadkeys_status = keyboard_load_and_wait(vc, &c, utf8);
 
-        if (idx > 0) {
-                if (r == 0)
-                        setup_remaining_vcs(fd, idx, utf8);
-                else
-                        log_full(r == EX_OSERR ? LOG_NOTICE : LOG_WARNING,
+        if (setfont_status != INT_MAX && idx > 0) {
+                if (setfont_status != 0)
+                        log_full(setfont_status == EX_OSERR ? LOG_NOTICE : LOG_WARNING,
                                  "Configuration of first virtual console failed, ignoring remaining ones.");
+                else
+                        setup_remaining_vcs(fd, idx, utf8);
         }
 
-        return IN_SET(r, 0, EX_OSERR) && keyboard_ok ? EXIT_SUCCESS : EXIT_FAILURE;
+        return IN_SET(setfont_status, 0, EX_OSERR, INT_MAX) &&
+                IN_SET(loadkeys_status, 0, INT_MAX) ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
 DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);
