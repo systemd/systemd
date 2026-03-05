@@ -381,6 +381,7 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("StartupCPUWeight", "t", NULL, offsetof(CGroupContext, startup_cpu_weight), 0),
         SD_BUS_PROPERTY("CPUQuotaPerSecUSec", "t", bus_property_get_usec, offsetof(CGroupContext, cpu_quota_per_sec_usec), 0),
         SD_BUS_PROPERTY("CPUQuotaPeriodUSec", "t", bus_property_get_usec, offsetof(CGroupContext, cpu_quota_period_usec), 0),
+        SD_BUS_PROPERTY("CPUBurstPerSecUSec", "t", bus_property_get_usec, offsetof(CGroupContext, cpu_burst_per_sec_usec), 0),
         SD_BUS_PROPERTY("AllowedCPUs", "ay", property_get_cpuset, offsetof(CGroupContext, cpuset_cpus), 0),
         SD_BUS_PROPERTY("StartupAllowedCPUs", "ay", property_get_cpuset, offsetof(CGroupContext, startup_cpuset_cpus), 0),
         SD_BUS_PROPERTY("AllowedMemoryNodes", "ay", property_get_cpuset, offsetof(CGroupContext, cpuset_mems), 0),
@@ -1184,6 +1185,28 @@ int bus_cgroup_set_property(
                                 unit_write_settingf(u, flags, "CPUQuotaPeriodSec",
                                                     "CPUQuotaPeriodSec=%s",
                                                     FORMAT_TIMESPAN(c->cpu_quota_period_usec, 1));
+                }
+
+                return 1;
+
+        } else if (streq(name, "CPUBurstPerSecUSec")) {
+                uint64_t u64;
+
+                r = sd_bus_message_read(message, "t", &u64);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        c->cpu_burst_per_sec_usec = u64;
+                        unit_invalidate_cgroup(u, CGROUP_MASK_CPU);
+
+                        if (c->cpu_burst_per_sec_usec == 0)
+                                unit_write_setting(u, flags, "CPUBurst", "CPUBurst=");
+                        else
+                                unit_write_settingf(u, flags, "CPUBurst",
+                                                    "CPUBurst=" USEC_FMT ".%02" PRI_USEC "%%",
+                                                    c->cpu_burst_per_sec_usec / 10000,
+                                                    (c->cpu_burst_per_sec_usec % 10000) / 100);
                 }
 
                 return 1;
