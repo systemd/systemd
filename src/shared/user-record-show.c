@@ -342,6 +342,8 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
                 printf("       Email: %s\n", hr->email_address);
         if (hr->location)
                 printf("    Location: %s\n", hr->location);
+        if (hr->birth_date)
+                printf("  Birth Date: %s\n", hr->birth_date);
         if (hr->password_hint)
                 printf(" Passw. Hint: %s\n", hr->password_hint);
         if (hr->icon_name)

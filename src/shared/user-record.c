@@ -154,6 +154,7 @@ static UserRecord* user_record_free(UserRecord *h) {
         free(h->email_address);
         erase_and_free(h->password_hint);
         free(h->location);
+        free(h->birth_date);
         free(h->icon_name);
 
         free(h->blob_directory);
@@ -406,6 +407,33 @@ static int json_dispatch_filename_or_path(const char *name, sd_json_variant *var
         n = sd_json_variant_string(variant);
         if (!filename_is_valid(n) && !path_is_normalized(n))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid file name or normalized path.", strna(name));
+
+        r = free_and_strdup(s, n);
+        if (r < 0)
+                return json_log(variant, flags, r, "Failed to allocate string: %m");
+
+        return 0;
+}
+
+static int json_dispatch_birth_date(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        char **s = ASSERT_PTR(userdata);
+        const char *n;
+        int r;
+
+        if (sd_json_variant_is_null(variant)) {
+                *s = mfree(*s);
+                return 0;
+        }
+
+        if (!sd_json_variant_is_string(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
+
+        n = sd_json_variant_string(variant);
+
+        struct tm tm = {};
+        const char *k = strptime(n, "%Y-%m-%d", &tm);
+        if (!k || *k)
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid ISO 8601 date (expected YYYY-MM-DD).", strna(name));
 
         r = free_and_strdup(s, n);
         if (r < 0)
@@ -1228,6 +1256,7 @@ static int dispatch_per_machine(const char *name, sd_json_variant *variant, sd_j
                 { "blobManifest",               SD_JSON_VARIANT_OBJECT,        dispatch_blob_manifest,               offsetof(UserRecord, blob_manifest),                 0              },
                 { "iconName",                   SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,              offsetof(UserRecord, icon_name),                     SD_JSON_STRICT },
                 { "location",                   SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,              offsetof(UserRecord, location),                      0              },
+                { "birthDate",                  SD_JSON_VARIANT_STRING,        json_dispatch_birth_date,             offsetof(UserRecord, birth_date),                    0              },
                 { "shell",                      SD_JSON_VARIANT_STRING,        json_dispatch_filename_or_path,       offsetof(UserRecord, shell),                         0              },
                 { "umask",                      _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_access_mode,            offsetof(UserRecord, umask),                         SD_JSON_STRICT },
                 { "environment",                SD_JSON_VARIANT_ARRAY,         json_dispatch_strv_environment,       offsetof(UserRecord, environment),                   0              },
@@ -1585,6 +1614,7 @@ int user_record_load(UserRecord *h, sd_json_variant *v, UserRecordLoadFlags load
                 { "emailAddress",               SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,              offsetof(UserRecord, email_address),                 SD_JSON_STRICT },
                 { "iconName",                   SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,              offsetof(UserRecord, icon_name),                     SD_JSON_STRICT },
                 { "location",                   SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,              offsetof(UserRecord, location),                      0              },
+                { "birthDate",                  SD_JSON_VARIANT_STRING,        json_dispatch_birth_date,             offsetof(UserRecord, birth_date),                    0              },
                 { "disposition",                SD_JSON_VARIANT_STRING,        json_dispatch_user_disposition,       offsetof(UserRecord, disposition),                   0              },
                 { "lastChangeUSec",             _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,              offsetof(UserRecord, last_change_usec),              0              },
                 { "lastPasswordChangeUSec",     _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,              offsetof(UserRecord, last_password_change_usec),     0              },
@@ -2217,6 +2247,7 @@ const char** user_record_self_modifiable_fields(UserRecord *h) {
                 "emailAddress", /* Just the $EMAIL env var */
                 "iconName",
                 "location",
+                "birthDate",
 
                 /* Basic account settings */
                 "shell",
