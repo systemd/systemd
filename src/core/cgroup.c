@@ -499,6 +499,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 "%sStartupCPUWeight: %" PRIu64 "\n"
                 "%sCPUQuotaPerSecSec: %s\n"
                 "%sCPUQuotaPeriodSec: %s\n"
+                "%sCPUBurstPerSecSec: %s\n"
                 "%sAllowedCPUs: %s\n"
                 "%sStartupAllowedCPUs: %s\n"
                 "%sAllowedMemoryNodes: %s\n"
@@ -535,6 +536,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 prefix, c->startup_cpu_weight,
                 prefix, FORMAT_TIMESPAN(c->cpu_quota_per_sec_usec, 1),
                 prefix, FORMAT_TIMESPAN(c->cpu_quota_period_usec, 1),
+                prefix, FORMAT_TIMESPAN(c->cpu_burst_per_sec_usec, 1),
                 prefix, strempty(cpuset_cpus),
                 prefix, strempty(startup_cpuset_cpus),
                 prefix, strempty(cpuset_mems),
@@ -1103,6 +1105,21 @@ static void cgroup_apply_cpu_quota(Unit *u, usec_t quota, usec_t period) {
         (void) set_attribute_and_warn(u, "cpu.max", buf);
 }
 
+static void cgroup_apply_cpu_burst(Unit *u, usec_t burst, usec_t period) {
+        char buf[DECIMAL_STR_MAX(usec_t) + 2];
+
+        assert(u);
+
+        if (burst > 0) {
+                period = cgroup_cpu_adjust_period_and_log(u, period, burst);
+                xsprintf(buf, USEC_FMT "\n",
+                         MAX(burst * period / USEC_PER_SEC, USEC_PER_MSEC));
+        } else
+                xsprintf(buf, "0\n");
+
+        (void) set_attribute_and_warn(u, "cpu.max.burst", buf);
+}
+
 static void cgroup_apply_cpuset(Unit *u, const CPUSet *cpus, const char *name) {
         _cleanup_free_ char *buf = NULL;
 
@@ -1442,6 +1459,7 @@ static void cgroup_context_apply(
                 cgroup_apply_cpu_idle(u, weight);
                 cgroup_apply_cpu_weight(u, weight);
                 cgroup_apply_cpu_quota(u, c->cpu_quota_per_sec_usec, c->cpu_quota_period_usec);
+                cgroup_apply_cpu_burst(u, c->cpu_burst_per_sec_usec, c->cpu_quota_period_usec);
         }
 
         if ((apply_mask & CGROUP_MASK_CPUSET) && !is_local_root) {
@@ -1649,7 +1667,8 @@ static CGroupMask unit_get_cgroup_mask(Unit *u) {
         /* Figure out which controllers we need, based on the cgroup context object */
 
         if (cgroup_context_has_cpu_weight(c) ||
-            c->cpu_quota_per_sec_usec != USEC_INFINITY)
+            c->cpu_quota_per_sec_usec != USEC_INFINITY ||
+            c->cpu_burst_per_sec_usec > 0)
                 mask |= CGROUP_MASK_CPU;
 
         if (cgroup_context_has_allowed_cpus(c) || cgroup_context_has_allowed_mems(c))
