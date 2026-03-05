@@ -640,6 +640,7 @@ static void manager_set_defaults(Manager *m) {
         m->resolve_unicast_single_label = false;
         m->cache_from_localhost = false;
         m->stale_retention_usec = 0;
+        m->dns_server_policy = DNS_SERVER_POLICY_ADAPTIVE;
         m->refuse_record_types = set_free(m->refuse_record_types);
         m->resolv_conf_stat = (struct stat) {};
 }
@@ -2063,6 +2064,7 @@ static int dns_configuration_json_append(
                 ResolveSupport llmnr_support,
                 ResolveSupport mdns_support,
                 ResolvConfMode resolv_conf_mode,
+                DnsServerPolicy dns_server_policy,
                 sd_json_variant **configuration) {
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *dns_servers_json = NULL,
@@ -2148,6 +2150,7 @@ static int dns_configuration_json_append(
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("llmnr", resolve_support_to_string(llmnr_support)),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("mDNS", resolve_support_to_string(mdns_support)),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("resolvConfMode", resolv_conf_mode_to_string(resolv_conf_mode)),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("dnsServerPolicy", dns_server_policy_to_string(dns_server_policy)),
                         JSON_BUILD_PAIR_VARIANT_NON_NULL("scopes", scopes_json));
 }
 
@@ -2179,6 +2182,7 @@ static int global_dns_configuration_json_append(Manager *m, sd_json_variant **co
                         m->llmnr_support,
                         m->mdns_support,
                         resolv_conf_mode(),
+                        m->dns_server_policy,
                         configuration);
 }
 
@@ -2236,6 +2240,7 @@ static int link_dns_configuration_json_append(Link *l, sd_json_variant **configu
                         link_get_llmnr_support(l),
                         link_get_mdns_support(l),
                         /* resolv_conf_mode= */ _RESOLV_CONF_MODE_INVALID,
+                        link_get_dns_server_policy(l),
                         configuration);
 }
 
@@ -2267,6 +2272,7 @@ static int delegate_dns_configuration_json_append(DnsDelegate *d, sd_json_varian
                         /* llmnr_support= */ _RESOLVE_SUPPORT_INVALID,
                         /* mdns_support= */ _RESOLVE_SUPPORT_INVALID,
                         /* resolv_conf_mode= */ _RESOLV_CONF_MODE_INVALID,
+                        /* dns_server_policy= */ _DNS_SERVER_POLICY_INVALID,
                         configuration);
 }
 

@@ -2,6 +2,7 @@
 
 #include "dns-packet.h"
 #include "dns-type.h"
+#include "resolve-util.h"
 #include "resolved-dns-dnssec.h"
 #include "test-tables.h"
 #include "tests.h"
@@ -12,6 +13,7 @@ int main(int argc, char **argv) {
         test_setup_logging(LOG_DEBUG);
 
         test_table(DnsProtocol, dns_protocol, DNS_PROTOCOL);
+        test_table(DnsServerPolicy, dns_server_policy, DNS_SERVER_POLICY);
         test_table(DnssecResult, dnssec_result, DNSSEC_RESULT);
         test_table(DnssecVerdict, dnssec_verdict, DNSSEC_VERDICT);
 

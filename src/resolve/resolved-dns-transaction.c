@@ -130,6 +130,7 @@ DnsTransaction* dns_transaction_free(DnsTransaction *t) {
         dns_transaction_reset_answer(t);
 
         dns_server_unref(t->server);
+        dns_server_unref(t->sequential_next_server);
 
         if (t->scope) {
                 if (t->key) {
@@ -477,7 +478,7 @@ static void dns_transaction_complete_errno(DnsTransaction *t, int error) {
         dns_transaction_complete(t, DNS_TRANSACTION_ERRNO);
 }
 
-static int dns_transaction_pick_server(DnsTransaction *t) {
+int dns_transaction_pick_server(DnsTransaction *t) {
         DnsServer *server;
 
         assert(t);
@@ -485,9 +486,41 @@ static int dns_transaction_pick_server(DnsTransaction *t) {
 
         /* Pick a DNS server and a feature level for it. */
 
-        server = dns_scope_get_dns_server(t->scope);
-        if (!server)
-                return -ESRCH;
+        if (dns_scope_get_dns_server_policy(t->scope) == DNS_SERVER_POLICY_SEQUENTIAL) {
+                /* Sequential policy: iterate through servers in strict configured list order,
+                 * independent of other transactions or past success history. */
+
+                if (t->server && t->server->linked) {
+                        /* Current server is still valid — this is a same-server retry
+                         * (e.g., feature-level downgrade from TLS to UDP). Keep using it
+                         * without advancing the sequential iterator. */
+                        server = t->server;
+                } else if (!t->sequential_next_server) {
+                        /* First pick or iterator reset: start at beginning of list */
+                        server = dns_scope_get_first_dns_server(t->scope);
+                } else if (!t->sequential_next_server->linked) {
+                        /* Tracked server was removed from list, restart from first */
+                        server = dns_scope_get_first_dns_server(t->scope);
+                } else {
+                        /* Subsequent picks: use tracked position */
+                        server = t->sequential_next_server;
+                }
+
+                if (!server)
+                        return -ESRCH;
+
+                /* Only advance the iterator when actually selecting a different server.
+                 * Same-server retries (feature-level downgrades) must not advance. */
+                if (server != t->server) {
+                        dns_server_unref(t->sequential_next_server);
+                        t->sequential_next_server = dns_server_ref(server->servers_next);
+                }
+        } else {
+                /* Adaptive policy: use existing behavior based on success history */
+                server = dns_scope_get_dns_server(t->scope);
+                if (!server)
+                        return -ESRCH;
+        }
 
         /* If we changed the server invalidate the feature level clamping, as the new server might have completely
          * different properties. */
@@ -529,8 +562,15 @@ static void dns_transaction_retry(DnsTransaction *t, bool next_server) {
                 log_debug("Retrying transaction %" PRIu16 ".", t->id);
 
         /* Before we try again, switch to a new server. */
-        if (next_server)
-                dns_scope_next_dns_server(t->scope, t->server);
+        if (next_server) {
+                if (dns_scope_get_dns_server_policy(t->scope) == DNS_SERVER_POLICY_SEQUENTIAL)
+                        /* Sequential policy manages iteration via sequential_next_server.
+                         * Clear the current server so pick_server() advances to the next one
+                         * instead of staying on the same server (as it would for feature-level retries). */
+                        t->server = dns_server_unref(t->server);
+                else
+                        dns_scope_next_dns_server(t->scope, t->server);
+        }
 
         r = dns_transaction_go(t);
         if (r < 0)
