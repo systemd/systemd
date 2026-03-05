@@ -10,4 +10,13 @@
 Description=Report System Basic Facts
 
 [Service]
+DynamicUser=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=disconnected
+PrivateNetwork=yes
+PrivateIPC=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+
 ExecStart={{LIBEXECDIR}}/systemd-report-basic
