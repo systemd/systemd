@@ -121,6 +121,13 @@ Deprecations and removals:
 
 Features:
 
+* make systemd work without /bin/sh and associated shell tools around
+  - logind + agetty what to do?
+  - sushell
+  - get rid of /bin/rm in ExecStart= of system-update-cleanup.service
+  - make sure debug shell service has a nice failure mode, prints a message and reboots
+  - varlink interface for "systemctl start" and friends
+
 * drop NV_ORDERLY flag from the product uuid nvpcr. Effect of the flag is that
   it pushes the thing into TPM RAM, but a TPM usually has very little of that,
   less than NVRAM. hence setting the flag amplifies space issues. Unsetting the
