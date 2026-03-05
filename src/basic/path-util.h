@@ -105,8 +105,6 @@ static inline int find_executable(const char *name, char **ret_filename) {
         return find_executable_full(name, /* root= */ NULL, NULL, true, ret_filename, NULL);
 }
 
-bool paths_check_timestamp(const char* const* paths, usec_t *paths_ts_usec, bool update);
-
 int fsck_exists(void);
 int fsck_exists_for_fstype(const char *fstype);
 

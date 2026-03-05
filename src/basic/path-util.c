@@ -17,7 +17,6 @@
 #include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
-#include "time-util.h"
 
 bool is_path(const char *p) {
         if (!p) /* A NULL pointer is definitely not a path */
@@ -783,42 +782,6 @@ int find_executable_full(
         }
 
         return last_error;
-}
-
-bool paths_check_timestamp(const char* const* paths, usec_t *timestamp, bool update) {
-        bool changed = false, originally_unset;
-
-        assert(timestamp);
-
-        if (!paths)
-                return false;
-
-        originally_unset = *timestamp == 0;
-
-        STRV_FOREACH(i, paths) {
-                struct stat stats;
-                usec_t u;
-
-                if (stat(*i, &stats) < 0)
-                        continue;
-
-                u = timespec_load(&stats.st_mtim);
-
-                /* check first */
-                if (*timestamp >= u)
-                        continue;
-
-                log_debug(originally_unset ? "Loaded timestamp for '%s'." : "Timestamp of '%s' changed.", *i);
-
-                /* update timestamp */
-                if (update) {
-                        *timestamp = u;
-                        changed = true;
-                } else
-                        return true;
-        }
-
-        return changed;
 }
 
 static int executable_is_good(const char *executable) {
