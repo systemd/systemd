@@ -9,7 +9,7 @@ static SD_VARLINK_DEFINE_ERROR(NoSuchFact);
 static SD_VARLINK_DEFINE_METHOD_FULL(
                 List,
                 SD_VARLINK_REQUIRES_MORE,
-                SD_VARLINK_FIELD_COMMENT("Fact family name, e.g. io.systemd.Manager.Hostname"),
+                SD_VARLINK_FIELD_COMMENT("Fact family name, e.g. io.systemd.System.Hostname"),
                 SD_VARLINK_DEFINE_OUTPUT(name, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("Fact object name"),
                 SD_VARLINK_DEFINE_OUTPUT(object, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),

@@ -10,7 +10,7 @@
 #include "architecture.h"
 #include "facts.h"
 #include "hostname-setup.h"
-#include "varlink-facts.h"
+#include "report-facts.h"
 #include "virt.h"
 
 static int architecture_generate(FactFamilyContext *context, void *userdata) {
@@ -98,35 +98,35 @@ static int virtualization_generate(FactFamilyContext *context, void *userdata) {
                         virtualization_to_string(v));
 }
 
-const FactFamily fact_family_table[] = {
+static const FactFamily fact_family_table[] = {
         /* Keep facts ordered alphabetically */
         {
-                .name = FACT_IO_SYSTEMD_MANAGER_PREFIX "Architecture",
+                .name = FACT_IO_SYSTEMD_SYSTEM_PREFIX "Architecture",
                 .description = "CPU architecture",
                 .generate = architecture_generate,
         },
         {
-                .name = FACT_IO_SYSTEMD_MANAGER_PREFIX "BootID",
+                .name = FACT_IO_SYSTEMD_SYSTEM_PREFIX "BootID",
                 .description = "Current boot ID",
                 .generate = boot_id_generate,
         },
         {
-                .name = FACT_IO_SYSTEMD_MANAGER_PREFIX "Hostname",
+                .name = FACT_IO_SYSTEMD_SYSTEM_PREFIX "Hostname",
                 .description = "System hostname",
                 .generate = hostname_generate,
         },
         {
-                .name = FACT_IO_SYSTEMD_MANAGER_PREFIX "KernelVersion",
+                .name = FACT_IO_SYSTEMD_SYSTEM_PREFIX "KernelVersion",
                 .description = "Kernel version",
                 .generate = kernel_version_generate,
         },
         {
-                .name = FACT_IO_SYSTEMD_MANAGER_PREFIX "MachineID",
+                .name = FACT_IO_SYSTEMD_SYSTEM_PREFIX "MachineID",
                 .description = "Machine ID",
                 .generate = machine_id_generate,
         },
         {
-                .name = FACT_IO_SYSTEMD_MANAGER_PREFIX "Virtualization",
+                .name = FACT_IO_SYSTEMD_SYSTEM_PREFIX "Virtualization",
                 .description = "Virtualization type",
                 .generate = virtualization_generate,
         },
