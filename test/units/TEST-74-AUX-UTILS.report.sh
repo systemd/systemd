@@ -36,6 +36,9 @@ varlinkctl list-methods /run/systemd/report/io.systemd.Network
 varlinkctl --more call /run/systemd/report/io.systemd.Network io.systemd.Metrics.List {}
 varlinkctl --more call /run/systemd/report/io.systemd.Network io.systemd.Metrics.Describe {}
 
+# Make sure the service for "system facts" is enabled
+systemctl start systemd-report-basic.socket
+
 # Test facts verbs
 "$REPORT" facts
 "$REPORT" facts -j
@@ -53,5 +56,5 @@ varlinkctl --more call /run/systemd/report/io.systemd.Network io.systemd.Metrics
 "$REPORT" describe-facts piff
 
 # Test facts via direct Varlink call on existing socket
-varlinkctl --more call /run/systemd/report/io.systemd.Manager io.systemd.Facts.List {}
-varlinkctl --more call /run/systemd/report/io.systemd.Manager io.systemd.Facts.Describe {}
+varlinkctl --more call /run/systemd/report/io.systemd.Basic io.systemd.Facts.List {}
+varlinkctl --more call /run/systemd/report/io.systemd.Basic io.systemd.Facts.Describe {}
