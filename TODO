@@ -129,6 +129,12 @@ Features:
   - make sure debug shell service (sushell) has a nice failure mode, prints a message and reboots
   - varlink interface for "systemctl start" and friends
 
+* imds:
+  - make sure we handle all cloud-specific HTTP errors correctly
+  - retry timeouts with exponential backoff
+  - api version handling (?)
+  - tests
+
 * drop NV_ORDERLY flag from the product uuid nvpcr. Effect of the flag is that
   it pushes the thing into TPM RAM, but a TPM usually has very little of that,
   less than NVRAM. hence setting the flag amplifies space issues. Unsetting the
