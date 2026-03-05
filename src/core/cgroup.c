@@ -1096,7 +1096,6 @@ static void cgroup_apply_cpu_quota(Unit *u, usec_t quota, usec_t period) {
 
         assert(u);
 
-        period = cgroup_cpu_adjust_period_and_log(u, period, quota);
         if (quota != USEC_INFINITY)
                 xsprintf(buf, USEC_FMT " " USEC_FMT "\n",
                          MAX(quota * period / USEC_PER_SEC, USEC_PER_MSEC), period);
@@ -1105,20 +1104,13 @@ static void cgroup_apply_cpu_quota(Unit *u, usec_t quota, usec_t period) {
         (void) set_attribute_and_warn(u, "cpu.max", buf);
 }
 
-static void cgroup_apply_cpu_burst(Unit *u, usec_t burst, usec_t quota, usec_t period) {
+static void cgroup_apply_cpu_burst(Unit *u, usec_t burst, usec_t period) {
         char buf[DECIMAL_STR_MAX(usec_t) + 2];
 
         assert(u);
 
-        if (burst > 0) {
-                /* Use quota (not burst) to adjust the period so we compute the burst value
-                 * against the same period that cgroup_apply_cpu_quota() wrote to cpu.max. */
-                period = cgroup_cpu_adjust_period_and_log(u, period, quota != USEC_INFINITY ? quota : burst);
-                xsprintf(buf, USEC_FMT "\n",
-                         MAX(burst * period / USEC_PER_SEC, USEC_PER_MSEC));
-        } else
-                xsprintf(buf, "0\n");
-
+        xsprintf(buf, USEC_FMT "\n",
+                 burst * period / USEC_PER_SEC);
         (void) set_attribute_and_warn(u, "cpu.max.burst", buf);
 }
 
@@ -1460,8 +1452,9 @@ static void cgroup_context_apply(
 
                 cgroup_apply_cpu_idle(u, weight);
                 cgroup_apply_cpu_weight(u, weight);
-                cgroup_apply_cpu_quota(u, c->cpu_quota_per_sec_usec, c->cpu_quota_period_usec);
-                cgroup_apply_cpu_burst(u, c->cpu_burst_per_sec_usec, c->cpu_quota_per_sec_usec, c->cpu_quota_period_usec);
+                usec_t period = cgroup_cpu_adjust_period_and_log(u, c->cpu_quota_period_usec, c->cpu_quota_per_sec_usec);
+                cgroup_apply_cpu_quota(u, c->cpu_quota_per_sec_usec, period);
+                cgroup_apply_cpu_burst(u, c->cpu_burst_per_sec_usec, period);
         }
 
         if ((apply_mask & CGROUP_MASK_CPUSET) && !is_local_root) {
