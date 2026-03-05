@@ -401,6 +401,26 @@ static int bus_append_parse_cpu_quota(sd_bus_message *m, const char *field, cons
         return 1;
 }
 
+static int bus_append_parse_cpu_burst(sd_bus_message *m, const char *field, const char *eq) {
+        uint64_t x;
+        int r;
+
+        if (isempty(eq))
+                x = 0;
+        else {
+                r = parse_permyriad_unbounded(eq);
+                if (r < 0)
+                        return parse_log_error(r, field, eq);
+                x = r * USEC_PER_SEC / 10000U;
+        }
+
+        r = sd_bus_message_append(m, "(sv)", "CPUBurstPerSecUSec", "t", x);
+        if (r < 0)
+                return bus_log_create_error(r);
+
+        return 1;
+}
+
 static int bus_append_parse_device_allow(sd_bus_message *m, const char *field, const char *eq) {
         int r;
 
@@ -2410,6 +2430,7 @@ static const BusProperty cgroup_properties[] = {
         { "TasksMax",                              bus_append_parse_resource_limit               },
         { "CPUQuota",                              bus_append_parse_cpu_quota                    },
         { "CPUQuotaPeriodSec",                     bus_append_parse_sec_rename_infinity          },
+        { "CPUBurst",                              bus_append_parse_cpu_burst                    },
         { "DeviceAllow",                           bus_append_parse_device_allow                 },
         { "IODeviceWeight",                        bus_append_parse_io_device_weight             },
         { "IODeviceLatencyTargetSec",              bus_append_parse_io_device_latency            },

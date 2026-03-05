@@ -3743,6 +3743,40 @@ int config_parse_cpu_quota(
         return 0;
 }
 
+int config_parse_cpu_burst(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        CGroupContext *c = data;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                c->cpu_burst_per_sec_usec = 0;
+                return 0;
+        }
+
+        r = parse_permyriad_unbounded(rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid CPU burst '%s', ignoring.", rvalue);
+                return 0;
+        }
+
+        c->cpu_burst_per_sec_usec = ((usec_t) r * USEC_PER_SEC) / 10000U;
+        return 0;
+}
+
 int config_parse_unit_cpu_set(
                 const char *unit,
                 const char *filename,
