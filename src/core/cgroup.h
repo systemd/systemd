@@ -125,6 +125,7 @@ typedef struct CGroupContext {
         uint64_t startup_cpu_weight;
         usec_t cpu_quota_per_sec_usec;
         usec_t cpu_quota_period_usec;
+        usec_t cpu_burst_per_sec_usec;
 
         CPUSet cpuset_cpus;
         CPUSet startup_cpuset_cpus;
