@@ -342,6 +342,14 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
                 printf("       Email: %s\n", hr->email_address);
         if (hr->location)
                 printf("    Location: %s\n", hr->location);
+        if (hr->birth_date_usec != UINT64_MAX) {
+                struct tm tm;
+                if (localtime_or_gmtime_usec(hr->birth_date_usec, /* utc= */ true, &tm) >= 0) {
+                        char buf[STRLEN("YYYY-MM-DD") + 1];
+                        if (strftime(buf, sizeof(buf), "%Y-%m-%d", &tm) > 0)
+                                printf("  Birth Date: %s\n", buf);
+                }
+        }
         if (hr->password_hint)
                 printf(" Passw. Hint: %s\n", hr->password_hint);
         if (hr->icon_name)
