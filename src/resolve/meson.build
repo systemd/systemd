@@ -36,6 +36,7 @@ systemd_resolved_extract_sources = files(
         'resolved-mdns.c',
         'resolved-resolv-conf.c',
         'resolved-socket-graveyard.c',
+        'resolved-static-records.c',
         'resolved-util.c',
         'resolved-varlink.c',
 )
