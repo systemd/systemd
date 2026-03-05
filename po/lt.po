@@ -6,7 +6,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-02-24 18:42+0000\n"
+"POT-Creation-Date: 2026-03-06 03:46+0900\n"
 "PO-Revision-Date: 2025-02-28 08:38+0000\n"
 "Last-Translator: Justinas Kairys <j.kairys@proton.me>\n"
 "Language-Team: Lithuanian <https://translate.fedoraproject.org/projects/"
@@ -1059,7 +1059,9 @@ msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:144
 #, fuzzy
-msgid "Authentication is required to send force renew message."
+msgid ""
+"Authentication is required to send a force renew message from the DHCP "
+"server."
 msgstr "Norint nustatyti sienos pranešimą, reikia nustatyti tapatybę"
 
 #: src/network/org.freedesktop.network1.policy:154
