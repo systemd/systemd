@@ -26,7 +26,7 @@ local -a opt_user_group=(
 	'-S[Equivalent to --disposition=system]'
 	'-R[Equivalent to --disposition=regular]'
 	'--uid-min=[Filter by minimum UID/GID]:uid:_numbers -t uids uid -d 0'
-	'--uid-max=[Filter by maximum UID/GID]:gid:_numbers -t gids gid -d 4294967294'
+	'--uid-max=[Filter by maximum UID/GID]:uid:_numbers -t uids uid -d 4294967294'
 	'--uuid=[Filter by UUID]:uuid'
 	'(-B)--boundaries=[Show/hide UID/GID range boundaries in output]:bool:(yes no)'
 	'(--boundaries)-B[Equivalent to --boundaries=no]'
@@ -44,7 +44,7 @@ local -a userdbctl_commands=(
 )
 
 local ret=1
-_arguments -s \
+_arguments -s -A '-*' \
 	"$opt_common[@]" \
 	':userdbctl command:->command' \
 	'*:: :->option-or-argument' && ret=0
