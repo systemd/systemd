@@ -266,6 +266,7 @@ typedef struct UserRecord {
         char *password_hint;
         char *icon_name;
         char *location;
+        usec_t birth_date_usec;
 
         char *blob_directory;
         Hashmap *blob_manifest;
