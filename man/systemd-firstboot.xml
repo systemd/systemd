@@ -447,6 +447,16 @@
 
         <xi:include href="version-info.xml" xpointer="v249"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>firstboot.hostname</varname></term>
+
+        <listitem><para>This credential specifies the static system hostname setting to set during first
+        boot, in place of prompting the user. Note that this controls the static hostname, not the transient
+        hostname, and only has an effect on first boot, unlike <varname>system.hostname</varname>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
     </variablelist>
 
     <para>Note that by default the <filename>systemd-firstboot.service</filename> unit file is set up to
