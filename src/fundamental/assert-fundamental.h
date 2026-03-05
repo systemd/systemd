@@ -8,11 +8,11 @@
 #include "macro-fundamental.h"
 
 #if SD_BOOT
-        _noreturn_ void efi_assert(const char *expr, const char *file, unsigned line, const char *function);
+        _noreturn_ void* efi_assert(const char *expr, const char *file, unsigned line, const char *function);
 
         #ifdef NDEBUG
                 #define assert(expr) ({ if (!(expr)) __builtin_unreachable(); })
-                #define assert_not_reached() __builtin_unreachable()
+                #define assert_not_reached() (void*) __builtin_unreachable()
         #else
                 #define assert(expr) ({ _likely_(expr) ? VOID_0 : efi_assert(#expr, __FILE__, __LINE__, __func__); })
                 #define assert_not_reached() efi_assert("Code should not be reached", __FILE__, __LINE__, __func__)
@@ -20,8 +20,8 @@
         #define assert_se(expr) ({ _likely_(expr) ? VOID_0 : efi_assert(#expr, __FILE__, __LINE__, __func__); })
 #else
 
-_noreturn_ void log_assert_failed(const char *text, const char *file, int line, const char *func);
-_noreturn_ void log_assert_failed_unreachable(const char *file, int line, const char *func);
+_noreturn_ void* log_assert_failed(const char *text, const char *file, int line, const char *func);
+_noreturn_ void* log_assert_failed_unreachable(const char *file, int line, const char *func);
 
 #ifdef __COVERITY__
 

@@ -87,7 +87,7 @@ _noreturn_ static void panic(const char16_t *message) {
         freeze();
 }
 
-void efi_assert(const char *expr, const char *file, unsigned line, const char *function) {
+void* efi_assert(const char *expr, const char *file, unsigned line, const char *function) {
         static bool asserting = false;
 
         /* Let's be paranoid. */
