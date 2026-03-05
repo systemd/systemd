@@ -471,6 +471,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .mdns = RESOLVE_SUPPORT_NO,
                 .dnssec_mode = _DNSSEC_MODE_INVALID,
                 .dns_over_tls_mode = _DNS_OVER_TLS_MODE_INVALID,
+                .dns_server_policy = _DNS_SERVER_POLICY_INVALID,
 
                 /* If LinkLocalAddressing= is not set, then set to ADDRESS_FAMILY_IPV6 later. */
                 .link_local = _ADDRESS_FAMILY_INVALID,

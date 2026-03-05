@@ -231,6 +231,7 @@ void link_dns_settings_clear(Link *link) {
         link->mdns = _RESOLVE_SUPPORT_INVALID;
         link->dnssec_mode = _DNSSEC_MODE_INVALID;
         link->dns_over_tls_mode = _DNS_OVER_TLS_MODE_INVALID;
+        link->dns_server_policy = _DNS_SERVER_POLICY_INVALID;
 
         link->dnssec_negative_trust_anchors = set_free(link->dnssec_negative_trust_anchors);
 }
@@ -2770,6 +2771,7 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
                 .mdns = _RESOLVE_SUPPORT_INVALID,
                 .dnssec_mode = _DNSSEC_MODE_INVALID,
                 .dns_over_tls_mode = _DNS_OVER_TLS_MODE_INVALID,
+                .dns_server_policy = _DNS_SERVER_POLICY_INVALID,
         };
 
         r = hashmap_ensure_put(&manager->links_by_index, &link_hash_ops, INT_TO_PTR(link->ifindex), link);
