@@ -408,9 +408,9 @@ static void unit_lookup_parameters_done(UnitLookupParameters *p) {
 }
 
 static int varlink_error_conflict_lookup_parameters(sd_varlink *v, const UnitLookupParameters *p) {
-        log_debug("Searching unit by lookup parameters name='%s' pid='"PID_FMT"' cgroup='%s' invocationID='%s' resulted in multiple different units",
+        log_debug("Unit lookup by parameters name='%s' pid='"PID_FMT"' cgroup='%s' invocationID='%s' resulted in multiple different units.",
                   strnull(p->name),
-                  pidref_is_set(&p->pidref) ? p->pidref.pid : 0,
+                  pidref_is_automatic(&p->pidref) ? 0 : pidref_is_set(&p->pidref) ? p->pidref.pid : (pid_t) -1,
                   strnull(p->cgroup),
                   sd_id128_is_null(p->invocation_id) ? "" : SD_ID128_TO_UUID_STRING(p->invocation_id));
 
