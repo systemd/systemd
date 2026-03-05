@@ -1,7 +1,7 @@
 # This file is part of systemd.
 #
 # Use "systemd-analyze identify-tpm2" to generate the modalias string for your
-# hardware. Don't forget to prefix it with "tpm:" for inclusion in a match here.
+# hardware. Don't forget to prefix it with "tpm2:" for inclusion in a match here.
 #
 # Currently, the only relevant property to set here is TPM2_BROKEN_NVPCR=1,
 # which should be set on TPMs where NvPCRs don't work. Specifically, because
