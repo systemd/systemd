@@ -656,7 +656,7 @@ static void machine_map_paramaters_done(MachineMapParameters *p) {
 
 int vl_method_map_from(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
-                VARLINK_DISPATCH_MACHINE_LOOKUP_FIELDS(MachineOpenParameters),
+                VARLINK_DISPATCH_MACHINE_LOOKUP_FIELDS(MachineMapParameters),
                 { "uid", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid, offsetof(MachineMapParameters, uid), 0 },
                 { "gid", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uid_gid, offsetof(MachineMapParameters, gid), 0 },
                 {}
@@ -817,7 +817,7 @@ static void machine_mount_paramaters_done(MachineMountParameters *p) {
 
 int vl_method_bind_mount(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         static const sd_json_dispatch_field dispatch_table[] = {
-                VARLINK_DISPATCH_MACHINE_LOOKUP_FIELDS(MachineOpenParameters),
+                VARLINK_DISPATCH_MACHINE_LOOKUP_FIELDS(MachineMountParameters),
                 { "source",      SD_JSON_VARIANT_STRING,  json_dispatch_const_path, offsetof(MachineMountParameters, src),       SD_JSON_MANDATORY },
                 { "destination", SD_JSON_VARIANT_STRING,  json_dispatch_const_path, offsetof(MachineMountParameters, dest),      0                 },
                 { "readOnly",    SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(MachineMountParameters, read_only), 0                 },
