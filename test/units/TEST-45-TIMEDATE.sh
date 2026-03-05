@@ -498,6 +498,11 @@ testcase_nts() {
         return 0
     fi
 
+    if ! [ -x /usr/lib/systemd/tests/unit-tests/manual/test-nts-mockserver ]; then
+        echo "NTS not available, skipping..."
+        return 0
+    fi
+
     cleanup() {
         systemctl stop systemd-timesyncd busctl-monitor.service
         rm -f server.key server.crt /etc/ssl/certs/CA.crt /etc/systemd/timesyncd.conf
@@ -568,6 +573,11 @@ assert_timesyncd_exhausted_servers() {
 testcase_nts_failure_modes() {
     if systemd-detect-virt -cq; then
         echo "This test case requires a VM, skipping..."
+        return 0
+    fi
+
+    if ! [ -x /usr/lib/systemd/tests/unit-tests/manual/test-nts-mockserver ]; then
+        echo "NTS not available, skipping..."
         return 0
     fi
 
