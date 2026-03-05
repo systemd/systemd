@@ -19,6 +19,7 @@
 #include "chase.h"
 #include "copy.h"
 #include "creds-util.h"
+#include "defer-util.h"
 #include "dissect-image.h"
 #include "env-file.h"
 #include "errno-util.h"
