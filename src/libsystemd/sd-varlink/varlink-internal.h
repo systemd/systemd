@@ -170,6 +170,8 @@ typedef struct sd_varlink {
         bool prefer_write:1;
         bool got_pollhup:1;
 
+        bool protocol_upgrade:1; /* Whether a protocol_upgrade was requested */
+
         bool output_buffer_sensitive:1; /* whether to erase the output buffer after writing it to the socket */
         bool input_sensitive:1; /* Whether incoming messages might be sensitive */
 
