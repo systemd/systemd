@@ -5,6 +5,10 @@
 name: Claude Review
 
 on:
+  # Strangely enough you have to use issue_comment to react to regular comments on PRs.
+  # See https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#pull_request_comment-use-issue_comment.
+  issue_comment:
+    types: [created]
   pull_request_review_comment:
     types: [created]
   pull_request_review:
@@ -18,6 +22,9 @@ jobs:
 
     if: |
       github.repository_owner == 'systemd' &&
+      ((github.event_name == 'issue_comment' &&
+        contains(github.event.comment.body, '@claude') &&
+        contains(fromJSON('["MEMBER","OWNER","COLLABORATOR"]'), github.event.comment.author_association)) ||
        (github.event_name == 'pull_request_review_comment' &&
         contains(github.event.comment.body, '@claude') &&
         contains(fromJSON('["MEMBER","OWNER","COLLABORATOR"]'), github.event.comment.author_association)) ||
