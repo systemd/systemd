@@ -576,22 +576,16 @@ static int readdir_sources(char **ret_directory, DirectoryEntries **ret) {
         return m > 0;
 }
 
-static int verb_metrics(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        Action action;
+static int verb_metrics(int argc, char *argv[], uintptr_t data, void *userdata) {
+        Action action = data;
         int r;
 
         assert(argc >= 1);
         assert(argv);
+        assert(IN_SET(action, ACTION_LIST, ACTION_DESCRIBE));
 
         /* Enable JSON-SEQ mode here, since we'll dump a large series of JSON objects */
         arg_json_format_flags |= SD_JSON_FORMAT_SEQ;
-
-        if (streq_ptr(argv[0], "metrics"))
-                action = ACTION_LIST;
-        else {
-                assert(streq_ptr(argv[0], "describe-metrics"));
-                action = ACTION_DESCRIBE;
-        }
 
         r = parse_metrics_matches(argv + 1);
         if (r < 0)
@@ -830,12 +824,11 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int report_main(int argc, char *argv[]) {
-
         static const Verb verbs[] = {
-                { "help",             VERB_ANY, 1,        0, verb_help         },
-                { "metrics",          VERB_ANY, VERB_ANY, 0, verb_metrics      },
-                { "describe-metrics", VERB_ANY, VERB_ANY, 0, verb_metrics      },
-                { "list-sources",     VERB_ANY, 1,        0, verb_list_sources },
+                { "help",             VERB_ANY, 1,        0, verb_help                                },
+                { "metrics",          VERB_ANY, VERB_ANY, 0, verb_metrics,      ACTION_LIST           },
+                { "describe-metrics", VERB_ANY, VERB_ANY, 0, verb_metrics,      ACTION_DESCRIBE       },
+                { "list-sources",     VERB_ANY, 1,        0, verb_list_sources                        },
                 {}
         };
 
