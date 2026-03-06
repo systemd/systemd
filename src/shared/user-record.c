@@ -211,12 +211,15 @@ static UserRecord* user_record_free(UserRecord *h) {
 
         for (size_t i = 0; i < h->n_fido2_hmac_credential; i++)
                 fido2_hmac_credential_done(h->fido2_hmac_credential + i);
+        free(h->fido2_hmac_credential);
         for (size_t i = 0; i < h->n_fido2_hmac_salt; i++)
                 fido2_hmac_salt_done(h->fido2_hmac_salt + i);
+        free(h->fido2_hmac_salt);
 
         strv_free(h->recovery_key_type);
         for (size_t i = 0; i < h->n_recovery_key; i++)
                 recovery_key_done(h->recovery_key + i);
+        free(h->recovery_key);
 
         strv_free(h->self_modifiable_fields);
         strv_free(h->self_modifiable_blobs);
