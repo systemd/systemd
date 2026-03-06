@@ -1829,6 +1829,16 @@ const char* user_record_image_path(UserRecord *h) {
                 user_record_home_directory_real(h) : NULL;
 }
 
+static bool user_record_image_is_blockdev(UserRecord *h) {
+        assert(h);
+
+        const char *p = user_record_image_path(h);
+        if (!p)
+                return false;
+
+        return path_startswith(p, "/dev/");
+}
+
 const char* user_record_cifs_user_name(UserRecord *h) {
         assert(h);
 
@@ -1880,16 +1890,10 @@ const char* user_record_real_name(UserRecord *h) {
 }
 
 bool user_record_luks_discard(UserRecord *h) {
-        const char *ip;
-
         assert(h);
 
         if (h->luks_discard >= 0)
                 return h->luks_discard;
-
-        ip = user_record_image_path(h);
-        if (!ip)
-                return false;
 
         /* Use discard by default if we are referring to a real block device, but not when operating on a
          * loopback device. We want to optimize for SSD and flash storage after all, but we should be careful
@@ -1897,7 +1901,7 @@ bool user_record_luks_discard(UserRecord *h) {
          * mean thin provisioning and we should not do that willy-nilly since it means we'll risk EIO later
          * on should the disk space to back our file systems not be available. */
 
-        return path_startswith(ip, "/dev/");
+        return user_record_image_is_blockdev(h);
 }
 
 bool user_record_luks_offline_discard(UserRecord *h) {
@@ -2063,7 +2067,7 @@ int user_record_removable(UserRecord *h) {
                 return -1;
 
         /* For now consider only LUKS home directories with a reference by path as removable */
-        return storage == USER_LUKS && path_startswith(user_record_image_path(h), "/dev/");
+        return storage == USER_LUKS && user_record_image_is_blockdev(h);
 }
 
 uint64_t user_record_ratelimit_interval_usec(UserRecord *h) {
