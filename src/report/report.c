@@ -20,14 +20,15 @@
 #include "runtime-scope.h"
 #include "set.h"
 #include "sort-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
 #include "varlink-idl-util.h"
 #include "verbs.h"
 
-#define METRICS_MAX 1024U
-#define METRICS_LINKS_MAX 128U
+#define METRICS_OR_FACTS_MAX 1024U
+#define METRICS_OR_FACTS_LINKS_MAX 128U
 #define TIMEOUT_USEC (30 * USEC_PER_SEC) /* 30 seconds */
 
 static PagerFlags arg_pager_flags = 0;
@@ -39,19 +40,21 @@ static char **arg_matches = NULL;
 STATIC_DESTRUCTOR_REGISTER(arg_matches, strv_freep);
 
 typedef enum Action {
-        ACTION_LIST,
-        ACTION_DESCRIBE,
+        ACTION_LIST_METRICS,
+        ACTION_DESCRIBE_METRICS,
         ACTION_LIST_FACTS,
         ACTION_DESCRIBE_FACTS,
         _ACTION_MAX,
         _ACTION_INVALID = -EINVAL,
 } Action;
 
+/* The structure for collected "metrics" or "facts". The fields
+ * are prefixed with just "metrics" for brevity. */
 typedef struct Context {
         Action action;
         sd_event *event;
         Set *link_infos;
-        sd_json_variant **metrics;  /* Collected metrics for sorting */
+        sd_json_variant **metrics;  /* Collected metrics or facts for sorting */
         size_t n_metrics, n_skipped_metrics, n_invalid_metrics;
 } Context;
 
@@ -84,6 +87,15 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 link_info_hash_ops,
                 void, trivial_hash_func, trivial_compare_func,
                 LinkInfo, link_info_free);
+
+static const char* const action_method_table[] = {
+        [ACTION_LIST_METRICS]     = "io.systemd.Metrics.List",
+        [ACTION_DESCRIBE_METRICS] = "io.systemd.Metrics.Describe",
+        [ACTION_LIST_FACTS]       = "io.systemd.Facts.List",
+        [ACTION_DESCRIBE_FACTS]   = "io.systemd.Facts.Describe",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(action_method, Action);
 
 static int metric_compare(sd_json_variant *const *a, sd_json_variant *const *b) {
         const char *name_a, *name_b, *object_a, *object_b;
@@ -241,7 +253,7 @@ static int on_query_reply(
                 goto finish;
         }
 
-        if (context->n_metrics >= METRICS_MAX) {
+        if (context->n_metrics >= METRICS_OR_FACTS_MAX) {
                 context->n_skipped_metrics++;
                 goto finish;
         }
@@ -271,7 +283,7 @@ finish:
         return 0;
 }
 
-static int metrics_call(Context *context, const char *name, const char *path) {
+static int call_collect(Context *context, const char *name, const char *path) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         int r;
 
@@ -294,14 +306,7 @@ static int metrics_call(Context *context, const char *name, const char *path) {
         if (r < 0)
                 return log_error_errno(r, "Failed to bind reply callback: %m");
 
-        const char *method;
-        switch (context->action) {
-        case ACTION_LIST:           method = "io.systemd.Metrics.List"; break;
-        case ACTION_DESCRIBE:       method = "io.systemd.Metrics.Describe"; break;
-        case ACTION_LIST_FACTS:     method = "io.systemd.Facts.List"; break;
-        case ACTION_DESCRIBE_FACTS: method = "io.systemd.Facts.Describe"; break;
-        default: assert_not_reached();
-        }
+        const char *method = ASSERT_PTR(action_method_to_string(context->action));
 
         r = sd_varlink_observe(vl, method, /* parameters= */ NULL);
         if (r < 0)
@@ -328,7 +333,7 @@ static int metrics_call(Context *context, const char *name, const char *path) {
         return 0;
 }
 
-static int metrics_output_list(Context *context, Table **ret) {
+static int output_collected_list(Context *context, Table **ret) {
         int r;
 
         assert(context);
@@ -382,7 +387,7 @@ static int metrics_output_list(Context *context, Table **ret) {
         return 0;
 }
 
-static int metrics_output_describe(Context *context, Table **ret) {
+static int output_collected_describe(Context *context, Table **ret) {
         int r;
 
         assert(context);
@@ -532,7 +537,7 @@ static int facts_output_describe(Context *context, Table **ret) {
         return 0;
 }
 
-static int metrics_output(Context *context) {
+static int output_collected(Context *context) {
         int r;
 
         assert(context);
@@ -563,12 +568,12 @@ static int metrics_output(Context *context) {
         _cleanup_(table_unrefp) Table *table = NULL;
         switch(context->action) {
 
-        case ACTION_LIST:
-                r = metrics_output_list(context, &table);
+        case ACTION_LIST_METRICS:
+                r = output_collected_list(context, &table);
                 break;
 
-        case ACTION_DESCRIBE:
-                r = metrics_output_describe(context, &table);
+        case ACTION_DESCRIBE_METRICS:
+                r = output_collected_describe(context, &table);
                 break;
 
         case ACTION_LIST_FACTS:
@@ -592,12 +597,12 @@ static int metrics_output(Context *context) {
         }
 
         if (arg_legend && !sd_json_format_enabled(arg_json_format_flags)) {
-                bool is_facts = IN_SET(context->action, ACTION_LIST_FACTS, ACTION_DESCRIBE_FACTS);
+                const char *type = IN_SET(context->action, ACTION_LIST_FACTS, ACTION_DESCRIBE_FACTS) ? "facts" : "metrics";
 
                 if (table_isempty(table))
-                        printf("No %s available.\n", is_facts ? "facts" : "metrics");
+                        printf("No %s available.\n", type);
                 else
-                        printf("\n%zu %s listed.\n", table_get_rows(table) - 1, is_facts ? "facts" : "metrics");
+                        printf("\n%zu %s listed.\n", table_get_rows(table) - 1, type);
         }
 
         return 0;
@@ -705,7 +710,7 @@ static int verb_metrics(int argc, char *argv[], uintptr_t data, void *userdata) 
 
         assert(argc >= 1);
         assert(argv);
-        assert(IN_SET(action, ACTION_LIST, ACTION_DESCRIBE));
+        assert(IN_SET(action, ACTION_LIST_METRICS, ACTION_DESCRIBE_METRICS));
 
         /* Enable JSON-SEQ mode here, since we'll dump a large series of JSON objects */
         arg_json_format_flags |= SD_JSON_FORMAT_SEQ;
@@ -736,7 +741,7 @@ static int verb_metrics(int argc, char *argv[], uintptr_t data, void *userdata) 
                 FOREACH_ARRAY(i, de->entries, de->n_entries) {
                         struct dirent *d = *i;
 
-                        if (set_size(context.link_infos) >= METRICS_LINKS_MAX) {
+                        if (set_size(context.link_infos) >= METRICS_OR_FACTS_LINKS_MAX) {
                                 n_skipped_sources++;
                                 break;
                         }
@@ -745,7 +750,7 @@ static int verb_metrics(int argc, char *argv[], uintptr_t data, void *userdata) 
                         if (!p)
                                 return log_oom();
 
-                        (void) metrics_call(&context, d->d_name, p);
+                        (void) call_collect(&context, d->d_name, p);
                 }
         }
 
@@ -759,7 +764,7 @@ static int verb_metrics(int argc, char *argv[], uintptr_t data, void *userdata) 
                 if (r < 0)
                         return log_error_errno(r, "Failed to run event loop: %m");
 
-                r = metrics_output(&context);
+                r = output_collected(&context);
                 if (r < 0)
                         return r;
         }
@@ -779,22 +784,16 @@ static int verb_metrics(int argc, char *argv[], uintptr_t data, void *userdata) 
         return 0;
 }
 
-static int verb_facts(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        Action action;
+static int verb_facts(int argc, char *argv[], uintptr_t data, void *userdata) {
+        Action action = data;
         int r;
 
         assert(argc >= 1);
         assert(argv);
+        assert(IN_SET(action, ACTION_LIST_FACTS, ACTION_DESCRIBE_FACTS));
 
         /* Enable JSON-SEQ mode here, since we'll dump a large series of JSON objects */
         arg_json_format_flags |= SD_JSON_FORMAT_SEQ;
-
-        if (streq_ptr(argv[0], "facts"))
-                action = ACTION_LIST_FACTS;
-        else {
-                assert(streq_ptr(argv[0], "describe-facts"));
-                action = ACTION_DESCRIBE_FACTS;
-        }
 
         r = parse_metrics_matches(argv + 1);
         if (r < 0)
@@ -822,7 +821,7 @@ static int verb_facts(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 FOREACH_ARRAY(i, de->entries, de->n_entries) {
                         struct dirent *d = *i;
 
-                        if (set_size(context.link_infos) >= METRICS_LINKS_MAX) {
+                        if (set_size(context.link_infos) >= METRICS_OR_FACTS_LINKS_MAX) {
                                 n_skipped_sources++;
                                 break;
                         }
@@ -831,7 +830,7 @@ static int verb_facts(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         if (!p)
                                 return log_oom();
 
-                        (void) metrics_call(&context, d->d_name, p);
+                        (void) call_collect(&context, d->d_name, p);
                 }
         }
 
@@ -845,7 +844,7 @@ static int verb_facts(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to run event loop: %m");
 
-                r = metrics_output(&context);
+                r = output_collected(&context);
                 if (r < 0)
                         return r;
         }
@@ -1037,12 +1036,12 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int report_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "help",             VERB_ANY, 1,        0, verb_help                                },
-                { "metrics",          VERB_ANY, VERB_ANY, 0, verb_metrics,      ACTION_LIST           },
-                { "describe-metrics", VERB_ANY, VERB_ANY, 0, verb_metrics,      ACTION_DESCRIBE       },
-                { "facts",            VERB_ANY, VERB_ANY, 0, verb_facts,        ACTION_LIST_FACTS     },
-                { "describe-facts",   VERB_ANY, VERB_ANY, 0, verb_facts,        ACTION_DESCRIBE_FACTS },
-                { "list-sources",     VERB_ANY, 1,        0, verb_list_sources                        },
+                { "help",             VERB_ANY, 1,        0, verb_help                                  },
+                { "metrics",          VERB_ANY, VERB_ANY, 0, verb_metrics,      ACTION_LIST_METRICS     },
+                { "describe-metrics", VERB_ANY, VERB_ANY, 0, verb_metrics,      ACTION_DESCRIBE_METRICS },
+                { "facts",            VERB_ANY, VERB_ANY, 0, verb_facts,        ACTION_LIST_FACTS       },
+                { "describe-facts",   VERB_ANY, VERB_ANY, 0, verb_facts,        ACTION_DESCRIBE_FACTS   },
+                { "list-sources",     VERB_ANY, 1,        0, verb_list_sources                          },
                 {}
         };
 
