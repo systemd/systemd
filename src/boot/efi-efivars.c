@@ -177,7 +177,13 @@ EFI_STATUS efivar_get_uint64_le(const EFI_GUID *vendor, const char16_t *name, ui
         return EFI_SUCCESS;
 }
 
-EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, const char16_t *name, void **ret_data, size_t *ret_size) {
+EFI_STATUS efivar_get_raw_full(
+                const EFI_GUID *vendor,
+                const char16_t *name,
+                uint32_t *ret_attributes,
+                void **ret_data,
+                size_t *ret_size) {
+
         EFI_STATUS err;
 
         assert(vendor);
@@ -188,11 +194,14 @@ EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, const char16_t *name, void **r
         if (err != EFI_BUFFER_TOO_SMALL)
                 return err;
 
+        uint32_t attributes = 0;
         _cleanup_free_ void *buf = xmalloc(size);
-        err = RT->GetVariable((char16_t *) name, (EFI_GUID *) vendor, NULL, &size, buf);
+        err = RT->GetVariable((char16_t *) name, (EFI_GUID *) vendor, ret_attributes ? &attributes : NULL, &size, buf);
         if (err != EFI_SUCCESS)
                 return err;
 
+        if (ret_attributes)
+                *ret_attributes = attributes;
         if (ret_data)
                 *ret_data = TAKE_PTR(buf);
         if (ret_size)
