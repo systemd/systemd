@@ -1,0 +1,14 @@
+{
+    "userName": "sessionuser",
+    "realName": "Session Preferences User",
+    "uid": 3016,
+    "gid": 3016,
+    "homeDirectory": "/home/sessionuser",
+    "shell": "/bin/bash",
+    "disposition": "regular",
+    "autoLogin": true,
+    "preferredSessionType": "wayland",
+    "preferredSessionLauncher": "gnome",
+    "stopDelayUSec": 180000000,
+    "killProcesses": false
+}

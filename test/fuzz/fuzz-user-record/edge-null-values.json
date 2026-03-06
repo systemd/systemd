@@ -1,0 +1,18 @@
+{
+    "userName": "nullvalues",
+    "realName": "Null Values Test User",
+    "uid": 3019,
+    "gid": 3019,
+    "homeDirectory": "/home/nullvalues",
+    "shell": "/bin/bash",
+    "disposition": "regular",
+    "storage": "luks",
+    "autoResizeMode": null,
+    "rebalanceWeight": null,
+    "luksDiscard": null,
+    "luksOfflineDiscard": null,
+    "tmpLimit": null,
+    "tmpLimitScale": null,
+    "devShmLimit": null,
+    "devShmLimitScale": null
+}
