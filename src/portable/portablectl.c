@@ -288,7 +288,7 @@ static int get_image_metadata(sd_bus *bus, const char *image, char **matches, sd
         return 0;
 }
 
-static int inspect_image(int argc, char *argv[], void *userdata) {
+static int verb_inspect_image(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_strv_free_ char **matches = NULL;
@@ -958,15 +958,15 @@ static int attach_reattach_image(int argc, char *argv[], const char *method) {
         return 0;
 }
 
-static int attach_image(int argc, char *argv[], void *userdata) {
+static int verb_attach_image(int argc, char *argv[], void *userdata) {
         return attach_reattach_image(argc, argv, strv_isempty(arg_extension_images) && !arg_force ? "AttachImage" : "AttachImageWithExtensions");
 }
 
-static int reattach_image(int argc, char *argv[], void *userdata) {
+static int verb_reattach_image(int argc, char *argv[], void *userdata) {
         return attach_reattach_image(argc, argv, strv_isempty(arg_extension_images) && !arg_force ? "ReattachImage" : "ReattachImageWithExtensions");
 }
 
-static int detach_image(int argc, char *argv[], void *userdata) {
+static int verb_detach_image(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -1020,7 +1020,7 @@ static int detach_image(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int list_images(int argc, char *argv[], void *userdata) {
+static int verb_list_images(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -1094,7 +1094,7 @@ static int list_images(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int remove_image(int argc, char *argv[], void *userdata) {
+static int verb_remove_image(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r, i;
 
@@ -1125,7 +1125,7 @@ static int remove_image(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int read_only_image(int argc, char *argv[], void *userdata) {
+static int verb_read_only_image(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int b = true, r;
@@ -1149,7 +1149,7 @@ static int read_only_image(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int set_limit(int argc, char *argv[], void *userdata) {
+static int verb_set_limit(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         uint64_t limit;
@@ -1182,7 +1182,7 @@ static int set_limit(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int is_image_attached(int argc, char *argv[], void *userdata) {
+static int verb_is_image_attached(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -1257,7 +1257,7 @@ static int dump_profiles(void) {
         return 0;
 }
 
-static int help(int argc, char *argv[], void *userdata) {
+static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
@@ -1319,6 +1319,10 @@ static int help(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static int verb_help(int argc, char *argv[], void *userdata) {
+        return help();
+}
+
 static int parse_argv(int argc, char *argv[]) {
 
         enum {
@@ -1375,7 +1379,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        return help(0, NULL, NULL);
+                        return help();
 
                 case ARG_VERSION:
                         return version();
@@ -1493,16 +1497,16 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int run(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "help",        VERB_ANY, VERB_ANY, 0,            help              },
-                { "list",        VERB_ANY, 1,        VERB_DEFAULT, list_images       },
-                { "attach",      2,        VERB_ANY, 0,            attach_image      },
-                { "detach",      2,        VERB_ANY, 0,            detach_image      },
-                { "inspect",     2,        VERB_ANY, 0,            inspect_image     },
-                { "is-attached", 2,        2,        0,            is_image_attached },
-                { "read-only",   2,        3,        0,            read_only_image   },
-                { "remove",      2,        VERB_ANY, 0,            remove_image      },
-                { "set-limit",   3,        3,        0,            set_limit         },
-                { "reattach",    2,        VERB_ANY, 0,            reattach_image    },
+                { "help",        VERB_ANY, VERB_ANY, 0,            verb_help              },
+                { "list",        VERB_ANY, 1,        VERB_DEFAULT, verb_list_images       },
+                { "attach",      2,        VERB_ANY, 0,            verb_attach_image      },
+                { "detach",      2,        VERB_ANY, 0,            verb_detach_image      },
+                { "inspect",     2,        VERB_ANY, 0,            verb_inspect_image     },
+                { "is-attached", 2,        2,        0,            verb_is_image_attached },
+                { "read-only",   2,        3,        0,            verb_read_only_image   },
+                { "remove",      2,        VERB_ANY, 0,            verb_remove_image      },
+                { "set-limit",   3,        3,        0,            verb_set_limit         },
+                { "reattach",    2,        VERB_ANY, 0,            verb_reattach_image    },
                 {}
         };
 
