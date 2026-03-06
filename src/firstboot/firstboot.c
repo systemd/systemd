@@ -19,6 +19,7 @@
 #include "chase.h"
 #include "copy.h"
 #include "creds-util.h"
+#include "defer-util.h"
 #include "dissect-image.h"
 #include "env-file.h"
 #include "errno-util.h"
@@ -646,6 +647,14 @@ static int prompt_hostname(int rfd, sd_varlink **mute_console_link) {
 
         if (arg_hostname)
                 return 0;
+
+        r = read_credential("firstboot.hostname", (void**) &arg_hostname, NULL);
+        if (r < 0)
+                log_debug_errno(r, "Failed to read credential firstboot.hostname, ignoring: %m");
+        else {
+                log_debug("Acquired hostname from credentials.");
+                return 0;
+        }
 
         if (!arg_prompt_hostname) {
                 log_debug("Prompting for hostname was not requested.");
