@@ -554,11 +554,11 @@ static int json_dispatch_weight(const char *name, sd_json_variant *variant, sd_j
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an integer.", strna(name));
 
         k = sd_json_variant_unsigned(variant);
-        if (k <= CGROUP_WEIGHT_MIN || k >= CGROUP_WEIGHT_MAX)
+        if (k < CGROUP_WEIGHT_MIN || k > CGROUP_WEIGHT_MAX)
                 return json_log(variant, flags, SYNTHETIC_ERRNO(ERANGE),
                                 "JSON field '%s' is not in valid range %" PRIu64 "%s%" PRIu64 ".",
-                                strna(name), (uint64_t) CGROUP_WEIGHT_MIN,
-                                glyph(GLYPH_ELLIPSIS), (uint64_t) CGROUP_WEIGHT_MAX);
+                                strna(name), CGROUP_WEIGHT_MIN,
+                                glyph(GLYPH_ELLIPSIS), CGROUP_WEIGHT_MAX);
 
         *weight = k;
         return 0;
