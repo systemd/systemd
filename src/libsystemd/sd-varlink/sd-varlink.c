@@ -1204,6 +1204,9 @@ static int varlink_dispatch_reply(sd_varlink *v) {
                 varlink_set_state(v, VARLINK_PROCESSING_REPLY);
 
                 if (v->reply_callback) {
+                        /* Keep the parameters+error referenced while calling the callback */
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *ref = sd_json_variant_ref(v->current);
+
                         r = v->reply_callback(v, parameters, error, flags, v->userdata);
                         if (r < 0)
                                 varlink_log_errno(v, r, "Reply callback returned error, ignoring: %m");
