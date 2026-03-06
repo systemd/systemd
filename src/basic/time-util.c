@@ -1868,31 +1868,6 @@ int time_change_fd(void) {
         return -errno;
 }
 
-static const char* const timestamp_style_table[_TIMESTAMP_STYLE_MAX] = {
-        [TIMESTAMP_PRETTY] = "pretty",
-        [TIMESTAMP_US]     = "us",
-        [TIMESTAMP_UTC]    = "utc",
-        [TIMESTAMP_US_UTC] = "us+utc",
-        [TIMESTAMP_UNIX]   = "unix",
-};
-
-/* Use the macro for enum → string to allow for aliases */
-DEFINE_STRING_TABLE_LOOKUP_TO_STRING(timestamp_style, TimestampStyle);
-
-/* For the string → enum mapping we use the generic implementation, but also support two aliases */
-TimestampStyle timestamp_style_from_string(const char *s) {
-        TimestampStyle t;
-
-        t = (TimestampStyle) string_table_lookup_from_string(timestamp_style_table, ELEMENTSOF(timestamp_style_table), s);
-        if (t >= 0)
-                return t;
-        if (STRPTR_IN_SET(s, "µs", "μs")) /* accept both µ symbols in unicode, i.e. micro symbol + Greek small letter mu. */
-                return TIMESTAMP_US;
-        if (STRPTR_IN_SET(s, "µs+utc", "μs+utc"))
-                return TIMESTAMP_US_UTC;
-        return t;
-}
-
 int parse_calendar_date(const char *s, usec_t *ret) {
         struct tm parsed_tm = {}, copy_tm;
         usec_t usec;
@@ -1920,4 +1895,55 @@ int parse_calendar_date(const char *s, usec_t *ret) {
                 *ret = usec;
 
         return 0;
+}
+
+int parse_birth_date(const char *s, struct tm *ret) {
+        struct tm parsed_tm = {}, copy_tm;
+        const char *k;
+
+        assert(s);
+
+        k = strptime(s, "%Y-%m-%d", &parsed_tm);
+        if (!k || *k)
+                return -EINVAL;
+
+        copy_tm = parsed_tm;
+        if (mktime(&copy_tm) == (time_t) -1)
+                return -EINVAL;
+
+        /* Refuse non-normalized dates, e.g. Feb 30 */
+        if (copy_tm.tm_mday != parsed_tm.tm_mday ||
+            copy_tm.tm_mon  != parsed_tm.tm_mon  ||
+            copy_tm.tm_year != parsed_tm.tm_year)
+                return -EINVAL;
+
+        if (ret)
+                *ret = parsed_tm;
+
+        return 0;
+}
+
+static const char* const timestamp_style_table[_TIMESTAMP_STYLE_MAX] = {
+        [TIMESTAMP_PRETTY] = "pretty",
+        [TIMESTAMP_US]     = "us",
+        [TIMESTAMP_UTC]    = "utc",
+        [TIMESTAMP_US_UTC] = "us+utc",
+        [TIMESTAMP_UNIX]   = "unix",
+};
+
+/* Use the macro for enum → string to allow for aliases */
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(timestamp_style, TimestampStyle);
+
+/* For the string → enum mapping we use the generic implementation, but also support two aliases */
+TimestampStyle timestamp_style_from_string(const char *s) {
+        TimestampStyle t;
+
+        t = (TimestampStyle) string_table_lookup_from_string(timestamp_style_table, ELEMENTSOF(timestamp_style_table), s);
+        if (t >= 0)
+                return t;
+        if (STRPTR_IN_SET(s, "µs", "μs")) /* accept both µ symbols in unicode, i.e. micro symbol + Greek small letter mu. */
+                return TIMESTAMP_US;
+        if (STRPTR_IN_SET(s, "µs+utc", "μs+utc"))
+                return TIMESTAMP_US_UTC;
+        return t;
 }

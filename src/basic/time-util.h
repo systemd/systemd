@@ -181,6 +181,10 @@ const char* etc_localtime(void);
 int mktime_or_timegm_usec(struct tm *tm, bool utc, usec_t *ret);
 int localtime_or_gmtime_usec(usec_t t, bool utc, struct tm *ret);
 int parse_calendar_date(const char *s, usec_t *ret);
+int parse_birth_date(const char *s, struct tm *ret);
+
+#define BIRTH_DATE_UNSET ((struct tm) { .tm_year = -1, .tm_mon = -1, .tm_mday = -1 })
+#define BIRTH_DATE_IS_SET(tm) ((tm).tm_mday >= 0 && (tm).tm_mon >= 0 && (tm).tm_year >= 0)
 
 uint32_t usec_to_jiffies(usec_t usec);
 usec_t jiffies_to_usec(uint32_t jiffies);
