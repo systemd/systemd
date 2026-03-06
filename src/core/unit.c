@@ -4337,10 +4337,13 @@ static int unit_verify_contexts(const Unit *u) {
                 return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "PrivatePIDs= setting is only supported for service units. Refusing.");
 
         if ((ec->user || ec->dynamic_user || ec->group || ec->pam_name) && ec->private_users == PRIVATE_USERS_MANAGED)
-                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "PrivateUsers=managed may not be used in combination with User=/DynamicUser=/Group=/PAMName=, refusing.");
+                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "PrivateUsers=managed may not be used in combination with User=/DynamicUser=/Group=/PAMName=. Refusing.");
 
         if (ec->user_namespace_path && ec->private_users != PRIVATE_USERS_NO)
-                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "PrivateUsers= may not be used with custom UserNamespacePath=, refusing.");
+                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "PrivateUsers= may not be used with custom UserNamespacePath=. Refusing.");
+
+        if (ec->private_pids != PRIVATE_PIDS_NO && ec->pam_name)
+                return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOEXEC), "PAM is not supported under PrivatePIDs=. Refusing.");
 
         const KillContext *kc = unit_get_kill_context(u);
 
