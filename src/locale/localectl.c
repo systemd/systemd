@@ -151,7 +151,7 @@ static int print_status_info(StatusInfo *i) {
         return 0;
 }
 
-static int show_status(int argc, char **argv, void *userdata) {
+static int verb_show_status(int argc, char **argv, void *userdata) {
         _cleanup_(status_info_clear) StatusInfo info = {};
         static const struct bus_properties_map map[]  = {
                 { "VConsoleKeymap",       "s",  NULL, offsetof(StatusInfo, vconsole_keymap) },
@@ -183,7 +183,7 @@ static int show_status(int argc, char **argv, void *userdata) {
         return print_status_info(&info);
 }
 
-static int set_locale(int argc, char **argv, void *userdata) {
+static int verb_set_locale(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
@@ -211,7 +211,7 @@ static int set_locale(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int list_locales(int argc, char **argv, void *userdata) {
+static int verb_list_locales(int argc, char **argv, void *userdata) {
         _cleanup_strv_free_ char **l = NULL;
         int r;
 
@@ -225,7 +225,7 @@ static int list_locales(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int set_vconsole_keymap(int argc, char **argv, void *userdata) {
+static int verb_set_vconsole_keymap(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *map, *toggle_map;
         sd_bus *bus = ASSERT_PTR(userdata);
@@ -249,7 +249,7 @@ static int set_vconsole_keymap(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int list_vconsole_keymaps(int argc, char **argv, void *userdata) {
+static int verb_list_vconsole_keymaps(int argc, char **argv, void *userdata) {
         _cleanup_strv_free_ char **l = NULL;
         int r;
 
@@ -264,7 +264,7 @@ static int list_vconsole_keymaps(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int set_x11_keymap(int argc, char **argv, void *userdata) {
+static int verb_set_x11_keymap(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *layout, *model, *variant, *options;
         sd_bus *bus = userdata;
@@ -299,7 +299,7 @@ static const char* xkb_directory(void) {
         return cached;
 }
 
-static int list_x11_keymaps(int argc, char **argv, void *userdata) {
+static int verb_list_x11_keymaps(int argc, char **argv, void *userdata) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_strv_free_ char **list = NULL;
         enum {
@@ -526,17 +526,17 @@ static int parse_argv(int argc, char *argv[]) {
 static int localectl_main(sd_bus *bus, int argc, char *argv[]) {
 
         static const Verb verbs[] = {
-                { "status",                   VERB_ANY, 1,        VERB_DEFAULT, show_status           },
-                { "set-locale",               2,        VERB_ANY, 0,            set_locale            },
-                { "list-locales",             VERB_ANY, 1,        0,            list_locales          },
-                { "set-keymap",               2,        3,        0,            set_vconsole_keymap   },
-                { "list-keymaps",             VERB_ANY, 1,        0,            list_vconsole_keymaps },
-                { "set-x11-keymap",           2,        5,        0,            set_x11_keymap        },
-                { "list-x11-keymap-models",   VERB_ANY, 1,        0,            list_x11_keymaps      },
-                { "list-x11-keymap-layouts",  VERB_ANY, 1,        0,            list_x11_keymaps      },
-                { "list-x11-keymap-variants", VERB_ANY, 2,        0,            list_x11_keymaps      },
-                { "list-x11-keymap-options",  VERB_ANY, 1,        0,            list_x11_keymaps      },
-                { "help",                     VERB_ANY, VERB_ANY, 0,            verb_help             }, /* Not documented, but supported since it is created. */
+                { "status",                   VERB_ANY, 1,        VERB_DEFAULT, verb_show_status           },
+                { "set-locale",               2,        VERB_ANY, 0,            verb_set_locale            },
+                { "list-locales",             VERB_ANY, 1,        0,            verb_list_locales          },
+                { "set-keymap",               2,        3,        0,            verb_set_vconsole_keymap   },
+                { "list-keymaps",             VERB_ANY, 1,        0,            verb_list_vconsole_keymaps },
+                { "set-x11-keymap",           2,        5,        0,            verb_set_x11_keymap        },
+                { "list-x11-keymap-models",   VERB_ANY, 1,        0,            verb_list_x11_keymaps      },
+                { "list-x11-keymap-layouts",  VERB_ANY, 1,        0,            verb_list_x11_keymaps      },
+                { "list-x11-keymap-variants", VERB_ANY, 2,        0,            verb_list_x11_keymaps      },
+                { "list-x11-keymap-options",  VERB_ANY, 1,        0,            verb_list_x11_keymaps      },
+                { "help",                     VERB_ANY, VERB_ANY, 0,            verb_help                  }, /* Not documented, but supported since it has been created. */
                 {}
         };
 
