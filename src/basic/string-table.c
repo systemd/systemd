@@ -3,6 +3,7 @@
 #include <stdio.h>
 
 #include "parse-util.h"
+#include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
 
@@ -43,11 +44,11 @@ int string_table_lookup_to_string_fallback(const char * const *table, size_t len
         if (i < 0 || i > (ssize_t) max)
                 return -ERANGE;
 
-        if (i < (ssize_t) len && table[i]) {
+        if (i < (ssize_t) len && table[i])
                 s = strdup(table[i]);
-                if (!s)
-                        return -ENOMEM;
-        } else if (asprintf(&s, "%zd", i) < 0)
+        else
+                s = asprintf_safe("%zd", i);
+        if (!s)
                 return -ENOMEM;
 
         *ret = s;
