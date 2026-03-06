@@ -14,6 +14,7 @@
 #include "fd-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "udev-util.h"
 
 static const char *arg_device = NULL;
 
@@ -69,10 +70,14 @@ static int run(int argc, char *argv[]) {
         }
 
         if (ioctl(fd, VIDIOC_QUERYCAP, &v2cap) == 0) {
+                char product[sizeof(v2cap.card) + 1];
                 int capabilities;
 
+                udev_replace_whitespace((char *) v2cap.card, product, sizeof(product) - 1);
+                udev_replace_chars(product, NULL);
+
                 printf("ID_V4L_VERSION=2\n");
-                printf("ID_V4L_PRODUCT=%s\n", v2cap.card);
+                printf("ID_V4L_PRODUCT=%s\n", product);
                 printf("ID_V4L_CAPABILITIES=:");
 
                 if (v2cap.capabilities & V4L2_CAP_DEVICE_CAPS)
