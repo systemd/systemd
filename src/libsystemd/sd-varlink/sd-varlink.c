@@ -1101,9 +1101,8 @@ static int varlink_sanitize_incoming_parameters(sd_json_variant **v) {
 }
 
 static int varlink_dispatch_reply(sd_varlink *v) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL, *error = NULL;
         sd_varlink_reply_flags_t flags = 0;
-        const char *error = NULL;
         sd_json_variant *e;
         const char *k;
         int r;
@@ -1128,7 +1127,7 @@ static int varlink_dispatch_reply(sd_varlink *v) {
                         if (!sd_json_variant_is_string(e))
                                 goto invalid;
 
-                        error = sd_json_variant_string(e);
+                        error = sd_json_variant_ref(e);
                         flags |= SD_VARLINK_REPLY_ERROR;
 
                 } else if (streq(k, "parameters")) {
@@ -1170,7 +1169,7 @@ static int varlink_dispatch_reply(sd_varlink *v) {
                 varlink_set_state(v, VARLINK_PROCESSING_REPLY);
 
                 if (v->reply_callback) {
-                        r = v->reply_callback(v, parameters, error, flags, v->userdata);
+                        r = v->reply_callback(v, parameters, sd_json_variant_string(error), flags, v->userdata);
                         if (r < 0)
                                 varlink_log_errno(v, r, "Reply callback returned error, ignoring: %m");
                 }
