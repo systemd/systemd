@@ -261,7 +261,7 @@ static int transfer_image_common(sd_bus *bus, sd_bus_message *m) {
         return -r;
 }
 
-static int import_tar(int argc, char *argv[], void *userdata) {
+static int verb_import_tar(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *ll = NULL, *fn = NULL;
         const char *local = NULL, *path = NULL;
@@ -340,7 +340,7 @@ static int import_tar(int argc, char *argv[], void *userdata) {
         return transfer_image_common(bus, m);
 }
 
-static int import_raw(int argc, char *argv[], void *userdata) {
+static int verb_import_raw(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *ll = NULL, *fn = NULL;
         const char *local = NULL, *path = NULL;
@@ -419,7 +419,7 @@ static int import_raw(int argc, char *argv[], void *userdata) {
         return transfer_image_common(bus, m);
 }
 
-static int import_fs(int argc, char *argv[], void *userdata) {
+static int verb_import_fs(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         const char *local = NULL, *path = NULL;
         _cleanup_free_ char *fn = NULL;
@@ -506,7 +506,7 @@ static void determine_compression_from_filename(const char *p) {
                 arg_format = "zstd";
 }
 
-static int export_tar(int argc, char *argv[], void *userdata) {
+static int verb_export_tar(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_close_ int fd = -EBADF;
         const char *local = NULL, *path = NULL;
@@ -565,7 +565,7 @@ static int export_tar(int argc, char *argv[], void *userdata) {
         return transfer_image_common(bus, m);
 }
 
-static int export_raw(int argc, char *argv[], void *userdata) {
+static int verb_export_raw(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_close_ int fd = -EBADF;
         const char *local = NULL, *path = NULL;
@@ -624,7 +624,7 @@ static int export_raw(int argc, char *argv[], void *userdata) {
         return transfer_image_common(bus, m);
 }
 
-static int pull_tar(int argc, char *argv[], void *userdata) {
+static int verb_pull_tar(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *l = NULL, *ll = NULL;
         const char *local, *remote;
@@ -697,7 +697,7 @@ static int pull_tar(int argc, char *argv[], void *userdata) {
         return transfer_image_common(bus, m);
 }
 
-static int pull_raw(int argc, char *argv[], void *userdata) {
+static int verb_pull_raw(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *l = NULL, *ll = NULL;
         const char *local, *remote;
@@ -770,7 +770,7 @@ static int pull_raw(int argc, char *argv[], void *userdata) {
         return transfer_image_common(bus, m);
 }
 
-static int pull_oci(int argc, char *argv[], void *userdata) {
+static int verb_pull_oci(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *l = NULL;
         const char *local, *remote;
@@ -825,7 +825,7 @@ static int pull_oci(int argc, char *argv[], void *userdata) {
         return transfer_image_common(bus, m);
 }
 
-static int list_transfers(int argc, char *argv[], void *userdata) {
+static int verb_list_transfers(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(table_unrefp) Table *t = NULL;
@@ -929,7 +929,7 @@ static int list_transfers(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int cancel_transfer(int argc, char *argv[], void *userdata) {
+static int verb_cancel_transfer(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
@@ -951,7 +951,7 @@ static int cancel_transfer(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int list_images(int argc, char *argv[], void *userdata) {
+static int verb_list_images(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(table_unrefp) Table *t = NULL;
@@ -1048,7 +1048,7 @@ static int list_images(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int help(int argc, char *argv[], void *userdata) {
+static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
@@ -1112,6 +1112,10 @@ static int help(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static int verb_help(int argc, char *argv[], void *userdata) {
+        return help();
+}
+
 static int parse_argv(int argc, char *argv[]) {
 
         enum {
@@ -1164,7 +1168,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        return help(0, NULL, NULL);
+                        return help();
 
                 case ARG_VERSION:
                         return version();
@@ -1295,18 +1299,18 @@ static int parse_argv(int argc, char *argv[]) {
 static int importctl_main(int argc, char *argv[], sd_bus *bus) {
 
         static const Verb verbs[] = {
-                { "help",            VERB_ANY, VERB_ANY, 0,            help              },
-                { "import-tar",      2,        3,        0,            import_tar        },
-                { "import-raw",      2,        3,        0,            import_raw        },
-                { "import-fs",       2,        3,        0,            import_fs         },
-                { "export-tar",      2,        3,        0,            export_tar        },
-                { "export-raw",      2,        3,        0,            export_raw        },
-                { "pull-tar",        2,        3,        0,            pull_tar          },
-                { "pull-oci",        2,        3,        0,            pull_oci          },
-                { "pull-raw",        2,        3,        0,            pull_raw          },
-                { "list-transfers",  VERB_ANY, 1,        VERB_DEFAULT, list_transfers    },
-                { "cancel-transfer", 2,        VERB_ANY, 0,            cancel_transfer   },
-                { "list-images",     VERB_ANY, 1,        0,            list_images       },
+                { "help",            VERB_ANY, VERB_ANY, 0,            verb_help            },
+                { "import-tar",      2,        3,        0,            verb_import_tar      },
+                { "import-raw",      2,        3,        0,            verb_import_raw      },
+                { "import-fs",       2,        3,        0,            verb_import_fs       },
+                { "export-tar",      2,        3,        0,            verb_export_tar      },
+                { "export-raw",      2,        3,        0,            verb_export_raw      },
+                { "pull-tar",        2,        3,        0,            verb_pull_tar        },
+                { "pull-oci",        2,        3,        0,            verb_pull_oci        },
+                { "pull-raw",        2,        3,        0,            verb_pull_raw        },
+                { "list-transfers",  VERB_ANY, 1,        VERB_DEFAULT, verb_list_transfers  },
+                { "cancel-transfer", 2,        VERB_ANY, 0,            verb_cancel_transfer },
+                { "list-images",     VERB_ANY, 1,        0,            verb_list_images     },
                 {}
         };
 
