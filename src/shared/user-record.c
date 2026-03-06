@@ -1493,6 +1493,11 @@ int user_group_record_mangle(
          * any record that passes through here. */
         sd_json_variant_sensitive(sd_json_variant_by_key(v, "secret"));
 
+        /* Mark PII fields as sensitive, so they are not leaked in debug logs. */
+        sd_json_variant_sensitive(sd_json_variant_by_key(v, "realName"));
+        sd_json_variant_sensitive(sd_json_variant_by_key(v, "emailAddress"));
+        sd_json_variant_sensitive(sd_json_variant_by_key(v, "location"));
+
         /* Check if we have the special sections and if they match our flags set */
         FOREACH_ELEMENT(i, mask_field) {
                 sd_json_variant *e, *k;
