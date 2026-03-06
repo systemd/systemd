@@ -178,7 +178,7 @@ static int acquire_bus(sd_bus **bus) {
         return 0;
 }
 
-static int list_homes(int argc, char *argv[], void *userdata) {
+static int verb_list_homes(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -627,7 +627,7 @@ static int acquire_passed_secrets(const char *user_name, UserRecord **ret) {
         return 0;
 }
 
-static int activate_home(int argc, char *argv[], void *userdata) {
+static int verb_activate_home(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r, ret = 0;
 
@@ -675,7 +675,7 @@ static int activate_home(int argc, char *argv[], void *userdata) {
         return ret;
 }
 
-static int deactivate_home(int argc, char *argv[], void *userdata) {
+static int verb_deactivate_home(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r, ret = 0;
 
@@ -775,7 +775,7 @@ static int inspect_home(sd_bus *bus, const char *name) {
         return 0;
 }
 
-static int inspect_homes(int argc, char *argv[], void *userdata) {
+static int verb_inspect_homes(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
@@ -833,7 +833,7 @@ static int authenticate_home(sd_bus *bus, const char *name) {
         }
 }
 
-static int authenticate_homes(int argc, char *argv[], void *userdata) {
+static int verb_authenticate_homes(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
@@ -1557,7 +1557,7 @@ static int create_home_common(sd_json_variant *input, bool show_enforce_password
         return 0;
 }
 
-static int create_home(int argc, char *argv[], void *userdata) {
+static int verb_create_home(int argc, char *argv[], void *userdata) {
         int r;
 
         if (argc >= 2) {
@@ -1735,7 +1735,7 @@ static int verb_unregister_home(int argc, char *argv[], void *userdata) {
         return ret;
 }
 
-static int remove_home(int argc, char *argv[], void *userdata) {
+static int verb_remove_home(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r, ret = 0;
 
@@ -1900,7 +1900,7 @@ static int home_record_reset_human_interaction_permission(UserRecord *hr) {
         return 0;
 }
 
-static int update_home(int argc, char *argv[], void *userdata) {
+static int verb_update_home(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL, *secret = NULL;
         _cleanup_free_ char *buffer = NULL;
@@ -2077,7 +2077,7 @@ static int update_home(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int passwd_home(int argc, char *argv[], void *userdata) {
+static int verb_passwd_home(int argc, char *argv[], void *userdata) {
         _cleanup_(user_record_unrefp) UserRecord *old_secret = NULL, *new_secret = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ char *buffer = NULL;
@@ -2194,7 +2194,7 @@ static int parse_disk_size(const char *t, uint64_t *ret) {
         return 0;
 }
 
-static int resize_home(int argc, char *argv[], void *userdata) {
+static int verb_resize_home(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(user_record_unrefp) UserRecord *secret = NULL;
         uint64_t ds = UINT64_MAX;
@@ -2256,7 +2256,7 @@ static int resize_home(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int lock_home(int argc, char *argv[], void *userdata) {
+static int verb_lock_home(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r, ret = 0;
 
@@ -2287,7 +2287,7 @@ static int lock_home(int argc, char *argv[], void *userdata) {
         return ret;
 }
 
-static int unlock_home(int argc, char *argv[], void *userdata) {
+static int verb_unlock_home(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r, ret = 0;
 
@@ -2335,7 +2335,7 @@ static int unlock_home(int argc, char *argv[], void *userdata) {
         return ret;
 }
 
-static int with_home(int argc, char *argv[], void *userdata) {
+static int verb_with_home(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -2458,7 +2458,7 @@ static int with_home(int argc, char *argv[], void *userdata) {
         return ret;
 }
 
-static int lock_all_homes(int argc, char *argv[], void *userdata) {
+static int verb_lock_all_homes(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -2479,7 +2479,7 @@ static int lock_all_homes(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int deactivate_all_homes(int argc, char *argv[], void *userdata) {
+static int verb_deactivate_all_homes(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -2500,7 +2500,7 @@ static int deactivate_all_homes(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int rebalance(int argc, char *argv[], void *userdata) {
+static int verb_rebalance(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -3866,7 +3866,7 @@ static int parse_fido2_device_field(const char *arg) {
         return 1;
 }
 
-static int help(int argc, char *argv[], void *userdata) {
+static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
@@ -4080,6 +4080,10 @@ static int help(int argc, char *argv[], void *userdata) {
                link);
 
         return 0;
+}
+
+static int verb_help(int argc, char *argv[], void *userdata) {
+        return help();
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -4316,7 +4320,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        return help(0, NULL, NULL);
+                        return help();
 
                 case ARG_VERSION:
                         return version();
@@ -5511,31 +5515,31 @@ static int verb_remove_signing_key(int argc, char *argv[], void *userdata) {
 
 static int run(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "help",               VERB_ANY, VERB_ANY, 0,            help                     },
-                { "list",               VERB_ANY, 1,        VERB_DEFAULT, list_homes               },
-                { "activate",           2,        VERB_ANY, 0,            activate_home            },
-                { "deactivate",         2,        VERB_ANY, 0,            deactivate_home          },
-                { "inspect",            VERB_ANY, VERB_ANY, 0,            inspect_homes            },
-                { "authenticate",       VERB_ANY, VERB_ANY, 0,            authenticate_homes       },
-                { "create",             VERB_ANY, 2,        0,            create_home              },
-                { "adopt",              VERB_ANY, VERB_ANY, 0,            verb_adopt_home          },
-                { "register",           VERB_ANY, VERB_ANY, 0,            verb_register_home       },
-                { "unregister",         2,        VERB_ANY, 0,            verb_unregister_home     },
-                { "remove",             2,        VERB_ANY, 0,            remove_home              },
-                { "update",             VERB_ANY, 2,        0,            update_home              },
-                { "passwd",             VERB_ANY, 2,        0,            passwd_home              },
-                { "resize",             2,        3,        0,            resize_home              },
-                { "lock",               2,        VERB_ANY, 0,            lock_home                },
-                { "unlock",             2,        VERB_ANY, 0,            unlock_home              },
-                { "with",               2,        VERB_ANY, 0,            with_home                },
-                { "lock-all",           VERB_ANY, 1,        0,            lock_all_homes           },
-                { "deactivate-all",     VERB_ANY, 1,        0,            deactivate_all_homes     },
-                { "rebalance",          VERB_ANY, 1,        0,            rebalance                },
-                { "firstboot",          VERB_ANY, 1,        0,            verb_firstboot           },
-                { "list-signing-keys",  VERB_ANY, 1,        0,            verb_list_signing_keys   },
-                { "get-signing-key",    VERB_ANY, VERB_ANY, 0,            verb_get_signing_key     },
-                { "add-signing-key",    VERB_ANY, VERB_ANY, 0,            verb_add_signing_key     },
-                { "remove-signing-key", 2,        VERB_ANY, 0,            verb_remove_signing_key  },
+                { "help",               VERB_ANY, VERB_ANY, 0,            verb_help                 },
+                { "list",               VERB_ANY, 1,        VERB_DEFAULT, verb_list_homes           },
+                { "activate",           2,        VERB_ANY, 0,            verb_activate_home        },
+                { "deactivate",         2,        VERB_ANY, 0,            verb_deactivate_home      },
+                { "inspect",            VERB_ANY, VERB_ANY, 0,            verb_inspect_homes        },
+                { "authenticate",       VERB_ANY, VERB_ANY, 0,            verb_authenticate_homes   },
+                { "create",             VERB_ANY, 2,        0,            verb_create_home          },
+                { "adopt",              VERB_ANY, VERB_ANY, 0,            verb_adopt_home           },
+                { "register",           VERB_ANY, VERB_ANY, 0,            verb_register_home        },
+                { "unregister",         2,        VERB_ANY, 0,            verb_unregister_home      },
+                { "remove",             2,        VERB_ANY, 0,            verb_remove_home          },
+                { "update",             VERB_ANY, 2,        0,            verb_update_home          },
+                { "passwd",             VERB_ANY, 2,        0,            verb_passwd_home          },
+                { "resize",             2,        3,        0,            verb_resize_home          },
+                { "lock",               2,        VERB_ANY, 0,            verb_lock_home            },
+                { "unlock",             2,        VERB_ANY, 0,            verb_unlock_home          },
+                { "with",               2,        VERB_ANY, 0,            verb_with_home            },
+                { "lock-all",           VERB_ANY, 1,        0,            verb_lock_all_homes       },
+                { "deactivate-all",     VERB_ANY, 1,        0,            verb_deactivate_all_homes },
+                { "rebalance",          VERB_ANY, 1,        0,            verb_rebalance            },
+                { "firstboot",          VERB_ANY, 1,        0,            verb_firstboot            },
+                { "list-signing-keys",  VERB_ANY, 1,        0,            verb_list_signing_keys    },
+                { "get-signing-key",    VERB_ANY, VERB_ANY, 0,            verb_get_signing_key      },
+                { "add-signing-key",    VERB_ANY, VERB_ANY, 0,            verb_add_signing_key      },
+                { "remove-signing-key", 2,        VERB_ANY, 0,            verb_remove_signing_key   },
                 {}
         };
 
