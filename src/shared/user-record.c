@@ -554,7 +554,7 @@ static int json_dispatch_weight(const char *name, sd_json_variant *variant, sd_j
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an integer.", strna(name));
 
         k = sd_json_variant_unsigned(variant);
-        if (k <= CGROUP_WEIGHT_MIN || k >= CGROUP_WEIGHT_MAX)
+        if (k < CGROUP_WEIGHT_MIN || k > CGROUP_WEIGHT_MAX)
                 return json_log(variant, flags, SYNTHETIC_ERRNO(ERANGE),
                                 "JSON field '%s' is not in valid range %" PRIu64 "%s%" PRIu64 ".",
                                 strna(name), (uint64_t) CGROUP_WEIGHT_MIN,
@@ -1161,7 +1161,7 @@ int per_machine_hostname_match(sd_json_variant *hns, sd_json_dispatch_flags_t fl
                                 continue;
                         }
 
-                        if (streq(sd_json_variant_string(hns), hn))
+                        if (streq(sd_json_variant_string(e), hn))
                                 return true;
                 }
 
