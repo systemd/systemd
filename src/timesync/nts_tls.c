@@ -9,17 +9,17 @@
 #include "timesyncd-forward.h"
 
 int NTS_TLS_extract_keys(
-                NTS_TLS *opaque,
+                NTS_TLS *session,
                 NTS_AEADAlgorithmType aead,
                 uint8_t *c2s,
                 uint8_t *s2c,
                 int key_capacity) {
 
-        assert(opaque);
+        assert(session);
         assert(c2s);
         assert(s2c);
 
-        SSL *session = (void *)opaque;
+        SSL *tls = (void *)session;
 
         uint8_t *keys[] = { c2s, s2c };
         const char label[] = "EXPORTER-network-time-security";
@@ -33,7 +33,7 @@ int NTS_TLS_extract_keys(
         for (int i=0; i < 2; i++) {
                 const uint8_t context[5] = { 0, 0, (aead >> 8) & 0xFF, aead & 0xFF, i };
                 if (SSL_export_keying_material(
-                                        session,
+                                        tls,
                                         keys[i], info->key_size,
                                         label, strlen(label),
                                         context, sizeof context, 1)
@@ -44,15 +44,15 @@ int NTS_TLS_extract_keys(
         return 0;
 }
 
-int NTS_TLS_handshake(NTS_TLS *opaque) {
-        assert(opaque);
-        SSL *session = (void *)opaque;
+int NTS_TLS_handshake(NTS_TLS *session) {
+        assert(session);
+        SSL *tls = (void *)session;
 
-        int result = SSL_connect(session);
+        int result = SSL_connect(tls);
         if (result == 1)
                 return 1;
 
-        switch (SSL_get_error(session, result)) {
+        switch (SSL_get_error(tls, result)) {
         case SSL_ERROR_ZERO_RETURN:
                 return 1;
         case SSL_ERROR_WANT_READ:
@@ -63,16 +63,16 @@ int NTS_TLS_handshake(NTS_TLS *opaque) {
         }
 }
 
-ssize_t NTS_TLS_write(NTS_TLS *opaque, const void *buffer, size_t size) {
-        assert(opaque);
+ssize_t NTS_TLS_write(NTS_TLS *session, const void *buffer, size_t size) {
+        assert(session);
         assert(buffer);
 
-        SSL *session = (void *)opaque;
-        int result = SSL_write(session, buffer, size);
+        SSL *tls = (void *)session;
+        int result = SSL_write(tls, buffer, size);
         if (result > 0)
                 return result;
 
-        switch (SSL_get_error(session, result)) {
+        switch (SSL_get_error(tls, result)) {
         case SSL_ERROR_WANT_READ:
         case SSL_ERROR_WANT_WRITE:
                 return 0;
@@ -81,16 +81,16 @@ ssize_t NTS_TLS_write(NTS_TLS *opaque, const void *buffer, size_t size) {
         }
 }
 
-ssize_t NTS_TLS_read(NTS_TLS *opaque, void *buffer, size_t size) {
-        assert(opaque);
+ssize_t NTS_TLS_read(NTS_TLS *session, void *buffer, size_t size) {
+        assert(session);
         assert(buffer);
 
-        SSL *session = (void *)opaque;
-        int result = SSL_read(session, buffer, size);
+        SSL *tls = (void *)session;
+        int result = SSL_read(tls, buffer, size);
         if (result > 0)
                 return result;
 
-        switch (SSL_get_error(session, result)) {
+        switch (SSL_get_error(tls, result)) {
         case SSL_ERROR_WANT_READ:
         case SSL_ERROR_WANT_WRITE:
                 return 0;
@@ -99,15 +99,15 @@ ssize_t NTS_TLS_read(NTS_TLS *opaque, void *buffer, size_t size) {
         }
 }
 
-void NTS_TLS_close(NTS_TLS **opaque) {
-        assert(opaque);
+void NTS_TLS_close(NTS_TLS **session) {
+        assert(session);
 
-        SSL *session = (SSL*) *opaque;
-        *opaque = NULL;
+        SSL *tls = (SSL*) *session;
+        *session = NULL;
 
         /* unidirectional closing is enough */
-        (void) SSL_shutdown(session);
-        SSL_free(session);
+        (void) SSL_shutdown(tls);
+        SSL_free(tls);
 }
 
 NTS_TLS* NTS_TLS_setup(
