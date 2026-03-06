@@ -180,7 +180,7 @@ static int print_status_info(const StatusInfo *i) {
         return 0;
 }
 
-static int show_status(int argc, char **argv, void *userdata) {
+static int verb_show_status(int argc, char **argv, void *userdata) {
         StatusInfo info = {};
         static const struct bus_properties_map map[]  = {
                 { "Timezone",        "s", NULL, offsetof(StatusInfo, timezone)    },
@@ -212,7 +212,7 @@ static int show_status(int argc, char **argv, void *userdata) {
         return print_status_info(&info);
 }
 
-static int show_properties(int argc, char **argv, void *userdata) {
+static int verb_show_properties(int argc, char **argv, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
@@ -229,7 +229,7 @@ static int show_properties(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int set_time(int argc, char **argv, void *userdata) {
+static int verb_set_time(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
         usec_t t;
@@ -254,7 +254,7 @@ static int set_time(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int set_timezone(int argc, char **argv, void *userdata) {
+static int verb_set_timezone(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
         int r;
@@ -268,7 +268,7 @@ static int set_timezone(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int set_local_rtc(int argc, char **argv, void *userdata) {
+static int verb_set_local_rtc(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
         int r, b;
@@ -299,7 +299,7 @@ static int set_local_rtc(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int set_ntp(int argc, char **argv, void *userdata) {
+static int verb_set_ntp(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
@@ -327,7 +327,7 @@ static int set_ntp(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int list_timezones(int argc, char **argv, void *userdata) {
+static int verb_list_timezones(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
@@ -688,7 +688,7 @@ static int on_properties_changed(sd_bus_message *m, void *userdata, sd_bus_error
         return show_timesync_status_once(sd_bus_message_get_bus(m));
 }
 
-static int show_timesync_status(int argc, char **argv, void *userdata) {
+static int verb_show_timesync_status(int argc, char **argv, void *userdata) {
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
@@ -792,7 +792,7 @@ static int print_timesync_property(const char *name, const char *expected_value,
         return 0;
 }
 
-static int show_timesync(int argc, char **argv, void *userdata) {
+static int verb_show_timesync(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
@@ -1039,18 +1039,18 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int timedatectl_main(sd_bus *bus, int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "status",          VERB_ANY, 1,        VERB_DEFAULT, show_status          },
-                { "show",            VERB_ANY, 1,        0,            show_properties      },
-                { "set-time",        2,        2,        0,            set_time             },
-                { "set-timezone",    2,        2,        0,            set_timezone         },
-                { "list-timezones",  VERB_ANY, 1,        0,            list_timezones       },
-                { "set-local-rtc",   2,        2,        0,            set_local_rtc        },
-                { "set-ntp",         2,        2,        0,            set_ntp              },
-                { "timesync-status", VERB_ANY, 1,        0,            show_timesync_status },
-                { "show-timesync",   VERB_ANY, 1,        0,            show_timesync        },
-                { "ntp-servers",     3,        VERB_ANY, 0,            verb_ntp_servers     },
-                { "revert",          2,        2,        0,            verb_revert          },
-                { "help",            VERB_ANY, VERB_ANY, 0,            verb_help            }, /* Not documented, but supported since it is created. */
+                { "status",          VERB_ANY, 1,        VERB_DEFAULT, verb_show_status          },
+                { "show",            VERB_ANY, 1,        0,            verb_show_properties      },
+                { "set-time",        2,        2,        0,            verb_set_time             },
+                { "set-timezone",    2,        2,        0,            verb_set_timezone         },
+                { "list-timezones",  VERB_ANY, 1,        0,            verb_list_timezones       },
+                { "set-local-rtc",   2,        2,        0,            verb_set_local_rtc        },
+                { "set-ntp",         2,        2,        0,            verb_set_ntp              },
+                { "timesync-status", VERB_ANY, 1,        0,            verb_show_timesync_status },
+                { "show-timesync",   VERB_ANY, 1,        0,            verb_show_timesync        },
+                { "ntp-servers",     3,        VERB_ANY, 0,            verb_ntp_servers          },
+                { "revert",          2,        2,        0,            verb_revert               },
+                { "help",            VERB_ANY, VERB_ANY, 0,            verb_help                 }, /* Not documented, but supported since it has been created. */
                 {}
         };
 
