@@ -255,3 +255,62 @@ systemd-run --wait --pipe --user --machine testuser@ \
 # test io.systemd.Unit in user manager
 systemd-run --wait --pipe --user --machine testuser@ \
         varlinkctl --more call "/run/user/$testuser_uid/systemd/io.systemd.Manager" io.systemd.Unit.List '{}'
+
+# test --upgrade (protocol upgrade)
+UPGRADE_SOCKET="$(mktemp -d)/upgrade.sock"
+UPGRADE_SERVER="$(mktemp)"
+cat >"$UPGRADE_SERVER" <<'PYEOF'
+#!/usr/bin/env python3
+import json, os, socket, sys
+
+sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+sock.bind(sys.argv[1])
+sock.listen(1)
+# Notify readiness
+print("READY", flush=True)
+
+conn, _ = sock.accept()
+# Read the varlink request (NUL-terminated JSON)
+data = b""
+while True:
+    chunk = conn.recv(4096)
+    assert chunk, "Connection closed before receiving full varlink request"
+    data += chunk
+    if b"\0" in data:
+        break
+
+msg = json.loads(data.split(b"\0")[0])
+received_parameters = msg.get("parameters", {})
+conn.sendall(b'{"parameters": {}}\0')
+
+# Now we are in upgraded protocol: send a non-JSON banner first to prove
+# we're truly in raw mode, then echo the received parameters, then reverse lines
+f = conn.makefile("rwb")
+f.write(b"<<< UPGRADED >>>\n")
+f.write((json.dumps(received_parameters) + "\n").encode())
+f.flush()
+data = f.read().decode().rstrip("\n")
+f.write((data[::-1] + "\n").encode())
+f.flush()
+
+conn.close()
+sock.close()
+PYEOF
+chmod +x "$UPGRADE_SERVER"
+
+# Start the server in the background
+python3 "$UPGRADE_SERVER" "$UPGRADE_SOCKET" &
+SERVER_PID=$!
+
+# Wait for server readiness
+timeout 5 bash -c "while [ ! -S '$UPGRADE_SOCKET' ]; do sleep 0.1; done"
+
+# Test proxy mode: pipe data through --upgrade, passing parameters and validate
+result="$(echo "hello world" | varlinkctl call --upgrade "unix:$UPGRADE_SOCKET" io.systemd.test.Reverse '{"foo":"bar"}')"
+echo "$result" | grep "<<< UPGRADED >>>" >/dev/null
+echo "$result" | grep '"foo": "bar"' >/dev/null
+echo "$result" | grep "dlrow olleh" >/dev/null
+
+wait "$SERVER_PID" || :
+rm -f "$UPGRADE_SOCKET" "$UPGRADE_SERVER"
+rm -rf "$(dirname "$UPGRADE_SOCKET")"
