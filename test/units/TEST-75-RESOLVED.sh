@@ -1487,6 +1487,38 @@ EOF
     grep -qF "1.2.3.4" "$RUN_OUT"
 }
 
+testcase_static_record() {
+    mkdir -p /run/systemd/resolve/static.d/
+    cat >/run/systemd/resolve/static.d/statictest.rr <<EOF
+{
+        "key": { "name" : "statictest.waldo", "type" : 1 },
+        "address" : [ 5, 7, 9, 11 ]
+}
+EOF
+    cat >/run/systemd/resolve/static.d/statictest2.rr <<EOF
+[
+        {
+                "key": { "name" : "statictest2.waldo", "type" : 1 },
+                "address" : [ 5, 7, 9, 12 ]
+        },
+        {
+                "key": { "name" : "statictest2.waldo", "type" : 28 },
+                "address" : [ 10, 11, 10, 11, 10, 11, 10, 11, 10, 11, 10, 11, 10, 11, 10, 12 ]
+        }
+]
+EOF
+
+    systemctl reload systemd-resolved
+
+    run resolvectl query statictest.waldo
+    grep -qF 5.7.9.11 "$RUN_OUT"
+
+    run resolvectl query statictest2.waldo
+    grep -qF 5.7.9.12 "$RUN_OUT"
+    grep -qF a0b:a0b:a0b:a0b:a0b:a0b:a0b:a0c "$RUN_OUT"
+
+}
+
 # PRE-SETUP
 systemctl unmask systemd-resolved.service
 systemctl enable --now systemd-resolved.service
