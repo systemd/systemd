@@ -779,22 +779,16 @@ static int verb_metrics(int argc, char *argv[], uintptr_t data, void *userdata) 
         return 0;
 }
 
-static int verb_facts(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        Action action;
+static int verb_facts(int argc, char *argv[], uintptr_t data, void *userdata) {
+        Action action = data;
         int r;
 
         assert(argc >= 1);
         assert(argv);
+        assert(IN_SET(action, ACTION_LIST_FACTS, ACTION_DESCRIBE_FACTS));
 
         /* Enable JSON-SEQ mode here, since we'll dump a large series of JSON objects */
         arg_json_format_flags |= SD_JSON_FORMAT_SEQ;
-
-        if (streq_ptr(argv[0], "facts"))
-                action = ACTION_LIST_FACTS;
-        else {
-                assert(streq_ptr(argv[0], "describe-facts"));
-                action = ACTION_DESCRIBE_FACTS;
-        }
 
         r = parse_metrics_matches(argv + 1);
         if (r < 0)
