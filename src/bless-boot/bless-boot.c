@@ -26,6 +26,12 @@ static char **arg_path = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_path, strv_freep);
 
+typedef enum Status {
+        STATUS_GOOD,
+        STATUS_BAD,
+        STATUS_INDETERMINATE,
+} Status;
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -329,7 +335,8 @@ static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) 
         int r;
 
         r = acquire_boot_count_path(&path, &prefix, &left, &done, &suffix);
-        if (r == -EUNATCH) { /* No boot count in place, then let's consider this a "clean" boot, as "good", "bad" or "indeterminate" don't apply. */
+        if (r == -EUNATCH) { /* No boot count in place, then let's consider this a "clean" boot,
+                              * since "good", "bad", or "indeterminate" don't apply. */
                 puts("clean");
                 return 0;
         }
@@ -429,11 +436,14 @@ static int rename_in_dir_idempotent(int fd, const char *from, const char *to) {
          return 1;
 }
 
-static int verb_set(int argc, char *argv[], uintptr_t _data, void *userdata) {
+static int verb_set(int argc, char *argv[], uintptr_t data, void *userdata) {
         _cleanup_free_ char *path = NULL, *prefix = NULL, *suffix = NULL, *good = NULL, *bad = NULL;
         const char *target, *source1, *source2;
         uint64_t left, done;
+        Status status = data;
         int r;
+
+        assert(IN_SET(status, STATUS_GOOD, STATUS_BAD, STATUS_INDETERMINATE));
 
         r = acquire_boot_count_path(&path, &prefix, &left, &done, &suffix);
         if (r == -EUNATCH) /* acquire_boot_count_path() won't log on its own for this specific error */
@@ -454,23 +464,25 @@ static int verb_set(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 return log_oom();
 
         /* Figure out what rename to what */
-        if (streq(argv[0], "good")) {
+        switch (status) {
+        case STATUS_GOOD:
                 target = good;
                 source1 = path;
                 source2 = bad;      /* Maybe this boot was previously marked as 'bad'? */
-        } else if (streq(argv[0], "bad")) {
+                break;
+        case STATUS_BAD:
                 target = bad;
                 source1 = path;
                 source2 = good;     /* Maybe this boot was previously marked as 'good'? */
-        } else {
-                assert(streq(argv[0], "indeterminate"));
-
+                break;
+        case STATUS_INDETERMINATE:
                 if (left == 0)
                         return log_error_errno(r, "Current boot entry was already marked bad in a previous boot, cannot reset to indeterminate.");
 
                 target = path;
                 source1 = good;
                 source2 = bad;
+                break;
         }
 
         STRV_FOREACH(p, arg_path) {
@@ -535,11 +547,11 @@ exists:
 
 static int run(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "help",          VERB_ANY, VERB_ANY, 0,            verb_help   },
-                { "status",        VERB_ANY, 1,        VERB_DEFAULT, verb_status },
-                { "good",          VERB_ANY, 1,        0,            verb_set    },
-                { "bad",           VERB_ANY, 1,        0,            verb_set    },
-                { "indeterminate", VERB_ANY, 1,        0,            verb_set    },
+                { "help",          VERB_ANY, VERB_ANY, 0,            verb_help                        },
+                { "status",        VERB_ANY, 1,        VERB_DEFAULT, verb_status                      },
+                { "good",          VERB_ANY, 1,        0,            verb_set,   STATUS_GOOD          },
+                { "bad",           VERB_ANY, 1,        0,            verb_set,   STATUS_BAD           },
+                { "indeterminate", VERB_ANY, 1,        0,            verb_set,   STATUS_INDETERMINATE },
                 {}
         };
 
