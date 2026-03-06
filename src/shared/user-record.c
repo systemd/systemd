@@ -211,12 +211,15 @@ static UserRecord* user_record_free(UserRecord *h) {
 
         for (size_t i = 0; i < h->n_fido2_hmac_credential; i++)
                 fido2_hmac_credential_done(h->fido2_hmac_credential + i);
+        free(h->fido2_hmac_credential);
         for (size_t i = 0; i < h->n_fido2_hmac_salt; i++)
                 fido2_hmac_salt_done(h->fido2_hmac_salt + i);
+        free(h->fido2_hmac_salt);
 
         strv_free(h->recovery_key_type);
         for (size_t i = 0; i < h->n_recovery_key; i++)
                 recovery_key_done(h->recovery_key + i);
+        free(h->recovery_key);
 
         strv_free(h->self_modifiable_fields);
         strv_free(h->self_modifiable_blobs);
@@ -554,11 +557,11 @@ static int json_dispatch_weight(const char *name, sd_json_variant *variant, sd_j
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an integer.", strna(name));
 
         k = sd_json_variant_unsigned(variant);
-        if (k <= CGROUP_WEIGHT_MIN || k >= CGROUP_WEIGHT_MAX)
+        if (k < CGROUP_WEIGHT_MIN || k > CGROUP_WEIGHT_MAX)
                 return json_log(variant, flags, SYNTHETIC_ERRNO(ERANGE),
                                 "JSON field '%s' is not in valid range %" PRIu64 "%s%" PRIu64 ".",
-                                strna(name), (uint64_t) CGROUP_WEIGHT_MIN,
-                                glyph(GLYPH_ELLIPSIS), (uint64_t) CGROUP_WEIGHT_MAX);
+                                strna(name), CGROUP_WEIGHT_MIN,
+                                glyph(GLYPH_ELLIPSIS), CGROUP_WEIGHT_MAX);
 
         *weight = k;
         return 0;
@@ -1161,7 +1164,7 @@ int per_machine_hostname_match(sd_json_variant *hns, sd_json_dispatch_flags_t fl
                                 continue;
                         }
 
-                        if (streq(sd_json_variant_string(hns), hn))
+                        if (streq(sd_json_variant_string(e), hn))
                                 return true;
                 }
 
@@ -1826,6 +1829,16 @@ const char* user_record_image_path(UserRecord *h) {
                 user_record_home_directory_real(h) : NULL;
 }
 
+static bool user_record_image_is_blockdev(UserRecord *h) {
+        assert(h);
+
+        const char *p = user_record_image_path(h);
+        if (!p)
+                return false;
+
+        return path_startswith(p, "/dev/");
+}
+
 const char* user_record_cifs_user_name(UserRecord *h) {
         assert(h);
 
@@ -1877,16 +1890,10 @@ const char* user_record_real_name(UserRecord *h) {
 }
 
 bool user_record_luks_discard(UserRecord *h) {
-        const char *ip;
-
         assert(h);
 
         if (h->luks_discard >= 0)
                 return h->luks_discard;
-
-        ip = user_record_image_path(h);
-        if (!ip)
-                return false;
 
         /* Use discard by default if we are referring to a real block device, but not when operating on a
          * loopback device. We want to optimize for SSD and flash storage after all, but we should be careful
@@ -1894,7 +1901,7 @@ bool user_record_luks_discard(UserRecord *h) {
          * mean thin provisioning and we should not do that willy-nilly since it means we'll risk EIO later
          * on should the disk space to back our file systems not be available. */
 
-        return path_startswith(ip, "/dev/");
+        return user_record_image_is_blockdev(h);
 }
 
 bool user_record_luks_offline_discard(UserRecord *h) {
@@ -2060,7 +2067,7 @@ int user_record_removable(UserRecord *h) {
                 return -1;
 
         /* For now consider only LUKS home directories with a reference by path as removable */
-        return storage == USER_LUKS && path_startswith(user_record_image_path(h), "/dev/");
+        return storage == USER_LUKS && user_record_image_is_blockdev(h);
 }
 
 uint64_t user_record_ratelimit_interval_usec(UserRecord *h) {

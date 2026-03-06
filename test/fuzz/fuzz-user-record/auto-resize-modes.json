@@ -1,0 +1,14 @@
+{
+    "userName": "autoresizeuser",
+    "realName": "Auto Resize Test User",
+    "uid": 3006,
+    "gid": 3006,
+    "homeDirectory": "/home/autoresizeuser",
+    "shell": "/bin/bash",
+    "disposition": "regular",
+    "storage": "luks",
+    "imagePath": "/home/autoresizeuser.home",
+    "diskSize": 53687091200,
+    "autoResizeMode": "shrink-and-grow",
+    "rebalanceWeight": 100
+}
