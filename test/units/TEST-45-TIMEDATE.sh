@@ -503,11 +503,13 @@ testcase_nts() {
         return 0
     fi
 
+    # shellcheck disable=SC2329
     cleanup() {
         systemctl stop systemd-timesyncd busctl-monitor.service
         rm -f server.key server.crt /etc/ssl/certs/CA.crt /etc/systemd/timesyncd.conf
     }
 
+    # shellcheck disable=SC2329
     error() {
         cleanup
         [ "$mock_pid" ] && kill "$mock_pid"
@@ -581,10 +583,12 @@ testcase_nts_failure_modes() {
         return 0
     fi
 
+    # shellcheck disable=SC2329
     cleanup() {
         rm -f server.key server.crt /etc/ssl/certs/CA.crt /etc/systemd/timesyncd.conf
     }
 
+    # shellcheck disable=SC2329
     error() {
         cleanup
         [ "$mock_pid" ] && kill "$mock_pid"
@@ -620,7 +624,7 @@ EOF
         /usr/lib/systemd/tests/unit-tests/manual/test-nts-mockserver "$failure_mode" &
         mock_pid="$!"
 
-        local ts="$(date +"%F %T.%6N")"
+        ts="$(date +"%F %T.%6N")"
         timedatectl set-ntp true
         # NTP timeout is not configurable
 	[ "$failure_mode" -gt 2 ] || sleep 10
