@@ -1642,6 +1642,19 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
+static int container_in_userns(void) {
+        int r;
+
+        if (arg_userns_mode != USER_NAMESPACE_NO)
+                return true;
+
+        r = namespace_is_init(NAMESPACE_USER);
+        if (r < 0 && !IN_SET(r, -EBADR, -ENOSYS))
+                return log_error_errno(r, "Failed to check if in initial user namespace: %m");
+
+        return r == 0;
+}
+
 static int verify_arguments(void) {
         int r;
 
@@ -1653,6 +1666,15 @@ static int verify_arguments(void) {
         SET_FLAG(arg_mount_settings, MOUNT_PRIVILEGED, arg_userns_mode != USER_NAMESPACE_MANAGED);
 
         SET_FLAG(arg_mount_settings, MOUNT_USE_USERNS, arg_userns_mode != USER_NAMESPACE_NO);
+
+        /* When running in a user namespace the kernel will protect procfs/sysfs for us, so there's no need
+         * to mount them read-only or mask individual files. This applies both when we allocate a user
+         * namespace ourselves, and when nspawn is invoked from within an existing user namespace. */
+        r = container_in_userns();
+        if (r < 0)
+                return r;
+        if (r > 0)
+                arg_mount_settings &= ~MOUNT_APPLY_APIVFS_RO;
 
         if (arg_private_network)
                 SET_FLAG(arg_mount_settings, MOUNT_APPLY_APIVFS_NETNS, arg_private_network);
@@ -1734,9 +1756,6 @@ static int verify_arguments(void) {
 
         if (arg_userns_mode != USER_NAMESPACE_NO && (arg_mount_settings & MOUNT_APPLY_APIVFS_NETNS) && !arg_private_network)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid namespacing settings. Mounting sysfs with --private-users requires --private-network.");
-
-        if (arg_userns_mode != USER_NAMESPACE_NO && !(arg_mount_settings & MOUNT_APPLY_APIVFS_RO))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot combine --private-users with read-write API VFS mounts.");
 
         if (arg_expose_ports && !arg_private_network)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot use --port= without private networking.");
@@ -2129,6 +2148,10 @@ static int setup_boot_id(void) {
         sd_id128_t rnd = SD_ID128_NULL;
         const char *to;
         int r;
+
+        r = container_in_userns();
+        if (r != 0)
+                return r;
 
         /* Generate a new randomized boot ID, so that each boot-up of the container gets a new one */
 
@@ -2538,6 +2561,10 @@ static int setup_kmsg(int fd_inner_socket) {
         int r;
 
         assert(fd_inner_socket >= 0);
+
+        r = container_in_userns();
+        if (r != 0)
+                return r;
 
         BLOCK_WITH_UMASK(0000);
 
@@ -5793,9 +5820,14 @@ static int run_container(
         (void) sd_event_add_signal(event, NULL, SIGCHLD, on_sigchld, pid);
 
         /* Retrieve the kmsg fifo allocated by inner child */
-        fd_kmsg_fifo = receive_one_fd(fd_inner_socket_pair[0], 0);
-        if (fd_kmsg_fifo < 0)
-                return log_error_errno(fd_kmsg_fifo, "Failed to receive kmsg fifo from inner child: %m");
+        r = container_in_userns();
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                fd_kmsg_fifo = receive_one_fd(fd_inner_socket_pair[0], 0);
+                if (fd_kmsg_fifo < 0)
+                        return log_error_errno(fd_kmsg_fifo, "Failed to receive kmsg fifo from inner child: %m");
+        }
 
         if (arg_expose_ports) {
                 r = expose_port_watch_rtnl(event, fd_inner_socket_pair[0], on_address_change, expose_args, &rtnl);
