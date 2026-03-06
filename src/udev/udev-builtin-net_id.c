@@ -31,6 +31,7 @@
 #include "stdio-util.h"
 #include "string-util.h"
 #include "udev-builtin.h"
+#include "utf8.h"
 
 #define ONBOARD_14BIT_INDEX_MAX ((1U << 14) - 1)
 #define ONBOARD_16BIT_INDEX_MAX ((1U << 16) - 1)
@@ -193,6 +194,10 @@ static int get_port_specifier(sd_device *dev, char **ret) {
                         }
                 }
 
+                if (!utf8_is_valid(phys_port_name) || string_has_cc(phys_port_name, /* ok= */ NULL))
+                        return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
+                                                      "Invalid phys_port_name '%s'", phys_port_name);
+
                 /* Otherwise, use phys_port_name as is. */
                 buf = strjoin("n", phys_port_name);
                 if (!buf)
@@ -296,6 +301,9 @@ static int names_pci_onboard_label(UdevEvent *event, sd_device *pci_dev, const c
         r = device_get_sysattr_value_filtered(pci_dev, "label", &label);
         if (r < 0)
                 return log_device_debug_errno(pci_dev, r, "Failed to get PCI onboard label: %m");
+
+        if (!utf8_is_valid(label) || string_has_cc(label, /* ok= */ NULL))
+                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL), "Invalid label '%s'", label);
 
         char str[ALTIFNAMSIZ];
         if (snprintf_ok(str, sizeof str, "%s%s",
@@ -1247,6 +1255,9 @@ static int names_netdevsim(UdevEvent *event, const char *prefix) {
         if (isempty(phys_port_name))
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EOPNOTSUPP),
                                               "The 'phys_port_name' attribute is empty.");
+        if (!utf8_is_valid(phys_port_name) || string_has_cc(phys_port_name, /* ok= */ NULL))
+                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
+                                              "Invalid phys_port_name '%s'", phys_port_name);
 
         char str[ALTIFNAMSIZ];
         if (snprintf_ok(str, sizeof str, "%si%un%s", prefix, addr, phys_port_name))
