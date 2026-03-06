@@ -84,3 +84,5 @@ systemctl stop "$UNIT"
 
 # Probe specific user records
 echo '{"userName":"crashhostarray","perMachine":[{"matchHostname":["host1","host2"],"locked":false}]}' | userdbctl -F -
+echo '{"userName":"weightmin","cpuWeight":1,"ioWeight":1}' | userdbctl -F -
+echo '{"userName":"weightmax","cpuWeight":10000,"ioWeight":10000}' | userdbctl -F -
