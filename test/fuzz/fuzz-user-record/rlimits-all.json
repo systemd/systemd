@@ -1,0 +1,27 @@
+{
+    "userName": "rlimitsuser",
+    "realName": "Resource Limits Test User",
+    "uid": 3009,
+    "gid": 3009,
+    "homeDirectory": "/home/rlimitsuser",
+    "shell": "/bin/bash",
+    "disposition": "regular",
+    "resourceLimits": {
+        "RLIMIT_AS": { "cur": 4294967296, "max": 8589934592 },
+        "RLIMIT_CORE": { "cur": 0, "max": 9223372036854775807 },
+        "RLIMIT_CPU": { "cur": 3600, "max": 9223372036854775807 },
+        "RLIMIT_DATA": { "cur": 4294967296, "max": 9223372036854775807 },
+        "RLIMIT_FSIZE": { "cur": 1073741824, "max": 9223372036854775807 },
+        "RLIMIT_LOCKS": { "cur": 1024, "max": 9223372036854775807 },
+        "RLIMIT_MEMLOCK": { "cur": 65536, "max": 9223372036854775807 },
+        "RLIMIT_MSGQUEUE": { "cur": 819200, "max": 9223372036854775807 },
+        "RLIMIT_NICE": { "cur": 0, "max": 40 },
+        "RLIMIT_NOFILE": { "cur": 1024, "max": 1048576 },
+        "RLIMIT_NPROC": { "cur": 4096, "max": 9223372036854775807 },
+        "RLIMIT_RSS": { "cur": 4294967296, "max": 9223372036854775807 },
+        "RLIMIT_RTPRIO": { "cur": 0, "max": 99 },
+        "RLIMIT_RTTIME": { "cur": 1000000, "max": 9223372036854775807 },
+        "RLIMIT_SIGPENDING": { "cur": 128, "max": 9223372036854775807 },
+        "RLIMIT_STACK": { "cur": 8388608, "max": 9223372036854775807 }
+    }
+}
