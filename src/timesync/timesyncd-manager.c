@@ -1520,7 +1520,9 @@ static int manager_nts_handshake_setup(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to arm NTS key exchange timeout timer: %m");
 
-        (void) connect(m->server_socket, addr, m->current_server_address->socklen);
+        r = connect(m->server_socket, addr, m->current_server_address->socklen);
+        if (r < 0)
+	        return -errno;
 
         return sd_event_add_io(m->event, &m->event_receive, m->server_socket, EPOLLIN|EPOLLOUT, manager_nts_obtain_agreement, m);
 }

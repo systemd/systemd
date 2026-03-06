@@ -15,12 +15,12 @@ int NTS_encrypt(uint8_t *ctxt,
                 const uint8_t *ptxt,
                 int ptxt_len,
                 const AssociatedData *info,
-                const struct NTS_AEADParam *nts,
+                const struct NTS_AEADParam *aead,
                 const uint8_t *key) {
 
         /* avoid 'unused' warnings */
         (void) info;
-        (void) nts;
+        (void) aead;
         (void) key;
 
         assert(ctxt_len >= ptxt_len + BLKSIZ);
@@ -35,12 +35,12 @@ int NTS_decrypt(uint8_t *ptxt,
                 const uint8_t *ctxt,
                 int ctxt_len,
                 const AssociatedData *info,
-                const struct NTS_AEADParam *nts,
+                const struct NTS_AEADParam *aead,
                 const uint8_t *key) {
 
         /* avoid 'unused' warnings */
         (void) info;
-        (void) nts;
+        (void) aead;
         (void) key;
         (void) ptxt_len;
 
