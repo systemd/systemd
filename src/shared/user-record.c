@@ -1205,7 +1205,7 @@ int per_machine_hostname_match(sd_json_variant *hns, sd_json_dispatch_flags_t fl
                                 continue;
                         }
 
-                        if (streq(sd_json_variant_string(hns), hn))
+                        if (streq(sd_json_variant_string(e), hn))
                                 return true;
                 }
 
