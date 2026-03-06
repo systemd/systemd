@@ -20,8 +20,8 @@ int NTS_encrypt(uint8_t *ctxt,
                 int ctxt_len,
                 const uint8_t *ptxt,
                 int ptxt_len,
-                const AssociatedData *,
-                const struct NTS_AEADParam *,
+                const AssociatedData *info,
+                const struct NTS_AEADParam *aead,
                 const uint8_t *key);
 
 /* decrypt the data in ctxt of ctxt_len bytes, and write it to ptxt, using the selected cryptoscheme and key
@@ -37,6 +37,6 @@ int NTS_decrypt(uint8_t *ptxt,
                 int ptxt_len,
                 const uint8_t *ctxt,
                 int ctxt_len,
-                const AssociatedData *,
-                const struct NTS_AEADParam *,
+                const AssociatedData *info,
+                const struct NTS_AEADParam *aead,
                 const uint8_t *key);

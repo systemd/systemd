@@ -36,5 +36,5 @@ int NTS_add_extension_fields(
 int NTS_parse_extension_fields(
                 uint8_t src[static 1280],
                 size_t src_len,
-                const struct NTS_Query *,
-                struct NTS_Receipt *);
+                const struct NTS_Query *nts,
+                struct NTS_Receipt *fields);

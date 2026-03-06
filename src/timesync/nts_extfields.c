@@ -62,13 +62,13 @@ enum extfields {
 int NTS_add_extension_fields(
                 uint8_t dest[static 1280],
                 const struct NTS_Query *nts,
-                uint8_t (*uniq_id)[32]) {
+                uint8_t (*identifier)[32]) {
 
         int r;
 
         assert(dest);
         assert(nts);
-        assert(uniq_id);
+        assert(identifier);
 
         slice buf = { dest, dest + 1280 };
 
@@ -76,10 +76,10 @@ int NTS_add_extension_fields(
         buf.data += 48;
 
         /* generate unique identifier */
-        if (getrandom(*uniq_id, sizeof(*uniq_id), 0) != sizeof(*uniq_id))
+        if (getrandom(*identifier, sizeof(*identifier), 0) != sizeof(*identifier))
                 goto exit;
 
-        r = write_ntp_ext_field(&buf, UniqueIdentifier, *uniq_id, sizeof(*uniq_id), 16);
+        r = write_ntp_ext_field(&buf, UniqueIdentifier, *identifier, sizeof(*identifier), 16);
         if (r == 0)
                 goto exit;
 
