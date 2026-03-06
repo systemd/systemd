@@ -38,7 +38,7 @@ int encode_devnode_name(const char *str, char *str_enc, size_t len) {
 
                 } else if (str[i] == '\\' || !allow_listed_char_for_devnode(str[i], NULL)) {
 
-                        if (len-j < 4)
+                        if (len-j < 5)
                                 return -EINVAL;
 
                         sprintf(&str_enc[j], "\\x%02x", (unsigned char) str[i]);
