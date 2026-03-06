@@ -316,7 +316,7 @@ static int parse_options(const char *options) {
         return r;
 }
 
-static int verb_attach(int argc, char *argv[], void *userdata) {
+static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_free_ void *rh = NULL;
         struct crypt_params_verity p = {};
@@ -450,7 +450,7 @@ static int verb_attach(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_detach(int argc, char *argv[], void *userdata) {
+static int verb_detach(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         int r;
 

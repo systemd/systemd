@@ -26,7 +26,7 @@ static char **arg_path = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_path, strv_freep);
 
-static int help(int argc, char *argv[], void *userdata) {
+static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
@@ -54,6 +54,10 @@ static int help(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        return help();
+}
+
 static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_PATH = 0x100,
@@ -76,8 +80,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help(0, NULL, NULL);
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();
@@ -320,7 +323,7 @@ static int make_bad(const char *prefix, uint64_t done, const char *suffix, char 
         return 0;
 }
 
-static int verb_status(int argc, char *argv[], void *userdata) {
+static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_free_ char *path = NULL, *prefix = NULL, *suffix = NULL, *good = NULL, *bad = NULL;
         uint64_t left, done;
         int r;
@@ -426,7 +429,7 @@ static int rename_in_dir_idempotent(int fd, const char *from, const char *to) {
          return 1;
 }
 
-static int verb_set(int argc, char *argv[], void *userdata) {
+static int verb_set(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_free_ char *path = NULL, *prefix = NULL, *suffix = NULL, *good = NULL, *bad = NULL;
         const char *target, *source1, *source2;
         uint64_t left, done;
@@ -532,7 +535,7 @@ exists:
 
 static int run(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "help",          VERB_ANY, VERB_ANY, 0,            help        },
+                { "help",          VERB_ANY, VERB_ANY, 0,            verb_help   },
                 { "status",        VERB_ANY, 1,        VERB_DEFAULT, verb_status },
                 { "good",          VERB_ANY, 1,        0,            verb_set    },
                 { "bad",           VERB_ANY, 1,        0,            verb_set    },

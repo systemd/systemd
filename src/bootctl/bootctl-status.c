@@ -326,7 +326,7 @@ static void print_yes_no_line(bool first, bool good, const char *name) {
                name);
 }
 
-int verb_status(int argc, char *argv[], void *userdata) {
+int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_id128_t esp_uuid = SD_ID128_NULL, xbootldr_uuid = SD_ID128_NULL;
         dev_t esp_devid = 0, xbootldr_devid = 0;
         int r, k;
@@ -621,7 +621,7 @@ int verb_status(int argc, char *argv[], void *userdata) {
         return r;
 }
 
-int verb_list(int argc, char *argv[], void *userdata) {
+int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(boot_config_free) BootConfig config = BOOT_CONFIG_NULL;
         dev_t esp_devid = 0, xbootldr_devid = 0;
         int r;

@@ -91,11 +91,11 @@ int print_version(void) {
         return 0;
 }
 
-static int verb_version_main(int argc, char *argv[], void *userdata) {
+static int verb_version_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return print_version();
 }
 
-static int verb_help_main(int argc, char *argv[], void *userdata) {
+static int verb_help_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return help();
 }
 

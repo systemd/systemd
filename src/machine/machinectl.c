@@ -277,7 +277,7 @@ static int show_table(Table *table, const char *word) {
         return 0;
 }
 
-static int verb_list_machines(int argc, char *argv[], void *userdata) {
+static int verb_list_machines(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
@@ -354,7 +354,7 @@ static int verb_list_machines(int argc, char *argv[], void *userdata) {
         return show_table(table, "machines");
 }
 
-static int verb_list_images(int argc, char *argv[], void *userdata) {
+static int verb_list_images(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
@@ -745,7 +745,7 @@ static int show_machine_properties(sd_bus *bus, const char *path, bool *new_line
         return r;
 }
 
-static int verb_show_machine(int argc, char *argv[], void *userdata) {
+static int verb_show_machine(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         bool properties, new_line = false;
         sd_bus *bus = ASSERT_PTR(userdata);
@@ -1036,7 +1036,7 @@ static int show_image_properties(sd_bus *bus, const char *path, bool *new_line) 
         return r;
 }
 
-static int verb_show_image(int argc, char *argv[], void *userdata) {
+static int verb_show_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         bool properties, new_line = false;
         sd_bus *bus = ASSERT_PTR(userdata);
@@ -1080,7 +1080,7 @@ static int verb_show_image(int argc, char *argv[], void *userdata) {
         return r;
 }
 
-static int verb_kill_machine(int argc, char *argv[], void *userdata) {
+static int verb_kill_machine(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
@@ -1105,7 +1105,7 @@ static int verb_kill_machine(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_reboot_machine(int argc, char *argv[], void *userdata) {
+static int verb_reboot_machine(int argc, char *argv[], uintptr_t data, void *userdata) {
         if (arg_runner == RUNNER_VMSPAWN)
                 return log_error_errno(
                                 SYNTHETIC_ERRNO(EOPNOTSUPP),
@@ -1115,17 +1115,17 @@ static int verb_reboot_machine(int argc, char *argv[], void *userdata) {
         arg_kill_whom = "leader";
         arg_signal = SIGINT; /* sysvinit + systemd */
 
-        return verb_kill_machine(argc, argv, userdata);
+        return verb_kill_machine(argc, argv, data, userdata);
 }
 
-static int verb_poweroff_machine(int argc, char *argv[], void *userdata) {
+static int verb_poweroff_machine(int argc, char *argv[], uintptr_t data, void *userdata) {
         arg_kill_whom = "leader";
         arg_signal = SIGRTMIN+4; /* only systemd */
 
-        return verb_kill_machine(argc, argv, userdata);
+        return verb_kill_machine(argc, argv, data, userdata);
 }
 
-static int verb_terminate_machine(int argc, char *argv[], void *userdata) {
+static int verb_terminate_machine(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
@@ -1148,7 +1148,7 @@ static const char *select_copy_method(bool copy_from, bool force) {
                 return copy_from ? "CopyFromMachine" : "CopyToMachine";
 }
 
-static int verb_copy_files(int argc, char *argv[], void *userdata) {
+static int verb_copy_files(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *abs_host_path = NULL;
@@ -1203,7 +1203,7 @@ static int verb_copy_files(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_bind_mount(int argc, char *argv[], void *userdata) {
+static int verb_bind_mount(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
@@ -1336,7 +1336,7 @@ static int parse_machine_uid(const char *spec, const char **machine, char **uid)
         return 0;
 }
 
-static int verb_login_machine(int argc, char *argv[], void *userdata) {
+static int verb_login_machine(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_slot_unrefp) sd_bus_slot *slot = NULL;
@@ -1387,7 +1387,7 @@ static int verb_login_machine(int argc, char *argv[], void *userdata) {
         return process_forward(event, slot, master, PTY_FORWARD_IGNORE_VHANGUP, machine);
 }
 
-static int verb_shell_machine(int argc, char *argv[], void *userdata) {
+static int verb_shell_machine(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL, *m = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_slot_unrefp) sd_bus_slot *slot = NULL;
@@ -1515,7 +1515,7 @@ static int get_settings_path(const char *name, char **ret_path) {
         return -ENOENT;
 }
 
-static int verb_edit_settings(int argc, char *argv[], void *userdata) {
+static int verb_edit_settings(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(edit_file_context_done) EditFileContext context = {};
         int r;
 
@@ -1585,7 +1585,7 @@ static int verb_edit_settings(int argc, char *argv[], void *userdata) {
         return do_edit_files_and_install(&context);
 }
 
-static int verb_cat_settings(int argc, char *argv[], void *userdata) {
+static int verb_cat_settings(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r = 0;
 
         if (arg_transport != BUS_TRANSPORT_LOCAL)
@@ -1636,7 +1636,7 @@ static int verb_cat_settings(int argc, char *argv[], void *userdata) {
         return r;
 }
 
-static int verb_remove_image(int argc, char *argv[], void *userdata) {
+static int verb_remove_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
@@ -1663,7 +1663,7 @@ static int verb_remove_image(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_rename_image(int argc, char *argv[], void *userdata) {
+static int verb_rename_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
@@ -1683,7 +1683,7 @@ static int verb_rename_image(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_clone_image(int argc, char *argv[], void *userdata) {
+static int verb_clone_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
@@ -1707,7 +1707,7 @@ static int verb_clone_image(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_read_only_image(int argc, char *argv[], void *userdata) {
+static int verb_read_only_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int b = true, r;
@@ -1765,7 +1765,7 @@ static int make_service_name(const char *name, char **ret) {
         return 0;
 }
 
-static int verb_start_machine(int argc, char *argv[], void *userdata) {
+static int verb_start_machine(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
@@ -1821,7 +1821,7 @@ static int verb_start_machine(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_enable_machine(int argc, char *argv[], void *userdata) {
+static int verb_enable_machine(int argc, char *argv[], uintptr_t data, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *method;
@@ -1909,15 +1909,15 @@ static int verb_enable_machine(int argc, char *argv[], void *userdata) {
                         return log_oom();
 
                 if (enable)
-                        return verb_start_machine(strv_length(new_args), new_args, userdata);
+                        return verb_start_machine(strv_length(new_args), new_args, data, userdata);
 
-                return verb_poweroff_machine(strv_length(new_args), new_args, userdata);
+                return verb_poweroff_machine(strv_length(new_args), new_args, data, userdata);
         }
 
         return 0;
 }
 
-static int verb_set_limit(int argc, char *argv[], void *userdata) {
+static int verb_set_limit(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
         uint64_t limit;
@@ -1947,7 +1947,7 @@ static int verb_set_limit(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_clean_images(int argc, char *argv[], void *userdata) {
+static int verb_clean_images(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         uint64_t usage, total = 0;
@@ -2137,7 +2137,7 @@ static int help(void) {
         return 0;
 }
 
-static int verb_help(int argc, char *argv[], void *userdata) {
+static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return help();
 }
 

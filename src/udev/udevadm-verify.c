@@ -156,7 +156,7 @@ static int verify_rules(UdevRules *rules, ConfFile * const *files, size_t n_file
         return ret;
 }
 
-int verb_verify_main(int argc, char *argv[], void *userdata) {
+int verb_verify_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(udev_rules_freep) UdevRules *rules = NULL;
         int r;
 

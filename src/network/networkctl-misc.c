@@ -46,7 +46,7 @@ static int parse_interfaces(sd_netlink **rtnl, char *argv[], OrderedSet **ret) {
         return 0;
 }
 
-int verb_link_up_down(int argc, char *argv[], void *userdata) {
+int verb_link_up_down(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r, ret = 0;
 
         bool up = streq_ptr(argv[0], "up");
@@ -75,7 +75,7 @@ int verb_link_up_down(int argc, char *argv[], void *userdata) {
         return ret;
 }
 
-int verb_link_delete(int argc, char *argv[], void *userdata) {
+int verb_link_delete(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r, ret = 0;
 
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
@@ -104,7 +104,7 @@ int verb_link_delete(int argc, char *argv[], void *userdata) {
         return ret;
 }
 
-int verb_link_bus_simple_method(int argc, char *argv[], void *userdata) {
+int verb_link_bus_simple_method(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r, ret = 0;
 
         typedef struct LinkBusAction {
@@ -159,7 +159,7 @@ int verb_link_bus_simple_method(int argc, char *argv[], void *userdata) {
         return ret;
 }
 
-int verb_reload(int argc, char *argv[], void *userdata) {
+int verb_reload(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
@@ -177,7 +177,7 @@ int verb_reload(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-int verb_persistent_storage(int argc, char *argv[], void *userdata) {
+int verb_persistent_storage(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *vl = NULL;
         bool ready;
         int r;

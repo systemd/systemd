@@ -109,7 +109,7 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static int verb_status(int argc, char *argv[], void *userdata) {
+static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
         static const int exit_status_table[_FACTORY_RESET_MODE_MAX] = {
                 /* Report current mode also as via exit status, but only return a subset of states */
                 [FACTORY_RESET_UNSUPPORTED] = EXIT_SUCCESS,
@@ -130,7 +130,7 @@ static int verb_status(int argc, char *argv[], void *userdata) {
         return exit_status_table[f];
 }
 
-static int verb_request(int argc, char *argv[], void *userdata) {
+static int verb_request(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
         FactoryResetMode f = factory_reset_mode();
@@ -197,7 +197,7 @@ static int verb_request(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_cancel(int argc, char *argv[], void *userdata) {
+static int verb_cancel(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
         FactoryResetMode f = factory_reset_mode();
@@ -269,7 +269,7 @@ static int retrigger_block_devices(void) {
         return 0;
 }
 
-static int verb_complete(int argc, char *argv[], void *userdata) {
+static int verb_complete(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
         FactoryResetMode f = factory_reset_mode();

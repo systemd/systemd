@@ -51,7 +51,7 @@ static int get_startup_monotonic_time(Context *c, usec_t *ret) {
         return 0;
 }
 
-static int verb_on_reboot(int argc, char *argv[], void *userdata) {
+static int verb_on_reboot(int argc, char *argv[], uintptr_t _data, void *userdata) {
         Context *c = ASSERT_PTR(userdata);
         usec_t t = 0, boottime;
         int r, q = 0;
@@ -80,7 +80,7 @@ static int verb_on_reboot(int argc, char *argv[], void *userdata) {
         return q;
 }
 
-static int verb_on_shutdown(int argc, char *argv[], void *userdata) {
+static int verb_on_shutdown(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r, q = 0;
 
         /* We started shut-down, so let's write the utmp record and send the audit msg. */

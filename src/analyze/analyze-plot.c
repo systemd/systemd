@@ -470,7 +470,7 @@ static int produce_plot_as_text(UnitTimes *times, const BootTimes *boot) {
         return show_table(table, "Units");
 }
 
-int verb_plot(int argc, char *argv[], void *userdata) {
+int verb_plot(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(free_host_infop) HostInfo *host = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(unit_times_free_arrayp) UnitTimes *times = NULL;

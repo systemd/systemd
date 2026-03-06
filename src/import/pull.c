@@ -117,7 +117,7 @@ static void on_tar_finished(TarPull *pull, int error, void *userdata) {
         sd_event_exit(event, ABS(error));
 }
 
-static int verb_pull_tar(int argc, char *argv[], void *userdata) {
+static int verb_pull_tar(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_free_ char *ll = NULL, *normalized = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_(tar_pull_unrefp) TarPull *pull = NULL;
@@ -187,7 +187,7 @@ static void on_raw_finished(RawPull *pull, int error, void *userdata) {
         sd_event_exit(event, ABS(error));
 }
 
-static int verb_pull_raw(int argc, char *argv[], void *userdata) {
+static int verb_pull_raw(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_free_ char *ll = NULL, *normalized = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_(raw_pull_unrefp) RawPull *pull = NULL;
@@ -256,7 +256,7 @@ static void on_oci_finished(OciPull *pull, int error, void *userdata) {
         sd_event_exit(event, ABS(error));
 }
 
-static int verb_pull_oci(int argc, char *argv[], void *userdata) {
+static int verb_pull_oci(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
         const char *ref = argv[1];
@@ -356,7 +356,7 @@ static int help(void) {
         return 0;
 }
 
-static int verb_help(int argc, char *argv[], void *userdata) {
+static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return help();
 }
 
