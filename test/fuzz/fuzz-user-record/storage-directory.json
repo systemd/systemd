@@ -1,0 +1,13 @@
+{
+    "userName": "diruser",
+    "realName": "Directory Storage User",
+    "uid": 1002,
+    "gid": 1002,
+    "homeDirectory": "/home/diruser",
+    "imagePath": "/home/diruser.homedir",
+    "shell": "/bin/bash",
+    "disposition": "regular",
+    "storage": "directory",
+    "accessMode": 448,
+    "diskSize": 10737418240
+}

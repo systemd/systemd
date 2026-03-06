@@ -1,0 +1,58 @@
+{
+    "userName": "permachineuser",
+    "realName": "Per Machine Complex User",
+    "uid": 3005,
+    "gid": 3005,
+    "homeDirectory": "/home/permachineuser",
+    "shell": "/bin/bash",
+    "disposition": "regular",
+    "storage": "luks",
+    "diskSize": 53687091200,
+    "memoryMax": 4294967296,
+    "cpuWeight": 100,
+    "perMachine": [
+        {
+            "matchMachineId": "11111111111111111111111111111111",
+            "diskSize": 107374182400,
+            "memoryMax": 8589934592,
+            "cpuWeight": 200,
+            "storage": "luks",
+            "shell": "/bin/zsh"
+        },
+        {
+            "matchMachineId": ["22222222222222222222222222222222", "33333333333333333333333333333333"],
+            "diskSize": 214748364800,
+            "memoryMax": 17179869184,
+            "ioWeight": 500
+        },
+        {
+            "matchHostname": "workstation",
+            "autoLogin": true,
+            "niceLevel": -5,
+            "environment": ["WORKSTATION=true"]
+        },
+        {
+            "matchHostname": ["server1", "server2"],
+            "locked": false,
+            "killProcesses": false,
+            "stopDelayUSec": 300000000
+        },
+        {
+            "matchNotMachineId": "44444444444444444444444444444444",
+            "matchNotHostname": "restricted-host",
+            "tasksMax": 8192
+        },
+        {
+            "matchMachineId": "55555555555555555555555555555555",
+            "matchHostname": "special-host",
+            "blobDirectory": "/var/cache/special/blobs/",
+            "blobManifest": {
+                "special-file": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+            },
+            "selfModifiableFields": ["realName", "location"],
+            "selfModifiableBlobs": ["avatar"],
+            "preferredSessionType": "x11",
+            "preferredSessionLauncher": "plasma"
+        }
+    ]
+}

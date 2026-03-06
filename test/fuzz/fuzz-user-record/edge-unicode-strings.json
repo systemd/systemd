@@ -1,0 +1,21 @@
+{
+    "userName": "unicodeuser",
+    "realName": "Ünïcödé Üsér 日本語 中文 العربية",
+    "uid": 3003,
+    "gid": 3003,
+    "homeDirectory": "/home/unicodeuser",
+    "shell": "/bin/bash",
+    "disposition": "regular",
+    "emailAddress": "unicode@例え.jp",
+    "location": "東京, 日本 🌸",
+    "environment": [
+        "GREETING=Привет мир",
+        "HELLO=你好世界"
+    ],
+    "preferredLanguage": "ja_JP.UTF-8",
+    "additionalLanguages": ["zh_CN.UTF-8", "ar_SA.UTF-8", "ru_RU.UTF-8"],
+    "timeZone": "Asia/Tokyo",
+    "privileged": {
+        "passwordHint": "お気に入りの食べ物は何ですか？"
+    }
+}
