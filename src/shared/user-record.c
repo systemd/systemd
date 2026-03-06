@@ -2052,6 +2052,7 @@ UserDisposition user_record_disposition(UserRecord *h) {
 
 int user_record_removable(UserRecord *h) {
         UserStorage storage;
+        const char *image_path;
         assert(h);
 
         if (h->removable >= 0)
@@ -2062,8 +2063,10 @@ int user_record_removable(UserRecord *h) {
         if (h->storage < 0 || h->storage == USER_CLASSIC)
                 return -1;
 
+        image_path = user_record_image_path(h);
+
         /* For now consider only LUKS home directories with a reference by path as removable */
-        return storage == USER_LUKS && path_startswith(user_record_image_path(h), "/dev/");
+        return storage == USER_LUKS && image_path && path_startswith(image_path, "/dev/");
 }
 
 uint64_t user_record_ratelimit_interval_usec(UserRecord *h) {
