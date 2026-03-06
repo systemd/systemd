@@ -1892,3 +1892,32 @@ TimestampStyle timestamp_style_from_string(const char *s) {
                 return TIMESTAMP_US_UTC;
         return t;
 }
+
+int parse_calendar_date(const char *s, usec_t *ret) {
+        struct tm parsed_tm = {}, copy_tm;
+        usec_t usec;
+        const char *k;
+        int r;
+
+        assert(s);
+
+        k = strptime(s, "%Y-%m-%d", &parsed_tm);
+        if (!k || *k)
+                return -EINVAL;
+
+        copy_tm = parsed_tm;
+        r = mktime_or_timegm_usec(&copy_tm, /* utc= */ true, &usec);
+        if (r < 0)
+                return r;
+
+        /* Refuse non-normalized dates, e.g. Feb 30 */
+        if (copy_tm.tm_mday != parsed_tm.tm_mday ||
+            copy_tm.tm_mon  != parsed_tm.tm_mon  ||
+            copy_tm.tm_year != parsed_tm.tm_year)
+                return -EINVAL;
+
+        if (ret)
+                *ret = usec;
+
+        return 0;
+}
