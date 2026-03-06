@@ -30,7 +30,7 @@ jobs:
         contains(fromJSON('["MEMBER","OWNER","COLLABORATOR"]'), github.event.comment.author_association)) ||
        (github.event_name == 'pull_request_review' &&
         contains(github.event.review.body, '@claude') &&
-        contains(fromJSON('["MEMBER","OWNER","COLLABORATOR"]'), github.event.review.author_association))
+        contains(fromJSON('["MEMBER","OWNER","COLLABORATOR"]'), github.event.review.author_association)))
 
     permissions:
       contents: read       # Read repository contents
