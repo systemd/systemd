@@ -1307,4 +1307,32 @@ TEST(parse_calendar_date) {
         ASSERT_ERROR(parse_calendar_date("06-15-2023", &usec), EINVAL); /* wrong order */
 }
 
+TEST(parse_birth_date) {
+        struct tm tm;
+
+        /* Valid dates */
+        ASSERT_OK(parse_birth_date("2000-06-15", &tm));
+        ASSERT_EQ(tm.tm_year, 100);  /* 2000 - 1900 */
+        ASSERT_EQ(tm.tm_mon, 5);     /* June, 0-indexed */
+        ASSERT_EQ(tm.tm_mday, 15);
+
+        /* Pre-epoch dates */
+        ASSERT_OK(parse_birth_date("1960-03-25", &tm));
+        ASSERT_EQ(tm.tm_year, 60);
+        ASSERT_EQ(tm.tm_mon, 2);
+        ASSERT_EQ(tm.tm_mday, 25);
+
+        /* NULL ret is allowed (validation only) */
+        ASSERT_OK(parse_birth_date("2000-01-01", NULL));
+
+        /* Non-normalized dates */
+        ASSERT_ERROR(parse_birth_date("2023-02-29", &tm), EINVAL);
+        ASSERT_ERROR(parse_birth_date("2023-04-31", &tm), EINVAL);
+
+        /* Malformed input */
+        ASSERT_ERROR(parse_birth_date("", &tm), EINVAL);
+        ASSERT_ERROR(parse_birth_date("not-a-date", &tm), EINVAL);
+        ASSERT_ERROR(parse_birth_date("2023-06-15T00:00:00", &tm), EINVAL);
+}
+
 DEFINE_TEST_MAIN_WITH_INTRO(LOG_INFO, intro);
