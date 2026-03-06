@@ -280,17 +280,20 @@ int link_load_one(LinkConfigContext *ctx, const char *filename) {
                 return log_error_errno(r, "Failed to extract file name of '%s': %m", filename);
 
         dropin_dirname = strjoina(file_basename, ".d");
-        r = config_parse_many(
+        r = config_parse_many_full(
                         STRV_MAKE_CONST(filename),
                         NETWORK_DIRS,
                         dropin_dirname,
                         /* root= */ NULL,
+                        /* root_fd= */ -EBADF,
                         "Match\0"
                         "Link\0"
                         "SR-IOV\0"
                         "EnergyEfficientEthernet\0",
                         config_item_perf_lookup, link_config_gperf_lookup,
-                        CONFIG_PARSE_WARN, config, &stats_by_path,
+                        CONFIG_PARSE_WARN,
+                        config,
+                        &stats_by_path,
                         &config->dropins);
         if (r < 0)
                 return r; /* config_parse_many() logs internally. */
@@ -342,7 +345,7 @@ int link_config_load(LinkConfigContext *ctx) {
 
         link_configs_free(ctx);
 
-        r = conf_files_list_strv(&files, ".link", NULL, 0, NETWORK_DIRS);
+        r = conf_files_list_strv(&files, ".link", /* root= */ NULL, CONF_FILES_WARN, NETWORK_DIRS);
         if (r < 0)
                 return log_error_errno(r, "failed to enumerate link files: %m");
 

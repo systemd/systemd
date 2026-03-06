@@ -55,30 +55,28 @@ static bool rtnl_message_type_is_nsid(uint16_t type) {
 }
 
 #define DEFINE_RTNL_MESSAGE_SETTER(class, header_type, element, name, value_type)  \
-        /* NOLINTNEXTLINE (readability-inconsistent-declaration-parameter-name) */ \
-        int sd_rtnl_message_##class##_set_##name(sd_netlink_message *m, value_type value) { \
+        int sd_rtnl_message_##class##_set_##name(sd_netlink_message *m, value_type name) { \
                 assert_return(m, -EINVAL);                              \
                 assert_return(m->hdr, -EINVAL);                         \
                 assert_return(rtnl_message_type_is_##class(m->hdr->nlmsg_type), -EINVAL); \
                                                                         \
                 header_type *hdr = NLMSG_DATA(m->hdr);                  \
-                hdr->element = value;                                   \
+                hdr->element = name;                                    \
                 return 0;                                               \
         }
 
 #define DEFINE_RTNL_MESSAGE_PREFIXLEN_SETTER(class, header_type, family_element, element, name, value_type) \
-        /* NOLINTNEXTLINE (readability-inconsistent-declaration-parameter-name) */                          \
-        int sd_rtnl_message_##class##_set_##name(sd_netlink_message *m, value_type value) { \
+        int sd_rtnl_message_##class##_set_##name(sd_netlink_message *m, value_type name) { \
                 assert_return(m, -EINVAL);                              \
                 assert_return(m->hdr, -EINVAL);                         \
                 assert_return(rtnl_message_type_is_##class(m->hdr->nlmsg_type), -EINVAL); \
                                                                         \
                 header_type *hdr = NLMSG_DATA(m->hdr);                  \
                                                                         \
-                if (value > FAMILY_ADDRESS_SIZE_SAFE(hdr->family_element) * 8) \
+                if (name > FAMILY_ADDRESS_SIZE_SAFE(hdr->family_element) * 8) \
                         return -ERANGE;                                 \
                                                                         \
-                hdr->element = value;                                   \
+                hdr->element = name;                                    \
                 return 0;                                               \
         }
 

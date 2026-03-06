@@ -27,10 +27,11 @@ static int add_nvpcr_to_table(Tpm2Context **c, Table *t, const char *name) {
                 r = tpm2_nvpcr_read(*c, /* session= */ NULL, name, &digest, &nv_index);
                 if (r < 0)
                         return log_error_errno(r, "Failed to read NvPCR '%s': %m", name);
-
-                h = hexmem(digest.iov_base, digest.iov_len);
-                if (!h)
-                        return log_oom();
+                if (r > 0) { /* set? */
+                        h = hexmem(digest.iov_base, digest.iov_len);
+                        if (!h)
+                                return log_oom();
+                }
         } else {
                 r = tpm2_nvpcr_get_index(name, &nv_index);
                 if (r < 0)
@@ -77,7 +78,7 @@ int verb_nvpcrs(int argc, char *argv[], void *userdata) {
                                 &l,
                                 ".nvpcr",
                                 /* root= */ NULL,
-                                CONF_FILES_REGULAR|CONF_FILES_BASENAME|CONF_FILES_FILTER_MASKED|CONF_FILES_TRUNCATE_SUFFIX,
+                                CONF_FILES_REGULAR|CONF_FILES_BASENAME|CONF_FILES_FILTER_MASKED|CONF_FILES_TRUNCATE_SUFFIX|CONF_FILES_WARN,
                                 CONF_PATHS_NULSTR("nvpcr"));
                 if (r < 0)
                         return log_error_errno(r, "Failed to find .nvpcr files: %m");

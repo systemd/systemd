@@ -48,8 +48,8 @@ EOF
 udevadm control --reload
 
 TMP_DIR="$(mktemp -d -t -p / integrity.tmp.XXXXXX)"
-dd if=/dev/zero of="${TMP_DIR}/image" bs=1048576 count=64
-dd if=/dev/zero of="${TMP_DIR}/data" bs=1048576 count=64
+truncate -s 64M "${TMP_DIR}/image"
+truncate -s 64M "${TMP_DIR}/data"
 LOOP="$(losetup --show -f "${TMP_DIR}/image")"
 udevadm wait --timeout=30 --settle "${LOOP}"
 

@@ -502,7 +502,7 @@ static int path_coldplug(Unit *u) {
 static void path_enter_dead(Path *p, PathResult f) {
         assert(p);
 
-        if (p->result == PATH_SUCCESS)
+        if (p->result == PATH_SUCCESS || IN_SET(f, PATH_FAILURE_START_LIMIT_HIT, PATH_FAILURE_UNIT_START_LIMIT_HIT))
                 p->result = f;
 
         unit_log_result(UNIT(p), p->result == PATH_SUCCESS, path_result_to_string(p->result));
@@ -631,10 +631,6 @@ static int path_start(Unit *u) {
         int r;
 
         assert(IN_SET(p->state, PATH_DEAD, PATH_FAILED));
-
-        r = unit_test_trigger_loaded(u);
-        if (r < 0)
-                return r;
 
         r = unit_acquire_invocation_id(u);
         if (r < 0)
@@ -901,6 +897,10 @@ static void path_reset_failed(Unit *u) {
 static int path_test_startable(Unit *u) {
         Path *p = ASSERT_PTR(PATH(u));
         int r;
+
+        r = unit_test_trigger_loaded(u);
+        if (r < 0)
+                return r;
 
         r = unit_test_start_limit(u);
         if (r < 0) {

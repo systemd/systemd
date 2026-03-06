@@ -3,7 +3,6 @@
 shared_sources = files(
         'acl-util.c',
         'acpi-fpdt.c',
-        'apparmor-util.c',
         'ask-password-agent.c',
         'ask-password-api.c',
         'async.c',
@@ -61,6 +60,7 @@ shared_sources = files(
         'dissect-image.c',
         'dm-util.c',
         'dns-answer.c',
+        'dns-configuration.c',
         'dns-domain.c',
         'dns-packet.c',
         'dns-question.c',
@@ -92,7 +92,6 @@ shared_sources = files(
         'hostname-setup.c',
         'hwdb-util.c',
         'id128-print.c',
-        'idn-util.c',
         'ima-util.c',
         'image-policy.c',
         'import-util.c',
@@ -127,11 +126,13 @@ shared_sources = files(
         'machine-id-setup.c',
         'macvlan-util.c',
         'main-func.c',
+        'metrics.c',
         'mkdir-label.c',
         'mkfs-util.c',
         'module-util.c',
         'mount-setup.c',
         'mount-util.c',
+        'mstack.c',
         'net-condition.c',
         'netif-naming-scheme.c',
         'netif-sriov.c',
@@ -152,6 +153,7 @@ shared_sources = files(
         'pcre2-util.c',
         'pcrextend-util.c',
         'pe-binary.c',
+        'pkcs7-util.c',
         'pkcs11-util.c',
         'plymouth-util.c',
         'polkit-agent.c',
@@ -178,6 +180,7 @@ shared_sources = files(
         'sleep-config.c',
         'smack-util.c',
         'smbios11.c',
+        'snapshot-util.c',
         'socket-label.c',
         'socket-netlink.c',
         'specifier.c',
@@ -202,15 +205,18 @@ shared_sources = files(
         'varlink-io.systemd.Hostname.c',
         'varlink-io.systemd.Import.c',
         'varlink-io.systemd.Journal.c',
+        'varlink-io.systemd.JournalAccess.c',
         'varlink-io.systemd.Login.c',
         'varlink-io.systemd.Machine.c',
         'varlink-io.systemd.MachineImage.c',
         'varlink-io.systemd.ManagedOOM.c',
         'varlink-io.systemd.Manager.c',
+        'varlink-io.systemd.Metrics.c',
         'varlink-io.systemd.MountFileSystem.c',
         'varlink-io.systemd.MuteConsole.c',
         'varlink-io.systemd.NamespaceResource.c',
         'varlink-io.systemd.Network.c',
+        'varlink-io.systemd.Network.Link.c',
         'varlink-io.systemd.PCRExtend.c',
         'varlink-io.systemd.PCRLock.c',
         'varlink-io.systemd.Repart.c',
@@ -221,6 +227,7 @@ shared_sources = files(
         'varlink-io.systemd.Unit.c',
         'varlink-io.systemd.UserDatabase.c',
         'varlink-io.systemd.oom.c',
+        'varlink-io.systemd.oom.Prekill.c',
         'varlink-io.systemd.service.c',
         'varlink-io.systemd.sysext.c',
         'varlink-serialize.c',
@@ -269,6 +276,14 @@ endif
 
 if conf.get('HAVE_LIBMOUNT') == 1
         shared_sources += files('libmount-util.c')
+endif
+
+if conf.get('HAVE_LIBIDN2') == 1
+        shared_sources += files('idn-util.c')
+endif
+
+if conf.get('HAVE_APPARMOR') == 1
+        shared_sources += files('apparmor-util.c')
 endif
 
 generate_ip_protocol_list = files('generate-ip-protocol-list.sh')
@@ -367,14 +382,14 @@ libshared_deps = [threads,
                   libaudit_cflags,
                   libblkid_cflags,
                   libbpf_cflags,
-                  libcrypt,
+                  libcrypt_cflags,
                   libcryptsetup_cflags,
                   libdl,
                   libdw_cflags,
                   libelf_cflags,
                   libfido2_cflags,
                   libgcrypt_cflags,
-                  libidn_cflags,
+                  libidn2_cflags,
                   libkmod_cflags,
                   libmount_cflags,
                   libopenssl,

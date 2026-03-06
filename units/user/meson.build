@@ -38,6 +38,11 @@ units = [
           'conditions' : ['ENABLE_IMPORTD'],
           'symlinks' : ['sockets.target.wants/'],
         },
+        {
+          'file' : 'systemd-portabled.service.in',
+          'conditions' : ['ENABLE_PORTABLED'],
+          'symlinks' : ['dbus-org.freedesktop.portable1.service'],
+        },
         { 'file' : 'paths.target' },
         { 'file' : 'printer.target' },
         { 'file' : 'session.slice' },
@@ -51,6 +56,11 @@ units = [
         },
         { 'file' : 'systemd-ask-password@.service' },
         { 'file' : 'systemd-exit.service' },
+        { 'file' : 'systemd-journalctl@.service' },
+        {
+          'file' : 'systemd-journalctl.socket',
+          'symlinks' : ['sockets.target.wants/'],
+        },
         { 'file' : 'systemd-tmpfiles-clean.service' },
         { 'file' : 'systemd-tmpfiles-clean.timer' },
         { 'file' : 'systemd-tmpfiles-setup.service' },

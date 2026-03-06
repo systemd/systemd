@@ -69,24 +69,28 @@ static const struct group root_group = {
         .gr_name = (char*) "root",
         .gr_gid = 0,
         .gr_passwd = (char*) PASSWORD_SEE_SHADOW,
-        .gr_mem = (char*[]) { NULL },
+        .gr_mem = STRV_EMPTY,
 };
 
 static const struct sgrp root_sgrp = {
         .sg_namp = (char*) "root",
         .sg_passwd = (char*) PASSWORD_LOCKED_AND_INVALID,
+        .sg_adm = STRV_EMPTY,
+        .sg_mem = STRV_EMPTY,
 };
 
 static const struct group nobody_group = {
         .gr_name = (char*) NOBODY_GROUP_NAME,
         .gr_gid = GID_NOBODY,
         .gr_passwd = (char*) PASSWORD_LOCKED_AND_INVALID,
-        .gr_mem = (char*[]) { NULL },
+        .gr_mem = STRV_EMPTY,
 };
 
 static const struct sgrp nobody_sgrp = {
         .sg_namp = (char*) NOBODY_GROUP_NAME,
         .sg_passwd = (char*) PASSWORD_LOCKED_AND_INVALID,
+        .sg_adm = STRV_EMPTY,
+        .sg_mem = STRV_EMPTY,
 };
 
 typedef struct GetentData {
@@ -257,12 +261,18 @@ static enum nss_status copy_synthesized_sgrp(
         assert(src);
         assert(src->sg_namp);
         assert(src->sg_passwd);
+        assert(src->sg_adm);
+        assert(!*src->sg_adm);  /* Our synthesized records' sg_adm is always just NULL... */
+        assert(src->sg_mem);
+        assert(!*src->sg_mem);  /* Our synthesized records' sg_mem is always just NULL... */
 
         size_t required =
                 strlen(src->sg_namp) + 1 +
-                strlen(src->sg_passwd) + 1;
+                strlen(src->sg_passwd) + 1 +
+                sizeof(char*) +   /* NULL terminator storage for src->sg_adm */
+                sizeof(char*);    /* NULL terminator storage for src->sg_mem */
 
-        if (buflen < required) {
+        if (buflen < ALIGN(required)) {
                 *errnop = ERANGE;
                 return NSS_STATUS_TRYAGAIN;
         }
@@ -274,7 +284,10 @@ static enum nss_status copy_synthesized_sgrp(
         /* String fields point into the user-provided buffer */
         dest->sg_namp = buffer;
         dest->sg_passwd = stpcpy(dest->sg_namp, src->sg_namp) + 1;
-        strcpy(dest->sg_passwd, src->sg_passwd);
+        dest->sg_adm = ALIGN_PTR(stpcpy(dest->sg_passwd, src->sg_passwd) + 1);
+        *dest->sg_adm = NULL;
+        dest->sg_mem = dest->sg_adm + 1;
+        *dest->sg_mem = NULL;
 
         return NSS_STATUS_SUCCESS;
 }

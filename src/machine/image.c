@@ -96,7 +96,7 @@ int clean_pool_read_next_entry(FILE *file, char **ret_name, uint64_t *ret_usage)
 int image_clean_pool_operation(Manager *manager, ImageCleanPoolMode mode, Operation **ret_operation) {
         _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR;
         _cleanup_close_ int result_fd = -EBADF;
-        _cleanup_(sigkill_waitp) pid_t child = 0;
+        _cleanup_(pidref_done_sigkill_wait) PidRef child = PIDREF_NULL;
         int r;
 
         assert(manager);
@@ -113,7 +113,7 @@ int image_clean_pool_operation(Manager *manager, ImageCleanPoolMode mode, Operat
                 return log_debug_errno(result_fd, "Failed to open tmpfile: %m");
 
         /* This might be a slow operation, run it asynchronously in a background process */
-        r = safe_fork("(sd-clean)", FORK_RESET_SIGNALS, &child);
+        r = pidref_safe_fork("(sd-clean)", FORK_RESET_SIGNALS, &child);
         if (r < 0)
                 return log_debug_errno(r, "Failed to fork(): %m");
         if (r == 0) {
@@ -183,13 +183,13 @@ int image_clean_pool_operation(Manager *manager, ImageCleanPoolMode mode, Operat
         errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
 
         /* The clean-up might take a while, hence install a watch on the child and return */
-        r = operation_new(manager, /* machine= */ NULL, child, errno_pipe_fd[0], ret_operation);
+        r = operation_new(manager, /* machine= */ NULL, &child, errno_pipe_fd[0], ret_operation);
         if (r < 0)
                  return r;
 
         (*ret_operation)->extra_fd = TAKE_FD(result_fd);
         TAKE_FD(errno_pipe_fd[0]);
-        TAKE_PID(child);
+        TAKE_PIDREF(child);
         return 0;
 }
 

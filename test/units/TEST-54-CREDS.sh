@@ -571,4 +571,106 @@ systemd-run -M testuser@ --user --wait -p ImportCredential=brummbaer \
 
 kill "$PID"
 
+# Now test credential refreshing
+
+UNIT_NAME="TEST-54-CREDS-refreshing-$RANDOM.service"
+OUTPUT_FILE="/tmp/$UNIT_NAME.out"
+POST_FLAG_FILE="/tmp/$UNIT_NAME.post-flag"
+
+cat >/run/systemd/system/"$UNIT_NAME" <<EOF
+[Service]
+Type=notify-reload
+ImportCredential=test.creds.*
+ExecStart=/usr/lib/systemd/tests/testdata/TEST-54-CREDS.units/refresh.sh $OUTPUT_FILE
+EOF
+
+systemctl start "$UNIT_NAME"
+ls -l /run/credentials/"$UNIT_NAME"/
+
+echo "neu" >/run/credstore/test.creds.new-refresh-1
+[[ ! -e /run/credentials/"$UNIT_NAME"/test.creds.new-refresh-1 ]]
+
+systemctl reload "$UNIT_NAME"
+[[ ! -e /run/credentials/"$UNIT_NAME"/test.creds.new-refresh-1 ]]
+(! grep -q "test.creds.new-refresh-1" "$OUTPUT_FILE")
+
+echo "RefreshOnReload=credentials" >>/run/systemd/system/"$UNIT_NAME"
+systemctl daemon-reload
+systemctl reload "$UNIT_NAME"
+diff /run/credstore/test.creds.new-refresh-1 /run/credentials/"$UNIT_NAME"/test.creds.new-refresh-1
+diff "$OUTPUT_FILE" <(grep . /run/credentials/"$UNIT_NAME"/*)
+
+systemctl stop "$UNIT_NAME"
+cat >>/run/systemd/system/"$UNIT_NAME" <<EOF
+ProtectSystem=strict
+ReadWritePaths=/tmp
+ExecReloadPost=bash -c 'diff $OUTPUT_FILE <(grep . %d/*) || rm -v $POST_FLAG_FILE'
+EOF
+
+systemctl daemon-reload
+systemctl start "$UNIT_NAME"
+diff /run/credstore/test.creds.new-refresh-1 /run/credentials/"$UNIT_NAME"/test.creds.new-refresh-1
+diff "$OUTPUT_FILE" <(grep . /run/credentials/"$UNIT_NAME"/*)
+
+systemctl reload "$UNIT_NAME"
+diff "$OUTPUT_FILE" <(grep . /run/credentials/"$UNIT_NAME"/*)
+
+echo "2" >/run/credstore/test.creds.new-refresh-2
+[[ ! -e /run/credentials/"$UNIT_NAME"/test.creds.new-refresh-2 ]]
+
+systemctl reload "$UNIT_NAME"
+diff /run/credstore/test.creds.new-refresh-2 /run/credentials/"$UNIT_NAME"/test.creds.new-refresh-2
+diff "$OUTPUT_FILE" <(grep . /run/credentials/"$UNIT_NAME"/*)
+
+echo "3" >/run/credstore/test.creds.new-refresh-3
+[[ ! -e /run/credentials/"$UNIT_NAME"/test.creds.new-refresh-3 ]]
+
+rm "$OUTPUT_FILE"
+systemctl edit --runtime --stdin "$UNIT_NAME" <<EOF
+[Service]
+Type=notify
+ExecReloadPost=
+EOF
+systemctl reload "$UNIT_NAME"
+diff /run/credstore/test.creds.new-refresh-3 /run/credentials/"$UNIT_NAME"/test.creds.new-refresh-3
+[[ ! -e "$OUTPUT_FILE" ]]
+
+echo "RefreshOnReload=no" >>/run/systemd/system/"$UNIT_NAME"
+systemctl daemon-reload
+assert_eq "$(systemctl show "$UNIT_NAME" -P CanReload)" "no"
+systemctl revert "$UNIT_NAME"
+assert_eq "$(systemctl show "$UNIT_NAME" -P CanReload)" "yes"
+
+echo "BOGUS" >/run/credstore/test.creds.refresh-bogus
+touch "$POST_FLAG_FILE"
+systemctl reload "$UNIT_NAME"
+diff /run/credstore/test.creds.new-refresh-3 /run/credentials/"$UNIT_NAME"/test.creds.new-refresh-3
+[[ ! -e /run/credentials/"$UNIT_NAME"/test.creds.refresh-bogus ]]
+diff "$OUTPUT_FILE" <(grep . /run/credentials/"$UNIT_NAME"/*)
+[[ ! -e "$POST_FLAG_FILE" ]]
+
+OUTPUT_FILE_USER="/tmp/TEST-54-CREDS-refreshing-user.out"
+
+systemd-notify --fork -- \
+    systemd-run -M testuser@ --user --wait \
+        --unit=brummbaer-refresh.service \
+        --service-type=notify-reload \
+        -p NotifyAccess=all \
+        -p 'ImportCredential=brummbaer*' \
+        -p RefreshOnReload=credentials \
+        -p ProtectSystem=strict \
+        -p ReadWritePaths=/tmp \
+        /usr/lib/systemd/tests/testdata/TEST-54-CREDS.units/refresh.sh "$OUTPUT_FILE_USER"
+
+[[ -f "$TESTUSER_CRED_DIR/brummbaer-refresh.service/brummbaer" ]]
+diff "$OUTPUT_FILE_USER" <(grep . "$TESTUSER_CRED_DIR"/brummbaer-refresh.service/*)
+
+run0 -u testuser --pipe -i \
+     --property=EnvironmentFile=-/usr/lib/systemd/systemd-asan-env \
+     'mkdir -p .config/credstore && echo "refreshed" >.config/credstore/brummbaer.refreshed'
+
+systemctl -M testuser@ --user reload brummbaer-refresh.service
+assert_eq "$(cat "$TESTUSER_CRED_DIR"/brummbaer-refresh.service/brummbaer.refreshed)" "refreshed"
+diff "$OUTPUT_FILE_USER" <(grep . "$TESTUSER_CRED_DIR"/brummbaer-refresh.service/*)
+
 touch /testok

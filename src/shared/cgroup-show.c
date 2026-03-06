@@ -18,6 +18,7 @@
 #include "glyph-util.h"
 #include "hostname-util.h"
 #include "log.h"
+#include "mountpoint-util.h"
 #include "nulstr-util.h"
 #include "output-mode.h"
 #include "path-util.h"
@@ -150,7 +151,7 @@ static int show_cgroup_name(
         delegate = r > 0;
 
         if (FLAGS_SET(flags, OUTPUT_CGROUP_ID)) {
-                r = cg_fd_get_cgroupid(fd, &cgroupid);
+                r = fd_to_handle_u64(fd, &cgroupid);
                 if (r < 0)
                         log_debug_errno(r, "Failed to determine cgroup ID of %s, ignoring: %m", path);
         }

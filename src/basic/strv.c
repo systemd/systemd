@@ -1297,3 +1297,5 @@ char** strv_filter_prefix(char * const *l, const char *prefix) {
 
         return TAKE_PTR(f);
 }
+
+const char* const strv_empty[] = { NULL };

@@ -261,6 +261,6 @@ int bus_verify_reload_daemon_async(Manager *m, sd_bus_message *call, sd_bus_erro
 int bus_verify_set_environment_async(Manager *m, sd_bus_message *call, sd_bus_error *reterr_error);
 int bus_verify_bypass_dump_ratelimit_async(Manager *m, sd_bus_message *call, sd_bus_error *reterr_error);
 
-int bus_read_mount_options(sd_bus_message *message, sd_bus_error *reterr_error, MountOptions **ret_options, char **ret_format_str, const char *separator);
+int bus_read_mount_options(sd_bus_message *message, sd_bus_error *reterr_error, MountOptions **ret_options, char **in_out_format_str, const char *separator);
 
 int bus_property_get_activation_details(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *reterr_error);

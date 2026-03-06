@@ -77,52 +77,73 @@ static EFI_STATUS try_gpt(
                 EFI_LBA *ret_backup_lba, /* May be changed even on error! */
                 HARDDRIVE_DEVICE_PATH *ret_hd) {
 
-        _cleanup_free_ EFI_PARTITION_ENTRY *entries = NULL;
-        GptHeader gpt;
+        EFI_PARTITION_ENTRY *entries;
+        _cleanup_pages_ Pages gpt_pages = {};
+        _cleanup_pages_ Pages entries_pages = {};
+        GptHeader *gpt;
         EFI_STATUS err;
         uint32_t crc32;
         size_t size;
 
         assert(block_io);
+        assert(block_io->Media);
         assert(ret_hd);
+
+        gpt_pages = xmalloc_aligned_pages(
+                AllocateMaxAddress,
+                EfiLoaderData,
+                EFI_SIZE_TO_PAGES(sizeof(GptHeader)),
+                block_io->Media->IoAlign,
+                /* On 32-bit allocate below 4G boundary as we can't easily access anything above that.
+                 * 64-bit platforms don't suffer this limitation, so we can allocate from anywhere.
+                 * addr= */ UINTPTR_MAX);
+        gpt = PHYSICAL_ADDRESS_TO_POINTER(gpt_pages.addr);
 
         /* Read the GPT header */
         err = block_io->ReadBlocks(
                         block_io,
                         block_io->Media->MediaId,
                         lba,
-                        sizeof(gpt), &gpt);
+                        sizeof(*gpt), gpt);
         if (err != EFI_SUCCESS)
                 return err;
 
         /* Indicate the location of backup LBA even if the rest of the header is corrupt. */
         if (ret_backup_lba)
-                *ret_backup_lba = gpt.AlternateLBA;
+                *ret_backup_lba = gpt->AlternateLBA;
 
-        if (!verify_gpt(&gpt, lba))
+        if (!verify_gpt(gpt, lba))
                 return EFI_NOT_FOUND;
 
         /* Now load the GPT entry table */
-        size = ALIGN_TO((size_t) gpt.SizeOfPartitionEntry * (size_t) gpt.NumberOfPartitionEntries, 512);
-        entries = xmalloc(size);
+        size = ALIGN_TO((size_t) gpt->SizeOfPartitionEntry * (size_t) gpt->NumberOfPartitionEntries, 512);
+        entries_pages = xmalloc_aligned_pages(
+                AllocateMaxAddress,
+                EfiLoaderData,
+                EFI_SIZE_TO_PAGES(size),
+                block_io->Media->IoAlign,
+                /* On 32-bit allocate below 4G boundary as we can't easily access anything above that.
+                 * 64-bit platforms don't suffer this limitation, so we can allocate from anywhere.
+                 * addr= */ UINTPTR_MAX);
+        entries = PHYSICAL_ADDRESS_TO_POINTER(entries_pages.addr);
 
         err = block_io->ReadBlocks(
                         block_io,
                         block_io->Media->MediaId,
-                        gpt.PartitionEntryLBA,
+                        gpt->PartitionEntryLBA,
                         size, entries);
         if (err != EFI_SUCCESS)
                 return err;
 
         /* Calculate CRC of entries array, too */
         err = BS->CalculateCrc32(entries, size, &crc32);
-        if (err != EFI_SUCCESS || crc32 != gpt.PartitionEntryArrayCRC32)
+        if (err != EFI_SUCCESS || crc32 != gpt->PartitionEntryArrayCRC32)
                 return EFI_CRC_ERROR;
 
         /* Now we can finally look for xbootloader partitions. */
-        for (size_t i = 0; i < gpt.NumberOfPartitionEntries; i++) {
+        for (size_t i = 0; i < gpt->NumberOfPartitionEntries; i++) {
                 EFI_PARTITION_ENTRY *entry =
-                                (EFI_PARTITION_ENTRY *) ((uint8_t *) entries + gpt.SizeOfPartitionEntry * i);
+                                (EFI_PARTITION_ENTRY *) ((uint8_t *) entries + gpt->SizeOfPartitionEntry * i);
 
                 if (!efi_guid_equal(&entry->PartitionTypeGUID, type))
                         continue;

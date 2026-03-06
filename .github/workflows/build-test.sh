@@ -17,6 +17,7 @@ ARGS=(
     "--optimization=3 -Db_lto=false -Dtpm2=disabled -Dlibfido2=disabled -Dp11kit=disabled -Defi=false -Dbootloader=disabled"
     "--optimization=3 -Dfexecve=true -Dstandalone-binaries=true -Dstatic-libsystemd=true -Dstatic-libudev=true"
     "-Db_ndebug=true"
+    "--auto-features=disabled -Dcompat-mutable-uid-boundaries=true"
 )
 PACKAGES=(
     cryptsetup-bin

@@ -21,6 +21,7 @@
 #include "networkd-ndisc.h"
 #include "networkd-radv.h"
 #include "networkd-sysctl.h"
+#include "networkd-wwan-bus.h"
 #include "resolve-util.h"
 
 typedef enum KeepConfiguration {
@@ -414,10 +415,22 @@ typedef struct Network {
 
         /* NTP */
         char **ntp;
+
+        /* ModemManager support */
+        char *mm_apn;
+        bool mm_allow_roaming;
+        MMBearerAllowedAuth mm_allowed_auth;
+        MMBearerIpFamily mm_ip_family;
+        char *mm_operator_id;
+        char *mm_user;
+        char *mm_password;
+        char *mm_pin;
+        int mm_use_gateway;
+        uint32_t mm_route_metric;
+        bool mm_route_metric_set;
 } Network;
 
-Network *network_ref(Network *network);
-Network *network_unref(Network *network);
+DECLARE_TRIVIAL_REF_UNREF_FUNC(Network, network);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Network*, network_unref);
 
 int network_load(Manager *manager, OrderedHashmap **ret);
@@ -443,8 +456,6 @@ CONFIG_PARSER_PROTOTYPE(config_parse_ignore_carrier_loss);
 
 const struct ConfigPerfItem* network_network_gperf_lookup(const char *str, GPERF_LEN_TYPE length);
 
-const char* keep_configuration_to_string(KeepConfiguration i) _const_;
-KeepConfiguration keep_configuration_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(keep_configuration, KeepConfiguration);
 
-const char* activation_policy_to_string(ActivationPolicy i) _const_;
-ActivationPolicy activation_policy_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(activation_policy, ActivationPolicy);

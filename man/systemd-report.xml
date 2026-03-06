@@ -1,0 +1,121 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-report"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-report</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-report</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-report</refname>
+    <refpurpose>Generate report of system facts and metrics</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>systemd-report</command> <arg choice="opt" rep="repeat">OPTIONS</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><emphasis>Note: this command is experimental for now. While it is likely to become a regular
+    component of systemd, it might still change in behaviour and interface.</emphasis></para>
+
+    <para><command>systemd-report</command> requests facts and metrics from the system and writes them to
+    standard output.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Commands</title>
+
+    <para>The following commands are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><command>metrics</command> <arg choice="opt" rep="repeat">MATCH</arg></term>
+
+        <listitem><para>Acquire a list of metrics values from all local services providing them, and write
+        them to standard output. Optionally takes one or more match expressions for filtering the metrics to
+        show. The expression either may be a literal metric family name to search for, or a prefix of one
+        (which will be matched only at dot boundaries). If multiple matches are specified as multiple
+        parameters, any metric matching <emphasis>any</emphasis> of the specified matches are shown.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>describe-metrics</command> <arg choice="opt" rep="repeat">MATCH</arg></term>
+
+        <listitem><para>Acquire a list of metric families from all local services providing them, and write
+        them to standard output. This returns primarily static information about metrics, their data types
+        and human readable description, without values.</para>
+
+        <para>Match expressions similar to those supported by <command>metrics</command> are supported for
+        <command>describe-metrics</command>, too.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>list-sources</command></term>
+
+        <listitem><para>Show list of known metrics sources.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--system</option></term>
+        <term><option>--user</option></term>
+
+        <listitem>
+          <para>Query per-system metrics sources (the default), or the per-user metrics sources.</para>
+
+          <xi:include href="version-info.xml" xpointer="v260"/>
+        </listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="no-pager" />
+      <xi:include href="standard-options.xml" xpointer="json" />
+      <xi:include href="standard-options.xml" xpointer="j" />
+      <xi:include href="standard-options.xml" xpointer="no-legend" />
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
+
+  </refsect1>
+
+  <refsect1>
+    <title>Exit status</title>
+
+    <para>On success, 0 is returned, a non-zero failure code
+    otherwise.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

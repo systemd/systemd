@@ -6,7 +6,7 @@
 %entities;
 ]>
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
-<refentry id="systemd-tpm2-generator">
+<refentry id="systemd-tpm2-generator" conditional='ENABLE_BOOTLOADER'>
 
   <refentryinfo>
     <title>systemd-tpm2-generator</title>

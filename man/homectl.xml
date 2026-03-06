@@ -256,20 +256,21 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--match=</option></term>
+        <term><option>--match=this|other|any|auto</option></term>
         <term><option>-A</option></term>
         <term><option>-N</option></term>
         <term><option>-T</option></term>
 
-        <listitem><para>Takes one of <literal>this</literal>, <literal>other</literal>,
-        <literal>any</literal> or <literal>auto</literal>. Some user record settings can be defined to match
-        only specific machines, or all machines but one, or all machines. With this switch it is possibly to
-        control to which machines to apply the settings appearing on the command line after it. If
-        <literal>this</literal> is specified the setting will only apply to the local system (positive
-        match), if <literal>other</literal> it will apply to all but the local system (negative match), if
-        <literal>any</literal> it will apply to all systems (unless there's a matching positive or negative
-        per-machine setting). If <literal>auto</literal> returns to the default logic: whether a setting
-        applies by default to the local system or all systems depends on the option in question.</para>
+        <listitem><para>Option <option>--match=</option> takes one of <literal>this</literal>,
+        <literal>other</literal>, <literal>any</literal> or <literal>auto</literal>. Some user record
+        settings can be defined to match only specific machines, or all machines but one, or all machines.
+        With this switch it is possibly to control to which machines to apply the settings appearing on the
+        command line after it. If <literal>this</literal> is specified the setting will only apply to the
+        local system (positive match), if <literal>other</literal> it will apply to all but the local system
+        (negative match), if <literal>any</literal> it will apply to all systems (unless there's a matching
+        positive or negative per-machine setting). If <literal>auto</literal> returns to the default logic:
+        whether a setting applies by default to the local system or all systems depends on the option in
+        question.</para>
 
         <para>Note that only some user record settings can be conditioned like this. This option has no
         effect on the others and is ignored there. This option may appear multiple times in a single command

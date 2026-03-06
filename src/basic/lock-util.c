@@ -15,6 +15,7 @@
 #include "lock-util.h"
 #include "log.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "string-util.h"
 #include "time-util.h"
@@ -68,15 +69,14 @@ int make_lock_file_for(const char *p, int operation, LockFile *ret) {
         assert(p);
         assert(ret);
 
-        r = path_extract_filename(p, &fn);
+        r = path_split_prefix_filename(p, &dn, &fn);
         if (r < 0)
                 return r;
 
-        r = path_extract_directory(p, &dn);
-        if (r < 0)
-                return r;
-
-        t = strjoin(dn, "/.#", fn, ".lck");
+        if (dn)
+                t = strjoin(dn, "/.#", fn, ".lck");
+        else
+                t = strjoin(".#", fn, ".lck");
         if (!t)
                 return -ENOMEM;
 
@@ -199,7 +199,6 @@ int lock_generic(int fd, LockType type, int operation) {
 }
 
 int lock_generic_with_timeout(int fd, LockType type, int operation, usec_t timeout) {
-        _cleanup_(sigkill_waitp) pid_t pid = 0;
         int r;
 
         assert(fd >= 0);
@@ -223,8 +222,8 @@ int lock_generic_with_timeout(int fd, LockType type, int operation, usec_t timeo
                 return r;
 
         /* If that didn't work, try with a child */
-
-        r = safe_fork("(sd-flock)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL, &pid);
+        _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
+        r = pidref_safe_fork("(sd-flock)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL, &pidref);
         if (r < 0)
                 return log_error_errno(r, "Failed to flock block device in child process: %m");
         if (r == 0) {
@@ -256,11 +255,11 @@ int lock_generic_with_timeout(int fd, LockType type, int operation, usec_t timeo
         }
 
         siginfo_t status;
-        r = wait_for_terminate(pid, &status);
+        r = pidref_wait_for_terminate(&pidref, &status);
         if (r < 0)
                 return r;
 
-        TAKE_PID(pid);
+        pidref_done(&pidref);
 
         switch (status.si_code) {
 

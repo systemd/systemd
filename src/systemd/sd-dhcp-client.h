@@ -148,6 +148,7 @@ int sd_dhcp_client_set_fallback_lease_lifetime(
 int sd_dhcp_client_set_bootp(
                 sd_dhcp_client *client,
                 int bootp);
+int sd_dhcp_client_set_send_release(sd_dhcp_client *client, int enable);
 
 int sd_dhcp_client_add_option(sd_dhcp_client *client, sd_dhcp_option *v);
 int sd_dhcp_client_add_vendor_option(sd_dhcp_client *client, sd_dhcp_option *v);
@@ -155,14 +156,12 @@ int sd_dhcp_client_add_vendor_option(sd_dhcp_client *client, sd_dhcp_option *v);
 int sd_dhcp_client_is_running(sd_dhcp_client *client);
 int sd_dhcp_client_stop(sd_dhcp_client *client);
 int sd_dhcp_client_start(sd_dhcp_client *client);
-int sd_dhcp_client_send_release(sd_dhcp_client *client);
 int sd_dhcp_client_send_decline(sd_dhcp_client *client);
 int sd_dhcp_client_send_renew(sd_dhcp_client *client);
 int sd_dhcp_client_set_ipv6_connectivity(sd_dhcp_client *client, int have);
 int sd_dhcp_client_interrupt_ipv6_only_mode(sd_dhcp_client *client);
 
-sd_dhcp_client *sd_dhcp_client_ref(sd_dhcp_client *client);
-sd_dhcp_client *sd_dhcp_client_unref(sd_dhcp_client *client);
+_SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_dhcp_client);
 
 /* NOTE: anonymize parameter is used to initialize PRL memory with different
  * options when using RFC7844 Anonymity Profiles */

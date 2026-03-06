@@ -1,27 +1,28 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <poll.h>
-#include <signal.h>
 #include <unistd.h>
 
+#include "alloc-util.h"
 #include "bus-util.h"
 #include "exec-util.h"
 #include "fd-util.h"
 #include "io-util.h"
 #include "log.h"
+#include "path-util.h"
+#include "pidref.h"
 #include "polkit-agent.h"
-#include "process-util.h"
 #include "stdio-util.h"
 
 #if ENABLE_POLKIT
-static pid_t agent_pid = 0;
+static PidRef agent_pidref = PIDREF_NULL;
 
 int polkit_agent_open(void) {
         _cleanup_close_pair_ int pipe_fd[2] = EBADF_PAIR;
         char notify_fd[DECIMAL_STR_MAX(int) + 1];
         int r;
 
-        if (agent_pid > 0)
+        if (pidref_is_set(&agent_pidref))
                 return 0;
 
         /* Clients that run as root don't need to activate/query polkit */
@@ -32,6 +33,15 @@ int polkit_agent_open(void) {
         if (r <= 0)
                 return r;
 
+        _cleanup_free_ char *pkttyagent = NULL;
+        r = find_executable("pkttyagent", &pkttyagent);
+        if (r == -ENOENT) {
+                log_debug("pkttyagent binary not available, ignoring.");
+                return 0;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine whether pkttyagent binary exists: %m");
+
         if (pipe2(pipe_fd, 0) < 0)
                 return -errno;
 
@@ -40,8 +50,8 @@ int polkit_agent_open(void) {
         r = fork_agent("(polkit-agent)",
                        &pipe_fd[1],
                        1,
-                       &agent_pid,
-                       POLKIT_AGENT_BINARY_PATH,
+                       &agent_pidref,
+                       pkttyagent,
                        "--notify-fd", notify_fd,
                        "--fallback");
         if (r < 0)
@@ -57,12 +67,8 @@ int polkit_agent_open(void) {
 }
 
 void polkit_agent_close(void) {
-
-        if (agent_pid <= 0)
-                return;
-
         /* Inform agent that we are done */
-        sigterm_wait(TAKE_PID(agent_pid));
+        pidref_done_sigterm_wait(&agent_pidref);
 }
 
 #else

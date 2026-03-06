@@ -12,9 +12,6 @@ Description=Getty on %I
 Documentation=man:agetty(8) man:systemd-getty-generator(8)
 Documentation=https://0pointer.de/blog/projects/serial-console.html
 After=systemd-user-sessions.service plymouth-quit-wait.service getty-pre.target
-{% if HAVE_SYSV_COMPAT %}
-After=rc-local.service
-{% endif %}
 
 # If additional gettys are spawned during boot then we should make
 # sure that this is synchronized before getty.target, even though
@@ -34,7 +31,7 @@ Before=rescue.service
 ConditionPathExists=/dev/tty0
 
 [Service]
-ExecStart=-{{AGETTY}} --noreset --noclear --issue-file=/etc/issue:/etc/issue.d:/run/issue.d:/usr/lib/issue.d - ${TERM}
+ExecStart=-{{AGETTY}} --noreset --noclear - ${TERM}
 Type=idle
 Restart=always
 RestartSec=0
@@ -50,6 +47,7 @@ KillMode=process
 {% endif %}
 IgnoreSIGPIPE=no
 SendSIGHUP=yes
+
 ImportCredential=tty.virtual.%I.agetty.*:agetty.
 ImportCredential=tty.virtual.%I.login.*:login.
 ImportCredential=agetty.*
@@ -61,5 +59,7 @@ ImportCredential=shell.*
 UnsetEnvironment=LANG LANGUAGE LC_CTYPE LC_NUMERIC LC_TIME LC_COLLATE LC_MONETARY LC_MESSAGES LC_PAPER LC_NAME LC_ADDRESS LC_TELEPHONE LC_MEASUREMENT LC_IDENTIFICATION
 
 [Install]
+Alias=autovt@.service
+
 WantedBy=getty.target
 DefaultInstance=tty1

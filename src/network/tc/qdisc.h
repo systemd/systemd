@@ -74,8 +74,7 @@ extern const QDiscVTable * const qdisc_vtable[_QDISC_KIND_MAX];
 
 DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(QDisc, qdisc);
 
-QDisc* qdisc_ref(QDisc *qdisc);
-QDisc* qdisc_unref(QDisc *qdisc);
+DECLARE_TRIVIAL_REF_UNREF_FUNC(QDisc, qdisc);
 int qdisc_new_static(QDiscKind kind, Network *network, const char *filename, unsigned section_line, QDisc **ret);
 
 void qdisc_mark_recursive(QDisc *qdisc);

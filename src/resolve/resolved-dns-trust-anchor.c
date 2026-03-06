@@ -437,7 +437,7 @@ static int dns_trust_anchor_load_files(
         assert(suffix);
         assert(loader);
 
-        r = conf_files_list_nulstr(&files, suffix, NULL, 0, trust_anchor_dirs);
+        r = conf_files_list_nulstr(&files, suffix, /* root= */ NULL, CONF_FILES_WARN, trust_anchor_dirs);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate %s trust anchor files: %m", suffix);
 
@@ -581,7 +581,7 @@ int dns_trust_anchor_lookup_negative(DnsTrustAnchor *d, const char *name) {
                 if (hashmap_contains(d->positive_by_key, &DNS_RESOURCE_KEY_CONST(DNS_CLASS_IN, DNS_TYPE_DS, name)))
                         return false;
 
-                if (hashmap_contains(d->positive_by_key, &DNS_RESOURCE_KEY_CONST(DNS_CLASS_IN, DNS_TYPE_KEY, name)))
+                if (hashmap_contains(d->positive_by_key, &DNS_RESOURCE_KEY_CONST(DNS_CLASS_IN, DNS_TYPE_DNSKEY, name)))
                         return false;
 
                 /* And now, let's look at the parent, and check that too */

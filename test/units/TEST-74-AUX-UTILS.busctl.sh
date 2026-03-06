@@ -57,10 +57,27 @@ busctl emit --auto-start=no --destination=systemd-logind.service \
             /org/freedesktop/login1 org.freedesktop.login1.Manager \
             PrepareForShutdown b false
 
+signal_emit_command() {
+    echo "for i in \$(seq 1 ${1:?}); do busctl emit /test org.freedesktop.fake1 TestSignal s success; done"
+}
+
 systemd-run --quiet --service-type=notify --unit=test-busctl-wait --pty \
             -p Environment=SYSTEMD_LOG_LEVEL=debug \
-            -p ExecStartPost="busctl emit /test org.freedesktop.fake1 TestSignal s success" \
-            busctl --timeout=30 wait /test org.freedesktop.fake1 TestSignal | grep -F 's "success"' >/dev/null
+            -p ExecStartPost="sh -c '$(signal_emit_command 1)'" \
+            busctl --timeout=30 wait /test org.freedesktop.fake1 TestSignal |
+            grep -Fc 's "success"' | xargs test 1 -eq
+
+systemd-run --quiet --service-type=notify --unit=test-busctl-wait-limited --pty \
+            -p Environment=SYSTEMD_LOG_LEVEL=debug \
+            -p ExecStartPost="sh -c '$(signal_emit_command 5)'" \
+            busctl --timeout=30 --limit-messages=3 wait /test org.freedesktop.fake1 TestSignal |
+            grep -Fc 's "success"' | xargs test 3 -eq
+
+systemd-run --quiet --service-type=notify --unit=test-busctl-wait-unlimited --pty \
+            -p Environment=SYSTEMD_LOG_LEVEL=debug \
+            -p ExecStartPost="sh -c '$(signal_emit_command 2)'" \
+            busctl --timeout=3 --limit-messages=infinity wait /test org.freedesktop.fake1 TestSignal |
+            grep -Fc 's "success"' | xargs test 2 -eq
 
 busctl get-property org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager \
                     Version

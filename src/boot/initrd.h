@@ -4,8 +4,7 @@
 #include "efi.h"
 
 EFI_STATUS initrd_register(
-                const void *initrd_address,
-                size_t initrd_length,
+                const struct iovec *initrd,
                 EFI_HANDLE *ret_initrd_handle);
 
 EFI_STATUS initrd_unregister(EFI_HANDLE initrd_handle);

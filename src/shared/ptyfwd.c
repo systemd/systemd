@@ -131,9 +131,6 @@ static void pty_forward_disconnect(PTYForward *f) {
                 if (f->saved_stdout)
                         (void) tcsetattr(f->output_fd, TCSANOW, &f->saved_stdout_attr);
 
-                /* STDIN/STDOUT should not be non-blocking normally, so let's reset it */
-                (void) fd_nonblock(f->output_fd, false);
-
                 if (f->last_char_set && f->last_char != '\n') {
                         const char *s;
 
@@ -153,6 +150,9 @@ static void pty_forward_disconnect(PTYForward *f) {
 
                         terminal_reset_ansi_seq(f->output_fd);
                 }
+
+                /* STDIN/STDOUT should not be non-blocking normally, so let's reset it */
+                (void) fd_nonblock(f->output_fd, false);
 
                 if (f->close_output_fd)
                         f->output_fd = safe_close(f->output_fd);

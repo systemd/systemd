@@ -448,7 +448,12 @@ int assert_signal_internal(int *ret_signal) {
                 return ASSERT_SIGNAL_FORK_CHILD;
         }
 
-        r = wait_for_terminate(r, &siginfo);
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        r = pidref_set_pid(&pidref, r);
+        if (r < 0)
+                return r;
+
+        r = pidref_wait_for_terminate(&pidref, &siginfo);
         if (r < 0)
                 return r;
 

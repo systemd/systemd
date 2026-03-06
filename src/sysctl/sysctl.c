@@ -461,7 +461,8 @@ static int run(int argc, char *argv[]) {
         } else {
                 _cleanup_strv_free_ char **files = NULL;
 
-                r = conf_files_list_strv(&files, ".conf", NULL, 0, (const char**) CONF_PATHS_STRV("sysctl.d"));
+                r = conf_files_list_strv(&files, ".conf", /* root= */ NULL, CONF_FILES_WARN,
+                                         (const char**) CONF_PATHS_STRV("sysctl.d"));
                 if (r < 0)
                         return log_error_errno(r, "Failed to enumerate sysctl.d files: %m");
 

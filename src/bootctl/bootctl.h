@@ -37,6 +37,7 @@ extern char *arg_root;
 extern char *arg_image;
 extern InstallSource arg_install_source;
 extern char *arg_efi_boot_option_description;
+extern bool arg_efi_boot_option_description_with_device;
 extern bool arg_dry_run;
 extern ImagePolicy *arg_image_policy;
 extern bool arg_varlink;
@@ -58,4 +59,8 @@ GracefulMode arg_graceful(void);
 int acquire_esp(int unprivileged_mode, bool graceful, uint32_t *ret_part, uint64_t *ret_pstart, uint64_t *ret_psize, sd_id128_t *ret_uuid, dev_t *ret_devid);
 int acquire_xbootldr(int unprivileged_mode, sd_id128_t *ret_uuid, dev_t *ret_devid);
 
-bool touch_variables(void);
+/* EFI_BOOT_OPTION_DESCRIPTION_MAX sets the maximum length for the boot option description
+ * stored in NVRAM. The UEFI spec does not specify a minimum or maximum length for this
+ * string, but we limit the length to something reasonable to prevent from the firmware
+ * having to deal with a potentially too long string. */
+#define EFI_BOOT_OPTION_DESCRIPTION_MAX ((size_t) 255)

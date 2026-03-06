@@ -161,7 +161,7 @@ static int unit_file_find_dirs(
         assert(suffix);
 
         path = strjoina(unit_path, "/", name, suffix);
-        if (!unit_path_cache || set_get(unit_path_cache, path)) {
+        if (!unit_path_cache || set_contains(unit_path_cache, path)) {
                 r = unit_file_add_dir(original_root, path, dirs);
                 if (r < 0)
                         return r;
@@ -287,7 +287,7 @@ int unit_file_find_dropin_paths(
                 return 0;
         }
 
-        r = conf_files_list_strv(ret, file_suffix, NULL, 0, (const char**) dirs);
+        r = conf_files_list_strv(ret, file_suffix, /* root= */ NULL, CONF_FILES_WARN, (const char**) dirs);
         if (r < 0)
                 return log_warning_errno(r, "Failed to create the list of configuration files: %m");
 

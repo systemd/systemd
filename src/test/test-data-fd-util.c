@@ -7,6 +7,7 @@
 #include "data-fd-util.h"
 #include "fd-util.h"
 #include "memfd-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "tests.h"
 
@@ -33,7 +34,7 @@ static void assert_equal_fd(int fd1, int fd2) {
 TEST(copy_data_fd) {
         _cleanup_close_ int fd1 = -EBADF, fd2 = -EBADF;
         _cleanup_close_pair_ int sfd[2] = EBADF_PAIR;
-        _cleanup_(sigkill_waitp) pid_t pid = -1;
+        _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
         int r;
 
         fd1 = open("/etc/fstab", O_RDONLY|O_CLOEXEC);
@@ -66,7 +67,7 @@ TEST(copy_data_fd) {
 
         assert_se(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, sfd) >= 0);
 
-        r = safe_fork("(sd-pipe)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_LOG, &pid);
+        r = pidref_safe_fork("(sd-pipe)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_LOG, &pidref);
         assert_se(r >= 0);
 
         if (r == 0) {

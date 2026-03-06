@@ -469,6 +469,8 @@ typedef struct Manager {
          * systemd-oomd to report changes in ManagedOOM settings (systemd client - oomd server). */
         sd_varlink *managed_oom_varlink;
 
+        sd_varlink_server *metrics_varlink_server;
+
         /* Reference to RestrictFileSystems= BPF program */
         struct restrict_fs_bpf *restrict_fs;
 
@@ -625,14 +627,11 @@ void manager_restore_original_log_target(Manager *m);
 const char* manager_get_confirm_spawn(Manager *m);
 void manager_disable_confirm_spawn(void);
 
-const char* manager_state_to_string(ManagerState m) _const_;
-ManagerState manager_state_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(manager_state, ManagerState);
 
-const char* manager_objective_to_string(ManagerObjective m) _const_;
-ManagerObjective manager_objective_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(manager_objective, ManagerObjective);
 
-const char* manager_timestamp_to_string(ManagerTimestamp m) _const_;
-ManagerTimestamp manager_timestamp_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(manager_timestamp, ManagerTimestamp);
 ManagerTimestamp manager_timestamp_initrd_mangle(ManagerTimestamp s);
 
 usec_t manager_get_watchdog(Manager *m, WatchdogType t);

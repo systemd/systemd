@@ -1,3 +1,0 @@
-Package: src:qemu:any
-Pin: release a=noble-proposed
-Pin-Priority: 550

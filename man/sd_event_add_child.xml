@@ -149,11 +149,13 @@
     <constant>SD_EVENT_OFF</constant> with
     <citerefentry><refentrytitle>sd_event_source_set_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
 
-    <para>The <constant>SIGCHLD</constant> signal must be blocked in all threads before this function is
-    called (using <citerefentry
-    project='man-pages'><refentrytitle>sigprocmask</refentrytitle><manvolnum>2</manvolnum></citerefentry> or
-    <citerefentry
-    project='man-pages'><refentrytitle>pthread_sigmask</refentrytitle><manvolnum>3</manvolnum></citerefentry>).</para>
+    <para>The kernel autoreaping logic must be disabled for this function to work as expected (see
+    <citerefentry project='man-pages'><refentrytitle>signal</refentrytitle><manvolnum>7</manvolnum></citerefentry>).</para>
+
+    <para>When watching for <constant>WSTOPPED</constant> or <constant>WCONTINUED</constant>, the
+    <constant>SIGCHLD</constant> signal must be blocked in all threads before this function is called (using
+    <citerefentry project='man-pages'><refentrytitle>sigprocmask</refentrytitle><manvolnum>2</manvolnum></citerefentry> or
+    <citerefentry project='man-pages'><refentrytitle>pthread_sigmask</refentrytitle><manvolnum>3</manvolnum></citerefentry>).</para>
 
     <para>If the second parameter of <function>sd_event_add_child()</function> is passed as
     <constant>NULL</constant> no reference to the event source object is returned. In this case, the event
@@ -190,7 +192,9 @@
     regardless which of <function>sd_event_add_child()</function> and
     <function>sd_event_add_child_pidfd()</function> is used for allocating an event source, the watched
     process has to be a direct child process of the invoking process. Also in both cases
-    <constant>SIGCHLD</constant> has to be blocked in the invoking process.</para>
+    <constant>SIGCHLD</constant> has to be blocked in the invoking process when watching for
+    <constant>WSTOPPED</constant> or <constant>WCONTINUED</constant> and the kernel autoreaping logic has to
+    be disabled.</para>
 
     <para><function>sd_event_source_get_child_pid()</function>
     retrieves the configured PID of a child process state change event

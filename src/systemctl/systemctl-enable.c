@@ -19,7 +19,6 @@
 #include "systemctl-daemon-reload.h"
 #include "systemctl-enable.h"
 #include "systemctl-start-unit.h"
-#include "systemctl-sysv-compat.h"
 #include "systemctl-util.h"
 #include "unit-name.h"
 #include "verbs.h"
@@ -96,19 +95,6 @@ int verb_enable(int argc, char *argv[], void *userdata) {
         r = mangle_names(operation, ASSERT_PTR(strv_skip(argv, 1)), &names);
         if (r < 0)
                 return r;
-
-        r = enable_sysv_units(verb, names);
-        if (r < 0)
-                return r;
-
-        /* If the operation was fully executed by the SysV compat, let's finish early */
-        if (strv_isempty(names)) {
-                if (arg_no_reload || install_client_side() != INSTALL_CLIENT_SIDE_NO)
-                        return 0;
-
-                r = daemon_reload(ACTION_RELOAD, /* graceful= */ false);
-                return r > 0 ? 0 : r;
-        }
 
         if (streq(verb, "disable"))
                 r = normalize_names(names);
@@ -272,7 +258,7 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                 else
                         assert_not_reached();
 
-                install_changes_dump(r, verb, changes, n_changes, arg_quiet);
+                r = install_changes_dump(r, verb, changes, n_changes, arg_quiet);
                 if (r < 0)
                         return r;
         }

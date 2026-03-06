@@ -40,11 +40,9 @@ typedef enum KillWhom {
 void kill_context_init(KillContext *c);
 void kill_context_dump(KillContext *c, FILE *f, const char *prefix);
 
-const char* kill_mode_to_string(KillMode k) _const_;
-KillMode kill_mode_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(kill_mode, KillMode);
 
-const char* kill_whom_to_string(KillWhom k) _const_;
-KillWhom kill_whom_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(kill_whom, KillWhom);
 
 static inline int restart_kill_signal(const KillContext *c) {
         if (c->restart_kill_signal != 0)

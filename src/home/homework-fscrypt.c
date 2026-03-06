@@ -115,9 +115,10 @@ int home_flush_keyring_fscrypt(UserRecord *h) {
         if (!uid_is_valid(h->uid))
                 return 0;
 
-        r = safe_fork("(sd-delkey)",
-                      FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT|FORK_REOPEN_LOG,
-                      NULL);
+        r = pidref_safe_fork(
+                        "(sd-delkey)",
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT|FORK_REOPEN_LOG,
+                        /* ret= */ NULL);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -409,9 +410,10 @@ int home_setup_fscrypt(
         /* Also install the access key in the user's own keyring */
 
         if (uid_is_valid(h->uid)) {
-                r = safe_fork("(sd-addkey)",
-                              FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT|FORK_REOPEN_LOG,
-                              NULL);
+                r = pidref_safe_fork(
+                                "(sd-addkey)",
+                                FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT|FORK_REOPEN_LOG,
+                                /* ret= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to install encryption key in user's keyring: %m");
                 if (r == 0) {

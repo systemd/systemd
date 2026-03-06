@@ -53,5 +53,4 @@ typedef enum OutputFlags {
 
 sd_json_format_flags_t output_mode_to_json_format_flags(OutputMode m);
 
-const char* output_mode_to_string(OutputMode m) _const_;
-OutputMode output_mode_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(output_mode, OutputMode);

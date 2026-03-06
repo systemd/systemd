@@ -30,8 +30,7 @@ typedef struct sd_event sd_event;
 typedef struct sd_radv sd_radv;
 
 int sd_radv_new(sd_radv **ret);
-sd_radv *sd_radv_ref(sd_radv *ra);
-sd_radv *sd_radv_unref(sd_radv *ra);
+_SD_DECLARE_TRIVIAL_REF_UNREF_FUNC(sd_radv);
 
 int sd_radv_attach_event(sd_radv *ra, sd_event *event, int64_t priority);
 int sd_radv_detach_event(sd_radv *ra);

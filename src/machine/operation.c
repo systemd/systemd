@@ -8,6 +8,7 @@
 #include "sd-varlink.h"
 
 #include "alloc-util.h"
+#include "event-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "log.h"
@@ -45,10 +46,10 @@ static int operation_done(sd_event_source *s, const siginfo_t *si, void *userdat
         assert(si);
 
         log_debug("Operation " PID_FMT " is now complete with code=%s status=%i",
-                  o->pid,
+                  o->pidref.pid,
                   sigchld_code_to_string(si->si_code), si->si_status);
 
-        o->pid = 0;
+        pidref_done(&o->pidref);
 
         r = read_operation_errno(si, o);
         if (r < 0)
@@ -96,12 +97,12 @@ static int operation_done(sd_event_source *s, const siginfo_t *si, void *userdat
         return 0;
 }
 
-int operation_new(Manager *manager, Machine *machine, pid_t child, int errno_fd, Operation **ret) {
+int operation_new(Manager *manager, Machine *machine, PidRef *child, int errno_fd, Operation **ret) {
         Operation *o;
         int r;
 
         assert(manager);
-        assert(child > 1);
+        assert(pidref_is_set(child));
         assert(errno_fd >= 0);
         assert(ret);
 
@@ -110,12 +111,12 @@ int operation_new(Manager *manager, Machine *machine, pid_t child, int errno_fd,
                 return -ENOMEM;
 
         *o = (Operation) {
-                .pid = child,
+                .pidref = *child,
                 .errno_fd = errno_fd,
                 .extra_fd = -EBADF
         };
 
-        r = sd_event_add_child(manager->event, &o->event_source, child, WEXITED, operation_done, o);
+        r = event_add_child_pidref(manager->event, &o->event_source, &o->pidref, WEXITED, operation_done, o);
         if (r < 0) {
                 free(o);
                 return r;
@@ -130,7 +131,7 @@ int operation_new(Manager *manager, Machine *machine, pid_t child, int errno_fd,
                 o->machine = machine;
         }
 
-        log_debug("Started new operation " PID_FMT ".", child);
+        log_debug("Started new operation " PID_FMT ".", o->pidref.pid);
 
         /* At this point we took ownership of both the child and the errno file descriptor! */
 
@@ -147,8 +148,7 @@ Operation *operation_free(Operation *o) {
         safe_close(o->errno_fd);
         safe_close(o->extra_fd);
 
-        if (o->pid > 1)
-                sigkill_wait(o->pid);
+        pidref_done_sigkill_wait(&o->pidref);
 
         sd_bus_message_unref(o->message);
         sd_varlink_unref(o->link);

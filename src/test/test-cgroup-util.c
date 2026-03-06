@@ -7,6 +7,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "mountpoint-util.h"
 #include "path-util.h"
 #include "pidref.h"
 #include "process-util.h"
@@ -245,7 +246,10 @@ TEST(proc, .sd_booted = true) {
                 _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
                 uid_t uid = UID_INVALID;
 
-                ASSERT_OK(r = proc_dir_read_pidref(d, &pid));
+                r = proc_dir_read_pidref(d, &pid);
+                if (r == -EINVAL) /* Can happen if we pick a non-thread-group leader */
+                        continue;
+                ASSERT_OK(r);
                 if (r == 0)
                         break;
 
@@ -493,7 +497,7 @@ TEST(cgroupid) {
         ASSERT_OK(fd_get_path(fd, &p));
         ASSERT_TRUE(path_equal(p, "/sys/fs/cgroup"));
 
-        ASSERT_OK(cg_fd_get_cgroupid(fd, &id));
+        ASSERT_OK(fd_to_handle_u64(fd, &id));
 
         fd2 = cg_cgroupid_open(fd, id);
 
@@ -509,7 +513,7 @@ TEST(cgroupid) {
                 ASSERT_OK(fd_get_path(fd2, &p2));
                 ASSERT_TRUE(path_equal(p2, "/sys/fs/cgroup"));
 
-                ASSERT_OK(cg_fd_get_cgroupid(fd2, &id2));
+                ASSERT_OK(fd_to_handle_u64(fd2, &id2));
 
                 ASSERT_EQ(id, id2);
 

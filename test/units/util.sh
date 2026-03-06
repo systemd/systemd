@@ -285,6 +285,20 @@ kernel_supports_lsm() {
     return 1
 }
 
+machine_supports_verity_keyring() {
+    # Requires kernel built with certain kconfigs, as listed in README:
+    # https://oracle.github.io/kconfigs/?config=UTS_RELEASE&config=DM_VERITY_VERIFY_ROOTHASH_SIG&config=DM_VERITY_VERIFY_ROOTHASH_SIG_SECONDARY_KEYRING&config=DM_VERITY_VERIFY_ROOTHASH_SIG_PLATFORM_KEYRING&config=IMA_ARCH_POLICY&config=INTEGRITY_MACHINE_KEYRING
+    if grep -q "$(openssl x509 -noout -subject -in /usr/share/mkosi.crt | sed 's/^.*CN=//')" /proc/keys && \
+            ( . /etc/os-release; [ "$ID" != "centos" ] || systemd-analyze compare-versions "$VERSION_ID" ge 10 ) && \
+            ( . /etc/os-release; [ "$ID" != "debian" ] || [ -z "${VERSION_ID:-}" ] || systemd-analyze compare-versions "$VERSION_ID" ge 13 ) && \
+            ( . /etc/os-release; [ "$ID" != "ubuntu" ] || systemd-analyze compare-versions "$VERSION_ID" ge 24.04 ) && \
+            systemd-analyze compare-versions "$(cryptsetup --version | sed 's/^cryptsetup \([0-9]*\.[0-9]*\.[0-9]*\) .*/\1/')" ge 2.3.0; then
+        return 0
+    fi
+
+    return 1
+}
+
 install_extension_images() {
         local os_release
         os_release="$(test -e /etc/os-release && echo /etc/os-release || echo /usr/lib/os-release)"
@@ -296,22 +310,25 @@ install_extension_images() {
         fi
 
         local initdir="/var/tmp/app0"
-        mkdir -p "$initdir/usr/lib/extension-release.d" "$initdir/usr/lib/systemd/system" "$initdir/opt"
+        mkdir -p "$initdir/usr/lib/extension-release.d" "$initdir/opt"
         grep "^ID=" "$os_release" >"$initdir/usr/lib/extension-release.d/extension-release.app0"
         echo "$version_id" >>"$initdir/usr/lib/extension-release.d/extension-release.app0"
         (
             echo "$version_id"
             echo "SYSEXT_IMAGE_ID=app"
         ) >>"$initdir/usr/lib/extension-release.d/extension-release.app0"
-        cat >"$initdir/usr/lib/systemd/system/app0.service" <<EOF
+        for scope in system user; do
+            mkdir -p "$initdir/usr/lib/systemd/$scope"
+            cat >"$initdir/usr/lib/systemd/$scope/app0.service" <<EOF
 [Service]
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=/opt/script0.sh
-TemporaryFileSystem=/var/lib
+TemporaryFileSystem=/var/lib /home
 StateDirectory=app0
 RuntimeDirectory=app0
 EOF
+        done
         cat >"$initdir/opt/script0.sh" <<EOF
 #!/usr/bin/env bash
 set -e
@@ -351,7 +368,7 @@ EOF
         chmod go+r /tmp/conf0*
 
         initdir="/var/tmp/app1"
-        mkdir -p "$initdir/usr/lib/extension-release.d" "$initdir/usr/lib/systemd/system" "$initdir/opt"
+        mkdir -p "$initdir/usr/lib/extension-release.d" "$initdir/opt"
         grep "^ID=" "$os_release" >"$initdir/usr/lib/extension-release.d/extension-release.app2"
         (
             echo "$version_id"
@@ -361,14 +378,18 @@ EOF
             echo "PORTABLE_PREFIXES=app1"
         ) >>"$initdir/usr/lib/extension-release.d/extension-release.app2"
         setfattr -n user.extension-release.strict -v false "$initdir/usr/lib/extension-release.d/extension-release.app2"
-        cat >"$initdir/usr/lib/systemd/system/app1.service" <<EOF
+        for scope in system user; do
+            mkdir -p "$initdir/usr/lib/systemd/$scope"
+            cat >"$initdir/usr/lib/systemd/$scope/app1.service" <<EOF
 [Service]
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=/opt/script1.sh
+TemporaryFileSystem=/home
 StateDirectory=app1
 RuntimeDirectory=app1
 EOF
+        done
         cat >"$initdir/opt/script1.sh" <<EOF
 #!/usr/bin/env bash
 set -e
@@ -379,6 +400,18 @@ EOF
         chmod +x "$initdir/opt/script1.sh"
         echo MARKER=1 >"$initdir/usr/lib/systemd/system/other_file"
         mksquashfs "$initdir" /tmp/app1.raw -noappend
+
+        # Create a data-only extension image (no unit files) to test that
+        # ExtensionImages= is added to the drop-in even when the extension
+        # does not carry any units.
+        initdir="/var/tmp/app-data-only"
+        mkdir -p "$initdir/usr/lib/extension-release.d" "$initdir/opt"
+        (
+            echo "ID=_any"
+            echo "ARCHITECTURE=_any"
+        ) >"$initdir/usr/lib/extension-release.d/extension-release.app-data-only"
+        echo "MARKER_DATA_ONLY=1" >"$initdir/opt/data-file"
+        mksquashfs "$initdir" /tmp/app-data-only.raw -noappend
 
         initdir="/var/tmp/app-nodistro"
         mkdir -p "$initdir/usr/lib/extension-release.d" "$initdir/usr/lib/systemd/system"

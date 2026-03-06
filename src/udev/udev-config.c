@@ -557,9 +557,10 @@ int manager_serialize_config(Manager *manager) {
         if (r < 0)
                 return log_warning_errno(r, "Failed to finalize serialization file: %m");
 
+        /* This may fail on shutdown/reboot. Let's not warn louder. */
         r = notify_push_fd(fileno(f), "config-serialization");
         if (r < 0)
-                return log_warning_errno(r, "Failed to push serialization fd to service manager: %m");
+                return log_debug_errno(r, "Failed to push serialization fd to service manager: %m");
 
         log_debug("Serialized configurations.");
         return 0;

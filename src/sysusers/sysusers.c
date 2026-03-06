@@ -12,7 +12,6 @@
 #include "copy.h"
 #include "creds-util.h"
 #include "dissect-image.h"
-#include "env-util.h"
 #include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -21,6 +20,7 @@
 #include "fs-util.h"
 #include "hashmap.h"
 #include "image-policy.h"
+#include "install-file.h"
 #include "label-util.h"
 #include "libaudit-util.h"
 #include "libcrypt-util.h"
@@ -596,18 +596,6 @@ done:
         return 0;
 }
 
-static usec_t epoch_or_now(void) {
-        uint64_t epoch;
-
-        if (secure_getenv_uint64("SOURCE_DATE_EPOCH", &epoch) >= 0) {
-                if (epoch > UINT64_MAX/USEC_PER_SEC) /* Overflow check */
-                        return USEC_INFINITY;
-                return (usec_t) epoch * USEC_PER_SEC;
-        }
-
-        return now(CLOCK_REALTIME);
-}
-
 static int write_temporary_shadow(
                 Context *c,
                 const char *shadow_path,
@@ -635,7 +623,7 @@ static int write_temporary_shadow(
         if (r < 0)
                 return log_debug_errno(r, "Failed to open temporary copy of %s: %m", shadow_path);
 
-        lstchg = (long) (epoch_or_now() / USEC_PER_DAY);
+        lstchg = (long) (source_date_epoch_or_now() / USEC_PER_DAY);
 
         original = fopen(shadow_path, "re");
         if (original) {
@@ -1065,7 +1053,7 @@ static int uid_is_ok(
         assert(c);
 
         /* Let's see if we already have assigned the UID a second time */
-        if (ordered_hashmap_get(c->todo_uids, UID_TO_PTR(uid)))
+        if (ordered_hashmap_contains(c->todo_uids, UID_TO_PTR(uid)))
                 return 0;
 
         /* Try to avoid using uids that are already used by a group
@@ -1304,7 +1292,7 @@ static int gid_is_ok(
         assert(c);
         assert(groupname);
 
-        if (ordered_hashmap_get(c->todo_gids, GID_TO_PTR(gid)))
+        if (ordered_hashmap_contains(c->todo_gids, GID_TO_PTR(gid)))
                 return 0;
 
         /* Avoid reusing gids that are already used by a different user */
@@ -1580,7 +1568,7 @@ static int add_implicit(Context *c) {
         /* Implicitly create additional users and groups, if they were listed in "m" lines */
         ORDERED_HASHMAP_FOREACH_KEY(l, g, c->members) {
                 STRV_FOREACH(m, l)
-                        if (!ordered_hashmap_get(c->users, *m)) {
+                        if (!ordered_hashmap_contains(c->users, *m)) {
                                 _cleanup_(item_freep) Item *j =
                                         item_new(ADD_USER, *m, /* filename= */ NULL, /* line= */ 0);
                                 if (!j)
@@ -1596,8 +1584,8 @@ static int add_implicit(Context *c) {
                                 TAKE_PTR(j);
                         }
 
-                if (!(ordered_hashmap_get(c->users, g) ||
-                      ordered_hashmap_get(c->groups, g))) {
+                if (!(ordered_hashmap_contains(c->users, g) ||
+                      ordered_hashmap_contains(c->groups, g))) {
                         _cleanup_(item_freep) Item *j =
                                 item_new(ADD_GROUP, g, /* filename= */ NULL, /* line= */ 0);
                         if (!j)
@@ -2151,15 +2139,10 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_IMAGE:
-#ifdef STANDALONE
-                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                               "This systemd-sysusers version is compiled without support for --image=.");
-#else
                         r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_image);
                         if (r < 0)
                                 return r;
                         break;
-#endif
 
                 case ARG_IMAGE_POLICY:
                         r = parse_image_policy_argument(optarg, &arg_image_policy);
@@ -2283,10 +2266,8 @@ static int read_credential_lines(Context *c) {
 }
 
 static int run(int argc, char *argv[]) {
-#ifndef STANDALONE
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
-#endif
         _cleanup_close_ int lock = -EBADF;
         _cleanup_(context_done) Context c = {
                 .audit_fd = -EBADF,
@@ -2314,7 +2295,6 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-#ifndef STANDALONE
         if (arg_image) {
                 assert(!arg_root);
 
@@ -2338,9 +2318,6 @@ static int run(int argc, char *argv[]) {
                 if (!arg_root)
                         return log_oom();
         }
-#else
-        assert(!arg_image);
-#endif
 
         /* Prepare to emit audit events, but only if we're operating on the host system. */
         if (!arg_root)

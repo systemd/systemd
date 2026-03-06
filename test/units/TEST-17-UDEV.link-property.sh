@@ -6,8 +6,6 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
-udevadm control --log-level=debug
-
 mkdir -p /run/systemd/network/
 cat >/run/systemd/network/10-test.link <<EOF
 [Match]
@@ -198,6 +196,6 @@ ip link del dev test1
 
 rm -f /run/systemd/network/10-test.link
 rm -rf /run/systemd/network/10-test.link.d
-udevadm control --reload --log-level=info
+udevadm control --reload
 
 exit 0

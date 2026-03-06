@@ -35,21 +35,6 @@
 #include "user-util.h"
 #include "xattr-util.h"
 
-/* The structure to pass to name_to_handle_at() on cgroupfs2 */
-typedef union {
-        struct file_handle file_handle;
-        uint8_t space[offsetof(struct file_handle, f_handle) + sizeof(uint64_t)];
-} cg_file_handle;
-
-#define CG_FILE_HANDLE_INIT                                     \
-        (cg_file_handle) {                                      \
-                .file_handle.handle_bytes = sizeof(uint64_t),   \
-                .file_handle.handle_type = FILEID_KERNFS,       \
-        }
-
-/* The .f_handle field is not aligned to 64bit on some archs, hence read it via an unaligned accessor */
-#define CG_FILE_HANDLE_CGROUPID(fh) unaligned_read_ne64(fh.file_handle.f_handle)
-
 int cg_is_available(void) {
         struct statfs fs;
 
@@ -85,7 +70,14 @@ int cg_cgroupid_open(int cgroupfs_fd, uint64_t id) {
                 cgroupfs_fd = fsfd;
         }
 
-        cg_file_handle fh = CG_FILE_HANDLE_INIT;
+        union {
+                struct file_handle file_handle;
+                uint8_t space[offsetof(struct file_handle, f_handle) + sizeof(uint64_t)];
+        } fh = {
+                .file_handle.handle_bytes = sizeof(uint64_t),
+                .file_handle.handle_type = FILEID_KERNFS,
+        };
+
         unaligned_write_ne64(fh.file_handle.f_handle, id);
 
         return RET_NERRNO(open_by_handle_at(cgroupfs_fd, &fh.file_handle, O_DIRECTORY|O_CLOEXEC));
@@ -109,24 +101,6 @@ int cg_path_from_cgroupid(int cgroupfs_fd, uint64_t id, char **ret) {
 
         if (ret)
                 *ret = TAKE_PTR(path);
-        return 0;
-}
-
-int cg_get_cgroupid_at(int dfd, const char *path, uint64_t *ret) {
-        cg_file_handle fh = CG_FILE_HANDLE_INIT;
-        int mnt_id;
-
-        assert(dfd >= 0 || (dfd == AT_FDCWD && path_is_absolute(path)));
-        assert(ret);
-
-        /* This is cgroupfs so we know the size of the handle, thus no need to loop around like
-         * name_to_handle_at_loop() does in mountpoint-util.c */
-        if (name_to_handle_at(dfd, strempty(path), &fh.file_handle, &mnt_id, isempty(path) ? AT_EMPTY_PATH : 0) < 0) {
-                assert(errno != EOVERFLOW);
-                return -errno;
-        }
-
-        *ret = CG_FILE_HANDLE_CGROUPID(fh);
         return 0;
 }
 
@@ -1771,6 +1745,7 @@ static const char *const cgroup_controller_table[_CGROUP_CONTROLLER_MAX] = {
         [CGROUP_CONTROLLER_BPF_FOREIGN]                     = "bpf-foreign",
         [CGROUP_CONTROLLER_BPF_SOCKET_BIND]                 = "bpf-socket-bind",
         [CGROUP_CONTROLLER_BPF_RESTRICT_NETWORK_INTERFACES] = "bpf-restrict-network-interfaces",
+        [CGROUP_CONTROLLER_BPF_BIND_NETWORK_INTERFACE]      = "bpf-bind-network-interface",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(cgroup_controller, CGroupController);

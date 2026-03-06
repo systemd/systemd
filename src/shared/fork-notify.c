@@ -35,7 +35,7 @@ static int on_child_exit(sd_event_source *s, const siginfo_t *si, void *userdata
         else if (si->si_code == CLD_DUMPED)
                 log_debug("Child process " PID_FMT " dumped core by signal %s, ignoring.", si->si_pid, signal_to_string(si->si_status));
         else
-                log_debug("Got unexpected exit code %i via SIGCHLD, ignoring.", si->si_code);
+                log_debug("Got unexpected exit code %i from child, ignoring.", si->si_code);
 
         /* And let's then fail the whole thing, because regardless what the exit status of the child is
          * (i.e. even if successful), if it exits before sending READY=1 something is wrong. */
@@ -106,7 +106,7 @@ int fork_notify(char * const *argv, PidRef *ret_pidref) {
         _cleanup_free_ char *addr_string = NULL;
         r = notify_socket_prepare_full(
                         event,
-                        SD_EVENT_PRIORITY_NORMAL-10, /* We want the notification message from the child before the SIGCHLD */
+                        SD_EVENT_PRIORITY_NORMAL-10, /* We want the notification message from the child before the child exit */
                         on_child_notify,
                         &child,
                         /* accept_fds= */ false,
@@ -123,8 +123,6 @@ int fork_notify(char * const *argv, PidRef *ret_pidref) {
                 _cleanup_free_ char *l = quote_command_line(argv, SHELL_ESCAPE_EMPTY);
                 log_debug("Invoking '%s' as child.", strnull(l));
         }
-
-        BLOCK_SIGNALS(SIGCHLD);
 
         r = pidref_safe_fork_full(
                         "(fork-notify)",

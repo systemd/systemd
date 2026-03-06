@@ -45,25 +45,41 @@ static int working_directory_build_json(sd_json_variant **ret, const char *name,
                         SD_JSON_BUILD_PAIR_BOOLEAN("missingOK", c->working_directory_missing_ok));
 }
 
-static int root_image_options_build_json(sd_json_variant **ret, const char *name, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        MountOptions *root_image_options = userdata;
+static int json_append_mount_options(sd_json_variant **v, MountOptions *options) {
         int r;
 
-        assert(ret);
-        assert(name);
+        assert(v);
 
-        LIST_FOREACH(mount_options, m, root_image_options) {
+        if (!options)
+                return 0;
+
+        for (PartitionDesignator j = 0; j < _PARTITION_DESIGNATOR_MAX; j++) {
+                if (isempty(options->options[j]))
+                        continue;
+
                 r = sd_json_variant_append_arraybo(
-                                &v,
-                                SD_JSON_BUILD_PAIR_STRING("partitionDesignator", partition_designator_to_string(m->partition_designator)),
-                                SD_JSON_BUILD_PAIR_STRING("options", m->options));
+                                v,
+                                SD_JSON_BUILD_PAIR_STRING("partitionDesignator", partition_designator_to_string(j)),
+                                SD_JSON_BUILD_PAIR_STRING("options", options->options[j]));
                 if (r < 0)
                         return r;
         }
 
-        *ret = TAKE_PTR(v);
         return 0;
+}
+
+static int root_image_options_build_json(sd_json_variant **ret, const char *name, void *userdata) {
+        MountOptions *root_image_options = userdata;
+
+        assert(ret);
+        assert(name);
+
+        if (!root_image_options) {
+                *ret = NULL;
+                return 0;
+        }
+
+        return json_append_mount_options(ret, root_image_options);
 }
 
 static int image_policy_build_json(sd_json_variant **ret, const char *name, void *userdata) {
@@ -119,14 +135,9 @@ static int mount_images_build_json(sd_json_variant **ret, const char *name, void
         FOREACH_ARRAY(i, c->mount_images, c->n_mount_images) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *mo = NULL;
 
-                LIST_FOREACH(mount_options, m, i->mount_options) {
-                        r = sd_json_variant_append_arraybo(
-                                        &mo,
-                                        SD_JSON_BUILD_PAIR_STRING("partitionDesignator", partition_designator_to_string(m->partition_designator)),
-                                        SD_JSON_BUILD_PAIR_STRING("options", m->options));
-                        if (r < 0)
-                                return r;
-                }
+                r = json_append_mount_options(&mo, i->mount_options);
+                if (r < 0)
+                        return r;
 
                 r = sd_json_variant_append_arraybo(
                                 &v,
@@ -153,14 +164,9 @@ static int extension_images_build_json(sd_json_variant **ret, const char *name, 
         FOREACH_ARRAY(i, c->extension_images, c->n_extension_images) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *mo = NULL;
 
-                LIST_FOREACH(mount_options, m, i->mount_options) {
-                        r = sd_json_variant_append_arraybo(
-                                        &mo,
-                                        SD_JSON_BUILD_PAIR_STRING("partitionDesignator", partition_designator_to_string(m->partition_designator)),
-                                        SD_JSON_BUILD_PAIR_STRING("options", m->options));
-                        if (r < 0)
-                                return r;
-                }
+                r = json_append_mount_options(&mo, i->mount_options);
+                if (r < 0)
+                        return r;
 
                 r = sd_json_variant_append_arraybo(
                                 &v,
@@ -788,6 +794,7 @@ int unit_exec_context_build_json(sd_json_variant **ret, const char *name, void *
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("WorkingDirectory", working_directory_build_json, c),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("RootDirectory", c->root_directory),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("RootImage", c->root_image),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("RootMStack", c->root_mstack),
                         JSON_BUILD_PAIR_CALLBACK_NON_NULL("RootImageOptions", root_image_options_build_json, c->root_image_options),
                         SD_JSON_BUILD_PAIR_BOOLEAN("RootEphemeral", c->root_ephemeral),
                         JSON_BUILD_PAIR_BASE64_NON_EMPTY("RootHash", c->root_hash.iov_base, c->root_hash.iov_len),
@@ -859,6 +866,9 @@ int unit_exec_context_build_json(sd_json_variant **ret, const char *name, void *
                         SD_JSON_BUILD_PAIR_CALLBACK("IOSchedulingClass", ioprio_class_build_json, c),
                         SD_JSON_BUILD_PAIR_INTEGER("IOSchedulingPriority", ioprio_prio_data(exec_context_get_effective_ioprio(c))),
 
+                        JSON_BUILD_PAIR_TRISTATE_NON_NULL("MemoryKSM", c->memory_ksm),
+                        SD_JSON_BUILD_PAIR_STRING("MemoryTHP", memory_thp_to_string(c->memory_thp)),
+
                         /* Sandboxing */
                         SD_JSON_BUILD_PAIR_STRING("ProtectSystem", protect_system_to_string(c->protect_system)),
                         SD_JSON_BUILD_PAIR_STRING("ProtectHome", protect_home_to_string(c->protect_home)),
@@ -882,7 +892,6 @@ int unit_exec_context_build_json(sd_json_variant **ret, const char *name, void *
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("NetworkNamespacePath", c->network_namespace_path),
                         JSON_BUILD_PAIR_YES_NO("PrivateIPC", c->private_ipc),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("IPCNamespacePath", c->ipc_namespace_path),
-                        JSON_BUILD_PAIR_TRISTATE_NON_NULL("MemoryKSM", c->memory_ksm),
                         SD_JSON_BUILD_PAIR_STRING("PrivatePIDs", private_pids_to_string(c->private_pids)),
                         SD_JSON_BUILD_PAIR_STRING("PrivateUsers", private_users_to_string(c->private_users)),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("UserNamespacePath", c->user_namespace_path),

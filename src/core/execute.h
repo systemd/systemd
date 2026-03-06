@@ -73,6 +73,24 @@ typedef enum ExecKeyringMode {
         _EXEC_KEYRING_MODE_INVALID = -EINVAL,
 } ExecKeyringMode;
 
+typedef enum MemoryTHP {
+        /*
+         * Inherit default from process that starts systemd, i.e. do not make
+         * any PR_SET_THP_DISABLE call.
+         */
+        MEMORY_THP_INHERIT,
+        MEMORY_THP_DISABLE, /* Disable THPs completely for the process */
+        MEMORY_THP_MADVISE, /* Disable THPs for the process except when madvised */
+        /*
+         * Use system default THP setting. this can be used when the process that
+         * starts systemd has already disabled THPs via PR_SET_THP_DISABLE, and we
+         * want to restore the system default THP setting at process invocation time.
+         */
+        MEMORY_THP_SYSTEM,
+        _MEMORY_THP_MAX,
+        _MEMORY_THP_INVALID = -EINVAL,
+} MemoryTHP;
+
 /* Contains start and exit information about an executed command.  */
 typedef struct ExecStatus {
         dual_timestamp start_timestamp;
@@ -181,9 +199,12 @@ typedef struct ExecContext {
         char **unset_environment;
 
         struct rlimit *rlimit[_RLIMIT_MAX];
-        char *working_directory, *root_directory, *root_image, *root_verity, *root_hash_path, *root_hash_sig_path;
+        char *working_directory;
+        char *root_directory;
+        char *root_image, *root_verity, *root_hash_path, *root_hash_sig_path;
         struct iovec root_hash, root_hash_sig;
-        LIST_HEAD(MountOptions, root_image_options);
+        MountOptions *root_image_options;
+        char *root_mstack;
         bool root_ephemeral;
         bool working_directory_missing_ok:1;
         bool working_directory_home:1;
@@ -311,9 +332,10 @@ typedef struct ExecContext {
         int mount_apivfs;
         int bind_log_sockets;
         int memory_ksm;
-        PrivateTmp private_tmp;
-        PrivateTmp private_var_tmp; /* This is not an independent parameter, but calculated from other
-                                     * parameters in unit_patch_contexts(). */
+        MemoryTHP memory_thp;
+        PrivateTmp private_tmp;     /* Those are not independent parameters, but are calculated from */
+        PrivateTmp private_var_tmp; /* other parameters in unit_patch_contexts(). */
+
         bool private_network;
         bool private_devices;
         PrivateUsers private_users;
@@ -480,6 +502,16 @@ static inline bool exec_context_has_tty(const ExecContext *context) {
                 context->std_error == EXEC_OUTPUT_TTY;
 }
 
+static inline bool exec_input_is_inheritable(ExecInput i) {
+        /* We assume these listed inputs refer to bidirectional streams, and hence duplicating them from
+         * stdin to stdout/stderr makes sense and hence allowing EXEC_OUTPUT_INHERIT makes sense, too.
+         * Outputs such as regular files or sealed data memfds otoh don't really make sense to be
+         * duplicated for both input and output at the same time (since they then would cause a feedback
+         * loop). */
+
+        return exec_input_is_terminal(i) || IN_SET(i, EXEC_INPUT_SOCKET, EXEC_INPUT_NAMED_FD);
+}
+
 int exec_spawn(
                 Unit *unit,
                 ExecCommand *command,
@@ -548,6 +580,7 @@ char** exec_context_get_restrict_filesystems(const ExecContext *c);
 bool exec_context_restrict_namespaces_set(const ExecContext *c);
 bool exec_context_restrict_filesystems_set(const ExecContext *c);
 bool exec_context_with_rootfs(const ExecContext *c);
+bool exec_context_with_rootfs_strict(const ExecContext *c);
 
 int exec_context_has_vpicked_extensions(const ExecContext *context);
 
@@ -559,7 +592,7 @@ void exec_status_reset(ExecStatus *s);
 
 int exec_shared_runtime_acquire(Manager *m, const ExecContext *c, const char *id, bool create, ExecSharedRuntime **ret);
 ExecSharedRuntime *exec_shared_runtime_destroy(ExecSharedRuntime *r);
-ExecSharedRuntime *exec_shared_runtime_unref(ExecSharedRuntime *r);
+DECLARE_TRIVIAL_UNREF_FUNC(ExecSharedRuntime, exec_shared_runtime);
 DEFINE_TRIVIAL_CLEANUP_FUNC(ExecSharedRuntime*, exec_shared_runtime_unref);
 
 int exec_shared_runtime_serialize(const Manager *m, FILE *f, FDSet *fds);
@@ -587,33 +620,25 @@ int exec_directory_add(ExecDirectory *d, const char *path, const char *symlink, 
 void exec_directory_sort(ExecDirectory *d);
 bool exec_directory_is_private(const ExecContext *context, ExecDirectoryType type);
 
-ExecCleanMask exec_clean_mask_from_string(const char *s);
+DECLARE_STRING_TABLE_LOOKUP_FROM_STRING(exec_clean_mask, ExecCleanMask);
 
-const char* exec_output_to_string(ExecOutput i) _const_;
-ExecOutput exec_output_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(exec_input, ExecInput);
+DECLARE_STRING_TABLE_LOOKUP(exec_output, ExecOutput);
 
-const char* exec_input_to_string(ExecInput i) _const_;
-ExecInput exec_input_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(exec_utmp_mode, ExecUtmpMode);
 
-const char* exec_utmp_mode_to_string(ExecUtmpMode i) _const_;
-ExecUtmpMode exec_utmp_mode_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(exec_preserve_mode, ExecPreserveMode);
 
-const char* exec_preserve_mode_to_string(ExecPreserveMode i) _const_;
-ExecPreserveMode exec_preserve_mode_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(exec_keyring_mode, ExecKeyringMode);
 
-const char* exec_keyring_mode_to_string(ExecKeyringMode i) _const_;
-ExecKeyringMode exec_keyring_mode_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(exec_directory_type_symlink, ExecDirectoryType);
+DECLARE_STRING_TABLE_LOOKUP(exec_directory_type_mode, ExecDirectoryType);
 
-const char* exec_directory_type_symlink_to_string(ExecDirectoryType i) _const_;
-ExecDirectoryType exec_directory_type_symlink_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(exec_resource_type, ExecDirectoryType);
 
-const char* exec_directory_type_mode_to_string(ExecDirectoryType i) _const_;
-ExecDirectoryType exec_directory_type_mode_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(memory_thp, MemoryTHP);
 
-const char* exec_resource_type_to_string(ExecDirectoryType i) _const_;
-ExecDirectoryType exec_resource_type_from_string(const char *s) _pure_;
-
-bool exec_needs_mount_namespace(const ExecContext *context, const ExecParameters *params, const ExecRuntime *runtime);
+bool exec_needs_mount_namespace(const ExecContext *context, const ExecParameters *params);
 bool exec_needs_network_namespace(const ExecContext *context);
 bool exec_needs_ipc_namespace(const ExecContext *context);
 bool exec_needs_pid_namespace(const ExecContext *context, const ExecParameters *params);

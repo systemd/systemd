@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "daemon-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "log.h"
 #include "string-util.h"
@@ -18,9 +19,10 @@ int notify_remove_fd_warn(const char *name) {
                        "FDSTOREREMOVE=1\n"
                        "FDNAME=%s", name);
         if (r < 0)
-                return log_warning_errno(r,
-                                         "Failed to remove file descriptor \"%s\" from the store, ignoring: %m",
-                                         name);
+                return log_full_errno(
+                                ERRNO_IS_NEG_DISCONNECT(r) ? LOG_DEBUG : LOG_WARNING, r,
+                                "Failed to remove file descriptor \"%s\" from the store, ignoring: %m",
+                                name);
 
         return 0;
 }

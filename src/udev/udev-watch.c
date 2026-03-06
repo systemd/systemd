@@ -18,6 +18,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "id128-util.h"
 #include "inotify-util.h"
 #include "parse-util.h"
 #include "pidref.h"
@@ -28,6 +29,7 @@
 #include "signal-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "time-util.h"
 #include "udev-manager.h"
 #include "udev-trace.h"
 #include "udev-util.h"
@@ -141,23 +143,69 @@ void udev_watch_dump(void) {
         }
 }
 
-static int synthesize_change_one(sd_device *dev, sd_device *target) {
+static int on_synthesized_events_clear(sd_event_source *s, uint64_t usec, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+
+        for (;;) {
+                _cleanup_free_ sd_id128_t *uuid = set_steal_first(manager->synthesized_events);
+                if (!uuid)
+                        return 0;
+
+                log_warning("Could not receive synthesized event with UUID %s, ignoring.",
+                            SD_ID128_TO_STRING(*uuid));
+        }
+}
+
+static int synthesize_change_one(Manager *manager, sd_device *dev) {
         int r;
 
+        assert(manager);
         assert(dev);
-        assert(target);
 
         if (DEBUG_LOGGING) {
                 const char *syspath = NULL;
-                (void) sd_device_get_syspath(target, &syspath);
+                (void) sd_device_get_syspath(dev, &syspath);
                 log_device_debug(dev, "device is closed, synthesising 'change' on %s", strna(syspath));
         }
 
-        r = sd_device_trigger(target, SD_DEVICE_CHANGE);
+        sd_id128_t uuid;
+        r = sd_device_trigger_with_uuid(dev, SD_DEVICE_CHANGE, &uuid);
         if (r < 0)
-                return log_device_debug_errno(target, r, "Failed to trigger 'change' uevent: %m");
+                return log_device_debug_errno(dev, r, "Failed to trigger 'change' uevent: %m");
 
         DEVICE_TRACE_POINT(synthetic_change_event, dev);
+
+        /* Avoid /run/udev/queue file being removed by on_post(). */
+        sd_id128_t *copy = newdup(sd_id128_t, &uuid, 1);
+        if (!copy)
+                return log_oom_debug();
+
+        /* Let's not wait for too many events, to make not udevd consume huge amount of memory.
+         * Typically (but unfortunately, not always), the kernel provides events in the order we triggered.
+         * Hence, remembering the newest UUID should be mostly enough. */
+        while (set_size(manager->synthesized_events) >= 1024) {
+                _cleanup_free_ sd_id128_t *id = ASSERT_PTR(set_steal_first(manager->synthesized_events));
+                log_debug("Too many synthesized events are waiting, forgetting synthesized event with UUID %s.",
+                          SD_ID128_TO_STRING(*id));
+        }
+
+        r = set_ensure_consume(&manager->synthesized_events, &id128_hash_ops_free, copy);
+        if (r < 0)
+                return log_oom_debug();
+
+        r = event_reset_time_relative(
+                        manager->event,
+                        &manager->synthesized_events_clear_event_source,
+                        CLOCK_MONOTONIC,
+                        1 * USEC_PER_MINUTE,
+                        USEC_PER_SEC,
+                        on_synthesized_events_clear,
+                        manager,
+                        SD_EVENT_PRIORITY_NORMAL,
+                        "synthesized-events-clear",
+                        /* force_reset= */ true);
+        if (r < 0)
+                log_debug_errno(r, "Failed to reset timer event source for clearing synthesized event UUIDs: %m");
 
         return 0;
 }
@@ -180,13 +228,13 @@ static int synthesize_change(Manager *manager, sd_device *dev) {
         if (r < 0)
                 return r;
         if (r > 0)
-                return synthesize_change_one(dev, dev);
+                return synthesize_change_one(manager, dev);
 
         r = block_device_is_whole_disk(dev);
         if (r < 0)
                 return r;
         if (r == 0)
-                return synthesize_change_one(dev, dev);
+                return synthesize_change_one(manager, dev);
 
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         r = pidref_safe_fork(
@@ -207,11 +255,6 @@ static int synthesize_change(Manager *manager, sd_device *dev) {
                 log_debug_errno(r, "Failed to add child event source for "PID_FMT", ignoring: %m", pidref.pid);
                 return 0;
         }
-
-        r = sd_event_source_set_child_pidfd_own(s, true);
-        if (r < 0)
-                return r;
-        TAKE_PIDREF(pidref);
 
         r = set_ensure_put(&manager->synthesize_change_child_event_sources, &event_source_hash_ops, s);
         if (r < 0)
@@ -247,6 +290,7 @@ static int manager_process_inotify(Manager *manager, const struct inotify_event 
 
         log_device_debug(dev, "Received inotify event of watch handle %i.", e->wd);
 
+        (void) manager_create_queue_file(manager);
         (void) manager_requeue_locked_events_by_device(manager, dev);
         (void) synthesize_change(manager, dev);
         return 0;

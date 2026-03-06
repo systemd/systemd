@@ -3,20 +3,21 @@
 
 /* IWYU pragma: always_keep */
 
-#include <errno.h>              /* IWYU pragma: export */
-#include <inttypes.h>           /* IWYU pragma: export */
-#include <limits.h>             /* IWYU pragma: export */
-#include <paths.h>              /* IWYU pragma: export */
-#include <stdarg.h>             /* IWYU pragma: export */
-#include <stdbool.h>            /* IWYU pragma: export */
-#include <stddef.h>             /* IWYU pragma: export */
-#include <stdint.h>             /* IWYU pragma: export */
-#include <sys/types.h>          /* IWYU pragma: export */
-#include <uchar.h>              /* IWYU pragma: export */
+#include <errno.h>                      /* IWYU pragma: export */
+#include <inttypes.h>                   /* IWYU pragma: export */
+#include <limits.h>                     /* IWYU pragma: export */
+#include <paths.h>                      /* IWYU pragma: export */
+#include <stdarg.h>                     /* IWYU pragma: export */
+#include <stdbool.h>                    /* IWYU pragma: export */
+#include <stddef.h>                     /* IWYU pragma: export */
+#include <stdint.h>                     /* IWYU pragma: export */
+#include <sys/types.h>                  /* IWYU pragma: export */
+#include <uchar.h>                      /* IWYU pragma: export */
 
-#include "assert-util.h"        /* IWYU pragma: export */
-#include "cleanup-util.h"       /* IWYU pragma: export */
-#include "macro.h"              /* IWYU pragma: export */
+#include "assert-util.h"                /* IWYU pragma: export */
+#include "cleanup-util.h"               /* IWYU pragma: export */
+#include "macro.h"                      /* IWYU pragma: export */
+#include "string-table-fundamental.h"   /* IWYU pragma: export */
 
 /* Generic types */
 
@@ -82,9 +83,11 @@ struct iovec_wrapper;
 union in_addr_union;
 union sockaddr_union;
 
+typedef enum Architecture Architecture;
 typedef enum CGroupFlags CGroupFlags;
 typedef enum CGroupMask CGroupMask;
 typedef enum ChaseFlags ChaseFlags;
+typedef enum ConfFilesFlags ConfFilesFlags;
 typedef enum ExtractFlags ExtractFlags;
 typedef enum ForkFlags ForkFlags;
 typedef enum Glyph Glyph;
@@ -94,6 +97,7 @@ typedef enum RuntimeScope RuntimeScope;
 typedef enum TimestampStyle TimestampStyle;
 typedef enum UnitActiveState UnitActiveState;
 typedef enum UnitDependency UnitDependency;
+typedef enum UnitNameMangle UnitNameMangle;
 typedef enum UnitType UnitType;
 typedef enum WaitFlags WaitFlags;
 

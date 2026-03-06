@@ -513,7 +513,10 @@ static int netns_fork_and_wait(int netns_fd, int *ret_original_netns_fd) {
 
         assert(netns_fd >= 0);
 
-        r = safe_fork("(sd-netns)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_WAIT|FORK_LOG|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE, NULL);
+        r = pidref_safe_fork(
+                        "(sd-netns)",
+                        FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_WAIT|FORK_LOG|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE,
+                        /* ret= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to fork process (sd-netns): %m");
         if (r == 0) {

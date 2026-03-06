@@ -80,10 +80,6 @@ cat >/run/udev/rules.d/50-testsuite.rules <<EOF
 ACTION=="add", SUBSYSTEM=="block", KERNEL=="sda", OPTIONS:="watch"
 EOF
 
-# To make the previous invocation of systemd-udevd generates debugging logs on stop,
-# that will be checked by check().
-udevadm control --log-level debug
-
 # Unfortunately, journalctl --invocation= is unstable when debug logging is enabled on service manager.
 SAVED_LOG_LEVEL=$(systemctl log-level)
 systemctl log-level info

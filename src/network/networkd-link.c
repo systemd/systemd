@@ -63,6 +63,7 @@
 #include "networkd-state-file.h"
 #include "networkd-sysctl.h"
 #include "networkd-wifi.h"
+#include "networkd-wwan-bus.h"
 #include "ordered-set.h"
 #include "parse-util.h"
 #include "set.h"
@@ -529,6 +530,9 @@ void link_check_ready(Link *link) {
         if (!link->sr_iov_configured)
                 return (void) log_link_debug(link, "%s(): SR-IOV is not configured.", __func__);
 
+        if (!link->bearer_configured)
+                return (void) log_link_debug(link, "%s(): Bearer has not been applied.", __func__);
+
         /* IPv6LL is assigned after the link gains its carrier. */
         if (!link->network->configure_without_carrier &&
             link_ipv6ll_enabled(link) &&
@@ -538,7 +542,7 @@ void link_check_ready(Link *link) {
         /* All static addresses must be ready. */
         bool has_static_address = false;
         SET_FOREACH(a, link->addresses) {
-                if (a->source != NETWORK_CONFIG_SOURCE_STATIC)
+                if (!IN_SET(a->source, NETWORK_CONFIG_SOURCE_STATIC, NETWORK_CONFIG_SOURCE_MODEM_MANAGER))
                         continue;
                 if (!address_is_ready(a))
                         return (void) log_link_debug(link, "%s(): static address %s is not ready.", __func__,
@@ -865,7 +869,7 @@ static int link_put_carrier(Link *link, Link *carrier, Hashmap **h) {
         if (link == carrier)
                 return 0;
 
-        if (hashmap_get(*h, INT_TO_PTR(carrier->ifindex)))
+        if (hashmap_contains(*h, INT_TO_PTR(carrier->ifindex)))
                 return 0;
 
         r = hashmap_ensure_put(h, NULL, INT_TO_PTR(carrier->ifindex), carrier);
@@ -1290,6 +1294,10 @@ static int link_configure(Link *link) {
                 return r;
 
         r = link_request_static_configs(link);
+        if (r < 0)
+                return r;
+
+        r = link_modem_reconfigure(link);
         if (r < 0)
                 return r;
 
@@ -2329,38 +2337,6 @@ static int link_update_driver(Link *link, sd_netlink_message *message) {
         return 1; /* needs reconfigure */
 }
 
-static int link_update_permanent_hardware_address_from_ethtool(Link *link, sd_netlink_message *message) {
-        int r;
-
-        assert(link);
-        assert(link->manager);
-        assert(message);
-
-        if (link->ethtool_permanent_hw_addr_read)
-                return 0;
-
-        /* When udevd is running, read the permanent hardware address after the interface is
-         * initialized by udevd. Otherwise, ethtool may not work correctly. See issue #22538.
-         * When udevd is not running, read the value when the interface is detected. */
-        if (udev_available() && !link->dev)
-                return 0;
-
-        /* If the interface does not have a hardware address, then it will not have a permanent address either. */
-        r = netlink_message_read_hw_addr(message, IFLA_ADDRESS, NULL);
-        if (r == -ENODATA)
-                return 0;
-        if (r < 0)
-                return log_link_debug_errno(link, r, "Failed to read IFLA_ADDRESS attribute: %m");
-
-        link->ethtool_permanent_hw_addr_read = true;
-
-        r = ethtool_get_permanent_hw_addr(&link->manager->ethtool_fd, link->ifname, &link->permanent_hw_addr);
-        if (r < 0)
-                log_link_debug_errno(link, r, "Permanent hardware address not found, continuing without: %m");
-
-        return 0;
-}
-
 static int link_update_permanent_hardware_address(Link *link, sd_netlink_message *message) {
         int r;
 
@@ -2372,15 +2348,10 @@ static int link_update_permanent_hardware_address(Link *link, sd_netlink_message
                 return 0;
 
         r = netlink_message_read_hw_addr(message, IFLA_PERM_ADDRESS, &link->permanent_hw_addr);
-        if (r < 0) {
-                if (r != -ENODATA)
-                        return log_link_debug_errno(link, r, "Failed to read IFLA_PERM_ADDRESS attribute: %m");
-
-                /* Fallback to ethtool for kernels older than v5.6 (f74877a5457d34d604dba6dbbb13c4c05bac8b93). */
-                r = link_update_permanent_hardware_address_from_ethtool(link, message);
-                if (r < 0)
-                        return r;
-        }
+        if (r == -ENODATA)
+                return 0;
+        if (r < 0)
+                return log_link_debug_errno(link, r, "Failed to read IFLA_PERM_ADDRESS attribute: %m");
 
         if (link->permanent_hw_addr.length > 0)
                 log_link_debug(link, "Saved permanent hardware address: %s", HW_ADDR_TO_STR(&link->permanent_hw_addr));

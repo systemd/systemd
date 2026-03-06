@@ -14,6 +14,7 @@
 #include <unistd.h>
 
 #include "sd-messages.h"
+#include "sd-varlink.h"
 
 #include "apparmor-util.h"      /* IWYU pragma: keep */
 #include "argv-util.h"
@@ -55,8 +56,10 @@
 #include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
+#include "mstack.h"
 #include "namespace-util.h"
 #include "nsflags.h"
+#include "nsresource.h"
 #include "open-file.h"
 #include "osc-context.h"
 #include "pam-util.h"
@@ -81,6 +84,7 @@
 #include "strv.h"
 #include "strxcpyx.h"
 #include "terminal-util.h"
+#include "uid-range.h"
 #include "user-util.h"
 #include "utmp-wtmp.h"
 #include "vpick.h"
@@ -308,7 +312,6 @@ static int acquire_path(const char *path, int flags, mode_t mode) {
 
 static int fixup_input(
                 const ExecContext *context,
-                int socket_fd,
                 bool apply_tty_stdin) {
 
         ExecInput std_input;
@@ -320,21 +323,10 @@ static int fixup_input(
         if (exec_input_is_terminal(std_input) && !apply_tty_stdin)
                 return EXEC_INPUT_NULL;
 
-        if (std_input == EXEC_INPUT_SOCKET && socket_fd < 0)
-                return EXEC_INPUT_NULL;
-
         if (std_input == EXEC_INPUT_DATA && context->stdin_data_size == 0)
                 return EXEC_INPUT_NULL;
 
         return std_input;
-}
-
-static int fixup_output(ExecOutput output, int socket_fd) {
-
-        if (output == EXEC_OUTPUT_SOCKET && socket_fd < 0)
-                return EXEC_OUTPUT_INHERIT;
-
-        return output;
 }
 
 static int setup_input(
@@ -361,7 +353,7 @@ static int setup_input(
                 return STDIN_FILENO;
         }
 
-        i = fixup_input(context, socket_fd, params->flags & EXEC_APPLY_TTY_STDIN);
+        i = fixup_input(context, params->flags & EXEC_APPLY_TTY_STDIN);
 
         switch (i) {
 
@@ -430,8 +422,8 @@ static int setup_input(
 
                 assert(context->stdio_file[STDIN_FILENO]);
 
-                rw = (context->std_output == EXEC_OUTPUT_FILE && streq_ptr(context->stdio_file[STDIN_FILENO], context->stdio_file[STDOUT_FILENO])) ||
-                        (context->std_error == EXEC_OUTPUT_FILE && streq_ptr(context->stdio_file[STDIN_FILENO], context->stdio_file[STDERR_FILENO]));
+                rw = (context->std_output == EXEC_OUTPUT_FILE && path_equal(context->stdio_file[STDIN_FILENO], context->stdio_file[STDOUT_FILENO])) ||
+                        (context->std_error == EXEC_OUTPUT_FILE && path_equal(context->stdio_file[STDIN_FILENO], context->stdio_file[STDERR_FILENO]));
 
                 fd = acquire_path(context->stdio_file[STDIN_FILENO], rw ? O_RDWR : O_RDONLY, 0666 & ~context->umask);
                 if (fd < 0)
@@ -445,28 +437,66 @@ static int setup_input(
         }
 }
 
-static bool can_inherit_stderr_from_stdout(
-                const ExecContext *context,
-                ExecOutput o,
-                ExecOutput e) {
+static bool can_inherit_stderr_from_stdout(const ExecContext *context) {
+        ExecOutput o, e;
 
         assert(context);
 
         /* Returns true, if given the specified STDERR and STDOUT output we can directly dup() the stdout fd to the
          * stderr fd */
 
+        o = context->std_output;
+        e = context->std_error;
+
         if (e == EXEC_OUTPUT_INHERIT)
                 return true;
         if (e != o)
                 return false;
 
+        /* Let's not shortcut named fds here, even though we in theory can by comparing fd names, since
+         * we have the named_iofds array readily available, and the inherit practice would simply be duplicative. */
         if (e == EXEC_OUTPUT_NAMED_FD)
-                return streq_ptr(context->stdio_fdname[STDOUT_FILENO], context->stdio_fdname[STDERR_FILENO]);
+                return false;
 
         if (IN_SET(e, EXEC_OUTPUT_FILE, EXEC_OUTPUT_FILE_APPEND, EXEC_OUTPUT_FILE_TRUNCATE))
-                return streq_ptr(context->stdio_file[STDOUT_FILENO], context->stdio_file[STDERR_FILENO]);
+                return path_equal(context->stdio_file[STDOUT_FILENO], context->stdio_file[STDERR_FILENO]);
 
         return true;
+}
+
+static int maybe_inherit_stdout_from_stdin(const ExecContext *context, ExecInput i) {
+        int r;
+
+        assert(context);
+
+        if (context->std_output != EXEC_OUTPUT_INHERIT)
+                return 0;
+
+        /* If input got downgraded, inherit the original value */
+        if (i == EXEC_INPUT_NULL && exec_input_is_terminal(context->std_input))
+                return open_terminal_as(exec_context_tty_path(context), O_WRONLY, STDOUT_FILENO);
+
+        if (!exec_input_is_inheritable(i))
+                goto fallback;
+
+        r = fd_is_writable(STDIN_FILENO);
+        if (r <= 0) {
+                if (r < 0)
+                        log_warning_errno(r, "Failed to check if inherited stdin is writable for stdout, using fallback: %m");
+                else
+                        log_warning("Inherited stdin is not writable for stdout, using fallback: %m");
+                goto fallback;
+        }
+
+        return RET_NERRNO(dup2(STDIN_FILENO, STDOUT_FILENO));
+
+fallback:
+        /* If we are not started from PID 1 we just inherit STDOUT from our parent process. */
+        if (getppid() != 1)
+                return STDOUT_FILENO;
+
+        /* We need to open /dev/null here anew, to get the right access mode. */
+        return open_null_as(O_WRONLY, STDOUT_FILENO);
 }
 
 static int setup_output(
@@ -506,65 +536,33 @@ static int setup_output(
                 return STDERR_FILENO;
         }
 
-        i = fixup_input(context, socket_fd, params->flags & EXEC_APPLY_TTY_STDIN);
-        o = fixup_output(context->std_output, socket_fd);
+        i = fixup_input(context, params->flags & EXEC_APPLY_TTY_STDIN);
 
         if (fileno == STDERR_FILENO) {
-                ExecOutput e;
-                e = fixup_output(context->std_error, socket_fd);
-
                 /* This expects the input and output are already set up */
 
                 /* Don't change the stderr file descriptor if we inherit all
                  * the way and are not on a tty */
-                if (e == EXEC_OUTPUT_INHERIT &&
-                    o == EXEC_OUTPUT_INHERIT &&
-                    i == EXEC_INPUT_NULL &&
-                    !exec_input_is_terminal(context->std_input) &&
+                if (context->std_error == EXEC_OUTPUT_INHERIT &&
+                    context->std_output == EXEC_OUTPUT_INHERIT &&
+                    i == EXEC_INPUT_NULL && !exec_input_is_terminal(context->std_input) &&
                     getppid() != 1)
                         return fileno;
 
                 /* Duplicate from stdout if possible */
-                if (can_inherit_stderr_from_stdout(context, o, e)) {
-                        r = fd_is_writable(STDOUT_FILENO);
-                        if (r <= 0) {
-                                if (r < 0)
-                                        log_warning_errno(r, "Failed to check if inherited stdout is writable for stderr, falling back to /dev/null.");
-                                else
-                                        log_warning("Inherited stdout is not writable for stderr, falling back to /dev/null.");
-                                return open_null_as(O_WRONLY, fileno);
-                        }
+                if (can_inherit_stderr_from_stdout(context))
                         return RET_NERRNO(dup2(STDOUT_FILENO, fileno));
-                }
 
-                o = e;
+                o = context->std_error;
 
-        } else if (o == EXEC_OUTPUT_INHERIT) {
-                /* If input got downgraded, inherit the original value */
-                if (i == EXEC_INPUT_NULL && exec_input_is_terminal(context->std_input))
-                        return open_terminal_as(exec_context_tty_path(context), O_WRONLY, fileno);
+        } else {
+                assert(fileno == STDOUT_FILENO);
 
-                /* If the input is connected to anything that's not a /dev/null or a data fd, inherit that... */
-                if (!IN_SET(i, EXEC_INPUT_NULL, EXEC_INPUT_DATA)) {
-                        r = fd_is_writable(STDIN_FILENO);
-                        if (r <= 0) {
-                                if (r < 0)
-                                        log_warning_errno(r, "Failed to check if inherited stdin is writable for %s, falling back to /dev/null.",
-                                                          fileno == STDOUT_FILENO ? "stdout" : "stderr");
-                                else
-                                        log_warning("Inherited stdin is not writable for %s, falling back to /dev/null.",
-                                                    fileno == STDOUT_FILENO ? "stdout" : "stderr");
-                                return open_null_as(O_WRONLY, fileno);
-                        }
-                        return RET_NERRNO(dup2(STDIN_FILENO, fileno));
-                }
+                r = maybe_inherit_stdout_from_stdin(context, i);
+                if (r != 0)
+                        return r;
 
-                /* If we are not started from PID 1 we just inherit STDOUT from our parent process. */
-                if (getppid() != 1)
-                        return fileno;
-
-                /* We need to open /dev/null here anew, to get the right access mode. */
-                return open_null_as(O_WRONLY, fileno);
+                o = context->std_output;
         }
 
         switch (o) {
@@ -630,15 +628,14 @@ static int setup_output(
         case EXEC_OUTPUT_FILE:
         case EXEC_OUTPUT_FILE_APPEND:
         case EXEC_OUTPUT_FILE_TRUNCATE: {
-                bool rw;
                 int fd, flags;
 
                 assert(context->stdio_file[fileno]);
 
-                rw = context->std_input == EXEC_INPUT_FILE &&
-                        streq_ptr(context->stdio_file[fileno], context->stdio_file[STDIN_FILENO]);
-
-                if (rw)
+                /* stdin points to the same file hence setup_input() opened it as rw already?
+                 * Then just duplicate it. */
+                if (context->std_input == EXEC_INPUT_FILE &&
+                    path_equal(context->stdio_file[fileno], context->stdio_file[STDIN_FILENO]))
                         return RET_NERRNO(dup2(STDIN_FILENO, fileno));
 
                 flags = O_WRONLY;
@@ -1199,18 +1196,18 @@ static int ask_password_conv(
         return PAM_SUCCESS;
 }
 
-static int pam_close_session_and_delete_credentials(pam_handle_t *handle, int flags) {
+static int pam_close_session_and_delete_credentials(pam_handle_t *pamh, int flags) {
         int r, s;
 
-        assert(handle);
+        assert(pamh);
 
-        r = sym_pam_close_session(handle, flags);
+        r = sym_pam_close_session(pamh, flags);
         if (r != PAM_SUCCESS)
-                pam_syslog_pam_error(handle, LOG_DEBUG, r, "pam_close_session() failed: @PAMERR@");
+                pam_syslog_pam_error(pamh, LOG_DEBUG, r, "pam_close_session() failed: @PAMERR@");
 
-        s = sym_pam_setcred(handle, PAM_DELETE_CRED | flags);
+        s = sym_pam_setcred(pamh, PAM_DELETE_CRED | flags);
         if (s != PAM_SUCCESS)
-                pam_syslog_pam_error(handle, LOG_DEBUG, r, "pam_setcred(PAM_DELETE_CRED) failed: @PAMERR@");
+                pam_syslog_pam_error(pamh, LOG_DEBUG, r, "pam_setcred(PAM_DELETE_CRED) failed: @PAMERR@");
 
         return r != PAM_SUCCESS ? r : s;
 }
@@ -1346,7 +1343,7 @@ static int setup_pam(
         _cleanup_(barrier_destroy) Barrier barrier = BARRIER_NULL;
         _cleanup_strv_free_ char **e = NULL;
         _cleanup_free_ char *tty = NULL;
-        pam_handle_t *handle = NULL;
+        pam_handle_t *pamh = NULL;
         sigset_t old_ss;
         int pam_code = PAM_SUCCESS, r;
         bool close_session = false;
@@ -1376,9 +1373,9 @@ static int setup_pam(
         if (log_get_max_level() < LOG_DEBUG)
                 flags |= PAM_SILENT;
 
-        pam_code = sym_pam_start(context->pam_name, user, &conv, &handle);
+        pam_code = sym_pam_start(context->pam_name, user, &conv, &pamh);
         if (pam_code != PAM_SUCCESS) {
-                handle = NULL;
+                pamh = NULL;
                 goto fail;
         }
 
@@ -1386,32 +1383,32 @@ static int setup_pam(
         if (r < 0)
                 goto fail;
         if (r > 0) {
-                pam_code = sym_pam_set_item(handle, PAM_TTY, tty);
+                pam_code = sym_pam_set_item(pamh, PAM_TTY, tty);
                 if (pam_code != PAM_SUCCESS)
                         goto fail;
         }
 
         STRV_FOREACH(nv, *env) {
-                pam_code = sym_pam_putenv(handle, *nv);
+                pam_code = sym_pam_putenv(pamh, *nv);
                 if (pam_code != PAM_SUCCESS)
                         goto fail;
         }
 
-        pam_code = sym_pam_acct_mgmt(handle, flags);
+        pam_code = sym_pam_acct_mgmt(pamh, flags);
         if (pam_code != PAM_SUCCESS)
                 goto fail;
 
-        pam_code = sym_pam_setcred(handle, PAM_ESTABLISH_CRED | flags);
+        pam_code = sym_pam_setcred(pamh, PAM_ESTABLISH_CRED | flags);
         if (pam_code != PAM_SUCCESS)
-                pam_syslog_pam_error(handle, LOG_DEBUG, pam_code, "pam_setcred(PAM_ESTABLISH_CRED) failed, ignoring: @PAMERR@");
+                pam_syslog_pam_error(pamh, LOG_DEBUG, pam_code, "pam_setcred(PAM_ESTABLISH_CRED) failed, ignoring: @PAMERR@");
 
-        pam_code = sym_pam_open_session(handle, flags);
+        pam_code = sym_pam_open_session(pamh, flags);
         if (pam_code != PAM_SUCCESS)
                 goto fail;
 
         close_session = true;
 
-        e = sym_pam_getenvlist(handle);
+        e = sym_pam_getenvlist(pamh);
         if (!e) {
                 pam_code = PAM_BUF_ERR;
                 goto fail;
@@ -1423,7 +1420,7 @@ static int setup_pam(
 
         parent_pid = getpid_cached();
 
-        r = safe_fork("(sd-pam)", 0, NULL);
+        r = pidref_safe_fork("(sd-pam)", /* flags= */ 0, /* ret= */ NULL);
         if (r < 0)
                 goto fail;
         if (r == 0) {
@@ -1486,7 +1483,7 @@ static int setup_pam(
 
                 /* If our parent died we'll end the session */
                 if (getppid() != parent_pid) {
-                        pam_code = pam_close_session_and_delete_credentials(handle, flags);
+                        pam_code = pam_close_session_and_delete_credentials(pamh, flags);
                         if (pam_code != PAM_SUCCESS)
                                 goto child_finish;
                 }
@@ -1496,7 +1493,7 @@ static int setup_pam(
         child_finish:
                 /* NB: pam_end() when called in child processes should set PAM_DATA_SILENT to let the module
                  * know about this. See pam_end(3) */
-                (void) sym_pam_end(handle, pam_code | flags | PAM_DATA_SILENT);
+                (void) sym_pam_end(pamh, pam_code | flags | PAM_DATA_SILENT);
                 _exit(ret);
         }
 
@@ -1504,7 +1501,7 @@ static int setup_pam(
 
         /* If the child was forked off successfully it will do all the cleanups, so forget about the handle
          * here. */
-        handle = NULL;
+        pamh = NULL;
 
         /* Unblock SIGTERM again in the parent */
         assert_se(sigprocmask(SIG_SETMASK, &old_ss, NULL) >= 0);
@@ -1522,16 +1519,16 @@ static int setup_pam(
 
 fail:
         if (pam_code != PAM_SUCCESS) {
-                pam_syslog_pam_error(handle, LOG_ERR, pam_code, "PAM failed: @PAMERR@");
+                pam_syslog_pam_error(pamh, LOG_ERR, pam_code, "PAM failed: @PAMERR@");
                 r = -EPERM;  /* PAM errors do not map to errno */
         } else
                 log_error_errno(r, "PAM failed: %m");
 
-        if (handle) {
+        if (pamh) {
                 if (close_session)
-                        pam_code = pam_close_session_and_delete_credentials(handle, flags);
+                        pam_code = pam_close_session_and_delete_credentials(pamh, flags);
 
-                (void) sym_pam_end(handle, pam_code | flags);
+                (void) sym_pam_end(pamh, pam_code | flags);
         }
 
         closelog();
@@ -1680,7 +1677,7 @@ static int apply_syscall_filter(const ExecContext *c, const ExecParameters *p) {
         if (skip_seccomp_unavailable("SystemCallFilter="))
                 return 0;
 
-        negative_action = c->syscall_errno == SECCOMP_ERROR_NUMBER_KILL ? scmp_act_kill_process() : SCMP_ACT_ERRNO(c->syscall_errno);
+        negative_action = c->syscall_errno == SECCOMP_ERROR_NUMBER_KILL ? SCMP_ACT_KILL_PROCESS : SCMP_ACT_ERRNO(c->syscall_errno);
 
         if (c->syscall_allow_list) {
                 default_action = negative_action;
@@ -1701,9 +1698,7 @@ static int apply_syscall_filter(const ExecContext *c, const ExecParameters *p) {
 }
 
 static int apply_syscall_log(const ExecContext *c, const ExecParameters *p) {
-#ifdef SCMP_ACT_LOG
         uint32_t default_action, action;
-#endif
 
         assert(c);
         assert(p);
@@ -1711,7 +1706,6 @@ static int apply_syscall_log(const ExecContext *c, const ExecParameters *p) {
         if (!context_has_syscall_logs(c))
                 return 0;
 
-#ifdef SCMP_ACT_LOG
         if (skip_seccomp_unavailable("SystemCallLog="))
                 return 0;
 
@@ -1726,11 +1720,6 @@ static int apply_syscall_log(const ExecContext *c, const ExecParameters *p) {
         }
 
         return seccomp_load_syscall_filter_set_raw(default_action, c->syscall_log, action, false);
-#else
-        /* old libseccomp */
-        log_debug( "SECCOMP feature SCMP_ACT_LOG not available, skipping SystemCallLog=");
-        return 0;
-#endif
 }
 
 static int apply_syscall_archs(const ExecContext *c, const ExecParameters *p) {
@@ -2100,7 +2089,7 @@ static int build_environment(
 
         /* If this is D-Bus, tell the nss-systemd module, since it relies on being able to use blocking
          * Varlink calls back to us for look up dynamic users in PID 1. Break the deadlock between D-Bus and
-         * PID 1 by disabling use of PID1' NSS interface for looking up dynamic users. */
+         * PID 1 by disabling use of PID1's NSS interface for looking up dynamic users. */
         if (p->flags & EXEC_NSS_DYNAMIC_BYPASS) {
                 r = strv_extend_with_size(&e, &n, "SYSTEMD_NSS_DYNAMIC_BYPASS=1");
                 if (r < 0)
@@ -2108,8 +2097,8 @@ static int build_environment(
         }
 
         /* We query "root" if this is a system unit and User= is not specified. $USER is always set. $HOME
-         * could cause problem for e.g. getty, since login doesn't override $HOME, and $LOGNAME and $SHELL don't
-         * really make much sense since we're not logged in. Hence we conditionalize the three based on
+         * could cause problem for e.g. getty, since login doesn't override $HOME, and $LOGNAME and $SHELL
+         * don't really make much sense since we're not logged in. Hence we conditionalize the three based on
          * SetLoginEnvironment= switch. */
         if (!username && !c->dynamic_user && p->runtime_scope == RUNTIME_SCOPE_SYSTEM) {
                 assert(!c->user);
@@ -2259,10 +2248,8 @@ static int build_environment(
         }
 
         assert(c->private_var_tmp >= 0 && c->private_var_tmp < _PRIVATE_TMP_MAX);
-        if (needs_sandboxing && c->private_tmp != c->private_var_tmp) {
-                assert(c->private_tmp == PRIVATE_TMP_DISCONNECTED);
-                assert(c->private_var_tmp == PRIVATE_TMP_NO);
-
+        if (needs_sandboxing &&
+            c->private_var_tmp == PRIVATE_TMP_NO && c->private_tmp != PRIVATE_TMP_NO) {
                 /* When private tmpfs is enabled only on /tmp/, then explicitly set $TMPDIR to suggest the
                  * service to use /tmp/. */
 
@@ -2301,45 +2288,6 @@ static int build_pass_environment(const ExecContext *c, char ***ret) {
         }
 
         *ret = TAKE_PTR(pass_env);
-        return 0;
-}
-
-static int setup_private_users_child(int unshare_ready_fd, const char *uid_map, const char *gid_map, bool allow_setgroups) {
-        int r;
-
-        /* Child process, running in the original user namespace. Let's update the parent's UID/GID map from
-         * here, after the parent opened its own user namespace. */
-
-        pid_t ppid = getppid();
-
-        /* Wait until the parent unshared the user namespace */
-        uint64_t c;
-        ssize_t n = read(unshare_ready_fd, &c, sizeof(c));
-        if (n < 0)
-                return log_debug_errno(errno, "Failed to read from signaling eventfd: %m");
-        if (n != sizeof(c))
-                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Short read from signaling eventfd.");
-
-        /* Disable the setgroups() system call in the child user namespace, for good, unless PrivateUsers=full
-         * and using the system service manager. */
-        const char *a = procfs_file_alloca(ppid, "setgroups");
-        const char *setgroups = allow_setgroups ? "allow" : "deny";
-        r = write_string_file(a, setgroups, WRITE_STRING_FILE_DISABLE_BUFFER);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to write '%s' to %s: %m", setgroups, a);
-
-        /* First write the GID map */
-        a = procfs_file_alloca(ppid, "gid_map");
-        r = write_string_file(a, gid_map, WRITE_STRING_FILE_DISABLE_BUFFER);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to write GID map to %s: %m", a);
-
-        /* Then write the UID map */
-        a = procfs_file_alloca(ppid, "uid_map");
-        r = write_string_file(a, uid_map, WRITE_STRING_FILE_DISABLE_BUFFER);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to write UID map to %s: %m", a);
-
         return 0;
 }
 
@@ -2409,14 +2357,68 @@ static int bpffs_prepare(
         return 0;
 }
 
-static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogid, uid_t uid, gid_t gid, bool allow_setgroups) {
+static int setup_private_users_child(int unshare_ready_fd, const char *uid_map, const char *gid_map, bool allow_setgroups) {
+        int r;
+
+        /* Child process, running in the original user namespace. Let's update the parent's UID/GID map from
+         * here, after the parent opened its own user namespace. */
+
+        pid_t ppid = getppid();
+
+        /* Wait until the parent unshared the user namespace */
+        uint64_t c;
+        ssize_t n = read(unshare_ready_fd, &c, sizeof(c));
+        if (n < 0)
+                return log_debug_errno(errno, "Failed to read from signaling eventfd: %m");
+        if (n != sizeof(c))
+                return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Short read from signaling eventfd.");
+
+        /* Disable the setgroups() system call in the child user namespace, for good, unless PrivateUsers=full
+         * and using the system service manager. */
+        const char *a = procfs_file_alloca(ppid, "setgroups");
+        const char *setgroups = allow_setgroups ? "allow" : "deny";
+        r = write_string_file(a, setgroups, WRITE_STRING_FILE_DISABLE_BUFFER);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to write '%s' to %s: %m", setgroups, a);
+
+        /* First write the GID map */
+        a = procfs_file_alloca(ppid, "gid_map");
+        r = write_string_file(a, gid_map, WRITE_STRING_FILE_DISABLE_BUFFER);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to write GID map to %s: %m", a);
+
+        /* Then write the UID map */
+        a = procfs_file_alloca(ppid, "uid_map");
+        r = write_string_file(a, uid_map, WRITE_STRING_FILE_DISABLE_BUFFER);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to write UID map to %s: %m", a);
+
+        return 0;
+}
+
+static int setup_private_users(
+                sd_varlink *nsresource_link,
+                PrivateUsers private_users,
+                uid_t saved_uid,    /* service manager uid */
+                gid_t saved_gid,    /* service manager gid */
+                uid_t *uid,         /* unit uid (seen from inside) [input+output] */
+                gid_t *gid,         /* unit gid (ditto)            [input+output] */
+                uid_t *outside_uid, /* uid seen from the outside (which is the same as *uid, except of userns is used) */
+                gid_t *outside_gid, /* gid seen from the outside (similar) */
+                bool allow_setgroups) {
+
         _cleanup_free_ char *uid_map = NULL, *gid_map = NULL;
         _cleanup_close_pair_ int errno_pipe[2] = EBADF_PAIR;
         _cleanup_close_ int unshare_ready_fd = -EBADF;
-        _cleanup_(sigkill_waitp) pid_t pid = 0;
+        _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
         uint64_t c = 1;
         ssize_t n;
         int r;
+
+        assert(uid);
+        assert(gid);
+        assert(outside_uid);
+        assert(outside_gid);
 
         /* Set up a user namespace and map the original UID/GID (IDs from before any user or group changes, i.e.
          * the IDs from the user or system manager(s)) to itself, the selected UID/GID to itself, and everything else to
@@ -2428,75 +2430,119 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
          * For unprivileged users (i.e. without capabilities), the root to root mapping is excluded. As such, it
          * does not need CAP_SETUID to write the single line mapping to itself. */
 
-        if (private_users == PRIVATE_USERS_NO)
-                return 0;
+        switch (private_users) { /* Prepare the UID mappings */
 
-        if (private_users == PRIVATE_USERS_IDENTITY) {
+        case PRIVATE_USERS_NO:
+                return 0; /* Early exit */
+
+        case PRIVATE_USERS_MANAGED: {
+                if (uid_is_valid(*uid) || uid_is_valid(*gid))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EPERM), "When allocating dynamic user namespace range, target UID/GID must be root, refusing.");
+
+                _cleanup_close_ int userns_fd = nsresource_allocate_userns(
+                                nsresource_link,
+                                /* name= */ NULL,
+                                NSRESOURCE_UIDS_64K);
+                if (userns_fd < 0)
+                        return userns_fd;
+
+                _cleanup_(uid_range_freep) UIDRange *uid_range = NULL;
+                r = uid_range_load_userns_by_fd(userns_fd, UID_RANGE_USERNS_OUTSIDE, &uid_range);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to read outside userns UID range: %m");
+
+                _cleanup_(uid_range_freep) UIDRange *gid_range = NULL;
+                r = uid_range_load_userns_by_fd(userns_fd, GID_RANGE_USERNS_OUTSIDE, &gid_range);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to read outside userns GID range: %m");
+
+                if (setns(userns_fd, CLONE_NEWUSER) < 0)
+                        return log_debug_errno(errno, "Failed to join freshly allocated user namespace: %m");
+
+                /* In "managed" mode the originating UID is not mapped hence we need to explicitly become root in the new userns now. */
+                r = reset_uid_gid();
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to reset UID/GID to root: %m");
+
+                /* Now report are new UIDs/GIDS, both inside and outside */
+                *uid = 0;
+                *gid = 0;
+
+                *outside_uid = uid_range_base(uid_range);
+                *outside_gid = uid_range_base(gid_range);
+
+                return 1; /* Early exit */
+        }
+
+        case PRIVATE_USERS_IDENTITY:
                 uid_map = strdup("0 0 65536\n");
                 if (!uid_map)
                         return -ENOMEM;
-        } else if (private_users == PRIVATE_USERS_FULL) {
-                /* Map all UID/GID from original to new user namespace. We can't use `0 0 UINT32_MAX` because
-                 * this is the same UID/GID map as the init user namespace and systemd's running_in_userns()
-                 * checks whether its in a user namespace by comparing uid_map/gid_map to `0 0 UINT32_MAX`.
-                 * Thus, we still map all UIDs/GIDs but do it using two extents to differentiate the new user
-                 * namespace from the init namespace:
-                 *   0 0 1
-                 *   1 1 UINT32_MAX - 1
-                 *
-                 * systemd will remove the heuristic in running_in_userns() and use namespace inodes in version 258
-                 * (PR #35382). But some users may be running a container image with older systemd < 258 so we keep
-                 * this uid_map/gid_map hack until version 259 for version N-1 compatibility.
-                 *
-                 * TODO: Switch to `0 0 UINT32_MAX` in systemd v259.
+                break;
+
+        case PRIVATE_USERS_FULL:
+                /* Map all UID/GID from original to new user namespace.
                  *
                  * Note the kernel defines the UID range between 0 and UINT32_MAX so we map all UIDs even though
                  * the UID range beyond INT32_MAX (e.g. i.e. the range above the signed 32-bit range) is
                  * icky. For example, setfsuid() returns the old UID as signed integer. But units can decide to
                  * use these UIDs/GIDs so we need to map them. */
-                r = asprintf(&uid_map, "0 0 1\n"
-                                       "1 1 " UID_FMT "\n", (uid_t) (UINT32_MAX - 1));
+                if (asprintf(&uid_map, "0 0 " UID_FMT "\n", (uid_t) UINT32_MAX) < 0)
+                        return -ENOMEM;
+
+                break;
+
+        case PRIVATE_USERS_SELF:
+                /* Can only set up multiple mappings with CAP_SETUID. */
+                if (uid_is_valid(*uid) && *uid != saved_uid && have_effective_cap(CAP_SETUID) > 0)
+                        r = asprintf(&uid_map,
+                                     UID_FMT " " UID_FMT " 1\n"     /* Map $OUID → $OUID */
+                                     UID_FMT " " UID_FMT " 1\n",    /* Map $UID → $UID */
+                                     saved_uid, saved_uid, *uid, *uid);
+                else
+                        r = asprintf(&uid_map,
+                                     UID_FMT " " UID_FMT " 1\n",    /* Map $OUID → $OUID */
+                                     saved_uid, saved_uid);
                 if (r < 0)
                         return -ENOMEM;
-        /* Can only set up multiple mappings with CAP_SETUID. */
-        } else if (have_effective_cap(CAP_SETUID) > 0 && uid != ouid && uid_is_valid(uid)) {
-                r = asprintf(&uid_map,
-                             UID_FMT " " UID_FMT " 1\n"     /* Map $OUID → $OUID */
-                             UID_FMT " " UID_FMT " 1\n",    /* Map $UID → $UID */
-                             ouid, ouid, uid, uid);
-                if (r < 0)
-                        return -ENOMEM;
-        } else {
-                r = asprintf(&uid_map,
-                             UID_FMT " " UID_FMT " 1\n",    /* Map $OUID → $OUID */
-                             ouid, ouid);
-                if (r < 0)
-                        return -ENOMEM;
+
+                break;
+
+        default:
+                assert_not_reached();
         }
 
-        if (private_users == PRIVATE_USERS_IDENTITY) {
+        switch (private_users) { /* Prepare the GID mappings */
+
+        case PRIVATE_USERS_IDENTITY:
                 gid_map = strdup("0 0 65536\n");
                 if (!gid_map)
                         return -ENOMEM;
-        } else if (private_users == PRIVATE_USERS_FULL) {
-                r = asprintf(&gid_map, "0 0 1\n"
-                                       "1 1 " GID_FMT "\n", (gid_t) (UINT32_MAX - 1));
+                break;
+
+        case PRIVATE_USERS_FULL:
+                if (asprintf(&gid_map, "0 0 " GID_FMT "\n", (gid_t) UINT32_MAX) < 0)
+                        return -ENOMEM;
+
+                break;
+
+        case PRIVATE_USERS_SELF:
+                /* Can only set up multiple mappings with CAP_SETGID. */
+                if (gid_is_valid(*gid) && *gid != saved_gid && have_effective_cap(CAP_SETGID) > 0)
+                        r = asprintf(&gid_map,
+                                     GID_FMT " " GID_FMT " 1\n"     /* Map $OGID → $OGID */
+                                     GID_FMT " " GID_FMT " 1\n",    /* Map $GID → $GID */
+                                     saved_gid, saved_gid, *gid, *gid);
+                else
+                        r = asprintf(&gid_map,
+                                     GID_FMT " " GID_FMT " 1\n",    /* Map $OGID -> $OGID */
+                                     saved_gid, saved_gid);
                 if (r < 0)
                         return -ENOMEM;
-        /* Can only set up multiple mappings with CAP_SETGID. */
-        } else if (have_effective_cap(CAP_SETGID) > 0 && gid != ogid && gid_is_valid(gid)) {
-                r = asprintf(&gid_map,
-                             GID_FMT " " GID_FMT " 1\n"     /* Map $OGID → $OGID */
-                             GID_FMT " " GID_FMT " 1\n",    /* Map $GID → $GID */
-                             ogid, ogid, gid, gid);
-                if (r < 0)
-                        return -ENOMEM;
-        } else {
-                r = asprintf(&gid_map,
-                             GID_FMT " " GID_FMT " 1\n",    /* Map $OGID -> $OGID */
-                             ogid, ogid);
-                if (r < 0)
-                        return -ENOMEM;
+                break;
+
+        default:
+                assert_not_reached();
         }
 
         /* Create a communication channel so that the parent can tell the child when it finished creating the user
@@ -2510,7 +2556,7 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
         if (pipe2(errno_pipe, O_CLOEXEC) < 0)
                 return -errno;
 
-        r = safe_fork("(sd-userns)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL, &pid);
+        r = pidref_safe_fork("(sd-userns)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL, &pidref);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -2542,9 +2588,10 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
         if (n != 0) /* on success we should have read 0 bytes */
                 return -EIO;
 
-        r = wait_for_terminate_and_check("(sd-userns)", TAKE_PID(pid), 0);
+        r = pidref_wait_for_terminate_and_check("(sd-userns)", &pidref, 0);
         if (r < 0)
                 return r;
+        pidref_done(&pidref);
         if (r != EXIT_SUCCESS) /* If something strange happened with the child, let's consider this fatal, too */
                 return -EIO;
 
@@ -2553,7 +2600,7 @@ static int setup_private_users(PrivateUsers private_users, uid_t ouid, gid_t ogi
 
 static int can_mount_proc(void) {
         _cleanup_close_pair_ int errno_pipe[2] = EBADF_PAIR;
-        _cleanup_(sigkill_waitp) pid_t pid = 0;
+        _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
         ssize_t n;
         int r;
 
@@ -2568,8 +2615,10 @@ static int can_mount_proc(void) {
 
         /* Fork a child process into its own mount and PID namespace. Note safe_fork() already remounts / as SLAVE
          * with FORK_MOUNTNS_SLAVE. */
-        r = safe_fork("(sd-proc-check)",
-                      FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE|FORK_NEW_PIDNS, &pid);
+        r = pidref_safe_fork(
+                        "(sd-proc-check)",
+                        FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE|FORK_NEW_PIDNS,
+                        &pidref);
         if (r < 0)
                 return log_debug_errno(r, "Failed to fork child process (sd-proc-check): %m");
         if (r == 0) {
@@ -2604,9 +2653,10 @@ static int can_mount_proc(void) {
         if (n != 0) /* on success we should have read 0 bytes */
                 return -EIO;
 
-        r = wait_for_terminate_and_check("(sd-proc-check)", TAKE_PID(pid), /* flags= */ 0);
+        r = pidref_wait_for_terminate_and_check("(sd-proc-check)", &pidref, /* flags= */ 0);
         if (r < 0)
                 return log_debug_errno(r, "Failed to wait for (sd-proc-check) child process to terminate: %m");
+        pidref_done(&pidref);
         if (r != EXIT_SUCCESS) /* If something strange happened with the child, let's consider this fatal, too */
                 return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Child process (sd-proc-check) exited with unexpected exit status '%d'.", r);
 
@@ -3486,8 +3536,7 @@ static int compile_symlinks(
 
 static bool insist_on_sandboxing(
                 const ExecContext *context,
-                const char *root_dir,
-                const char *root_image,
+                const PinnedResource *rootfs,
                 const BindMount *bind_mounts,
                 size_t n_bind_mounts) {
 
@@ -3501,7 +3550,7 @@ static bool insist_on_sandboxing(
         if (context->n_temporary_filesystems > 0)
                 return true;
 
-        if (root_dir || root_image || context->root_directory_as_fd)
+        if (pinned_resource_is_set(rootfs))
                 return true;
 
         if (context->n_mount_images > 0)
@@ -3528,8 +3577,7 @@ static bool insist_on_sandboxing(
 static int setup_ephemeral(
                 const ExecContext *context,
                 ExecRuntime *runtime,
-                char **root_image,            /* both input and output! modified if ephemeral logic enabled */
-                char **root_directory,        /* ditto */
+                PinnedResource *rootfs,  /* both input and output! modified if ephemeral logic enabled */
                 char **reterr_path) {
 
         _cleanup_close_ int fd = -EBADF;
@@ -3537,12 +3585,10 @@ static int setup_ephemeral(
         int r;
 
         assert(context);
-        assert(!context->root_directory_as_fd);
         assert(runtime);
-        assert(root_image);
-        assert(root_directory);
+        assert(rootfs);
 
-        if (!*root_image && !*root_directory)
+        if (!rootfs->image && !rootfs->directory)
                 return 0;
 
         if (!runtime->ephemeral_copy)
@@ -3568,32 +3614,32 @@ static int setup_ephemeral(
         if (fd != -EAGAIN)
                 return log_debug_errno(fd, "Failed to receive file descriptor queued on ephemeral storage socket: %m");
 
-        if (*root_image) {
-                log_debug("Making ephemeral copy of %s to %s", *root_image, new_root);
+        if (rootfs->image) {
+                log_debug("Making ephemeral copy of %s to %s", rootfs->image, new_root);
 
-                fd = copy_file(*root_image, new_root, O_EXCL, 0600,
+                fd = copy_file(rootfs->image, new_root, O_EXCL, 0600,
                                COPY_LOCK_BSD|COPY_REFLINK|COPY_CRTIME|COPY_NOCOW_AFTER);
                 if (fd < 0) {
-                        *reterr_path = strdup(*root_image);
+                        *reterr_path = strdup(rootfs->image);
                         return log_debug_errno(fd, "Failed to copy image %s to %s: %m",
-                                               *root_image, new_root);
+                                               rootfs->image, new_root);
                 }
         } else {
-                assert(*root_directory);
+                assert(rootfs->directory);
 
-                log_debug("Making ephemeral snapshot of %s to %s", *root_directory, new_root);
+                log_debug("Making ephemeral snapshot of %s to %s", rootfs->directory, new_root);
 
                 fd = btrfs_subvol_snapshot_at(
-                                AT_FDCWD, *root_directory,
+                                AT_FDCWD, rootfs->directory,
                                 AT_FDCWD, new_root,
                                 BTRFS_SNAPSHOT_FALLBACK_COPY |
                                 BTRFS_SNAPSHOT_FALLBACK_DIRECTORY |
                                 BTRFS_SNAPSHOT_RECURSIVE |
                                 BTRFS_SNAPSHOT_LOCK_BSD);
                 if (fd < 0) {
-                        *reterr_path = strdup(*root_directory);
+                        *reterr_path = strdup(rootfs->directory);
                         return log_debug_errno(fd, "Failed to snapshot directory %s to %s: %m",
-                                               *root_directory, new_root);
+                                               rootfs->directory, new_root);
                 }
         }
 
@@ -3601,11 +3647,14 @@ static int setup_ephemeral(
         if (r < 0)
                 return log_debug_errno(r, "Failed to queue file descriptor on ephemeral storage socket: %m");
 
-        if (*root_image)
-                free_and_replace(*root_image, new_root);
-        else {
-                assert(*root_directory);
-                free_and_replace(*root_directory, new_root);
+        if (rootfs->image) {
+                free_and_replace(rootfs->image, new_root);
+                close_and_replace(rootfs->image_fd, fd);
+        } else {
+                assert(rootfs->directory);
+
+                free_and_replace(rootfs->directory, new_root);
+                close_and_replace(rootfs->directory_fd, fd);
         }
 
         return 1;
@@ -3659,20 +3708,35 @@ static int verity_settings_prepare(
         return 0;
 }
 
-static int pick_versions(
+static int pin_rootfs(
                 const ExecContext *context,
                 const ExecParameters *params,
-                char **ret_root_image,
-                char **ret_root_directory,
+                PinnedResource *ret,
                 char **reterr_path) {
 
         int r;
 
         assert(context);
-        assert(!context->root_directory_as_fd);
         assert(params);
-        assert(ret_root_image);
-        assert(ret_root_directory);
+        assert(ret);
+
+        if (!FLAGS_SET(params->flags, EXEC_APPLY_CHROOT)) {
+                *ret = PINNED_RESOURCE_NULL;
+                return 0;
+        }
+
+        if (context->root_directory_as_fd) {
+                _cleanup_close_ int fd = fcntl(params->root_directory_fd, F_DUPFD_CLOEXEC, 3);
+                if (fd < 0)
+                        return log_debug_errno(errno, "Failed to duplicate root directory fd: %m");
+
+                *ret = (PinnedResource) {
+                        .directory_fd = TAKE_FD(fd),
+                        .image_fd = -EBADF,
+                };
+
+                return 1;
+        }
 
         if (context->root_image) {
                 _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
@@ -3680,7 +3744,8 @@ static int pick_versions(
                 r = path_pick(/* toplevel_path= */ NULL,
                               /* toplevel_fd= */ AT_FDCWD,
                               context->root_image,
-                              &pick_filter_image_raw,
+                              pick_filter_image_raw,
+                              ELEMENTSOF(pick_filter_image_raw),
                               PICK_ARCHITECTURE|PICK_TRIES|PICK_RESOLVE,
                               &result);
                 if (r < 0) {
@@ -3693,8 +3758,24 @@ static int pick_versions(
                         return log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "No matching entry in .v/ directory %s found.", context->root_image);
                 }
 
-                *ret_root_image = TAKE_PTR(result.path);
-                *ret_root_directory = NULL;
+                /* path_pick() returns us an O_PATH fd, let's turn this into a fully opened file, because
+                 * mountfsd will want this later, and it wants a fully opened fd, so that security checks
+                 * have been passed */
+                _cleanup_close_ int reopened_fd = -EBADF;
+                reopened_fd = fd_reopen(result.fd, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|O_RDWR);
+                if (ERRNO_IS_NEG_FS_WRITE_REFUSED(reopened_fd))
+                        reopened_fd = fd_reopen(result.fd, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|O_RDONLY);
+                if (reopened_fd < 0) {
+                        *reterr_path = strdup(context->root_image);
+                        return log_debug_errno(reopened_fd, "Failed to open image '%s': %m", context->root_image);
+                }
+
+                *ret = (PinnedResource) {
+                        .image = TAKE_PTR(result.path),
+                        .image_fd = TAKE_FD(reopened_fd),
+                        .directory_fd = -EBADF,
+                };
+
                 return r;
         }
 
@@ -3704,7 +3785,8 @@ static int pick_versions(
                 r = path_pick(/* toplevel_path= */ NULL,
                               /* toplevel_fd= */ AT_FDCWD,
                               context->root_directory,
-                              &pick_filter_image_dir,
+                              pick_filter_image_dir,
+                              ELEMENTSOF(pick_filter_image_dir),
                               PICK_ARCHITECTURE|PICK_TRIES|PICK_RESOLVE,
                               &result);
                 if (r < 0) {
@@ -3717,12 +3799,53 @@ static int pick_versions(
                         return log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "No matching entry in .v/ directory %s found.", context->root_directory);
                 }
 
-                *ret_root_image = NULL;
-                *ret_root_directory = TAKE_PTR(result.path);
+                *ret = (PinnedResource) {
+                        .directory = TAKE_PTR(result.path),
+                        .directory_fd = TAKE_FD(result.fd),
+                        .image_fd = -EBADF,
+                };
+
                 return r;
         }
 
-        *ret_root_image = *ret_root_directory = NULL;
+        if (context->root_mstack) {
+                _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
+
+                r = path_pick(/* toplevel_path= */ NULL,
+                              /* toplevel_fd= */ AT_FDCWD,
+                              context->root_mstack,
+                              pick_filter_image_mstack,
+                              /* n_filters= */ 1,
+                              PICK_ARCHITECTURE|PICK_TRIES|PICK_RESOLVE,
+                              &result);
+                if (r < 0) {
+                        *reterr_path = strdup(context->root_mstack);
+                        return r;
+                }
+
+                if (!result.path) {
+                        *reterr_path = strdup(context->root_mstack);
+                        return log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "No matching entry in .v/ directory %s found.", context->root_mstack);
+                }
+
+                _cleanup_(mstack_freep) MStack *mstack = NULL;
+                r = mstack_load(result.path, result.fd, &mstack);
+                if (r < 0) {
+                        *reterr_path = TAKE_PTR(result.path);
+                        return r;
+                }
+
+                *ret = (PinnedResource) {
+                        .mstack = TAKE_PTR(result.path),
+                        .mstack_loaded = TAKE_PTR(mstack),
+                        .image_fd = -EBADF,
+                        .directory_fd = -EBADF,
+                };
+
+                return r;
+        }
+
+        *ret = PINNED_RESOURCE_NULL;
         return 0;
 }
 
@@ -3730,7 +3853,8 @@ static int apply_mount_namespace(
                 ExecCommandFlags command_flags,
                 const ExecContext *context,
                 const ExecParameters *params,
-                ExecRuntime *runtime,
+                const ExecRuntime *runtime,
+                const PinnedResource *rootfs,
                 const char *memory_pressure_path,
                 bool needs_sandboxing,
                 uid_t exec_directory_uid,
@@ -3738,13 +3862,14 @@ static int apply_mount_namespace(
                 PidRef *bpffs_pidref,
                 int bpffs_socket_fd,
                 int bpffs_errno_pipe,
+                sd_varlink *mountfsd_link,
                 char **reterr_path) {
 
         _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
         _cleanup_strv_free_ char **empty_directories = NULL, **symlinks = NULL,
                         **read_write_paths_cleanup = NULL;
         _cleanup_free_ char *creds_path = NULL, *incoming_dir = NULL, *propagate_dir = NULL,
-                *private_namespace_dir = NULL, *host_os_release_stage = NULL, *root_image = NULL, *root_dir = NULL;
+                *private_namespace_dir = NULL, *host_os_release_stage = NULL;
         const char *tmp_dir = NULL, *var_tmp_dir = NULL;
         char **read_write_paths;
         bool setup_os_release_symlink;
@@ -3757,26 +3882,6 @@ static int apply_mount_namespace(
         assert(runtime);
 
         CLEANUP_ARRAY(bind_mounts, n_bind_mounts, bind_mount_free_many);
-
-        if (params->flags & EXEC_APPLY_CHROOT && !context->root_directory_as_fd) {
-                r = pick_versions(
-                                context,
-                                params,
-                                &root_image,
-                                &root_dir,
-                                reterr_path);
-                if (r < 0)
-                        return r;
-
-                r = setup_ephemeral(
-                                context,
-                                runtime,
-                                &root_image,
-                                &root_dir,
-                                reterr_path);
-                if (r < 0)
-                        return r;
-        }
 
         r = compile_bind_mounts(context, params, exec_directory_uid, exec_directory_gid, &bind_mounts, &n_bind_mounts, &empty_directories);
         if (r < 0)
@@ -3800,14 +3905,16 @@ static int apply_mount_namespace(
         if (needs_sandboxing) {
                 /* The runtime struct only contains the parent of the private /tmp, which is non-accessible
                  * to world users. Inside of it there's a /tmp that is sticky, and that's the one we want to
-                 * use here.  This does not apply when we are using /run/systemd/empty as fallback. */
+                 * use here. This does not apply when we are using /run/systemd/empty as fallback. */
 
                 if (context->private_tmp == PRIVATE_TMP_CONNECTED && runtime->shared) {
                         if (streq_ptr(runtime->shared->tmp_dir, RUN_SYSTEMD_EMPTY))
                                 tmp_dir = runtime->shared->tmp_dir;
                         else if (runtime->shared->tmp_dir)
                                 tmp_dir = strjoina(runtime->shared->tmp_dir, "/tmp");
+                }
 
+                if (context->private_var_tmp == PRIVATE_TMP_CONNECTED && runtime->shared) {
                         if (streq_ptr(runtime->shared->var_tmp_dir, RUN_SYSTEMD_EMPTY))
                                 var_tmp_dir = runtime->shared->var_tmp_dir;
                         else if (runtime->shared->var_tmp_dir)
@@ -3816,7 +3923,7 @@ static int apply_mount_namespace(
         }
 
         /* Symlinks (exec dirs, os-release) are set up after other mounts, before they are made read-only. */
-        setup_os_release_symlink = needs_sandboxing && exec_context_get_effective_mount_apivfs(context) && (root_dir || root_image);
+        setup_os_release_symlink = needs_sandboxing && exec_context_get_effective_mount_apivfs(context) && pinned_resource_is_set(rootfs);
         r = compile_symlinks(context, params, setup_os_release_symlink, &symlinks);
         if (r < 0)
                 return r;
@@ -3856,18 +3963,17 @@ static int apply_mount_namespace(
                 if (asprintf(&private_namespace_dir, "/run/user/" UID_FMT "/systemd", geteuid()) < 0)
                         return -ENOMEM;
 
-                if (setup_os_release_symlink) {
-                        if (asprintf(&host_os_release_stage,
-                                     "/run/user/" UID_FMT "/systemd/propagate/.os-release-stage",
-                                     geteuid()) < 0)
-                                return -ENOMEM;
-                }
+                if (setup_os_release_symlink &&
+                    asprintf(&host_os_release_stage,
+                             "/run/user/" UID_FMT "/systemd/propagate/.os-release-stage",
+                             geteuid()) < 0)
+                        return -ENOMEM;
         }
 
-        if (root_image) {
+        if (rootfs->image) {
                 r = verity_settings_prepare(
                         &verity,
-                        root_image,
+                        rootfs->image,
                         &context->root_hash, context->root_hash_path,
                         &context->root_hash_sig, context->root_hash_sig_path,
                         context->root_verity);
@@ -3878,9 +3984,7 @@ static int apply_mount_namespace(
         NamespaceParameters parameters = {
                 .runtime_scope = params->runtime_scope,
 
-                .root_directory = root_dir,
-                .root_image = root_image,
-                .root_directory_fd = params->flags & EXEC_APPLY_CHROOT ? params->root_directory_fd : -EBADF,
+                .rootfs = rootfs,
                 .root_image_options = context->root_image_options,
                 .root_image_policy = context->root_image_policy ?: &image_policy_service,
 
@@ -3928,7 +4032,7 @@ static int apply_mount_namespace(
                 /* If DynamicUser=no and RootDirectory= is set then lets pass a relaxed sandbox info,
                  * otherwise enforce it, don't ignore protected paths and fail if we are enable to apply the
                  * sandbox inside the mount namespace. */
-                .ignore_protect_paths = !needs_sandboxing && !context->dynamic_user && root_dir,
+                .ignore_protect_paths = !needs_sandboxing && !context->dynamic_user && pinned_resource_is_set(rootfs),
 
                 .protect_control_groups = needs_sandboxing ? exec_get_protect_control_groups(context) : PROTECT_CONTROL_GROUPS_NO,
                 .protect_kernel_tunables = needs_sandboxing && context->protect_kernel_tunables,
@@ -3954,10 +4058,13 @@ static int apply_mount_namespace(
                 .protect_proc = needs_sandboxing ? context->protect_proc : PROTECT_PROC_DEFAULT,
                 .proc_subset = needs_sandboxing ? context->proc_subset : PROC_SUBSET_ALL,
                 .private_bpf = needs_sandboxing ? context->private_bpf : PRIVATE_BPF_NO,
+                .private_users = needs_sandboxing ? context->private_users : PRIVATE_USERS_NO,
 
                 .bpffs_pidref = bpffs_pidref,
                 .bpffs_socket_fd = bpffs_socket_fd,
                 .bpffs_errno_pipe = bpffs_errno_pipe,
+
+                .mountfsd_link = mountfsd_link,
         };
 
         r = setup_namespace(&parameters, reterr_path);
@@ -3968,17 +4075,18 @@ static int apply_mount_namespace(
         if (r == -ENOANO) {
                 if (insist_on_sandboxing(
                                     context,
-                                    root_dir, root_image,
+                                    rootfs,
                                     bind_mounts,
                                     n_bind_mounts))
                         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                                "Failed to set up namespace, and refusing to continue since "
                                                "the selected namespacing options alter mount environment non-trivially.\n"
-                                               "Bind mounts: %zu, temporary filesystems: %zu, root directory: %s, root image: %s, dynamic user: %s",
+                                               "Bind mounts: %zu, temporary filesystems: %zu, root directory: %s, root image: %s, root mstack: %s, dynamic user: %s",
                                                n_bind_mounts,
                                                context->n_temporary_filesystems,
-                                               yes_no(root_dir),
-                                               yes_no(root_image),
+                                               yes_no(rootfs->directory_fd >= 0),
+                                               yes_no(rootfs->image_fd >= 0),
+                                               yes_no(!!rootfs->mstack_loaded),
                                                yes_no(context->dynamic_user));
 
                 log_debug("Failed to set up namespace, assuming containerized execution and ignoring.");
@@ -4166,71 +4274,48 @@ out:
         return r;
 }
 
-static void append_socket_pair(int *array, size_t *n, const int pair[static 2]) {
-        assert(array);
-        assert(n);
-        assert(pair);
+#define FD_PAIR_CONDITION(cond, pair)                           \
+        (cond) ? pair[0] : -EBADF, (cond) ? pair[1] : -EBADF
 
-        if (pair[0] >= 0)
-                array[(*n)++] = pair[0];
-        if (pair[1] >= 0)
-                array[(*n)++] = pair[1];
-}
+#define FD_PAIR(pair) FD_PAIR_CONDITION(true, pair)
 
 static int close_remaining_fds(
                 const ExecParameters *params,
                 const ExecRuntime *runtime,
                 int socket_fd,
-                const int *fds,
+                const int fds[],
                 size_t n_fds) {
-
-        size_t n_dont_close = 0;
-        int dont_close[n_fds + 17];
 
         assert(params);
         assert(runtime);
+        assert(fds || n_fds == 0);
 
-        if (params->stdin_fd >= 0)
-                dont_close[n_dont_close++] = params->stdin_fd;
-        if (params->stdout_fd >= 0)
-                dont_close[n_dont_close++] = params->stdout_fd;
-        if (params->stderr_fd >= 0)
-                dont_close[n_dont_close++] = params->stderr_fd;
+        /* fds listed here shall be closed before second close_all_fds() call to avoid double close! */
+        int static_fds[] = {
+                params->stdin_fd, params->stdout_fd, params->stderr_fd,
+                socket_fd,
+                FD_PAIR(runtime->ephemeral_storage_socket),
+                FD_PAIR_CONDITION(runtime->shared, runtime->shared->userns_storage_socket),
+                FD_PAIR_CONDITION(runtime->shared, runtime->shared->netns_storage_socket),
+                FD_PAIR_CONDITION(runtime->shared, runtime->shared->ipcns_storage_socket),
+                FD_PAIR_CONDITION(runtime->dynamic_creds && runtime->dynamic_creds->user,
+                                  runtime->dynamic_creds->user->storage_socket),
+                FD_PAIR_CONDITION(runtime->dynamic_creds && runtime->dynamic_creds->group,
+                                  runtime->dynamic_creds->group->storage_socket),
+                params->user_lookup_fd,
+                params->pidref_transport_fd,
+        };
 
-        if (socket_fd >= 0)
-                dont_close[n_dont_close++] = socket_fd;
+        _cleanup_free_ int *accum_fds = NULL;
         if (n_fds > 0) {
-                memcpy(dont_close + n_dont_close, fds, sizeof(int) * n_fds);
-                n_dont_close += n_fds;
+                accum_fds = new(int, ELEMENTSOF(static_fds) + n_fds);
+                if (!accum_fds)
+                        return -ENOMEM;
+
+                memcpy(mempcpy_typesafe(accum_fds, static_fds, ELEMENTSOF(static_fds)), fds, sizeof(int) * n_fds);
         }
 
-        append_socket_pair(dont_close, &n_dont_close, runtime->ephemeral_storage_socket);
-
-        if (runtime->shared) {
-                append_socket_pair(dont_close, &n_dont_close, runtime->shared->userns_storage_socket);
-                append_socket_pair(dont_close, &n_dont_close, runtime->shared->netns_storage_socket);
-                append_socket_pair(dont_close, &n_dont_close, runtime->shared->ipcns_storage_socket);
-        }
-
-        if (runtime->dynamic_creds) {
-                if (runtime->dynamic_creds->user)
-                        append_socket_pair(dont_close, &n_dont_close, runtime->dynamic_creds->user->storage_socket);
-                if (runtime->dynamic_creds->group)
-                        append_socket_pair(dont_close, &n_dont_close, runtime->dynamic_creds->group->storage_socket);
-        }
-
-        if (params->user_lookup_fd >= 0)
-                dont_close[n_dont_close++] = params->user_lookup_fd;
-
-        if (params->handoff_timestamp_fd >= 0)
-                dont_close[n_dont_close++] = params->handoff_timestamp_fd;
-
-        if (params->pidref_transport_fd >= 0)
-                dont_close[n_dont_close++] = params->pidref_transport_fd;
-
-        assert(n_dont_close <= ELEMENTSOF(dont_close));
-
-        return close_all_fds(dont_close, n_dont_close);
+        return close_all_fds(accum_fds ?: static_fds, ELEMENTSOF(static_fds) + n_fds);
 }
 
 static int send_user_lookup(
@@ -4516,7 +4601,7 @@ static bool exec_needs_cap_sys_admin(const ExecContext *context, const ExecParam
                 return false;
 
         return context->private_users != PRIVATE_USERS_NO ||
-               context->private_tmp != PRIVATE_TMP_NO ||
+               context->private_tmp != PRIVATE_TMP_NO || /* no need to check for private_var_tmp here, private_tmp is never demoted to "no" */
                context->private_devices ||
                context->private_network ||
                context->user_namespace_path ||
@@ -4528,10 +4613,8 @@ static bool exec_needs_cap_sys_admin(const ExecContext *context, const ExecParam
                context->bind_log_sockets > 0 ||
                context->n_bind_mounts > 0 ||
                context->n_temporary_filesystems > 0 ||
-               context->root_directory ||
-               context->root_directory_as_fd ||
+               exec_context_with_rootfs_strict(context) ||
                !strv_isempty(context->extension_directories) ||
-               context->root_image ||
                context->n_mount_images > 0 ||
                context->n_extension_images > 0 ||
                context->protect_system != PROTECT_SYSTEM_NO ||
@@ -4603,7 +4686,8 @@ static bool exec_namespace_is_delegated(
 static int setup_delegated_namespaces(
                 const ExecContext *context,
                 ExecParameters *params,
-                ExecRuntime *runtime,
+                const ExecRuntime *runtime,
+                const PinnedResource *rootfs,
                 bool delegate,
                 const char *memory_pressure_path,
                 uid_t uid,
@@ -4614,6 +4698,7 @@ static int setup_delegated_namespaces(
                 PidRef *bpffs_pidref,
                 int bpffs_socket_fd,
                 int bpffs_errno_pipe,
+                sd_varlink *mountfsd_link,
                 int *reterr_exit_status) {
 
         int r;
@@ -4628,6 +4713,7 @@ static int setup_delegated_namespaces(
         assert(context);
         assert(params);
         assert(runtime);
+        assert(rootfs);
         assert(reterr_exit_status);
 
         if (exec_needs_network_namespace(context) &&
@@ -4724,22 +4810,25 @@ static int setup_delegated_namespaces(
 
         /* If PrivatePIDs= yes is configured, we're now running as pid 1 in a pid namespace! */
 
-        if (exec_needs_mount_namespace(context, params, runtime) &&
+        if (exec_needs_mount_namespace(context, params) &&
             exec_namespace_is_delegated(context, params, have_cap_sys_admin, CLONE_NEWNS) == delegate) {
                 _cleanup_free_ char *error_path = NULL;
 
-                r = apply_mount_namespace(command->flags,
-                                          context,
-                                          params,
-                                          runtime,
-                                          memory_pressure_path,
-                                          needs_sandboxing,
-                                          uid,
-                                          gid,
-                                          bpffs_pidref,
-                                          bpffs_socket_fd,
-                                          bpffs_errno_pipe,
-                                          &error_path);
+                r = apply_mount_namespace(
+                                command->flags,
+                                context,
+                                params,
+                                runtime,
+                                rootfs,
+                                memory_pressure_path,
+                                needs_sandboxing,
+                                uid,
+                                gid,
+                                bpffs_pidref,
+                                bpffs_socket_fd,
+                                bpffs_errno_pipe,
+                                mountfsd_link,
+                                &error_path);
                 if (r < 0) {
                         *reterr_exit_status = EXIT_NAMESPACE;
                         return log_error_errno(r, "Failed to set up mount namespacing%s%s: %m",
@@ -4759,6 +4848,33 @@ static int setup_delegated_namespaces(
         }
 
         return 0;
+}
+
+static int set_memory_thp(MemoryTHP thp) {
+        int r;
+
+        switch (thp) {
+
+        case MEMORY_THP_INHERIT:
+                return 0;
+
+        case MEMORY_THP_DISABLE:
+                r = RET_NERRNO(prctl(PR_SET_THP_DISABLE, 1, 0, 0, 0));
+                break;
+
+        case MEMORY_THP_MADVISE:
+                r = RET_NERRNO(prctl(PR_SET_THP_DISABLE, 1, PR_THP_DISABLE_EXCEPT_ADVISED, 0, 0));
+                break;
+
+        case MEMORY_THP_SYSTEM:
+                r = RET_NERRNO(prctl(PR_SET_THP_DISABLE, 0, 0, 0, 0));
+                break;
+
+        default:
+                assert_not_reached();
+        }
+
+        return r == -EINVAL ? -EOPNOTSUPP : r;
 }
 
 static bool exec_context_shall_confirm_spawn(const ExecContext *context) {
@@ -4794,28 +4910,34 @@ static int exec_context_named_iofds(
 
         /* Note that socket fds are always placed at the beginning of the fds array, no need for extra
          * manipulation. */
-        for (size_t i = 0; i < p->n_socket_fds && targets > 0; i++)
+        for (size_t i = 0; i < p->n_socket_fds && targets > 0; i++) {
                 if (named_iofds[STDIN_FILENO] < 0 &&
                     c->std_input == EXEC_INPUT_NAMED_FD &&
                     streq(p->fd_names[i], stdio_fdname[STDIN_FILENO])) {
 
                         named_iofds[STDIN_FILENO] = p->fds[i];
                         targets--;
+                        continue;
+                }
 
-                } else if (named_iofds[STDOUT_FILENO] < 0 &&
-                           c->std_output == EXEC_OUTPUT_NAMED_FD &&
-                           streq(p->fd_names[i], stdio_fdname[STDOUT_FILENO])) {
+                /* Allow stdout and stderr to use the same named fd */
+
+                if (named_iofds[STDOUT_FILENO] < 0 &&
+                    c->std_output == EXEC_OUTPUT_NAMED_FD &&
+                    streq(p->fd_names[i], stdio_fdname[STDOUT_FILENO])) {
 
                         named_iofds[STDOUT_FILENO] = p->fds[i];
                         targets--;
+                }
 
-                } else if (named_iofds[STDERR_FILENO] < 0 &&
-                           c->std_error == EXEC_OUTPUT_NAMED_FD &&
-                           streq(p->fd_names[i], stdio_fdname[STDERR_FILENO])) {
+                if (named_iofds[STDERR_FILENO] < 0 &&
+                    c->std_error == EXEC_OUTPUT_NAMED_FD &&
+                    streq(p->fd_names[i], stdio_fdname[STDERR_FILENO])) {
 
                         named_iofds[STDERR_FILENO] = p->fds[i];
                         targets--;
                 }
+        }
 
         return targets == 0 ? 0 : -ENOENT;
 }
@@ -5058,10 +5180,10 @@ int exec_invoke(
 #if HAVE_SECCOMP
         uint64_t saved_bset = 0;
 #endif
-        uid_t saved_uid = getuid();
-        gid_t saved_gid = getgid();
-        uid_t uid = UID_INVALID;
-        gid_t gid = GID_INVALID;
+        /* saved_uid → where we started from; uid → where we ended up in; outside_uid → where we ended up in,
+         * but seen from the outside (covers userns mappings) */
+        uid_t uid = UID_INVALID, saved_uid = getuid(), outside_uid = UID_INVALID;
+        gid_t gid = GID_INVALID, saved_gid = getgid(), outside_gid = GID_INVALID;
         int secure_bits;
         _cleanup_free_ gid_t *gids = NULL, *gids_after_pam = NULL;
         int ngids = 0, ngids_after_pam = 0;
@@ -5231,7 +5353,9 @@ int exec_invoke(
                 return log_error_errno(errno, "Failed to update environment: %m");
         }
 
-        if (context->dynamic_user && runtime->dynamic_creds) {
+        if (exec_context_get_effective_private_users(context, params) == PRIVATE_USERS_MANAGED)
+                log_debug("Running with a managed user namespace, not initializing UIDs/GIDs.");
+        else if (context->dynamic_user && runtime->dynamic_creds) {
                 _cleanup_strv_free_ char **suggested_paths = NULL;
 
                 /* On top of that, make sure we bypass our own NSS module nss-systemd comprehensively for any NSS
@@ -5313,20 +5437,22 @@ int exec_invoke(
                 }
         }
 
-        /* Initialize user supplementary groups and get SupplementaryGroups= ones */
-        ngids = get_supplementary_groups(context, username, gid, &gids);
-        if (ngids < 0) {
-                *exit_status = EXIT_GROUP;
-                return log_error_errno(ngids, "Failed to determine supplementary groups: %m");
-        }
+        if (exec_context_get_effective_private_users(context, params) != PRIVATE_USERS_MANAGED) {
+                /* Initialize user supplementary groups and get SupplementaryGroups= ones */
+                ngids = get_supplementary_groups(context, username, gid, &gids);
+                if (ngids < 0) {
+                        *exit_status = EXIT_GROUP;
+                        return log_error_errno(ngids, "Failed to determine supplementary groups: %m");
+                }
 
-        r = send_user_lookup(params->unit_id, params->user_lookup_fd, uid, gid);
-        if (r < 0) {
-                *exit_status = EXIT_USER;
-                return log_error_errno(r, "Failed to send user credentials to PID1: %m");
-        }
+                r = send_user_lookup(params->unit_id, params->user_lookup_fd, uid, gid);
+                if (r < 0) {
+                        *exit_status = EXIT_USER;
+                        return log_error_errno(r, "Failed to send user credentials to PID1: %m");
+                }
 
-        params->user_lookup_fd = safe_close(params->user_lookup_fd);
+                params->user_lookup_fd = safe_close(params->user_lookup_fd);
+        }
 
         r = acquire_home(context, &pwent_home, &home_buffer);
         if (r < 0) {
@@ -5468,10 +5594,14 @@ int exec_invoke(
                         .sched_flags = context->cpu_sched_reset_on_fork ? SCHED_FLAG_RESET_ON_FORK : 0,
                 };
 
-                r = sched_setattr(/* pid= */ 0, &attr, /* flags= */ 0);
-                if (r < 0) {
+                r = RET_NERRNO(sched_setattr(/* pid= */ 0, &attr, /* flags= */ 0));
+                if (r == -EINVAL && !sched_policy_supported(context->cpu_sched_policy)) {
+                        _cleanup_free_ char *s = NULL;
+                        (void) sched_policy_to_string_alloc(context->cpu_sched_policy, &s);
+                        log_warning_errno(r, "CPU scheduling policy %s is not supported, proceeding without.", strna(s));
+                } else if (r < 0) {
                         *exit_status = EXIT_SETSCHEDULER;
-                        return log_error_errno(errno, "Failed to set up CPU scheduling: %m");
+                        return log_error_errno(r, "Failed to set up CPU scheduling: %m");
                 }
         }
 
@@ -5550,6 +5680,16 @@ int exec_invoke(
                                 return log_error_errno(errno, "Failed to set KSM: %m");
                         }
                 }
+
+        r = set_memory_thp(context->memory_thp);
+        if (r == -EOPNOTSUPP)
+                log_debug_errno(r, "Setting MemoryTHP=%s is not supported, ignoring.",
+                                memory_thp_to_string(context->memory_thp));
+        else if (r < 0) {
+                *exit_status = EXIT_MEMORY_THP;
+                return log_error_errno(r, "Failed to set MemoryTHP=%s: %m",
+                                       memory_thp_to_string(context->memory_thp));
+        }
 
 #if ENABLE_UTMP
         if (context->utmp_id) {
@@ -5648,7 +5788,25 @@ int exec_invoke(
                 }
         }
 
-        needs_mount_namespace = exec_needs_mount_namespace(context, params, runtime);
+        _cleanup_(sd_varlink_unrefp) sd_varlink *mountfsd_link = NULL, *nsresource_link = NULL;
+        if (needs_sandboxing &&
+            exec_context_get_effective_private_users(context, params) == PRIVATE_USERS_MANAGED) {
+
+                /* In managed mode we need to allocate a userns via nsresource, and then assign mounts to
+                 * it. We must do so with our original privileges (since after creating the userns, we might
+                 * simply not have the necessary privs for the IPC calls anymore), hence do this here, ahead
+                 * of time. */
+
+                r = mountfsd_connect(&mountfsd_link);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to connect to mountfsd: %m");
+
+                r = nsresource_connect(&nsresource_link);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to connect to nsresourced: %m");
+        }
+
+        needs_mount_namespace = exec_needs_mount_namespace(context, params);
 
         for (ExecDirectoryType dt = 0; dt < _EXEC_DIRECTORY_TYPE_MAX; dt++) {
                 r = setup_exec_directory(context, params, uid, gid, dt, needs_mount_namespace, exit_status);
@@ -5656,7 +5814,7 @@ int exec_invoke(
                         return log_error_errno(r, "Failed to set up special execution directory in %s: %m", params->prefix[dt]);
         }
 
-        r = exec_setup_credentials(context, cgroup_context, params, params->unit_id, uid, gid);
+        r = exec_setup_credentials(context, cgroup_context, params, uid, gid);
         if (r < 0) {
                 *exit_status = EXIT_CREDENTIALS;
                 return log_error_errno(r, "Failed to set up credentials: %m");
@@ -5818,6 +5976,20 @@ int exec_invoke(
                 }
         }
 
+        _cleanup_(pinned_resource_done) PinnedResource rootfs = PINNED_RESOURCE_NULL;
+        _cleanup_free_ char *error_path = NULL;
+        r = pin_rootfs(context, params, &rootfs, &error_path);
+        if (r < 0) {
+                *exit_status = EXIT_NAMESPACE;
+                return log_error_errno(r, "Failed to open service's root fs%s%s: %m", error_path ? ": " : "", strempty(error_path));
+        }
+
+        r = setup_ephemeral(context, runtime, &rootfs, &error_path);
+        if (r < 0) {
+                *exit_status = EXIT_NAMESPACE;
+                return log_error_errno(r, "Failed to make ephemeral copy of service's root fs%s%s: %m", error_path ? ": " : "", strempty(error_path));
+        }
+
         /* Load a bunch of libraries we'll possibly need later, before we turn off dlopen() */
         (void) dlopen_bpf();
         (void) dlopen_cryptsetup();
@@ -5842,16 +6014,26 @@ int exec_invoke(
 
                 /* The kernel requires /proc/pid/setgroups be set to "deny" prior to writing /proc/pid/gid_map in
                  * unprivileged user namespaces. */
-                r = setup_private_users(pu, saved_uid, saved_gid, uid, gid, /* allow_setgroups= */ false);
+                r = setup_private_users(
+                                nsresource_link,
+                                pu,
+                                saved_uid,
+                                saved_gid,
+                                &uid,
+                                &gid,
+                                &outside_uid,
+                                &outside_gid,
+                                /* allow_setgroups= */ false);
                 /* If it was requested explicitly and we can't set it up, fail early. Otherwise, continue and let
                  * the actual requested operations fail (or silently continue). */
-                if (r < 0 && context->private_users != PRIVATE_USERS_NO) {
-                        *exit_status = EXIT_USER;
-                        return log_error_errno(r, "Failed to set up user namespacing for unprivileged user: %m");
-                }
-                if (r < 0)
-                        log_info_errno(r, "Failed to set up user namespacing for unprivileged user, ignoring: %m");
-                else {
+                if (r < 0) {
+                        if (context->private_users != PRIVATE_USERS_NO) {
+                                *exit_status = EXIT_USER;
+                                return log_error_errno(r, "Failed to set up user namespacing for unprivileged user: %m");
+                        }
+
+                        log_notice_errno(r, "Failed to set up user namespacing for unprivileged user, ignoring: %m");
+                } else {
                         assert(r > 0);
                         userns_set_up = true;
                         log_debug("Set up unprivileged user namespace");
@@ -5863,6 +6045,7 @@ int exec_invoke(
                         context,
                         params,
                         runtime,
+                        &rootfs,
                         /* delegate= */ false,
                         memory_pressure_path,
                         uid,
@@ -5873,6 +6056,7 @@ int exec_invoke(
                         &bpffs_pidref,
                         bpffs_socket_fd,
                         bpffs_errno_pipe,
+                        mountfsd_link,
                         exit_status);
         if (r < 0)
                 return r;
@@ -5922,8 +6106,16 @@ int exec_invoke(
         } else if (needs_sandboxing && !userns_set_up) {
                 PrivateUsers pu = exec_context_get_effective_private_users(context, params);
 
-                r = setup_private_users(pu, saved_uid, saved_gid, uid, gid,
-                                        /* allow_setgroups= */ pu == PRIVATE_USERS_FULL);
+                r = setup_private_users(
+                                nsresource_link,
+                                pu,
+                                saved_uid,
+                                saved_gid,
+                                &uid,
+                                &gid,
+                                &outside_uid,
+                                &outside_gid,
+                                /* allow_setgroups= */ pu == PRIVATE_USERS_FULL);
                 if (r < 0) {
                         *exit_status = EXIT_USER;
                         return log_error_errno(r, "Failed to set up user namespacing: %m");
@@ -5932,11 +6124,25 @@ int exec_invoke(
                         log_debug("Set up privileged user namespace");
         }
 
+        if (params->user_lookup_fd >= 0) {
+                /* If we haven't sent the UIDs/GIDs we settled on upstream yet, let's do so now, as we
+                 * finally know our final UID/GID range */
+
+                r = send_user_lookup(params->unit_id, params->user_lookup_fd, outside_uid, outside_gid);
+                if (r < 0) {
+                        *exit_status = EXIT_USER;
+                        return log_error_errno(r, "Failed to send user credentials to PID1: %m");
+                }
+
+                params->user_lookup_fd = safe_close(params->user_lookup_fd);
+        }
+
         /* Call setup_delegated_namespaces() the second time to unshare all delegated namespaces. */
         r = setup_delegated_namespaces(
                         context,
                         params,
                         runtime,
+                        &rootfs,
                         /* delegate= */ true,
                         memory_pressure_path,
                         uid,
@@ -5947,12 +6153,23 @@ int exec_invoke(
                         &bpffs_pidref,
                         bpffs_socket_fd,
                         bpffs_errno_pipe,
+                        mountfsd_link,
                         exit_status);
         if (r < 0)
                 return r;
 
+        /* We are done now with the nsresourced/mountfsd shenanigans, let's close the connections */
+        nsresource_link = sd_varlink_unref(nsresource_link);
+        mountfsd_link = sd_varlink_unref(mountfsd_link);
+
+        /* We don't need the pinned rootfs anymore at this point. Close the fds now, so that they are
+         * definitely gone before we do our fd rearrangements below. */
+        pinned_resource_done(&rootfs);
+
         /* Kill unnecessary process, for the case that e.g. when the bpffs mount point is hidden. */
         pidref_done_sigkill_wait(&bpffs_pidref);
+        bpffs_socket_fd = safe_close(bpffs_socket_fd);
+        bpffs_errno_pipe = safe_close(bpffs_errno_pipe);
 
         if (needs_sandboxing && exec_needs_cgroup_namespace(context) && params->cgroup_path) {
                 /* Move ourselves into the subcgroup now *after* we've unshared the cgroup namespace, which
@@ -6029,6 +6246,7 @@ int exec_invoke(
          * them open until the final execve(). But first, close the remaining sockets in the context
          * objects. */
 
+        socket_fd = safe_close(socket_fd);
         exec_runtime_close(runtime);
         exec_params_close(params);
 
@@ -6384,7 +6602,6 @@ int exec_invoke(
                         }
                 }
 #endif
-
         }
 
         if (!strv_isempty(context->unset_environment)) {

@@ -73,20 +73,20 @@ int errno_to_pam_error(int error) {
         return ERRNO_VALUE(error) == ENOMEM ? PAM_BUF_ERR : PAM_SERVICE_ERR;
 }
 
-int pam_syslog_errno(pam_handle_t *handle, int level, int error, const char *format, ...) {
+int pam_syslog_errno(pam_handle_t *pamh, int level, int error, const char *format, ...) {
         va_list ap;
 
         error = ERRNO_VALUE(error);
         LOCAL_ERRNO(error);
 
         va_start(ap, format);
-        sym_pam_vsyslog(handle, level, format, ap);
+        sym_pam_vsyslog(pamh, level, format, ap);
         va_end(ap);
 
         return errno_to_pam_error(error);
 }
 
-int pam_syslog_pam_error(pam_handle_t *handle, int level, int error, const char *format, ...) {
+int pam_syslog_pam_error(pam_handle_t *pamh, int level, int error, const char *format, ...) {
         /* This wraps pam_syslog() but will replace @PAMERR@ with a string from pam_strerror().
          * @PAMERR@ must be at the very end. */
 
@@ -95,7 +95,7 @@ int pam_syslog_pam_error(pam_handle_t *handle, int level, int error, const char 
 
         const char *p = endswith(format, "@PAMERR@");
         if (p) {
-                const char *pamerr = sym_pam_strerror(handle, error);
+                const char *pamerr = sym_pam_strerror(pamh, error);
                 if (strchr(pamerr, '%'))
                         pamerr = "n/a";  /* We cannot have any formatting chars */
 
@@ -103,10 +103,10 @@ int pam_syslog_pam_error(pam_handle_t *handle, int level, int error, const char 
                 xsprintf(buf, "%.*s%s", (int)(p - format), format, pamerr);
 
                 DISABLE_WARNING_FORMAT_NONLITERAL;
-                sym_pam_vsyslog(handle, level, buf, ap);
+                sym_pam_vsyslog(pamh, level, buf, ap);
                 REENABLE_WARNING;
         } else
-                sym_pam_vsyslog(handle, level, format, ap);
+                sym_pam_vsyslog(pamh, level, format, ap);
 
         va_end(ap);
 
@@ -142,7 +142,7 @@ static PamBusData *pam_bus_data_free(PamBusData *d) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(PamBusData*, pam_bus_data_free);
 
-static void pam_bus_data_destroy(pam_handle_t *handle, void *data, int error_status) {
+static void pam_bus_data_destroy(pam_handle_t *pamh, void *data, int error_status) {
         /* Destructor when called from PAM. Note that error_status is supposed to tell us via PAM_DATA_SILENT
          * whether we are called in a forked off child of the PAM session or in the original parent. We don't
          * bother with that however, and instead rely on the PID checks that sd_bus_flush_close_unref() does
@@ -156,7 +156,7 @@ static void pam_bus_data_destroy(pam_handle_t *handle, void *data, int error_sta
         if (FLAGS_SET(error_status, PAM_DATA_SILENT) &&
             d->bus && bus_origin_changed(d->bus))
                 /* Please adjust test/units/end.sh when updating the log message. */
-                sym_pam_syslog(handle, LOG_DEBUG,
+                sym_pam_syslog(pamh, LOG_DEBUG,
                                "Warning: cannot close sd-bus connection (%s) after fork when it was opened before the fork.",
                                strna(d->cache_id));
 
@@ -180,7 +180,7 @@ static char* pam_make_bus_cache_id(const char *module_name) {
 
 void pam_bus_data_disconnectp(PamBusData **_d) {
         PamBusData *d = *ASSERT_PTR(_d);
-        pam_handle_t *handle;
+        pam_handle_t *pamh;
         int r;
 
         /* Disconnects the connection explicitly (for use via _cleanup_()) when called */
@@ -188,17 +188,17 @@ void pam_bus_data_disconnectp(PamBusData **_d) {
         if (!d)
                 return;
 
-        handle = ASSERT_PTR(d->pam_handle); /* Keep a reference to the session even after 'd' might be invalidated */
+        pamh = ASSERT_PTR(d->pam_handle); /* Keep a reference to the session even after 'd' might be invalidated */
 
-        r = sym_pam_set_data(handle, ASSERT_PTR(d->cache_id), NULL, NULL);
+        r = sym_pam_set_data(pamh, ASSERT_PTR(d->cache_id), NULL, NULL);
         if (r != PAM_SUCCESS)
-                pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to release PAM user record data, ignoring: @PAMERR@");
+                pam_syslog_pam_error(pamh, LOG_ERR, r, "Failed to release PAM user record data, ignoring: @PAMERR@");
 
         /* Note, the pam_set_data() call will invalidate 'd', don't access here anymore */
 }
 
 int pam_acquire_bus_connection(
-                pam_handle_t *handle,
+                pam_handle_t *pamh,
                 const char *module_name,
                 bool debug,
                 sd_bus **ret_bus,
@@ -208,39 +208,39 @@ int pam_acquire_bus_connection(
         _cleanup_free_ char *cache_id = NULL;
         int r;
 
-        assert(handle);
+        assert(pamh);
         assert(module_name);
         assert(ret_bus);
 
         cache_id = pam_make_bus_cache_id(module_name);
         if (!cache_id)
-                return pam_log_oom(handle);
+                return pam_log_oom(pamh);
 
         /* We cache the bus connection so that we can share it between the session and the authentication hooks */
-        r = sym_pam_get_data(handle, cache_id, (const void**) &d);
+        r = sym_pam_get_data(pamh, cache_id, (const void**) &d);
         if (r == PAM_SUCCESS && d)
                 goto success;
         if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA))
-                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get bus connection: @PAMERR@");
+                return pam_syslog_pam_error(pamh, LOG_ERR, r, "Failed to get bus connection: @PAMERR@");
 
         d = new(PamBusData, 1);
         if (!d)
-                return pam_log_oom(handle);
+                return pam_log_oom(pamh);
 
         *d = (PamBusData) {
                 .cache_id = TAKE_PTR(cache_id),
-                .pam_handle = handle,
+                .pam_handle = pamh,
         };
 
         r = sd_bus_open_system(&d->bus);
         if (r < 0)
-                return pam_syslog_errno(handle, LOG_ERR, r, "Failed to connect to system bus: %m");
+                return pam_syslog_errno(pamh, LOG_ERR, r, "Failed to connect to system bus: %m");
 
-        r = sym_pam_set_data(handle, d->cache_id, d, pam_bus_data_destroy);
+        r = sym_pam_set_data(pamh, d->cache_id, d, pam_bus_data_destroy);
         if (r != PAM_SUCCESS)
-                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to set PAM bus data: @PAMERR@");
+                return pam_syslog_pam_error(pamh, LOG_ERR, r, "Failed to set PAM bus data: @PAMERR@");
 
-        pam_debug_syslog(handle, debug, "New sd-bus connection (%s) opened.", d->cache_id);
+        pam_debug_syslog(pamh, debug, "New sd-bus connection (%s) opened.", d->cache_id);
 
 success:
         *ret_bus = sd_bus_ref(d->bus);
@@ -253,38 +253,34 @@ success:
         return PAM_SUCCESS;
 }
 
-int pam_get_bus_data(
-                pam_handle_t *handle,
-                const char *module_name,
-                PamBusData **ret) {
-
+int pam_get_bus_data(pam_handle_t *pamh, const char *module_name, PamBusData **ret) {
         PamBusData *d = NULL;
         _cleanup_free_ char *cache_id = NULL;
         int r;
 
-        assert(handle);
+        assert(pamh);
         assert(module_name);
         assert(ret);
 
         cache_id = pam_make_bus_cache_id(module_name);
         if (!cache_id)
-                return pam_log_oom(handle);
+                return pam_log_oom(pamh);
 
         /* We cache the bus connection so that we can share it between the session and the authentication hooks */
-        r = sym_pam_get_data(handle, cache_id, (const void**) &d);
+        r = sym_pam_get_data(pamh, cache_id, (const void**) &d);
         if (!IN_SET(r, PAM_SUCCESS, PAM_NO_MODULE_DATA))
-                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get bus connection: @PAMERR@");
+                return pam_syslog_pam_error(pamh, LOG_ERR, r, "Failed to get bus connection: @PAMERR@");
 
         *ret = d;
         return PAM_SUCCESS;
 }
 
-void pam_cleanup_free(pam_handle_t *handle, void *data, int error_status) {
+void pam_cleanup_free(pam_handle_t *pamh, void *data, int error_status) {
         /* A generic destructor for pam_set_data() that just frees the specified data */
         free(data);
 }
 
-void pam_cleanup_close(pam_handle_t *handle, void *data, int error_status) {
+void pam_cleanup_close(pam_handle_t *pamh, void *data, int error_status) {
 
         /* A generic destructor for pam_set_data() that just closes the specified fd.
          *
@@ -298,13 +294,13 @@ void pam_cleanup_close(pam_handle_t *handle, void *data, int error_status) {
         safe_close(PTR_TO_FD(data));
 }
 
-int pam_get_item_many_internal(pam_handle_t *handle, ...) {
+int pam_get_item_many_internal(pam_handle_t *pamh, ...) {
         va_list ap;
         int r;
 
-        assert(handle);
+        assert(pamh);
 
-        va_start(ap, handle);
+        va_start(ap, pamh);
         for (;;) {
                 int item_type = va_arg(ap, int);
                 if (item_type <= 0) {
@@ -313,7 +309,7 @@ int pam_get_item_many_internal(pam_handle_t *handle, ...) {
                 }
 
                 const void **value = ASSERT_PTR(va_arg(ap, const void **));
-                r = sym_pam_get_item(handle, item_type, value);
+                r = sym_pam_get_item(pamh, item_type, value);
                 if (!IN_SET(r, PAM_BAD_ITEM, PAM_SUCCESS))
                         break;
         }
@@ -322,13 +318,13 @@ int pam_get_item_many_internal(pam_handle_t *handle, ...) {
         return r;
 }
 
-int pam_get_data_many_internal(pam_handle_t *handle, ...) {
+int pam_get_data_many_internal(pam_handle_t *pamh, ...) {
         va_list ap;
         int r;
 
-        assert(handle);
+        assert(pamh);
 
-        va_start(ap, handle);
+        va_start(ap, pamh);
         for (;;) {
                 const char *data_name = va_arg(ap, const char *);
                 if (!data_name) {
@@ -337,7 +333,7 @@ int pam_get_data_many_internal(pam_handle_t *handle, ...) {
                 }
 
                 const void **value = ASSERT_PTR(va_arg(ap, const void **));
-                r = sym_pam_get_data(handle, data_name, value);
+                r = sym_pam_get_data(pamh, data_name, value);
                 if (!IN_SET(r, PAM_NO_MODULE_DATA, PAM_SUCCESS))
                         break;
         }
@@ -346,11 +342,11 @@ int pam_get_data_many_internal(pam_handle_t *handle, ...) {
         return r;
 }
 
-int pam_prompt_graceful(pam_handle_t *handle, int style, char **ret_response, const char *fmt, ...) {
+int pam_prompt_graceful(pam_handle_t *pamh, int style, char **ret_response, const char *fmt, ...) {
         va_list args;
         int r;
 
-        assert(handle);
+        assert(pamh);
         assert(fmt);
 
         /* This is just like pam_prompt(), but does not noisily (i.e. beyond LOG_DEBUG) log on its own, but leaves that to the caller */
@@ -363,11 +359,11 @@ int pam_prompt_graceful(pam_handle_t *handle, int style, char **ret_response, co
                 return PAM_BUF_ERR;
 
         const struct pam_conv *conv = NULL;
-        r = sym_pam_get_item(handle, PAM_CONV, (const void**) &conv);
+        r = sym_pam_get_item(pamh, PAM_CONV, (const void**) &conv);
         if (!IN_SET(r, PAM_SUCCESS, PAM_BAD_ITEM))
-                return pam_syslog_pam_error(handle, LOG_DEBUG, r, "Failed to get conversation function structure: @PAMERR@");
+                return pam_syslog_pam_error(pamh, LOG_DEBUG, r, "Failed to get conversation function structure: @PAMERR@");
         if (!conv || !conv->conv) {
-                sym_pam_syslog(handle, LOG_DEBUG, "No conversation function.");
+                sym_pam_syslog(pamh, LOG_DEBUG, "No conversation function.");
                 return PAM_SYSTEM_ERR;
         }
 
@@ -380,7 +376,7 @@ int pam_prompt_graceful(pam_handle_t *handle, int style, char **ret_response, co
         r = conv->conv(1, &pmessage, &response, conv->appdata_ptr);
         _cleanup_(erase_and_freep) char *rr = response ? response->resp : NULL; /* make sure string is freed + erased */
         if (r != PAM_SUCCESS)
-                return pam_syslog_pam_error(handle, LOG_DEBUG, r, "Conversation function failed: @PAMERR@");
+                return pam_syslog_pam_error(pamh, LOG_DEBUG, r, "Conversation function failed: @PAMERR@");
 
         if (ret_response)
                 *ret_response = TAKE_PTR(rr);

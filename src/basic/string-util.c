@@ -267,9 +267,11 @@ static size_t ansi_sequence_length(const char *s, size_t len) {
 static bool string_has_ansi_sequence(const char *s, size_t len) {
         const char *t = s;
 
-        while ((t = memchr(s, 0x1B, len - (t - s))))
+        while ((t = memchr(t, 0x1B, len - (t - s)))) {
                 if (ansi_sequence_length(t, len - (t - s)) > 0)
                         return true;
+                t++;
+        }
         return false;
 }
 
@@ -735,7 +737,7 @@ char* strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
                 case STATE_CSI:
                         assert(n_carriage_returns == 0);
 
-                        if (eot || !strchr("01234567890;m", *i)) { /* EOT or invalid chars in sequence */
+                        if (eot || !strchr(DIGITS ";:m", *i)) { /* EOT or invalid chars in sequence */
                                 fputc('\x1B', f);
                                 fputc('[', f);
                                 advance_offsets(i - *ibuf, highlight, shift, 2);

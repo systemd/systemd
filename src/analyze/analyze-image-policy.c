@@ -9,7 +9,7 @@
 #include "string-util.h"
 
 static int table_add_designator_line(Table *table, PartitionDesignator d, PartitionPolicyFlags f) {
-        _cleanup_free_ char *q = NULL;
+        _cleanup_free_ char *q = NULL, *t = NULL;
         const char *color;
         int r;
 
@@ -19,9 +19,12 @@ static int table_add_designator_line(Table *table, PartitionDesignator d, Partit
         if (partition_policy_flags_to_string(f & _PARTITION_POLICY_USE_MASK, /* simplify= */ true, &q) < 0)
                 return log_oom();
 
+        if (partition_policy_flags_to_string(f & _PARTITION_POLICY_FSTYPE_MASK, /* simplify= */ true, &t) < 0)
+                return log_oom();
+
         color = (f & _PARTITION_POLICY_USE_MASK) == PARTITION_POLICY_IGNORE ? ansi_grey() :
-                ((f & (PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED|PARTITION_POLICY_ABSENT)) ==
-                   (PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED|PARTITION_POLICY_ABSENT)) ? ansi_highlight_yellow() :
+                ((f & (PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_ENCRYPTEDWITHINTEGRITY|PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED|PARTITION_POLICY_ABSENT)) ==
+                   (PARTITION_POLICY_UNPROTECTED|PARTITION_POLICY_ENCRYPTED|PARTITION_POLICY_ENCRYPTEDWITHINTEGRITY|PARTITION_POLICY_VERITY|PARTITION_POLICY_SIGNED|PARTITION_POLICY_ABSENT)) ? ansi_highlight_yellow() :
                 (f & _PARTITION_POLICY_USE_MASK) == PARTITION_POLICY_ABSENT ? ansi_highlight_red() :
                 !(f & PARTITION_POLICY_UNPROTECTED) ? ansi_highlight_green() : NULL;
 
@@ -69,6 +72,11 @@ static int table_add_designator_line(Table *table, PartitionDesignator d, Partit
         default:
                 r = table_add_many(table, TABLE_EMPTY);
         }
+        if (r < 0)
+                return table_log_add_error(r);
+
+        r = table_add_many(table,
+                           TABLE_STRING, isempty(t) ? "-" : t);
         if (r < 0)
                 return table_log_add_error(r);
 
@@ -128,7 +136,7 @@ int verb_image_policy(int argc, char *argv[], void *userdata) {
                                ansi_highlight(), as_string_simplified, ansi_normal(),
                                ansi_grey(), as_string, ansi_normal());
 
-                table = table_new("partition", "mode", "read-only", "growfs");
+                table = table_new("partition", "mode", "read-only", "growfs", "fstype");
                 if (!table)
                         return log_oom();
 

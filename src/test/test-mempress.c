@@ -12,10 +12,12 @@
 
 #include "bus-locator.h"
 #include "bus-wait-for-jobs.h"
+#include "event-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "hashmap.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "random-util.h"
 #include "rm-rf.h"
@@ -198,7 +200,6 @@ TEST(real_pressure) {
         _cleanup_free_ char *scope = NULL;
         const char *object;
         int r;
-        pid_t pid;
 
         r = sd_bus_open_system(&bus);
         if (r < 0)
@@ -227,15 +228,15 @@ TEST(real_pressure) {
 
         assert_se(pipe2(pipe_fd, O_CLOEXEC) >= 0);
 
-        r = safe_fork("(eat-memory)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM, &pid);
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        r = pidref_safe_fork("(eat-memory)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM, &pidref);
         assert_se(r >= 0);
         if (r == 0) {
                 real_pressure_eat_memory(pipe_fd[0]);
                 _exit(EXIT_SUCCESS);
         }
 
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD) >= 0);
-        assert_se(sd_event_add_child(e, &cs, pid, WEXITED, real_pressure_child_callback, NULL) >= 0);
+        assert_se(event_add_child_pidref(e, &cs, &pidref, WEXITED, real_pressure_child_callback, NULL) >= 0);
         assert_se(sd_event_source_set_child_process_own(cs, true) >= 0);
 
         assert_se(unsetenv("MEMORY_PRESSURE_WATCH") >= 0);

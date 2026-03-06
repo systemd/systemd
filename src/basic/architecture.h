@@ -9,7 +9,7 @@
  * processor features, models, generations or even ABIs. Hence we
  * focus on general family, and distinguish word width and endianness. */
 
-typedef enum {
+typedef enum Architecture {
         ARCHITECTURE_ALPHA,
         ARCHITECTURE_ARC,
         ARCHITECTURE_ARC_BE,
@@ -242,5 +242,4 @@ Architecture uname_architecture(void);
 #  error "Please register your architecture here!"
 #endif
 
-const char* architecture_to_string(Architecture a) _const_;
-Architecture architecture_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(architecture, Architecture);

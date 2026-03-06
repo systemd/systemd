@@ -173,7 +173,7 @@ char* save_timezone(void);
 
 bool clock_supported(clockid_t clock);
 
-usec_t usec_shift_clock(usec_t, clockid_t from, clockid_t to);
+usec_t usec_shift_clock(usec_t x, clockid_t from, clockid_t to);
 
 int get_timezone(char **ret);
 const char* etc_localtime(void);
@@ -213,19 +213,7 @@ static inline usec_t usec_sub_signed(usec_t timestamp, int64_t delta) {
         return usec_sub_unsigned(timestamp, (usec_t) delta);
 }
 
-static inline int usleep_safe(usec_t usec) {
-        /* usleep() takes useconds_t that is (typically?) uint32_t. Also, usleep() may only support the
-         * range [0, 1000000]. See usleep(3). Let's override usleep() with clock_nanosleep().
-         *
-         * ⚠️ Note we are not using plain nanosleep() here, since that operates on CLOCK_REALTIME, not
-         *    CLOCK_MONOTONIC! */
-
-        if (usec == 0)
-                return 0;
-
-        /* `clock_nanosleep()` does not use `errno`, but returns positive error codes. */
-        return -clock_nanosleep(CLOCK_MONOTONIC, 0, TIMESPEC_STORE(usec), NULL);
-}
+int usleep_safe(usec_t usec);
 
 /* The last second we can format is 31. Dec 9999, 1s before midnight, because otherwise we'd enter 5 digit
  * year territory. However, since we want to stay away from this in all timezones we take one day off. */
@@ -244,5 +232,4 @@ static inline int usleep_safe(usec_t usec) {
 
 int time_change_fd(void);
 
-const char* timestamp_style_to_string(TimestampStyle t) _const_;
-TimestampStyle timestamp_style_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(timestamp_style, TimestampStyle);

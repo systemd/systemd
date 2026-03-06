@@ -15,6 +15,7 @@
 #include "logind-seat.h"
 #include "logind-user.h"
 #include "logind-varlink.h"
+#include "strv.h"
 #include "terminal-util.h"
 #include "user-record.h"
 #include "user-util.h"
@@ -145,10 +146,12 @@ typedef struct CreateSessionParameters {
         int remote;
         const char *remote_user;
         const char *remote_host;
+        char **extra_device_access;
 } CreateSessionParameters;
 
 static void create_session_parameters_done(CreateSessionParameters *p) {
         pidref_done(&p->pid);
+        strv_free(p->extra_device_access);
 }
 
 static int vl_method_create_session(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
@@ -156,19 +159,20 @@ static int vl_method_create_session(sd_varlink *link, sd_json_variant *parameter
         int r;
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "UID",        _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uid_gid,      offsetof(CreateSessionParameters, uid),         SD_JSON_MANDATORY },
-                { "PID",        _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_pidref,          offsetof(CreateSessionParameters, pid),         SD_JSON_STRICT    },
-                { "Service",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(CreateSessionParameters, service),     0                 },
-                { "Type",       SD_JSON_VARIANT_STRING,        json_dispatch_session_type,    offsetof(CreateSessionParameters, type),        SD_JSON_MANDATORY },
-                { "Class",      SD_JSON_VARIANT_STRING,        json_dispatch_session_class,   offsetof(CreateSessionParameters, class),       SD_JSON_MANDATORY },
-                { "Desktop",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(CreateSessionParameters, desktop),     SD_JSON_STRICT    },
-                { "Seat",       SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(CreateSessionParameters, seat),        0                 },
-                { "VTNr",       _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,         offsetof(CreateSessionParameters, vtnr),        0                 },
-                { "TTY",        SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(CreateSessionParameters, tty),         0                 },
-                { "Display",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(CreateSessionParameters, display),     0                 },
-                { "Remote",     SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate,     offsetof(CreateSessionParameters, remote),      0                 },
-                { "RemoteUser", SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(CreateSessionParameters, remote_user), 0                 },
-                { "RemoteHost", SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(CreateSessionParameters, remote_host), 0                 },
+                { "UID",               _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uid_gid,      offsetof(CreateSessionParameters, uid),                 SD_JSON_MANDATORY },
+                { "PID",               _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_pidref,          offsetof(CreateSessionParameters, pid),                 SD_JSON_STRICT    },
+                { "Service",           SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(CreateSessionParameters, service),             0                 },
+                { "Type",              SD_JSON_VARIANT_STRING,        json_dispatch_session_type,    offsetof(CreateSessionParameters, type),                SD_JSON_MANDATORY },
+                { "Class",             SD_JSON_VARIANT_STRING,        json_dispatch_session_class,   offsetof(CreateSessionParameters, class),               SD_JSON_MANDATORY },
+                { "Desktop",           SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(CreateSessionParameters, desktop),             SD_JSON_STRICT    },
+                { "Seat",              SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(CreateSessionParameters, seat),                0                 },
+                { "VTNr",              _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,         offsetof(CreateSessionParameters, vtnr),                0                 },
+                { "TTY",               SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(CreateSessionParameters, tty),                 0                 },
+                { "Display",           SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(CreateSessionParameters, display),             0                 },
+                { "Remote",            SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_tristate,     offsetof(CreateSessionParameters, remote),              0                 },
+                { "RemoteUser",        SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(CreateSessionParameters, remote_user),         0                 },
+                { "RemoteHost",        SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(CreateSessionParameters, remote_host),         0                 },
+                { "ExtraDeviceAccess", SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_strv,         offsetof(CreateSessionParameters, extra_device_access), 0                 },
                 {}
         };
 
@@ -183,6 +187,9 @@ static int vl_method_create_session(sd_varlink *link, sd_json_variant *parameter
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
+
+        if (p.class == SESSION_NONE)
+                return sd_varlink_error_invalid_parameter_name(link, "Class");
 
         Seat *seat = NULL;
         if (p.seat) {
@@ -261,6 +268,7 @@ static int vl_method_create_session(sd_varlink *link, sd_json_variant *parameter
                         p.remote,
                         p.remote_user,
                         p.remote_host,
+                        p.extra_device_access,
                         &session);
         if (r == -EBUSY)
                 return sd_varlink_error(link, "io.systemd.Login.AlreadySessionMember", /* parameters= */ NULL);
@@ -300,7 +308,7 @@ static int vl_method_release_session(sd_varlink *link, sd_json_variant *paramete
         } p;
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "Id", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, voffsetof(p, id), SD_JSON_MANDATORY },
+                { "Id", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, voffsetof(p, id), 0 },
                 {}
         };
 

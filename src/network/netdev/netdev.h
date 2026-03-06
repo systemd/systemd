@@ -227,8 +227,7 @@ void netdev_drop(NetDev *netdev);
 void netdev_enter_failed(NetDev *netdev);
 int netdev_enter_ready(NetDev *netdev);
 
-NetDev* netdev_unref(NetDev *netdev);
-NetDev* netdev_ref(NetDev *netdev);
+DECLARE_TRIVIAL_REF_UNREF_FUNC(NetDev, netdev);
 DEFINE_TRIVIAL_DESTRUCTOR(netdev_destroy_callback, NetDev, netdev_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(NetDev*, netdev_unref);
 
@@ -242,8 +241,7 @@ int netdev_generate_hw_addr(NetDev *netdev, Link *parent, const char *name,
 bool netdev_needs_reconfigure(NetDev *netdev, NetDevLocalAddressType type);
 int link_request_stacked_netdev(Link *link, NetDev *netdev);
 
-const char* netdev_kind_to_string(NetDevKind d) _const_;
-NetDevKind netdev_kind_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(netdev_kind, NetDevKind);
 
 static inline NetDevCreateType netdev_get_create_type(NetDev *netdev) {
         assert(netdev);
@@ -259,6 +257,16 @@ CONFIG_PARSER_PROTOTYPE(config_parse_netdev_hw_addr);
 const struct ConfigPerfItem* network_netdev_gperf_lookup(const char *str, GPERF_LEN_TYPE length);
 
 /* Macros which append INTERFACE= to the message */
+
+#define log_netdev_syntax(netdev, level, message_id, fmt, ...)          \
+        ({                                                              \
+                const NetDev *_n = (netdev);                            \
+                const char *_ifname = _n ? _n->ifname : NULL;           \
+                log_struct(level,                                       \
+                           LOG_MESSAGE(fmt, __VA_ARGS__),               \
+                           LOG_MESSAGE_ID(message_id),                  \
+                           LOG_ITEM("INTERFACE=%s", strempty(_ifname))); \
+        })
 
 #define log_netdev_full_errno_zerook(netdev, level, error, ...)         \
         ({                                                              \

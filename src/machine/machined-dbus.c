@@ -464,7 +464,7 @@ static int method_create_or_register_machine(
                         supervisor_pidref = TAKE_PIDREF(client_pidref);
         }
 
-        if (hashmap_get(manager->machines, name))
+        if (hashmap_contains(manager->machines, name))
                 return sd_bus_error_setf(error, BUS_ERROR_MACHINE_EXISTS, "Machine '%s' already exists", name);
 
         return machine_add_from_params(
@@ -480,7 +480,7 @@ static int method_create_or_register_machine(
                         root_directory,
                         netif,
                         n_netif,
-                        /* cid= */ 0,
+                        /* cid= */ VMADDR_CID_ANY,
                         /* ssh_address= */ NULL,
                         /* ssh_private_key_path= */ NULL,
                         ret,
@@ -616,7 +616,7 @@ static int method_create_or_register_machine_ex(
         if (!isempty(root_directory) && (!path_is_absolute(root_directory) || !path_is_valid(root_directory)))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Root directory must be empty or an absolute path");
 
-        if (hashmap_get(manager->machines, name))
+        if (hashmap_contains(manager->machines, name))
                 return sd_bus_error_setf(error, BUS_ERROR_MACHINE_EXISTS, "Machine '%s' already exists", name);
 
         /* If a PID is specified that's the leader, but if the client process is different from it, than that's the supervisor */
@@ -1642,6 +1642,12 @@ int manager_unit_is_active(Manager *manager, const char *unit, sd_bus_error *ret
         assert(manager);
         assert(unit);
 
+        r = sd_bus_is_ready(manager->api_bus);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -ENOTCONN;
+
         path = unit_dbus_path_from_name(unit);
         if (!path)
                 return -ENOMEM;
@@ -1681,6 +1687,12 @@ int manager_job_is_active(Manager *manager, const char *path, sd_bus_error *rete
 
         assert(manager);
         assert(path);
+
+        r = sd_bus_is_ready(manager->api_bus);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -ENOTCONN;
 
         r = sd_bus_get_property(
                         manager->api_bus,

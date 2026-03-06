@@ -90,8 +90,6 @@ TEST(notify_socket_prepare) {
         _cleanup_free_ char *path = NULL;
         ASSERT_OK(notify_socket_prepare_full(e, SD_EVENT_PRIORITY_NORMAL - 10, on_recv, &c, true, &path, NULL));
 
-        ASSERT_OK(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD));
-
         ASSERT_OK(r = pidref_safe_fork("(test-notify-recv-child)", FORK_DEATHSIG_SIGTERM|FORK_LOG, &c.pidref));
         if (r == 0) {
                 ASSERT_OK_ERRNO(setenv("NOTIFY_SOCKET", path, /* overwrite= */ true));

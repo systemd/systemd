@@ -11,6 +11,7 @@
   <para id="controllers-text">The following controller names may be specified: <option>cpu</option>,
   <option>cpuset</option>, <option>io</option>, <option>memory</option>, <option>pids</option>,
   <option>bpf-firewall</option>, <option>bpf-devices</option>, <option>bpf-foreign</option>,
-  <option>bpf-socket-bind</option>, and <option>bpf-restrict-network-interfaces</option>.</para>
+  <option>bpf-socket-bind</option>, <option>bpf-restrict-network-interfaces</option>, and
+  <option>bpf-bind-network-interface</option>.</para>
 
 </refsect1>

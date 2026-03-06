@@ -935,6 +935,28 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>ScatterGather=</varname></term>
+        <listitem>
+          <para>Takes a boolean. If set to true, enables offload feature where the hardware builds a network
+          packet from multiple non-contiguous memory buffers.
+          When unset, the kernel's default will be used. This corresponds to the command
+          <command>ethtool -K <replaceable>INTERFACE</replaceable> tx-scatter-gather on|off</command>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v260"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>ScatterGatherFragmentList=</varname></term>
+        <listitem>
+          <para>Takes a boolean. If set to true, enables offload feature where the hardware builds a network
+          packet from a chained list of socket buffers.
+          When unset, the kernel's default will be used. This corresponds to the command
+          <command>ethtool -K <replaceable>INTERFACE</replaceable> tx-scatter-gather-fraglist on|off</command>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v260"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>TCPSegmentationOffload=</varname></term>
         <listitem>
           <para>Takes a boolean. If set to true, TCP Segmentation Offload (TSO) is enabled.
@@ -943,8 +965,31 @@
           <xi:include href="version-info.xml" xpointer="v232"/>
         </listitem>
       </varlistentry>
-       <varlistentry>
-      <term><varname>TCP6SegmentationOffload=</varname></term>
+      <varlistentry>
+        <term><varname>TCPECNSegmentationOffload=</varname></term>
+        <listitem>
+          <para>Takes a boolean. If set to true, TCP Segmentation Offload (TSO) is performed even when ECN
+          (Explicit Congestion Notification) flags are active in the TCP stream.
+          When unset, the kernel's default will be used. This corresponds to the command
+          <command>ethtool -K <replaceable>INTERFACE</replaceable> tx-tcp-ecn-segmentation on|off</command>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v260"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>TCPMangleIdSegmentationOffload=</varname></term>
+        <listitem>
+          <para>Takes a boolean. If set to true, TCP Segmentation Offload (TSO) is performed even if the
+          hardware is incapable of correctly incrementing the IPv4 Identification (ID) field for each
+          resulting packet.
+          When unset, the kernel's default will be used. This corresponds to the command
+          <command>ethtool -K <replaceable>INTERFACE</replaceable> tx-tcp-mangleid-segmentation on|off</command>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v260"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>TCP6SegmentationOffload=</varname></term>
         <listitem>
           <para>Takes a boolean. If set to true, TCP6 Segmentation Offload (tx-tcp6-segmentation) is enabled.
           When unset, the kernel's default will be used.</para>
@@ -989,6 +1034,26 @@
           enabled. When unset, the kernel's default will be used.</para>
 
           <xi:include href="version-info.xml" xpointer="v250"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>GenericReceiveOffloadList=</varname></term>
+        <listitem>
+          <para>Takes a boolean. If set to true, Generic Receive Offload (GRO) List for UDP is enabled.
+          When unset, the kernel's default will be used. This corresponds to the command
+          <command>ethtool -K <replaceable>INTERFACE</replaceable> rx-gro-list on|off</command>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v260"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>GenericReceiveOffloadUDPForwarding=</varname></term>
+        <listitem>
+          <para>Takes a boolean. If set to true, Generic Receive Offload (GRO) for aggregating incoming UDP packets is enabled.
+          When unset, the kernel's default will be used. This corresponds to the command
+          <command>ethtool -K <replaceable>INTERFACE</replaceable> rx-udp-gro-forwarding on|off</command>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v260"/>
         </listitem>
       </varlistentry>
       <varlistentry>

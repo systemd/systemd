@@ -6,6 +6,7 @@
 import os
 import re
 import sys
+from pathlib import Path
 from typing import IO
 
 
@@ -59,6 +60,23 @@ def process_header_file(file: IO[str]) -> str:
         m = re.search(r'_SD_DEFINE_POINTER_CLEANUP_FUNC\(\w+,\s*(\w+)\)', line)
         if m:
             text += f'        {{ "{m[1]}", {m[1]} }},\n'
+            continue
+
+        # Functions declared by ref/unref macros
+        m = re.search(r'_SD_DECLARE_TRIVIAL_REF_UNREF_FUNC\((\w+)\)', line)
+        if m:
+            text += f'        {{ "{m[1]}_ref", {m[1]}_ref }},\n'
+            text += f'        {{ "{m[1]}_unref", {m[1]}_unref }},\n'
+            continue
+
+        m = re.search(r'_SD_DECLARE_TRIVIAL_REF_FUNC\((\w+)\)', line)
+        if m:
+            text += f'        {{ "{m[1]}_ref", {m[1]}_ref }},\n'
+            continue
+
+        m = re.search(r'_SD_DECLARE_TRIVIAL_UNREF_FUNC\((\w+)\)', line)
+        if m:
+            text += f'        {{ "{m[1]}_unref", {m[1]}_unref }},\n'
             continue
 
     return text
@@ -144,7 +162,10 @@ for dirpath, _, filenames in sorted(os.walk(sys.argv[2])):
     for filename in sorted(filenames):
         if not filename.endswith('.c') and not filename.endswith('.h'):
             continue
-        with open(os.path.join(dirpath, filename), 'r') as f:
+        p = Path(dirpath) / filename
+        if p.is_symlink():
+            continue
+        with p.open('rt') as f:
             process_source_file(f)
 
 print("""        {}

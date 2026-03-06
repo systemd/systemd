@@ -15,7 +15,6 @@ ssize_t string_table_lookup_from_string_fallback(const char * const *table, size
 
 /* For basic lookup tables with strictly enumerated entries */
 #define _DEFINE_STRING_TABLE_LOOKUP_TO_STRING(name, type, scope)                                        \
-        /* NOLINTNEXTLINE (readability-inconsistent-declaration-parameter-name) */                      \
         scope const char* name##_to_string(type i) {                                                    \
                 return string_table_lookup_to_string(name##_table, ELEMENTSOF(name##_table), i);        \
         }
@@ -31,7 +30,6 @@ ssize_t string_table_lookup_from_string_fallback(const char * const *table, size
         }
 
 #define _DEFINE_STRING_TABLE_LOOKUP_TO_STRING_FALLBACK(name, type, max, scope)                          \
-        /* NOLINTNEXTLINE (readability-inconsistent-declaration-parameter-name) */                      \
         scope int name##_to_string_alloc(type i, char **ret) {                                          \
                 return string_table_lookup_to_string_fallback(name##_table, ELEMENTSOF(name##_table), i, max, ret); \
         }

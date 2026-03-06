@@ -270,6 +270,20 @@ static int dump_event_json(UdevEvent *event, sd_json_format_flags_t flags, FILE 
                         return r;
         }
 
+        tags = strv_free(tags);
+
+        FOREACH_DEVICE_CURRENT_TAG(dev, tag) {
+                r = strv_extend(&tags, tag);
+                if (r < 0)
+                        return r;
+        }
+
+        if (!strv_isempty(tags)) {
+                r = sd_json_variant_set_field_strv(&v, "currentTags", strv_sort(tags));
+                if (r < 0)
+                        return r;
+        }
+
         char **properties;
         if (device_get_properties_strv(dev, &properties) >= 0 && !strv_isempty(properties)) {
                 r = sd_json_variant_set_field_strv(&v, "properties", strv_sort(properties));
@@ -414,6 +428,12 @@ int dump_event(UdevEvent *event, sd_json_format_flags_t flags, FILE *f) {
         if (sd_device_get_tag_first(dev)) {
                 fprintf(f, "%sTags:%s\n", ansi_highlight(), ansi_normal());
                 FOREACH_DEVICE_TAG(dev, tag)
+                        fprintf(f, "  %s\n", tag);
+        }
+
+        if (sd_device_get_current_tag_first(dev)) {
+                fprintf(f, "%sCurrent Tags:%s\n", ansi_highlight(), ansi_normal());
+                FOREACH_DEVICE_CURRENT_TAG(dev, tag)
                         fprintf(f, "  %s\n", tag);
         }
 

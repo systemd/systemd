@@ -104,19 +104,8 @@ Deprecations and removals:
   and then rework cgroupsv2 support around fds, i.e. keep one fd per active
   unit around, and always operate on that, instead of cgroup fs paths.
 
-* drop support for getrandom()-less kernels. (GRND_INSECURE means once kernel
-  5.6 becomes our baseline). See
-  https://github.com/systemd/systemd/pull/24101#issuecomment-1193966468 for
-  details. Maybe before that: at taint-flags/warn about kernels that lack
-  getrandom()/environments where it is blocked.
-
 * drop support for LOOP_CONFIGURE-less loopback block devices, once kernel
   baseline is 5.8.
-
-* drop fd_is_mount_point() fallback mess once we can rely on
-  STATX_ATTR_MOUNT_ROOT to exist i.e. kernel baseline 5.8
-
-* Once baseline is 5.10, remove support or MS_NOSYMFOLLOW-less kernels
 
 * Remove /dev/mem ACPI FPDT parsing when /sys/firmware/acpi/fpdt is ubiquitous.
   That requires distros to enable CONFIG_ACPI_FPDT, and have kernels v5.12 for
@@ -127,15 +116,124 @@ Deprecations and removals:
 
 * Consider removing root=gpt-auto, and push people to use root=dissect instead.
 
-* Once
-  https://github.com/util-linux/util-linux/commit/508fb0e7ac103b68531a59db2a4473897853ab52
-  has hit the prominent distributions, revert --issue-file= hack in units/*getty*service.in
-
-* Once kernel baseline is 5.7, obsolete DefaultMemoryMin/Low= and DefaultStartupMemoryLow=
-  since we can systematically enable memory_recursiveprot on cgroupfs and have those
-  enforced by the kernel
+* remove any trace of "cpuacct" cgroup controller, it's a cgroupv1 thing.
+  similar "devices"
 
 Features:
+
+* drop NV_ORDERLY flag from the product uuid nvpcr. Effect of the flag is that
+  it pushes the thing into TPM RAM, but a TPM usually has very little of that,
+  less than NVRAM. hence setting the flag amplifies space issues. Unsetting the
+  flag increases wear issues on the NVRAM, however, but this should be limited
+  for the product uuid nvpcr, since its only changed once per boot. this needs
+  to be configurable by nvpcr however, as other nvpcrs are different,
+  i.e. verity one receives many writes during system uptime quite
+  possibly. (also, NV_ORDERLY makes stuff faster, and dropping it costs
+  possibly up to 100ms supposedly)
+
+* create a hwdb database that contains tpm quirks, i.e. knows whether NV_ORDERLY
+  + TPM2_NT_EXTEND can be safely mixed or
+  not. (see https://github.com/systemd/systemd/issues/40485#issuecomment-3984855537)
+
+* instead of going directly for DefineSpace when initializing nvpcrs, check if
+  they exist first. apparently DEfineSpace is broken on some tpms, and also
+  creates log spam if the nvindex already exists.
+
+* on first login of a user, measure its identity to some nvpcr
+
+* sd-lldp: pick up 802.3 maximum frame size/mtu, to be able to detect jumbo
+  frame capable networks
+
+* networkd: maintain a file in /run/ that can be symlinked into /run/issue.d/
+  that always shows the current primary IP address
+
+* oci: add support for blake hashes for layers
+
+* oci: add support for "importctl import-oci" which implements the "OCI layout"
+  spec (i.e. acquiring via local fs access), as opposed to the current
+  "importctl pull-oci" which focusses on the "OCI image spec", i.e. downloads
+  from the web (i.e. acquiring via URLs).
+
+* oci: support "data" in any OCI descriptor, not just manifest config.
+
+* report:
+  - plug "facts" into systemd-report too, i.e. stuff that is more static, such as hostnames, ssh keys and so on.
+  - pass filtering hints to services, so that they can also be applied server-side, not just client side
+  - metrics from pid1: suppress metrics form units that are inactive and have nothing to report
+  - add "hint-suppress-zero" flag (which suppresses all metrics which are zero)
+  - add "hint-object" parameter (which only queries info about certain object)
+  - make systemd-report a varlink service
+
+* implement a varlink registry service, similar to the one of the reference
+  implementation, backed by /run/varlink/registry/. Then, also implement
+  connect-via-registry-resolution in sd-varlink and varlinkctl. Care needs to
+  be taken to do the resolution asynchronousy. Also, note that the Varlink
+  reference implementation uses a different address syntax, which needs to be
+  taken into account.
+
+* downgrade the uid/gid disposition enforcement in udev
+
+* have a signal that reloads every unit that supports reloading
+
+* systemd: add storage API via varlink, where everyone can drop a socket in a
+  dir, similar, do the same thing for networking
+
+* do a console daemon that takes stdio fds for services and allows to reconnect
+  to them later
+
+* report: have something that requests cloud workload identity bearer tokens
+  and includes it in the report
+
+* sysupdate: download multiple arbitrary patterns from same source
+
+* sysupdate: SHA256SUMS format with bearer tokens for each resource to download
+
+* sysupdate: decrypt SHA256SUMS with key from tpm
+
+* sysupdate: clean up stuff on disk that disappears from SHA256SUMS
+
+* sysupdate: turn http backend stuff int plugin via varlink
+
+* add new tool that can be used in debug mode runs in very early boot,
+  generates a random password, passes it as credential to sysusers for the root
+  user, then displays it on screen. people can use this to remotely log in.
+
+* Maybe introducean InodeRef structure inspired by PidRef, which references a
+  specific inode, and combines: a path, an O_PATH fd, and possibly a FID into
+  one. Why? We often pass around path and fd separately in chaseat() and similar
+  calls. Because passing around both separately is cumbersome we sometimes only
+  one pass one, once the other and sometimes both. It would make the code a lot
+  simpler if we could path both around at the same time in a simple way, via an
+  InodeRef which *both* pins the inode via an fd, *and* gives us a friendly
+  name for it.
+
+* systemd-sysupdate: for each transfer support looking at multiple sources,
+  pick source with newest entry. If multiple sources have the same entry, use
+  first configured source. Usecase: "sideload" components from local dirs,
+  without disabling remote sources.
+
+* systemd-sysupdate: support "revoked" items, which cause the client to
+  downgrade/upgrade
+
+* portable services: attach not only unit files to host, but also simple
+  binaries to a tmpfs path in $PATH.
+
+* systemd-sysext: add "exec" command or so that is a bit like "refresh" but
+  runs it in a new namespace and then just executes the selected binary within
+  it. Could be useful to run one-off binaries inside a sysext as a CLI tool.
+
+* systemd-repart: implement Integrity=data/meta and Integrity=inline for non-LUKS
+  case. Currently, only Integrity=inline combined with Encrypt= is implemented
+  and uses libcryptsetup features. Add support for plain dm-integrity setups when
+  integrity tags are stored by the device (inline), interleaved with data (data),
+  and on a separate device (meta).
+
+* homed/pam_systemd: allow authentication by ssh-agent, so that run0/polkit can
+  be allowed if caller comes with the right ssh-agent keys.
+
+* machined: gc for OCI layers that are not referenced anymore by any .mstack/ links.
+
+* pull-oci: progress notification
 
 * networkd/machined: implement reverse name lookups in the resolved hook
 
@@ -153,18 +251,7 @@ Features:
   the file systems to disk later (using btrfs device replacement), if needed as
   part of an installer logic.
 
-* add a concept of overlay directory stacks to image discovery, i.e. have a dir
-  with a name suffix of ".ovl" or so that contains DDIs and plain dirs (and
-  possible .v dirs) that are glued together on use via overlayfs. one special
-  subdir should be used as writable top layer.
-
 * journald: log pidfid as another field, i.e. _PIDFDID=
-
-* systemd-nspawn: something like --volatile= but that isn't volatile, but
-  stores the data in some separate dir on disk. Usecase: keep always up-to-date
-  DDIs of some OS in your home dir, but combine its /usr/ with a locally
-  maintained root fs in a regular dir to maintain local state. (idea: call it
-  --mutable= and take dir or DDI and merge in)
 
 * measure all log-in attempts into a new nvpcr
 
@@ -206,10 +293,6 @@ Features:
 
 * similar: add a plugin for factory reset logic that erases certain parts of
   the ESP, but leaves others in place.
-
-* systemd-repart: add --defer-partitions-factory-reset or so, as a flavour of
-  --defer-partitions= that picks all partitions that are marked for factory
-  reset. for an installer this is usually the partitions not to copy, too.
 
 * flush_fd() should probably try to be smart and stop reading once we know that
   all further queued data was enqueued after flush_fd() was originally
@@ -519,10 +602,6 @@ Features:
   - add support to export-fs, import-fs
   - systemd-dissect should learn mappings, too, when doing mtree and such
 
-* format-table: introduce new cell type for strings with ansi sequences in
-  them. display them in regular output mode (via strip_tab_ansi()), but
-  suppress them in json mode.
-
 * resolved: report ttl in resolution replies if we know it. This data is useful
   for tools such as wireguard which want to periodically re-resolve DNS names,
   and might want to use the TTL has hint for that.
@@ -554,8 +633,6 @@ Features:
 
 * port copy.c over to use LabelOps for all labelling.
 
-* get rid of compat with libidn.so.11 (retain only for libidn.so.12)
-
 * get rid of compat with libbpf.so.0 (retainly only for libbpf.so.1)
 
 * define a generic "report" varlink interface, which services can implement to
@@ -569,10 +646,6 @@ Features:
 
 * The bind(AF_UNSPEC) construct (for resetting sockets to their initial state)
   should be blocked in many cases because it punches holes in many sandboxes.
-
-* find a nice way to opt-in into auto-masking SIGCHLD on first
-  sd_event_add_child(), and then get rid of many more explicit sigprocmask()
-  calls.
 
 * introduce new structure Tpm2CombinedPolicy, that combines the various TPm2
   policy bits into one structure, i.e. public key info, pcr masks, pcrlock
@@ -666,10 +739,6 @@ Features:
   settled), since we need those for pcrlock measurements and similar. When
   deleting entries for rotation, place an event that declares how many items
   have been dropped, and what the hash before and after that.
-
-* measure information about all DDIs as we activate them to an NvPCR. We
-  probably should measure the dm-verity root hash from the kernel side, but
-  DDI meta info from userspace.
 
 * use name_to_handle_at() with AT_HANDLE_FID instead of .st_ino (inode
   number) for identifying inodes, for example in copy.c when finding hard
@@ -845,8 +914,6 @@ Features:
   early on, but provide opt-out via kernel cmdline.
 
 * systemd-pcrextend:
-  - support measuring to nvindex with PCR update semantics ("fake PCRs")
-  - add api for "allocating" such an nvindex
   - once we have that start measuring every sysext we apply, every confext,
     every RootImage= we apply, every nspawn and so on. All in separate fake
     PCRs.
@@ -860,8 +927,6 @@ Features:
   - support for "real" networking via "-n" and --network-bridge=
   - translate SIGTERM to clean ACPI shutdown event
   - implement hotkeys ^]^]r and ^]^]p like nspawn
-
-* systemd-pcrmachine should probably also measure the SMBIOS system UUID.
 
 * storagetm:
   - add USB mass storage device logic, so that all local disks are also exposed
@@ -925,8 +990,6 @@ Features:
 
 * Varlinkification of the following command line tools, to open them up to
   other programs via IPC:
-  - bootctl
-  - journalctl (allowing journal read access via IPC)
   - coredumpcl
   - systemd-bless-boot
   - systemd-measure
@@ -1082,12 +1145,6 @@ Features:
   with success notifications from nspawn payloads. When this is enabled,
   automatically support reverting back to older OS version images if newer ones
   fail to boot.
-
-* implement new "systemd-fsrebind" tool that works like gpt-auto-generator but
-  looks at a root dir and then applies vpick on various dirs/images to pick a
-  root tree, a /usr/ tree, a /home/, a /srv/, a /var/ tree and so on. Dirs
-  could also be btrfs subvols (combine with btrfs auto-snapshort approach for
-  creating versions like these automatically).
 
 * remove tomoyo support, it's obsolete and unmaintained apparently
 
@@ -1250,9 +1307,9 @@ Features:
   - If run on every boot, should it use the sysupdate config from the host on
     subsequent boots?
 
-* To mimic the new tpm2-measure-pcr= crypttab option add the same to veritytab
-  (measuring the root hash) and integritytab (measuring the HMAC key if one is
-  used)
+* To mimic the new tpm2-measure-pcr= crypttab option and tpm2-measure-nvpcr=
+  veritytab option, add the same to integritytab (measuring the HMAC key if one
+  is used)
 
 * We should start measuring all services, containers, and system extensions we
   activate. probably into PCR 13. i.e. add --tpm2-measure-pcr= or so to
@@ -1266,10 +1323,6 @@ Features:
   from the UKI with all parameters baked in to a Type #1 .conf file with manual
   parametrization, if needed. This matches our usual rule that admin config
   should win over vendor defaults.
-
-* write a "search path" spec, that documents the prefixes to search in
-  (i.e. the usual /etc/, /run/, /usr/lib/ dance, potentially /usr/etc/), how to
-  sort found entries, how masking works and overriding.
 
 * automatic boot assessment: add one more default success check that just waits
   for a bit after boot, and blesses the boot if the system stayed up that long.
@@ -1675,22 +1728,6 @@ Features:
   keys of /etc/crypttab. That way people can store/provide the roothash
   externally and provide to us on demand only.
 
-* we probably should extend the root verity hash of the root fs into some PCR
-  on boot. (i.e. maybe add a veritytab option tpm2-measure=12 or so to measure
-  it into PCR 12); Similar: we probably should extend the LUKS volume key of
-  the root fs into some PCR on boot. (i.e. maybe add a crypttab option
-  tpm2-measure=15 or so to measure it into PCR 15); once both are in place
-  update gpt-auto-discovery to generate these by default for the partitions it
-  discovers. Static vendor stuff should probably end up in PCR 12 (i.e. the
-  verity hash), with local keys in PCR 15 (i.e. the encryption volume
-  key). That way, we nicely distinguish resources supplied by the OS vendor
-  (i.e. sysext, root verity) from those inherently local (i.e. encryption key),
-  which is useful if they shall be signed separately.
-
-* in uefi stub: query firmware regarding which PCR banks are being used, store
-  that in EFI var. then use this when enrolling TPM2 in cryptsetup to verify
-  that the selected PCRs actually are used by firmware.
-
 * rework recursive read-only remount to use new mount API
 
 * when mounting disk images: if IMAGE_ID/IMAGE_VERSION is set in os-release
@@ -1784,9 +1821,6 @@ Features:
 
 * Figure out naming of verbs in systemd-analyze: we have (singular) capability,
   exit-status, but (plural) filesystems, architectures.
-
-* Add service setting to run a service within the specified VRF. i.e. do the
-  equivalent of "ip vrf exec".
 
 * special case some calls of chase() to use openat2() internally, so
   that the kernel does what we otherwise do.
@@ -2259,7 +2293,7 @@ Features:
     being properly synchronous we just keep open the fd and close it
     when done. That means clients do not get a successful method reply,
     but much rather a disconnect on success.
-  - when breaking cycles drop sysv services first, then services from /run, then from /etc, then from /usr
+  - when breaking cycles drop services from /run first, then from /etc, then from /usr
   - when a bus name of a service disappears from the bus make sure to queue further activation requests
   - maybe introduce CoreScheduling=yes/no to optionally set a PR_SCHED_CORE cookie, so that all
     processes in a service's cgroup share the same cookie and are guaranteed not to share SMT cores
@@ -2278,7 +2312,6 @@ Features:
   - allow Type=simple with PIDFile=
     https://bugzilla.redhat.com/show_bug.cgi?id=723942
   - allow writing multiple conditions in unit files on one line
-  - introduce Type=pid-file
   - add a concept of RemainAfterExit= to scope units
   - Allow multiple ExecStart= for all Type= settings, so that we can cover rescue.service nicely
   - add verification of [Install] section to systemd-analyze verify
@@ -2687,7 +2720,6 @@ Features:
 * document:
   - document that deps in [Unit] sections ignore Alias= fields in
     [Install] units of other units, unless those units are disabled
-  - man: clarify that time-sync.target is not only sysv compat but also useful otherwise. Same for similar targets
   - document that service reload may be implemented as service reexec
   - add a man page containing packaging guidelines and recommending usage of things like Documentation=, PrivateTmp=, PrivateNetwork= and ReadOnlyDirectories=/etc /usr.
   - document systemd-journal-flush.service properly

@@ -2,6 +2,7 @@
 
 #include "sd-daemon.h"
 #include "sd-event.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "btrfs-util.h"
@@ -276,6 +277,11 @@ static int tar_pull_make_local_copy(TarPull *p) {
                         if (r < 0)
                                 return r;
 
+                        _cleanup_(sd_varlink_unrefp) sd_varlink *mountfsd_link = NULL;
+                        r = mountfsd_connect(&mountfsd_link);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to connect to mountfsd: %m");
+
                         /* Usually, tar_pull_job_on_open_disk_tar() would allocate ->tree_fd for us, but if
                          * already downloaded the image before, and are just making a copy of the original
                          * download, we need to open ->tree_fd now */
@@ -288,25 +294,43 @@ static int tar_pull_make_local_copy(TarPull *p) {
                                 if (fstat(directory_fd, &st) < 0)
                                         return log_error_errno(errno, "Failed to stat '%s': %m", p->final_path);
 
-                                if (uid_is_foreign(st.st_uid)) {
-                                        r = mountfsd_mount_directory_fd(directory_fd, p->userns_fd, DISSECT_IMAGE_FOREIGN_UID, &p->tree_fd);
-                                        if (r < 0)
-                                                return r;
-                                } else
-                                        p->tree_fd = TAKE_FD(directory_fd);
+                                if (!uid_is_foreign(st.st_uid))
+                                        return log_error_errno(
+                                                        SYNTHETIC_ERRNO(EINVAL),
+                                                        "Image tree '%s' is not owned by the foreign UID range, refusing.",
+                                                        p->final_path);
+
+                                r = mountfsd_mount_directory_fd(
+                                                mountfsd_link,
+                                                directory_fd,
+                                                p->userns_fd,
+                                                DISSECT_IMAGE_FOREIGN_UID,
+                                                &p->tree_fd);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to mount directory via mountfsd: %m");
                         }
 
                         _cleanup_close_ int directory_fd = -EBADF;
-                        r = mountfsd_make_directory(t, /* flags= */ 0, &directory_fd);
+                        r = mountfsd_make_directory(
+                                        mountfsd_link,
+                                        t,
+                                        MODE_INVALID,
+                                        /* flags= */ 0,
+                                        &directory_fd);
                         if (r < 0)
-                                return r;
+                                return log_error_errno(r, "Failed to make directory via mountfsd: %m");
 
                         _cleanup_close_ int copy_fd = -EBADF;
-                        r = mountfsd_mount_directory_fd(directory_fd, p->userns_fd, DISSECT_IMAGE_FOREIGN_UID, &copy_fd);
+                        r = mountfsd_mount_directory_fd(
+                                        mountfsd_link,
+                                        directory_fd,
+                                        p->userns_fd,
+                                        DISSECT_IMAGE_FOREIGN_UID,
+                                        &copy_fd);
                         if (r < 0)
-                                return r;
+                                return log_error_errno(r, "Failed to mount directory via mountfsd: %m");
 
-                        r = import_copy_foreign(p->tree_fd, copy_fd, &p->userns_fd);
+                        r = copy_tree_at_foreign(p->tree_fd, copy_fd, p->userns_fd);
                         if (r < 0)
                                 return r;
                 } else {
@@ -406,7 +430,7 @@ static void tar_pull_job_on_finished(PullJob *j) {
                 clear_progress_bar(/* prefix= */ NULL);
 
                 if (j == p->tar_job) {
-                        if (j->error == ENOMEDIUM) /* HTTP 404 */
+                        if (j->error == -ENOMEDIUM) /* HTTP 404 */
                                 r = log_error_errno(j->error, "Failed to retrieve image file. (Wrong URL?)");
                         else
                                 r = log_error_errno(j->error, "Failed to retrieve image file.");
@@ -608,14 +632,29 @@ static int tar_pull_job_on_open_disk_tar(PullJob *j) {
                 if (r < 0)
                         return r;
 
-                _cleanup_close_ int directory_fd = -EBADF;
-                r = mountfsd_make_directory(where, /* flags= */ 0, &directory_fd);
+                _cleanup_(sd_varlink_unrefp) sd_varlink *mountfsd_link = NULL;
+                r = mountfsd_connect(&mountfsd_link);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to connect to mountfsd: %m");
 
-                r = mountfsd_mount_directory_fd(directory_fd, p->userns_fd, DISSECT_IMAGE_FOREIGN_UID, &p->tree_fd);
+                _cleanup_close_ int directory_fd = -EBADF;
+                r = mountfsd_make_directory(
+                                mountfsd_link,
+                                where,
+                                MODE_INVALID,
+                                /* flags= */ 0,
+                                &directory_fd);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to make directory via mountfsd: %m");
+
+                r = mountfsd_mount_directory_fd(
+                                mountfsd_link,
+                                directory_fd,
+                                p->userns_fd,
+                                DISSECT_IMAGE_FOREIGN_UID,
+                                &p->tree_fd);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to mount directory via mountfsd: %m");
         } else {
                 if (p->flags & IMPORT_BTRFS_SUBVOL)
                         r = btrfs_subvol_make_fallback(AT_FDCWD, where, 0755);

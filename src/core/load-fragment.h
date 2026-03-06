@@ -105,6 +105,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_exec_quota);
 CONFIG_PARSER_PROTOTYPE(config_parse_set_credential);
 CONFIG_PARSER_PROTOTYPE(config_parse_load_credential);
 CONFIG_PARSER_PROTOTYPE(config_parse_import_credential);
+CONFIG_PARSER_PROTOTYPE(config_parse_service_refresh_on_reload);
 CONFIG_PARSER_PROTOTYPE(config_parse_set_status);
 CONFIG_PARSER_PROTOTYPE(config_parse_namespace_path_strv);
 CONFIG_PARSER_PROTOTYPE(config_parse_temporary_filesystems);
@@ -167,6 +168,8 @@ CONFIG_PARSER_PROTOTYPE(config_parse_memory_pressure_watch);
 CONFIG_PARSER_PROTOTYPE(config_parse_cgroup_nft_set);
 CONFIG_PARSER_PROTOTYPE(config_parse_mount_node);
 CONFIG_PARSER_PROTOTYPE(config_parse_concurrency_max);
+CONFIG_PARSER_PROTOTYPE(config_parse_bind_network_interface);
+CONFIG_PARSER_PROTOTYPE(config_parse_memory_thp);
 
 /* gperf prototypes */
 const struct ConfigPerfItem* load_fragment_gperf_lookup(const char *key, GPERF_LEN_TYPE length);

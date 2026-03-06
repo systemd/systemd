@@ -61,8 +61,24 @@ Variables will be listed below using the Linux efivarfs naming,
   The list should be in the order the entries are shown on screen during boot.
   See below regarding the recommended vocabulary for boot loader entry identifiers.
 
+* The EFI variable `LoaderEntryPreferred-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`
+  contains the preferred boot loader entry to use.
+  This takes boot assessment into account by not selecting boot entries that have
+  been marked as bad,
+  see <ulink url="https://systemd.io/AUTOMATIC_BOOT_ASSESSMENT">Automatic Boot Assessment</ulink>
+  for more details on boot assessment.
+  If no entry was selected by the preferred setting (from either the EFI var or
+  the config file), then the boot loader will look at the default setting, which
+  does not skip entries that were marked as bad.
+  It contains a NUL-terminated boot loader entry identifier.
+
 * The EFI variable `LoaderEntryDefault-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`
   contains the default boot loader entry to use.
+  This ignores boot assessment and can select boot entries that have been marked
+  as bad by boot assessment,
+  see <ulink url="https://systemd.io/AUTOMATIC_BOOT_ASSESSMENT">Automatic Boot Assessment</ulink>
+  for more details on boot assessment as well as the documentation on the
+  `LoaderEntryPreferred` EFI var.
   It contains a NUL-terminated boot loader entry identifier.
 
 * The EFI variable `LoaderEntrySysFail-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`
@@ -83,10 +99,10 @@ Variables will be listed below using the Linux efivarfs naming,
   contains the default boot loader entry to use for a single following boot.
   It is set by the OS
   in order to request booting into a specific menu entry on the following boot.
-  When set overrides `LoaderEntryDefault`.
+  When set overrides `LoaderEntryPreferred` and `LoaderEntryDefault`.
   It is removed automatically after being read by the boot loader,
   to ensure it only takes effect a single time.
-  This value is formatted the same way as `LoaderEntryDefault`.
+  This value is formatted the same way as `LoaderEntryDefault` and `LoaderEntryPreferred`.
 
 * The EFI variable `LoaderEntrySelected-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`
   contains the boot loader entry identifier that was booted.
@@ -107,14 +123,14 @@ Variables will be listed below using the Linux efivarfs naming,
   * `1 << 5` → The boot loader supports looking for boot menu entries in the Extended Boot Loader Partition.
   * `1 << 6` → The boot loader supports passing a random seed to the OS.
   * `1 << 7` → The boot loader supports loading of drop-in drivers from the `/EFI/systemd/drivers/` directory on the ESP,
-               see [`systemd-boot(7)`](https://www.freedesktop.org/software/systemd/man/systemd-boot.html).
+               see [`systemd-boot(7)`](https://www.freedesktop.org/software/systemd/man/latest/systemd-boot.html).
   * `1 << 8` → The boot loader supports the `sort-key` field defined by the
                [Boot Loader Specification](https://uapi-group.org/specifications/specs/boot_loader_specification).
   * `1 << 9` → The boot loader supports the `@saved` pseudo-entry
   * `1 << 10` → The boot loader supports the `devicetree` field defined by the
                 [Boot Loader Specification](https://uapi-group.org/specifications/specs/boot_loader_specification).
   * `1 << 11` → The boot loader support automatic enrollment of SecureBoot keys,
-                see [`systemd-boot(7)`](https://www.freedesktop.org/software/systemd/man/systemd-boot.html).
+                see [`systemd-boot(7)`](https://www.freedesktop.org/software/systemd/man/latest/systemd-boot.html).
   * `1 << 12` → The boot loader will set EFI variable `ShimRetainProtocol-605dab50-e046-4300-abb6-3dd810dd8b23`
                 for `shim` to make its protocol available to the booted binary.
   * `1 << 13` → The boot loader honours `menu-disabled` option when set.
@@ -126,6 +142,7 @@ Variables will be listed below using the Linux efivarfs naming,
                 [Boot Loader Specification](https://uapi-group.org/specifications/specs/boot_loader_specification).
   * `1 << 18` → The boot loader reports active TPM2 PCR banks in the
                 EFI variable `LoaderTpm2ActivePcrBanks-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`.
+  * `1 << 19` → The boot loader supports the `LoaderEntryPreferred` variable when set.
 
 * The EFI variable `LoaderSystemToken-4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`
   contains binary random data,
@@ -166,9 +183,10 @@ variables.
 ## Boot Loader Entry Identifiers
 
 While boot loader entries may be named relatively freely,
-it's highly recommended to follow the following rules when picking identifiers for the entries,
+it's highly recommended to follow these rules when picking identifiers for the entries,
 so that programs (and users) can derive basic context and meaning from the identifiers
-as passed in `LoaderEntries`, `LoaderEntryDefault`, `LoaderEntryOneShot`, `LoaderEntrySelected`,
+as passed in `LoaderEntries`, `LoaderEntryPreferred`, `LoaderEntryDefault`,
+`LoaderEntryOneShot`, `LoaderEntrySelected`,
 and possibly show nicely localized names for them in UIs.
 
 1. When boot loader entries are defined through the
@@ -206,6 +224,6 @@ and possibly show nicely localized names for them in UIs.
 
 [UAPI.1 Boot Loader Specification](https://uapi-group.org/specifications/specs/boot_loader_specification)<br>
 [UAPI.2 Discoverable Partitions Specification](https://uapi-group.org/specifications/specs/discoverable_partitions_specification)<br>
-[`systemd-boot(7)`](https://www.freedesktop.org/software/systemd/man/systemd-boot.html)<br>
-[`bootctl(1)`](https://www.freedesktop.org/software/systemd/man/bootctl.html)<br>
-[`systemd-gpt-auto-generator(8)`](https://www.freedesktop.org/software/systemd/man/systemd-gpt-auto-generator.html)
+[`systemd-boot(7)`](https://www.freedesktop.org/software/systemd/man/latest/systemd-boot.html)<br>
+[`bootctl(1)`](https://www.freedesktop.org/software/systemd/man/latest/bootctl.html)<br>
+[`systemd-gpt-auto-generator(8)`](https://www.freedesktop.org/software/systemd/man/latest/systemd-gpt-auto-generator.html)

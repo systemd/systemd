@@ -5,8 +5,9 @@
 
 #include "sd-forward.h"
 
-const char* audit_type_to_string(int type);
-int audit_type_from_string(const char *s);
+#include "alloc-util.h" /* IWYU pragma: keep */
+
+DECLARE_STRING_TABLE_LOOKUP(audit_type, int);
 
 /* This is inspired by DNS TYPEnnn formatting */
 #define audit_type_name_alloca(type)                                    \

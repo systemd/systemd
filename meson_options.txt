@@ -41,16 +41,19 @@ option('static-libudev', type : 'combo',
 option('standalone-binaries', type : 'boolean', value : false,
        description : 'also build standalone versions of supported binaries')
 
-option('sysvinit-path', type : 'string', value : '/etc/init.d',
-       description : 'the directory where the SysV init scripts are located')
-option('sysvrcnd-path', type : 'string', value : '/etc/rc.d',
-       description : 'the base directory for SysV rcN.d directories')
-option('rc-local', type : 'string', value : '/etc/rc.local',
-       description : 'path to SysV rc.local script')
+option('sysvinit-path', type : 'string', value : '/etc/init.d', deprecated : true,
+       description : 'This option is deprecated and will be removed in a future release')
+option('sysvrcnd-path', type : 'string', value : '/etc/rc.d', deprecated : true,
+       description : 'This option is deprecated and will be removed in a future release')
+option('rc-local', type : 'string', value : '/etc/rc.local', deprecated : true,
+       description : 'This option is deprecated and will be removed in a future release')
+
 option('initrd', type : 'boolean',
        description : 'install services for use when running systemd in initrd')
 option('compat-mutable-uid-boundaries', type : 'boolean', value : false,
        description : 'look at uid boundaries in /etc/login.defs for compatibility')
+option('compat-sysv-interfaces', type : 'boolean', value : true,
+       description : 'keep legacy SysV interfaces for compatibility')
 
 option('quotaon-path', type : 'string', description : 'path to quotaon')
 option('quotacheck-path', type : 'string', description : 'path to quotacheck')
@@ -426,6 +429,8 @@ option('pwquality', type : 'feature', deprecated : { 'true' : 'enabled', 'false'
        description : 'libpwquality support')
 option('microhttpd', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libµhttpd support')
+option('libcrypt', type : 'feature',
+       description : 'libcrypt/libxcrypt support')
 option('libcryptsetup', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libcryptsetup support')
 option('libcryptsetup-plugins', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
@@ -436,10 +441,10 @@ option('idn', type : 'boolean',
        description : 'use IDN when printing hostnames')
 option('libidn2', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libidn2 support')
-option('libidn', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
-       description : 'libidn support')
+option('libidn', type : 'feature', deprecated : true,
+       description : 'This option is deprecated and will be removed in a future release')
 option('libiptc', type : 'feature', deprecated : true,
-       description : 'libiptc support')
+       description : 'This option is deprecated and will be removed in a future release')
 option('qrencode', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libqrencode support')
 option('gcrypt', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
@@ -448,7 +453,6 @@ option('gnutls', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 
        description : 'gnutls support')
 option('openssl', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'openssl support')
-option('cryptolib', type : 'combo', choices : ['auto', 'openssl', 'gcrypt'], deprecated : true)
 option('timesync-nts', type : 'feature', description : 'network time security support')
 option('p11kit', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'p11kit support')
@@ -527,8 +531,6 @@ option('install-tests', type : 'boolean', value : false,
        description : 'install test executables')
 option('log-message-verification', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'do fake printf() calls to verify format strings')
-option('integration-tests', type : 'boolean', value : false, deprecated : true,
-       description : 'run the integration tests')
 
 option('ok-color', type : 'combo',
        choices : ['black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan',
@@ -564,3 +566,6 @@ option('vmlinux-h-path', type : 'string', value : '',
 
 option('default-mountfsd-trusted-directories', type : 'boolean', value: false,
        description : 'controls whether mountfsd should apply a relaxed policy on DDIs in system DDI directories')
+
+option('default-oci-registry', type : 'string', value : 'docker.io',
+       description : 'Default OCI registry name')

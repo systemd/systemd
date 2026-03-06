@@ -19,6 +19,7 @@
 #include "pager.h"
 #include "parse-argument.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "stat-util.h"
@@ -140,7 +141,6 @@ static int notify_override_unchanged(const char *f) {
 
 static int found_override(const char *top, const char *bottom) {
         _cleanup_free_ char *dest = NULL;
-        pid_t pid;
         int r;
 
         assert(top);
@@ -165,7 +165,11 @@ static int found_override(const char *top, const char *bottom) {
 
         fflush(stdout);
 
-        r = safe_fork("(diff)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        r = pidref_safe_fork(
+                        "(diff)",
+                        FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG,
+                        &pidref);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -175,7 +179,7 @@ static int found_override(const char *top, const char *bottom) {
                 _exit(EXIT_FAILURE);
         }
 
-        (void) wait_for_terminate_and_check("diff", pid, WAIT_LOG_ABNORMAL);
+        (void) pidref_wait_for_terminate_and_check("diff", &pidref, WAIT_LOG_ABNORMAL);
         putchar('\n');
 
         return r;

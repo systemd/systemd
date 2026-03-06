@@ -3,6 +3,8 @@
 #include <sys/file.h>
 #include <unistd.h>
 
+#include "sd-device.h"
+
 #include "alloc-util.h"
 #include "ansi-color.h"
 #include "bitfield.h"
@@ -11,6 +13,8 @@
 #include "constants.h"
 #include "creds-util.h"
 #include "cryptsetup-util.h"
+#include "device-private.h"
+#include "device-util.h"
 #include "dirent-util.h"
 #include "dlfcn-util.h"
 #include "efi-api.h"
@@ -43,6 +47,7 @@
 #include "time-util.h"
 #include "tpm2-pcr.h"
 #include "tpm2-util.h"
+#include "unaligned.h"
 #include "virt.h"
 
 #if HAVE_OPENSSL
@@ -53,6 +58,7 @@
 static void *libtss2_esys_dl = NULL;
 static void *libtss2_rc_dl = NULL;
 static void *libtss2_mu_dl = NULL;
+static void *libtss2_tcti_device_dl = NULL;
 
 static DLSYM_PROTOTYPE(Esys_Create) = NULL;
 static DLSYM_PROTOTYPE(Esys_CreateLoaded) = NULL;
@@ -226,6 +232,20 @@ static int dlopen_tpm2_mu(void) {
                         DLSYM_ARG(Tss2_MU_UINT32_Marshal));
 }
 
+static int dlopen_tpm2_tcti_device(void) {
+        /* The "device" TCTI is the most relevant one, let's also load it explicitly on dlopen_tpm2(), even
+         * if we don't resolve any symbols here. */
+
+        ELF_NOTE_DLOPEN("tpm",
+                        "Support for TPM",
+                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        "libtss2-tcti-device.so.0");
+
+        return dlopen_verbose(
+                        &libtss2_tcti_device_dl,
+                        "libtss2-tcti-device.so.0");
+}
+
 #endif
 
 int dlopen_tpm2(void) {
@@ -241,6 +261,10 @@ int dlopen_tpm2(void) {
                 return r;
 
         r = dlopen_tpm2_mu();
+        if (r < 0)
+                return r;
+
+        r = dlopen_tpm2_tcti_device();
         if (r < 0)
                 return r;
 
@@ -327,6 +351,151 @@ static int tpm2_get_capability(
                 *ret_capability_data = capabilities->data;
 
         return more == TPM2_YES;
+}
+
+int tpm2_vendor_info_to_modalias(const Tpm2VendorInfo *info, char **ret) {
+        _cleanup_free_ char *m = NULL;
+
+        assert(info);
+        assert(ret);
+
+        /* Closely inspired by kernel modalias strings, this distills information from the TPM vendor data
+         * into a string suitable for matching hwdb */
+
+        if (asprintf(&m,
+                     "fi%s:"
+                     "lv%" PRIu32 ":"
+                     "rv%" PRIu32 ".%" PRIu32 ":"
+                     "sy%" PRIu32 ":"
+                     "sd%" PRIu32 ":"
+                     "mf%s:"
+                     "vs%s:"
+                     "ty%" PRIx32 ":"
+                     "fw%" PRIu16 ".%" PRIu16 ".%" PRIu32 ":",
+                     info->family_indicator,
+                     info->level,
+                     info->revision_major,
+                     info->revision_minor,
+                     info->year,
+                     info->day_of_year,
+                     info->manufacturer,
+                     info->vendor_string,
+                     info->vendor_tpm_type,
+                     info->firmware_version_major,
+                     info->firmware_version_minor,
+                     info->firmware_version2) < 0)
+                return -ENOMEM;
+
+        *ret = TAKE_PTR(m);
+        return 0;
+}
+
+static char *mangle_vendor_chars(char *c, size_t n) {
+        char *end = c;
+        assert(c || n == 0);
+
+        /* Suppress all control characters, whitespace and non-ASCII bytes */
+        for (char *x = c; x < c + n; x++) {
+                if (!IN_SET(*x, ' ', 0))
+                        end = x + 1;
+
+                if ((unsigned char) *x <= (unsigned char) ' ' ||
+                    (unsigned char) *x >= 127)
+                        *x = '_';
+        }
+
+        /* Drop trailing spaces and NUL bytes */
+        *end = 0;
+        return c;
+}
+
+int tpm2_get_vendor_info(
+                Tpm2Context *c,
+                Tpm2VendorInfo *ret) {
+
+        int r;
+
+        assert(c);
+        assert(ret);
+
+        TPMU_CAPABILITIES capabilities = {};
+        r = tpm2_get_capability(
+                        c,
+                        TPM2_CAP_TPM_PROPERTIES,
+                        TPM2_PT_FAMILY_INDICATOR,
+                        TPM2_PT_FIRMWARE_VERSION_2 - TPM2_PT_FAMILY_INDICATOR + 1, /* get all relevant fields at once */
+                        &capabilities);
+        if (r < 0)
+                return r;
+
+        Tpm2VendorInfo info = {};
+
+        for (uint32_t i = 0; i < capabilities.tpmProperties.count; i++) {
+                TPMS_TAGGED_PROPERTY *p = capabilities.tpmProperties.tpmProperty + i;
+
+                switch (p->property) {
+
+                case TPM2_PT_FAMILY_INDICATOR:
+                        unaligned_write_be32(info.family_indicator, p->value);
+                        mangle_vendor_chars(info.family_indicator, sizeof(info.family_indicator));
+                        break;
+
+                case TPM2_PT_LEVEL:
+                        info.level = p->value;
+                        break;
+
+                case TPM2_PT_REVISION:
+                        info.revision_major = p->value / 100;
+                        info.revision_minor = p->value % 100;
+                        break;
+
+                case TPM2_PT_DAY_OF_YEAR:
+                        info.day_of_year = p->value;
+                        break;
+
+                case TPM2_PT_YEAR:
+                        info.year = p->value;
+                        break;
+
+                case TPM2_PT_MANUFACTURER:
+                        unaligned_write_be32(info.manufacturer, p->value);
+                        mangle_vendor_chars(info.manufacturer, sizeof(info.manufacturer));
+                        break;
+
+                case TPM2_PT_VENDOR_STRING_1:
+                        unaligned_write_be32(info.vendor_string+0, p->value);
+                        break;
+
+                case TPM2_PT_VENDOR_STRING_2:
+                        unaligned_write_be32(info.vendor_string+4, p->value);
+                        break;
+
+                case TPM2_PT_VENDOR_STRING_3:
+                        unaligned_write_be32(info.vendor_string+8, p->value);
+                        break;
+
+                case TPM2_PT_VENDOR_STRING_4:
+                        unaligned_write_be32(info.vendor_string+12, p->value);
+                        break;
+
+                case TPM2_PT_VENDOR_TPM_TYPE:
+                        info.vendor_tpm_type = p->value;
+                        break;
+
+                case TPM2_PT_FIRMWARE_VERSION_1:
+                        info.firmware_version_major = p->value >> 16;
+                        info.firmware_version_minor = p->value & 0xFFFFU;
+                        break;
+
+                case TPM2_PT_FIRMWARE_VERSION_2:
+                        info.firmware_version2 = p->value;
+                        break;
+                }
+        }
+
+        mangle_vendor_chars(info.vendor_string, sizeof(info.vendor_string));
+        *ret = TAKE_STRUCT(info);
+        return 0;
 }
 
 #define TPMA_CC_TO_TPM2_CC(cca) (((cca) & TPMA_CC_COMMANDINDEX_MASK) >> TPMA_CC_COMMANDINDEX_SHIFT)
@@ -671,6 +840,9 @@ static Tpm2Context *tpm2_context_free(Tpm2Context *c) {
         c->capability_commands = mfree(c->capability_commands);
         c->capability_ecc_curves = mfree(c->capability_ecc_curves);
 
+        c->tcti_driver = mfree(c->tcti_driver);
+        c->tcti_param = mfree(c->tcti_param);
+
         return mfree(c);
 }
 
@@ -716,7 +888,8 @@ int tpm2_context_new(const char *device, Tpm2Context **ret_context) {
         }
 
         if (device) {
-                const char *param, *driver, *fn;
+                _cleanup_free_ char *_driver = NULL;
+                const char *param, *driver;
                 const TSS2_TCTI_INFO* info;
                 TSS2_TCTI_INFO_FUNC func;
                 size_t sz = 0;
@@ -724,7 +897,9 @@ int tpm2_context_new(const char *device, Tpm2Context **ret_context) {
                 param = strchr(device, ':');
                 if (param) {
                         /* Syntax #1: Pair of driver string and arbitrary parameter */
-                        driver = strndupa_safe(device, param - device);
+                        driver = _driver = strndup(device, param - device);
+                        if (!driver)
+                                return log_oom_debug();
                         if (isempty(driver))
                                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 driver name is empty, refusing.");
 
@@ -738,7 +913,9 @@ int tpm2_context_new(const char *device, Tpm2Context **ret_context) {
 
                 log_debug("Using TPM2 TCTI driver '%s' with device '%s'.", driver, param);
 
-                fn = strjoina("libtss2-tcti-", driver, ".so.0");
+                _cleanup_free_ char *fn = strjoin("libtss2-tcti-", driver, ".so.0");
+                if (!fn)
+                        return log_oom_debug();
 
                 /* Better safe than sorry, let's refuse strings that cannot possibly be valid driver early, before going to disk. */
                 if (!filename_is_valid(fn))
@@ -778,6 +955,14 @@ int tpm2_context_new(const char *device, Tpm2Context **ret_context) {
                 if (rc != TPM2_RC_SUCCESS)
                         return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                                "Failed to initialize TCTI context: %s", sym_Tss2_RC_Decode(rc));
+
+                context->tcti_driver = strdup(driver);
+                if (!context->tcti_driver)
+                        return log_oom_debug();
+
+                context->tcti_param = strdup(param);
+                if (!context->tcti_param)
+                        return log_oom_debug();
         }
 
         rc = sym_Esys_Initialize(&context->esys_context, context->tcti_context, NULL);
@@ -4354,7 +4539,7 @@ int tpm2_tpm2b_public_to_openssl_pkey(const TPM2B_PUBLIC *public, EVP_PKEY **ret
  * "name", because it would break unsealing of previously-sealed objects that used (for example)
  * tpm2_calculate_policy_authorize(). See bug #30546. */
 int tpm2_tpm2b_public_from_openssl_pkey(const EVP_PKEY *pkey, TPM2B_PUBLIC *ret) {
-        int key_id, r;
+        int r;
 
         assert(pkey);
         assert(ret);
@@ -4368,12 +4553,7 @@ int tpm2_tpm2b_public_from_openssl_pkey(const EVP_PKEY *pkey, TPM2B_PUBLIC *ret)
                 },
         };
 
-#if OPENSSL_VERSION_MAJOR >= 3
-        key_id = EVP_PKEY_get_id(pkey);
-#else
-        key_id = EVP_PKEY_id(pkey);
-#endif
-
+        int key_id = EVP_PKEY_get_id(pkey);
         switch (key_id) {
         case EVP_PKEY_EC: {
                 public.type = TPM2_ALG_ECC;
@@ -5446,6 +5626,11 @@ int tpm2_seal(Tpm2Context *c,
                                                seal_key_handle);
 
                 primary_alg = primary_public->publicArea.type;
+
+                /* Propagate fixedTPM/fixedParent flags from sealing key to hmac key */
+                hmac_template.objectAttributes = (hmac_template.objectAttributes & ~(TPMA_OBJECT_FIXEDTPM|TPMA_OBJECT_FIXEDPARENT)) |
+                                                 (primary_public->publicArea.objectAttributes & (TPMA_OBJECT_FIXEDTPM|TPMA_OBJECT_FIXEDPARENT));
+
         } else {
                 if (seal_key_handle != 0)
                         log_debug("Using primary alg sealing, but seal key handle also provided; ignoring seal key handle.");
@@ -5625,8 +5810,9 @@ int tpm2_unseal(Tpm2Context *c,
         if (r < 0)
                 return r;
         if (r == 0) {
+                /* ECC was the only supported algorithm in systemd < 250, use that as implied default, for compatibility */
                 if (primary_alg == 0)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "No SRK or primary algorithm provided.");
+                        primary_alg = TPM2_ALG_ECC;
 
                 TPM2B_PUBLIC template = {
                         .size = sizeof(TPMT_PUBLIC),
@@ -5975,7 +6161,8 @@ int tpm2_undefine_nv_index(
         return 0;
 }
 
-int tpm2_define_nvpcr_nv_index(
+#if HAVE_OPENSSL
+static int tpm2_define_nvpcr_nv_index(
                 Tpm2Context *c,
                 const Tpm2Handle *session,
                 TPM2_HANDLE nv_index,
@@ -6031,6 +6218,9 @@ int tpm2_define_nvpcr_nv_index(
                         /* auth= */ NULL,
                         &public_info,
                         &new_handle->esys_handle);
+        if (rc == TPM2_RC_NV_SPACE)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOSPC),
+                                       "NV index space on TPM exhausted, cannot allocate NvPCR.");
         if (rc == TPM2_RC_NV_DEFINED) {
                 log_debug("NV index 0x%" PRIu32 " already registered.", nv_index);
 
@@ -6091,7 +6281,7 @@ int tpm2_define_nvpcr_nv_index(
         return 1;
 }
 
-int tpm2_extend_nvpcr_nv_index(
+static int tpm2_extend_nvpcr_nv_index(
                 Tpm2Context *c,
                 TPM2_HANDLE nv_index,
                 const Tpm2Handle *nv_handle,
@@ -6132,6 +6322,7 @@ int tpm2_extend_nvpcr_nv_index(
 
         return 0;
 }
+#endif
 
 int tpm2_read_nv_index(
                 Tpm2Context *c,
@@ -6478,6 +6669,7 @@ static const char* tpm2_userspace_event_type_table[_TPM2_USERSPACE_EVENT_TYPE_MA
         [TPM2_EVENT_KEYSLOT]         = "keyslot",
         [TPM2_EVENT_NVPCR_INIT]      = "nvpcr-init",
         [TPM2_EVENT_NVPCR_SEPARATOR] = "nvpcr-separator",
+        [TPM2_EVENT_DM_VERITY]       = "dm-verity",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(tpm2_userspace_event_type, Tpm2UserspaceEventType);
@@ -7302,6 +7494,44 @@ int tpm2_nvpcr_acquire_anchor_secret(struct iovec *ret, bool sync_secondary) {
 #endif
 }
 
+#if HAVE_OPENSSL
+static int tpm2_context_can_nvindex(Tpm2Context *c) {
+        int r;
+
+        assert(c);
+
+        if (!streq_ptr(c->tcti_driver, "device")) {
+                log_debug("Not checking udev database, because not using 'device' TCTI.");
+                return 1;
+        }
+
+        if (!c->tcti_param) {
+                log_debug("No device specified, not checking udev database.");
+                return 1;
+        }
+
+        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
+        r = sd_device_new_from_devname(&d, c->tcti_param);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to acquire udev entry for device '%s': %m", c->tcti_param);
+
+        r = device_get_property_bool(d, "TPM2_BROKEN_NVPCR");
+        if (r == -ENOENT) {
+                log_device_debug_errno(d, r, "No TPM2_BROKEN_NVPCR property for '%s', assuming NvPCRs work.", c->tcti_param);
+                return 1;
+        }
+        if (r < 0)
+                return log_device_debug_errno(d, r, "Failed to query TPM2_BROKEN_NVPCR for '%s': %m", c->tcti_param);
+        if (r > 0) {
+                log_device_debug(d, "TPM2_BROKEN_NVPCR property for '%s' explicitly set, NvPCRs do not work.", c->tcti_param);
+                return 0;
+        }
+
+        log_device_debug(d, "TPM2_BROKEN_NVPCR property for '%s' explicitly set to false, hence NvPCRs work.", c->tcti_param);
+        return 1;
+}
+#endif
+
 int tpm2_nvpcr_initialize(
                 Tpm2Context *c,
                 const Tpm2Handle *session,
@@ -7315,6 +7545,12 @@ int tpm2_nvpcr_initialize(
         assert(c);
         assert(name);
 
+        r = tpm2_context_can_nvindex(c);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 device does not support NvPCRs, not initializing.");
+
         _cleanup_(nvpcr_data_done) NvPCRData p = {};
         r = nvpcr_data_load(name, &p);
         if (r < 0)
@@ -7325,7 +7561,7 @@ int tpm2_nvpcr_initialize(
 
         _cleanup_close_ int dfd = open_mkdir("/run/systemd/nvpcr", O_CLOEXEC, 0755);
         if (dfd < 0)
-                return log_error_errno(dfd, "Failed to open directory '/run/systemd/nvpcr': %m");
+                return log_debug_errno(dfd, "Failed to open directory '/run/systemd/nvpcr': %m");
 
         const char *anchor_fname = strjoina(name, ".anchor");
         if (faccessat(dfd, anchor_fname, F_OK, AT_SYMLINK_NOFOLLOW) < 0) {
@@ -7479,6 +7715,21 @@ int tpm2_nvpcr_read(
         if (r < 0)
                 return r;
 
+        /* Check if the NvPCR is already anchored */
+        const char *anchor_fname = strjoina("/run/systemd/nvpcr/", name, ".anchor");
+        r = access_nofollow(anchor_fname, F_OK);
+        if (r < 0) {
+                if (r != -ENOENT)
+                        return log_debug_errno(r, "Failed to check if '%s' exists: %m", anchor_fname);
+
+                /* valid, but not anchored */
+                *ret_value = (struct iovec) {};
+                if (ret_nv_index)
+                        *ret_nv_index = p.nv_index;
+
+                return 0;
+        }
+
         _cleanup_(tpm2_handle_freep) Tpm2Handle *nv_handle = NULL;
         r = tpm2_index_to_handle(
                         c,
@@ -7493,19 +7744,26 @@ int tpm2_nvpcr_read(
 
         log_debug("Successfully acquired handle to NV index 0x%" PRIx32 ".", p.nv_index);
 
-        r = tpm2_read_nv_index(
-                        c,
-                        /* session= */ NULL,
-                        p.nv_index,
-                        nv_handle,
-                        ret_value);
-        if (r < 0)
-                return r;
+        if (r > 0) {
+                r = tpm2_read_nv_index(
+                                c,
+                                /* session= */ NULL,
+                                p.nv_index,
+                                nv_handle,
+                                ret_value);
+                if (r < 0)
+                        return r;
+
+                r = 1;
+        } else {
+                *ret_value = (struct iovec) {};
+                r = 0;
+        }
 
         if (ret_nv_index)
                 *ret_nv_index = p.nv_index;
 
-        return 0;
+        return r;
 #else /* HAVE_OPENSSL */
         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL support is disabled.");
 #endif
@@ -8566,7 +8824,7 @@ int tpm2_parse_luks2_json(
 
         _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {};
         uint32_t hash_pcr_mask = 0, pubkey_pcr_mask = 0;
-        uint16_t primary_alg = TPM2_ALG_ECC; /* ECC was the only supported algorithm in systemd < 250, use that as implied default, for compatibility */
+        uint16_t primary_alg = 0;
         uint16_t pcr_bank = UINT16_MAX; /* default: pick automatically */
         int r, keyslot = -1;
         TPM2Flags flags = 0;

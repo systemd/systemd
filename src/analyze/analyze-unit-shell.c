@@ -13,6 +13,7 @@
 #include "fd-util.h"
 #include "log.h"
 #include "namespace-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "runtime-scope.h"
 #include "strv.h"
@@ -78,12 +79,10 @@ int verb_unit_shell(int argc, char *argv[], void *userdata) {
                         return log_oom();
         }
 
-        pid_t child;
+        _cleanup_(pidref_done) PidRef child = PIDREF_NULL;
         r = namespace_fork(
                         "(unit-shell-ns)",
                         "(unit-shell)",
-                        /* except_fds= */ NULL,
-                        /* n_except_fds= */ 0,
                         FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL,
                         pidns_fd,
                         mntns_fd,
@@ -117,8 +116,8 @@ int verb_unit_shell(int argc, char *argv[], void *userdata) {
                 _exit(EXIT_FAILURE);
         }
 
-        return wait_for_terminate_and_check(
+        return pidref_wait_for_terminate_and_check(
                         "(unit-shell)",
-                        child,
+                        &child,
                         WAIT_LOG_ABNORMAL|WAIT_LOG_NON_ZERO_EXIT_STATUS);
 }

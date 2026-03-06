@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # SPDX-License-Identifier: LGPL-2.1-or-later
 set -e
 
@@ -18,14 +18,11 @@ TS="${SOURCE_DATE_EPOCH:-$(date +%s)}"
 # The openSUSE filelists hardcode the manpage compression extension. This causes rpmbuild errors since we
 # disable manpage compression as the files cannot be found. Fix the issue by removing the compression
 # extension.
-#
-# TODO: remove patches for removal of cgroups-agent, renaming pubring file, and removal of sysv files
-# when the upstream spec is updated
+# TODO: remove autovt@ removal when the upstream spec is updated
 while read -r filelist; do
     sed -E \
-        -e 's/\.gz$//; /systemd-cgroups-agent/d; s/import-pubring.gpg/import-pubring.pgp/' \
-        -e '/(initctl|runlevel|telinit)/ d' \
-        -e 's/systemd-quotacheck.service.8/systemd-quotacheck@.service.8/' \
+        -e '/autovt@/d' \
+        -e 's/\.gz$//' \
         "$filelist" >"/tmp/$(basename "$filelist")"
     mount --bind "/tmp/$(basename "$filelist")" "$filelist"
 done < <(find "pkg/$PKG_SUBDIR${GIT_SUBDIR:+/$GIT_SUBDIR}" -name "files.*")
@@ -95,6 +92,7 @@ build() {
         --noprep \
         --build-in-place \
         --with upstream \
+        --without sysvcompat \
         $( ((WITH_TESTS)) || echo "--nocheck") \
         --define "_topdir /var/tmp" \
         --define "_sourcedir $PWD/pkg/$PKG_SUBDIR${GIT_SUBDIR:+/$GIT_SUBDIR}" \

@@ -30,6 +30,7 @@
 #include "main-func.h"
 #include "mkdir-label.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "set.h"
@@ -570,18 +571,18 @@ static int parse_argv(int argc, char *argv[]) {
  * and its own controlling terminal. If one of the tasks does handle a password, the remaining tasks will be
  * terminated.
  */
-static int ask_on_this_console(const char *tty, char **arguments, pid_t *ret_pid) {
+static int ask_on_this_console(const char *tty, char **arguments, PidRef *ret) {
         int r;
 
         assert(tty);
         assert(arguments);
-        assert(ret_pid);
+        assert(ret);
 
         assert_se(sigaction(SIGCHLD, &sigaction_nop_nocldstop, NULL) >= 0);
         assert_se(sigaction(SIGHUP, &sigaction_default, NULL) >= 0);
         assert_se(sigprocmask_many(SIG_UNBLOCK, NULL, SIGHUP, SIGCHLD) >= 0);
 
-        r = safe_fork("(sd-passwd)", FORK_RESET_SIGNALS|FORK_KEEP_NOTIFY_SOCKET|FORK_LOG, ret_pid);
+        r = pidref_safe_fork("(sd-passwd)", FORK_RESET_SIGNALS|FORK_KEEP_NOTIFY_SOCKET|FORK_LOG, ret);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -691,13 +692,13 @@ static int ask_on_consoles(char *argv[]) {
 
         /* Start an agent on each console. */
         STRV_FOREACH(tty, consoles) {
-                pid_t pid;
+                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
 
-                r = ask_on_this_console(*tty, arguments, &pid);
+                r = ask_on_this_console(*tty, arguments, &pidref);
                 if (r < 0)
                         return r;
 
-                if (set_put(pids, PID_TO_PTR(pid)) < 0)
+                if (set_put(pids, PID_TO_PTR(pidref.pid)) < 0)
                         return log_oom();
         }
 

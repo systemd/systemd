@@ -270,11 +270,11 @@ systemd-run -P \
             cat /usr/lib/os-release | grep -F "MARKER=1" >/dev/null
 systemd-run -P \
             -p RootImage="$MINIMAL_IMAGE.raw" \
-            -p RootImageOptions="root:nosuid,dev home:ro,dev ro,noatime" \
+            -p RootImageOptions="root:noatime,dev home:ro,dev ro,nosuid" \
             mount | grep -F "squashfs" | grep -F "nosuid" >/dev/null
 systemd-run -P \
             -p RootImage="$MINIMAL_IMAGE.gpt" \
-            -p RootImageOptions="root:ro,noatime root:ro,dev" \
+            -p RootImageOptions="root:ro,dev root:ro,noatime" \
             mount | grep -F "squashfs" | grep -F "noatime" >/dev/null
 
 mkdir -p "$IMAGE_DIR/result"
@@ -285,8 +285,8 @@ ExecStart=bash -c "mount >/run/result/a"
 BindPaths=$IMAGE_DIR/result:/run/result
 TemporaryFileSystem=/run
 RootImage=$MINIMAL_IMAGE.raw
-RootImageOptions=root:ro,noatime home:ro,dev relatime,dev
-RootImageOptions=nosuid,dev
+RootImageOptions=root:relatime,dev home:ro,dev nosuid,dev
+RootImageOptions=ro,noatime
 EOF
 systemctl start testservice-50a.service
 grep -F "squashfs" "$IMAGE_DIR/result/a" | grep -F "noatime" >/dev/null
@@ -299,8 +299,8 @@ ExecStart=bash -c "mount >/run/result/b"
 BindPaths=$IMAGE_DIR/result:/run/result
 TemporaryFileSystem=/run
 RootImage=$MINIMAL_IMAGE.gpt
-RootImageOptions=root:ro,noatime,nosuid home:ro,dev nosuid,dev
-RootImageOptions=home:ro,dev nosuid,dev,%%foo
+RootImageOptions=nosuid,dev home:ro,dev nosuid,dev
+RootImageOptions=home:ro,dev,%%foo root:ro,noatime,nosuid
 # this is the default, but let's specify once to test the parser
 MountAPIVFS=yes
 EOF
@@ -310,7 +310,7 @@ grep -F "squashfs" "$IMAGE_DIR/result/b" | grep -F "noatime" >/dev/null
 # Check that specifier escape is applied %%foo → %foo
 busctl get-property org.freedesktop.systemd1 \
                     /org/freedesktop/systemd1/unit/testservice_2d50b_2eservice \
-                    org.freedesktop.systemd1.Service RootImageOptions | grep -F "nosuid,dev,%foo"
+                    org.freedesktop.systemd1.Service RootImageOptions | grep -F "ro,dev,%foo"
 
 # Now do some checks with MountImages, both by itself, with options and in combination with RootImage, and as single FS or GPT image
 systemd-run -P \
@@ -507,9 +507,53 @@ NONEXISTENT_VDIR="/tmp/$VBASE-nonexistent.v"
 mkdir "$VDIR" "$EMPTY_VDIR"
 
 ln -s /tmp/app0.raw "$VDIR/${VBASE}_0.raw"
+ln -s /tmp/app0.verity "$VDIR/${VBASE}_0.verity"
+ln -s /tmp/app0.roothash "$VDIR/${VBASE}_0.roothash"
 ln -s /tmp/app1.raw "$VDIR/${VBASE}_1.raw"
 
 systemd-run -P -p ExtensionImages="$VDIR -$EMPTY_VDIR -$NONEXISTENT_VDIR" bash -o pipefail -c '/opt/script1.sh | grep ID'
+
+# Check dissect shortcut for verity images
+# No verity for the second img (previous test benefits from variations), remove it for the next one
+rm -f "$VDIR/${VBASE}_1.raw"
+cat >/run/systemd/system/testservice-50e-vpick.service <<EOF
+[Service]
+Type=notify
+NotifyAccess=all
+MountAPIVFS=yes
+TemporaryFileSystem=/run /var/lib
+StateDirectory=app-vpick
+RootImage=$MINIMAL_IMAGE.raw
+RootImagePolicy=root=squashfs
+ExtensionImages=$VDIR:x-systemd.relax-extension-release-check -$EMPTY_VDIR -$NONEXISTENT_VDIR
+ExtensionImagePolicy=root=squashfs
+# Relevant only for sanitizer runs
+UnsetEnvironment=LD_PRELOAD
+ExecStartPre=bash -c '/opt/script0.sh | grep ID'
+ExecStart=sh -c 'echo "READY=1" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; sleep infinity'
+EOF
+systemctl start testservice-50e-vpick.service
+systemctl is-active testservice-50e-vpick.service
+# Ensure the device is preopened for reuse. Note that sd-dissect -M does not work on older
+# kernels, <something> makes the devices disappear on Ubuntu 24.04/C9S, so set them
+# up by hand. Don't fail if it's already set up.
+veritysetup open "$MINIMAL_IMAGE.raw" "$(cat "$MINIMAL_IMAGE.roothash")-verity" "$MINIMAL_IMAGE.verity" --root-hash-file "$MINIMAL_IMAGE.roothash" ||:
+veritysetup open "$VDIR/${VBASE}_0.raw" "$(cat "$VDIR/${VBASE}_0.roothash")-verity" "$VDIR/${VBASE}_0.verity" --root-hash-file "$VDIR/${VBASE}_0.roothash" ||:
+mkdir -p /tmp/img /tmp/ext
+mount -o ro "/dev/mapper/$(cat "$MINIMAL_IMAGE.roothash")-verity" /tmp/img
+mount -o ro "/dev/mapper/$(cat "$VDIR/${VBASE}_0.roothash")-verity" /tmp/ext
+journalctl --sync
+since="$(date '+%H:%M:%S')"
+systemctl restart testservice-50e-vpick.service
+systemctl is-active testservice-50e-vpick.service
+journalctl --sync
+timeout -v 30 journalctl --since "$since" -n all --follow | grep -m 2 -F 'Reusing pre-existing verity-protected root image'
+timeout -v 30 journalctl --since "$since" -n all --follow | grep -m 2 -F 'Reusing pre-existing verity-protected image'
+systemctl stop testservice-50e-vpick.service
+umount -R /tmp/img
+umount -R /tmp/ext
+veritysetup close "$(cat "$MINIMAL_IMAGE.roothash")-verity" ||:
+veritysetup close "$(cat "$VDIR/${VBASE}_0.roothash")-verity" ||:
 
 rm -rf "$VDIR" "$EMPTY_VDIR"
 
@@ -787,6 +831,49 @@ rm -f /run/systemd/system/testservice-50k.service
 systemctl daemon-reload
 rm -rf "$VDIR" "$VDIR2" /tmp/vpickminimg /tmp/markers/
 
+# Check dissect shortcut for verity images
+cat >/run/systemd/system/testservice-50m.service <<EOF
+[Service]
+Type=notify
+NotifyAccess=all
+TemporaryFileSystem=/run /var/lib
+StateDirectory=app0
+RootImage=$MINIMAL_IMAGE.raw
+RootImagePolicy=root=squashfs
+ExtensionImages=/tmp/app0.raw /tmp/app1.raw
+ExtensionImagePolicy=root=squashfs
+MountImages=/tmp/app0.raw:/var/lib/app
+MountImagePolicy=root=squashfs
+# Relevant only for sanitizer runs
+UnsetEnvironment=LD_PRELOAD
+ExecStartPre=bash -o pipefail -c '/opt/script0.sh | grep ID'
+ExecStartPre=bash -o pipefail -c '/opt/script1.sh | grep ID'
+ExecStartPre=test -e "/dev/mapper/$(</tmp/app0.roothash)-verity"
+ExecStart=sh -c 'echo "READY=1" | socat -t 5 - UNIX-SENDTO:\$\$NOTIFY_SOCKET; sleep infinity'
+EOF
+systemctl start testservice-50m.service
+systemctl is-active testservice-50m.service
+# Ensure the device is preopened for reuse. Note that sd-dissect -M does not work on older
+# kernels, <something> makes the devices disappear on Ubuntu 24.04/C9S, so set them
+# up by hand. Don't fail if it's already set up.
+veritysetup open "$MINIMAL_IMAGE.raw" "$(cat "$MINIMAL_IMAGE.roothash")-verity" "$MINIMAL_IMAGE.verity" --root-hash-file "$MINIMAL_IMAGE.roothash" ||:
+veritysetup open /tmp/app0.raw "$(cat /tmp/app0.roothash)-verity" /tmp/app0.verity --root-hash-file /tmp/app0.roothash ||:
+mkdir -p /tmp/img /tmp/ext
+mount -o ro "/dev/mapper/$(cat "$MINIMAL_IMAGE.roothash")-verity" /tmp/img
+mount -o ro "/dev/mapper/$(cat /tmp/app0.roothash)-verity" /tmp/ext
+journalctl --sync
+since="$(date '+%H:%M:%S')"
+systemctl restart testservice-50m.service
+systemctl is-active testservice-50m.service
+journalctl --sync
+timeout -v 30 journalctl --since "$since" -n all --follow | grep -m 4 -F 'Reusing pre-existing verity-protected root image'
+timeout -v 30 journalctl --since "$since" -n all --follow | grep -m 8 -F 'Reusing pre-existing verity-protected image'
+systemctl stop testservice-50m.service
+umount /tmp/img
+umount /tmp/ext
+veritysetup close "$(cat "$MINIMAL_IMAGE.roothash")-verity" ||:
+veritysetup close "$(cat /tmp/app0.roothash)-verity" ||:
+
 # Test that an extension consisting of an empty directory under /etc/extensions/ takes precedence
 mkdir -p /var/lib/extensions/
 ln -s /tmp/app-nodistro.raw /var/lib/extensions/app-nodistro.raw
@@ -810,6 +897,33 @@ varlinkctl call /run/systemd/io.systemd.sysext io.systemd.sysext.Refresh '{}'
 grep -q -F "MARKER=1" /usr/lib/systemd/system/some_file
 varlinkctl call /run/systemd/io.systemd.sysext io.systemd.sysext.Unmerge '{}'
 (! grep -q -F "MARKER=1" /usr/lib/systemd/system/some_file )
+
+# And again, but unprivileged, if we have pidfds and polkit support
+# Also check that the required policy is installed, as packages might be out of date with the test
+if systemd-analyze compare-versions "$(uname -r)" ge 6.5 && \
+        systemd-analyze compare-versions "$(pkcheck --version | awk '{print $3}')" ge 124 && \
+        test -f /usr/share/polkit-1/actions/io.systemd.sysext.policy; then
+    mkdir -p /etc/polkit-1/rules.d
+    cat >/etc/polkit-1/rules.d/sysext-unpriv.rules <<'EOF'
+polkit.addRule(function(action, subject) {
+    if (action.id == "io.systemd.sysext.manage" &&
+        subject.user == "testuser") {
+        return polkit.Result.YES;
+    }
+});
+EOF
+    systemctl try-reload-or-restart polkit.service
+    run0 -u testuser varlinkctl call --more /run/systemd/io.systemd.sysext io.systemd.sysext.List '{}'
+    (! grep -q -F "MARKER=1" /usr/lib/systemd/system/some_file )
+    run0 -u testuser varlinkctl call /run/systemd/io.systemd.sysext io.systemd.sysext.Merge '{"allowInteractiveAuthentication": true}'
+    grep -q -F "MARKER=1" /usr/lib/systemd/system/some_file
+    run0 -u testuser varlinkctl call /run/systemd/io.systemd.sysext io.systemd.sysext.Refresh '{"allowInteractiveAuthentication": true}'
+    grep -q -F "MARKER=1" /usr/lib/systemd/system/some_file
+    run0 -u testuser varlinkctl call /run/systemd/io.systemd.sysext io.systemd.sysext.Unmerge '{"allowInteractiveAuthentication": true}'
+    (! grep -q -F "MARKER=1" /usr/lib/systemd/system/some_file )
+    rm -f /etc/polkit-1/rules.d/sysext-unpriv.rules
+    systemctl try-reload-or-restart polkit.service
+fi
 
 # Check that extensions cannot contain os-release
 mkdir -p /run/extensions/app-reject/usr/lib/{extension-release.d/,systemd/system}
@@ -935,6 +1049,45 @@ test "$SHA256SUM1" != ""
 echo abc >abc
 systemd-dissect --copy-to /tmp/img abc /abc
 test -f /tmp/img/abc
+
+# Test --copy-ownership= option
+rm -rf /tmp/copychown-test
+mkdir -p /tmp/copychown-test/srcdir
+echo "test file" >/tmp/copychown-test/srcdir/testfile
+chown 1234:5678 /tmp/copychown-test/srcdir/testfile
+chown 1234:5678 /tmp/copychown-test/srcdir
+
+# Test --copy-ownership=yes preserves ownership for regular files
+systemd-dissect --copy-from /tmp/img etc/os-release /tmp/copychown-test/os-release-chown-yes --copy-ownership=yes
+test "$(stat -c %u:%g /tmp/copychown-test/os-release-chown-yes)" = "0:0"
+
+# Test --copy-ownership=no uses current user for regular files
+systemd-dissect --copy-from /tmp/img etc/os-release /tmp/copychown-test/os-release-chown-no --copy-ownership=no
+test "$(stat -c %u:%g /tmp/copychown-test/os-release-chown-no)" = "0:0"
+
+# Test --copy-ownership=auto (default) does not preserve ownership for regular files
+systemd-dissect --copy-from /tmp/img etc/os-release /tmp/copychown-test/os-release-chown-auto
+test "$(stat -c %u:%g /tmp/copychown-test/os-release-chown-auto)" = "0:0"
+
+# Test --copy-ownership=yes preserves ownership for directories
+systemd-dissect --copy-to /tmp/img /tmp/copychown-test/srcdir /copychown-dir-yes --copy-ownership=yes
+test "$(stat -c %u:%g /tmp/img/copychown-dir-yes)" = "1234:5678"
+test "$(stat -c %u:%g /tmp/img/copychown-dir-yes/testfile)" = "1234:5678"
+rm -rf /tmp/img/copychown-dir-yes
+
+# Test --copy-ownership=no overrides ownership for directories
+systemd-dissect --copy-to /tmp/img /tmp/copychown-test/srcdir /copychown-dir-no --copy-ownership=no
+test "$(stat -c %u:%g /tmp/img/copychown-dir-no)" = "0:0"
+test "$(stat -c %u:%g /tmp/img/copychown-dir-no/testfile)" = "0:0"
+rm -rf /tmp/img/copychown-dir-no
+
+# Test --copy-ownership=auto (default) preserves ownership for directories
+systemd-dissect --copy-to /tmp/img /tmp/copychown-test/srcdir /copychown-dir-auto
+test "$(stat -c %u:%g /tmp/img/copychown-dir-auto)" = "1234:5678"
+test "$(stat -c %u:%g /tmp/img/copychown-dir-auto/testfile)" = "1234:5678"
+rm -rf /tmp/img/copychown-dir-auto
+
+rm -rf /tmp/copychown-test
 
 # Test for dissect tool support with systemd-sysext
 mkdir -p /run/extensions/ testkit/usr/lib/extension-release.d/

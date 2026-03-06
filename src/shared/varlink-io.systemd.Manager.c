@@ -181,6 +181,18 @@ static SD_VARLINK_DEFINE_METHOD(
 static SD_VARLINK_DEFINE_METHOD(
                 Reload);
 
+static SD_VARLINK_DEFINE_METHOD_FULL(
+                EnqueueMarkedJobs,
+                SD_VARLINK_SUPPORTS_MORE,
+                SD_VARLINK_FIELD_COMMENT("Enqueued unit ID"),
+                SD_VARLINK_DEFINE_OUTPUT(unitID, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("ID of enqueued job (if successful)"),
+                SD_VARLINK_DEFINE_OUTPUT(jobID, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Varlink error ID (on failure)"),
+                SD_VARLINK_DEFINE_OUTPUT(error, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Job enqueue error message (on failure)"),
+                SD_VARLINK_DEFINE_OUTPUT(errorMessage, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
+
 static SD_VARLINK_DEFINE_ERROR(RateLimitReached);
 
 SD_VARLINK_DEFINE_INTERFACE(
@@ -191,6 +203,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_Reexecute,
                 SD_VARLINK_SYMBOL_COMMENT("Reload the manager configuration"),
                 &vl_method_Reload,
+                SD_VARLINK_SYMBOL_COMMENT("Enqueue all marked jobs"),
+                &vl_method_EnqueueMarkedJobs,
                 &vl_error_RateLimitReached,
                 &vl_type_ManagerContext,
                 &vl_type_ManagerRuntime,

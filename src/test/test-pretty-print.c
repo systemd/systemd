@@ -4,8 +4,11 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "path-util.h"
 #include "pretty-print.h"
+#include "rm-rf.h"
 #include "tests.h"
+#include "tmpfile-util.h"
 
 #define CYLON_WIDTH 6
 
@@ -53,6 +56,13 @@ TEST(cat_files) {
 
         if (access("/etc/fstab", R_OK) >= 0)
                 assert_se(cat_files("/etc/fstab", STRV_MAKE("/etc/fstab", "/etc/fstab"), 0) == 0);
+
+        /* Test masked file (symlink to /dev/null) - should succeed with exit code 0 */
+        _cleanup_(rm_rf_physical_and_freep) char *tmp = NULL;
+        ASSERT_OK(mkdtemp_malloc("/tmp/test-cat-files-XXXXXX", &tmp));
+        _cleanup_free_ char *masked_file = ASSERT_NOT_NULL(path_join(tmp, "masked.conf"));
+        ASSERT_OK_ERRNO(symlink("/dev/null", masked_file));
+        ASSERT_OK(cat_files(masked_file, /* dropins= */ NULL, /* flags= */ 0));
 }
 
 TEST(red_green_cross_check_mark) {

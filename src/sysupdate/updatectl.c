@@ -72,6 +72,9 @@ typedef struct Operation {
         sd_event_source *job_interrupt_source;
         sd_bus_slot *job_properties_slot;
         sd_bus_slot *job_finished_slot;
+
+        /* Only used for Acquire()/Install() operations: */
+        char *acquired_version;
 } Operation;
 
 static Operation* operation_free(Operation *p) {
@@ -86,6 +89,7 @@ static Operation* operation_free(Operation *p) {
                 assert_se(sd_event_exit(p->event, 0) >= 0);
 
         free(p->job_path);
+        free(p->acquired_version);
 
         sd_event_source_disable_unref(p->job_interrupt_source);
         sd_bus_slot_unref(p->job_properties_slot);
@@ -334,6 +338,8 @@ typedef struct DescribeParams {
         bool newest;
         bool available;
         bool installed;
+        bool partial;
+        bool pending;
         bool obsolete;
         bool protected;
         bool incomplete;
@@ -369,6 +375,8 @@ static int parse_describe(sd_bus_message *reply, Version *ret) {
                 { "newest",        SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, newest),        0 },
                 { "available",     SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, available),     0 },
                 { "installed",     SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, installed),     0 },
+                { "partial",       SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, partial),       0 },
+                { "pending",       SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, pending),       0 },
                 { "obsolete",      SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, obsolete),      0 },
                 { "protected",     SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, protected),     0 },
                 { "incomplete",    SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_stdbool, offsetof(DescribeParams, incomplete),    0 },
@@ -386,6 +394,8 @@ static int parse_describe(sd_bus_message *reply, Version *ret) {
         SET_FLAG(p.v.flags, UPDATE_NEWEST, p.newest);
         SET_FLAG(p.v.flags, UPDATE_AVAILABLE, p.available);
         SET_FLAG(p.v.flags, UPDATE_INSTALLED, p.installed);
+        SET_FLAG(p.v.flags, UPDATE_PARTIAL, p.partial);
+        SET_FLAG(p.v.flags, UPDATE_PENDING, p.pending);
         SET_FLAG(p.v.flags, UPDATE_OBSOLETE, p.obsolete);
         SET_FLAG(p.v.flags, UPDATE_PROTECTED, p.protected);
         SET_FLAG(p.v.flags, UPDATE_INCOMPLETE, p.incomplete);
@@ -804,6 +814,7 @@ static int verb_check(int argc, char **argv, void *userdata) {
 }
 
 #define UPDATE_PROGRESS_FAILED INT_MIN
+#define UPDATE_PROGRESS_ACQUIRED (INT_MAX - 1)
 #define UPDATE_PROGRESS_DONE INT_MAX
 /* Make sure it doesn't overlap w/ errno values */
 assert_cc(UPDATE_PROGRESS_FAILED < -ERRNO_MAX);
@@ -852,6 +863,10 @@ static int update_render_progress(sd_event_source *source, void *userdata) {
                 } else if (progress < 0) {
                         clear_progress_bar_unbuffered(target);
                         fprintf(stderr, "%s: %s %s\n", target, RED_CROSS_MARK(), STRERROR(progress));
+                        total += 100;
+                } else if (progress == UPDATE_PROGRESS_ACQUIRED) {
+                        clear_progress_bar_unbuffered(target);
+                        fprintf(stderr, "%s: %s Installing\n", target, glyph(GLYPH_DOWNLOAD));
                         total += 100;
                 } else if (progress == UPDATE_PROGRESS_DONE) {
                         clear_progress_bar_unbuffered(target);
@@ -920,7 +935,60 @@ static int update_properties_changed(sd_bus_message *m, void *userdata, sd_bus_e
         return 0;
 }
 
-static int update_finished(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+static int update_install_started(sd_bus_message *reply, void *userdata, sd_bus_error *ret_error) {
+        _cleanup_(operation_freep) Operation *op = ASSERT_PTR(userdata);
+        OrderedHashmap *map = ASSERT_PTR(op->userdata);
+        const sd_bus_error *e;
+        const char *job_path;
+        int r;
+
+        assert(reply);
+
+        e = sd_bus_message_get_error(reply);
+        if (e) {
+                r = -sd_bus_error_get_errno(e);
+
+                r = ordered_hashmap_replace(map, op->target_id, INT_TO_PTR(r));
+                if (r < 0)
+                        log_debug_errno(r, "Failed to update hashmap: %m");
+
+                return 0;
+        }
+
+        r = sd_bus_message_read(reply, "sto", NULL, &op->job_id, &job_path);
+        if (r < 0)
+                return bus_log_parse_error(r);
+        r = free_and_strdup_warn(&op->job_path, job_path);
+        if (r < 0)
+                return r;
+
+        /* Update this job in the hashmap. */
+        r = ordered_hashmap_replace(map, op->target_id, INT_TO_PTR(UPDATE_PROGRESS_ACQUIRED));
+        if (r < 0)
+                log_debug_errno(r, "Failed to update hashmap: %m");
+
+        /* Register for progress notifications for this Install() D-Bus call; previously
+         * op->job_properties_slot was registered for progress notifications for the Acquire() D-Bus call. */
+        sd_bus_slot_unref(TAKE_PTR(op->job_properties_slot));
+        r = sd_bus_match_signal_async(
+                        op->bus,
+                        &op->job_properties_slot,
+                        bus_sysupdate_mgr->destination,
+                        job_path,
+                        "org.freedesktop.DBus.Properties",
+                        "PropertiesChanged",
+                        update_properties_changed,
+                        NULL,
+                        op);
+        if (r < 0)
+                return log_bus_error(r, NULL, op->target_id, "listen for PropertiesChanged");
+
+        TAKE_PTR(op); /* update_install_finished/update_interrupted take ownership of the data */
+
+        return 0;
+}
+
+static int update_install_finished(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         _cleanup_(operation_freep) Operation *op = ASSERT_PTR(userdata);
         OrderedHashmap *map = ASSERT_PTR(op->userdata);
         uint64_t id;
@@ -951,6 +1019,64 @@ static int update_finished(sd_bus_message *m, void *userdata, sd_bus_error *erro
         return 0;
 }
 
+static int update_acquire_finished(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        _cleanup_(operation_freep) Operation *op = ASSERT_PTR(userdata);
+        OrderedHashmap *map = ASSERT_PTR(op->userdata);
+        uint64_t id;
+        int r, status;
+
+        assert(m);
+
+        r = sd_bus_message_read(m, "toi", &id, NULL, &status);
+        if (r < 0) {
+                bus_log_parse_error_debug(r);
+                return 0;
+        }
+
+        if (id != op->job_id) {
+                TAKE_PTR(op);
+                return 0;
+        }
+
+        if (status == 0) /* success */
+                status = UPDATE_PROGRESS_ACQUIRED;
+        else if (status > 0) /* exit status without errno */
+                status = UPDATE_PROGRESS_FAILED; /* i.e. EXIT_FAILURE */
+        /* else errno */
+
+        r = ordered_hashmap_replace(map, op->target_id, INT_TO_PTR(status));
+        if (r < 0)
+                log_debug_errno(r, "Failed to update hashmap: %m");
+
+        /* Renew the JobRemoved notification for the Install() call instead. */
+        sd_bus_slot_unref(op->job_finished_slot);
+        r = bus_match_signal_async(
+                        op->bus, &op->job_finished_slot, bus_sysupdate_mgr, "JobRemoved", update_install_finished, NULL, op);
+        if (r < 0)
+                return log_bus_error(r, NULL, op->target_id, "listen for JobRemoved");
+
+        /* With the Acquire() call finished, immediately call Install() to deploy the downloaded update.
+         * This reuses the same Operation struct so the progress reporting continues to be done in the same
+         * slot in the terminal. */
+        r = sd_bus_call_method_async(
+                        op->bus,
+                        NULL,
+                        bus_sysupdate_mgr->destination,
+                        op->target_path,
+                        SYSUPDATE_TARGET_INTERFACE,
+                        "Install",
+                        update_install_started,
+                        op,
+                        "st",
+                        op->acquired_version,
+                        0LU);
+        if (r < 0)
+                return log_bus_error(r, NULL, op->target_id, "call Install");
+        TAKE_PTR(op);
+
+        return 0;
+}
+
 static int update_interrupted(sd_event_source *source, void *userdata) {
         /* Since the event loop is exiting, we will never receive the JobRemoved
          * signal. So, we must free the userdata here. */
@@ -959,6 +1085,8 @@ static int update_interrupted(sd_event_source *source, void *userdata) {
         OrderedHashmap *map = ASSERT_PTR(op->userdata);
         int r;
 
+        /* This call should work regardless of whether we’re cancelling the Acquire() call or the Install()
+         * call. */
         r = sd_bus_call_method(op->bus,
                                bus_sysupdate_mgr->destination,
                                op->job_path,
@@ -977,7 +1105,7 @@ static int update_interrupted(sd_event_source *source, void *userdata) {
         return 0;
 }
 
-static int update_started(sd_bus_message *reply, void *userdata, sd_bus_error *ret_error) {
+static int update_acquire_started(sd_bus_message *reply, void *userdata, sd_bus_error *ret_error) {
         _cleanup_(operation_freep) Operation *op = ASSERT_PTR(userdata);
         OrderedHashmap *map = ASSERT_PTR(op->userdata);
         const sd_bus_error *e;
@@ -1008,6 +1136,12 @@ static int update_started(sd_bus_message *reply, void *userdata, sd_bus_error *r
         op->job_path = strdup(job_path);
         if (!op->job_path)
                 return log_oom();
+
+        /* Store the version for the subsequent Install() call */
+        op->acquired_version = strdup(new_version);
+        if (!op->acquired_version)
+                return log_oom();
+
         if (isempty(new_version))
                 new_version = "latest";
 
@@ -1047,7 +1181,7 @@ static int update_started(sd_bus_message *reply, void *userdata, sd_bus_error *r
         if (r < 0)
                 return log_bus_error(r, NULL, op->target_id, "listen for PropertiesChanged");
 
-        TAKE_PTR(op); /* update_finished/update_interrupted take ownership of the data */
+        TAKE_PTR(op); /* update_acquire_finished/update_interrupted take ownership of the data */
 
         return 0;
 }
@@ -1094,7 +1228,7 @@ static int do_update(sd_bus *bus, char **targets) {
 
                 /* Sign up for notification when the associated job finishes */
                 r = bus_match_signal_async(
-                                op->bus, &op->job_finished_slot, bus_sysupdate_mgr, "JobRemoved", update_finished, NULL, op);
+                                op->bus, &op->job_finished_slot, bus_sysupdate_mgr, "JobRemoved", update_acquire_finished, NULL, op);
                 if (r < 0)
                         return log_bus_error(r, NULL, op->target_id, "listen for JobRemoved");
 
@@ -1104,14 +1238,14 @@ static int do_update(sd_bus *bus, char **targets) {
                                 bus_sysupdate_mgr->destination,
                                 target_paths[i],
                                 SYSUPDATE_TARGET_INTERFACE,
-                                "Update",
-                                update_started,
+                                "Acquire",
+                                update_acquire_started,
                                 op,
                                 "st",
                                 versions[i],
                                 0LU);
                 if (r < 0)
-                        return log_bus_error(r, NULL, targets[i], "call Update");
+                        return log_bus_error(r, NULL, targets[i], "call Acquire");
                 TAKE_PTR(op);
 
                 remaining++;

@@ -60,6 +60,7 @@ monitor_check_rr() (
     # displayed. We turn off pipefail for this, since we don't care about the
     # lhs of this pipe expression, we only care about the rhs' result to be
     # clean
+    set +o pipefail
     timeout -v 30s journalctl -u resolvectl-monitor.service --since "$since" -f --full | grep -m1 "$match"
 )
 
@@ -959,6 +960,9 @@ testcase_10_resolvectl_json() {
 
     assert_eq "$(resolvectl --json=short nta dns0 | jq -rc '.[0].negativeTrustAnchors | .[0]')" 'bar'
     assert_eq "$(jq -rc '.[0].negativeTrustAnchors | .[0]' "$status_json")" 'bar'
+
+    # Test that currentServer is non-empty.
+    jq -rce '.[0].currentServer' "$status_json"
 }
 
 # Test serve stale feature and NFTSet= if nftables is installed
@@ -1448,6 +1452,7 @@ testcase_delegate() {
 [Delegate]
 DNS=192.168.77.78
 Domains=exercise.test
+FirewallMark=42
 EOF
     systemctl reload systemd-resolved
     resolvectl status

@@ -75,7 +75,7 @@
         to or from this peer, identified by its well-known or unique
         name. Otherwise, show all messages on the bus. Use
         <keycombo><keycap>Ctrl</keycap><keycap>C</keycap></keycombo>
-        to terminate the dump.</para>
+        to terminate the dump or limit it with the <option>--limit-messages=</option> option.</para>
 
         <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
@@ -147,9 +147,10 @@
       <varlistentry>
         <term><command>wait</command> <arg choice="opt"><replaceable>SERVICE</replaceable></arg> <arg choice="plain"><replaceable>OBJECT</replaceable></arg> <arg choice="plain"><replaceable>INTERFACE</replaceable></arg> <arg choice="plain"><replaceable>SIGNAL</replaceable></arg></term>
 
-        <listitem><para>Wait for a signal. Takes an object path, interface name, and signal name. To suppress
-        output of the returned data, use the <option>--quiet</option> option. The service name may be
-        omitted, in which case <command>busctl</command> will match signals from any sender.</para>
+        <listitem><para>Wait for a signal. Takes an object path, interface name, and signal name. Use the
+        <option>--limit-messages=</option> option to wait for more than just one signal before exiting. To
+        suppress output of the returned data, use the <option>--quiet</option> option. The service name may
+        be omitted, in which case <command>busctl</command> will match signals from any sender.</para>
 
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
@@ -398,7 +399,14 @@
           <para>When used with the <command>monitor</command> command, if enabled will make
           <command>busctl</command> exit when the specified number of messages have been received and
           printed. This is useful in combination with <option>--match=</option>, to wait for the specified
-          number of occurrences of specific D-Bus messages.</para>
+          number of occurrences of specific D-Bus messages. While if not specified or is set to special value
+          <literal>infinity</literal>, the default is to keep monitoring without limitations.</para>
+
+          <para>When used with the <command>wait</command> command, it will make <command>busctl</command>
+          exit when the specified number of DBus signals have been received and printed. Setting it to
+          special value <literal>infinity</literal> will sustain <command>busctl</command> to receive and
+          print signals continuously without limitations. When nothing is specified, the default is to exit
+          immediately after receiving and printing the first signal.</para>
 
         <xi:include href="version-info.xml" xpointer="v257"/>
         </listitem>

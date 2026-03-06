@@ -326,7 +326,7 @@ CPUWeight=20   DisableControllers=cpu              /          \
 
       <varlistentry>
         <term><varname>MemoryMin=<replaceable>bytes</replaceable></varname>, <varname>MemoryLow=<replaceable>bytes</replaceable></varname></term>
-        <term><varname>StartupMemoryLow=<replaceable>bytes</replaceable></varname>, <varname>DefaultStartupMemoryLow=<replaceable>bytes</replaceable></varname></term>
+        <term><varname>StartupMemoryLow=<replaceable>bytes</replaceable></varname></term>
 
         <listitem>
           <para>These settings control the <option>memory</option> controller in the unified hierarchy.</para>
@@ -352,16 +352,6 @@ CPUWeight=20   DisableControllers=cpu              /          \
           This controls the <literal>memory.min</literal> or <literal>memory.low</literal> control group attribute.
           For details about this control group attribute, see <ulink
           url="https://docs.kernel.org/admin-guide/cgroup-v2.html#memory-interface-files">Memory Interface Files</ulink>.</para>
-
-          <para>Units may have their children use a default <literal>memory.min</literal> or
-          <literal>memory.low</literal> value by specifying <varname>DefaultMemoryMin=</varname> or
-          <varname>DefaultMemoryLow=</varname>, which has the same semantics as
-          <varname>MemoryMin=</varname> and <varname>MemoryLow=</varname>, or <varname>DefaultStartupMemoryLow=</varname>
-          which has the same semantics as <varname>StartupMemoryLow=</varname>.
-          This setting does not affect <literal>memory.min</literal> or <literal>memory.low</literal>
-          in the unit itself.
-          Using it to set a default child allocation is only useful on kernels older than 5.7,
-          which do not support the <literal>memory_recursiveprot</literal> cgroup2 mount option.</para>
 
           <para>While <varname>StartupMemoryLow=</varname> applies to the startup and shutdown phases of the system,
           <varname>MemoryMin=</varname> applies to normal runtime of the system, and if the former is not set also to
@@ -1020,6 +1010,33 @@ RestrictNetworkInterfaces=~eth1</programlisting>
           <xi:include href="cgroup-sandboxing.xml" xpointer="singular"/>
 
           <xi:include href="version-info.xml" xpointer="v250"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>BindNetworkInterface=</varname></term>
+
+        <listitem>
+          <para>Takes the name of a network interface. This option causes every socket created by processes of this
+          unit to be bound to the specified network interface.
+          </para>
+
+          <para>It is specially useful to confine a process to a VRF, when the program does not offer native support
+          for it. It is equivalent to running the program using <constant>ip vrf exec</constant>.
+          </para>
+
+          <para>In systems using <filename>nss-resolve</filename>, the interface used for DNS resolution can be chosen
+          by using the <varname>SYSTEMD_NSS_RESOLVE_IFINDEX</varname> environment variable.</para>
+
+          <para>The feature is implemented with <constant>cgroup/sock_create</constant> cgroup-bpf hooks.</para>
+
+          <para>Example:<programlisting>[Service]
+BindNetworkInterface=vrf-mgmt
+</programlisting></para>
+
+          <xi:include href="cgroup-sandboxing.xml" xpointer="singular"/>
+
+          <xi:include href="version-info.xml" xpointer="v260"/>
         </listitem>
       </varlistentry>
 

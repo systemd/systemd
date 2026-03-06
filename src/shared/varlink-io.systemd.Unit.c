@@ -111,15 +111,9 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#MemoryMin=bytes,%20MemoryLow=bytes"),
                 SD_VARLINK_DEFINE_FIELD(MemoryMin, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#MemoryMin=bytes,%20MemoryLow=bytes"),
-                SD_VARLINK_DEFINE_FIELD(DefaultMemoryMin, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#MemoryMin=bytes,%20MemoryLow=bytes"),
                 SD_VARLINK_DEFINE_FIELD(MemoryLow, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#MemoryMin=bytes,%20MemoryLow=bytes"),
-                SD_VARLINK_DEFINE_FIELD(DefaultMemoryLow, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#MemorySwapMax=bytes"),
                 SD_VARLINK_DEFINE_FIELD(StartupMemoryLow, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#MemoryMin=bytes,%20MemoryLow=bytes"),
-                SD_VARLINK_DEFINE_FIELD(DefaultStartupMemoryLow, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#MemoryHigh=bytes"),
                 SD_VARLINK_DEFINE_FIELD(MemoryHigh, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#MemoryHigh=bytes"),
@@ -185,6 +179,8 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(SocketBindDeny, CGroupSocketBind, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#RestrictNetworkInterfaces="),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(RestrictNetworkInterfaces, CGroupRestrictNetworkInterfaces, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#BindNetworkInterface="),
+                SD_VARLINK_DEFINE_FIELD(BindNetworkInterface, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man/"PROJECT_VERSION_STR"/systemd.resource-control.html#NFTSet=family:table:set"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(NFTSet, CGroupNFTSet, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
 
@@ -413,6 +409,8 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(RootDirectory, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#RootImage="),
                 SD_VARLINK_DEFINE_FIELD(RootImage, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#RootMStack="),
+                SD_VARLINK_DEFINE_FIELD(RootMStack, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#RootImageOptions="),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(RootImageOptions, PartitionMountOptions, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#RootEphemeral="),
@@ -530,6 +528,11 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#IOSchedulingPriority="),
                 SD_VARLINK_DEFINE_FIELD(IOSchedulingPriority, SD_VARLINK_INT, 0),
 
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#MemoryKSM="),
+                SD_VARLINK_DEFINE_FIELD(MemoryKSM, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#MemoryTHP="),
+                SD_VARLINK_DEFINE_FIELD(MemoryTHP, SD_VARLINK_STRING, 0),
+
                 /* Sandboxing
                  * https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#Sandboxing */
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#ProtectSystem="),
@@ -574,8 +577,6 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(PrivateIPC, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#IPCNamespacePath="),
                 SD_VARLINK_DEFINE_FIELD(IPCNamespacePath, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#MemoryKSM="),
-                SD_VARLINK_DEFINE_FIELD(MemoryKSM, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#PrivatePIDs="),
                 SD_VARLINK_DEFINE_FIELD(PrivatePIDs, SD_VARLINK_STRING, 0),
                 SD_VARLINK_FIELD_COMMENT("https://www.freedesktop.org/software/systemd/man"PROJECT_VERSION_STR"systemd.exec.html#PrivateUsers="),
@@ -952,13 +953,13 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("If not empty, the field contains the name of another unit that this unit follows in state"),
                 SD_VARLINK_DEFINE_FIELD(Following, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Reflects whether the configuration file of this unit has been loaded"),
-                SD_VARLINK_DEFINE_FIELD(LoadState, SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_FIELD(LoadState, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Reflects whether the unit is currently active or not"),
-                SD_VARLINK_DEFINE_FIELD(ActiveState, SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_FIELD(ActiveState, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Reflects whether the unit is currently frozen or not"),
-                SD_VARLINK_DEFINE_FIELD(FreezerState, SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_FIELD(FreezerState, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Reflect more fine-grained state that is unit-type-specific"),
-                SD_VARLINK_DEFINE_FIELD(SubState, SD_VARLINK_STRING, 0),
+                SD_VARLINK_DEFINE_FIELD(SubState, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Reflects the install state of the unit file"),
                 SD_VARLINK_DEFINE_FIELD(UnitFileState, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Timestamp when the firmware first began execution"),
@@ -972,27 +973,27 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_FIELD_COMMENT("Timestamp when the unit exited inactive state"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(InactiveExitTimestamp, Timestamp, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Reflects whether the unit can be started or not"),
-                SD_VARLINK_DEFINE_FIELD(CanStart, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_DEFINE_FIELD(CanStart, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Reflects whether the unit can be stopped or not"),
-                SD_VARLINK_DEFINE_FIELD(CanStop, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_DEFINE_FIELD(CanStop, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Reflects whether the unit can be reloaded or not"),
-                SD_VARLINK_DEFINE_FIELD(CanReload, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_DEFINE_FIELD(CanReload, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Reflects whether the unit may be started in isolation mode"),
-                SD_VARLINK_DEFINE_FIELD(CanIsolate, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_DEFINE_FIELD(CanIsolate, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Returns which unit resources can be cleaned up"),
                 SD_VARLINK_DEFINE_FIELD(CanClean, SD_VARLINK_STRING, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Whether the unit supports the freeze operation"),
-                SD_VARLINK_DEFINE_FIELD(CanFreeze, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_DEFINE_FIELD(CanFreeze, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Whether the unit supports live mounting"),
-                SD_VARLINK_DEFINE_FIELD(CanLiveMount, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_DEFINE_FIELD(CanLiveMount, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The job ID of the job currently scheduled or being executed for this unit, if there is any."),
                 SD_VARLINK_DEFINE_FIELD(JobId, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Whether the configuration file this unit is loaded from (i.e. FragmentPath or SourcePath) has changed since the configuration was read and hence whether a configuration reload is recommended"),
-                SD_VARLINK_DEFINE_FIELD(NeedDaemonReload, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_DEFINE_FIELD(NeedDaemonReload, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Condition result of the last time the configured conditions of this unit were checked"),
-                SD_VARLINK_DEFINE_FIELD(ConditionResult, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_DEFINE_FIELD(ConditionResult, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Assert result of the last time the configured asserts of this unit were checked"),
-                SD_VARLINK_DEFINE_FIELD(AssertResult, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_DEFINE_FIELD(AssertResult, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The last time the configured conditions of the unit have been checked"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(ConditionTimestamp, Timestamp, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The last time the configured asserts of the unit have been checked"),
@@ -1005,10 +1006,6 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(ActivationDetails, ActivationDetails, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("The cgroup runtime of the unit"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(CGroup, CGroupRuntime, SD_VARLINK_NULLABLE));
-
-static SD_VARLINK_DEFINE_ERROR(
-                NoSuchUnit,
-                SD_VARLINK_DEFINE_FIELD(parameter, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_METHOD_FULL(
                 List,
@@ -1026,11 +1023,34 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_FIELD_COMMENT("Runtime information of the unit"),
                 SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(runtime, UnitRuntime, 0));
 
+static SD_VARLINK_DEFINE_ERROR(
+                NoSuchUnit,
+                SD_VARLINK_DEFINE_FIELD(parameter, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_ERROR(OnlyByDependency);
+static SD_VARLINK_DEFINE_ERROR(DBusShuttingDown);
+static SD_VARLINK_DEFINE_ERROR(UnitMasked);
+static SD_VARLINK_DEFINE_ERROR(UnitError);
+static SD_VARLINK_DEFINE_ERROR(
+                PropertyNotSupported,
+                SD_VARLINK_DEFINE_FIELD(property, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
+
+static SD_VARLINK_DEFINE_METHOD(
+                SetProperties,
+                SD_VARLINK_FIELD_COMMENT("The name of the unit to operate on."),
+                SD_VARLINK_DEFINE_INPUT(name, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("Whether to apply the change ephemerally or persistently."),
+                SD_VARLINK_DEFINE_INPUT(runtime, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("The runtime properties to set."),
+                SD_VARLINK_DEFINE_INPUT_BY_TYPE(properties, UnitRuntime, 0));
+
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Unit,
                 "io.systemd.Unit",
                 SD_VARLINK_SYMBOL_COMMENT("List units"),
                 &vl_method_List,
+                SD_VARLINK_SYMBOL_COMMENT("Set unit properties"),
+                &vl_method_SetProperties,
                 &vl_type_RateLimit,
                 SD_VARLINK_SYMBOL_COMMENT("An object to represent a unit's conditions"),
                 &vl_type_Condition,
@@ -1090,4 +1110,14 @@ SD_VARLINK_DEFINE_INTERFACE(
 
                 /* Errors */
                 SD_VARLINK_SYMBOL_COMMENT("No matching unit found"),
-                &vl_error_NoSuchUnit);
+                &vl_error_NoSuchUnit,
+                SD_VARLINK_SYMBOL_COMMENT("The unit is masked"),
+                &vl_error_UnitMasked,
+                SD_VARLINK_SYMBOL_COMMENT("Unit is in a fatal error state"),
+                &vl_error_UnitError,
+                SD_VARLINK_SYMBOL_COMMENT("Changing this property via SetProperties() is not supported"),
+                &vl_error_PropertyNotSupported,
+                SD_VARLINK_SYMBOL_COMMENT("Job for the unit may only be enqueued by dependencies"),
+                &vl_error_OnlyByDependency,
+                SD_VARLINK_SYMBOL_COMMENT("A unit that requires D-Bus cannot be started as D-Bus is shutting down"),
+                &vl_error_DBusShuttingDown);

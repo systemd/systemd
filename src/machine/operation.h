@@ -3,13 +3,14 @@
 
 #include "list.h"
 #include "machine-forward.h"
+#include "pidref.h"
 
 #define OPERATIONS_MAX 64
 
 typedef struct Operation {
         Manager *manager;
         Machine *machine;
-        pid_t pid;
+        PidRef pidref;
 
         /* only one of these two fields should be set */
         sd_varlink *link;
@@ -23,7 +24,7 @@ typedef struct Operation {
         LIST_FIELDS(Operation, operations_by_machine);
 } Operation;
 
-int operation_new(Manager *manager, Machine *machine, pid_t child, int errno_fd, Operation **ret);
+int operation_new(Manager *manager, Machine *machine, PidRef *child, int errno_fd, Operation **ret);
 Operation *operation_free(Operation *o);
 
 void operation_attach_bus_reply(Operation *op, sd_bus_message *message);
@@ -32,7 +33,7 @@ void operation_attach_varlink_reply(Operation *op, sd_varlink *link);
 static inline int operation_new_with_bus_reply(
                 Manager *manager,
                 Machine *machine,
-                pid_t child,
+                PidRef *child,
                 sd_bus_message *message,
                 int errno_fd,
                 Operation **ret) {
@@ -55,7 +56,7 @@ static inline int operation_new_with_bus_reply(
 static inline int operation_new_with_varlink_reply(
                 Manager *manager,
                 Machine *machine,
-                pid_t child,
+                PidRef *child,
                 sd_varlink *link,
                 int errno_fd,
                 Operation **ret) {

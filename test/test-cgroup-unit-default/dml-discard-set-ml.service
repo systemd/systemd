@@ -1,9 +1,0 @@
-# SPDX-License-Identifier: LGPL-2.1-or-later
-[Unit]
-Description=DML discard set ml service
-
-[Service]
-Slice=dml-discard.slice
-Type=oneshot
-ExecStart=true
-MemoryLow=15

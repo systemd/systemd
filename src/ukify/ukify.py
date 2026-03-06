@@ -273,7 +273,7 @@ class UkifyConfig:
     devicetree: Path
     devicetree_auto: list[Path]
     efi_arch: str
-    hwids: Path
+    hwids: Union[str, Path, None]
     initrd: list[Path]
     efifw: list[Path]
     join_profiles: list[Path]
@@ -1364,7 +1364,7 @@ def make_uki(opts: UkifyConfig) -> None:
     pcrpkey: Union[bytes, Path, None] = opts.pcrpkey
     if pcrpkey is None:
         keyutil_tool = find_tool('systemd-keyutil', '/usr/lib/systemd/systemd-keyutil')
-        cmd = [keyutil_tool, 'public']
+        cmd = [keyutil_tool, 'extract-public']
 
         if opts.pcr_public_keys and len(opts.pcr_public_keys) == 1:
             # If we're using an engine or provider, the public key will be an X.509 certificate.
@@ -1397,8 +1397,14 @@ def make_uki(opts: UkifyConfig) -> None:
 
     hwids = None
 
-    if opts.hwids is not None:
-        hwids = parse_hwid_dir(opts.hwids)
+    if opts.hwids != '':
+        if opts.hwids is not None:
+            hwids = parse_hwid_dir(Path(opts.hwids))
+        else:
+            hwids_dir = Path(f'/tmp/s/usr/lib/systemd/boot/hwids/{opts.efi_arch}')
+            if hwids_dir.is_dir():
+                print(f'Automatically building .hwids section from {hwids_dir}', file=sys.stderr)
+                hwids = parse_hwid_dir(hwids_dir)
 
     sections = [
         # name,      content,         measure?
@@ -1476,6 +1482,9 @@ def make_uki(opts: UkifyConfig) -> None:
         '.sbat',
         '.profile',
     }
+
+    if not opts.os_release:
+        to_import.remove('.osrel')
 
     for profile in opts.join_profiles:
         pe = pefile.PE(profile, fast_load=True)
@@ -1991,7 +2000,6 @@ CONFIG_ITEMS = [
     ConfigItem(
         '--hwids',
         metavar='DIR',
-        type=Path,
         help='Directory with HWID text files [.hwids section]',
         config_key='UKI/HWIDs',
     ),
@@ -2412,7 +2420,12 @@ def finalize_options(opts: argparse.Namespace) -> None:
 
     opts.os_release = resolve_at_path(opts.os_release)
 
-    if not opts.os_release and opts.linux:
+    if opts.os_release == '':
+        # If --os-release= with an empty string was passed, treat that as
+        # explicitly disabling the .osrel section, and do not fallback to the
+        # system's os-release files.
+        pass
+    elif opts.os_release is None and opts.linux:
         p = Path('/etc/os-release')
         if not p.exists():
             p = Path('/usr/lib/os-release')

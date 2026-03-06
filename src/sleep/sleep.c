@@ -61,7 +61,7 @@ static int determine_auto_swap(sd_device *device) {
 
         assert(device);
 
-        r = block_device_get_originating(device, &origin);
+        r = block_device_get_originating(device, &origin, /* recursive= */ false);
         if (r < 0 && r != -ENOENT)
                 return r;
         if (r >= 0)
@@ -507,37 +507,90 @@ static int custom_timer_suspend(const SleepConfig *sleep_config) {
 }
 
 static int execute_s2h(const SleepConfig *sleep_config) {
+        _cleanup_close_ int tfd = -EBADF;
+        usec_t hibernate_timestamp = 0;
         int r;
 
         assert(sleep_config);
 
-        /* Only check if we have automated battery alarms if HibernateDelaySec= is not set, as in that case
-         * we'll busy poll for the configured interval instead */
-        if (!timestamp_is_set(sleep_config->hibernate_delay_usec)) {
-                r = check_wakeup_type();
+        /* Always check if we have automated battery alarms, regardless of HibernateDelaySec= setting.
+         * This allows both low-battery hibernation AND timeout-based hibernation to work together. */
+        r = check_wakeup_type();
+        if (r < 0)
+                log_warning_errno(r, "Failed to check hardware wakeup type, ignoring: %m");
+        else {
+                r = battery_trip_point_alarm_exists();
                 if (r < 0)
-                        log_warning_errno(r, "Failed to check hardware wakeup type, ignoring: %m");
-                else {
-                        r = battery_trip_point_alarm_exists();
-                        if (r < 0)
-                                log_warning_errno(r, "Failed to check whether acpi_btp support is enabled or not, ignoring: %m");
+                        log_warning_errno(r, "Failed to check whether acpi_btp support is enabled or not, ignoring: %m");
+        }
+
+        if (r > 0) {
+                /* We have hardware battery alarm support (ACPI _BTP). If HibernateDelaySec= is also set,
+                 * set up an RTC alarm so we hibernate on whichever comes first: low battery or timeout. */
+                if (timestamp_is_set(sleep_config->hibernate_delay_usec)) {
+                        tfd = timerfd_create(CLOCK_BOOTTIME_ALARM, TFD_NONBLOCK|TFD_CLOEXEC);
+                        if (tfd < 0)
+                                return log_error_errno(errno, "Error creating timerfd: %m");
+
+                        hibernate_timestamp = usec_add(now(CLOCK_BOOTTIME), sleep_config->hibernate_delay_usec);
                 }
-        } else
-                r = 0;  /* Force fallback path */
 
-        if (r > 0) { /* If we have both wakeup alarms and battery trip point support, use them */
-                log_debug("Attempting to suspend...");
-                r = execute(sleep_config, SLEEP_SUSPEND, NULL);
-                if (r < 0)
-                        return r;
+                for (;;) {
+                        if (tfd >= 0) {
+                                struct itimerspec ts = {};
+                                usec_t time_left;
 
-                r = check_wakeup_type();
-                if (r < 0)
-                        return log_error_errno(r, "Failed to check hardware wakeup type: %m");
+                                /* Handle HibernateOnACPower=no: reset timer while on AC power */
+                                if (!sleep_config->hibernate_on_ac_power && on_ac_power() > 0) {
+                                        log_debug("On AC power with HibernateOnACPower=no, resetting hibernate timer");
+                                        hibernate_timestamp = usec_add(now(CLOCK_BOOTTIME), sleep_config->hibernate_delay_usec);
+                                }
 
-                if (r == 0)
-                        /* For APM Timer wakeup, system should hibernate else wakeup */
+                                time_left = usec_sub_unsigned(hibernate_timestamp, now(CLOCK_BOOTTIME));
+                                if (time_left <= 0)
+                                        break; /* Timer expired, hibernate */
+
+                                log_debug("Set timerfd wake alarm for %s",
+                                          FORMAT_TIMESPAN(time_left, USEC_PER_SEC));
+                                timespec_store(&ts.it_value, time_left);
+
+                                if (timerfd_settime(tfd, 0, &ts, NULL) < 0)
+                                        return log_error_errno(errno, "Error setting hibernate delay timer: %m");
+                        }
+
+                        log_debug("Attempting to suspend...");
+                        r = execute(sleep_config, SLEEP_SUSPEND, NULL);
+                        if (r < 0)
+                                return r;
+
+                        r = check_wakeup_type();
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to check hardware wakeup type: %m");
+                        if (r > 0) {
+                                /* APM Timer wakeup - this means the battery alarm triggered, hibernate */
+                                log_debug("Woken by APM Timer (battery low), proceeding to hibernate");
+                                break;
+                        }
+
+                        if (tfd >= 0) {
+                                /* Check if our HibernateDelaySec timer fired */
+                                r = fd_wait_for_event(tfd, POLLIN, 0);
+                                if (r < 0)
+                                        return log_error_errno(r, "Error polling timerfd: %m");
+                                if (FLAGS_SET(r, POLLIN)) {
+                                        /* Timer fired - but respect HibernateOnACPower setting */
+                                        if (!sleep_config->hibernate_on_ac_power && on_ac_power() > 0) {
+                                                log_debug("Timer fired but on AC power with HibernateOnACPower=no, continuing suspend");
+                                                continue;
+                                        }
+                                        log_debug("HibernateDelaySec timeout reached, proceeding to hibernate");
+                                        break;
+                                }
+                        }
+
+                        /* Manual wakeup - not battery alarm and not timer */
                         return 0;
+                }
         } else {
                 r = custom_timer_suspend(sleep_config);
                 if (r < 0)

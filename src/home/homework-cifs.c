@@ -15,6 +15,7 @@
 #include "memfd-util.h"
 #include "mount-util.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "stat-util.h"
 #include "string-util.h"
@@ -75,14 +76,17 @@ int home_setup_cifs(
 
         STRV_FOREACH(pw, h->password) {
                 _cleanup_close_ int passwd_fd = -EBADF;
-                pid_t mount_pid;
                 int exit_status;
 
                 passwd_fd = memfd_new_and_seal_string("cifspw", *pw);
                 if (passwd_fd < 0)
                         return log_error_errno(passwd_fd, "Failed to create data FD for password: %m");
 
-                r = safe_fork("(mount)", FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_STDOUT_TO_STDERR, &mount_pid);
+                _cleanup_(pidref_done) PidRef mount_pidref = PIDREF_NULL;
+                r = pidref_safe_fork(
+                                "(mount)",
+                                FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_STDOUT_TO_STDERR,
+                                &mount_pidref);
                 if (r < 0)
                         return r;
                 if (r == 0) {
@@ -108,7 +112,7 @@ int home_setup_cifs(
                         _exit(EXIT_FAILURE);
                 }
 
-                exit_status = wait_for_terminate_and_check("mount", mount_pid, WAIT_LOG_ABNORMAL|WAIT_LOG_NON_ZERO_EXIT_STATUS);
+                exit_status = pidref_wait_for_terminate_and_check("mount", &mount_pidref, WAIT_LOG_ABNORMAL|WAIT_LOG_NON_ZERO_EXIT_STATUS);
                 if (exit_status < 0)
                         return exit_status;
                 if (exit_status == EXIT_SUCCESS) {

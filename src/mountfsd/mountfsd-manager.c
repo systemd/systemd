@@ -15,6 +15,7 @@
 #include "log.h"
 #include "mountfsd-manager.h"
 #include "pidfd-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "set.h"
 #include "signal-util.h"
@@ -51,7 +52,7 @@ static int on_worker_exit(sd_event_source *s, const siginfo_t *si, void *userdat
         else if (si->si_code == CLD_DUMPED)
                 log_warning("Worker " PID_FMT " dumped core by signal %s, ignoring.", si->si_pid, signal_to_string(si->si_status));
         else
-                log_warning("Got unexpected exit code via SIGCHLD, ignoring.");
+                log_warning("Got unexpected exit code from child, ignoring.");
 
         (void) start_workers(m, /* explicit_request= */ false); /* Fill up workers again if we fell below the low watermark */
         return 0;
@@ -125,19 +126,19 @@ Manager* manager_free(Manager *m) {
 static int start_one_worker(Manager *m) {
         _cleanup_(sd_event_source_disable_unrefp) sd_event_source *source = NULL;
         bool fixed;
-        pid_t pid;
         int r;
 
         assert(m);
 
         fixed = set_size(m->workers_fixed) < MOUNTFS_WORKERS_MIN;
 
-        r = safe_fork_full(
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        r = pidref_safe_fork_full(
                         "(sd-worker)",
                         /* stdio_fds= */ NULL,
                         &m->listen_fd, 1,
                         FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_REOPEN_LOG|FORK_LOG|FORK_CLOSE_ALL_FDS,
-                        &pid);
+                        &pidref);
         if (r < 0)
                 return log_error_errno(r, "Failed to fork new worker child: %m");
         if (r == 0) {
@@ -158,7 +159,7 @@ static int start_one_worker(Manager *m) {
                         safe_close(m->listen_fd);
                 }
 
-                r = setenvf("LISTEN_PID", /* overwrite= */ true, PID_FMT, pid);
+                r = setenvf("LISTEN_PID", /* overwrite= */ true, PID_FMT, pidref.pid);
                 if (r < 0) {
                         log_error_errno(r, "Failed to set $LISTEN_PID: %m");
                         _exit(EXIT_FAILURE);
@@ -194,9 +195,9 @@ static int start_one_worker(Manager *m) {
                 _exit(EXIT_FAILURE);
         }
 
-        r = sd_event_add_child(m->event, &source, pid, WEXITED, on_worker_exit, m);
+        r = event_add_child_pidref(m->event, &source, &pidref, WEXITED, on_worker_exit, m);
         if (r < 0)
-                return log_error_errno(r, "Failed to watch child " PID_FMT ": %m", pid);
+                return log_error_errno(r, "Failed to watch child " PID_FMT ": %m", pidref.pid);
 
         r = set_ensure_put(
                         fixed ? &m->workers_fixed : &m->workers_dynamic,

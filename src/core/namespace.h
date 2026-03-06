@@ -6,7 +6,6 @@
 ***/
 
 #include "core-forward.h"
-#include "list.h"
 #include "runtime-scope.h"
 
 typedef enum ProtectHome {
@@ -71,6 +70,7 @@ typedef enum PrivateUsers {
         PRIVATE_USERS_SELF,
         PRIVATE_USERS_IDENTITY,
         PRIVATE_USERS_FULL,
+        PRIVATE_USERS_MANAGED,
         _PRIVATE_USERS_MAX,
         _PRIVATE_USERS_INVALID = -EINVAL,
 } PrivateUsers;
@@ -90,6 +90,24 @@ typedef enum PrivatePIDs {
         _PRIVATE_PIDS_MAX,
         _PRIVATE_PIDS_INVALID = -EINVAL,
 } PrivatePIDs;
+
+typedef struct PinnedResource {
+        /* Pins a disk image, directory or mstack by file descriptors. The paths are stored too, but they are
+         * intended to be decoration only, to enhance log messages and should not be load-bearing
+         * otherwise. */
+        int directory_fd;
+        char *directory;
+        int image_fd;
+        char *image;
+        MStack *mstack_loaded;
+        char *mstack;
+} PinnedResource;
+
+#define PINNED_RESOURCE_NULL                    \
+        (PinnedResource) {                      \
+                .directory_fd = -EBADF,         \
+                .image_fd = -EBADF,             \
+        }
 
 typedef struct BindMount {
         char *source;
@@ -120,7 +138,7 @@ typedef enum MountImageType {
 typedef struct MountImage {
         char *source;
         char *destination; /* Unused if MountImageType == MOUNT_IMAGE_EXTENSION */
-        LIST_HEAD(MountOptions, mount_options);
+        MountOptions *mount_options;
         bool ignore_enoent;
         MountImageType type;
 } MountImage;
@@ -128,9 +146,7 @@ typedef struct MountImage {
 typedef struct NamespaceParameters {
         RuntimeScope runtime_scope;
 
-        int root_directory_fd;
-        const char *root_directory;
-        const char *root_image;
+        const PinnedResource *rootfs;
         const MountOptions *root_image_options;
         const ImagePolicy *root_image_policy;
 
@@ -200,10 +216,13 @@ typedef struct NamespaceParameters {
         PrivateTmp private_tmp;
         PrivateTmp private_var_tmp;
         PrivatePIDs private_pids;
+        PrivateUsers private_users;
 
         PidRef *bpffs_pidref;
         int bpffs_socket_fd;
         int bpffs_errno_pipe;
+
+        sd_varlink *mountfsd_link;
 } NamespaceParameters;
 
 int setup_namespace(const NamespaceParameters *p, char **reterr_path);
@@ -213,43 +232,30 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path);
 char* namespace_cleanup_tmpdir(char *p);
 DEFINE_TRIVIAL_CLEANUP_FUNC(char*, namespace_cleanup_tmpdir);
 
-int setup_tmp_dirs(
-                const char *id,
-                char **tmp_dir,
-                char **var_tmp_dir);
+int setup_tmp_dir_one(const char *id, const char *prefix, char **ret_path);
 
 int setup_shareable_ns(int ns_storage_socket[static 2], unsigned long nsflag);
 int open_shareable_ns_path(int netns_storage_socket[static 2], const char *path, unsigned long nsflag);
 
-const char* protect_home_to_string(ProtectHome p) _const_;
-ProtectHome protect_home_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(protect_home, ProtectHome);
 
-const char* protect_hostname_to_string(ProtectHostname p) _const_;
-ProtectHostname protect_hostname_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(protect_hostname, ProtectHostname);
 
-const char* protect_system_to_string(ProtectSystem p) _const_;
-ProtectSystem protect_system_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(protect_system, ProtectSystem);
 
-const char* protect_proc_to_string(ProtectProc i) _const_;
-ProtectProc protect_proc_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(protect_proc, ProtectProc);
 
-const char* proc_subset_to_string(ProcSubset i) _const_;
-ProcSubset proc_subset_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(proc_subset, ProcSubset);
 
-const char* private_bpf_to_string(PrivateBPF i) _const_;
-PrivateBPF private_bpf_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(private_bpf, PrivateBPF);
 
-const char* bpf_delegate_cmd_to_string(uint64_t u) _const_;
-uint64_t bpf_delegate_cmd_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(bpf_delegate_cmd, uint64_t);
 
-const char* bpf_delegate_map_type_to_string(uint64_t u) _const_;
-uint64_t bpf_delegate_map_type_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(bpf_delegate_map_type, uint64_t);
 
-const char* bpf_delegate_prog_type_to_string(uint64_t u) _const_;
-uint64_t bpf_delegate_prog_type_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(bpf_delegate_prog_type, uint64_t);
 
-const char* bpf_delegate_attach_type_to_string(uint64_t u) _const_;
-uint64_t bpf_delegate_attach_type_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(bpf_delegate_attach_type, uint64_t);
 
 char* bpf_delegate_to_string(uint64_t u, const char * (*parser)(uint64_t) _const_);
 int bpf_delegate_from_string(const char *s, uint64_t *ret, uint64_t (*parser)(const char *));
@@ -286,29 +292,31 @@ static inline char * bpf_delegate_attachments_to_string(uint64_t u) {
         return bpf_delegate_to_string(u, bpf_delegate_attach_type_to_string);
 }
 
-const char* private_tmp_to_string(PrivateTmp i) _const_;
-PrivateTmp private_tmp_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(private_tmp, PrivateTmp);
 
-const char* private_users_to_string(PrivateUsers i) _const_;
-PrivateUsers private_users_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(private_users, PrivateUsers);
 
-const char* protect_control_groups_to_string(ProtectControlGroups i) _const_;
-ProtectControlGroups protect_control_groups_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(protect_control_groups, ProtectControlGroups);
 
-const char* private_pids_to_string(PrivatePIDs i) _const_;
-PrivatePIDs private_pids_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(private_pids, PrivatePIDs);
 
 void bind_mount_free_many(BindMount *b, size_t n);
 int bind_mount_add(BindMount **b, size_t *n, const BindMount *item);
 
-void temporary_filesystem_free_many(TemporaryFileSystem *t, size_t n);
-int temporary_filesystem_add(TemporaryFileSystem **t, size_t *n,
-                             const char *path, const char *options);
-
-MountImage* mount_image_free_many(MountImage *m, size_t *n);
+void mount_image_free_many(MountImage *m, size_t n);
 int mount_image_add(MountImage **m, size_t *n, const MountImage *item);
+
+void temporary_filesystem_free_many(TemporaryFileSystem *t, size_t n);
+int temporary_filesystem_add(
+                TemporaryFileSystem **t,
+                size_t *n,
+                const char *path,
+                const char *options);
 
 int refresh_extensions_in_namespace(
                 const PidRef *target,
                 const char *hierarchy_env,
                 const NamespaceParameters *p);
+
+void pinned_resource_done(PinnedResource *p);
+bool pinned_resource_is_set(const PinnedResource *p);

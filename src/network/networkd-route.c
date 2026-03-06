@@ -1201,7 +1201,7 @@ static int process_route_one(
                         route_forget(manager, route, "Forgetting removed");
                 else
                         log_route_debug(tmp,
-                                        manager->manage_foreign_routes ? "Kernel removed unknown" : "Ignoring received",
+                                        manager->manage_foreign_routes ? "Kernel removed unknown" : "Ignoring removed",
                                         manager);
                 break;
 

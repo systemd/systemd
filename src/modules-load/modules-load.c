@@ -423,7 +423,7 @@ static int run(int argc, char *argv[]) {
                         RET_GATHER(ret, modules_list_append_dup(&module_set, *i));
 
                 r = conf_files_list_nulstr_full(".conf", /* root= */ NULL,
-                                                CONF_FILES_REGULAR | CONF_FILES_FILTER_MASKED,
+                                                CONF_FILES_REGULAR | CONF_FILES_FILTER_MASKED | CONF_FILES_WARN,
                                                 conf_file_dirs, &files, &n_files);
                 if (r < 0)
                         RET_GATHER(ret, log_error_errno(r, "Failed to enumerate modules-load.d files: %m"));

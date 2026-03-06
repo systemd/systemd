@@ -64,9 +64,6 @@ static bool is_in_survivor_cgroup(const PidRef *pid) {
         }
 
         r = cg_get_xattr_bool(cgroup_path, "user.survive_final_kill_signal");
-        /* user xattr support was added to kernel v5.7, try with the trusted namespace as a fallback */
-        if (ERRNO_IS_NEG_XATTR_ABSENT(r))
-                r = cg_get_xattr_bool(cgroup_path, "trusted.survive_final_kill_signal");
         if (r < 0 && !ERRNO_IS_NEG_XATTR_ABSENT(r))
                 log_debug_errno(r,
                                 "Failed to get survive_final_kill_signal xattr of %s, ignoring: %m",

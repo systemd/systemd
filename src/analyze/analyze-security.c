@@ -2752,7 +2752,7 @@ static int offline_security_checks(
                         (void) mkdir_parents(dropin, 0755);
 
                         if (!is_path(profile)) {
-                                r = find_portable_profile(profile, unit_name, &profile_path);
+                                r = find_portable_profile(scope, profile, unit_name, &profile_path);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to find portable profile %s: %m", profile);
                                 profile = profile_path;

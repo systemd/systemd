@@ -35,7 +35,7 @@ def parse_args():
     return p.parse_args()
 
 def read_config(distro: str):
-    cmd = ['mkosi', '--json', '-d', distro, 'summary']
+    cmd = ['mkosi', '--json', '-d', distro, '-f', 'summary']
     if args.profile:
         cmd += ['--profile', args.profile]
     print(f"+ {shlex.join(cmd)}")
@@ -123,7 +123,7 @@ def update_distro(args, distro: str, config: dict):
         print(f'{pkg_subdir}: commit {new_commit!s} is still fresh')
         return
 
-    cmd = ['git', '-C', f'pkg/{pkg_subdir}', 'log', '--graph', '--first-parent',
+    cmd = ['git', '-C', f'pkg/{pkg_subdir}', 'log', '--graph', '--no-merges',
            '--pretty=oneline', '--no-decorate', '--abbrev-commit', '--abbrev=10',
            f'{old_commit}..{new_commit}']
     if subdir is not None:

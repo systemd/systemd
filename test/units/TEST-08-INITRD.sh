@@ -22,9 +22,8 @@ test -d /run/initrd-mount-target
 mountpoint /run/initrd-mount-target
 [[ -e /run/initrd-mount-target/hello-world ]]
 
-# Copy the prepared exitrd to its intended location. Check the respective
-# test.sh file for details
+# Copy the prepared exitrd to its intended location.
 mkdir -p /run/initramfs
-cp -r /exitrd/* /run/initramfs/
+unzstd --stdout /exitrd | cpio --extract --make-directories --directory /run/initramfs/
 
 touch /testok

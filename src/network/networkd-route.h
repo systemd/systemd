@@ -74,8 +74,7 @@ void log_route_debug(const Route *route, const char *str, Manager *manager);
 extern const struct hash_ops route_hash_ops;
 extern const struct hash_ops route_hash_ops_unref;
 
-Route* route_ref(Route *route);
-Route* route_unref(Route *route);
+DECLARE_TRIVIAL_REF_UNREF_FUNC(Route, route);
 DEFINE_SECTION_CLEANUP_FUNCTIONS(Route, route_unref);
 
 void route_detach(Route *route);

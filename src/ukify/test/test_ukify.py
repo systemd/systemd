@@ -641,7 +641,7 @@ def test_efi_signing_pesign(kernel_initrd, tmp_path):
 
     shutil.rmtree(tmp_path)
 
-def test_inspect(kernel_initrd, tmp_path, capsys):
+def test_inspect(kernel_initrd, tmp_path, capsys, osrel=True):
     if kernel_initrd is None:
         pytest.skip('linux+initrd not found')
     if not shutil.which('sbsign'):
@@ -653,7 +653,7 @@ def test_inspect(kernel_initrd, tmp_path, capsys):
 
     output = f'{tmp_path}/signed2.efi'
     uname_arg='1.2.3'
-    osrel_arg='Linux'
+    osrel_arg='Linux' if osrel else ''
     cmdline_arg='ARG1 ARG2 ARG3'
 
     args = [
@@ -680,8 +680,12 @@ def test_inspect(kernel_initrd, tmp_path, capsys):
 
     text = capsys.readouterr().out
 
-    expected_osrel = f'.osrel:\n  size: {len(osrel_arg)}'
-    assert expected_osrel in text
+    if osrel:
+        expected_osrel = f'.osrel:\n  size: {len(osrel_arg)}'
+        assert expected_osrel in text
+    else:
+        assert '.osrel:' not in text
+
     expected_cmdline = f'.cmdline:\n  size: {len(cmdline_arg)}'
     assert expected_cmdline in text
     expected_uname = f'.uname:\n  size: {len(uname_arg)}'
@@ -693,6 +697,9 @@ def test_inspect(kernel_initrd, tmp_path, capsys):
     assert expected_linux in text
 
     shutil.rmtree(tmp_path)
+
+def test_inspect_no_osrel(kernel_initrd, tmp_path, capsys):
+    test_inspect(kernel_initrd, tmp_path, capsys, osrel=False)
 
 @pytest.mark.skipif(not slow_tests, reason='slow')
 def test_pcr_signing(kernel_initrd, tmp_path):

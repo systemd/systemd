@@ -124,7 +124,7 @@ bool terminal_is_dumb(void);
 bool dev_console_colors_enabled(void);
 
 int get_ctty_devnr(pid_t pid, dev_t *ret);
-int get_ctty(pid_t, dev_t *ret_devnr, char **ret);
+int get_ctty(pid_t pid, dev_t *ret_devnr, char **ret);
 
 int getttyname_malloc(int fd, char **ret);
 int getttyname_harder(int fd, char **ret);
@@ -150,6 +150,7 @@ void termios_disable_echo(struct termios *termios);
 
 int get_default_background_color(double *ret_red, double *ret_green, double *ret_blue);
 int terminal_get_size_by_dsr(int input_fd, int output_fd, unsigned *ret_rows, unsigned *ret_columns);
+int terminal_get_size_by_csi18(int input_fd, int output_fd, unsigned *ret_rows, unsigned *ret_columns);
 int terminal_fix_size(int input_fd, int output_fd);
 
 int terminal_get_terminfo_by_dcs(int fd, char **ret_name);

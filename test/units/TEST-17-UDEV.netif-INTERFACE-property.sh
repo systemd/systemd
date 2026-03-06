@@ -15,7 +15,7 @@ OriginalName=testif
 Name=te!st!if
 EOF
 
-udevadm control --log-level=debug --reload
+udevadm control --reload
 
 # Check if any interfaces originally named with '!' in their name have been renamed unexpectedly.
 ip link add 'hoge!foo' type dummy
@@ -41,6 +41,6 @@ ip link del dev 'te!st!if'
 
 # cleanup
 rm -f /run/systemd/network/10-rename-test.link
-udevadm control --log-level=info --reload
+udevadm control --reload
 
 exit 0

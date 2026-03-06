@@ -2,8 +2,8 @@
 #pragma once
 
 #include "bitfield.h"
-#include "shared-forward.h"
 #include "openssl-util.h"
+#include "shared-forward.h"
 
 typedef enum TPM2Flags {
         TPM2_FLAGS_USE_PIN     = 1 << 0,
@@ -53,6 +53,8 @@ typedef struct Tpm2Context {
         void *tcti_dl;
         TSS2_TCTI_CONTEXT *tcti_context;
         ESYS_CONTEXT *esys_context;
+        char *tcti_driver;
+        char *tcti_param;
 
         /* Some selected cached capabilities of the TPM */
         TPMS_ALG_PROPERTY *capability_algorithms;
@@ -66,8 +68,7 @@ typedef struct Tpm2Context {
 
 int tpm2_context_new(const char *device, Tpm2Context **ret_context);
 int tpm2_context_new_or_warn(const char *device, Tpm2Context **ret_context);
-Tpm2Context *tpm2_context_ref(Tpm2Context *context);
-Tpm2Context *tpm2_context_unref(Tpm2Context *context);
+DECLARE_TRIVIAL_REF_UNREF_FUNC(Tpm2Context, tpm2_context);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Tpm2Context*, tpm2_context_unref);
 
 typedef struct Tpm2Handle {
@@ -146,14 +147,14 @@ typedef enum Tpm2UserspaceEventType {
         TPM2_EVENT_KEYSLOT,
         TPM2_EVENT_NVPCR_INIT,
         TPM2_EVENT_NVPCR_SEPARATOR,
+        TPM2_EVENT_DM_VERITY,
         _TPM2_USERSPACE_EVENT_TYPE_MAX,
         _TPM2_USERSPACE_EVENT_TYPE_INVALID = -EINVAL,
 } Tpm2UserspaceEventType;
 
-const char* tpm2_userspace_event_type_to_string(Tpm2UserspaceEventType type) _const_;
-Tpm2UserspaceEventType tpm2_userspace_event_type_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(tpm2_userspace_event_type, Tpm2UserspaceEventType);
 
-int tpm2_pcr_extend_bytes(Tpm2Context *c, char **banks, unsigned pcr_index, const struct iovec *data, const struct iovec *secret, Tpm2UserspaceEventType event, const char *description);
+int tpm2_pcr_extend_bytes(Tpm2Context *c, char **banks, unsigned pcr_index, const struct iovec *data, const struct iovec *secret, Tpm2UserspaceEventType event_type, const char *description);
 int tpm2_nvpcr_get_index(const char *name, uint32_t *ret);
 int tpm2_nvpcr_extend_bytes(Tpm2Context *c, const Tpm2Handle *session, const char *name, const struct iovec *data, const struct iovec *secret, Tpm2UserspaceEventType event_type, const char *description);
 int tpm2_nvpcr_acquire_anchor_secret(struct iovec *ret, bool sync_secondary);
@@ -195,6 +196,24 @@ static inline int tpm2_digest_rehash(TPMI_ALG_HASH alg, TPM2B_DIGEST *digest) {
 static inline int tpm2_digest_init(TPMI_ALG_HASH alg, TPM2B_DIGEST *digest) {
         return tpm2_digest_many(alg, digest, NULL, 0, false);
 }
+
+typedef struct Tpm2VendorInfo {
+        uint32_t level;
+        uint32_t revision_major;
+        uint32_t revision_minor;
+        uint32_t day_of_year;
+        uint32_t year;
+        uint32_t vendor_tpm_type;
+        uint16_t firmware_version_major;
+        uint16_t firmware_version_minor;
+        uint32_t firmware_version2;
+        char family_indicator[4+1];
+        char manufacturer[4+1];
+        char vendor_string[4*4+1];
+} Tpm2VendorInfo;
+
+int tpm2_vendor_info_to_modalias(const Tpm2VendorInfo *info, char **ret);
+int tpm2_get_vendor_info(Tpm2Context *c, Tpm2VendorInfo *ret);
 
 void tpm2_log_debug_tpml_pcr_selection(const TPML_PCR_SELECTION *l, const char *msg);
 void tpm2_log_debug_pcr_value(const Tpm2PCRValue *pcr_value, const char *msg);
@@ -305,8 +324,6 @@ int tpm2_tpm2b_public_to_fingerprint(const TPM2B_PUBLIC *public, void **ret_fing
 
 int tpm2_define_policy_nv_index(Tpm2Context *c, const Tpm2Handle *session, TPM2_HANDLE requested_nv_index, const TPM2B_DIGEST *write_policy, TPM2_HANDLE *ret_nv_index, Tpm2Handle **ret_nv_handle, TPM2B_NV_PUBLIC *ret_nv_public);
 int tpm2_write_policy_nv_index(Tpm2Context *c, const Tpm2Handle *policy_session, TPM2_HANDLE nv_index, const Tpm2Handle *nv_handle, const TPM2B_DIGEST *policy_digest);
-int tpm2_define_nvpcr_nv_index(Tpm2Context *c, const Tpm2Handle *session, TPM2_HANDLE nv_index, TPMI_ALG_HASH algorithm, Tpm2Handle **ret_nv_handle);
-int tpm2_extend_nvpcr_nv_index(Tpm2Context *c, TPM2_HANDLE nv_index, const Tpm2Handle *nv_handle, const struct iovec *digest);
 int tpm2_undefine_nv_index(Tpm2Context *c, const Tpm2Handle *session, TPM2_HANDLE nv_index, const Tpm2Handle *nv_handle);
 int tpm2_read_nv_index(Tpm2Context *c, const Tpm2Handle *session, TPM2_HANDLE nv_index, const Tpm2Handle *nv_handle, struct iovec *ret_value);
 
@@ -509,8 +526,7 @@ enum {
         _TPM2_PCR_INDEX_INVALID     = -EINVAL,
 };
 
-int tpm2_pcr_index_from_string(const char *s) _pure_;
-const char* tpm2_pcr_index_to_string(int pcr) _const_;
+DECLARE_STRING_TABLE_LOOKUP(tpm2_pcr_index, int);
 
 /* The first and last NV index handle that is not registered to any company, as per TCG's "Registry of
  * Reserved TPM 2.0 Handles and Localities", section 2.2.2. */

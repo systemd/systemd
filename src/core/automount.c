@@ -324,7 +324,7 @@ static void automount_dump(Unit *u, FILE *f, const char *prefix) {
 static void automount_enter_dead(Automount *a, AutomountResult f) {
         assert(a);
 
-        if (a->result == AUTOMOUNT_SUCCESS)
+        if (a->result == AUTOMOUNT_SUCCESS || IN_SET(f, AUTOMOUNT_FAILURE_MOUNT_START_LIMIT_HIT, AUTOMOUNT_FAILURE_START_LIMIT_HIT))
                 a->result = f;
 
         unit_log_result(UNIT(a), a->result == AUTOMOUNT_SUCCESS, automount_result_to_string(a->result));
@@ -655,12 +655,13 @@ static int asynchronous_expire(int dev_autofs_fd, int ioctl_fd) {
          * child's PID, we are PID1/autoreaper after all, hence when it dies we'll automatically clean it up
          * anyway. */
 
-        r = safe_fork_full("(sd-expire)",
-                           /* stdio_fds= */ NULL,
-                           (int[]) { dev_autofs_fd, ioctl_fd },
-                           /* n_except_fds= */ 2,
-                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_REOPEN_LOG,
-                           /* ret_pid= */ NULL);
+        r = pidref_safe_fork_full(
+                        "(sd-expire)",
+                        /* stdio_fds= */ NULL,
+                        (int[]) { dev_autofs_fd, ioctl_fd },
+                        /* n_except_fds= */ 2,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_REOPEN_LOG,
+                        /* ret= */ NULL);
         if (r != 0)
                 return r;
 
@@ -802,10 +803,6 @@ static int automount_start(Unit *u) {
 
         if (path_is_mount_point(a->where) > 0)
                 return log_unit_error_errno(u, SYNTHETIC_ERRNO(EEXIST), "Path %s is already a mount point, refusing start.", a->where);
-
-        r = unit_test_trigger_loaded(u);
-        if (r < 0)
-                return r;
 
         r = unit_acquire_invocation_id(u);
         if (r < 0)
@@ -1045,6 +1042,10 @@ static bool automount_supported(void) {
 static int automount_test_startable(Unit *u) {
         Automount *a = ASSERT_PTR(AUTOMOUNT(u));
         int r;
+
+        r = unit_test_trigger_loaded(u);
+        if (r < 0)
+                return r;
 
         r = unit_test_start_limit(u);
         if (r < 0) {

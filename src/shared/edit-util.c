@@ -298,6 +298,12 @@ static int run_editor_child(const EditFileContext *context) {
 
                 execvp(args[0], (char* const*) args);
 
+                if (errno == ENOTDIR) {
+                        log_debug_errno(errno,
+                                        "Failed to execute '%s': a path component is not a directory, skipping...",
+                                        name);
+                        continue;
+                }
                 /* We do not fail if the editor doesn't exist because we want to try each one of them
                  * before failing. */
                 if (errno != ENOENT)
@@ -313,7 +319,10 @@ static int run_editor(const EditFileContext *context) {
 
         assert(context);
 
-        r = safe_fork("(editor)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_RLIMIT_NOFILE_SAFE|FORK_CLOSE_ALL_FDS|FORK_REOPEN_LOG|FORK_LOG|FORK_WAIT, NULL);
+        r = pidref_safe_fork(
+                        "(editor)",
+                        FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_RLIMIT_NOFILE_SAFE|FORK_CLOSE_ALL_FDS|FORK_REOPEN_LOG|FORK_LOG|FORK_WAIT,
+                        /* ret= */ NULL);
         if (r < 0)
                 return r;
         if (r == 0) { /* Child */

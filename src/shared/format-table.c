@@ -14,6 +14,7 @@
 #include "glyph-util.h"
 #include "gunicode.h"
 #include "in-addr-util.h"
+#include "json-util.h"
 #include "memory-util.h"
 #include "memstream-util.h"
 #include "pager.h"
@@ -110,6 +111,7 @@ typedef struct TableData {
                 pid_t pid;
                 mode_t mode;
                 dev_t devnum;
+                sd_json_variant *json;
                 /* … add more here as we start supporting more cell data types … */
         };
 } TableData;
@@ -249,6 +251,9 @@ static TableData *table_data_free(TableData *d) {
         if (IN_SET(d->type, TABLE_STRV, TABLE_STRV_WRAPPED))
                 strv_free(d->strv);
 
+        if (d->type == TABLE_JSON)
+                sd_json_variant_unref(d->json);
+
         return mfree(d);
 }
 
@@ -283,6 +288,7 @@ static size_t table_data_size(TableDataType type, const void *data) {
                 return 0;
 
         case TABLE_STRING:
+        case TABLE_STRING_WITH_ANSI:
         case TABLE_PATH:
         case TABLE_PATH_BASENAME:
         case TABLE_FIELD:
@@ -361,6 +367,9 @@ static size_t table_data_size(TableDataType type, const void *data) {
 
         case TABLE_DEVNUM:
                 return sizeof(dev_t);
+
+        case TABLE_JSON:
+                return sizeof(sd_json_variant*);
 
         default:
                 assert_not_reached();
@@ -444,12 +453,22 @@ static TableData *table_data_new(
         d->ellipsize_percent = ellipsize_percent;
         d->uppercase = uppercase;
 
-        if (IN_SET(type, TABLE_STRV, TABLE_STRV_WRAPPED)) {
+        switch (type) {
+
+        case TABLE_STRV:
+        case TABLE_STRV_WRAPPED:
                 d->strv = strv_copy(data);
                 if (!d->strv)
                         return NULL;
-        } else
+                break;
+
+        case TABLE_JSON:
+                d->json = sd_json_variant_ref((sd_json_variant*) data);
+                break;
+
+        default:
                 memcpy_safe(d->data, data, data_size);
+        }
 
         return TAKE_PTR(d);
 }
@@ -529,7 +548,7 @@ int table_add_cell_stringf_full(Table *t, TableCell **ret_cell, TableDataType dt
         int r;
 
         assert(t);
-        assert(IN_SET(dt, TABLE_STRING, TABLE_PATH, TABLE_PATH_BASENAME, TABLE_FIELD, TABLE_HEADER, TABLE_VERSION));
+        assert(IN_SET(dt, TABLE_STRING, TABLE_STRING_WITH_ANSI, TABLE_PATH, TABLE_PATH_BASENAME, TABLE_FIELD, TABLE_HEADER, TABLE_VERSION));
 
         va_start(ap, format);
         r = vasprintf(&buffer, format, ap);
@@ -933,6 +952,7 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                         break;
 
                 case TABLE_STRING:
+                case TABLE_STRING_WITH_ANSI:
                 case TABLE_PATH:
                 case TABLE_PATH_BASENAME:
                 case TABLE_FIELD:
@@ -1092,6 +1112,10 @@ int table_add_many_internal(Table *t, TableDataType first_type, ...) {
                 case TABLE_DEVNUM:
                         buffer.devnum = va_arg(ap, dev_t);
                         data = &buffer.devnum;
+                        break;
+
+                case TABLE_JSON:
+                        data = va_arg(ap, sd_json_variant*);
                         break;
 
                 case TABLE_SET_MINIMUM_WIDTH: {
@@ -1393,6 +1417,7 @@ static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t 
                 switch (a->type) {
 
                 case TABLE_STRING:
+                case TABLE_STRING_WITH_ANSI:
                 case TABLE_FIELD:
                 case TABLE_HEADER:
                         return strcmp(a->string, b->string);
@@ -1503,6 +1528,9 @@ static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t 
 
                         return CMP(minor(a->devnum), minor(b->devnum));
 
+                case TABLE_JSON:
+                        return json_variant_compare(a->json, b->json);
+
                 default:
                         ;
                 }
@@ -1574,7 +1602,13 @@ static char* format_strv_width(char **strv, size_t column_width) {
         return buf;
 }
 
-static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercasing, size_t column_width, bool *have_soft) {
+static const char *table_data_format(
+                Table *t,
+                TableData *d,
+                bool avoid_uppercasing,
+                size_t column_width,
+                bool *have_soft) {
+
         assert(d);
 
         if (d->formatted &&
@@ -1587,6 +1621,7 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
                 return table_ersatz_string(t);
 
         case TABLE_STRING:
+        case TABLE_STRING_WITH_ANSI:
         case TABLE_PATH:
         case TABLE_PATH_BASENAME:
         case TABLE_FIELD:
@@ -2061,11 +2096,59 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
 
                 break;
 
+        case TABLE_JSON: {
+                if (!d->json)
+                        return table_ersatz_string(t);
+
+                char *p;
+                if (sd_json_variant_format(d->json, /* flags= */ 0, &p) < 0)
+                        return NULL;
+
+                d->formatted = p;
+                break;
+        }
+
         default:
                 assert_not_reached();
         }
 
         return d->formatted;
+}
+
+static const char *table_data_format_strip_ansi(
+                Table *t,
+                TableData *d,
+                bool avoid_uppercasing,
+                size_t column_width,
+                bool *have_soft,
+                char **ret_buffer) {
+
+        /* Just like table_data_format() but strips ANSI sequences for ANSI fields. */
+
+        assert(ret_buffer);
+
+        const char *c;
+
+        c = table_data_format(t, d, avoid_uppercasing, column_width, have_soft);
+        if (!c)
+                return NULL;
+
+        if (d->type != TABLE_STRING_WITH_ANSI) {
+                /* Shortcut: we do not consider ANSI sequences for all other column types, hence return the
+                 * original string as-is */
+                *ret_buffer = NULL;
+                return c;
+        }
+
+        _cleanup_free_ char *s = strdup(c);
+        if (!s)
+                return NULL;
+
+        if (!strip_tab_ansi(&s, /* isz= */ NULL, /* highlight= */ NULL))
+                return NULL;
+
+        *ret_buffer = TAKE_PTR(s);
+        return *ret_buffer;
 }
 
 static int console_width_height(
@@ -2122,14 +2205,20 @@ static int table_data_requested_width_height(
                 size_t *ret_height,
                 bool *have_soft) {
 
-        _cleanup_free_ char *truncated = NULL;
+        _cleanup_free_ char *truncated = NULL, *buffer = NULL;
         bool truncation_applied = false;
         size_t width, height;
+        bool soft = false;
         const char *t;
         int r;
-        bool soft = false;
 
-        t = table_data_format(table, d, false, available_width, &soft);
+        t = table_data_format_strip_ansi(
+                        table,
+                        d,
+                        /* avoid_uppercasing= */ false,
+                        available_width,
+                        &soft,
+                        &buffer);
         if (!t)
                 return -ENOMEM;
 
@@ -2231,6 +2320,9 @@ static bool table_data_isempty(const TableData *d) {
         /* Let's also consider an empty strv as truly empty. */
         if (IN_SET(d->type, TABLE_STRV, TABLE_STRV_WRAPPED))
                 return strv_isempty(d->strv);
+
+        if (d->type == TABLE_JSON)
+                return sd_json_variant_is_null(d->json);
 
         /* Note that an empty string we do not consider empty here! */
         return false;
@@ -2352,7 +2444,7 @@ int table_print(Table *t, FILE *f) {
                                 if (r < 0)
                                         return r;
                                 if (r > 0) { /* Truncated because too many lines? */
-                                        _cleanup_free_ char *last = NULL;
+                                        _cleanup_free_ char *last = NULL, *buffer = NULL;
                                         const char *field;
 
                                         /* If we are going to show only the first few lines of a cell that has
@@ -2360,9 +2452,13 @@ int table_print(Table *t, FILE *f) {
                                          * ellipsis. Hence, let's figure out the last line, and account for its
                                          * length plus ellipsis. */
 
-                                        field = table_data_format(t, d, false,
-                                                                  width ? width[j] : SIZE_MAX,
-                                                                  &any_soft);
+                                        field = table_data_format_strip_ansi(
+                                                        t,
+                                                        d,
+                                                        /* avoid_uppercasing= */ false,
+                                                        width ? width[j] : SIZE_MAX,
+                                                        &any_soft,
+                                                        &buffer);
                                         if (!field)
                                                 return -ENOMEM;
 
@@ -2550,7 +2646,7 @@ int table_print(Table *t, FILE *f) {
                         more_sublines = false;
 
                         for (size_t j = 0; j < display_columns; j++) {
-                                _cleanup_free_ char *buffer = NULL, *extracted = NULL;
+                                _cleanup_free_ char *buffer = NULL, *stripped_ansi_buffer = NULL, *extracted = NULL;
                                 bool lines_truncated = false;
                                 const char *field, *color = NULL, *underline = NULL;
                                 TableData *d;
@@ -2558,7 +2654,21 @@ int table_print(Table *t, FILE *f) {
 
                                 assert_se(d = row[t->display_map ? t->display_map[j] : j]);
 
-                                field = table_data_format(t, d, false, width[j], NULL);
+                                if (colors_enabled())
+                                        field = table_data_format(
+                                                        t,
+                                                        d,
+                                                        /* avoid_uppercasing= */ false,
+                                                        width[j],
+                                                        /* have_soft= */ NULL);
+                                else
+                                        field = table_data_format_strip_ansi(
+                                                        t,
+                                                        d,
+                                                        /* avoid_uppercasing= */ false,
+                                                        width[j],
+                                                        /* have_soft= */ NULL,
+                                                        &stripped_ansi_buffer);
                                 if (!field)
                                         return -ENOMEM;
 
@@ -2665,7 +2775,8 @@ int table_print(Table *t, FILE *f) {
 
                                 fputs(field, f);
 
-                                if (color || underline)
+                                /* Reset color afterwards if colors was set or the string to output contained ANSI sequences. */
+                                if (color || underline || (d->type == TABLE_STRING_WITH_ANSI && colors_enabled()))
                                         fputs(ANSI_NORMAL, f);
 
                                 gap_color = d->rgap_color;
@@ -2920,6 +3031,27 @@ static int table_data_to_json(TableData *d, sd_json_variant **ret) {
                                                   SD_JSON_BUILD_UNSIGNED(major(d->devnum)),
                                                   SD_JSON_BUILD_UNSIGNED(minor(d->devnum))));
 
+        case TABLE_JSON:
+                if (!d->json)
+                        return sd_json_variant_new_null(ret);
+
+                if (ret)
+                        *ret = sd_json_variant_ref(d->json);
+
+                return 0;
+
+        case TABLE_STRING_WITH_ANSI: {
+                _cleanup_free_ char *s = strdup(d->string);
+                if (!s)
+                        return -ENOMEM;
+
+                /* We strip the ANSI data when outputting to JSON */
+                if (!strip_tab_ansi(&s, /* isz= */ NULL, /* highlight= */ NULL))
+                        return -ENOMEM;
+
+                return sd_json_variant_new_string(ret, s);
+        }
+
         default:
                 return -EINVAL;
         }
@@ -2963,7 +3095,7 @@ char* table_mangle_to_json_field_name(const char *str) {
 }
 
 static int table_make_json_field_name(Table *t, TableData *d, char **ret) {
-        _cleanup_free_ char *mangled = NULL;
+        _cleanup_free_ char *mangled = NULL, *buffer = NULL;
         const char *n;
 
         assert(t);
@@ -2973,7 +3105,13 @@ static int table_make_json_field_name(Table *t, TableData *d, char **ret) {
         if (IN_SET(d->type, TABLE_HEADER, TABLE_FIELD))
                 n = d->string;
         else {
-                n = table_data_format(t, d, /* avoid_uppercasing= */ true, SIZE_MAX, NULL);
+                n = table_data_format_strip_ansi(
+                                t,
+                                d,
+                                /* avoid_uppercasing= */ true,
+                                /* column_width= */ SIZE_MAX,
+                                /* have_soft= */ NULL,
+                                &buffer);
                 if (!n)
                         return -ENOMEM;
         }

@@ -42,7 +42,7 @@ Thus code that is used by "higher-level" components (e.g. our binaries which are
 would go to a subdirectory specific to that component if it is only used there.
 If the code is to be shared between components, it'd go to `src/shared/`.
 Shared code that is used by multiple components that do not link to `libsystemd-shared-<nnn>.so` may live either in `src/libsystemd/`, `src/basic/`, or `src/fundamental/`.
-Any code that is used only for EFI goes under `src/boot/efi/`, and `src/fundamental/` if is shared with non-EFI components.
+Code used only for EFI goes under `src/boot/`, and under `src/fundamental/` if it is shared with non-EFI components.
 
 To summarize:
 
@@ -121,7 +121,7 @@ Names of meson tests include the input file name and output looks awkward if the
 Fuzzers are invoked primarily in three ways:
 firstly, each fuzzer is compiled as a normal executable and executed for each of the input samples under `test/fuzz/` as part of the test suite.
 Secondly, fuzzers may be instrumented with sanitizers and invoked as part of the test suite (if `-Dfuzz-tests=true` is configured).
-Thirdly, fuzzers are executed through fuzzing engines that tryto find new "interesting" inputs through coverage feedback and massive parallelization; see the links for oss-fuzz in [Code quality](/CODE_QUALITY).
+Thirdly, fuzzers are executed through fuzzing engines that try to find new "interesting" inputs through coverage feedback and massive parallelization; see the links for oss-fuzz in [Code quality](/CODE_QUALITY).
 For testing and debugging, fuzzers can be executed as any other program, including under `valgrind` or `gdb`.
 
 ## Integration Tests

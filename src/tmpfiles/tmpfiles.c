@@ -559,7 +559,7 @@ static int opendir_and_stat(
                 bool *ret_mountpoint) {
 
         _cleanup_closedir_ DIR *d = NULL;
-        struct statx sx1;
+        struct statx sx;
         int r;
 
         assert(path);
@@ -586,21 +586,20 @@ static int opendir_and_stat(
                 return 0;
         }
 
-        if (statx(dirfd(d), "", AT_EMPTY_PATH, STATX_MODE|STATX_INO|STATX_ATIME|STATX_MTIME, &sx1) < 0)
-                return log_error_errno(errno, "statx(%s) failed: %m", path);
+        r = xstatx_full(dirfd(d),
+                        /* path= */ NULL,
+                        AT_EMPTY_PATH,
+                        /* xstatx_flags= */ 0,
+                        STATX_MODE|STATX_INO|STATX_ATIME|STATX_MTIME,
+                        /* optional_mask= */ 0,
+                        STATX_ATTR_MOUNT_ROOT,
+                        &sx);
+        if (r < 0)
+                return log_error_errno(r, "statx(%s) failed: %m", path);
 
-        if (FLAGS_SET(sx1.stx_attributes_mask, STATX_ATTR_MOUNT_ROOT))
-                *ret_mountpoint = FLAGS_SET(sx1.stx_attributes, STATX_ATTR_MOUNT_ROOT);
-        else {
-                struct statx sx2;
-                if (statx(dirfd(d), "..", 0, STATX_INO, &sx2) < 0)
-                        return log_error_errno(errno, "statx(%s/..) failed: %m", path);
-
-                *ret_mountpoint = !statx_mount_same(&sx1, &sx2);
-        }
-
+        *ret_mountpoint = FLAGS_SET(sx.stx_attributes, STATX_ATTR_MOUNT_ROOT);
         *ret = TAKE_PTR(d);
-        *ret_sx = sx1;
+        *ret_sx = sx;
         return 1;
 }
 
@@ -688,60 +687,26 @@ static int dir_cleanup(
                 if (dot_or_dot_dot(de->d_name))
                         continue;
 
-                /* If statx() is supported, use it. It's preferable over fstatat() since it tells us
-                 * explicitly where we are looking at a mount point, for free as side information. Determining
-                 * the same information without statx() is hard, see the complexity of path_is_mount_point(),
-                 * and also much slower as it requires a number of syscalls instead of just one. Hence, when
-                 * we have modern statx() we use it instead of fstat() and do proper mount point checks,
-                 * while on older kernels's well do traditional st_dev based detection of mount points.
-                 *
-                 * Using statx() for detecting mount points also has the benefit that we handle weird file
-                 * systems such as overlayfs better where each file is originating from a different
-                 * st_dev. */
-
                 struct statx sx;
-                if (statx(dirfd(d), de->d_name,
-                          AT_SYMLINK_NOFOLLOW|AT_NO_AUTOMOUNT,
-                          STATX_TYPE|STATX_MODE|STATX_UID|STATX_ATIME|STATX_MTIME|STATX_CTIME|STATX_BTIME,
-                          &sx) < 0) {
-                        if (errno == ENOENT)
-                                continue;
-
+                r = xstatx_full(dirfd(d), de->d_name,
+                                AT_SYMLINK_NOFOLLOW|AT_NO_AUTOMOUNT,
+                                /* xstatx_flags= */ 0,
+                                STATX_TYPE|STATX_MODE|STATX_UID,
+                                STATX_ATIME|STATX_MTIME|STATX_CTIME|STATX_BTIME,
+                                STATX_ATTR_MOUNT_ROOT,
+                                &sx);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0) {
                         /* FUSE, NFS mounts, SELinux might return EACCES */
-                        log_full_errno(errno == EACCES ? LOG_DEBUG : LOG_ERR, errno,
+                        log_full_errno(r == -EACCES ? LOG_DEBUG : LOG_ERR, r,
                                        "statx(%s/%s) failed: %m", p, de->d_name);
                         continue;
                 }
 
-                if (FLAGS_SET(sx.stx_attributes_mask, STATX_ATTR_MOUNT_ROOT)) {
-                        /* Yay, we have the mount point API, use it */
-                        if (FLAGS_SET(sx.stx_attributes, STATX_ATTR_MOUNT_ROOT)) {
-                                log_debug("Ignoring \"%s/%s\": different mount points.", p, de->d_name);
-                                continue;
-                        }
-                } else {
-                        /* So we might have statx() but the STATX_ATTR_MOUNT_ROOT flag is not supported, fall
-                         * back to traditional stx_dev checking. */
-                        if (sx.stx_dev_major != rootdev_major ||
-                            sx.stx_dev_minor != rootdev_minor) {
-                                log_debug("Ignoring \"%s/%s\": different filesystem.", p, de->d_name);
-                                continue;
-                        }
-
-                        /* Try to detect bind mounts of the same filesystem instance; they do not differ in
-                         * device major/minors. This type of query is not supported on all kernels or
-                         * filesystem types though. */
-                        if (S_ISDIR(sx.stx_mode)) {
-                                int q;
-
-                                q = is_mount_point_at(dirfd(d), de->d_name, 0);
-                                if (q < 0)
-                                        log_debug_errno(q, "Failed to determine whether \"%s/%s\" is a mount point, ignoring: %m", p, de->d_name);
-                                else if (q > 0) {
-                                        log_debug("Ignoring \"%s/%s\": different mount of the same filesystem.", p, de->d_name);
-                                        continue;
-                                }
-                        }
+                if (FLAGS_SET(sx.stx_attributes, STATX_ATTR_MOUNT_ROOT)) {
+                        log_debug("Ignoring \"%s/%s\": different mount points.", p, de->d_name);
+                        continue;
                 }
 
                 atime_nsec = FLAGS_SET(sx.stx_mask, STATX_ATIME) ? statx_timestamp_load_nsec(&sx.stx_atime) : 0;
@@ -2423,13 +2388,13 @@ static int create_symlink(Context *c, Item *i) {
                 r = chase(i->argument, arg_root, CHASE_SAFE|CHASE_PREFIX_ROOT|CHASE_NOFOLLOW, /* ret_path= */ NULL, /* ret_fd= */ NULL);
                 if (r == -ENOENT) {
                         /* Silently skip over lines where the source file is missing. */
-                        log_info("Symlink source path '%s/%s' does not exist, skipping line.",
-                                 empty_to_root(arg_root), skip_leading_slash(i->argument));
+                        log_debug_errno(r, "Symlink source path '%s/%s' does not exist, skipping line.",
+                                        strempty(arg_root), skip_leading_slash(i->argument));
                         return 0;
                 }
                 if (r < 0)
                         return log_error_errno(r, "Failed to check if symlink source path '%s/%s' exists: %m",
-                                               empty_to_root(arg_root), skip_leading_slash(i->argument));
+                                               strempty(arg_root), skip_leading_slash(i->argument));
         }
 
         r = path_extract_filename(i->path, &bn);
@@ -2672,7 +2637,7 @@ static int rm_if_wrong_type_safe(
         }
 
         /* Fail before removing anything if this is an unsafe transition. */
-        if (follow_links && unsafe_transition(parent_st, &st)) {
+        if (follow_links && stat_unsafe_transition(parent_st, &st)) {
                 (void) fd_get_path(parent_fd, &parent_name);
                 return log_error_errno(SYNTHETIC_ERRNO(ENOLINK),
                                        "Unsafe transition from \"%s\" to \"%s\".", parent_name ?: "...", name);
@@ -4316,14 +4281,10 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_IMAGE:
-#ifdef STANDALONE
-                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                               "This systemd-tmpfiles version is compiled without support for --image=.");
-#else
                         r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_image);
                         if (r < 0)
                                 return r;
-#endif
+
                         /* Imply -E here since it makes little sense to create files persistently in the /run mountpoint of a disk image */
                         _fallthrough_;
 
@@ -4560,10 +4521,8 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(item_array_hash_ops, char, string_
                                               ItemArray, item_array_free);
 
 static int run(int argc, char *argv[]) {
-#ifndef STANDALONE
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
-#endif
         _cleanup_strv_free_ char **config_dirs = NULL;
         _cleanup_(context_done) Context c = {};
         bool invalid_config = false;
@@ -4642,7 +4601,6 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-#ifndef STANDALONE
         if (arg_image) {
                 assert(!arg_root);
 
@@ -4666,9 +4624,6 @@ static int run(int argc, char *argv[]) {
                 if (!arg_root)
                         return log_oom();
         }
-#else
-        assert(!arg_image);
-#endif
 
         c.items = ordered_hashmap_new(&item_array_hash_ops);
         c.globs = ordered_hashmap_new(&item_array_hash_ops);

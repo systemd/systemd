@@ -115,7 +115,7 @@ int vl_method_clone_image(sd_varlink *link, sd_json_variant *parameters, sd_varl
         _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR;
         ImageUpdateParameters p = IMAGE_UPDATE_PARAMETERS_NULL;
         Image *image;
-        pid_t child;
+        _cleanup_(pidref_done_sigkill_wait) PidRef child = PIDREF_NULL;
         int r;
 
         assert(link);
@@ -156,7 +156,7 @@ int vl_method_clone_image(sd_varlink *link, sd_json_variant *parameters, sd_varl
         if (pipe2(errno_pipe_fd, O_CLOEXEC|O_NONBLOCK) < 0)
                 return log_debug_errno(errno, "Failed to open pipe: %m");
 
-        r = safe_fork("(sd-imgclone)", FORK_RESET_SIGNALS, &child);
+        r = pidref_safe_fork("(sd-imgclone)", FORK_RESET_SIGNALS, &child);
         if (r < 0)
                 return log_debug_errno(r, "Failed to fork: %m");
         if (r == 0) {
@@ -167,12 +167,11 @@ int vl_method_clone_image(sd_varlink *link, sd_json_variant *parameters, sd_varl
 
         errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
 
-        r = operation_new_with_varlink_reply(manager, /* machine= */ NULL, child, link, errno_pipe_fd[0], /* ret= */ NULL);
-        if (r < 0) {
-                sigkill_wait(child);
+        r = operation_new_with_varlink_reply(manager, /* machine= */ NULL, &child, link, errno_pipe_fd[0], /* ret= */ NULL);
+        if (r < 0)
                 return r;
-        }
 
+        TAKE_PIDREF(child);
         TAKE_FD(errno_pipe_fd[0]);
         return 1;
 }
@@ -188,7 +187,7 @@ int vl_method_remove_image(sd_varlink *link, sd_json_variant *parameters, sd_var
         _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR;
         const char *image_name;
         Image *image;
-        pid_t child;
+        _cleanup_(pidref_done_sigkill_wait) PidRef child = PIDREF_NULL;
         int r;
 
         assert(link);
@@ -225,7 +224,7 @@ int vl_method_remove_image(sd_varlink *link, sd_json_variant *parameters, sd_var
         if (pipe2(errno_pipe_fd, O_CLOEXEC|O_NONBLOCK) < 0)
                 return log_debug_errno(errno, "Failed to open pipe: %m");
 
-        r = safe_fork("(sd-imgrm)", FORK_RESET_SIGNALS, &child);
+        r = pidref_safe_fork("(sd-imgrm)", FORK_RESET_SIGNALS, &child);
         if (r < 0)
                 return log_debug_errno(r, "Failed to fork: %m");
         if (r == 0) {
@@ -236,12 +235,11 @@ int vl_method_remove_image(sd_varlink *link, sd_json_variant *parameters, sd_var
 
         errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
 
-        r = operation_new_with_varlink_reply(manager, /* machine= */ NULL, child, link, errno_pipe_fd[0], /* ret= */ NULL);
-        if (r < 0) {
-                sigkill_wait(child);
+        r = operation_new_with_varlink_reply(manager, /* machine= */ NULL, &child, link, errno_pipe_fd[0], /* ret= */ NULL);
+        if (r < 0)
                 return r;
-        }
 
+        TAKE_PIDREF(child);
         TAKE_FD(errno_pipe_fd[0]);
         return 1;
 }
@@ -394,6 +392,7 @@ int vl_method_clean_pool(sd_varlink *link, sd_json_variant *parameters, sd_varli
 
         assert(link);
         assert(parameters);
+        assert(FLAGS_SET(flags, SD_VARLINK_METHOD_MORE));
 
         if (manager->n_operations >= OPERATIONS_MAX)
                 return sd_varlink_error(link, "io.systemd.MachineImage.TooManyOperations", NULL);
@@ -401,9 +400,6 @@ int vl_method_clean_pool(sd_varlink *link, sd_json_variant *parameters, sd_varli
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &mode);
         if (r != 0)
                 return r;
-
-        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
-                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
 
         if (manager->runtime_scope != RUNTIME_SCOPE_USER) {
                 r = varlink_verify_polkit_async(

@@ -80,6 +80,8 @@ node /org/freedesktop/hostname1 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s OperatingSystemPrettyName = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly s OperatingSystemFancyName = '...';
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s OperatingSystemCPEName = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t OperatingSystemSupportEnd = ...;
@@ -169,6 +171,8 @@ node /org/freedesktop/hostname1 {
     <variablelist class="dbus-property" generated="True" extra-ref="KernelVersion"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="OperatingSystemPrettyName"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="OperatingSystemFancyName"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="OperatingSystemCPEName"/>
 
@@ -285,9 +289,11 @@ node /org/freedesktop/hostname1 {
     <para><varname>KernelName</varname>, <varname>KernelRelease</varname>, and
     <varname>KernelVersion</varname> expose the kernel name (e.g. <literal>Linux</literal>), release
     (e.g. <literal>5.0.0-11</literal>), and version (i.e. the build number, e.g. <literal>#11</literal>) as
-    reported by <citerefentry project="man-pages"><refentrytitle>uname</refentrytitle><manvolnum>2</manvolnum></citerefentry>.
-    <varname>OperatingSystemPrettyName</varname>, <varname>OperatingSystemCPEName</varname>, and
-    <varname>HomeURL</varname> expose the <varname>PRETTY_NAME=</varname>, <varname>CPE_NAME=</varname> and
+    reported by <citerefentry project="man-pages"><refentrytitle>uname</refentrytitle><manvolnum>2</manvolnum></citerefentry>.</para>
+
+    <para><varname>OperatingSystemPrettyName</varname>, <varname>OperatingSystemFancyName</varname>,
+    <varname>OperatingSystemCPEName</varname>, and <varname>HomeURL</varname> expose the
+    <varname>PRETTY_NAME=</varname>, <varname>FANCY_NAME=</varname>, <varname>CPE_NAME=</varname> and
     <varname>HOME_URL=</varname> fields from
     <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>. The
     purpose of those properties is to allow remote clients to access this information over D-Bus. Local
@@ -487,6 +493,7 @@ node /org/freedesktop/hostname1 {
       <para><varname>ChassisAssetTag</varname>, <varname>OperatingSystemImageID</varname>,
       <varname>OperatingSystemImageVersion</varname>, <varname>HardwareSKU</varname>, and
       <varname>HardwareVersion</varname> were added in version 258.</para>
+      <para><varname>OperatingSystemFancyName</varname> was added in version 260.</para>
     </refsect2>
   </refsect1>
 

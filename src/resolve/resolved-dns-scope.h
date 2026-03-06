@@ -125,5 +125,4 @@ int dns_scope_to_json(DnsScope *scope, bool with_cache, sd_json_variant **ret);
 int dns_type_suitable_for_protocol(uint16_t type, DnsProtocol protocol);
 int dns_question_types_suitable_for_protocol(DnsQuestion *q, DnsProtocol protocol);
 
-const char* dns_scope_origin_to_string(DnsScopeOrigin origin) _const_;
-DnsScopeOrigin dns_scope_origin_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(dns_scope_origin, DnsScopeOrigin);

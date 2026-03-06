@@ -137,9 +137,6 @@ typedef struct CGroupContext {
         LIST_HEAD(CGroupIODeviceLimit, io_device_limits);
         LIST_HEAD(CGroupIODeviceLatency, io_device_latencies);
 
-        uint64_t default_memory_min;
-        uint64_t default_memory_low;
-        uint64_t default_startup_memory_low;
         uint64_t memory_min;
         uint64_t memory_low;
         uint64_t startup_memory_low;
@@ -152,11 +149,6 @@ typedef struct CGroupContext {
         uint64_t memory_zswap_max;
         uint64_t startup_memory_zswap_max;
 
-        bool default_memory_min_set:1;
-        bool default_memory_low_set:1;
-        bool default_startup_memory_low_set:1;
-        bool memory_min_set:1;
-        bool memory_low_set:1;
         bool startup_memory_low_set:1;
         bool startup_memory_high_set:1;
         bool startup_memory_max_set:1;
@@ -184,6 +176,8 @@ typedef struct CGroupContext {
 
         LIST_HEAD(CGroupSocketBindItem, socket_bind_allow);
         LIST_HEAD(CGroupSocketBindItem, socket_bind_deny);
+
+        char *bind_network_interface;
 
         /* Common */
         CGroupTasksMax tasks_max;
@@ -323,6 +317,13 @@ typedef struct CGroupRuntime {
         struct bpf_link *restrict_ifaces_egress_bpf_link;
 #endif
 
+#if BPF_FRAMEWORK
+        /* BPF link to BPF programs attached to cgroup/sock_create hooks and
+         * responsible for binding created sockets to a given VRF interface. */
+        struct bpf_link *bpf_bind_network_interface_link;
+#endif
+        int initial_bind_network_interface_link_fd;
+
         bool cgroup_members_mask_valid:1;
 
         /* Reset cgroup accounting next time we fork something off */
@@ -370,8 +371,6 @@ int cgroup_context_add_device_allow(CGroupContext *c, const char *dev, CGroupDev
 int cgroup_context_add_or_update_device_allow(CGroupContext *c, const char *dev, CGroupDevicePermissions p);
 int cgroup_context_add_bpf_foreign_program(CGroupContext *c, uint32_t attach_type, const char *path);
 
-void unit_modify_nft_set(Unit *u, bool add);
-
 CGroupMask unit_get_own_mask(Unit *u);
 CGroupMask unit_get_delegate_mask(Unit *u);
 CGroupMask unit_get_members_mask(Unit *u);
@@ -409,10 +408,6 @@ Unit* manager_get_unit_by_pidref_cgroup(Manager *m, const PidRef *pid);
 Unit* manager_get_unit_by_pidref_watching(Manager *m, const PidRef *pid);
 Unit* manager_get_unit_by_pidref(Manager *m, PidRef *pid);
 
-uint64_t unit_get_ancestor_memory_min(Unit *u);
-uint64_t unit_get_ancestor_memory_low(Unit *u);
-uint64_t unit_get_ancestor_startup_memory_low(Unit *u);
-
 int unit_search_main_pid(Unit *u, PidRef *ret);
 
 int unit_get_memory_available(Unit *u, uint64_t *ret);
@@ -441,8 +436,7 @@ void unit_invalidate_cgroup_bpf_firewall(Unit *u);
 
 void manager_invalidate_startup_units(Manager *m);
 
-const char* cgroup_device_policy_to_string(CGroupDevicePolicy i) _const_;
-CGroupDevicePolicy cgroup_device_policy_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(cgroup_device_policy, CGroupDevicePolicy);
 
 void unit_cgroup_catchup(Unit *u);
 
@@ -452,8 +446,7 @@ int unit_get_cpuset(Unit *u, CPUSet *cpus, const char *name);
 
 int unit_cgroup_freezer_action(Unit *u, FreezerAction action);
 
-const char* freezer_action_to_string(FreezerAction a) _const_;
-FreezerAction freezer_action_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(freezer_action, FreezerAction);
 
 CGroupRuntime* cgroup_runtime_new(void);
 CGroupRuntime* cgroup_runtime_free(CGroupRuntime *crt);
@@ -462,20 +455,14 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(CGroupRuntime*, cgroup_runtime_free);
 int cgroup_runtime_serialize(Unit *u, FILE *f, FDSet *fds);
 int cgroup_runtime_deserialize_one(Unit *u, const char *key, const char *value, FDSet *fds);
 
-const char* cgroup_pressure_watch_to_string(CGroupPressureWatch a) _const_;
-CGroupPressureWatch cgroup_pressure_watch_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(cgroup_pressure_watch, CGroupPressureWatch);
 
-const char* cgroup_device_permissions_to_string(CGroupDevicePermissions p) _const_;
-CGroupDevicePermissions cgroup_device_permissions_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(cgroup_device_permissions, CGroupDevicePermissions);
 
-const char* cgroup_ip_accounting_metric_to_string(CGroupIPAccountingMetric m) _const_;
-CGroupIPAccountingMetric cgroup_ip_accounting_metric_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(cgroup_ip_accounting_metric, CGroupIPAccountingMetric);
 
-const char* cgroup_io_accounting_metric_to_string(CGroupIOAccountingMetric m) _const_;
-CGroupIOAccountingMetric cgroup_io_accounting_metric_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(cgroup_io_accounting_metric, CGroupIOAccountingMetric);
 
-const char* cgroup_effective_limit_type_to_string(CGroupLimitType m) _const_;
-CGroupLimitType cgroup_effective_limit_type_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(cgroup_effective_limit_type, CGroupLimitType);
 
-const char* cgroup_memory_accounting_metric_to_string(CGroupMemoryAccountingMetric m) _const_;
-CGroupMemoryAccountingMetric cgroup_memory_accounting_metric_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(cgroup_memory_accounting_metric, CGroupMemoryAccountingMetric);

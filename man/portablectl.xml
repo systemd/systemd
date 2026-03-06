@@ -141,6 +141,11 @@
         immediately started (blocking operation unless <option>--no-block</option> is passed) and/or enabled after
         attaching the image.</para>
 
+        <para>When images are attached, an image policy will be generated that pins the attached image by
+        the exact content that was found while attaching, so that it cannot be swapped downgrading security
+        (e.g.: removing dm-verity protection) without a full reinstallation. For more details on policies, see
+        <citerefentry><refentrytitle>systemd.image-policy</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+
         <xi:include href="vpick.xml" xpointer="image"/>
         <xi:include href="vpick.xml" xpointer="directory"/>
         <xi:include href="version-info.xml" xpointer="v239"/>
@@ -454,10 +459,10 @@
     <title>Files and Directories</title>
 
     <para>Portable service images are preferably stored in <filename>/var/lib/portables/</filename>, but are also
-    searched for in <filename>/etc/portables/</filename>, <filename>/run/systemd/portables/</filename>,
+    searched for in <filename>/etc/portables/</filename>, <filename>/run/portables/</filename>,
     <filename>/usr/local/lib/portables/</filename> and <filename>/usr/lib/portables/</filename>. It's recommended not
     to place image files directly in <filename>/etc/portables/</filename> or
-    <filename>/run/systemd/portables/</filename> (as these are generally not suitable for storing large or non-textual
+    <filename>/run/portables/</filename> (as these are generally not suitable for storing large or non-textual
     data), but use these directories only for linking images located elsewhere into the image search path.</para>
 
     <para>When a portable service image is attached, matching unit files are copied onto the host into the

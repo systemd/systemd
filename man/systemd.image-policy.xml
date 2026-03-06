@@ -26,11 +26,11 @@
     <para>In systemd, whenever a disk image (DDI) implementing the <ulink
     url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">UAPI.2
     Discoverable Partitions Specification</ulink> is activated, a policy may be specified controlling which
-    partitions to mount and what kind of cryptographic protection to require. Such a disk image dissection
-    policy is a string that contains per-partition-type rules, separated by colons
-    (<literal>:</literal>). The individual rules consist of a partition identifier, an equal sign
-    (<literal>=</literal>), and one or more flags which may be set per partition. If multiple flags are
-    specified per partition they are separated by a plus sign (<literal>+</literal>).</para>
+    partitions to mount and what kind of cryptographic protection to require, and which type of filesystem
+    is allowed. Such a disk image dissection policy is a string that contains per-partition-type rules,
+    separated by colons (<literal>:</literal>). The individual rules consist of a partition identifier, an
+    equal sign (<literal>=</literal>), and one or more flags which may be set per partition. If multiple
+    flags are specified per partition they are separated by a plus sign (<literal>+</literal>).</para>
 
     <para>The partition identifiers currently defined are: <option>root</option>, <option>usr</option>,
     <option>home</option>, <option>srv</option>, <option>esp</option>, <option>xbootldr</option>,
@@ -70,6 +70,46 @@
       <listitem><para><option>absent</option> for partitions that shall not exist on the
       image.</para></listitem>
     </itemizedlist>
+
+    <para>The following filesystem policy flags are defined that dictate which filesystem types are allowed
+    for which partition:</para>
+
+    <table>
+      <title>
+        Filesystems types supported by the policy
+      </title>
+
+      <tgroup cols='1'>
+        <thead>
+          <row>
+            <entry>Filesystem flag</entry>
+          </row>
+        </thead>
+        <tbody>
+          <row>
+            <entry><literal>btrfs</literal></entry>
+          </row>
+          <row>
+            <entry><literal>erofs</literal></entry>
+          </row>
+          <row>
+            <entry><literal>ext4</literal></entry>
+          </row>
+          <row>
+            <entry><literal>f2fs</literal></entry>
+          </row>
+          <row>
+            <entry><literal>squashfs</literal></entry>
+          </row>
+          <row>
+            <entry><literal>vfat</literal></entry>
+          </row>
+          <row>
+            <entry><literal>xfs</literal></entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </table>
 
     <para>By setting a combination of the flags above, alternatives can be declared. For example the
     combination <literal>unused+absent</literal> means: the partition may exist (in which case it shall not
@@ -175,6 +215,11 @@
     does not have to be, and ignores swap partitions, and uses all other partitions if they are available, possibly with encryption.</para>
 
     <programlisting>root=unprotected+encrypted:swap=absent+unused:=unprotected+encrypted+absent</programlisting>
+
+    <para>The following image policy string dictates a single root partition that can only be erofs or squashfs,
+    and ignores swap partitions, and uses all other partitions if they are available, possibly with encryption.</para>
+
+    <programlisting>root=erofs+squashfs:swap=absent+unused:=unprotected+encrypted+absent</programlisting>
   </refsect1>
 
   <refsect1>

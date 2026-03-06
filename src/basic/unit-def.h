@@ -62,6 +62,8 @@ typedef enum FreezerState {
 typedef enum UnitMarker {
         UNIT_MARKER_NEEDS_RELOAD,
         UNIT_MARKER_NEEDS_RESTART,
+        UNIT_MARKER_NEEDS_STOP,
+        UNIT_MARKER_NEEDS_START,
         _UNIT_MARKER_MAX,
         _UNIT_MARKER_INVALID = -EINVAL,
 } UnitMarker;
@@ -132,6 +134,7 @@ typedef enum ServiceState {
         SERVICE_RUNNING,
         SERVICE_EXITED,                 /* Nothing is running anymore, but RemainAfterExit is true hence this is OK */
         SERVICE_REFRESH_EXTENSIONS,     /* Refreshing extensions for a reload request */
+        SERVICE_REFRESH_CREDENTIALS,    /* ditto, but for credentials */
         SERVICE_RELOAD,                 /* Reloading via ExecReload= */
         SERVICE_RELOAD_SIGNAL,          /* Reloading via SIGHUP requested */
         SERVICE_RELOAD_NOTIFY,          /* Waiting for READY=1 after RELOADING=1 notify */
@@ -313,67 +316,31 @@ int unit_name_from_dbus_path(const char *path, char **name);
 const char* unit_dbus_interface_from_type(UnitType t);
 const char* unit_dbus_interface_from_name(const char *name);
 
-const char* unit_type_to_string(UnitType i) _const_;
-UnitType unit_type_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(unit_type, UnitType);
 void unit_types_list(void);
 
-const char* unit_load_state_to_string(UnitLoadState i) _const_;
-UnitLoadState unit_load_state_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(unit_load_state, UnitLoadState);
+DECLARE_STRING_TABLE_LOOKUP(unit_active_state, UnitActiveState);
 
-const char* unit_active_state_to_string(UnitActiveState i) _const_;
-UnitActiveState unit_active_state_from_string(const char *s) _pure_;
-
-const char* freezer_state_to_string(FreezerState i) _const_;
-FreezerState freezer_state_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(freezer_state, FreezerState);
 FreezerState freezer_state_finish(FreezerState state) _const_;
 FreezerState freezer_state_objective(FreezerState state) _const_;
 
-const char* unit_marker_to_string(UnitMarker m) _const_;
-UnitMarker unit_marker_from_string(const char *s) _pure_;
-
-const char* automount_state_to_string(AutomountState i) _const_;
-AutomountState automount_state_from_string(const char *s) _pure_;
-
-const char* device_state_to_string(DeviceState i) _const_;
-DeviceState device_state_from_string(const char *s) _pure_;
-
-const char* mount_state_to_string(MountState i) _const_;
-MountState mount_state_from_string(const char *s) _pure_;
-
-const char* path_state_to_string(PathState i) _const_;
-PathState path_state_from_string(const char *s) _pure_;
-
-const char* scope_state_to_string(ScopeState i) _const_;
-ScopeState scope_state_from_string(const char *s) _pure_;
-
-const char* service_state_to_string(ServiceState i) _const_;
-ServiceState service_state_from_string(const char *s) _pure_;
-
-const char* slice_state_to_string(SliceState i) _const_;
-SliceState slice_state_from_string(const char *s) _pure_;
-
-const char* socket_state_to_string(SocketState i) _const_;
-SocketState socket_state_from_string(const char *s) _pure_;
-
-const char* swap_state_to_string(SwapState i) _const_;
-SwapState swap_state_from_string(const char *s) _pure_;
-
-const char* target_state_to_string(TargetState i) _const_;
-TargetState target_state_from_string(const char *s) _pure_;
-
-const char* timer_state_to_string(TimerState i) _const_;
-TimerState timer_state_from_string(const char *s) _pure_;
-
-const char* unit_dependency_to_string(UnitDependency i) _const_;
-UnitDependency unit_dependency_from_string(const char *s) _pure_;
-
-const char* notify_access_to_string(NotifyAccess i) _const_;
-NotifyAccess notify_access_from_string(const char *s) _pure_;
-
-const char* job_mode_to_string(JobMode t) _const_;
-JobMode job_mode_from_string(const char *s) _pure_;
-
-const char* exec_directory_type_to_string(ExecDirectoryType i) _const_;
-ExecDirectoryType exec_directory_type_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(unit_marker, UnitMarker);
+DECLARE_STRING_TABLE_LOOKUP(automount_state, AutomountState);
+DECLARE_STRING_TABLE_LOOKUP(device_state, DeviceState);
+DECLARE_STRING_TABLE_LOOKUP(mount_state, MountState);
+DECLARE_STRING_TABLE_LOOKUP(path_state, PathState);
+DECLARE_STRING_TABLE_LOOKUP(scope_state, ScopeState);
+DECLARE_STRING_TABLE_LOOKUP(service_state, ServiceState);
+DECLARE_STRING_TABLE_LOOKUP(slice_state, SliceState);
+DECLARE_STRING_TABLE_LOOKUP(socket_state, SocketState);
+DECLARE_STRING_TABLE_LOOKUP(swap_state, SwapState);
+DECLARE_STRING_TABLE_LOOKUP(target_state, TargetState);
+DECLARE_STRING_TABLE_LOOKUP(timer_state, TimerState);
+DECLARE_STRING_TABLE_LOOKUP(unit_dependency, UnitDependency);
+DECLARE_STRING_TABLE_LOOKUP(notify_access, NotifyAccess);
+DECLARE_STRING_TABLE_LOOKUP(job_mode, JobMode);
+DECLARE_STRING_TABLE_LOOKUP(exec_directory_type, ExecDirectoryType);
 
 Glyph unit_active_state_to_glyph(UnitActiveState state);

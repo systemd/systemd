@@ -16,11 +16,6 @@ int dns_label_escape_new(const char *p, size_t l, char **ret);
 
 int dns_name_parent(const char **name);
 
-#if HAVE_LIBIDN
-int dns_label_apply_idna(const char *encoded, size_t encoded_size, char *decoded, size_t decoded_max);
-int dns_label_undo_idna(const char *encoded, size_t encoded_size, char *decoded, size_t decoded_max);
-#endif
-
 int dns_name_concat(const char *a, const char *b, DNSLabelFlags flags, char **ret);
 
 static inline int dns_name_normalize(const char *s, DNSLabelFlags flags, char **ret) {

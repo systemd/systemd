@@ -14,14 +14,16 @@ typedef enum ConfFilesFlags {
         CONF_FILES_FILTER_MASKED_BY_EMPTY   = 1 << 5, /* implement masking by empty file */
         CONF_FILES_FILTER_MASKED            = CONF_FILES_FILTER_MASKED_BY_SYMLINK | CONF_FILES_FILTER_MASKED_BY_EMPTY,
         CONF_FILES_TRUNCATE_SUFFIX          = 1 << 6, /* truncate specified suffix from return filename or path */
+        CONF_FILES_WARN                     = 1 << 7, /* warn on some errors */
+        CONF_FILES_DONT_PREFIX_ROOT         = 1 << 8, /* don't prefix the specified root path to the resulting paths */
 } ConfFilesFlags;
 
 typedef struct ConfFile {
-        char *name;          /* name of a file found in config directories */
-        char *result;        /* resolved config directory with the original file name found in the directory */
-        char *original_path; /* original config directory with the original file name found in the directory */
-        char *resolved_path; /* fully resolved path, where the filename part of the path may be different from the original name */
-        int fd;              /* O_PATH fd to resolved_path, -EBADF if the resolved_path does not exist */
+        char *filename;      /* filename of the discovered file (i.e. without any directory prefix) */
+        char *result;        /* full path to the file (with the directory prefix fully resolved, but the filename part left as is) */
+        char *original_path; /* full path to the file (original – non-resolved – directory prefix + filename part left as is) */
+        char *resolved_path; /* fully resolved path to the file with both directory prefix and filename fully resolved */
+        int fd;              /* O_PATH fd to resolved_path, -EBADF if resolved_path does not exist */
         struct stat st;      /* stat of the file. */
 } ConfFile;
 
@@ -29,8 +31,8 @@ ConfFile* conf_file_free(ConfFile *c);
 DEFINE_TRIVIAL_CLEANUP_FUNC(ConfFile*, conf_file_free);
 void conf_file_free_many(ConfFile **array, size_t n);
 
-int conf_file_new_at(const char *path, int rfd, ChaseFlags chase_flags, ConfFile **ret);
-int conf_file_new(const char *path, const char *root, ChaseFlags chase_flags, ConfFile **ret);
+int conf_file_new_at(const char *path, const char *root, int rfd, ConfFilesFlags flags, ConfFile **ret);
+int conf_file_new(const char *path, const char *root, ConfFilesFlags flags, ConfFile **ret);
 
 int conf_files_list(char ***ret, const char *suffix, const char *root, ConfFilesFlags flags, const char *dir);
 int conf_files_list_at(char ***ret, const char *suffix, int rfd, ConfFilesFlags flags, const char *dir);
@@ -56,6 +58,8 @@ int conf_files_list_dropins(
                 char ***ret,
                 const char *dropin_dirname,
                 const char *root,
+                int root_fd,
+                ConfFilesFlags flags,
                 const char * const *dirs);
 
 typedef int parse_line_t(

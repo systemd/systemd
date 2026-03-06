@@ -590,14 +590,25 @@ static int bus_process_cmsg(sd_bus *bus, struct msghdr *mh, bool allow_fds) {
                 return 0;
         }
 
-        if (!GREEDY_REALLOC(bus->fds, bus->n_fds + n_fds))
-                return -ENOMEM;
+        /* Check if we previously received fds with MSG_CTRUNC set. When the kernel truncates the fd array,
+         * it drops all fds from the blocked one onwards - we have no way to know how many were lost or which
+         * indexes are affected. Any fds we receive now would be appended at the wrong indexes, corrupting
+         * the message's fd table. We must silently drop them to avoid a worse mess. Reading the message will
+         * still fail later when the user tries to access a truncated fd. */
+        if (!bus->got_ctrunc) {
+                if (!GREEDY_REALLOC(bus->fds, bus->n_fds + n_fds))
+                        return -ENOMEM;
 
-        FOREACH_ARRAY(i, fds, n_fds)
-                bus->fds[bus->n_fds++] = fd_move_above_stdio(*i);
+                FOREACH_ARRAY(i, fds, n_fds)
+                        bus->fds[bus->n_fds++] = fd_move_above_stdio(*i);
 
-        TAKE_PTR(fds);
-        n_fds = 0;
+                TAKE_PTR(fds);
+                n_fds = 0;
+        }
+
+        if (FLAGS_SET(mh->msg_flags, MSG_CTRUNC))
+                bus->got_ctrunc = true;
+
         return 0;
 }
 
@@ -1026,7 +1037,10 @@ static int connect_as(int fd, const struct sockaddr *sa, socklen_t salen, uid_t 
         if (pipe2(pfd, O_CLOEXEC) < 0)
                 return -errno;
 
-        r = safe_fork("(sd-setresuid)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_WAIT, /* ret_pid= */ NULL);
+        r = pidref_safe_fork(
+                        "(sd-setresuid)",
+                        FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_WAIT,
+                        /* ret= */ NULL);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -1163,7 +1177,7 @@ int bus_socket_exec(sd_bus *b) {
         assert(b->input_fd < 0);
         assert(b->output_fd < 0);
         assert(b->exec_path);
-        assert(b->busexec_pid == 0);
+        assert(!pidref_is_set(&b->busexec_pidref));
 
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *line = NULL;
@@ -1181,10 +1195,12 @@ int bus_socket_exec(sd_bus *b) {
         if (r < 0)
                 return -errno;
 
-        r = safe_fork_full("(sd-busexec)",
-                           (int[]) { s[1], s[1], STDERR_FILENO },
-                           NULL, 0,
-                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_REARRANGE_STDIO|FORK_RLIMIT_NOFILE_SAFE, &b->busexec_pid);
+        r = pidref_safe_fork_full(
+                        "(sd-busexec)",
+                        (int[]) { s[1], s[1], STDERR_FILENO },
+                        NULL, 0,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_REARRANGE_STDIO|FORK_RLIMIT_NOFILE_SAFE,
+                        &b->busexec_pidref);
         if (r < 0) {
                 safe_close_pair(s);
                 return r;
@@ -1352,6 +1368,7 @@ static int bus_socket_make_message(sd_bus *bus, size_t size) {
         r = bus_message_from_malloc(bus,
                                     bus->rbuffer, size,
                                     bus->fds, bus->n_fds,
+                                    bus->got_ctrunc,
                                     NULL,
                                     &t);
         if (r == -EBADMSG) {
@@ -1368,6 +1385,7 @@ static int bus_socket_make_message(sd_bus *bus, size_t size) {
 
         bus->fds = NULL;
         bus->n_fds = 0;
+        bus->got_ctrunc = false;
 
         if (t) {
                 t->read_counter = ++bus->read_counter;
@@ -1379,14 +1397,8 @@ static int bus_socket_make_message(sd_bus *bus, size_t size) {
 }
 
 int bus_socket_read_message(sd_bus *bus) {
-        struct msghdr mh;
-        struct iovec iov = {};
-        ssize_t k;
         size_t need;
         int r;
-        void *b;
-        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(int) * BUS_FDS_MAX)) control;
-        bool handle_cmsg = false;
 
         assert(bus);
         assert(IN_SET(bus->state, BUS_RUNNING, BUS_HELLO));
@@ -1398,19 +1410,18 @@ int bus_socket_read_message(sd_bus *bus) {
         if (bus->rbuffer_size >= need)
                 return bus_socket_make_message(bus, need);
 
-        b = realloc(bus->rbuffer, need);
+        void *b = realloc(bus->rbuffer, need);
         if (!b)
                 return -ENOMEM;
-
         bus->rbuffer = b;
 
-        iov = IOVEC_MAKE((uint8_t *)bus->rbuffer + bus->rbuffer_size, need - bus->rbuffer_size);
+        struct iovec iov = IOVEC_MAKE((uint8_t*) bus->rbuffer + bus->rbuffer_size, need - bus->rbuffer_size);
+        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(int) * BUS_FDS_MAX)) control;
+        struct msghdr mh;
+        bool handle_cmsg = false;
+        ssize_t k;
 
-        if (bus->prefer_readv) {
-                k = readv(bus->input_fd, &iov, 1);
-                if (k < 0)
-                        k = -errno;
-        } else {
+        if (!bus->prefer_readv) {
                 mh = (struct msghdr) {
                         .msg_iov = &iov,
                         .msg_iovlen = 1,
@@ -1418,23 +1429,28 @@ int bus_socket_read_message(sd_bus *bus) {
                         .msg_controllen = sizeof(control),
                 };
 
-                k = recvmsg_safe(bus->input_fd, &mh, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
-                if (k == -ENOTSOCK) {
+                k = recvmsg(bus->input_fd, &mh, MSG_DONTWAIT|MSG_CMSG_CLOEXEC);
+                if (k < 0 && errno == ENOTSOCK)
                         bus->prefer_readv = true;
-                        k = readv(bus->input_fd, &iov, 1);
-                        if (k < 0)
-                                k = -errno;
-                } else
+                else
                         handle_cmsg = true;
         }
-        if (ERRNO_IS_NEG_TRANSIENT(k))
-                return 0;
-        if (k < 0)
-                return (int) k;
+        if (bus->prefer_readv)
+                k = readv(bus->input_fd, &iov, 1);
+        if (k < 0) {
+                if (ERRNO_IS_TRANSIENT(errno))
+                        return 0;
+
+                return -errno;
+        }
         if (k == 0) {
                 if (handle_cmsg)
                         cmsg_close_all(&mh); /* On EOF we shouldn't have gotten an fd, but let's make sure */
                 return -ECONNRESET;
+        }
+        if (handle_cmsg && FLAGS_SET(mh.msg_flags, MSG_TRUNC)) {
+                cmsg_close_all(&mh);
+                return -EXFULL;
         }
 
         bus->rbuffer_size += k;

@@ -128,11 +128,25 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>update</option> <optional><replaceable>VERSION</replaceable></optional></term>
+        <term><option>update</option> <optional>--offline</optional> <optional><replaceable>VERSION</replaceable></optional></term>
 
         <listitem><para>Installs (updates to) the specified version, or if none is specified to the newest
         version available. If the version is already installed or no newer version available, no operation is
         executed.</para>
+
+        <para>If <option>--offline</option> is specified, the update must already have been acquired using
+        <command>acquire</command> and, if so, this pre-acquired version is the one which will be updated
+        to.</para>
+
+        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>acquire</option> <optional><replaceable>VERSION</replaceable></optional></term>
+
+        <listitem><para>Acquires (downloads) the specified version, ready to install it. If no version is
+        specified, the newest version available is acquired. If the version is already installed or no newer
+        version is available, no operation is executed.</para>
 
         <para>If a new version to install/update to is found, old installed versions are deleted until at
         least one new version can be installed, as configured via <varname>InstanceMax=</varname> in
@@ -140,7 +154,7 @@
         via the available partition slots of the right type. This implicit operation can also be invoked
         explicitly via the <command>vacuum</command> command described below.</para>
 
-        <xi:include href="version-info.xml" xpointer="v251"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -299,7 +313,7 @@
       <varlistentry>
         <term><option>--reboot</option></term>
 
-        <listitem><para>When used in combination with the <command>update</command> command and a new version is
+        <listitem><para>When used in combination with the <command>update</command> commands and a new version is
         installed, automatically reboots the system immediately afterwards.</para>
 
         <xi:include href="version-info.xml" xpointer="v251"/></listitem>
@@ -311,6 +325,9 @@
         <listitem><para>Prevents fetching metadata from the network (i.e. <filename>SHA256SUMS</filename>).
         This is most useful when used in combination with the <command>list</command> command, to query
         locally installed versions.</para>
+
+        <para>If used in combination with the <command>update</command> command, it allows updates to be
+        downloaded in advance (using <command>acquire</command>) and installed later.</para>
 
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>

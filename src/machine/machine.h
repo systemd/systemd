@@ -34,6 +34,17 @@ typedef enum KillWhom {
 } KillWhom;
 
 typedef struct Machine {
+        /* Note: machine objects registered with the --system instance can be allocated by privileged *and*
+         * unprivileged clients. We generally do this to make DNS-style name resolution work, and since
+         * that's a system-wide concept, the machine registrations need to be system-wide too.
+         *
+         * polkit manages access to machines registered by unprivileged clients. The general rule should be
+         * that local users (i.e. those with a seat) may register machines, and do basic interaction with
+         * their own machines without having to authenticate as administrator – however any more complex
+         * (such as: copying files in + out of a container; or logging in interactively) should only be
+         * available after administrator authentication, following the logic that users better use their own
+         * per-user instance of systemd-machined for that. */
+
         Manager *manager;
 
         char *name;
@@ -107,14 +118,11 @@ void machine_release_unit(Machine *m);
 
 MachineState machine_get_state(Machine *m);
 
-const char* machine_class_to_string(MachineClass t) _const_;
-MachineClass machine_class_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(machine_class, MachineClass);
 
-const char* machine_state_to_string(MachineState t) _const_;
-MachineState machine_state_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(machine_state, MachineState);
 
-const char* kill_whom_to_string(KillWhom k) _const_;
-KillWhom kill_whom_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(kill_whom, KillWhom);
 
 int machine_openpt(Machine *m, int flags, char **ret_peer);
 int machine_start_getty(Machine *m, const char *ptmx_name, sd_bus_error *error);
@@ -149,8 +157,7 @@ typedef enum AcquireMetadata {
         _ACQUIRE_METADATA_INVALID = -EINVAL,
 } AcquireMetadata;
 
-AcquireMetadata acquire_metadata_from_string(const char *s) _pure_;
-const char* acquire_metadata_to_string(AcquireMetadata am) _const_;
+DECLARE_STRING_TABLE_LOOKUP(acquire_metadata, AcquireMetadata);
 inline static bool should_acquire_metadata(AcquireMetadata am) {
         return am == ACQUIRE_METADATA_YES || am == ACQUIRE_METADATA_GRACEFUL;
 }

@@ -258,6 +258,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  dlopen-metadata FILE       Parse and print ELF dlopen metadata\n"
                "\n%3$sTPM Operations:%4$s\n"
                "  has-tpm2                   Report whether TPM2 support is available\n"
+               "  identify-tpm2              Show TPM2 vendor information\n"
                "  pcrs [PCR...]              Show TPM2 PCRs and their names\n"
                "  nvpcrs [NVPCR...]          Show additional TPM2 PCRs stored in NV indexes\n"
                "  srk [>FILE]                Write TPM2 SRK (to FILE)\n"
@@ -310,7 +311,6 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --debugger=DEBUGGER     Use the given debugger\n"
                "  -A --debugger-arguments=ARGS\n"
                "                             Pass the given arguments to the debugger\n"
-
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -811,6 +811,7 @@ static int run(int argc, char *argv[]) {
                 { "fdstore",            2,        VERB_ANY, 0,  verb_fdstore            },
                 { "image-policy",       2,        2,        0,  verb_image_policy       },
                 { "has-tpm2",           VERB_ANY, 1,        0,  verb_has_tpm2           },
+                { "identify-tpm2",      VERB_ANY, 1,        0,  verb_identify_tpm2      },
                 { "pcrs",               VERB_ANY, VERB_ANY, 0,  verb_pcrs               },
                 { "nvpcrs",             VERB_ANY, VERB_ANY, 0,  verb_nvpcrs             },
                 { "srk",                VERB_ANY, 1,        0,  verb_srk                },

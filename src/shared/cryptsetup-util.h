@@ -7,14 +7,6 @@
 #if HAVE_LIBCRYPTSETUP
 #include <libcryptsetup.h> /* IWYU pragma: export */
 
-/* These next two are defined in libcryptsetup.h from cryptsetup version 2.3.4 forwards. */
-#ifndef CRYPT_ACTIVATE_NO_READ_WORKQUEUE
-#define CRYPT_ACTIVATE_NO_READ_WORKQUEUE (1 << 24)
-#endif
-#ifndef CRYPT_ACTIVATE_NO_WRITE_WORKQUEUE
-#define CRYPT_ACTIVATE_NO_WRITE_WORKQUEUE (1 << 25)
-#endif
-
 extern DLSYM_PROTOTYPE(crypt_activate_by_passphrase);
 extern DLSYM_PROTOTYPE(crypt_activate_by_signed_key);
 extern DLSYM_PROTOTYPE(crypt_activate_by_volume_key);
@@ -39,11 +31,7 @@ extern DLSYM_PROTOTYPE(crypt_keyslot_max);
 extern DLSYM_PROTOTYPE(crypt_load);
 extern DLSYM_PROTOTYPE(crypt_metadata_locking);
 extern DLSYM_PROTOTYPE(crypt_reencrypt_init_by_passphrase);
-#if HAVE_CRYPT_REENCRYPT_RUN
 extern DLSYM_PROTOTYPE(crypt_reencrypt_run);
-#else
-extern DLSYM_PROTOTYPE(crypt_reencrypt);
-#endif
 extern DLSYM_PROTOTYPE(crypt_resize);
 extern DLSYM_PROTOTYPE(crypt_resume_by_volume_key);
 extern DLSYM_PROTOTYPE(crypt_set_data_device);
@@ -55,19 +43,15 @@ extern DLSYM_PROTOTYPE(crypt_set_pbkdf_type);
 extern DLSYM_PROTOTYPE(crypt_suspend);
 extern DLSYM_PROTOTYPE(crypt_token_json_get);
 extern DLSYM_PROTOTYPE(crypt_token_json_set);
-#if HAVE_CRYPT_TOKEN_MAX
 extern DLSYM_PROTOTYPE(crypt_token_max);
-#else
-/* As a fallback, use the same hard-coded value libcryptsetup uses internally. */
-int crypt_token_max(_unused_ const char *type);
-#define sym_crypt_token_max(type) crypt_token_max(type)
-#endif
 #if HAVE_CRYPT_TOKEN_SET_EXTERNAL_PATH
 extern DLSYM_PROTOTYPE(crypt_token_set_external_path);
 #endif
 extern DLSYM_PROTOTYPE(crypt_token_status);
 extern DLSYM_PROTOTYPE(crypt_volume_key_get);
 extern DLSYM_PROTOTYPE(crypt_volume_key_keyring);
+extern DLSYM_PROTOTYPE(crypt_wipe);
+extern DLSYM_PROTOTYPE(crypt_get_integrity_info);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct crypt_device *, crypt_free, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct crypt_device *, sym_crypt_free, NULL);
@@ -82,6 +66,9 @@ int cryptsetup_set_minimal_pbkdf(struct crypt_device *cd);
 
 int cryptsetup_get_token_as_json(struct crypt_device *cd, int idx, const char *verify_type, sd_json_variant **ret);
 int cryptsetup_add_token_json(struct crypt_device *cd, sd_json_variant *v);
+int cryptsetup_get_volume_key_prefix(struct crypt_device *cd, const char *volume_name, char **ret);
+int cryptsetup_get_volume_key_id(struct crypt_device *cd, const char *volume_name, const void *volume_key,
+                                 size_t volume_key_size,  char **ret);
 #endif
 
 int dlopen_cryptsetup(void);

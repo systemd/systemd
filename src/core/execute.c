@@ -256,14 +256,11 @@ bool exec_needs_pid_namespace(const ExecContext *context, const ExecParameters *
         return context->private_pids != PRIVATE_PIDS_NO && namespace_type_supported(NAMESPACE_PID);
 }
 
-bool exec_needs_mount_namespace(
-                const ExecContext *context,
-                const ExecParameters *params,
-                const ExecRuntime *runtime) {
-
+bool exec_needs_mount_namespace(const ExecContext *context, const ExecParameters *params) {
         assert(context);
 
-        if (context->root_image)
+        if (context->root_image ||
+            context->root_mstack)
                 return true;
 
         if (context->root_directory_as_fd)
@@ -294,13 +291,8 @@ bool exec_needs_mount_namespace(
         if (!IN_SET(context->mount_propagation_flag, 0, MS_SHARED))
                 return true;
 
-        if (context->private_tmp == PRIVATE_TMP_DISCONNECTED)
-                return true;
-
-        if (context->private_tmp == PRIVATE_TMP_CONNECTED && runtime && runtime->shared && (runtime->shared->tmp_dir || runtime->shared->var_tmp_dir))
-                return true;
-
         if (context->private_devices ||
+            context->private_tmp != PRIVATE_TMP_NO || /* no need to check for private_var_tmp here, private_tmp is never demoted to "no" */
             context->private_mounts > 0 ||
             (context->private_mounts < 0 && exec_needs_network_namespace(context)) ||
             context->protect_system != PROTECT_SYSTEM_NO ||
@@ -356,7 +348,7 @@ const char* exec_get_private_notify_socket_path(const ExecContext *context, cons
         if (!needs_sandboxing)
                 return NULL;
 
-        if (!context->root_directory && !context->root_image && !context->root_directory_as_fd)
+        if (!exec_context_with_rootfs(context))
                 return NULL;
 
         if (!exec_context_get_effective_mount_apivfs(context))
@@ -684,8 +676,7 @@ void exec_context_done(ExecContext *c) {
         iovec_done(&c->root_hash_sig);
         c->root_hash_sig_path = mfree(c->root_hash_sig_path);
         c->root_verity = mfree(c->root_verity);
-        c->extension_images = mount_image_free_many(c->extension_images, &c->n_extension_images);
-        c->extension_directories = strv_free(c->extension_directories);
+        c->root_mstack = mfree(c->root_mstack);
         c->tty_path = mfree(c->tty_path);
         c->syslog_identifier = mfree(c->syslog_identifier);
         c->user = mfree(c->user);
@@ -705,10 +696,16 @@ void exec_context_done(ExecContext *c) {
         bind_mount_free_many(c->bind_mounts, c->n_bind_mounts);
         c->bind_mounts = NULL;
         c->n_bind_mounts = 0;
+        mount_image_free_many(c->mount_images, c->n_mount_images);
+        c->mount_images = NULL;
+        c->n_mount_images = 0;
+        mount_image_free_many(c->extension_images, c->n_extension_images);
+        c->extension_images = NULL;
+        c->n_extension_images = 0;
+        c->extension_directories = strv_free(c->extension_directories);
         temporary_filesystem_free_many(c->temporary_filesystems, c->n_temporary_filesystems);
         c->temporary_filesystems = NULL;
         c->n_temporary_filesystems = 0;
-        c->mount_images = mount_image_free_many(c->mount_images, &c->n_mount_images);
 
         cpu_set_done(&c->cpu_set);
         numa_policy_reset(&c->numa_policy);
@@ -1117,6 +1114,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 "%sProtectHostname: %s%s%s\n"
                 "%sProtectProc: %s\n"
                 "%sProcSubset: %s\n"
+                "%sMemoryTHP: %s\n"
                 "%sPrivateBPF: %s\n",
                 prefix, c->umask,
                 prefix, empty_to_root(c->working_directory),
@@ -1145,6 +1143,7 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 prefix, protect_hostname_to_string(c->protect_hostname), c->private_hostname ? ":" : "", strempty(c->private_hostname),
                 prefix, protect_proc_to_string(c->protect_proc),
                 prefix, proc_subset_to_string(c->proc_subset),
+                prefix, memory_thp_to_string(c->memory_thp),
                 prefix, private_bpf_to_string(c->private_bpf));
 
         if (c->private_bpf == PRIVATE_BPF_YES) {
@@ -1167,13 +1166,10 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 fprintf(f, "%sRootImage: %s\n", prefix, c->root_image);
 
         if (c->root_image_options) {
-                fprintf(f, "%sRootImageOptions:", prefix);
-                LIST_FOREACH(mount_options, o, c->root_image_options)
-                        if (!isempty(o->options))
-                                fprintf(f, " %s:%s",
-                                        partition_designator_to_string(o->partition_designator),
-                                        o->options);
-                fprintf(f, "\n");
+                _cleanup_free_ char *opts_str = NULL;
+
+                if (mount_options_to_string(c->root_image_options, &opts_str) >= 0 && !isempty(opts_str))
+                        fprintf(f, "%sRootImageOptions: %s\n", prefix, opts_str);
         }
 
         if (iovec_is_set(&c->root_hash)) {
@@ -1199,6 +1195,9 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
 
         if (c->root_verity)
                 fprintf(f, "%sRootVerity: %s\n", prefix, c->root_verity);
+
+        if (c->root_mstack)
+                fprintf(f, "%sRootMStack: %s\n", prefix, c->root_mstack);
 
         STRV_FOREACH(e, c->environment)
                 fprintf(f, "%sEnvironment: %s\n", prefix, *e);
@@ -1580,10 +1579,12 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                         mount->ignore_enoent ? "-": "",
                         mount->source,
                         mount->destination);
-                LIST_FOREACH(mount_options, o, mount->mount_options)
-                        fprintf(f, ":%s:%s",
-                                partition_designator_to_string(o->partition_designator),
-                                strempty(o->options));
+                if (mount->mount_options) {
+                        _cleanup_free_ char *opts = NULL;
+
+                        if (mount_options_to_string(mount->mount_options, &opts) >= 0 && !isempty(opts))
+                                fprintf(f, " %s", opts);
+                }
                 fprintf(f, "\n");
         }
 
@@ -1591,10 +1592,12 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 fprintf(f, "%sExtensionImages: %s%s", prefix,
                         mount->ignore_enoent ? "-": "",
                         mount->source);
-                LIST_FOREACH(mount_options, o, mount->mount_options)
-                        fprintf(f, ":%s:%s",
-                                partition_designator_to_string(o->partition_designator),
-                                strempty(o->options));
+                if (mount->mount_options) {
+                        _cleanup_free_ char *opts = NULL;
+
+                        if (mount_options_to_string(mount->mount_options, &opts) >= 0 && !isempty(opts))
+                                fprintf(f, " %s", opts);
+                }
                 fprintf(f, "\n");
         }
 
@@ -2051,9 +2054,19 @@ bool exec_context_restrict_filesystems_set(const ExecContext *c) {
 bool exec_context_with_rootfs(const ExecContext *c) {
         assert(c);
 
-        /* Checks if RootDirectory=, RootImage= or RootDirectoryFileDescriptor= are used */
+        /* Checks if RootDirectory=, RootImage=, RootMStack= or RootDirectoryFileDescriptor= are used */
 
-        return !empty_or_root(c->root_directory) || c->root_image || c->root_directory_as_fd;
+        return !empty_or_root(c->root_directory) || c->root_image || c->root_directory_as_fd || c->root_mstack;
+}
+
+bool exec_context_with_rootfs_strict(const ExecContext *c) {
+        assert(c);
+
+        /* just like exec_context_with_rootfs(), but doesn't suppress a root directory of "/", i.e. returns
+         * true in more cases: when a root directory is explicitly configured, even if it's our usual
+         * root. */
+
+        return c->root_directory || c->root_image || c->root_directory_as_fd || c->root_mstack;
 }
 
 int exec_context_has_vpicked_extensions(const ExecContext *context) {
@@ -2372,7 +2385,6 @@ static int exec_shared_runtime_add(
         if (r < 0)
                 return r;
 
-        assert(!!rt->tmp_dir == !!rt->var_tmp_dir); /* We require both to be set together */
         rt->tmp_dir = TAKE_PTR(*tmp_dir);
         rt->var_tmp_dir = TAKE_PTR(*var_tmp_dir);
 
@@ -2415,16 +2427,25 @@ static int exec_shared_runtime_make(
         assert(id);
 
         /* It is not necessary to create ExecSharedRuntime object. */
-        if (!exec_needs_network_namespace(c) && !exec_needs_ipc_namespace(c) && c->private_tmp != PRIVATE_TMP_CONNECTED) {
+        if (!c->user_namespace_path && !exec_needs_network_namespace(c) && !exec_needs_ipc_namespace(c) &&
+            c->private_tmp != PRIVATE_TMP_CONNECTED && c->private_var_tmp != PRIVATE_TMP_CONNECTED) {
                 *ret = NULL;
                 return 0;
         }
 
         if (c->private_tmp == PRIVATE_TMP_CONNECTED &&
-            !(prefixed_path_strv_contains(c->inaccessible_paths, "/tmp") &&
-              (prefixed_path_strv_contains(c->inaccessible_paths, "/var/tmp") ||
-               prefixed_path_strv_contains(c->inaccessible_paths, "/var")))) {
-                r = setup_tmp_dirs(id, &tmp_dir, &var_tmp_dir);
+            !prefixed_path_strv_contains(c->inaccessible_paths, "/tmp")) {
+
+                r = setup_tmp_dir_one(id, "/tmp", &tmp_dir);
+                if (r < 0)
+                        return r;
+        }
+
+        if (c->private_var_tmp == PRIVATE_TMP_CONNECTED &&
+            !prefixed_path_strv_contains(c->inaccessible_paths, "/var/tmp") &&
+            !prefixed_path_strv_contains(c->inaccessible_paths, "/var")) {
+
+                r = setup_tmp_dir_one(id, "/var/tmp", &var_tmp_dir);
                 if (r < 0)
                         return r;
         }
@@ -2915,7 +2936,6 @@ void exec_params_deep_clear(ExecParameters *p) {
         p->stdin_fd = safe_close(p->stdin_fd);
         p->stdout_fd = safe_close(p->stdout_fd);
         p->stderr_fd = safe_close(p->stderr_fd);
-        p->root_directory_fd = safe_close(p->root_directory_fd);
 
         p->notify_socket = mfree(p->notify_socket);
 
@@ -3125,3 +3145,12 @@ static const char* const exec_keyring_mode_table[_EXEC_KEYRING_MODE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(exec_keyring_mode, ExecKeyringMode);
+
+static const char* const memory_thp_table[_MEMORY_THP_MAX] = {
+        [MEMORY_THP_INHERIT] = "inherit",
+        [MEMORY_THP_DISABLE] = "disable",
+        [MEMORY_THP_MADVISE] = "madvise",
+        [MEMORY_THP_SYSTEM]  = "system",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(memory_thp, MemoryTHP);

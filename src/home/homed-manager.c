@@ -1157,7 +1157,7 @@ static int manager_listen_notify(Manager *m) {
 
         r = notify_socket_prepare_full(
                         m->event,
-                        SD_EVENT_PRIORITY_NORMAL - 5, /* Make sure we process sd_notify() before SIGCHLD for
+                        SD_EVENT_PRIORITY_NORMAL - 5, /* Make sure we process sd_notify() before child exit for
                                                        * any worker, so that we always know the error number
                                                        * of a client before it exits. */
                         on_notify_socket,
@@ -1521,7 +1521,7 @@ static int manager_load_public_keys(Manager *m) {
                         &files,
                         ".public",
                         NULL,
-                        CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED,
+                        CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED|CONF_FILES_WARN,
                         KEY_PATHS_NULSTR);
         if (r < 0)
                 return log_error_errno(r, "Failed to assemble list of public key directories: %m");

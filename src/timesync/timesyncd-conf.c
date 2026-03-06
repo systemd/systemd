@@ -19,7 +19,7 @@ int manager_parse_server_string(Manager *m, ServerType type, const char *string)
 
         switch (type) {
         case SERVER_FALLBACK:
-                m->have_fallbacks = true;
+                m->fallback_set = true;
                 first = m->fallback_servers;
                 break;
         case SERVER_NTSKE:
@@ -67,7 +67,7 @@ int manager_parse_server_string(Manager *m, ServerType type, const char *string)
 }
 
 int manager_parse_fallback_string(Manager *m, const char *string) {
-        if (m->have_fallbacks)
+        if (m->fallback_set)
                 return 0;
 
         return manager_parse_server_string(m, SERVER_FALLBACK, string);
@@ -92,15 +92,21 @@ int config_parse_servers(
         assert(lvalue);
         assert(rvalue);
 
-        if (isempty(rvalue))
+        if (isempty(rvalue)) {
                 manager_flush_server_names(m, ltype);
-        else {
-                r = manager_parse_server_string(m, ltype, rvalue);
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to parse NTP server string '%s', ignoring: %m", rvalue);
-                        return 0;
-                }
+
+                /* FallbackNTP= with an empty string disables the built-in fallback servers. */
+                if (ltype == SERVER_FALLBACK)
+                        m->fallback_set = true;
+
+                return 0;
+        }
+
+        r = manager_parse_server_string(m, ltype, rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse NTP server string '%s', ignoring: %m", rvalue);
+                return 0;
         }
 
         return 0;

@@ -138,7 +138,7 @@
 
     <para>This event source typically fires on memory pressure stalls, i.e. when operational latency above a
     configured threshold already has been seen. This should be taken into consideration when discussing
-    whether later latency to re-aquire any released resources is acceptable: it is usually more important to
+    whether later latency to re-acquire any released resources is acceptable: it is usually more important to
     think of the latencies that already happened than those coming up in future.</para>
 
     <para>The <function>sd_event_source_set_memory_pressure_type()</function> and

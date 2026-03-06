@@ -141,7 +141,8 @@ static int help(void) {
                "     --fsck=no                    Don't run file system check before mount\n"
                "     --description=TEXT           Description for unit\n"
                "  -p --property=NAME=VALUE        Set mount unit property\n"
-               "  -A --automount=BOOL             Create an auto-mount point\n"
+               "     --automount=BOOL             Create an automount point\n"
+               "  -A                              Same as --automount=yes\n"
                "     --timeout-idle-sec=SEC       Specify automount idle timeout\n"
                "     --automount-property=NAME=VALUE\n"
                "                                  Set automount unit property\n"
@@ -1113,7 +1114,7 @@ static int action_umount(sd_bus *bus, int argc, char **argv) {
                 if (fstat(fd, &st) < 0)
                         return log_error_errno(errno, "Can't stat '%s' (from %s): %m", p, argv[i]);
 
-                r = is_mount_point_at(fd, /* filename= */ NULL, /* flags= */ 0);
+                r = is_mount_point_at(fd, /* path= */ NULL, /* flags= */ 0);
                 fd = safe_close(fd); /* before continuing make sure the dir is not keeping anything busy */
                 if (r > 0)
                         RET_GATHER(ret, stop_mounts(bus, p));

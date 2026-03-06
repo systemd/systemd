@@ -34,8 +34,7 @@ typedef struct GroupRecord {
 } GroupRecord;
 
 GroupRecord* group_record_new(void);
-GroupRecord* group_record_ref(GroupRecord *g);
-GroupRecord* group_record_unref(GroupRecord *g);
+DECLARE_TRIVIAL_REF_UNREF_FUNC(GroupRecord, group_record);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(GroupRecord*, group_record_unref);
 

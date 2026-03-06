@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 
+#include "sd-daemon.h"
 #include "sd-event.h"
 
 #include "capability-util.h"
@@ -39,7 +40,10 @@ TEST(mdio_bus) {
         if (running_in_chroot() > 0)
                 return (void) log_tests_skipped("Running in chroot");
 
-        ASSERT_OK(r = safe_fork("(mdio_bus)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REOPEN_LOG|FORK_LOG|FORK_WAIT|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE, NULL));
+        r = ASSERT_OK(pidref_safe_fork(
+                        "(mdio_bus)",
+                        FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REOPEN_LOG|FORK_LOG|FORK_WAIT|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE,
+                        NULL));
         if (r == 0) {
                 const char *syspath = "/sys/bus/mdio_bus/drivers/Qualcomm Atheros AR8031!AR8033";
                 const char *id = "+drivers:mdio_bus:Qualcomm Atheros AR8031!AR8033";
@@ -462,6 +466,10 @@ TEST(sd_device_enumerator_filter_subsystem) {
                 ASSERT_TRUE(test_sd_device_enumerator_filter_subsystem_trial_many());
                 return;
         }
+
+        /* The rest of this test depends on a full booted system with a working udev and so on */
+        if (!sd_booted())
+                return (void) log_tests_skipped("Test requires fully booted system with udev/etc, skipping to avoid hanging forever.");
 
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         ASSERT_OK(sd_event_default(&event));

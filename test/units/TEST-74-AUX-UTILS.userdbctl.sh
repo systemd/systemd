@@ -6,6 +6,18 @@ set -o pipefail
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
+cleanup() {
+    set +e
+    userdel -r test-74-userdbctl
+    groupdel test-74-userdbctl
+}
+
+trap cleanup EXIT
+
+systemd-sysusers - <<EOF
+u test-74-userdbctl - "Test user for TEST-74-AUX-UTILS.userdbctl.sh" / /bin/bash
+EOF
+
 # Root
 userdbctl user root
 userdbctl user 0
@@ -40,11 +52,11 @@ assert_eq "$(userdbctl user 2147418110 -j | jq -r .userName)" foreign-65534
 
 # Make sure that -F shows same data as if we'd ask directly
 userdbctl user root -j | userdbctl -F- user  | cmp - <(userdbctl user root)
-userdbctl user systemd-network -j | userdbctl -F- user  | cmp - <(userdbctl user systemd-network)
+userdbctl user test-74-userdbctl -j | userdbctl -F- user  | cmp - <(userdbctl user test-74-userdbctl)
 userdbctl user 65534 -j | userdbctl -F- user  | cmp - <(userdbctl user 65534)
 
 userdbctl group root -j | userdbctl -F- group  | cmp - <(userdbctl group root)
-userdbctl group systemd-network -j | userdbctl -F- group  | cmp - <(userdbctl group systemd-network)
+userdbctl group test-74-userdbctl -j | userdbctl -F- group  | cmp - <(userdbctl group test-74-userdbctl)
 userdbctl group 65534 -j | userdbctl -F- group  | cmp - <(userdbctl group 65534)
 
 # Ensure NSS doesn't try to automount via open_tree
@@ -59,3 +71,13 @@ if [[ ! -v ASAN_OPTIONS ]]; then
     assert_rc 2 systemd-run -q -t --property SystemCallFilter=~open_tree getent group definitelynotarealgroup
     systemctl start systemd-userdbd.socket systemd-userdbd.service
 fi
+
+# For issue 40228
+UNIT="sleep$RANDOM"
+DISK_GID=$(userdbctl -j group disk | jq .gid)
+systemd-run -p DynamicUser=yes -p Group=disk -u "$UNIT" sleep infinity
+userdbctl group disk | grep -F 'io.systemd.NameServiceSwitch' >/dev/null
+userdbctl group "$DISK_GID" | grep -F 'io.systemd.NameServiceSwitch' >/dev/null
+(! busctl call org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager LookupDynamicUserByName "s" disk)
+(! busctl call org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager LookupDynamicUserByUID "u" "$DISK_GID")
+systemctl stop "$UNIT"

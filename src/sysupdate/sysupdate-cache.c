@@ -42,7 +42,7 @@ int web_cache_add_item(
         if (item && memcmp_nn(item->data, item->size, data, size) == 0)
                 return 0;
 
-        if (hashmap_size(*web_cache) >= (size_t) (WEB_CACHE_ENTRIES_MAX + !!hashmap_get(*web_cache, url)))
+        if (hashmap_size(*web_cache) >= (size_t) (WEB_CACHE_ENTRIES_MAX + hashmap_contains(*web_cache, url)))
                 return -ENOSPC;
 
         r = hashmap_ensure_allocated(web_cache, &web_cache_hash_ops);

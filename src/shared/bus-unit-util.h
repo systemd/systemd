@@ -11,7 +11,7 @@ typedef enum ExecDirectoryFlags {
         _EXEC_DIRECTORY_FLAGS_INVALID = -EINVAL,
 } ExecDirectoryFlags;
 
-ExecDirectoryFlags exec_directory_flags_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP_FROM_STRING(exec_directory_flags, ExecDirectoryFlags);
 
 typedef struct UnitInfo {
         const char *machine;

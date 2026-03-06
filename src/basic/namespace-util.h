@@ -50,6 +50,7 @@ int namespace_enter(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int
 
 int fd_is_namespace(int fd, NamespaceType type);
 int is_our_namespace(int fd, NamespaceType type);
+int are_our_namespaces(int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int root_fd);
 
 int namespace_is_init(NamespaceType type);
 
@@ -82,7 +83,7 @@ int parse_userns_uid_range(const char *s, uid_t *ret_uid_shift, uid_t *ret_uid_r
 int userns_acquire_empty(void);
 int userns_acquire(const char *uid_map, const char *gid_map, bool setgroups_deny);
 int userns_acquire_self_root(void);
-int userns_enter_and_pin(int userns_fd, pid_t *ret_pid);
+int userns_enter_and_pin(int userns_fd, PidRef *ret);
 bool userns_supported(void);
 
 int userns_get_base_uid(int userns_fd, uid_t *ret_uid, gid_t *ret_gid);

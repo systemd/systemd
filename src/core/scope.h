@@ -46,7 +46,6 @@ extern const UnitVTable scope_vtable;
 
 int scope_abandon(Scope *s);
 
-const char* scope_result_to_string(ScopeResult i) _const_;
-ScopeResult scope_result_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(scope_result, ScopeResult);
 
 DEFINE_CAST(SCOPE, Scope);

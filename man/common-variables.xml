@@ -224,11 +224,41 @@
     <varlistentry id='colors'>
       <term><varname>$SYSTEMD_COLORS</varname></term>
 
-      <listitem><para>Takes a boolean argument. When true, <command>systemd</command> and related utilities
-      will use colors in their output, otherwise the output will be monochrome. Additionally, the variable can
-      take one of the following special values: <literal>16</literal>, <literal>256</literal> to restrict the use
-      of colors to the base 16 or 256 ANSI colors, respectively. This can be specified to override the automatic
-      decision based on <varname>$TERM</varname> and what the console is connected to.</para></listitem>
+      <listitem>
+        <para>Takes a boolean argument, or a special value. By default (unset), <command>systemd</command>
+        and related utilities will use colors in their output if possible. If <varname>$COLORTERM</varname>
+        is set to <literal>truecolor</literal> or <literal>24bit</literal>, 24-bit colors will be enabled,
+        256 colors otherwise, unless <varname>$NO_COLOR</varname> or <varname>$TERM</varname> indicates
+        colors are disabled.</para>
+
+        <variablelist>
+          <varlistentry>
+            <term><option>true</option></term>
+            <listitem><para>Same as unset, except that <varname>$NO_COLOR</varname> is ignored.</para></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><option>false</option></term>
+            <listitem><para>The output will be monochrome.</para></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><literal>16</literal></term>
+            <term><literal>256</literal></term>
+            <term><literal>24bit</literal></term>
+            <listitem><para>Always use the base 16 ANSI colors, 256 colors, or 24 bit color,
+            respectively.</para></listitem>
+          </varlistentry>
+
+          <varlistentry>
+            <term><literal>auto-16</literal></term>
+            <term><literal>auto-256</literal></term>
+            <term><literal>auto-24bit</literal></term>
+            <listitem><para>Use the given quantity of colours, subject to <varname>$TERM</varname>, and what
+            the console is connected to.</para></listitem>
+          </varlistentry>
+        </variablelist>
+      </listitem>
     </varlistentry>
 
     <!-- This is not documented on purpose, because it is not clear if $NO_COLOR will become supported
@@ -236,7 +266,8 @@
     <varlistentry id='no-color'>
       <term><varname>$NO_COLOR</varname></term>
 
-      <listitem><para>If set (to any value), and <varname>$SYSTEMD_COLORS</varname> is not set, equivalent to
+      <listitem><para>If set (to any value), and <varname>$SYSTEMD_COLORS</varname> is not set to
+      <literal>16</literal>, <literal>256</literal>, or <literal>24bit</literal>, equivalent to
       <option>SYSTEMD_COLORS=0</option>. See <ulink url="https://no-color.org/">no-color.org</ulink>.</para>
       </listitem>
     </varlistentry>

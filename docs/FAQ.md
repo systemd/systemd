@@ -62,8 +62,8 @@ A: Simply instantiate a new getty service for the port of your choice (internall
 # systemctl start serial-getty@ttyS2.service
 ```
 
-Note that gettys on the virtual console are started on demand. You can control how many you get via the NAutoVTs= setting in [logind.conf(7)](http://www.freedesktop.org/software/systemd/man/systemd-logind.service).
-Also see [this blog story](http://0pointer.de/blog/projects/serial-console.html).
+Note that gettys on the virtual console are started on demand. You can control how many you get via the NAutoVTs= setting in [logind.conf(7)](https://www.freedesktop.org/software/systemd/man/latest/systemd-logind.service.html).
+Also see [this blog story](https://0pointer.de/blog/projects/serial-console.html).
 
 **Q: How to I figure out which service a process belongs to?**
 
@@ -75,15 +75,11 @@ $ psc
 ...
 ```
 
-Or you can even check /proc/$PID/cgroup directly. Also see [this blog story](http://0pointer.de/blog/projects/systemd-for-admins-2.html).
+Or you can even check /proc/$PID/cgroup directly. Also see [this blog story](https://0pointer.de/blog/projects/systemd-for-admins-2.html).
 
 **Q: Why don't you use inotify to reload the unit files automatically on change?**
 
 A: Unfortunately that would be a racy operation. For an explanation why and how we tried to improve the situation, see [the bugzilla report about this](https://bugzilla.redhat.com/show_bug.cgi?id=615527).
-
-**Q: I have a native systemd service file and a SysV init script installed which share the same basename, e.g. /usr/lib/systemd/system/foobar.service vs. /etc/init.d/foobar -- which one wins?**
-
-A: If both files are available the native unit file always takes precedence and the SysV init script is ignored, regardless whether either is enabled or disabled. Note that a SysV service that is enabled but overridden by a native service does not have the effect that the native service would be enabled, too. Enabling of native and SysV services is completely independent. Or in other words: you cannot enable a native service by enabling a SysV service by the same name, and if a SysV service is enabled but the respective native service is not, this will not have the effect that the SysV script is executed.
 
 **Q: How can I use journalctl to display full (= not truncated) messages even if less is not used?**
 

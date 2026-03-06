@@ -61,7 +61,7 @@ int bus_image_common_get_os_release(
                 return 1;
 
         if (!image->metadata_valid) {
-                r = image_read_metadata(image, &image_policy_service, m->runtime_scope);
+                r = image_read_metadata(image, /* root= */ NULL, &image_policy_service, m->runtime_scope);
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Failed to read image metadata: %m");
         }
@@ -454,16 +454,18 @@ static int bus_image_method_detach(
                         flags |= PORTABLE_RUNTIME;
         }
 
-        r = bus_verify_polkit_async(
-                        message,
-                        "org.freedesktop.portable1.attach-images",
-                        /* details= */ NULL,
-                        &m->polkit_registry,
-                        error);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                return 1; /* Will call us back */
+        if (m->runtime_scope != RUNTIME_SCOPE_USER) {
+                r = bus_verify_polkit_async(
+                                message,
+                                "org.freedesktop.portable1.attach-images",
+                                /* details= */ NULL,
+                                &m->polkit_registry,
+                                error);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return 1; /* Will call us back */
+        }
 
         r = portable_detach(
                         m->runtime_scope,
@@ -488,7 +490,7 @@ int bus_image_common_remove(
                 sd_bus_error *error) {
 
         _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR;
-        _cleanup_(sigkill_waitp) pid_t child = 0;
+        _cleanup_(pidref_done_sigkill_wait) PidRef child = PIDREF_NULL;
         PortableState state;
         int r;
 
@@ -533,7 +535,7 @@ int bus_image_common_remove(
         if (pipe2(errno_pipe_fd, O_CLOEXEC|O_NONBLOCK) < 0)
                 return sd_bus_error_set_errnof(error, errno, "Failed to create pipe: %m");
 
-        r = safe_fork("(sd-imgrm)", FORK_RESET_SIGNALS, &child);
+        r = pidref_safe_fork("(sd-imgrm)", FORK_RESET_SIGNALS, &child);
         if (r < 0)
                 return sd_bus_error_set_errnof(error, r, "Failed to fork(): %m");
         if (r == 0) {
@@ -550,11 +552,11 @@ int bus_image_common_remove(
 
         errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
 
-        r = operation_new(m, child, message, errno_pipe_fd[0], NULL);
+        r = operation_new(m, &child, message, errno_pipe_fd[0], NULL);
         if (r < 0)
                 return r;
 
-        child = 0;
+        /* We don't need to disarm child cleanup here because operation_new() takes over ownership internally. */
         errno_pipe_fd[0] = -EBADF;
 
         return 1;
@@ -1015,7 +1017,7 @@ int bus_image_acquire(
 
         /* Acquires an 'Image' object if not acquired yet, and enforces necessary authentication while doing so. */
 
-        if (mode == BUS_IMAGE_AUTHENTICATE_ALL) {
+        if (mode == BUS_IMAGE_AUTHENTICATE_ALL && m->runtime_scope != RUNTIME_SCOPE_USER) {
                 r = bus_verify_polkit_async(
                                 message,
                                 polkit_action,
@@ -1066,7 +1068,7 @@ int bus_image_acquire(
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                                  "Image path '%s' is not normalized.", name_or_path);
 
-                if (mode == BUS_IMAGE_AUTHENTICATE_BY_PATH) {
+                if (mode == BUS_IMAGE_AUTHENTICATE_BY_PATH && m->runtime_scope != RUNTIME_SCOPE_USER) {
                         r = bus_verify_polkit_async(
                                         message,
                                         polkit_action,

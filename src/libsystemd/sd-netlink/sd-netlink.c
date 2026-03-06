@@ -331,7 +331,6 @@ static int process_timeout(sd_netlink *nl) {
 
 static int process_reply(sd_netlink *nl, sd_netlink_message *m) {
         struct reply_callback *c;
-        sd_netlink_slot *slot;
         uint32_t serial;
         uint16_t type;
         int r;
@@ -354,7 +353,8 @@ static int process_reply(sd_netlink *nl, sd_netlink_message *m) {
         if (type == NLMSG_DONE)
                 m = NULL;
 
-        slot = container_of(c, sd_netlink_slot, reply_callback);
+        _cleanup_(sd_netlink_slot_unrefp) sd_netlink_slot *slot =
+                sd_netlink_slot_ref(container_of(c, sd_netlink_slot, reply_callback));
 
         r = c->callback(nl, m, slot->userdata);
         if (r < 0)

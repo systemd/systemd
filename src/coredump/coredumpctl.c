@@ -42,6 +42,7 @@
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "signal-util.h"
@@ -1177,7 +1178,6 @@ static int run_debug(int argc, char **argv, void *userdata) {
         bool unlink_path = false;
         const char *data, *fork_name;
         size_t len;
-        pid_t pid;
         int r;
 
         if (!arg_debugger) {
@@ -1271,7 +1271,11 @@ static int run_debug(int argc, char **argv, void *userdata) {
 
         fork_name = strjoina("(", debugger_call[0], ")");
 
-        r = safe_fork(fork_name, FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG|FORK_FLUSH_STDIO, &pid);
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        r = pidref_safe_fork(
+                        fork_name,
+                        FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG|FORK_FLUSH_STDIO,
+                        &pidref);
         if (r < 0)
                 goto finish;
         if (r == 0) {
@@ -1281,7 +1285,7 @@ static int run_debug(int argc, char **argv, void *userdata) {
                 _exit(EXIT_FAILURE);
         }
 
-        r = wait_for_terminate_and_check(debugger_call[0], pid, WAIT_LOG_ABNORMAL);
+        r = pidref_wait_for_terminate_and_check(debugger_call[0], &pidref, WAIT_LOG_ABNORMAL);
 
 finish:
         (void) default_signals(SIGINT, SIGTERM);

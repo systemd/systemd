@@ -67,20 +67,14 @@ before any routable network interface is up). Its primary purpose is network
 client software that cannot operate without network.
 
 For more details about those targets, see the
-[systemd.special(7)](https://www.freedesktop.org/software/systemd/man/systemd.special.html)
+[systemd.special(7)](https://www.freedesktop.org/software/systemd/man/latest/systemd.special.html)
 man page.
-
-## Compatibility with SysV init
-
-LSB defines a `$network` dependency for legacy init scripts. Whenever systemd
-encounters a `$network` dependency in LSB headers of init scripts it will
-translate this to `Wants=` and `After=` dependencies on
-`network-online.target`, staying relatively close to traditional LSB behaviour.
 
 # Discussion
 
-The meaning of `$network` is defined [only very
-unprecisely](http://refspecs.linuxbase.org/LSB_3.1.1/LSB-Core-generic/LSB-Core-generic/facilname.html)
+LSB defines a `$network` dependency for legacy init scripts.
+However, it is defined [only very
+unprecisely](https://refspecs.linuxbase.org/LSB_3.1.1/LSB-Core-generic/LSB-Core-generic/facilname.html)
 and people tend to have different ideas what it is supposed to mean. Here are a
 couple of ideas people came up with so far:
 
@@ -99,7 +93,7 @@ couple of ideas people came up with so far:
 * And so on and so on.
 
 All these are valid approaches to the question "When is the network up?", but
-none of them would be useful to be good as generic default.
+none of them would be good as a generic default.
 
 Modern networking tends to be highly dynamic: machines are moved between
 networks, network configuration changes, hardware is added and removed, virtual
@@ -211,7 +205,7 @@ Here are a couple of possible approaches:
    actually (yet or ever) configured locally. This also makes your code robust
    towards network configuration changes. This is provided as `FreeBind=`
    for systemd services, see
-   [systemd.socket(5)](https://www.freedesktop.org/software/systemd/man/systemd.socket.html).
+   [systemd.socket(5)](https://www.freedesktop.org/software/systemd/man/latest/systemd.socket.html).
 
 An exception to the above recommendations is services which require network
 connectivity, but do not delay system startup. An example may be a service
@@ -234,13 +228,13 @@ specific to those services.
 
 For example, `systemd-networkd-wait-online.service` will wait until all
 interfaces that are present and managed by
-[systemd-networkd.service(8)](https://www.freedesktop.org/software/systemd/man/systemd-networkd.service.html).
+[systemd-networkd.service(8)](https://www.freedesktop.org/software/systemd/man/latest/systemd-networkd.service.html).
 are fully configured or failed and at least one link is online; see
-[systemd-networkd-wait-online.service(8)](https://www.freedesktop.org/software/systemd/man/systemd-networkd-wait-online.service.html)
+[systemd-networkd-wait-online.service(8)](https://www.freedesktop.org/software/systemd/man/latest/systemd-networkd-wait-online.service.html)
 for details. Those conditions are affected by the presence of configuration
 that matches various links, but also by settings like
 `Unmanaged=`, `RequiredForOnline=`, `RequiredFamilyForOnline=`; see
-[systemd.network(5)](https://www.freedesktop.org/software/systemd/man/systemd.network.html).
+[systemd.network(5)](https://www.freedesktop.org/software/systemd/man/latest/systemd.network.html).
 
 It is also possible to plug in additional checks for network state. For
 example, to delay `network-online.target` until a specific host is

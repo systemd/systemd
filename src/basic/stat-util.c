@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "bitfield.h"
 #include "chase.h"
 #include "dirent-util.h"
 #include "errno-util.h"
@@ -31,9 +32,14 @@ static int verify_stat_at(
         struct stat st;
         int r;
 
-        assert(fd >= 0 || fd == AT_FDCWD);
+        assert(fd >= 0 || IN_SET(fd, AT_FDCWD, XAT_FDROOT));
         assert(!isempty(path) || !follow);
         assert(verify_func);
+
+        _cleanup_free_ char *p = NULL;
+        r = resolve_xat_fdroot(&fd, &path, &p);
+        if (r < 0)
+                return r;
 
         if (fstatat(fd, strempty(path), &st,
                     (isempty(path) ? AT_EMPTY_PATH : 0) | (follow ? 0 : AT_SYMLINK_NOFOLLOW)) < 0)
@@ -43,22 +49,35 @@ static int verify_stat_at(
         return verify ? r : r >= 0;
 }
 
+static int mode_verify_regular(mode_t mode) {
+        if (S_ISDIR(mode))
+                return -EISDIR;
+
+        if (S_ISLNK(mode))
+                return -ELOOP;
+
+        if (!S_ISREG(mode))
+                return -EBADFD;
+
+        return 0;
+}
+
 int stat_verify_regular(const struct stat *st) {
         assert(st);
 
         /* Checks whether the specified stat() structure refers to a regular file. If not returns an
          * appropriate error code. */
 
-        if (S_ISDIR(st->st_mode))
-                return -EISDIR;
+        return mode_verify_regular(st->st_mode);
+}
 
-        if (S_ISLNK(st->st_mode))
-                return -ELOOP;
+int statx_verify_regular(const struct statx *stx) {
+        assert(stx);
 
-        if (!S_ISREG(st->st_mode))
-                return -EBADFD;
+        if (!FLAGS_SET(stx->stx_mask, STATX_TYPE))
+                return -ENODATA;
 
-        return 0;
+        return mode_verify_regular(stx->stx_mode);
 }
 
 int verify_regular_at(int fd, const char *path, bool follow) {
@@ -66,24 +85,41 @@ int verify_regular_at(int fd, const char *path, bool follow) {
 }
 
 int fd_verify_regular(int fd) {
-        assert(fd >= 0);
-        return verify_regular_at(fd, NULL, false);
+        if (IN_SET(fd, AT_FDCWD, XAT_FDROOT))
+                return -EISDIR;
+
+        return verify_regular_at(fd, /* path= */ NULL, /* follow= */ false);
 }
 
-int stat_verify_directory(const struct stat *st) {
-        assert(st);
-
-        if (S_ISLNK(st->st_mode))
+static int mode_verify_directory(mode_t mode) {
+        if (S_ISLNK(mode))
                 return -ELOOP;
 
-        if (!S_ISDIR(st->st_mode))
+        if (!S_ISDIR(mode))
                 return -ENOTDIR;
 
         return 0;
 }
 
+int stat_verify_directory(const struct stat *st) {
+        assert(st);
+
+        return mode_verify_directory(st->st_mode);
+}
+
+int statx_verify_directory(const struct statx *stx) {
+        assert(stx);
+
+        if (!FLAGS_SET(stx->stx_mask, STATX_TYPE))
+                return -ENODATA;
+
+        return mode_verify_directory(stx->stx_mode);
+}
+
 int fd_verify_directory(int fd) {
-        assert(fd >= 0);
+        if (IN_SET(fd, AT_FDCWD, XAT_FDROOT))
+                return 0;
+
         return verify_stat_at(fd, NULL, false, stat_verify_directory, true);
 }
 
@@ -117,6 +153,36 @@ int is_symlink(const char *path) {
         return verify_stat_at(AT_FDCWD, path, false, stat_verify_symlink, false);
 }
 
+static mode_t mode_verify_socket(mode_t mode) {
+        if (S_ISLNK(mode))
+                return -ELOOP;
+
+        if (S_ISDIR(mode))
+                return -EISDIR;
+
+        if (!S_ISSOCK(mode))
+                return -ENOTSOCK;
+
+        return 0;
+}
+
+int stat_verify_socket(const struct stat *st) {
+        assert(st);
+
+        return mode_verify_socket(st->st_mode);
+}
+
+int statx_verify_socket(const struct statx *stx) {
+        assert(stx);
+
+        return mode_verify_socket(stx->stx_mode);
+}
+
+int is_socket(const char *path) {
+        assert(!isempty(path));
+        return verify_stat_at(AT_FDCWD, path, /* follow= */ true, stat_verify_socket, /* verify= */ false);
+}
+
 int stat_verify_linked(const struct stat *st) {
         assert(st);
 
@@ -127,7 +193,10 @@ int stat_verify_linked(const struct stat *st) {
 }
 
 int fd_verify_linked(int fd) {
-        assert(fd >= 0);
+
+        if (fd == XAT_FDROOT)
+                return 0;
+
         return verify_stat_at(fd, NULL, false, stat_verify_linked, true);
 }
 
@@ -223,23 +292,153 @@ int null_or_empty_path_with_root(const char *fn, const char *root) {
         return null_or_empty(&st);
 }
 
-int fd_is_read_only_fs(int fd) {
-        struct statfs st;
+static const char* statx_mask_one_to_name(unsigned mask);
+static const char* statx_attribute_to_name(uint64_t attr);
+
+#include "statx-attribute-to-name.inc"
+#include "statx-mask-to-name.inc"
+
+#define DEFINE_STATX_BITS_TO_STRING(prefix, type, func, format_str)             \
+        static char* prefix##_to_string(type v) {                               \
+                if (v == 0)                                                     \
+                        return strdup("");                                      \
+                                                                                \
+                _cleanup_free_ char *s = NULL;                                  \
+                                                                                \
+                BIT_FOREACH(i, v) {                                             \
+                        type f = 1 << i;                                        \
+                                                                                \
+                        const char *n = func(f);                                \
+                        if (!n)                                                 \
+                                continue;                                       \
+                                                                                \
+                        if (!strextend_with_separator(&s, "|", n))              \
+                                return NULL;                                    \
+                        v &= ~f;                                                \
+                }                                                               \
+                                                                                \
+                if (v != 0 && strextendf_with_separator(&s, "|", format_str, v) < 0) \
+                        return NULL;                                            \
+                                                                                \
+                return TAKE_PTR(s);                                             \
+        }
+
+DEFINE_STATX_BITS_TO_STRING(statx_mask,       unsigned, statx_mask_one_to_name,  "0x%x");
+DEFINE_STATX_BITS_TO_STRING(statx_attributes, uint64_t, statx_attribute_to_name, "0x%" PRIx64);
+
+int xstatx_full(int fd,
+                const char *path,
+                int statx_flags,
+                XStatXFlags xstatx_flags,
+                unsigned mandatory_mask,
+                unsigned optional_mask,
+                uint64_t mandatory_attributes,
+                struct statx *ret) {
+
+        struct statx sx = {}; /* explicitly initialize the struct to make msan silent. */
+        int r;
+
+        /* Wrapper around statx(), with additional bells and whistles:
+         *
+         * 1. AT_EMPTY_PATH is implied on empty path
+         * 2. Supports XAT_FDROOT
+         * 3. Takes separate mandatory and optional mask params, plus mandatory attributes.
+         *    Returns -EUNATCH if statx() does not return all masks specified as mandatory,
+         *    > 0 if all optional masks are supported, 0 otherwise.
+         * 4. Supports a new flag XSTATX_MNT_ID_BEST which acquires STATX_MNT_ID_UNIQUE if available and
+         *    STATX_MNT_ID if not.
+         */
+
+        assert(fd >= 0 || IN_SET(fd, AT_FDCWD, XAT_FDROOT));
+        assert((mandatory_mask & optional_mask) == 0);
+        assert(!FLAGS_SET(xstatx_flags, XSTATX_MNT_ID_BEST) || !((mandatory_mask|optional_mask) & (STATX_MNT_ID|STATX_MNT_ID_UNIQUE)));
+        assert(ret);
+
+        _cleanup_free_ char *p = NULL;
+        r = resolve_xat_fdroot(&fd, &path, &p);
+        if (r < 0)
+                return r;
+
+        unsigned request_mask = mandatory_mask|optional_mask;
+        if (FLAGS_SET(xstatx_flags, XSTATX_MNT_ID_BEST))
+                request_mask |= STATX_MNT_ID|STATX_MNT_ID_UNIQUE;
+
+        if (statx(fd,
+                  strempty(path),
+                  statx_flags|(isempty(path) ? AT_EMPTY_PATH : 0),
+                  request_mask,
+                  &sx) < 0)
+                return negative_errno();
+
+        if (FLAGS_SET(xstatx_flags, XSTATX_MNT_ID_BEST) &&
+            !(sx.stx_mask & (STATX_MNT_ID|STATX_MNT_ID_UNIQUE)))
+                return log_debug_errno(SYNTHETIC_ERRNO(EUNATCH), "statx() did not return either STATX_MNT_ID or STATX_MNT_ID_UNIQUE.");
+
+        if (!FLAGS_SET(sx.stx_mask, mandatory_mask)) {
+                if (DEBUG_LOGGING) {
+                        _cleanup_free_ char *mask_str = statx_mask_to_string(mandatory_mask & ~sx.stx_mask);
+                        log_debug("statx() does not support '%s' mask (running on an old kernel?)", strnull(mask_str));
+                }
+
+                return -EUNATCH;
+        }
+
+        if (!FLAGS_SET(sx.stx_attributes_mask, mandatory_attributes)) {
+                if (DEBUG_LOGGING) {
+                        _cleanup_free_ char *attr_str = statx_attributes_to_string(mandatory_attributes & ~sx.stx_attributes_mask);
+                        log_debug("statx() does not support '%s' attribute (running on an old kernel?)", strnull(attr_str));
+                }
+
+                return -EUNATCH;
+        }
+
+        *ret = sx;
+        return FLAGS_SET(sx.stx_mask, optional_mask);
+}
+
+static int xfstatfs(int fd, struct statfs *ret) {
+        assert(ret);
+
+        if (fd == AT_FDCWD)
+                return RET_NERRNO(statfs(".", ret));
+        if (fd == XAT_FDROOT)
+                return RET_NERRNO(statfs("/", ret));
 
         assert(fd >= 0);
+        return RET_NERRNO(fstatfs(fd, ret));
+}
 
-        if (fstatfs(fd, &st) < 0)
-                return -errno;
+int xstatfsat(int dir_fd, const char *path, struct statfs *ret) {
+        _cleanup_close_ int fd = -EBADF;
+
+        assert(dir_fd >= 0 || IN_SET(dir_fd, AT_FDCWD, XAT_FDROOT));
+        assert(ret);
+
+        if (!isempty(path)) {
+                fd = xopenat(dir_fd, path, O_PATH|O_CLOEXEC);
+                if (fd < 0)
+                        return fd;
+                dir_fd = fd;
+        }
+
+        return xfstatfs(dir_fd, ret);
+}
+
+int fd_is_read_only_fs(int fd) {
+        int r;
+
+        struct statfs st;
+        r = xfstatfs(fd, &st);
+        if (r < 0)
+                return r;
 
         if (st.f_flags & ST_RDONLY)
                 return true;
 
-        if (is_network_fs(&st)) {
+        if (is_network_fs(&st))
                 /* On NFS, fstatfs() might not reflect whether we can actually write to the remote share.
                  * Let's try again with access(W_OK) which is more reliable, at least sometimes. */
-                if (access_fd(fd, W_OK) == -EROFS)
-                        return true;
-        }
+                return access_fd(fd, W_OK) == -EROFS;
 
         return false;
 }
@@ -301,12 +500,14 @@ int inode_same_at(int fda, const char *filea, int fdb, const char *fileb, int fl
 
                 int ntha_flags = at_flags_normalize_follow(flags) & (AT_EMPTY_PATH|AT_SYMLINK_FOLLOW);
                 _cleanup_free_ struct file_handle *ha = NULL, *hb = NULL;
-                int mntida = -1, mntidb = -1;
+                uint64_t mntida, mntidb;
+                int _mntida, _mntidb;
 
                 r = name_to_handle_at_try_fid(
                                 fda,
                                 filea,
                                 &ha,
+                                &_mntida,
                                 &mntida,
                                 ntha_flags);
                 if (r < 0) {
@@ -315,12 +516,15 @@ int inode_same_at(int fda, const char *filea, int fdb, const char *fileb, int fl
 
                         goto fallback;
                 }
+                if (r == 0)
+                        mntida = _mntida;
 
                 r = name_to_handle_at_try_fid(
                                 fdb,
                                 fileb,
                                 &hb,
-                                &mntidb,
+                                r > 0 ? NULL : &_mntidb, /* if we managed to get unique mnt id for a, insist on that for b */
+                                r > 0 ? &mntidb : NULL,
                                 ntha_flags);
                 if (r < 0) {
                         if (is_name_to_handle_at_fatal_error(r))
@@ -328,6 +532,8 @@ int inode_same_at(int fda, const char *filea, int fdb, const char *fileb, int fl
 
                         goto fallback;
                 }
+                if (r == 0)
+                        mntidb = _mntidb;
 
                 /* Now compare the two file handles */
                 if (!file_handle_equal(ha, hb))
@@ -364,9 +570,9 @@ bool is_fs_type(const struct statfs *s, statfs_f_type_t magic_value) {
 }
 
 int is_fs_type_at(int dir_fd, const char *path, statfs_f_type_t magic_value) {
-        struct statfs s;
         int r;
 
+        struct statfs s;
         r = xstatfsat(dir_fd, path, &s);
         if (r < 0)
                 return r;
@@ -383,19 +589,23 @@ bool is_network_fs(const struct statfs *s) {
 }
 
 int fd_is_temporary_fs(int fd) {
-        struct statfs s;
+        int r;
 
-        if (fstatfs(fd, &s) < 0)
-                return -errno;
+        struct statfs s;
+        r = xfstatfs(fd, &s);
+        if (r < 0)
+                return r;
 
         return is_temporary_fs(&s);
 }
 
 int fd_is_network_fs(int fd) {
-        struct statfs s;
+        int r;
 
-        if (fstatfs(fd, &s) < 0)
-                return -errno;
+        struct statfs s;
+        r = xfstatfs(fd, &s);
+        if (r < 0)
+                return r;
 
         return is_network_fs(&s);
 }
@@ -419,6 +629,8 @@ int path_is_network_fs(const char *path) {
 }
 
 int proc_mounted(void) {
+        /* This is typically used in error path. So, it is better to not overwrite the original errno. */
+        PROTECT_ERRNO;
         int r;
 
         /* A quick check of procfs is properly mounted */
@@ -463,41 +675,28 @@ bool statx_inode_same(const struct statx *a, const struct statx *b) {
 
         /* Same as stat_inode_same() but for struct statx */
 
-        return statx_is_set(a) && statx_is_set(b) &&
-                FLAGS_SET(a->stx_mask, STATX_TYPE|STATX_INO) && FLAGS_SET(b->stx_mask, STATX_TYPE|STATX_INO) &&
+        if (!statx_is_set(a) || !statx_is_set(b))
+                return false;
+
+        assert(FLAGS_SET(a->stx_mask, STATX_TYPE|STATX_INO));
+        assert(FLAGS_SET(b->stx_mask, STATX_TYPE|STATX_INO));
+
+        return
                 ((a->stx_mode ^ b->stx_mode) & S_IFMT) == 0 &&
                 a->stx_dev_major == b->stx_dev_major &&
                 a->stx_dev_minor == b->stx_dev_minor &&
                 a->stx_ino == b->stx_ino;
 }
 
-bool statx_mount_same(const struct statx *a, const struct statx *b) {
+int statx_mount_same(const struct statx *a, const struct statx *b) {
         if (!statx_is_set(a) || !statx_is_set(b))
                 return false;
 
-        /* if we have the mount ID, that's all we need */
-        if (FLAGS_SET(a->stx_mask, STATX_MNT_ID) && FLAGS_SET(b->stx_mask, STATX_MNT_ID))
+        if ((FLAGS_SET(a->stx_mask, STATX_MNT_ID) && FLAGS_SET(b->stx_mask, STATX_MNT_ID)) ||
+            (FLAGS_SET(a->stx_mask, STATX_MNT_ID_UNIQUE) && FLAGS_SET(b->stx_mask, STATX_MNT_ID_UNIQUE)))
                 return a->stx_mnt_id == b->stx_mnt_id;
 
-        /* Otherwise, major/minor of backing device must match */
-        return a->stx_dev_major == b->stx_dev_major &&
-                a->stx_dev_minor == b->stx_dev_minor;
-}
-
-int xstatfsat(int dir_fd, const char *path, struct statfs *ret) {
-        _cleanup_close_ int fd = -EBADF;
-
-        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
-        assert(ret);
-
-        if (!isempty(path)) {
-                fd = xopenat(dir_fd, path, O_PATH|O_CLOEXEC|O_NOCTTY);
-                if (fd < 0)
-                        return fd;
-                dir_fd = fd;
-        }
-
-        return RET_NERRNO(fstatfs(dir_fd, ret));
+        return -ENODATA;
 }
 
 usec_t statx_timestamp_load(const struct statx_timestamp *ts) {

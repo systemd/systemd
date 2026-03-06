@@ -346,7 +346,7 @@ static int print_record(sd_device *device, const char *prefix) {
          *
          * Coloring: let's be conservative with coloring. Let's use it to group related fields. Right now:
          *
-         *     • white for fields that give the device a name
+         *     • highlight fields that give the device a name
          *     • green for fields that categorize the device into subsystem/devtype and similar
          *     • cyan for fields about associated device nodes/symlinks/network interfaces and such
          *     • magenta for block device diskseq
@@ -354,16 +354,16 @@ static int print_record(sd_device *device, const char *prefix) {
          *     • no color for regular properties */
 
         assert_se(sd_device_get_devpath(device, &str) >= 0);
-        printf("%sP: %s%s%s\n", prefix, ansi_highlight_white(), str, ansi_normal());
+        printf("%sP: %s%s%s\n", prefix, ansi_highlight(), str, ansi_normal());
 
         if (sd_device_get_sysname(device, &str) >= 0)
-                printf("%sM: %s%s%s\n", prefix, ansi_highlight_white(), str, ansi_normal());
+                printf("%sM: %s%s%s\n", prefix, ansi_highlight(), str, ansi_normal());
 
         if (sd_device_get_sysnum(device, &str) >= 0)
-                printf("%sR: %s%s%s\n", prefix, ansi_highlight_white(), str, ansi_normal());
+                printf("%sR: %s%s%s\n", prefix, ansi_highlight(), str, ansi_normal());
 
         if (sd_device_get_device_id(device, &str) >= 0)
-                printf("%sJ: %s%s%s\n", prefix, ansi_highlight_white(), str, ansi_normal());
+                printf("%sJ: %s%s%s\n", prefix, ansi_highlight(), str, ansi_normal());
 
         if (sd_device_get_subsystem(device, &subsys) >= 0)
                 printf("%sU: %s%s%s\n", prefix, ansi_highlight_green(), subsys, ansi_normal());

@@ -23,6 +23,7 @@
 #include "locale-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "pidref.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
 #include "stdio-util.h"
@@ -255,7 +256,6 @@ assert_cc(STRLEN(SYSTEMD_DEFAULT_KEYMAP) > 0);
 static int keyboard_load_and_wait(const char *vc, Context *c, bool utf8) {
         const char* args[8];
         unsigned i = 0;
-        pid_t pid;
         int r;
 
         assert(vc);
@@ -286,7 +286,8 @@ static int keyboard_load_and_wait(const char *vc, Context *c, bool utf8) {
                 log_debug("Executing \"%s\"...", strnull(cmd));
         }
 
-        r = safe_fork("(loadkeys)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        r = pidref_safe_fork("(loadkeys)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pidref);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -294,13 +295,12 @@ static int keyboard_load_and_wait(const char *vc, Context *c, bool utf8) {
                 _exit(EXIT_FAILURE);
         }
 
-        return wait_for_terminate_and_check(KBD_LOADKEYS, pid, WAIT_LOG);
+        return pidref_wait_for_terminate_and_check(KBD_LOADKEYS, &pidref, WAIT_LOG);
 }
 
 static int font_load_and_wait(const char *vc, Context *c) {
         const char* args[9];
         unsigned i = 0;
-        pid_t pid;
         int r;
 
         assert(vc);
@@ -337,7 +337,8 @@ static int font_load_and_wait(const char *vc, Context *c) {
                 log_debug("Executing \"%s\"...", strnull(cmd));
         }
 
-        r = safe_fork("(setfont)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        r = pidref_safe_fork("(setfont)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pidref);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -348,7 +349,7 @@ static int font_load_and_wait(const char *vc, Context *c) {
         /* setfont returns EX_OSERR when ioctl(KDFONTOP/PIO_FONTX/PIO_FONTX) fails. This might mean various
          * things, but in particular lack of a graphical console. Let's be generous and not treat this as an
          * error. */
-        r = wait_for_terminate_and_check(KBD_SETFONT, pid, WAIT_LOG_ABNORMAL);
+        r = pidref_wait_for_terminate_and_check(KBD_SETFONT, &pidref, WAIT_LOG_ABNORMAL);
         if (r == EX_OSERR)
                 log_notice(KBD_SETFONT " failed with a \"system error\" (EX_OSERR), ignoring.");
         else if (r >= 0 && r != EXIT_SUCCESS)

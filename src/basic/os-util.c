@@ -168,7 +168,7 @@ int open_os_release_at(int rfd, char **ret_path, int *ret_fd) {
         const char *e;
         int r;
 
-        assert(rfd >= 0 || rfd == AT_FDCWD);
+        assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
 
         e = secure_getenv("SYSTEMD_OS_RELEASE");
         if (e)
@@ -184,13 +184,15 @@ int open_os_release_at(int rfd, char **ret_path, int *ret_fd) {
 }
 
 int open_os_release(const char *root, char **ret_path, int *ret_fd) {
-        _cleanup_close_ int rfd = -EBADF, fd = -EBADF;
+        _cleanup_close_ int rfd = XAT_FDROOT, fd = -EBADF;
         _cleanup_free_ char *p = NULL;
         int r;
 
-        rfd = open(empty_to_root(root), O_CLOEXEC | O_DIRECTORY | O_PATH);
-        if (rfd < 0)
-                return -errno;
+        if (!empty_or_root(root)) {
+                rfd = open(root, O_CLOEXEC | O_DIRECTORY | O_PATH);
+                if (rfd < 0)
+                        return -errno;
+        }
 
         r = open_os_release_at(rfd, ret_path ? &p : NULL, ret_fd ? &fd : NULL);
         if (r < 0)
@@ -223,7 +225,7 @@ int open_extension_release_at(
         const char *p;
         int r;
 
-        assert(rfd >= 0 || rfd == AT_FDCWD);
+        assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
         assert(!extension || (image_class >= 0 && image_class < _IMAGE_CLASS_MAX));
 
         if (!extension)
@@ -330,13 +332,15 @@ int open_extension_release(
                 char **ret_path,
                 int *ret_fd) {
 
-        _cleanup_close_ int rfd = -EBADF, fd = -EBADF;
+        _cleanup_close_ int rfd = XAT_FDROOT, fd = -EBADF;
         _cleanup_free_ char *p = NULL;
         int r;
 
-        rfd = open(empty_to_root(root), O_CLOEXEC | O_DIRECTORY | O_PATH);
-        if (rfd < 0)
-                return -errno;
+        if (!empty_or_root(root)) {
+                rfd = open(root, O_CLOEXEC | O_DIRECTORY | O_PATH);
+                if (rfd < 0)
+                        return -errno;
+        }
 
         r = open_extension_release_at(rfd, image_class, extension, relax_extension_release_check,
                                       ret_path ? &p : NULL, ret_fd ? &fd : NULL);
@@ -366,7 +370,7 @@ static int parse_extension_release_atv(
         _cleanup_free_ char *p = NULL;
         int r;
 
-        assert(rfd >= 0 || rfd == AT_FDCWD);
+        assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
 
         r = open_extension_release_at(rfd, image_class, extension, relax_extension_release_check, &p, &fd);
         if (r < 0)
@@ -385,7 +389,7 @@ int parse_extension_release_at_sentinel(
         va_list ap;
         int r;
 
-        assert(rfd >= 0 || rfd == AT_FDCWD);
+        assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
 
         va_start(ap, extension);
         r = parse_extension_release_atv(rfd, image_class, extension, relax_extension_release_check, ap);
@@ -400,17 +404,20 @@ int parse_extension_release_sentinel(
                 const char *extension,
                 ...) {
 
-        _cleanup_close_ int rfd = -EBADF;
+        _cleanup_close_ int rfd = XAT_FDROOT;
         va_list ap;
         int r;
 
-        rfd = open(empty_to_root(root), O_CLOEXEC | O_DIRECTORY | O_PATH);
-        if (rfd < 0)
-                return -errno;
+        if (!empty_or_root(root)) {
+                rfd = open(root, O_CLOEXEC | O_DIRECTORY | O_PATH);
+                if (rfd < 0)
+                        return -errno;
+        }
 
         va_start(ap, extension);
         r = parse_extension_release_atv(rfd, image_class, extension, relax_extension_release_check, ap);
         va_end(ap);
+
         return r;
 }
 

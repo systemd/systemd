@@ -47,33 +47,38 @@ REQUIREMENTS:
                      ≥ 5.3 for bounded loops in BPF program, keyring namespacing,
                                and nexthop support
                      ≥ 5.4 for pidfd and signed Verity images
-
-        ⛔ Kernel versions below 5.4 ("minimum baseline") are not supported at all,
-           and are missing required functionality as listed above.
-
-        Linux kernel ≥ 5.6 for getrandom() GRND_INSECURE
+                     ≥ 5.6 for getrandom() GRND_INSECURE
                      ≥ 5.7 for CLONE_INTO_CGROUP, cgroup2fs memory_recursiveprot option,
                                BPF links and the BPF LSM hook
+                     ≥ 5.8 for LOOP_CONFIGURE, STATX_ATTR_MOUNT_ROOT, and procfs
+                               per-instance hidepid=/subset= options
+                     ≥ 5.9 for close_range()
+                     ≥ 5.10 for STATX_MNT_ID and MS_NOSYMFOLLOW mount option
 
-        ⚠️ Kernel versions below 5.7 ("recommended baseline") have significant gaps
+        ⛔ Kernel versions below 5.10 ("minimum baseline") are not supported at all,
+           and are missing required functionality as listed above.
+
+        Linux kernel ≥ 5.11 for epoll_pwait2()
+                     ≥ 5.12 for idmapped mount (mount_setattr())
+                     ≥ 5.14 for cgroup.kill and quotactl_fd()
+
+        ⚠️ Kernel versions below 5.14 ("recommended baseline") have significant gaps
            in functionality and are not recommended for use with this version
            of systemd. Taint flag 'old-kernel' will be set. systemd will most likely
            still function, but upstream support and testing are limited.
 
-        Linux kernel ≥ 5.8 for LOOP_CONFIGURE and STATX_ATTR_MOUNT_ROOT
-                     ≥ 5.9 for close_range()
-                     ≥ 5.12 for idmapped mount
-                     ≥ 5.14 for cgroup.kill
-                     ≥ 5.14 for quotactl_fd()
-                     ≥ 6.3 for MFD_EXEC/MFD_NOEXEC_SEAL and tmpfs noswap option
+        Linux kernel ≥ 6.3 for MFD_EXEC/MFD_NOEXEC_SEAL and tmpfs noswap option
                      ≥ 6.5 for name_to_handle_at() AT_HANDLE_FID, SO_PEERPIDFD/SO_PASSPIDFD,
                                and MOVE_MOUNT_BENEATH
                      ≥ 6.6 for quota support on tmpfs
                      ≥ 6.7 for cgroup2fs memory_hugetlb_accounting option
+                     ≥ 6.8 for STATX_MNT_ID_UNIQUE
                      ≥ 6.9 for pidfs
                      ≥ 6.10 for fcntl(F_DUPFD_QUERY), unprivileged linkat(AT_EMPTY_PATH),
                                 and block device 'partscan' sysfs attribute
-                     ≥ 6.13 for PIDFD_GET_INFO and {set,remove}xattrat()
+                     ≥ 6.12 for AT_HANDLE_MNT_ID_UNIQUE
+                     ≥ 6.13 for PIDFD_GET_INFO and {set,remove}xattrat() and
+                                FSCONFIG_SET_FD support for overlayfs layers
                      ≥ 6.16 for coredump pattern '%F' (pidfd) specifier and SO_PASSRIGHTS
 
         ✅ systemd utilizes several new kernel APIs, but will fall back gracefully
@@ -124,7 +129,8 @@ REQUIREMENTS:
           CONFIG_SECCOMP
           CONFIG_SECCOMP_FILTER (required for seccomp support)
           CONFIG_KCMP (for the kcmp() syscall, used to be under
-                       CONFIG_CHECKPOINT_RESTORE before ~5.12)
+                       CONFIG_CHECKPOINT_RESTORE before ~5.12;
+                       not needed after 6.10)
           CONFIG_NET_SCHED
           CONFIG_NET_SCH_FQ_CODEL
 
@@ -192,35 +198,23 @@ REQUIREMENTS:
         This is shipped by default, see modprobe.d/systemd.conf.
 
         Required for systemd-nspawn:
-          CONFIG_DEVPTS_MULTIPLE_INSTANCES or Linux kernel >= 4.7
+          CONFIG_DEVPTS_MULTIPLE_INSTANCES (removed and unneeded since 4.7)
 
         Required for systemd-oomd:
           CONFIG_PSI
           CONFIG_MEMCG
 
-        Note that kernel auditing is broken when used with systemd's container
-        code. When using systemd in conjunction with containers, please make
-        sure to either turn off auditing at runtime using the kernel command
-        line option "audit=0", or turn it off at kernel compile time using:
-          CONFIG_AUDIT=n
-
-        If systemd is compiled with libseccomp support on architectures which do
-        not use socketcall() and where seccomp is supported (this effectively
-        means x86-64 and ARM, but excludes 32-bit x86!), then nspawn will now
-        install a work-around seccomp filter that makes containers boot even
-        with audit being enabled. This works correctly only on kernels 3.14 and
-        newer though. TL;DR: turn audit off, still.
-
-        glibc >= 2.31
-        libxcrypt or glibc (<= 2.38 built with --enable-crypt)
+        glibc >= 2.34
+        musl >= 1.2.5 with fde29c04adbab9d5b081bf6717b5458188647f1c
+                (required when building systemd with -Dlibc=musl)
+        libxcrypt >= 4.4.0 (optional)
         libmount >= 2.30 (from util-linux)
                 (util-linux *must* be built without --enable-libmount-support-mtab)
-        libseccomp >= 2.3.1 (optional)
-        libblkid >= 2.24 (from util-linux) (optional)
+        libseccomp >= 2.4.0 (optional)
+        libblkid >= 2.37 (from util-linux) (optional)
         libkmod >= 15 (optional)
         PAM >= 1.1.2 (optional)
-        libcryptsetup >= 2.0.1 (optional),
-                      >= 2.3.0 is required for signed Verity images support
+        libcryptsetup >= 2.4.0 (optional),
         libaudit (optional)
         libacl (optional)
         libbpf >= 0.1.0 (optional),
@@ -241,20 +235,20 @@ REQUIREMENTS:
         libqrencode >= 3 (optional)
         libmicrohttpd >= 0.9.33 (optional)
         libcurl >= 7.32.0 (optional)
-        libidn2 or libidn (optional)
+        libidn2 (optional)
         gnutls >= 3.1.4 (optional)
-        openssl >= 1.1.0 (optional, required to support DNS-over-TLS)
+        openssl >= 3.0.0 (optional, required to support DNS-over-TLS)
         p11-kit >= 0.23.3 (optional)
         libfido2 (optional)
         tpm2-tss (optional)
-        elfutils >= 158 (optional)
+        elfutils >= 177 (optional)
         polkit (optional)
         tzdata >= 2014f (optional)
         pkg-config
         gperf
         docbook-xsl (optional, required for documentation)
         xsltproc    (optional, required for documentation)
-        python >= 3.7 (required by meson too, >= 3.9 is required for ukify)
+        python >= 3.9
         python-jinja2
         python-pefile (optional, required for ukify)
         python-lxml (optional, required to build the indices)
@@ -270,9 +264,9 @@ REQUIREMENTS:
         During runtime, you need the following additional
         dependencies:
 
-        util-linux >= v2.27.1 required (including but not limited to: mount,
-                                        umount, swapon, swapoff, sulogin,
-                                        agetty, fsck)
+        util-linux >= v2.41 required (including but not limited to: mount,
+                                      umount, swapon, swapoff, sulogin,
+                                      agetty, fsck)
         dbus >= 1.4.0 (strictly speaking optional, but recommended)
                 NOTE: If using dbus < 1.9.18, you should override the default
                 policy directory (--with-dbuspolicydir=/etc/dbus-1/system.d).
@@ -434,17 +428,6 @@ GLIBC NSS:
                 shadow: files systemd
                 gshadow: files systemd
                 hosts: mymachines resolve [!UNAVAIL=return] files myhostname dns
-
-SYSV INIT.D SCRIPTS:
-        When calling "systemctl enable/disable/is-enabled" on a unit which is a
-        SysV init.d script, it calls /usr/lib/systemd/systemd-sysv-install;
-        this needs to translate the action into the distribution specific
-        mechanism such as chkconfig or update-rc.d. Packagers need to provide
-        this script if you need this functionality (you don't if you disabled
-        SysV init support).
-
-        Please see src/systemctl/systemd-sysv-install.SKELETON for how this
-        needs to look like, and provide an implementation at the marked places.
 
 WARNINGS and TAINT FLAGS:
         systemd requires that the /run mount point exists. systemd also

@@ -37,12 +37,6 @@
 
 #define UNIT_FILE_FOLLOW_SYMLINK_MAX 64
 
-typedef enum SearchFlags {
-        SEARCH_LOAD                   = 1 << 0,
-        SEARCH_FOLLOW_CONFIG_SYMLINKS = 1 << 1,
-        SEARCH_DROPIN                 = 1 << 2,
-} SearchFlags;
-
 typedef struct {
         RuntimeScope scope;
         OrderedHashmap *will_process;
@@ -370,6 +364,24 @@ static void install_change_dump_success(const InstallChange *change) {
         }
 }
 
+/* Generated/transient/missing/invalid units when applying presets.
+ * Coordinate with install_change_dump_error() below. */
+static bool ERRNO_IS_NEG_UNIT_ISSUE(intmax_t r) {
+        return IN_SET(r,
+                      -EEXIST,
+                      -ERFKILL,
+                      -EADDRNOTAVAIL,
+                      -ETXTBSY,
+                      -EBADSLT,
+                      -EIDRM,
+                      -EUCLEAN,
+                      -ELOOP,
+                      -EXDEV,
+                      -ENOENT,
+                      -ENOLINK,
+                      -EUNATCH);
+}
+
 int install_change_dump_error(const InstallChange *change, char **ret_errmsg, const char **ret_bus_error) {
         char *m;
         const char *bus_error;
@@ -462,7 +474,7 @@ int install_change_dump_error(const InstallChange *change, char **ret_errmsg, co
         return 0;
 }
 
-void install_changes_dump(
+int install_changes_dump(
                 int error,
                 const char *verb,
                 const InstallChange *changes,
@@ -476,6 +488,8 @@ void install_changes_dump(
         assert(verb || error >= 0);
         assert(changes || n_changes == 0);
 
+        /* An error is returned if 'error' contains an error or if any of the changes failed. */
+
         FOREACH_ARRAY(i, changes, n_changes)
                 if (i->type >= 0) {
                         if (!quiet)
@@ -487,17 +501,21 @@ void install_changes_dump(
 
                         r = install_change_dump_error(i, &err_message, /* ret_bus_error= */ NULL);
                         if (r == -ENOMEM)
-                                return (void) log_oom();
+                                return log_oom();
                         if (r < 0)
-                                log_error_errno(r, "Failed to %s unit %s: %m", verb, i->path);
+                                RET_GATHER(error,
+                                           log_error_errno(r, "Failed to %s unit %s: %m", verb, i->path));
                         else
-                                log_error_errno(i->type, "Failed to %s unit: %s", verb, err_message);
+                                RET_GATHER(error,
+                                           log_error_errno(i->type, "Failed to %s unit: %s", verb, err_message));
 
                         err_logged = true;
                 }
 
         if (error < 0 && !err_logged)
-                log_error_errno(error, "Failed to %s unit: %m.", verb);
+                log_error_errno(error, "Failed to %s units: %m.", verb);
+
+        return error;
 }
 
 /**
@@ -1539,7 +1557,7 @@ static int unit_file_search(
 
         assert(info->name);
 
-        if (unit_name_is_valid(info->name, UNIT_NAME_INSTANCE)) {
+        if (!FLAGS_SET(flags, SEARCH_IGNORE_TEMPLATE) && unit_name_is_valid(info->name, UNIT_NAME_INSTANCE)) {
                 r = unit_name_template(info->name, &template);
                 if (r < 0)
                         return r;
@@ -1942,6 +1960,7 @@ int unit_file_verify_alias(
 
 static int install_info_symlink_alias(
                 RuntimeScope scope,
+                UnitFileFlags file_flags,
                 InstallInfo *info,
                 const LookupPaths *lp,
                 const char *config_path,
@@ -1996,6 +2015,10 @@ static int install_info_symlink_alias(
                 broken = r == 0; /* symlink target does not exist? */
 
                 r = create_symlink(lp, alias_target ?: info->path, alias_path, force || broken, changes, n_changes);
+                if (r == -EEXIST && FLAGS_SET(file_flags, UNIT_FILE_IGNORE_AUXILIARY_FAILURE))
+                        /* We cannot realize the alias because a conflicting alias exists.
+                         * Do not propagate this as error. */
+                        continue;
                 if (r != 0 && ret >= 0)
                         ret = r;
         }
@@ -2160,7 +2183,7 @@ static int install_info_apply(
                  * because they might would pointing to a non-existent or wrong unit. */
                 return r;
 
-        r = install_info_symlink_alias(scope, info, lp, config_path, force, changes, n_changes);
+        r = install_info_symlink_alias(scope, file_flags, info, lp, config_path, force, changes, n_changes);
 
         q = install_info_symlink_wants(scope, file_flags, info, lp, config_path, info->wanted_by, ".wants/", changes, n_changes);
         if (q != 0 && r >= 0)
@@ -3210,7 +3233,13 @@ int unit_file_get_state(
         return unit_file_lookup_state(scope, &lp, name, ret);
 }
 
-int unit_file_exists_full(RuntimeScope scope, const LookupPaths *lp, const char *name, char **ret_path) {
+int unit_file_exists_full(
+                RuntimeScope scope,
+                const LookupPaths *lp,
+                SearchFlags flags,
+                const char *name,
+                char **ret_path) {
+
         _cleanup_(install_context_done) InstallContext c = {
                 .scope = scope,
         };
@@ -3227,7 +3256,7 @@ int unit_file_exists_full(RuntimeScope scope, const LookupPaths *lp, const char 
                         &c,
                         lp,
                         name,
-                        /* flags= */ 0,
+                        flags,
                         ret_path ? &info : NULL,
                         /* changes= */ NULL,
                         /* n_changes= */ NULL);
@@ -3470,7 +3499,7 @@ static int pattern_match_multiple_instances(
                 if (r < 0)
                         return r;
 
-                if (strv_find(rule.instances, instance_name))
+                if (strv_contains(rule.instances, instance_name))
                         return 1;
         }
         return 0;
@@ -3604,6 +3633,7 @@ static int preset_prepare_one(
                                   &info, changes, n_changes);
         if (r < 0)
                 return r;
+
         if (!streq(name, info->name)) {
                 log_debug("Skipping %s because it is an alias for %s.", name, info->name);
                 return 0;
@@ -3668,7 +3698,7 @@ int unit_file_preset(
 
         STRV_FOREACH(name, names) {
                 r = preset_prepare_one(scope, &plus, &minus, &lp, *name, &presets, changes, n_changes);
-                if (r < 0)
+                if (r < 0 && !ERRNO_IS_NEG_UNIT_ISSUE(r))
                         return r;
         }
 
@@ -3705,19 +3735,19 @@ int unit_file_preset_all(
         if (r < 0)
                 return r;
 
-        r = 0;
         STRV_FOREACH(i, lp.search_path) {
                 _cleanup_closedir_ DIR *d = NULL;
 
                 d = opendir(*i);
                 if (!d) {
-                        if (errno != ENOENT)
-                                RET_GATHER(r, -errno);
-                        continue;
+                        if (errno == ENOENT)
+                                continue;
+
+                        return log_debug_errno(errno, "Failed to opendir %s: %m", *i);
                 }
 
-                FOREACH_DIRENT(de, d, RET_GATHER(r, -errno)) {
-                        int k;
+                FOREACH_DIRENT(de, d,
+                               return log_debug_errno(errno, "Failed to read directory %s: %m", *i)) {
 
                         if (!unit_name_is_valid(de->d_name, UNIT_NAME_ANY))
                                 continue;
@@ -3725,23 +3755,9 @@ int unit_file_preset_all(
                         if (!IN_SET(de->d_type, DT_LNK, DT_REG))
                                 continue;
 
-                        k = preset_prepare_one(scope, &plus, &minus, &lp, de->d_name, &presets, changes, n_changes);
-                        if (k < 0 &&
-                            !IN_SET(k, -EEXIST,
-                                       -ERFKILL,
-                                       -EADDRNOTAVAIL,
-                                       -ETXTBSY,
-                                       -EBADSLT,
-                                       -EIDRM,
-                                       -EUCLEAN,
-                                       -ELOOP,
-                                       -EXDEV,
-                                       -ENOENT,
-                                       -ENOLINK,
-                                       -EUNATCH))
-                                /* Ignore generated/transient/missing/invalid units when applying preset, propagate other errors.
-                                 * Coordinate with install_change_dump_error() above. */
-                                RET_GATHER(r, k);
+                        r = preset_prepare_one(scope, &plus, &minus, &lp, de->d_name, &presets, changes, n_changes);
+                        if (r < 0 && !ERRNO_IS_NEG_UNIT_ISSUE(r))
+                                return r;
                 }
         }
 

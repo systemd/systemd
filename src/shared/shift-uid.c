@@ -387,12 +387,13 @@ read_only:
 int path_patch_uid(const char *path, uid_t shift, uid_t range) {
         _cleanup_close_ int fd = -EBADF;
         struct stat st;
+        int r;
 
         assert(path);
 
         fd = open(path, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME);
         if (fd < 0)
-                return -errno;
+                return log_debug_errno(errno, "Failed to open '%s': %m", path);
 
         /* Recursively adjusts the UID/GIDs of all files of a directory tree. This is used to automatically fix up an
          * OS tree to the used user namespace UID range. Note that this automatic adjustment only works for UID ranges
@@ -401,21 +402,30 @@ int path_patch_uid(const char *path, uid_t shift, uid_t range) {
 
         /* We only support containers where the shift starts at a 2^16 boundary */
         if ((shift & 0xFFFF) != 0)
-                return -EOPNOTSUPP;
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "UID shift 0x%"PRIx32" is not at a 2^16 boundary.",
+                                       (uint32_t) shift);
 
         if (shift == UID_BUSY_BASE)
-                return -EINVAL;
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "UID shift 0x%"PRIx32" conflicts with busy base.",
+                                       (uint32_t) shift);
 
         /* We only support containers with 16-bit UID ranges for the patching logic */
         if (range != 0x10000)
-                return -EOPNOTSUPP;
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "UID range 0x%"PRIx32" is not supported, must be 0x10000.",
+                                       (uint32_t) range);
 
         if (fstat(fd, &st) < 0)
-                return -errno;
+                return log_debug_errno(errno, "Failed to stat '%s': %m", path);
 
         /* We only support containers where the uid/gid container ID match */
         if ((uint32_t) st.st_uid >> 16 != (uint32_t) st.st_gid >> 16)
-                return -EBADE;
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADE),
+                                       "UID container ID 0x%"PRIx32" does not match GID container ID 0x%"PRIx32".",
+                                       (uint32_t) st.st_uid >> 16,
+                                       (uint32_t) st.st_gid >> 16);
 
         /* Try to detect if the range is already right. Of course, this a pretty drastic optimization, as we assume
          * that if the top-level dir has the right upper 16-bit assigned, then everything below will have too... */
@@ -430,7 +440,11 @@ int path_patch_uid(const char *path, uid_t shift, uid_t range) {
                 if (fchown(fd,
                            UID_BUSY_BASE | (st.st_uid & ~UID_BUSY_MASK),
                            (gid_t) UID_BUSY_BASE | (st.st_gid & ~(gid_t) UID_BUSY_MASK)) < 0)
-                        return -errno;
+                        log_debug_errno(errno, "Failed to mark '%s' as busy, ignoring: %m", path);
 
-        return recurse_fd(TAKE_FD(fd), &st, shift, true);
+        r = recurse_fd(TAKE_FD(fd), &st, shift, /* is_toplevel= */ true);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to recursively patch UID/GID of '%s': %m", path);
+
+        return r;
 }

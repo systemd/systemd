@@ -98,22 +98,17 @@ int bpf_restrict_ifaces_supported(void) {
         return (supported = bpf_can_link_program(obj->progs.sd_restrictif_i));
 }
 
-static int restrict_ifaces_install_impl(Unit *u) {
+static int restrict_ifaces_install_impl(Unit *u, CGroupRuntime *crt) {
         _cleanup_(bpf_link_freep) struct bpf_link *egress_link = NULL, *ingress_link = NULL;
         _cleanup_(restrict_ifaces_bpf_freep) struct restrict_ifaces_bpf *obj = NULL;
         _cleanup_free_ char *cgroup_path = NULL;
         _cleanup_close_ int cgroup_fd = -EBADF;
-        CGroupContext *cc;
-        CGroupRuntime *crt;
         int r;
 
-        cc = unit_get_cgroup_context(u);
-        if (!cc)
-                return 0;
+        assert(u);
+        assert(crt);
 
-        crt = unit_get_cgroup_runtime(u);
-        if (!crt)
-                return 0;
+        CGroupContext *cc = ASSERT_PTR(unit_get_cgroup_context(u));
 
         r = cg_get_path(crt->cgroup_path, /* suffix= */ NULL, &cgroup_path);
         if (r < 0)
@@ -159,7 +154,7 @@ int bpf_restrict_ifaces_install(Unit *u) {
         if (!crt)
                 return 0;
 
-        r = restrict_ifaces_install_impl(u);
+        r = restrict_ifaces_install_impl(u, crt);
         fdset_close(crt->initial_restrict_ifaces_link_fds, /* async= */ false);
         return r;
 }

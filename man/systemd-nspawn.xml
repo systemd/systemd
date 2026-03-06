@@ -371,6 +371,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--mstack=</option></term>
+
+        <listitem><para>Mount stack to mount the root directory for the container from. Takes a path to a
+        directory implementing
+        <citerefentry><refentrytitle>systemd.mstack</refentrytitle><manvolnum>7</manvolnum></citerefentry>. This
+        may be used to run a container of an <literal>overlayfs</literal> assembled from a number of layers,
+        possibly writable and augmented with additional bind mounts.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--oci-bundle=</option></term>
 
         <listitem><para>Takes the path to an OCI runtime bundle to invoke, as specified in the <ulink
@@ -648,7 +660,7 @@
         <term><option>--notify-ready=</option></term>
 
         <listitem><para>Configures support for notifications from the container's init process.
-        <option>--notify-ready=</option> takes a boolean. If false <command>systemd-vmpawn</command>
+        <option>--notify-ready=</option> takes a boolean. If false <command>systemd-nspawn</command>
         notifies the calling service manager with a <literal>READY=1</literal> message when the init process is
         created. If true it waits for a <literal>READY=1</literal> message from the init process in the VM
         before sending its own to the service manager. For more details about notifications see
@@ -924,6 +936,33 @@
         specific container UID/GID base outside of any <command>systemd-nspawn</command> invocation.</para>
 
         <xi:include href="version-info.xml" xpointer="v230"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--private-users-delegate=</option></term>
+
+        <listitem><para>Takes a non-negative integer. Requests that the specified number of additional 64K
+        UID/GID ranges are delegated into the container's user namespace. These delegated ranges are mapped
+        1:1 (i.e. the same UID/GID values are used inside and outside the user namespace) and can be used by
+        nested containers to allocate their own transient UID/GID ranges via
+        <citerefentry><refentrytitle>systemd-nsresourced.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+        <para>This option requires <option>--private-users=managed</option>, as the delegation is performed
+        by
+        <citerefentry><refentrytitle>systemd-nsresourced.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        as part of the user namespace allocation. The maximum number of delegated ranges is 16. Defaults to
+        0, i.e. no delegation.</para>
+
+        <para>When this option is used with a non-zero value, the
+        <citerefentry><refentrytitle>systemd-nsresourced.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        Varlink socket (<filename>/run/systemd/io.systemd.NamespaceResource</filename>) is automatically
+        bind-mounted into the container along with the necessary discovery symlinks in
+        <filename>/run/systemd/userdb/</filename> and <filename>/run/varlink/registry/</filename>. This
+        allows processes inside the container to contact
+        <command>systemd-nsresourced</command> on the host in order to allocate nested user namespaces from
+        the delegated ranges.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -2038,6 +2077,7 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
       <member><citerefentry><refentrytitle>importctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-mountfsd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-nsresourced.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.mstack</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
       <member><citerefentry project='url'><refentrytitle url='https://btrfs.readthedocs.io/en/latest/btrfs.html'>btrfs</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
     </simplelist></para>
   </refsect1>

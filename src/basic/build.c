@@ -120,12 +120,6 @@ const char* const systemd_features =
         " -IDN2"
 #endif
 
-#if HAVE_LIBIDN
-        " +IDN"
-#else
-        " -IDN"
-#endif
-
 #if HAVE_KMOD
         " +KMOD"
 #else
@@ -236,12 +230,6 @@ const char* const systemd_features =
         " +UTMP"
 #else
         " -UTMP"
-#endif
-
-#if HAVE_SYSV_COMPAT
-        " +SYSVINIT"
-#else
-        " -SYSVINIT"
 #endif
 
 #if HAVE_LIBARCHIVE

@@ -98,7 +98,7 @@ static int manager_process_entry(
                 ClientContext *context,
                 const struct ucred *ucred,
                 const struct timeval *tv,
-                const char *label, size_t label_len) {
+                const char *label) {
 
         /* Process a single entry from a native message. Returns 0 if nothing special happened and the message
          * processing should continue, and a negative or positive value otherwise.
@@ -304,7 +304,7 @@ void manager_process_native_message(
                 const char *buffer, size_t buffer_size,
                 const struct ucred *ucred,
                 const struct timeval *tv,
-                const char *label, size_t label_len) {
+                const char *label) {
 
         size_t remaining = buffer_size;
         ClientContext *context = NULL;
@@ -314,7 +314,7 @@ void manager_process_native_message(
         assert(buffer || buffer_size == 0);
 
         if (ucred && pid_is_valid(ucred->pid)) {
-                r = client_context_get(m, ucred->pid, ucred, label, label_len, NULL, &context);
+                r = client_context_get(m, ucred->pid, ucred, label, /* unit_id= */ NULL, &context);
                 if (r < 0)
                         log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
                                                     "Failed to retrieve credentials for PID " PID_FMT ", ignoring: %m",
@@ -324,8 +324,54 @@ void manager_process_native_message(
         do {
                 r = manager_process_entry(m,
                                          (const uint8_t*) buffer + (buffer_size - remaining), &remaining,
-                                         context, ucred, tv, label, label_len);
+                                         context, ucred, tv, label);
         } while (r == 0);
+}
+
+static size_t entry_size_max_by_ucred(Manager *m, const struct ucred *ucred, const char *label) {
+        static uint64_t entry_size_max = UINT64_MAX;
+        static bool entry_size_max_checked = false;
+        int r;
+
+        if (entry_size_max != UINT64_MAX)
+                return entry_size_max;
+        if (!entry_size_max_checked) {
+                const char *p;
+
+                entry_size_max_checked = true;
+
+                p = secure_getenv("SYSTEMD_JOURNAL_FD_SIZE_MAX");
+                if (p) {
+                        r = parse_size(p, 1024, &entry_size_max);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to parse $SYSTEMD_JOURNAL_FD_SIZE_MAX, ignoring: %m");
+                        else
+                                return entry_size_max;
+                }
+        }
+
+        /* Check for unprivileged senders, as the default limit of 768M is quite high and the socket is
+         * unprivileged, to avoid abuses. */
+
+        if (!ucred)
+                return ENTRY_SIZE_UNPRIV_MAX;
+        if (ucred->uid == 0) /* Shortcut for root senders */
+                return ENTRY_SIZE_MAX;
+
+        /* As an exception, allow coredumps to use the old max size for backward compatibility */
+        if (pid_is_valid(ucred->pid)) {
+                ClientContext *context = NULL;
+
+                r = client_context_get(m, ucred->pid, ucred, label, /* unit_id= */ NULL, &context);
+                if (r < 0)
+                        log_ratelimit_warning_errno(r, JOURNAL_LOG_RATELIMIT,
+                                                    "Failed to retrieve credentials for PID " PID_FMT ", ignoring: %m",
+                                                    ucred->pid);
+                else if (context->unit && startswith(context->unit, "systemd-coredump@"))
+                        return ENTRY_SIZE_MAX;
+        }
+
+        return ENTRY_SIZE_UNPRIV_MAX;
 }
 
 int manager_process_native_file(
@@ -333,7 +379,7 @@ int manager_process_native_file(
                 int fd,
                 const struct ucred *ucred,
                 const struct timeval *tv,
-                const char *label, size_t label_len) {
+                const char *label) {
 
         struct stat st;
         bool sealed;
@@ -392,7 +438,7 @@ int manager_process_native_file(
 
         /* When !sealed, set a lower memory limit. We have to read the file, effectively doubling memory
          * use. */
-        if (st.st_size > ENTRY_SIZE_MAX / (sealed ? 1 : 2))
+        if ((size_t) st.st_size > entry_size_max_by_ucred(m, ucred, label) / (sealed ? 1 : 2))
                 return log_ratelimit_error_errno(SYNTHETIC_ERRNO(EFBIG), JOURNAL_LOG_RATELIMIT,
                                                  "File passed too large (%"PRIu64" bytes), refusing.",
                                                  (uint64_t) st.st_size);
@@ -410,7 +456,7 @@ int manager_process_native_file(
                         return log_ratelimit_error_errno(errno, JOURNAL_LOG_RATELIMIT,
                                                          "Failed to map memfd: %m");
 
-                manager_process_native_message(m, p, st.st_size, ucred, tv, label, label_len);
+                manager_process_native_message(m, p, st.st_size, ucred, tv, label);
                 assert_se(munmap(p, ps) >= 0);
 
                 return 0;
@@ -451,7 +497,7 @@ int manager_process_native_file(
                 return log_ratelimit_error_errno(errno, JOURNAL_LOG_RATELIMIT,
                                                  "Failed to read file: %m");
         if (n > 0)
-                manager_process_native_message(m, p, n, ucred, tv, label, label_len);
+                manager_process_native_message(m, p, n, ucred, tv, label);
 
         return 0;
 }

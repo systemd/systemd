@@ -1031,7 +1031,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(Socket*, socket_close_fds, NULL);
                 int _e_ = (e);                                                         \
                 log_unit_full_errno(                                                   \
                                 UNIT(s),                                               \
-                                ERRNO_IS_NOT_SUPPORTED(_e_) ? LOG_DEBUG : LOG_WARNING, \
+                                ERRNO_IS_NOT_SUPPORTED(_e_) ||                         \
+                                ERRNO_IS_PRIVILEGE(_e_) ? LOG_DEBUG : LOG_WARNING,     \
                                 _e_,                                                   \
                                 "Failed to set %s socket option, ignoring: %m",        \
                                 option);                                               \
@@ -1346,30 +1347,29 @@ static int mq_address_create(
 }
 
 static int socket_symlink(Socket *s) {
-        const char *p;
         int r;
 
         assert(s);
 
-        p = socket_find_symlink_target(s);
-        if (!p)
+        const char *target = socket_find_symlink_target(s);
+        if (!target)
                 return 0;
 
-        STRV_FOREACH(i, s->symlinks) {
-                (void) mkdir_parents_label(*i, s->directory_mode);
+        STRV_FOREACH(linkpath, s->symlinks) {
+                (void) mkdir_parents_label(*linkpath, s->directory_mode);
 
-                r = symlink_idempotent(p, *i, false);
+                r = symlink_idempotent(target, *linkpath, false);
                 if (r == -EEXIST && s->remove_on_stop) {
-                        /* If there's already something where we want to create the symlink, and the destructive
-                         * RemoveOnStop= mode is set, then we might as well try to remove what already exists and try
-                         * again. */
+                        /* If there's already something where we want to create the symlink, and the
+                         * destructive RemoveOnStop= mode is set, then we might as well try to remove what
+                         * already exists and try again. */
 
-                        if (unlink(*i) >= 0)
-                                r = symlink_idempotent(p, *i, false);
+                        if (unlink(*linkpath) >= 0)
+                                r = symlink_idempotent(target, *linkpath, false);
                 }
                 if (r < 0)
                         log_unit_warning_errno(UNIT(s), r, "Failed to create symlink %s %s %s, ignoring: %m",
-                                               p, glyph(GLYPH_ARROW_RIGHT), *i);
+                                               *linkpath, glyph(GLYPH_ARROW_RIGHT), target);
         }
 
         return 0;
@@ -1557,9 +1557,7 @@ static int socket_address_listen_in_cgroup(
                 const SocketAddress *address,
                 const char *label) {
 
-        _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
-        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
-        int fd, r;
+        int r;
 
         assert(s);
         assert(address);
@@ -1571,11 +1569,11 @@ static int socket_address_listen_in_cgroup(
 
         if (!fork_needed(address, s)) {
                 /* Shortcut things... */
-                fd = socket_address_listen_do(s, address, label);
-                if (fd < 0)
-                        return log_address_error_errno(UNIT(s), address, fd, "Failed to create listening socket (%s): %m");
+                r = socket_address_listen_do(s, address, label);
+                if (r < 0)
+                        return log_address_error_errno(UNIT(s), address, r, "Failed to create listening socket (%s): %m");
 
-                return fd;
+                return r;
         }
 
         r = unit_setup_exec_runtime(UNIT(s));
@@ -1604,6 +1602,10 @@ static int socket_address_listen_in_cgroup(
                                 return log_unit_error_errno(UNIT(s), r, "Failed to open IPC namespace path %s: %m", s->exec_context.ipc_namespace_path);
                 }
         }
+
+        _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
+        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
+        _cleanup_close_ int fd = -EBADF;
 
         if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, pair) < 0)
                 return log_unit_error_errno(UNIT(s), errno, "Failed to create communication channel: %m");
@@ -1653,16 +1655,14 @@ static int socket_address_listen_in_cgroup(
         fd = receive_one_fd(pair[0], 0);
 
         /* We synchronously wait for the helper, as it shouldn't be slow */
-        r = wait_for_terminate_and_check("(sd-listen)", pid.pid, WAIT_LOG_ABNORMAL);
-        if (r < 0) {
-                safe_close(fd);
+        r = pidref_wait_for_terminate_and_check("(sd-listen)", &pid, WAIT_LOG_ABNORMAL);
+        if (r < 0)
                 return r;
-        }
 
         if (fd < 0)
                 return log_address_error_errno(UNIT(s), address, fd, "Failed to receive listening socket (%s): %m");
 
-        return fd;
+        return TAKE_FD(fd);
 }
 
 static int socket_open_fds(Socket *orig_s) {
@@ -2116,7 +2116,7 @@ static int socket_chown(Socket *s, PidRef *ret_pid) {
 static void socket_enter_dead(Socket *s, SocketResult f) {
         assert(s);
 
-        if (s->result == SOCKET_SUCCESS)
+        if (s->result == SOCKET_SUCCESS || IN_SET(f, SOCKET_FAILURE_SERVICE_START_LIMIT_HIT, SOCKET_FAILURE_START_LIMIT_HIT))
                 s->result = f;
 
         if (s->result == SOCKET_SUCCESS)
@@ -2622,20 +2622,6 @@ static void socket_run_next(Socket *s) {
 static int socket_start(Unit *u) {
         Socket *s = ASSERT_PTR(SOCKET(u));
         int r;
-
-        /* Cannot run this without the service being around */
-        if (UNIT_ISSET(s->service)) {
-                Service *service = ASSERT_PTR(SERVICE(UNIT_DEREF(s->service)));
-
-                if (UNIT(service)->load_state != UNIT_LOADED)
-                        return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOENT),
-                                                    "Socket service %s not loaded, refusing.", UNIT(service)->id);
-
-                /* If the service is already active we cannot start the socket */
-                if (SOCKET_SERVICE_IS_ACTIVE(service, /* allow_finalize= */ false))
-                        return log_unit_error_errno(u, SYNTHETIC_ERRNO(EBUSY),
-                                                    "Socket service %s already active, refusing.", UNIT(service)->id);
-        }
 
         assert(IN_SET(s->state, SOCKET_DEAD, SOCKET_FAILED));
 
@@ -3181,7 +3167,7 @@ static int socket_accept_in_cgroup(Socket *s, SocketPort *p, int fd) {
         cfd = receive_one_fd(pair[0], 0);
 
         /* We synchronously wait for the helper, as it shouldn't be slow */
-        r = wait_for_terminate_and_check("(sd-accept)", pid.pid, WAIT_LOG_ABNORMAL);
+        r = pidref_wait_for_terminate_and_check("(sd-accept)", &pid, WAIT_LOG_ABNORMAL);
         if (r < 0) {
                 safe_close(cfd);
                 return r;
@@ -3189,7 +3175,7 @@ static int socket_accept_in_cgroup(Socket *s, SocketPort *p, int fd) {
 
         /* If we received no fd, we got EIO here. If this happens with a process exit code of EXIT_SUCCESS
          * this is a spurious accept(), let's convert that back to EAGAIN here. */
-        if (cfd == -EIO)
+        if (cfd == -EIO && r == EXIT_SUCCESS)
                 return -EAGAIN;
         if (cfd < 0)
                 return log_unit_error_errno(UNIT(s), cfd, "Failed to receive connection socket: %m");
@@ -3641,6 +3627,20 @@ static int socket_test_startable(Unit *u) {
                    SOCKET_START_CHOWN,
                    SOCKET_START_POST))
                 return false;
+
+        /* Cannot run this without the service being around */
+        if (UNIT_ISSET(s->service)) {
+                Service *service = ASSERT_PTR(SERVICE(UNIT_DEREF(s->service)));
+
+                if (UNIT(service)->load_state != UNIT_LOADED)
+                        return log_unit_error_errno(u, SYNTHETIC_ERRNO(ENOENT),
+                                                    "Socket service %s not loaded, refusing.", UNIT(service)->id);
+
+                /* If the service is already active we cannot start the socket */
+                if (SOCKET_SERVICE_IS_ACTIVE(service, /* allow_finalize= */ false))
+                        return log_unit_error_errno(u, SYNTHETIC_ERRNO(EBUSY),
+                                                    "Socket service %s already active, refusing.", UNIT(service)->id);
+        }
 
         r = unit_test_start_limit(u);
         if (r < 0) {

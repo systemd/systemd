@@ -42,7 +42,7 @@ if git.found() and fs.is_dir(meson.project_source_root() / '.git')
                           'ls-files', ':/@0@/*/*'.format(fuzz_testsdir),
                           check: true)
 else
-        out = run_command(sh, '-c', 'cd "@0@"; echo @1@/*/*'.format(meson.project_source_root(), fuzz_testsdir), check: true)
+        out = run_command(sh, '-c', 'cd "@0@"; printf "%s " @1@/*/*'.format(meson.project_source_root(), fuzz_testsdir), check: true)
 endif
 
 # Add crafted fuzz inputs we have in the repo

@@ -16,6 +16,7 @@
 #include "initrd-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "pidref.h"
 #include "proc-cmdline.h"
 #include "process-util.h"
 #include "special.h"
@@ -66,10 +67,10 @@ static int start_target(sd_bus *bus, const char *target) {
 }
 
 static int fork_wait(const char* const cmdline[]) {
-        pid_t pid;
         int r;
 
-        r = safe_fork("(sulogin)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        r = pidref_safe_fork("(sulogin)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pidref);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -79,7 +80,7 @@ static int fork_wait(const char* const cmdline[]) {
                 _exit(EXIT_FAILURE); /* Operational error */
         }
 
-        return wait_for_terminate_and_check(cmdline[0], pid, WAIT_LOG_ABNORMAL);
+        return pidref_wait_for_terminate_and_check(cmdline[0], &pidref, WAIT_LOG_ABNORMAL);
 }
 
 static void print_mode(const char* mode) {

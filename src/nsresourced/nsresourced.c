@@ -9,7 +9,6 @@
 #include "log.h"
 #include "main-func.h"
 #include "nsresourced-manager.h"
-#include "signal-util.h"
 
 static int run(int argc, char *argv[]) {
         _cleanup_(manager_freep) Manager *m = NULL;
@@ -24,8 +23,6 @@ static int run(int argc, char *argv[]) {
 
         if (setenv("SYSTEMD_BYPASS_USERDB", "io.systemd.NamespaceResource", 1) < 0)
                 return log_error_errno(errno, "Failed to set $SYSTEMD_BYPASS_USERDB: %m");
-
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD) >= 0);
 
         r = manager_new(&m);
         if (r < 0)

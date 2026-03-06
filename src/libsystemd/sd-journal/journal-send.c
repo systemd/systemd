@@ -387,6 +387,19 @@ _public_ int sd_journal_stream_fd_with_namespace(
         assert_return(priority >= 0, -EINVAL);
         assert_return(priority <= 7, -EINVAL);
 
+        if (name_space) {
+                /* If $LOG_NAMESPACE is set, we're already placed in a mountns with /run/systemd/journal/
+                 * being a bind mount for the journald namespace instance, in which case we shall go by
+                 * the standard journal socket path. */
+                const char *env = secure_getenv("LOG_NAMESPACE");
+                if (env) {
+                        if (!streq(name_space, env))
+                                return -EREMOTE;
+
+                        name_space = NULL;
+                }
+        }
+
         path = journal_stream_path(name_space);
         if (!path)
                 return -EINVAL;

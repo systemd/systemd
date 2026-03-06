@@ -292,7 +292,7 @@ node /org/freedesktop/resolve1 {
       (no IDNA conversion is applied), followed by the 16-bit class and type fields (which may be
       ANY). Finally, a <varname>flags</varname> field may be passed in to alter behaviour of the look-up (see
       below). On completion, an array of RR items is returned. Each array entry consists of the network interface
-      index the RR was discovered on, the type and class field of the RR found, and a byte array of the raw
+      index the RR was discovered on, the class and type field of the RR found, and a byte array of the raw
       RR discovered. The raw RR data starts with the RR's domain name, in the original casing, followed
       by the RR type, class, TTL and RDATA, in the binary format documented in
       <ulink url="https://www.ietf.org/rfc/rfc1035.txt">RFC 1035</ulink>. For RRs that support name

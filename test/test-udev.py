@@ -17,6 +17,7 @@
 # removes the device node. After creation and removal the result is checked
 # against the expected value and the result is printed.
 
+import dataclasses
 import functools
 import os
 import pwd, grp
@@ -30,7 +31,6 @@ from pathlib import Path
 from typing import Callable, Optional
 
 try:
-    import dataclasses  # requires Python >= 3.7
     import pytest
 except ImportError as e:
     print(str(e), file=sys.stderr)

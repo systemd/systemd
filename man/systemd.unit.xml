@@ -957,8 +957,11 @@
         <literal>isolate</literal>,
         <literal>flush</literal>,
         <literal>ignore-dependencies</literal> or
-        <literal>ignore-requirements</literal>. Defaults to
-        <literal>replace</literal>. Specifies how the units listed in
+        <literal>ignore-requirements</literal>.
+        <literal>OnFailureJobMode=</literal> defaults to
+        <literal>replace</literal>,
+        <literal>OnSuccessJobMode=</literal> defaults to
+        <literal>fail</literal>. Specifies how the units listed in
         <varname>OnSuccess=</varname>/<varname>OnFailure=</varname> will be enqueued. See
         <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
         <option>--job-mode=</option> option for details on the
@@ -1795,6 +1798,17 @@
         </varlistentry>
 
         <varlistentry>
+          <term><varname>ConditionPathIsSocket=</varname></term>
+
+          <listitem><para><varname>ConditionPathIsSocket=</varname> is similar to
+          <varname>ConditionPathExists=</varname> but verifies that a certain path exists and is a
+          socket.</para>
+
+          <xi:include href="version-info.xml" xpointer="v260"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><varname>ConditionDirectoryNotEmpty=</varname></term>
 
           <listitem><para><varname>ConditionDirectoryNotEmpty=</varname> is similar to
@@ -2049,6 +2063,7 @@
           <term><varname>AssertPathIsMountPoint=</varname></term>
           <term><varname>AssertPathIsReadWrite=</varname></term>
           <term><varname>AssertPathIsEncrypted=</varname></term>
+          <term><varname>AssertPathIsSocket=</varname></term>
           <term><varname>AssertDirectoryNotEmpty=</varname></term>
           <term><varname>AssertFileNotEmpty=</varname></term>
           <term><varname>AssertFileIsExecutable=</varname></term>

@@ -886,6 +886,9 @@ Manager* manager_free(Manager *m) {
         manager_dns_stub_stop(m);
         manager_varlink_done(m);
 
+        set_free(m->varlink_query_results_subscription);
+        set_free(m->varlink_dns_configuration_subscription);
+
         manager_socket_graveyard_clear(m);
 
         ordered_set_free(m->dns_extra_stub_listeners);
@@ -2055,6 +2058,7 @@ static int dns_configuration_json_append(
                 Set *negative_trust_anchors,
                 Set *dns_scopes,
                 DnssecMode dnssec_mode,
+                bool dnssec_supported,
                 DnsOverTlsMode dns_over_tls_mode,
                 ResolveSupport llmnr_support,
                 ResolveSupport mdns_support,
@@ -2070,6 +2074,12 @@ static int dns_configuration_json_append(
         int r;
 
         assert(configuration);
+
+        if (current_dns_server) {
+                r = dns_server_dump_configuration_to_json(current_dns_server, &current_dns_server_json);
+                if (r < 0)
+                        return r;
+        }
 
         SET_FOREACH(scope, dns_scopes) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
@@ -2132,6 +2142,7 @@ static int dns_configuration_json_append(
                         SD_JSON_BUILD_PAIR_CONDITION(!set_isempty(negative_trust_anchors),
                                                      "negativeTrustAnchors",
                                                      JSON_BUILD_STRING_SET(negative_trust_anchors)),
+                        JSON_BUILD_PAIR_CONDITION_BOOLEAN(dnssec_mode >= 0, "dnssecSupported", dnssec_supported),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("dnssec", dnssec_mode_to_string(dnssec_mode)),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("dnsOverTLS", dns_over_tls_mode_to_string(dns_over_tls_mode)),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("llmnr", resolve_support_to_string(llmnr_support)),
@@ -2163,6 +2174,7 @@ static int global_dns_configuration_json_append(Manager *m, sd_json_variant **co
                         m->trust_anchor.negative_by_name,
                         scopes,
                         manager_get_dnssec_mode(m),
+                        manager_dnssec_supported(m),
                         manager_get_dns_over_tls_mode(m),
                         m->llmnr_support,
                         m->mdns_support,
@@ -2219,6 +2231,7 @@ static int link_dns_configuration_json_append(Link *l, sd_json_variant **configu
                         l->dnssec_negative_trust_anchors,
                         scopes,
                         link_get_dnssec_mode(l),
+                        link_dnssec_supported(l),
                         link_get_dns_over_tls_mode(l),
                         link_get_llmnr_support(l),
                         link_get_mdns_support(l),
@@ -2249,6 +2262,7 @@ static int delegate_dns_configuration_json_append(DnsDelegate *d, sd_json_varian
                         /* negative_trust_anchors= */ NULL,
                         scopes,
                         /* dnssec_mode= */ _DNSSEC_MODE_INVALID,
+                        /* dnssec_supported= */ false,
                         /* dns_over_tls_mode= */ _DNS_OVER_TLS_MODE_INVALID,
                         /* llmnr_support= */ _RESOLVE_SUPPORT_INVALID,
                         /* mdns_support= */ _RESOLVE_SUPPORT_INVALID,

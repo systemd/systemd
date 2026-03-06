@@ -48,7 +48,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "\n%5$sPerform various operations on private keys and certificates.%6$s\n"
                "\n%3$sCommands:%4$s\n"
                "  validate               Load and validate the given certificate and private key\n"
-               "  public                 Extract a public key\n"
+               "  extract-public         Extract a public key\n"
+               "  extract-certificate    Extract a certificate\n"
                "  pkcs7                  Generate a PKCS#7 signature\n"
                "\n%3$sOptions:%4$s\n"
                "  -h --help              Show this help\n"
@@ -247,7 +248,7 @@ static int verb_validate(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_public(int argc, char *argv[], void *userdata) {
+static int verb_extract_public(int argc, char *argv[], void *userdata) {
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *public_key = NULL;
         int r;
 
@@ -310,6 +311,33 @@ static int verb_public(int argc, char *argv[], void *userdata) {
 
         if (PEM_write_PUBKEY(stdout, public_key) == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write public key to stdout");
+
+        return 0;
+}
+
+static int verb_extract_certificate(int argc, char *argv[], void *userdata) {
+        _cleanup_(X509_freep) X509 *certificate = NULL;
+        int r;
+
+        if (!arg_certificate)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--certificate= must be specified.");
+
+        if (arg_certificate_source_type == OPENSSL_CERTIFICATE_SOURCE_FILE) {
+                r = parse_path_argument(arg_certificate, /* suppress_root= */ false, &arg_certificate);
+                if (r < 0)
+                        return r;
+        }
+
+        r = openssl_load_x509_certificate(
+                        arg_certificate_source_type,
+                        arg_certificate_source,
+                        arg_certificate,
+                        &certificate);
+        if (r < 0)
+                return log_error_errno(r, "Failed to load X.509 certificate from %s: %m", arg_certificate);
+
+        if (PEM_write_X509(stdout, certificate) == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write certificate to stdout.");
 
         return 0;
 }
@@ -399,10 +427,12 @@ static int verb_pkcs7(int argc, char *argv[], void *userdata) {
 
 static int run(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "help",     VERB_ANY, VERB_ANY, 0, help          },
-                { "validate", VERB_ANY, 1,        0, verb_validate },
-                { "public",   VERB_ANY, 1,        0, verb_public   },
-                { "pkcs7",    VERB_ANY, VERB_ANY, 0, verb_pkcs7    },
+                { "help",                VERB_ANY, VERB_ANY, 0, help                     },
+                { "validate",            VERB_ANY, 1,        0, verb_validate            },
+                { "extract-public",      VERB_ANY, 1,        0, verb_extract_public      },
+                { "public",              VERB_ANY, 1,        0, verb_extract_public      }, /* Deprecated but kept for backwards compat. */
+                { "extract-certificate", VERB_ANY, 1,        0, verb_extract_certificate },
+                { "pkcs7",               VERB_ANY, VERB_ANY, 0, verb_pkcs7               },
                 {}
         };
         int r;

@@ -349,7 +349,7 @@ int journal_importer_process_data(JournalImporter *imp) {
                                 return 0;
                         }
 
-                        /* replace \n with = */
+                        /* replace '\n' with '=' */
                         line[n-1] = '=';
 
                         imp->field_len = n;

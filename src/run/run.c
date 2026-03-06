@@ -61,7 +61,6 @@
 #include "strv.h"
 #include "terminal-util.h"
 #include "time-util.h"
-#include "uid-classification.h"
 #include "unit-def.h"
 #include "unit-name.h"
 #include "user-util.h"
@@ -335,7 +334,6 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_WAIT,
                 ARG_WORKING_DIRECTORY,
                 ARG_ROOT_DIRECTORY,
-                ARG_SHELL,
                 ARG_JOB_MODE,
                 ARG_IGNORE_FAILURE,
                 ARG_BACKGROUND,
@@ -919,7 +917,6 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
 
         enum {
                 ARG_NO_ASK_PASSWORD = 0x100,
-                ARG_HOST,
                 ARG_MACHINE,
                 ARG_UNIT,
                 ARG_PROPERTY,
@@ -1086,7 +1083,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                         break;
 
                 case ARG_LIGHTWEIGHT:
-                        r = parse_tristate_argument("--lightweight=", optarg, &arg_lightweight);
+                        r = parse_tristate_argument_with_auto("--lightweight=", optarg, &arg_lightweight);
                         if (r < 0)
                                 return r;
                         break;
@@ -2250,9 +2247,6 @@ static int fchown_to_capsule(int fd, const char *capsule) {
         if (r < 0)
                 return r;
 
-        if (uid_is_system(st.st_uid) || gid_is_system(st.st_gid)) /* paranoid safety check */
-                return -EPERM;
-
         return fchmod_and_chown(fd, 0600, st.st_uid, st.st_gid);
 }
 
@@ -3059,7 +3053,7 @@ static bool shall_make_executable_absolute(void) {
         if (!arg_root_directory && running_in_chroot() > 0)
                 return false;
 
-        FOREACH_STRING(f, "RootDirectory=", "RootImage=", "ExecSearchPath=", "MountImages=", "ExtensionImages=")
+        FOREACH_STRING(f, "RootDirectory=", "RootImage=", "RootMStack=", "ExecSearchPath=", "MountImages=", "ExtensionImages=")
                 if (strv_find_startswith(arg_property, f))
                         return false;
 

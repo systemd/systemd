@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <sched.h>
 #include <stdlib.h>
 #include <sys/mount.h>
 #include <sys/socket.h>
@@ -968,7 +967,7 @@ static int mount_in_namespace_legacy(
         bool mount_slave_created = false, mount_slave_mounted = false,
                 mount_tmp_created = false, mount_tmp_mounted = false,
                 mount_outside_created = false, mount_outside_mounted = false;
-        pid_t child;
+        _cleanup_(pidref_done) PidRef child = PIDREF_NULL;
         int r;
 
         assert(chased_src_path);
@@ -1092,8 +1091,6 @@ static int mount_in_namespace_legacy(
         r = namespace_fork(
                         "(sd-bindmnt)",
                         "(sd-bindmnt-inner)",
-                        /* except_fds= */ NULL,
-                        /* n_except_fds= */ 0,
                         FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM,
                         pidns_fd,
                         mntns_fd,
@@ -1139,7 +1136,7 @@ static int mount_in_namespace_legacy(
 
         errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
 
-        r = wait_for_terminate_and_check("(sd-bindmnt)", child, 0);
+        r = pidref_wait_for_terminate_and_check("(sd-bindmnt)", &child, 0);
         if (r < 0) {
                 log_debug_errno(r, "Failed to wait for child: %m");
                 goto finish;
@@ -1242,7 +1239,7 @@ static int mount_in_namespace(
         _cleanup_(dissected_image_unrefp) DissectedImage *img = NULL;
         _cleanup_close_ int new_mount_fd = -EBADF;
         _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR;
-        pid_t child;
+        _cleanup_(pidref_done) PidRef child = PIDREF_NULL;
 
         if (flags & MOUNT_IN_NAMESPACE_IS_IMAGE) {
                 r = verity_dissect_and_mount(
@@ -1286,8 +1283,6 @@ static int mount_in_namespace(
 
         r = namespace_fork("(sd-bindmnt)",
                            "(sd-bindmnt-inner)",
-                           /* except_fds= */ NULL,
-                           /* n_except_fds= */ 0,
                            FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM,
                            pidns_fd,
                            mntns_fd,
@@ -1335,7 +1330,7 @@ static int mount_in_namespace(
 
         errno_pipe_fd[1] = safe_close(errno_pipe_fd[1]);
 
-        r = wait_for_terminate_and_check("(sd-bindmnt)", child, 0);
+        r = pidref_wait_for_terminate_and_check("(sd-bindmnt)", &child, 0);
         if (r < 0)
                 return log_debug_errno(r, "Failed to wait for child: %m");
         if (r != EXIT_SUCCESS) {
@@ -1457,12 +1452,12 @@ int mount_fd_clone(int mount_fd, bool recursive, int *replacement_fd) {
                 return log_debug_errno(errno, "Failed to open pipe: %m");
 
         /* Fork a child. Note that we set FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE here, i.e. get a new mount namespace */
-        r = safe_fork_full(
+        r = pidref_safe_fork_full(
                         "(sd-clonemnt)",
                         /* stdio_fds= */ NULL,
                         (int[]) { mount_fd, transfer_fds[1], errno_pipe_fds[1] }, 3,
                         FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL|FORK_REOPEN_LOG|FORK_WAIT|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE,
-                        /* ret_pid= */ NULL);
+                        /* ret= */ NULL);
         if (r < 0) {
                 errno_pipe_fds[1] = safe_close(errno_pipe_fds[1]);
 
@@ -1956,7 +1951,7 @@ int trigger_automount_at(int dir_fd, const char *path) {
 
 unsigned long credentials_fs_mount_flags(bool ro) {
         /* A tight set of mount flags for credentials mounts */
-        return MS_NODEV|MS_NOEXEC|MS_NOSUID|ms_nosymfollow_supported()|(ro ? MS_RDONLY : 0);
+        return MS_NODEV|MS_NOEXEC|MS_NOSUID|MS_NOSYMFOLLOW|(ro ? MS_RDONLY : 0);
 }
 
 int fsmount_credentials_fs(int *ret_fsfd) {

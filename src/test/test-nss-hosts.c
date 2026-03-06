@@ -490,7 +490,7 @@ static int run(int argc, char **argv) {
                 /* Testing with several syscalls filtered, and check if the nss modules gracefully handle failures in
                  * masked syscalls. See issue #38582. */
 
-                ASSERT_OK(r = safe_fork("(with-seccomp)", FORK_LOG | FORK_WAIT, /* ret_pid= */ NULL));
+                r = ASSERT_OK(pidref_safe_fork("(with-seccomp)", FORK_LOG|FORK_WAIT, /* ret= */ NULL));
                 if (r == 0) {
                         _cleanup_hashmap_free_ Hashmap *filter = NULL;
                         ASSERT_NOT_NULL(filter = hashmap_new(NULL));

@@ -18,6 +18,7 @@
 #include "hexdecoct.h"
 #include "in-addr-prefix-util.h"
 #include "networkd-dhcp-common.h"
+#include "networkd-dhcp-prefix-delegation.h"
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-network.h"
@@ -106,6 +107,7 @@ void network_adjust_dhcp(Network *network) {
         }
 
         network_adjust_dhcp4(network);
+        network_adjust_dhcp_prefix_delegation(network);
 }
 
 static bool duid_needs_product_uuid(const DUID *duid) {

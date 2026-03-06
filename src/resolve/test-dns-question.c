@@ -62,7 +62,7 @@ TEST(dns_question_new_address) {
         ASSERT_OK_POSITIVE(dns_question_contains_key(question, key6));
 }
 
-#if HAVE_LIBIDN || HAVE_LIBIDN2
+#if HAVE_LIBIDN2
 TEST(dns_question_new_address_convert_idna) {
         _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
@@ -162,7 +162,7 @@ TEST(dns_question_new_service) {
         question = dns_question_unref(question);
         key = dns_resource_key_unref(key);
 
-#if HAVE_LIBIDN || HAVE_LIBIDN2
+#if HAVE_LIBIDN2
         /* convert idna with type */
         ASSERT_OK(dns_question_new_service(
                                   &question,

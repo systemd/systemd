@@ -13,6 +13,7 @@
 #include "cleanup-fundamental.h"        /* IWYU pragma: export */
 #include "efi-fundamental.h"            /* IWYU pragma: export */
 #include "macro-fundamental.h"          /* IWYU pragma: export */
+#include "string-table-fundamental.h"   /* IWYU pragma: export */
 
 #if SD_BOOT
 /* uchar.h/wchar.h are not suitable for freestanding environments. */

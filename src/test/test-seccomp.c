@@ -197,7 +197,7 @@ TEST(filter_sets) {
 
                 log_info("Testing %s", syscall_filter_sets[i].name);
 
-                ASSERT_OK(r = safe_fork("(filter_sets)", FORK_LOG | FORK_WAIT, NULL));
+                r = ASSERT_OK(pidref_safe_fork("(filter_sets)", FORK_LOG|FORK_WAIT, NULL));
                 if (r == 0) {
                         int fd;
 
@@ -295,7 +295,7 @@ TEST(restrict_namespace) {
 
         CHECK_SECCOMP(/* skip_container= */ false);
 
-        ASSERT_OK(r = safe_fork("(restrict-namespace)", FORK_LOG | FORK_WAIT, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(restrict-namespace)", FORK_LOG|FORK_WAIT, NULL));
         if (r == 0) {
 
                 assert_se(seccomp_restrict_namespaces(CLONE_NEWNS|CLONE_NEWNET) >= 0);
@@ -357,7 +357,7 @@ TEST(protect_sysctl) {
         if (!streq(seccomp, "0"))
                 log_warning("Warning: seccomp filter detected, results may be unreliable for %s", __func__);
 
-        ASSERT_OK(r = safe_fork("(protect-sysctl)", FORK_LOG | FORK_WAIT, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(protect-sysctl)", FORK_LOG|FORK_WAIT, NULL));
         if (r == 0) {
 #if defined __NR__sysctl && __NR__sysctl >= 0
                 assert_se(syscall(__NR__sysctl, NULL) < 0);
@@ -388,7 +388,7 @@ TEST(protect_syslog) {
         /* in containers syslog() is likely missing anyway */
         CHECK_SECCOMP(/* skip_container= */ true);
 
-        ASSERT_OK(r = safe_fork("(protect-syslog)", FORK_LOG | FORK_WAIT, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(protect-syslog)", FORK_LOG|FORK_WAIT, NULL));
         if (r == 0) {
 #if defined __NR_syslog && __NR_syslog >= 0
                 assert_se(syscall(__NR_syslog, -1, NULL, 0) < 0);
@@ -411,7 +411,7 @@ TEST(restrict_address_families) {
 
         CHECK_SECCOMP(/* skip_container= */ false);
 
-        ASSERT_OK(r = safe_fork("(restrict-address-families)", FORK_LOG | FORK_WAIT, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(restrict-address-families)", FORK_LOG|FORK_WAIT, NULL));
         if (r == 0) {
                 int fd;
                 Set *s;
@@ -488,7 +488,7 @@ TEST(restrict_realtime) {
         /* in containers RT privs are likely missing anyway */
         CHECK_SECCOMP(/* skip_container= */ true);
 
-        ASSERT_OK(r = safe_fork("(restrict-realtime)", FORK_LOG | FORK_WAIT, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(restrict-realtime)", FORK_LOG|FORK_WAIT, NULL));
         if (r == 0) {
                 /* On some CI environments, the restriction may be already enabled. */
                 if (sched_setscheduler(0, SCHED_FIFO, &(struct sched_param) { .sched_priority = 1 }) < 0) {
@@ -542,7 +542,7 @@ TEST(memory_deny_write_execute_mmap) {
         return;
 #endif
 
-        ASSERT_OK(r = safe_fork("(memory_deny_write_execute_mmap)", FORK_LOG | FORK_WAIT, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(memory_deny_write_execute_mmap)", FORK_LOG|FORK_WAIT, NULL));
         if (r == 0) {
                 void *p;
 
@@ -606,7 +606,7 @@ TEST(memory_deny_write_execute_shmat) {
         shmid = shmget(IPC_PRIVATE, page_size(), 0);
         assert_se(shmid >= 0);
 
-        ASSERT_OK(r = safe_fork("(memory-deny-write-execute)", FORK_LOG | FORK_WAIT, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(memory-deny-write-execute)", FORK_LOG|FORK_WAIT, NULL));
         if (r == 0) {
                 void *p;
 
@@ -648,7 +648,7 @@ TEST(restrict_archs) {
 
         CHECK_SECCOMP(/* skip_container= */ false);
 
-        ASSERT_OK(r = safe_fork("(restrict-archs)", FORK_LOG | FORK_WAIT, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(restrict-archs)", FORK_LOG|FORK_WAIT, NULL));
         if (r == 0) {
                 _cleanup_set_free_ Set *s = NULL;
 
@@ -675,14 +675,14 @@ TEST(load_syscall_filter_set_raw) {
 
         CHECK_SECCOMP(/* skip_container= */ false);
 
-        ASSERT_OK(r = safe_fork("(load-filter)", FORK_LOG | FORK_WAIT, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(load-filter)", FORK_LOG|FORK_WAIT, NULL));
         if (r == 0) {
                 _cleanup_hashmap_free_ Hashmap *s = NULL;
 
                 assert_se(access("/", F_OK) >= 0);
                 assert_se(poll(NULL, 0, 0) == 0);
 
-                assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, NULL, scmp_act_kill_process(), true) >= 0);
+                assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, NULL, SCMP_ACT_KILL_PROCESS, true) >= 0);
                 assert_se(access("/", F_OK) >= 0);
                 assert_se(poll(NULL, 0, 0) == 0);
 
@@ -777,7 +777,7 @@ TEST(native_syscalls_filtered) {
 
         CHECK_SECCOMP(/* skip_container= */ false);
 
-        ASSERT_OK(r = safe_fork("(native-syscalls)", FORK_LOG | FORK_WAIT, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(native-syscalls)", FORK_LOG|FORK_WAIT, NULL));
         if (r == 0) {
                 _cleanup_set_free_ Set *arch_s = NULL;
                 _cleanup_hashmap_free_ Hashmap *s = NULL;
@@ -791,7 +791,7 @@ TEST(native_syscalls_filtered) {
                 assert_se(access("/", F_OK) >= 0);
                 assert_se(poll(NULL, 0, 0) == 0);
 
-                assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, NULL, scmp_act_kill_process(), true) >= 0);
+                assert_se(seccomp_load_syscall_filter_set_raw(SCMP_ACT_ALLOW, NULL, SCMP_ACT_KILL_PROCESS, true) >= 0);
                 assert_se(access("/", F_OK) >= 0);
                 assert_se(poll(NULL, 0, 0) == 0);
 
@@ -830,7 +830,7 @@ TEST(lock_personality) {
         log_info("current personality=0x%lX", (unsigned long) safe_personality(PERSONALITY_INVALID));
         log_info("current opinionated personality=0x%lX", current_opinionated);
 
-        ASSERT_OK(r = safe_fork("(lock-personality)", FORK_LOG | FORK_WAIT, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(lock-personality)", FORK_LOG|FORK_WAIT, NULL));
         if (r == 0) {
                 unsigned long current;
 
@@ -900,7 +900,7 @@ TEST(restrict_suid_sgid) {
 
         CHECK_SECCOMP(/* skip_container= */ false);
 
-        ASSERT_OK(r = safe_fork("(suid-sgid)", FORK_LOG | FORK_WAIT, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(suid-sgid)", FORK_LOG|FORK_WAIT, NULL));
         if (r == 0) {
                 char path[] = "/tmp/suidsgidXXXXXX", dir[] = "/tmp/suidsgiddirXXXXXX";
                 int fd = -EBADF, k = -EBADF;
@@ -1124,7 +1124,7 @@ TEST(seccomp_suppress_sync) {
 
         CHECK_SECCOMP(/* skip_container= */ false);
 
-        ASSERT_OK(r = safe_fork("(suppress-sync)", FORK_LOG | FORK_WAIT, NULL));
+        r = ASSERT_OK(pidref_safe_fork("(suppress-sync)", FORK_LOG|FORK_WAIT, NULL));
         if (r == 0) {
                 test_seccomp_suppress_sync_child();
                 _exit(EXIT_SUCCESS);

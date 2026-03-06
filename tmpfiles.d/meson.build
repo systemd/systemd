@@ -4,20 +4,21 @@ if conf.get('ENABLE_TMPFILES') != 1
         subdir_done()
 endif
 
-files = [['README'],
-         ['home.conf'],
-         ['journal-nocow.conf'],
+files = [['README'                                  ],
+         ['home.conf'                               ],
+         ['journal-nocow.conf'                      ],
          ['portables.conf',       'ENABLE_PORTABLED'],
-         ['systemd-network.conf', 'ENABLE_NETWORKD'],
-         ['systemd-nologin.conf', 'HAVE_PAM'],
-         ['systemd-nspawn.conf',  'ENABLE_MACHINED'],
-         ['systemd-pstore.conf',  'ENABLE_PSTORE'],
-         ['systemd-resolve.conf', 'ENABLE_RESOLVE'],
-         ['systemd-tmp.conf'],
-         ['tmp.conf'],
-         ['x11.conf'],
-         ['provision.conf'],
-         ['credstore.conf'],
+         ['systemd-network.conf', 'ENABLE_NETWORKD' ],
+         ['systemd-nologin.conf', 'HAVE_PAM'        ],
+         ['systemd-nspawn.conf',  'ENABLE_MACHINED' ],
+         ['systemd-pstore.conf',  'ENABLE_PSTORE'   ],
+         ['systemd-resolve.conf', 'ENABLE_RESOLVE'  ],
+         ['20-systemd-varlink.conf'                 ],
+         ['systemd-tmp.conf'                        ],
+         ['tmp.conf'                                ],
+         ['x11.conf'                                ],
+         ['provision.conf'                          ],
+         ['credstore.conf'                          ],
         ]
 
 foreach f : files
@@ -30,16 +31,16 @@ foreach f : files
 endforeach
 
 in_files = [
-        ['20-systemd-shell-extra.conf',   'LINK_SHELL_EXTRA_DROPIN'],
-        ['20-systemd-osc-context.conf',   'LINK_OSC_CONTEXT_DROPIN'],
-        ['20-systemd-ssh-generator.conf', 'ENABLE_SSH_PROXY_CONFIG'],
-        ['20-systemd-stub.conf',          'ENABLE_EFI'],
-        ['20-systemd-userdb.conf',        'ENABLE_SSH_USERDB_CONFIG'],
-        ['etc.conf'],
-        ['legacy.conf'],
-        ['static-nodes-permissions.conf'],
-        ['systemd.conf'],
-        ['var.conf'],
+        ['20-systemd-shell-extra.conf',   'LINK_SHELL_EXTRA_DROPIN'      ],
+        ['20-systemd-osc-context.conf',   'LINK_OSC_CONTEXT_DROPIN'      ],
+        ['20-systemd-ssh-generator.conf', 'ENABLE_SSH_PROXY_CONFIG'      ],
+        ['20-systemd-stub.conf',          'ENABLE_EFI'                   ],
+        ['20-systemd-userdb.conf',        'ENABLE_SSH_USERDB_CONFIG'     ],
+        ['etc.conf'                                                      ],
+        ['legacy.conf',                   'ENABLE_COMPAT_SYSV_INTERFACES'],
+        ['static-nodes-permissions.conf'                                 ],
+        ['systemd.conf'                                                  ],
+        ['var.conf'                                                      ],
 ]
 
 foreach f : in_files
@@ -59,3 +60,5 @@ endforeach
 if install_sysconfdir
         install_emptydir(sysconfdir / 'tmpfiles.d')
 endif
+
+subdir('user')

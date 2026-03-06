@@ -33,8 +33,7 @@ struct sd_lldp_rx {
         struct ether_addr filter_address;
 };
 
-const char* lldp_rx_event_to_string(sd_lldp_rx_event_t e) _const_;
-sd_lldp_rx_event_t lldp_rx_event_from_string(const char *s) _pure_;
+DECLARE_STRING_TABLE_LOOKUP(lldp_rx_event, sd_lldp_rx_event_t);
 
 int lldp_rx_build_neighbors_json(sd_lldp_rx *lldp_rx, sd_json_variant **ret);
 

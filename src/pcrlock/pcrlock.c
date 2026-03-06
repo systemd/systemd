@@ -1802,7 +1802,9 @@ static int event_log_add_component_dir(EventLog *el, const char *path, char **ba
                         return log_oom();
         }
 
-        r = conf_files_list_strv(&files, ".pcrlock", /* root= */ NULL, CONF_FILES_REGULAR, (const char*const*) search);
+        r = conf_files_list_strv(&files, ".pcrlock", /* root= */ NULL,
+                                 CONF_FILES_REGULAR|CONF_FILES_WARN,
+                                 (const char*const*) search);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate .pcrlock files for component '%s': %m", id);
 
@@ -1829,7 +1831,9 @@ static int event_log_load_components(EventLog *el) {
                           "/usr/local/lib/pcrlock.d",
                           "/usr/lib/pcrlock.d");
 
-        r = conf_files_list_strv(&files, NULL, NULL, CONF_FILES_REGULAR|CONF_FILES_DIRECTORY|CONF_FILES_FILTER_MASKED, (const char*const*) dirs);
+        r = conf_files_list_strv(&files, /* suffix= */ NULL, /* root= */ NULL,
+                                 CONF_FILES_REGULAR|CONF_FILES_DIRECTORY|CONF_FILES_FILTER_MASKED|CONF_FILES_WARN,
+                                 (const char*const*) dirs);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate .pcrlock files: %m");
 
@@ -5400,6 +5404,7 @@ static int vl_method_read_event_log(sd_varlink *link, sd_json_variant *parameter
         int r;
 
         assert(link);
+        assert(FLAGS_SET(flags, SD_VARLINK_METHOD_MORE));
 
         r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
         if (r != 0)
@@ -5413,24 +5418,23 @@ static int vl_method_read_event_log(sd_varlink *link, sd_json_variant *parameter
         if (r < 0)
                 return r;
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *rec_cel = NULL;
+        // FIXME: We can't use a NULL sentinel here because the output fields in the IDL are non-nullable.
+        r = varlink_set_sentinel(link, NULL);
+        if (r < 0)
+                return r;
 
         FOREACH_ARRAY(rr, el->records, el->n_records) {
-
-                if (rec_cel) {
-                        r = sd_varlink_notifybo(link, SD_JSON_BUILD_PAIR_VARIANT("record", rec_cel));
-                        if (r < 0)
-                                return r;
-
-                        rec_cel = sd_json_variant_unref(rec_cel);
-                }
-
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *rec_cel = NULL;
                 r = event_log_record_to_cel(*rr, &recnum, &rec_cel);
+                if (r < 0)
+                        return r;
+
+                r = sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_VARIANT("record", rec_cel));
                 if (r < 0)
                         return r;
         }
 
-        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_CONDITION(!!rec_cel, "record", SD_JSON_BUILD_VARIANT(rec_cel)));
+        return 0;
 }
 
 typedef struct MethodMakePolicyParameters {

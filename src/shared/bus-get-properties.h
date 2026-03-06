@@ -107,4 +107,5 @@ int bus_property_get_pidfdid(sd_bus *bus, const char *path, const char *interfac
 /* For deprecated properties. */
 int bus_property_get_bool_false(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *reterr_error);
 int bus_property_get_bool_true(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *reterr_error);
+int bus_property_get_uint64_0(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *reterr_error);
 int bus_property_get_uint64_max(sd_bus *bus, const char *path, const char *interface, const char *property, sd_bus_message *reply, void *userdata, sd_bus_error *reterr_error);

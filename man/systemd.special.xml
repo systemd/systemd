@@ -583,10 +583,6 @@
             functionality to other hosts (as opposed to <emphasis>consume</emphasis> functionality of other
             hosts) generally do not need to pull this in.</para>
 
-            <para>systemd automatically adds dependencies of type <varname>Wants=</varname> and
-            <varname>After=</varname> for this target unit to all SysV init script service units
-            with an LSB header referring to the <literal>$network</literal> facility.</para>
-
             <para>Note that this unit is only useful during the original system start-up
             logic. After the system has completed booting up, it will not track the online state of
             the system anymore. Due to this it cannot be used as a network connection monitor
@@ -679,11 +675,6 @@
           <listitem>
             <para>Similar to <filename>local-fs.target</filename>, but
             for remote mount points.</para>
-
-            <para>systemd automatically adds dependencies of type
-            <varname>After=</varname> for this target unit to all SysV
-            init script service units with an LSB header referring to
-            the <literal>$remote_fs</literal> facility.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1185,9 +1176,7 @@ WantedBy=sleep.target</programlisting>
             service lookups. Note that this is independent of UNIX user/group name lookups for which
             <filename>nss-user-lookup.target</filename> should be used.  All services for which the
             availability of full host/network name resolution is essential should be ordered after
-            this target, but not pull it in. systemd automatically adds dependencies of type
-            <varname>After=</varname> for this target unit to all SysV init script service units
-            with an LSB header referring to the <literal>$named</literal> facility.</para>
+            this target, but not pull it in.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1224,11 +1213,7 @@ WantedBy=sleep.target</programlisting>
           <term><filename>rpcbind.target</filename></term>
           <listitem>
             <para>The portmapper/rpcbind pulls in this target and orders
-            itself before it, to indicate its availability. systemd
-            automatically adds dependencies of type
-            <varname>After=</varname> for this target unit to all SysV
-            init script service units with an LSB header referring to
-            the <literal>$portmap</literal> facility.</para>
+            itself before it, to indicate its availability.</para>
           </listitem>
         </varlistentry>
         <varlistentry>
@@ -1289,9 +1274,7 @@ WantedBy=sleep.target</programlisting>
             unit, but not pull it in.</para>
 
             <para>The service manager automatically adds dependencies of type <varname>After=</varname> for
-            this target unit to all SysV init script service units with an LSB header referring to the
-            <literal>$time</literal> facility, as well to all timer units with at least one
-            <varname>OnCalendar=</varname> directive.</para>
+            this target unit to all timer units with at least one <varname>OnCalendar=</varname> directive.</para>
 
             <para>This target provides stricter clock accuracy guarantees than
             <filename>time-set.target</filename> (see above), but likely requires

@@ -17,6 +17,7 @@
 #include "hashmap.h"
 #include "log.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "serialize.h"
 #include "stat-util.h"
@@ -28,6 +29,10 @@
 
 #define EXIT_SKIP_REMAINING 77
 
+DEFINE_PRIVATE_HASH_OPS_FULL(pidref_hash_ops_free_free,
+                             PidRef, pidref_hash_func, pidref_compare_func,
+                             pidref_free, char*, free);
+
 /* Put this test here for a lack of better place */
 assert_cc(EAGAIN == EWOULDBLOCK);
 
@@ -36,25 +41,25 @@ static int do_spawn(
                 char *argv[],
                 int stdout_fd,
                 bool set_systemd_exec_pid,
-                pid_t *ret_pid) {
+                PidRef *ret) {
 
         int r;
 
         assert(path);
-        assert(ret_pid);
+        assert(ret);
 
         if (null_or_empty_path(path) > 0) {
                 log_debug("%s is masked, skipping.", path);
                 return 0;
         }
 
-        pid_t pid;
-        r = safe_fork_full(
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        r = pidref_safe_fork_full(
                         "(exec-inner)",
                         (const int[]) { STDIN_FILENO, stdout_fd < 0 ? STDOUT_FILENO : stdout_fd, STDERR_FILENO },
                         /* except_fds= */ NULL, /* n_except_fds= */ 0,
                         FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE|FORK_REARRANGE_STDIO|FORK_CLOSE_ALL_FDS,
-                        &pid);
+                        &pidref);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -78,7 +83,7 @@ static int do_spawn(
                 _exit(EXIT_FAILURE);
         }
 
-        *ret_pid = pid;
+        *ret = TAKE_PIDREF(pidref);
         return 1;
 }
 
@@ -121,7 +126,6 @@ static int do_execute(
         STRV_FOREACH(path, paths) {
                 _cleanup_free_ char *t = NULL;
                 _cleanup_close_ int fd = -EBADF;
-                pid_t pid;
 
                 t = path_join(root, *path);
                 if (!t)
@@ -161,19 +165,27 @@ static int do_execute(
                                             "permission bits. Proceeding anyway.", t);
                 }
 
-                r = do_spawn(t, argv, fd, FLAGS_SET(flags, EXEC_DIR_SET_SYSTEMD_EXEC_PID), &pid);
+                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+                r = do_spawn(t, argv, fd, FLAGS_SET(flags, EXEC_DIR_SET_SYSTEMD_EXEC_PID), &pidref);
                 if (r <= 0)
                         continue;
 
                 if (parallel_execution) {
-                        r = hashmap_ensure_put(&pids, &trivial_hash_ops_value_free, PID_TO_PTR(pid), t);
+                        _cleanup_(pidref_freep) PidRef *dup = NULL;
+                        r = pidref_dup(&pidref, &dup);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to duplicate pid reference: %m");
+
+                        r = hashmap_ensure_put(&pids, &pidref_hash_ops_free_free, dup, t);
                         if (r < 0)
                                 return log_oom();
-                        t = NULL;
+
+                        TAKE_PTR(dup);
+                        TAKE_PTR(t);
                 } else {
                         bool skip_remaining = false;
 
-                        r = wait_for_terminate_and_check(t, pid, WAIT_LOG_ABNORMAL);
+                        r = pidref_wait_for_terminate_and_check(t, &pidref, WAIT_LOG_ABNORMAL);
                         if (r < 0)
                                 return r;
                         if (r > 0) {
@@ -210,15 +222,12 @@ static int do_execute(
         }
 
         while (!hashmap_isempty(pids)) {
+                _cleanup_(pidref_freep) PidRef *pidref = NULL;
                 _cleanup_free_ char *t = NULL;
-                pid_t pid;
-                void *p;
 
-                t = ASSERT_PTR(hashmap_steal_first_key_and_value(pids, &p));
-                pid = PTR_TO_PID(p);
-                assert(pid > 0);
+                t = ASSERT_PTR(hashmap_steal_first_key_and_value(pids, (void**) &pidref));
 
-                r = wait_for_terminate_and_check(t, pid, WAIT_LOG);
+                r = pidref_wait_for_terminate_and_check(t, pidref, WAIT_LOG);
                 if (r < 0)
                         return r;
                 if (!FLAGS_SET(flags, EXEC_DIR_IGNORE_ERRORS) && r > 0)
@@ -240,7 +249,6 @@ int execute_strv(
                 ExecDirFlags flags) {
 
         _cleanup_close_ int fd = -EBADF;
-        pid_t executor_pid;
         int r;
 
         assert(name);
@@ -266,7 +274,8 @@ int execute_strv(
 
         const char *process_name = strjoina("(", name, ")");
 
-        r = safe_fork(process_name, FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_LOG, &executor_pid);
+        _cleanup_(pidref_done) PidRef executor_pidref = PIDREF_NULL;
+        r = pidref_safe_fork(process_name, FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_LOG, &executor_pidref);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -274,7 +283,7 @@ int execute_strv(
                 _exit(r < 0 ? EXIT_FAILURE : r);
         }
 
-        r = wait_for_terminate_and_check(process_name, executor_pid, 0);
+        r = pidref_wait_for_terminate_and_check(process_name, &executor_pidref, 0);
         if (r < 0)
                 return r;
         if (!FLAGS_SET(flags, EXEC_DIR_IGNORE_ERRORS) && r > 0)
@@ -314,7 +323,7 @@ int execute_directories(
                         &paths,
                         /* suffix= */ NULL,
                         /* root= */ NULL,
-                        CONF_FILES_EXECUTABLE|CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED,
+                        CONF_FILES_EXECUTABLE|CONF_FILES_REGULAR|CONF_FILES_FILTER_MASKED|CONF_FILES_WARN,
                         directories);
         if (r < 0)
                 return log_error_errno(r, "%s: failed to enumerate executables: %m", name);
@@ -560,19 +569,19 @@ int shall_fork_agent(void) {
         return true;
 }
 
-int _fork_agent(const char *name, char * const *argv, const int except[], size_t n_except, pid_t *ret_pid) {
+int _fork_agent(const char *name, char * const *argv, const int except[], size_t n_except, PidRef *ret) {
         int r;
 
         assert(!strv_isempty(argv));
 
         /* Spawns a temporary TTY agent, making sure it goes away when we go away */
 
-        r = safe_fork_full(name,
-                           NULL,
-                           (int*) except, /* safe_fork_full only changes except if you pass in FORK_PACK_FDS, which we don't */
-                           n_except,
-                           FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_CLOSE_ALL_FDS|FORK_REOPEN_LOG|FORK_RLIMIT_NOFILE_SAFE,
-                           ret_pid);
+        r = pidref_safe_fork_full(
+                        name,
+                        /* stdio_fds= */ NULL,
+                        (int*) except, n_except, /* safe_fork_full only changes except if you pass in FORK_PACK_FDS, which we don't */
+                        FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_CLOSE_ALL_FDS|FORK_REOPEN_LOG|FORK_RLIMIT_NOFILE_SAFE,
+                        ret);
         if (r < 0)
                 return r;
         if (r > 0)

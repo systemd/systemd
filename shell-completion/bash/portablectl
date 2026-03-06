@@ -37,7 +37,7 @@ _portablectl() {
     local -A OPTS=(
         [STANDALONE]='-q --quiet --runtime --no-reload --cat --no-pager --no-legend
                               --no-ask-password --enable --now -h --help --version
-                              --clean --no-block --force'
+                              --clean --no-block --force --user --system'
         [ARG]='-p --profile --copy -H --host -M --machine --extension'
     )
 

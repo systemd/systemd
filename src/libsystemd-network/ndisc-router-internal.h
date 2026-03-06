@@ -34,4 +34,4 @@ sd_ndisc_router* ndisc_router_new(ICMP6Packet *packet);
 int ndisc_router_parse(sd_ndisc *nd, sd_ndisc_router *rt);
 
 int ndisc_router_flags_to_string(uint64_t flags, char **ret);
-const char* ndisc_router_preference_to_string(int s) _const_;
+DECLARE_STRING_TABLE_LOOKUP_TO_STRING(ndisc_router_preference, int);

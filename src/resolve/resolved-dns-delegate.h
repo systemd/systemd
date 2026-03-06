@@ -23,6 +23,8 @@ typedef struct DnsDelegate {
 
         int default_route;
 
+        uint32_t fwmark;
+
         DnsScope *scope;
 
         LIST_FIELDS(DnsDelegate, delegates);

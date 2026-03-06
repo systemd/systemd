@@ -11,3 +11,5 @@ executables += [
                 'sources' : varlinkctl_sources,
         },
 ]
+
+install_emptydir(varlinkbridgesdir)

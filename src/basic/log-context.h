@@ -32,8 +32,6 @@
  * message.
  */
 
-struct iovec;
-
 typedef struct LogContext {
         unsigned n_ref;
         /* Depending on which destructor is used (log_context_free() or log_context_detach()) the memory
@@ -57,8 +55,7 @@ LogContext* log_context_new_iov(struct iovec *input_iovec, size_t n_input_iovec,
 LogContext* log_context_new_strv_consume(char **fields);
 LogContext* log_context_new_iov_consume(struct iovec *input_iovec, size_t n_input_iovec);
 
-LogContext *log_context_ref(LogContext *c);
-LogContext *log_context_unref(LogContext *c);
+DECLARE_TRIVIAL_REF_UNREF_FUNC(LogContext, log_context);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(LogContext*, log_context_unref);
 

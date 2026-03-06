@@ -12,6 +12,8 @@
 static int do_rotate(JournalFile **f, MMapCache *m, JournalFileFlags file_flags) {
         int r;
 
+        assert(f);
+
         r = journal_file_rotate(f, m, file_flags, UINT64_MAX, NULL);
         if (r < 0) {
                 if (*f)
@@ -95,9 +97,11 @@ int writer_write(Writer *w,
         if (journal_file_rotate_suggested(w->journal, 0, LOG_DEBUG)) {
                 log_info("%s: Journal header limits reached or header out-of-date, rotating",
                          w->journal->path);
+
                 r = do_rotate(&w->journal, w->mmap, file_flags);
                 if (r < 0)
                         return r;
+
                 r = journal_directory_vacuum(w->output, w->metrics.max_use, w->metrics.n_max_files, 0, NULL, /* verbose= */ true);
                 if (r < 0)
                         return r;
@@ -117,15 +121,16 @@ int writer_write(Writer *w,
                 if (w->server)
                         w->server->event_count += 1;
                 return 0;
-        } else if (r == -EBADMSG)
+        }
+        if (r == -EBADMSG)
                 return r;
 
         log_debug_errno(r, "%s: Write failed, rotating: %m", w->journal->path);
         r = do_rotate(&w->journal, w->mmap, file_flags);
         if (r < 0)
                 return r;
-        else
-                log_debug("%s: Successfully rotated journal", w->journal->path);
+
+        log_debug("%s: Successfully rotated journal", w->journal->path);
         r = journal_directory_vacuum(w->output, w->metrics.max_use, w->metrics.n_max_files, 0, NULL, /* verbose= */ true);
         if (r < 0)
                 return r;

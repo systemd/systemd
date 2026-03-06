@@ -517,6 +517,51 @@ void *xmalloc(size_t size) {
         return p;
 }
 
+Pages xmalloc_aligned_pages(
+                EFI_ALLOCATE_TYPE type,
+                EFI_MEMORY_TYPE memory_type,
+                size_t n_pages,
+                size_t alignment,
+                EFI_PHYSICAL_ADDRESS addr) {
+
+        EFI_PHYSICAL_ADDRESS aligned = addr;
+
+        /* Allow to pass block_io->Media->IoAlign to this function directly.
+         * alignment <= 1 means no alignment is required, in that case just
+         * allocate pages directly.
+         */
+        if (alignment <= 1)
+                alignment = EFI_PAGE_SIZE;
+
+        assert(ISPOWEROF2(alignment));
+
+        if (alignment <= EFI_PAGE_SIZE) {
+                assert_se(BS->AllocatePages(type, memory_type, n_pages, &aligned) == EFI_SUCCESS);
+                return (Pages) {
+                        .addr = aligned,
+                        .n_pages = n_pages,
+                };
+        }
+
+        size_t total_pages = n_pages + EFI_SIZE_TO_PAGES(alignment);
+        assert_se(BS->AllocatePages(type, memory_type, total_pages, &addr) == EFI_SUCCESS);
+
+        aligned = ALIGN_TO(addr, alignment);
+        size_t unaligned_pages = EFI_SIZE_TO_PAGES(aligned - addr);
+        if (unaligned_pages > 0)
+                assert_se(BS->FreePages(addr, unaligned_pages) == EFI_SUCCESS);
+
+        addr = aligned + n_pages * EFI_PAGE_SIZE;
+        unaligned_pages = total_pages - n_pages - unaligned_pages;
+        if (unaligned_pages > 0)
+                assert_se(BS->FreePages(addr, unaligned_pages) == EFI_SUCCESS);
+
+        return (Pages) {
+                .addr = aligned,
+                .n_pages = n_pages,
+        };
+}
+
 bool free_and_xstrdup16(char16_t **p, const char16_t *s) {
         char16_t *t;
 

@@ -25,10 +25,10 @@ systemd will measure to PCRs 5 (`boot-loader-config`), 11 (`kernel-boot`),
 
 Currently, four components will issue TPM2 PCR measurements:
 
-* The [`systemd-boot`](https://www.freedesktop.org/software/systemd/man/systemd-boot.html) boot menu (UEFI)
-* The [`systemd-stub`](https://www.freedesktop.org/software/systemd/man/systemd-stub.html) boot stub (UEFI)
-* The [`systemd-pcrextend`](https://www.freedesktop.org/software/systemd/man/systemd-pcrphase.service.html) measurement tool (userspace)
-* The [`systemd-cryptsetup`](https://www.freedesktop.org/software/systemd/man/systemd-cryptsetup@.service.html) disk encryption tool (userspace)
+* The [`systemd-boot`](https://www.freedesktop.org/software/systemd/man/latest/systemd-boot.html) boot menu (UEFI)
+* The [`systemd-stub`](https://www.freedesktop.org/software/systemd/man/latest/systemd-stub.html) boot stub (UEFI)
+* The [`systemd-pcrextend`](https://www.freedesktop.org/software/systemd/man/latest/systemd-pcrphase.service.html) measurement tool (userspace)
+* The [`systemd-cryptsetup`](https://www.freedesktop.org/software/systemd/man/latest/systemd-cryptsetup@.service.html) disk encryption tool (userspace)
 
 A userspace measurement event log in a format close to TCG CEL-JSON is
 maintained in `/run/log/systemd/tpm2-measure.log`.
@@ -293,3 +293,18 @@ volume name, a ":" separator, the UUID of the LUKS superblock, a ":" separator,
 a brief string identifying the unlock mechanism, a ":" separator, and finally
 the LUKS slot number used. Example string:
 `cryptsetup-keyslot:root:1e023a55-60f9-4b6b-9b80-67438dc5f065:tpm2:1`
+
+## PCR/NvPCR Measurements Made by `systemd-veritysetup` + image dissection logic (Userspace)
+
+### NvPCR `verity` (base+2), Verity root hash + signature info of activated Verity images
+
+The `systemd-veritysetup@.service` service as well as any component using the
+image dissection logic (i.e. `RootImage=` in unit files, or `systemd-nspawn
+--image=`, `systemd-tmpfiles --image=` and similar) will measure information
+about activated Verity images before they are activated.
+
+→ **Measured hash** covers the string `verity:`, followed by the Verity device
+name, followed by `:`, followed by a hexadecimal formatted string indicating
+the root hash of the Verity image, followed by `:`, followed by a comma
+separatec list of PKCS#7 signature key's serial (formatted in hexadecimal), `/`, and
+key issuer (formatted in Base64).
