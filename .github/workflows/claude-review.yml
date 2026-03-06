@@ -1,6 +1,10 @@
 # Integrates Claude Code as an AI assistant for reviewing pull requests.
-# Mention @claude in any PR review to request a review. Claude authenticates
+# Mention @claude in any PR comment to request a review. Claude authenticates
 # via AWS Bedrock using OIDC — no long-lived API keys required.
+#
+# Architecture: The workflow is split into two jobs for least-privilege:
+#   1. "review" — runs Claude with read-only permissions, produces structured JSON
+#   2. "post"   — reads the JSON and posts comments to the PR with write permissions
 
 name: Claude Review
 
@@ -13,12 +17,16 @@ on:
     types: [created]
   pull_request_review:
     types: [submitted]
+
 concurrency:
-    group: claude-review-${{ github.event.pull_request.number }}
-    cancel-in-progress: true
+  group: claude-review-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: true
+
 jobs:
-  claude-review:
+  review:
     runs-on: ubuntu-latest
+    env:
+      PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
 
     if: |
       github.repository_owner == 'systemd' &&
@@ -33,13 +41,26 @@ jobs:
         contains(fromJSON('["MEMBER","OWNER","COLLABORATOR"]'), github.event.review.author_association)))
 
     permissions:
-      contents: read       # Read repository contents
-      pull-requests: write # Post comments and reviews on PRs
+      contents: read
       id-token: write      # Authenticate with AWS via OIDC
-      actions: read        # Access workflow run metadata
+      actions: read
+
+    outputs:
+      structured_output: ${{ steps.claude.outputs.structured_output }}
+      pr_number: ${{ steps.pr.outputs.number }}
+      head_sha: ${{ steps.pr.outputs.head_sha }}
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+
+      - name: Resolve PR metadata
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+          gh pr view "$PR_NUMBER" --json headRefOid --jq '.headRefOid' | \
+            xargs -I{} echo "head_sha={}" >> "$GITHUB_OUTPUT"
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@8df5847569e6427dd6c4fb1cf565c83acfa8afa7
@@ -49,34 +70,95 @@ jobs:
           aws-region: us-east-1
 
       - name: Run Claude Code
+        id: claude
         uses: anthropics/claude-code-action@1fc90f3ed982521116d8ff6d85b948c9b12cae3e
+        env:
+          REVIEW_SCHEMA: >-
+            {
+              "type": "object",
+              "required": ["comments", "summary"],
+              "properties": {
+                "summary": {
+                  "type": "string",
+                  "description": "A markdown summary of the review to post as a top-level tracking comment"
+                },
+                "comments": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": ["file", "line", "severity", "body"],
+                    "properties": {
+                      "file": {
+                        "type": "string",
+                        "description": "Path to the file relative to the repo root"
+                      },
+                      "line": {
+                        "type": "integer",
+                        "description": "Line number in the diff (new file side) to attach the comment to"
+                      },
+                      "severity": {
+                        "type": "string",
+                        "enum": ["must-fix", "suggestion", "nit"]
+                      },
+                      "body": {
+                        "type": "string",
+                        "description": "The review comment body in markdown"
+                      }
+                    }
+                  }
+                }
+              }
+            }
         with:
           use_bedrock: "true"
+          # We still have to pass GITHUB_TOKEN here because claude-code-action
+          # requires it, but we restrict Claude's tools to read-only operations
+          # so it cannot post comments or modify the PR.
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          track_progress: false
+          additional_permissions: |
+            actions: read
           claude_args: |
             --model us.anthropic.claude-opus-4-6-v1
             --max-turns 100
             --allowedTools "
-                Read,Write,Edit,MultiEdit,LS,Grep,Glob,Task,
-                Bash(cat:*),Bash(test:*),Bash(printf:*),Bash(jq:*),Bash(head:*),Bash(git:*),Bash(gh:*),
-                mcp__github_inline_comment__create_inline_comment,
+                Read,LS,Grep,Glob,Task,
+                Bash(cat:*),Bash(test:*),Bash(printf:*),Bash(jq:*),Bash(head:*),Bash(tail:*),
+                Bash(git:*),Bash(gh:*),Bash(grep:*),Bash(find:*),Bash(ls:*),Bash(wc:*),
+                Bash(diff:*),Bash(sed:*),Bash(awk:*),Bash(sort:*),Bash(uniq:*),
+                mcp__github_ci__get_ci_status,
+                mcp__github_ci__get_workflow_run_details,
+                mcp__github_ci__download_job_log,
                 "
+            --json-schema '${{ env.REVIEW_SCHEMA }}'
           prompt: |
               REPO: ${{ github.repository }}
-              PR NUMBER: ${{ github.event.pull_request.number }}
-              HEAD SHA: ${{ github.event.pull_request.head.sha }}
+              PR NUMBER: ${{ steps.pr.outputs.number }}
+              HEAD SHA: ${{ steps.pr.outputs.head_sha }}
 
-              Review this pull request.
-              You are in the upstream repo without the patch applied. Do not apply it.
+              You are a code reviewer for the systemd project. Review this pull request and
+              produce a structured JSON result containing your review comments. Do NOT attempt
+              to post comments yourself — just return the JSON. You are in the upstream repo
+              without the patch applied. Do not apply it.
 
               ## Phase 1: Gather context
 
               Fetch the patch, PR title/body, and list of existing comments (top-level, inline, and reviews):
-              - `gh pr diff ${{ github.event.pull_request.number }} --patch`
-              - `gh pr view ${{ github.event.pull_request.number }} --json title,body`
-              - `gh api --paginate repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments`
-              - `gh api --paginate repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/comments`
-              - `gh api --paginate repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/reviews`
+              - `gh pr diff ${{ steps.pr.outputs.number }} --patch`
+              - `gh pr view ${{ steps.pr.outputs.number }} --json title,body`
+              - `gh api --paginate repos/${{ github.repository }}/issues/${{ steps.pr.outputs.number }}/comments`
+              - `gh api --paginate repos/${{ github.repository }}/pulls/${{ steps.pr.outputs.number }}/comments`
+              - `gh api --paginate repos/${{ github.repository }}/pulls/${{ steps.pr.outputs.number }}/reviews`
+
+              Also look for an existing tracking comment (containing `<!-- claude-pr-review -->`)
+              in the top-level issue comments. If one exists, you will use it as the basis for
+              your `summary` in Phase 3.
+
+              Check CI status for the PR head commit using `mcp__github_ci__get_ci_status`.
+              If any workflow runs have failed, use `mcp__github_ci__get_workflow_run_details`
+              and `mcp__github_ci__download_job_log` to fetch the failure logs. Pass these
+              logs to the review subagents in Phase 2 so they can identify whether the PR
+              changes caused the failures.
 
               ## Phase 2: Parallel review subagents
 
@@ -84,7 +166,8 @@ jobs:
               - Code quality, style, and best practices
               - Potential bugs, issues, incorrect logic
               - Security implications
-              - CLAUDE.md - compliance
+              - CLAUDE.md compliance
+              - CI failures (if any logs were fetched in Phase 1)
 
               For every category, launch subagents to review them in parallel. Group related sections
               as needed — use 2-4 subagents based on PR size and scope.
@@ -92,11 +175,10 @@ jobs:
               Give each subagent the PR title, description, full patch, and the list of changed files.
 
               Each subagent must return a JSON array of issues:
-              `[{"file": "path", "line": <number or null>, "severity": "must-fix|suggestion|nit", "title": "...", "body": "..."}]`
+              `[{"file": "path", "line": <number>, "severity": "must-fix|suggestion|nit", "body": "..."}]`
 
-              Subagents must ONLY return the JSON array — they must NOT post comments,
-              call `gh`, or use `mcp__github_inline_comment__create_inline_comment`.
-              All posting happens in Phase 3.
+              `line` must be a line number from the NEW side of the diff (i.e. where the comment
+              should appear in the changed file after the patch is applied).
 
               Each subagent MUST verify its findings before returning them:
               - For style/convention claims, check at least 3 existing examples in the codebase to confirm
@@ -104,55 +186,171 @@ jobs:
               - For "use X instead of Y" suggestions, confirm X actually exists and works for this case.
               - If unsure, don't include the issue.
 
-              ## Phase 3: Collect and post
+              ## Phase 3: Collect, deduplicate, and summarize
 
               After ALL subagents complete:
               1. Collect all issues. Merge duplicates (same file, lines within 3 of each other, same problem).
               2. Drop low-confidence findings.
-              3. For CLAUDE.md violations that appear in 3+ existing places in the codebase, do NOT post inline comments.
-                  Instead, add them to the 'CLAUDE.md improvements' section of the tracking comment
-              4. Check existing inline review comments (fetched in Phase 1). Do NOT post an inline comment if
-                  one already exists on the same file+line about the same problem.
-              5. Check for author replies that dismiss or reject a previous comment. Do NOT re-raise an issue
-                  the PR author has already responded to disagreeing with.
-              6. Post new inline comments with `mcp__github_inline_comment__create_inline_comment`.
+              3. Check the existing inline review comments fetched in Phase 1. Do NOT include a
+                 comment if one already exists on the same file and line about the same problem.
+                 Also check for author replies that dismiss or reject a previous comment — do NOT
+                 re-raise an issue the PR author has already responded to disagreeing with.
+              4. Prefix ALL comment bodies with a severity tag: `**must-fix**: `, `**suggestion**: `,
+                 or `**nit**: `.
+              5. Write a `summary` field in markdown for a top-level tracking comment.
 
-              Prefix ALL comments with "Claude: ".
-              Link format: https://github.com/${{ github.repository }}/blob/${{ github.event.pull_request.head.sha }}/README.md#L10-L15
+                 **If no existing tracking comment was found (first run):**
+                 Use this format:
 
-              Then maintain a single top-level "tracking comment" listing ALL issues as checkboxes.
-              Use a hidden HTML marker to find it: `<!-- claude-pr-review -->`.
-              Look through the top-level comments fetched in Phase 1 for one containing that marker.
+                 ```
+                 ## Claude review of PR #<number> (<HEAD SHA>)
 
-              **If no tracking comment exists (first run):**
-              Create one with `gh pr comment ${{ github.event.pull_request.number }} --body "..."` using this format:
-              ```
-              Claude: review of <REPO> #<PR NUMBER> (<HEAD SHA>)
+                 <!-- claude-pr-review -->
 
-              <!-- claude-pr-review -->
+                 ### Must fix
+                 - [ ] **short title** — `file:line` — brief explanation
 
-              ### Must fix
-              - [ ] **title** — `file:line` — short explanation
+                 ### Suggestions
+                 - [ ] **short title** — `file:line` — brief explanation
 
-              ### Suggestions
-              - [ ] **title** — `file:line` — short explanation
+                 ### Nits
+                 - [ ] **short title** — `file:line` — brief explanation
+                 ```
 
-              ### Nits
-              - [ ] **title** — `file:line` — short explanation
+                 Omit empty sections. Each checkbox item must correspond to an entry in `comments`.
+                 If there are no issues at all, write a short message saying the PR looks good.
 
-              ### CLAUDE.md improvements
-              - improvement suggestion
-              ```
-              Omit empty sections.
+                 **If an existing tracking comment was found (subsequent run):**
+                 Use the existing comment as the starting point. Preserve the order and wording
+                 of all existing items. Then apply these updates:
+                 - Update the HEAD SHA in the header line.
+                 - For each existing item, re-check whether the issue is still present in the
+                   current diff. If it has been fixed, mark it checked: `- [x]`.
+                 - If the PR author replied dismissing an item, mark it:
+                   `- [x] ~~short title~~ (dismissed)`.
+                 - Preserve checkbox state that was already set by previous runs or by hand.
+                 - Append any NEW issues found in this run that aren't already listed,
+                   in the appropriate severity section, after the existing items.
+                 - Do NOT reorder, reword, or remove existing items.
 
-              **If a tracking comment already exists (subsequent run):**
-              1. Parse the existing checkboxes. For each old issue, check if the current patch still has
-                  that problem (re-check the relevant lines in the new diff). If fixed, mark it `- [x]`.
-                  If the author dismissed it, mark it `- [x] ~~title~~ (dismissed)`.
-              2. Append any NEW issues found in this run that aren't already listed.
-              3. Update the HEAD SHA in the header line.
-              4. Edit the comment in-place.
-                  ```
-                  printf '%s' "$BODY" > pr-review-body.txt
-                  gh api --method PATCH repos/${{ github.repository }}/issues/comments/<comment-id> -F body=@pr-review-body.txt
-                  ```
+              Return the final JSON object with your `comments` array and `summary` string.
+              Do NOT attempt to post comments, call `gh`, or use any MCP tools to interact with the PR.
+
+  post:
+    runs-on: ubuntu-latest
+    needs: review
+    if: always() && needs.review.result == 'success'
+
+    permissions:
+      pull-requests: write
+
+    steps:
+      - name: Post review comments
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
+        env:
+          STRUCTURED_OUTPUT: ${{ needs.review.outputs.structured_output }}
+          PR_NUMBER: ${{ needs.review.outputs.pr_number }}
+          HEAD_SHA: ${{ needs.review.outputs.head_sha }}
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const prNumber = parseInt(process.env.PR_NUMBER, 10);
+            const headSha = process.env.HEAD_SHA;
+
+            /* Parse Claude's structured output. */
+            const raw = process.env.STRUCTURED_OUTPUT;
+            console.log("Structured output from Claude:");
+            console.log(raw || "(empty)");
+
+            let comments = [];
+            let summary = "";
+            if (raw) {
+              try {
+                const review = JSON.parse(raw);
+                if (Array.isArray(review.comments))
+                  comments = review.comments;
+                if (typeof review.summary === "string")
+                  summary = review.summary;
+              } catch (e) {
+                console.log(`Failed to parse structured output: ${e.message}`);
+              }
+            }
+
+            console.log(`Claude produced ${comments.length} review comment(s).`);
+
+            /* Post each inline comment individually. Deduplication against existing
+             * comments is handled by Claude in the prompt, so we just post whatever
+             * it returns. Using individual comments (rather than a review) means
+             * re-runs only add new comments instead of creating a whole new review. */
+            for (const c of comments) {
+              console.log(`  Posting comment on ${c.file}:${c.line}`);
+              await github.rest.pulls.createReviewComment({
+                owner,
+                repo,
+                pull_number: prNumber,
+                commit_id: headSha,
+                path: c.file,
+                line: c.line,
+                body: `Claude: ${c.body}`,
+              });
+            }
+
+            if (comments.length > 0)
+              console.log(`Posted ${comments.length} inline comment(s).`);
+            else
+              console.log("No inline comments to post.");
+
+            /* Create or update the tracking comment. */
+            const MARKER = "<!-- claude-pr-review -->";
+            if (!summary)
+              summary = "Claude review: no issues found :tada:\n\n" + MARKER;
+            else if (!summary.includes(MARKER))
+              summary = summary.replace(/\n/, `\n${MARKER}\n`);
+
+            /* Find an existing tracking comment. */
+            const {data: issueComments} = await github.rest.issues.listComments({
+              owner,
+              repo,
+              issue_number: prNumber,
+              per_page: 100,
+            });
+
+            const existing = issueComments.find((c) => c.body && c.body.includes(MARKER));
+
+            if (existing) {
+              const commentUrl = existing.html_url;
+              if (existing.body === summary) {
+                console.log(`Tracking comment ${existing.id} is unchanged.`);
+                await github.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number: prNumber,
+                  body: `Claude re-reviewed this PR — no changes to the [tracking comment](${commentUrl}).`,
+                });
+              } else {
+                console.log(`Updating existing tracking comment ${existing.id}.`);
+                await github.rest.issues.updateComment({
+                  owner,
+                  repo,
+                  comment_id: existing.id,
+                  body: summary,
+                });
+                await github.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number: prNumber,
+                  body: `Claude review updated — see [tracking comment](${commentUrl}).`,
+                });
+              }
+            } else {
+              console.log("Creating new tracking comment.");
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: prNumber,
+                body: summary,
+              });
+            }
+
+            console.log("Tracking comment posted successfully.");
