@@ -16,6 +16,7 @@
 #include "path-lookup.h"
 #include "pretty-print.h"
 #include "recurse-dir.h"
+#include "report.h"
 #include "runtime-scope.h"
 #include "set.h"
 #include "sort-util.h"
@@ -35,27 +36,17 @@ static bool arg_legend = true;
 static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF|SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
 static char **arg_matches = NULL;
+char *arg_url = NULL;
+char *arg_key = NULL;
+char *arg_cert = NULL;
+char *arg_trust = NULL;
+usec_t arg_network_timeout_usec = TIMEOUT_USEC;
 
 STATIC_DESTRUCTOR_REGISTER(arg_matches, strv_freep);
-
-typedef enum Action {
-        ACTION_LIST_METRICS,
-        ACTION_DESCRIBE_METRICS,
-        ACTION_LIST_FACTS,
-        ACTION_DESCRIBE_FACTS,
-        _ACTION_MAX,
-        _ACTION_INVALID = -EINVAL,
-} Action;
-
-/* The structure for collected "metrics" or "facts". The fields
- * are prefixed with just "metrics" for brevity. */
-typedef struct Context {
-        Action action;
-        sd_event *event;
-        Set *link_infos;
-        sd_json_variant **metrics;  /* Collected metrics or facts for sorting */
-        size_t n_metrics, n_skipped_metrics, n_invalid_metrics;
-} Context;
+STATIC_DESTRUCTOR_REGISTER(arg_url, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_key, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_cert, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_trust, freep);
 
 typedef struct LinkInfo {
         Context *context;
@@ -76,9 +67,12 @@ static void context_done(Context *context) {
         if (!context)
                 return;
 
-        set_free(context->link_infos);
+        context->event = sd_event_unref(context->event);
+        context->link_infos = set_free(context->link_infos);
         sd_json_variant_unref_many(context->metrics, context->n_metrics);
-        sd_event_unref(context->event);
+        context->metrics = NULL;
+        context->n_metrics = 0;
+        iovw_done_free(&context->upload_answer);
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(LinkInfo*, link_info_free);
@@ -569,6 +563,7 @@ static int output_collected(Context *context) {
         }
 
         _cleanup_(table_unrefp) Table *table = NULL;
+
         switch(context->action) {
 
         case ACTION_LIST_METRICS:
@@ -771,7 +766,10 @@ static int verb_metrics(int argc, char *argv[], uintptr_t data, void *userdata) 
                 if (r < 0)
                         return log_error_errno(r, "Failed to run event loop: %m");
 
-                r = output_collected(&context);
+                if (arg_url)
+                        r = upload_collected(&context);
+                else
+                        r = output_collected(&context);
                 if (r < 0)
                         return r;
         }
@@ -855,7 +853,10 @@ static int verb_facts(int argc, char *argv[], uintptr_t data, void *userdata) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to run event loop: %m");
 
-                r = output_collected(&context);
+                if (arg_url)
+                        r = upload_collected(&context);
+                else
+                        r = output_collected(&context);
                 if (r < 0)
                         return r;
         }
@@ -1017,7 +1018,44 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                 OPTION_COMMON_LOWERCASE_J:
                         arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
                         break;
+
+                OPTION_LONG("url", "URL",
+                            "Upload to this address (default port " STRINGIFY(REPORT_DEFAULT_PORT) ")"):
+                        r = free_and_strdup_warn(&arg_url, arg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("key", "FILENAME",
+                            "Specify key in PEM format (default: \"" REPORT_PRIV_KEY_FILE "\")"):
+                        r = free_and_strdup_warn(&arg_key, arg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("cert", "FILENAME",
+                            "Specify certificate in PEM format (default: \"" REPORT_CERT_FILE "\")"):
+                        r = free_and_strdup_warn(&arg_cert, arg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("trust", "FILENAME|all",
+                            "Specify CA certificate or disable checking (default: \"" REPORT_TRUST_FILE "\")"):
+                        r = free_and_strdup_warn(&arg_trust, arg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("network-timeout",  "SEC", "Specify timeout for network upload operation"):
+                        r = parse_sec(arg, &arg_network_timeout_usec);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --network-timeout value: %s", arg);
+                        break;
                 }
+
+        if ((arg_url || arg_key || arg_cert || arg_trust) && !HAVE_LIBCURL)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Compiled without libcurl.");
 
         *ret_args = option_parser_get_args(&state);
         return 1;
