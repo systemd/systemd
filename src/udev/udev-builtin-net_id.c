@@ -31,6 +31,7 @@
 #include "stdio-util.h"
 #include "string-util.h"
 #include "udev-builtin.h"
+#include "udev-util.h"
 
 #define ONBOARD_14BIT_INDEX_MAX ((1U << 14) - 1)
 #define ONBOARD_16BIT_INDEX_MAX ((1U << 16) - 1)
@@ -194,7 +195,11 @@ static int get_port_specifier(sd_device *dev, char **ret) {
                 }
 
                 /* Otherwise, use phys_port_name as is. */
-                buf = strjoin("n", phys_port_name);
+                char port_str[ALTIFNAMSIZ];
+                udev_replace_whitespace(phys_port_name, port_str, sizeof(port_str) - 1);
+                udev_replace_chars(port_str, NULL);
+
+                buf = strjoin("n", port_str);
                 if (!buf)
                         return log_oom_debug();
 
@@ -297,10 +302,14 @@ static int names_pci_onboard_label(UdevEvent *event, sd_device *pci_dev, const c
         if (r < 0)
                 return log_device_debug_errno(pci_dev, r, "Failed to get PCI onboard label: %m");
 
+        char label_str[ALTIFNAMSIZ];
+        udev_replace_whitespace(label, label_str, sizeof(label_str) - 1);
+        udev_replace_chars(label_str, NULL);
+
         char str[ALTIFNAMSIZ];
         if (snprintf_ok(str, sizeof str, "%s%s",
                         naming_scheme_has(NAMING_LABEL_NOPREFIX) ? "" : prefix,
-                        label))
+                        label_str))
                 udev_builtin_add_property(event, "ID_NET_LABEL_ONBOARD", str);
 
         log_device_debug(dev, "Onboard label from PCI device: %s", label);
@@ -1248,8 +1257,12 @@ static int names_netdevsim(UdevEvent *event, const char *prefix) {
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EOPNOTSUPP),
                                               "The 'phys_port_name' attribute is empty.");
 
+        char port_str[ALTIFNAMSIZ];
+        udev_replace_whitespace(phys_port_name, port_str, sizeof(port_str) - 1);
+        udev_replace_chars(port_str, NULL);
+
         char str[ALTIFNAMSIZ];
-        if (snprintf_ok(str, sizeof str, "%si%un%s", prefix, addr, phys_port_name))
+        if (snprintf_ok(str, sizeof str, "%si%un%s", prefix, addr, port_str))
                 udev_builtin_add_property(event, "ID_NET_NAME_PATH", str);
         log_device_debug(dev, "Netdevsim identifier: address=%u, port_name=%s %s %s",
                          addr, phys_port_name, glyph(GLYPH_ARROW_RIGHT), str + strlen(prefix));
