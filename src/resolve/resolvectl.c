@@ -1163,7 +1163,7 @@ static int verb_tlsa(int argc, char **argv, void *userdata) {
         return ret;
 }
 
-static int show_statistics(int argc, char **argv, void *userdata) {
+static int verb_show_statistics(int argc, char **argv, void *userdata) {
         _cleanup_(table_unrefp) Table *table = NULL;
         sd_json_variant *reply = NULL;
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
@@ -1328,7 +1328,7 @@ static int show_statistics(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int reset_statistics(int argc, char **argv, void *userdata) {
+static int verb_reset_statistics(int argc, char **argv, void *userdata) {
         sd_json_variant *reply = NULL;
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         int r;
@@ -1353,7 +1353,7 @@ static int reset_statistics(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int flush_caches(int argc, char **argv, void *userdata) {
+static int verb_flush_caches(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
@@ -1369,7 +1369,7 @@ static int flush_caches(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int reset_server_features(int argc, char **argv, void *userdata) {
+static int verb_reset_server_features(int argc, char **argv, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
@@ -3911,29 +3911,29 @@ static int native_parse_argv(int argc, char *argv[]) {
 static int native_main(int argc, char *argv[]) {
 
         static const Verb verbs[] = {
-                { "help",                  VERB_ANY, VERB_ANY, 0,            verb_help             },
-                { "status",                VERB_ANY, VERB_ANY, VERB_DEFAULT, verb_status           },
-                { "query",                 2,        VERB_ANY, 0,            verb_query            },
-                { "service",               2,        4,        0,            verb_service          },
-                { "openpgp",               2,        VERB_ANY, 0,            verb_openpgp          },
-                { "tlsa",                  2,        VERB_ANY, 0,            verb_tlsa             },
-                { "statistics",            VERB_ANY, 1,        0,            show_statistics       },
-                { "reset-statistics",      VERB_ANY, 1,        0,            reset_statistics      },
-                { "flush-caches",          VERB_ANY, 1,        0,            flush_caches          },
-                { "reset-server-features", VERB_ANY, 1,        0,            reset_server_features },
-                { "dns",                   VERB_ANY, VERB_ANY, 0,            verb_dns              },
-                { "domain",                VERB_ANY, VERB_ANY, 0,            verb_domain           },
-                { "default-route",         VERB_ANY, 3,        0,            verb_default_route    },
-                { "llmnr",                 VERB_ANY, 3,        0,            verb_llmnr            },
-                { "mdns",                  VERB_ANY, 3,        0,            verb_mdns             },
-                { "dnsovertls",            VERB_ANY, 3,        0,            verb_dns_over_tls     },
-                { "dnssec",                VERB_ANY, 3,        0,            verb_dnssec           },
-                { "nta",                   VERB_ANY, VERB_ANY, 0,            verb_nta              },
-                { "revert",                VERB_ANY, 2,        0,            verb_revert_link      },
-                { "log-level",             VERB_ANY, 2,        0,            verb_log_level        },
-                { "monitor",               VERB_ANY, 1,        0,            verb_monitor          },
-                { "show-cache",            VERB_ANY, 1,        0,            verb_show_cache       },
-                { "show-server-state",     VERB_ANY, 1,        0,            verb_show_server_state},
+                { "help",                  VERB_ANY, VERB_ANY, 0,            verb_help                  },
+                { "status",                VERB_ANY, VERB_ANY, VERB_DEFAULT, verb_status                },
+                { "query",                 2,        VERB_ANY, 0,            verb_query                 },
+                { "service",               2,        4,        0,            verb_service               },
+                { "openpgp",               2,        VERB_ANY, 0,            verb_openpgp               },
+                { "tlsa",                  2,        VERB_ANY, 0,            verb_tlsa                  },
+                { "statistics",            VERB_ANY, 1,        0,            verb_show_statistics       },
+                { "reset-statistics",      VERB_ANY, 1,        0,            verb_reset_statistics      },
+                { "flush-caches",          VERB_ANY, 1,        0,            verb_flush_caches          },
+                { "reset-server-features", VERB_ANY, 1,        0,            verb_reset_server_features },
+                { "dns",                   VERB_ANY, VERB_ANY, 0,            verb_dns                   },
+                { "domain",                VERB_ANY, VERB_ANY, 0,            verb_domain                },
+                { "default-route",         VERB_ANY, 3,        0,            verb_default_route         },
+                { "llmnr",                 VERB_ANY, 3,        0,            verb_llmnr                 },
+                { "mdns",                  VERB_ANY, 3,        0,            verb_mdns                  },
+                { "dnsovertls",            VERB_ANY, 3,        0,            verb_dns_over_tls          },
+                { "dnssec",                VERB_ANY, 3,        0,            verb_dnssec                },
+                { "nta",                   VERB_ANY, VERB_ANY, 0,            verb_nta                   },
+                { "revert",                VERB_ANY, 2,        0,            verb_revert_link           },
+                { "log-level",             VERB_ANY, 2,        0,            verb_log_level             },
+                { "monitor",               VERB_ANY, 1,        0,            verb_monitor               },
+                { "show-cache",            VERB_ANY, 1,        0,            verb_show_cache            },
+                { "show-server-state",     VERB_ANY, 1,        0,            verb_show_server_state     },
                 {}
         };
 
