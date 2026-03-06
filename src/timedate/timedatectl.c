@@ -180,7 +180,7 @@ static int print_status_info(const StatusInfo *i) {
         return 0;
 }
 
-static int verb_show_status(int argc, char **argv, void *userdata) {
+static int verb_show_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
         StatusInfo info = {};
         static const struct bus_properties_map map[]  = {
                 { "Timezone",        "s", NULL, offsetof(StatusInfo, timezone)    },
@@ -212,7 +212,7 @@ static int verb_show_status(int argc, char **argv, void *userdata) {
         return print_status_info(&info);
 }
 
-static int verb_show_properties(int argc, char **argv, void *userdata) {
+static int verb_show_properties(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
@@ -229,7 +229,7 @@ static int verb_show_properties(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int verb_set_time(int argc, char **argv, void *userdata) {
+static int verb_set_time(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
         usec_t t;
@@ -254,7 +254,7 @@ static int verb_set_time(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int verb_set_timezone(int argc, char **argv, void *userdata) {
+static int verb_set_timezone(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
         int r;
@@ -268,7 +268,7 @@ static int verb_set_timezone(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int verb_set_local_rtc(int argc, char **argv, void *userdata) {
+static int verb_set_local_rtc(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
         int r, b;
@@ -299,7 +299,7 @@ static int verb_set_local_rtc(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int verb_set_ntp(int argc, char **argv, void *userdata) {
+static int verb_set_ntp(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
@@ -327,7 +327,7 @@ static int verb_set_ntp(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int verb_list_timezones(int argc, char **argv, void *userdata) {
+static int verb_list_timezones(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
@@ -688,7 +688,7 @@ static int on_properties_changed(sd_bus_message *m, void *userdata, sd_bus_error
         return show_timesync_status_once(sd_bus_message_get_bus(m));
 }
 
-static int verb_show_timesync_status(int argc, char **argv, void *userdata) {
+static int verb_show_timesync_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
@@ -792,7 +792,7 @@ static int print_timesync_property(const char *name, const char *expected_value,
         return 0;
 }
 
-static int verb_show_timesync(int argc, char **argv, void *userdata) {
+static int verb_show_timesync(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
@@ -841,7 +841,7 @@ static int parse_ifindex_bus(sd_bus *bus, const char *str) {
         return i;
 }
 
-static int verb_ntp_servers(int argc, char **argv, void *userdata) {
+static int verb_ntp_servers(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
@@ -872,7 +872,7 @@ static int verb_ntp_servers(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int verb_revert(int argc, char **argv, void *userdata) {
+static int verb_revert(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int ifindex, r;
@@ -936,7 +936,7 @@ static int help(void) {
         return 0;
 }
 
-static int verb_help(int argc, char **argv, void *userdata) {
+static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return help();
 }
 

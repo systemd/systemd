@@ -50,7 +50,7 @@ static int add_nvpcr_to_table(Tpm2Context **c, Table *t, const char *name) {
 }
 #endif
 
-int verb_nvpcrs(int argc, char *argv[], void *userdata) {
+int verb_nvpcrs(int argc, char *argv[], uintptr_t _data, void *userdata) {
 #if HAVE_TPM2
         _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;

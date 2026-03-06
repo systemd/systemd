@@ -2904,7 +2904,7 @@ static int analyze_security(sd_bus *bus,
         return ret;
 }
 
-int verb_security(int argc, char *argv[], void *userdata) {
+int verb_security(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *policy = NULL;
         int r;

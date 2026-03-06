@@ -201,7 +201,7 @@ int install_random_seed(const char *esp) {
         return set_system_token();
 }
 
-int verb_random_seed(int argc, char *argv[], void *userdata) {
+int verb_random_seed(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
         r = find_esp_and_warn(arg_root, arg_esp_path, false, &arg_esp_path, NULL, NULL, NULL, NULL, NULL);

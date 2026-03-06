@@ -219,7 +219,7 @@ static int dump_lldp_neighbors_json(sd_json_variant *reply, char * const *patter
         return sd_json_variant_dump(v, arg_json_format_flags, NULL, NULL);
 }
 
-int verb_link_lldp_status(int argc, char *argv[], void *userdata) {
+int verb_link_lldp_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *vl = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
         sd_json_variant *reply;

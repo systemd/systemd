@@ -89,7 +89,7 @@ static int dump_address_labels(sd_netlink *rtnl) {
         return 0;
 }
 
-int verb_list_address_labels(int argc, char *argv[], void *userdata) {
+int verb_list_address_labels(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         int r;
 

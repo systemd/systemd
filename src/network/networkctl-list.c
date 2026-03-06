@@ -12,7 +12,7 @@
 #include "networkctl-list.h"
 #include "networkctl-util.h"
 
-int verb_list_links(int argc, char *argv[], void *userdata) {
+int verb_list_links(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_(link_info_array_freep) LinkInfo *links = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;

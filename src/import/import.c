@@ -138,7 +138,7 @@ static void on_tar_finished(TarImport *import, int error, void *userdata) {
         sd_event_exit(event, ABS(error));
 }
 
-static int verb_import_tar(int argc, char *argv[], void *userdata) {
+static int verb_import_tar(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(tar_import_unrefp) TarImport *import = NULL;
         _cleanup_free_ char *ll = NULL, *normalized = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
@@ -207,7 +207,7 @@ static void on_raw_finished(RawImport *import, int error, void *userdata) {
         sd_event_exit(event, ABS(error));
 }
 
-static int verb_import_raw(int argc, char *argv[], void *userdata) {
+static int verb_import_raw(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(raw_import_unrefp) RawImport *import = NULL;
         _cleanup_free_ char *ll = NULL, *normalized = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
@@ -303,7 +303,7 @@ static int help(void) {
         return 0;
 }
 
-static int verb_help(int argc, char *argv[], void *userdata) {
+static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return help();
 }
 

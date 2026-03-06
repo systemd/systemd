@@ -63,7 +63,7 @@ static void free_sections(char*(*sections)[_UNIFIED_SECTION_MAX]) {
 
 STATIC_DESTRUCTOR_REGISTER(arg_sections, free_sections);
 
-static int help(int argc, char *argv[], void *userdata) {
+static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
@@ -125,6 +125,10 @@ static int help(int argc, char *argv[], void *userdata) {
                glyph(GLYPH_ARROW_RIGHT));
 
         return 0;
+}
+
+static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        return help();
 }
 
 static char *normalize_phase(const char *s) {
@@ -218,8 +222,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help(0, NULL, NULL);
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();
@@ -706,7 +709,7 @@ static void pcr_states_restore(PcrState *pcr_states, size_t n) {
         }
 }
 
-static int verb_calculate(int argc, char *argv[], void *userdata) {
+static int verb_calculate(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
         _cleanup_(pcr_state_free_all) PcrState *pcr_states = NULL;
         int r;
@@ -988,11 +991,11 @@ static int build_policy_digest(bool sign) {
         return 0;
 }
 
-static int verb_sign(int argc, char *argv[], void *userdata) {
+static int verb_sign(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return build_policy_digest(/* sign= */ true);
 }
 
-static int verb_policy_digest(int argc, char *argv[], void *userdata) {
+static int verb_policy_digest(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return build_policy_digest(/* sign= */ false);
 }
 
@@ -1061,7 +1064,7 @@ static int validate_stub(void) {
         return 0;
 }
 
-static int verb_status(int argc, char *argv[], void *userdata) {
+static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         int r;
 
@@ -1147,7 +1150,7 @@ static int verb_status(int argc, char *argv[], void *userdata) {
 
 static int measure_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "help",          VERB_ANY, VERB_ANY, 0,            help               },
+                { "help",          VERB_ANY, VERB_ANY, 0,            verb_help          },
                 { "status",        VERB_ANY, 1,        VERB_DEFAULT, verb_status        },
                 { "calculate",     VERB_ANY, 1,        0,            verb_calculate     },
                 { "policy-digest", VERB_ANY, 1,        0,            verb_policy_digest },

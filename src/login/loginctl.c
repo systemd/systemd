@@ -266,7 +266,7 @@ static int list_sessions_table_add_fallback(Table *table, sd_bus_message *reply,
         return 0;
 }
 
-static int verb_list_sessions(int argc, char *argv[], void *userdata) {
+static int verb_list_sessions(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
@@ -308,7 +308,7 @@ static int verb_list_sessions(int argc, char *argv[], void *userdata) {
         return list_table_print(table, "sessions");
 }
 
-static int verb_list_users(int argc, char *argv[], void *userdata) {
+static int verb_list_users(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         static const struct bus_properties_map property_map[] = {
                 { "Linger", "b", NULL, offsetof(UserStatusInfo, linger) },
@@ -384,7 +384,7 @@ static int verb_list_users(int argc, char *argv[], void *userdata) {
         return list_table_print(table, "users");
 }
 
-static int verb_list_seats(int argc, char *argv[], void *userdata) {
+static int verb_list_seats(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
@@ -1038,7 +1038,7 @@ static int get_bus_path_by_id(
         return strdup_to(ret, path);
 }
 
-static int verb_show_session(int argc, char *argv[], void *userdata) {
+static int verb_show_session(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
         bool properties;
         int r;
@@ -1084,7 +1084,7 @@ static int verb_show_session(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_show_user(int argc, char *argv[], void *userdata) {
+static int verb_show_user(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
         bool properties;
         int r;
@@ -1135,7 +1135,7 @@ static int verb_show_user(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_show_seat(int argc, char *argv[], void *userdata) {
+static int verb_show_seat(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
         bool properties;
         int r;
@@ -1181,7 +1181,7 @@ static int verb_show_seat(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_activate(int argc, char *argv[], void *userdata) {
+static int verb_activate(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
@@ -1224,7 +1224,7 @@ static int verb_activate(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_kill_session(int argc, char *argv[], void *userdata) {
+static int verb_kill_session(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
@@ -1250,7 +1250,7 @@ static int verb_kill_session(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_enable_linger(int argc, char *argv[], void *userdata) {
+static int verb_enable_linger(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         char* short_argv[3];
@@ -1298,7 +1298,7 @@ static int verb_enable_linger(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_terminate_user(int argc, char *argv[], void *userdata) {
+static int verb_terminate_user(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
@@ -1328,7 +1328,7 @@ static int verb_terminate_user(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_kill_user(int argc, char *argv[], void *userdata) {
+static int verb_kill_user(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
@@ -1366,7 +1366,7 @@ static int verb_kill_user(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_attach(int argc, char *argv[], void *userdata) {
+static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
@@ -1390,7 +1390,7 @@ static int verb_attach(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_flush_devices(int argc, char *argv[], void *userdata) {
+static int verb_flush_devices(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
@@ -1406,7 +1406,7 @@ static int verb_flush_devices(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_lock_sessions(int argc, char *argv[], void *userdata) {
+static int verb_lock_sessions(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
@@ -1427,7 +1427,7 @@ static int verb_lock_sessions(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_terminate_seat(int argc, char *argv[], void *userdata) {
+static int verb_terminate_seat(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
@@ -1519,7 +1519,7 @@ static int help(void) {
         return 0;
 }
 
-static int verb_help(int argc, char *argv[], void *userdata) {
+static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return help();
 }
 

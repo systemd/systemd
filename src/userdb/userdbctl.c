@@ -407,7 +407,7 @@ static int table_add_uid_map(
         return n_added;
 }
 
-static int verb_display_user(int argc, char *argv[], void *userdata) {
+static int verb_display_user(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(table_unrefp) Table *table = NULL;
         bool draw_separator = false;
         int ret = 0, r;
@@ -750,7 +750,7 @@ static int add_unavailable_gid(Table *table, uid_t start, uid_t end) {
         return 2;
 }
 
-static int verb_display_group(int argc, char *argv[], void *userdata) {
+static int verb_display_group(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(table_unrefp) Table *table = NULL;
         bool draw_separator = false;
         int ret = 0, r;
@@ -951,7 +951,7 @@ static int show_membership(const char *user, const char *group, Table *table) {
         return 0;
 }
 
-static int verb_display_memberships(int argc, char *argv[], void *userdata) {
+static int verb_display_memberships(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(table_unrefp) Table *table = NULL;
         int ret = 0, r;
 
@@ -1047,7 +1047,7 @@ static int verb_display_memberships(int argc, char *argv[], void *userdata) {
         return ret;
 }
 
-static int verb_display_services(int argc, char *argv[], void *userdata) {
+static int verb_display_services(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(table_unrefp) Table *t = NULL;
         _cleanup_closedir_ DIR *d = NULL;
         int r;
@@ -1114,7 +1114,7 @@ static int verb_display_services(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_ssh_authorized_keys(int argc, char *argv[], void *userdata) {
+static int verb_ssh_authorized_keys(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
         char **chain_invocation;
         int r;
@@ -1497,7 +1497,7 @@ static int load_credential_one(
         return 0;
 }
 
-static int verb_load_credentials(int argc, char *argv[], void *userdata) {
+static int verb_load_credentials(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
         _cleanup_close_ int credential_dir_fd = open_credentials_dir();
@@ -1590,7 +1590,7 @@ static int help(void) {
         return 0;
 }
 
-static int verb_help(int argc, char *argv[], void *userdata) {
+static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return help();
 }
 

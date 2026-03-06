@@ -107,7 +107,7 @@ static int progress_bytes(uint64_t nbytes, uint64_t bps, void *userdata) {
         return 0;
 }
 
-static int verb_import_fs(int argc, char *argv[], void *userdata) {
+static int verb_import_fs(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(rm_rf_subvolume_and_freep) char *temp_path = NULL;
         _cleanup_(progress_info_free) ProgressInfo progress = { .bps = UINT64_MAX };
         _cleanup_free_ char *l = NULL, *final_path = NULL;
@@ -295,7 +295,7 @@ static int help(void) {
         return 0;
 }
 
-static int verb_help(int argc, char *argv[], void *userdata) {
+static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return help();
 }
 

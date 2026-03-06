@@ -288,7 +288,7 @@ static int get_image_metadata(sd_bus *bus, const char *image, char **matches, sd
         return 0;
 }
 
-static int verb_inspect_image(int argc, char *argv[], void *userdata) {
+static int verb_inspect_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_strv_free_ char **matches = NULL;
@@ -958,15 +958,15 @@ static int attach_reattach_image(int argc, char *argv[], const char *method) {
         return 0;
 }
 
-static int verb_attach_image(int argc, char *argv[], void *userdata) {
+static int verb_attach_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return attach_reattach_image(argc, argv, strv_isempty(arg_extension_images) && !arg_force ? "AttachImage" : "AttachImageWithExtensions");
 }
 
-static int verb_reattach_image(int argc, char *argv[], void *userdata) {
+static int verb_reattach_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return attach_reattach_image(argc, argv, strv_isempty(arg_extension_images) && !arg_force ? "ReattachImage" : "ReattachImageWithExtensions");
 }
 
-static int verb_detach_image(int argc, char *argv[], void *userdata) {
+static int verb_detach_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -1020,7 +1020,7 @@ static int verb_detach_image(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_list_images(int argc, char *argv[], void *userdata) {
+static int verb_list_images(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -1094,7 +1094,7 @@ static int verb_list_images(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_remove_image(int argc, char *argv[], void *userdata) {
+static int verb_remove_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r, i;
 
@@ -1125,7 +1125,7 @@ static int verb_remove_image(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_read_only_image(int argc, char *argv[], void *userdata) {
+static int verb_read_only_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int b = true, r;
@@ -1149,7 +1149,7 @@ static int verb_read_only_image(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_set_limit(int argc, char *argv[], void *userdata) {
+static int verb_set_limit(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         uint64_t limit;
@@ -1182,7 +1182,7 @@ static int verb_set_limit(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_is_image_attached(int argc, char *argv[], void *userdata) {
+static int verb_is_image_attached(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -1319,7 +1319,7 @@ static int help(void) {
         return 0;
 }
 
-static int verb_help(int argc, char *argv[], void *userdata) {
+static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return help();
 }
 

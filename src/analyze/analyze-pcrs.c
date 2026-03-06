@@ -96,7 +96,7 @@ static int add_pcr_to_table(Table *table, const char *alg, uint32_t pcr) {
         return 0;
 }
 
-int verb_pcrs(int argc, char *argv[], void *userdata) {
+int verb_pcrs(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(table_unrefp) Table *table = NULL;
         const char *alg = NULL;
         int r;
