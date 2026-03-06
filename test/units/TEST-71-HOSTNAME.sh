@@ -320,6 +320,39 @@ EOF
     assert_in "CHASSIS=watch" "$(cat /run/alternate-path/mymachine-info)"
 }
 
+testcase_get_machine_info() {
+    if [[ -f /etc/machine-info ]]; then
+        cp /etc/machine-info /tmp/machine-info.bak
+    fi
+
+    trap restore_machine_info RETURN
+
+    # Write a custom field to /etc/machine-info
+    cat >/etc/machine-info <<EOF
+PRETTY_HOSTNAME="Test Host"
+TEST_CUSTOM_FIELD_1=hello-world
+TEST_CUSTOM_FIELD_2="some value"
+EOF
+
+    # Should return the value for a known custom field
+    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s TEST_CUSTOM_FIELD_1 | cut -d'"' -f2)" "hello-world"
+
+    # Should return the value for another field
+    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s TEST_CUSTOM_FIELD_2 | cut -d'"' -f2)" "some value"
+
+    # Should also work for standard fields
+    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s PRETTY_HOSTNAME | cut -d'"' -f2)" "Test Host"
+
+    # Should fail for a field that doesn't exist
+    assert_rc 1 busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s NONEXISTENT_FIELD
+
+    # Should fail for an empty field name
+    assert_rc 1 busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s ""
+
+    # Should fail for an invalid field name
+    assert_rc 1 busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s "invalid-name!"
+}
+
 run_testcases
 
 touch /testok

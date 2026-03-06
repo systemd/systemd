@@ -1652,6 +1652,35 @@ static int method_get_hardware_serial(sd_bus_message *m, void *userdata, sd_bus_
         return sd_bus_reply_method_return(m, "s", serial);
 }
 
+static int method_get_machine_info(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        _cleanup_free_ char *value = NULL;
+        const char *field;
+        int r;
+
+        assert(userdata);
+        assert(m);
+
+        r = sd_bus_message_read(m, "s", &field);
+        if (r < 0)
+                return r;
+
+        if (isempty(field))
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Field name must not be empty.");
+
+        if (!env_name_is_valid(field))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid field name '%s'.", field);
+
+        r = parse_env_file(NULL, etc_machine_info(),
+                           field, &value);
+        if (r < 0 && r != -ENOENT)
+                return sd_bus_error_set_errnof(error, r, "Failed to read /etc/machine-info: %m");
+
+        if (isempty(value))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Field '%s' not found in /etc/machine-info.", field);
+
+        return sd_bus_reply_method_return(m, "s", value);
+}
+
 static int build_describe_response(Context *c, bool privileged, sd_json_variant **ret) {
         _cleanup_free_ char *hn = NULL, *dhn = NULL, *in = NULL,
                 *chassis = NULL, *vendor = NULL, *model = NULL, *serial = NULL, *firmware_version = NULL,
@@ -1882,6 +1911,11 @@ static const sd_bus_vtable hostname_vtable[] = {
                                 SD_BUS_NO_ARGS,
                                 SD_BUS_RESULT("s", json),
                                 method_describe,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("GetMachineInfo",
+                                SD_BUS_ARGS("s", field),
+                                SD_BUS_RESULT("s", value),
+                                method_get_machine_info,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
 
         SD_BUS_VTABLE_END,
