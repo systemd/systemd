@@ -1523,7 +1523,8 @@ int user_group_record_mangle(
                        /* Personally Identifiable Information (PII) — avoid leaking in logs */
                        "realName",
                        "location",
-                       "emailAddress")
+                       "emailAddress",
+                       "birthDate")
                 sd_json_variant_sensitive(sd_json_variant_by_key(v, key));
 
         /* Check if we have the special sections and if they match our flags set */
