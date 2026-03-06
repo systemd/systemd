@@ -138,7 +138,7 @@ static void on_tar_finished(TarImport *import, int error, void *userdata) {
         sd_event_exit(event, ABS(error));
 }
 
-static int import_tar(int argc, char *argv[], void *userdata) {
+static int verb_import_tar(int argc, char *argv[], void *userdata) {
         _cleanup_(tar_import_unrefp) TarImport *import = NULL;
         _cleanup_free_ char *ll = NULL, *normalized = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
@@ -207,7 +207,7 @@ static void on_raw_finished(RawImport *import, int error, void *userdata) {
         sd_event_exit(event, ABS(error));
 }
 
-static int import_raw(int argc, char *argv[], void *userdata) {
+static int verb_import_raw(int argc, char *argv[], void *userdata) {
         _cleanup_(raw_import_unrefp) RawImport *import = NULL;
         _cleanup_free_ char *ll = NULL, *normalized = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
@@ -268,8 +268,7 @@ static int import_raw(int argc, char *argv[], void *userdata) {
         return -r;
 }
 
-static int help(int argc, char *argv[], void *userdata) {
-
+static int help(void) {
         printf("%1$s [OPTIONS...] {COMMAND} ...\n"
                "\n%4$sImport disk images.%5$s\n"
                "\n%2$sCommands:%3$s\n"
@@ -304,8 +303,11 @@ static int help(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int parse_argv(int argc, char *argv[]) {
+static int verb_help(int argc, char *argv[], void *userdata) {
+        return help();
+}
 
+static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_FORCE,
@@ -352,7 +354,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        return help(0, NULL, NULL);
+                        return help();
 
                 case ARG_VERSION:
                         return version();
@@ -479,9 +481,9 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int import_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "help", VERB_ANY, VERB_ANY, 0, help       },
-                { "tar",  2,        3,        0, import_tar },
-                { "raw",  2,        3,        0, import_raw },
+                { "help", VERB_ANY, VERB_ANY, 0, verb_help       },
+                { "tar",  2,        3,        0, verb_import_tar },
+                { "raw",  2,        3,        0, verb_import_raw },
                 {}
         };
 
