@@ -1,0 +1,14 @@
+{
+    "userName": "btrfsuser",
+    "realName": "Btrfs Subvolume User",
+    "uid": 1003,
+    "gid": 1003,
+    "homeDirectory": "/home/btrfsuser",
+    "imagePath": "/home/btrfsuser.homedir",
+    "shell": "/bin/bash",
+    "disposition": "regular",
+    "storage": "subvolume",
+    "fileSystemType": "btrfs",
+    "accessMode": 448,
+    "diskSize": 53687091200
+}
