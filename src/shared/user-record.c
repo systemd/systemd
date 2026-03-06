@@ -1488,10 +1488,18 @@ int user_group_record_mangle(
         if (USER_RECORD_STRIP_MASK(load_flags) == _USER_RECORD_MASK_MAX) /* strip everything? */
                 return json_log(v, json_flags, SYNTHETIC_ERRNO(EINVAL), "Stripping everything from record, refusing.");
 
-        /* Extra safety: mark the "secret" part (that contains literal passwords and such) as sensitive, so
-         * that it is not included in debug output and erased from memory when we are done. We do this for
-         * any record that passes through here. */
-        sd_json_variant_sensitive(sd_json_variant_by_key(v, "secret"));
+        /* Extra safety: mark sensitive parts of the JSON as such, so that they are not included in debug
+         * output and erased from memory when we are done. We do this for any record that passes through here. */
+        FOREACH_STRING(
+                key,
+                /* This section contains literal passwords and such in plain text */
+                "secret",
+
+                /* Personally Identifiable Information (PII) — avoid leaking in logs */
+                "realName",
+                "location",
+                "emailAddress")
+                sd_json_variant_sensitive(sd_json_variant_by_key(v, key));
 
         /* Check if we have the special sections and if they match our flags set */
         FOREACH_ELEMENT(i, mask_field) {
