@@ -68,7 +68,7 @@ typedef struct NTS_Agreement {
  *      non-zero number of bytes encoded upon success
  *      negative value upon failure (not enough room in buffer)
  */
-int NTS_encode_request(uint8_t *buffer, size_t buf_size, const NTS_AEADAlgorithmType[]);
+int NTS_encode_request(uint8_t *buffer, size_t buf_size, const NTS_AEADAlgorithmType *preferred_crypto);
 
 /* Decode a NTS KE reponse in the buffer of the provided size, and write the result to the NTS_reponse
  * struct.
@@ -77,7 +77,7 @@ int NTS_encode_request(uint8_t *buffer, size_t buf_size, const NTS_AEADAlgorithm
  *      0 upon success
  *      negative upon failure (writes the error code to NTS_Agreement->error)
  */
-int NTS_decode_response(uint8_t *buffer, size_t buf_size, struct NTS_Agreement *);
+int NTS_decode_response(uint8_t *buffer, size_t buf_size, struct NTS_Agreement *response);
 
 /* Convert a NTS_ErrorType to a string */
 const char *NTS_error_string(enum NTS_ErrorType error);
@@ -88,7 +88,7 @@ const char *NTS_error_string(enum NTS_ErrorType error);
  * - Fetched EVP_CIPHER for the AEAD algorithm (when SIV is provided by OpenSSL only)
  */
 
-const struct NTS_AEADParam* NTS_get_param(NTS_AEADAlgorithmType);
+const struct NTS_AEADParam* NTS_get_param(NTS_AEADAlgorithmType id);
 
 /* An opaque type that represents the underlying TLS session */
 typedef struct NTS_TLS NTS_TLS;
@@ -103,7 +103,7 @@ typedef struct NTS_TLS NTS_TLS;
  *              -ENOBUFS not enough space in buffer
  *              -EINVAL  unkown AEAD
  */
-int NTS_TLS_extract_keys(NTS_TLS *session, NTS_AEADAlgorithmType, uint8_t *c2s, uint8_t *s2c, int key_capacity);
+int NTS_TLS_extract_keys(NTS_TLS *session, NTS_AEADAlgorithmType aead, uint8_t *c2s, uint8_t *s2c, int key_capacity);
 
 /* Setup a ready-to-use TLS session for hostname, on the connected socket, ready to begin a TLS handshake.
  *
