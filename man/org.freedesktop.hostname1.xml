@@ -60,6 +60,8 @@ node /org/freedesktop/hostname1 {
                      out ay uuid);
       GetHardwareSerial(out s serial);
       Describe(out s json);
+      GetMachineInfo(in  s field,
+                     out s value);
     properties:
       readonly s Hostname = '...';
       readonly s StaticHostname = '...';
@@ -145,6 +147,8 @@ node /org/freedesktop/hostname1 {
     <variablelist class="dbus-method" generated="True" extra-ref="GetHardwareSerial()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="Describe()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="GetMachineInfo()"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Hostname"/>
 
@@ -377,6 +381,9 @@ node /org/freedesktop/hostname1 {
       access to unprivileged clients through the polkit framework.</para>
 
       <para><function>Describe()</function> returns a JSON representation of all properties in one.</para>
+
+      <para><function>GetMachineInfo()</function> returns the value of the given property from
+      <filename>/etc/machine-info</filename>.</para>
     </refsect2>
 
     <refsect2>
@@ -493,7 +500,8 @@ node /org/freedesktop/hostname1 {
       <para><varname>ChassisAssetTag</varname>, <varname>OperatingSystemImageID</varname>,
       <varname>OperatingSystemImageVersion</varname>, <varname>HardwareSKU</varname>, and
       <varname>HardwareVersion</varname> were added in version 258.</para>
-      <para><varname>OperatingSystemFancyName</varname> was added in version 260.</para>
+      <para><varname>OperatingSystemFancyName</varname> and
+      <function>GetMachineInfo()</function> were added in version 260.</para>
     </refsect2>
   </refsect1>
 
