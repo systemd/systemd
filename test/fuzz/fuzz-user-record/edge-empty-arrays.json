@@ -1,0 +1,34 @@
+{
+    "userName": "emptyarrays",
+    "realName": "Empty Arrays Test User",
+    "uid": 3001,
+    "gid": 3001,
+    "homeDirectory": "/home/emptyarrays",
+    "shell": "/bin/bash",
+    "disposition": "regular",
+    "aliases": [],
+    "environment": [],
+    "additionalLanguages": [],
+    "memberOf": [],
+    "capabilityBoundingSet": [],
+    "capabilityAmbientSet": [],
+    "pkcs11TokenUri": [],
+    "fido2HmacCredential": [],
+    "recoveryKeyType": [],
+    "selfModifiableFields": [],
+    "selfModifiableBlobs": [],
+    "selfModifiablePrivileged": [],
+    "privileged": {
+        "hashedPassword": [],
+        "sshAuthorizedKeys": [],
+        "pkcs11EncryptedKey": [],
+        "fido2HmacSalt": [],
+        "recoveryKey": []
+    },
+    "perMachine": [],
+    "signature": [],
+    "secret": {
+        "password": [],
+        "tokenPin": []
+    }
+}
