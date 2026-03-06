@@ -492,6 +492,9 @@ executables += [
                 'sources' : files('test-varlink-idl.c'),
                 'dependencies' : threads,
         },
+        core_test_template + {
+                'sources' : files('test-varlink-idl-unit.c'),
+        },
         test_template + {
                 'sources' : files('test-watchdog.c'),
                 'type' : 'unsafe',
