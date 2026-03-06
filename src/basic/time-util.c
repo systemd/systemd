@@ -1892,3 +1892,50 @@ TimestampStyle timestamp_style_from_string(const char *s) {
                 return TIMESTAMP_US_UTC;
         return t;
 }
+
+int parse_calendar_date_full(const char *s, bool for_birth_date, usec_t *ret_usec, struct tm *ret_tm) {
+        struct tm parsed_tm = {}, copy_tm;
+        const char *k;
+        int r;
+
+        assert(s);
+
+        k = strptime(s, "%Y-%m-%d", &parsed_tm);
+        if (!k || *k)
+                return -EINVAL;
+
+        copy_tm = parsed_tm;
+
+        if (for_birth_date) {
+                /* For birth dates we use mktime() directly since we need to accept pre-epoch dates.
+                 * mktime() returns (time_t) -1 both on error and for one second before the epoch.
+                 * Initialize wday to -1 beforehand: if it remains -1 after the call, it's a genuine
+                 * error; if mktime() changed it, the date was successfully normalized. */
+                copy_tm.tm_wday = -1;
+                if (mktime(&copy_tm) == (time_t) -1 && copy_tm.tm_wday == -1)
+                        return -EINVAL;
+        } else {
+                usec_t usec;
+                r = mktime_or_timegm_usec(&copy_tm, /* utc= */ true, &usec);
+                if (r < 0)
+                        return r;
+                if (ret_usec)
+                        *ret_usec = usec;
+        }
+
+        /* Refuse non-normalized dates, e.g. Feb 30 */
+        if (copy_tm.tm_mday != parsed_tm.tm_mday ||
+            copy_tm.tm_mon  != parsed_tm.tm_mon  ||
+            copy_tm.tm_year != parsed_tm.tm_year)
+                return -EINVAL;
+
+        if (ret_tm) {
+                /* Invalidate all fields except the three we just parsed and validated */
+                *ret_tm = BIRTH_DATE_UNSET;
+                ret_tm->tm_mday = parsed_tm.tm_mday;
+                ret_tm->tm_mon = parsed_tm.tm_mon;
+                ret_tm->tm_year = parsed_tm.tm_year;
+        }
+
+        return 0;
+}
