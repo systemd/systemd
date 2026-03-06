@@ -244,7 +244,7 @@ GracefulMode arg_graceful(void) {
         return _arg_graceful;
 }
 
-static int help(int argc, char *argv[], void *userdata) {
+static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
@@ -355,6 +355,10 @@ static int help(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        return help();
+}
+
 static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_ESP_PATH = 0x100,
@@ -432,8 +436,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help(0, NULL, NULL);
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();
@@ -672,7 +675,7 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int bootctl_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "help",                VERB_ANY, VERB_ANY, 0,            help                     },
+                { "help",                VERB_ANY, VERB_ANY, 0,            verb_help                },
                 { "status",              VERB_ANY, 1,        VERB_DEFAULT, verb_status              },
                 { "install",             VERB_ANY, 1,        0,            verb_install             },
                 { "update",              VERB_ANY, 1,        0,            verb_install             },

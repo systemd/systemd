@@ -2586,7 +2586,7 @@ static int discover_key(const char *key_file, const char *volume, TokenType toke
         return r;
 }
 
-static int verb_attach(int argc, char *argv[], void *userdata) {
+static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         _unused_ _cleanup_(remove_and_erasep) const char *destroy_key_file = NULL;
         crypt_status_info status;
@@ -2826,7 +2826,7 @@ static int verb_attach(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_detach(int argc, char *argv[], void *userdata) {
+static int verb_detach(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         const char *volume = ASSERT_PTR(argv[1]);
         int r;

@@ -12,7 +12,7 @@
 #include "log.h"
 #include "parse-util.h"
 
-int verb_reboot_to_firmware(int argc, char *argv[], void *userdata) {
+int verb_reboot_to_firmware(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
         r = verify_touch_variables_allowed(argv[0]);

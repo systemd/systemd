@@ -223,7 +223,7 @@ static int help(void) {
         return 0;
 }
 
-static int verb_help(int argc, char *argv[], void *userdata) {
+static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return help();
 }
 
@@ -272,7 +272,7 @@ static int parse_argv(int argc, char *argv[]) {
         while ((c = getopt_long(argc, argv, "hA:o:F:1D:rS:U:qn:", options, NULL)) >= 0)
                 switch (c) {
                 case 'h':
-                        return verb_help(0, NULL, NULL);
+                        return help();
 
                 case ARG_VERSION:
                         return version();
@@ -893,7 +893,7 @@ static int print_entry(
                 return print_info(stdout, j, n_found > 0);
 }
 
-static int verb_dump_list(int argc, char **argv, void *userdata) {
+static int verb_dump_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         _cleanup_(table_unrefp) Table *t = NULL;
         size_t n_found = 0;
@@ -1144,7 +1144,7 @@ error:
         return r;
 }
 
-static int verb_dump_core(int argc, char **argv, void *userdata) {
+static int verb_dump_core(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
@@ -1180,7 +1180,7 @@ static int verb_dump_core(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int verb_run_debug(int argc, char **argv, void *userdata) {
+static int verb_run_debug(int argc, char *argv[], uintptr_t _data, void *userdata) {
         static const struct sigaction sa = {
                 .sa_sigaction = sigterm_process_group_handler,
                 .sa_flags = SA_SIGINFO,

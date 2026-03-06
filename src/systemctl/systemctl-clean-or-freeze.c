@@ -13,7 +13,7 @@
 #include "systemctl-clean-or-freeze.h"
 #include "systemctl-util.h"
 
-int verb_clean_or_freeze(int argc, char *argv[], void *userdata) {
+int verb_clean_or_freeze(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(bus_wait_for_units_freep) BusWaitForUnits *w = NULL;
         _cleanup_strv_free_ char **names = NULL;
         int r, ret = EXIT_SUCCESS;

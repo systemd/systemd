@@ -576,7 +576,7 @@ static int readdir_sources(char **ret_directory, DirectoryEntries **ret) {
         return m > 0;
 }
 
-static int verb_metrics(int argc, char *argv[], void *userdata) {
+static int verb_metrics(int argc, char *argv[], uintptr_t _data, void *userdata) {
         Action action;
         int r;
 
@@ -662,7 +662,7 @@ static int verb_metrics(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_list_sources(int argc, char *argv[], void *userdata) {
+static int verb_list_sources(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
         _cleanup_(table_unrefp) Table *table = table_new("source", "address");
@@ -717,7 +717,7 @@ static int verb_list_sources(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_help(int argc, char *argv[], void *userdata) {
+static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
@@ -754,6 +754,10 @@ static int verb_help(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        return help();
+}
+
 static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
@@ -783,7 +787,7 @@ static int parse_argv(int argc, char *argv[]) {
         while ((c = getopt_long(argc, argv, "hj", options, NULL)) >= 0)
                 switch (c) {
                 case 'h':
-                        return verb_help(/* argc= */ 0, /* argv= */ NULL, /* userdata= */ NULL);
+                        return help();
 
                 case ARG_VERSION:
                         return version();

@@ -101,7 +101,7 @@ static int dump_fdstore(sd_bus *bus, const char *arg) {
         return EXIT_SUCCESS;
 }
 
-int verb_fdstore(int argc, char *argv[], void *userdata) {
+int verb_fdstore(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 

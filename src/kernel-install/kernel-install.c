@@ -1178,7 +1178,7 @@ static int do_add(
         return context_execute(c);
 }
 
-static int verb_add(int argc, char *argv[], void *userdata) {
+static int verb_add(int argc, char *argv[], uintptr_t _data, void *userdata) {
         const char *version, *kernel;
         char **initrds;
         int r;
@@ -1207,7 +1207,7 @@ static int verb_add(int argc, char *argv[], void *userdata) {
         return do_add(&c, version, kernel, initrds);
 }
 
-static int verb_add_all(int argc, char *argv[], void *userdata) {
+static int verb_add_all(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_close_ int fd = -EBADF;
         size_t n = 0;
         int ret = 0, r;
@@ -1294,10 +1294,10 @@ static int run_as_installkernel(int argc, char *argv[]) {
         if (optind + 2 > argc)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "'installkernel' command requires at least two arguments.");
 
-        return verb_add(3, STRV_MAKE("add", argv[optind], argv[optind+1]), /* userdata= */ NULL);
+        return verb_add(3, STRV_MAKE("add", argv[optind], argv[optind+1]), /* data= */ 0, /* userdata= */ NULL);
 }
 
-static int verb_remove(int argc, char *argv[], void *userdata) {
+static int verb_remove(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
         assert(argc >= 2);
@@ -1333,7 +1333,7 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
         return context_execute(&c);
 }
 
-static int verb_inspect(int argc, char *argv[], void *userdata) {
+static int verb_inspect(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(table_unrefp) Table *t = NULL;
         _cleanup_free_ char *vmlinuz = NULL;
         const char *version, *kernel;
@@ -1446,7 +1446,7 @@ static int verb_inspect(int argc, char *argv[], void *userdata) {
         return table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, /* show_header= */ false);
 }
 
-static int verb_list(int argc, char *argv[], void *userdata) {
+static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_close_ int fd = -EBADF;
         int r;
 

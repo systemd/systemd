@@ -261,7 +261,7 @@ static int transfer_image_common(sd_bus *bus, sd_bus_message *m) {
         return -r;
 }
 
-static int verb_import_tar(int argc, char *argv[], void *userdata) {
+static int verb_import_tar(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *ll = NULL, *fn = NULL;
         const char *local = NULL, *path = NULL;
@@ -340,7 +340,7 @@ static int verb_import_tar(int argc, char *argv[], void *userdata) {
         return transfer_image_common(bus, m);
 }
 
-static int verb_import_raw(int argc, char *argv[], void *userdata) {
+static int verb_import_raw(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *ll = NULL, *fn = NULL;
         const char *local = NULL, *path = NULL;
@@ -419,7 +419,7 @@ static int verb_import_raw(int argc, char *argv[], void *userdata) {
         return transfer_image_common(bus, m);
 }
 
-static int verb_import_fs(int argc, char *argv[], void *userdata) {
+static int verb_import_fs(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         const char *local = NULL, *path = NULL;
         _cleanup_free_ char *fn = NULL;
@@ -506,7 +506,7 @@ static void determine_compression_from_filename(const char *p) {
                 arg_format = "zstd";
 }
 
-static int verb_export_tar(int argc, char *argv[], void *userdata) {
+static int verb_export_tar(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_close_ int fd = -EBADF;
         const char *local = NULL, *path = NULL;
@@ -565,7 +565,7 @@ static int verb_export_tar(int argc, char *argv[], void *userdata) {
         return transfer_image_common(bus, m);
 }
 
-static int verb_export_raw(int argc, char *argv[], void *userdata) {
+static int verb_export_raw(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_close_ int fd = -EBADF;
         const char *local = NULL, *path = NULL;
@@ -624,7 +624,7 @@ static int verb_export_raw(int argc, char *argv[], void *userdata) {
         return transfer_image_common(bus, m);
 }
 
-static int verb_pull_tar(int argc, char *argv[], void *userdata) {
+static int verb_pull_tar(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *l = NULL, *ll = NULL;
         const char *local, *remote;
@@ -697,7 +697,7 @@ static int verb_pull_tar(int argc, char *argv[], void *userdata) {
         return transfer_image_common(bus, m);
 }
 
-static int verb_pull_raw(int argc, char *argv[], void *userdata) {
+static int verb_pull_raw(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *l = NULL, *ll = NULL;
         const char *local, *remote;
@@ -770,7 +770,7 @@ static int verb_pull_raw(int argc, char *argv[], void *userdata) {
         return transfer_image_common(bus, m);
 }
 
-static int verb_pull_oci(int argc, char *argv[], void *userdata) {
+static int verb_pull_oci(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_free_ char *l = NULL;
         const char *local, *remote;
@@ -825,7 +825,7 @@ static int verb_pull_oci(int argc, char *argv[], void *userdata) {
         return transfer_image_common(bus, m);
 }
 
-static int verb_list_transfers(int argc, char *argv[], void *userdata) {
+static int verb_list_transfers(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(table_unrefp) Table *t = NULL;
@@ -929,7 +929,7 @@ static int verb_list_transfers(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_cancel_transfer(int argc, char *argv[], void *userdata) {
+static int verb_cancel_transfer(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
@@ -951,7 +951,7 @@ static int verb_cancel_transfer(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_list_images(int argc, char *argv[], void *userdata) {
+static int verb_list_images(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(table_unrefp) Table *t = NULL;
@@ -1112,7 +1112,7 @@ static int help(void) {
         return 0;
 }
 
-static int verb_help(int argc, char *argv[], void *userdata) {
+static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return help();
 }
 

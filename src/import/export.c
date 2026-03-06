@@ -58,7 +58,7 @@ static void on_tar_finished(TarExport *export, int error, void *userdata) {
         sd_event_exit(event, ABS(error));
 }
 
-static int verb_export_tar(int argc, char *argv[], void *userdata) {
+static int verb_export_tar(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(tar_export_unrefp) TarExport *export = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_(image_unrefp) Image *image = NULL;
@@ -139,7 +139,7 @@ static void on_raw_finished(RawExport *export, int error, void *userdata) {
         sd_event_exit(event, ABS(error));
 }
 
-static int verb_export_raw(int argc, char *argv[], void *userdata) {
+static int verb_export_raw(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(raw_export_unrefp) RawExport *export = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_(image_unrefp) Image *image = NULL;
@@ -225,7 +225,7 @@ static int help(void) {
         return 0;
 }
 
-static int verb_help(int argc, char *argv[], void *userdata) {
+static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return help();
 }
 

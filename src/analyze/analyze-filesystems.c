@@ -112,7 +112,7 @@ static void dump_filesystem_set(const FilesystemSet *set) {
         }
 }
 
-int verb_filesystems(int argc, char *argv[], void *userdata) {
+int verb_filesystems(int argc, char *argv[], uintptr_t _data, void *userdata) {
 #if ! HAVE_LIBBPF
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Not compiled with libbpf support, sorry.");
 #endif

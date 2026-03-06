@@ -175,7 +175,7 @@ static void notify_bus_error(const sd_bus_error *error) {
         (void) sd_notifyf(/* unset_environment= */ false, "BUSERROR=%s", error->name);
 }
 
-static int verb_list_bus_names(int argc, char **argv, void *userdata) {
+static int verb_list_bus_names(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_strv_free_ char **acquired = NULL, **activatable = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_hashmap_free_ Hashmap *names = NULL;
@@ -535,7 +535,7 @@ static int tree_one(sd_bus *bus, const char *service) {
         return r;
 }
 
-static int verb_tree(int argc, char **argv, void *userdata) {
+static int verb_tree(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
@@ -994,7 +994,7 @@ static int members_flags_to_string(const Member *m, char **ret) {
         return 0;
 }
 
-static int verb_introspect(int argc, char **argv, void *userdata) {
+static int verb_introspect(int argc, char *argv[], uintptr_t _data, void *userdata) {
         static const XMLIntrospectOps ops = {
                 .on_interface = on_interface,
                 .on_method = on_method,
@@ -1381,11 +1381,11 @@ static int monitor(int argc, char **argv, int (*dump)(sd_bus_message *m, FILE *f
         }
 }
 
-static int verb_monitor(int argc, char **argv, void *userdata) {
+static int verb_monitor(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return monitor(argc, argv, sd_json_format_enabled(arg_json_format_flags) ? message_json : message_dump);
 }
 
-static int verb_capture(int argc, char **argv, void *userdata) {
+static int verb_capture(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_free_ char *osname = NULL;
         static const char info[] =
                 "busctl (systemd) " PROJECT_VERSION_FULL " (Git " GIT_VERSION ")";
@@ -1412,7 +1412,7 @@ static int verb_capture(int argc, char **argv, void *userdata) {
         return r;
 }
 
-static int verb_status(int argc, char **argv, void *userdata) {
+static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         pid_t pid;
@@ -1782,7 +1782,7 @@ static int bus_message_dump(sd_bus_message *m, uint64_t flags) {
         return 0;
 }
 
-static int verb_call(int argc, char **argv, void *userdata) {
+static int verb_call(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
@@ -1849,7 +1849,7 @@ static int verb_call(int argc, char **argv, void *userdata) {
         return bus_message_dump(reply, /* flags= */ 0);
 }
 
-static int verb_emit_signal(int argc, char **argv, void *userdata) {
+static int verb_emit_signal(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_fdset_free_ FDSet *passed_fdset = NULL;
@@ -1894,7 +1894,7 @@ static int verb_emit_signal(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int verb_get_property(int argc, char **argv, void *userdata) {
+static int verb_get_property(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
@@ -1952,7 +1952,7 @@ static int on_bus_signal(sd_bus_message *msg, void *userdata, sd_bus_error *ret_
         return 0;
 }
 
-static int verb_wait_signal(int argc, char **argv, void *userdata) {
+static int verb_wait_signal(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         _cleanup_(sd_event_source_unrefp) sd_event_source *timer = NULL;
@@ -2000,7 +2000,7 @@ static int verb_wait_signal(int argc, char **argv, void *userdata) {
         return sd_event_loop(e);
 }
 
-static int verb_set_property(int argc, char **argv, void *userdata) {
+static int verb_set_property(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -2131,7 +2131,7 @@ static int help(void) {
         return 0;
 }
 
-static int verb_help(int argc, char **argv, void *userdata) {
+static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return help();
 }
 

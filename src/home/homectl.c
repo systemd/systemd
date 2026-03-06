@@ -178,7 +178,7 @@ static int acquire_bus(sd_bus **bus) {
         return 0;
 }
 
-static int verb_list_homes(int argc, char *argv[], void *userdata) {
+static int verb_list_homes(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -627,7 +627,7 @@ static int acquire_passed_secrets(const char *user_name, UserRecord **ret) {
         return 0;
 }
 
-static int verb_activate_home(int argc, char *argv[], void *userdata) {
+static int verb_activate_home(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r, ret = 0;
 
@@ -675,7 +675,7 @@ static int verb_activate_home(int argc, char *argv[], void *userdata) {
         return ret;
 }
 
-static int verb_deactivate_home(int argc, char *argv[], void *userdata) {
+static int verb_deactivate_home(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r, ret = 0;
 
@@ -775,7 +775,7 @@ static int inspect_home(sd_bus *bus, const char *name) {
         return 0;
 }
 
-static int verb_inspect_homes(int argc, char *argv[], void *userdata) {
+static int verb_inspect_homes(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
@@ -833,7 +833,7 @@ static int authenticate_home(sd_bus *bus, const char *name) {
         }
 }
 
-static int verb_authenticate_homes(int argc, char *argv[], void *userdata) {
+static int verb_authenticate_homes(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
@@ -1557,7 +1557,7 @@ static int create_home_common(sd_json_variant *input, bool show_enforce_password
         return 0;
 }
 
-static int verb_create_home(int argc, char *argv[], void *userdata) {
+static int verb_create_home(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
         if (argc >= 2) {
@@ -1592,7 +1592,7 @@ static int verb_create_home(int argc, char *argv[], void *userdata) {
         return create_home_common(/* input= */ NULL, /* show_enforce_password_policy_hint= */ true);
 }
 
-static int verb_adopt_home(int argc, char *argv[], void *userdata) {
+static int verb_adopt_home(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r, ret = 0;
 
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -1674,7 +1674,7 @@ static int register_home_one(sd_bus *bus, FILE *f, const char *path) {
         return register_home_common(bus, v);
 }
 
-static int verb_register_home(int argc, char *argv[], void *userdata) {
+static int verb_register_home(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -1705,7 +1705,7 @@ static int verb_register_home(int argc, char *argv[], void *userdata) {
         return r;
 }
 
-static int verb_unregister_home(int argc, char *argv[], void *userdata) {
+static int verb_unregister_home(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -1735,7 +1735,7 @@ static int verb_unregister_home(int argc, char *argv[], void *userdata) {
         return ret;
 }
 
-static int verb_remove_home(int argc, char *argv[], void *userdata) {
+static int verb_remove_home(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r, ret = 0;
 
@@ -1900,7 +1900,7 @@ static int home_record_reset_human_interaction_permission(UserRecord *hr) {
         return 0;
 }
 
-static int verb_update_home(int argc, char *argv[], void *userdata) {
+static int verb_update_home(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL, *secret = NULL;
         _cleanup_free_ char *buffer = NULL;
@@ -2077,7 +2077,7 @@ static int verb_update_home(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_passwd_home(int argc, char *argv[], void *userdata) {
+static int verb_passwd_home(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(user_record_unrefp) UserRecord *old_secret = NULL, *new_secret = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ char *buffer = NULL;
@@ -2194,7 +2194,7 @@ static int parse_disk_size(const char *t, uint64_t *ret) {
         return 0;
 }
 
-static int verb_resize_home(int argc, char *argv[], void *userdata) {
+static int verb_resize_home(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(user_record_unrefp) UserRecord *secret = NULL;
         uint64_t ds = UINT64_MAX;
@@ -2256,7 +2256,7 @@ static int verb_resize_home(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_lock_home(int argc, char *argv[], void *userdata) {
+static int verb_lock_home(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r, ret = 0;
 
@@ -2287,7 +2287,7 @@ static int verb_lock_home(int argc, char *argv[], void *userdata) {
         return ret;
 }
 
-static int verb_unlock_home(int argc, char *argv[], void *userdata) {
+static int verb_unlock_home(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r, ret = 0;
 
@@ -2335,7 +2335,7 @@ static int verb_unlock_home(int argc, char *argv[], void *userdata) {
         return ret;
 }
 
-static int verb_with_home(int argc, char *argv[], void *userdata) {
+static int verb_with_home(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -2458,7 +2458,7 @@ static int verb_with_home(int argc, char *argv[], void *userdata) {
         return ret;
 }
 
-static int verb_lock_all_homes(int argc, char *argv[], void *userdata) {
+static int verb_lock_all_homes(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -2479,7 +2479,7 @@ static int verb_lock_all_homes(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_deactivate_all_homes(int argc, char *argv[], void *userdata) {
+static int verb_deactivate_all_homes(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -2500,7 +2500,7 @@ static int verb_deactivate_all_homes(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_rebalance(int argc, char *argv[], void *userdata) {
+static int verb_rebalance(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -2983,7 +2983,7 @@ static int create_interactively(void) {
 
 static int add_signing_keys_from_credentials(void);
 
-static int verb_firstboot(int argc, char *argv[], void *userdata) {
+static int verb_firstboot(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
         /* Let's honour the systemd.firstboot kernel command line option, just like the systemd-firstboot
@@ -4082,7 +4082,7 @@ static int help(void) {
         return 0;
 }
 
-static int verb_help(int argc, char *argv[], void *userdata) {
+static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return help();
 }
 
@@ -5249,7 +5249,7 @@ static int fallback_shell(int argc, char *argv[]) {
         return log_error_errno(errno, "Failed to execute shell '%s': %m", shell);
 }
 
-static int verb_list_signing_keys(int argc, char *argv[], void *userdata) {
+static int verb_list_signing_keys(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -5335,7 +5335,7 @@ static int verb_list_signing_keys(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_get_signing_key(int argc, char *argv[], void *userdata) {
+static int verb_get_signing_key(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -5391,7 +5391,7 @@ static int add_signing_key_one(sd_bus *bus, const char *fn, FILE *key) {
         return 0;
 }
 
-static int verb_add_signing_key(int argc, char *argv[], void *userdata) {
+static int verb_add_signing_key(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -5498,7 +5498,7 @@ static int remove_signing_key_one(sd_bus *bus, const char *fn) {
         return 0;
 }
 
-static int verb_remove_signing_key(int argc, char *argv[], void *userdata) {
+static int verb_remove_signing_key(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;

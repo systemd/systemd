@@ -787,7 +787,7 @@ invalid:
                                "Invalid DNS URI: %s", name);
 }
 
-static int verb_query(int argc, char **argv, void *userdata) {
+static int verb_query(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int ret = 0, r;
 
@@ -997,7 +997,7 @@ static int resolve_service(sd_bus *bus, const char *name, const char *type, cons
         return 0;
 }
 
-static int verb_service(int argc, char **argv, void *userdata) {
+static int verb_service(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
@@ -1079,7 +1079,7 @@ static int resolve_openpgp(sd_bus *bus, const char *address) {
 }
 #endif
 
-static int verb_openpgp(int argc, char **argv, void *userdata) {
+static int verb_openpgp(int argc, char *argv[], uintptr_t _data, void *userdata) {
 #if HAVE_OPENSSL
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r, ret = 0;
@@ -1136,7 +1136,7 @@ static bool service_family_is_valid(const char *s) {
         return STR_IN_SET(s, "tcp", "udp", "sctp");
 }
 
-static int verb_tlsa(int argc, char **argv, void *userdata) {
+static int verb_tlsa(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         const char *family = "tcp";
         char **args;
@@ -1163,7 +1163,7 @@ static int verb_tlsa(int argc, char **argv, void *userdata) {
         return ret;
 }
 
-static int verb_show_statistics(int argc, char **argv, void *userdata) {
+static int verb_show_statistics(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(table_unrefp) Table *table = NULL;
         sd_json_variant *reply = NULL;
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
@@ -1328,7 +1328,7 @@ static int verb_show_statistics(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int verb_reset_statistics(int argc, char **argv, void *userdata) {
+static int verb_reset_statistics(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_json_variant *reply = NULL;
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         int r;
@@ -1353,7 +1353,7 @@ static int verb_reset_statistics(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int verb_flush_caches(int argc, char **argv, void *userdata) {
+static int verb_flush_caches(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
@@ -1369,7 +1369,7 @@ static int verb_flush_caches(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int verb_reset_server_features(int argc, char **argv, void *userdata) {
+static int verb_reset_server_features(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
@@ -1985,7 +1985,7 @@ static int status_ifindex(int ifindex, StatusMode mode) {
         return status_full(mode, STRV_MAKE(ifname));
 }
 
-static int verb_status(int argc, char **argv, void *userdata) {
+static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return status_full(STATUS_ALL, strv_skip(argv, 1));
 }
 
@@ -2062,7 +2062,7 @@ static int call_dns(sd_bus *bus, char **dns, const BusLocator *locator, sd_bus_e
         return r;
 }
 
-static int verb_dns(int argc, char **argv, void *userdata) {
+static int verb_dns(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
@@ -2147,7 +2147,7 @@ static int call_domain(sd_bus *bus, char **domain, const BusLocator *locator, sd
         return sd_bus_call(bus, req, 0, error, NULL);
 }
 
-static int verb_domain(int argc, char **argv, void *userdata) {
+static int verb_domain(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
@@ -2186,7 +2186,7 @@ static int verb_domain(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int verb_default_route(int argc, char **argv, void *userdata) {
+static int verb_default_route(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r, b;
@@ -2230,7 +2230,7 @@ static int verb_default_route(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int verb_llmnr(int argc, char **argv, void *userdata) {
+static int verb_llmnr(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *global_llmnr_support_str = NULL;
@@ -2288,7 +2288,7 @@ static int verb_llmnr(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int verb_mdns(int argc, char **argv, void *userdata) {
+static int verb_mdns(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *global_mdns_support_str = NULL;
@@ -2352,7 +2352,7 @@ static int verb_mdns(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int verb_dns_over_tls(int argc, char **argv, void *userdata) {
+static int verb_dns_over_tls(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
@@ -2398,7 +2398,7 @@ static int verb_dns_over_tls(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int verb_dnssec(int argc, char **argv, void *userdata) {
+static int verb_dnssec(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
@@ -2459,7 +2459,7 @@ static int call_nta(sd_bus *bus, char **nta, const BusLocator *locator,  sd_bus_
         return sd_bus_call(bus, req, 0, error, NULL);
 }
 
-static int verb_nta(int argc, char **argv, void *userdata) {
+static int verb_nta(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         char **args;
@@ -2517,7 +2517,7 @@ static int verb_nta(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int verb_revert_link(int argc, char **argv, void *userdata) {
+static int verb_revert_link(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
@@ -2554,7 +2554,7 @@ static int verb_revert_link(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int verb_log_level(int argc, char *argv[], void *userdata) {
+static int verb_log_level(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
@@ -2750,7 +2750,7 @@ static int monitor_reply(
         return 0;
 }
 
-static int verb_monitor(int argc, char *argv[], void *userdata) {
+static int verb_monitor(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         int r, c;
@@ -2924,7 +2924,7 @@ static int dump_cache_scope(sd_json_variant *scope) {
         return 0;
 }
 
-static int verb_show_cache(int argc, char *argv[], void *userdata) {
+static int verb_show_cache(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_json_variant *reply = NULL, *d = NULL;
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         int r;
@@ -3104,7 +3104,7 @@ static int dump_server_state(sd_json_variant *server) {
         return 0;
 }
 
-static int verb_show_server_state(int argc, char *argv[], void *userdata) {
+static int verb_show_server_state(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_json_variant *reply = NULL, *d = NULL;
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         int r;
@@ -3311,7 +3311,7 @@ static int native_help(void) {
         return 0;
 }
 
-static int verb_help(int argc, char **argv, void *userdata) {
+static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return native_help();
 }
 
