@@ -81,3 +81,6 @@ userdbctl group "$DISK_GID" | grep -F 'io.systemd.NameServiceSwitch' >/dev/null
 (! busctl call org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager LookupDynamicUserByName "s" disk)
 (! busctl call org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager LookupDynamicUserByUID "u" "$DISK_GID")
 systemctl stop "$UNIT"
+
+# Probe specific user records
+echo '{"userName":"crashhostarray","perMachine":[{"matchHostname":["host1","host2"],"locked":false}]}' | userdbctl -F -
