@@ -51,13 +51,13 @@ assert_eq "$(userdbctl user 2147352577 -j | jq -r .userName)" foreign-1
 assert_eq "$(userdbctl user 2147418110 -j | jq -r .userName)" foreign-65534
 
 # Make sure that -F shows same data as if we'd ask directly
-userdbctl user root -j | userdbctl -F- user  | cmp - <(userdbctl user root)
-userdbctl user test-74-userdbctl -j | userdbctl -F- user  | cmp - <(userdbctl user test-74-userdbctl)
-userdbctl user 65534 -j | userdbctl -F- user  | cmp - <(userdbctl user 65534)
+userdbctl user root -j | userdbctl -F- user | cmp - <(userdbctl user root)
+userdbctl user test-74-userdbctl -j | userdbctl -F- user | cmp - <(userdbctl user test-74-userdbctl)
+userdbctl user 65534 -j | userdbctl -F- user | cmp - <(userdbctl user 65534)
 
-userdbctl group root -j | userdbctl -F- group  | cmp - <(userdbctl group root)
-userdbctl group test-74-userdbctl -j | userdbctl -F- group  | cmp - <(userdbctl group test-74-userdbctl)
-userdbctl group 65534 -j | userdbctl -F- group  | cmp - <(userdbctl group 65534)
+userdbctl group root -j | userdbctl -F- group | cmp - <(userdbctl group root)
+userdbctl group test-74-userdbctl -j | userdbctl -F- group | cmp - <(userdbctl group test-74-userdbctl)
+userdbctl group 65534 -j | userdbctl -F- group | cmp - <(userdbctl group 65534)
 
 # Ensure NSS doesn't try to automount via open_tree
 if [[ ! -v ASAN_OPTIONS ]]; then
