@@ -372,6 +372,9 @@ static inline bool cgroup_context_want_pressure(const CGroupContext *c, Pressure
                         c->startup_cpu_weight != CGROUP_WEIGHT_INVALID ||
                         c->cpu_quota_per_sec_usec != USEC_INFINITY;
 
+        case PRESSURE_IO:
+                return c->io_accounting;
+
         default:
                 assert_not_reached();
         }
