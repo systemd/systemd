@@ -109,6 +109,17 @@ jobs:
             no_qemu: 0
             no_kvm: 0
             shim: 0
+          - distro: ubuntu
+            release: noble
+            runner: ubuntu-24.04-arm
+            sanitizers: ""
+            llvm: 0
+            cflags: "-Og"
+            relabel: no
+            vm: 0
+            no_qemu: 1
+            no_kvm: 1
+            shim: 0
           - distro: fedora
             release: "43"
             runner: ubuntu-24.04
@@ -119,6 +130,17 @@ jobs:
             vm: 0
             no_qemu: 0
             no_kvm: 0
+            shim: 0
+          - distro: fedora
+            release: "43"
+            runner: ubuntu-24.04-arm
+            sanitizers: ""
+            llvm: 0
+            cflags: "-Og"
+            relabel: yes
+            vm: 0
+            no_qemu: 1
+            no_kvm: 1
             shim: 0
           - distro: fedora
             release: rawhide
@@ -142,6 +164,17 @@ jobs:
             no_qemu: 0
             no_kvm: 0
             shim: 0
+          - distro: opensuse
+            release: tumbleweed
+            runner: ubuntu-24.04-arm
+            sanitizers: ""
+            llvm: 0
+            cflags: "-Og"
+            relabel: yes
+            vm: 0
+            no_qemu: 1
+            no_kvm: 1
+            shim: 0
           - distro: centos
             release: "9"
             runner: ubuntu-24.04
@@ -163,6 +196,17 @@ jobs:
             vm: 0
             no_qemu: 0
             no_kvm: 0
+            shim: 0
+          - distro: centos
+            release: "10"
+            runner: ubuntu-24.04-arm
+            sanitizers: ""
+            llvm: 0
+            cflags: "-Og"
+            relabel: yes
+            vm: 0
+            no_qemu: 1
+            no_kvm: 1
             shim: 0
 
     steps:
