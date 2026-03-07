@@ -201,9 +201,12 @@ TEST(real_pressure) {
         const char *object;
         int r;
 
-        r = sd_bus_open_system(&bus);
+        if (getuid() == 0)
+                r = sd_bus_open_system(&bus);
+        else
+                r = sd_bus_open_user(&bus);
         if (r < 0)
-                return (void) log_tests_skipped_errno(r, "can't connect to system bus");
+                return (void) log_tests_skipped_errno(r, "can't connect to bus");
 
         ASSERT_OK(bus_wait_for_jobs_new(bus, &w));
 
@@ -256,8 +259,9 @@ TEST(real_pressure) {
         ASSERT_OK_ZERO(sd_event_source_set_memory_pressure_type(es, "full"));
         ASSERT_OK_POSITIVE(sd_event_source_set_memory_pressure_type(es, "some"));
         ASSERT_OK_ZERO(sd_event_source_set_memory_pressure_type(es, "some"));
-        ASSERT_OK_POSITIVE(sd_event_source_set_memory_pressure_period(es, 70 * USEC_PER_MSEC, USEC_PER_SEC));
-        ASSERT_OK_ZERO(sd_event_source_set_memory_pressure_period(es, 70 * USEC_PER_MSEC, USEC_PER_SEC));
+        /* Unprivileged writes require a minimum of 2s otherwise the kernel will refuse the write.  */
+        ASSERT_OK_POSITIVE(sd_event_source_set_memory_pressure_period(es, 70 * USEC_PER_MSEC, 2 * USEC_PER_SEC));
+        ASSERT_OK_ZERO(sd_event_source_set_memory_pressure_period(es, 70 * USEC_PER_MSEC, 2 * USEC_PER_SEC));
         ASSERT_OK(sd_event_source_set_enabled(es, SD_EVENT_ONESHOT));
 
         _cleanup_free_ char *uo = NULL;
