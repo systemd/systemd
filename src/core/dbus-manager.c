@@ -2980,6 +2980,8 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_PROPERTY("DefaultMemoryPressureWatch", "s", bus_property_get_cgroup_pressure_watch, offsetof(Manager, defaults.pressure_watch[CGROUP_PRESSURE_MEMORY]), 0),
         SD_BUS_PROPERTY("DefaultCPUPressureThresholdUSec", "t", bus_property_get_usec, offsetof(Manager, defaults.pressure_threshold_usec[CGROUP_PRESSURE_CPU]), 0),
         SD_BUS_PROPERTY("DefaultCPUPressureWatch", "s", bus_property_get_cgroup_pressure_watch, offsetof(Manager, defaults.pressure_watch[CGROUP_PRESSURE_CPU]), 0),
+        SD_BUS_PROPERTY("DefaultIOPressureThresholdUSec", "t", bus_property_get_usec, offsetof(Manager, defaults.pressure_threshold_usec[CGROUP_PRESSURE_IO]), 0),
+        SD_BUS_PROPERTY("DefaultIOPressureWatch", "s", bus_property_get_cgroup_pressure_watch, offsetof(Manager, defaults.pressure_watch[CGROUP_PRESSURE_IO]), 0),
         SD_BUS_PROPERTY("TimerSlackNSec", "t", property_get_timer_slack_nsec, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultOOMPolicy", "s", bus_property_get_oom_policy, offsetof(Manager, defaults.oom_policy), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DefaultOOMScoreAdjust", "i", property_get_oom_score_adjust, 0, SD_BUS_VTABLE_PROPERTY_CONST),

@@ -280,6 +280,8 @@
 {{type}}.MemoryPressureWatch,                 config_parse_memory_pressure_watch,                 0,                                  offsetof({{type}}, cgroup_context.pressure_watch[CGROUP_PRESSURE_MEMORY])
 {{type}}.CPUPressureThresholdSec,             config_parse_sec,                                   0,                                  offsetof({{type}}, cgroup_context.pressure_threshold_usec[CGROUP_PRESSURE_CPU])
 {{type}}.CPUPressureWatch,                    config_parse_memory_pressure_watch,                 0,                                  offsetof({{type}}, cgroup_context.pressure_watch[CGROUP_PRESSURE_CPU])
+{{type}}.IOPressureThresholdSec,              config_parse_sec,                                   0,                                  offsetof({{type}}, cgroup_context.pressure_threshold_usec[CGROUP_PRESSURE_IO])
+{{type}}.IOPressureWatch,                     config_parse_memory_pressure_watch,                 0,                                  offsetof({{type}}, cgroup_context.pressure_watch[CGROUP_PRESSURE_IO])
 {{type}}.NFTSet,                              config_parse_cgroup_nft_set,                        NFT_SET_PARSE_CGROUP,               offsetof({{type}}, cgroup_context)
 {{type}}.CoredumpReceive,                     config_parse_bool,                                  0,                                  offsetof({{type}}, cgroup_context.coredump_receive)
 {{type}}.BindNetworkInterface,                config_parse_bind_network_interface,                0,                                  offsetof({{type}}, cgroup_context)
