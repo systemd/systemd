@@ -1,0 +1,18 @@
+{
+    "userName": "sshuser",
+    "realName": "SSH Keys User",
+    "uid": 3013,
+    "gid": 3013,
+    "homeDirectory": "/home/sshuser",
+    "shell": "/bin/bash",
+    "disposition": "regular",
+    "privileged": {
+        "sshAuthorizedKeys": [
+            "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKlH9A7KdFhMmfBrV2fzONpPeaQaJAXyY3bMpZ1sT5Xy ed25519-key",
+            "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC7s... rsa-key",
+            "ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBA... ecdsa-key",
+            "sk-ssh-ed25519@openssh.com AAAAGnNrLXNzaC1lZDI1NTE5QG9wZW5zc2guY29tAAAAIA... security-key",
+            "command=\"/usr/bin/restricted\",no-port-forwarding,no-agent-forwarding ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJx... restricted-key"
+        ]
+    }
+}
