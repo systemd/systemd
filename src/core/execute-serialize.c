@@ -3481,7 +3481,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
 
                         r = extract_many_words(&val,
                                                NULL,
-                                               EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS,
+                                               EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS,
                                                &source,
                                                &destination);
                         if (r < 0)
