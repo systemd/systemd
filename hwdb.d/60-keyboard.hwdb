@@ -2174,6 +2174,10 @@ evdev:name:FTSC1000:00 2808:509C Keyboard:dmi:*:svnXiaomiInc:pnMipad2:*
  KEYBOARD_KEY_70029=leftmeta                            # Esc -> LeftMeta (Windows key / Win8 tablets home)
  KEYBOARD_KEY_7002a=back                                # Backspace -> back
 
+# Xiaomi Mi NoteBook Pro star key
+evdev:atkbd:dmi:bvnTIMI*:bvr*:bd*:svnTIMI*:pnMiNoteBookPro*:*
+ KEYBOARD_KEY_72=macro
+
 ###########################################################
 # Zepto
 ###########################################################
