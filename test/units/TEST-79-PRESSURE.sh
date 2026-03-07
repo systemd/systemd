@@ -114,4 +114,57 @@ systemd-run \
 
 rm "$SCRIPT"
 
+# Now test IO pressure
+
+if ! cat /proc/pressure/io >/dev/null ; then
+    echo "kernel has no IO PSI support." >&2
+    echo OK >/testok
+    exit 0
+fi
+
+if ! test -f "$CGROUP"/io.pressure ; then
+    echo "No IO accounting/PSI delegated via cgroup, can't test." >&2
+    echo OK >/testok
+    exit 0
+fi
+
+UNIT="test-iopress-$RANDOM.service"
+SCRIPT="/tmp/iopress-$RANDOM.sh"
+
+cat >"$SCRIPT" <<'EOF'
+#!/usr/bin/env bash
+
+set -ex
+
+export
+id
+
+test -n "$IO_PRESSURE_WATCH"
+test "$IO_PRESSURE_WATCH" != /dev/null
+test -w "$IO_PRESSURE_WATCH"
+
+ls -al "$IO_PRESSURE_WATCH"
+
+EXPECTED="$(echo -n -e "some 123000 2000000\x00" | base64)"
+
+test "$EXPECTED" = "$IO_PRESSURE_WRITE"
+
+EOF
+
+chmod +x "$SCRIPT"
+
+systemd-run \
+    -u "$UNIT" \
+    -p Type=exec \
+    -p ProtectControlGroups=1 \
+    -p DynamicUser=1 \
+    -p IOPressureWatch=on \
+    -p IOPressureThresholdSec=123ms \
+    -p BindPaths=$SCRIPT \
+    `# Make sanitizers happy when DynamicUser=1 pulls in instrumented systemd NSS modules` \
+    -p EnvironmentFile=-/usr/lib/systemd/systemd-asan-env \
+    --wait "$SCRIPT"
+
+rm "$SCRIPT"
+
 touch /testok
