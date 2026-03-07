@@ -2070,13 +2070,13 @@ int bus_cgroup_set_property(
                                                  FORMAT_TIMESPAN(t, USEC_PER_SEC));
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        c->memory_pressure_threshold_usec = t;
-                        if (c->memory_pressure_threshold_usec == USEC_INFINITY)
+                        c->moom_mem_pressure_duration_usec = t;
+                        if (c->moom_mem_pressure_duration_usec == USEC_INFINITY)
                                 unit_write_setting(u, flags, name, "ManagedOOMMemoryPressureDurationSec=");
                         else
                                 unit_write_settingf(u, flags, name,
                                                     "ManagedOOMMemoryPressureDurationSec=%s",
-                                                    FORMAT_TIMESPAN(c->memory_pressure_threshold_usec, 1));
+                                                    FORMAT_TIMESPAN(c->moom_mem_pressure_duration_usec, 1));
                 }
 
                 if (c->moom_mem_pressure == MANAGED_OOM_KILL)
