@@ -810,6 +810,8 @@ static int parse_config_file(void) {
                 { "Manager", "DefaultMemoryPressureWatch",   config_parse_memory_pressure_watch, 0,                        &arg_defaults.pressure_watch[PRESSURE_MEMORY] },
                 { "Manager", "DefaultCPUPressureThresholdSec", config_parse_sec,                 0,                        &arg_defaults.pressure_threshold_usec[PRESSURE_CPU] },
                 { "Manager", "DefaultCPUPressureWatch",      config_parse_memory_pressure_watch, 0,                        &arg_defaults.pressure_watch[PRESSURE_CPU] },
+                { "Manager", "DefaultIOPressureThresholdSec", config_parse_sec,                  0,                        &arg_defaults.pressure_threshold_usec[PRESSURE_IO] },
+                { "Manager", "DefaultIOPressureWatch",       config_parse_memory_pressure_watch, 0,                        &arg_defaults.pressure_watch[PRESSURE_IO] },
                 { "Manager", "CtrlAltDelBurstAction",        config_parse_emergency_action,      arg_runtime_scope,        &arg_cad_burst_action             },
                 { "Manager", "DefaultOOMPolicy",             config_parse_oom_policy,            0,                        &arg_defaults.oom_policy          },
                 { "Manager", "DefaultOOMScoreAdjust",        config_parse_oom_score_adjust,      0,                        NULL                              },
