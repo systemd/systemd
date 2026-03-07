@@ -1090,3 +1090,10 @@ LIBSYSTEMD_260 {
 global:
         sd_session_get_extra_device_access;
 } LIBSYSTEMD_259;
+
+LIBSYSTEMD_261 {
+global:
+        sd_event_add_cpu_pressure;
+        sd_event_source_set_cpu_pressure_type;
+        sd_event_source_set_cpu_pressure_period;
+} LIBSYSTEMD_260;
