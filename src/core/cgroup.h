@@ -97,6 +97,7 @@ typedef struct CGroupSocketBindItem {
 typedef enum CGroupPressureResource {
         CGROUP_PRESSURE_MEMORY,
         CGROUP_PRESSURE_CPU,
+        CGROUP_PRESSURE_IO,
         _CGROUP_PRESSURE_RESOURCE_MAX,
 } CGroupPressureResource;
 
@@ -376,6 +377,9 @@ static inline bool cgroup_context_want_pressure(const CGroupContext *c, CGroupPr
                 return c->cpu_weight != CGROUP_WEIGHT_INVALID ||
                         c->startup_cpu_weight != CGROUP_WEIGHT_INVALID ||
                         c->cpu_quota_per_sec_usec != USEC_INFINITY;
+
+        case CGROUP_PRESSURE_IO:
+                return c->io_accounting;
 
         default:
                 assert_not_reached();
