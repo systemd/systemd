@@ -28,6 +28,8 @@
 #include "tmpfile-util.h"
 #include "unit-def.h"
 
+/* Shared infrastructure for fake pressure tests */
+
 struct fake_pressure_context {
         int fifo_fd;
         int socket_fd;
@@ -62,7 +64,7 @@ static int fake_pressure_callback(sd_event_source *s, void *userdata) {
 
         *value *= d[0];
 
-        log_notice("memory pressure event: %s", d);
+        log_notice("pressure event: %s", d);
 
         if (*value == 7 * 'f' * 's')
                 ASSERT_OK(sd_event_exit(sd_event_source_get_event(s), 0));
@@ -70,7 +72,12 @@ static int fake_pressure_callback(sd_event_source *s, void *userdata) {
         return 0;
 }
 
-TEST(fake_pressure) {
+typedef int (*event_add_pressure_t)(sd_event *, sd_event_source **, sd_event_handler_t, void *);
+
+static void test_fake_pressure(
+                const char *resource,
+                event_add_pressure_t add_pressure) {
+
         _cleanup_(sd_event_source_unrefp) sd_event_source *es = NULL, *ef = NULL;
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         _cleanup_(rm_rf_physical_and_freep) char *tmp = NULL;
@@ -78,6 +85,12 @@ TEST(fake_pressure) {
         union sockaddr_union sa;
         pthread_t th;
         int value = 7;
+
+        _cleanup_free_ char *resource_upper = ASSERT_NOT_NULL(strdup(resource));
+        ascii_strupper(resource_upper);
+
+        _cleanup_free_ char *env_watch = ASSERT_NOT_NULL(strjoin(resource_upper, "_PRESSURE_WATCH")),
+                            *env_write = ASSERT_NOT_NULL(strjoin(resource_upper, "_PRESSURE_WRITE"));
 
         ASSERT_OK(sd_event_default(&e));
 
@@ -106,16 +119,16 @@ TEST(fake_pressure) {
 
         ASSERT_EQ(pthread_create(&th, NULL, fake_pressure_thread, TAKE_PTR(fp)), 0);
 
-        ASSERT_OK_ERRNO(setenv("MEMORY_PRESSURE_WATCH", j, /* override= */ true));
-        ASSERT_OK_ERRNO(unsetenv("MEMORY_PRESSURE_WRITE"));
+        ASSERT_OK_ERRNO(setenv(env_watch, j, /* override= */ true));
+        ASSERT_OK_ERRNO(unsetenv(env_write));
 
-        ASSERT_OK(sd_event_add_memory_pressure(e, &es, fake_pressure_callback, &value));
+        ASSERT_OK(add_pressure(e, &es, fake_pressure_callback, &value));
         ASSERT_OK(sd_event_source_set_description(es, "fifo event source"));
 
-        ASSERT_OK_ERRNO(setenv("MEMORY_PRESSURE_WATCH", k, /* override= */ true));
-        ASSERT_OK_ERRNO(setenv("MEMORY_PRESSURE_WRITE", "aGVsbG8K", /* override= */ true));
+        ASSERT_OK_ERRNO(setenv(env_watch, k, /* override= */ true));
+        ASSERT_OK_ERRNO(setenv(env_write, "aGVsbG8K", /* override= */ true));
 
-        ASSERT_OK(sd_event_add_memory_pressure(e, &ef, fake_pressure_callback, &value));
+        ASSERT_OK(add_pressure(e, &ef, fake_pressure_callback, &value));
         ASSERT_OK(sd_event_source_set_description(ef, "socket event source"));
 
         ASSERT_OK(sd_event_loop(e));
@@ -125,18 +138,52 @@ TEST(fake_pressure) {
         ASSERT_EQ(pthread_join(th, NULL), 0);
 }
 
+static int fake_pressure_wrapper(sd_event *e, sd_event_source **ret, sd_event_handler_t callback, void *userdata) {
+        return sd_event_add_memory_pressure(e, ret, callback, userdata);
+}
+
+TEST(fake_memory_pressure) {
+        test_fake_pressure("memory", fake_pressure_wrapper);
+}
+
+static int fake_cpu_pressure_wrapper(sd_event *e, sd_event_source **ret, sd_event_handler_t callback, void *userdata) {
+        return sd_event_add_cpu_pressure(e, ret, callback, userdata);
+}
+
+TEST(fake_cpu_pressure) {
+        test_fake_pressure("cpu", fake_cpu_pressure_wrapper);
+}
+
+/* Shared infrastructure for real pressure tests */
+
 struct real_pressure_context {
         sd_event_source *pid;
 };
 
-static int real_pressure_callback(sd_event_source *s, void *userdata) {
+static int real_pressure_child_callback(sd_event_source *s, const siginfo_t *si, void *userdata) {
+        ASSERT_NOT_NULL(s);
+        ASSERT_NOT_NULL(si);
+
+        log_notice("child dead");
+
+        ASSERT_EQ(si->si_signo, SIGCHLD);
+        ASSERT_EQ(si->si_status, SIGKILL);
+        ASSERT_EQ(si->si_code, CLD_KILLED);
+
+        ASSERT_OK(sd_event_exit(sd_event_source_get_event(s), 31));
+        return 0;
+}
+
+/* Memory pressure real test */
+
+static int real_memory_pressure_callback(sd_event_source *s, void *userdata) {
         struct real_pressure_context *c = ASSERT_PTR(userdata);
         const char *d;
 
         ASSERT_NOT_NULL(s);
         ASSERT_OK(sd_event_source_get_description(s, &d));
 
-        log_notice("real_memory pressure event: %s", d);
+        log_notice("real memory pressure event: %s", d);
 
         sd_event_trim_memory();
 
@@ -174,21 +221,7 @@ _noreturn_ static void real_pressure_eat_memory(int pipe_fd) {
         }
 }
 
-static int real_pressure_child_callback(sd_event_source *s, const siginfo_t *si, void *userdata) {
-        ASSERT_NOT_NULL(s);
-        ASSERT_NOT_NULL(si);
-
-        log_notice("child dead");
-
-        ASSERT_EQ(si->si_signo, SIGCHLD);
-        ASSERT_EQ(si->si_status, SIGKILL);
-        ASSERT_EQ(si->si_code, CLD_KILLED);
-
-        ASSERT_OK(sd_event_exit(sd_event_source_get_event(s), 31));
-        return 0;
-}
-
-TEST(real_pressure) {
+TEST(real_memory_pressure) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_event_source_unrefp) sd_event_source *es = NULL, *cs = NULL;
@@ -200,9 +233,12 @@ TEST(real_pressure) {
         const char *object;
         int r;
 
-        r = sd_bus_open_system(&bus);
+        if (getuid() == 0)
+                r = sd_bus_open_system(&bus);
+        else
+                r = sd_bus_open_user(&bus);
         if (r < 0)
-                return (void) log_tests_skipped_errno(r, "can't connect to system bus");
+                return (void) log_tests_skipped_errno(r, "can't connect to bus");
 
         ASSERT_OK(bus_wait_for_jobs_new(bus, &w));
 
@@ -245,7 +281,7 @@ TEST(real_pressure) {
                 .pid = cs,
         };
 
-        r = sd_event_add_memory_pressure(e, &es, real_pressure_callback, &context);
+        r = sd_event_add_memory_pressure(e, &es, real_memory_pressure_callback, &context);
         if (r < 0)
                 return (void) log_tests_skipped_errno(r, "can't allocate memory pressure fd");
 
@@ -255,8 +291,9 @@ TEST(real_pressure) {
         ASSERT_OK_ZERO(sd_event_source_set_memory_pressure_type(es, "full"));
         ASSERT_OK_POSITIVE(sd_event_source_set_memory_pressure_type(es, "some"));
         ASSERT_OK_ZERO(sd_event_source_set_memory_pressure_type(es, "some"));
-        ASSERT_OK_POSITIVE(sd_event_source_set_memory_pressure_period(es, 70 * USEC_PER_MSEC, USEC_PER_SEC));
-        ASSERT_OK_ZERO(sd_event_source_set_memory_pressure_period(es, 70 * USEC_PER_MSEC, USEC_PER_SEC));
+        /* Unprivileged writes require a minimum of 2s otherwise the kernel will refuse the write.  */
+        ASSERT_OK_POSITIVE(sd_event_source_set_memory_pressure_period(es, 70 * USEC_PER_MSEC, 2 * USEC_PER_SEC));
+        ASSERT_OK_ZERO(sd_event_source_set_memory_pressure_period(es, 70 * USEC_PER_MSEC, 2 * USEC_PER_SEC));
         ASSERT_OK(sd_event_source_set_enabled(es, SD_EVENT_ONESHOT));
 
         _cleanup_free_ char *uo = NULL;
@@ -290,6 +327,123 @@ TEST(real_pressure) {
         free(h);
 
         /* Now start eating memory */
+        ASSERT_EQ(write(pipe_fd[1], &(const char) { 'x' }, 1), 1);
+
+        ASSERT_OK(sd_event_loop(e));
+        int ex = 0;
+        ASSERT_OK(sd_event_get_exit_code(e, &ex));
+        ASSERT_EQ(ex, 31);
+}
+
+/* CPU pressure real test */
+
+static int real_cpu_pressure_callback(sd_event_source *s, void *userdata) {
+        struct real_pressure_context *c = ASSERT_PTR(userdata);
+        const char *d;
+
+        ASSERT_NOT_NULL(s);
+        ASSERT_OK(sd_event_source_get_description(s, &d));
+
+        log_notice("real cpu pressure event: %s", d);
+
+        ASSERT_NOT_NULL(c->pid);
+        ASSERT_OK(sd_event_source_send_child_signal(c->pid, SIGKILL, NULL, 0));
+        c->pid = NULL;
+
+        return 0;
+}
+
+_noreturn_ static void real_pressure_eat_cpu(int pipe_fd) {
+        char x;
+        ASSERT_EQ(read(pipe_fd, &x, 1), 1); /* Wait for the GO! */
+
+        /* Busy-loop to generate CPU pressure */
+        for (;;)
+                __asm__ volatile("" ::: "memory"); /* Prevent optimization */
+}
+
+TEST(real_cpu_pressure) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_event_source_unrefp) sd_event_source *es = NULL, *cs = NULL;
+        _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_close_pair_ int pipe_fd[2] = EBADF_PAIR;
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_free_ char *scope = NULL;
+        const char *object;
+        int r;
+
+        if (getuid() == 0)
+                r = sd_bus_open_system(&bus);
+        else
+                r = sd_bus_open_user(&bus);
+        if (r < 0)
+                return (void) log_tests_skipped_errno(r, "can't connect to bus");
+
+        ASSERT_OK(bus_wait_for_jobs_new(bus, &w));
+
+        ASSERT_OK(bus_message_new_method_call(bus, &m, bus_systemd_mgr, "StartTransientUnit"));
+        ASSERT_OK(asprintf(&scope, "test-%" PRIu64 ".scope", random_u64()));
+        ASSERT_OK(sd_bus_message_append(m, "ss", scope, "fail"));
+        ASSERT_OK(sd_bus_message_open_container(m, 'a', "(sv)"));
+        ASSERT_OK(sd_bus_message_append(m, "(sv)", "PIDs", "au", 1, 0));
+        ASSERT_OK(sd_bus_message_append(m, "(sv)", "CPUAccounting", "b", true));
+        ASSERT_OK(sd_bus_message_close_container(m));
+        ASSERT_OK(sd_bus_message_append(m, "a(sa(sv))", 0));
+
+        r = sd_bus_call(bus, m, 0, &error, &reply);
+        if (r < 0)
+                return (void) log_tests_skipped_errno(r, "can't issue transient unit call");
+
+        ASSERT_OK(sd_bus_message_read(reply, "o", &object));
+
+        ASSERT_OK(bus_wait_for_jobs_one(w, object, /* flags= */ BUS_WAIT_JOBS_LOG_ERROR, /* extra_args= */ NULL));
+
+        ASSERT_OK(sd_event_default(&e));
+
+        ASSERT_OK_ERRNO(pipe2(pipe_fd, O_CLOEXEC));
+
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        r = pidref_safe_fork("(eat-cpu)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM, &pidref);
+        ASSERT_OK(r);
+        if (r == 0) {
+                real_pressure_eat_cpu(pipe_fd[0]);
+                _exit(EXIT_SUCCESS);
+        }
+
+        ASSERT_OK(event_add_child_pidref(e, &cs, &pidref, WEXITED, real_pressure_child_callback, NULL));
+        ASSERT_OK(sd_event_source_set_child_process_own(cs, true));
+
+        ASSERT_OK_ERRNO(unsetenv("CPU_PRESSURE_WATCH"));
+        ASSERT_OK_ERRNO(unsetenv("CPU_PRESSURE_WRITE"));
+
+        struct real_pressure_context context = {
+                .pid = cs,
+        };
+
+        r = sd_event_add_cpu_pressure(e, &es, real_cpu_pressure_callback, &context);
+        if (r < 0)
+                return (void) log_tests_skipped_errno(r, "can't allocate cpu pressure fd");
+
+        ASSERT_OK(sd_event_source_set_description(es, "real pressure event source"));
+        ASSERT_OK_ZERO(sd_event_source_set_cpu_pressure_type(es, "some"));
+        /* Unprivileged writes require a minimum of 2s otherwise the kernel will refuse the write. */
+        ASSERT_OK_POSITIVE(sd_event_source_set_cpu_pressure_period(es, 70 * USEC_PER_MSEC, 2 * USEC_PER_SEC));
+        ASSERT_OK_ZERO(sd_event_source_set_cpu_pressure_period(es, 70 * USEC_PER_MSEC, 2 * USEC_PER_SEC));
+        ASSERT_OK(sd_event_source_set_enabled(es, SD_EVENT_ONESHOT));
+
+        m = sd_bus_message_unref(m);
+
+        ASSERT_OK(bus_message_new_method_call(bus, &m, bus_systemd_mgr, "SetUnitProperties"));
+        ASSERT_OK(sd_bus_message_append(m, "sb", scope, true));
+        ASSERT_OK(sd_bus_message_open_container(m, 'a', "(sv)"));
+        ASSERT_OK(sd_bus_message_append(m, "(sv)", "CPUQuotaPerSecUSec", "t", (uint64_t) 1000)); /* 0.1% CPU */
+        ASSERT_OK(sd_bus_message_close_container(m));
+
+        ASSERT_OK(sd_bus_call(bus, m, 0, NULL, NULL));
+
+        /* Now start eating CPU */
         ASSERT_EQ(write(pipe_fd[1], &(const char) { 'x' }, 1), 1);
 
         ASSERT_OK(sd_event_loop(e));
