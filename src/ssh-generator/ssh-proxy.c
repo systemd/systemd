@@ -304,6 +304,15 @@ static int fetch_machine(const char *machine, RuntimeScope scope, sd_json_varian
         return 0;
 }
 
+static char *startswith_sep(const char *s, const char *prefix) {
+        const char *p = startswith(s, prefix);
+
+        if (p && IN_SET(*p, '/', '%'))
+                return (char*) p + 1;
+
+        return NULL;
+}
+
 static int process_machine(const char *machine, const char *port) {
         int r;
 
@@ -324,14 +333,16 @@ static int process_machine(const char *machine, const char *port) {
                 uint32_t cid;
                 const char *class;
                 const char *service;
+                const char *ssh_address;
         } p = {
                 .cid = VMADDR_CID_ANY,
         };
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "vSockCid", SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint32,       voffsetof(p, cid),     0                 },
-                { "class",    SD_JSON_VARIANT_STRING,   sd_json_dispatch_const_string, voffsetof(p, class),   SD_JSON_MANDATORY },
-                { "service",  SD_JSON_VARIANT_STRING,   sd_json_dispatch_const_string, voffsetof(p, service), 0                 },
+                { "vSockCid",   SD_JSON_VARIANT_UNSIGNED, sd_json_dispatch_uint32,       voffsetof(p, cid),         0                 },
+                { "class",      SD_JSON_VARIANT_STRING,   sd_json_dispatch_const_string, voffsetof(p, class),       SD_JSON_MANDATORY },
+                { "service",    SD_JSON_VARIANT_STRING,   sd_json_dispatch_const_string, voffsetof(p, service),     0                 },
+                { "sshAddress", SD_JSON_VARIANT_STRING,   sd_json_dispatch_const_string, voffsetof(p, ssh_address), 0                 },
         };
 
         r = sd_json_dispatch(result, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &p);
@@ -366,19 +377,29 @@ static int process_machine(const char *machine, const char *port) {
         if (!streq(p.class, "vm"))
                 return log_error_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Don't know how to SSH into machine %s with class '%s'.", machine, p.class);
 
-        if (p.cid == VMADDR_CID_ANY)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Machine %s has no AF_VSOCK CID assigned.", machine);
+        if (p.cid != VMADDR_CID_ANY)
+                return process_vsock_cid(p.cid, port);
 
-        return process_vsock_cid(p.cid, port);
-}
+        /* No AF_VSOCK CID assigned, fall back to sshAddress if available */
+        if (!p.ssh_address)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Machine %s has neither AF_VSOCK CID nor SSH address assigned.", machine);
 
-static char *startswith_sep(const char *s, const char *prefix) {
-        const char *p = startswith(s, prefix);
+        log_debug("Machine %s has no AF_VSOCK CID, falling back to sshAddress: %s", machine, p.ssh_address);
 
-        if (p && IN_SET(*p, '/', '%'))
-                return (char*) p + 1;
+        const char *a;
+        a = startswith_sep(p.ssh_address, "vsock");
+        if (a)
+                return process_vsock_string(a, port);
 
-        return NULL;
+        a = startswith_sep(p.ssh_address, "unix");
+        if (a)
+                return process_unix(a);
+
+        a = startswith_sep(p.ssh_address, "vsock-mux");
+        if (a)
+                return process_vsock_mux(a, port);
+
+        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unsupported SSH address scheme in machine %s: %s", machine, p.ssh_address);
 }
 
 static int run(int argc, char* argv[]) {
