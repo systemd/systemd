@@ -77,6 +77,7 @@ static const char* const event_source_type_table[_SOURCE_EVENT_SOURCE_TYPE_MAX] 
         [SOURCE_INOTIFY]             = "inotify",
         [SOURCE_MEMORY_PRESSURE]     = "memory-pressure",
         [SOURCE_CPU_PRESSURE]        = "cpu-pressure",
+        [SOURCE_IO_PRESSURE]         = "io-pressure",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(event_source_type, int);
@@ -101,7 +102,8 @@ DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(event_source_type, int);
                SOURCE_DEFER,                    \
                SOURCE_INOTIFY,                  \
                SOURCE_MEMORY_PRESSURE,          \
-               SOURCE_CPU_PRESSURE)
+               SOURCE_CPU_PRESSURE,             \
+               SOURCE_IO_PRESSURE)
 
 /* This is used to assert that we didn't pass an unexpected source type to event_source_time_prioq_put().
  * Time sources and ratelimited sources can be passed, so effectively this is the same as the
@@ -566,7 +568,7 @@ static int source_child_pidfd_register(sd_event_source *s, int enabled) {
         return 0;
 }
 
-#define EVENT_SOURCE_IS_PRESSURE(s) IN_SET((s)->type, SOURCE_MEMORY_PRESSURE, SOURCE_CPU_PRESSURE)
+#define EVENT_SOURCE_IS_PRESSURE(s) IN_SET((s)->type, SOURCE_MEMORY_PRESSURE, SOURCE_CPU_PRESSURE, SOURCE_IO_PRESSURE)
 
 static void source_pressure_unregister(sd_event_source *s) {
         assert(s);
@@ -1052,6 +1054,7 @@ static void source_disconnect(sd_event_source *s) {
 
         case SOURCE_MEMORY_PRESSURE:
         case SOURCE_CPU_PRESSURE:
+        case SOURCE_IO_PRESSURE:
                 source_pressure_remove_from_write_list(s);
                 source_pressure_unregister(s);
                 break;
@@ -1198,6 +1201,7 @@ static sd_event_source* source_new(sd_event *e, bool floating, EventSourceType t
                 [SOURCE_INOTIFY]             = endoffsetof_field(sd_event_source, inotify),
                 [SOURCE_MEMORY_PRESSURE]     = endoffsetof_field(sd_event_source, pressure),
                 [SOURCE_CPU_PRESSURE]        = endoffsetof_field(sd_event_source, pressure),
+                [SOURCE_IO_PRESSURE]         = endoffsetof_field(sd_event_source, pressure),
         };
 
         sd_event_source *s;
@@ -2110,8 +2114,8 @@ static int event_add_pressure(
          * fd with the epoll right-away. Instead, we just add the event source to a list of pressure event
          * sources on which writes must be executed before the first event loop iteration is executed. (We
          * could also write the data here, right away, but we want to give the caller the freedom to call
-         * sd_event_source_set_{memory,cpu}_pressure_type() and
-         * sd_event_source_set_{memory,cpu}_pressure_period() before we write it. */
+         * sd_event_source_set_{memory,cpu,io}_pressure_type() and
+         * sd_event_source_set_{memory,cpu,io}_pressure_period() before we write it. */
 
         if (s->pressure.write_buffer_size > 0)
                 source_pressure_add_to_write_list(s);
@@ -2158,6 +2162,25 @@ _public_ int sd_event_add_cpu_pressure(
                         SOURCE_CPU_PRESSURE,
                         cpu_pressure_callback,
                         PRESSURE_CPU);
+}
+
+static int io_pressure_callback(sd_event_source *s, void *userdata) {
+        assert(s);
+
+        return 0;
+}
+
+_public_ int sd_event_add_io_pressure(
+                sd_event *e,
+                sd_event_source **ret,
+                sd_event_handler_t callback,
+                void *userdata) {
+
+        return event_add_pressure(
+                        e, ret, callback, userdata,
+                        SOURCE_IO_PRESSURE,
+                        io_pressure_callback,
+                        PRESSURE_IO);
 }
 
 static void event_free_inotify_data(sd_event *e, InotifyData *d) {
@@ -2962,6 +2985,7 @@ static int event_source_offline(
 
         case SOURCE_MEMORY_PRESSURE:
         case SOURCE_CPU_PRESSURE:
+        case SOURCE_IO_PRESSURE:
                 source_pressure_unregister(s);
                 break;
 
@@ -3054,6 +3078,7 @@ static int event_source_online(
 
         case SOURCE_MEMORY_PRESSURE:
         case SOURCE_CPU_PRESSURE:
+        case SOURCE_IO_PRESSURE:
                 /* As documented in sd_event_add_{memory,cpu,io}_pressure(), we can only register the PSI fd
                  * with epoll after writing the watch string. */
                 if (s->pressure.write_buffer_size == 0) {
@@ -4308,6 +4333,7 @@ static int source_dispatch(sd_event_source *s) {
 
         case SOURCE_MEMORY_PRESSURE:
         case SOURCE_CPU_PRESSURE:
+        case SOURCE_IO_PRESSURE:
                 r = s->pressure.callback(s, s->userdata);
                 break;
 
@@ -4723,6 +4749,7 @@ static int process_epoll(sd_event *e, usec_t timeout, int64_t threshold, int64_t
 
                                 case SOURCE_MEMORY_PRESSURE:
                                 case SOURCE_CPU_PRESSURE:
+                                case SOURCE_IO_PRESSURE:
                                         r = process_pressure(s, i->events);
                                         break;
 
@@ -5418,6 +5445,13 @@ _public_ int sd_event_source_set_cpu_pressure_type(sd_event_source *s, const cha
         return event_source_set_pressure_type(s, ty);
 }
 
+_public_ int sd_event_source_set_io_pressure_type(sd_event_source *s, const char *ty) {
+        assert_return(s, -EINVAL);
+        assert_return(s->type == SOURCE_IO_PRESSURE, -EDOM);
+
+        return event_source_set_pressure_type(s, ty);
+}
+
 static int event_source_set_pressure_period(sd_event_source *s, uint64_t threshold_usec, uint64_t window_usec) {
         _cleanup_free_ char *b = NULL;
         _cleanup_free_ void *w = NULL;
@@ -5475,6 +5509,13 @@ _public_ int sd_event_source_set_memory_pressure_period(sd_event_source *s, uint
 _public_ int sd_event_source_set_cpu_pressure_period(sd_event_source *s, uint64_t threshold_usec, uint64_t window_usec) {
         assert_return(s, -EINVAL);
         assert_return(s->type == SOURCE_CPU_PRESSURE, -EDOM);
+
+        return event_source_set_pressure_period(s, threshold_usec, window_usec);
+}
+
+_public_ int sd_event_source_set_io_pressure_period(sd_event_source *s, uint64_t threshold_usec, uint64_t window_usec) {
+        assert_return(s, -EINVAL);
+        assert_return(s->type == SOURCE_IO_PRESSURE, -EDOM);
 
         return event_source_set_pressure_period(s, threshold_usec, window_usec);
 }

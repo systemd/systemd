@@ -327,6 +327,8 @@ int unit_cgroup_context_build_json(sd_json_variant **ret, const char *name, void
                         JSON_BUILD_PAIR_FINITE_USEC("MemoryPressureThresholdUSec", c->pressure[PRESSURE_MEMORY].threshold_usec),
                         SD_JSON_BUILD_PAIR_STRING("CPUPressureWatch", cgroup_pressure_watch_to_string(c->pressure[PRESSURE_CPU].watch)),
                         JSON_BUILD_PAIR_FINITE_USEC("CPUPressureThresholdUSec", c->pressure[PRESSURE_CPU].threshold_usec),
+                        SD_JSON_BUILD_PAIR_STRING("IOPressureWatch", cgroup_pressure_watch_to_string(c->pressure[PRESSURE_IO].watch)),
+                        JSON_BUILD_PAIR_FINITE_USEC("IOPressureThresholdUSec", c->pressure[PRESSURE_IO].threshold_usec),
 
                         /* Others */
                         SD_JSON_BUILD_PAIR_BOOLEAN("CoredumpReceive", c->coredump_receive));

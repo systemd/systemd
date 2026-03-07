@@ -621,6 +621,8 @@ static char** sanitize_environment(char **l) {
                         "CREDENTIALS_DIRECTORY",
                         "EXIT_CODE",
                         "EXIT_STATUS",
+                        "IO_PRESSURE_WATCH",
+                        "IO_PRESSURE_WRITE",
                         "INVOCATION_ID",
                         "JOURNAL_STREAM",
                         "LISTEN_FDNAMES",
@@ -807,6 +809,7 @@ static const struct {
 } pressure_dispatch_table[_PRESSURE_RESOURCE_MAX] = {
         [PRESSURE_MEMORY] = { sd_event_add_memory_pressure, sd_event_source_set_memory_pressure_period },
         [PRESSURE_CPU]    = { sd_event_add_cpu_pressure,    sd_event_source_set_cpu_pressure_period    },
+        [PRESSURE_IO]     = { sd_event_add_io_pressure,     sd_event_source_set_io_pressure_period     },
 };
 
 int manager_setup_pressure_event_source(Manager *m, PressureResource t) {
@@ -5213,6 +5216,7 @@ void unit_defaults_init(UnitDefaults *defaults, RuntimeScope scope) {
                 .pressure = {
                         [PRESSURE_MEMORY] = { .watch = CGROUP_PRESSURE_WATCH_AUTO, .threshold_usec = PRESSURE_DEFAULT_THRESHOLD_USEC },
                         [PRESSURE_CPU]    = { .watch = CGROUP_PRESSURE_WATCH_AUTO, .threshold_usec = PRESSURE_DEFAULT_THRESHOLD_USEC },
+                        [PRESSURE_IO]     = { .watch = CGROUP_PRESSURE_WATCH_AUTO, .threshold_usec = PRESSURE_DEFAULT_THRESHOLD_USEC },
                 },
 
                 .oom_policy = OOM_STOP,

@@ -98,6 +98,7 @@ int sd_event_add_post(sd_event *e, sd_event_source **ret, sd_event_handler_t cal
 int sd_event_add_exit(sd_event *e, sd_event_source **ret, sd_event_handler_t callback, void *userdata);
 int sd_event_add_memory_pressure(sd_event *e, sd_event_source **ret, sd_event_handler_t callback, void *userdata);
 int sd_event_add_cpu_pressure(sd_event *e, sd_event_source **ret, sd_event_handler_t callback, void *userdata);
+int sd_event_add_io_pressure(sd_event *e, sd_event_source **ret, sd_event_handler_t callback, void *userdata);
 
 int sd_event_prepare(sd_event *e);
 int sd_event_wait(sd_event *e, uint64_t timeout);
@@ -165,6 +166,8 @@ int sd_event_source_set_memory_pressure_type(sd_event_source *s, const char *ty)
 int sd_event_source_set_memory_pressure_period(sd_event_source *s, uint64_t threshold_usec, uint64_t window_usec);
 int sd_event_source_set_cpu_pressure_type(sd_event_source *s, const char *ty);
 int sd_event_source_set_cpu_pressure_period(sd_event_source *s, uint64_t threshold_usec, uint64_t window_usec);
+int sd_event_source_set_io_pressure_type(sd_event_source *s, const char *ty);
+int sd_event_source_set_io_pressure_period(sd_event_source *s, uint64_t threshold_usec, uint64_t window_usec);
 int sd_event_source_set_destroy_callback(sd_event_source *s, sd_event_destroy_t callback);
 int sd_event_source_get_destroy_callback(sd_event_source *s, sd_event_destroy_t *ret);
 int sd_event_source_get_floating(sd_event_source *s);
