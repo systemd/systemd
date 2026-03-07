@@ -12,6 +12,7 @@ typedef enum PressureType {
 typedef enum PressureResource {
         PRESSURE_MEMORY,
         PRESSURE_CPU,
+        PRESSURE_IO,
         _PRESSURE_RESOURCE_MAX,
         _PRESSURE_RESOURCE_INVALID = -EINVAL,
 } PressureResource;
