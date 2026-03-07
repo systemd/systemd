@@ -1131,6 +1131,8 @@ evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO:*:pvrIdeaPadSlim5*
 evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO:pn81Q7*:pvrLenovoYogaS940:*
 # Lenovo ThinkBook 16G6IRL
 evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO:pn21KH*:pvrThinkBook16G6IRL:*
+# Lenovo ThinkBook 14 2-in-1 G5 IAU
+evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO:pn21SQ*:pvrThinkBook142-in-1G5IAU:*
  KEYBOARD_KEY_a0=!mute
  KEYBOARD_KEY_ae=!volumedown
  KEYBOARD_KEY_b0=!volumeup
