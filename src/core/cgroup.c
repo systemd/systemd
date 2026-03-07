@@ -185,8 +185,8 @@ void cgroup_context_init(CGroupContext *c) {
                  * moom_mem_pressure_duration_usec is set to infinity. */
                 .moom_mem_pressure_duration_usec = USEC_INFINITY,
 
-                .pressure_watch = { _CGROUP_PRESSURE_WATCH_INVALID, _CGROUP_PRESSURE_WATCH_INVALID },
-                .pressure_threshold_usec = { USEC_INFINITY, USEC_INFINITY },
+                .pressure_watch = { _CGROUP_PRESSURE_WATCH_INVALID, _CGROUP_PRESSURE_WATCH_INVALID, _CGROUP_PRESSURE_WATCH_INVALID },
+                .pressure_threshold_usec = { USEC_INFINITY, USEC_INFINITY, USEC_INFINITY },
         };
 }
 
@@ -527,6 +527,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 "%sManagedOOMPreference: %s\n"
                 "%sMemoryPressureWatch: %s\n"
                 "%sCPUPressureWatch: %s\n"
+                "%sIOPressureWatch: %s\n"
                 "%sCoredumpReceive: %s\n",
                 prefix, yes_no(c->io_accounting),
                 prefix, yes_no(c->memory_accounting),
@@ -564,6 +565,7 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 prefix, managed_oom_preference_to_string(c->moom_preference),
                 prefix, cgroup_pressure_watch_to_string(c->pressure_watch[PRESSURE_MEMORY]),
                 prefix, cgroup_pressure_watch_to_string(c->pressure_watch[PRESSURE_CPU]),
+                prefix, cgroup_pressure_watch_to_string(c->pressure_watch[PRESSURE_IO]),
                 prefix, yes_no(c->coredump_receive));
 
         if (c->delegate_subgroup)
@@ -581,6 +583,10 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
         if (c->pressure_threshold_usec[PRESSURE_CPU] != USEC_INFINITY)
                 fprintf(f, "%sCPUPressureThresholdSec: %s\n",
                         prefix, FORMAT_TIMESPAN(c->pressure_threshold_usec[PRESSURE_CPU], 1));
+
+        if (c->pressure_threshold_usec[PRESSURE_IO] != USEC_INFINITY)
+                fprintf(f, "%sIOPressureThresholdSec: %s\n",
+                        prefix, FORMAT_TIMESPAN(c->pressure_threshold_usec[PRESSURE_IO], 1));
 
         if (c->moom_mem_pressure_duration_usec != USEC_INFINITY)
                 fprintf(f, "%sManagedOOMMemoryPressureDurationSec: %s\n",
