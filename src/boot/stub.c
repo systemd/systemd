@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "boot-secret.h"
 #include "cpio.h"
 #include "device-path-util.h"
 #include "devicetree.h"
@@ -45,6 +46,7 @@ enum {
         INITRD_PCRPKEY,
         INITRD_OSREL,
         INITRD_PROFILE,
+        INITRD_BOOT_SECRET,
         _INITRD_MAX,
 };
 
@@ -978,6 +980,29 @@ static void generate_embedded_initrds(
         }
 }
 
+static void generate_boot_secret_initrd(
+                const uint8_t boot_secret[static BOOT_SECRET_SIZE],
+                struct iovec initrds[static _INITRD_MAX]) {
+
+        assert(initrds);
+
+        /* All zero means: no boot secret acquired */
+        if (memeqzero(boot_secret, BOOT_SECRET_SIZE))
+                return;
+
+        (void) pack_cpio_literal(
+                        boot_secret,
+                        BOOT_SECRET_SIZE,
+                        ".extra",
+                        u"boot-secret",
+                        /* dir_mode= */ 0555,
+                        /* access_mode= */ 0400,
+                        /* tpm_pcr= */ UINT32_MAX,
+                        /* tpm_description= */ NULL,
+                        initrds + INITRD_BOOT_SECRET,
+                        /* ret_measured= */ NULL);
+}
+
 static void lookup_embedded_initrds(
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
                 const PeSectionVector sections[static _UNIFIED_SECTION_MAX],
@@ -1256,6 +1281,10 @@ static EFI_STATUS run(EFI_HANDLE image) {
 
         refresh_random_seed(loaded_image);
 
+        uint8_t boot_secret[BOOT_SECRET_SIZE] = {}; /* all zeroes means: not acquired */
+        CLEANUP_ERASE(boot_secret);
+        (void) prepare_boot_secret(loaded_image, sections + UNIFIED_SECTION_OSREL, boot_secret);
+
         uname = pe_section_to_str8(loaded_image, sections + UNIFIED_SECTION_UNAME);
 
         /* Let's now check if we actually want to use the command line, measure it if it was passed in. */
@@ -1285,6 +1314,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
         /* Generate & find all initrds */
         generate_sidecar_initrds(loaded_image, initrds, &parameters_measured, &sysext_measured, &confext_measured);
         generate_embedded_initrds(loaded_image, sections, initrds);
+        generate_boot_secret_initrd(boot_secret, initrds);
         lookup_embedded_initrds(loaded_image, sections, initrds);
 
         /* Add initrds in the right order. Generally, later initrds can overwrite files in earlier ones,
