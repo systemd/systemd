@@ -589,6 +589,9 @@ executables += [
                 'timeout' : 360,
         },
         core_test_template + {
+                'sources' : files('test-execute-serialize.c'),
+        },
+        core_test_template + {
                 'sources' : files('test-install.c'),
                 'type' : 'manual',
         },
