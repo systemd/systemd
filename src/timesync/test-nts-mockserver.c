@@ -257,13 +257,13 @@ int main(int argc, char **argv) {
 
         assert(bind(sock, (struct sockaddr*)&server, sizeof(server)) == 0);
 
-        printf("KE: ");
+        puts("KE started");
         wait_for_nts_ke(c2s, s2c, sabo);
-        puts("OK");
+        puts("KE done");
 
-        printf("NTP: ");
+        puts("NTP listening");
         serve_ntp_request(sock, c2s, s2c, sabo);
-        puts("OK");
+        puts("NTP replied");
 
         return 0;
 }
