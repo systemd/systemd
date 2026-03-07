@@ -27,6 +27,7 @@ typedef enum EventSourceType {
         SOURCE_INOTIFY,
         SOURCE_MEMORY_PRESSURE,
         SOURCE_CPU_PRESSURE,
+        SOURCE_IO_PRESSURE,
         _SOURCE_EVENT_SOURCE_TYPE_MAX,
         _SOURCE_EVENT_SOURCE_TYPE_INVALID = -EINVAL,
 } EventSourceType;
