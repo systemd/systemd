@@ -24,6 +24,7 @@
 #include "percent-util.h"
 #include "set.h"
 #include "string-util.h"
+#include "strv.h"
 #include "time-util.h"
 #include "varlink-io.systemd.oom.h"
 #include "varlink-io.systemd.service.h"
@@ -35,6 +36,7 @@ typedef struct ManagedOOMMessage {
         char *property;
         uint32_t limit;
         usec_t duration;
+        char **rules;
 } ManagedOOMMessage;
 
 static void managed_oom_message_destroy(ManagedOOMMessage *message) {
@@ -55,6 +57,7 @@ static int process_managed_oom_message(Manager *m, uid_t uid, sd_json_variant *p
                 { "property", SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,   offsetof(ManagedOOMMessage, property), SD_JSON_MANDATORY },
                 { "limit",    _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint32,   offsetof(ManagedOOMMessage, limit),    0                 },
                 { "duration", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,   offsetof(ManagedOOMMessage, duration), 0                 },
+                { "rules",    _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_strv,     offsetof(ManagedOOMMessage, rules),    0                 },
                 {},
         };
 
@@ -101,8 +104,12 @@ static int process_managed_oom_message(Manager *m, uid_t uid, sd_json_variant *p
                                                        "(" UID_FMT " != " UID_FMT ")", uid, cg_uid);
                 }
 
-                monitor_hm = streq(message.property, "ManagedOOMSwap") ?
-                                m->monitored_swap_cgroup_contexts : m->monitored_mem_pressure_cgroup_contexts;
+                if (streq(message.property, "ManagedOOMSwap"))
+                        monitor_hm = m->monitored_swap_cgroup_contexts;
+                else if (streq(message.property, "OOMRules"))
+                        monitor_hm = m->monitored_rules_cgroup_contexts;
+                else
+                        monitor_hm = m->monitored_mem_pressure_cgroup_contexts;
 
                 if (message.mode == MANAGED_OOM_AUTO) {
                         (void) oomd_cgroup_context_unref(hashmap_remove(monitor_hm, empty_to_root(message.path)));
@@ -129,6 +136,17 @@ static int process_managed_oom_message(Manager *m, uid_t uid, sd_json_variant *p
                         return r;
                 if (r < 0 && r != -EEXIST)
                         log_debug_errno(r, "Failed to insert message, ignoring: %m");
+
+                if (streq(message.property, "OOMRules")) {
+                        ctx = hashmap_get(monitor_hm, empty_to_root(message.path));
+                        if (ctx) {
+                                if (message.rules)
+                                        ctx->rules = message.rules;
+                                else
+                                        hashmap_remove(monitor_hm, empty_to_root(message.path));
+                        }
+                        continue;
+                }
 
                 /* Always update the limit in case it was changed. For non-memory pressure detection the value is
                  * ignored so always updating it here is not a problem. */
@@ -582,6 +600,241 @@ static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t
         return 0;
 }
 
+static int ruleset_execute_action(
+                Manager *m,
+                OomdCGroupContext *ctx,
+                struct oom_ruleset *ruleset,
+                const char *rule_name) {
+
+        _cleanup_free_ const char *reason = NULL;
+        int r;
+
+        assert(m);
+        assert(ctx);
+        assert(ruleset);
+        assert(rule_name);
+
+        log_notice("Rule '%s' conditions met for cgroup %s for %s, taking action %s",
+                   rule_name,
+                   ctx->path,
+                   FORMAT_TIMESPAN(ruleset->lasting_usec, USEC_PER_SEC),
+                   actions_to_string(ruleset->action));
+
+        reason = strjoin("rule ", rule_name);
+        if (!reason)
+                return log_oom();
+
+        if (ruleset->action == OOMD_ACTION_KILL_ALL) {
+                r = oomd_cgroup_kill(m, ctx, /* recurse= */ true, reason);
+                if (r < 0)
+                        log_notice_errno(r, "Failed to kill all processes in %s: %m", ctx->path);
+                else if (r > 0)
+                        log_notice("Killed all processes in %s due to rule '%s'", ctx->path, rule_name);
+        } else if (ruleset->action == OOMD_ACTION_KILL_BY_PGSCAN) {
+                _cleanup_hashmap_free_ Hashmap *candidates = NULL;
+                OomdCGroupContext *selected = NULL;
+
+                r = get_monitored_cgroup_contexts_candidates(m->monitored_rules_cgroup_contexts, &candidates);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0)
+                        log_debug_errno(r, "Failed to get rule cgroup candidates, ignoring: %m");
+                else {
+                        r = oomd_select_by_pgscan_rate(candidates, /* prefix= */ ctx->path, &selected);
+                        if (r < 0)
+                                log_notice_errno(r, "Failed to select cgroup by pgscan rate for %s: %m", ctx->path);
+                        else if (r == 0)
+                                log_debug("No cgroup candidates found for pgscan-based action for %s", ctx->path);
+                        else {
+                                r = oomd_cgroup_kill(m, selected, /* recurse= */ true, reason);
+                                if (r < 0)
+                                        log_notice_errno(r, "Failed to kill processes in %s: %m", selected->path);
+                                else if (r > 0)
+                                        log_notice("Killed processes in %s (selected from %s by pgscan rate) due to rule '%s'",
+                                                   selected->path, ctx->path, rule_name);
+                        }
+                }
+        } else if (ruleset->action == OOMD_ACTION_KILL_BY_SWAP) {
+                _cleanup_hashmap_free_ Hashmap *candidates = NULL;
+                OomdCGroupContext *selected = NULL;
+                uint64_t threshold;
+
+                r = get_monitored_cgroup_contexts_candidates(m->monitored_rules_cgroup_contexts, &candidates);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0)
+                        log_debug_errno(r, "Failed to get rule cgroup candidates, ignoring: %m");
+                else {
+                        threshold = m->system_context.swap_total * THRESHOLD_SWAP_USED_PERCENT / 100;
+                        r = oomd_select_by_swap_usage(candidates, threshold, &selected);
+                        if (r < 0)
+                                log_notice_errno(r, "Failed to select cgroup by swap usage for %s: %m", ctx->path);
+                        else if (r == 0)
+                                log_debug("No cgroup candidates found for swap-based action for %s", ctx->path);
+                        else {
+                                r = oomd_cgroup_kill(m, selected, /* recurse= */ true, reason);
+                                if (r < 0)
+                                        log_notice_errno(r, "Failed to kill processes in %s: %m", selected->path);
+                                else if (r > 0)
+                                        log_notice("Killed processes in %s (selected from %s by swap usage) due to rule '%s'",
+                                                                   selected->path, ctx->path, rule_name);
+                        }
+                }
+        }
+
+        return 0;
+}
+
+static int ruleset_check_conditions(
+                Manager *m,
+                OomdCGroupContext *ctx,
+                struct oom_ruleset *ruleset,
+                const char *rule_name,
+                usec_t usec_now) {
+
+        int r;
+
+        assert(m);
+        assert(ctx);
+        assert(ruleset);
+        assert(rule_name);
+
+        /* Check memory pressure condition */
+        if (ruleset->memory_pressure_above >= 0) {
+                loadavg_t threshold;
+                r = store_loadavg_fixed_point(ruleset->memory_pressure_above / 100LU,
+                                              ruleset->memory_pressure_above % 100LU,
+                                              &threshold);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to convert pressure threshold for rule '%s': %m", rule_name);
+
+                if (ctx->memory_pressure.avg10 <= threshold)
+                        goto reset;
+        }
+
+        /* swap_above means take action when swap usage is above threshold
+         * oomd_swap_free_below returns true when swap free is below threshold
+         * So if swap_above is X%, check if swap free is below (100-X)% */
+        if (ruleset->swap_above >= 0 &&
+            !oomd_swap_free_below(&m->system_context, 10000 - ruleset->swap_above))
+                goto reset;
+
+        /* All conditions met, check if LastingSec requirement is satisfied */
+        usec_t *start_time = hashmap_get(ruleset->start_times, ctx->path);
+        if (!start_time) {
+                /* First time seeing this condition - record the start time */
+                usec_t *new_start_time = new(usec_t, 1);
+                if (!new_start_time)
+                        return log_oom();
+
+                *new_start_time = usec_now;
+
+                r = hashmap_ensure_put(&ruleset->start_times, &string_hash_ops, ctx->path, new_start_time);
+                if (r < 0) {
+                        free(new_start_time);
+                        return log_error_errno(r, "Failed to record start time for rule '%s' on %s: %m",
+                                               rule_name, ctx->path);
+                }
+
+                /* If lasting_usec is 0, take action immediately */
+                if (ruleset->lasting_usec == 0)
+                        return true;
+
+                log_debug("Rule '%s' conditions met for cgroup %s, waiting for %s",
+                          rule_name, ctx->path,
+                          FORMAT_TIMESPAN(ruleset->lasting_usec, USEC_PER_SEC));
+                return false;
+        }
+
+        /* Check if the condition has been true for long enough */
+        usec_t duration = usec_now - *start_time;
+        if (duration >= ruleset->lasting_usec)
+                return true;
+
+        log_debug("Rule '%s' conditions met for cgroup %s for %s (need %s)",
+                  rule_name, ctx->path,
+                  FORMAT_TIMESPAN(duration, USEC_PER_SEC),
+                  FORMAT_TIMESPAN(ruleset->lasting_usec, USEC_PER_SEC));
+        return false;
+
+        usec_t *old_start_time;
+reset:
+        /* Conditions no longer met - remove start time if it exists */
+        old_start_time = hashmap_remove(ruleset->start_times, ctx->path);
+        if (old_start_time) {
+                log_debug("Rule '%s' conditions no longer met for cgroup %s, resetting timer",
+                          rule_name, ctx->path);
+                free(old_start_time);
+        }
+        return false;
+}
+
+static int process_rules_cgroup_context(Manager *m, OomdCGroupContext *ctx, usec_t usec_now) {
+        int r;
+
+        assert(m);
+        assert(ctx);
+
+        if (!ctx->rules)
+                return 0;
+
+        STRV_FOREACH(rule_name, ctx->rules) {
+                struct oom_ruleset *ruleset = hashmap_get(m->rulesets, *rule_name);
+                if (!ruleset) {
+                        log_debug("Rule '%s' not found in rulesets for cgroup %s", *rule_name, ctx->path);
+                        continue;
+                }
+
+                r = ruleset_check_conditions(m, ctx, ruleset, *rule_name, usec_now);
+                if (r < 0)
+                        continue;
+                if (r == 0)
+                        continue;
+
+                r = ruleset_execute_action(m, ctx, ruleset, *rule_name);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int monitor_rules_contexts_handler(sd_event_source *s, uint64_t usec, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        usec_t usec_now;
+        int r;
+
+        assert(s);
+
+        /* Reset timer */
+        r = sd_event_now(sd_event_source_get_event(s), CLOCK_MONOTONIC, &usec_now);
+        if (r < 0)
+                return log_error_errno(r, "Failed to reset event timer: %m");
+
+        r = sd_event_source_set_time_relative(s, RULESETS_INTERVAL_USEC);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set relative time for timer: %m");
+
+        /* Return early if no rules are set */
+        if (hashmap_isempty(m->monitored_rules_cgroup_contexts))
+                return 0;
+
+        /* Acquire system context for checking memory and swap conditions */
+        r = oomd_system_context_acquire("/proc/meminfo", &m->system_context);
+        if (r < 0)
+                return log_error_errno(r, "Failed to acquire system context: %m");
+
+        /* Process each cgroup with rules */
+        OomdCGroupContext *ctx;
+        HASHMAP_FOREACH(ctx, m->monitored_rules_cgroup_contexts) {
+                r = process_rules_cgroup_context(m, ctx, usec_now);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static int monitor_swap_contexts(Manager *m) {
         _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
         int r;
@@ -632,7 +885,34 @@ static int monitor_memory_pressure_contexts(Manager *m) {
         return 0;
 }
 
+static int monitor_rules_contexts(Manager *m) {
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        int r;
+
+        assert(m);
+        assert(m->event);
+
+        r = sd_event_add_time(m->event, &s, CLOCK_MONOTONIC, 0, 0, monitor_rules_contexts_handler, m);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_exit_on_failure(s, true);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_enabled(s, SD_EVENT_ON);
+        if (r < 0)
+                return r;
+
+        (void) sd_event_source_set_description(s, "oomd-rules-timer");
+
+        m->rules_context_event_source = TAKE_PTR(s);
+        return 0;
+}
+
 Manager* manager_free(Manager *m) {
+        struct oom_ruleset *ruleset;
+
         assert(m);
 
         sd_varlink_server_unref(m->varlink_server);
@@ -647,8 +927,16 @@ Manager* manager_free(Manager *m) {
         hashmap_free(m->monitored_swap_cgroup_contexts);
         hashmap_free(m->monitored_mem_pressure_cgroup_contexts);
         hashmap_free(m->monitored_mem_pressure_cgroup_contexts_candidates);
+        hashmap_free(m->monitored_rules_cgroup_contexts);
 
         set_free(m->kill_states);
+
+        HASHMAP_FOREACH(ruleset, m->rulesets) {
+                hashmap_free_free(ruleset->start_times);
+                free((char *) ruleset->name);
+                free(ruleset);
+        }
+        hashmap_free(m->rulesets);
 
         return mfree(m);
 }
@@ -702,6 +990,10 @@ int manager_new(Manager **ret) {
 
         m->monitored_mem_pressure_cgroup_contexts_candidates = hashmap_new(&oomd_cgroup_ctx_hash_ops);
         if (!m->monitored_mem_pressure_cgroup_contexts_candidates)
+                return -ENOMEM;
+
+        m->monitored_rules_cgroup_contexts = hashmap_new(&oomd_cgroup_ctx_hash_ops);
+        if (!m->monitored_rules_cgroup_contexts)
                 return -ENOMEM;
 
         *ret = TAKE_PTR(m);
@@ -810,6 +1102,10 @@ int manager_start(
                 return r;
 
         r = monitor_swap_contexts(m);
+        if (r < 0)
+                return r;
+
+        r = monitor_rules_contexts(m);
         if (r < 0)
                 return r;
 
