@@ -385,7 +385,7 @@ static int varlink_connect_ssh_unix(sd_varlink **ret, const char *where) {
 }
 
 static int varlink_connect_ssh_exec(sd_varlink **ret, const char *where) {
-        _cleanup_close_pair_ int input_pipe[2] = EBADF_PAIR, output_pipe[2] = EBADF_PAIR;
+        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
         _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
         int r;
 
@@ -430,14 +430,12 @@ static int varlink_connect_ssh_exec(sd_varlink **ret, const char *where) {
 
         log_debug("Forking off SSH child process: %s", j);
 
-        if (pipe2(input_pipe, O_CLOEXEC) < 0)
-                return log_debug_errno(errno, "Failed to allocate input pipe: %m");
-        if (pipe2(output_pipe, O_CLOEXEC) < 0)
-                return log_debug_errno(errno, "Failed to allocate output pipe: %m");
+        if (socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, pair) < 0)
+                return log_debug_errno(errno, "Failed to allocate AF_UNIX socket pair: %m");
 
         r = pidref_safe_fork_full(
                         "(sd-vlssh)",
-                        /* stdio_fds= */ (int[]) { input_pipe[0], output_pipe[1], STDERR_FILENO },
+                        /* stdio_fds= */ (int[]) { pair[1], pair[1], STDERR_FILENO },
                         /* except_fds= */ NULL,
                         /* n_except_fds= */ 0,
                         FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REOPEN_LOG|FORK_RLIMIT_NOFILE_SAFE|FORK_REARRANGE_STDIO,
@@ -451,25 +449,19 @@ static int varlink_connect_ssh_exec(sd_varlink **ret, const char *where) {
                 _exit(EXIT_FAILURE);
         }
 
-        input_pipe[0] = safe_close(input_pipe[0]);
-        output_pipe[1] = safe_close(output_pipe[1]);
+        pair[1] = safe_close(pair[1]);
 
-        r = fd_nonblock(input_pipe[1], true);
+        r = fd_nonblock(pair[0], true);
         if (r < 0)
-                return log_debug_errno(r, "Failed to make input pipe non-blocking: %m");
-
-        r = fd_nonblock(output_pipe[0], true);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to make output pipe non-blocking: %m");
+                return log_debug_errno(r, "Failed to enable O_NONBLOCK for varlink socket: %m");
 
         sd_varlink *v;
         r = varlink_new(&v);
         if (r < 0)
                 return log_debug_errno(r, "Failed to create varlink object: %m");
 
-        v->input_fd = TAKE_FD(output_pipe[0]);
-        v->output_fd = TAKE_FD(input_pipe[1]);
-        v->af = AF_UNSPEC;
+        v->output_fd = v->input_fd = TAKE_FD(pair[0]);
+        v->af = AF_UNIX;
         v->exec_pidref = TAKE_PIDREF(pidref);
         varlink_set_state(v, VARLINK_IDLE_CLIENT);
 
