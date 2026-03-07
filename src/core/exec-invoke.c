@@ -2224,10 +2224,10 @@ static int build_environment(
                         _cleanup_free_ char *b = NULL, *x = NULL;
 
                         if (asprintf(&b, "%s " USEC_FMT " " USEC_FMT,
-                                     MEMORY_PRESSURE_DEFAULT_TYPE,
-                                     cgroup_context->memory_pressure_threshold_usec == USEC_INFINITY ? MEMORY_PRESSURE_DEFAULT_THRESHOLD_USEC :
-                                     CLAMP(cgroup_context->memory_pressure_threshold_usec, 1U, MEMORY_PRESSURE_DEFAULT_WINDOW_USEC),
-                                     MEMORY_PRESSURE_DEFAULT_WINDOW_USEC) < 0)
+                                     PRESSURE_DEFAULT_TYPE,
+                                     cgroup_context->memory_pressure_threshold_usec == USEC_INFINITY ? PRESSURE_DEFAULT_THRESHOLD_USEC :
+                                     CLAMP(cgroup_context->memory_pressure_threshold_usec, 1U, PRESSURE_DEFAULT_WINDOW_USEC),
+                                     PRESSURE_DEFAULT_WINDOW_USEC) < 0)
                                 return -ENOMEM;
 
                         if (base64mem(b, strlen(b) + 1, &x) < 0)
