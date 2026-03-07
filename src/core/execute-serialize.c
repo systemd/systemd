@@ -3268,7 +3268,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
 
                                         r = extract_first_word(&val, &options, NULL, EXTRACT_UNQUOTE);
                                         if (r < 0)
-                                                return -r;
+                                                return r;
 
                                         if (isempty(options) || streq(options, "rbind"))
                                                 rbind = true;
@@ -3327,7 +3327,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
 
                                         r = extract_first_word(&val, &options, NULL, EXTRACT_UNQUOTE);
                                         if (r < 0)
-                                                return -r;
+                                                return r;
 
                                         if (isempty(options) || streq(options, "rbind"))
                                                 rbind = true;
