@@ -109,6 +109,8 @@ static int manager_context_build_json(sd_json_variant **ret, const char *name, v
                         SD_JSON_BUILD_PAIR_STRING("DefaultMemoryPressureWatch", cgroup_pressure_watch_to_string(m->defaults.pressure_watch[PRESSURE_MEMORY])),
                         JSON_BUILD_PAIR_FINITE_USEC("DefaultCPUPressureThresholdUSec", m->defaults.pressure_threshold_usec[PRESSURE_CPU]),
                         SD_JSON_BUILD_PAIR_STRING("DefaultCPUPressureWatch", cgroup_pressure_watch_to_string(m->defaults.pressure_watch[PRESSURE_CPU])),
+                        JSON_BUILD_PAIR_FINITE_USEC("DefaultIOPressureThresholdUSec", m->defaults.pressure_threshold_usec[PRESSURE_IO]),
+                        SD_JSON_BUILD_PAIR_STRING("DefaultIOPressureWatch", cgroup_pressure_watch_to_string(m->defaults.pressure_watch[PRESSURE_IO])),
                         JSON_BUILD_PAIR_FINITE_USEC("RuntimeWatchdogUSec", manager_get_watchdog(m, WATCHDOG_RUNTIME)),
                         JSON_BUILD_PAIR_FINITE_USEC("RebootWatchdogUSec", manager_get_watchdog(m, WATCHDOG_REBOOT)),
                         JSON_BUILD_PAIR_FINITE_USEC("KExecWatchdogUSec", manager_get_watchdog(m, WATCHDOG_KEXEC)),

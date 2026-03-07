@@ -372,6 +372,14 @@ static inline bool cgroup_context_want_pressure(const CGroupContext *c, Pressure
                         c->startup_cpu_weight != CGROUP_WEIGHT_INVALID ||
                         c->cpu_quota_per_sec_usec != USEC_INFINITY;
 
+        case PRESSURE_IO:
+                return c->io_accounting ||
+                        c->io_weight != CGROUP_WEIGHT_INVALID ||
+                        c->startup_io_weight != CGROUP_WEIGHT_INVALID ||
+                        c->io_device_weights ||
+                        c->io_device_latencies ||
+                        c->io_device_limits;
+
         default:
                 assert_not_reached();
         }
@@ -473,7 +481,6 @@ int cgroup_runtime_serialize(Unit *u, FILE *f, FDSet *fds);
 int cgroup_runtime_deserialize_one(Unit *u, const char *key, const char *value, FDSet *fds);
 
 DECLARE_STRING_TABLE_LOOKUP(cgroup_pressure_watch, CGroupPressureWatch);
-
 
 DECLARE_STRING_TABLE_LOOKUP(cgroup_device_permissions, CGroupDevicePermissions);
 
