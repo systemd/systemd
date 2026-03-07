@@ -385,7 +385,7 @@ static int varlink_connect_ssh_unix(sd_varlink **ret, const char *where) {
 }
 
 static int varlink_connect_ssh_exec(sd_varlink **ret, const char *where) {
-        _cleanup_close_pair_ int input_pipe[2] = EBADF_PAIR, output_pipe[2] = EBADF_PAIR;
+        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
         _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
         int r;
 
@@ -430,14 +430,12 @@ static int varlink_connect_ssh_exec(sd_varlink **ret, const char *where) {
 
         log_debug("Forking off SSH child process: %s", j);
 
-        if (pipe2(input_pipe, O_CLOEXEC) < 0)
-                return log_debug_errno(errno, "Failed to allocate input pipe: %m");
-        if (pipe2(output_pipe, O_CLOEXEC) < 0)
-                return log_debug_errno(errno, "Failed to allocate output pipe: %m");
+        if (socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, pair) < 0)
+                return log_debug_errno(errno, "Failed to allocate AF_UNIX socket pair: %m");
 
         r = pidref_safe_fork_full(
                         "(sd-vlssh)",
-                        /* stdio_fds= */ (int[]) { input_pipe[0], output_pipe[1], STDERR_FILENO },
+                        /* stdio_fds= */ (int[]) { pair[1], pair[1], STDERR_FILENO },
                         /* except_fds= */ NULL,
                         /* n_except_fds= */ 0,
                         FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REOPEN_LOG|FORK_RLIMIT_NOFILE_SAFE|FORK_REARRANGE_STDIO,
@@ -451,25 +449,19 @@ static int varlink_connect_ssh_exec(sd_varlink **ret, const char *where) {
                 _exit(EXIT_FAILURE);
         }
 
-        input_pipe[0] = safe_close(input_pipe[0]);
-        output_pipe[1] = safe_close(output_pipe[1]);
+        pair[1] = safe_close(pair[1]);
 
-        r = fd_nonblock(input_pipe[1], true);
+        r = fd_nonblock(pair[0], true);
         if (r < 0)
-                return log_debug_errno(r, "Failed to make input pipe non-blocking: %m");
-
-        r = fd_nonblock(output_pipe[0], true);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to make output pipe non-blocking: %m");
+                return log_debug_errno(r, "Failed to enable O_NONBLOCK for varlink socket: %m");
 
         sd_varlink *v;
         r = varlink_new(&v);
         if (r < 0)
                 return log_debug_errno(r, "Failed to create varlink object: %m");
 
-        v->input_fd = TAKE_FD(output_pipe[0]);
-        v->output_fd = TAKE_FD(input_pipe[1]);
-        v->af = AF_UNSPEC;
+        v->output_fd = v->input_fd = TAKE_FD(pair[0]);
+        v->af = AF_UNIX;
         v->exec_pidref = TAKE_PIDREF(pidref);
         varlink_set_state(v, VARLINK_IDLE_CLIENT);
 
@@ -895,6 +887,10 @@ static int varlink_read(sd_varlink *v) {
 
         p = v->input_buffer + v->input_buffer_index + v->input_buffer_size;
         rs = MALLOC_SIZEOF_SAFE(v->input_buffer) - (v->input_buffer_index + v->input_buffer_size);
+
+        /* When a protocol upgrade is requested we can't consume any post-upgrade data from the socket buffer */
+        if (v->protocol_upgrade)
+                rs = 1;
 
         if (v->allow_fd_passing_input > 0) {
                 iov = IOVEC_MAKE(p, rs);
@@ -1493,7 +1489,7 @@ static int varlink_dispatch_method(sd_varlink *v) {
 
                 } else if (streq(k, "oneway")) {
 
-                        if ((flags & (SD_VARLINK_METHOD_ONEWAY|SD_VARLINK_METHOD_MORE)) != 0)
+                        if ((flags & (SD_VARLINK_METHOD_ONEWAY|SD_VARLINK_METHOD_MORE|SD_VARLINK_METHOD_UPGRADE)) != 0)
                                 goto invalid;
 
                         if (!sd_json_variant_is_boolean(e))
@@ -1504,7 +1500,7 @@ static int varlink_dispatch_method(sd_varlink *v) {
 
                 } else if (streq(k, "more")) {
 
-                        if ((flags & (SD_VARLINK_METHOD_ONEWAY|SD_VARLINK_METHOD_MORE)) != 0)
+                        if ((flags & (SD_VARLINK_METHOD_ONEWAY|SD_VARLINK_METHOD_MORE|SD_VARLINK_METHOD_UPGRADE)) != 0)
                                 goto invalid;
 
                         if (!sd_json_variant_is_boolean(e))
@@ -1512,6 +1508,17 @@ static int varlink_dispatch_method(sd_varlink *v) {
 
                         if (sd_json_variant_boolean(e))
                                 flags |= SD_VARLINK_METHOD_MORE;
+
+                } else if (streq(k, "upgrade")) {
+
+                        if ((flags & (SD_VARLINK_METHOD_ONEWAY|SD_VARLINK_METHOD_MORE|SD_VARLINK_METHOD_UPGRADE)) != 0)
+                                goto invalid;
+
+                        if (!sd_json_variant_is_boolean(e))
+                                goto invalid;
+
+                        if (sd_json_variant_boolean(e))
+                                flags |= SD_VARLINK_METHOD_UPGRADE;
 
                 } else
                         goto invalid;
@@ -2256,19 +2263,12 @@ _public_ int sd_varlink_observeb(sd_varlink *v, const char *method, ...) {
         return sd_varlink_observe(v, method, parameters);
 }
 
-_public_ int sd_varlink_call_full(
-                sd_varlink *v,
-                const char *method,
-                sd_json_variant *parameters,
-                sd_json_variant **ret_parameters,
-                const char **ret_error_id,
-                sd_varlink_reply_flags_t *ret_flags) {
-
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
+/* On success v->state will be in VARLINK_CALLED, the caller is responsible to adjust the state further if
+ * needed */
+static int varlink_call_sync(sd_varlink *v, sd_json_variant *request) {
         int r;
 
-        assert_return(v, -EINVAL);
-        assert_return(method, -EINVAL);
+        assert(v);
 
         if (v->state == VARLINK_DISCONNECTED)
                 return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
@@ -2281,14 +2281,7 @@ _public_ int sd_varlink_call_full(
          * that we can assign a new reply shortly. */
         varlink_clear_current(v);
 
-        r = sd_json_buildo(
-                        &m,
-                        SD_JSON_BUILD_PAIR_STRING("method", method),
-                        JSON_BUILD_PAIR_VARIANT_NON_EMPTY("parameters", parameters));
-        if (r < 0)
-                return varlink_log_errno(v, r, "Failed to build json message: %m");
-
-        r = varlink_enqueue_json(v, m);
+        r = varlink_enqueue_json(v, request);
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
 
@@ -2310,29 +2303,9 @@ _public_ int sd_varlink_call_full(
 
         switch (v->state) {
 
-        case VARLINK_CALLED: {
+        case VARLINK_CALLED:
                 assert(v->current);
-
-                varlink_set_state(v, VARLINK_IDLE_CLIENT);
-                assert(v->n_pending == 1);
-                v->n_pending--;
-
-                sd_json_variant *e = sd_json_variant_by_key(v->current, "error"),
-                        *p = sd_json_variant_by_key(v->current, "parameters");
-
-                /* If caller doesn't ask for the error string, then let's return an error code in case of failure */
-                if (!ret_error_id && e)
-                        return sd_varlink_error_to_errno(sd_json_variant_string(e), p);
-
-                if (ret_parameters)
-                        *ret_parameters = p;
-                if (ret_error_id)
-                        *ret_error_id = e ? sd_json_variant_string(e) : NULL;
-                if (ret_flags)
-                        *ret_flags = v->current_reply_flags;
-
-                return 1;
-        }
+                return 0;
 
         case VARLINK_PENDING_DISCONNECT:
         case VARLINK_DISCONNECTED:
@@ -2346,6 +2319,52 @@ _public_ int sd_varlink_call_full(
         }
 }
 
+_public_ int sd_varlink_call_full(
+                sd_varlink *v,
+                const char *method,
+                sd_json_variant *parameters,
+                sd_json_variant **ret_parameters,
+                const char **ret_error_id,
+                sd_varlink_reply_flags_t *ret_flags) {
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
+        int r;
+
+        assert_return(v, -EINVAL);
+        assert_return(method, -EINVAL);
+
+        r = sd_json_buildo(
+                        &m,
+                        SD_JSON_BUILD_PAIR_STRING("method", method),
+                        JSON_BUILD_PAIR_VARIANT_NON_EMPTY("parameters", parameters));
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to build json message: %m");
+
+        r = varlink_call_sync(v, m);
+        if (r < 0)
+                return r;
+
+        varlink_set_state(v, VARLINK_IDLE_CLIENT);
+        assert(v->n_pending == 1);
+        v->n_pending--;
+
+        sd_json_variant *e = sd_json_variant_by_key(v->current, "error"),
+                *p = sd_json_variant_by_key(v->current, "parameters");
+
+        /* If caller doesn't ask for the error string, then let's return an error code in case of failure */
+        if (!ret_error_id && e)
+                return sd_varlink_error_to_errno(sd_json_variant_string(e), p);
+
+        if (ret_parameters)
+                *ret_parameters = p;
+        if (ret_error_id)
+                *ret_error_id = e ? sd_json_variant_string(e) : NULL;
+        if (ret_flags)
+                *ret_flags = v->current_reply_flags;
+
+        return 1;
+}
+
 _public_ int sd_varlink_call(
                 sd_varlink *v,
                 const char *method,
@@ -2354,6 +2373,69 @@ _public_ int sd_varlink_call(
                 const char **ret_error_id) {
 
         return sd_varlink_call_full(v, method, parameters, ret_parameters, ret_error_id, NULL);
+}
+
+_public_ int sd_varlink_call_and_upgrade(
+                sd_varlink *v,
+                const char *method,
+                sd_json_variant *parameters,
+                sd_json_variant **ret_parameters,
+                const char **ret_error_id,
+                int *ret_fd) {
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
+        int r;
+
+        assert_return(v, -EINVAL);
+        assert_return(method, -EINVAL);
+        assert_return(ret_fd, -EINVAL);
+
+        /* Protocol upgrade steals the connection fd for raw I/O, which only works with a single
+         * bidirectional socket, not a pipe pair. */
+        if (v->input_fd != v->output_fd)
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(EBADF),
+                                         "Protocol upgrade requires a bidirectional socket, not a pipe pair. Use sd_varlink_connect_fd() or a socket-based transport.");
+
+        r = sd_json_buildo(
+                        &m,
+                        SD_JSON_BUILD_PAIR_STRING("method", method),
+                        JSON_BUILD_PAIR_VARIANT_NON_EMPTY("parameters", parameters),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("upgrade", true));
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to build json message: %m");
+
+        v->protocol_upgrade = true;
+        r = varlink_call_sync(v, m);
+        if (r < 0)
+                return r;
+
+        /* ensure we did not consume any data from the upgraded protocol */
+        assert(v->input_buffer_size == 0);
+
+        sd_json_variant *e = sd_json_variant_by_key(v->current, "error"),
+                *p = sd_json_variant_by_key(v->current, "parameters");
+
+        /* If caller doesn't ask for the error string, then let's return an error code in case of failure */
+        if (!ret_error_id && e) {
+                varlink_set_state(v, VARLINK_IDLE_CLIENT);
+                assert(v->n_pending == 1);
+                v->n_pending--;
+                return sd_varlink_error_to_errno(sd_json_variant_string(e), p);
+        }
+
+        /* Pass the connection fd to the caller, it owns it now */
+        *ret_fd = v->input_fd;
+        v->input_fd = v->output_fd = -EBADF;
+
+        varlink_set_state(v, VARLINK_DISCONNECTED);
+        v->n_pending--;
+
+        if (ret_parameters)
+                *ret_parameters = p;
+        if (ret_error_id)
+                *ret_error_id = e ? sd_json_variant_string(e) : NULL;
+
+        return 1;
 }
 
 _public_ int sd_varlink_callb_ap(

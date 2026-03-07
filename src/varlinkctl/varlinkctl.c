@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
+#include <poll.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -16,6 +17,7 @@
 #include "fileio.h"
 #include "format-table.h"
 #include "format-util.h"
+#include "io-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "memfd-util.h"
@@ -52,6 +54,7 @@ static bool arg_quiet = false;
 static char **arg_graceful = NULL;
 static usec_t arg_timeout = 0;
 static bool arg_exec = false;
+static bool arg_upgrade = false;
 static PushFds arg_push_fds = {};
 static bool arg_ask_password = true;
 static bool arg_legend = true;
@@ -111,6 +114,8 @@ static int help(void) {
                "     --graceful=ERROR    Treat specified Varlink error as success\n"
                "     --timeout=SECS      Maximum time to wait for method call completion\n"
                "  -E                     Short for --more --timeout=infinity\n"
+               "     --upgrade           Request protocol upgrade (connection becomes raw\n"
+               "                         bidirectional pipe on stdin/stdout after reply)\n"
                "     --push-fd=FD        Pass the specified fd along with method call\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
@@ -139,6 +144,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_GRACEFUL,
                 ARG_TIMEOUT,
                 ARG_EXEC,
+                ARG_UPGRADE,
                 ARG_PUSH_FD,
                 ARG_NO_ASK_PASSWORD,
                 ARG_USER,
@@ -157,6 +163,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "graceful",        required_argument, NULL, ARG_GRACEFUL        },
                 { "timeout",         required_argument, NULL, ARG_TIMEOUT         },
                 { "exec",            no_argument,       NULL, ARG_EXEC            },
+                { "upgrade",         no_argument,       NULL, ARG_UPGRADE         },
                 { "push-fd",         required_argument, NULL, ARG_PUSH_FD         },
                 { "no-ask-password", no_argument,       NULL, ARG_NO_ASK_PASSWORD },
                 { "user",            no_argument,       NULL, ARG_USER            },
@@ -243,6 +250,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_EXEC:
                         arg_exec = true;
+                        break;
+
+                case ARG_UPGRADE:
+                        arg_upgrade = true;
                         break;
 
                 case ARG_PUSH_FD: {
@@ -634,6 +645,76 @@ static int reply_callback(
         return r;
 }
 
+static int verb_call_upgrade(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        _cleanup_free_ uint8_t *buf = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        const char *url, *method;
+        int r;
+
+        url = argv[1];
+        method = argv[2];
+
+        r = varlink_connect_auto(&vl, url);
+        if (r < 0)
+                return r;
+
+        r = sd_varlink_call_and_upgrade(vl, method, NULL, NULL, NULL, &fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to upgrade connection via %s(): %m", method);
+
+        /* Connection is now upgraded — bidirectional proxy between stdin/stdout and socket */
+        buf = new(uint8_t, 64U * U64_KB); /* 64KB, like copy.c */
+        if (!buf)
+                return log_oom();
+
+        struct pollfd pfds[2] = {
+                { .fd = STDIN_FILENO, .events = POLLIN },
+                { .fd = fd,           .events = POLLIN },
+        };
+
+        for (;;) {
+                if (pfds[0].fd < 0 && pfds[1].fd < 0)
+                        break;
+
+                r = poll(pfds, 2, -1);
+                if (r < 0) {
+                        if (errno == EINTR)
+                                continue;
+                        return log_error_errno(errno, "poll() failed: %m");
+                }
+
+                if (pfds[0].revents & (POLLIN|POLLHUP)) {
+                        ssize_t n = read(STDIN_FILENO, buf, MALLOC_SIZEOF_SAFE(buf));
+                        if (n < 0 && errno == EINTR)
+                                continue;
+                        if (n <= 0) {
+                                pfds[0].fd = -1;
+                                shutdown(fd, SHUT_WR);
+                                continue;
+                        }
+                        r = loop_write(fd, buf, n);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to write to upgraded connection: %m");
+                }
+
+                if (pfds[1].revents & (POLLIN|POLLHUP)) {
+                        ssize_t n = read(fd, buf, MALLOC_SIZEOF_SAFE(buf));
+                        if (n < 0 && errno == EINTR)
+                                continue;
+                        if (n <= 0) {
+                                pfds[1].fd = -1;
+                                continue;
+                        }
+                        r = loop_write(STDOUT_FILENO, buf, n);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to write to stdout: %m");
+                }
+        }
+
+        return 0;
+}
+
 static int verb_call(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *jp = NULL;
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
@@ -650,6 +731,13 @@ static int verb_call(int argc, char *argv[], void *userdata) {
 
         if (arg_exec && (arg_collect || (arg_method_flags & (SD_VARLINK_METHOD_ONEWAY|SD_VARLINK_METHOD_MORE))) != 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--exec and --collect/--more/--oneway may not be combined.");
+
+        if (arg_upgrade) {
+                if (arg_exec || arg_collect || arg_method_flags != 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--upgrade may not be combined with --exec/--collect/--more/--oneway.");
+
+                return verb_call_upgrade(argc, argv, userdata);
+        }
 
         (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
