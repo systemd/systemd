@@ -12,14 +12,6 @@
 #define RANDOM_MAX_SIZE_MIN (32U)
 #define RANDOM_MAX_SIZE_MAX (32U*1024U)
 
-struct linux_efi_random_seed {
-        uint32_t size;
-        uint8_t seed[];
-};
-
-#define LINUX_EFI_RANDOM_SEED_TABLE_GUID \
-        { 0x1ce1e5bc, 0x7ceb, 0x42f2, { 0x81, 0xe5, 0x8a, 0xad, 0xf1, 0x80, 0xf5, 0x7b } }
-
 /* SHA256 gives us 256/8=32 bytes */
 #define HASH_VALUE_SIZE 32
 
