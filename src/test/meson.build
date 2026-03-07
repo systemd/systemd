@@ -326,6 +326,9 @@ executables += [
                 'sources' : files('test-errno-list.c') +
                             generated_gperf_headers,
         },
+        core_test_template + {
+                'sources' : files('test-execute-serialize.c'),
+        },
         test_template + {
                 'sources' : files('test-fd-util.c'),
                 'dependencies' : libseccomp_cflags,
