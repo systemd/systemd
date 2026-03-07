@@ -43,6 +43,11 @@ typedef struct PressureResourceInfo {
 
 extern const PressureResourceInfo pressure_resource_info[_PRESSURE_RESOURCE_MAX];
 
+static inline const PressureResourceInfo* pressure_resource_get_info(PressureResource resource) {
+        assert(resource >= 0 && resource < _PRESSURE_RESOURCE_MAX);
+        return &pressure_resource_info[resource];
+}
+
 DECLARE_STRING_TABLE_LOOKUP(pressure_resource, PressureResource);
 
 /* Default parameters for pressure watch logic in sd-event and PID 1 */

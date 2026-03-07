@@ -78,6 +78,8 @@
 #DefaultLimitRTTIME=
 #DefaultMemoryPressureThresholdSec=200ms
 #DefaultMemoryPressureWatch=auto
+#DefaultCPUPressureThresholdSec=200ms
+#DefaultCPUPressureWatch=auto
 #DefaultOOMPolicy=stop
 #DefaultSmackProcessLabel=
 #DefaultRestrictSUIDSGID=

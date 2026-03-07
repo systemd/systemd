@@ -1949,8 +1949,7 @@ static int event_add_pressure(
         assert_return(e->state != SD_EVENT_FINISHED, -ESTALE);
         assert_return(!event_origin_changed(e), -ECHILD);
 
-        assert(resource >= 0 && resource < _PRESSURE_RESOURCE_MAX);
-        const PressureResourceInfo *info = &pressure_resource_info[resource];
+        const PressureResourceInfo *info = pressure_resource_get_info(resource);
 
         if (!callback)
                 callback = default_callback;
