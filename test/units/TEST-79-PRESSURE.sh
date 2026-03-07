@@ -13,7 +13,7 @@ if ! cat /proc/pressure/memory >/dev/null ; then
     exit 0
 fi
 
-CGROUP=/sys/fs/cgroup/"$(systemctl show TEST-79-MEMPRESS.service -P ControlGroup)"
+CGROUP=/sys/fs/cgroup/"$(systemctl show TEST-79-PRESSURE.service -P ControlGroup)"
 test -d "$CGROUP"
 
 if ! test -f "$CGROUP"/memory.pressure ; then
@@ -54,6 +54,59 @@ systemd-run \
     -p DynamicUser=1 \
     -p MemoryPressureWatch=on \
     -p MemoryPressureThresholdSec=123ms \
+    -p BindPaths=$SCRIPT \
+    `# Make sanitizers happy when DynamicUser=1 pulls in instrumented systemd NSS modules` \
+    -p EnvironmentFile=-/usr/lib/systemd/systemd-asan-env \
+    --wait "$SCRIPT"
+
+rm "$SCRIPT"
+
+# Now test CPU pressure
+
+if ! cat /proc/pressure/cpu >/dev/null ; then
+    echo "kernel has no CPU PSI support." >&2
+    echo OK >/testok
+    exit 0
+fi
+
+if ! test -f "$CGROUP"/cpu.pressure ; then
+    echo "No CPU accounting/PSI delegated via cgroup, can't test." >&2
+    echo OK >/testok
+    exit 0
+fi
+
+UNIT="test-cpupress-$RANDOM.service"
+SCRIPT="/tmp/cpupress-$RANDOM.sh"
+
+cat >"$SCRIPT" <<'EOF'
+#!/usr/bin/env bash
+
+set -ex
+
+export
+id
+
+test -n "$CPU_PRESSURE_WATCH"
+test "$CPU_PRESSURE_WATCH" != /dev/null
+test -w "$CPU_PRESSURE_WATCH"
+
+ls -al "$CPU_PRESSURE_WATCH"
+
+EXPECTED="$(echo -n -e "some 123000 2000000\x00" | base64)"
+
+test "$EXPECTED" = "$CPU_PRESSURE_WRITE"
+
+EOF
+
+chmod +x "$SCRIPT"
+
+systemd-run \
+    -u "$UNIT" \
+    -p Type=exec \
+    -p ProtectControlGroups=1 \
+    -p DynamicUser=1 \
+    -p CPUPressureWatch=on \
+    -p CPUPressureThresholdSec=123ms \
     -p BindPaths=$SCRIPT \
     `# Make sanitizers happy when DynamicUser=1 pulls in instrumented systemd NSS modules` \
     -p EnvironmentFile=-/usr/lib/systemd/systemd-asan-env \
