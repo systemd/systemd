@@ -1628,7 +1628,7 @@ DeviceAllow=/dev/loop-control
         <para>Note that services are free to use the two environment variables, but it is unproblematic if
         they ignore them. Memory pressure handling must be implemented individually in each service, and
         usually means different things for different software. For further details on memory pressure
-        handling see <ulink url="https://systemd.io/MEMORY_PRESSURE">Memory Pressure Handling in
+        handling see <ulink url="https://systemd.io/PRESSURE">Resource Pressure Handling in
         systemd</ulink>.</para>
 
         <para>Services implemented using
