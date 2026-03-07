@@ -1096,4 +1096,7 @@ global:
         sd_varlink_call_and_upgrade;
         sd_varlink_reply_and_upgrade;
         sd_varlink_set_sentinel;
+        sd_event_add_cpu_pressure;
+        sd_event_source_set_cpu_pressure_type;
+        sd_event_source_set_cpu_pressure_period;
 } LIBSYSTEMD_260;
