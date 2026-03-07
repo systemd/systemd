@@ -2384,6 +2384,7 @@ static const BusProperty cgroup_properties[] = {
         { "ManagedOOMPreference",                  bus_append_string                             },
         { "MemoryPressureWatch",                   bus_append_string                             },
         { "CPUPressureWatch",                      bus_append_string                             },
+        { "IOPressureWatch",                       bus_append_string                             },
         { "DelegateSubgroup",                      bus_append_string                             },
         { "ManagedOOMMemoryPressureLimit",         bus_append_parse_permyriad                    },
         { "MemoryAccounting",                      bus_append_parse_boolean                      },
@@ -2423,6 +2424,7 @@ static const BusProperty cgroup_properties[] = {
         { "SocketBindDeny",                        bus_append_socket_filter                      },
         { "MemoryPressureThresholdSec",            bus_append_parse_sec_rename                   },
         { "CPUPressureThresholdSec",               bus_append_parse_sec_rename                   },
+        { "IOPressureThresholdSec",                bus_append_parse_sec_rename                   },
         { "NFTSet",                                bus_append_nft_set                            },
         { "BindNetworkInterface",                  bus_append_string                             },
 
