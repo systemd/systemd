@@ -3521,7 +3521,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         r = extract_first_word(&val,
                                                &source,
                                                NULL,
-                                               EXTRACT_UNQUOTE|EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS);
+                                               EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_SEPARATORS);
                         if (r < 0)
                                 return r;
                         if (r == 0)
