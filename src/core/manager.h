@@ -149,8 +149,7 @@ typedef struct UnitDefaults {
 
         bool memory_zswap_writeback;
 
-        CGroupPressureWatch memory_pressure_watch;
-        usec_t memory_pressure_threshold_usec;
+        CGroupPressure pressure[_PRESSURE_RESOURCE_MAX];
 
         char *smack_process_label;
 
@@ -481,7 +480,7 @@ typedef struct Manager {
         /* Dump*() are slow, so always rate limit them to 10 per 10 minutes */
         RateLimit dump_ratelimit;
 
-        sd_event_source *memory_pressure_event_source;
+        sd_event_source *pressure_event_source[_PRESSURE_RESOURCE_MAX];
 
         /* For NFTSet= */
         sd_netlink *nfnl;
@@ -562,7 +561,7 @@ void manager_unwatch_pidref(Manager *m, const PidRef *pid);
 
 unsigned manager_dispatch_load_queue(Manager *m);
 
-int manager_setup_memory_pressure_event_source(Manager *m);
+int manager_setup_pressure_event_source(Manager *m, PressureResource t);
 
 int manager_default_environment(Manager *m);
 int manager_transient_environment_add(Manager *m, char **plus);
