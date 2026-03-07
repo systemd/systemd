@@ -635,7 +635,7 @@ static int pid_notify_with_fds_internal(
         }
 
         if (DEBUG_LOGGING) {
-                _cleanup_free_ char *escaped = xescape_full(state, "\"", /* console_width = */ SIZE_MAX, XESCAPE_8_BIT);
+                _cleanup_free_ char *escaped = shell_escape(state, "\"");
                 log_debug("Notify message sent to '%s': \"%s\"", e, escaped ?: state);
         }
 
