@@ -2368,7 +2368,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 return log_oom();
 
         _cleanup_(unlink_and_freep) char *ovmf_vars_to = NULL;
-        if (ovmf_config->supports_sb) {
+        if (ovmf_config->vars) {
                 const char *ovmf_vars_from = ovmf_config->vars;
                 _cleanup_free_ char *escaped_ovmf_vars_to = NULL;
                 _cleanup_close_ int source_fd = -EBADF, target_fd = -EBADF;
