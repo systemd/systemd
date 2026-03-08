@@ -91,7 +91,7 @@ foreach dirname : [
         'TEST-74-AUX-UTILS',
         'TEST-75-RESOLVED',
         'TEST-78-SIGQUEUE',
-        'TEST-79-MEMPRESS',
+        'TEST-79-PRESSURE',
         'TEST-80-NOTIFYACCESS',
         'TEST-81-GENERATORS',
         'TEST-82-SOFTREBOOT',
