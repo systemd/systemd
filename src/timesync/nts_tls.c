@@ -101,6 +101,7 @@ ssize_t NTS_TLS_read(NTS_TLS *session, void *buffer, size_t size) {
 
 void NTS_TLS_close(NTS_TLS **session) {
         assert(session);
+        assert(*session);
 
         SSL *tls = (SSL*) *session;
         *session = NULL;

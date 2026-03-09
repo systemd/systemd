@@ -4,7 +4,9 @@
 #include <openssl/evp.h>
 #include <openssl/opensslv.h>
 
+#include "crypto-util.h"
 #include "nts_crypto.h"
+#include "ssl-util.h"
 #include "timesyncd-forward.h"
 
 #if !OPENSSL_VERSION_PREREQ(3,0)
@@ -102,8 +104,8 @@ int NTS_encrypt(uint8_t *ctxt,
         assert(aead);
         assert(key);
 
-        EVP_CIPHER *cipher = NULL;
-        EVP_CIPHER_CTX *state = EVP_CIPHER_CTX_new();
+        _cleanup_(EVP_CIPHER_freep) EVP_CIPHER *cipher = NULL;
+        _cleanup_(EVP_CIPHER_CTX_freep) EVP_CIPHER_CTX *state = EVP_CIPHER_CTX_new();
         if (!state)
                 goto exit;
 
@@ -154,8 +156,6 @@ int NTS_encrypt(uint8_t *ctxt,
 
         bytes_encrypted = ptxt_len + aead->block_size;
 exit:
-        EVP_CIPHER_CTX_free(state);
-        EVP_CIPHER_free(cipher);
         return bytes_encrypted;
 }
 
@@ -179,8 +179,8 @@ int NTS_decrypt(uint8_t *ptxt,
         assert(aead);
         assert(key);
 
-        EVP_CIPHER *cipher = NULL;
-        EVP_CIPHER_CTX *state = EVP_CIPHER_CTX_new();
+        _cleanup_(EVP_CIPHER_freep) EVP_CIPHER *cipher = NULL;
+        _cleanup_(EVP_CIPHER_CTX_freep) EVP_CIPHER_CTX *state = EVP_CIPHER_CTX_new();
         if (!state)
                 goto exit;
 
@@ -235,7 +235,5 @@ int NTS_decrypt(uint8_t *ptxt,
 
         bytes_decrypted = ctxt_len;
 exit:
-        EVP_CIPHER_CTX_free(state);
-        EVP_CIPHER_free(cipher);
         return bytes_decrypted;
 }
