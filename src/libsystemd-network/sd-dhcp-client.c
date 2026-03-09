@@ -57,7 +57,6 @@ struct sd_dhcp_client {
 
         sd_device *dev;
 
-        int fd;
         uint16_t port;
         uint16_t server_port;
         union sockaddr_union link;
@@ -707,8 +706,6 @@ static void client_initialize(sd_dhcp_client *client) {
 
         client->receive_message = sd_event_source_disable_unref(client->receive_message);
 
-        client->fd = safe_close(client->fd);
-
         (void) event_source_disable(client->timeout_resend);
         (void) event_source_disable(client->timeout_t1);
         (void) event_source_disable(client->timeout_t2);
@@ -743,6 +740,192 @@ static void client_stop(sd_dhcp_client *client, int error) {
         }
 
         client_initialize(client);
+}
+
+static int client_acquire_socket(sd_dhcp_client *client, int type, int *ret_fd_close) {
+        int r;
+
+        assert(client);
+        assert(IN_SET(type, SOCK_RAW, SOCK_DGRAM));
+        assert(ret_fd_close);
+
+        /* This returns a socket fd of the requested type. When we already have it, then it is simply
+         * returned. If we do not have it, then new socket is opened and the same fd is set to
+         * ret_fd_close. */
+
+        if (client->receive_message) {
+                int fd = sd_event_source_get_io_fd(client->receive_message);
+                if (fd < 0)
+                        return fd;
+
+                int t;
+                r = getsockopt_int(fd, SOL_SOCKET, SO_TYPE, &t);
+                if (r < 0)
+                        return r;
+
+                /* Note, here we only check the socket type, and do not check other configurations.
+                 * Especially, the bound address for UDP socket is not checked. Hence, if an address is
+                 * changed, we need to disable and unref the IO event source. */
+
+                if (t == type) {
+                        *ret_fd_close = -EBADF;
+                        return fd;
+                }
+        }
+
+        switch (type) {
+        case SOCK_RAW:
+                r = dhcp_network_bind_raw_socket(
+                                client->ifindex,
+                                &client->link,
+                                client->xid,
+                                &client->hw_addr,
+                                &client->bcast_addr,
+                                client->arp_type,
+                                client->port,
+                                client->socket_priority_set,
+                                client->socket_priority);
+                break;
+        case SOCK_DGRAM:
+                if (!client->lease || client->lease->address == 0)
+                        return -EADDRNOTAVAIL;
+
+                r = dhcp_network_bind_udp_socket(
+                                client->ifindex,
+                                client->lease->address,
+                                client->port,
+                                client->ip_service_type);
+                break;
+        default:
+                assert_not_reached();
+        }
+        if (r < 0)
+                return r;
+
+        *ret_fd_close = r;
+        return r;
+}
+
+static int client_initialize_io_event(
+                sd_dhcp_client *client,
+                int fd,
+                sd_event_io_handler_t callback,
+                const char *description) {
+
+        int r;
+
+        assert(client);
+        assert(fd >= 0);
+        assert(callback);
+        assert(description);
+
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        r = sd_event_add_io(client->event, &s, fd, EPOLLIN, callback, client);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_priority(s, client->event_priority);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_description(s, description);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_io_fd_own(s, true);
+        if (r < 0)
+                return r;
+
+        sd_event_source_disable_unref(client->receive_message);
+        client->receive_message = TAKE_PTR(s);
+        return 0;
+}
+
+static int client_send_raw(
+                sd_dhcp_client *client,
+                bool expect_reply,
+                DHCPPacket *packet,
+                size_t optoffset) {
+
+        int r;
+
+        assert(client);
+        assert(packet);
+
+        _cleanup_close_ int fd_close = -EBADF;
+        int fd = client_acquire_socket(client, SOCK_RAW, &fd_close);
+        if (fd < 0)
+                return fd;
+
+        dhcp_packet_append_ip_headers(
+                        packet,
+                        INADDR_ANY,
+                        client->port,
+                        INADDR_BROADCAST,
+                        client->server_port,
+                        sizeof(DHCPPacket) + optoffset,
+                        client->ip_service_type);
+
+        r = dhcp_network_send_raw_socket(
+                        fd,
+                        &client->link,
+                        packet,
+                        sizeof(DHCPPacket) + optoffset);
+        if (r < 0)
+                return r;
+
+        if (!expect_reply)
+                return 0; /* We do not expect any replies, not necessary to setup an IO event source. */
+
+        if (fd_close < 0)
+                return 0; /* We already have an IO event source, and the fd is owned by the event source. */
+
+        r = client_initialize_io_event(client, fd, client_receive_message_raw, "dhcp4-receive-message-raw");
+        if (r < 0)
+                return r;
+
+        TAKE_FD(fd_close);
+        return 0;
+}
+
+static int client_send_udp(
+                sd_dhcp_client *client,
+                bool expect_reply,
+                DHCPPacket *packet,
+                size_t optoffset) {
+
+        int r;
+
+        assert(client);
+        assert(client->lease);
+        assert(packet);
+
+        _cleanup_close_ int fd_close = -EBADF;
+        int fd = client_acquire_socket(client, SOCK_DGRAM, &fd_close);
+        if (fd < 0)
+                return fd;
+
+        r = dhcp_network_send_udp_socket(
+                        fd,
+                        client->lease->server_address,
+                        client->server_port,
+                        &packet->dhcp,
+                        sizeof(DHCPMessage) + optoffset);
+        if (r < 0)
+                return r;
+
+        if (!expect_reply)
+                return 0; /* We do not expect any replies, not necessary to setup an IO event source. */
+
+        if (fd_close < 0)
+                return 0; /* We already have an IO event source, and the fd is owned by the event source. */
+
+        r = client_initialize_io_event(client, fd, client_receive_message_udp, "dhcp4-receive-message-udp");
+        if (r < 0)
+                return r;
+
+        TAKE_FD(fd_close);
+        return 0;
 }
 
 /* RFC2131 section 4.1:
@@ -960,18 +1143,6 @@ static int client_append_fqdn_option(
         return r;
 }
 
-static int dhcp_client_send_raw(
-                sd_dhcp_client *client,
-                DHCPPacket *packet,
-                size_t len) {
-
-        dhcp_packet_append_ip_headers(packet, INADDR_ANY, client->port,
-                                      INADDR_BROADCAST, client->server_port, len, client->ip_service_type);
-
-        return dhcp_network_send_raw_socket(client->fd, &client->link,
-                                            packet, len);
-}
-
 static int client_append_common_discover_request_options(sd_dhcp_client *client, DHCPPacket *packet, size_t *optoffset, size_t optlen) {
         sd_dhcp_option *j;
         int r;
@@ -1087,7 +1258,7 @@ static int client_send_dhcp_discover(sd_dhcp_client *client) {
         if (r < 0)
                 return r;
 
-        r = dhcp_client_send_raw(client, discover, sizeof(DHCPPacket) + optoffset);
+        r = client_send_raw(client, /* expect_reply= */ true, discover, optoffset);
         if (r < 0)
                 return r;
 
@@ -1125,7 +1296,7 @@ static int client_send_bootp_discover(sd_dhcp_client *client) {
                 optoffset = 60;
         }
 
-        r = dhcp_client_send_raw(client, discover, sizeof(DHCPPacket) + optoffset);
+        r = client_send_raw(client, /* expect_reply= */ true, discover, optoffset);
         if (r < 0)
                 return r;
 
@@ -1218,13 +1389,9 @@ static int client_send_request(sd_dhcp_client *client) {
                 return r;
 
         if (client->state == DHCP_STATE_RENEWING)
-                r = dhcp_network_send_udp_socket(client->fd,
-                                                 client->lease->server_address,
-                                                 client->server_port,
-                                                 &request->dhcp,
-                                                 sizeof(DHCPMessage) + optoffset);
+                r = client_send_udp(client, /* expect_reply= */ true, request, optoffset);
         else
-                r = dhcp_client_send_raw(client, request, sizeof(DHCPPacket) + optoffset);
+                r = client_send_raw(client, /* expect_reply= */ true, request, optoffset);
         if (r < 0)
                 return r;
 
@@ -1393,40 +1560,8 @@ error:
         return 0;
 }
 
-static int client_initialize_io_events(
-                sd_dhcp_client *client,
-                sd_event_io_handler_t io_callback) {
-
-        int r;
-
-        assert(client);
-        assert(client->event);
-
-        r = sd_event_add_io(client->event, &client->receive_message,
-                            client->fd, EPOLLIN, io_callback,
-                            client);
-        if (r < 0)
-                goto error;
-
-        r = sd_event_source_set_priority(client->receive_message,
-                                         client->event_priority);
-        if (r < 0)
-                goto error;
-
-        r = sd_event_source_set_description(client->receive_message, "dhcp4-receive-message");
-        if (r < 0)
-                goto error;
-
-error:
-        if (r < 0)
-                client_stop(client, r);
-
-        return 0;
-}
-
 static int client_initialize_time_events(sd_dhcp_client *client) {
         usec_t usec = 0;
-        int r;
 
         assert(client);
         assert(client->event);
@@ -1438,52 +1573,34 @@ static int client_initialize_time_events(sd_dhcp_client *client) {
                 usec = usec_add(usec, client->start_delay);
         }
 
-        r = event_reset_time(client->event, &client->timeout_resend,
-                             CLOCK_BOOTTIME,
-                             usec, 0,
-                             client_timeout_resend, client,
-                             client->event_priority, "dhcp4-resend-timer", true);
-        if (r < 0)
-                client_stop(client, r);
-
-        return 0;
-}
-
-static int client_initialize_events(sd_dhcp_client *client, sd_event_io_handler_t io_callback) {
-        client_initialize_io_events(client, io_callback);
-        client_initialize_time_events(client);
-
-        return 0;
+        return event_reset_time(
+                        client->event,
+                        &client->timeout_resend,
+                        CLOCK_BOOTTIME,
+                        usec,
+                        /* accuracy= */ 0,
+                        client_timeout_resend,
+                        client,
+                        client->event_priority,
+                        "dhcp4-resend-timer",
+                        /* force_reset= */ true);
 }
 
 static int client_start_delayed(sd_dhcp_client *client) {
-        int r;
-
         assert_return(client, -EINVAL);
         assert_return(client->event, -EINVAL);
         assert_return(client->ifindex > 0, -EINVAL);
-        assert_return(client->fd < 0, -EBUSY);
         assert_return(client->xid == 0, -EINVAL);
         assert_return(IN_SET(client->state, DHCP_STATE_STOPPED, DHCP_STATE_INIT_REBOOT), -EBUSY);
 
         client->xid = random_u32();
-
-        r = dhcp_network_bind_raw_socket(client->ifindex, &client->link, client->xid,
-                                         &client->hw_addr, &client->bcast_addr,
-                                         client->arp_type, client->port,
-                                         client->socket_priority_set, client->socket_priority);
-        if (r < 0) {
-                client_stop(client, r);
-                return r;
-        }
-        client->fd = r;
 
         client->start_time = now(CLOCK_BOOTTIME);
 
         if (client->state == DHCP_STATE_STOPPED)
                 client->state = DHCP_STATE_INIT;
 
-        return client_initialize_events(client, client_receive_message_raw);
+        return client_initialize_time_events(client);
 }
 
 static int client_start(sd_dhcp_client *client) {
@@ -1519,29 +1636,21 @@ static int client_timeout_t2(sd_event_source *s, uint64_t usec, void *userdata) 
         DHCP_CLIENT_DONT_DESTROY(client);
         int r;
 
-        client->receive_message = sd_event_source_disable_unref(client->receive_message);
-        client->fd = safe_close(client->fd);
-
         client_set_state(client, DHCP_STATE_REBINDING);
         client->discover_attempt = 0;
         client->request_attempt = 0;
 
-        r = dhcp_network_bind_raw_socket(client->ifindex, &client->link, client->xid,
-                                         &client->hw_addr, &client->bcast_addr,
-                                         client->arp_type, client->port,
-                                         client->socket_priority_set, client->socket_priority);
-        if (r < 0) {
+        r = client_initialize_time_events(client);
+        if (r < 0)
                 client_stop(client, r);
-                return 0;
-        }
-        client->fd = r;
 
-        return client_initialize_events(client, client_receive_message_raw);
+        return 0;
 }
 
 static int client_timeout_t1(sd_event_source *s, uint64_t usec, void *userdata) {
         sd_dhcp_client *client = userdata;
         DHCP_CLIENT_DONT_DESTROY(client);
+        int r;
 
         if (client->lease)
                 client_set_state(client, DHCP_STATE_RENEWING);
@@ -1550,7 +1659,11 @@ static int client_timeout_t1(sd_event_source *s, uint64_t usec, void *userdata) 
         client->discover_attempt = 0;
         client->request_attempt = 0;
 
-        return client_initialize_time_events(client);
+        r = client_initialize_time_events(client);
+        if (r < 0)
+                client_stop(client, r);
+
+        return 0;
 }
 
 static int dhcp_option_parse_and_verify(
@@ -1772,6 +1885,8 @@ static int client_enter_requesting(sd_dhcp_client *client) {
         assert(client);
         assert(client->lease);
 
+        client->receive_message = sd_event_source_disable_unref(client->receive_message);
+
         (void) event_source_disable(client->timeout_resend);
 
         if (client->lease->ipv6_only_preferred_usec > 0) {
@@ -1964,21 +2079,7 @@ static int client_enter_bound_now(sd_dhcp_client *client, int notify_event) {
         if (r < 0)
                 log_dhcp_client_errno(client, r, "could not set lease timeouts: %m");
 
-        if (client->bootp) {
-                client->receive_message = sd_event_source_disable_unref(client->receive_message);
-                client->fd = safe_close(client->fd);
-        } else {
-                r = dhcp_network_bind_udp_socket(client->ifindex, client->lease->address, client->port, client->ip_service_type);
-                if (r < 0)
-                        return log_dhcp_client_errno(client, r, "could not bind UDP socket: %m");
-
-                client->receive_message = sd_event_source_disable_unref(client->receive_message);
-                close_and_replace(client->fd, r);
-                client_initialize_io_events(client, client_receive_message_udp);
-        }
-
         client_notify(client, notify_event);
-
         return 0;
 }
 
@@ -1997,6 +2098,8 @@ static int client_enter_bound_delayed(sd_event_source *s, uint64_t usec, void *u
 static int client_enter_bound(sd_dhcp_client *client, int notify_event) {
         assert(client);
         assert(client->lease);
+
+        client->receive_message = sd_event_source_disable_unref(client->receive_message);
 
         client->start_delay = 0;
         (void) event_source_disable(client->timeout_resend);
@@ -2387,15 +2490,10 @@ static int client_send_release_or_decline(sd_dhcp_client *client, uint8_t type) 
 
         switch (type) {
         case DHCP_RELEASE:
-                r = dhcp_network_send_udp_socket(
-                                client->fd,
-                                client->lease->server_address,
-                                client->server_port,
-                                &packet->dhcp,
-                                sizeof(DHCPMessage) + optoffset);
+                r = client_send_udp(client, /* expect_reply= */ false, packet, optoffset);
                 break;
         case DHCP_DECLINE:
-                r = dhcp_client_send_raw(client, packet, sizeof(DHCPPacket) + optoffset);
+                r = client_send_raw(client, /* expect_reply= */ false, packet, optoffset);
                 break;
         default:
                 assert_not_reached();
@@ -2458,7 +2556,6 @@ int sd_dhcp_client_set_ipv6_connectivity(sd_dhcp_client *client, int have) {
 int sd_dhcp_client_interrupt_ipv6_only_mode(sd_dhcp_client *client) {
         assert_return(client, -EINVAL);
         assert_return(sd_dhcp_client_is_running(client), -ESTALE);
-        assert_return(client->fd >= 0, -EINVAL);
 
         if (sd_event_source_get_enabled(client->timeout_ipv6_only_mode, NULL) <= 0)
                 return 0;
@@ -2553,7 +2650,6 @@ int sd_dhcp_client_new(sd_dhcp_client **ret, int anonymize) {
                 .n_ref = 1,
                 .state = DHCP_STATE_STOPPED,
                 .ifindex = -1,
-                .fd = -EBADF,
                 .mtu = DHCP_MIN_PACKET_SIZE,
                 .port = DHCP_PORT_CLIENT,
                 .server_port = DHCP_PORT_SERVER,
