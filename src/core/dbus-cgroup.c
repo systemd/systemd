@@ -1012,7 +1012,7 @@ static int bus_cgroup_set_tasks_max_scale(
 
                 /* Prepare to chop off suffix */
                 assert_se(endswith(name, "Scale"));
-                
+
                 int scaled = UINT32_SCALE_TO_PERMYRIAD(v);
                 unit_write_settingf(u, flags, name, "%.*s=" PERMYRIAD_AS_PERCENT_FORMAT_STR,
                                    (int)(strlen(name) - strlen("Scale")), name,
