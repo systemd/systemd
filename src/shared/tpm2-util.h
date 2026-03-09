@@ -495,6 +495,7 @@ typedef enum Tpm2Support {
 
         /* Combined flags for generic (i.e. not tool-specific) support */
         TPM2_SUPPORT_FULL         = TPM2_SUPPORT_API|TPM2_SUPPORT_LIBTSS2_ALL,
+        TPM2_SUPPORT_SOFTWARE     = TPM2_SUPPORT_FULL & ~TPM2_SUPPORT_FIRMWARE, /* Same, just without PC firmware support */
 } Tpm2Support;
 
 Tpm2Support tpm2_support_full(Tpm2Support mask);
@@ -503,6 +504,9 @@ static inline Tpm2Support tpm2_support(void) {
 }
 static inline bool tpm2_is_fully_supported(void) {
         return tpm2_support() == TPM2_SUPPORT_FULL;
+}
+static inline bool tpm2_is_mostly_supported(void) {
+        return tpm2_support() == TPM2_SUPPORT_SOFTWARE;
 }
 
 int verb_has_tpm2_generic(bool quiet);
