@@ -2,16 +2,14 @@
 #pragma once
 
 #include "list.h"
+#if ENABLE_TIMESYNC_NTS
+#include "nts.h"
+#endif
 #include "ratelimit.h"
 #include "time-util.h"
 #include "timesyncd-forward.h"
 #include "timesyncd-ntp-message.h"
-
 #include "timesyncd-server.h"
-
-#if ENABLE_TIMESYNC_NTS
-#include "nts.h"
-#endif
 
 /*
  * "A client MUST NOT under any conditions use a poll interval less

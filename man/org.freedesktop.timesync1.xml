@@ -168,8 +168,8 @@ $ gdbus introspect --system \
     <title>History</title>
     <refsect2>
       <title>The Manager Object</title>
-      <para><varname>NTSKeyExchangeServers</varname> was added in version 260.</para>
-      <para><varname>SecureTime</varname> was added in version 260.</para>
+      <para><varname>NTSKeyExchangeServers</varname> was added in version 261.</para>
+      <para><varname>SecureTime</varname> was added in version 261.</para>
     </refsect2>
   </refsect1>
 

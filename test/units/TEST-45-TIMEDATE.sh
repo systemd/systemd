@@ -637,12 +637,12 @@ EOF
         ts="$(date +"%F %T.%6N")"
         timedatectl set-ntp true
         # NTP timeout is not configurable
-	[ "$failure_mode" -gt 2 ] || sleep 10
+        [ "$failure_mode" -gt 2 ] || sleep 10
 
         assert_timesyncd_exhausted_servers "$ts"
 
         timedatectl set-ntp false
-	kill "$mock_pid" || true
+        kill "$mock_pid" || true
     done
 }
 
