@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
+#include <poll.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -12,10 +13,12 @@
 #include "bus-util.h"
 #include "chase.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
 #include "format-util.h"
+#include "io-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "memfd-util.h"
@@ -52,6 +55,7 @@ static bool arg_quiet = false;
 static char **arg_graceful = NULL;
 static usec_t arg_timeout = 0;
 static bool arg_exec = false;
+static bool arg_upgrade = false;
 static PushFds arg_push_fds = {};
 static bool arg_ask_password = true;
 static bool arg_legend = true;
@@ -111,6 +115,8 @@ static int help(void) {
                "     --graceful=ERROR    Treat specified Varlink error as success\n"
                "     --timeout=SECS      Maximum time to wait for method call completion\n"
                "  -E                     Short for --more --timeout=infinity\n"
+               "     --upgrade           Request protocol upgrade (connection becomes raw\n"
+               "                         bidirectional pipe on stdin/stdout after reply)\n"
                "     --push-fd=FD        Pass the specified fd along with method call\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
@@ -139,6 +145,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_GRACEFUL,
                 ARG_TIMEOUT,
                 ARG_EXEC,
+                ARG_UPGRADE,
                 ARG_PUSH_FD,
                 ARG_NO_ASK_PASSWORD,
                 ARG_USER,
@@ -157,6 +164,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "graceful",        required_argument, NULL, ARG_GRACEFUL        },
                 { "timeout",         required_argument, NULL, ARG_TIMEOUT         },
                 { "exec",            no_argument,       NULL, ARG_EXEC            },
+                { "upgrade",         no_argument,       NULL, ARG_UPGRADE         },
                 { "push-fd",         required_argument, NULL, ARG_PUSH_FD         },
                 { "no-ask-password", no_argument,       NULL, ARG_NO_ASK_PASSWORD },
                 { "user",            no_argument,       NULL, ARG_USER            },
@@ -243,6 +251,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_EXEC:
                         arg_exec = true;
+                        break;
+
+                case ARG_UPGRADE:
+                        arg_upgrade = true;
                         break;
 
                 case ARG_PUSH_FD: {
@@ -634,6 +646,90 @@ static int reply_callback(
         return r;
 }
 
+static int varlink_call_and_upgrade(const char *url, const char *method, sd_json_variant *parameters) {
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        _cleanup_free_ uint8_t *buf = NULL;
+        _cleanup_close_ int fd = -EBADF;
+        int r;
+
+        r = varlink_connect_auto(&vl, url);
+        if (r < 0)
+                return r;
+
+        r = sd_varlink_call_and_upgrade(
+                        vl,
+                        method,
+                        parameters,
+                        /* ret_parameters= */ NULL,
+                        /* ret_error_id= */ NULL,
+                        &fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to upgrade connection via %s(): %m", method);
+
+        /* Connection is now upgraded — bidirectional proxy between stdin/stdout and socket */
+        buf = new(uint8_t, 64U * U64_KB); /* 64KB, like copy.c */
+        if (!buf)
+                return log_oom();
+
+        r = fd_nonblock(STDIN_FILENO, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set stdin to non-blocking: %m");
+
+        r = fd_nonblock(fd, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set upgraded connection fd to non-blocking: %m");
+
+        struct pollfd pfds[2] = {
+                { .fd = STDIN_FILENO, .events = POLLIN },
+                { .fd = fd,           .events = POLLIN },
+        };
+
+        for (;;) {
+                if (pfds[0].fd < 0 && pfds[1].fd < 0)
+                        break;
+
+                r = poll(pfds, 2, -1);
+                if (r < 0) {
+                        if (errno == EINTR)
+                                continue;
+                        return log_error_errno(errno, "poll() failed: %m");
+                }
+
+                if (pfds[0].revents & (POLLIN|POLLHUP|POLLERR)) {
+                        ssize_t n = read(STDIN_FILENO, buf, MALLOC_SIZEOF_SAFE(buf));
+                        if (n < 0 && ERRNO_IS_TRANSIENT(errno))
+                                ; /* ignore */
+                        else if (n < 0)
+                                return log_error_errno(errno, "Failed to read from stdin: %m");
+                        else if (n == 0) {
+                                pfds[0].fd = -1;
+                                (void) shutdown(fd, SHUT_WR);
+                        } else {
+                                r = loop_write_full(fd, buf, n, USEC_INFINITY);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to write to upgraded connection: %m");
+                        }
+                }
+
+                if (pfds[1].revents & (POLLIN|POLLHUP|POLLERR)) {
+                        ssize_t n = read(fd, buf, MALLOC_SIZEOF_SAFE(buf));
+                        if (n < 0 && ERRNO_IS_TRANSIENT(errno))
+                                ; /* ignore */
+                        else if (n < 0)
+                                return log_error_errno(errno, "Failed to read from upgraded connection: %m");
+                        else if (n == 0)
+                                pfds[1].fd = -1;
+                        else {
+                                r = loop_write_full(STDOUT_FILENO, buf, n, USEC_INFINITY);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to write to stdout: %m");
+                        }
+                }
+        }
+
+        return 0;
+}
+
 static int verb_call(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *jp = NULL;
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
@@ -651,12 +747,32 @@ static int verb_call(int argc, char *argv[], void *userdata) {
         if (arg_exec && (arg_collect || (arg_method_flags & (SD_VARLINK_METHOD_ONEWAY|SD_VARLINK_METHOD_MORE))) != 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--exec and --collect/--more/--oneway may not be combined.");
 
+        if (arg_upgrade) {
+                /* TODO: support --exec with --upgrade, passing the upgraded socket fd to a child process */
+                if (arg_exec || arg_collect || arg_method_flags != 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--upgrade may not be combined with --exec/--collect/--more/--oneway.");
+        }
+
         (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
         url = argv[1];
         method = argv[2];
         parameter = argc > 3 && !streq(argv[3], "-") ? argv[3] : NULL;
         cmdline = strv_skip(argv, 4);
+
+        if (!varlink_idl_qualified_symbol_name_is_valid(method))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a valid qualified method name: '%s' (Expected valid Varlink interface name, followed by a dot, followed by a valid Varlink symbol name.)", method);
+
+        if (arg_upgrade) {
+                /* For --upgrade, parse parameters from argv only (stdin is used for the upgraded connection) */
+                if (parameter) {
+                        r = sd_json_parse(parameter, /* flags= */ 0, &jp, /* ret_line= */ NULL, /* ret_column= */ NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse parameters: %m");
+                }
+
+                return varlink_call_and_upgrade(url, method, jp);
+        }
 
         /* No JSON mode explicitly configured? Then default to the same as -j (except if --exec is used, in
          * which case generate shortest possible JSON since we are going to pass it to a program rather than
@@ -673,9 +789,6 @@ static int verb_call(int argc, char *argv[], void *userdata) {
         /* For pipeable text tools it's kinda customary to finish output off in a newline character, and not
          * leave incomplete lines hanging around. */
         arg_json_format_flags |= SD_JSON_FORMAT_NEWLINE;
-
-        if (!varlink_idl_qualified_symbol_name_is_valid(method))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a valid qualified method name: '%s' (Expected valid Varlink interface name, followed by a dot, followed by a valid Varlink symbol name.)", method);
 
         unsigned line = 0, column = 0;
         if (parameter) {

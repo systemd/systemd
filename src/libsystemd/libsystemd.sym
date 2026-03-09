@@ -1089,4 +1089,5 @@ global:
 LIBSYSTEMD_260 {
 global:
         sd_session_get_extra_device_access;
+        sd_varlink_call_and_upgrade;
 } LIBSYSTEMD_259;
