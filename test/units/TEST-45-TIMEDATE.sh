@@ -526,6 +526,11 @@ NTP=debian.pool.ntp.org
 NTS=does.not.exist $mock_server not.found
 FallbackNTP=0.debian.pool.ntp.org
 EOF
+
+    # trick timesyncd (or rather, its call to "network_is_online()" into thinking
+    # that there is a network; otherwise timesyncd will never attempt to sync time
+    echo "partial" > /run/systemd/netif/state
+
     install_mock_certificate "$mock_server"
 
     systemctl unmask systemd-timesyncd
@@ -607,6 +612,11 @@ ConnectionRetrySec=1
 PollIntervalMinSec=1
 PollIntervalMaxSec=1
 EOF
+
+    # trick timesyncd (or rather, its call to "network_is_online()" into thinking
+    # that there is a network; otherwise timesyncd will never attempt to sync time
+    echo "partial" > /run/systemd/netif/state
+
     install_mock_certificate "$mock_server"
 
     systemctl unmask systemd-timesyncd
