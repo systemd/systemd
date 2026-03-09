@@ -903,7 +903,8 @@ foreach option : ['adm-gid',
                   'systemd-journal-gid',
                   'systemd-network-uid',
                   'systemd-resolve-uid',
-                  'systemd-timesync-uid']
+                  'systemd-timesync-uid',
+                  'systemd-tpm2-swtpm-uid']
         name = option.underscorify().to_upper()
         val = get_option(option)
 
