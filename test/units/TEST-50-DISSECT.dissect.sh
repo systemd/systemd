@@ -243,6 +243,12 @@ systemd-run --wait -P \
             -p RootImagePolicy='root=signed+lol:wut=wat+signed' \
             -p MountAPIVFS=yes \
             cat /usr/lib/os-release | grep -F "MARKER=1" >/dev/null
+# A policy pinning a single fstype on a GPT image should still use verity.
+systemd-run --wait -P \
+            -p RootImage="$MINIMAL_IMAGE.gpt" \
+            -p RootImagePolicy='root=verity+signed+growfs-off+squashfs:root-verity=read-only-on+growfs-off:root-verity-sig=read-only-on+growfs-off:=absent' \
+            -p MountAPIVFS=yes \
+            cat /usr/lib/os-release | grep -F "MARKER=1" >/dev/null
 (! systemd-run --wait -P \
                -p RootImage="$MINIMAL_IMAGE.gpt" \
                -p RootHash="$MINIMAL_IMAGE_ROOTHASH" \
