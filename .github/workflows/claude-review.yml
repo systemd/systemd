@@ -20,7 +20,6 @@ on:
 
 concurrency:
   group: claude-review-${{ github.event.pull_request.number || github.event.issue.number }}
-  cancel-in-progress: true
 
 jobs:
   review:
