@@ -20,7 +20,8 @@ enum {
 };
 
 typedef struct NTS_AEADParam {
-        uint8_t aead_id, key_size, block_size, nonce_size;
+        NTS_AEADAlgorithmType aead_id;
+        uint8_t key_size, block_size, nonce_size;
         bool tag_first, nonce_is_iv;
         const char *cipher_name;
 } NTS_AEADParam;
@@ -70,8 +71,9 @@ typedef struct NTS_Agreement {
  */
 int NTS_encode_request(uint8_t *buffer, size_t buf_size, const NTS_AEADAlgorithmType *preferred_crypto);
 
-/* Decode a NTS KE reponse in the buffer of the provided size, and write the result to the NTS_reponse
- * struct.
+/* Decode a NTS KE reponse in the buffer of the provided size, and write the result to the NTS_Agreement
+ * struct. This function does not allocate data: pointers in the struct for a potential negotiated server
+ * name and NTS cookies point into buffer, and must be copied if buffer is deallocated or overwritten.
  *
  * RETURNS
  *      0 upon success
