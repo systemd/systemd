@@ -794,6 +794,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>systemd.tpm2_measured_os=</varname></term>
+
+        <listitem><para>Controls whether to execute various boot and runtime TPM PCR measurements. Takes a
+        boolean argument. If not specified explicitly this behaviour is enabled automatically in case
+        <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> is
+        used and it succeeded in doing pre-boot measurements of the booted UKI, and otherwise
+        disabled.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>systemd.factory_reset=</varname></term>
 
         <listitem><para>Controls whether to to boot into factory reset mode, implemented by
