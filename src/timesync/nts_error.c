@@ -22,7 +22,7 @@ const char *NTS_error_string(enum NTS_ErrorType error) {
         case NTS_SUCCESS:
                 return "Success?";
         default:
-                assert(!"Invalid error code");
+                assert_not_reached("Invalid error code");
         }
 
         __builtin_unreachable();
