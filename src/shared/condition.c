@@ -741,6 +741,8 @@ static int condition_test_security(Condition *c, char **env) {
                 return detect_confidential_virtualization() > 0;
         if (streq(c->parameter, "measured-uki"))
                 return efi_measured_uki(LOG_DEBUG);
+        if (streq(c->parameter, "measured-os"))
+                return efi_measured_os(LOG_DEBUG);
 
         return false;
 }
