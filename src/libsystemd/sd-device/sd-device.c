@@ -92,7 +92,7 @@ int device_add_property_aux(sd_device *device, const char *key, const char *valu
         else
                 properties = &device->properties;
 
-        if (value) {
+        if (!isempty(value)) {
                 _unused_ _cleanup_free_ char *old_value = NULL;
                 _cleanup_free_ char *new_key = NULL, *new_value = NULL, *old_key = NULL;
                 int r;
