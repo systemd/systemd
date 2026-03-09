@@ -30,6 +30,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
+#include "utf8.h"
 
 int device_new_aux(sd_device **ret) {
         sd_device *device;
@@ -86,6 +87,19 @@ int device_add_property_aux(sd_device *device, const char *key, const char *valu
 
         assert(device);
         assert(key);
+
+        /* Device properties may be saved to database file, then may be parsed from the file. When if a
+         * property contains spurious characters, then the parser may be confused. Let's refuse spurious
+         * properties, even if it is internal, which will not be saved to database file, for consistency.
+         * Here, we use relaxed version of env_name_is_valid() and env_value_is_valid(). */
+
+        if (isempty(key) || !in_charset(ALPHANUMERICAL "_.", key))
+                return -EINVAL;
+
+        /* Unlike env_value_is_valid(), NULL value means unset the property, hence fine. */
+        value = empty_to_null(value);
+        if (value && !utf8_is_valid(value))
+                return -EINVAL;
 
         if (db)
                 properties = &device->properties_db;
