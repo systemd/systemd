@@ -537,11 +537,11 @@ static int run(int argc, char *argv[]) {
         }
 
         /* Skip logic if sd-stub is not used, after all PCR 11 might have a very different purpose then. */
-        r = efi_measured_uki(LOG_ERR);
+        r = efi_measured_os(LOG_ERR);
         if (r < 0)
                 return r;
         if (r == 0) {
-                log_info("Kernel stub did not measure kernel image into PCR %i, skipping userspace measurement, too.", TPM2_PCR_KERNEL_BOOT);
+                log_info("OS measurements not explicitly requested and kernel stub did not measure kernel image into PCR %i, skipping userspace measurement, too.", TPM2_PCR_KERNEL_BOOT);
                 return EXIT_SUCCESS;
         }
 
