@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=vlan99
+
+[Network]
+ConfigureWithoutCarrier=true
+BindCarrier=dummy99
+
+[Address]
+Address=192.0.2.1/24
+
+[Route]
+Destination=198.51.100.1
+Type=multicast
+Scope=link
