@@ -15,7 +15,7 @@ Conflicts=shutdown.target
 After=tpm2.target systemd-tpm2-setup-early.service systemd-remount-fs.service
 Before=sysinit.target shutdown.target
 RequiresMountsFor=/var/lib/systemd
-ConditionSecurity=measured-uki
+ConditionSecurity=measured-os
 ConditionPathExists=!/etc/initrd-release
 
 [Service]
