@@ -780,7 +780,7 @@ static bool nexthop_is_ready_to_configure(Link *link, const NextHop *nexthop) {
                  * kernel. */
                 if (link->set_flags_messages > 0)
                         return false;
-                if (!FLAGS_SET(link->flags, IFF_UP))
+                if (!link_is_up(link))
                         return false;
         }
 
@@ -995,7 +995,7 @@ void link_forget_nexthops(Link *link) {
         assert(link);
         assert(link->manager);
         assert(link->ifindex > 0);
-        assert(!FLAGS_SET(link->flags, IFF_UP));
+        assert(!link_is_up(link));
 
         /* See comments in link_forget_routes(). */
 
