@@ -6,7 +6,7 @@
 #include "tests.h"
 #include "verbs.h"
 
-static int noop_dispatcher(int argc, char *argv[], void *userdata) {
+static int noop_dispatcher(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return 0;
 }
 

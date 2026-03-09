@@ -6,7 +6,7 @@
 #include "bootctl-uki.h"
 #include "kernel-image.h"
 
-int verb_kernel_identify(int argc, char *argv[], void *userdata) {
+int verb_kernel_identify(int argc, char *argv[], uintptr_t _data, void *userdata) {
         KernelImageType t;
         int r;
 
@@ -18,7 +18,7 @@ int verb_kernel_identify(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-int verb_kernel_inspect(int argc, char *argv[], void *userdata) {
+int verb_kernel_inspect(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_free_ char *cmdline = NULL, *uname = NULL, *pname = NULL;
         KernelImageType t;
         int r;

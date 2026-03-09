@@ -3,4 +3,4 @@
 
 int install_random_seed(const char *esp);
 
-int verb_random_seed(int argc, char *argv[], void *userdata);
+int verb_random_seed(int argc, char *argv[], uintptr_t _data, void *userdata);

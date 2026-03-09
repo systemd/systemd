@@ -123,7 +123,7 @@ static int help(void) {
         return 0;
 }
 
-static int verb_help(int argc, char **argv, void *userdata) {
+static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return help();
 }
 
@@ -366,7 +366,7 @@ static void get_info_data_done(GetInfoData *d) {
         d->interfaces = strv_free(d->interfaces);
 }
 
-static int verb_info(int argc, char *argv[], void *userdata) {
+static int verb_info(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         const char *url;
         int r;
@@ -463,7 +463,7 @@ typedef struct GetInterfaceDescriptionData {
         const char *description;
 } GetInterfaceDescriptionData;
 
-static int verb_introspect(int argc, char *argv[], void *userdata) {
+static int verb_introspect(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         _cleanup_strv_free_ char **auto_interfaces = NULL;
         char **interfaces;
@@ -634,7 +634,7 @@ static int reply_callback(
         return r;
 }
 
-static int verb_call(int argc, char *argv[], void *userdata) {
+static int verb_call(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *jp = NULL;
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         const char *url, *method, *parameter, *source;
@@ -946,7 +946,7 @@ static int verb_call(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_validate_idl(int argc, char *argv[], void *userdata) {
+static int verb_validate_idl(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *vi = NULL;
         _cleanup_free_ char *text = NULL;
         const char *fname;
@@ -995,7 +995,7 @@ static int verb_validate_idl(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_list_registry(int argc, char *argv[], void *userdata) {
+static int verb_list_registry(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
         assert(argc <= 1);

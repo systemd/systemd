@@ -2489,7 +2489,7 @@ static int event_log_load_and_process(EventLog **ret) {
         return 0;
 }
 
-static int verb_show_log(int argc, char *argv[], void *userdata) {
+static int verb_show_log(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *log_table = NULL, *pcr_table = NULL;
         _cleanup_(event_log_freep) EventLog *el = NULL;
         bool want_json = sd_json_format_enabled(arg_json_format_flags);
@@ -2602,7 +2602,7 @@ static int event_log_record_to_cel(EventLogRecord *record, uint64_t *recnum, sd_
         return 0;
 }
 
-static int verb_show_cel(int argc, char *argv[], void *userdata) {
+static int verb_show_cel(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
         _cleanup_(event_log_freep) EventLog *el = NULL;
         uint64_t recnum = 0;
@@ -2637,7 +2637,7 @@ static int verb_show_cel(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_list_components(int argc, char *argv[], void *userdata) {
+static int verb_list_components(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(event_log_freep) EventLog *el = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
         enum {
@@ -2957,7 +2957,7 @@ static int unlink_pcrlock(const char *default_pcrlock_path) {
         return 0;
 }
 
-static int verb_lock_raw(int argc, char *argv[], void *userdata) {
+static int verb_lock_raw(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *records = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
@@ -2978,11 +2978,11 @@ static int verb_lock_raw(int argc, char *argv[], void *userdata) {
         return write_pcrlock(records, NULL);
 }
 
-static int verb_unlock_simple(int argc, char *argv[], void *userdata) {
+static int verb_unlock_simple(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return unlink_pcrlock(NULL);
 }
 
-static int verb_lock_secureboot_policy(int argc, char *argv[], void *userdata) {
+static int verb_lock_secureboot_policy(int argc, char *argv[], uintptr_t _data, void *userdata) {
         static const struct {
                 sd_id128_t id;
                 const char *name;
@@ -3055,7 +3055,7 @@ static int verb_lock_secureboot_policy(int argc, char *argv[], void *userdata) {
         return write_pcrlock(array, PCRLOCK_SECUREBOOT_POLICY_PATH);
 }
 
-static int verb_unlock_secureboot_policy(int argc, char *argv[], void *userdata) {
+static int verb_unlock_secureboot_policy(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return unlink_pcrlock(PCRLOCK_SECUREBOOT_POLICY_PATH);
 }
 
@@ -3176,7 +3176,7 @@ static int event_log_ensure_secureboot_consistency(EventLog *el) {
         return 0;
 }
 
-static int verb_lock_secureboot_authority(int argc, char *argv[], void *userdata) {
+static int verb_lock_secureboot_authority(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
         _cleanup_(event_log_freep) EventLog *el = NULL;
         int r;
@@ -3255,11 +3255,11 @@ static int verb_lock_secureboot_authority(int argc, char *argv[], void *userdata
         return write_pcrlock(array, PCRLOCK_SECUREBOOT_AUTHORITY_PATH);
 }
 
-static int verb_unlock_secureboot_authority(int argc, char *argv[], void *userdata) {
+static int verb_unlock_secureboot_authority(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return unlink_pcrlock(PCRLOCK_SECUREBOOT_AUTHORITY_PATH);
 }
 
-static int verb_lock_gpt(int argc, char *argv[], void *userdata) {
+static int verb_lock_gpt(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL, *record = NULL;
         _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         uint8_t h[2 * 4096]; /* space for at least two 4K sectors. GPT header should definitely be in here */
@@ -3372,7 +3372,7 @@ static int verb_lock_gpt(int argc, char *argv[], void *userdata) {
         return write_pcrlock(array, PCRLOCK_GPT_PATH);
 }
 
-static int verb_unlock_gpt(int argc, char *argv[], void *userdata) {
+static int verb_unlock_gpt(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return unlink_pcrlock(PCRLOCK_GPT_PATH);
 }
 
@@ -3431,7 +3431,7 @@ static void enable_json_sse(void) {
         arg_json_format_flags |= SD_JSON_FORMAT_SSE;
 }
 
-static int verb_lock_firmware(int argc, char *argv[], void *userdata) {
+static int verb_lock_firmware(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *array_early = NULL, *array_late = NULL;
         _cleanup_(event_log_freep) EventLog *el = NULL;
         uint32_t always_mask, separator_mask, separator_seen_mask = 0, action_seen_mask = 0;
@@ -3550,7 +3550,7 @@ static int verb_lock_firmware(int argc, char *argv[], void *userdata) {
         return write_pcrlock(array_late, default_pcrlock_late_path);
 }
 
-static int verb_unlock_firmware(int argc, char *argv[], void *userdata) {
+static int verb_unlock_firmware(int argc, char *argv[], uintptr_t _data, void *userdata) {
         const char *default_pcrlock_early_path, *default_pcrlock_late_path;
         int r;
 
@@ -3576,7 +3576,7 @@ static int verb_unlock_firmware(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_lock_machine_id(int argc, char *argv[], void *userdata) {
+static int verb_lock_machine_id(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *record = NULL, *array = NULL;
         _cleanup_free_ char *word = NULL;
         int r;
@@ -3596,7 +3596,7 @@ static int verb_lock_machine_id(int argc, char *argv[], void *userdata) {
         return write_pcrlock(array, PCRLOCK_MACHINE_ID_PATH);
 }
 
-static int verb_unlock_machine_id(int argc, char *argv[], void *userdata) {
+static int verb_unlock_machine_id(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return unlink_pcrlock(PCRLOCK_MACHINE_ID_PATH);
 }
 
@@ -3627,7 +3627,7 @@ static int pcrlock_file_system_path(const char *normalized_path, char **ret) {
         return 0;
 }
 
-static int verb_lock_file_system(int argc, char *argv[], void *userdata) {
+static int verb_lock_file_system(int argc, char *argv[], uintptr_t _data, void *userdata) {
         const char* paths[3] = {};
         int r;
 
@@ -3680,7 +3680,7 @@ static int verb_lock_file_system(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_unlock_file_system(int argc, char *argv[], void *userdata) {
+static int verb_unlock_file_system(int argc, char *argv[], uintptr_t _data, void *userdata) {
         const char* paths[3] = {};
         int r;
 
@@ -3710,7 +3710,7 @@ static int verb_unlock_file_system(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_lock_pe(int argc, char *argv[], void *userdata) {
+static int verb_lock_pe(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
         _cleanup_close_ int fd = -EBADF;
         int r;
@@ -3774,7 +3774,7 @@ static void section_hashes_array_done(SectionHashArray *array) {
                 free((*array)[i]);
 }
 
-static int verb_lock_uki(int argc, char *argv[], void *userdata) {
+static int verb_lock_uki(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL, *pe_digests = NULL;
         _cleanup_(section_hashes_array_done) SectionHashArray section_hashes = {};
         size_t hash_sizes[TPM2_N_HASH_ALGORITHMS];
@@ -3869,7 +3869,7 @@ static int verb_lock_uki(int argc, char *argv[], void *userdata) {
         return write_pcrlock(array, NULL);
 }
 
-static int verb_lock_kernel_cmdline(int argc, char *argv[], void *userdata) {
+static int verb_lock_kernel_cmdline(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *record = NULL, *array = NULL;
         _cleanup_free_ char *cmdline = NULL;
         int r;
@@ -3906,11 +3906,11 @@ static int verb_lock_kernel_cmdline(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_unlock_kernel_cmdline(int argc, char *argv[], void *userdata) {
+static int verb_unlock_kernel_cmdline(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return unlink_pcrlock(PCRLOCK_KERNEL_CMDLINE_PATH);
 }
 
-static int verb_lock_kernel_initrd(int argc, char *argv[], void *userdata) {
+static int verb_lock_kernel_initrd(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *records = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         uint32_t pcr_mask = UINT32_C(1) << TPM2_PCR_KERNEL_INITRD;
@@ -3933,7 +3933,7 @@ static int verb_lock_kernel_initrd(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_unlock_kernel_initrd(int argc, char *argv[], void *userdata) {
+static int verb_unlock_kernel_initrd(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return unlink_pcrlock(PCRLOCK_KERNEL_INITRD_PATH);
 }
 
@@ -4317,7 +4317,7 @@ static int tpm2_pcr_prediction_run(
         return 0;
 }
 
-static int verb_predict(int argc, char *argv[], void *userdata) {
+static int verb_predict(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(tpm2_pcr_prediction_done) Tpm2PCRPrediction context = {
                 arg_pcr_mask != 0 ? arg_pcr_mask : DEFAULT_PCR_MASK,
         };
@@ -4896,7 +4896,7 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
         return 1; /* installed new policy */
 }
 
-static int verb_make_policy(int argc, char *argv[], void *userdata) {
+static int verb_make_policy(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
         r = make_policy(arg_force, arg_recovery_pin);
@@ -4996,7 +4996,7 @@ static int remove_policy(void) {
         return ret;
 }
 
-static int verb_remove_policy(int argc, char *argv[], void *userdata) {
+static int verb_remove_policy(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return remove_policy();
 }
 
@@ -5030,7 +5030,7 @@ static int test_tpm2_support_pcrlock(Tpm2Support *ret) {
         return 0;
 }
 
-static int verb_is_supported(int argc, char *argv[], void *userdata) {
+static int verb_is_supported(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
         Tpm2Support s;
@@ -5054,7 +5054,7 @@ static int verb_is_supported(int argc, char *argv[], void *userdata) {
         return ~s & (TPM2_SUPPORT_API|TPM2_SUPPORT_API_PCRLOCK);
 }
 
-static int help(int argc, char *argv[], void *userdata) {
+static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
@@ -5126,6 +5126,10 @@ static int help(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        return help();
+}
+
 static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
@@ -5172,8 +5176,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help(0, NULL, NULL);
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();
@@ -5349,7 +5352,7 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int pcrlock_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "help",                        VERB_ANY, VERB_ANY, 0,            help                             },
+                { "help",                        VERB_ANY, VERB_ANY, 0,            verb_help                        },
                 { "log",                         VERB_ANY, 1,        VERB_DEFAULT, verb_show_log                    },
                 { "cel",                         VERB_ANY, 1,        0,            verb_show_cel                    },
                 { "list-components",             VERB_ANY, 1,        0,            verb_list_components             },

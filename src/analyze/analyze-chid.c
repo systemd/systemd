@@ -338,7 +338,7 @@ static int edid_search(char16_t **ret_panel) {
         return -ENOTUNIQ;
 }
 
-int verb_chid(int argc, char *argv[], void *userdata) {
+int verb_chid(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         _cleanup_(table_unrefp) Table *table = NULL;
         int r;

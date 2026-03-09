@@ -8,11 +8,11 @@
 #include "time-util.h"
 #include "tpm2-util.h"
 
-int verb_has_tpm2(int argc, char **argv, void *userdata) {
+int verb_has_tpm2(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return verb_has_tpm2_generic(arg_quiet);
 }
 
-int verb_identify_tpm2(int argc, char **argv, void *userdata) {
+int verb_identify_tpm2(int argc, char **argv, uintptr_t _data, void *userdata) {
 #if HAVE_TPM2
         int r;
 

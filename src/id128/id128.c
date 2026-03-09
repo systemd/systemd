@@ -24,11 +24,11 @@ static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
 static sd_json_format_flags_t arg_json_format_flags = SD_JSON_FORMAT_OFF;
 
-static int verb_new(int argc, char **argv, void *userdata) {
+static int verb_new(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return id128_print_new(arg_mode);
 }
 
-static int verb_machine_id(int argc, char **argv, void *userdata) {
+static int verb_machine_id(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_id128_t id;
         int r;
 
@@ -43,7 +43,7 @@ static int verb_machine_id(int argc, char **argv, void *userdata) {
         return id128_pretty_print(id, arg_mode);
 }
 
-static int verb_boot_id(int argc, char **argv, void *userdata) {
+static int verb_boot_id(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_id128_t id;
         int r;
 
@@ -58,7 +58,7 @@ static int verb_boot_id(int argc, char **argv, void *userdata) {
         return id128_pretty_print(id, arg_mode);
 }
 
-static int verb_invocation_id(int argc, char **argv, void *userdata) {
+static int verb_invocation_id(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_id128_t id;
         int r;
 
@@ -73,7 +73,7 @@ static int verb_invocation_id(int argc, char **argv, void *userdata) {
         return id128_pretty_print(id, arg_mode);
 }
 
-static int verb_var_uuid(int argc, char **argv, void *userdata) {
+static int verb_var_uuid(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_id128_t id;
         int r;
 
@@ -130,7 +130,7 @@ static int show_one(Table **table, const char *name, sd_id128_t uuid, bool first
                               arg_mode == ID128_PRINT_ID128 ? TABLE_ID128 : TABLE_UUID, uuid);
 }
 
-static int verb_show(int argc, char **argv, void *userdata) {
+static int verb_show(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(table_unrefp) Table *table = NULL;
         int r;
 
@@ -223,7 +223,7 @@ static int help(void) {
         return 0;
 }
 
-static int verb_help(int argc, char **argv, void *userdata) {
+static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return help();
 }
 

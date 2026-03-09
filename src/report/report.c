@@ -576,22 +576,16 @@ static int readdir_sources(char **ret_directory, DirectoryEntries **ret) {
         return m > 0;
 }
 
-static int verb_metrics(int argc, char *argv[], void *userdata) {
-        Action action;
+static int verb_metrics(int argc, char *argv[], uintptr_t data, void *userdata) {
+        Action action = data;
         int r;
 
         assert(argc >= 1);
         assert(argv);
+        assert(IN_SET(action, ACTION_LIST, ACTION_DESCRIBE));
 
         /* Enable JSON-SEQ mode here, since we'll dump a large series of JSON objects */
         arg_json_format_flags |= SD_JSON_FORMAT_SEQ;
-
-        if (streq_ptr(argv[0], "metrics"))
-                action = ACTION_LIST;
-        else {
-                assert(streq_ptr(argv[0], "describe-metrics"));
-                action = ACTION_DESCRIBE;
-        }
 
         r = parse_metrics_matches(argv + 1);
         if (r < 0)
@@ -662,7 +656,7 @@ static int verb_metrics(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_list_sources(int argc, char *argv[], void *userdata) {
+static int verb_list_sources(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
         _cleanup_(table_unrefp) Table *table = table_new("source", "address");
@@ -717,7 +711,7 @@ static int verb_list_sources(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_help(int argc, char *argv[], void *userdata) {
+static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
@@ -754,6 +748,10 @@ static int verb_help(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        return help();
+}
+
 static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
@@ -783,7 +781,7 @@ static int parse_argv(int argc, char *argv[]) {
         while ((c = getopt_long(argc, argv, "hj", options, NULL)) >= 0)
                 switch (c) {
                 case 'h':
-                        return verb_help(/* argc= */ 0, /* argv= */ NULL, /* userdata= */ NULL);
+                        return help();
 
                 case ARG_VERSION:
                         return version();
@@ -826,12 +824,11 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int report_main(int argc, char *argv[]) {
-
         static const Verb verbs[] = {
-                { "help",             VERB_ANY, 1,        0, verb_help         },
-                { "metrics",          VERB_ANY, VERB_ANY, 0, verb_metrics      },
-                { "describe-metrics", VERB_ANY, VERB_ANY, 0, verb_metrics      },
-                { "list-sources",     VERB_ANY, 1,        0, verb_list_sources },
+                { "help",             VERB_ANY, 1,        0, verb_help                                },
+                { "metrics",          VERB_ANY, VERB_ANY, 0, verb_metrics,      ACTION_LIST           },
+                { "describe-metrics", VERB_ANY, VERB_ANY, 0, verb_metrics,      ACTION_DESCRIBE       },
+                { "list-sources",     VERB_ANY, 1,        0, verb_list_sources                        },
                 {}
         };
 

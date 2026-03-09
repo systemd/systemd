@@ -1277,7 +1277,7 @@ static int process_image(
         return 0;
 }
 
-static int verb_list(int argc, char **argv, void *userdata) {
+static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
         _cleanup_(context_freep) Context* context = NULL;
@@ -1345,7 +1345,7 @@ static int verb_list(int argc, char **argv, void *userdata) {
         }
 }
 
-static int verb_features(int argc, char **argv, void *userdata) {
+static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
         _cleanup_(context_freep) Context* context = NULL;
@@ -1479,7 +1479,7 @@ static int verb_features(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int verb_check_new(int argc, char **argv, void *userdata) {
+static int verb_check_new(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
         _cleanup_(context_freep) Context* context = NULL;
@@ -1520,7 +1520,7 @@ static int verb_check_new(int argc, char **argv, void *userdata) {
         return EXIT_SUCCESS;
 }
 
-static int verb_vacuum(int argc, char **argv, void *userdata) {
+static int verb_vacuum(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
         _cleanup_(context_freep) Context* context = NULL;
@@ -1615,7 +1615,7 @@ static int verb_update_impl(int argc, char **argv, UpdateActionFlags action_flag
         return 0;
 }
 
-static int verb_update(int argc, char **argv, void *userdata) {
+static int verb_update(int argc, char *argv[], uintptr_t _data, void *userdata) {
         UpdateActionFlags flags = UPDATE_ACTION_INSTALL;
 
         if (!arg_offline)
@@ -1624,11 +1624,11 @@ static int verb_update(int argc, char **argv, void *userdata) {
         return verb_update_impl(argc, argv, flags);
 }
 
-static int verb_acquire(int argc, char **argv, void *userdata) {
+static int verb_acquire(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return verb_update_impl(argc, argv, UPDATE_ACTION_ACQUIRE);
 }
 
-static int verb_pending_or_reboot(int argc, char **argv, void *userdata) {
+static int verb_pending_or_reboot(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(context_freep) Context* context = NULL;
         _cleanup_free_ char *booted_version = NULL;
         int r;
@@ -1702,7 +1702,7 @@ static int component_name_valid(const char *c) {
         return filename_is_valid(j);
 }
 
-static int verb_components(int argc, char **argv, void *userdata) {
+static int verb_components(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
         _cleanup_set_free_ Set *names = NULL;
@@ -1792,7 +1792,7 @@ static int verb_components(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int verb_help(int argc, char **argv, void *userdata) {
+static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
@@ -1844,8 +1844,11 @@ static int verb_help(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int parse_argv(int argc, char *argv[]) {
+static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        return help();
+}
 
+static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_NO_PAGER,
@@ -1892,7 +1895,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        return verb_help(0, NULL, NULL);
+                        return help();
 
                 case ARG_VERSION:
                         return version();
