@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <assert.h>
-#include <ctype.h>
 #include <endian.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -10,6 +9,7 @@
 
 #include "nts.h"
 #include "timesyncd-forward.h"
+#include "utf8.h"
 
 /* should we emit the NTS record that forces chrony to be 'compliant' */
 #define CHRONY_WORKAROUND
@@ -263,7 +263,7 @@ int NTS_decode_response(uint8_t *buffer, size_t buf_size, struct NTS_Agreement *
 
                 case NTS_NTPv4Cookie:
                         /* ignore any cookies in excess of eight */
-                        if (cookie_nr < 8) {
+                        if (cookie_nr < ELEMENTSOF(response->cookie)) {
                                 struct NTS_Cookie *cookie = &response->cookie[cookie_nr++];
                                 cookie->data   = rec.body.data;
                                 cookie->length = rec.body.data_end - rec.body.data;
@@ -277,11 +277,10 @@ int NTS_decode_response(uint8_t *buffer, size_t buf_size, struct NTS_Agreement *
                                 return -EBADMSG;
                         }
 
-                        for (const uint8_t* p = rec.body.data; p != rec.body.data_end; p++)
-                                if (!isascii(*p) || !isgraph(*p)) {
-                                        response->error = NTS_BAD_RESPONSE;
-                                        return -EBADMSG;
-                                }
+                        if (!ascii_is_valid_n((char *)rec.body.data, rec.body.data_end - rec.body.data)) {
+                                response->error = NTS_BAD_RESPONSE;
+                                return -EBADMSG;
+                        }
 
                         response->ntp_server  = (char *)rec.body.data;
                         ntp_server_terminator = (char *)rec.body.data_end;
