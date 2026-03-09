@@ -166,6 +166,7 @@ int fopen_mode_to_flags(const char *mode);
 
 typedef enum WriteDataFileFlags {
         WRITE_DATA_FILE_MKDIR_0755 = 1 << 0,
+        WRITE_DATA_FILE_MODE_0400  = 1 << 1,
 } WriteDataFileFlags;
 
 int write_data_file_atomic_at(int dir_fd, const char *path, const struct iovec *iovec, WriteDataFileFlags flags);
