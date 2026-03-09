@@ -811,7 +811,6 @@ int link_ipv6ll_gained(Link *link) {
 
 int link_handle_bound_to_list(Link *link) {
         bool required_up = false;
-        bool link_is_up = false;
         Link *l;
 
         assert(link);
@@ -822,18 +821,15 @@ int link_handle_bound_to_list(Link *link) {
         if (hashmap_isempty(link->bound_to_links))
                 return 0;
 
-        if (link->flags & IFF_UP)
-                link_is_up = true;
-
         HASHMAP_FOREACH(l, link->bound_to_links)
                 if (link_has_carrier(l)) {
                         required_up = true;
                         break;
                 }
 
-        if (!required_up && link_is_up)
+        if (!required_up && link_is_up(link))
                 return link_request_to_bring_up_or_down(link, /* up= */ false);
-        if (required_up && !link_is_up)
+        if (required_up && !link_is_up(link))
                 return link_request_to_bring_up_or_down(link, /* up= */ true);
 
         return 0;
@@ -2004,7 +2000,7 @@ void link_update_operstate(Link *link, bool also_update_master) {
                         carrier_state = LINK_CARRIER_STATE_ENSLAVED;
                 else
                         carrier_state = LINK_CARRIER_STATE_CARRIER;
-        } else if (link->flags & IFF_UP)
+        } else if (link_is_up(link))
                 carrier_state = LINK_CARRIER_STATE_NO_CARRIER;
         else
                 carrier_state = LINK_CARRIER_STATE_OFF;
@@ -2139,6 +2135,11 @@ bool link_has_carrier(Link *link) {
         return netif_has_carrier(link->kernel_operstate, link->flags);
 }
 
+bool link_is_up(Link *link) {
+        assert(link);
+        return FLAGS_SET(link->flags, IFF_UP);
+}
+
 bool link_multicast_enabled(Link *link) {
         assert(link);
 
@@ -2218,7 +2219,7 @@ static int link_update_flags(Link *link, sd_netlink_message *message) {
                         log_link_debug(link, "Unknown link flags lost, ignoring: %#.5x", unknown_flags_removed);
         }
 
-        link_was_admin_up = link->flags & IFF_UP;
+        link_was_admin_up = link_is_up(link);
         had_carrier = link_has_carrier(link);
 
         link->flags = flags;
@@ -2228,9 +2229,9 @@ static int link_update_flags(Link *link, sd_netlink_message *message) {
 
         r = 0;
 
-        if (!link_was_admin_up && (link->flags & IFF_UP))
+        if (!link_was_admin_up && link_is_up(link))
                 r = link_admin_state_up(link);
-        else if (link_was_admin_up && !(link->flags & IFF_UP))
+        else if (link_was_admin_up && !link_is_up(link))
                 r = link_admin_state_down(link);
         if (r < 0)
                 return r;
