@@ -1149,7 +1149,7 @@ static int dissect_image(
 
                 /* If flags permit this, also allow using non-partitioned single-filesystem images */
 
-                if (root_fstype_string)
+                if (root_fstype_string && policy->n_policies == 1)
                         usage = encrypted ? "crypto" : "filesystem";
                 else
                         (void) sym_blkid_probe_lookup_value(b, "USAGE", &usage, NULL);
