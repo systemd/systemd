@@ -12,6 +12,10 @@ Always consult these files as needed:
 - `docs/CODING_STYLE.md` — full style guide (must-read before writing code)
 - `docs/CONTRIBUTING.md` — contribution guidelines and PR workflow
 
+## Running arbitrary commands
+
+- Always run arbitrary commands with the `mkosi box -- ` wrapper command. This runs in an environment where more tools are available.
+
 ## Build and Test Commands
 
 - Never compile individual files or targets. Always run `mkosi -f box -- meson compile -C build` to build
