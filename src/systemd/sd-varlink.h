@@ -55,8 +55,9 @@ __extension__ typedef enum _SD_ENUM_TYPE_S64(sd_varlink_reply_flags_t) {
 } sd_varlink_reply_flags_t;
 
 __extension__ typedef enum _SD_ENUM_TYPE_S64(sd_varlink_method_flags_t) {
-        SD_VARLINK_METHOD_ONEWAY = 1 << 0,
-        SD_VARLINK_METHOD_MORE   = 1 << 1,
+        SD_VARLINK_METHOD_ONEWAY  = 1 << 0,
+        SD_VARLINK_METHOD_MORE    = 1 << 1,
+        SD_VARLINK_METHOD_UPGRADE = 1 << 2,
         _SD_ENUM_FORCE_S64(SD_VARLINK_METHOD)
 } sd_varlink_method_flags_t;
 
@@ -134,6 +135,10 @@ int sd_varlink_callb_full(sd_varlink *v, const char *method, sd_json_variant **r
 int sd_varlink_callb(sd_varlink *v, const char *method, sd_json_variant **ret_parameters, const char **ret_error_id, ...);
 #define sd_varlink_callbo(v, method, ret_parameters, ret_error_id, ...)    \
         sd_varlink_callb((v), (method), (ret_parameters), (ret_error_id), SD_JSON_BUILD_OBJECT(__VA_ARGS__))
+
+/* Send method call with upgrade, wait for reply, then steal the connection fd for raw I/O.
+ * ret_parameters and ret_error_id are borrowed references valid only until v is closed or unreffed. */
+int sd_varlink_call_and_upgrade(sd_varlink *v, const char *method, sd_json_variant *parameters, sd_json_variant **ret_parameters, const char **ret_error_id, int *ret_fd);
 
 /* Send method call and begin collecting all 'more' replies into an array, finishing when a final reply is sent */
 int sd_varlink_collect_full(sd_varlink *v, const char *method, sd_json_variant *parameters, sd_json_variant **ret_parameters, const char **ret_error_id, sd_varlink_reply_flags_t *ret_flags);
