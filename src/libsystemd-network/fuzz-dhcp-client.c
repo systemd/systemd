@@ -3,6 +3,7 @@
 #include <sys/socket.h>
 
 #include "dhcp-network.h"
+#include "fd-util.h"
 #include "fuzz.h"
 #include "network-internal.h"
 #include "sd-dhcp-client.c"
