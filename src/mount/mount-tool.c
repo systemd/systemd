@@ -348,6 +348,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse timeout: %s", optarg);
 
+                        arg_timeout_idle_set = true;
                         break;
 
                 case ARG_AUTOMOUNT_PROPERTY:
