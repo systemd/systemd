@@ -56,7 +56,7 @@ int verb_nvpcrs(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(table_unrefp) Table *table = NULL;
         int r;
 
-        bool have_tpm2 = tpm2_is_fully_supported();
+        bool have_tpm2 = tpm2_is_mostly_supported();
 
         if (!have_tpm2)
                 log_notice("System lacks full TPM2 support, not showing NvPCR state.");
