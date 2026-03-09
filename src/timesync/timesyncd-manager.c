@@ -1521,8 +1521,8 @@ static int manager_nts_handshake_setup(Manager *m) {
                 return log_error_errno(r, "Failed to arm NTS key exchange timeout timer: %m");
 
         r = connect(m->server_socket, addr, m->current_server_address->socklen);
-        if (r < 0)
-	        return -errno;
+        if (r < 0 && errno != EINPROGRESS)
+                return -errno;
 
         return sd_event_add_io(m->event, &m->event_receive, m->server_socket, EPOLLIN|EPOLLOUT, manager_nts_obtain_agreement, m);
 }
@@ -1547,10 +1547,12 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
                 addr = &m->current_server_address->sockaddr.sa;
 
                 r = connect(m->server_socket, addr, m->current_server_address->socklen);
-                if (IN_SET(r, EINPROGRESS, EALREADY))
-                        return 1;
-                if (r < 0 && r != EISCONN)
-                        return -errno;
+                if (r < 0) {
+                        if (errno == EALREADY)
+                                return 1;
+                        else if (errno != EISCONN)
+                                return -errno;
+                }
 
                 r = setsockopt_int(m->server_socket, SOL_SOCKET, SO_TIMESTAMPNS, true);
                 if (r < 0)
