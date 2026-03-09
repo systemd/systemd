@@ -784,11 +784,6 @@ static bool nexthop_is_ready_to_configure(Link *link, const NextHop *nexthop) {
         if (nexthop_bound_to_link(nexthop)) {
                 assert(nexthop->ifindex == link->ifindex);
 
-                if (link->set_flags_messages > 0)
-                        return false;
-                if (!link_is_up(link))
-                        return false;
-
                 return gateway_is_ready(link, FLAGS_SET(nexthop->flags, RTNH_F_ONLINK), nexthop->family, &nexthop->gw.address);
         }
 
