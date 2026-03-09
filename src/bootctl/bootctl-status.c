@@ -477,6 +477,16 @@ int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         printf("  Measured UKI: %sfailed%s (%m)\n", ansi_highlight_red(), ansi_normal());
                 }
 
+                k = efi_measured_os(LOG_DEBUG);
+                if (k > 0)
+                        printf("   Measured OS: %syes%s\n", ansi_highlight_green(), ansi_normal());
+                else if (k == 0)
+                        printf("   Measured OS: no\n");
+                else {
+                        errno = -k;
+                        printf("   Measured OS: %sfailed%s (%m)\n", ansi_highlight_red(), ansi_normal());
+                }
+
                 k = efi_get_reboot_to_firmware();
                 if (k > 0)
                         printf("  Boot into FW: %sactive%s\n", ansi_highlight_yellow(), ansi_normal());
