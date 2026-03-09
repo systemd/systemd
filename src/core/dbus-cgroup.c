@@ -1010,9 +1010,13 @@ static int bus_cgroup_set_tasks_max_scale(
                 *p = (CGroupTasksMax) { v, UINT32_MAX }; /* .scale is not 0, so this is interpreted as v/UINT32_MAX. */
                 unit_invalidate_cgroup(u, CGROUP_MASK_PIDS);
 
-                uint32_t scaled = DIV_ROUND_UP((uint64_t) v * 100U, (uint64_t) UINT32_MAX);
-                unit_write_settingf(u, flags, name, "%s=%" PRIu32 ".%" PRIu32 "%%", "TasksMax",
-                                    scaled / 10, scaled % 10);
+                /* Prepare to chop off suffix */
+                assert_se(endswith(name, "Scale"));
+                
+                int scaled = UINT32_SCALE_TO_PERMYRIAD(v);
+                unit_write_settingf(u, flags, name, "%.*s=" PERMYRIAD_AS_PERCENT_FORMAT_STR,
+                                   (int)(strlen(name) - strlen("Scale")), name,
+                                   PERMYRIAD_AS_PERCENT_FORMAT_VAL(scaled));
         }
 
         return 1;
