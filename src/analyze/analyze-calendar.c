@@ -122,7 +122,7 @@ static int test_calendar_one(usec_t n, const char *p) {
         return table_print(table, NULL);
 }
 
-int verb_calendar(int argc, char *argv[], void *userdata) {
+int verb_calendar(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r = 0;
         usec_t n;
 

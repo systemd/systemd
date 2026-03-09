@@ -17,7 +17,7 @@
 
 static PagerFlags arg_pager_flags = 0;
 
-static int help(int argc, char *argv[], void *userdata) {
+static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
@@ -46,7 +46,11 @@ static int help(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int dump_state(int argc, char *argv[], void *userdata) {
+static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        return help();
+}
+
+static int verb_dump_state(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -88,7 +92,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                         case 'h':
-                                return help(0, NULL, NULL);
+                                return help();
 
                         case ARG_VERSION:
                                 return version();
@@ -109,8 +113,8 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int run(int argc, char* argv[]) {
         static const Verb verbs[] = {
-                { "help", VERB_ANY, VERB_ANY, 0,            help       },
-                { "dump", VERB_ANY, 1,        VERB_DEFAULT, dump_state },
+                { "help", VERB_ANY, VERB_ANY, 0,            verb_help       },
+                { "dump", VERB_ANY, 1,        VERB_DEFAULT, verb_dump_state },
                 {}
         };
 

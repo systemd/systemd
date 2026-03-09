@@ -127,7 +127,7 @@ static int set_exit_code(uint8_t code) {
         return 0;
 }
 
-int verb_start_special(int argc, char *argv[], void *userdata) {
+int verb_start_special(int argc, char *argv[], uintptr_t data, void *userdata) {
         bool termination_action; /* An action that terminates the system, can be performed also by signal. */
         enum action a;
         int r;
@@ -198,7 +198,7 @@ int verb_start_special(int argc, char *argv[], void *userdata) {
 
         if (arg_force >= 1 &&
             (termination_action || IN_SET(a, ACTION_KEXEC, ACTION_EXIT)))
-                r = verb_trivial_method(argc, argv, userdata);
+                r = verb_trivial_method(argc, argv, data, userdata);
         else {
                 /* First try logind, to allow authentication with polkit */
                 switch (a) {
@@ -255,7 +255,7 @@ int verb_start_special(int argc, char *argv[], void *userdata) {
                         ;
                 }
 
-                r = verb_start(argc, argv, userdata);
+                r = verb_start(argc, argv, data, userdata);
         }
 
         if (termination_action && arg_force < 2 &&
@@ -265,7 +265,7 @@ int verb_start_special(int argc, char *argv[], void *userdata) {
         return r;
 }
 
-int verb_start_system_special(int argc, char *argv[], void *userdata) {
+int verb_start_system_special(int argc, char *argv[], uintptr_t data, void *userdata) {
         /* Like start_special above, but raises an error when running in user mode */
 
         if (arg_runtime_scope != RUNTIME_SCOPE_SYSTEM)
@@ -273,5 +273,5 @@ int verb_start_system_special(int argc, char *argv[], void *userdata) {
                                        "Bad action for %s mode.",
                                        runtime_scope_cmdline_option_to_string(arg_runtime_scope));
 
-        return verb_start_special(argc, argv, userdata);
+        return verb_start_special(argc, argv, data, userdata);
 }

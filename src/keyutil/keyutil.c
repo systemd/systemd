@@ -36,7 +36,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_signature, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_content, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_output, freep);
 
-static int help(int argc, char *argv[], void *userdata) {
+static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
@@ -81,6 +81,10 @@ static int help(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        return help();
+}
+
 static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
@@ -117,8 +121,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help(0, NULL, NULL);
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();
@@ -193,7 +196,7 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static int verb_validate(int argc, char *argv[], void *userdata) {
+static int verb_validate(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(X509_freep) X509 *certificate = NULL;
         _cleanup_(openssl_ask_password_ui_freep) OpenSSLAskPasswordUI *ui = NULL;
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *private_key = NULL;
@@ -248,7 +251,7 @@ static int verb_validate(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_extract_public(int argc, char *argv[], void *userdata) {
+static int verb_extract_public(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *public_key = NULL;
         int r;
 
@@ -315,7 +318,7 @@ static int verb_extract_public(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_extract_certificate(int argc, char *argv[], void *userdata) {
+static int verb_extract_certificate(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(X509_freep) X509 *certificate = NULL;
         int r;
 
@@ -342,7 +345,7 @@ static int verb_extract_certificate(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_pkcs7(int argc, char *argv[], void *userdata) {
+static int verb_pkcs7(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(X509_freep) X509 *certificate = NULL;
         _cleanup_free_ char *pkcs1 = NULL;
         size_t pkcs1_len = 0;
@@ -427,7 +430,7 @@ static int verb_pkcs7(int argc, char *argv[], void *userdata) {
 
 static int run(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "help",                VERB_ANY, VERB_ANY, 0, help                     },
+                { "help",                VERB_ANY, VERB_ANY, 0, verb_help                },
                 { "validate",            VERB_ANY, 1,        0, verb_validate            },
                 { "extract-public",      VERB_ANY, 1,        0, verb_extract_public      },
                 { "public",              VERB_ANY, 1,        0, verb_extract_public      }, /* Deprecated but kept for backwards compat. */

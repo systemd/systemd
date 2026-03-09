@@ -14,7 +14,8 @@ typedef struct {
         const char *verb;
         unsigned min_args, max_args;
         VerbFlags flags;
-        int (* const dispatch)(int argc, char *argv[], void *userdata);
+        int (* const dispatch)(int argc, char *argv[], uintptr_t data, void *userdata);
+        uintptr_t data;
 } Verb;
 
 bool running_in_chroot_or_offline(void);

@@ -89,7 +89,7 @@ static const char *integrity_algorithm_select(const void *key_file_buf) {
         return "crc32c";
 }
 
-static int verb_attach(int argc, char *argv[], void *userdata) {
+static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         crypt_status_info status;
         _cleanup_(erase_and_freep) void *key_buf = NULL;
@@ -156,7 +156,7 @@ static int verb_attach(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_detach(int argc, char *argv[], void *userdata) {
+static int verb_detach(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         int r;
 

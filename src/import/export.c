@@ -58,7 +58,7 @@ static void on_tar_finished(TarExport *export, int error, void *userdata) {
         sd_event_exit(event, ABS(error));
 }
 
-static int export_tar(int argc, char *argv[], void *userdata) {
+static int verb_export_tar(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(tar_export_unrefp) TarExport *export = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_(image_unrefp) Image *image = NULL;
@@ -139,7 +139,7 @@ static void on_raw_finished(RawExport *export, int error, void *userdata) {
         sd_event_exit(event, ABS(error));
 }
 
-static int export_raw(int argc, char *argv[], void *userdata) {
+static int verb_export_raw(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(raw_export_unrefp) RawExport *export = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_(image_unrefp) Image *image = NULL;
@@ -202,7 +202,7 @@ static int export_raw(int argc, char *argv[], void *userdata) {
         return -r;
 }
 
-static int help(int argc, char *argv[], void *userdata) {
+static int help(void) {
         printf("%1$s [OPTIONS...] {COMMAND} ...\n"
                "\n%4$sExport disk images.%5$s\n"
                "\n%2$sCommands:%3$s\n"
@@ -223,6 +223,10 @@ static int help(int argc, char *argv[], void *userdata) {
                ansi_normal());
 
         return 0;
+}
+
+static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        return help();
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -255,7 +259,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        return help(0, NULL, NULL);
+                        return help();
 
                 case ARG_VERSION:
                         return version();
@@ -297,9 +301,9 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int export_main(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "help", VERB_ANY, VERB_ANY, 0, help       },
-                { "tar",  2,        3,        0, export_tar },
-                { "raw",  2,        3,        0, export_raw },
+                { "help", VERB_ANY, VERB_ANY, 0, verb_help       },
+                { "tar",  2,        3,        0, verb_export_tar },
+                { "raw",  2,        3,        0, verb_export_raw },
                 {}
         };
 

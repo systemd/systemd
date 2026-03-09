@@ -641,7 +641,7 @@ static int describe(sd_bus *bus, const char *target_path, const char *version) {
         return table_print_with_pager(table, SD_JSON_FORMAT_OFF, arg_pager_flags, arg_legend);
 }
 
-static int verb_list(int argc, char **argv, void *userdata) {
+static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
         _cleanup_free_ char *target_path = NULL, *version = NULL;
         int r;
@@ -752,7 +752,7 @@ static int check_finished(sd_bus_message *reply, void *userdata, sd_bus_error *r
         return 0;
 }
 
-static int verb_check(int argc, char **argv, void *userdata) {
+static int verb_check(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
         _cleanup_(table_unrefp) Table *table = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
@@ -1283,7 +1283,7 @@ static int do_update(sd_bus *bus, char **targets) {
         return did_anything ? 1 : 0;
 }
 
-static int verb_update(int argc, char **argv, void *userdata) {
+static int verb_update(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
         _cleanup_strv_free_ char **targets = NULL;
         bool did_anything = false;
@@ -1336,7 +1336,7 @@ static int do_vacuum(sd_bus *bus, const char *target, const char *path) {
         return count + disabled > 0 ? 1 : 0;
 }
 
-static int verb_vacuum(int argc, char **argv, void *userdata) {
+static int verb_vacuum(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
         _cleanup_strv_free_ char **targets = NULL, **target_paths = NULL;
         size_t n;
@@ -1480,7 +1480,7 @@ static int list_features(sd_bus *bus) {
         return table_print_with_pager(table, SD_JSON_FORMAT_OFF, arg_pager_flags, arg_legend);
 }
 
-static int verb_features(int argc, char **argv, void *userdata) {
+static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
         _cleanup_(table_unrefp) Table *table = NULL;
         _cleanup_(feature_done) Feature f = {};
@@ -1529,7 +1529,7 @@ static int verb_features(int argc, char **argv, void *userdata) {
         return table_print_with_pager(table, SD_JSON_FORMAT_OFF, arg_pager_flags, false);
 }
 
-static int verb_enable(int argc, char **argv, void *userdata) {
+static int verb_enable(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
         bool did_anything = false, enable;
         char **features;
