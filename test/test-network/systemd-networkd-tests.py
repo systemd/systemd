@@ -4580,6 +4580,47 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, '149.10.124.48/28 proto kernel scope link src 149.10.124.58')
         self.assertRegex(output, '149.10.124.66 via inet6 2001:1234:5:8fff:ff:ff:ff:ff proto static')
 
+    def test_route_static_issue_40106(self):
+        check_output('ip link add dummy99 type dummy')
+        check_output('ip link set dummy99 up carrier off')
+        copy_network_unit(
+            '25-route-static-issue-40106-dummy.network',
+            '25-route-static-issue-40106-vlan.netdev',
+            '25-route-static-issue-40106-vlan.network',
+        )
+        start_networkd()
+        self.wait_online('dummy99:no-carrier')
+        self.wait_operstate('vlan99', operstate='off', setup_state='configuring')
+
+        # address can be configured even when the interface is down.
+        self.wait_address('vlan99', '192.0.2.1/24', ipv='-4', timeout_sec=10)
+        print('### ip -4 address show dev vlan99')
+        output = check_output('ip -4 address show dev vlan99')
+        print(output)
+        self.assertIn('inet 192.0.2.1/24 brd 192.0.2.255 scope global vlan99', output)
+
+        # route cannot be configured when the interface is down.
+        print('### ip -4 route show dev vlan99')
+        output = check_output('ip -4 route show dev vlan99')
+        print(output)
+        self.assertEqual(output, '')
+
+        # When cable is connected, the vlan becomes up by BindCarrier=, then
+        # the pending route is also configured.
+        check_output('ip link set dummy99 carrier on')
+        self.wait_online('dummy99:degraded', 'vlan99:routable')
+
+        print('### ip -4 address show dev vlan99')
+        output = check_output('ip -4 address show dev vlan99')
+        print(output)
+        self.assertIn('inet 192.0.2.1/24 brd 192.0.2.255 scope global vlan99', output)
+
+        print('### ip -4 route show dev vlan99')
+        output = check_output('ip -4 route show dev vlan99')
+        print(output)
+        self.assertIn('192.0.2.0/24 proto kernel scope link src 192.0.2.1', output)
+        self.assertIn('multicast 198.51.100.1 proto static scope link', output)
+
     @expectedFailureIfModuleIsNotAvailable('tcp_dctcp')
     def test_route_congctl(self):
         copy_network_unit('25-route-congctl.network', '12-dummy.netdev')
