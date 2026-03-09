@@ -1043,8 +1043,10 @@ int manager_connect(Manager *m) {
 #else
                 const char *port = "123";
 
-                if (nts)
-                        return log_error("timesyncd was not compiled with NTS support"), 0;
+                if (nts) {
+                        log_error("timesyncd was not compiled with NTS support");
+                        return 0;
+                }
 #endif
 
                 r = resolve_getaddrinfo(m->resolve, &m->resolve_query, m->current_server_name->string, port, &hints, manager_resolve_handler, NULL, m);
@@ -1137,6 +1139,8 @@ Manager* manager_free(Manager *m) {
 
 #if ENABLE_TIMESYNC_NTS
         manager_flush_cookies(m);
+        if (m->nts_handshake)
+                NTS_TLS_close(&m->nts_handshake);
 #endif
 
         return mfree(m);
@@ -1560,7 +1564,7 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
 
                 (void) socket_set_option(m->server_socket, addr->sa_family, IP_TOS, IPV6_TCLASS, IPTOS_DSCP_EF);
 
-                log_debug("Performing key exchange with %s\n", m->current_server_name->string);
+                log_debug("Performing key exchange with %s", m->current_server_name->string);
 
                 m->nts_handshake = NTS_TLS_setup(m->current_server_name->string, m->server_socket);
                 if (!m->nts_handshake)
@@ -1575,7 +1579,7 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
                         return 1;
 
                 if (r < 0) {
-                        log_error("Could not set up TLS session with server");
+                        log_warning("Could not set up TLS session with server");
                         NTS_TLS_close(&m->nts_handshake);
                         m->nts_timeout = sd_event_source_unref(m->nts_timeout);
                         return manager_connect(m);
@@ -1613,7 +1617,7 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
                 assert(r <= size);
 
                 if (r <= 0) {
-                        log_error("Error sending NTS key request");
+                        log_warning("Error sending NTS key request");
                         NTS_TLS_close(&m->nts_handshake);
                         m->nts_timeout = sd_event_source_unref(m->nts_timeout);
                         return manager_connect(m);
@@ -1634,7 +1638,7 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
                 assert(r <= size);
 
                 if (r < 0) {
-                        log_error("Error receiving NTS key response");
+                        log_warning("Error receiving NTS key response");
                         NTS_TLS_close(&m->nts_handshake);
                         m->nts_timeout = sd_event_source_unref(m->nts_timeout);
                         return manager_connect(m);
@@ -1647,7 +1651,7 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
                         if (NTS.error == NTS_INSUFFICIENT_DATA)
                                 return 1;
 
-                        log_error("NTS Error: %s", NTS_error_string(NTS.error));
+                        log_warning("NTS Error: %s", NTS_error_string(NTS.error));
                         NTS_TLS_close(&m->nts_handshake);
                         m->nts_timeout = sd_event_source_unref(m->nts_timeout);
                         return manager_connect(m);
@@ -1681,7 +1685,7 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
 
         const NTS_AEADParam *param = NTS_get_param(NTS.aead_id);
         if (!param) {
-                log_error("NTS server offered unknown AEAD %d", NTS.aead_id);
+                log_warning("NTS server offered unknown AEAD %d", NTS.aead_id);
                 return manager_connect(m);
         }
         m->nts_aead = *param;
@@ -1707,11 +1711,11 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
 
         /* An invariant for the manager: there are always > 0 cookies when NTS is enabled */
         if (num_cookies == 0) {
-                log_error("NTS server offered no cookies");
+                log_warning("NTS server offered no cookies");
                 return manager_connect(m);
         }
 
-        log_debug("Secured NTP server: %s:%s, %s, %d cookies\n", hostname, port, m->nts_aead.cipher_name, num_cookies);
+        log_debug("Secured NTP server: %s:%s, %s, %d cookies", hostname, port, m->nts_aead.cipher_name, num_cookies);
 
         struct addrinfo hints = {
                 .ai_flags = AI_NUMERICSERV|AI_ADDRCONFIG,
