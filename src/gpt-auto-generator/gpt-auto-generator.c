@@ -115,11 +115,13 @@ static int add_cryptsetup(
                         return log_oom();
         }
 
-        r = efi_measured_uki(LOG_WARNING);
-        if (r > 0)
+        r = efi_measured_os(LOG_WARNING);
+        if (r > 0) {
                 /* Enable TPM2 based unlocking automatically, if we have a TPM. See #30176. */
                 if (!strextend_with_separator(&options, ",", "tpm2-device=auto"))
                         return log_oom();
+        } else if (r == 0)
+                log_debug("Will not enable TPM based unlocking of volume '%s', OS measurements are not explicitly requested and not booted via systemd-stub with measurements enabled.", id);
 
         if (FLAGS_SET(flags, MOUNT_MEASURE)) {
                 /* We only measure the root volume key into PCR 15 if we are booted with sd-stub (i.e. in a
@@ -130,7 +132,7 @@ static int add_cryptsetup(
                         if (!strextend_with_separator(&options, ",", "tpm2-measure-pcr=yes,tpm2-measure-keyslot-nvpcr=yes"))
                                 return log_oom();
                 if (r == 0)
-                        log_debug("Will not measure volume key of volume '%s', not booted via systemd-stub with measurements enabled.", id);
+                        log_debug("Will not measure volume key of volume '%s', as OS measurements are not explicitly requested and not booted via systemd-stub with measurements enabled.", id);
         }
 
         r = generator_write_cryptsetup_service_section(f, id, what, NULL, options);
@@ -240,11 +242,11 @@ static int add_veritysetup(
                 return log_oom();
 
         if (FLAGS_SET(flags, MOUNT_MEASURE)) {
-                r = efi_measured_uki(LOG_WARNING);
+                r = efi_measured_os(LOG_WARNING);
                 if (r > 0 && !strextend_with_separator(&options, ",", "tpm2-measure-nvpcr=yes"))
                         return log_oom();
-                if (r == 0)
-                        log_debug("Will not measure root hash/signature of volume '%s', not booted via systemd-stub with measurements enabled.", id);
+                else if (r == 0)
+                        log_debug("Will not measure root hash/signature of volume '%s', OS measurements not explicitly requested and not booted via systemd-stub with measurements enabled.", id);
         }
 
         r = generator_write_veritysetup_service_section(

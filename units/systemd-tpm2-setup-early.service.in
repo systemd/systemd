@@ -14,7 +14,7 @@ DefaultDependencies=no
 Conflicts=shutdown.target
 After=tpm2.target systemd-pcrphase-initrd.service
 Before=sysinit.target shutdown.target
-ConditionSecurity=measured-uki
+ConditionSecurity=measured-os
 ConditionPathExists=!/run/systemd/tpm2-srk-public-key.pem
 
 [Service]

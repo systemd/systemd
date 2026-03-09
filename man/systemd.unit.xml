@@ -1605,6 +1605,10 @@
                   <entry>measured-uki</entry>
                   <entry>Unified Kernel Image with PCR 11 Measurements, as per <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>. <xi:include href="version-info.xml" xpointer="v255"/></entry>
                 </row>
+                <row>
+                  <entry>measured-os</entry>
+                  <entry>OS PCR measurements enabled. This is typically equivalent to <varname>measured-uki</varname>, however may also be set explicitly via the <varname>systemd.tpm2_measured_os=</varname> kernel command line switch, see <citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry> for details. The various system services doing boot and runtime measurements are conditioned on this flag. <xi:include href="version-info.xml" xpointer="v261"/></entry>
+                </row>
               </tbody>
             </tgroup>
           </table>
