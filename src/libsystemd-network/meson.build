@@ -2,6 +2,7 @@
 
 libsystemd_network_sources = files(
         'arp-util.c',
+        'dhcp-client-send.c',
         'dhcp-network.c',
         'dhcp-option.c',
         'dhcp-packet.c',
