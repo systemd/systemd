@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <assert.h>
-
+#include "assert-fundamental.h"
 #include "nts.h"
 
 #define ERROR(kind) case kind: return &#kind[4]
@@ -22,9 +21,6 @@ const char *NTS_error_string(enum NTS_ErrorType error) {
         case NTS_SUCCESS:
                 return "Success?";
         default:
-                assert(!"Invalid error code");
+                assert_not_reached();
         }
-
-        __builtin_unreachable();
-        return NULL;
 }

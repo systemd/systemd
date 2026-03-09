@@ -5,11 +5,11 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/random.h>
 
 #include "memory-util.h"
 #include "nts_crypto.h"
 #include "nts_extfields.h"
+#include "random-util.h"
 
 #ifndef ENCRYPTED_PLACEHOLDERS
 #define ENCRYPTED_PLACEHOLDERS 0
@@ -76,7 +76,7 @@ int NTS_add_extension_fields(
         buf.data += 48;
 
         /* generate unique identifier */
-        if (getrandom(*identifier, sizeof(*identifier), 0) != sizeof(*identifier))
+        if (crypto_random_bytes(*identifier, sizeof(*identifier)) != sizeof(*identifier))
                 goto exit;
 
         r = write_ntp_ext_field(&buf, UniqueIdentifier, *identifier, sizeof(*identifier), 16);
@@ -135,7 +135,7 @@ int NTS_add_extension_fields(
         }
 
         /* generate the nonce */
-        if (getrandom(EF_nonce, nonce_len, 0) != nonce_len)
+        if (crypto_random_bytes(EF_nonce, nonce_len) != nonce_len)
                 goto exit;
 
         AssociatedData info[] = {
@@ -244,11 +244,13 @@ int NTS_parse_extension_fields(
                                 /* only care about cookies */
                                 switch (inner_type) {
                                 case Cookie:
-                                        if(cookies < ELEMENTSOF(fields->new_cookie)) {
+                                        if (cookies < ELEMENTSOF(fields->new_cookie)) {
                                                 fields->new_cookie[cookies].data = plain.data + 4;
                                                 fields->new_cookie[cookies].length = inner_len - 4;
                                         }
                                         cookies++;
+                                        break;
+
                                 default:
                                         /* ignore any other field */;
                                 }
