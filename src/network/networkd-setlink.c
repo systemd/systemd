@@ -560,7 +560,7 @@ static int link_is_ready_to_set_link(Link *link, Request *req) {
         case REQUEST_TYPE_SET_LINK_CAN:
                 /* Do not check link->set_flags_messages here, as it is ok even if link->flags
                  * is outdated, and checking the counter causes a deadlock. */
-                if (FLAGS_SET(link->flags, IFF_UP)) {
+                if (link_is_up(link)) {
                         /* The CAN interface must be down to configure bitrate, etc... */
                         r = link_down_now(link);
                         if (r < 0)
@@ -624,14 +624,14 @@ static int link_is_ready_to_set_link(Link *link, Request *req) {
 
                 /* Do not check link->set_flags_messages here, as it is ok even if link->flags is outdated,
                  * and checking the counter causes a deadlock. */
-                if (link->network->bond && FLAGS_SET(link->flags, IFF_UP)) {
+                if (link->network->bond && link_is_up(link)) {
                         /* link must be down when joining to bond master. */
                         r = link_down_now(link);
                         if (r < 0)
                                 return r;
                 }
 
-                if (link->network->bridge && !FLAGS_SET(link->flags, IFF_UP) && link->dev) {
+                if (link->network->bridge && !link_is_up(link) && link->dev) {
                         /* Some devices require the port to be up before joining the bridge.
                          *
                          * E.g. Texas Instruments SoC Ethernet running in switch mode:
@@ -753,8 +753,7 @@ int link_request_to_set_addrgen_mode(Link *link) {
          * link goes down. Hence, we need to reset the interface. However, setting the mode by sysctl
          * does not need that. Let's use the sysctl interface when the link is already up.
          * See also issue #22424. */
-        if (mode != IPV6_LINK_LOCAL_ADDRESSS_GEN_MODE_NONE &&
-            FLAGS_SET(link->flags, IFF_UP)) {
+        if (mode != IPV6_LINK_LOCAL_ADDRESSS_GEN_MODE_NONE && link_is_up(link)) {
                 r = link_set_ipv6ll_addrgen_mode(link, mode);
                 if (r < 0)
                         log_link_warning_errno(link, r, "Cannot set IPv6 address generation mode, ignoring: %m");
@@ -1221,7 +1220,7 @@ static bool link_is_ready_to_bring_up_or_down(Link *link, bool up) {
                 if (link_get_by_index(link->manager, link->dsa_master_ifindex, &master) < 0)
                         return false;
 
-                if (!FLAGS_SET(master->flags, IFF_UP))
+                if (!link_is_up(master))
                         return false;
         }
 
