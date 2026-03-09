@@ -784,6 +784,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>systemd.tpm2_software_fallback=</varname></term>
+
+        <listitem><para>Controls whether to start a fallback software TPM service in case a hardware TPM is
+        not available, implemented by
+        <citerefentry><refentrytitle>systemd-tpm2-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>systemd.factory_reset=</varname></term>
 
         <listitem><para>Controls whether to to boot into factory reset mode, implemented by
