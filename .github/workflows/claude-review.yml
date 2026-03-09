@@ -335,12 +335,6 @@ jobs:
                   comment_id: existing.id,
                   body: summary,
                 });
-                await github.rest.issues.createComment({
-                  owner,
-                  repo,
-                  issue_number: prNumber,
-                  body: `Claude review updated — see [tracking comment](${commentUrl}).`,
-                });
               }
             } else {
               console.log("Creating new tracking comment.");
