@@ -529,7 +529,7 @@ static int run(int argc, char *argv[]) {
         if (arg_event_type >= 0)
                 event = arg_event_type;
 
-        if (arg_graceful && !tpm2_is_fully_supported()) {
+        if (arg_graceful && !tpm2_is_mostly_supported()) {
                 log_notice("No complete TPM2 support detected, exiting gracefully.");
                 return EXIT_SUCCESS;
         }
