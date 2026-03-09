@@ -16,7 +16,7 @@ After=tpm2.target
 Before=sysinit.target shutdown.target
 RequiresMountsFor=/var/lib/systemd/nvpcr
 ConditionPathExists=!/etc/initrd-release
-ConditionSecurity=measured-uki
+ConditionSecurity=measured-os
 
 [Service]
 Type=oneshot

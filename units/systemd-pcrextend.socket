@@ -13,7 +13,7 @@ Documentation=man:systemd-pcrextend(8)
 DefaultDependencies=no
 After=tpm2.target
 Before=sockets.target
-ConditionSecurity=measured-uki
+ConditionSecurity=measured-os
 
 [Socket]
 ListenStream=/run/systemd/io.systemd.PCRExtend
