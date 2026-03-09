@@ -99,6 +99,7 @@ basic_sources = files(
         'sort-util.c',
         'stat-util.c',
         'static-destruct.c',
+        'stdio-util.c',
         'strbuf.c',
         'string-table.c',
         'string-util.c',
