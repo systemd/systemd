@@ -228,6 +228,7 @@ void link_check_ready(Link *link);
 void link_update_operstate(Link *link, bool also_update_master);
 
 bool link_has_carrier(Link *link);
+bool link_is_up(Link *link);
 bool link_multicast_enabled(Link *link);
 
 bool link_ipv6_enabled(Link *link);
