@@ -37,7 +37,6 @@ struct sd_dhcp_client {
 
         sd_device *dev;
 
-        int fd;
         uint16_t port;
         uint16_t server_port;
         union sockaddr_union link;
@@ -93,6 +92,17 @@ int dhcp_client_set_state_callback(
                 sd_dhcp_client_callback_t cb,
                 void *userdata);
 int dhcp_client_get_state(sd_dhcp_client *client);
+
+int client_receive_message_raw(
+                sd_event_source *s,
+                int fd,
+                uint32_t revents,
+                void *userdata);
+int client_receive_message_udp(
+                sd_event_source *s,
+                int fd,
+                uint32_t revents,
+                void *userdata);
 
 /* If we are invoking callbacks of a dhcp-client, ensure unreffing the
  * client from the callback doesn't destroy the object we are working
