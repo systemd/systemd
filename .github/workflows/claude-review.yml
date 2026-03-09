@@ -70,7 +70,7 @@ jobs:
 
       - name: Run Claude Code
         id: claude
-        uses: anthropics/claude-code-action@1fc90f3ed982521116d8ff6d85b948c9b12cae3e
+        uses: anthropics/claude-code-action@26ec041249acb0a944c0a47b6c0c13f05dbc5b44
         env:
           REVIEW_SCHEMA: >-
             {
