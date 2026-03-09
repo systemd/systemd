@@ -307,7 +307,8 @@ static int add_mount(
                 MountPointFlags flags,
                 const char *options,
                 const char *description,
-                const char *post) {
+                const char *post,
+                const char *conflicts) {
 
         _cleanup_free_ char *unit = NULL, *crypto_what = NULL, *opts_filtered = NULL;
         _cleanup_fclose_ FILE *f = NULL;
@@ -376,6 +377,12 @@ static int add_mount(
         r = generator_write_blockdev_dependency(f, what);
         if (r < 0)
                 return r;
+
+        if (conflicts)
+                fprintf(f,
+                        "Conflicts=%1$s\n"
+                        "Before=%1$s\n",
+                        conflicts);
 
         fprintf(f,
                 "\n"
@@ -493,7 +500,8 @@ static int add_partition_mount(
                         (STR_IN_SET(id, "root", "var") ? MOUNT_MEASURE : 0), /* by default measure rootfs and /var, since they contain the "identity" of the system */
                         options,
                         description,
-                        SPECIAL_LOCAL_FS_TARGET);
+                        SPECIAL_LOCAL_FS_TARGET,
+                        /* conflicts= */ NULL);
 }
 
 static int add_partition_swap(DissectedPartition *p) {
@@ -582,7 +590,8 @@ static int add_automount(
                       flags,
                       options,
                       description,
-                      /* post= */ NULL);
+                      /* post= */ NULL,
+                      /* conflicts= */ NULL);
         if (r < 0)
                 return r;
 
@@ -919,7 +928,8 @@ static int add_root_mount(void) {
                         MOUNT_MEASURE,
                         options,
                         "Root Partition",
-                        in_initrd() ? SPECIAL_INITRD_ROOT_FS_TARGET : SPECIAL_LOCAL_FS_TARGET);
+                        in_initrd() ? SPECIAL_INITRD_ROOT_FS_TARGET : SPECIAL_LOCAL_FS_TARGET,
+                        /* conflicts= */ NULL);
 #else
         return 0;
 #endif
@@ -995,7 +1005,8 @@ static int add_usr_mount(void) {
                       /* flags= */ 0,
                       options,
                       "/usr/ Partition",
-                      in_initrd() ? SPECIAL_INITRD_USR_FS_TARGET : SPECIAL_LOCAL_FS_TARGET);
+                      in_initrd() ? SPECIAL_INITRD_USR_FS_TARGET : SPECIAL_LOCAL_FS_TARGET,
+                      /* conflicts= */ NULL);
         if (r < 0)
                 return r;
 
@@ -1009,12 +1020,56 @@ static int add_usr_mount(void) {
                               MOUNT_VALIDATEFS,
                               "bind",
                               "/usr/ Partition (Final)",
-                              SPECIAL_INITRD_FS_TARGET);
+                              SPECIAL_INITRD_FS_TARGET,
+                              /* conflicts= */ NULL);
                 if (r < 0)
                         return r;
         }
 #endif
         return 0;
+}
+
+static int add_early_esp_mount(void) {
+        int r;
+
+        /* Early ESP discovery is a bit different than the other mounts here: it's purely about the initrd,
+         * and goes away during the transition to the host (where it might likely be mounted again, but then
+         * via autofs, hence lazily). Moreover, the location is fixed → /sysefi/, i.e. we do not bother with
+         * XBOOLDR vs. ESP for this. Also, the mount is not pulled in by default, but is expected to be
+         * pulled in by the component that uses it.
+         *
+         * The initial usecase for this is software TPM that needs a place to store its state before the root
+         * file system can be mounted.
+         *
+         * Or in other words: this is much simpler, more focussed on a short-lived boot-time operation then
+         * the regular logic during later boot. */
+
+        if (!in_initrd())
+                return 0;
+
+        if (!is_efi_boot())
+                return 0;
+
+        _cleanup_free_ char *options = NULL;
+        r = partition_pick_mount_options(
+                        PARTITION_ESP,
+                        "vfat",
+                        /* rw= */ true,
+                        /* discard= */ true,
+                        &options,
+                        /* ret_ms_flags= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to pick ESP mount options: %m");
+
+        return add_mount("esp",
+                         "/dev/disk/by-designator/esp",
+                         "/sysefi/",
+                         "vfat",
+                         MOUNT_RW,
+                         options,
+                         "EFI System Partition (Early)",
+                         /* post= */ NULL,
+                         /* conflicts= */ "initrd-switch-root.target");
 }
 
 static int process_loader_partitions(DissectedPartition *esp, DissectedPartition *xbootldr) {
@@ -1190,7 +1245,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                         return 0;
 
                 /* Disable root disk logic if there's a root= value specified (unless it happens to be
-                 * "gpt-auto" or "gpt-auto-force") */
+                 * "gpt-auto", "gpt-auto-force", "dissect", "dissect-force") */
 
                 arg_auto_root = parse_gpt_auto_root("root=", value);
                 assert(arg_auto_root >= 0);
@@ -1243,9 +1298,6 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
-
-                /* Disable root disk logic if there's a root= value specified (unless it happens to be
-                 * "gpt-auto" or "gpt-auto-force") */
 
                 arg_auto_usr = parse_gpt_auto_root("mount.usr=", value);
                 assert(arg_auto_usr >= 0);
@@ -1325,6 +1377,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
         r = 0;
         RET_GATHER(r, add_root_mount());
         RET_GATHER(r, add_usr_mount());
+        RET_GATHER(r, add_early_esp_mount());
         RET_GATHER(r, add_mounts());
 
         return r;
