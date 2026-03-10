@@ -123,8 +123,15 @@ jobs:
             --allowedTools "
                 Read,LS,Grep,Glob,Task,
                 Bash(cat:*),Bash(test:*),Bash(printf:*),Bash(jq:*),Bash(head:*),Bash(tail:*),
-                Bash(git:*),Bash(gh:*),Bash(grep:*),Bash(find:*),Bash(ls:*),Bash(wc:*),
+                Bash(git:*),Bash(grep:*),Bash(find:*),Bash(ls:*),Bash(wc:*),
                 Bash(diff:*),Bash(sed:*),Bash(awk:*),Bash(sort:*),Bash(uniq:*),
+                mcp__github__get_pull_request,
+                mcp__github__get_pull_request_diff,
+                mcp__github__get_pull_request_files,
+                mcp__github__get_pull_request_reviews,
+                mcp__github__get_pull_request_comments,
+                mcp__github__get_pull_request_status,
+                mcp__github__get_issue_comments,
                 mcp__github_ci__get_ci_status,
                 mcp__github_ci__get_workflow_run_details,
                 mcp__github_ci__download_job_log,
@@ -135,22 +142,26 @@ jobs:
               PR NUMBER: ${{ steps.pr.outputs.number }}
               HEAD SHA: ${{ steps.pr.outputs.head_sha }}
 
-              You are a code reviewer for the systemd project. Review this pull request and
+              You are a code reviewer for the ${{ github.repository }} project. Review this pull request and
               produce a structured JSON result containing your review comments. Do NOT attempt
               to post comments yourself — just return the JSON. You are in the upstream repo
               without the patch applied. Do not apply it.
 
               ## Phase 1: Gather context
 
-              Fetch the patch, PR title/body, and list of existing comments (top-level, inline, and reviews):
-              - `gh pr diff ${{ steps.pr.outputs.number }} --patch`
-              - `gh pr view ${{ steps.pr.outputs.number }} --json title,body`
-              - `gh api --paginate repos/${{ github.repository }}/issues/${{ steps.pr.outputs.number }}/comments`
-              - `gh api --paginate repos/${{ github.repository }}/pulls/${{ steps.pr.outputs.number }}/comments`
-              - `gh api --paginate repos/${{ github.repository }}/pulls/${{ steps.pr.outputs.number }}/reviews`
+              Use the GitHub MCP server tools to fetch PR data. For all tools, pass
+              owner `${{ github.repository_owner }}`, repo `${{ github.event.repository.name }}`,
+              and pullNumber/issue_number ${{ steps.pr.outputs.number }}:
+              - `mcp__github__get_pull_request_diff` to get the PR diff
+              - `mcp__github__get_pull_request` to get the PR title, body, and metadata
+              - `mcp__github__get_pull_request_comments` to get top-level PR comments
+              - `mcp__github__get_pull_request_reviews` to get PR reviews
 
-              Also look for an existing tracking comment (containing `<!-- claude-pr-review -->`)
-              in the top-level issue comments. If one exists, you will use it as the basis for
+              Also fetch issue comments using `mcp__github__get_issue_comments` with
+              issue_number ${{ steps.pr.outputs.number }}.
+
+              Look for an existing tracking comment (containing `<!-- claude-pr-review -->`)
+              in the issue comments. If one exists, you will use it as the basis for
               your `summary` in Phase 3.
 
               Check CI status for the PR head commit using `mcp__github_ci__get_ci_status`.
@@ -233,7 +244,7 @@ jobs:
                  - Do NOT reorder, reword, or remove existing items.
 
               Return the final JSON object with your `comments` array and `summary` string.
-              Do NOT attempt to post comments, call `gh`, or use any MCP tools to interact with the PR.
+              Do NOT attempt to post comments or use any MCP tools to modify the PR.
 
   post:
     runs-on: ubuntu-latest
@@ -334,12 +345,6 @@ jobs:
                   repo,
                   comment_id: existing.id,
                   body: summary,
-                });
-                await github.rest.issues.createComment({
-                  owner,
-                  repo,
-                  issue_number: prNumber,
-                  body: `Claude review updated — see [tracking comment](${commentUrl}).`,
                 });
               }
             } else {
