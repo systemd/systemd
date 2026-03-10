@@ -31,7 +31,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         r = user_record_load(ur, v, USER_RECORD_LOAD_FULL|USER_RECORD_PERMISSIVE);
         if (r >= 0) {
-                /* We have a valid record, so let's excercise a couple more functions */
+                /* We have a valid record, so let's exercise a couple more functions */
                 _cleanup_(user_record_unrefp) UserRecord *cloned = NULL;
                 (void) user_record_clone(ur, USER_RECORD_LOAD_FULL, &cloned);
 
