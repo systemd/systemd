@@ -573,5 +573,16 @@ int main(int argc, char *argv[]) {
                          "Gateway=192.168.0.1\n"
                          );
 
+        test_network_two("BOOTIF",
+                         "ip", "::::hogehoge:BOOTIF:dhcp",
+                         "BOOTIF", "01-00:11:22:33:44:55",
+                         "[Match]\n"
+                         "MACAddress=00:11:22:33:44:55\n"
+                         "\n[Link]\n"
+                         "\n[Network]\n"
+                         "DHCP=ipv4\n"
+                         "\n[DHCP]\n"
+                         "Hostname=hogehoge\n"
+                         );
         return 0;
 }
