@@ -481,14 +481,17 @@ LOCAL"
 
 install_mock_certificate() {
     servername="$1"
+    out="$2"
+    workdir="/tmp"
+
     # this also installs a fake CA since we don't allow self-signed certificates
-    mkdir -p /etc/ssl/certs
-    openssl genrsa -out CA.key 2048
-    openssl req -x509 -noenc -key CA.key -subj "/CN=$servername" -out /etc/ssl/certs/CA.crt
-    openssl genrsa -out server.key 2048
-    openssl req -new -key server.key -subj "/CN=$servername" -out server.csr
-    openssl req -CA /etc/ssl/certs/CA.crt -in server.csr -CAkey CA.key -out server.crt
-    cat /etc/ssl/certs/CA.crt >> server.crt
+    openssl genrsa -out "$workdir"/CA.key 2048
+    openssl req -x509 -noenc -key "$workdir"/CA.key -subj "/CN=$servername" -out "$workdir"/CA.crt
+    openssl genrsa -out "$workdir"/server.key 2048
+    openssl req -new -key "$workdir"/server.key -subj "/CN=$servername" -out "$workdir"/server.csr
+    openssl req -CA "$workdir"/CA.crt -in "$workdir"/server.csr -CAkey "$workdir"/CA.key -out "$workdir"/server.crt
+    cat "$workdir"/CA.crt >> "$workdir"/server.crt
+    cp "$workdir"/CA.crt "$out"
     openssl rehash
 }
 
@@ -503,43 +506,41 @@ testcase_nts() {
         return 0
     fi
 
+    FAKEROOT_CA=/etc/ssl/certs/CA_dummy_cert.crt
+
     # shellcheck disable=SC2329
     cleanup() {
-        systemctl stop systemd-timesyncd busctl-monitor.service
-        rm -f server.key server.crt /etc/ssl/certs/CA.crt /etc/systemd/timesyncd.conf
+        rm -f "$FAKEROOT_CA"
+        systemctl stop systemd-timesyncd busctl-monitor.service nts-mock.service
     }
 
-    # shellcheck disable=SC2329
-    error() {
-        cleanup
-        [ "$mock_pid" ] && kill "$mock_pid"
-    }
-
-    trap cleanup RETURN
-    trap error ERR
+    trap cleanup RETURN ERR
 
     # configure a few NTP servers to test that they are ignored if NTS support is enabled
     local mock_server="localhost"
-    cat >/etc/systemd/timesyncd.conf <<EOF
+
+    mkdir -p /run/systemd/timesyncd.conf.d
+    cat >/run/systemd/timesyncd.conf.d/timesyncd.conf <<EOF
 [Time]
 NTP=debian.pool.ntp.org
 NTS=does.not.exist $mock_server not.found
 FallbackNTP=0.debian.pool.ntp.org
 EOF
+    systemctl daemon-reload
 
     # trick timesyncd (or rather, its call to "network_is_online()" into thinking
     # that there is a network; otherwise timesyncd will never attempt to sync time
     echo "partial" > /run/systemd/netif/state
 
-    install_mock_certificate "$mock_server"
+    install_mock_certificate "$mock_server" "$FAKEROOT_CA"
 
     systemctl unmask systemd-timesyncd
     systemctl restart systemd-timesyncd
     timedatectl set-ntp false
 
     # this will handle exactly one KE and one NTP request
-    /usr/lib/systemd/tests/unit-tests/manual/test-nts-mockserver &
-    mock_pid="$!"
+    systemd-run --unit=nts-mock.service --working-directory=/tmp --remain-after-exit \
+        /usr/lib/systemd/tests/unit-tests/manual/test-nts-mockserver
 
     systemd-run --unit busctl-monitor.service --service-type=notify \
         busctl monitor --json=short --match="type=signal,sender=org.freedesktop.timesync1,member=PropertiesChanged,path=/org/freedesktop/timesync1"
@@ -588,23 +589,19 @@ testcase_nts_failure_modes() {
         return 0
     fi
 
+    FAKEROOT_CA=/etc/ssl/CA_dummy_cert.crt
+
     # shellcheck disable=SC2329
     cleanup() {
-        rm -f server.key server.crt /etc/ssl/certs/CA.crt /etc/systemd/timesyncd.conf
+        rm -f "$FAKEROOT_CA"
     }
 
-    # shellcheck disable=SC2329
-    error() {
-        cleanup
-        [ "$mock_pid" ] && kill "$mock_pid"
-    }
-
-    trap cleanup RETURN
-    trap error ERR
+    trap cleanup RETURN ERR
 
     # configure a few NTP servers so
     local mock_server="localhost"
-    cat >/etc/systemd/timesyncd.conf <<EOF
+    mkdir -p /run/systemd/timesyncd.conf.d
+    cat >/run/systemd/timesyncd.conf.d/timesyncd.conf <<EOF
 [Time]
 NTS=$mock_server
 KeyExchangeTimeoutSec=1
@@ -612,12 +609,13 @@ ConnectionRetrySec=1
 PollIntervalMinSec=1
 PollIntervalMaxSec=1
 EOF
+    systemctl daemon-reload
 
     # trick timesyncd (or rather, its call to "network_is_online()" into thinking
     # that there is a network; otherwise timesyncd will never attempt to sync time
     echo "partial" > /run/systemd/netif/state
 
-    install_mock_certificate "$mock_server"
+    install_mock_certificate "$mock_server" "$FAKEROOT_CA"
 
     systemctl unmask systemd-timesyncd
     systemctl restart systemd-timesyncd
@@ -629,10 +627,10 @@ EOF
     # - 3 malformed/malicious NTS response
     # - 4 no reply on NTS handshake
     # - 5 drop connection on NTS handshake
-    # - 6 timeout during NTS handshake, which slows down the test too much
+    # - 6 timeout during NTS handshake
     for failure_mode in $(seq 6); do
-        /usr/lib/systemd/tests/unit-tests/manual/test-nts-mockserver "$failure_mode" &
-        mock_pid="$!"
+        systemd-run --unit=nts-mock.service --working-directory=/tmp --collect \
+            /usr/lib/systemd/tests/unit-tests/manual/test-nts-mockserver "$failure_mode"
 
         ts="$(date +"%F %T.%6N")"
         timedatectl set-ntp true
@@ -642,8 +640,11 @@ EOF
         assert_timesyncd_exhausted_servers "$ts"
 
         timedatectl set-ntp false
-        kill "$mock_pid" || true
     done
+
+    # in the final test scenario, the service should still be running, so
+    # check that it hasn't crashed
+    systemctl stop nts-mock.service
 }
 
 run_testcases
