@@ -199,6 +199,7 @@ typedef enum {
 
 static CatFlags arg_cat_flags = CAT_CONFIG_OFF;
 static bool arg_dry_run = false;
+static bool arg_inline = false;
 static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
 static OperationMask arg_operation = 0;
 static bool arg_boot = false;
@@ -3589,6 +3590,7 @@ static int parse_line(
         assert(fname);
         assert(line >= 1);
         assert(buffer);
+        assert(invalid_config);
 
         const Specifier specifier_table[] = {
                 { 'h', specifier_user_home,       NULL },
@@ -4157,6 +4159,7 @@ static int help(void) {
                "     --image-policy=POLICY  Specify disk image dissection policy\n"
                "     --replace=PATH         Treat arguments as replacement for PATH\n"
                "     --dry-run              Just print what would be done\n"
+               "     --inline               Treat arguments as configuration lines\n"
                "     --no-pager             Do not pipe output into a pager\n"
                "\nSee the %5$s for details.\n",
                program_invocation_short_name,
@@ -4187,6 +4190,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_IMAGE_POLICY,
                 ARG_REPLACE,
                 ARG_DRY_RUN,
+                ARG_INLINE,
                 ARG_NO_PAGER,
         };
 
@@ -4209,6 +4213,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "image-policy",   required_argument,   NULL, ARG_IMAGE_POLICY   },
                 { "replace",        required_argument,   NULL, ARG_REPLACE        },
                 { "dry-run",        no_argument,         NULL, ARG_DRY_RUN        },
+                { "inline",         no_argument,         NULL, ARG_INLINE         },
                 { "no-pager",       no_argument,         NULL, ARG_NO_PAGER       },
                 {}
         };
@@ -4316,6 +4321,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_dry_run = true;
                         break;
 
+                case ARG_INLINE:
+                        arg_inline = true;
+                        break;
+
                 case ARG_NO_PAGER:
                         arg_pager_flags |= PAGER_DISABLE;
                         break;
@@ -4338,6 +4347,10 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_replace && arg_cat_flags != CAT_CONFIG_OFF)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Option --replace= is not supported with --cat-config/--tldr.");
+
+        if (arg_inline && arg_cat_flags != CAT_CONFIG_OFF)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Option --inline is not supported with --cat-config/--tldr.");
 
         if (arg_replace && optind >= argc)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -4415,14 +4428,29 @@ static int parse_arguments(
                 char **config_dirs,
                 char **args,
                 bool *invalid_config) {
+
+        unsigned pos = 1;
         int r;
 
         assert(c);
 
         STRV_FOREACH(arg, args) {
-                r = read_config_file(c, config_dirs, *arg, false, invalid_config);
-                if (r < 0)
-                        return r;
+                if (arg_inline) {
+                        bool invalid_arg = false;
+
+                        /* Use (argument):n, where n==1 for the first positional arg */
+                        r = parse_line("(argument)", pos, *arg, &invalid_arg, c);
+                        if (invalid_arg)
+                                *invalid_config = true;
+                        else if (r < 0)
+                                return r;
+                } else {
+                        r = read_config_file(c, config_dirs, *arg, /* ignore_enoent= */ false, invalid_config);
+                        if (r < 0)
+                                return r;
+                }
+
+                pos++;
         }
 
         return 0;
