@@ -570,8 +570,12 @@ EFI_STATUS pe_section_table_from_base(
         if (!verify_pe(dos, pe, /* allow_compatibility= */ false))
                 return EFI_LOAD_ERROR;
 
+        size_t n_section_table = pe->FileHeader.NumberOfSections;
+        if (n_section_table * sizeof(PeSectionHeader) > SECTION_TABLE_BYTES_MAX)
+                return EFI_OUT_OF_RESOURCES;
+
         *ret_section_table = (const PeSectionHeader*) ((const uint8_t*) base + section_table_offset(dos, pe));
-        *ret_n_section_table = pe->FileHeader.NumberOfSections;
+        *ret_n_section_table = n_section_table;
 
         return EFI_SUCCESS;
 }
