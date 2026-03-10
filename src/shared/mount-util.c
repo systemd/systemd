@@ -1830,13 +1830,11 @@ int get_sub_mounts(const char *prefix, SubMount **ret_mounts, size_t *ret_n_moun
                         continue;
                 }
 
-                mount_fd = open(path, O_CLOEXEC|O_PATH);
-                if (mount_fd < 0) {
-                        if (errno == ENOENT) /* The path may be hidden by another over-mount or already unmounted. */
-                                continue;
-
-                        return log_debug_errno(errno, "Failed to open subtree of mounted filesystem '%s': %m", path);
-                }
+                mount_fd = RET_NERRNO(open_tree(AT_FDCWD, path, OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_RECURSIVE));
+                if (mount_fd == -ENOENT) /* The path may be hidden by another over-mount or already unmounted. */
+                        continue;
+                if (mount_fd < 0)
+                        return log_debug_errno(mount_fd, "Failed to open subtree of mounted filesystem '%s': %m", path);
 
                 p = strdup(path);
                 if (!p)
@@ -1905,9 +1903,7 @@ int bind_mount_submounts(
                         continue;
                 }
 
-                r = mount_follow_verbose(LOG_DEBUG, FORMAT_PROC_FD_PATH(m->mount_fd), t, NULL, MS_BIND|MS_REC, NULL);
-                if (r < 0 && ret == 0)
-                        ret = r;
+                RET_GATHER(ret, RET_NERRNO(move_mount(m->mount_fd, "", AT_FDCWD, t, MOVE_MOUNT_F_EMPTY_PATH)));
         }
 
         return ret;
