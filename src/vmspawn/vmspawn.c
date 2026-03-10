@@ -88,13 +88,15 @@
 
 #define VM_TAP_HASH_KEY SD_ID128_MAKE(01,d0,c6,4c,2b,df,24,fb,c0,f8,b2,09,7d,59,b2,93)
 
-typedef enum TpmStateMode {
-        TPM_STATE_OFF,      /* keep no state around */
-        TPM_STATE_AUTO,     /* keep state around if not ephemeral, derive path from image/directory */
-        TPM_STATE_PATH,     /* explicitly specified location */
-        _TPM_STATE_MODE_MAX,
-        _TPM_STATE_MODE_INVALID = -EINVAL,
-} TpmStateMode;
+/* An enum controlling how auxiliary state for the VM are maintained, i.e. the TPM state and the EFI variable
+ * NVRAM. */
+typedef enum StateMode {
+        STATE_OFF,      /* keep no state around */
+        STATE_AUTO,     /* keep state around if not ephemeral, derive path from image/directory */
+        STATE_PATH,     /* explicitly specified location */
+        _STATE_MODE_MAX,
+        _STATE_MODE_INVALID = -EINVAL,
+} StateMode;
 
 typedef struct SSHInfo {
         unsigned cid;
@@ -144,7 +146,9 @@ static struct ether_addr arg_network_provided_mac = {};
 static char **arg_smbios11 = NULL;
 static uint64_t arg_grow_image = 0;
 static char *arg_tpm_state_path = NULL;
-static TpmStateMode arg_tpm_state_mode = TPM_STATE_AUTO;
+static StateMode arg_tpm_state_mode = STATE_AUTO;
+static char *arg_efi_nvram_state_path = NULL;
+static StateMode arg_efi_nvram_state_mode = STATE_AUTO;
 static bool arg_ask_password = true;
 static bool arg_notify_ready = true;
 static char **arg_bind_user = NULL;
@@ -171,6 +175,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_background, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_ssh_key_type, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_smbios11, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm_state_path, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_efi_nvram_state_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_property, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_bind_user, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_bind_user_shell, freep);
@@ -209,6 +214,8 @@ static int help(void) {
                "     --tpm=BOOL            Enable use of a virtual TPM\n"
                "     --tpm-state=off|auto|PATH\n"
                "                           Where to store TPM state\n"
+               "     --efi-nvram=off|auto|PATH\n"
+               "                           Where to store EFI Variable NVRAM state\n"
                "     --linux=PATH          Specify the linux kernel for direct kernel boot\n"
                "     --initrd=PATH         Specify the initrd for direct kernel boot\n"
                "  -n --network-tap         Create a TAP device for networking\n"
@@ -317,6 +324,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_CONSOLE,
                 ARG_BACKGROUND,
                 ARG_TPM_STATE,
+                ARG_EFI_NVRAM_STATE,
                 ARG_NO_ASK_PASSWORD,
                 ARG_PROPERTY,
                 ARG_NOTIFY_READY,
@@ -374,6 +382,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "smbios11",          required_argument, NULL, 's'                   },
                 { "grow-image",        required_argument, NULL, 'G'                   },
                 { "tpm-state",         required_argument, NULL, ARG_TPM_STATE         },
+                { "efi-nvram-state",   required_argument, NULL, ARG_EFI_NVRAM_STATE   },
                 { "no-ask-password",   no_argument,       NULL, ARG_NO_ASK_PASSWORD   },
                 { "property",          required_argument, NULL, ARG_PROPERTY          },
                 { "notify-ready",      required_argument, NULL, ARG_NOTIFY_READY      },
@@ -710,7 +719,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 if (r < 0)
                                         return r;
 
-                                arg_tpm_state_mode = TPM_STATE_PATH;
+                                arg_tpm_state_mode = STATE_PATH;
                                 break;
                         }
 
@@ -720,8 +729,28 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --tpm-state= parameter: %s", optarg);
 
-                        arg_tpm_state_mode = r ? TPM_STATE_AUTO : TPM_STATE_OFF;
+                        arg_tpm_state_mode = r ? STATE_AUTO : STATE_OFF;
                         arg_tpm_state_path = mfree(arg_tpm_state_path);
+                        break;
+
+                case ARG_EFI_NVRAM_STATE:
+                        if (path_is_valid(optarg) && (path_is_absolute(optarg) || path_startswith(optarg, "./"))) {
+                                r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_efi_nvram_state_path);
+                                if (r < 0)
+                                        return r;
+
+                                arg_efi_nvram_state_mode = STATE_PATH;
+                                break;
+                        }
+
+                        r = isempty(optarg) ? false :
+                                streq(optarg, "auto") ? true :
+                                parse_boolean(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --efi-nvram-state= parameter: %s", optarg);
+
+                        arg_efi_nvram_state_mode = r ? STATE_AUTO : STATE_OFF;
+                        arg_efi_nvram_state_path = mfree(arg_efi_nvram_state_path);
                         break;
 
                 case ARG_NO_ASK_PASSWORD:
@@ -1949,6 +1978,30 @@ static int on_request_stop(sd_bus_message *m, void *userdata, sd_bus_error *erro
         return 0;
 }
 
+static int make_sidecar_path(const char *suffix, char **ret) {
+        int r;
+
+        assert(suffix);
+        assert(ret);
+
+        const char *p = ASSERT_PTR(arg_image ?: arg_directory);
+
+        _cleanup_free_ char *parent = NULL, *filename = NULL;
+        r = path_split_prefix_filename(p, &parent, &filename);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract parent directory and filename from '%s': %m", p);
+
+        if (!strextend(&filename, suffix))
+                return log_oom();
+
+        _cleanup_free_ char *j = path_join(parent, filename);
+        if (!j)
+                return log_oom();
+
+        *ret = TAKE_PTR(j);
+        return 0;
+}
+
 static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         _cleanup_(ovmf_config_freep) OvmfConfig *ovmf_config = NULL;
         _cleanup_free_ char *qemu_binary = NULL, *mem = NULL, *kernel = NULL;
@@ -2367,30 +2420,67 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (r < 0)
                 return log_oom();
 
-        _cleanup_(unlink_and_freep) char *ovmf_vars_to = NULL;
-        if (ovmf_config->supports_sb) {
-                const char *ovmf_vars_from = ovmf_config->vars;
-                _cleanup_free_ char *escaped_ovmf_vars_to = NULL;
-                _cleanup_close_ int source_fd = -EBADF, target_fd = -EBADF;
+        if (arg_efi_nvram_state_mode == STATE_AUTO && !arg_ephemeral) {
+                assert(!arg_efi_nvram_state_path);
 
-                r = tempfn_random_child(NULL, "vmspawn-", &ovmf_vars_to);
+                r = make_sidecar_path(".efinvramstate", &arg_efi_nvram_state_path);
                 if (r < 0)
-                        return r;
+                        return 0;
 
-                source_fd = open(ovmf_vars_from, O_RDONLY|O_CLOEXEC);
-                if (source_fd < 0)
-                        return log_error_errno(source_fd, "Failed to open OVMF vars file %s: %m", ovmf_vars_from);
+                log_debug("Storing EFI NVRAM state persistently under '%s'.", arg_efi_nvram_state_path);
+        }
 
-                target_fd = open(ovmf_vars_to, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0600);
-                if (target_fd < 0)
-                        return log_error_errno(errno, "Failed to create regular file for OVMF vars at %s: %m", ovmf_vars_to);
+        _cleanup_(unlink_and_freep) char *ovmf_vars = NULL;
+        if (ovmf_config->vars) {
+                _cleanup_close_ int target_fd = -EBADF;
+                _cleanup_(unlink_and_freep) char *destroy_path = NULL;
+                bool newly_created;
+                const char *state;
+                if (arg_efi_nvram_state_path) {
+                        _cleanup_free_ char *d = strdup(arg_efi_nvram_state_path);
+                        if (!d)
+                                return log_oom();
 
-                r = copy_bytes(source_fd, target_fd, UINT64_MAX, COPY_REFLINK);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to copy bytes from %s to %s: %m", ovmf_vars_from, ovmf_vars_to);
+                        target_fd = openat_report_new(AT_FDCWD, arg_efi_nvram_state_path, O_WRONLY|O_CREAT|O_CLOEXEC, 0600, &newly_created);
+                        if (target_fd < 0)
+                                return log_error_errno(target_fd, "Failed to open file for OVMF vars at %s: %m", arg_efi_nvram_state_path);
 
-                /* This isn't always available so don't raise an error if it fails */
-                (void) copy_times(source_fd, target_fd, 0);
+                        if (newly_created)
+                                destroy_path = TAKE_PTR(d);
+
+                        r = fd_verify_regular(target_fd);
+                        if (r < 0)
+                                return log_error_errno(r, "Not a regular file for OVMF variables at %s: %m", arg_efi_nvram_state_path);
+
+                        state = arg_efi_nvram_state_path;
+                } else {
+                        _cleanup_free_ char *t = NULL;
+                        r = tempfn_random_child(/* p= */ NULL, "vmspawn-", &t);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to create temporary filename: %m");
+
+                        target_fd = open(t, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0600);
+                        if (target_fd < 0)
+                                return log_error_errno(errno, "Failed to create regular file for OVMF vars at %s: %m", t);
+
+                        newly_created = true;
+                        state = ovmf_vars = TAKE_PTR(t);
+                }
+
+                if (newly_created) {
+                        _cleanup_close_ int source_fd = open(ovmf_config->vars, O_RDONLY|O_CLOEXEC);
+                        if (source_fd < 0)
+                                return log_error_errno(errno, "Failed to open OVMF vars file %s: %m", ovmf_config->vars);
+
+                        r = copy_bytes(source_fd, target_fd, UINT64_MAX, COPY_REFLINK);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to copy bytes from %s to %s: %m", ovmf_config->vars, state);
+
+                        /* This isn't always available so don't raise an error if it fails */
+                        (void) copy_times(source_fd, target_fd, 0);
+                }
+
+                destroy_path = mfree(destroy_path); /* disarm auto-destroy */
 
                 r = strv_extend_many(
                                 &cmdline,
@@ -2400,11 +2490,11 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (r < 0)
                         return log_oom();
 
-                escaped_ovmf_vars_to = escape_qemu_value(ovmf_vars_to);
-                if (!escaped_ovmf_vars_to)
+                _cleanup_free_ char *escaped_state = escape_qemu_value(state);
+                if (!escaped_state)
                         return log_oom();
 
-                r = strv_extendf(&cmdline, "file=%s,if=pflash,format=%s", escaped_ovmf_vars_to, ovmf_config_format(ovmf_config));
+                r = strv_extendf(&cmdline, "file=%s,if=pflash,format=%s", escaped_state, ovmf_config_format(ovmf_config));
                 if (r < 0)
                         return log_oom();
         }
@@ -2670,33 +2760,18 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM not supported on %s, refusing", architecture_to_string(native_architecture()));
                 if (arg_tpm < 0) {
                         arg_tpm = false;
-                        log_debug("TPM not support on %s, disabling tpm autodetection and continuing", architecture_to_string(native_architecture()));
+                        log_debug("TPM not supported on %s, disabling tpm autodetection and continuing", architecture_to_string(native_architecture()));
                 }
         }
 
         _cleanup_free_ char *swtpm = NULL;
         if (arg_tpm != 0) {
-                if (arg_tpm_state_mode == TPM_STATE_AUTO && !arg_ephemeral) {
+                if (arg_tpm_state_mode == STATE_AUTO && !arg_ephemeral) {
                         assert(!arg_tpm_state_path);
 
-                        const char *p = ASSERT_PTR(arg_image ?: arg_directory);
-
-                        _cleanup_free_ char *parent = NULL;
-                        r = path_extract_directory(p, &parent);
+                        r = make_sidecar_path(".tpmstate", &arg_tpm_state_path);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to extract parent directory from '%s': %m", p);
-
-                        _cleanup_free_ char *filename = NULL;
-                        r = path_extract_filename(p, &filename);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to extract filename from '%s': %m", p);
-
-                        if (!strextend(&filename, ".tpmstate"))
-                                return log_oom();
-
-                        arg_tpm_state_path = path_join(parent, filename);
-                        if (!arg_tpm_state_path)
-                                return log_oom();
+                                return r;
 
                         log_debug("Storing TPM state persistently under '%s'.", arg_tpm_state_path);
                 }
