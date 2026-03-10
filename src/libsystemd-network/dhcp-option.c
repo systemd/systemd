@@ -125,6 +125,12 @@ static int option_append(uint8_t options[], size_t size, size_t *offset,
                 break;
         }
         case SD_DHCP_OPTION_RELAY_AGENT_INFORMATION: {
+                /* optlen > 0 means raw data (e.g. from SendOption= on the client side).
+                 * Fall through to the default handler which appends it as a plain TLV.
+                 * optlen == 0 means optval is an sd_dhcp_server* (server relay path). */
+                if (optlen > 0)
+                        return dhcp_option_append_tlv(options, size, offset, code, optlen, optval);
+
                 sd_dhcp_server *server = (sd_dhcp_server *) optval;
                 size_t current_offset = *offset + 2;
 
