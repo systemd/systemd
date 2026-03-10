@@ -1681,7 +1681,7 @@ static int event_log_add_component_file(EventLog *el, EventLogComponent *compone
         }
 
         if (!sd_json_variant_is_object(j)) {
-                log_warning_errno(r, "Component file %s does not contain JSON object, ignoring.", path);
+                log_warning("Component file %s does not contain JSON object, ignoring.", path);
                 return 0;
         }
 
