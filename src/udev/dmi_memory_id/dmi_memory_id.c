@@ -186,6 +186,7 @@ static void dmi_memory_device_string(
 
         str = strdupa_safe(dmi_string(h, s));
         str = strstrip(str);
+        udev_replace_chars(str, " ");
         if (!isempty(str))
                 printf("MEMORY_DEVICE_%u_%s=%s\n", slot_num, attr_suffix, str);
 }
