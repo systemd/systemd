@@ -654,7 +654,7 @@ static void add_id_tag(UdevEvent *event, const char *path) {
         size_t i = 0;
 
         /* compose valid udev tag name */
-        for (const char *p = path; *p; p++) {
+        for (const char *p = path; *p && i < sizeof(tag) - 1; p++) {
                 if (ascii_isdigit(*p) ||
                     ascii_isalpha(*p) ||
                     *p == '-') {
