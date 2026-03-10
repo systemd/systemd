@@ -1,4 +1,5 @@
-/* SPDX-License-Identifier: LGPL-2.1-or-later */
+/* SPDX-License-Identifier: LGPL-2.1-or-later
+ * Copyright © 2026 Trifecta Tech Foundation */
 
 /* This is a mock NTS server that is only used for integration tests.
  * Any error in the protocol quickly results in an assert, and it can
