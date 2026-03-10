@@ -142,7 +142,7 @@ jobs:
               PR NUMBER: ${{ steps.pr.outputs.number }}
               HEAD SHA: ${{ steps.pr.outputs.head_sha }}
 
-              You are a code reviewer for the systemd project. Review this pull request and
+              You are a code reviewer for the ${{ github.repository }} project. Review this pull request and
               produce a structured JSON result containing your review comments. Do NOT attempt
               to post comments yourself — just return the JSON. You are in the upstream repo
               without the patch applied. Do not apply it.
