@@ -869,13 +869,18 @@ def dnr_v6_instance_data(adn, addrs=None, prio=1, alpns=("dot",), dohpath=None):
 
     return data
 
-def start_dnsmasq(*additional_options, interface='veth-peer', ra_mode=None, ipv4_range='192.168.5.10,192.168.5.200', ipv4_router='192.168.5.1', ipv6_range='2600::10,2600::20'):
+def start_dnsmasq(*additional_options, namespace=None, interface='veth-peer', ra_mode=None, ipv4_range='192.168.5.10,192.168.5.200', ipv4_router='192.168.5.1', ipv6_range='2600::10,2600::20'):
     if ra_mode:
         ra_mode = f',{ra_mode}'
     else:
         ra_mode = ''
 
-    command = (
+    if namespace:
+        ns_command = ('ip', 'netns', 'exec', namespace)
+    else:
+        ns_command = ()
+
+    command = ns_command + (
         'dnsmasq',
         f'--log-facility={dnsmasq_log_file}',
         '--log-queries=extra',
@@ -1104,6 +1109,8 @@ def tear_down_common():
 
     # 3. remove network namespace
     call_quiet('ip netns del ns99')
+    call_quiet('ip netns del ns-bridge')
+    call_quiet('ip netns del ns-server')
 
     # 4. remove links
     flush_l2tp_tunnels()
@@ -7987,6 +7994,63 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertNotIn(f'{address2}', output)
 
         self.teardown_nftset('addr4', 'network4', 'ifindex')
+
+    def test_dhcp_client_send_release(self):
+        check_output('ip netns add ns-bridge')
+        check_output('ip netns exec ns-bridge ip link add bridge99 type bridge')
+        check_output('ip netns exec ns-bridge ip link set bridge99 address 12:34:56:78:90:ab')
+        check_output('ip netns exec ns-bridge ip link set bridge99 up')
+
+        check_output('ip link add client type veth peer clientp')
+        check_output('ip link set clientp netns ns-bridge')
+        check_output('ip netns exec ns-bridge ip link set clientp master bridge99')
+        check_output('ip netns exec ns-bridge ip link set clientp up')
+
+        check_output('ip link add server type veth peer serverp')
+        check_output('ip link set serverp netns ns-bridge')
+        check_output('ip netns exec ns-bridge ip link set serverp master bridge99')
+        check_output('ip netns exec ns-bridge ip link set serverp up')
+
+        check_output('ip netns add ns-server')
+        check_output('ip link set server netns ns-server')
+        check_output('ip netns exec ns-server ip link set server up')
+        check_output('ip netns exec ns-server ip address add 192.0.2.1/24 dev server')
+
+        start_dnsmasq(
+            namespace='ns-server',
+            interface='server',
+            ipv4_range='192.0.2.100,192.0.2.109',
+            ipv4_router='192.0.2.1',
+        )
+
+        copy_network_unit('25-dhcp-client-simple.network')
+        start_networkd()
+        self.wait_online('client:routable')
+
+        print('## ip -4 address show dev client scope global')
+        output = check_output('ip -4 address show dev client scope global')
+        print(output)
+        self.assertRegex(output, r'192.0.2.10[0-9]/24')
+
+        print('## ip -4 route show dev client')
+        output = check_output('ip -4 route show dev client')
+        print(output)
+        self.assertRegex(output, r'default via 192.0.2.1 proto dhcp src 192.0.2.10[0-9]')
+        self.assertRegex(output, r'192.0.2.0/24 proto kernel scope link src 192.0.2.10[0-9]')
+        self.assertRegex(output, r'192.0.2.1 proto dhcp scope link src 192.0.2.10[0-9]')
+
+        networkctl('down', 'client')
+
+        print('## dnsmasq log')
+        for _ in range(20):
+            time.sleep(0.5)
+            output = read_dnsmasq_log_file()
+            if 'DHCPRELEASE' in output:
+                print(output)
+                break
+        else:
+            print(output)
+            self.fail('Timed out waiting for DHCPRELEASE in dnsmasq log')
 
     def test_dhcp_client_ipv4_dbus_status(self):
         copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-ipv4-only.network')
