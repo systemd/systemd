@@ -1049,9 +1049,9 @@ static EFI_STATUS config_timeout_sec_from_string(const char *value, uint64_t *ds
         if (streq8(value, "menu-disabled"))
                 *dst = TIMEOUT_MENU_DISABLED;
         else if (streq8(value, "menu-force"))
-                *dst = TIMEOUT_MENU_DISABLED;
+                *dst = TIMEOUT_MENU_FORCE;
         else if (streq8(value, "menu-hidden"))
-                *dst = TIMEOUT_MENU_DISABLED;
+                *dst = TIMEOUT_MENU_HIDDEN;
         else {
                 uint64_t u;
                 if (!parse_number8(value, &u, NULL) || u > TIMEOUT_TYPE_MAX)
