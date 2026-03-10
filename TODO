@@ -123,6 +123,11 @@ Features:
 
 * start making use of the new --graceful switch to util-linux' umount command
 
+* lock down swtpm a bit to make it harder to extract keys from it as it is
+  running. i.e. make ptracing + termination hard from the outside. also run
+  swtpm as unpriv user (not trivial, probably requires patch swtpm, as it needs
+  to allocat vtpm device), to lock it down from the inside.
+
 * make systemd work nicely without /bin/sh, logins and associated shell tools around
   - add a small unit that just prints "boot complete" which we can pull in
     wherever we pull in getty@1.service, but is conditioned on /bin/sh being
@@ -146,13 +151,6 @@ Features:
   creates log spam if the nvindex already exists.
 
 * on first login of a user, measure its identity to some nvpcr
-
-* optionally spawn an swtpm instance if a system doesn't have a native tpm, do
-  it via the tpm generator
-
-* add a secret key logic to sd-stub, that uses early-boot efi variables for
-  storing, that can be used as fallback logic for tpm-less systems for disk
-  encryption, and swtpm state encryption.
 
 * sd-lldp: pick up 802.3 maximum frame size/mtu, to be able to detect jumbo
   frame capable networks
@@ -553,7 +551,7 @@ Features:
   service into the early boot, waiting for the DMI and network device to show
   up.
 
-* Add UKI profile conditioning so that profles are only available if secure
+* Add UKI profile conditioning so that profiles are only available if secure
   boot is turned off, or only on. similar, add conditions on TPM availability,
   network boot, and other conditions.
 
