@@ -12,6 +12,7 @@
 #include "bus-polkit.h"
 #include "bus-util.h"
 #include "discover-image.h"
+#include "dissect-image.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "hashmap.h"
@@ -61,7 +62,7 @@ int bus_image_common_get_os_release(
                 return 1;
 
         if (!image->metadata_valid) {
-                r = image_read_metadata(image, /* root= */ NULL, &image_policy_service, m->runtime_scope, /* extra_flags= */ 0);
+                r = image_read_metadata(image, /* root= */ NULL, &image_policy_service, m->runtime_scope, DISSECT_IMAGE_VERITY_SHARE);
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Failed to read image metadata: %m");
         }
