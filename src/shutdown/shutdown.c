@@ -51,6 +51,7 @@
 
 #define SYNC_PROGRESS_ATTEMPTS 3
 #define SYNC_TIMEOUT_USEC (10*USEC_PER_SEC)
+#define DEFAULT_MINIMUM_UPTIME_USEC (15U * USEC_PER_SEC)
 
 static const char *arg_verb = NULL;
 static uint8_t arg_exit_code = 0;
@@ -327,6 +328,35 @@ static void notify_supervisor(void) {
                                   arg_exit_code, arg_verb);
 }
 
+static void sleep_until_minimum_uptime(void) {
+        usec_t minimum_uptime = USEC_INFINITY;
+        int r;
+
+        const char *e = secure_getenv("MINIMUM_UPTIME_USEC");
+        if (!isempty(e)) {
+                r = safe_atou64(e, &minimum_uptime);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse $MINIMUM_UPTIME_USEC, ignoring: %s", e);
+        }
+
+        if (minimum_uptime <= 0) /* turned off? */
+                return;
+        if (minimum_uptime == USEC_INFINITY) /* pick default */
+                minimum_uptime = DEFAULT_MINIMUM_UPTIME_USEC;
+
+        for (;;) {
+                usec_t n = now(CLOCK_BOOTTIME);
+                if (n > minimum_uptime)
+                        break;
+
+                usec_t m = minimum_uptime - n;
+                log_notice("Delaying shutdown for %s, in order to reach minimum uptime of %s.", FORMAT_TIMESPAN(m, USEC_PER_SEC), FORMAT_TIMESPAN(minimum_uptime, USEC_PER_SEC));
+
+                /* Sleep for up to 3s, then show message again, as a progress indicator. */
+                usleep_safe(MIN(m, 3 * USEC_PER_SEC));
+        }
+}
+
 int main(int argc, char *argv[]) {
         static const char* const dirs[] = {
                 SYSTEM_SHUTDOWN_PATH,
@@ -594,6 +624,9 @@ int main(int argc, char *argv[]) {
                 (void) sync_with_progress(-EBADF);
 
         notify_supervisor();
+
+        if (!in_container)
+                sleep_until_minimum_uptime();
 
         if (streq(arg_verb, "exit")) {
                 if (in_container) {
