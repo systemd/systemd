@@ -8,20 +8,17 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=TPM PCR Measurements
-Documentation=man:systemd-pcrextend(8)
+Description=TPM PCR OS Separator
+Documentation=man:systemd-pcrosseparator.service(8)
 DefaultDependencies=no
+Conflicts=shutdown.target initrd-switch-root.target
 After=tpm2.target
-Before=sockets.target
+Before=sysinit.target shutdown.target initrd-switch-root.target
+ConditionPathExists=/etc/initrd-release
 ConditionSecurity=measured-os
+FailureAction=reboot-force
 
-[Socket]
-ListenStream=/run/systemd/io.systemd.PCRExtend
-Symlinks=/run/varlink/registry/io.systemd.PCRExtend
-FileDescriptorName=varlink
-SocketMode=0600
-Accept=yes
-MaxConnectionsPerSource=16
-
-[Install]
-WantedBy=sockets.target
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart={{LIBEXECDIR}}/systemd-pcrextend --graceful --os-separator
