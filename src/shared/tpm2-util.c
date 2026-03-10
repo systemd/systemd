@@ -3003,6 +3003,8 @@ int tpm2_get_good_pcr_banks(
                 log_debug("Boot loader didn't set the LoaderTpm2ActivePcrBanks EFI variable, we have to guess the used PCR banks.");
         } else if (efi_banks == UINT32_MAX)
                 log_debug("Boot loader set the LoaderTpm2ActivePcrBanks EFI variable to indicate that the GetActivePcrBanks() API is not available in the firmware. We have to guess the used PCR banks.");
+        else if (efi_banks == 0)
+                log_debug("Boot loader set LoaderTpm2ActivePcrBanks EFI variable to zero to indicate firmware has TPM support is not available in the firmware. We'll have to guess the used PCR banks.");
         else {
                 FOREACH_ARRAY(hash, tpm2_hash_algorithms, TPM2_N_HASH_ALGORITHMS) {
                         if (!BIT_SET(efi_banks, *hash))
@@ -6670,6 +6672,7 @@ static const char* tpm2_userspace_event_type_table[_TPM2_USERSPACE_EVENT_TYPE_MA
         [TPM2_EVENT_NVPCR_INIT]      = "nvpcr-init",
         [TPM2_EVENT_NVPCR_SEPARATOR] = "nvpcr-separator",
         [TPM2_EVENT_DM_VERITY]       = "dm-verity",
+        [TPM2_EVENT_OS_SEPARATOR]    = "os-separator",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(tpm2_userspace_event_type, Tpm2UserspaceEventType);
