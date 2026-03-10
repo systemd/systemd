@@ -292,6 +292,13 @@ jobs:
                  Omit empty sections. Each checkbox item must correspond to an entry in `comments`.
                  If there are no issues at all, write a short message saying the PR looks good.
 
+                 Throughout all phases, track any errors that prevented you from doing
+                 your job fully: permission denials (403, "Resource not accessible by
+                 integration"), tools that were not available, rate limits, or any other
+                 failures that degraded the review quality. If there were any, append a
+                 `### Errors` section listing each failed tool/action and the error
+                 message, so maintainers can fix the workflow configuration.
+
                  **If an existing tracking comment was found (subsequent run):**
                  Use the existing comment as the starting point. Preserve the order and wording
                  of all existing items. Then apply these updates:
