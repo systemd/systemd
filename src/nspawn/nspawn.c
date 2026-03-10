@@ -3465,13 +3465,6 @@ static int inner_child(
                 r = reset_uid_gid();
                 if (r < 0)
                         return log_error_errno(r, "Couldn't become new root: %m");
-
-                /* Creating a new user namespace means all MS_SHARED mounts become MS_SLAVE. Let's put them
-                 * back to MS_SHARED here, since that's what we want as defaults. (This will not reconnect
-                 * propagation, but simply create new peer groups for all our mounts). */
-                r = mount_follow_verbose(LOG_ERR, NULL, "/", NULL, MS_SHARED|MS_REC, NULL);
-                if (r < 0)
-                        return r;
         }
 
         r = mount_all(/* dest= */ NULL,
@@ -3538,6 +3531,18 @@ static int inner_child(
                         0,
                         arg_selinux_apifs_context,
                         MOUNT_NON_ROOT_ONLY | MOUNT_IN_USERNS);
+        if (r < 0)
+                return r;
+
+        /* Now that all our setup mounts are in place, restore shared propagation as the default for
+         * the container runtime. Note that we delay this until after all our setup mounts are done
+         * (mount_all(), setup_boot_id(), etc.) below. If we restored shared propagation before those mounts,
+         * bind mounts like /proc/sys (which is bind-mounted read-only on top of /proc/sys) would end up
+         * in the same peer group as the underlying /proc mount, causing any subsequent mounts under
+         * /proc/sys (such as boot_id) to propagate and appear as duplicate mount table entries. By
+         * keeping slave propagation during setup, each bind mount gets its own independent peer group
+         * when we finally switch to shared, avoiding the unwanted propagation. */
+        r = mount_follow_verbose(LOG_ERR, NULL, "/", NULL, MS_SHARED|MS_REC, NULL);
         if (r < 0)
                 return r;
 
@@ -4466,22 +4471,27 @@ static int outer_child(
 
         _cleanup_close_ int notify_fd = -EBADF;
         if (arg_userns_mode != USER_NAMESPACE_MANAGED) {
-                /* Mark everything as shared so our mounts get propagated down. This is required to make new
-                 * bind mounts available in systemd services inside the container that create a new mount
-                 * namespace.  See https://github.com/systemd/systemd/issues/3860 Further submounts (such as
-                 * /dev/) done after this will inherit the shared propagation mode.
+                /* Switch root but use slave propagation for now. We delay restoring MS_SHARED until
+                 * inner_child() has finished all its setup mounts. If we made everything shared here,
+                 * bind mounts set up by inner_child() (e.g. /proc/sys on top of /proc/sys) would join
+                 * the same peer group as the underlying mount, causing subsequent mounts (like boot_id)
+                 * to propagate and appear as duplicate mount table entries.
                  *
-                 * IMPORTANT: Do not overmount the root directory anymore from now on to enable moving the root
-                 * directory mount to root later on.
+                 * Slave propagation is sufficient here: mount events from the outer child still propagate
+                 * into the inner child (which gets slave copies via CLONE_NEWNS), but the inner child's
+                 * own mounts don't propagate back or cross-propagate within the namespace.
+                 *
+                 * IMPORTANT: Do not overmount the root directory anymore from now on to enable moving the
+                 * root directory mount to root later on.
                  * https://github.com/systemd/systemd/issues/3847#issuecomment-562735251
                  */
-                r = mount_switch_root(directory, MS_SHARED);
+                r = mount_switch_root(directory, MS_SLAVE);
                 if (r < 0)
                         return log_error_errno(r, "Failed to move root directory: %m");
 
-                /* We finished setting up the rootfs which is a shared mount. The mount tunnel needs to be a
-                 * dependent mount otherwise we can't MS_MOVE mounts that were propagated from the host into
-                 * the container. */
+                /* We finished setting up the rootfs which is a dependent mount. The mount tunnel also
+                 * needs to be a dependent mount otherwise we can't MS_MOVE mounts that were propagated
+                 * from the host into the container. */
                 r = mount_tunnel_open();
                 if (r < 0)
                         return r;
@@ -4491,10 +4501,10 @@ static int outer_child(
                          * requires that a fully visible instance is already present in the target mount
                          * namespace. Mount one here so the inner child can mount its own instances. Later
                          * we umount the temporary instances created here before we actually exec the
-                         * payload. Since the rootfs is shared the umount will propagate into the container.
-                         * Note, the inner child wouldn't be able to unmount the instances on its own since
-                         * it doesn't own the originating mount namespace. IOW, the outer child needs to do
-                         * this. */
+                         * payload. Since the rootfs is a slave mount the umount will propagate into the
+                         * container. Note, the inner child wouldn't be able to unmount the instances on
+                         * its own since it doesn't own the originating mount namespace. IOW, the outer
+                         * child needs to do this. */
                         r = pin_fully_visible_api_fs();
                         if (r < 0)
                                 return r;
@@ -4540,7 +4550,10 @@ static int outer_child(
                         if (r < 0)
                                 return r;
 
-                        r = mount_switch_root(directory, MS_SHARED);
+                        /* Switch root but don't restore shared propagation yet — inner_child() will
+                         * restore MS_SHARED after all its setup mounts are done, to avoid spurious
+                         * mount propagation (e.g. duplicate boot_id mount entries). */
+                        r = mount_switch_root(directory, MS_SLAVE);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to move root directory: %m");
                 }
