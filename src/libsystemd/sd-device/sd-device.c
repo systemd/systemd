@@ -30,6 +30,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
+#include "utf8.h"
 
 int device_new_aux(sd_device **ret) {
         sd_device *device;
@@ -81,18 +82,40 @@ static sd_device* device_free(sd_device *device) {
 
 DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_device, sd_device, device_free);
 
+static bool property_is_valid(const char *key, const char *value) {
+        /* Device properties may be saved to database file, then may be parsed from the file. When if a
+         * property contains spurious characters, then the parser may be confused. Let's refuse spurious
+         * properties, even if it is internal, which will not be saved to database file, for consistency. */
+
+        if (isempty(key) || !in_charset(key, ALPHANUMERICAL "_."))
+                return false;
+
+        /* an empty value means unset the property, hence that's fine. */
+        if (isempty(value))
+                return true;
+
+        /* refuse invalid UTF8 and control characters */
+        if (!utf8_is_valid(value) || string_has_cc(value, /* ok= */ NULL))
+                return false;
+
+        return true;
+}
+
 int device_add_property_aux(sd_device *device, const char *key, const char *value, bool db) {
         OrderedHashmap **properties;
 
         assert(device);
         assert(key);
 
+        if (!property_is_valid(key, value))
+                return -EINVAL;
+
         if (db)
                 properties = &device->properties_db;
         else
                 properties = &device->properties;
 
-        if (value) {
+        if (!isempty(value)) {
                 _unused_ _cleanup_free_ char *old_value = NULL;
                 _cleanup_free_ char *new_key = NULL, *new_value = NULL, *old_key = NULL;
                 int r;
@@ -1628,7 +1651,6 @@ bool device_has_devlink(sd_device *device, const char *devlink) {
 static int device_add_property_internal_from_string(sd_device *device, const char *str) {
         _cleanup_free_ char *key = NULL;
         char *value;
-        int r;
 
         assert(device);
         assert(str);
@@ -1648,11 +1670,7 @@ static int device_add_property_internal_from_string(sd_device *device, const cha
 
         /* Add the property to both sd_device::properties and sd_device::properties_db,
          * as this is called by only handle_db_line(). */
-        r = device_add_property_aux(device, key, value, false);
-        if (r < 0)
-                return r;
-
-        return device_add_property_aux(device, key, value, true);
+        return device_add_property(device, key, value);
 }
 
 int device_set_usec_initialized(sd_device *device, usec_t when) {
