@@ -9,5 +9,13 @@ set -o pipefail
 rm -fr /tmp/test
 
 echo "e /tmp/test - root root 1d" | systemd-tmpfiles --create -
+test ! -e /tmp/test
 
+touch /tmp/test
+echo "r /tmp/test - - - -" | systemd-tmpfiles --remove -
+test ! -e /tmp/test
+
+touch /tmp/test
+systemd-tmpfiles --remove --inline 'p /tmp/fifo' 'r /tmp/test'
+test ! -e /tmp/fifo
 test ! -e /tmp/test
