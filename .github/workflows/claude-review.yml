@@ -110,7 +110,9 @@ jobs:
 
     permissions:
       contents: read
-      id-token: write      # Authenticate with AWS via OIDC
+      pull-requests: read   # Fetch PR comments and reviews
+      issues: read          # Fetch issue comments
+      id-token: write       # Authenticate with AWS via OIDC
       actions: read
 
     outputs:
