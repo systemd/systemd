@@ -441,8 +441,11 @@ static int scsi_id(char *maj_min_dev) {
                 }
                 if (dev_scsi.tgpt_group[0] != '\0')
                         printf("ID_TARGET_PORT=%s\n", dev_scsi.tgpt_group);
-                if (dev_scsi.unit_serial_number[0] != '\0')
-                        printf("ID_SCSI_SERIAL=%s\n", dev_scsi.unit_serial_number);
+                if (dev_scsi.unit_serial_number[0] != '\0') {
+                        udev_replace_whitespace(dev_scsi.unit_serial_number, serial_str, sizeof(serial_str)-1);
+                        udev_replace_chars(serial_str, NULL);
+                        printf("ID_SCSI_SERIAL=%s\n", serial_str);
+                }
                 goto out;
         }
 
