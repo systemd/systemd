@@ -1,4 +1,5 @@
-/* SPDX-License-Identifier: LGPL-2.1-or-later */
+/* SPDX-License-Identifier: LGPL-2.1-or-later
+ * Copyright © 2026 Trifecta Tech Foundation */
 
 #include <assert.h>
 #include <string.h>
