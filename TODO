@@ -121,6 +121,8 @@ Deprecations and removals:
 
 Features:
 
+* start making use of the new --graceful switch to util-linux' umount command
+
 * make systemd work nicely without /bin/sh, logins and associated shell tools around
   - add a small unit that just prints "boot complete" which we can pull in
     wherever we pull in getty@1.service, but is conditioned on /bin/sh being
