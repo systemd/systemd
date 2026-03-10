@@ -633,6 +633,22 @@
 
         <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>MinimumUptimeSec=</varname></term>
+
+        <listitem><para>Specifies the minimum uptime for the system which has to be reached before a shutdown
+        is executed. Defaults to 15s. This mechanism is introduced to avoid high frequency reboot loops, when
+        technical failures trigger an automatic shutdown during the boot process. Each reboot cycle is
+        delayed to the specified minimum time, giving the user a chance to review screen contents or
+        otherwise interact with the device before the shutdown proceeds. The delay takes place during the
+        very last phase of system shutdown, immediately before the <function>reboot()</function> system call
+        is executed. If the system is already running for longer than the specified time, this setting has no
+        effect. This logic is also skipped in container environments. Set to zero in order to disable this
+        logic.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
