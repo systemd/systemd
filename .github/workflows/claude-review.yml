@@ -187,8 +187,10 @@ jobs:
               Each subagent must return a JSON array of issues:
               `[{"file": "path", "line": <number>, "severity": "must-fix|suggestion|nit", "body": "..."}]`
 
-              `line` must be a line number from the NEW side of the diff (i.e. where the comment
-              should appear in the changed file after the patch is applied).
+              `line` must be a line number from the NEW side of the diff **that appears inside
+              a diff hunk** (i.e. a line that is shown in the patch output). GitHub's review
+              comment API rejects lines outside the diff context, so never reference lines
+              that are not visible in the patch.
 
               Each subagent MUST verify its findings before returning them:
               - For style/convention claims, check at least 3 existing examples in the codebase to confirm
@@ -293,30 +295,44 @@ jobs:
              * comments is handled by Claude in the prompt, so we just post whatever
              * it returns. Using individual comments (rather than a review) means
              * re-runs only add new comments instead of creating a whole new review. */
+            let posted = 0;
             for (const c of comments) {
               console.log(`  Posting comment on ${c.file}:${c.line}`);
-              await github.rest.pulls.createReviewComment({
-                owner,
-                repo,
-                pull_number: prNumber,
-                commit_id: headSha,
-                path: c.file,
-                line: c.line,
-                body: `Claude: ${c.body}`,
-              });
+              try {
+                await github.rest.pulls.createReviewComment({
+                  owner,
+                  repo,
+                  pull_number: prNumber,
+                  commit_id: headSha,
+                  path: c.file,
+                  line: c.line,
+                  body: `Claude: ${c.body}`,
+                });
+                posted++;
+              } catch (e) {
+                /* GitHub rejects comments on lines outside the diff context. Log
+                 * and continue — the tracking comment still contains all findings. */
+                console.log(`  Warning: failed to post comment on ${c.file}:${c.line}: ${e.message}`);
+              }
             }
 
-            if (comments.length > 0)
-              console.log(`Posted ${comments.length} inline comment(s).`);
+            if (posted > 0)
+              console.log(`Posted ${posted}/${comments.length} inline comment(s).`);
+            else if (comments.length > 0)
+              console.log(`Could not post any of ${comments.length} inline comment(s) — see warnings above.`);
             else
               console.log("No inline comments to post.");
 
+            const failed = comments.length > 0 && posted < comments.length;
+
             /* Create or update the tracking comment. */
             const MARKER = "<!-- claude-pr-review -->";
+            const runUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
             if (!summary)
               summary = "Claude review: no issues found :tada:\n\n" + MARKER;
             else if (!summary.includes(MARKER))
               summary = summary.replace(/\n/, `\n${MARKER}\n`);
+            summary += `\n\n[Workflow run](${runUrl})`;
 
             /* Find an existing tracking comment. */
             const {data: issueComments} = await github.rest.issues.listComments({
@@ -330,7 +346,10 @@ jobs:
 
             if (existing) {
               const commentUrl = existing.html_url;
-              if (existing.body === summary) {
+              /* Strip the workflow-run footer before comparing so that a new run
+               * URL alone doesn't count as a change. */
+              const stripRunLink = (s) => s.replace(/\n\n\[Workflow run\]\([^)]*\)$/, "");
+              if (stripRunLink(existing.body) === stripRunLink(summary)) {
                 console.log(`Tracking comment ${existing.id} is unchanged.`);
                 await github.rest.issues.createComment({
                   owner,
@@ -358,3 +377,6 @@ jobs:
             }
 
             console.log("Tracking comment posted successfully.");
+
+            if (failed)
+              core.setFailed(`Failed to post ${comments.length - posted}/${comments.length} inline comment(s).`);
