@@ -320,6 +320,28 @@ assert_timesyncd_signal() {
     return 1
 }
 
+assert_timesyncd_ntp_message() {
+    local timestamp="${1:?}"
+    local property="NTPMessage"
+    local value="(uuuuittayttttbtt)"
+    local args=(-q --since="$timestamp" -p info -t busctl)
+
+    journalctl --sync
+
+    for _ in {0..9}; do
+        if journalctl "${args[@]}" --grep .; then
+            # Make the found entry in the archived journal, to avoid the following failure:
+            # Journal file /run/log/journal/.../system.journal is truncated, ignoring file.
+            journalctl --rotate
+            [[ "$(journalctl "${args[@]}" -o cat | jq -r ".payload.data[1].$property.type")" == "$value" ]];
+            return 0
+        fi
+
+        sleep .5
+    done
+
+    return 1
+}
 assert_networkd_ntp() {
     local interface="${1:?}"
     local value="${2:?}"
@@ -404,6 +426,10 @@ EOF
     [[ "$servers" == 'as 4 "10.0.0.1" "foo" "192.168.99.1" "bar"' ]]
     assert_timesyncd_signal "$ts" RuntimeNTPServers "10.0.0.1 foo 192.168.99.1 bar"
 
+    # SecureTime
+    secure="$(busctl get-property org.freedesktop.timesync1 /org/freedesktop/timesync1 org.freedesktop.timesync1.Manager SecureTime)"
+    [[ "$secure" == "b false" ]]
+
     # Cleanup
     systemctl stop systemd-networkd systemd-timesyncd
     rm -f /run/systemd/network/ntp99.*
@@ -451,6 +477,174 @@ LOCAL"
         echo "/run/alternate-path/myadjtime still exists" >&2
         exit 1
     fi
+}
+
+install_mock_certificate() {
+    servername="$1"
+    out="$2"
+    workdir="/tmp"
+
+    # this also installs a fake CA since we don't allow self-signed certificates
+    openssl genrsa -out "$workdir"/CA.key 2048
+    openssl req -x509 -noenc -key "$workdir"/CA.key -subj "/CN=$servername" -out "$workdir"/CA.crt
+    openssl genrsa -out "$workdir"/server.key 2048
+    openssl req -new -key "$workdir"/server.key -subj "/CN=$servername" -out "$workdir"/server.csr
+    openssl req -CA "$workdir"/CA.crt -in "$workdir"/server.csr -CAkey "$workdir"/CA.key -out "$workdir"/server.crt
+    cat "$workdir"/CA.crt >> "$workdir"/server.crt
+    cp "$workdir"/CA.crt "$out"
+    openssl rehash
+}
+
+testcase_nts() {
+    if systemd-detect-virt -cq; then
+        echo "This test case requires a VM, skipping..."
+        return 0
+    fi
+
+    if ! [ -x /usr/lib/systemd/tests/unit-tests/manual/test-nts-mockserver ]; then
+        echo "NTS not available, skipping..."
+        return 0
+    fi
+
+    FAKEROOT_CA=/etc/ssl/certs/CA_dummy_cert.crt
+
+    # shellcheck disable=SC2329
+    cleanup() {
+        rm -f "$FAKEROOT_CA"
+        systemctl stop systemd-timesyncd busctl-monitor.service nts-mock.service
+    }
+
+    trap cleanup RETURN ERR
+
+    # configure a few NTP servers to test that they are ignored if NTS support is enabled
+    local mock_server="localhost"
+
+    mkdir -p /run/systemd/timesyncd.conf.d
+    cat >/run/systemd/timesyncd.conf.d/timesyncd.conf <<EOF
+[Time]
+NTP=debian.pool.ntp.org
+NTS=does.not.exist $mock_server not.found
+FallbackNTP=0.debian.pool.ntp.org
+EOF
+    systemctl daemon-reload
+
+    # trick timesyncd (or rather, its call to "network_is_online()" into thinking
+    # that there is a network; otherwise timesyncd will never attempt to sync time
+    echo "partial" > /run/systemd/netif/state
+
+    install_mock_certificate "$mock_server" "$FAKEROOT_CA"
+
+    systemctl unmask systemd-timesyncd
+    systemctl restart systemd-timesyncd
+    timedatectl set-ntp false
+
+    # this will handle exactly one KE and one NTP request
+    systemd-run --unit=nts-mock.service --working-directory=/tmp --remain-after-exit \
+        /usr/lib/systemd/tests/unit-tests/manual/test-nts-mockserver
+
+    systemd-run --unit busctl-monitor.service --service-type=notify \
+        busctl monitor --json=short --match="type=signal,sender=org.freedesktop.timesync1,member=PropertiesChanged,path=/org/freedesktop/timesync1"
+
+    ts="$(date +"%F %T.%6N")"
+    timedatectl set-ntp true
+    # test that we received a message from the mock time server
+    assert_timesyncd_ntp_message "$ts"
+
+    servers="$(busctl get-property org.freedesktop.timesync1 /org/freedesktop/timesync1 org.freedesktop.timesync1.Manager NTSKeyExchangeServers)"
+    secure="$(busctl get-property org.freedesktop.timesync1 /org/freedesktop/timesync1 org.freedesktop.timesync1.Manager SecureTime)"
+    chosen_server="$(busctl get-property org.freedesktop.timesync1 /org/freedesktop/timesync1 org.freedesktop.timesync1.Manager ServerName)"
+    [[ "$servers" == "as 3 \"does.not.exist\" \"$mock_server\" \"not.found\"" ]]
+    [[ "$chosen_server" == "s \"$mock_server\"" ]]
+    [[ "$secure" == "b true" ]]
+}
+
+assert_timesyncd_exhausted_servers() {
+    local timestamp="${1:?}"
+    local args=(-q --since="$timestamp" -u systemd-timesyncd --grep "Waiting after exhausting servers")
+
+    journalctl --sync
+
+    for _ in {0..9}; do
+        if journalctl "${args[@]}"; then
+            # Make the found entry in the archived journal, to avoid the following failure:
+            # Journal file /run/log/journal/.../system.journal is truncated, ignoring file.
+            journalctl --rotate
+            return 0
+        fi
+
+        sleep .5
+    done
+
+    return 1
+}
+
+testcase_nts_failure_modes() {
+    if systemd-detect-virt -cq; then
+        echo "This test case requires a VM, skipping..."
+        return 0
+    fi
+
+    if ! [ -x /usr/lib/systemd/tests/unit-tests/manual/test-nts-mockserver ]; then
+        echo "NTS not available, skipping..."
+        return 0
+    fi
+
+    FAKEROOT_CA=/etc/ssl/CA_dummy_cert.crt
+
+    # shellcheck disable=SC2329
+    cleanup() {
+        rm -f "$FAKEROOT_CA"
+    }
+
+    trap cleanup RETURN ERR
+
+    # configure a few NTP servers so
+    local mock_server="localhost"
+    mkdir -p /run/systemd/timesyncd.conf.d
+    cat >/run/systemd/timesyncd.conf.d/timesyncd.conf <<EOF
+[Time]
+NTS=$mock_server
+KeyExchangeTimeoutSec=1
+ConnectionRetrySec=1
+PollIntervalMinSec=1
+PollIntervalMaxSec=1
+EOF
+    systemctl daemon-reload
+
+    # trick timesyncd (or rather, its call to "network_is_online()" into thinking
+    # that there is a network; otherwise timesyncd will never attempt to sync time
+    echo "partial" > /run/systemd/netif/state
+
+    install_mock_certificate "$mock_server" "$FAKEROOT_CA"
+
+    systemctl unmask systemd-timesyncd
+    systemctl restart systemd-timesyncd
+    timedatectl set-ntp false
+
+    # failure modes:
+    # - 1 NTP extension field error (causes NTP timeout)
+    # - 2 no NTP extension field (causes NTP timeout)
+    # - 3 malformed/malicious NTS response
+    # - 4 no reply on NTS handshake
+    # - 5 drop connection on NTS handshake
+    # - 6 timeout during NTS handshake
+    for failure_mode in $(seq 6); do
+        systemd-run --unit=nts-mock.service --working-directory=/tmp --collect \
+            /usr/lib/systemd/tests/unit-tests/manual/test-nts-mockserver "$failure_mode"
+
+        ts="$(date +"%F %T.%6N")"
+        timedatectl set-ntp true
+        # NTP timeout is not configurable
+        [ "$failure_mode" -gt 2 ] || sleep 10
+
+        assert_timesyncd_exhausted_servers "$ts"
+
+        timedatectl set-ntp false
+    done
+
+    # in the final test scenario, the service should still be running, so
+    # check that it hasn't crashed
+    systemctl stop nts-mock.service
 }
 
 run_testcases
