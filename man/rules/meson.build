@@ -1110,6 +1110,7 @@ manpages = [
    'systemd-pcrfs@.service',
    'systemd-pcrmachine.service',
    'systemd-pcrnvdone.service',
+   'systemd-pcrosseparator.service',
    'systemd-pcrphase-initrd.service',
    'systemd-pcrphase-sysinit.service',
    'systemd-pcrproduct.service'],
