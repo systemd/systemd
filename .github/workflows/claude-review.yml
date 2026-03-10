@@ -295,23 +295,35 @@ jobs:
              * comments is handled by Claude in the prompt, so we just post whatever
              * it returns. Using individual comments (rather than a review) means
              * re-runs only add new comments instead of creating a whole new review. */
+            let posted = 0;
             for (const c of comments) {
               console.log(`  Posting comment on ${c.file}:${c.line}`);
-              await github.rest.pulls.createReviewComment({
-                owner,
-                repo,
-                pull_number: prNumber,
-                commit_id: headSha,
-                path: c.file,
-                line: c.line,
-                body: `Claude: ${c.body}`,
-              });
+              try {
+                await github.rest.pulls.createReviewComment({
+                  owner,
+                  repo,
+                  pull_number: prNumber,
+                  commit_id: headSha,
+                  path: c.file,
+                  line: c.line,
+                  body: `Claude: ${c.body}`,
+                });
+                posted++;
+              } catch (e) {
+                /* GitHub rejects comments on lines outside the diff context. Log
+                 * and continue — the tracking comment still contains all findings. */
+                console.log(`  Warning: failed to post comment on ${c.file}:${c.line}: ${e.message}`);
+              }
             }
 
-            if (comments.length > 0)
-              console.log(`Posted ${comments.length} inline comment(s).`);
+            if (posted > 0)
+              console.log(`Posted ${posted}/${comments.length} inline comment(s).`);
+            else if (comments.length > 0)
+              console.log(`Could not post any of ${comments.length} inline comment(s) — see warnings above.`);
             else
               console.log("No inline comments to post.");
+
+            const failed = comments.length > 0 && posted < comments.length;
 
             /* Create or update the tracking comment. */
             const MARKER = "<!-- claude-pr-review -->";
@@ -360,3 +372,6 @@ jobs:
             }
 
             console.log("Tracking comment posted successfully.");
+
+            if (failed)
+              core.setFailed(`Failed to post ${comments.length - posted}/${comments.length} inline comment(s).`);
