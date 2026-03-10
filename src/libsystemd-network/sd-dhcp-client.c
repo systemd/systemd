@@ -1796,25 +1796,6 @@ static int client_enter_requesting(sd_dhcp_client *client) {
         return client_enter_requesting_now(client);
 }
 
-static int client_handle_forcerenew(sd_dhcp_client *client, DHCPMessage *force, size_t len) {
-        int r;
-
-        r = dhcp_option_parse(force, len, NULL, NULL, NULL);
-        if (r != DHCP_FORCERENEW)
-                return -ENOMSG;
-
-#if 0
-        log_dhcp_client(client, "FORCERENEW");
-        return 0;
-#else
-        /* FIXME: Ignore FORCERENEW requests until we implement RFC3118 (Authentication for DHCP
-         * Messages) and/or RFC6704 (Forcerenew Nonce Authentication), as unauthenticated FORCERENEW
-         * requests causes a security issue (TALOS-2020-1142, CVE-2020-13529). */
-        return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(ENOMSG),
-                                     "Received FORCERENEW, ignoring.");
-#endif
-}
-
 static bool lease_equal(const sd_dhcp_lease *a, const sd_dhcp_lease *b) {
         if (a->address != b->address)
                 return false;
@@ -2105,10 +2086,7 @@ static int client_verify_message_header(sd_dhcp_client *client, DHCPMessage *mes
                 return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(EBADMSG),
                                              "Received chaddr does not match expected, ignoring.");
 
-        if (client->state != DHCP_STATE_BOUND &&
-            be32toh(message->xid) != client->xid)
-                /* in BOUND state, we may receive FORCERENEW with xid set by server,
-                   so ignore the xid in this case */
+        if (be32toh(message->xid) != client->xid)
                 return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(EBADMSG),
                                              "Received xid (%u) does not match expected (%u), ignoring.",
                                              be32toh(message->xid), client->xid);
@@ -2162,13 +2140,8 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message, s
                 return client_enter_bound(client, r);
 
         case DHCP_STATE_BOUND:
-                r = client_handle_forcerenew(client, message, len);
-                if (ERRNO_IS_NEG_RESOURCE(r))
-                        return r;
-                if (r < 0)
-                        return 0; /* invalid message, let's ignore it */
-
-                return client_timeout_t1(NULL, 0, client);
+                log_dhcp_client(client, "Unexpected DHCP message received in BOUND state, ignoring.");
+                return 0;
 
         case DHCP_STATE_INIT:
         case DHCP_STATE_INIT_REBOOT:
