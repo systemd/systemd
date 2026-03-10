@@ -33,4 +33,4 @@ display. This is critical for diagnosing build and test failures.
 
 ## AI Contribution Disclosure
 
-Per project policy: if you use AI code generation tools, you **must disclose** this in commit messages by adding e.g. `Co-developed-by: Claude <claude@anthropic.com>`. All AI-generated output requires thorough human review before submission.
+Per project policy: if you use AI code generation tools, you **must disclose** this in commit messages by adding e.g. `Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>`. All AI-generated output requires thorough human review before submission.
