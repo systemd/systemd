@@ -37,6 +37,7 @@
 #RebootWatchdogSec=10min
 #KExecWatchdogSec=off
 #WatchdogDevice=
+#MinimumUptimeSec=15s
 #CapabilityBoundingSet=
 #NoNewPrivileges=no
 #ProtectSystem=auto
