@@ -7,7 +7,6 @@
  */
 
 #include <arpa/inet.h>
-#include <assert.h>
 #include <netinet/in.h>
 #include <openssl/ssl.h>
 #include <stdio.h>
@@ -42,6 +41,15 @@ static struct ntp_ts ntp_time(uint32_t secs) {
         return (struct ntp_ts){ .sec = htobe32(secs), .frac = 0 };
 }
 
+/* we want to fail but not actually cause a core dump since this will run in
+ * integation tests; in some scenarios failure of this server is precisely the point
+ */
+#define soft_assert(condition)                                                          \
+        if(!(condition)) {                                                              \
+                fprintf(stderr, "server failed: %s (line %d)\n", #condition, __LINE__); \
+                exit(1);                                                                \
+        }
+
 static void serve_ntp_request(int sock, AEADKey c2s, AEADKey s2c, int sabotage) {
         struct sockaddr_in client = {};
         struct ntp_msg packet;
@@ -50,10 +58,10 @@ static void serve_ntp_request(int sock, AEADKey c2s, AEADKey s2c, int sabotage) 
         socklen_t addrlen = sizeof(client);
         int len = recvfrom(sock, buf, sizeof(buf), MSG_WAITALL, (struct sockaddr*)&client, &addrlen);
 
-        assert(len >= 48);
+        soft_assert(len >= 48);
 
         const struct NTS_AEADParam *cipher = NTS_get_param(algo);
-        assert(cipher);
+        soft_assert(cipher);
 
         memcpy(&packet, buf, sizeof(packet));
 
@@ -69,9 +77,9 @@ static void serve_ntp_request(int sock, AEADKey c2s, AEADKey s2c, int sabotage) 
                         0,
                 };
                 struct NTS_Receipt rcpt;
-                assert(NTS_parse_extension_fields(buf, len, &query, &rcpt) > 0);
+                soft_assert(NTS_parse_extension_fields(buf, len, &query, &rcpt) > 0);
                 /* getting "new cookies" from a client is an error */
-                assert(rcpt.new_cookie->data == NULL);
+                soft_assert(rcpt.new_cookie->data == NULL);
 
                 memcpy(unique_id, rcpt.identifier, 32);
         }
@@ -125,7 +133,7 @@ static void serve_ntp_request(int sock, AEADKey c2s, AEADKey s2c, int sabotage) 
                         cipher, s2c
                 );
 
-                assert(ciphertext > 0);
+                soft_assert(ciphertext > 0);
                 p += cipher->nonce_size + ciphertext + padding;
                 if (sabotage) {
                         /* flip a random bit */
@@ -152,32 +160,32 @@ static int alpn_select(
 
         (void) ssl;
         (void) arg;
-        assert(SSL_select_next_proto((unsigned char**)out, outlen, (unsigned char*)"\x07ntske/1", 8, in, inlen) == OPENSSL_NPN_NEGOTIATED);
+        soft_assert(SSL_select_next_proto((unsigned char**)out, outlen, (unsigned char*)"\x07ntske/1", 8, in, inlen) == OPENSSL_NPN_NEGOTIATED);
         return SSL_TLSEXT_ERR_OK;
 }
 
 static void wait_for_nts_ke(AEADKey c2s, AEADKey s2c, int sabotage) {
         /* configure TLS */
         SSL_CTX *ctx = SSL_CTX_new(TLS_server_method());
-        assert(ctx);
+        soft_assert(ctx);
 
-        assert(SSL_CTX_use_certificate_chain_file(ctx, "server.crt") > 0);
-        assert(SSL_CTX_use_PrivateKey_file(ctx, "server.key", SSL_FILETYPE_PEM) > 0);
+        soft_assert(SSL_CTX_use_certificate_chain_file(ctx, "server.crt") > 0);
+        soft_assert(SSL_CTX_use_PrivateKey_file(ctx, "server.key", SSL_FILETYPE_PEM) > 0);
 
         SSL_CTX_set_alpn_select_cb(ctx, alpn_select, NULL);
 
         SSL *tls = SSL_new(ctx);
-        assert(tls);
+        soft_assert(tls);
 
         /* await the TCP connect */
         BIO *acceptor = BIO_new_accept("4460");
-        assert(acceptor);
-        assert(BIO_do_accept(acceptor) > 0);
-        assert(BIO_do_accept(acceptor) > 0);
+        soft_assert(acceptor);
+        soft_assert(BIO_do_accept(acceptor) > 0);
+        soft_assert(BIO_do_accept(acceptor) > 0);
         BIO *bio = BIO_pop(acceptor);
         close(BIO_get_fd(acceptor, NULL));
 
-        assert(bio);
+        soft_assert(bio);
 
         if (sabotage > 5) {
                 /* refuse to shake hands */
@@ -190,14 +198,14 @@ static void wait_for_nts_ke(AEADKey c2s, AEADKey s2c, int sabotage) {
 
         SSL_set_bio(tls, bio, bio);
 
-        assert(SSL_accept(tls) > 0);
+        soft_assert(SSL_accept(tls) > 0);
 
         /* read the NTS packet */
         struct NTS_Agreement NTS;
         int readbytes;
         uint8_t buf[1280];
         readbytes = SSL_read(tls, buf, sizeof(buf));
-        assert(readbytes > 0);
+        soft_assert(readbytes > 0);
 
         if (sabotage > 3) {
                 /* silent treatment */
@@ -210,7 +218,7 @@ static void wait_for_nts_ke(AEADKey c2s, AEADKey s2c, int sabotage) {
         }
 
         /* store the key */
-        assert(NTS_TLS_extract_keys((void*)tls, algo, c2s, s2c, sizeof(AEADKey)) == 0);
+        soft_assert(NTS_TLS_extract_keys((void*)tls, algo, c2s, s2c, sizeof(AEADKey)) == 0);
 
         /* send a static reply */
         const char ntphost[] = "127.0.0.01";
@@ -248,14 +256,14 @@ int main(int argc, char **argv) {
 
         /* bind the NTP socket ahead of time to prevent a race */
         int sock = socket(AF_INET, SOCK_DGRAM, 0);
-        assert(sock > 0);
+        soft_assert(sock > 0);
 
         struct sockaddr_in server = {};
         server.sin_family = AF_INET;
         server.sin_port = htobe16(Port);
         inet_aton("127.0.0.1", &server.sin_addr);
 
-        assert(bind(sock, (struct sockaddr*)&server, sizeof(server)) == 0);
+        soft_assert(bind(sock, (struct sockaddr*)&server, sizeof(server)) == 0);
 
         puts("KE started");
         wait_for_nts_ke(c2s, s2c, sabo);
