@@ -191,6 +191,7 @@ jobs:
                 mcp__github__get_pull_request_files,
                 mcp__github__get_pull_request_reviews,
                 mcp__github__get_pull_request_comments,
+                mcp__github__get_pull_request_review_comments,
                 mcp__github__get_pull_request_status,
                 mcp__github__get_issue_comments,
                 mcp__github_ci__get_ci_status,
