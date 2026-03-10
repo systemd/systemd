@@ -190,7 +190,7 @@ static int manager_send_request(Manager *m) {
                         &m->nts_identifier);
 
                 /* Consume and invalidate the cookie */
-                bottom_cookie->data[0] ^= 1;
+                memzero(bottom_cookie->data, bottom_cookie->length);
                 m->nts_missing_cookies++;
 
                 if (packet_len <= (int)sizeof(struct ntp_msg)) {
@@ -568,6 +568,9 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                         log_debug("NTS packet had an invalid unique identifier. Ignoring.");
                         return 0;
                 }
+
+                /* invalidate the identifier to prevent replays */
+                m->nts_identifier[0] ^= 0xFF;
 
                 assert(m->nts_missing_cookies <= ELEMENTSOF(m->nts_cookies));
 
