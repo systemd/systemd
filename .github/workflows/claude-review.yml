@@ -187,8 +187,10 @@ jobs:
               Each subagent must return a JSON array of issues:
               `[{"file": "path", "line": <number>, "severity": "must-fix|suggestion|nit", "body": "..."}]`
 
-              `line` must be a line number from the NEW side of the diff (i.e. where the comment
-              should appear in the changed file after the patch is applied).
+              `line` must be a line number from the NEW side of the diff **that appears inside
+              a diff hunk** (i.e. a line that is shown in the patch output). GitHub's review
+              comment API rejects lines outside the diff context, so never reference lines
+              that are not visible in the patch.
 
               Each subagent MUST verify its findings before returning them:
               - For style/convention claims, check at least 3 existing examples in the codebase to confirm
