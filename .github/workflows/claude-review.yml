@@ -327,10 +327,12 @@ jobs:
 
             /* Create or update the tracking comment. */
             const MARKER = "<!-- claude-pr-review -->";
+            const runUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
             if (!summary)
               summary = "Claude review: no issues found :tada:\n\n" + MARKER;
             else if (!summary.includes(MARKER))
               summary = summary.replace(/\n/, `\n${MARKER}\n`);
+            summary += `\n\n[Workflow run](${runUrl})`;
 
             /* Find an existing tracking comment. */
             const {data: issueComments} = await github.rest.issues.listComments({
@@ -344,7 +346,10 @@ jobs:
 
             if (existing) {
               const commentUrl = existing.html_url;
-              if (existing.body === summary) {
+              /* Strip the workflow-run footer before comparing so that a new run
+               * URL alone doesn't count as a change. */
+              const stripRunLink = (s) => s.replace(/\n\n\[Workflow run\]\([^)]*\)$/, "");
+              if (stripRunLink(existing.body) === stripRunLink(summary)) {
                 console.log(`Tracking comment ${existing.id} is unchanged.`);
                 await github.rest.issues.createComment({
                   owner,
