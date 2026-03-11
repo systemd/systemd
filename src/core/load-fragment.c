@@ -2949,6 +2949,11 @@ int config_parse_log_extra_fields(
                         continue;
                 }
 
+                if (c->n_log_extra_fields >= LOG_EXTRA_FIELDS_MAX) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0, "Too many extra log fields, ignoring some.");
+                        return 0;
+                }
+
                 if (!GREEDY_REALLOC(c->log_extra_fields, c->n_log_extra_fields + 1))
                         return log_oom();
 

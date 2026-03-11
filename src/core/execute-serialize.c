@@ -30,6 +30,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
+#include "unit.h"
 
 static int exec_cgroup_context_serialize(const CGroupContext *c, FILE *f) {
         _cleanup_free_ char *disable_controllers_str = NULL, *delegate_controllers_str = NULL,
@@ -3148,6 +3149,11 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-log-extra-fields="))) {
+                        if (c->n_log_extra_fields >= LOG_EXTRA_FIELDS_MAX) {
+                                log_warning("Too many extra log fields, ignoring.");
+                                continue;
+                        }
+
                         if (!GREEDY_REALLOC(c->log_extra_fields, c->n_log_extra_fields + 1))
                                 return log_oom_debug();
 

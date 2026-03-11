@@ -10,6 +10,7 @@
 #include "install.h"
 #include "iterator.h"
 #include "job.h"
+#include "journal-importer.h"
 #include "list.h"
 #include "log.h"
 #include "log-context.h"
@@ -1093,6 +1094,11 @@ UnitDependency unit_mount_dependency_type_to_dependency_type(UnitMountDependency
 
 const char* oom_policy_to_string(OOMPolicy i) _const_;
 OOMPolicy oom_policy_from_string(const char *s) _pure_;
+
+/* Trying to log with too many fields is going to fail. We need at least also MESSAGE=,
+ * but we generally log a few extra in most cases. So let's reserve 10. Anything
+ * above a few would be very unusual, but let's not be overly strict. */
+#define LOG_EXTRA_FIELDS_MAX (ENTRY_FIELD_COUNT_MAX - 10)
 
 /* Macros which append UNIT= or USER_UNIT= to the message */
 
