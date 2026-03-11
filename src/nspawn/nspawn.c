@@ -4741,8 +4741,13 @@ static int merge_settings(Settings *settings, const char *path) {
         }
 
         if ((arg_settings_mask & SETTING_EPHEMERAL) == 0 &&
-            settings->ephemeral >= 0)
-                arg_ephemeral = settings->ephemeral;
+            settings->ephemeral >= 0) {
+
+                if (!arg_settings_trusted)
+                        log_warning("Ignoring ephemeral setting, file %s is not trusted.", path);
+                else
+                        arg_ephemeral = settings->ephemeral;
+        }
 
         if ((arg_settings_mask & SETTING_DIRECTORY) == 0 &&
             settings->root) {
@@ -4910,8 +4915,13 @@ static int merge_settings(Settings *settings, const char *path) {
         }
 
         if ((arg_settings_mask & SETTING_BIND_USER) == 0 &&
-            !strv_isempty(settings->bind_user))
-                strv_free_and_replace(arg_bind_user, settings->bind_user);
+            !strv_isempty(settings->bind_user)) {
+
+                if (!arg_settings_trusted)
+                        log_warning("Ignoring bind user setting, file %s is not trusted.", path);
+                else
+                        strv_free_and_replace(arg_bind_user, settings->bind_user);
+        }
 
         if ((arg_settings_mask & SETTING_NOTIFY_READY) == 0 &&
             settings->notify_ready >= 0)
