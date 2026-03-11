@@ -110,6 +110,7 @@ int unit_serialize_state(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
         (void) serialize_bool(f, "in-audit", u->in_audit);
 
         (void) serialize_bool(f, "debug-invocation", u->debug_invocation);
+        (void) serialize_bool(f, "start-blocked-by-dependency", u->start_blocked_by_dependency);
 
         (void) serialize_bool(f, "exported-invocation-id", u->exported_invocation_id);
         (void) serialize_bool(f, "exported-log-level-max", u->exported_log_level_max);
@@ -275,6 +276,9 @@ int unit_deserialize_state(Unit *u, FILE *f, FDSet *fds) {
                         continue;
 
                 else if (MATCH_DESERIALIZE("debug-invocation", l, v, parse_boolean, u->debug_invocation))
+                        continue;
+
+                else if (MATCH_DESERIALIZE("start-blocked-by-dependency", l, v, parse_boolean, u->start_blocked_by_dependency))
                         continue;
 
                 else if (MATCH_DESERIALIZE("exported-invocation-id", l, v, parse_boolean, u->exported_invocation_id))

@@ -462,6 +462,11 @@ typedef struct Unit {
 
         bool start_limit_hit:1;
 
+        /* Set when a start job fails due to a dependency failure (JOB_DEPENDENCY result). Cleared when a
+         * start job succeeds or fails for a different reason, or when the unit is explicitly stopped. Used to
+         * retroactively start this unit when the failed dependency becomes active again. */
+        bool start_blocked_by_dependency:1;
+
         /* Did we already invoke unit_coldplug() for this unit? */
         bool coldplugged:1;
 
