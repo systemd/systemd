@@ -82,9 +82,9 @@ int dlopen_libfido2(void) {
 #if HAVE_LIBFIDO2
         int r;
 
-        ELF_NOTE_DLOPEN("fido2",
+        SD_ELF_NOTE_DLOPEN("fido2",
                         "Support fido2 for encryption and authentication",
-                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
                         "libfido2.so.1");
 
         r = dlopen_many_sym_or_warn(

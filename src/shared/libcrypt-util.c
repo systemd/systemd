@@ -33,9 +33,9 @@ int dlopen_libcrypt(void) {
         /* Several distributions like Debian/Ubuntu and OpenSUSE provide libxcrypt as libcrypt.so.1
          * (libcrypt.so.1.1 on some architectures), while others like Fedora/CentOS and Arch provide it as
          * libcrypt.so.2. */
-        ELF_NOTE_DLOPEN("crypt",
+        SD_ELF_NOTE_DLOPEN("crypt",
                         "Support for hashing passwords",
-                        ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
+                        SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
                         "libcrypt.so.2", "libcrypt.so.1", "libcrypt.so.1.1");
 
         _cleanup_(dlclosep) void *dl = NULL;

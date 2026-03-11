@@ -35,9 +35,9 @@ DLSYM_PROTOTYPE(pam_syslog) = NULL;
 DLSYM_PROTOTYPE(pam_vsyslog) = NULL;
 
 int dlopen_libpam(void) {
-        ELF_NOTE_DLOPEN("pam",
+        SD_ELF_NOTE_DLOPEN("pam",
                         "Support for LinuxPAM",
-                        ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
+                        SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
                         "libpam.so.0");
 
         return dlopen_many_sym_or_warn(

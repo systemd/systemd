@@ -130,9 +130,9 @@ static DLSYM_PROTOTYPE(Tss2_RC_Decode) = NULL;
 static int dlopen_tpm2_esys(void) {
         int r;
 
-        ELF_NOTE_DLOPEN("tpm",
+        SD_ELF_NOTE_DLOPEN("tpm",
                         "Support for TPM",
-                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
                         "libtss2-esys.so.0");
 
         r = dlopen_many_sym_or_warn(
@@ -193,9 +193,9 @@ static int dlopen_tpm2_esys(void) {
 }
 
 static int dlopen_tpm2_rc(void) {
-        ELF_NOTE_DLOPEN("tpm",
+        SD_ELF_NOTE_DLOPEN("tpm",
                         "Support for TPM",
-                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
                         "libtss2-rc.so.0");
 
         return dlopen_many_sym_or_warn(
@@ -204,9 +204,9 @@ static int dlopen_tpm2_rc(void) {
 }
 
 static int dlopen_tpm2_mu(void) {
-        ELF_NOTE_DLOPEN("tpm",
+        SD_ELF_NOTE_DLOPEN("tpm",
                         "Support for TPM",
-                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
                         "libtss2-mu.so.0");
 
         return dlopen_many_sym_or_warn(
@@ -236,9 +236,9 @@ static int dlopen_tpm2_tcti_device(void) {
         /* The "device" TCTI is the most relevant one, let's also load it explicitly on dlopen_tpm2(), even
          * if we don't resolve any symbols here. */
 
-        ELF_NOTE_DLOPEN("tpm",
+        SD_ELF_NOTE_DLOPEN("tpm",
                         "Support for TPM",
-                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
                         "libtss2-tcti-device.so.0");
 
         return dlopen_verbose(

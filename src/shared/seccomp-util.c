@@ -49,9 +49,9 @@ DLSYM_PROTOTYPE(seccomp_syscall_resolve_name) = NULL;
 DLSYM_PROTOTYPE(seccomp_syscall_resolve_num_arch) = NULL;
 
 int dlopen_libseccomp(void) {
-        ELF_NOTE_DLOPEN("seccomp",
+        SD_ELF_NOTE_DLOPEN("seccomp",
                         "Support for Seccomp Sandboxes",
-                        ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
+                        SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
                         "libseccomp.so.2");
 
         return dlopen_many_sym_or_warn(

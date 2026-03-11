@@ -148,7 +148,7 @@ bool compression_supported(Compression c) {
 
 int dlopen_lzma(void) {
 #if HAVE_XZ
-        ELF_NOTE_DLOPEN("lzma",
+        SD_ELF_NOTE_DLOPEN("lzma",
                         "Support lzma compression in journal and coredump files",
                         COMPRESSION_PRIORITY_XZ,
                         "liblzma.so.5");
@@ -219,7 +219,7 @@ int compress_blob_xz(const void *src, uint64_t src_size,
 
 int dlopen_lz4(void) {
 #if HAVE_LZ4
-        ELF_NOTE_DLOPEN("lz4",
+        SD_ELF_NOTE_DLOPEN("lz4",
                         "Support lz4 compression in journal and coredump files",
                         COMPRESSION_PRIORITY_LZ4,
                         "liblz4.so.1");
@@ -286,7 +286,7 @@ int compress_blob_lz4(const void *src, uint64_t src_size,
 
 int dlopen_zstd(void) {
 #if HAVE_ZSTD
-        ELF_NOTE_DLOPEN("zstd",
+        SD_ELF_NOTE_DLOPEN("zstd",
                         "Support zstd compression in journal and coredump files",
                         COMPRESSION_PRIORITY_ZSTD,
                         "libzstd.so.1");
