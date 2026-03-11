@@ -1,0 +1,143 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="SD_ELF_NOTE_DLOPEN" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>SD_ELF_NOTE_DLOPEN</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>SD_ELF_NOTE_DLOPEN</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>SD_ELF_NOTE_DLOPEN</refname>
+    <refname>SD_ELF_NOTE_DLOPEN_VENDOR</refname>
+    <refname>SD_ELF_NOTE_DLOPEN_TYPE</refname>
+    <refname>SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED</refname>
+    <refname>SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED</refname>
+    <refname>SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED</refname>
+
+    <refpurpose>Embed ELF .note.dlopen metadata for shared library dependencies</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-dlopen.h&gt;</funcsynopsisinfo>
+
+      <funcsynopsisinfo><function>SD_ELF_NOTE_DLOPEN(<replaceable>feature</replaceable>, <replaceable>description</replaceable>, <replaceable>priority</replaceable>, <replaceable>soname...</replaceable>)</function></funcsynopsisinfo>
+
+      <funcsynopsisinfo>#define SD_ELF_NOTE_DLOPEN_VENDOR "FDO"</funcsynopsisinfo>
+      <funcsynopsisinfo>#define SD_ELF_NOTE_DLOPEN_TYPE UINT32_C(0x407c0c0a)</funcsynopsisinfo>
+      <funcsynopsisinfo>#define SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED    "required"</funcsynopsisinfo>
+      <funcsynopsisinfo>#define SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED "recommended"</funcsynopsisinfo>
+      <funcsynopsisinfo>#define SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED   "suggested"</funcsynopsisinfo>
+
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>SD_ELF_NOTE_DLOPEN()</function> is a macro that embeds a
+    <filename>.note.dlopen</filename> ELF note section in the compiled binary, declaring a weak dependency
+    on a shared library loaded via <function>dlopen()</function>. This implements the
+    <ulink url="https://uapi-group.org/specifications/specs/elf_dlopen_metadata/">ELF dlopen
+    metadata</ulink> specification, allowing package managers and build systems to discover runtime
+    dependencies that are not visible through regular ELF <constant>DT_NEEDED</constant> entries.</para>
+
+    <para>The macro takes the following parameters:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><parameter>feature</parameter></term>
+        <listitem><para>A short string identifying the feature this library provides (e.g.
+        <literal>XKB</literal>, <literal>PCRE2</literal>).</para>
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><parameter>description</parameter></term>
+        <listitem><para>A human-readable description of what the library is used for.</para>
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><parameter>priority</parameter></term>
+        <listitem><para>One of <constant>SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED</constant>,
+        <constant>SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED</constant>, or
+        <constant>SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED</constant>, indicating how important the
+        dependency is.</para>
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><parameter>soname...</parameter></term>
+        <listitem><para>One or more shared object names (sonames) for the library, e.g.
+        <literal>libfoo.so.1</literal>. Multiple sonames may be specified as separate arguments (up to 5)
+        for libraries that have changed soname across versions.</para>
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>The embedded metadata can be read from a compiled ELF binary using:</para>
+    <programlisting>systemd-analyze dlopen-metadata <replaceable>binary</replaceable></programlisting>
+
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>Single soname</title>
+      <programlisting>#include &lt;systemd/sd-dlopen.h&gt;
+
+SD_ELF_NOTE_DLOPEN("XKB", "Keyboard layout support",
+                    SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
+                    "libxkbcommon.so.0");</programlisting>
+    </example>
+
+    <example>
+      <title>Multiple sonames for different library versions</title>
+      <programlisting>SD_ELF_NOTE_DLOPEN("crypt", "Support for hashing passwords",
+                    SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
+                    "libcrypt.so.2", "libcrypt.so.1", "libcrypt.so.1.1");</programlisting>
+    </example>
+
+  </refsect1>
+
+  <refsect1>
+    <title>Notes</title>
+
+    <para>The macros described here are header-only and do not require runtime linkage against
+    <citerefentry><refentrytitle>libsystemd</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+    Only the installed header and include path (as provided by
+    <command>pkg-config --cflags libsystemd</command>) are needed.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>History</title>
+    <para><function>SD_ELF_NOTE_DLOPEN()</function>,
+    <function>SD_ELF_NOTE_DLOPEN_VENDOR</function>,
+    <function>SD_ELF_NOTE_DLOPEN_TYPE</function>,
+    <function>SD_ELF_NOTE_DLOPEN_PRIORITY_REQUIRED</function>,
+    <function>SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED</function>, and
+    <function>SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED</function> were added in version 261.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd-dlopen</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry project='man-pages'><refentrytitle>dlopen</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>
