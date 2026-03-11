@@ -1704,9 +1704,9 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
         }
         m->nts_aead = *param;
 
-        const char *hostname = NTS.ntp_server? NTS.ntp_server : m->current_server_name->string;
+        const char *hostname = NTS.ntp_server ? NTS.ntp_server : m->current_server_name->string;
         char port[sizeof("65535")];
-        xsprintf(port, "%u", NTS.ntp_port? NTS.ntp_port : 123U);
+        xsprintf(port, "%u", NTS.ntp_port ? NTS.ntp_port : 123U);
 
         static_assert(ELEMENTSOF(NTS.cookie) <= ELEMENTSOF(m->nts_cookies), "size mismatch in data structures");
 
