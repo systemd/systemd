@@ -480,9 +480,9 @@ LOCAL"
 }
 
 install_mock_certificate() {
-    servername="$1"
-    out="$2"
-    workdir="/tmp"
+    local servername="$1"
+    local out="$2"
+    local workdir="/tmp"
 
     # this also installs a fake CA since we don't allow self-signed certificates
     openssl genrsa -out "$workdir"/CA.key 2048
@@ -493,6 +493,22 @@ install_mock_certificate() {
     cat "$workdir"/CA.crt >> "$workdir"/server.crt
     cp "$workdir"/CA.crt "$out"
     openssl rehash
+}
+
+save_netif_state() {
+    if [[ -f /run/systemd/netif/state ]]; then
+        mv /run/systemd/netif/state /tmp/netif.state.bak
+    else
+        rm -f /tmp/netif.state.bak
+    fi
+}
+
+restore_netif_state() {
+    if [[ -f /tmp/netif.state.bak ]]; then
+        mv /tmp/netif.state.bak /run/systemd/netif/state
+    else
+        rm -f /run/systemd/netif/state
+    fi
 }
 
 testcase_nts() {
@@ -508,10 +524,14 @@ testcase_nts() {
 
     FAKEROOT_CA=/etc/ssl/certs/CA_dummy_cert.crt
 
+    save_netif_state
+
     # shellcheck disable=SC2329
     cleanup() {
         rm -f "$FAKEROOT_CA"
+        rm -rf /run/systemd/timesyncd.conf.d
         systemctl stop systemd-timesyncd busctl-monitor.service nts-mock.service
+        restore_netif_state
     }
 
     trap cleanup RETURN ERR
@@ -528,7 +548,7 @@ FallbackNTP=0.debian.pool.ntp.org
 EOF
     systemctl daemon-reload
 
-    # trick timesyncd (or rather, its call to "network_is_online()" into thinking
+    # trick timesyncd (or rather, its call to "network_is_online()") into thinking
     # that there is a network; otherwise timesyncd will never attempt to sync time
     echo "partial" > /run/systemd/netif/state
 
@@ -591,9 +611,14 @@ testcase_nts_failure_modes() {
 
     FAKEROOT_CA=/etc/ssl/CA_dummy_cert.crt
 
+    save_netif_state
+
     # shellcheck disable=SC2329
     cleanup() {
         rm -f "$FAKEROOT_CA"
+        rm -rf /run/systemd/timesyncd.conf.d
+        systemctl stop systemd-timesyncd
+        restore_netif_state
     }
 
     trap cleanup RETURN ERR
