@@ -745,7 +745,7 @@ Before=sleep.target
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=/usr/bin/some-before-command
-ExecStop=/Usr/bin/some-after-command
+ExecStop=/usr/bin/some-after-command
 
 [Install]
 WantedBy=sleep.target</programlisting>
