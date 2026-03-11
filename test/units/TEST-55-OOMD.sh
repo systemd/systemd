@@ -353,6 +353,58 @@ EOF
     systemctl reset-failed
 }
 
+testcase_oom_rulesets() {
+    # Create a ruleset that triggers on any memory pressure with no delay
+    mkdir -p /run/systemd/oomd/rules.d/
+    cat >/run/systemd/oomd/rules.d/testrule.oomrule <<'EOF'
+[Rule]
+MemoryPressureAbove=0%
+Action=kill_all
+LastingSec=0
+EOF
+
+    # Reload oomd to pick up the new ruleset
+    systemctl reload systemd-oomd.service
+
+    # Create a service that uses the ruleset and generates memory pressure
+    mkdir -p /run/systemd/system/TEST-55-OOMD-testbloat.service.d/
+    cat >/run/systemd/system/TEST-55-OOMD-testbloat.service.d/99-oom-rules.conf <<'EOF'
+[Service]
+OOMRules=testrule
+EOF
+
+    systemctl daemon-reload
+
+    systemctl start TEST-55-OOMD-testchill.service
+    systemctl start TEST-55-OOMD-testbloat.service
+
+    for _ in {0..59}; do
+        if ! systemctl status TEST-55-OOMD-testbloat.service; then
+            break
+        fi
+        oomctl
+        sleep 2
+    done
+
+    # testbloat should be killed by the ruleset, testchill should be fine (no rules)
+    if systemctl status TEST-55-OOMD-testbloat.service; then exit 45; fi
+    if ! systemctl status TEST-55-OOMD-testchill.service; then exit 24; fi
+
+    # Verify in the journal that the rule triggered
+    journalctl -u systemd-oomd.service --since "-2min" | grep "Rule 'testrule' conditions met" >/dev/null
+
+    systemctl kill --signal=KILL TEST-55-OOMD-testbloat.service || :
+    systemctl stop TEST-55-OOMD-testbloat.service
+    systemctl stop TEST-55-OOMD-testchill.service
+    systemctl stop TEST-55-OOMD-workload.slice
+
+    # clean up
+    rm -rf /run/systemd/system/TEST-55-OOMD-testbloat.service.d
+    rm -rf /run/systemd/oomd/rules.d/testrule.oomrule
+    systemctl daemon-reload
+    systemctl reload systemd-oomd.service
+}
+
 testcase_prekill_hook() {
     cat >/run/systemd/oomd.conf.d/99-oomd-prekill-test.conf <<'EOF'
 [OOM]
