@@ -10,6 +10,7 @@
 #include "install.h"
 #include "iterator.h"
 #include "job.h"
+#include "journal-importer.h"
 #include "list.h"
 #include "log.h"
 #include "log-context.h"
@@ -1096,6 +1097,11 @@ int unit_queue_job_check_and_mangle_type(Unit *u, JobType *type, bool reload_if_
 
 int parse_unit_marker(const char *marker, unsigned *settings, unsigned *mask);
 unsigned unit_normalize_markers(unsigned existing_markers, unsigned new_markers);
+
+/* Trying to log with too many fields is going to fail. We need at least also MESSAGE=,
+ * but we generally log a few extra in most cases. So let's reserve 10. Anything
+ * above a few would be very unusual, but let's not be overly strict. */
+#define LOG_EXTRA_FIELDS_MAX ENTRY_FIELD_COUNT_MAX - 10
 
 /* Macros which append UNIT= or USER_UNIT= to the message */
 
