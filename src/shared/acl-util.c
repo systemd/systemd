@@ -8,6 +8,7 @@
 #include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
+#include "sd-dlopen.h"
 #include "set.h"
 #include "string-util.h"
 #include "strv.h"
@@ -44,9 +45,10 @@ DLSYM_PROTOTYPE(acl_set_tag_type);
 DLSYM_PROTOTYPE(acl_to_any_text);
 
 int dlopen_libacl(void) {
-        ELF_NOTE_DLOPEN("acl",
+        SD_ELF_NOTE_DLOPEN(
+                        "acl",
                         "Support for file Access Control Lists (ACLs)",
-                        ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
+                        SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
                         "libacl.so.1");
 
         return dlopen_many_sym_or_warn(
