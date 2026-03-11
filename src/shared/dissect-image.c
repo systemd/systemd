@@ -2951,30 +2951,24 @@ static int decrypted_image_new(DecryptedImage **ret) {
         return 0;
 }
 
-static int make_dm_name_and_node(const void *original_node, const char *suffix, char **ret_name, char **ret_node) {
-        _cleanup_free_ char *name = NULL, *node = NULL;
-        const char *base;
+static int make_dm_name_and_node(
+                const char *base,
+                const char *suffix,
+                char **ret_name,
+                char **ret_node) {
 
-        assert(original_node);
+        assert(base);
         assert(suffix);
         assert(ret_name);
         assert(ret_node);
 
-        base = strrchr(original_node, '/');
-        if (!base)
-                base = original_node;
-        else
-                base++;
-        if (isempty(base))
-                return -EINVAL;
-
-        name = strjoin(base, suffix);
+        _cleanup_free_ char *name = strjoin(base, suffix);
         if (!name)
                 return -ENOMEM;
         if (!filename_is_valid(name))
                 return -EINVAL;
 
-        node = path_join(sym_crypt_get_dir(), name);
+        _cleanup_free_ char *node = path_join(sym_crypt_get_dir(), name);
         if (!node)
                 return -ENOMEM;
 
@@ -2982,6 +2976,24 @@ static int make_dm_name_and_node(const void *original_node, const char *suffix, 
         *ret_node = TAKE_PTR(node);
 
         return 0;
+}
+
+static int make_dm_name_and_node_from_node(
+                const char *original_node,
+                const char *suffix,
+                char **ret_name,
+                char **ret_node) {
+
+        int r;
+
+        assert(original_node);
+
+        _cleanup_free_ char *base = NULL;
+        r = path_extract_filename(original_node, &base);
+        if (r < 0)
+                return r;
+
+        return make_dm_name_and_node(base, suffix, ret_name, ret_node);
 }
 
 static int decrypt_partition(
@@ -3015,7 +3027,7 @@ static int decrypt_partition(
         if (r < 0)
                 return r;
 
-        r = make_dm_name_and_node(m->node, "-decrypted", &name, &node);
+        r = make_dm_name_and_node_from_node(m->node, "-decrypted", &name, &node);
         if (r < 0)
                 return r;
 
@@ -3391,7 +3403,7 @@ static int verity_partition(
 
                 r = make_dm_name_and_node(root_hash_encoded, "-verity", &name, &node);
         } else
-                r = make_dm_name_and_node(m->node, "-verity", &name, &node);
+                r = make_dm_name_and_node_from_node(m->node, "-verity", &name, &node);
         if (r < 0)
                 return r;
 
