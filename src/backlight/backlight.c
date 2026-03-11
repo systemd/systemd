@@ -283,7 +283,7 @@ static int validate_device(sd_device *device) {
                                 const char *other_sysname = NULL, *other_type = NULL;
 
                                 (void) sd_device_get_sysname(other, &other_sysname);
-                                (void) sd_device_get_sysattr_value(other, "type", &other_type);
+                                (void) device_get_sysattr_safe_string(other, "type", &other_type);
                                 log_device_debug(device,
                                                  "Found another %s backlight device %s on the same PCI, skipping.",
                                                  strna(other_type), strna(other_sysname));
@@ -297,7 +297,7 @@ static int validate_device(sd_device *device) {
                                 const char *other_sysname = NULL, *other_type = NULL;
 
                                 (void) sd_device_get_sysname(other, &other_sysname);
-                                (void) sd_device_get_sysattr_value(other, "type", &other_type);
+                                (void) device_get_sysattr_safe_string(other, "type", &other_type);
                                 log_device_debug(device,
                                                  "Found another %s backlight device %s, which has higher precedence, skipping.",
                                                  strna(other_type), strna(other_sysname));

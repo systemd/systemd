@@ -160,7 +160,7 @@ static int print_all_attributes(sd_device *device, bool is_parent) {
                 if (skip_attribute(name))
                         continue;
 
-                r = sd_device_get_sysattr_value(device, name, &value);
+                r = device_get_sysattr_safe_string(device, name, &value);
                 if (r >= 0) {
                         /* skip any values that look like a path */
                         if (value[0] == '/')
@@ -262,7 +262,7 @@ static int print_all_attributes_in_json(sd_device *device, bool is_parent) {
                 if (skip_attribute(name))
                         continue;
 
-                r = sd_device_get_sysattr_value(device, name, &value);
+                r = device_get_sysattr_safe_string(device, name, &value);
                 if (r >= 0) {
                         /* skip any values that look like a path */
                         if (value[0] == '/')
