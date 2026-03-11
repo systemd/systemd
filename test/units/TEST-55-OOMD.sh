@@ -353,6 +353,38 @@ EOF
     systemctl reset-failed
 }
 
+testcase_oom_rulesets() {
+    # Create a ruleset that triggers on any memory pressure with no delay
+    mkdir -p /run/systemd/oomd/rules.d/
+    cat >/run/systemd/oomd/rules.d/testrule.oomrule <<'EOF'
+[Rule]
+MemoryPressureAbove=0%
+Action=kill_all
+LastingSec=0
+EOF
+
+    systemctl reload systemd-oomd.service
+
+    # OOMRules= can't be set on transient units, so create a unit file
+    cat >/run/systemd/system/TEST-55-OOMD-testrules.service <<'EOF'
+[Service]
+MemoryHigh=3M
+OOMRules=testrule
+ExecStart=stress-ng --timeout 3m --vm 10 --vm-bytes 200M --vm-keep
+EOF
+    systemctl daemon-reload
+
+    ! systemctl start --wait TEST-55-OOMD-testrules.service
+
+    # Verify in the journal that the rule triggered
+    journalctl -u systemd-oomd.service --since "-2min" | grep "Rule 'testrule' conditions met" >/dev/null
+
+    # clean up
+    rm -f /run/systemd/system/TEST-55-OOMD-testrules.service /run/systemd/oomd/rules.d/testrule.oomrule
+    systemctl daemon-reload
+    systemctl reload systemd-oomd.service
+}
+
 testcase_prekill_hook() {
     cat >/run/systemd/oomd.conf.d/99-oomd-prekill-test.conf <<'EOF'
 [OOM]
