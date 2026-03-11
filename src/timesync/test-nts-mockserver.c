@@ -221,10 +221,11 @@ static void wait_for_nts_ke(AEADKey c2s, AEADKey s2c, int sabotage) {
         /* store the key */
         soft_assert(NTS_TLS_extract_keys((void*)tls, algo, c2s, s2c, sizeof(AEADKey)) == 0);
 
-        /* send a static reply */
+        /* custom hostname is intentionally padded to 10 bytes */
         const char ntphost[] = "127.0.0.01";
         static_assert(strlen(ntphost) == 10, "sanity check failed");
 
+        /* send a static reply */
         uint16_t reply[] = {
                 htobe16(6/*NTPv4Server*/),       htobe16(10), 0,0,0,0,0, /* filled in below */
                 htobe16(1/*NextProto*/),         htobe16(2), htobe16(0),
@@ -253,7 +254,7 @@ static void wait_for_nts_ke(AEADKey c2s, AEADKey s2c, int sabotage) {
  */
 int main(int argc, char **argv) {
         AEADKey c2s, s2c;
-        int sabo = argc>1? atoi(argv[1]) : 0;
+        int sabo = argc>1 ? atoi(argv[1]) : 0;
 
         /* bind the NTP socket ahead of time to prevent a race */
         int sock = socket(AF_INET, SOCK_DGRAM, 0);
