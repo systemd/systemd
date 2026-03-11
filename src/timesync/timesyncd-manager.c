@@ -189,12 +189,12 @@ static int manager_send_request(Manager *m) {
                         },
                         &m->nts_identifier);
 
-                /* Consume and invalidate the cookie */
+                /* Consume and invalidate the cookie, even in case of an error. */
                 memzero(bottom_cookie->data, bottom_cookie->length);
                 m->nts_missing_cookies++;
 
                 if (packet_len <= (int)sizeof(struct ntp_msg)) {
-                        log_error("Failed to encode extension fields");
+                        log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to encode extension fields");
                         return -EINVAL;
                 }
         } else {
@@ -1142,8 +1142,7 @@ Manager* manager_free(Manager *m) {
 
 #if ENABLE_TIMESYNC_NTS
         manager_flush_cookies(m);
-        if (m->nts_handshake)
-                NTS_TLS_close(&m->nts_handshake);
+        NTS_TLS_close(&m->nts_handshake);
 #endif
 
         return mfree(m);
@@ -1486,8 +1485,7 @@ static int manager_nts_handshake_timeout(sd_event_source *source, usec_t usec, v
 
         m->event_timeout = sd_event_source_unref(m->event_timeout);
 
-        if (m->nts_handshake)
-                NTS_TLS_close(&m->nts_handshake);
+        NTS_TLS_close(&m->nts_handshake);
 
         manager_listen_stop(m);
 
@@ -1541,8 +1539,7 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
         int r;
 
         if (revents & (EPOLLHUP|EPOLLERR)) {
-                if (m->nts_handshake)
-                        NTS_TLS_close(&m->nts_handshake);
+                NTS_TLS_close(&m->nts_handshake);
                 m->nts_timeout = sd_event_source_unref(m->nts_timeout);
                 log_warning("Server connection returned error.");
                 return manager_connect(m);
