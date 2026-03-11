@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-dlopen.h"
+
 #include "alloc-util.h"
 #include "ask-password-api.h"
 #include "dlfcn-util.h"
@@ -1766,9 +1768,10 @@ static int list_callback(
 
 int dlopen_p11kit(void) {
 #if HAVE_P11KIT
-        ELF_NOTE_DLOPEN("p11-kit",
+        SD_ELF_NOTE_DLOPEN(
+                        "p11-kit",
                         "Support for PKCS11 hardware tokens",
-                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
                         "libp11-kit.so.0");
 
         return dlopen_many_sym_or_warn(

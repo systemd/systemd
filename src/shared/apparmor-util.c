@@ -2,6 +2,8 @@
 
 #include <syslog.h>
 
+#include "sd-dlopen.h"
+
 #include "alloc-util.h"
 #include "apparmor-util.h"
 #include "fileio.h"
@@ -20,9 +22,10 @@ DLSYM_PROTOTYPE(aa_policy_cache_replace_all) = NULL;
 DLSYM_PROTOTYPE(aa_policy_cache_unref) = NULL;
 
 int dlopen_libapparmor(void) {
-        ELF_NOTE_DLOPEN("apparmor",
+        SD_ELF_NOTE_DLOPEN(
+                        "apparmor",
                         "Support for AppArmor policies",
-                        ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
+                        SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
                         "libapparmor.so.1");
 
         return dlopen_many_sym_or_warn(
