@@ -68,13 +68,9 @@ static int has_multiple_graphics_cards(void) {
                 return r;
 
         FOREACH_DEVICE(e, dev) {
-                const char *s;
-                unsigned long c;
+                uint32_t c;
 
-                if (sd_device_get_sysattr_value(dev, "class", &s) < 0)
-                        continue;
-
-                if (safe_atolu(s, &c) < 0)
+                if (device_get_sysattr_u32(dev, "class", &c) < 0)
                         continue;
 
                 if (c != PCI_CLASS_GRAPHICS_CARD)
@@ -420,20 +416,15 @@ static int shall_clamp(sd_device *device, unsigned *ret) {
 }
 
 static int read_brightness(sd_device *device, unsigned max_brightness, unsigned *ret_brightness) {
-        const char *value;
         unsigned brightness;
         int r;
 
         assert(device);
         assert(ret_brightness);
 
-        r = sd_device_get_sysattr_value(device, "brightness", &value);
+        r = device_get_sysattr_unsigned(device, "brightness", &brightness);
         if (r < 0)
-                return log_device_debug_errno(device, r, "Failed to read 'brightness' attribute: %m");
-
-        r = safe_atou(value, &brightness);
-        if (r < 0)
-                return log_device_debug_errno(device, r, "Failed to parse 'brightness' attribute: %s", value);
+                return log_device_debug_errno(device, r, "Failed to read/parse 'brightness' attribute: %m");
 
         if (brightness > max_brightness)
                 return log_device_debug_errno(device, SYNTHETIC_ERRNO(EINVAL),
