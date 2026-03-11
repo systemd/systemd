@@ -15,6 +15,7 @@
 #include "dirent-util.h"
 #include "env-util.h"
 #include "errno-util.h"
+#include "escape.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -107,8 +108,15 @@ int device_add_property_aux(sd_device *device, const char *key, const char *valu
         assert(device);
         assert(key);
 
-        if (!property_is_valid(key, value))
+        if (!property_is_valid(key, value)) {
+                if (DEBUG_LOGGING) {
+                        _cleanup_free_ char *escaped_key = cescape(key),
+                                *escaped_value = cescape(strempty(value));
+                        log_device_debug(device, "sd-device: Refusing invalid property: %s=%s",
+                                         strnull(escaped_key), strnull(escaped_value));
+                }
                 return -EINVAL;
+        }
 
         if (db)
                 properties = &device->properties_db;
