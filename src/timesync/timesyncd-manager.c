@@ -1034,15 +1034,15 @@ int manager_connect(Manager *m) {
 
                 struct addrinfo hints = {
                         .ai_flags = AI_NUMERICSERV|AI_ADDRCONFIG,
-                        .ai_socktype = nts? SOCK_STREAM : SOCK_DGRAM,
+                        .ai_socktype = nts ? SOCK_STREAM : SOCK_DGRAM,
                         .ai_family = socket_ipv6_is_supported() ? AF_UNSPEC : AF_INET,
                 };
 
 #if ENABLE_TIMESYNC_NTS
                 /* For NTS, we first connect to the NTSKE */
-                const char *port = nts? "4460" : "123";
+                const char *port = nts ? "4460" : "123";
 
-                m->nts_missing_cookies = nts? ELEMENTSOF(m->nts_cookies) : 0;
+                m->nts_missing_cookies = nts ? ELEMENTSOF(m->nts_cookies) : 0;
 #else
                 const char *port = "123";
 
@@ -1541,6 +1541,9 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
         int r;
 
         if (revents & (EPOLLHUP|EPOLLERR)) {
+                if (m->nts_handshake)
+                        NTS_TLS_close(&m->nts_handshake);
+                m->nts_timeout = sd_event_source_unref(m->nts_timeout);
                 log_warning("Server connection returned error.");
                 return manager_connect(m);
         }
@@ -1604,8 +1607,16 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
                         if (NTS_get_param(*algo_type))
                                 prefs[prefs_len++] = *algo_type;
 
+                prefs[prefs_len] = 0;
 
-                m->nts_request_size = NTS_encode_request(m->nts_packet_buffer, sizeof(m->nts_packet_buffer), prefs);
+                r = NTS_encode_request(m->nts_packet_buffer, sizeof(m->nts_packet_buffer), prefs);
+                if (r < 0) {
+                        log_error_errno(r, "NTS request encoding failed: %m");
+                        NTS_TLS_close(&m->nts_handshake);
+                        m->nts_timeout = sd_event_source_unref(m->nts_timeout);
+                        return manager_connect(m);
+                }
+                m->nts_request_size = r;
                 m->nts_bytes_processed = 0;
                 assert(m->nts_request_size <= (int)sizeof(m->nts_packet_buffer));
 
@@ -1666,7 +1677,7 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
                 break;
 
         default:
-                __builtin_unreachable();
+                assert_not_reached();
         }
 
         /* extract keys from TLS session and process the NTS response */
@@ -1682,7 +1693,7 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
         manager_listen_stop(m);
 
         if (r != 0) {
-                log_error("Key extraction failed");
+                log_error_errno(r, "Key extraction failed: %m");
                 return manager_connect(m);
         }
 
