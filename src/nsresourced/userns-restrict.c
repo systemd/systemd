@@ -147,7 +147,7 @@ int userns_restrict_install(
                                 link = NULL;
                         } else {
                                 linked = true;
-                                log_info("userns-restrict BPF-LSM program %s already attached.", ps->name);
+                                log_debug("userns-restrict BPF-LSM program %s already attached.", ps->name);
                         }
                 }
 

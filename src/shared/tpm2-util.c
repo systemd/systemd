@@ -5625,8 +5625,9 @@ int tpm2_unseal(Tpm2Context *c,
         if (r < 0)
                 return r;
         if (r == 0) {
+                /* ECC was the only supported algorithm in systemd < 250, use that as implied default, for compatibility */
                 if (primary_alg == 0)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "No SRK or primary algorithm provided.");
+                        primary_alg = TPM2_ALG_ECC;
 
                 TPM2B_PUBLIC template = {
                         .size = sizeof(TPMT_PUBLIC),
@@ -6031,6 +6032,9 @@ int tpm2_define_nvpcr_nv_index(
                         /* auth= */ NULL,
                         &public_info,
                         &new_handle->esys_handle);
+        if (rc == TPM2_RC_NV_SPACE)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOSPC),
+                                       "NV index space on TPM exhausted, cannot allocate NvPCR.");
         if (rc == TPM2_RC_NV_DEFINED) {
                 log_debug("NV index 0x%" PRIu32 " already registered.", nv_index);
 
@@ -7325,7 +7329,7 @@ int tpm2_nvpcr_initialize(
 
         _cleanup_close_ int dfd = open_mkdir("/run/systemd/nvpcr", O_CLOEXEC, 0755);
         if (dfd < 0)
-                return log_error_errno(dfd, "Failed to open directory '/run/systemd/nvpcr': %m");
+                return log_debug_errno(dfd, "Failed to open directory '/run/systemd/nvpcr': %m");
 
         const char *anchor_fname = strjoina(name, ".anchor");
         if (faccessat(dfd, anchor_fname, F_OK, AT_SYMLINK_NOFOLLOW) < 0) {
@@ -8588,7 +8592,7 @@ int tpm2_parse_luks2_json(
 
         _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {};
         uint32_t hash_pcr_mask = 0, pubkey_pcr_mask = 0;
-        uint16_t primary_alg = TPM2_ALG_ECC; /* ECC was the only supported algorithm in systemd < 250, use that as implied default, for compatibility */
+        uint16_t primary_alg = 0;
         uint16_t pcr_bank = UINT16_MAX; /* default: pick automatically */
         int r, keyslot = -1;
         TPM2Flags flags = 0;

@@ -103,6 +103,7 @@ struct sd_dhcp_client {
         bool socket_priority_set;
         bool ipv6_acquired;
         bool bootp;
+        bool send_release;
 };
 
 static const uint8_t default_req_opts[] = {
@@ -663,6 +664,14 @@ int sd_dhcp_client_set_bootp(sd_dhcp_client *client, int bootp) {
         return 0;
 }
 
+int sd_dhcp_client_set_send_release(sd_dhcp_client *client, int enable) {
+        assert_return(client, -EINVAL);
+
+        client->send_release = enable;
+
+        return 0;
+}
+
 static void client_set_state(sd_dhcp_client *client, DHCPState state) {
         assert(client);
 
@@ -867,7 +876,7 @@ static int client_message_init(
            MAY contain the Parameter Request List option. */
         /* NOTE: in case that there would be an option to do not send
          * any PRL at all, the size should be checked before sending */
-        if (!set_isempty(client->req_opts) && type != DHCP_RELEASE) {
+        if (!set_isempty(client->req_opts) && IN_SET(type, DHCP_DISCOVER, DHCP_REQUEST)) {
                 _cleanup_free_ uint8_t *opts = NULL;
                 size_t n_opts, i = 0;
                 void *val;
@@ -2347,70 +2356,93 @@ int sd_dhcp_client_start(sd_dhcp_client *client) {
         return r;
 }
 
-int sd_dhcp_client_send_release(sd_dhcp_client *client) {
-        _cleanup_free_ DHCPPacket *release = NULL;
-        size_t optoffset, optlen;
+static int client_send_release_or_decline(sd_dhcp_client *client, uint8_t type) {
         int r;
 
+        assert(IN_SET(type, DHCP_RELEASE, DHCP_DECLINE));
+
         if (!sd_dhcp_client_is_running(client) || !client->lease || client->bootp)
-                return 0; /* do nothing */
+                return 0; /* there is nothing to release or decline */
 
-        r = client_message_init(client, DHCP_RELEASE, &release, &optlen, &optoffset);
+        const char *name = type == DHCP_RELEASE ? "RELEASE" : "DECLINE";
+
+        _cleanup_free_ DHCPPacket *packet = NULL;
+        size_t optoffset, optlen;
+        r = client_message_init(client, type, &packet, &optlen, &optoffset);
         if (r < 0)
-                return r;
+                return log_dhcp_client_errno(client, r, "Failed to initialize DHCP %s message: %m", name);
 
-        /* Fill up release IP and MAC */
-        release->dhcp.ciaddr = client->lease->address;
-        memcpy(&release->dhcp.chaddr, client->hw_addr.bytes, client->hw_addr.length);
+        /* See RFC 2131, Table 5 */
+        switch (type) {
+        case DHCP_RELEASE:
+                /* On release, the acquired address must be set in ciaddr. */
+                packet->dhcp.ciaddr = client->lease->address;
+                break;
 
-        r = dhcp_option_append(&release->dhcp, optlen, &optoffset, 0,
-                               SD_DHCP_OPTION_END, 0, NULL);
+        case DHCP_DECLINE:
+                /* On decline, the acquired address must be set in Requested IP Address option. */
+                r = dhcp_option_append(&packet->dhcp, optlen, &optoffset, /* overload= */ 0,
+                                       SD_DHCP_OPTION_REQUESTED_IP_ADDRESS,
+                                       4, &client->lease->address);
+                if (r < 0)
+                        return log_dhcp_client_errno(
+                                        client, r,
+                                        "Failed to append Requested IP Address option to DHCP %s message: %m",
+                                        name);
+                break;
+
+        default:
+                assert_not_reached();
+        }
+
+        /* In both cases, the server identifier must be set. */
+        r = dhcp_option_append(&packet->dhcp, optlen, &optoffset, /* overload= */ 0,
+                               SD_DHCP_OPTION_SERVER_IDENTIFIER,
+                               4, &client->lease->server_address);
         if (r < 0)
-                return r;
+                return log_dhcp_client_errno(
+                                client, r,
+                                "Failed to append Server Identifier option to DHCP %s message: %m",
+                                name);
 
-        r = dhcp_network_send_udp_socket(client->fd,
-                                         client->lease->server_address,
-                                         client->server_port,
-                                         &release->dhcp,
-                                         sizeof(DHCPMessage) + optoffset);
+        r = dhcp_option_append(&packet->dhcp, optlen, &optoffset, /* overload= */ 0,
+                               SD_DHCP_OPTION_END, /* optlen= */ 0, /* optval= */ NULL);
         if (r < 0)
-                return r;
+                return log_dhcp_client_errno(
+                                client, r,
+                                "Failed to finalize DHCP %s message: %m",
+                                name);
 
-        log_dhcp_client(client, "RELEASE");
+        switch (type) {
+        case DHCP_RELEASE:
+                r = dhcp_network_send_udp_socket(
+                                client->fd,
+                                client->lease->server_address,
+                                client->server_port,
+                                &packet->dhcp,
+                                sizeof(DHCPMessage) + optoffset);
+                break;
+        case DHCP_DECLINE:
+                r = dhcp_client_send_raw(client, packet, sizeof(DHCPPacket) + optoffset);
+                break;
+        default:
+                assert_not_reached();
+        }
+        if (r < 0)
+                return log_dhcp_client_errno(
+                                client, r,
+                                "Failed to send DHCP %s message: %m",
+                                name);
 
-        /* This function is mostly called when stopping daemon. Hence, do not call client_stop() or
-         * client_restart(). Otherwise, the notification callback will be called again and we may easily
-         * enter an infinite loop. */
-        client_initialize(client);
-        return 1; /* sent and stopped. */
+        log_dhcp_client(client, "%s", name);
+        return 1; /* sent */
 }
 
 int sd_dhcp_client_send_decline(sd_dhcp_client *client) {
-        _cleanup_free_ DHCPPacket *release = NULL;
-        size_t optoffset, optlen;
         int r;
 
-        if (!sd_dhcp_client_is_running(client) || !client->lease)
-                return 0; /* do nothing */
-
-        r = client_message_init(client, DHCP_DECLINE, &release, &optlen, &optoffset);
-        if (r < 0)
-                return r;
-
-        release->dhcp.ciaddr = client->lease->address;
-        memcpy(&release->dhcp.chaddr, client->hw_addr.bytes, client->hw_addr.length);
-
-        r = dhcp_option_append(&release->dhcp, optlen, &optoffset, 0,
-                               SD_DHCP_OPTION_END, 0, NULL);
-        if (r < 0)
-                return r;
-
-        r = dhcp_network_send_udp_socket(client->fd,
-                                         client->lease->server_address,
-                                         client->server_port,
-                                         &release->dhcp,
-                                         sizeof(DHCPMessage) + optoffset);
-        if (r < 0)
+        r = client_send_release_or_decline(client, DHCP_DECLINE);
+        if (r <= 0)
                 return r;
 
         log_dhcp_client(client, "DECLINE");
@@ -2430,8 +2462,10 @@ int sd_dhcp_client_stop(sd_dhcp_client *client) {
 
         DHCP_CLIENT_DONT_DESTROY(client);
 
-        client_stop(client, SD_DHCP_CLIENT_EVENT_STOP);
+        if (client->send_release)
+                (void) client_send_release_or_decline(client, DHCP_RELEASE);
 
+        client_stop(client, SD_DHCP_CLIENT_EVENT_STOP);
         return 0;
 }
 

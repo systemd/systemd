@@ -648,7 +648,7 @@
         <term><option>--notify-ready=</option></term>
 
         <listitem><para>Configures support for notifications from the container's init process.
-        <option>--notify-ready=</option> takes a boolean. If false <command>systemd-vmpawn</command>
+        <option>--notify-ready=</option> takes a boolean. If false <command>systemd-nspawn</command>
         notifies the calling service manager with a <literal>READY=1</literal> message when the init process is
         created. If true it waits for a <literal>READY=1</literal> message from the init process in the VM
         before sending its own to the service manager. For more details about notifications see

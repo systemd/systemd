@@ -599,13 +599,20 @@ VDIR="/tmp/${VBASE}.v"
 mkdir "$VDIR"
 rm -rf /tmp/markers/
 mkdir /tmp/markers/
+CDIR1="/tmp/${VBASE}_confext_a"
+CDIR2="/tmp/${VBASE}_confext_b"
+mkdir -p "$CDIR1/etc/extension-release.d/" "$CDIR2/etc/extension-release.d/"
+echo "ID=_any" >"$CDIR1/etc/extension-release.d/extension-release.${VBASE}_confext_a"
+touch "$CDIR1/etc/${VBASE}_confext_a.marker"
+echo "ID=_any" >"$CDIR2/etc/extension-release.d/extension-release.${VBASE}_confext_b"
+touch "$CDIR2/etc/${VBASE}_confext_b.marker"
 cat >/run/systemd/system/testservice-50g.service <<EOF
 [Service]
 Type=notify-reload
 EnvironmentFile=-/usr/lib/systemd/systemd-asan-env
 PrivateTmp=disconnected
 BindPaths=/tmp/markers/
-ExtensionDirectories=-${VDIR}
+ExtensionDirectories=-${VDIR} ${CDIR1} ${CDIR2}
 ExecStart=bash -o pipefail -x -c ' \\
     trap "{ \\
         systemd-notify --reloading; \\
@@ -624,12 +631,16 @@ systemctl is-active testservice-50g.service
 # First reload; at reload time, the marker file in /etc should be picked up.
 systemctl reload testservice-50g.service
 grep -q -F "${VBASE}_1.marker" /tmp/markers/50g
+grep -q -F "${VBASE}_confext_a.marker" /tmp/markers/50g
+grep -q -F "${VBASE}_confext_b.marker" /tmp/markers/50g
 # Make a version 2 and reload again; this time we should see the v2 marker
 mkdir -p "$VDIR/${VBASE}_2/etc/extension-release.d/"
 echo "ID=_any" >"$VDIR/${VBASE}_2/etc/extension-release.d/extension-release.${VBASE}_2"
 touch "$VDIR/${VBASE}_2/etc/${VBASE}_2.marker"
 systemctl reload testservice-50g.service
 grep -q -F "${VBASE}_2.marker" /tmp/markers/50g
+grep -q -F "${VBASE}_confext_a.marker" /tmp/markers/50g
+grep -q -F "${VBASE}_confext_b.marker" /tmp/markers/50g
 # Do it for a couple more times (to make sure we're tearing down old overlays)
 for _ in {1..5}; do systemctl reload testservice-50g.service; done
 systemctl stop testservice-50g.service
@@ -640,13 +651,17 @@ rm -f /run/systemd/system/testservice-50g.service
 # this time)
 VDIR2="/tmp/${VBASE}.raw.v"
 mkdir "$VDIR2"
+CIMG1="/tmp/${VBASE}_confext_a.raw"
+CIMG2="/tmp/${VBASE}_confext_b.raw"
+mksquashfs "$CDIR1" "$CIMG1" -noappend
+mksquashfs "$CDIR2" "$CIMG2" -noappend
 cat >/run/systemd/system/testservice-50h.service <<EOF
 [Service]
 Type=notify-reload
 EnvironmentFile=-/usr/lib/systemd/systemd-asan-env
 PrivateTmp=disconnected
 BindPaths=/tmp/markers/
-ExtensionImages=-$VDIR2
+ExtensionImages=-$VDIR2 ${CIMG1} ${CIMG2}
 ExecStart=bash -o pipefail -x -c ' \\
     trap "{ \\
         systemd-notify --reloading; \\
@@ -663,15 +678,21 @@ systemctl is-active testservice-50h.service
 # First reload should pick up the v1 marker
 systemctl reload testservice-50h.service
 grep -q -F "${VBASE}_1.marker" /tmp/markers/50h
+grep -q -F "${VBASE}_confext_a.marker" /tmp/markers/50h
+grep -q -F "${VBASE}_confext_b.marker" /tmp/markers/50h
 # Second reload should pick up the v2 marker
 mksquashfs "$VDIR/${VBASE}_2" "$VDIR2/${VBASE}_2.raw" -noappend
 systemctl reload testservice-50h.service
 grep -q -F "${VBASE}_2.marker" /tmp/markers/50h
-# Test that removing all the extensions don't cause any issues
+grep -q -F "${VBASE}_confext_a.marker" /tmp/markers/50h
+grep -q -F "${VBASE}_confext_b.marker" /tmp/markers/50h
+# Test that removing all the vpick extensions don't cause any issues
 rm -rf "${VDIR2:?}"/*
 systemctl reload testservice-50h.service
 systemctl is-active testservice-50h.service
-grep -q -F "no-marker" /tmp/markers/50h
+(! grep -q -F "${VBASE}_2.marker" /tmp/markers/50h)
+grep -q -F "${VBASE}_confext_a.marker" /tmp/markers/50h
+grep -q -F "${VBASE}_confext_b.marker" /tmp/markers/50h
 systemctl stop testservice-50h.service
 rm -f /run/systemd/system/testservice-50h.service
 
@@ -683,7 +704,7 @@ EnvironmentFile=-/usr/lib/systemd/systemd-asan-env
 PrivateTmp=disconnected
 BindPaths=/tmp/markers/
 RootImage=$MINIMAL_IMAGE.raw
-ExtensionDirectories=-${VDIR}
+ExtensionDirectories=-${VDIR} ${CDIR1} ${CDIR2}
 NotifyAccess=all
 ExecStart=bash -x -o pipefail -c ' \
     trap '"'"' \
@@ -705,6 +726,8 @@ systemctl is-active testservice-50i.service
 mv "$VDIR/.${VBASE}_2" "$VDIR/${VBASE}_2/"
 systemctl reload testservice-50i.service
 grep -q -F "${VBASE}_2.marker" /tmp/markers/50i
+grep -q -F "${VBASE}_confext_a.marker" /tmp/markers/50i
+grep -q -F "${VBASE}_confext_b.marker" /tmp/markers/50i
 # Ensure that we are also still seeing files exclusive to the root image
 grep -q -F "MARKER=1" /tmp/markers/50i
 systemctl stop testservice-50i.service
@@ -718,7 +741,7 @@ EnvironmentFile=-/usr/lib/systemd/systemd-asan-env
 PrivateTmp=disconnected
 BindPaths=/tmp/markers/
 RootDirectory=/tmp/vpickminimg
-ExtensionDirectories=-${VDIR}
+ExtensionDirectories=-${VDIR} ${CDIR1} ${CDIR2}
 NotifyAccess=all
 ExecStart=bash -x -o pipefail -c ' \
     trap '"'"' \
@@ -736,6 +759,8 @@ systemctl start testservice-50j.service
 systemctl is-active testservice-50j.service
 systemctl reload testservice-50j.service
 grep -q -F "${VBASE}_2.marker" /tmp/markers/50j
+grep -q -F "${VBASE}_confext_a.marker" /tmp/markers/50j
+grep -q -F "${VBASE}_confext_b.marker" /tmp/markers/50j
 grep -q -F "MARKER=1" /tmp/markers/50j
 systemctl stop testservice-50j.service
 rm -f /run/systemd/system/testservice-50j.service
@@ -747,7 +772,7 @@ EnvironmentFile=-/usr/lib/systemd/systemd-asan-env
 PrivateTmp=disconnected
 BindPaths=/tmp/markers/
 RootImage=$MINIMAL_IMAGE.raw
-ExtensionImages=-$VDIR2 /tmp/app0.raw
+ExtensionImages=-$VDIR2 /tmp/app0.raw ${CIMG1} ${CIMG2}
 PrivateUsers=yes
 NotifyAccess=all
 ExecStart=bash -x -o pipefail -c ' \
@@ -772,20 +797,26 @@ fi
 mksquashfs "$VDIR/${VBASE}_1" "$VDIR2/${VBASE}_1.raw" -noappend
 systemctl reload testservice-50k.service
 grep -q -F "${VBASE}_1.marker" /tmp/markers/50k
+grep -q -F "${VBASE}_confext_a.marker" /tmp/markers/50k
+grep -q -F "${VBASE}_confext_b.marker" /tmp/markers/50k
 # Second reload should pick up the v2 marker
 mksquashfs "$VDIR/${VBASE}_2" "$VDIR2/${VBASE}_2.raw" -noappend
 systemctl reload testservice-50k.service
 grep -q -F "${VBASE}_2.marker" /tmp/markers/50k
-# Test that removing all the extensions don't cause any issues
+grep -q -F "${VBASE}_confext_a.marker" /tmp/markers/50k
+grep -q -F "${VBASE}_confext_b.marker" /tmp/markers/50k
+# Test that removing all the vpick extensions don't cause any issues
 rm -rf "${VDIR2:?}"/*
 systemctl reload testservice-50k.service
 systemctl is-active testservice-50k.service
 grep -q -F "MARKER=1" /tmp/markers/50k
+grep -q -F "${VBASE}_confext_a.marker" /tmp/markers/50k
+grep -q -F "${VBASE}_confext_b.marker" /tmp/markers/50k
 systemctl stop testservice-50k.service
 rm -f /run/systemd/system/testservice-50k.service
 
 systemctl daemon-reload
-rm -rf "$VDIR" "$VDIR2" /tmp/vpickminimg /tmp/markers/
+rm -rf "$VDIR" "$VDIR2" "$CDIR1" "$CDIR2" "$CIMG1" "$CIMG2" /tmp/vpickminimg /tmp/markers/
 
 # Test that an extension consisting of an empty directory under /etc/extensions/ takes precedence
 mkdir -p /var/lib/extensions/
