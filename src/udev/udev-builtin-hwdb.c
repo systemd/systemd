@@ -7,6 +7,7 @@
 #include "sd-hwdb.h"
 
 #include "alloc-util.h"
+#include "device-private.h"
 #include "device-util.h"
 #include "hwdb-util.h"
 #include "parse-util.h"
@@ -59,7 +60,7 @@ static const char* modalias_usb(sd_device *dev, char *s, size_t size) {
                 return NULL;
         if (safe_atoux16(p, &pn) < 0)
                 return NULL;
-        (void) sd_device_get_sysattr_value(dev, "product", &n);
+        (void) device_get_sysattr_safe_string(dev, "product", &n);
 
         (void) snprintf(s, size, "usb:v%04Xp%04X:%s", vn, pn, strempty(n));
         return s;

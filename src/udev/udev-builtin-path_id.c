@@ -109,7 +109,7 @@ static sd_device* handle_scsi_fibre_channel(sd_device *parent, char **path) {
                 return NULL;
         if (sd_device_new_from_subsystem_sysname(&fcdev, "fc_transport", sysname) < 0)
                 return NULL;
-        if (sd_device_get_sysattr_value(fcdev, "port_name", &port) < 0)
+        if (device_get_sysattr_safe_string(fcdev, "port_name", &port) < 0)
                 return NULL;
 
         format_lun_number(parent, &lun);
@@ -134,7 +134,7 @@ static sd_device* handle_scsi_sas_wide_port(sd_device *parent, char **path) {
                 return NULL;
         if (sd_device_new_from_subsystem_sysname(&sasdev, "sas_device", sysname) < 0)
                 return NULL;
-        if (sd_device_get_sysattr_value(sasdev, "sas_address", &sas_address) < 0)
+        if (device_get_sysattr_safe_string(sasdev, "sas_address", &sas_address) < 0)
                 return NULL;
 
         format_lun_number(parent, &lun);
@@ -176,7 +176,7 @@ static sd_device* handle_scsi_sas(sd_device *parent, char **path) {
                 return handle_scsi_sas_wide_port(parent, path);
 
         /* Get connected phy */
-        if (sd_device_get_sysattr_value(target_sasdev, "phy_identifier", &phy_id) < 0)
+        if (device_get_sysattr_safe_string(target_sasdev, "phy_identifier", &phy_id) < 0)
                 return NULL;
 
         /* The port's parent is either hba or expander */
@@ -188,7 +188,7 @@ static sd_device* handle_scsi_sas(sd_device *parent, char **path) {
         /* Get expander device */
         if (sd_device_new_from_subsystem_sysname(&expander_sasdev, "sas_device", sysname) >= 0) {
                 /* Get expander's address */
-                if (sd_device_get_sysattr_value(expander_sasdev, "sas_address", &sas_address) < 0)
+                if (device_get_sysattr_safe_string(expander_sasdev, "sas_address", &sas_address) < 0)
                         return NULL;
         }
 
@@ -225,7 +225,7 @@ static sd_device* handle_scsi_iscsi(sd_device *parent, char **path) {
         if (sd_device_new_from_subsystem_sysname(&sessiondev, "iscsi_session", sysname) < 0)
                 return NULL;
 
-        if (sd_device_get_sysattr_value(sessiondev, "targetname", &target) < 0)
+        if (device_get_sysattr_safe_string(sessiondev, "targetname", &target) < 0)
                 return NULL;
 
         if (sd_device_get_sysnum(transportdev, &sysnum) < 0)
@@ -234,9 +234,9 @@ static sd_device* handle_scsi_iscsi(sd_device *parent, char **path) {
         if (sd_device_new_from_subsystem_sysname(&conndev, "iscsi_connection", connname) < 0)
                 return NULL;
 
-        if (sd_device_get_sysattr_value(conndev, "persistent_address", &addr) < 0)
+        if (device_get_sysattr_safe_string(conndev, "persistent_address", &addr) < 0)
                 return NULL;
-        if (sd_device_get_sysattr_value(conndev, "persistent_port", &port) < 0)
+        if (device_get_sysattr_safe_string(conndev, "persistent_port", &port) < 0)
                 return NULL;
 
         format_lun_number(parent, &lun);
@@ -269,7 +269,7 @@ static sd_device* handle_scsi_ata(sd_device *parent, char **path, char **compat_
         if (sd_device_new_from_subsystem_sysname(&atadev, "ata_port", sysname) < 0)
                 return NULL;
 
-        if (sd_device_get_sysattr_value(atadev, "port_no", &port_no) < 0)
+        if (device_get_sysattr_safe_string(atadev, "port_no", &port_no) < 0)
                 return NULL;
 
         if (bus != 0)
@@ -376,7 +376,7 @@ static sd_device* handle_scsi_hyperv(sd_device *parent, char **path, size_t guid
         if (sd_device_get_parent(hostdev, &vmbusdev) < 0)
                 return NULL;
 
-        if (sd_device_get_sysattr_value(vmbusdev, "device_id", &guid_str) < 0)
+        if (device_get_sysattr_safe_string(vmbusdev, "device_id", &guid_str) < 0)
                 return NULL;
 
         if (strlen(guid_str) < guid_str_len || guid_str[0] != '{' || guid_str[guid_str_len-1] != '}')
@@ -402,7 +402,7 @@ static sd_device* handle_scsi(sd_device *parent, char **path, char **compat_path
                 return parent;
 
         /* firewire */
-        if (sd_device_get_sysattr_value(parent, "ieee1394_id", &id) >= 0) {
+        if (device_get_sysattr_safe_string(parent, "ieee1394_id", &id) >= 0) {
                 path_prepend(path, "ieee1394-0x%s", id);
                 *supported_parent = true;
                 return skip_subsystem(parent, "scsi");
@@ -567,8 +567,8 @@ static sd_device* handle_ap(sd_device *parent, char **path) {
         assert(parent);
         assert(path);
 
-        if (sd_device_get_sysattr_value(parent, "type", &type) >= 0 &&
-            sd_device_get_sysattr_value(parent, "ap_functions", &func) >= 0)
+        if (device_get_sysattr_safe_string(parent, "type", &type) >= 0 &&
+            device_get_sysattr_safe_string(parent, "ap_functions", &func) >= 0)
                 path_prepend(path, "ap-%s-%s", type, func);
         else {
                 const char *sysname;
@@ -784,7 +784,7 @@ static int builtin_path_id(UdevEvent *event, int argc, char *argv[]) {
                 } else if (device_in_subsystem(parent, "nvme", "nvme-subsystem") > 0) {
                         const char *nsid;
 
-                        if (sd_device_get_sysattr_value(dev, "nsid", &nsid) >= 0) {
+                        if (device_get_sysattr_safe_string(dev, "nsid", &nsid) >= 0) {
                                 path_prepend(&path, "nvme-%s", nsid);
                                 if (compat_path)
                                         path_prepend(&compat_path, "nvme-%s", nsid);
