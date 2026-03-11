@@ -1080,6 +1080,10 @@ void manager_disconnect(Manager *m) {
 
         m->event_timeout = sd_event_source_unref(m->event_timeout);
 
+#if ENABLE_TIMESYNC_NTS
+        NTS_TLS_close(&m->nts_handshake);
+#endif
+
         (void) sd_notify(false, "STATUS=Idle.");
 }
 
@@ -1142,7 +1146,6 @@ Manager* manager_free(Manager *m) {
 
 #if ENABLE_TIMESYNC_NTS
         manager_flush_cookies(m);
-        NTS_TLS_close(&m->nts_handshake);
 #endif
 
         return mfree(m);
@@ -1569,6 +1572,7 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
 
                 log_debug("Performing key exchange with %s", m->current_server_name->string);
 
+                assert(!m->nts_handshake);
                 m->nts_handshake = NTS_TLS_setup(m->current_server_name->string, m->server_socket);
                 if (!m->nts_handshake)
                         return -ENOMEM;
