@@ -609,7 +609,7 @@ testcase_nts_failure_modes() {
         return 0
     fi
 
-    FAKEROOT_CA=/etc/ssl/CA_dummy_cert.crt
+    FAKEROOT_CA=/etc/ssl/certs/CA_dummy_cert.crt
 
     save_netif_state
 
@@ -617,7 +617,10 @@ testcase_nts_failure_modes() {
     cleanup() {
         rm -f "$FAKEROOT_CA"
         rm -rf /run/systemd/timesyncd.conf.d
-        systemctl stop systemd-timesyncd nts-mock.service
+        systemctl stop systemd-timesyncd
+        if systemctl is-active nts-mock.service; then
+                systemctl stop nts-mock.service
+        fi
         restore_netif_state
     }
 
@@ -665,6 +668,9 @@ EOF
         assert_timesyncd_exhausted_servers "$ts"
 
         timedatectl set-ntp false
+        if systemctl is-active nts-mock.service; then
+                systemctl stop nts-mock.service
+        fi
     done
 }
 
