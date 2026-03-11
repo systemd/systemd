@@ -9,6 +9,7 @@
 #include "iovec-util.h"
 #include "libaudit-util.h"
 #include "log.h"
+#include "sd-dlopen.h"
 #include "socket-util.h"
 
 #if HAVE_AUDIT
@@ -23,9 +24,9 @@ static DLSYM_PROTOTYPE(audit_open) = NULL;
 
 int dlopen_libaudit(void) {
 #if HAVE_AUDIT
-        ELF_NOTE_DLOPEN("audit",
+        SD_ELF_NOTE_DLOPEN("audit",
                         "Support for Audit logging",
-                        ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
+                        SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
                         "libaudit.so.1");
 
         return dlopen_many_sym_or_warn(

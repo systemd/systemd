@@ -6,6 +6,7 @@ _systemd_headers = [
         'sd-bus-vtable.h',
         'sd-daemon.h',
         'sd-device.h',
+        'sd-dlopen.h',
         'sd-event.h',
         'sd-gpt.h',
         'sd-hwdb.h',

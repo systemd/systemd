@@ -3,6 +3,7 @@
 #include <sys/syslog.h>
 
 #include "gcrypt-util.h"
+#include "sd-dlopen.h"
 
 #if HAVE_GCRYPT
 
@@ -44,9 +45,9 @@ DLSYM_PROTOTYPE(gcry_strerror) = NULL;
 
 int dlopen_gcrypt(void) {
 #if HAVE_GCRYPT
-        ELF_NOTE_DLOPEN("gcrypt",
+        SD_ELF_NOTE_DLOPEN("gcrypt",
                         "Support for journald forward-sealing",
-                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
                         "libgcrypt.so.20");
 
         return dlopen_many_sym_or_warn(
