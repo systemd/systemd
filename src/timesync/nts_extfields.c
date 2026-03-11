@@ -227,9 +227,9 @@ int NTS_parse_extension_fields(
 
                         uint8_t *plaintext = content;
                         int plain_len = NTS_decrypt(plaintext, ciph_len, content, ciph_len, info, &nts->cipher, nts->s2c_key);
-                        assert(plain_len < ciph_len);
                         if (plain_len < 0)
                                 goto exit;
+                        assert(plain_len < ciph_len);
 
                         slice plain = { plaintext, plaintext + plain_len };
                         unsigned cookies = 0;
