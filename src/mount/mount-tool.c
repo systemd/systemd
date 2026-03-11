@@ -13,6 +13,7 @@
 #include "bus-util.h"
 #include "bus-wait-for-jobs.h"
 #include "chase.h"
+#include "device-private.h"
 #include "device-util.h"
 #include "errno-util.h"
 #include "escape.h"
@@ -915,7 +916,7 @@ static int find_loop_device(const char *backing_file, sd_device **ret) {
         FOREACH_DEVICE(e, dev) {
                 const char *s;
 
-                r = sd_device_get_sysattr_value(dev, "loop/backing_file", &s);
+                r = device_get_sysattr_safe_string(dev, "loop/backing_file", &s);
                 if (r < 0) {
                         log_device_debug_errno(dev, r, "Failed to read \"loop/backing_file\" sysattr, ignoring: %m");
                         continue;
