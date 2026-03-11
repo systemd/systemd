@@ -5843,6 +5843,8 @@ static int unit_export_log_extra_fields(Unit *u, const ExecContext *c) {
         if (c->n_log_extra_fields <= 0)
                 return 0;
 
+        assert(c->n_log_extra_fields <= LOG_EXTRA_FIELDS_MAX);
+
         sizes = newa(le64_t, c->n_log_extra_fields);
         iovec = newa(struct iovec, c->n_log_extra_fields * 2);
 
