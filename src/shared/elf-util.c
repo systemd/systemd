@@ -8,6 +8,7 @@
 #endif
 #include <unistd.h>
 
+#include "sd-dlopen.h"
 #include "sd-json.h"
 
 #include "alloc-util.h"
@@ -94,9 +95,10 @@ int dlopen_dw(void) {
 #if HAVE_ELFUTILS
         int r;
 
-        ELF_NOTE_DLOPEN("dw",
+        SD_ELF_NOTE_DLOPEN(
+                        "dw",
                         "Support for backtrace and ELF package metadata decoding from core files",
-                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
                         "libdw.so.1");
 
         r = dlopen_many_sym_or_warn(
@@ -147,9 +149,10 @@ int dlopen_elf(void) {
 #if HAVE_ELFUTILS
         int r;
 
-        ELF_NOTE_DLOPEN("elf",
+        SD_ELF_NOTE_DLOPEN(
+                        "elf",
                         "Support for backtraces and reading ELF package metadata from core files",
-                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
                         "libelf.so.1");
 
         r = dlopen_many_sym_or_warn(
@@ -406,7 +409,7 @@ static int parse_metadata(const char *name, sd_json_variant *id_json, Elf *elf, 
 
                         /* Package metadata might have different owners, but the
                          * magic ID is always the same. */
-                        if (!IN_SET(note_header.n_type, ELF_PACKAGE_METADATA_ID, ELF_NOTE_DLOPEN_TYPE))
+                        if (!IN_SET(note_header.n_type, ELF_PACKAGE_METADATA_ID, SD_ELF_NOTE_DLOPEN_TYPE))
                                 continue;
 
                         _cleanup_free_ char *payload_0suffixed = NULL;
