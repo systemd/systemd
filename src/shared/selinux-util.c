@@ -15,6 +15,8 @@
 #include <selinux/selinux.h>
 #endif
 
+#include "sd-dlopen.h"
+
 #include "alloc-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -88,9 +90,10 @@ DLSYM_PROTOTYPE(setsockcreatecon_raw) = NULL;
 DLSYM_PROTOTYPE(string_to_security_class) = NULL;
 
 int dlopen_libselinux(void) {
-        ELF_NOTE_DLOPEN("selinux",
+        SD_ELF_NOTE_DLOPEN(
+                        "selinux",
                         "Support for SELinux",
-                        ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
+                        SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
                         "libselinux.so.1");
 
         return dlopen_many_sym_or_warn(
