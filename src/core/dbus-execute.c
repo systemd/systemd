@@ -2796,6 +2796,9 @@ int bus_exec_context_set_transient_property(
                                 return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Journal field is not valid UTF-8");
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                                if (c->n_log_extra_fields >= LOG_EXTRA_FIELDS_MAX)
+                                        return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Too many extra log fields.");
+
                                 if (!GREEDY_REALLOC(c->log_extra_fields, c->n_log_extra_fields + 1))
                                         return -ENOMEM;
 
