@@ -305,6 +305,21 @@ static void test_sd_device_one(sd_device *d) {
                 ASSERT_OK(r = device_get_sysattr_unsigned(d, "nsid", &x));
                 ASSERT_EQ(x > 0, r > 0);
         }
+
+        const char *uevent;
+        if (sd_device_get_sysattr_value(d, "uevent", &uevent) >= 0) {
+                const char *uevent_safe;
+
+                /* uevent file may contains line break, hence _safe_string() may refuse the value. */
+                if (ASSERT_OK_OR(device_get_sysattr_safe_string(d, "uevent", &uevent_safe), -ENXIO) >= 0)
+                        ASSERT_STREQ(uevent, uevent_safe);
+                else
+                        ASSERT_NOT_NULL(strchr(uevent, '\n'));
+
+                /* uevent file should not contain any other control characters, hopefully. */
+                ASSERT_OK(device_get_sysattr_safe_string_full(d, "\n", "uevent", &uevent_safe));
+                ASSERT_STREQ(uevent, uevent_safe);
+        }
 }
 
 static void exclude_problematic_devices(sd_device_enumerator *e) {
