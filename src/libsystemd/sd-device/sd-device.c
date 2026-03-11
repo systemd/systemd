@@ -837,7 +837,7 @@ int device_read_uevent_file(sd_device *device) {
         device->uevent_loaded = true;
 
         const char *uevent;
-        r = sd_device_get_sysattr_value(device, "uevent", &uevent);
+        r = device_get_sysattr_safe_string_full(device, "\n", "uevent", &uevent);
         if (ERRNO_IS_NEG_PRIVILEGE(r) || ERRNO_IS_NEG_DEVICE_ABSENT(r))
                 /* The uevent files may be write-only, the device may be already removed, or the device
                  * may not have the uevent file. */
@@ -1258,7 +1258,7 @@ _public_ int sd_device_get_subsystem(sd_device *device, const char **ret) {
         if (!device->subsystem_set) {
                 const char *subsystem;
 
-                r = sd_device_get_sysattr_value(device, "subsystem", &subsystem);
+                r = device_get_sysattr_safe_string(device, "subsystem", &subsystem);
                 if (r < 0 && r != -ENOENT)
                         return log_device_debug_errno(device, r,
                                                       "sd-device: Failed to read subsystem for %s: %m",
@@ -1398,7 +1398,7 @@ _public_ int sd_device_get_driver(sd_device *device, const char **ret) {
         if (!device->driver_set) {
                 const char *driver = NULL;
 
-                r = sd_device_get_sysattr_value(device, "driver", &driver);
+                r = device_get_sysattr_safe_string(device, "driver", &driver);
                 if (r < 0 && r != -ENOENT)
                         return log_device_debug_errno(device, r,
                                                       "sd-device: Failed to read driver: %m");
