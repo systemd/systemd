@@ -5,6 +5,7 @@
 #include "log.h"
 #include "module-util.h"
 #include "proc-cmdline.h"
+#include "sd-dlopen.h"
 #include "strv.h"
 
 #if HAVE_KMOD
@@ -26,9 +27,10 @@ DLSYM_PROTOTYPE(kmod_unref) = NULL;
 DLSYM_PROTOTYPE(kmod_validate_resources) = NULL;
 
 int dlopen_libkmod(void) {
-        ELF_NOTE_DLOPEN("kmod",
+        SD_ELF_NOTE_DLOPEN(
+                        "kmod",
                         "Support for loading kernel modules",
-                        ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
+                        SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
                         "libkmod.so.2");
 
         return dlopen_many_sym_or_warn(

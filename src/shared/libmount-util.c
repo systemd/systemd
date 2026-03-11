@@ -5,6 +5,7 @@
 #include "fstab-util.h"
 #include "libmount-util.h"
 #include "log.h"
+#include "sd-dlopen.h"
 
 static void *libmount_dl = NULL;
 
@@ -41,9 +42,10 @@ DLSYM_PROTOTYPE(mnt_table_parse_swaps) = NULL;
 DLSYM_PROTOTYPE(mnt_unref_monitor) = NULL;
 
 int dlopen_libmount(void) {
-        ELF_NOTE_DLOPEN("mount",
+        SD_ELF_NOTE_DLOPEN(
+                        "mount",
                         "Support for mount enumeration",
-                        ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
+                        SD_ELF_NOTE_DLOPEN_PRIORITY_RECOMMENDED,
                         "libmount.so.1");
 
         return dlopen_many_sym_or_warn(
