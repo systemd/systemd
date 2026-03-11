@@ -10,6 +10,7 @@
 #include "sd-device.h"
 
 #include "alloc-util.h"
+#include "device-private.h"
 #include "device-util.h"
 #include "errno-util.h"
 #include "escape.h"
@@ -82,7 +83,7 @@ static int find_device(
                 return log_full_errno(ERRNO_IS_DEVICE_ABSENT(r) ? LOG_DEBUG : LOG_ERR, r,
                                       "Failed to open device '%s': %m", sysname);
 
-        r = sd_device_get_sysattr_value(device, "name", &name);
+        r = device_get_sysattr_safe_string(device, "name", &name);
         if (r < 0)
                 return log_device_debug_errno(device, r, "Device has no name, ignoring: %m");
 
