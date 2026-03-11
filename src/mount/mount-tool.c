@@ -1228,7 +1228,6 @@ static int acquire_description(sd_device *d) {
 }
 
 static int acquire_removable(sd_device *d) {
-        const char *v;
         int r;
 
         assert(d);
@@ -1238,8 +1237,13 @@ static int acquire_removable(sd_device *d) {
                 return 0;
 
         for (;;) {
-                if (sd_device_get_sysattr_value(d, "removable", &v) >= 0)
+                r = device_get_sysattr_bool(d, "removable");
+                if (r == 0)
+                        return 0; /* not a removable device */
+                if (r > 0)
                         break;
+                if (r != -ENOENT)
+                        return log_device_debug_errno(d, r, "Failed to read 'removable' sysattr: %m");
 
                 r = sd_device_get_parent(d, &d);
                 if (r == -ENODEV)
@@ -1251,9 +1255,6 @@ static int acquire_removable(sd_device *d) {
                 if (r <= 0)
                         return r;
         }
-
-        if (parse_boolean(v) <= 0)
-                return 0;
 
         log_debug("Discovered removable device.");
 
