@@ -2621,7 +2621,10 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                                         continue;
 
                                 /* If we were looking for the DS RR, don't request it again. */
-                                if (dns_transaction_key(t)->type == DNS_TYPE_DS)
+                                r = dns_name_equal(dns_resource_key_name(dns_transaction_key(t)), dns_resource_key_name(rr->key));
+                                if (r < 0)
+                                        return r;
+                                if (r > 0 && dns_transaction_key(t)->type == DNS_TYPE_DS)
                                         continue;
                         }
 
