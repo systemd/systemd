@@ -26,6 +26,7 @@
 #include "ioprio-util.h"
 #include "iovec-util.h"
 #include "journal-file.h"
+#include "journal-importer.h"
 #include "memstream-util.h"
 #include "mountpoint-util.h"
 #include "namespace.h"
@@ -2804,6 +2805,10 @@ int bus_exec_context_set_transient_property(
 
                         if (!utf8_is_valid(copy))
                                 return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Journal field is not valid UTF-8");
+
+                        if (c->n_log_extra_fields >= ENTRY_FIELD_COUNT_MAX)
+                                return sd_bus_error_setf(reterr_error, SD_BUS_ERROR_INVALID_ARGS,
+                                                        "Too many LogExtraFields= (max %u)", ENTRY_FIELD_COUNT_MAX);
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                                 if (!GREEDY_REALLOC(c->log_extra_fields, c->n_log_extra_fields + 1))
