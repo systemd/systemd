@@ -469,18 +469,13 @@ static void handle_scsi_tape(sd_device *dev, char **path) {
 
 static int get_usb_revision(sd_device *dev) {
         uint8_t protocol;
-        const char *s;
         int r;
 
         assert(dev);
 
         /* Returns usb revision 1, 2, or 3. */
 
-        r = sd_device_get_sysattr_value(dev, "bDeviceProtocol", &s);
-        if (r < 0)
-                return r;
-
-        r = safe_atou8_full(s, 16, &protocol);
+        r = device_get_sysattr_u8_full(dev, "bDeviceProtocol", 16, &protocol);
         if (r < 0)
                 return r;
 
@@ -488,11 +483,10 @@ static int get_usb_revision(sd_device *dev) {
         case USB_HUB_PR_HS_NO_TT: /* Full speed hub (USB1) or Hi-speed hub without TT (USB2) */
 
                 /* See speed_show() in drivers/usb/core/sysfs.c of the kernel. */
-                r = sd_device_get_sysattr_value(dev, "speed", &s);
+                r = device_get_sysattr_streq(dev, "speed", "480");
                 if (r < 0)
                         return r;
-
-                if (streq(s, "480"))
+                if (r > 0)
                         return 2;
 
                 return 1;
