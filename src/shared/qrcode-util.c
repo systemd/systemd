@@ -7,6 +7,8 @@
 #endif
 #include <stdio.h>
 
+#include "sd-dlopen.h"
+
 #include "ansi-color.h"
 #include "dlfcn-util.h"
 #include "locale-util.h"
@@ -30,9 +32,10 @@ int dlopen_qrencode(void) {
 #if HAVE_QRENCODE
         int r;
 
-        ELF_NOTE_DLOPEN("qrencode",
+        SD_ELF_NOTE_DLOPEN(
+                        "qrencode",
                         "Support for generating QR codes",
-                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
                         "libqrencode.so.4", "libqrencode.so.3");
 
         FOREACH_STRING(s, "libqrencode.so.4", "libqrencode.so.3") {

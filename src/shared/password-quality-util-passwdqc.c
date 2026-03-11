@@ -6,6 +6,8 @@
 
 #include <passwdqc.h>
 
+#include "sd-dlopen.h"
+
 #include "alloc-util.h"
 #include "dlfcn-util.h"
 #include "errno-util.h"
@@ -137,9 +139,10 @@ int check_password_quality(
 
 int dlopen_passwdqc(void) {
 #if HAVE_PASSWDQC
-        ELF_NOTE_DLOPEN("passwdqc",
+        SD_ELF_NOTE_DLOPEN(
+                        "passwdqc",
                         "Support for password quality checks",
-                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
                         "libpasswdqc.so.1");
 
         return dlopen_many_sym_or_warn(
