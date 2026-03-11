@@ -69,6 +69,7 @@
 #include "runtime-scope.h"
 #include "siphash24.h"
 #include "stat-util.h"
+#include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
@@ -2951,8 +2952,15 @@ static int decrypted_image_new(DecryptedImage **ret) {
         return 0;
 }
 
+static uint64_t dissected_image_diskseq(const DissectedImage *di) {
+        assert(di);
+
+        return di->loop ? di->loop->diskseq : 0;
+}
+
 static int make_dm_name_and_node(
                 const char *base,
+                uint64_t diskseq,
                 const char *suffix,
                 char **ret_name,
                 char **ret_node) {
@@ -2962,7 +2970,11 @@ static int make_dm_name_and_node(
         assert(ret_name);
         assert(ret_node);
 
-        _cleanup_free_ char *name = strjoin(base, suffix);
+        _cleanup_free_ char *name = NULL;
+        if (diskseq != 0)
+                name = asprintf_safe("%s-%" PRIu64 "%s", base, diskseq, suffix);
+        else
+                name = strjoin(base, suffix);
         if (!name)
                 return -ENOMEM;
         if (!filename_is_valid(name))
@@ -2980,6 +2992,7 @@ static int make_dm_name_and_node(
 
 static int make_dm_name_and_node_from_node(
                 const char *original_node,
+                uint64_t diskseq,
                 const char *suffix,
                 char **ret_name,
                 char **ret_node) {
@@ -2993,10 +3006,11 @@ static int make_dm_name_and_node_from_node(
         if (r < 0)
                 return r;
 
-        return make_dm_name_and_node(base, suffix, ret_name, ret_node);
+        return make_dm_name_and_node(base, diskseq, suffix, ret_name, ret_node);
 }
 
 static int decrypt_partition(
+                DissectedImage *di,
                 DissectedPartition *m,
                 const char *passphrase,
                 DissectImageFlags flags,
@@ -3008,6 +3022,7 @@ static int decrypt_partition(
         _cleanup_close_ int fd = -EBADF;
         int r;
 
+        assert(di);
         assert(m);
         assert(d);
 
@@ -3027,7 +3042,7 @@ static int decrypt_partition(
         if (r < 0)
                 return r;
 
-        r = make_dm_name_and_node_from_node(m->node, "-decrypted", &name, &node);
+        r = make_dm_name_and_node_from_node(m->node, dissected_image_diskseq(di), "-decrypted", &name, &node);
         if (r < 0)
                 return r;
 
@@ -3351,6 +3366,7 @@ static usec_t verity_timeout(void) {
 }
 
 static int verity_partition(
+                DissectedImage *di,
                 PartitionDesignator designator,
                 DissectedPartition *m, /* data partition */
                 DissectedPartition *v, /* verity partition */
@@ -3365,6 +3381,7 @@ static int verity_partition(
         _cleanup_close_ int mount_node_fd = -EBADF;
         int r;
 
+        assert(di);
         assert(m);
         assert(v || (verity && verity->data_path));
 
@@ -3401,9 +3418,9 @@ static int verity_partition(
                 if (!root_hash_encoded)
                         return -ENOMEM;
 
-                r = make_dm_name_and_node(root_hash_encoded, "-verity", &name, &node);
+                r = make_dm_name_and_node(root_hash_encoded, /* diskseq= */ 0, "-verity", &name, &node);
         } else
-                r = make_dm_name_and_node_from_node(m->node, "-verity", &name, &node);
+                r = make_dm_name_and_node_from_node(m->node, dissected_image_diskseq(di), "-verity", &name, &node);
         if (r < 0)
                 return r;
 
@@ -3534,7 +3551,16 @@ static int verity_partition(
                  */
                 sym_crypt_free(cd);
                 cd = NULL;
-                return verity_partition(designator, m, v, root, verity, flags & ~DISSECT_IMAGE_VERITY_SHARE, policy_flags, d);
+                return verity_partition(
+                                di,
+                                designator,
+                                m,
+                                v,
+                                root,
+                                verity,
+                                flags & ~DISSECT_IMAGE_VERITY_SHARE,
+                                policy_flags,
+                                d);
         }
 
         return log_debug_errno(SYNTHETIC_ERRNO(EBUSY), "All attempts to activate verity device %s failed.", name);
@@ -3605,13 +3631,13 @@ int dissected_image_decrypt(
 
                 PartitionPolicyFlags fl = image_policy_get_exhaustively(policy, i);
 
-                r = decrypt_partition(p, passphrase, flags, fl, d);
+                r = decrypt_partition(m, p, passphrase, flags, fl, d);
                 if (r < 0)
                         return r;
 
                 k = partition_verity_hash_of(i);
                 if (k >= 0) {
-                        r = verity_partition(i, p, m->partitions + k, root, verity, flags, fl, d);
+                        r = verity_partition(m, i, p, m->partitions + k, root, verity, flags, fl, d);
                         if (r < 0)
                                 return r;
                 }
