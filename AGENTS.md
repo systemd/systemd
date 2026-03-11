@@ -14,7 +14,8 @@ Always consult these files as needed:
 
 ## Running arbitrary commands
 
-- Always run arbitrary commands with the `mkosi box -- ` wrapper command. This runs in an environment where more tools are available.
+- Always run arbitrary commands with the `mkosi box -- ` wrapper command. This runs in an environment
+where more tools are available.
 
 ## Build and Test Commands
 
@@ -37,4 +38,6 @@ display. This is critical for diagnosing build and test failures.
 
 ## AI Contribution Disclosure
 
-Per project policy: if you use AI code generation tools, you **must disclose** this in commit messages by adding e.g. `Co-authored-by: Claude Opus 4.6 <noreply@anthropic.com>`. All AI-generated output requires thorough human review before submission.
+Per project policy: if you use AI code generation tools, you **must disclose** this in commit messages
+by adding e.g. `Co-authored-by: Claude Opus 4.6 <noreply@anthropic.com>`. All AI-generated output requires
+thorough human review before submission.
