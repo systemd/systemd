@@ -578,22 +578,22 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                         log_warning("Server did not return a new cookie.");
                 else if (m->nts_missing_cookies <= 0)
                         log_error("A valid NTS packet was received but we were not missing any cookies. Please report this bug.");
-                else FOREACH_ELEMENT(new_cookie, rcpt.new_cookie) {
-                        if (m->nts_missing_cookies == 0 || new_cookie->data == NULL)
+                else FOREACH_ELEMENT(fresh_cookie, rcpt.new_cookie) {
+                        if (m->nts_missing_cookies == 0 || fresh_cookie->data == NULL)
                                 break;
 
                         NTS_Cookie *cookie = &m->nts_cookies[ELEMENTSOF(m->nts_cookies) - m->nts_missing_cookies];
                         /* re-use the existing storage if possible */
-                        if (rcpt.new_cookie->length > cookie->length) {
+                        if (fresh_cookie->length > cookie->length) {
                                 log_info("Server returned a fresh cookie that was longer than the original one.");
                                 mfree(cookie->data);
                                 cookie->length = 0;
-                                cookie->data = malloc(rcpt.new_cookie->length);
+                                cookie->data = malloc(fresh_cookie->length);
                                 if (cookie->data == NULL)
                                         return -ENOMEM;
                         }
-                        memcpy(cookie->data, new_cookie->data, new_cookie->length);
-                        cookie->length = new_cookie->length;
+                        memcpy(cookie->data, fresh_cookie->data, fresh_cookie->length);
+                        cookie->length = fresh_cookie->length;
                         m->nts_missing_cookies--;
                 }
 
