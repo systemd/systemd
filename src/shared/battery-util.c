@@ -75,11 +75,10 @@ static bool battery_is_discharging(sd_device *d) {
 
         assert(d);
 
-        r = sd_device_get_sysattr_value(d, "scope", &val);
-        if (r < 0) {
-                if (r != -ENOENT)
-                        log_device_debug_errno(d, r, "Failed to read 'scope' sysfs attribute, ignoring: %m");
-        } else if (streq(val, "Device")) {
+        r = device_get_sysattr_streq(d, "scope", "Device");
+        if (r < 0 && r != -ENOENT)
+                log_device_debug_errno(d, r, "Failed to read 'scope' sysfs attribute, ignoring: %m");
+        if (r > 0) {
                 log_device_debug(d, "The power supply is a device battery, ignoring device.");
                 return false;
         }

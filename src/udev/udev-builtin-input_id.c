@@ -131,17 +131,14 @@ static void get_cap_mask(
 }
 
 static struct input_id get_input_id(sd_device *dev) {
-        const char *v;
         struct input_id id = {};
 
-        if (sd_device_get_sysattr_value(dev, "id/bustype", &v) >= 0)
-                (void) safe_atoux16(v, &id.bustype);
-        if (sd_device_get_sysattr_value(dev, "id/vendor", &v) >= 0)
-                (void) safe_atoux16(v, &id.vendor);
-        if (sd_device_get_sysattr_value(dev, "id/product", &v) >= 0)
-                (void) safe_atoux16(v, &id.product);
-        if (sd_device_get_sysattr_value(dev, "id/version", &v) >= 0)
-                (void) safe_atoux16(v, &id.version);
+        assert(dev);
+
+        (void) device_get_sysattr_u16_full(dev, "id/bustype", 16, &id.bustype);
+        (void) device_get_sysattr_u16_full(dev, "id/vendor",  16, &id.vendor);
+        (void) device_get_sysattr_u16_full(dev, "id/product", 16, &id.product);
+        (void) device_get_sysattr_u16_full(dev, "id/version", 16, &id.version);
 
         return id;
 }
