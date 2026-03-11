@@ -412,13 +412,16 @@ static int prompt_keymap(int rfd, sd_varlink **mute_console_link) {
         if (arg_keymap)
                 return 0;
 
-        r = read_credential("firstboot.keymap", (void**) &arg_keymap, NULL);
+        _cleanup_free_ char *km = NULL;
+        r = read_credential("firstboot.keymap", (void**) &km, NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to read credential firstboot.keymap, ignoring: %m");
-        else {
+        else if (keymap_is_valid(km)) {
                 log_debug("Acquired keymap from credential.");
+                arg_keymap = TAKE_PTR(km);
                 return 0;
-        }
+        } else
+                log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Keymap '%s' supplied via credential is not valid, ignoring.", km);
 
         bool b;
         if (arg_prompt_keymap_auto) {
@@ -540,13 +543,16 @@ static int prompt_timezone(int rfd, sd_varlink **mute_console_link) {
         if (arg_timezone)
                 return 0;
 
-        r = read_credential("firstboot.timezone", (void**) &arg_timezone, NULL);
+        _cleanup_free_ char *tz = NULL;
+        r = read_credential("firstboot.timezone", (void**) &tz, NULL);
         if (r < 0)
                 log_debug_errno(r, "Failed to read credential firstboot.timezone, ignoring: %m");
-        else {
+        else if (timezone_is_valid(tz, LOG_DEBUG)) {
                 log_debug("Acquired timezone from credential.");
+                arg_timezone = TAKE_PTR(tz);
                 return 0;
-        }
+        } else
+                log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Timezone '%s' supplied via credential is not valid, ignoring.", tz);
 
         if (!arg_prompt_timezone) {
                 log_debug("Prompting for timezone was not requested.");
