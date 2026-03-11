@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-dlopen.h"
+
 #include "dlfcn-util.h"
 #include "hash-funcs.h"
 #include "log.h"
@@ -28,9 +30,10 @@ const struct hash_ops pcre2_code_hash_ops_free = {};
 
 int dlopen_pcre2(void) {
 #if HAVE_PCRE2
-        ELF_NOTE_DLOPEN("pcre2",
+        SD_ELF_NOTE_DLOPEN(
+                        "pcre2",
                         "Support for regular expressions",
-                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
                         "libpcre2-8.so.0");
 
         /* So here's something weird: PCRE2 actually renames the symbols exported by the library via C
