@@ -2619,6 +2619,34 @@ _public_ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr,
         return sd_device_get_sysattr_value_with_size(device, sysattr, ret_value, NULL);
 }
 
+int device_get_sysattr_safe_string(sd_device *device, const char *sysattr, const char **ret) {
+        const char *value;
+        int r;
+
+        r = sd_device_get_sysattr_value(device, sysattr, &value);
+        if (r < 0)
+                return r;
+
+        if (!string_is_safe(value,
+                            STRING_ALLOW_EMPTY |
+                            STRING_ALLOW_NEWLINES |
+                            STRING_ALLOW_BACKSLASHES |
+                            STRING_ALLOW_QUOTES |
+                            STRING_ALLOW_GLOBS)) {
+                if (DEBUG_LOGGING) {
+                        _cleanup_free_ char *escaped = cescape(value);
+                        log_device_debug(device, "sd-device: '%s' sysattr contains invalid characters, refusing: %s",
+                                         sysattr, strnull(escaped));
+                }
+                return -ENXIO;
+        }
+
+        if (ret)
+                *ret = value;
+
+        return 0;
+}
+
 int device_get_sysattr_int(sd_device *device, const char *sysattr, int *ret_value) {
         const char *value;
         int r;
