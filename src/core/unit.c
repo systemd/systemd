@@ -5829,12 +5829,6 @@ static int unit_export_log_level_max(Unit *u, int log_level_max, bool overwrite)
 }
 
 static int unit_export_log_extra_fields(Unit *u, const ExecContext *c) {
-        _cleanup_close_ int fd = -EBADF;
-        struct iovec *iovec;
-        const char *p;
-        char *pattern;
-        le64_t *sizes;
-        ssize_t n;
         int r;
 
         if (u->exported_log_extra_fields)
@@ -5843,8 +5837,10 @@ static int unit_export_log_extra_fields(Unit *u, const ExecContext *c) {
         if (c->n_log_extra_fields <= 0)
                 return 0;
 
-        sizes = newa(le64_t, c->n_log_extra_fields);
-        iovec = newa(struct iovec, c->n_log_extra_fields * 2);
+        assert(c->n_log_extra_fields <= LOG_EXTRA_FIELDS_MAX);
+
+        le64_t *sizes = newa(le64_t, c->n_log_extra_fields);
+        struct iovec *iovec = newa(struct iovec, c->n_log_extra_fields * 2);
 
         for (size_t i = 0; i < c->n_log_extra_fields; i++) {
                 sizes[i] = htole64(c->log_extra_fields[i].iov_len);
@@ -5853,15 +5849,14 @@ static int unit_export_log_extra_fields(Unit *u, const ExecContext *c) {
                 iovec[i*2+1] = c->log_extra_fields[i];
         }
 
-        p = strjoina("/run/systemd/units/log-extra-fields:", u->id);
-        pattern = strjoina(p, ".XXXXXX");
+        const char *p = strjoina("/run/systemd/units/log-extra-fields:", u->id);
+        char *pattern = strjoina(p, ".XXXXXX");
 
-        fd = mkostemp_safe(pattern);
+        _cleanup_close_ int fd = mkostemp_safe(pattern);
         if (fd < 0)
                 return log_unit_debug_errno(u, fd, "Failed to create extra fields file %s: %m", p);
 
-        n = writev(fd, iovec, c->n_log_extra_fields*2);
-        if (n < 0) {
+        if (writev(fd, iovec, c->n_log_extra_fields * 2) < 0) {
                 r = log_unit_debug_errno(u, errno, "Failed to write extra fields: %m");
                 goto fail;
         }
@@ -5882,8 +5877,6 @@ fail:
 }
 
 static int unit_export_log_ratelimit_interval(Unit *u, const ExecContext *c) {
-        _cleanup_free_ char *buf = NULL;
-        const char *p;
         int r;
 
         assert(u);
@@ -5895,10 +5888,10 @@ static int unit_export_log_ratelimit_interval(Unit *u, const ExecContext *c) {
         if (c->log_ratelimit.interval == 0)
                 return 0;
 
-        p = strjoina("/run/systemd/units/log-rate-limit-interval:", u->id);
+        const char *p = strjoina("/run/systemd/units/log-rate-limit-interval:", u->id);
 
-        if (asprintf(&buf, "%" PRIu64, c->log_ratelimit.interval) < 0)
-                return log_oom();
+        char buf[DECIMAL_STR_MAX(c->log_ratelimit.interval)];
+        xsprintf(buf, "%" PRIu64, c->log_ratelimit.interval);
 
         r = symlink_atomic(buf, p);
         if (r < 0)
@@ -5909,8 +5902,6 @@ static int unit_export_log_ratelimit_interval(Unit *u, const ExecContext *c) {
 }
 
 static int unit_export_log_ratelimit_burst(Unit *u, const ExecContext *c) {
-        _cleanup_free_ char *buf = NULL;
-        const char *p;
         int r;
 
         assert(u);
@@ -5922,10 +5913,10 @@ static int unit_export_log_ratelimit_burst(Unit *u, const ExecContext *c) {
         if (c->log_ratelimit.burst == 0)
                 return 0;
 
-        p = strjoina("/run/systemd/units/log-rate-limit-burst:", u->id);
+        const char *p = strjoina("/run/systemd/units/log-rate-limit-burst:", u->id);
 
-        if (asprintf(&buf, "%u", c->log_ratelimit.burst) < 0)
-                return log_oom();
+        char buf[DECIMAL_STR_MAX(c->log_ratelimit.burst)];
+        xsprintf(buf, "%u", c->log_ratelimit.burst);
 
         r = symlink_atomic(buf, p);
         if (r < 0)
