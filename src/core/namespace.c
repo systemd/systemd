@@ -3750,7 +3750,7 @@ static int handle_mount_from_grandchild(
                 if (r < 0)
                         return log_oom_debug();
 
-                *fd_layers[(*n_fd_layers)++] = TAKE_FD(tree_fd);
+                (*fd_layers)[(*n_fd_layers)++] = TAKE_FD(tree_fd);
         }
         m->overlay_layers = strv_free(m->overlay_layers);
         m->overlay_layers = TAKE_PTR(new_layers);
