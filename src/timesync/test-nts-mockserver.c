@@ -43,7 +43,7 @@ static struct ntp_ts ntp_time(uint32_t secs) {
 }
 
 /* we want to fail but not actually cause a core dump since this will run in
- * integation tests; in some scenarios failure of this server is precisely the point
+ * integration tests; in some scenarios failure of this server is precisely the point
  */
 #define soft_assert(condition)                                                          \
         if (!(condition)) {                                                             \
@@ -221,7 +221,7 @@ static void wait_for_nts_ke(AEADKey c2s, AEADKey s2c, int sabotage) {
         /* store the key */
         soft_assert(NTS_TLS_extract_keys((void*)tls, algo, c2s, s2c, sizeof(AEADKey)) == 0);
 
-        /* custom hostname is intentionally padded to 10 bytes */
+        /* custom hostname is intentionally padded to 10 bytes, so "127.0.0.01" is not a typo */
         const char ntphost[] = "127.0.0.01";
         static_assert(strlen(ntphost) == 10, "sanity check failed");
 
