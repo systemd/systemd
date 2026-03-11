@@ -54,7 +54,7 @@ int NTS_TLS_handshake(NTS_TLS *session) {
 
         switch (SSL_get_error(tls, result)) {
         case SSL_ERROR_ZERO_RETURN:
-                return 1;
+                return -ECONNRESET;
         case SSL_ERROR_WANT_READ:
         case SSL_ERROR_WANT_WRITE:
                 return 0;

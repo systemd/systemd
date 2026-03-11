@@ -188,7 +188,7 @@ int NTS_parse_extension_fields(
         assert(fields);
 
         slice buf = { src + 48, src + src_len };
-        bool processed = 0;
+        bool processed = false;
 
         while (capacity(&buf) >= 4) {
                 uint16_t type, len;
