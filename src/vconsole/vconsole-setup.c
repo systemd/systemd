@@ -155,6 +155,8 @@ static void context_load_config(Context *c) {
 }
 
 static int verify_vc_device(int fd) {
+        assert(fd >= 0);
+
         unsigned char data[] = {
                 TIOCL_GETFGCONSOLE,
         };
@@ -171,8 +173,9 @@ static int verify_vc_allocation(unsigned idx) {
 }
 
 static int verify_vc_allocation_byfd(int fd) {
-        struct vt_stat vcs = {};
+        assert(fd >= 0);
 
+        struct vt_stat vcs = {};
         if (ioctl(fd, VT_GETSTATE, &vcs) < 0)
                 return -errno;
 
@@ -268,6 +271,14 @@ static int keyboard_load_and_wait(const char *vc, Context *c, bool utf8) {
         if (streq(keymap, "@kernel"))
                 return 0;
 
+        if (access(KBD_LOADKEYS, X_OK) < 0) {
+                if (errno != ENOENT)
+                        return log_error_errno(errno, "Failed to check if '" KBD_LOADKEYS "' is available: %m");
+
+                log_notice("'" KBD_LOADKEYS "' is not available, skipping keyboard mapping setup.");
+                return 0; /* Report that we skipped this */
+        }
+
         args[i++] = KBD_LOADKEYS;
         args[i++] = "-q";
         args[i++] = "-C";
@@ -295,7 +306,11 @@ static int keyboard_load_and_wait(const char *vc, Context *c, bool utf8) {
                 _exit(EXIT_FAILURE);
         }
 
-        return pidref_wait_for_terminate_and_check(KBD_LOADKEYS, &pidref, WAIT_LOG);
+        r = pidref_wait_for_terminate_and_check(KBD_LOADKEYS, &pidref, WAIT_LOG);
+        if (r < 0)
+                return r;
+
+        return 1; /* Report that we did something */
 }
 
 static int font_load_and_wait(const char *vc, Context *c) {
@@ -314,6 +329,14 @@ static int font_load_and_wait(const char *vc, Context *c) {
         /* Any part can be set independently */
         if (!font && !font_map && !font_unimap)
                 return 0;
+
+        if (access(KBD_SETFONT, X_OK) < 0) {
+                if (errno != ENOENT)
+                        return log_error_errno(errno, "Failed to check if '" KBD_SETFONT "' is available: %m");
+
+                log_notice("'" KBD_SETFONT "' is not available, skipping console font setup.");
+                return 0; /* Report that we skipped this */
+        }
 
         args[i++] = KBD_SETFONT;
         args[i++] = "-C";
@@ -350,12 +373,16 @@ static int font_load_and_wait(const char *vc, Context *c) {
          * things, but in particular lack of a graphical console. Let's be generous and not treat this as an
          * error. */
         r = pidref_wait_for_terminate_and_check(KBD_SETFONT, &pidref, WAIT_LOG_ABNORMAL);
-        if (r == EX_OSERR)
+        if (r < 0)
+                return r; /* WAIT_LOG_ABNORMAL means we already have logged about these kinds of errors */
+        if (r == EX_OSERR) {
                 log_notice(KBD_SETFONT " failed with a \"system error\" (EX_OSERR), ignoring.");
-        else if (r >= 0 && r != EXIT_SUCCESS)
-                log_error(KBD_SETFONT " failed with exit status %i.", r);
+                return 0; /* Report that we skipped this */
+        }
+        if (r != EXIT_SUCCESS)
+                return log_error_errno(SYNTHETIC_ERRNO(EPROTO), KBD_SETFONT " failed with exit status %i.", r);
 
-        return r;
+        return 1; /* Report that we did something */
 }
 
 /*
@@ -375,8 +402,9 @@ static void setup_remaining_vcs(int src_fd, unsigned src_idx, bool utf8) {
         struct unimapdesc unimapd;
         _cleanup_free_ struct unipair* unipairs = NULL;
         _cleanup_free_ void *fontbuf = NULL;
-        int log_level = LOG_WARNING;
-        int r;
+        int log_level = LOG_WARNING, r;
+
+        assert(src_fd >= 0);
 
         unipairs = new(struct unipair, USHRT_MAX);
         if (!unipairs)
@@ -549,6 +577,8 @@ static int verify_source_vc(char **ret_path, const char *src_vc) {
         char *path;
         int r;
 
+        assert(ret_path);
+
         fd = open_terminal(src_vc, O_RDWR|O_CLOEXEC|O_NOCTTY);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to open %s: %m", src_vc);
@@ -584,9 +614,8 @@ static int run(int argc, char **argv) {
         _cleanup_(context_done) Context c = {};
         _cleanup_free_ char *vc = NULL;
         _cleanup_close_ int fd = -EBADF, lock_fd = -EBADF;
-        bool utf8, keyboard_ok;
+        bool utf8;
         unsigned idx = 0;
-        int r;
 
         log_setup();
 
@@ -625,18 +654,18 @@ static int run(int argc, char **argv) {
 
         (void) toggle_utf8_vc(vc, fd, utf8);
 
-        r = font_load_and_wait(vc, &c);
-        keyboard_ok = keyboard_load_and_wait(vc, &c, utf8) == 0;
+        int setfont_status = font_load_and_wait(vc, &c);
+        int loadkeys_status = keyboard_load_and_wait(vc, &c, utf8);
 
         if (idx > 0) {
-                if (r == 0)
-                        setup_remaining_vcs(fd, idx, utf8);
+                if (setfont_status <= 0)
+                        log_full(setfont_status == 0 ? LOG_NOTICE : LOG_WARNING,
+                                 "Configuration of first virtual console not executed, ignoring remaining ones.");
                 else
-                        log_full(r == EX_OSERR ? LOG_NOTICE : LOG_WARNING,
-                                 "Configuration of first virtual console failed, ignoring remaining ones.");
+                        setup_remaining_vcs(fd, idx, utf8);
         }
 
-        return IN_SET(r, 0, EX_OSERR) && keyboard_ok ? EXIT_SUCCESS : EXIT_FAILURE;
+        return (setfont_status >= 0 && loadkeys_status >= 0) ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
 DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);
