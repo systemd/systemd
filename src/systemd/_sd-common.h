@@ -129,4 +129,16 @@ typedef void (*_sd_destroy_t)(void *userdata);
 #  define _SD_ENUM_TYPE_S64(id) id
 #endif
 
+#ifndef _SD_PASTE
+#  define _SD_PASTE_INNER(a, b) a ## b
+#  define _SD_PASTE(a, b) _SD_PASTE_INNER(a, b)
+#endif
+#ifndef _SD_UNIQ
+#  ifdef __COUNTER__
+#    define _SD_UNIQ _SD_PASTE(_sd_uniq_, __COUNTER__)
+#  else
+#    define _SD_UNIQ _SD_PASTE(_sd_uniq_, __LINE__)
+#  endif
+#endif
+
 #endif
