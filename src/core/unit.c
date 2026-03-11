@@ -5830,10 +5830,10 @@ static int unit_export_log_level_max(Unit *u, int log_level_max, bool overwrite)
 
 static int unit_export_log_extra_fields(Unit *u, const ExecContext *c) {
         _cleanup_close_ int fd = -EBADF;
-        struct iovec *iovec;
+        _cleanup_free_ struct iovec *iovec = NULL;
+        _cleanup_free_ le64_t *sizes = NULL;
         const char *p;
         char *pattern;
-        le64_t *sizes;
         ssize_t n;
         int r;
 
@@ -5843,8 +5843,13 @@ static int unit_export_log_extra_fields(Unit *u, const ExecContext *c) {
         if (c->n_log_extra_fields <= 0)
                 return 0;
 
-        sizes = newa(le64_t, c->n_log_extra_fields);
-        iovec = newa(struct iovec, c->n_log_extra_fields * 2);
+        sizes = new(le64_t, c->n_log_extra_fields);
+        if (!sizes)
+                return log_oom();
+
+        iovec = new(struct iovec, c->n_log_extra_fields * 2);
+        if (!iovec)
+                return log_oom();
 
         for (size_t i = 0; i < c->n_log_extra_fields; i++) {
                 sizes[i] = htole64(c->log_extra_fields[i].iov_len);
