@@ -2328,8 +2328,6 @@ Features:
   - timer units should get the ability to trigger when DST changes
   - Modulate timer frequency based on battery state
 
-* add libsystemd-password or so to query passwords during boot using the password agent logic
-
 * clean up date formatting and parsing so that all absolute/relative timestamps we format can also be parsed
 
 * on shutdown: move utmp, wall, audit logic all into PID 1 (or logind?)
@@ -2672,11 +2670,6 @@ Features:
   partition on disk, but only if it is marked for growing and not read-only.
 
 * systemd-repart: read LUKS encryption key from $CREDENTIALS_DIRECTORY
-
-* systemd-repart: add a switch to factory reset the partition table without
-  immediately applying the new configuration again. i.e. --factory-reset=leave
-  or so. (this is useful to factory reset an image, then putting it into
-  another machine, ensuring that luks key is generated on new machine, not old)
 
 * systemd-repart: support setting up dm-integrity with HMAC
 
