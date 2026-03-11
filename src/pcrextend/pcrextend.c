@@ -327,6 +327,8 @@ static int extend_nvpcr_now(
         _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
         int r;
 
+        assert(name);
+
         r = tpm2_context_new_or_warn(arg_tpm2_device, &c);
         if (r < 0)
                 return r;

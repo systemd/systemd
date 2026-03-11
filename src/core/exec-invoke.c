@@ -4187,7 +4187,7 @@ static int close_remaining_fds(
                 size_t n_fds) {
 
         size_t n_dont_close = 0;
-        int dont_close[n_fds + 17];
+        int dont_close[n_fds + 18];
 
         assert(params);
         assert(runtime);
@@ -4223,9 +4223,6 @@ static int close_remaining_fds(
 
         if (params->user_lookup_fd >= 0)
                 dont_close[n_dont_close++] = params->user_lookup_fd;
-
-        if (params->handoff_timestamp_fd >= 0)
-                dont_close[n_dont_close++] = params->handoff_timestamp_fd;
 
         if (params->pidref_transport_fd >= 0)
                 dont_close[n_dont_close++] = params->pidref_transport_fd;
@@ -5955,6 +5952,8 @@ int exec_invoke(
 
         /* Kill unnecessary process, for the case that e.g. when the bpffs mount point is hidden. */
         pidref_done_sigkill_wait(&bpffs_pidref);
+        bpffs_socket_fd = safe_close(bpffs_socket_fd);
+        bpffs_errno_pipe = safe_close(bpffs_errno_pipe);
 
         if (needs_sandboxing && exec_needs_cgroup_namespace(context) && params->cgroup_path) {
                 /* Move ourselves into the subcgroup now *after* we've unshared the cgroup namespace, which
@@ -6031,6 +6030,7 @@ int exec_invoke(
          * them open until the final execve(). But first, close the remaining sockets in the context
          * objects. */
 
+        socket_fd = safe_close(socket_fd);
         exec_runtime_close(runtime);
         exec_params_close(params);
 

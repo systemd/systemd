@@ -230,7 +230,8 @@ _public_ void cryptsetup_token_dump(
         crypt_log(cd, "\ttpm2-pcr-bank:    %s\n", strna(tpm2_hash_alg_to_string(pcr_bank)));
         crypt_log(cd, "\ttpm2-pubkey:" CRYPT_DUMP_LINE_SEP "%s\n", pubkey_str);
         crypt_log(cd, "\ttpm2-pubkey-pcrs: %s\n", strna(pubkey_pcrs_str));
-        crypt_log(cd, "\ttpm2-primary-alg: %s\n", strna(tpm2_asym_alg_to_string(primary_alg)));
+        if (primary_alg != 0)
+                crypt_log(cd, "\ttpm2-primary-alg: %s\n", strna(tpm2_asym_alg_to_string(primary_alg)));
         crypt_log(cd, "\ttpm2-pin:         %s\n", true_false(flags & TPM2_FLAGS_USE_PIN));
         crypt_log(cd, "\ttpm2-pcrlock:     %s\n", true_false(flags & TPM2_FLAGS_USE_PCRLOCK));
         crypt_log(cd, "\ttpm2-salt:        %s\n", true_false(iovec_is_set(&salt)));

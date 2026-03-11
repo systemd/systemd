@@ -396,7 +396,8 @@ static void pe_locate_sections(
 
                         EFI_STATUS err = chid_match(hwids, hwids_section[0].memory_size, DEVICE_TYPE_DEVICETREE, &device);
                         if (err != EFI_SUCCESS) {
-                                log_error_status(err, "HWID matching failed, no DT blob will be selected: %m");
+                                log_full(err, (err == EFI_NOT_FOUND) ? LOG_DEBUG : LOG_ERR,
+                                         "HWID matching failed, no DT blob will be selected: %m");
                                 hwids = NULL;
                         }
                 }
@@ -569,8 +570,14 @@ EFI_STATUS pe_section_table_from_base(
         if (!verify_pe(dos, pe, /* allow_compatibility= */ false))
                 return EFI_LOAD_ERROR;
 
+        assert_cc(sizeof(pe->FileHeader.NumberOfSections) == sizeof(uint16_t)); /* multiplication below cannot overflow */
+
+        size_t n_section_table = pe->FileHeader.NumberOfSections;
+        if (n_section_table * sizeof(PeSectionHeader) > SECTION_TABLE_BYTES_MAX)
+                return EFI_OUT_OF_RESOURCES;
+
         *ret_section_table = (const PeSectionHeader*) ((const uint8_t*) base + section_table_offset(dos, pe));
-        *ret_n_section_table = pe->FileHeader.NumberOfSections;
+        *ret_n_section_table = n_section_table;
 
         return EFI_SUCCESS;
 }

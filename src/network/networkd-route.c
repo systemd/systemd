@@ -1641,7 +1641,7 @@ int link_drop_routes(Link *link, bool only_static) {
 void link_forget_routes(Link *link) {
         assert(link);
         assert(link->ifindex > 0);
-        assert(!FLAGS_SET(link->flags, IFF_UP));
+        assert(!link_is_up(link));
 
         /* When an interface went down, IPv4 non-local routes bound to the interface are silently removed by
          * the kernel, without any notifications. Let's forget them in that case. Otherwise, when the link
