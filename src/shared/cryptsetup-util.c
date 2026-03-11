@@ -7,6 +7,7 @@
 #include "alloc-util.h"
 #include "cryptsetup-util.h"
 #include "dlfcn-util.h"
+#include "sd-dlopen.h"
 #include "escape.h"
 #include "hexdecoct.h"
 #include "hmac.h"
@@ -270,9 +271,9 @@ int dlopen_cryptsetup(void) {
          * still available though, and given we want to support 2.2.0 for a while longer, we'll use the old
          * symbol if the new one is not available. */
 
-        ELF_NOTE_DLOPEN("cryptsetup",
+        SD_ELF_NOTE_DLOPEN("cryptsetup",
                         "Support for disk encryption, integrity, and authentication",
-                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
                         "libcryptsetup.so.12");
 
         r = dlopen_many_sym_or_warn(
