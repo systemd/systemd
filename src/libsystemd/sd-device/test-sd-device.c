@@ -305,6 +305,13 @@ static void test_sd_device_one(sd_device *d) {
                 ASSERT_OK(r = device_get_sysattr_unsigned(d, "nsid", &x));
                 ASSERT_EQ(x > 0, r > 0);
         }
+
+        const char *uevent;
+        if (sd_device_get_sysattr_value(d, "uevent", &uevent) >= 0) {
+                const char *uevent_safe;
+                ASSERT_OK(device_get_sysattr_safe_string(d, "uevent", &uevent_safe));
+                ASSERT_STREQ(uevent, uevent_safe);
+        }
 }
 
 static void exclude_problematic_devices(sd_device_enumerator *e) {
