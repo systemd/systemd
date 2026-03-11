@@ -1811,6 +1811,14 @@ evdev:input:b0003v258Ap001E*
  KEYBOARD_KEY_70066=sleep
 
 ###########################################################
+# Positron
+###########################################################
+
+# Positron Proxima 15 (G1569)
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svn*Positron*:pnG1569*:*
+ KEYBOARD_KEY_6e=fn
+
+###########################################################
 # Purism
 ###########################################################
 
@@ -2133,10 +2141,6 @@ evdev:atkbd:dmi:*:svnTUXEDO:*:rvnNB02:*
 
 # TUXEDO InfinityFlex 14 Gen1
 evdev:atkbd:dmi:*:svnTUXEDO:*:rnDN50Z-140HC-YD:*
- KEYBOARD_KEY_6e=fn
-
-# Positron Proxima 15 (G1569)
-evdev:atkbd:dmi:bvn*:bvr*:bd*:svn*Positron*:pnG1569*:*
  KEYBOARD_KEY_6e=fn
 
 ###########################################################
