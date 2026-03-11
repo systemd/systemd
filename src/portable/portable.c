@@ -582,6 +582,7 @@ static int portable_extract_by_path(
                         DISSECT_IMAGE_USR_NO_ROOT |
                         DISSECT_IMAGE_ADD_PARTITION_DEVICES |
                         DISSECT_IMAGE_PIN_PARTITION_DEVICES |
+                        DISSECT_IMAGE_VERITY_SHARE|
                         DISSECT_IMAGE_ALLOW_USERSPACE_VERITY;
 
                 if (path_is_extension)
