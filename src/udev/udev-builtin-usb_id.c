@@ -11,6 +11,7 @@
 #include <unistd.h>
 
 #include "device-nodes.h"
+#include "device-private.h"
 #include "device-util.h"
 #include "fd-util.h"
 #include "parse-util.h"
@@ -248,8 +249,8 @@ static int builtin_usb_id(UdevEvent *event, int argc, char *argv[]) {
         r = sd_device_get_syspath(dev_interface, &interface_syspath);
         if (r < 0)
                 return log_device_debug_errno(dev_interface, r, "Failed to get syspath: %m");
-        (void) sd_device_get_sysattr_value(dev_interface, "bInterfaceNumber", &ifnum);
-        (void) sd_device_get_sysattr_value(dev_interface, "driver", &driver);
+        (void) device_get_sysattr_safe_string(dev_interface, "bInterfaceNumber", &ifnum);
+        (void) device_get_sysattr_safe_string(dev_interface, "driver", &driver);
 
         r = sd_device_get_sysattr_value(dev_interface, "bInterfaceClass", &if_class);
         if (r < 0)
