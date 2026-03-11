@@ -81,9 +81,9 @@ int dlopen_bpf_full(int log_level) {
         if (cached != 0)
                 return cached;
 
-        ELF_NOTE_DLOPEN("bpf",
+        SD_ELF_NOTE_DLOPEN("bpf",
                         "Support firewalling and sandboxing with BPF",
-                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
                         "libbpf.so.1", "libbpf.so.0");
 
         DISABLE_WARNING_DEPRECATED_DECLARATIONS;

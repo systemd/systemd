@@ -79,9 +79,9 @@ DLSYM_PROTOTYPE(archive_write_set_format_filter_by_ext) = NULL;
 DLSYM_PROTOTYPE(archive_write_set_format_pax) = NULL;
 
 int dlopen_libarchive(void) {
-        ELF_NOTE_DLOPEN("archive",
+        SD_ELF_NOTE_DLOPEN("archive",
                         "Support for decompressing archive files",
-                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
                         "libarchive.so.13");
 
         return dlopen_many_sym_or_warn(
