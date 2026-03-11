@@ -1081,6 +1081,8 @@ void manager_disconnect(Manager *m) {
         m->event_timeout = sd_event_source_unref(m->event_timeout);
 
 #if ENABLE_TIMESYNC_NTS
+        m->nts_timeout = sd_event_source_unref(m->nts_timeout);
+
         NTS_TLS_close(&m->nts_handshake);
 #endif
 

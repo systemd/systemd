@@ -264,11 +264,11 @@ int NTS_decode_response(uint8_t *buffer, size_t buf_size, struct NTS_Agreement *
                 case NTS_AEADAlgorithm:
                         /* confirm that one of the supported AEAD algo's is offered */
                         val = NTS_decode_u16(&rec);
-                        response->aead_id = val;
-                        if (!NTS_get_param(val)) {
+                        if (val < 0 || !NTS_get_param(val)) {
                                 response->error = NTS_NO_AEAD;
                                 return -EBADMSG;
                         }
+                        response->aead_id = val;
                         break;
 
                 case NTS_NTPv4Cookie:
