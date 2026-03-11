@@ -10,6 +10,7 @@
 
 #include "alloc-util.h"
 #include "dlfcn-util.h"
+#include "sd-dlopen.h"
 #include "errno-util.h"
 #include "log.h"
 #include "password-quality-util.h"
@@ -153,9 +154,10 @@ int check_password_quality(const char *password, const char *old, const char *us
 
 int dlopen_pwquality(void) {
 #if HAVE_PWQUALITY
-        ELF_NOTE_DLOPEN("pwquality",
+        SD_ELF_NOTE_DLOPEN(
+                        "pwquality",
                         "Support for password quality checks",
-                        ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
+                        SD_ELF_NOTE_DLOPEN_PRIORITY_SUGGESTED,
                         "libpwquality.so.1");
 
         return dlopen_many_sym_or_warn(
