@@ -1,8 +1,8 @@
 #
 #	List of PCI IDs
 #
-#	Version: 2026.03.03
-#	Date:    2026-03-03 03:15:02
+#	Version: 2026.03.10
+#	Date:    2026-03-10 03:15:01
 #
 #	Maintained by Albert Pool, Martin Mares, and other volunteers from
 #	the PCI ID Project at https://pci-ids.ucw.cz/.
@@ -329,6 +329,9 @@
 	f130  NetFlex-3/P ThunderLAN 1.0
 	f150  NetFlex-3/P ThunderLAN 2.3
 0e55  HaSoTec GmbH
+# Real MediaTek ID is 0x14c3, this actually the USB VID and was used on at least the MT7621
+0e8d  MediaTek Inc. (Wrong ID)
+	0801  MT7621 PCIe Bridge
 0eac  SHF Communication Technologies AG
 	0008  Ethernet Powerlink Managing Node 01
 0f62  Acrox Technologies Co., Ltd.
@@ -4145,7 +4148,7 @@
 	74b9  Aqua Vanjaram [Instinct MI325X VF]
 	74bd  Aqua Vanjaram [Instinct MI300X HF]
 	7550  Navi 48 [Radeon RX 9070/9070 XT/9070 GRE]
-		148c 2435  Reaper Radeon RX 9070 XT 16GB GDDR6 (RX9070XT 16G-A)
+		148c 2435  Radeon RX 9070 XT 16GB
 		1da2 e490  Navi 48 XTX [Sapphire Pulse Radeon RX 9070 XT]
 	7551  Navi 48 [Radeon AI PRO R9700]
 	7590  Navi 44 [Radeon RX 9060 XT]
@@ -7821,6 +7824,7 @@
 	1020  ISP1020/1040 Fast-wide SCSI
 	1022  ISP1022 Fast-wide SCSI
 	1080  ISP1080 SCSI Host Adapter
+		1077 0001  QLA1080
 	1216  ISP12160 Dual Channel Ultra3 SCSI Processor
 		101e 8471  QLA12160 on AMI MegaRAID
 		101e 8493  QLA12160 on AMI MegaRAID
@@ -18692,6 +18696,19 @@
 		1028 23a6  MTFDLBQ30T7THL-1BK1JABDA
 		1028 23a7  MTFDLAL61T4THL-1BK1JABDA
 		1028 23a8  MTFDLAL30T7THL-1BK1JABDA
+	51cc  6600 ION NVMe SSD
+		1028 2453  MTFDLBQ122T8QHF-1BQ1JABDA
+		1028 2483  MTFDLBQ61T4QHF-1BQ1JABDA
+		1028 2484  MTFDLBQ30T7QHF-1BQ1JABDA
+		1028 2485  MTFDLBQ122T8QHF-1BQ1DFCDA
+		1028 2486  MTFDLBQ61T4QHF-1BQ1DFCDA
+		1028 2487  MTFDLBQ30T7QHF-1BQ1DFCDA
+		1028 2489  MTFDLAL122T8QHF-1BQ1JABDA
+		1028 248a  MTFDLAL61T4QHF-1BQ1JABDA
+		1028 248b  MTFDLAL30T7QHF-1BQ1JABDA
+		1028 248d  MTFDLAL122T8QHF-1BQ1DFCDA
+		1028 248e  MTFDLAL61T4QHF-1BQ1DFCDA
+		1028 248f  MTFDLAL30T7QHF-1BQ1DFCDA
 	51cd  9650 PRO NVMe SSD
 	5404  2210 NVMe SSD [Cobain]
 	5405  2300 NVMe SSD [Santana]
@@ -26688,6 +26705,7 @@
 	33f3  IM2P33F3 NVMe SSD (DRAM-less)
 	33f4  IM2P33F4 NVMe SSD (DRAM-less)
 	33f8  IM2P33F8 series NVMe SSD (DRAM-less)
+	413d  SM2P41D3Q NVMe SSD (DRAM-less)
 	41c3  SM2P41C3 NVMe SSD (DRAM-less)
 	41c8  SM2P41C8 NVMe SSD (DRAM-less)
 	41d3  SM2P41D3 NVMe SSD (DRAM-less)
@@ -28422,7 +28440,7 @@
 # aka SED Systems
 1e94  Calian SED
 1e95  Solid State Storage Technology Corporation
-	1000  XA1-311024 NVMe SSD M.2
+	1000  XA1 Series NVMe SSD M.2 (DRAM-less)
 	1001  CA6-8D512 NVMe SSD M.2
 	1002  NVMe SSD [3DNAND] 2.5" U.2 (LJ1)
 		1e95 1101  NVMe SSD [3DNAND] 2.5" U.2 (LJ1)
@@ -28430,7 +28448,7 @@
 	1003  CLR-8W512 NVMe SSD M.2 (DRAM-less)
 	1005  PLEXTOR M10P(GN) NVMe SSD M.2
 	1006  CA8 Series NVMe SSD M.2
-	1007  CL4-8D512 NVMe SSD M.2 (DRAM-less)
+	1007  CL4 Series NVMe SSD M.2 (DRAM-less)
 	1008  CL5-8D512 NVMe SSD M.2 (DRAM-less)
 	100b  XB2-311024 NVMe SSD M.2 (DRAM-less)
 	100c  CL6 Series NVMe SSD M.2 (DRAM-less)
@@ -28995,6 +29013,7 @@
 	451b  NN4LE NVMe SSD (DRAM-less)
 	4622  NEM-PAC NVMe SSD (DRAM-less)
 1f32  Wuhan YuXin Semiconductor Co., Ltd.
+	ed55  U800G NVMe SSD
 1f3f  3SNIC Ltd
 	2100  SSSHBA SAS/SATA HBA
 		1f3f 0120  HBA 32 Ports
@@ -29695,6 +29714,7 @@
 20f6  Shenzhen Zhishi Network Technology Co., Ltd.
 	0001  MPU H1
 20f9  Shenzhen Silicon Dynamic Networks Co., Ltd.
+2105  Shanghai Timar Integrated Circuit Co., LTD
 2106  ZCHL Technology Co., Ltd
 	0001  HL100 Accelerator Controller
 		2106 0001  HLC100 Accelerator Card
@@ -39997,6 +40017,24 @@
 	d156  Core Processor Semaphore and Scratchpad Registers
 	d157  Core Processor System Control and Status Registers
 	d158  Core Processor Miscellaneous Registers
+	d323  Nova Lake PCD-H SPI Controller
+	d325  Nova Lake PCD-H Serial IO UART Controller #0
+	d326  Nova Lake PCD-H Serial IO UART Controller #1
+	d327  Nova Lake PCD-H Serial IO SPI Controller #0
+	d330  Nova Lake PCD-H Serial IO SPI Controller #1
+	d331  Nova Lake-H Thunderbolt 5 USB Controller
+	d333  Nova Lake-H Thunderbolt 5 NHI #0
+	d347  Nova Lake PCD-H Serial IO SPI Controller #2
+	d34e  Nova Lake-H Thunderbolt 5 PCI Express Root Port #0
+	d34f  Nova Lake-H Thunderbolt 5 PCI Express Root Port #1
+	d350  Nova Lake PCD-H Serial IO I2C Controller #4
+	d351  Nova Lake PCD-H Serial IO I2C Controller #5
+	d352  Nova Lake PCD-H Serial IO UART Controller #2
+	d360  Nova Lake-H Thunderbolt 5 PCI Express Root Port #2
+	d378  Nova Lake PCD-H Serial IO I2C Controller #0
+	d379  Nova Lake PCD-H Serial IO I2C Controller #1
+	d37a  Nova Lake PCD-H Serial IO I2C Controller #2
+	d37b  Nova Lake PCD-H Serial IO I2C Controller #3
 	d431  Nova Lake-S Thunderbolt 5 USB Controller
 	d433  Nova Lake-S Thunderbolt 5 NHI #0
 	d44e  Nova Lake-S Thunderbolt 5 PCI Express Root Port #0
@@ -40008,6 +40046,15 @@
 	d743  NVL-HX
 	d744  NVL-UL
 	d745  NVL-HX
+	d750  NVL-P
+	d751  NVL-P
+	d752  NVL-P
+	d753  NVL-P
+	d754  NVL-P
+	d755  NVL-P
+	d756  NVL-P
+	d757  NVL-P
+	d75f  NVL-P
 	e202  Battlemage G21 [Intel Graphics]
 	e20b  Battlemage G21 [Arc B580]
 	e20c  Battlemage G21 [Arc B570]
