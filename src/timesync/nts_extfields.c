@@ -261,7 +261,7 @@ int NTS_parse_extension_fields(
 
                         /* ignore any further fields after this,
                          * since they are not authenticated */
-                        return processed? plain.data - src : 0;
+                        return processed ? plain.data - src : 0;
                 }
 
                 default:
