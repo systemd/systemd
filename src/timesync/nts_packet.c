@@ -182,7 +182,7 @@ int NTS_encode_request(
 #endif
         result += NTS_encode_record_u16(&request, true, NTS_EndOfMessage, NULL, 0);
 
-        return (result<0)? result : request.data - buffer;
+        return (result<0) ? result : request.data - buffer;
 }
 
 int NTS_decode_response(uint8_t *buffer, size_t buf_size, struct NTS_Agreement *response) {
