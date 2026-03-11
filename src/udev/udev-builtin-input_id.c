@@ -9,6 +9,7 @@
 #include <fcntl.h>
 #include <linux/input.h>
 
+#include "device-private.h"
 #include "device-util.h"
 #include "fd-util.h"
 #include "parse-util.h"
@@ -85,7 +86,7 @@ static void get_cap_mask(
         unsigned long val;
         int r;
 
-        if (sd_device_get_sysattr_value(pdev, attr, &v) < 0)
+        if (device_get_sysattr_safe_string(pdev, attr, &v) < 0)
                 v = "";
 
         xsprintf(text, "%s", v);
@@ -386,9 +387,7 @@ static int builtin_input_id(UdevEvent *event, int argc, char *argv[]) {
         /* walk up the parental chain until we find the real input device; the
          * argument is very likely a subdevice of this, like eventN */
         for (pdev = dev; pdev; ) {
-                const char *s;
-
-                if (sd_device_get_sysattr_value(pdev, "capabilities/ev", &s) >= 0)
+                if (sd_device_get_sysattr_value(pdev, "capabilities/ev", /* ret_value= */ NULL) >= 0)
                         break;
 
                 if (sd_device_get_parent_with_subsystem_devtype(pdev, "input", NULL, &pdev) >= 0)
