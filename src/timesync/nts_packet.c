@@ -175,14 +175,23 @@ int NTS_encode_request(
         }
 
         int result;
-        result  = NTS_encode_record_u16(&request, true, NTS_NextProto, proto, ELEMENTSOF(proto));
-        result += NTS_encode_record_u16(&request, true, NTS_AEADAlgorithm, aead, aead_len);
-#ifdef CHRONY_WORKAROUND
-        result += NTS_encode_record_u16(&request, false, NTS_Chrony_BugWorkaround, NULL, 0);
-#endif
-        result += NTS_encode_record_u16(&request, true, NTS_EndOfMessage, NULL, 0);
+        result = NTS_encode_record_u16(&request, true, NTS_NextProto, proto, ELEMENTSOF(proto));
+        if (result < 0)
+                return result;
 
-        return (result<0) ? result : request.data - buffer;
+        result = NTS_encode_record_u16(&request, true, NTS_AEADAlgorithm, aead, aead_len);
+        if (result < 0)
+                return result;
+#ifdef CHRONY_WORKAROUND
+        result = NTS_encode_record_u16(&request, false, NTS_Chrony_BugWorkaround, NULL, 0);
+        if (result < 0)
+                return result;
+#endif
+        result = NTS_encode_record_u16(&request, true, NTS_EndOfMessage, NULL, 0);
+        if (result < 0)
+                return result;
+
+        return request.data - buffer;
 }
 
 int NTS_decode_response(uint8_t *buffer, size_t buf_size, struct NTS_Agreement *response) {

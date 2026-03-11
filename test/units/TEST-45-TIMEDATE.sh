@@ -617,7 +617,7 @@ testcase_nts_failure_modes() {
     cleanup() {
         rm -f "$FAKEROOT_CA"
         rm -rf /run/systemd/timesyncd.conf.d
-        systemctl stop systemd-timesyncd
+        systemctl stop systemd-timesyncd nts-mock.service
         restore_netif_state
     }
 
@@ -666,10 +666,6 @@ EOF
 
         timedatectl set-ntp false
     done
-
-    # in the final test scenario, the service should still be running, so
-    # check that it hasn't crashed
-    systemctl stop nts-mock.service
 }
 
 run_testcases
