@@ -1309,7 +1309,9 @@ int pivot_root_parse(char **pivot_root_new, char **pivot_root_old, const char *s
 
         if (!path_is_absolute(root_new))
                 return -EINVAL;
-        if (root_old && !path_is_absolute(root_old))
+        if (!path_is_normalized(root_new))
+                return -EINVAL;
+        if (root_old && (!path_is_absolute(root_old) || !path_is_normalized(root_old)))
                 return -EINVAL;
 
         free_and_replace(*pivot_root_new, root_new);
