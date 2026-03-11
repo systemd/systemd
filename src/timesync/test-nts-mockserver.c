@@ -45,7 +45,7 @@ static struct ntp_ts ntp_time(uint32_t secs) {
  * integation tests; in some scenarios failure of this server is precisely the point
  */
 #define soft_assert(condition)                                                          \
-        if(!(condition)) {                                                              \
+        if (!(condition)) {                                                             \
                 fprintf(stderr, "server failed: %s (line %d)\n", #condition, __LINE__); \
                 exit(1);                                                                \
         }
