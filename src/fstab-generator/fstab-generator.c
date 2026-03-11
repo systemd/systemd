@@ -672,9 +672,9 @@ static int add_mount(
         }
 
         if (flags & MOUNT_PCRFS) {
-                r = efi_measured_uki(LOG_WARNING);
+                r = efi_measured_os(LOG_WARNING);
                 if (r == 0)
-                        log_debug("Kernel stub did not measure kernel image into PCR, skipping userspace measurement, too.");
+                        log_debug("OS measurements not explicitly requested and kernel stub did not measure kernel image into PCR, skipping userspace measurement, too.");
                 else if (r > 0) {
                         r = generator_hook_up_pcrfs(dest, where, target_unit);
                         if (r < 0)
