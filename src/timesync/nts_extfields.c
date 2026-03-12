@@ -150,10 +150,10 @@ int NTS_add_extension_fields(
 
         int EF_capacity = sizeof(EF) - (EF_payload - EF);
         int ctxt_len = NTS_encrypt(EF_payload, EF_capacity, buf.data, ptxt_len, info, &nts->cipher, nts->c2s_key);
+
+        assert(ctxt_len <= EF_capacity); /* failing this would be a serious error, try to run to the exit */
         if (ctxt_len < 0)
                 goto exit;
-
-        assert(ctxt_len <= EF_capacity); /* failing this would be a serious error */
 
         /* add padding if we used a too-short nonce */
         int ef_len = 4 + ctxt_len + nonce_len + (nonce_len < req_nonce_len)*(req_nonce_len - nonce_len);
@@ -227,9 +227,10 @@ int NTS_parse_extension_fields(
 
                         uint8_t *plaintext = content;
                         int plain_len = NTS_decrypt(plaintext, ciph_len, content, ciph_len, info, &nts->cipher, nts->s2c_key);
+
+                        assert(plain_len < ciph_len); /* failing this would be a serious error, try to run to the exit */
                         if (plain_len < 0)
                                 goto exit;
-                        assert(plain_len < ciph_len);
 
                         slice plain = { plaintext, plaintext + plain_len };
                         unsigned cookies = 0;
