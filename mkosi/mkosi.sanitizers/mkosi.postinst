@@ -43,6 +43,7 @@ fi
 wrap=(
     /usr/lib/polkit-1/polkitd
     /usr/libexec/polkit-1/polkitd
+    /usr/lib/systemd/tests/testdata/TEST-74-AUX-UTILS.units/fake-imds.py
     agetty
     btrfs
     capsh
