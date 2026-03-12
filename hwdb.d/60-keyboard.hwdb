@@ -713,7 +713,7 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnHP*:pnHPENVYx360Convertible13*:*
 evdev:name:Intel HID events:dmi:bvn*:bvr*:bd*:svnHP*:pn*HP[sS][pP][eE][cC][tT][rR][eE]*x3602-in-1*:*
 # ENVY x360
 evdev:name:Intel HID events:dmi:bvn*:bvr*:bd*:svnHP*:pnHPENVYx360Convertible*:*
-evdev:name:Intel HID events:dmi:bvn*:bvr*:bd*:svnHP*:pnHPENVYx3602-in-1*:*
+evdev:name:Intel HID events:dmi:bvn*:bvr*:bd*:svnHP*:pnHP[eE][nN][vV][yY]x3602-in-1*:*
  KEYBOARD_KEY_08=unknown                                #  Prevents random airplane mode activation
 
 # HP Elite x2 1013 G3
@@ -1131,6 +1131,8 @@ evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO:*:pvrIdeaPadSlim5*
 evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO:pn81Q7*:pvrLenovoYogaS940:*
 # Lenovo ThinkBook 16G6IRL
 evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO:pn21KH*:pvrThinkBook16G6IRL:*
+# Lenovo ThinkBook 14 2-in-1 G5 IAU
+evdev:atkbd:dmi:bvn*:bvr*:svnLENOVO:pn21SQ*:pvrThinkBook142-in-1G5IAU:*
  KEYBOARD_KEY_a0=!mute
  KEYBOARD_KEY_ae=!volumedown
  KEYBOARD_KEY_b0=!volumeup
@@ -1809,6 +1811,14 @@ evdev:input:b0003v258Ap001E*
  KEYBOARD_KEY_70066=sleep
 
 ###########################################################
+# Positron
+###########################################################
+
+# Positron Proxima 15 (G1569)
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svn*Positron*:pnG1569*:*
+ KEYBOARD_KEY_6e=fn
+
+###########################################################
 # Purism
 ###########################################################
 
@@ -2169,6 +2179,10 @@ evdev:name:FTSC1000:00 2808:509C Keyboard:dmi:*:svnXiaomiInc:pnMipad2:*
  KEYBOARD_KEY_70016=menu                                # S -> menu
  KEYBOARD_KEY_70029=leftmeta                            # Esc -> LeftMeta (Windows key / Win8 tablets home)
  KEYBOARD_KEY_7002a=back                                # Backspace -> back
+
+# Xiaomi Mi NoteBook Pro star key
+evdev:atkbd:dmi:bvnTIMI*:bvr*:bd*:svnTIMI*:pnMiNoteBookPro*:*
+ KEYBOARD_KEY_72=macro
 
 ###########################################################
 # Zepto
