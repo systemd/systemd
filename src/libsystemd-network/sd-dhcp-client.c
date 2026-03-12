@@ -2524,7 +2524,7 @@ int sd_dhcp_client_detach_event(sd_dhcp_client *client) {
         return 0;
 }
 
-sd_event *sd_dhcp_client_get_event(sd_dhcp_client *client) {
+sd_event* sd_dhcp_client_get_event(sd_dhcp_client *client) {
         assert_return(client, NULL);
 
         return client->event;
@@ -2536,7 +2536,7 @@ int sd_dhcp_client_attach_device(sd_dhcp_client *client, sd_device *dev) {
         return device_unref_and_replace(client->dev, dev);
 }
 
-static sd_dhcp_client *dhcp_client_free(sd_dhcp_client *client) {
+static sd_dhcp_client* dhcp_client_free(sd_dhcp_client *client) {
         if (!client)
                 return NULL;
 
