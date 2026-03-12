@@ -12,7 +12,9 @@
 #include "timesyncd-forward.h"
 #include "utf8.h"
 
-/* should we emit the NTS record that forces chrony to be 'compliant' */
+/* should we emit the NTS record that forces chrony to be 'compliant'?
+ * for info see: https://chrony-project.org/doc/spec/nts-compliant-128gcm.html
+ */
 #define CHRONY_WORKAROUND
 
 enum NTS_RecordType {
