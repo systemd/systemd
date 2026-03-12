@@ -337,6 +337,18 @@ static void test_sd_device_one(sd_device *d) {
                 uint32_t u32;
                 ASSERT_OK_POSITIVE(device_get_sysattr_u32(d, "ifindex", &u32));
                 ASSERT_EQ(u32, (uint32_t) ifindex);
+
+                if (ifindex <= UINT16_MAX) {
+                        uint16_t u16;
+                        ASSERT_OK_POSITIVE(device_get_sysattr_u16(d, "ifindex", &u16));
+                        ASSERT_EQ(u16, (uint16_t) ifindex);
+                }
+
+                if (ifindex <= UINT8_MAX) {
+                        uint8_t u8;
+                        ASSERT_OK_POSITIVE(device_get_sysattr_u8(d, "ifindex", &u8));
+                        ASSERT_EQ(u8, (uint8_t) ifindex);
+                }
         }
 }
 
