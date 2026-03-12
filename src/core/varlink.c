@@ -31,7 +31,7 @@ static const char* const managed_oom_mode_properties[] = {
 };
 
 static int build_managed_oom_json_array_element(Unit *u, const char *property, sd_json_variant **ret_v) {
-        bool use_limit = false, use_duration = false;
+        bool use_limit = false, use_duration = false, use_rules = false;
         CGroupContext *c;
         const char *mode;
 
@@ -61,11 +61,12 @@ static int build_managed_oom_json_array_element(Unit *u, const char *property, s
                 use_limit = c->moom_mem_pressure_limit > 0;
                 use_duration = c->moom_mem_pressure_duration_usec != USEC_INFINITY;
         } else if (streq(property, "OOMRules")) {
-                return sd_json_buildo(ret_v,
-                                      SD_JSON_BUILD_PAIR("mode", SD_JSON_BUILD_STRING("kill")),
-                                      SD_JSON_BUILD_PAIR("path", SD_JSON_BUILD_STRING(crt->cgroup_path)),
-                                      SD_JSON_BUILD_PAIR("property", SD_JSON_BUILD_STRING(property)),
-                                      SD_JSON_BUILD_PAIR("rules", SD_JSON_BUILD_STRV(c->moom_rules)));
+                if (strv_isempty(c->moom_rules))
+                        mode = managed_oom_mode_to_string(MANAGED_OOM_AUTO);
+                else {
+                        mode = managed_oom_mode_to_string(MANAGED_OOM_KILL);
+                        use_rules = true;
+                }
         } else
                 return -EINVAL;
 
@@ -74,7 +75,8 @@ static int build_managed_oom_json_array_element(Unit *u, const char *property, s
                               SD_JSON_BUILD_PAIR_STRING("path", crt->cgroup_path),
                               SD_JSON_BUILD_PAIR_STRING("property", property),
                               SD_JSON_BUILD_PAIR_CONDITION(use_limit, "limit", SD_JSON_BUILD_UNSIGNED(c->moom_mem_pressure_limit)),
-                              SD_JSON_BUILD_PAIR_CONDITION(use_duration, "duration", SD_JSON_BUILD_UNSIGNED(c->moom_mem_pressure_duration_usec)));
+                              SD_JSON_BUILD_PAIR_CONDITION(use_duration, "duration", SD_JSON_BUILD_UNSIGNED(c->moom_mem_pressure_duration_usec)),
+                              SD_JSON_BUILD_PAIR_CONDITION(use_rules, "rules", SD_JSON_BUILD_STRV(c->moom_rules)));
 }
 
 static int build_managed_oom_cgroups_json(Manager *m, bool allow_empty, sd_json_variant **ret) {

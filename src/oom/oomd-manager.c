@@ -144,7 +144,7 @@ static int process_managed_oom_message(Manager *m, uid_t uid, sd_json_variant *p
                                 if (message.rules)
                                         strv_free_and_replace(ctx->rules, message.rules);
                                 else
-                                        hashmap_remove(monitor_hm, empty_to_root(message.path));
+                                        oomd_cgroup_context_unref(hashmap_remove(monitor_hm, empty_to_root(message.path)));
                         }
                         continue;
                 }
