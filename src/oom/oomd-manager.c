@@ -939,11 +939,8 @@ Manager* manager_free(Manager *m) {
 
         set_free(m->kill_states);
 
-        HASHMAP_FOREACH(ruleset, m->rulesets) {
-                hashmap_free(ruleset->start_times);
-                free((char *) ruleset->name);
-                free(ruleset);
-        }
+        HASHMAP_FOREACH(ruleset, m->rulesets)
+                oom_ruleset_free(ruleset);
         hashmap_free(m->rulesets);
 
         return mfree(m);

@@ -81,6 +81,14 @@ static const char* const actions_table[] = {
 DEFINE_STRING_TABLE_LOOKUP(actions, enum OomdAction);
 static DEFINE_CONFIG_PARSE_ENUM(config_parse_actions, actions, enum OomdAction);
 
+void oom_ruleset_free(struct oom_ruleset *ruleset) {
+        if (!ruleset)
+                return;
+        hashmap_free(ruleset->start_times);
+        free((char *) ruleset->name);
+        free(ruleset);
+}
+
 static int ruleset_load_one(Manager *m, const char *filename) {
         _cleanup_free_ char *name = NULL;
         _cleanup_free_ struct oom_ruleset *ruleset = NULL;
@@ -172,6 +180,11 @@ void manager_parse_config_file(Manager *m) {
                 log_error_errno(r, "failed to enumerate ruleset files: %m");
                 return;
         }
+
+        struct oom_ruleset *old_ruleset;
+        HASHMAP_FOREACH(old_ruleset, m->rulesets)
+                oom_ruleset_free(old_ruleset);
+        hashmap_clear(m->rulesets);
 
         STRV_FOREACH_BACKWARDS(f, files)
                 (void) ruleset_load_one(m, *f);
