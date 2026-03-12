@@ -111,6 +111,7 @@ a {
   text-decoration: none;
   color: var(--sd-link-color);
   cursor: pointer;
+  overflow-wrap: anywhere;
 }
 a:hover {
   text-decoration: underline;
