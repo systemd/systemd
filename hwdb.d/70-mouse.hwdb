@@ -176,6 +176,7 @@ mouse:usb:v256fpc632:name:*
 mouse:usb:v256fpc633:name:*
 mouse:usb:v256fpc635:name:*
 mouse:usb:v256fpc636:name:*
+mouse:usb:v256fpc63a:name:*
  ID_INPUT_3D_MOUSE=1
 
 mouse:bluetooth:v256fpc63a:name:*
