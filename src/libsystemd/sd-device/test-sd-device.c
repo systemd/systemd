@@ -320,6 +320,24 @@ static void test_sd_device_one(sd_device *d) {
                 ASSERT_OK(device_get_sysattr_safe_string_full(d, "\n", "uevent", &uevent_safe));
                 ASSERT_STREQ(uevent, uevent_safe);
         }
+
+        if (sd_device_get_ifindex(d, &ifindex) >= 0) {
+                int i;
+                ASSERT_OK_POSITIVE(device_get_sysattr_int(d, "ifindex", &i));
+                ASSERT_EQ(i, ifindex);
+
+                unsigned u;
+                ASSERT_OK_POSITIVE(device_get_sysattr_unsigned(d, "ifindex", &u));
+                ASSERT_EQ(u, (unsigned) ifindex);
+
+                uint64_t u64;
+                ASSERT_OK_POSITIVE(device_get_sysattr_u64(d, "ifindex", &u64));
+                ASSERT_EQ(u64, (uint64_t) ifindex);
+
+                uint32_t u32;
+                ASSERT_OK_POSITIVE(device_get_sysattr_u32(d, "ifindex", &u32));
+                ASSERT_EQ(u32, (uint32_t) ifindex);
+        }
 }
 
 static void exclude_problematic_devices(sd_device_enumerator *e) {
