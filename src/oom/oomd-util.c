@@ -21,6 +21,7 @@
 #include "sort-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "time-util.h"
 #include "varlink-util.h"
 
@@ -80,6 +81,7 @@ static OomdCGroupContext *oomd_cgroup_context_free(OomdCGroupContext *ctx) {
                 return NULL;
 
         free(ctx->path);
+        strv_free(ctx->rules);
         return mfree(ctx);
 }
 
@@ -790,6 +792,7 @@ int oomd_insert_cgroup_context(Hashmap *old_h, Hashmap *new_h, const char *path)
                 curr_ctx->mem_pressure_limit_hit_start = old_ctx->mem_pressure_limit_hit_start;
                 curr_ctx->mem_pressure_duration_usec = old_ctx->mem_pressure_duration_usec;
                 curr_ctx->last_had_mem_reclaim = old_ctx->last_had_mem_reclaim;
+                curr_ctx->rules = strv_copy(old_ctx->rules);
         }
 
         if (oomd_pgscan_rate(curr_ctx) > 0)

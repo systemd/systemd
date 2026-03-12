@@ -422,6 +422,7 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("ManagedOOMMemoryPressureLimit", "u", NULL, offsetof(CGroupContext, moom_mem_pressure_limit), 0),
         SD_BUS_PROPERTY("ManagedOOMMemoryPressureDurationUSec", "t", bus_property_get_usec, offsetof(CGroupContext, moom_mem_pressure_duration_usec), 0),
         SD_BUS_PROPERTY("ManagedOOMPreference", "s", property_get_managed_oom_preference, offsetof(CGroupContext, moom_preference), 0),
+        SD_BUS_PROPERTY("OOMRules", "as", NULL, offsetof(CGroupContext, moom_rules), 0),
         SD_BUS_PROPERTY("BPFProgram", "a(ss)", property_get_bpf_foreign_program, 0, 0),
         SD_BUS_PROPERTY("SocketBindAllow", "a(iiqq)", property_get_socket_bind, offsetof(CGroupContext, socket_bind_allow), 0),
         SD_BUS_PROPERTY("SocketBindDeny", "a(iiqq)", property_get_socket_bind, offsetof(CGroupContext, socket_bind_deny), 0),
@@ -1755,6 +1756,23 @@ int bus_cgroup_set_property(
 
                 return 1;
         }
+
+        if (streq(name, "OOMRules")) {
+                _cleanup_strv_free_ char **oom_rules = NULL;
+
+                r = sd_bus_message_read_strv(message, &oom_rules);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        strv_free_and_replace(c->moom_rules, oom_rules);
+
+                        unit_write_settingf(u, flags, name, "OOMRules=%s", strempty(strv_join(c->moom_rules, " ")));
+                }
+
+                return 1;
+        }
+
         if (STR_IN_SET(name, "SocketBindAllow", "SocketBindDeny")) {
                 CGroupSocketBindItem **list;
                 uint16_t nr_ports, port_min;
