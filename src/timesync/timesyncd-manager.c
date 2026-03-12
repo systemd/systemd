@@ -576,7 +576,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
 
                 if (!rcpt.new_cookie->data)
                         log_warning("Server did not return a new cookie.");
-                else if (m->nts_missing_cookies <= 0)
+                else if (m->nts_missing_cookies == 0)
                         log_error("A valid NTS packet was received but we were not missing any cookies. Please report this bug.");
                 else FOREACH_ELEMENT(fresh_cookie, rcpt.new_cookie) {
                         if (m->nts_missing_cookies == 0 || fresh_cookie->data == NULL)
@@ -1633,7 +1633,7 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
                 r = NTS_TLS_write(m->nts_handshake, bufp, size);
                 assert(r <= size);
 
-                if (r <= 0) {
+                if (r < 0) {
                         log_warning("Error sending NTS key request");
                         NTS_TLS_close(&m->nts_handshake);
                         m->nts_timeout = sd_event_source_unref(m->nts_timeout);
@@ -1715,7 +1715,7 @@ static int manager_nts_obtain_agreement(sd_event_source *source, int fd, uint32_
 
         int num_cookies = 0;
         FOREACH_ELEMENT(cookie, NTS.cookie)
-                if (cookie->data) {
+                if (cookie->data && cookie->length > 0) {
                         char *copy = malloc(cookie->length);
                         if (copy == NULL)
                                 return -ENOMEM;

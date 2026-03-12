@@ -7,6 +7,7 @@
 #include <unistd.h>
 
 #include "nts.h"
+#include "ssl-util.h"
 #include "timesyncd-forward.h"
 
 int NTS_TLS_extract_keys(
@@ -121,50 +122,46 @@ NTS_TLS* NTS_TLS_setup(
 
         assert(hostname);
 
-        SSL_CTX *ctx = SSL_CTX_new(TLS_client_method());
+        _cleanup_(SSL_CTX_freep) SSL_CTX *ctx = SSL_CTX_new(TLS_client_method());
         if (!ctx)
-                goto exit;
+                return NULL;
 
         SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, NULL);
         r = SSL_CTX_set_default_verify_paths(ctx);
         if (r != 1)
-                goto ctx_cleanup;
+                return NULL;
 
         r = SSL_CTX_set_min_proto_version(ctx, TLS1_3_VERSION);
         if (r != 1)
-                goto ctx_cleanup;
+                return NULL;
 
-        SSL *tls = SSL_new(ctx);
+        _cleanup_(SSL_freep) SSL *tls = SSL_new(ctx);
         if (!tls)
-                goto ctx_cleanup;
+                return NULL;
 
         r = SSL_set1_host(tls, hostname);
         if (r != 1)
-                goto sess_cleanup;
+                return NULL;
 
         r = SSL_set_tlsext_host_name(tls, hostname);
         if (r != 1)
-                goto sess_cleanup;
+                return NULL;
 
         unsigned char alpn[] = "\x07ntske/1";
         r = SSL_set_alpn_protos(tls, alpn, strlen((char*)alpn));
         if (r != 0)
-                goto sess_cleanup;
+                return NULL;
 
         BIO *bio = BIO_new(BIO_s_socket());
         if (!bio)
-                goto sess_cleanup;
+                return NULL;
 
         BIO_set_fd(bio, socket, BIO_NOCLOSE);
         SSL_set_bio(tls, bio, bio);
 
-        SSL_CTX_free(ctx);
-        return (void *)tls;
+        /* move the initialized session object to the caller */
+        NTS_TLS *ret_ptr = (void *)tls;
+        tls = NULL;
 
-sess_cleanup:
-        SSL_free(tls);
-ctx_cleanup:
-        SSL_CTX_free(ctx);
-exit:
-        return NULL;
+        return ret_ptr;
 }
