@@ -7992,7 +7992,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 
         self.teardown_nftset('addr4', 'network4', 'ifindex')
 
-    def _test_dhcp_client_send_release_one(self) -> bool:
+    def _test_dhcp_client_send_release_one(self, stop=True) -> bool:
         start_dnsmasq(
             namespace='ns-server',
             interface='server',
@@ -8015,7 +8015,10 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertRegex(output, r'192.0.2.0/24 proto kernel scope link src 192.0.2.10[0-9]')
         self.assertRegex(output, r'192.0.2.1 proto dhcp scope link src 192.0.2.10[0-9]')
 
-        networkctl('down', 'client')
+        if stop:
+            stop_networkd()
+        else:
+            networkctl('down', 'client')
 
         success = False
         for _ in range(20):
@@ -8074,7 +8077,16 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
             if self._test_dhcp_client_send_release_one():
                 break
         else:
-            self.fail('Timed out waiting for DHCPRELEASE in dnsmasq log')
+            self.fail('Timed out waiting for DHCPRELEASE in dnsmasq log (on stopping networkd)')
+
+        for _ in range(5):
+            stop_dnsmasq()
+            stop_networkd(show_logs=False)
+
+            if self._test_dhcp_client_send_release_one(stop=False):
+                break
+        else:
+            self.fail('Timed out waiting for DHCPRELEASE in dnsmasq log (on bringing down interface)')
 
     def test_dhcp_client_ipv4_dbus_status(self):
         copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-ipv4-only.network')
