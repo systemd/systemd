@@ -16,6 +16,7 @@ int device_get_property_bool(sd_device *device, const char *key);
 int device_get_property_int(sd_device *device, const char *key, int *ret);
 int device_get_property_uint(sd_device *device, const char *key, unsigned *ret);
 int device_get_ifname(sd_device *device, const char **ret);
+int device_get_sysattr_streq(sd_device *device, const char *sysattr, const char *expected);
 int device_get_sysattr_safe_string(sd_device *device, const char *sysattr, const char **ret);
 int device_get_sysattr_int(sd_device *device, const char *sysattr, int *ret);
 int device_get_sysattr_unsigned_full(sd_device *device, const char *sysattr, unsigned base, unsigned *ret);
