@@ -949,6 +949,11 @@ static int event_log_load_firmware(EventLog *el) {
                         continue;
                 }
 
+                if (event->pcrIndex >= TPM2_PCRS_MAX) {
+                        log_debug("Skipping event on PCR %" PRIu32 " (out of range).", event->pcrIndex);
+                        continue;
+                }
+
                 r = event_log_add_record(el, &record);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add record to event log: %m");
