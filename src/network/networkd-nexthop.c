@@ -772,26 +772,33 @@ static bool nexthop_is_ready_to_configure(Link *link, const NextHop *nexthop) {
         if (!link_is_ready_to_configure(link, false))
                 return false;
 
+        /* Currently, we support the following three types of nexthops:
+         * 1. Simple nexthop - bound to the link, requires the underlying link is up.
+         * 2. Blackhole nexthop - not bound to the link.
+         * 3. Group nexthop - not bound to the link, but all group members must be configured first.
+         *
+         * Note, the kernel also supports fdb nexthop, but currently we do not support it. Note, fdb nexthop
+         * does not require IFF_UP. See rtm_to_nh_config() in net/ipv4/nexthop.c of kernel. */
+
+        /* Simple nexthop */
         if (nexthop_bound_to_link(nexthop)) {
                 assert(nexthop->ifindex == link->ifindex);
 
-                /* TODO: fdb nexthop does not require IFF_UP. The conditions below needs to be updated
-                 * when fdb nexthop support is added. See rtm_to_nh_config() in net/ipv4/nexthop.c of
-                 * kernel. */
-                if (link->set_flags_messages > 0)
-                        return false;
-                if (!FLAGS_SET(link->flags, IFF_UP))
-                        return false;
+                return gateway_is_ready(link, FLAGS_SET(nexthop->flags, RTNH_F_ONLINK), nexthop->family, &nexthop->gw.address);
         }
 
-        /* All group members must be configured first. */
+        /* Blackhole nexthop */
+        if (nexthop->blackhole)
+                return true;
+
+        /* Group nexthop */
         HASHMAP_FOREACH(nhg, nexthop->group) {
                 r = nexthop_is_ready(link->manager, nhg->id, NULL);
                 if (r <= 0)
                         return r;
         }
 
-        return gateway_is_ready(link, FLAGS_SET(nexthop->flags, RTNH_F_ONLINK), nexthop->family, &nexthop->gw.address);
+        return true;
 }
 
 static int nexthop_process_request(Request *req, Link *link, NextHop *nexthop) {
@@ -995,7 +1002,7 @@ void link_forget_nexthops(Link *link) {
         assert(link);
         assert(link->manager);
         assert(link->ifindex > 0);
-        assert(!FLAGS_SET(link->flags, IFF_UP));
+        assert(!link_is_up(link));
 
         /* See comments in link_forget_routes(). */
 

@@ -59,6 +59,11 @@ static int option_append(uint8_t options[], size_t size, size_t *offset,
                 break;
 
         case SD_DHCP_OPTION_USER_CLASS: {
+                /* When called with raw data (optlen > 0), e.g. from SendOption=, append as a plain TLV.
+                 * The structured handling below expects optval to be a strv. */
+                if (optlen > 0)
+                        return dhcp_option_append_tlv(options, size, offset, code, optlen, optval);
+
                 size_t total = 0;
 
                 if (strv_isempty((char **) optval))
@@ -103,6 +108,11 @@ static int option_append(uint8_t options[], size_t size, size_t *offset,
 
                 break;
         case SD_DHCP_OPTION_VENDOR_SPECIFIC: {
+                /* When called with raw data (optlen > 0), e.g. from SendOption=, append as a plain TLV.
+                 * The structured handling below expects optval to be an OrderedSet*. */
+                if (optlen > 0)
+                        return dhcp_option_append_tlv(options, size, offset, code, optlen, optval);
+
                 OrderedSet *s = (OrderedSet *) optval;
                 struct sd_dhcp_option *p;
                 size_t l = 0;
@@ -125,6 +135,11 @@ static int option_append(uint8_t options[], size_t size, size_t *offset,
                 break;
         }
         case SD_DHCP_OPTION_RELAY_AGENT_INFORMATION: {
+                /* When called with raw data (optlen > 0), e.g. from SendOption=, append as a plain TLV.
+                 * The structured handling below expects optval to be an sd_dhcp_server*. */
+                if (optlen > 0)
+                        return dhcp_option_append_tlv(options, size, offset, code, optlen, optval);
+
                 sd_dhcp_server *server = (sd_dhcp_server *) optval;
                 size_t current_offset = *offset + 2;
 

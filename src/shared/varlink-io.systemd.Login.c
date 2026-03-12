@@ -91,6 +91,7 @@ static SD_VARLINK_DEFINE_ERROR(AlreadySessionMember);
 static SD_VARLINK_DEFINE_ERROR(VirtualTerminalAlreadyTaken);
 static SD_VARLINK_DEFINE_ERROR(TooManySessions);
 static SD_VARLINK_DEFINE_ERROR(UnitAllocationFailed);
+static SD_VARLINK_DEFINE_ERROR(NoSessionPIDFD);
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Login,
@@ -117,4 +118,6 @@ SD_VARLINK_DEFINE_INTERFACE(
                 SD_VARLINK_SYMBOL_COMMENT("Maximum number of sessions reached"),
                 &vl_error_TooManySessions,
                 SD_VARLINK_SYMBOL_COMMENT("Failed to allocate a unit for the session"),
-                &vl_error_UnitAllocationFailed);
+                &vl_error_UnitAllocationFailed,
+                SD_VARLINK_SYMBOL_COMMENT("The session leader process does not have a pidfd"),
+                &vl_error_NoSessionPIDFD);
