@@ -127,6 +127,7 @@ static char *arg_link_keyring = NULL;
 static char *arg_link_key_type = NULL;
 static char *arg_link_key_description = NULL;
 static char *arg_fixate_volume_key = NULL;
+static bool arg_verify_only = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_cipher, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_hash, freep);
@@ -1184,9 +1185,16 @@ static int measured_crypt_activate_by_volume_key(
         int r;
 
         assert(cd);
-        assert(name);
+        assert(name || arg_verify_only);
 
         /* A wrapper around crypt_activate_by_volume_key() which also measures to a PCR if that's requested. */
+
+        if (arg_verify_only) {
+                r = crypt_activate_by_volume_key(cd, /* name= */ NULL, volume_key, volume_key_size, 0);
+                if (r < 0)
+                        return r;
+                return 0;
+        }
 
         /* First, check if volume key digest matches the expectation. */
         if (arg_fixate_volume_key) {
@@ -1246,6 +1254,13 @@ static int measured_crypt_activate_by_passphrase(
          * requested. Note that we may need the volume key for the measurement and/or for the comparison, and
          * crypt_activate_by_passphrase() doesn't give us access to this. Hence, we operate indirectly, and
          * retrieve the volume key first, and then activate through that. */
+
+        if (arg_verify_only) {
+                keyslot = crypt_activate_by_passphrase(cd, /* name= */ NULL, keyslot, passphrase, passphrase_size, 0);
+                if (keyslot < 0)
+                        return keyslot;
+                return keyslot;
+        }
 
         if (arg_tpm2_measure_pcr == UINT_MAX && !arg_fixate_volume_key)
                 goto shortcut;
@@ -1552,12 +1567,13 @@ static int crypt_activate_by_token_pin_ask_password(
 #if HAVE_LIBCRYPTSETUP_PLUGINS
         AskPasswordFlags flags = arg_ask_password_flags;
         _cleanup_strv_free_erase_ char **pins = NULL;
+        const char *activate_name = arg_verify_only ? NULL : name;
         int r;
 
-        r = crypt_activate_by_token_pin(cd, name, type, CRYPT_ANY_TOKEN, /* pin= */ NULL, /* pin_size= */ 0, userdata, activation_flags);
+        r = crypt_activate_by_token_pin(cd, activate_name, type, CRYPT_ANY_TOKEN, /* pin= */ NULL, /* pin_size= */ 0, userdata, activation_flags);
         if (r > 0) /* returns unlocked keyslot id on success */
                 return 0;
-        if (r == -EEXIST) /* volume is already active */
+        if (!arg_verify_only && r == -EEXIST) /* volume is already active */
                 return log_external_activation(r, name);
         if (r != -ENOANO) /* needs pin or pin is wrong */
                 return r;
@@ -1567,10 +1583,10 @@ static int crypt_activate_by_token_pin_ask_password(
                 return r;
 
         STRV_FOREACH(p, pins) {
-                r = crypt_activate_by_token_pin(cd, name, type, CRYPT_ANY_TOKEN, *p, strlen(*p), userdata, activation_flags);
+                r = crypt_activate_by_token_pin(cd, activate_name, type, CRYPT_ANY_TOKEN, *p, strlen(*p), userdata, activation_flags);
                 if (r > 0) /* returns unlocked keyslot id on success */
                         return 0;
-                if (r == -EEXIST) /* volume is already active */
+                if (!arg_verify_only && r == -EEXIST) /* volume is already active */
                         return log_external_activation(r, name);
                 if (r != -ENOANO) /* needs pin or pin is wrong */
                         return r;
@@ -1597,10 +1613,10 @@ static int crypt_activate_by_token_pin_ask_password(
                         return r;
 
                 STRV_FOREACH(p, pins) {
-                        r = crypt_activate_by_token_pin(cd, name, type, CRYPT_ANY_TOKEN, *p, strlen(*p), userdata, activation_flags);
+                        r = crypt_activate_by_token_pin(cd, activate_name, type, CRYPT_ANY_TOKEN, *p, strlen(*p), userdata, activation_flags);
                         if (r > 0) /* returns unlocked keyslot id on success */
                                 return 0;
-                        if (r == -EEXIST) /* volume is already active */
+                        if (!arg_verify_only && r == -EEXIST) /* volume is already active */
                                 return log_external_activation(r, name);
                         if (r != -ENOANO) /* needs pin or pin is wrong */
                                 return r;
@@ -1786,10 +1802,10 @@ static int attach_luks2_by_pkcs11_via_plugin(
                 .askpw_flags = arg_ask_password_flags,
         };
 
-        r = crypt_activate_by_token_pin(cd, name, "systemd-pkcs11", CRYPT_ANY_TOKEN, NULL, 0, &params, flags);
+        r = crypt_activate_by_token_pin(cd, arg_verify_only ? NULL : name, "systemd-pkcs11", CRYPT_ANY_TOKEN, NULL, 0, &params, flags);
         if (r > 0) /* returns unlocked keyslot id on success */
                 r = 0;
-        if (r == -EEXIST) /* volume is already active */
+        if (!arg_verify_only && r == -EEXIST) /* volume is already active */
                 r = log_external_activation(r, name);
 
         return r;
@@ -2380,7 +2396,11 @@ static int attach_luks_or_plain_or_bitlk(
         int r;
 
         assert(cd);
-        assert(name);
+        assert(name || arg_verify_only);
+
+        if (arg_verify_only && ((!arg_type && !crypt_get_type(cd)) || streq_ptr(arg_type, CRYPT_PLAIN)))
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Verification is not supported for plain mode volumes (no keyslots to verify against).");
 
         if ((!arg_type && !crypt_get_type(cd)) || streq_ptr(arg_type, CRYPT_PLAIN)) {
                 struct crypt_params_plain params = {
@@ -2458,8 +2478,9 @@ static int help(void) {
                 return log_oom();
 
         printf("%1$s attach VOLUME SOURCE-DEVICE [KEY-FILE] [CONFIG]\n"
+               "%1$s verify SOURCE-DEVICE [KEY-FILE] [CONFIG]\n"
                "%1$s detach VOLUME\n\n"
-               "%2$sAttach or detach an encrypted block device.%3$s\n\n"
+               "%2$sAttach, verify, or detach an encrypted block device.%3$s\n\n"
                "  -h --help            Show this help\n"
                "     --version         Show package version\n"
                "\nSee the %4$s for details.\n",
@@ -2589,7 +2610,6 @@ static int discover_key(const char *key_file, const char *volume, TokenType toke
 static int verb_attach(int argc, char *argv[], void *userdata) {
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         _unused_ _cleanup_(remove_and_erasep) const char *destroy_key_file = NULL;
-        crypt_status_info status;
         uint32_t flags = 0;
         unsigned tries;
         usec_t until;
@@ -2625,8 +2645,12 @@ static int verb_attach(int argc, char *argv[], void *userdata) {
         /* A delicious drop of snake oil */
         (void) safe_mlockall(MCL_CURRENT|MCL_FUTURE|MCL_ONFAULT);
 
-        if (key_file && arg_keyfile_erase)
+        if (!arg_verify_only && key_file && arg_keyfile_erase)
                 destroy_key_file = key_file; /* let's get this baby erased when we leave */
+
+        if (arg_verify_only && streq_ptr(arg_type, CRYPT_TCRYPT))
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "Verification is not supported for TrueCrypt/VeraCrypt volumes.");
 
         if (arg_header) {
                 if (streq_ptr(arg_type, CRYPT_TCRYPT)){
@@ -2643,13 +2667,15 @@ static int verb_attach(int argc, char *argv[], void *userdata) {
 
         cryptsetup_enable_logging(cd);
 
-        status = crypt_status(cd, volume);
-        if (IN_SET(status, CRYPT_ACTIVE, CRYPT_BUSY)) {
-                log_info("Volume %s already active.", volume);
-                return 0;
+        if (!arg_verify_only) {
+                crypt_status_info status = crypt_status(cd, volume);
+                if (IN_SET(status, CRYPT_ACTIVE, CRYPT_BUSY)) {
+                        log_info("Volume %s already active.", volume);
+                        return 0;
+                }
         }
 
-        flags = determine_flags();
+        flags = arg_verify_only ? 0 : determine_flags();
 
         until = usec_add(now(CLOCK_MONOTONIC), arg_timeout);
         if (until == USEC_INFINITY)
@@ -2674,7 +2700,7 @@ static int verb_attach(int argc, char *argv[], void *userdata) {
 
 /* since cryptsetup 2.7.0 (Jan 2024) */
 #if HAVE_CRYPT_SET_KEYRING_TO_LINK
-                if (arg_link_key_description) {
+                if (!arg_verify_only && arg_link_key_description) {
                         r = crypt_set_keyring_to_link(cd, arg_link_key_description, NULL, arg_link_key_type, arg_link_keyring);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to set keyring or key description to link volume key in, ignoring: %m");
@@ -2700,7 +2726,10 @@ static int verb_attach(int argc, char *argv[], void *userdata) {
                                         "luks2-pin",
                                         "cryptsetup.luks2-pin");
                         if (r >= 0) {
-                                log_debug("Volume %s activated with a LUKS token.", volume);
+                                if (arg_verify_only)
+                                        log_info("Verification successful: device '%s' can be unlocked via LUKS2 token.", source);
+                                else
+                                        log_debug("Volume %s activated with a LUKS token.", volume);
                                 return 0;
                         }
 
@@ -2823,7 +2852,24 @@ static int verb_attach(int argc, char *argv[], void *userdata) {
         if (arg_tries != 0 && tries >= arg_tries)
                 return log_error_errno(SYNTHETIC_ERRNO(EPERM), "Too many attempts to activate; giving up.");
 
+        if (arg_verify_only)
+                log_info("Verification successful: device '%s' can be unlocked.", source);
+
         return 0;
+}
+
+static int verb_verify(int argc, char *argv[], void *userdata) {
+        /* Arguments: systemd-cryptsetup verify SOURCE-DEVICE [KEY-FILE] [CONFIG]
+         * Rewrite into the attach arg layout (VOLUME SOURCE-DEVICE ...) with a dummy volume name,
+         * since the attach logic expects one but verify never creates a device mapper entry. */
+        char *new_argv[6] = {};
+        new_argv[0] = argv[0];
+        new_argv[1] = (char *) "verify";
+        for (int i = 1; i < argc && i < 4; i++)
+                new_argv[i + 1] = argv[i];
+
+        arg_verify_only = true;
+        return verb_attach(argc + 1, new_argv, userdata);
 }
 
 static int verb_detach(int argc, char *argv[], void *userdata) {
@@ -2869,6 +2915,7 @@ static int run(int argc, char *argv[]) {
         static const Verb verbs[] = {
                 { "attach", 3, 5, 0, verb_attach },
                 { "detach", 2, 2, 0, verb_detach },
+                { "verify", 2, 4, 0, verb_verify },
                 {}
         };
 

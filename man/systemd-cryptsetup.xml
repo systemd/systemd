@@ -42,6 +42,15 @@
       <arg choice="plain">VOLUME</arg>
     </cmdsynopsis>
 
+    <cmdsynopsis>
+      <command>systemd-cryptsetup</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">verify</arg>
+      <arg choice="plain">SOURCE-DEVICE</arg>
+      <arg choice="opt">KEY-FILE</arg>
+      <arg choice="opt">CRYPTTAB-OPTIONS</arg>
+    </cmdsynopsis>
+
     <para><filename>systemd-cryptsetup@.service</filename></para>
     <para><filename>system-systemd\x2dcryptsetup.slice</filename></para>
   </refsynopsisdiv>
@@ -49,13 +58,21 @@
   <refsect1>
     <title>Description</title>
 
-    <para><command>systemd-cryptsetup</command> is used to set up (with <command>attach</command>) and tear
-    down (with <command>detach</command>) access to an encrypted block device. It is primarily used via
-    <filename>systemd-cryptsetup@.service</filename> during early boot, but may also be called manually.
-    The positional arguments <parameter>VOLUME</parameter>, <parameter>SOURCE-DEVICE</parameter>,
-    <parameter>KEY-FILE</parameter>, and <parameter>CRYPTTAB-OPTIONS</parameter> have the same meaning as the
-    fields in <citerefentry><refentrytitle>crypttab</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-    </para>
+    <para><command>systemd-cryptsetup</command> is used to set up (with <command>attach</command>), tear
+    down (with <command>detach</command>), or test (with <command>verify</command>) access to an encrypted
+    block device. It is primarily used via <filename>systemd-cryptsetup@.service</filename> during early boot,
+    but may also be called manually. The positional arguments <parameter>VOLUME</parameter>,
+    <parameter>SOURCE-DEVICE</parameter>, <parameter>KEY-FILE</parameter>, and
+    <parameter>CRYPTTAB-OPTIONS</parameter> have the same meaning as the fields in
+    <citerefentry><refentrytitle>crypttab</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+    <para>The <command>verify</command> verb tests whether a LUKS volume would successfully unlock, without
+    actually activating the device. This is useful for pre-flight checks (e.g., confirming that TPM2 PCR state
+    is correct before rebooting) and diagnostics (e.g., determining which token method will be used to unlock a
+    volume). Verification works on both locked and already-active volumes. On success, it reports which
+    unlock method succeeded (e.g., TPM2, FIDO2, PKCS#11, key file, or passphrase). Plain mode and
+    TrueCrypt/VeraCrypt volumes are not supported for verification, as they have no keyslots to verify
+    against.</para>
 
     <para><filename>systemd-cryptsetup@.service</filename> is a service responsible for providing access to
     encrypted block devices. It is instantiated for each device that requires decryption.</para>

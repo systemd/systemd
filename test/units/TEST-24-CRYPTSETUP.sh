@@ -272,4 +272,21 @@ cryptsetup_start_and_check -u detached_nofail
 
 systemd-cryptenroll --list-devices
 
+# Test the 'verify' verb of systemd-cryptsetup
+# Verify with correct key file on a locked volume (expect success)
+/usr/lib/systemd/systemd-cryptsetup verify "$IMAGE_EMPTY" "$IMAGE_EMPTY_KEYFILE" "headless"
+# Verify with wrong key (expect failure)
+WRONG_KEYFILE="$WORKDIR/wrong.keyfile"
+echo -n wrongpassphrase >"$WRONG_KEYFILE"
+chmod 0600 "$WRONG_KEYFILE"
+(! /usr/lib/systemd/systemd-cryptsetup verify "$IMAGE_EMPTY" "$WRONG_KEYFILE" "headless")
+# Verify on an already-active volume (expect success — verify must work regardless of activation state)
+/usr/lib/systemd/systemd-cryptsetup attach verify_active "$IMAGE_EMPTY" "$IMAGE_EMPTY_KEYFILE" "headless"
+test -e /dev/mapper/verify_active
+/usr/lib/systemd/systemd-cryptsetup verify "$IMAGE_EMPTY" "$IMAGE_EMPTY_KEYFILE" "headless"
+/usr/lib/systemd/systemd-cryptsetup detach verify_active
+test ! -e /dev/mapper/verify_active
+# Verify with detached header
+/usr/lib/systemd/systemd-cryptsetup verify "$IMAGE_DETACHED" "$IMAGE_DETACHED_KEYFILE" "headless,header=$IMAGE_DETACHED_HEADER,keyfile-offset=32,keyfile-size=16"
+
 touch /testok
