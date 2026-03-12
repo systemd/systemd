@@ -142,7 +142,9 @@ static const char auxiliary_suffixes_nulstr[] =
         ".roothash.p7s\0"
         ".usrhash\0"
         ".usrhash.p7s\0"
-        ".verity\0";
+        ".verity\0"
+        ".raw.tpmstate\0"
+        ".raw.efinvramstate\0";
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(image_dirname, ImageClass);
 

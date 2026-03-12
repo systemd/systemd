@@ -227,6 +227,23 @@
         </varlistentry>
 
         <varlistentry>
+          <term><option>--efi-nvram-state=<replaceable>PATH</replaceable>|auto|off</option></term>
+
+          <listitem><para>Configures where to place the EFI variable NVRAM state. This takes an absolute file
+          system path to a directory to persistently place the state in. If the directory is missing it is
+          created as needed. If set to the special string <literal>auto</literal> a persistent path is
+          automatically derived from the VM image path or directory path, with the
+          <literal>.efinvramstate</literal> suffix appended. If set to the special string
+          <literal>off</literal> the EFI variable NVRAM state is only maintained transiently and flushed out
+          when the VM shuts down. Defaults to <literal>auto</literal>.</para>
+
+          <para>If <option>--ephemeral</option> is specified, <literal>auto</literal> behaves like
+          <literal>off</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><option>--linux=<replaceable>PATH</replaceable></option></term>
 
           <listitem>

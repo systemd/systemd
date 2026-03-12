@@ -57,12 +57,6 @@ static inline int memcmp_nn(const void *s1, size_t n1, const void *s2, size_t n2
 
 #define zero(x) (memzero(&(x), sizeof(x)))
 
-bool memeqbyte(uint8_t byte, const void *data, size_t length) _nonnull_if_nonzero_(2, 3);
-
-#define memeqzero(data, length) memeqbyte(0x00, data, length)
-
-#define eqzero(x) memeqzero(x, sizeof(x))
-
 static inline void* mempset(void *s, int c, size_t n) {
         memset(s, c, n);
         return (uint8_t*) s + n;
