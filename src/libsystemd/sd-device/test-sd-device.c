@@ -838,6 +838,54 @@ TEST(devname_from_devnum) {
         }
 }
 
+TEST(device_add_property) {
+        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        const char *val;
+
+        ASSERT_OK(sd_device_new_from_syspath(&dev, "/sys/class/net/lo"));
+
+        /* add a property */
+        ASSERT_OK(device_add_property(dev, "hoge", "foo"));
+        ASSERT_OK(sd_device_get_property_value(dev, "hoge", &val));
+        ASSERT_STREQ(val, "foo");
+
+        /* update an existing property */
+        ASSERT_OK(device_add_property(dev, "hoge", "bar"));
+        ASSERT_OK(sd_device_get_property_value(dev, "hoge", &val));
+        ASSERT_STREQ(val, "bar");
+
+        /* remove an existing property */
+        ASSERT_OK(device_add_property(dev, "hoge", NULL));
+        ASSERT_ERROR(sd_device_get_property_value(dev, "hoge", &val), ENOENT);
+
+        /* add a property again */
+        ASSERT_OK(device_add_property(dev, "hoge", "foo"));
+        ASSERT_OK(sd_device_get_property_value(dev, "hoge", &val));
+        ASSERT_STREQ(val, "foo");
+
+        /* remove it with an empty string */
+        ASSERT_OK(device_add_property(dev, "hoge", ""));
+        ASSERT_ERROR(sd_device_get_property_value(dev, "hoge", &val), ENOENT);
+
+        /* check internal property (starting with dot) */
+        ASSERT_OK(device_add_property(dev, ".hoge", "baz"));
+        ASSERT_OK(sd_device_get_property_value(dev, ".hoge", &val));
+        ASSERT_STREQ(val, "baz");
+
+        /* refuse invalid property names */
+        ASSERT_ERROR(device_add_property(dev, "hoge-hoge", "aaa"), EINVAL);
+        ASSERT_ERROR(device_add_property(dev, "hoge=hoge", "aaa"), EINVAL);
+        ASSERT_ERROR(device_add_property(dev, "hoge hoge", "aaa"), EINVAL);
+        ASSERT_ERROR(device_add_property(dev, "hoge\nhoge", "aaa"), EINVAL);
+        ASSERT_ERROR(device_add_property(dev, "hoge\rhoge", "aaa"), EINVAL);
+        ASSERT_ERROR(device_add_property(dev, "hoge\thoge", "aaa"), EINVAL);
+
+        /* refuse invalid property values */
+        ASSERT_ERROR(device_add_property(dev, "hoge", "aaa\naaa"), EINVAL);
+        ASSERT_ERROR(device_add_property(dev, "hoge", "aaa\raaa"), EINVAL);
+        ASSERT_ERROR(device_add_property(dev, "hoge", "aaa\taaa"), EINVAL);
+}
+
 static int intro(void) {
         int r;
 

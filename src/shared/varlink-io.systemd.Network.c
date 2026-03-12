@@ -545,8 +545,8 @@ static SD_VARLINK_DEFINE_STRUCT_TYPE(
                 SD_VARLINK_DEFINE_FIELD(DHCPv4Client, SD_VARLINK_OBJECT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("DHCPv6 client configuration and lease information"),
                 SD_VARLINK_DEFINE_FIELD_BY_TYPE(DHCPv6Client, DHCPv6Client, SD_VARLINK_NULLABLE),
-                SD_VARLINK_FIELD_COMMENT("LLDP neighbors discovered on this interface"),
-                SD_VARLINK_DEFINE_FIELD_BY_TYPE(LLDP, LLDPNeighbor, SD_VARLINK_ARRAY|SD_VARLINK_NULLABLE));
+                SD_VARLINK_FIELD_COMMENT("LLDP transmit configuration for this interface"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(LLDP, LLDPNeighbor, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_METHOD(
                 Describe,

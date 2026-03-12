@@ -2375,9 +2375,12 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
         <listitem>
           <para>When true (the default), the machine's hostname (or the value specified with
           <varname>Hostname=</varname>, described below) will be sent to the DHCP server. Note that the
-          hostname must consist only of 7-bit ASCII lower-case characters and no spaces or dots, and be
-          formatted as a valid DNS domain name. Otherwise, the hostname is not sent even if this option
-          is true.</para>
+          hostname must consist only of 7-bit ASCII lower-case characters and no spaces, and be
+          formatted as a valid DNS domain name. A single-label hostname is sent as DHCP option 12
+          (Host Name, <ulink url="https://tools.ietf.org/html/rfc2132">RFC 2132</ulink>);
+          a multi-label hostname (FQDN) is sent instead as DHCP option 81 (Client FQDN,
+          <ulink url="https://tools.ietf.org/html/rfc4702">RFC 4702</ulink>).
+          Otherwise, the hostname is not sent even if this option is true.</para>
 
           <xi:include href="version-info.xml" xpointer="v215"/>
         </listitem>
@@ -2388,7 +2391,8 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
         <listitem>
           <para>Use this value for the hostname which is sent to the DHCP server, instead of machine's
           hostname. Note that the specified hostname must consist only of 7-bit ASCII lower-case
-          characters and no spaces or dots, and be formatted as a valid DNS domain name.</para>
+          characters and no spaces, and be formatted as a valid DNS domain name. Multi-label hostnames
+          (FQDNs) are acceptable; see <varname>SendHostname=</varname> above for details.</para>
 
           <xi:include href="version-info.xml" xpointer="v223"/>
         </listitem>

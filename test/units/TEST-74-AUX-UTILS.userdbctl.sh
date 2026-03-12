@@ -81,3 +81,7 @@ userdbctl group "$DISK_GID" | grep -F 'io.systemd.NameServiceSwitch' >/dev/null
 (! busctl call org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager LookupDynamicUserByName "s" disk)
 (! busctl call org.freedesktop.systemd1 /org/freedesktop/systemd1 org.freedesktop.systemd1.Manager LookupDynamicUserByUID "u" "$DISK_GID")
 systemctl stop "$UNIT"
+
+# Probe specific user records
+echo '{"userName":"weightmin","cpuWeight":1,"ioWeight":1}' | userdbctl -F -
+echo '{"userName":"weightmax","cpuWeight":10000,"ioWeight":10000}' | userdbctl -F -

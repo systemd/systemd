@@ -136,13 +136,20 @@ int udev_builtin_add_property(UdevEvent *event, const char *key, const char *val
 
         assert(key);
 
+        val = empty_to_null(val);
+
         r = device_add_property(dev, key, val);
         if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to add property '%s%s%s'",
+                return log_device_debug_errno(dev, r, "Failed to %s property '%s%s%s'",
+                                              val ? "add" : "remove",
                                               key, val ? "=" : "", strempty(val));
 
-        if (event->event_mode == EVENT_UDEVADM_TEST_BUILTIN)
-                printf("%s=%s\n", key, strempty(val));
+        if (event->event_mode == EVENT_UDEVADM_TEST_BUILTIN) {
+                if (val)
+                        printf("%s=%s\n", key, val);
+                else
+                        printf("%s (removed)\n", key);
+        }
 
         return 0;
 }

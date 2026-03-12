@@ -424,13 +424,11 @@ static int varlink_error_no_such_unit(sd_varlink *v, const char *name) {
 }
 
 static int varlink_error_conflict_lookup_parameters(sd_varlink *v, const UnitLookupParameters *p) {
-        log_debug_errno(
-                        ESRCH,
-                        "Searching unit by lookup parameters name='%s' pid="PID_FMT" cgroup='%s' invocationID='%s' resulted in multiple different units",
-                        p->name,
-                        p->pidref.pid,
-                        p->cgroup,
-                        sd_id128_is_null(p->invocation_id) ? "" : SD_ID128_TO_UUID_STRING(p->invocation_id));
+        log_debug("Searching unit by lookup parameters name='%s' pid='"PID_FMT"' cgroup='%s' invocationID='%s' resulted in multiple different units",
+                  strnull(p->name),
+                  pidref_is_set(&p->pidref) ? p->pidref.pid : 0,
+                  strnull(p->cgroup),
+                  sd_id128_is_null(p->invocation_id) ? "" : SD_ID128_TO_UUID_STRING(p->invocation_id));
 
         return varlink_error_no_such_unit(v, /* name= */ NULL);
 }

@@ -25,7 +25,7 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("Timeout in µs (relative, CLOCK_MONOTONIC; set to zero to only check cache and not query interactively; set to UINT64_MAX to disable relative timeout; if not set defaults to 90s)"),
                 SD_VARLINK_DEFINE_INPUT(timeoutUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Timeout in µs (absolute, CLOCK_MONOTONIC; if both timeoutUSec and untilUSec are specified the earlier of the two is used; "
-                                         "set to zero to only check cache and not query interactively; leave unset or set to UINT64_NAX to disable absolute timeout)"),
+                                         "set to zero to only check cache and not query interactively; leave unset or set to UINT64_MAX to disable absolute timeout)"),
                 SD_VARLINK_DEFINE_INPUT(untilUSec, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
                 SD_VARLINK_FIELD_COMMENT("Whether to accept cached passwords from the kernel keyring"),
                 SD_VARLINK_DEFINE_INPUT(acceptCached, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE),
