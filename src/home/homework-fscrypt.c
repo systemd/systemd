@@ -255,7 +255,7 @@ static int fscrypt_slot_try_one(
 
         assert((size_t) decrypted_size_out1 <= decrypted_size);
 
-        if (EVP_DecryptFinal_ex(context, (uint8_t*) decrypted_size + decrypted_size_out1, &decrypted_size_out2) != 1)
+        if (EVP_DecryptFinal_ex(context, (uint8_t*) decrypted + decrypted_size_out1, &decrypted_size_out2) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to finish decryption of volume key.");
 
         assert((size_t) decrypted_size_out1 + (size_t) decrypted_size_out2 < decrypted_size);
@@ -518,7 +518,7 @@ static int fscrypt_slot_set(
 
         assert((size_t) encrypted_size_out1 <= encrypted_size);
 
-        if (EVP_EncryptFinal_ex(context, (uint8_t*) encrypted_size + encrypted_size_out1, &encrypted_size_out2) != 1)
+        if (EVP_EncryptFinal_ex(context, (uint8_t*) encrypted + encrypted_size_out1, &encrypted_size_out2) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to finish encryption of volume key.");
 
         assert((size_t) encrypted_size_out1 + (size_t) encrypted_size_out2 < encrypted_size);
