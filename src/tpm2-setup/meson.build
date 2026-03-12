@@ -22,6 +22,15 @@ executables += [
                         'HAVE_TPM2',
                 ],
         },
+        libexec_template + {
+                'name' : 'systemd-tpm2-swtpm',
+                'sources' : files('tpm2-swtpm.c'),
+                'conditions' : [
+                        'ENABLE_BOOTLOADER',
+                        'HAVE_OPENSSL',
+                        'HAVE_TPM2',
+                ],
+        },
         generator_template + {
                 'name' : 'systemd-tpm2-generator',
                 'sources' : files('tpm2-generator.c'),
