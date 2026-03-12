@@ -549,6 +549,8 @@ struct Context {
         bool defer_partitions_factory_reset;
 
         sd_varlink *link; /* If 'more' is used on the Varlink call, we'll send progress info over this link */
+
+        bool needs_rescan;
 };
 
 static const char *empty_mode_table[_EMPTY_MODE_MAX] = {
@@ -5016,6 +5018,8 @@ static int partition_target_prepare(
                         const char* part_node = fdisk_partname(context->node, p->partno+1);
                         _cleanup_(blkpg_partition_freep) BlkpgPartition *b = NULL;
 
+                        context->needs_rescan = true;
+
                         r = block_device_add_partition(whole_fd, context->node, p->partno+1, p->offset, size);
                         if (r < 0)
                                 return log_error_errno(errno, "Failed to create new partition '%s': %m", part_node);
@@ -7681,9 +7685,30 @@ static int context_split(Context *context) {
         return 0;
 }
 
+static int context_partscan(Context *context) {
+        int capable, r;
+
+        capable = blockdev_partscan_enabled_fd(fdisk_get_devfd(context->fdisk_context));
+        if (capable == -ENOTBLK)
+                log_debug("Not telling kernel to reread partition table, since we are not operating on a block device.");
+        else if (capable < 0)
+                return log_error_errno(capable, "Failed to check if block device supports partition scanning: %m");
+        else if (capable > 0) {
+                log_info("Informing kernel about changed partitions...");
+                (void) context_notify(context, PROGRESS_REREADING_TABLE, /* object= */ NULL, UINT_MAX);
+
+                r = reread_partition_table_fd(fdisk_get_devfd(context->fdisk_context), /* flags= */ 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to reread partition table: %m");
+        } else
+                log_notice("Not telling kernel to reread partition table, because selected image does not support kernel partition block devices.");
+
+        return 0;
+}
+
 static int context_write_partition_table(Context *context) {
         _cleanup_(fdisk_unref_tablep) struct fdisk_table *original_table = NULL;
-        int capable, r;
+        int r;
 
         assert(context);
 
@@ -7729,46 +7754,43 @@ static int context_write_partition_table(Context *context) {
          * gaps between partitions, just to be sure. */
         r = context_wipe_and_discard(context);
         if (r < 0)
-                return r;
+                goto error;
 
         r = context_copy_blocks(context);
         if (r < 0)
-                return r;
+                goto error;
 
         r = context_mkfs(context);
         if (r < 0)
-                return r;
+                goto error;
 
         r = context_mangle_partitions(context);
         if (r < 0)
-                return r;
+                goto error;
 
         log_info("Writing new partition table.");
 
         (void) context_notify(context, PROGRESS_WRITING_TABLE, /* object= */ NULL, UINT_MAX);
 
         r = fdisk_write_disklabel(context->fdisk_context);
+        if (r < 0) {
+                r = log_error_errno(r, "Failed to write partition table: %m");
+                goto error;
+        }
+
+        r = context_partscan(context);
         if (r < 0)
-                return log_error_errno(r, "Failed to write partition table: %m");
-
-        capable = blockdev_partscan_enabled_fd(fdisk_get_devfd(context->fdisk_context));
-        if (capable == -ENOTBLK)
-                log_debug("Not telling kernel to reread partition table, since we are not operating on a block device.");
-        else if (capable < 0)
-                return log_error_errno(capable, "Failed to check if block device supports partition scanning: %m");
-        else if (capable > 0) {
-                log_info("Informing kernel about changed partitions...");
-                (void) context_notify(context, PROGRESS_REREADING_TABLE, /* object= */ NULL, UINT_MAX);
-
-                r = reread_partition_table_fd(fdisk_get_devfd(context->fdisk_context), /* flags= */ 0);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to reread partition table: %m");
-        } else
-                log_notice("Not telling kernel to reread partition table, because selected image does not support kernel partition block devices.");
+                return r;
 
         log_info("All done.");
 
         return 0;
+
+ error:
+        if (context->needs_rescan)
+                context_partscan(context);
+
+        return r;
 }
 
 static int context_read_seed(Context *context, const char *root) {
