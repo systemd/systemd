@@ -384,9 +384,7 @@ static int builtin_input_id(UdevEvent *event, int argc, char *argv[]) {
         /* walk up the parental chain until we find the real input device; the
          * argument is very likely a subdevice of this, like eventN */
         for (pdev = dev; pdev; ) {
-                const char *s;
-
-                if (sd_device_get_sysattr_value(pdev, "capabilities/ev", &s) >= 0)
+                if (sd_device_get_sysattr_value(pdev, "capabilities/ev", /* ret= */ NULL) >= 0)
                         break;
 
                 if (sd_device_get_parent_with_subsystem_devtype(pdev, "input", NULL, &pdev) >= 0)
