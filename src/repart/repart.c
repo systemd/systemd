@@ -4871,6 +4871,7 @@ typedef struct DecryptedPartitionTarget {
         int fd;
         char *dm_name;
         char *volume;
+        bool keep;
         struct crypt_device *device;
 } DecryptedPartitionTarget;
 
@@ -4883,11 +4884,13 @@ static DecryptedPartitionTarget* decrypted_partition_target_free(DecryptedPartit
 
         safe_close(t->fd);
 
-        /* udev or so might access out block device in the background while we are done. Let's hence
-         * force detach the volume. We sync'ed before, hence this should be safe. */
-        r = sym_crypt_deactivate_by_name(t->device, t->dm_name, CRYPT_DEACTIVATE_FORCE);
-        if (r < 0)
-                log_warning_errno(r, "Failed to deactivate LUKS device, ignoring: %m");
+        if (!t->keep) {
+                /* udev or so might access out block device in the background while we are done. Let's hence
+                 * force detach the volume. We sync'ed before, hence this should be safe. */
+                r = sym_crypt_deactivate_by_name(t->device, t->dm_name, CRYPT_DEACTIVATE_FORCE);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to deactivate LUKS device, ignoring: %m");
+        }
 
         sym_crypt_free(t->device);
         free(t->dm_name);
@@ -5716,6 +5719,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                         .dm_name = TAKE_PTR(dm_name),
                         .volume = TAKE_PTR(vol),
                         .device = TAKE_PTR(cd),
+                        .keep = false,
                 };
 
                 target->decrypted = TAKE_PTR(t);
