@@ -982,7 +982,7 @@ static int lookup_block_device(const char *p, dev_t *ret) {
                 *ret = dev; /* If this is not a device node then use the block device this file is stored on */
         else {
                 /* If this is btrfs, getting the backing block device is a bit harder */
-                r = btrfs_get_block_device(p, ret);
+                r = btrfs_get_block_device(p, /* ret_devid= */ NULL, /* ret_path= */ NULL, ret);
                 if (r == -ENOTTY)
                         return log_warning_errno(SYNTHETIC_ERRNO(ENODEV),
                                                  "'%s' is not a block device node, and file system block device cannot be determined or is not local.", p);
