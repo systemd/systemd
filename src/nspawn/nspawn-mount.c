@@ -535,7 +535,7 @@ int mount_all(const char *dest,
               const char *selinux_apifs_context) {
 
 #define PROC_INACCESSIBLE_REG(path)                                     \
-        { "/run/systemd/inaccessible/reg", (path), NULL, NULL, MS_BIND, \
+        { "/run/host/inaccessible/reg", (path), NULL, NULL, MS_BIND,    \
           MOUNT_IN_USERNS|MOUNT_APPLY_APIVFS_RO }, /* Bind mount first ... */ \
         { NULL, (path), NULL, NULL, MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT, \
           MOUNT_IN_USERNS|MOUNT_APPLY_APIVFS_RO } /* Then, make it r/o */
@@ -1309,7 +1309,9 @@ int pivot_root_parse(char **pivot_root_new, char **pivot_root_old, const char *s
 
         if (!path_is_absolute(root_new))
                 return -EINVAL;
-        if (root_old && !path_is_absolute(root_old))
+        if (!path_is_normalized(root_new))
+                return -EINVAL;
+        if (root_old && (!path_is_absolute(root_old) || !path_is_normalized(root_old)))
                 return -EINVAL;
 
         free_and_replace(*pivot_root_new, root_new);

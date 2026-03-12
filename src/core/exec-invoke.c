@@ -3697,7 +3697,7 @@ static int close_remaining_fds(
                 const int *fds, size_t n_fds) {
 
         size_t n_dont_close = 0;
-        int dont_close[n_fds + 17];
+        int dont_close[n_fds + 18];
 
         assert(params);
 
@@ -3732,9 +3732,6 @@ static int close_remaining_fds(
 
         if (params->user_lookup_fd >= 0)
                 dont_close[n_dont_close++] = params->user_lookup_fd;
-
-        if (params->handoff_timestamp_fd >= 0)
-                dont_close[n_dont_close++] = params->handoff_timestamp_fd;
 
         if (params->pidref_transport_fd >= 0)
                 dont_close[n_dont_close++] = params->pidref_transport_fd;

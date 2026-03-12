@@ -21,6 +21,7 @@ typedef enum UnitMountDependencyType {
 #include "condition.h"
 #include "emergency-action.h"
 #include "install.h"
+#include "journal-importer.h"
 #include "list.h"
 #include "mount-util.h"
 #include "pidref.h"
@@ -1065,6 +1066,11 @@ int unit_compare_priority(Unit *a, Unit *b);
 UnitMountDependencyType unit_mount_dependency_type_from_string(const char *s) _const_;
 const char* unit_mount_dependency_type_to_string(UnitMountDependencyType t) _const_;
 UnitDependency unit_mount_dependency_type_to_dependency_type(UnitMountDependencyType t) _pure_;
+
+/* Trying to log with too many fields is going to fail. We need at least also MESSAGE=,
+ * but we generally log a few extra in most cases. So let's reserve 10. Anything
+ * above a few would be very unusual, but let's not be overly strict. */
+#define LOG_EXTRA_FIELDS_MAX (ENTRY_FIELD_COUNT_MAX - 10)
 
 /* Macros which append UNIT= or USER_UNIT= to the message */
 
