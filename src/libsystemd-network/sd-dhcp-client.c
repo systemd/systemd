@@ -702,8 +702,8 @@ static int client_notify(sd_dhcp_client *client, int event) {
         return 0;
 }
 
-static int client_initialize(sd_dhcp_client *client) {
-        assert_return(client, -EINVAL);
+static void client_initialize(sd_dhcp_client *client) {
+        assert(client);
 
         client->receive_message = sd_event_source_disable_unref(client->receive_message);
 
@@ -722,8 +722,6 @@ static int client_initialize(sd_dhcp_client *client) {
         client->xid = 0;
 
         client->lease = sd_dhcp_lease_unref(client->lease);
-
-        return 0;
 }
 
 static void client_stop(sd_dhcp_client *client, int error) {
@@ -1286,9 +1284,7 @@ static int client_timeout_resend(
 
         case DHCP_STATE_REBOOTING:
                 /* start over as we did not receive a timely ack or nak */
-                r = client_initialize(client);
-                if (r < 0)
-                        goto error;
+                client_initialize(client);
 
                 r = client_start(client);
                 if (r < 0)
@@ -2042,9 +2038,7 @@ static int client_restart(sd_dhcp_client *client) {
 
         client_notify(client, SD_DHCP_CLIENT_EVENT_EXPIRED);
 
-        r = client_initialize(client);
-        if (r < 0)
-                return r;
+        client_initialize(client);
 
         r = client_start_delayed(client);
         if (r < 0)
@@ -2307,9 +2301,7 @@ int sd_dhcp_client_start(sd_dhcp_client *client) {
         /* Note, do not reset the flag in client_initialize(), as it is also called on expire. */
         client->ipv6_acquired = false;
 
-        r = client_initialize(client);
-        if (r < 0)
-                return r;
+        client_initialize(client);
 
         /* If no client identifier exists, construct an RFC 4361-compliant one */
         if (!sd_dhcp_client_id_is_set(&client->client_id)) {
