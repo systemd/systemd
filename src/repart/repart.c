@@ -4848,7 +4848,28 @@ static DecryptedPartitionTarget* decrypted_partition_target_free(DecryptedPartit
 }
 
 typedef struct {
+        int fd;
+        int whole_fd;
+        uint64_t nr;
+        uint64_t offset;
+        uint64_t size;
+        char *node;
+} BlkpgPartition;
+
+static BlkpgPartition* blkpg_partition_free(BlkpgPartition *p) {
+        if (!p)
+                return NULL;
+
+        safe_close(p->fd);
+        free(p->node);
+        return mfree(p);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(BlkpgPartition*, blkpg_partition_free);
+
+typedef struct {
         LoopDevice *loop;
+        BlkpgPartition *blkpg_partition;
         int fd;
         char *path;
         int whole_fd;
@@ -4857,13 +4878,16 @@ typedef struct {
 
 static int partition_target_fd(PartitionTarget *t) {
         assert(t);
-        assert(t->loop || t->fd >= 0 || t->whole_fd >= 0);
+        assert(t->loop || t->fd >= 0 || t->whole_fd >= 0 || t->blkpg_partition);
 
         if (t->decrypted)
                 return t->decrypted->fd;
 
         if (t->loop)
                 return t->loop->fd;
+
+        if (t->blkpg_partition)
+                return t->blkpg_partition->fd;
 
         if (t->fd >= 0)
                 return t->fd;
@@ -4873,13 +4897,16 @@ static int partition_target_fd(PartitionTarget *t) {
 
 static const char* partition_target_path(PartitionTarget *t) {
         assert(t);
-        assert(t->loop || t->path);
+        assert(t->loop || t->path || t->blkpg_partition);
 
         if (t->decrypted)
                 return t->decrypted->volume;
 
         if (t->loop)
                 return t->loop->node;
+
+        if (t->blkpg_partition)
+                return t->blkpg_partition->node;
 
         return t->path;
 }
@@ -4892,6 +4919,7 @@ static PartitionTarget* partition_target_free(PartitionTarget *t) {
         loop_device_unref(t->loop);
         safe_close(t->fd);
         unlink_and_free(t->path);
+        blkpg_partition_free(t->blkpg_partition);
 
         return mfree(t);
 }
@@ -4981,20 +5009,57 @@ static int partition_target_prepare(
                 return 0;
         }
 
-        /* Loopback block devices are not only useful to turn regular files into block devices, but
-         * also to cut out sections of block devices into new block devices. */
-
         if (arg_offline <= 0) {
-                r = loop_device_make(whole_fd, O_RDWR, p->offset, size, context->sector_size, 0, LOCK_EX, &d);
-                if (r < 0 && loop_device_error_is_fatal(p, r))
-                        return log_error_errno(r, "Failed to make loopback device of future partition %" PRIu64 ": %m", p->partno);
-                if (r >= 0) {
-                        t->loop = TAKE_PTR(d);
+                r = blockdev_partscan_enabled_fd(whole_fd);
+                if (r > 0) {
+                        _cleanup_close_ int dev_fd = -EBADF;
+                        _cleanup_free_ char *part_node = NULL;
+                        _cleanup_(blkpg_partition_freep) BlkpgPartition *b = NULL;
+
+                        part_node = fdisk_partname(context->node, p->partno+1);
+                        if (!part_node)
+                                return log_oom();
+
+                        r = block_device_add_partition(whole_fd, context->node, p->partno+1, p->offset, size);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to create new partition '%s': %m", part_node);
+
+                        dev_fd = open(part_node, O_RDWR|O_CLOEXEC|O_NOCTTY);
+                        if (dev_fd < 0)
+                                return log_error_errno(errno, "Failed to open new partition '%s': %m", part_node);
+
+                        /* no need to flock for udev, the whole disk fd is */
+
+                        b = new(BlkpgPartition, 1);
+                        if (!b)
+                                return log_oom();
+
+                        *b = (BlkpgPartition) {
+                                .fd = TAKE_FD(dev_fd),
+                                .whole_fd = whole_fd,
+                                .nr = p->partno+1,
+                                .offset = p->offset,
+                                .size = size,
+                                .node = TAKE_PTR(part_node),
+                        };
+
+                        t->blkpg_partition = TAKE_PTR(b);
                         *ret = TAKE_PTR(t);
                         return 0;
-                }
+                } else {
+                        /* Loopback block devices are not only useful to turn regular files into block devices, but
+                         * also to cut out sections of block devices into new block devices. */
+                        r = loop_device_make(whole_fd, O_RDWR, p->offset, size, context->sector_size, 0, LOCK_EX, &d);
+                        if (r < 0 && loop_device_error_is_fatal(p, r))
+                                return log_error_errno(r, "Failed to make loopback device of future partition %" PRIu64 ": %m", p->partno);
+                        if (r >= 0) {
+                                t->loop = TAKE_PTR(d);
+                                *ret = TAKE_PTR(t);
+                                return 0;
+                        }
 
-                log_debug_errno(r, "No access to loop devices, falling back to a regular file");
+                        log_debug_errno(r, "No access to loop devices, falling back to a regular file");
+                }
         }
 
         /* If we can't allocate a loop device, let's write to a regular file that we copy into the final
@@ -5021,6 +5086,11 @@ static int partition_target_grow(PartitionTarget *t, uint64_t size) {
                 r = loop_device_refresh_size(t->loop, UINT64_MAX, size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to refresh loopback device size: %m");
+        } else if (t->blkpg_partition) {
+                r = block_device_resize_partition(t->blkpg_partition->whole_fd, t->blkpg_partition->nr, t->blkpg_partition->offset, size);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to resize partition %"PRIu64": %m", t->blkpg_partition->nr);
+                t->blkpg_partition->size = size;
         } else if (t->fd >= 0) {
                 if (ftruncate(t->fd, size) < 0)
                         return log_error_errno(errno, "Failed to grow '%s' to %s by truncation: %m",
@@ -5048,6 +5118,9 @@ static int partition_target_sync(Context *context, Partition *p, PartitionTarget
                 r = loop_device_sync(t->loop);
                 if (r < 0)
                         return log_error_errno(r, "Failed to sync loopback device: %m");
+        } else if (t->blkpg_partition) {
+                if (fsync(t->blkpg_partition->fd) < 0)
+                        return log_error_errno(errno, "Failed to sync blkpg partition: %m");
         } else if (t->fd >= 0) {
                 struct stat st;
 
@@ -5953,7 +6026,7 @@ static int context_copy_blocks(Context *context) {
                 if (r < 0)
                         return r;
 
-                if (p->encrypt != ENCRYPT_OFF && t->loop) {
+                if (p->encrypt != ENCRYPT_OFF && (t->loop || t->blkpg_partition)) {
                         r = partition_encrypt(context, p, t, /* offline= */ false);
                         if (r < 0)
                                 return r;
@@ -5977,7 +6050,7 @@ static int context_copy_blocks(Context *context) {
 
                 log_info("Copying in of '%s' on block level completed.", p->copy_blocks_path);
 
-                if (p->encrypt != ENCRYPT_OFF && !t->loop) {
+                if (p->encrypt != ENCRYPT_OFF && !t->loop && !t->blkpg_partition) {
                         r = partition_encrypt(context, p, t, /* offline= */ true);
                         if (r < 0)
                                 return r;
@@ -6956,7 +7029,7 @@ static int context_mkfs(Context *context) {
                 if (r < 0)
                         return r;
 
-                if (p->encrypt != ENCRYPT_OFF && t->loop) {
+                if (p->encrypt != ENCRYPT_OFF && (t->loop || t->blkpg_partition)) {
                         r = partition_target_grow(t, p->new_size);
                         if (r < 0)
                                 return r;
@@ -6973,7 +7046,7 @@ static int context_mkfs(Context *context) {
                  * we need to set up the final directory tree beforehand. */
 
                 if (partition_needs_populate(p) &&
-                    (!t->loop || fstype_is_ro(p->format) || (streq_ptr(p->format, "btrfs") && p->compression))) {
+                    ((!t->loop && !t->blkpg_partition) || fstype_is_ro(p->format) || (streq_ptr(p->format, "btrfs") && p->compression))) {
                         if (!mkfs_supports_root_option(p->format))
                                 return log_error_errno(SYNTHETIC_ERRNO(ENODEV),
                                                         "Loop device access is required to populate %s filesystems.",
@@ -7006,7 +7079,7 @@ static int context_mkfs(Context *context) {
                  * on a loop device, so open the file again to make sure our file descriptor points to actual
                  * new file. */
 
-                if (t->fd >= 0 && t->path && !t->loop) {
+                if (t->fd >= 0 && t->path && !t->loop && !t->blkpg_partition) {
                         safe_close(t->fd);
                         t->fd = open(t->path, O_RDWR|O_CLOEXEC);
                         if (t->fd < 0)
@@ -7017,14 +7090,14 @@ static int context_mkfs(Context *context) {
 
                 /* If we're writing to a loop device, we can now mount the empty filesystem and populate it. */
                 if (partition_needs_populate(p) && !root) {
-                        assert(t->loop);
+                        assert(t->loop || t->blkpg_partition);
 
                         r = partition_populate_filesystem(context, p, partition_target_path(t));
                         if (r < 0)
                                 return r;
                 }
 
-                if (p->encrypt != ENCRYPT_OFF && !t->loop) {
+                if (p->encrypt != ENCRYPT_OFF && !t->loop && !t->blkpg_partition) {
                         r = partition_target_grow(t, p->new_size);
                         if (r < 0)
                                 return r;
