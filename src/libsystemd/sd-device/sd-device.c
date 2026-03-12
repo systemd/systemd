@@ -2640,6 +2640,19 @@ _public_ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr,
         return sd_device_get_sysattr_value_with_size(device, sysattr, ret, NULL);
 }
 
+int device_get_sysattr_streq(sd_device *device, const char *sysattr, const char *expected) {
+        const char *value;
+        int r;
+
+        assert(expected);
+
+        r = sd_device_get_sysattr_value(device, sysattr, &value);
+        if (r < 0)
+                return r;
+
+        return streq(value, expected);
+}
+
 int device_get_sysattr_safe_string_full(sd_device *device, const char *ok, const char *sysattr, const char **ret) {
         const char *value;
         int r;

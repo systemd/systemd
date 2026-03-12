@@ -349,6 +349,11 @@ static void test_sd_device_one(sd_device *d) {
                         ASSERT_OK_POSITIVE(device_get_sysattr_u8(d, "ifindex", &u8));
                         ASSERT_EQ(u8, (uint8_t) ifindex);
                 }
+
+                const char *s;
+                ASSERT_OK(sd_device_get_sysattr_value(d, "ifindex", &s));
+                ASSERT_OK_POSITIVE(device_get_sysattr_streq(d, "ifindex", s));
+                ASSERT_OK_ZERO(device_get_sysattr_streq(d, "ifindex", "hoge"));
         }
 }
 
