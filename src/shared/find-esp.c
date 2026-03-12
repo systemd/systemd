@@ -309,7 +309,7 @@ static int verify_fsroot_dir(
                 return 0;
 
         if (sx.stx_dev_major == 0) /* Hmm, maybe a btrfs device, and the caller asked for the backing device? Then let's try to get it. */
-                return btrfs_get_block_device_at(dir_fd, strempty(f), ret_dev);
+                return btrfs_get_block_device_at(dir_fd, strempty(f), /* ret_devid= */ NULL, /* ret_path= */ NULL, ret_dev);
 
         *ret_dev = makedev(sx.stx_dev_major, sx.stx_dev_minor);
         return 0;
