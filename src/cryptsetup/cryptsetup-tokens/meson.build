@@ -58,7 +58,7 @@ modules += [
                 'sources' : cryptsetup_token_systemd_fido2_sources,
                 'dependencies' : [
                         libcryptsetup,
-                        libfido2,
+                        libfido2_cflags,
                 ],
         },
         template + {
