@@ -1,12 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <dirent.h>
+
 #include "sd-json.h"
 #include "sd-varlink.h"
 
+#include "alloc-util.h"
+#include "dirent-util.h"
+#include "fd-util.h"
+#include "fileio.h"
 #include "hashmap.h"
 #include "manager.h"
 #include "metrics.h"
+#include "parse-util.h"
 #include "service.h"
+#include "time-util.h"
 #include "unit-def.h"
 #include "unit.h"
 #include "varlink-metrics.h"
@@ -143,13 +151,272 @@ static int units_by_state_total_build_json(MetricFamilyContext *context, void *u
         return 0;
 }
 
+static int jobs_queued_build_json(MetricFamilyContext *context, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+
+        assert(context);
+
+        return metric_build_send_unsigned(
+                        context,
+                        /* object= */ NULL,
+                        hashmap_size(manager->jobs),
+                        /* fields= */ NULL);
+}
+
+static int proc_self_stat_read_cpu_times(usec_t *ret_utime, usec_t *ret_stime) {
+        _cleanup_free_ char *line = NULL;
+        const char *p;
+        unsigned long utime, stime;
+        int r;
+
+        r = read_one_line_file("/proc/self/stat", &line);
+        if (r < 0)
+                return r;
+
+        /* Skip past the comm field (which may contain spaces/parens) by finding the last ')' */
+        p = strrchr(line, ')');
+        if (!p)
+                return -EINVAL;
+        p++;
+
+        /* Fields after ')': state ppid pgrp session tty_nr tpgid flags minflt cminflt majflt cmajflt utime stime
+         * Skip 11 fields (state through cmajflt) to reach utime, then read utime and stime */
+        for (int i = 0; i < 11; i++) {
+                p += strspn(p, " ");
+                p += strcspn(p, " ");
+        }
+        p += strspn(p, " ");
+
+        if (sscanf(p, "%lu %lu", &utime, &stime) != 2)
+                return -EINVAL;
+
+        if (ret_utime)
+                *ret_utime = jiffies_to_usec(utime);
+        if (ret_stime)
+                *ret_stime = jiffies_to_usec(stime);
+
+        return 0;
+}
+
+static int pid1_cpu_time_kernel_build_json(MetricFamilyContext *context, void *userdata) {
+        usec_t stime;
+        int r;
+
+        assert(context);
+
+        r = proc_self_stat_read_cpu_times(/* ret_utime= */ NULL, &stime);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to read PID1 CPU times, skipping metric: %m"), 0;
+
+        return metric_build_send_unsigned(
+                        context,
+                        /* object= */ NULL,
+                        stime,
+                        /* fields= */ NULL);
+}
+
+static int pid1_cpu_time_user_build_json(MetricFamilyContext *context, void *userdata) {
+        usec_t utime;
+        int r;
+
+        assert(context);
+
+        r = proc_self_stat_read_cpu_times(&utime, /* ret_stime= */ NULL);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to read PID1 CPU times, skipping metric: %m"), 0;
+
+        return metric_build_send_unsigned(
+                        context,
+                        /* object= */ NULL,
+                        utime,
+                        /* fields= */ NULL);
+}
+
+static int pid1_fd_count_build_json(MetricFamilyContext *context, void *userdata) {
+        _cleanup_closedir_ DIR *d = NULL;
+        uint64_t count = 0;
+
+        assert(context);
+
+        d = opendir("/proc/self/fd");
+        if (!d)
+                return log_debug_errno(errno, "Failed to open /proc/self/fd, skipping metric: %m"), 0;
+
+        FOREACH_DIRENT_ALL(de, d, break)
+                if (!dot_or_dot_dot(de->d_name))
+                        count++;
+
+        return metric_build_send_unsigned(
+                        context,
+                        /* object= */ NULL,
+                        count,
+                        /* fields= */ NULL);
+}
+
+static int pid1_memory_usage_build_json(MetricFamilyContext *context, void *userdata) {
+        _cleanup_free_ char *value = NULL;
+        uint64_t kb;
+        int r;
+
+        assert(context);
+
+        r = get_proc_field("/proc/self/status", "VmRSS", &value);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to read VmRSS, skipping metric: %m"), 0;
+
+        r = safe_atou64(value, &kb);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse VmRSS value '%s', skipping metric: %m", value), 0;
+
+        return metric_build_send_unsigned(
+                        context,
+                        /* object= */ NULL,
+                        kb * 1024,
+                        /* fields= */ NULL);
+}
+
+static int pid1_tasks_build_json(MetricFamilyContext *context, void *userdata) {
+        _cleanup_free_ char *value = NULL;
+        uint64_t threads;
+        int r;
+
+        assert(context);
+
+        r = get_proc_field("/proc/self/status", "Threads", &value);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to read Threads, skipping metric: %m"), 0;
+
+        r = safe_atou64(value, &threads);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse Threads value '%s', skipping metric: %m", value), 0;
+
+        return metric_build_send_unsigned(
+                        context,
+                        /* object= */ NULL,
+                        threads,
+                        /* fields= */ NULL);
+}
+
+static int system_state_build_json(MetricFamilyContext *context, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+
+        assert(context);
+
+        return metric_build_send_string(
+                        context,
+                        /* object= */ NULL,
+                        manager_state_to_string(manager_state(manager)),
+                        /* fields= */ NULL);
+}
+
+static int units_by_load_state_total_build_json(MetricFamilyContext *context, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+        uint64_t counters[_UNIT_LOAD_STATE_MAX] = {};
+        Unit *unit;
+        char *key;
+        int r;
+
+        assert(context);
+
+        HASHMAP_FOREACH_KEY(unit, key, manager->units) {
+                /* ignore aliases */
+                if (key != unit->id)
+                        continue;
+
+                counters[unit->load_state]++;
+        }
+
+        for (UnitLoadState state = 0; state < _UNIT_LOAD_STATE_MAX; state++) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *fields = NULL;
+
+                r = sd_json_buildo(&fields, SD_JSON_BUILD_PAIR_STRING("load_state", unit_load_state_to_string(state)));
+                if (r < 0)
+                        return r;
+
+                r = metric_build_send_unsigned(
+                                context,
+                                /* object= */ NULL,
+                                counters[state],
+                                fields);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int units_total_build_json(MetricFamilyContext *context, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+        Unit *unit;
+        char *key;
+        uint64_t count = 0;
+
+        assert(context);
+
+        HASHMAP_FOREACH_KEY(unit, key, manager->units) {
+                /* ignore aliases */
+                if (key != unit->id)
+                        continue;
+
+                count++;
+        }
+
+        return metric_build_send_unsigned(
+                        context,
+                        /* object= */ NULL,
+                        count,
+                        /* fields= */ NULL);
+}
+
 static const MetricFamily metric_family_table[] = {
         /* Keep metrics ordered alphabetically */
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "JobsQueued",
+                .description = "Number of jobs currently queued",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = jobs_queued_build_json,
+        },
         {
                 .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "NRestarts",
                 .description = "Per unit metric: number of restarts",
                 .type = METRIC_FAMILY_TYPE_COUNTER,
                 .generate = nrestarts_build_json,
+        },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "Pid1CpuTimeKernelUSec",
+                .description = "PID1 kernel CPU time in microseconds",
+                .type = METRIC_FAMILY_TYPE_COUNTER,
+                .generate = pid1_cpu_time_kernel_build_json,
+        },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "Pid1CpuTimeUserUSec",
+                .description = "PID1 user CPU time in microseconds",
+                .type = METRIC_FAMILY_TYPE_COUNTER,
+                .generate = pid1_cpu_time_user_build_json,
+        },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "Pid1FdCount",
+                .description = "Number of open file descriptors of PID1",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = pid1_fd_count_build_json,
+        },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "Pid1MemoryUsageBytes",
+                .description = "PID1 resident memory usage in bytes",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = pid1_memory_usage_build_json,
+        },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "Pid1Tasks",
+                .description = "Number of threads of PID1",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = pid1_tasks_build_json,
+        },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "SystemState",
+                .description = "Overall system state",
+                .type = METRIC_FAMILY_TYPE_STRING,
+                .generate = system_state_build_json,
         },
         {
                 .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "UnitActiveState",
@@ -164,6 +431,12 @@ static const MetricFamily metric_family_table[] = {
                 .generate = unit_load_state_build_json,
         },
         {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "UnitsByLoadStateTotal",
+                .description = "Total number of units by load state",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = units_by_load_state_total_build_json,
+        },
+        {
                 .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "UnitsByStateTotal",
                 .description = "Total number of units of different state",
                 .type = METRIC_FAMILY_TYPE_GAUGE,
@@ -174,6 +447,12 @@ static const MetricFamily metric_family_table[] = {
                 .description = "Total number of units of different types",
                 .type = METRIC_FAMILY_TYPE_GAUGE,
                 .generate = units_by_type_total_build_json,
+        },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "UnitsTotal",
+                .description = "Total number of units",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = units_total_build_json,
         },
         {}
 };
