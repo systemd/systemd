@@ -26,7 +26,7 @@
 #include "varlink-idl-util.h"
 #include "verbs.h"
 
-#define METRICS_MAX 1024U
+#define METRICS_MAX 8192U
 #define METRICS_LINKS_MAX 128U
 #define TIMEOUT_USEC (30 * USEC_PER_SEC) /* 30 seconds */
 
