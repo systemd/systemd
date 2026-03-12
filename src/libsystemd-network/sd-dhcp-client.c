@@ -1386,8 +1386,9 @@ error:
            the client reverts to INIT state and restarts the initialization process */
         if (client->request_attempt >= client->max_request_attempts) {
                 log_dhcp_client(client, "Max REQUEST attempts reached. Restarting...");
-                client_restart(client);
-                return 0;
+                r = client_restart(client);
+                if (r >= 0)
+                        return 0;
         }
         client_stop(client, r);
 
@@ -1499,6 +1500,7 @@ static int client_start(sd_dhcp_client *client) {
 static int client_timeout_expire(sd_event_source *s, uint64_t usec, void *userdata) {
         sd_dhcp_client *client = userdata;
         DHCP_CLIENT_DONT_DESTROY(client);
+        int r;
 
         log_dhcp_client(client, "EXPIRED");
 
@@ -1507,7 +1509,12 @@ static int client_timeout_expire(sd_event_source *s, uint64_t usec, void *userda
         /* lease was lost, start over if not freed or stopped in callback */
         if (client->state != DHCP_STATE_STOPPED) {
                 client_initialize(client);
-                client_start(client);
+
+                r = client_start(client);
+                if (r < 0) {
+                        client_stop(client, r);
+                        return 0;
+                }
         }
 
         return 0;
