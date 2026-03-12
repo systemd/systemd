@@ -2059,6 +2059,76 @@ EOF
     losetup -d "$loop"
 }
 
+testcase_btrfs_replace() {
+    if [[ "$OFFLINE" == "yes" ]]; then
+        return 0
+    fi
+
+    local defs imgs btfrs_mntpoint_plain btfrs_mntpoint_encrypted
+    local loop loop_btrfs_plain loop_btrfs_encrypted
+
+    btfrs_mntpoint_plain="$(mktemp --directory "/tmp/test-repart.btfrs-mntpoint-plain.XXXXXXXXXX")"
+    btfrs_mntpoint_encrypted="$(mktemp --directory "/tmp/test-repart.btfrs-mntpoint-encrytped.XXXXXXXXXX")"
+    defs="$(mktemp --directory "/tmp/test-repart.defs.XXXXXXXXXX")"
+    imgs="$(mktemp --directory "/var/tmp/test-repart.imgs.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '$defs' '$imgs'" RETURN
+    chmod 0755 "$defs"
+
+    truncate --size 500M "${imgs}/btrfs-plain"
+    mkfs.btrfs "${imgs}/btrfs-plain"
+    loop_btrfs_plain="$(losetup --show --find "$imgs/btrfs-plain")"
+    mount "${loop_btrfs_plain}" "${btfrs_mntpoint_plain}"
+
+    truncate --size 500M "${imgs}/btrfs-encrypted"
+    mkfs.btrfs "${imgs}/btrfs-encrypted"
+    loop_btrfs_encrypted="$(losetup --show --find "$imgs/btrfs-encrypted")"
+    mount "${loop_btrfs_encrypted}" "${btfrs_mntpoint_encrypted}"
+
+    truncate --size 2G "${imgs}/img"
+
+    tee "$defs/01-plain.conf" <<EOF
+[Partition]
+Type=linux-generic
+Label=plain
+BtrfsReplace=${btfrs_mntpoint_plain}
+EOF
+
+    tee "$defs/02-encrypted.conf" <<EOF
+[Partition]
+Type=linux-generic
+Label=encrypted
+Encrypt=key-file
+BtrfsReplace=${btfrs_mntpoint_encrypted}
+VolumeName=btrfs-replace-encrypted
+EOF
+
+    loop="$(losetup -P --show --find "${imgs}/img")"
+
+    touch "${imgs}/empty-password"
+
+    systemd-repart --offline="$OFFLINE" \
+                   --definitions="$defs" \
+                   --empty=require \
+                   --key-file="${imgs}/empty-password" \
+                   --seed="$seed" \
+                   --dry-run=no \
+                   "${loop}"
+
+    assert_eq "$(findmnt "${btfrs_mntpoint_plain}" -o SOURCE -n)" "${loop}p1"
+    assert_eq "$(findmnt "${btfrs_mntpoint_encrypted}" -o SOURCE -n)" "/dev/mapper/btrfs-replace-encrypted"
+    assert_eq "$(udevadm info --query=property --property=DEVNAME --value "/sys/dev/block/$(dmsetup table /dev/mapper/btrfs-replace-encrypted | cut -d" " -f7)")" "${loop}p2"
+    umount "${btfrs_mntpoint_plain}"
+
+    losetup -d "${loop_btrfs_plain}"
+    losetup -d "${loop_btrfs_encrypted}"
+
+    umount "${btfrs_mntpoint_encrypted}"
+    cryptsetup close btrfs-replace-encrypted
+
+    losetup -d "${loop}"
+}
+
 OFFLINE="yes"
 run_testcases
 
