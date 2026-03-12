@@ -4823,6 +4823,7 @@ typedef struct DecryptedPartitionTarget {
         int fd;
         char *dm_name;
         char *volume;
+        bool keep;
         struct crypt_device *device;
 } DecryptedPartitionTarget;
 
@@ -4835,11 +4836,13 @@ static DecryptedPartitionTarget* decrypted_partition_target_free(DecryptedPartit
 
         safe_close(t->fd);
 
-        /* udev or so might access out block device in the background while we are done. Let's hence
-         * force detach the volume. We sync'ed before, hence this should be safe. */
-        r = sym_crypt_deactivate_by_name(t->device, t->dm_name, CRYPT_DEACTIVATE_FORCE);
-        if (r < 0)
-                log_warning_errno(r, "Failed to deactivate LUKS device, ignoring: %m");
+        if (!t->keep) {
+                /* udev or so might access out block device in the background while we are done. Let's hence
+                 * force detach the volume. We sync'ed before, hence this should be safe. */
+                r = sym_crypt_deactivate_by_name(t->device, t->dm_name, CRYPT_DEACTIVATE_FORCE);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to deactivate LUKS device, ignoring: %m");
+        }
 
         sym_crypt_free(t->device);
         free(t->dm_name);
@@ -5181,7 +5184,7 @@ static size_t dmcrypt_proper_key_size(Partition *p) {
         }
 }
 
-static int partition_encrypt(Context *context, Partition *p, PartitionTarget *target, bool offline) {
+static int partition_encrypt(Context *context, Partition *p, PartitionTarget *target, bool offline, bool keep) {
 #if HAVE_LIBCRYPTSETUP
 #if HAVE_TPM2
         _cleanup_(erase_and_freep) char *base64_encoded = NULL;
@@ -5644,6 +5647,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                         .dm_name = TAKE_PTR(dm_name),
                         .volume = TAKE_PTR(vol),
                         .device = TAKE_PTR(cd),
+                        .keep = keep,
                 };
 
                 target->decrypted = TAKE_PTR(t);
@@ -6026,7 +6030,7 @@ static int context_copy_blocks(Context *context) {
                         return r;
 
                 if (p->encrypt != ENCRYPT_OFF && (t->loop || t->blkpg_partition)) {
-                        r = partition_encrypt(context, p, t, /* offline= */ false);
+                        r = partition_encrypt(context, p, t, /* offline= */ false, /* keep= */ false);
                         if (r < 0)
                                 return r;
                 }
@@ -6050,7 +6054,7 @@ static int context_copy_blocks(Context *context) {
                 log_info("Copying in of '%s' on block level completed.", p->copy_blocks_path);
 
                 if (p->encrypt != ENCRYPT_OFF && !t->loop && !t->blkpg_partition) {
-                        r = partition_encrypt(context, p, t, /* offline= */ true);
+                        r = partition_encrypt(context, p, t, /* offline= */ true, /* keep= */ false);
                         if (r < 0)
                                 return r;
                 }
@@ -7033,7 +7037,7 @@ static int context_mkfs(Context *context) {
                         if (r < 0)
                                 return r;
 
-                        r = partition_encrypt(context, p, t, /* offline= */ false);
+                        r = partition_encrypt(context, p, t, /* offline= */ false, /* keep= */ false);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to encrypt device: %m");
                 }
@@ -7101,7 +7105,7 @@ static int context_mkfs(Context *context) {
                         if (r < 0)
                                 return r;
 
-                        r = partition_encrypt(context, p, t, /* offline= */ true);
+                        r = partition_encrypt(context, p, t, /* offline= */ true, /* keep= */ false);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to encrypt device: %m");
                 }
