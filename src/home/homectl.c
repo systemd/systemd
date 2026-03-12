@@ -18,6 +18,7 @@
 #include "cgroup-util.h"
 #include "chase.h"
 #include "creds-util.h"
+#include "defer-util.h"
 #include "dirent-util.h"
 #include "dns-domain.h"
 #include "env-util.h"
