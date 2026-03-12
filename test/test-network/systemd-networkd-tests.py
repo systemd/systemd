@@ -987,7 +987,7 @@ def networkd_invocation_id():
     return check_output('systemctl show --value -p InvocationID systemd-networkd.service')
 
 def networkd_pid():
-    return check_output('systemctl show --value -p MainPID systemd-networkd.service')
+    return int(check_output('systemctl show --value -p MainPID systemd-networkd.service'))
 
 def read_networkd_log(invocation_id=None, since=None):
     if not invocation_id:
@@ -1050,9 +1050,6 @@ def restart_networkd(show_logs=True):
     invocation_id = networkd_invocation_id()
     pid = networkd_pid()
     print(f'Restarted systemd-networkd.service: PID={pid}, Invocation ID={invocation_id}')
-
-def networkd_pid():
-    return int(check_output('systemctl show --value -p MainPID systemd-networkd.service'))
 
 def networkctl(*args):
     # Do not call networkctl if networkd is in failed state.
