@@ -1501,6 +1501,9 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
         <varname>DynamicUser=</varname> is set. This setting cannot ensure protection in all cases. In
         general it has the same limitations as <varname>ReadOnlyPaths=</varname>, see below.</para>
 
+        <para>Note that this setting provides no protection if home directories are placed at a non-standard
+        location, i.e. outside of the hierarchies listed above.</para>
+
         <xi:include href="system-or-user-ns.xml" xpointer="singular"/>
 
         <xi:include href="version-info.xml" xpointer="v214"/></listitem>
