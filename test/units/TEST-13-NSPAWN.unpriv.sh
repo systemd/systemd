@@ -120,6 +120,46 @@ run0 -u testuser  \
         /run/systemd/machine/io.systemd.Machine \
         io.systemd.Machine.Open \
         '{"name":"shouldnotwork3", "mode": "shell", "user":"root","path":"/usr/bin/bash","args":["bash","-c","''touch /shouldnotwork; sleep 20''"]}')
+(! varlinkctl \
+    call \
+    /run/systemd/machine/io.systemd.Machine \
+    io.systemd.Machine.Register \
+    "{\"name\":\"shouldnotwork4\", \"class\":\"host\", \"leader\": $sleep_pid}")
+(! machinectl list | grep shouldnotwork4)
+(! run0 -u testuser  \
+    varlinkctl \
+        call \
+        /run/systemd/machine/io.systemd.Machine \
+        io.systemd.Machine.Register \
+        "{\"name\":\"shouldnotwork5\", \"class\":\"host\", \"leader\": $sleep_pid}")
+(! machinectl list | grep shouldnotwork5)
+(! busctl call \
+    org.freedesktop.machine1 \
+    /org/freedesktop/machine1 \
+    org.freedesktop.machine1.Manager \
+    RegisterMachine \
+    'sayssus' \
+    shouldnotwork6 \
+    0 \
+    "" \
+    host \
+    0 \
+    "")
+(! machinectl list | grep shouldnotwork6)
+(! run0 -u testuser \
+    busctl call \
+        org.freedesktop.machine1 \
+        /org/freedesktop/machine1 \
+        org.freedesktop.machine1.Manager \
+        RegisterMachine \
+        'sayssus' \
+        shouldnotwork7 \
+        0 \
+        "" \
+        host \
+        0 \
+        "")
+(! machinectl list | grep shouldnotwork7)
 systemctl --user --machine testuser@ stop sleep.service
 test ! -f /shouldnotwork
 
