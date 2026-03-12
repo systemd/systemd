@@ -2,6 +2,7 @@
 
 #include <fcntl.h>
 #include <getopt.h>
+#include <linux/magic.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
@@ -260,6 +261,7 @@ typedef enum ProgressPhase {
         PROGRESS_ADJUSTING_PARTITION,
         PROGRESS_WRITING_TABLE,
         PROGRESS_REREADING_TABLE,
+        PROGRESS_REPLACING_DEVICE,
         _PROGRESS_PHASE_MAX,
         _PROGRESS_PHASE_INVALID = -EINVAL,
 } ProgressPhase;
@@ -460,6 +462,7 @@ typedef struct Partition {
         uint64_t copy_blocks_done;
 
         char *format;
+        char *btrfs_replace;
         char **exclude_files_source;
         char **exclude_files_target;
         char **make_directories;
@@ -628,6 +631,7 @@ static const char *progress_phase_table[_PROGRESS_PHASE_MAX] = {
         [PROGRESS_ADJUSTING_PARTITION]        = "adjusting-partition",
         [PROGRESS_WRITING_TABLE]              = "writing-table",
         [PROGRESS_REREADING_TABLE]            = "rereading-table",
+        [PROGRESS_REPLACING_DEVICE]           = "replacing-device",
 };
 
 static uint64_t determine_grain_size(uint64_t sector_size) {
@@ -790,6 +794,7 @@ static Partition* partition_free(Partition *p) {
         safe_close(p->copy_blocks_fd);
 
         free(p->format);
+        free(p->btrfs_replace);
         strv_free(p->exclude_files_source);
         strv_free(p->exclude_files_target);
         strv_free(p->make_directories);
@@ -834,6 +839,7 @@ static void partition_foreignize(Partition *p) {
         p->copy_blocks_root = NULL;
 
         p->format = mfree(p->format);
+        p->btrfs_replace = mfree(p->btrfs_replace);
         p->exclude_files_source = strv_free(p->exclude_files_source);
         p->exclude_files_target = strv_free(p->exclude_files_target);
         p->make_directories = strv_free(p->make_directories);
@@ -2899,6 +2905,7 @@ static int partition_read_definition(
                 { "Partition", "AddValidateFS",            config_parse_tristate,          0,                                  &p->add_validatefs          },
                 { "Partition", "FileSystemSectorSize",     config_parse_fs_sector_size,    0,                                  &p->fs_sector_size          },
                 { "Partition", "Discard",                  config_parse_tristate,          0,                                  &p->discard                 },
+                { "Partition", "BtrfsReplace",             config_parse_path,              0,                                  &p->btrfs_replace           },
                 {}
         };
         _cleanup_free_ char *filename = NULL;
@@ -2949,6 +2956,28 @@ static int partition_read_definition(
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "Format=/CopyFiles=/MakeDirectories=/MakeSymlinks= and CopyBlocks= cannot be combined, refusing.");
 
+        if (p->btrfs_replace && (p->format || partition_needs_populate(p)))
+                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                  "Format=/CopyFiles=/MakeDirectories=/MakeSymlinks= and BtrfsReplace= cannot be combined, refusing.");
+
+        if ((p->copy_blocks_path || p->copy_blocks_auto) && p->btrfs_replace)
+                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                  "CopyBlocks= and BtrfsReplace= cannot be combined, refusing.");
+
+        if (p->btrfs_replace && arg_offline == 1)
+                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                  "BtrfsReplace= is incompatible with --offline=yes, refusing.");
+
+        if (p->btrfs_replace) {
+                r = path_is_fs_type(p->btrfs_replace, BTRFS_SUPER_MAGIC);
+                if (r < 0)
+                        return log_syntax(NULL, LOG_ERR, path, 1, r,
+                                          "Failed to determine file system type of %s: %m", p->btrfs_replace);
+                else if (r == 0)
+                        return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                          "BtrfsReplace= does not point to a btrfs mount point, refusing.");
+        }
+
         if (partition_needs_populate(p) && streq_ptr(p->format, "swap"))
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "Format=swap and CopyFiles=/MakeDirectories=/MakeSymlinks= cannot be combined, refusing.");
@@ -2958,7 +2987,7 @@ static int partition_read_definition(
 
                 if (p->type.designator == PARTITION_SWAP)
                         format = "swap";
-                else if (partition_needs_populate(p) || (p->encrypt != ENCRYPT_OFF && !(p->copy_blocks_path || p->copy_blocks_auto)))
+                else if (partition_needs_populate(p) || (p->encrypt != ENCRYPT_OFF && !(p->copy_blocks_path || p->copy_blocks_auto || p->btrfs_replace)))
                         /* Pick "vfat" as file system for esp and xbootldr partitions, otherwise default to "ext4". */
                         format = IN_SET(p->type.designator, PARTITION_ESP, PARTITION_XBOOTLDR) ? "vfat" : "ext4";
 
@@ -7057,6 +7086,127 @@ static int finalize_extra_mkfs_options(const Partition *p, const char *root, cha
         return 0;
 }
 
+static int context_btrfs_replace(Context *context) {
+        int r;
+
+        assert(context);
+
+        LIST_FOREACH(partitions, p, context->partitions) {
+                _cleanup_(partition_target_freep) PartitionTarget *t = NULL;
+                _cleanup_free_ char *btrfs = NULL, *resize_param = NULL;
+                _cleanup_strv_free_ char **argv_replace = NULL, **argv_resize = NULL;
+                uint64_t id;
+                char id_str[DECIMAL_STR_MAX(uint64_t)];
+
+                if (p->dropped)
+                        continue;
+
+                if (PARTITION_EXISTS(p))
+                        continue;
+
+                if (!p->btrfs_replace)
+                        continue;
+
+                if (partition_defer(context, p))
+                        continue;
+
+                (void) context_notify(context, PROGRESS_REPLACING_DEVICE, p->definition_path, UINT_MAX);
+
+                assert(p->offset != UINT64_MAX);
+                assert(p->new_size != UINT64_MAX);
+
+                r = partition_target_prepare(context, p,
+                                             p->new_size,
+                                             /* need_path= */ true,
+                                             &t);
+                if (r < 0)
+                        return r;
+
+                if (p->encrypt != ENCRYPT_OFF) {
+                        r = partition_encrypt(context, p, t, /* offline= */ false);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to encrypt device: %m");
+                }
+
+                log_info("Replacing partition %" PRIu64 ".", p->partno);
+
+                r = find_executable("btrfs", &btrfs);
+                if (r == -ENOENT)
+                        return log_error_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT), "btrfs binary not available.");
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine whether btrfs binary exists: %m");
+
+                r = btrfs_get_block_device(p->btrfs_replace, &id, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to find device id for btrfs filesystem: %m");
+                if (r == 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Btrfs filesystem has multiple devices.");
+
+                xsprintf(id_str, "%" PRIu64, id);
+
+                argv_replace = strv_new(btrfs, "replace", "start", "-B", id_str, partition_target_path(t), p->btrfs_replace);
+                if (!argv_replace)
+                        return log_oom();
+
+                int stdio_fds[3] = { -EBADF, STDERR_FILENO, STDERR_FILENO };
+
+                r = pidref_safe_fork_full(
+                                "(btrfs)",
+                                stdio_fds,
+                                /* except_fds= */ NULL,
+                                /* n_except_fds= */ 0,
+                                FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT|
+                                FORK_CLOSE_ALL_FDS|FORK_REARRANGE_STDIO|FORK_REOPEN_LOG,
+                                /* ret= */ NULL);
+
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        /* Child */
+                        execvp(btrfs, argv_replace);
+
+                        log_error_errno(errno, "Failed to execute %s: %m", btrfs);
+
+                        _exit(EXIT_FAILURE);
+                }
+
+                if (asprintf(&resize_param, "%" PRIu64 ":max", id) < 0)
+                        return log_oom();
+
+                log_info("Resizing filesystem on partition %" PRIu64 ".", p->partno);
+                argv_resize = strv_new(btrfs, "filesystem", "resize", resize_param, p->btrfs_replace);
+                if (!argv_resize)
+                        return log_oom();
+
+                r = pidref_safe_fork_full(
+                                "(btrfs)",
+                                stdio_fds,
+                                /* except_fds= */ NULL,
+                                /* n_except_fds= */ 0,
+                                FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT|
+                                FORK_CLOSE_ALL_FDS|FORK_REARRANGE_STDIO|FORK_REOPEN_LOG,
+                                /* ret= */ NULL);
+
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        /* Child */
+                        execvp(btrfs, argv_resize);
+
+                        log_error_errno(errno, "Failed to execute %s: %m", btrfs);
+
+                        _exit(EXIT_FAILURE);
+                }
+
+                if (t->decrypted)
+                        t->decrypted->keep = true;
+
+                log_info("Successfully replaced partition %" PRIu64 ".", p->partno);
+        }
+
+        return 0;
+}
+
 static int context_mkfs(Context *context) {
         int r;
 
@@ -8157,6 +8307,15 @@ static int context_write_partition_table(Context *context) {
         if (r < 0)
                 goto error;
 
+        /* We are now moving destructively btrfs filesystems into the disk before we have written the
+         * partitions. This is OK because the main use case is that the btrfs filesystems moved are initially
+         * volatile (in ram disk for example) with little data to save. But we do not want to finish the gpt
+         * table in case we lose power and reboot and try to boot that incomplete disk.
+         */
+        r = context_btrfs_replace(context);
+        if (r < 0)
+                goto error;
+
         r = context_mangle_partitions(context);
         if (r < 0)
                 goto error;
@@ -8753,7 +8912,7 @@ static int context_open_copy_block_paths(
                                 devt = st.st_dev;
                         else {
                                 /* Special support for btrfs */
-                                r = btrfs_get_block_device_fd(source_fd, &devt);
+                                r = btrfs_get_block_device_fd(source_fd, NULL, &devt);
                                 if (r == -EUCLEAN)
                                         return btrfs_log_dev_root(LOG_ERR, r, opened);
                                 if (r < 0)
@@ -10526,7 +10685,7 @@ static int acquire_root_devno(
 
                 devno = st.st_dev;
                 if (major(devno) == 0) {
-                        r = btrfs_get_block_device_fd(fd, &devno);
+                        r = btrfs_get_block_device_fd(fd, NULL, &devno);
                         if (r == -ENOTTY) /* not btrfs */
                                 return -ENODEV;
                         if (r < 0)
