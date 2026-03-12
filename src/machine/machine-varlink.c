@@ -155,6 +155,9 @@ int vl_method_register(sd_varlink *link, sd_json_variant *parameters, sd_varlink
         if (r != 0)
                 return r;
 
+        if (!IN_SET(machine->class, MACHINE_CONTAINER, MACHINE_VM))
+                return sd_varlink_error_invalid_parameter_name(link, "class");
+
         if (manager->runtime_scope != RUNTIME_SCOPE_USER) {
                 r = varlink_verify_polkit_async(
                                 link,
