@@ -454,6 +454,7 @@ typedef struct Partition {
 
         char *format;
         char *btrfs_replace;
+        char *volume_name;
         char **exclude_files_source;
         char **exclude_files_target;
         char **make_directories;
@@ -778,6 +779,7 @@ static Partition* partition_free(Partition *p) {
 
         free(p->format);
         free(p->btrfs_replace);
+        free(p->volume_name);
         strv_free(p->exclude_files_source);
         strv_free(p->exclude_files_target);
         strv_free(p->make_directories);
@@ -823,6 +825,7 @@ static void partition_foreignize(Partition *p) {
 
         p->format = mfree(p->format);
         p->btrfs_replace = mfree(p->btrfs_replace);
+        p->volume_name = mfree(p->volume_name);
         p->exclude_files_source = strv_free(p->exclude_files_source);
         p->exclude_files_target = strv_free(p->exclude_files_target);
         p->make_directories = strv_free(p->make_directories);
@@ -2868,6 +2871,7 @@ static int partition_read_definition(
                 { "Partition", "AddValidateFS",            config_parse_tristate,          0,                                  &p->add_validatefs          },
                 { "Partition", "FileSystemSectorSize",     config_parse_fs_sector_size,    0,                                  &p->fs_sector_size          },
                 { "Partition", "BtrfsReplace",             config_parse_path,              0,                                  &p->btrfs_replace           },
+                { "Partition", "VolumeName",               config_parse_string,            0,                                  &p->volume_name             },
                 {}
         };
         _cleanup_free_ char *filename = NULL;
@@ -2933,6 +2937,11 @@ static int partition_read_definition(
         if (p->btrfs_replace && (path_is_fs_type(p->btrfs_replace, BTRFS_SUPER_MAGIC) <= 0))
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "BtrfsReplace= does not point to a btrfs mount point, refusing.");
+
+        if (p->volume_name && !filename_is_valid(p->volume_name)) {
+                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                  "VolumeName= has an invalid filename value, refusing.");
+        }
 
         if (partition_needs_populate(p) && streq_ptr(p->format, "swap"))
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
@@ -5278,8 +5287,18 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                 if (ftruncate(fileno(h), luks_params.sector_size) < 0)
                         return log_error_errno(errno, "Failed to grow temporary LUKS header file: %m");
         } else {
-                if (asprintf(&dm_name, "luks-repart-%08" PRIx64, random_u64()) < 0)
-                        return log_oom();
+                if (keep && p->volume_name) {
+                        dm_name = strdup(p->volume_name);
+                        if (!dm_name)
+                                return log_oom();
+                } else if (keep && filename_is_valid(vl)) {
+                        dm_name = strdup(vl);
+                        if (!dm_name)
+                                return log_oom();
+                } else {
+                        if (asprintf(&dm_name, "luks-repart-%08" PRIx64, random_u64()) < 0)
+                                return log_oom();
+                }
 
                 vol = path_join("/dev/mapper/", dm_name);
                 if (!vol)
