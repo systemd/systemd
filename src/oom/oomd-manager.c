@@ -607,7 +607,7 @@ static int ruleset_execute_action(
                 struct oom_ruleset *ruleset,
                 const char *rule_name) {
 
-        _cleanup_free_ const char *reason = NULL;
+        _cleanup_free_ char *reason = NULL;
         int r;
 
         assert(m);
@@ -626,11 +626,11 @@ static int ruleset_execute_action(
                 return log_oom();
 
         if (ruleset->action == OOMD_ACTION_KILL_ALL) {
-                r = oomd_cgroup_kill(m, ctx, /* recurse= */ true, reason);
+                r = oomd_cgroup_kill_mark(m, ctx, reason);
+                if (r == -ENOMEM)
+                        return log_oom();
                 if (r < 0)
                         log_notice_errno(r, "Failed to kill all processes in %s: %m", ctx->path);
-                else if (r > 0)
-                        log_notice("Killed all processes in %s due to rule '%s'", ctx->path, rule_name);
         } else if (ruleset->action == OOMD_ACTION_KILL_BY_PGSCAN) {
                 _cleanup_hashmap_free_ Hashmap *candidates = NULL;
                 OomdCGroupContext *selected = NULL;
@@ -647,12 +647,11 @@ static int ruleset_execute_action(
                         else if (r == 0)
                                 log_debug("No cgroup candidates found for pgscan-based action for %s", ctx->path);
                         else {
-                                r = oomd_cgroup_kill(m, selected, /* recurse= */ true, reason);
+                                r = oomd_cgroup_kill_mark(m, selected, reason);
+                                if (r == -ENOMEM)
+                                        return log_oom();
                                 if (r < 0)
                                         log_notice_errno(r, "Failed to kill processes in %s: %m", selected->path);
-                                else if (r > 0)
-                                        log_notice("Killed processes in %s (selected from %s by pgscan rate) due to rule '%s'",
-                                                   selected->path, ctx->path, rule_name);
                         }
                 }
         } else if (ruleset->action == OOMD_ACTION_KILL_BY_SWAP) {
@@ -673,12 +672,11 @@ static int ruleset_execute_action(
                         else if (r == 0)
                                 log_debug("No cgroup candidates found for swap-based action for %s", ctx->path);
                         else {
-                                r = oomd_cgroup_kill(m, selected, /* recurse= */ true, reason);
+                                r = oomd_cgroup_kill_mark(m, selected, reason);
+                                if (r == -ENOMEM)
+                                        return log_oom();
                                 if (r < 0)
                                         log_notice_errno(r, "Failed to kill processes in %s: %m", selected->path);
-                                else if (r > 0)
-                                        log_notice("Killed processes in %s (selected from %s by swap usage) due to rule '%s'",
-                                                                   selected->path, ctx->path, rule_name);
                         }
                 }
         }
@@ -730,12 +728,19 @@ static int ruleset_check_conditions(
 
                 *new_start_time = usec_now;
 
-                r = hashmap_ensure_put(&ruleset->start_times, &string_hash_ops_value_free, ctx->path, new_start_time);
+                _cleanup_free_ char *path_copy = strdup(ctx->path);
+                if (!path_copy) {
+                        free(new_start_time);
+                        return log_oom();
+                }
+
+                r = hashmap_ensure_put(&ruleset->start_times, &string_hash_ops_free_free, path_copy, new_start_time);
                 if (r < 0) {
                         free(new_start_time);
                         return log_error_errno(r, "Failed to record start time for rule '%s' on %s: %m",
                                                rule_name, ctx->path);
                 }
+                TAKE_PTR(path_copy);
 
                 /* If lasting_usec is 0, take action immediately */
                 if (ruleset->lasting_usec == 0)

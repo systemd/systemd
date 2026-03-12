@@ -14,7 +14,7 @@
 /* Pressure counters are lagging (~2 seconds) compared to swap so polling too frequently just wastes CPU */
 #define MEM_PRESSURE_INTERVAL_USEC (1 * USEC_PER_SEC)
 
-#define RULESETS_INTERVAL_USEC MAX((unsigned long)SWAP_INTERVAL_USEC, (unsigned long)MEM_PRESSURE_INTERVAL_USEC)
+#define RULESETS_INTERVAL_USEC MAX((usec_t) SWAP_INTERVAL_USEC, (usec_t) MEM_PRESSURE_INTERVAL_USEC)
 
 /* Take action if 10s of memory pressure > 60 for more than 30s. We use the "full" value from PSI so this is the
  * percentage of time all tasks were delayed (i.e. unproductive).
@@ -40,7 +40,7 @@ enum OomdAction {
 };
 
 struct oom_ruleset {
-        const char *name;
+        char *name;
         int memory_pressure_above;
         int swap_above;
         enum OomdAction action;

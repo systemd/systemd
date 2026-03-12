@@ -85,7 +85,7 @@ void oom_ruleset_free(struct oom_ruleset *ruleset) {
         if (!ruleset)
                 return;
         hashmap_free(ruleset->start_times);
-        free((char *) ruleset->name);
+        free(ruleset->name);
         free(ruleset);
 }
 
@@ -177,7 +177,7 @@ void manager_parse_config_file(Manager *m) {
 
         r = conf_files_list_strv(&files, ".oomrule", NULL, 0, RULESET_DIRS);
         if (r < 0) {
-                log_error_errno(r, "failed to enumerate ruleset files: %m");
+                log_error_errno(r, "Failed to enumerate ruleset files: %m");
                 return;
         }
 
