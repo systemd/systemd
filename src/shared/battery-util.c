@@ -43,7 +43,7 @@ static int device_is_power_sink(sd_device *device) {
         FOREACH_DEVICE(e, d) {
                 const char *val;
 
-                r = sd_device_get_sysattr_value(d, "power_role", &val);
+                r = device_get_sysattr_safe_string(d, "power_role", &val);
                 if (r < 0) {
                         if (r != -ENOENT)
                                 log_device_debug_errno(d, r, "Failed to read 'power_role' sysfs attribute, ignoring: %m");
@@ -75,11 +75,10 @@ static bool battery_is_discharging(sd_device *d) {
 
         assert(d);
 
-        r = sd_device_get_sysattr_value(d, "scope", &val);
-        if (r < 0) {
-                if (r != -ENOENT)
-                        log_device_debug_errno(d, r, "Failed to read 'scope' sysfs attribute, ignoring: %m");
-        } else if (streq(val, "Device")) {
+        r = device_get_sysattr_streq(d, "scope", "Device");
+        if (r < 0 && r != -ENOENT)
+                log_device_debug_errno(d, r, "Failed to read 'scope' sysfs attribute, ignoring: %m");
+        if (r > 0) {
                 log_device_debug(d, "The power supply is a device battery, ignoring device.");
                 return false;
         }
@@ -93,7 +92,7 @@ static bool battery_is_discharging(sd_device *d) {
         }
 
         /* Possible values: "Unknown", "Charging", "Discharging", "Not charging", "Full" */
-        r = sd_device_get_sysattr_value(d, "status", &val);
+        r = device_get_sysattr_safe_string(d, "status", &val);
         if (r < 0) {
                 log_device_debug_errno(d, r, "Failed to read 'status' sysfs attribute, assuming the battery is discharging: %m");
                 return true;
@@ -130,7 +129,7 @@ int on_ac_power(void) {
                  * https://docs.kernel.org/admin-guide/abi-testing.html#abi-file-testing-sysfs-class-power */
 
                 const char *val;
-                r = sd_device_get_sysattr_value(d, "type", &val);
+                r = device_get_sysattr_safe_string(d, "type", &val);
                 if (r < 0) {
                         log_device_debug_errno(d, r, "Failed to read 'type' sysfs attribute, ignoring device: %m");
                         continue;

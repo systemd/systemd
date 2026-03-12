@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "device-enumerator-private.h"
+#include "device-private.h"
 #include "device-util.h"
 #include "glyph-util.h"
 #include "path-util.h"
@@ -61,8 +62,8 @@ static int show_sysfs_one(
 
                 is_master = sd_device_has_current_tag(dev_list[*i_dev], "master-of-seat") > 0;
 
-                if (sd_device_get_sysattr_value(dev_list[*i_dev], "name", &name) < 0)
-                        (void) sd_device_get_sysattr_value(dev_list[*i_dev], "id", &name);
+                if (device_get_sysattr_safe_string(dev_list[*i_dev], "name", &name) < 0)
+                        (void) device_get_sysattr_safe_string(dev_list[*i_dev], "id", &name);
 
                 /* Look if there's more coming after this */
                 for (lookahead = *i_dev + 1; lookahead < n_dev; lookahead++) {
