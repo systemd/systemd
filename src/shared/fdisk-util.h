@@ -14,6 +14,7 @@ extern DLSYM_PROTOTYPE(fdisk_apply_table);
 extern DLSYM_PROTOTYPE(fdisk_ask_get_type);
 extern DLSYM_PROTOTYPE(fdisk_ask_string_set_result);
 extern DLSYM_PROTOTYPE(fdisk_assign_device);
+extern DLSYM_PROTOTYPE(fdisk_assign_device_by_fd);
 extern DLSYM_PROTOTYPE(fdisk_create_disklabel);
 extern DLSYM_PROTOTYPE(fdisk_delete_partition);
 extern DLSYM_PROTOTYPE(fdisk_get_devfd);
