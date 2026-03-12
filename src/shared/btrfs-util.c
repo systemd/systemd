@@ -95,7 +95,7 @@ int btrfs_subvol_get_read_only_fd(int fd) {
         return !!(flags & BTRFS_SUBVOL_RDONLY);
 }
 
-int btrfs_get_block_device_at(int dir_fd, const char *path, dev_t *ret) {
+int btrfs_get_block_device_at(int dir_fd, const char *path, uint64_t *found_id, dev_t *ret) {
         struct btrfs_ioctl_fs_info_args fsi = {};
         _cleanup_close_ int fd = -EBADF;
         uint64_t id;
@@ -103,7 +103,6 @@ int btrfs_get_block_device_at(int dir_fd, const char *path, dev_t *ret) {
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
         assert(path);
-        assert(ret);
 
         fd = xopenat(dir_fd, path, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (fd < 0)
@@ -120,7 +119,10 @@ int btrfs_get_block_device_at(int dir_fd, const char *path, dev_t *ret) {
 
         /* We won't do this for btrfs RAID */
         if (fsi.num_devices != 1) {
-                *ret = 0;
+                if (ret)
+                        *ret = 0;
+                if (found_id)
+                        *found_id = 0;
                 return 0;
         }
 
@@ -155,7 +157,10 @@ int btrfs_get_block_device_at(int dir_fd, const char *path, dev_t *ret) {
                 if (major(st.st_rdev) == 0)
                         return -ENODEV;
 
-                *ret = st.st_rdev;
+                if (ret)
+                        *ret = st.st_rdev;
+                if (found_id)
+                        *found_id = id;
                 return 1;
         }
 
