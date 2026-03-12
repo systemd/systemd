@@ -15,6 +15,7 @@
 #include "dirent-util.h"
 #include "env-util.h"
 #include "errno-util.h"
+#include "escape.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -107,8 +108,15 @@ int device_add_property_aux(sd_device *device, const char *key, const char *valu
         assert(device);
         assert(key);
 
-        if (!property_is_valid(key, value))
+        if (!property_is_valid(key, value)) {
+                if (DEBUG_LOGGING) {
+                        _cleanup_free_ char *escaped_key = cescape(key),
+                                *escaped_value = cescape(strempty(value));
+                        log_device_debug(device, "sd-device: Refusing invalid property: %s=%s",
+                                         strnull(escaped_key), strnull(escaped_value));
+                }
                 return -EINVAL;
+        }
 
         if (db)
                 properties = &device->properties_db;
@@ -829,7 +837,7 @@ int device_read_uevent_file(sd_device *device) {
         device->uevent_loaded = true;
 
         const char *uevent;
-        r = sd_device_get_sysattr_value(device, "uevent", &uevent);
+        r = device_get_sysattr_safe_string_full(device, "\n", "uevent", &uevent);
         if (ERRNO_IS_NEG_PRIVILEGE(r) || ERRNO_IS_NEG_DEVICE_ABSENT(r))
                 /* The uevent files may be write-only, the device may be already removed, or the device
                  * may not have the uevent file. */
@@ -1250,7 +1258,7 @@ _public_ int sd_device_get_subsystem(sd_device *device, const char **ret) {
         if (!device->subsystem_set) {
                 const char *subsystem;
 
-                r = sd_device_get_sysattr_value(device, "subsystem", &subsystem);
+                r = device_get_sysattr_safe_string(device, "subsystem", &subsystem);
                 if (r < 0 && r != -ENOENT)
                         return log_device_debug_errno(device, r,
                                                       "sd-device: Failed to read subsystem for %s: %m",
@@ -1390,7 +1398,7 @@ _public_ int sd_device_get_driver(sd_device *device, const char **ret) {
         if (!device->driver_set) {
                 const char *driver = NULL;
 
-                r = sd_device_get_sysattr_value(device, "driver", &driver);
+                r = device_get_sysattr_safe_string(device, "driver", &driver);
                 if (r < 0 && r != -ENOENT)
                         return log_device_debug_errno(device, r,
                                                       "sd-device: Failed to read driver: %m");
@@ -2630,6 +2638,29 @@ cache_result:
 
 _public_ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr, const char **ret_value) {
         return sd_device_get_sysattr_value_with_size(device, sysattr, ret_value, NULL);
+}
+
+int device_get_sysattr_safe_string_full(sd_device *device, const char *ok, const char *sysattr, const char **ret) {
+        const char *value;
+        int r;
+
+        r = sd_device_get_sysattr_value(device, sysattr, &value);
+        if (r < 0)
+                return r;
+
+        if (!utf8_is_valid(value) || string_has_cc(value, ok)) {
+                if (DEBUG_LOGGING) {
+                        _cleanup_free_ char *escaped = cescape(value);
+                        log_device_debug(device, "sd-device: '%s' sysattr contains invalid characters, refusing: %s",
+                                         sysattr, strnull(escaped));
+                }
+                return -EBADMSG;
+        }
+
+        if (ret)
+                *ret = value;
+
+        return 0;
 }
 
 int device_get_sysattr_int(sd_device *device, const char *sysattr, int *ret_value) {
