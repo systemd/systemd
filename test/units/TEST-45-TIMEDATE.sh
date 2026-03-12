@@ -522,7 +522,7 @@ testcase_nts() {
         return 0
     fi
 
-    FAKEROOT_CA=/etc/ssl/certs/CA_dummy_cert.crt
+    local FAKEROOT_CA=/etc/ssl/certs/CA_dummy_cert.crt
 
     save_netif_state
 
@@ -609,7 +609,7 @@ testcase_nts_failure_modes() {
         return 0
     fi
 
-    FAKEROOT_CA=/etc/ssl/certs/CA_dummy_cert.crt
+    local FAKEROOT_CA=/etc/ssl/certs/CA_dummy_cert.crt
 
     save_netif_state
 
@@ -639,7 +639,7 @@ PollIntervalMaxSec=1
 EOF
     systemctl daemon-reload
 
-    # trick timesyncd (or rather, its call to "network_is_online()" into thinking
+    # trick timesyncd (or rather, its call to "network_is_online()") into thinking
     # that there is a network; otherwise timesyncd will never attempt to sync time
     echo "partial" > /run/systemd/netif/state
 
