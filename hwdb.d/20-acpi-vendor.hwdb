@@ -252,6 +252,9 @@ acpi:KIOX*:
 acpi:KOMF*:
  ID_VENDOR_FROM_DATABASE=Kontron France
 
+acpi:LECA*:
+ ID_VENDOR_FROM_DATABASE=Theo End (Shenzhen) Computing Technology Co., Ltd.
+
 acpi:LNRO*:
  ID_VENDOR_FROM_DATABASE=Linaro, Ltd.
 
@@ -416,6 +419,9 @@ acpi:TOSB*:
 
 acpi:TXNW*:
  ID_VENDOR_FROM_DATABASE=Texas Instruments
+
+acpi:TYHX*:
+ ID_VENDOR_FROM_DATABASE=Nanjing Tianyihexin Electronics Ltd
 
 acpi:UBLX*:
  ID_VENDOR_FROM_DATABASE=u-blox AG
