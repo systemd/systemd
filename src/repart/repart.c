@@ -2,6 +2,7 @@
 
 #include <fcntl.h>
 #include <getopt.h>
+#include <linux/dm-ioctl.h>
 #include <linux/magic.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
@@ -486,6 +487,7 @@ typedef struct Partition {
         char *format;
         char *block_device_replace;
         BtrfsReplacement *btrfs_replaced;
+        char *volume_name;
         char **exclude_files_source;
         char **exclude_files_target;
         char **make_directories;
@@ -820,6 +822,7 @@ static Partition* partition_free(Partition *p) {
         free(p->format);
         free(p->block_device_replace);
         btrfs_replacement_free(p->btrfs_replaced);
+        free(p->volume_name);
         strv_free(p->exclude_files_source);
         strv_free(p->exclude_files_target);
         strv_free(p->make_directories);
@@ -866,6 +869,7 @@ static void partition_foreignize(Partition *p) {
         p->format = mfree(p->format);
         p->block_device_replace = mfree(p->block_device_replace);
         p->btrfs_replaced = btrfs_replacement_free(p->btrfs_replaced);
+        p->volume_name = mfree(p->volume_name);
         p->exclude_files_source = strv_free(p->exclude_files_source);
         p->exclude_files_target = strv_free(p->exclude_files_target);
         p->make_directories = strv_free(p->make_directories);
@@ -2936,6 +2940,7 @@ static int partition_read_definition(
                 { "Partition", "FileSystemSectorSize",     config_parse_fs_sector_size,    0,                                  &p->fs_sector_size          },
                 { "Partition", "Discard",                  config_parse_tristate,          0,                                  &p->discard                 },
                 { "Partition", "BlockDeviceReplace",       config_parse_path,              0,                                  &p->block_device_replace    },
+                { "Partition", "VolumeName",               config_parse_string,            CONFIG_PARSE_STRING_SAFE,           &p->volume_name             },
                 {}
         };
         _cleanup_free_ char *filename = NULL;
@@ -3007,6 +3012,22 @@ static int partition_read_definition(
                         return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                           "BlockDeviceReplace= does not point to a btrfs mount point, refusing.");
         }
+
+        if (p->volume_name && !filename_is_valid(p->volume_name))
+                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                  "VolumeName= has an invalid filename value, refusing.");
+
+        if (p->volume_name && strlen(p->volume_name) > (DM_NAME_LEN - 1))
+                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                  "VolumeName= is too long, refusing.");
+
+        if (p->volume_name && p->encrypt == ENCRYPT_OFF)
+                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                  "VolumeName= requires Encrypt= to be enabled, refusing.");
+
+        if (p->volume_name && !p->block_device_replace)
+                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                  "VolumeName= requires BlockDeviceReplace= to be set, refusing.");
 
         if (partition_needs_populate(p) && streq_ptr(p->format, "swap"))
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
@@ -5340,7 +5361,7 @@ static size_t dmcrypt_proper_key_size(Partition *p) {
         }
 }
 
-static int partition_encrypt(Context *context, Partition *p, PartitionTarget *target, bool offline) {
+static int partition_encrypt(Context *context, Partition *p, PartitionTarget *target, bool offline, bool temporary) {
 #if HAVE_LIBCRYPTSETUP
 #if HAVE_TPM2
         _cleanup_(erase_and_freep) char *base64_encoded = NULL;
@@ -5402,7 +5423,13 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                 if (ftruncate(fileno(h), luks_params.sector_size) < 0)
                         return log_error_errno(errno, "Failed to grow temporary LUKS header file: %m");
         } else {
-                if (asprintf(&dm_name, "luks-repart-%08" PRIx64, random_u64()) < 0)
+                if (!temporary && p->volume_name)
+                        dm_name = strdup(p->volume_name);
+                else if (!temporary && filename_is_valid(vl))
+                        dm_name = strdup(vl);
+                else
+                        dm_name = asprintf_safe("luks-repart-%08" PRIx64, random_u64());
+                if (!dm_name)
                         return log_oom();
 
                 vol = path_join("/dev/mapper/", dm_name);
@@ -6233,7 +6260,7 @@ static int context_copy_blocks(Context *context) {
                         return r;
 
                 if (p->encrypt != ENCRYPT_OFF && (t->loop || t->block_partition)) {
-                        r = partition_encrypt(context, p, t, /* offline= */ false);
+                        r = partition_encrypt(context, p, t, /* offline= */ false, /* temporary= */ true);
                         if (r < 0)
                                 return r;
                 }
@@ -6257,7 +6284,7 @@ static int context_copy_blocks(Context *context) {
                 log_info("Copying in of '%s' on block level completed.", p->copy_blocks_path);
 
                 if (p->encrypt != ENCRYPT_OFF && !t->loop && !t->block_partition) {
-                        r = partition_encrypt(context, p, t, /* offline= */ true);
+                        r = partition_encrypt(context, p, t, /* offline= */ true, /* temporary= */ true);
                         if (r < 0)
                                 return r;
                 }
@@ -7226,7 +7253,7 @@ static int context_block_device_replace(Context *context) {
                         return r;
 
                 if (p->encrypt != ENCRYPT_OFF) {
-                        r = partition_encrypt(context, p, t, /* offline= */ false);
+                        r = partition_encrypt(context, p, t, /* offline= */ false, /* temporary= */ false);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to encrypt device: %m");
                 }
@@ -7336,7 +7363,7 @@ static int context_mkfs(Context *context) {
                         if (r < 0)
                                 return r;
 
-                        r = partition_encrypt(context, p, t, /* offline= */ false);
+                        r = partition_encrypt(context, p, t, /* offline= */ false, /* temporary= */ true);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to encrypt device: %m");
                 }
@@ -7404,7 +7431,7 @@ static int context_mkfs(Context *context) {
                         if (r < 0)
                                 return r;
 
-                        r = partition_encrypt(context, p, t, /* offline= */ true);
+                        r = partition_encrypt(context, p, t, /* offline= */ true, /* temporary= */ true);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to encrypt device: %m");
                 }
