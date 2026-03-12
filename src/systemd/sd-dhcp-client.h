@@ -172,7 +172,7 @@ int sd_dhcp_client_attach_event(
                 sd_event *event,
                 int64_t priority);
 int sd_dhcp_client_detach_event(sd_dhcp_client *client);
-sd_event *sd_dhcp_client_get_event(sd_dhcp_client *client);
+sd_event* sd_dhcp_client_get_event(sd_dhcp_client *client);
 int sd_dhcp_client_attach_device(sd_dhcp_client *client, sd_device *dev);
 
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_dhcp_client, sd_dhcp_client_unref);
