@@ -544,6 +544,7 @@ struct Context {
         uint64_t start, end, total;
 
         struct fdisk_context *fdisk_context;
+        int fdisk_context_fd;
         uint64_t sector_size, grain_size, default_fs_sector_size;
 
         sd_id128_t seed;
@@ -948,6 +949,7 @@ static Context* context_new(
                 .empty = empty,
                 .dry_run = dry_run,
                 .backing_fd = -EBADF,
+                .fdisk_context_fd = -EBADF,
         };
 
         return context;
@@ -977,6 +979,7 @@ static Context* context_free(Context *context) {
 
         if (context->fdisk_context)
                 fdisk_unref_context(context->fdisk_context);
+        safe_close(context->fdisk_context_fd);
 
         safe_close(context->backing_fd);
         if (context->node_is_our_file)
@@ -3160,7 +3163,7 @@ static int find_verity_sibling(Context *context, Partition *p, VerityMode mode, 
         return 0;
 }
 
-static int context_open_and_lock_backing_fd(const char *node, int operation, int *backing_fd) {
+static int context_open_and_lock_backing_fd(const char *node, int operation, int mode, int *backing_fd) {
         _cleanup_close_ int fd = -EBADF;
 
         assert(node);
@@ -3169,7 +3172,7 @@ static int context_open_and_lock_backing_fd(const char *node, int operation, int
         if (*backing_fd >= 0)
                 return 0;
 
-        fd = open(node, O_RDONLY|O_CLOEXEC);
+        fd = open(node, mode|O_CLOEXEC);
         if (fd < 0)
                 return log_error_errno(errno, "Failed to open device '%s': %m", node);
 
@@ -3262,7 +3265,7 @@ static int context_copy_from_one(Context *context, const char *src) {
 
         assert(src);
 
-        r = context_open_and_lock_backing_fd(src, LOCK_SH, &fd);
+        r = context_open_and_lock_backing_fd(src, LOCK_SH, O_RDONLY, &fd);
         if (r < 0)
                 return r;
 
@@ -3675,6 +3678,7 @@ static int context_load_fallback_metrics(Context *context) {
 static int context_load_partition_table(Context *context) {
         _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
         _cleanup_(fdisk_unref_tablep) struct fdisk_table *t = NULL;
+        _cleanup_close_ int fd = -EBADF;
         uint64_t left_boundary = UINT64_MAX, first_lba, last_lba, nsectors;
         _cleanup_free_ char *disk_uuid_string = NULL;
         bool from_scratch = false;
@@ -3686,6 +3690,7 @@ static int context_load_partition_table(Context *context) {
         assert(context);
         assert(context->node);
         assert(!context->fdisk_context);
+        assert(context->fdisk_context_fd < 0);
         assert(!context->free_areas);
         assert(context->start == UINT64_MAX);
         assert(context->end == UINT64_MAX);
@@ -3707,6 +3712,7 @@ static int context_load_partition_table(Context *context) {
                 r = context_open_and_lock_backing_fd(
                                 context->node,
                                 context->dry_run ? LOCK_SH : LOCK_EX,
+                                (context->dry_run ? O_RDONLY : O_RDWR),
                                 &context->backing_fd);
                 if (r < 0)
                         return r;
@@ -3737,11 +3743,15 @@ static int context_load_partition_table(Context *context) {
         if (r < 0)
                 return log_error_errno(r, "Failed to set sector size: %m");
 
-        /* libfdisk doesn't have an API to operate on arbitrary fds, hence reopen the fd going via the
-         * /proc/self/fd/ magic path if we have an existing fd. Open the original file otherwise. */
-        r = fdisk_assign_device(
+        if (context->backing_fd < 0) {
+                fd = open(context->node, (context->dry_run ? O_RDONLY : O_RDWR)|O_CLOEXEC);
+                if (fd < 0)
+                        return log_error_errno(errno, "Failed to open backing node '%s': %m", context->node);
+        }
+        r = fdisk_assign_device_by_fd(
                         c,
-                        context->backing_fd >= 0 ? FORMAT_PROC_FD_PATH(context->backing_fd) : context->node,
+                        context->backing_fd >= 0 ? context->backing_fd : fd,
+                        context->node,
                         context->dry_run);
         if (r == -EINVAL && arg_size_auto) {
                 struct stat st;
@@ -3750,7 +3760,7 @@ static int context_load_partition_table(Context *context) {
                  * it if automatic sizing is requested. */
 
                 if (context->backing_fd < 0)
-                        r = stat(context->node, &st);
+                        r = fstat(fd, &st);
                 else
                         r = fstat(context->backing_fd, &st);
                 if (r < 0)
@@ -3773,6 +3783,7 @@ static int context_load_partition_table(Context *context) {
                 /* If we have no fd referencing the device yet, make a copy of the fd now, so that we have one */
                 r = context_open_and_lock_backing_fd(FORMAT_PROC_FD_PATH(fdisk_get_devfd(c)),
                                                      context->dry_run ? LOCK_SH : LOCK_EX,
+                                                     (context->dry_run ? O_RDONLY : O_RDWR),
                                                      &context->backing_fd);
                 if (r < 0)
                         return r;
@@ -4045,6 +4056,7 @@ add_initial_free_area:
         context->default_fs_sector_size = fs_secsz;
         context->grain_size = grainsz;
         context->fdisk_context = TAKE_PTR(c);
+        context->fdisk_context_fd = TAKE_FD(fd);
 
         return from_scratch;
 }
@@ -4101,6 +4113,7 @@ static void context_unload_partition_table(Context *context) {
                 fdisk_unref_context(context->fdisk_context);
                 context->fdisk_context = NULL;
         }
+        context->fdisk_context_fd = safe_close(context->fdisk_context_fd);
 
         context_free_free_areas(context);
 }
@@ -10513,12 +10526,20 @@ static int acquire_root_devno(
         assert(ret);
         assert(ret_fd);
 
-        fd = chase_and_open(p, root, CHASE_PREFIX_ROOT, mode, &found_path);
+        fd = chase_and_open(p, root, CHASE_PREFIX_ROOT, (mode & ~O_ACCMODE) | O_RDONLY, &found_path);
         if (fd < 0)
                 return fd;
 
         if (fstat(fd, &st) < 0)
                 return -errno;
+
+        if ((S_ISREG(st.st_mode) || S_ISBLK(st.st_mode)) && (mode & O_ACCMODE) != O_RDONLY) {
+                _cleanup_close_ int new_fd = fd_reopen(fd, mode);
+                if (new_fd < 0)
+                        return new_fd;
+
+                close_and_replace(fd, new_fd);
+        }
 
         if (S_ISREG(st.st_mode)) {
                 *ret = TAKE_PTR(found_path);
@@ -10579,7 +10600,7 @@ static int acquire_root_devno(
 
 static int find_root(Context *context) {
         _cleanup_free_ char *device = NULL;
-        int r;
+        int r, open_flags = O_CLOEXEC|(context->dry_run ? O_RDONLY : O_RDWR);
 
         assert(context);
 
@@ -10595,7 +10616,7 @@ static int find_root(Context *context) {
                         if (!s)
                                 return log_oom();
 
-                        fd = xopenat_full(AT_FDCWD, arg_node, O_RDONLY|O_CREAT|O_EXCL|O_CLOEXEC|O_NOFOLLOW, XO_NOCOW, 0666);
+                        fd = xopenat_full(AT_FDCWD, arg_node, open_flags|O_CREAT|O_EXCL|O_NOFOLLOW, XO_NOCOW, 0666);
                         if (fd < 0)
                                 return log_error_errno(errno, "Failed to create '%s': %m", arg_node);
 
@@ -10607,7 +10628,7 @@ static int find_root(Context *context) {
 
                 /* Note that we don't specify a root argument here: if the user explicitly configured a node
                  * we'll take it relative to the host, not the image */
-                r = acquire_root_devno(arg_node, NULL, O_RDONLY|O_CLOEXEC, &context->node, &context->backing_fd);
+                r = acquire_root_devno(arg_node, NULL, open_flags, &context->node, &context->backing_fd);
                 if (r == -EUCLEAN)
                         return btrfs_log_dev_root(LOG_ERR, r, arg_node);
                 if (r < 0)
@@ -10629,7 +10650,7 @@ static int find_root(Context *context) {
 
                 FOREACH_STRING(p, "/", "/usr") {
 
-                        r = acquire_root_devno(p, arg_root, O_RDONLY|O_DIRECTORY|O_CLOEXEC, &context->node,
+                        r = acquire_root_devno(p, arg_root, open_flags|O_DIRECTORY, &context->node,
                                                &context->backing_fd);
                         if (r < 0) {
                                 if (r == -EUCLEAN)
@@ -10642,7 +10663,7 @@ static int find_root(Context *context) {
         } else if (r < 0)
                 return log_error_errno(r, "Failed to read symlink /run/systemd/volatile-root: %m");
         else {
-                r = acquire_root_devno(device, NULL, O_RDONLY|O_CLOEXEC, &context->node, &context->backing_fd);
+                r = acquire_root_devno(device, NULL, open_flags, &context->node, &context->backing_fd);
                 if (r == -EUCLEAN)
                         return btrfs_log_dev_root(LOG_ERR, r, device);
                 if (r < 0)
