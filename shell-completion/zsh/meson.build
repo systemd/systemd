@@ -36,6 +36,7 @@ foreach item : [
         ['_systemd',                  ''],
         ['_systemd-analyze',          ''],
         ['_systemd-delta',            ''],
+        ['_systemd-id128',            ''],
         ['_systemd-inhibit',          'ENABLE_LOGIND'],
         ['_systemd-nspawn',           ''],
         ['_systemd-path',             ''],
@@ -43,6 +44,7 @@ foreach item : [
         ['_systemd-tmpfiles',         'ENABLE_TMPFILES'],
         ['_timedatectl',              'ENABLE_TIMEDATED'],
         ['_udevadm',                  ''],
+        ['_userdbctl',                ''],
         ['_varlinkctl',               ''],
 ]
 

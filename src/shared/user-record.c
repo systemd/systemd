@@ -211,12 +211,15 @@ static UserRecord* user_record_free(UserRecord *h) {
 
         for (size_t i = 0; i < h->n_fido2_hmac_credential; i++)
                 fido2_hmac_credential_done(h->fido2_hmac_credential + i);
+        free(h->fido2_hmac_credential);
         for (size_t i = 0; i < h->n_fido2_hmac_salt; i++)
                 fido2_hmac_salt_done(h->fido2_hmac_salt + i);
+        free(h->fido2_hmac_salt);
 
         strv_free(h->recovery_key_type);
         for (size_t i = 0; i < h->n_recovery_key; i++)
                 recovery_key_done(h->recovery_key + i);
+        free(h->recovery_key);
 
         strv_free(h->self_modifiable_fields);
         strv_free(h->self_modifiable_blobs);
@@ -598,11 +601,11 @@ static int json_dispatch_weight(const char *name, sd_json_variant *variant, sd_j
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an integer.", strna(name));
 
         k = sd_json_variant_unsigned(variant);
-        if (k <= CGROUP_WEIGHT_MIN || k >= CGROUP_WEIGHT_MAX)
+        if (k < CGROUP_WEIGHT_MIN || k > CGROUP_WEIGHT_MAX)
                 return json_log(variant, flags, SYNTHETIC_ERRNO(ERANGE),
                                 "JSON field '%s' is not in valid range %" PRIu64 "%s%" PRIu64 ".",
-                                strna(name), (uint64_t) CGROUP_WEIGHT_MIN,
-                                glyph(GLYPH_ELLIPSIS), (uint64_t) CGROUP_WEIGHT_MAX);
+                                strna(name), CGROUP_WEIGHT_MIN,
+                                glyph(GLYPH_ELLIPSIS), CGROUP_WEIGHT_MAX);
 
         *weight = k;
         return 0;
@@ -1205,7 +1208,7 @@ int per_machine_hostname_match(sd_json_variant *hns, sd_json_dispatch_flags_t fl
                                 continue;
                         }
 
-                        if (streq(sd_json_variant_string(hns), hn))
+                        if (streq(sd_json_variant_string(e), hn))
                                 return true;
                 }
 
@@ -1532,10 +1535,17 @@ int user_group_record_mangle(
         if (USER_RECORD_STRIP_MASK(load_flags) == _USER_RECORD_MASK_MAX) /* strip everything? */
                 return json_log(v, json_flags, SYNTHETIC_ERRNO(EINVAL), "Stripping everything from record, refusing.");
 
-        /* Extra safety: mark the "secret" part (that contains literal passwords and such) as sensitive, so
-         * that it is not included in debug output and erased from memory when we are done. We do this for
-         * any record that passes through here. */
-        sd_json_variant_sensitive(sd_json_variant_by_key(v, "secret"));
+        /* Extra safety: mark sensitive parts of the JSON as such, so that they are not included in debug
+         * output and erased from memory when we are done. We do this for any record that passes through here. */
+        FOREACH_STRING(key,
+                       /* This section contains literal passwords and such in plain text */
+                       "secret",
+
+                       /* Personally Identifiable Information (PII) — avoid leaking in logs */
+                       "realName",
+                       "location",
+                       "emailAddress")
+                sd_json_variant_sensitive(sd_json_variant_by_key(v, key));
 
         /* Check if we have the special sections and if they match our flags set */
         FOREACH_ELEMENT(i, mask_field) {
