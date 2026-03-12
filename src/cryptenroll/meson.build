@@ -25,6 +25,7 @@ executables += [
                         libdl,
                         libopenssl,
                         libp11kit_cflags,
+                        libfido2_cflags,
                 ],
         },
 ]

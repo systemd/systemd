@@ -22,6 +22,7 @@ executables += [
                         libmount_cflags,
                         libopenssl,
                         libp11kit_cflags,
+                        libfido2_cflags,
                 ],
         },
         generator_template + {
