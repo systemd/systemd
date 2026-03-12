@@ -2705,6 +2705,8 @@ int device_get_sysattr_safe_string_full(sd_device *device, const char *ok, const
 
 DEFINE_DEVICE_GET_SYSATTR_PARSE(int, int, safe_atoi);
 DEFINE_DEVICE_GET_SYSATTR_PARSE_BASE(unsigned, unsigned, safe_atou_full);
+DEFINE_DEVICE_GET_SYSATTR_PARSE_BASE(u8,  uint8_t,  safe_atou8_full);
+DEFINE_DEVICE_GET_SYSATTR_PARSE_BASE(u16, uint16_t, safe_atou16_full);
 DEFINE_DEVICE_GET_SYSATTR_PARSE_BASE(u32, uint32_t, safe_atou32_full);
 DEFINE_DEVICE_GET_SYSATTR_PARSE(u64, uint64_t, safe_atou64);
 
