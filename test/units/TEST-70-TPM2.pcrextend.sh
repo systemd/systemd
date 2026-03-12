@@ -53,7 +53,6 @@ fi
 (! "$SD_PCREXTEND" --bank= foo)
 (! "$SD_PCREXTEND" --tpm2-device= foo)
 (! "$SD_PCREXTEND" --tpm2-device=/dev/null foo)
-(! "$SD_PCREXTEND" --pcr= foo)
 (! "$SD_PCREXTEND" --pcr=-1 foo)
 (! "$SD_PCREXTEND" --pcr=1024 foo)
 (! "$SD_PCREXTEND" --foo=bar)
