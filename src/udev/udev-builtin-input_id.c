@@ -9,6 +9,7 @@
 #include <fcntl.h>
 #include <linux/input.h>
 
+#include "device-private.h"
 #include "device-util.h"
 #include "fd-util.h"
 #include "parse-util.h"
@@ -85,7 +86,7 @@ static void get_cap_mask(
         unsigned long val;
         int r;
 
-        if (sd_device_get_sysattr_value(pdev, attr, &v) < 0)
+        if (device_get_sysattr_safe_string(pdev, attr, &v) < 0)
                 v = "";
 
         xsprintf(text, "%s", v);
