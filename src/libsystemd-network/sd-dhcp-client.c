@@ -1805,32 +1805,6 @@ static int client_handle_offer_or_rapid_ack(sd_dhcp_client *client, DHCPMessage 
         return 0;
 }
 
-static int client_enter_requesting_now(sd_dhcp_client *client) {
-        assert(client);
-
-        client_set_state(client, DHCP_STATE_REQUESTING);
-        client->discover_attempt = 0;
-        client->request_attempt = 0;
-
-        return event_reset_time(client->event, &client->timeout_resend,
-                                CLOCK_BOOTTIME, 0, 0,
-                                client_timeout_resend, client,
-                                client->event_priority, "dhcp4-resend-timer",
-                                /* force_reset= */ true);
-}
-
-static int client_enter_requesting_delayed(sd_event_source *s, uint64_t usec, void *userdata) {
-        sd_dhcp_client *client = ASSERT_PTR(userdata);
-        DHCP_CLIENT_DONT_DESTROY(client);
-        int r;
-
-        r = client_enter_requesting_now(client);
-        if (r < 0)
-                client_stop(client, r);
-
-        return 0;
-}
-
 static int client_enter_requesting(sd_dhcp_client *client) {
         assert(client);
         assert(client->lease);
@@ -1847,16 +1821,23 @@ static int client_enter_requesting(sd_dhcp_client *client) {
                 log_dhcp_client(client,
                                 "Received an OFFER with IPv6-only preferred option, delaying to send REQUEST with %s.",
                                 FORMAT_TIMESPAN(client->lease->ipv6_only_preferred_usec, USEC_PER_SEC));
-
-                return event_reset_time_relative(client->event, &client->timeout_ipv6_only_mode,
-                                                 CLOCK_BOOTTIME,
-                                                 client->lease->ipv6_only_preferred_usec, 0,
-                                                 client_enter_requesting_delayed, client,
-                                                 client->event_priority, "dhcp4-ipv6-only-mode-timer",
-                                                 /* force_reset= */ true);
         }
 
-        return client_enter_requesting_now(client);
+        client_set_state(client, DHCP_STATE_REQUESTING);
+        client->discover_attempt = 0;
+        client->request_attempt = 0;
+
+        return event_reset_time_relative(
+                        client->event,
+                        &client->timeout_resend,
+                        CLOCK_BOOTTIME,
+                        client->lease->ipv6_only_preferred_usec,
+                        /* accuracy= */ 0,
+                        client_timeout_resend,
+                        client,
+                        client->event_priority,
+                        "dhcp4-resend-timer",
+                        /* force_reset= */ true);
 }
 
 static bool lease_equal(const sd_dhcp_lease *a, const sd_dhcp_lease *b) {
