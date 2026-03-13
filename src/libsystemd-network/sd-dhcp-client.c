@@ -1824,8 +1824,12 @@ static int client_enter_bound(sd_dhcp_client *client, int notify_event) {
          * whichever happens first.
          *
          * In the below, the condition uses REBOOTING, instead of INIT-REBOOT, as the client state has
-         * already transitioned from INIT-REBOOT to REBOOTING after sending a DHCPREQUEST message. */
-        if (client->state == DHCP_STATE_REBOOTING && client->lease->ipv6_only_preferred_usec > 0) {
+         * already transitioned from INIT-REBOOT to REBOOTING after sending a DHCPREQUEST message.
+         *
+         * Also here, we use the timer when we are in the selecting state, that is, when we received ACK with
+         * rapid commit. */
+        if (IN_SET(client->state, DHCP_STATE_REBOOTING, DHCP_STATE_SELECTING) &&
+            client->lease->ipv6_only_preferred_usec > 0) {
                 if (client->ipv6_acquired) {
                         log_dhcp_client(client,
                                         "Received an ACK with IPv6-only preferred option, and the host already acquired IPv6 connectivity, stopping DHCPv4 client.");
