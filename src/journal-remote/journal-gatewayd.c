@@ -104,8 +104,10 @@ static void request_meta_free(
                 struct MHD_Connection *connection,
                 void **connection_cls,
                 enum MHD_RequestTerminationCode toe) {
+        RequestMeta *m;
 
-        RequestMeta *m = *connection_cls;
+        assert(connection_cls);
+        m = *connection_cls;
 
         if (!m)
                 return;

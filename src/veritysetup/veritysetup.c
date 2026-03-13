@@ -116,6 +116,8 @@ static int parse_block_size(const char *t, uint64_t *size) {
         uint64_t u;
         int r;
 
+        assert(size);
+
         r = parse_size(t, 1024, &u);
         if (r < 0)
                 return r;

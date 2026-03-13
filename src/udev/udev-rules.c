@@ -1359,6 +1359,7 @@ static int parse_line(char **line, char **ret_key, char **ret_attr, UdevRuleOper
         assert(line);
         assert(*line);
         assert(ret_key);
+        assert(ret_attr);
         assert(ret_op);
         assert(ret_value);
         assert(ret_is_case_insensitive);

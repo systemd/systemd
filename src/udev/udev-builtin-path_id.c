@@ -398,6 +398,8 @@ static sd_device* handle_scsi_hyperv(sd_device *parent, char **path, size_t guid
 static sd_device* handle_scsi(sd_device *parent, char **path, char **compat_path, bool *supported_parent) {
         const char *id, *name;
 
+        assert(supported_parent);
+
         if (device_is_devtype(parent, "scsi_device") <= 0)
                 return parent;
 
@@ -453,6 +455,8 @@ static sd_device* handle_cciss(sd_device *parent, char **path) {
 
 static void handle_scsi_tape(sd_device *dev, char **path) {
         const char *name;
+
+        assert(path);
 
         /* must be the last device in the syspath */
         if (*path)

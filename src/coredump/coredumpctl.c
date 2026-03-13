@@ -415,6 +415,8 @@ static int retrieve(const void *data,
         size_t ident;
         char *v;
 
+        assert(var);
+
         ident = strlen(name) + 1; /* name + "=" */
 
         if (len < ident)
@@ -528,6 +530,8 @@ error:
 static int resolve_filename(const char *root, char **p) {
         char *resolved = NULL;
         int r;
+
+        assert(p);
 
         if (!*p)
                 return 0;

@@ -1785,6 +1785,9 @@ static int merge_hierarchy(
 }
 
 static int strverscmp_improvedp(char *const* a, char *const* b) {
+        assert(a);
+        assert(b);
+
         /* usable in qsort() for sorting a string array with strverscmp_improved() */
         return strverscmp_improved(*a, *b);
 }

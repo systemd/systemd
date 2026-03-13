@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 check_api_docs_sh              = files('check-api-docs.sh')
+check_coccinelle_sh            = files('check-coccinelle.sh')
 check_efi_alignment_py         = files('check-efi-alignment.py')
 check_help_sh                  = files('check-help.sh')
 check_version_history_py       = files('check-version-history.py')

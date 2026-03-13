@@ -80,6 +80,9 @@ jobs:
       - name: Run clang-tidy
         run: mkosi box -- meson test -C build --suite=clang-tidy --print-errorlogs --no-stdsplit --quiet
 
+      - name: Run coccinelle checks
+        run: mkosi box -- meson test -C build --suite=coccinelle --print-errorlogs --no-stdsplit
+
       - name: Build with musl
         run: |
           mkosi box -- \

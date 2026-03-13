@@ -137,6 +137,9 @@ PortableMetadata *portable_metadata_unref(PortableMetadata *i) {
 }
 
 static int compare_metadata(PortableMetadata *const *x, PortableMetadata *const *y) {
+        assert(x);
+        assert(y);
+
         return strcmp((*x)->name, (*y)->name);
 }
 
@@ -145,6 +148,8 @@ int portable_metadata_hashmap_to_sorted_array(Hashmap *unit_files, PortableMetad
         _cleanup_free_ PortableMetadata **sorted = NULL;
         PortableMetadata *item;
         size_t k = 0;
+
+        assert(ret);
 
         sorted = new(PortableMetadata*, hashmap_size(unit_files));
         if (!sorted)

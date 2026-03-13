@@ -1230,6 +1230,8 @@ static bool same_entry(uint16_t id, sd_id128_t uuid, const char *path) {
 static int find_slot(sd_id128_t uuid, const char *path, uint16_t *id) {
         _cleanup_free_ uint16_t *options = NULL;
 
+        assert(id);
+
         int n = efi_get_boot_options(&options);
         if (n < 0)
                 return n;

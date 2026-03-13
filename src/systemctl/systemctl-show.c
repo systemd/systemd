@@ -320,6 +320,9 @@ static void unit_status_info_done(UnitStatusInfo *info) {
 }
 
 static void format_active_state(const char *active_state, const char **active_on, const char **active_off) {
+        assert(active_on);
+        assert(active_off);
+
         if (streq_ptr(active_state, "failed")) {
                 *active_on = ansi_highlight_red();
                 *active_off = ansi_normal();

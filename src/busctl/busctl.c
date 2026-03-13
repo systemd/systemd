@@ -393,6 +393,8 @@ static int verb_list_bus_names(int argc, char *argv[], uintptr_t _data, void *us
 }
 
 static void print_subtree(const char *prefix, const char *path, char **l) {
+        assert(l);
+
         /* We assume the list is sorted. Let's first skip over the
          * entry we are looking at. */
         for (;;) {

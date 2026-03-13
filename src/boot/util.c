@@ -344,6 +344,7 @@ EFI_STATUS open_directory(
         EFI_STATUS err;
 
         assert(root);
+        assert(ret);
 
         /* Opens a file, and then verifies it is actually a directory */
 

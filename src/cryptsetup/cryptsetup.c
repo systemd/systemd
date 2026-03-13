@@ -2540,6 +2540,8 @@ static uint32_t determine_flags(void) {
 static void remove_and_erasep(const char **p) {
         int r;
 
+        assert(p);
+
         if (!*p)
                 return;
 

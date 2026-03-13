@@ -1308,6 +1308,9 @@ static int parse_machine_uid(const char *spec, const char **machine, char **uid)
         char *_uid = NULL;
         const char *_machine = NULL;
 
+        assert(uid);
+        assert(machine);
+
         if (spec) {
                 const char *at;
 
