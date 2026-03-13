@@ -987,7 +987,7 @@ def networkd_invocation_id():
     return check_output('systemctl show --value -p InvocationID systemd-networkd.service')
 
 def networkd_pid():
-    return check_output('systemctl show --value -p MainPID systemd-networkd.service')
+    return int(check_output('systemctl show --value -p MainPID systemd-networkd.service'))
 
 def read_networkd_log(invocation_id=None, since=None):
     if not invocation_id:
@@ -1050,9 +1050,6 @@ def restart_networkd(show_logs=True):
     invocation_id = networkd_invocation_id()
     pid = networkd_pid()
     print(f'Restarted systemd-networkd.service: PID={pid}, Invocation ID={invocation_id}')
-
-def networkd_pid():
-    return int(check_output('systemctl show --value -p MainPID systemd-networkd.service'))
 
 def networkctl(*args):
     # Do not call networkctl if networkd is in failed state.
@@ -7995,6 +7992,50 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 
         self.teardown_nftset('addr4', 'network4', 'ifindex')
 
+    def _test_dhcp_client_send_release_one(self, stop=True) -> bool:
+        start_dnsmasq(
+            namespace='ns-server',
+            interface='server',
+            ipv4_range='192.0.2.100,192.0.2.109',
+            ipv4_router='192.0.2.1',
+        )
+
+        start_networkd()
+        self.wait_online('client:routable')
+
+        print('## ip -4 address show dev client scope global')
+        output = check_output('ip -4 address show dev client scope global')
+        print(output)
+        self.assertRegex(output, r'192.0.2.10[0-9]/24')
+
+        print('## ip -4 route show dev client')
+        output = check_output('ip -4 route show dev client')
+        print(output)
+        self.assertRegex(output, r'default via 192.0.2.1 proto dhcp src 192.0.2.10[0-9]')
+        self.assertRegex(output, r'192.0.2.0/24 proto kernel scope link src 192.0.2.10[0-9]')
+        self.assertRegex(output, r'192.0.2.1 proto dhcp scope link src 192.0.2.10[0-9]')
+
+        if stop:
+            stop_networkd()
+        else:
+            networkctl('down', 'client')
+
+        success = False
+        for _ in range(20):
+            time.sleep(0.5)
+            try:
+                output = read_dnsmasq_log_file()
+            except FileNotFoundError:
+                output = ""
+            if 'DHCPRELEASE' in output:
+                success = True
+                break
+
+        print('## dnsmasq log')
+        print(output)
+
+        return success
+
     def test_dhcp_client_send_release(self):
         check_output('ip netns add ns-bridge')
         check_output('ip netns exec ns-bridge ip link add bridge99 type bridge')
@@ -8016,41 +8057,39 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         check_output('ip netns exec ns-server ip link set server up')
         check_output('ip netns exec ns-server ip address add 192.0.2.1/24 dev server')
 
-        start_dnsmasq(
-            namespace='ns-server',
-            interface='server',
-            ipv4_range='192.0.2.100,192.0.2.109',
-            ipv4_router='192.0.2.1',
-        )
-
         copy_network_unit('25-dhcp-client-simple.network')
-        start_networkd()
-        self.wait_online('client:routable')
 
-        print('## ip -4 address show dev client scope global')
-        output = check_output('ip -4 address show dev client scope global')
-        print(output)
-        self.assertRegex(output, r'192.0.2.10[0-9]/24')
+        '''
+        Sending DHCPRELEASE is best-effort. Even if send() succeeds, the packet may be dropped later in the
+        networking stack (e.g. due to unresolved neighbor state or interface teardown). Userspace cannot
+        reliably determine whether the packet was eventually transmitted or dropped.
 
-        print('## ip -4 route show dev client')
-        output = check_output('ip -4 route show dev client')
-        print(output)
-        self.assertRegex(output, r'default via 192.0.2.1 proto dhcp src 192.0.2.10[0-9]')
-        self.assertRegex(output, r'192.0.2.0/24 proto kernel scope link src 192.0.2.10[0-9]')
-        self.assertRegex(output, r'192.0.2.1 proto dhcp scope link src 192.0.2.10[0-9]')
+        Hence, the test below may be flaky. In most cases, neighbor resolution completes quickly enough and
+        the packet is transmitted before the interface is brought down. Running the test multiple times
+        should make it sufficiently reliable.
+        '''
 
-        networkctl('down', 'client')
+        first = True
+        for _ in range(5):
+            if not first:
+                stop_dnsmasq()
+                stop_networkd(show_logs=False)
 
-        print('## dnsmasq log')
-        for _ in range(20):
-            time.sleep(0.5)
-            output = read_dnsmasq_log_file()
-            if 'DHCPRELEASE' in output:
-                print(output)
+            first = False
+
+            if self._test_dhcp_client_send_release_one():
                 break
         else:
-            print(output)
-            self.fail('Timed out waiting for DHCPRELEASE in dnsmasq log')
+            self.fail('Timed out waiting for DHCPRELEASE in dnsmasq log (on stopping networkd)')
+
+        for _ in range(5):
+            stop_dnsmasq()
+            stop_networkd(show_logs=False)
+
+            if self._test_dhcp_client_send_release_one(stop=False):
+                break
+        else:
+            self.fail('Timed out waiting for DHCPRELEASE in dnsmasq log (on bringing down interface)')
 
     def test_dhcp_client_ipv4_dbus_status(self):
         copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-ipv4-only.network')
