@@ -1615,8 +1615,6 @@ static int client_timeout_expire(sd_event_source *s, uint64_t usec, void *userda
 
 static int client_timeout_t2(sd_event_source *s, uint64_t usec, void *userdata) {
         sd_dhcp_client *client = ASSERT_PTR(userdata);
-        DHCP_CLIENT_DONT_DESTROY(client);
-        int r;
 
         client->receive_message = sd_event_source_disable_unref(client->receive_message);
 
@@ -1624,30 +1622,17 @@ static int client_timeout_t2(sd_event_source *s, uint64_t usec, void *userdata) 
         client->discover_attempt = 0;
         client->request_attempt = 0;
 
-        r = client_initialize_time_events(client);
-        if (r < 0)
-                client_stop(client, r);
-
-        return 0;
+        return client_timeout_resend(s, usec, userdata);
 }
 
 static int client_timeout_t1(sd_event_source *s, uint64_t usec, void *userdata) {
         sd_dhcp_client *client = userdata;
-        DHCP_CLIENT_DONT_DESTROY(client);
-        int r;
 
-        if (client->lease)
-                client_set_state(client, DHCP_STATE_RENEWING);
-        else if (client->state != DHCP_STATE_INIT)
-                client_set_state(client, DHCP_STATE_INIT_REBOOT);
+        client_set_state(client, DHCP_STATE_RENEWING);
         client->discover_attempt = 0;
         client->request_attempt = 0;
 
-        r = client_initialize_time_events(client);
-        if (r < 0)
-                client_stop(client, r);
-
-        return 0;
+        return client_timeout_resend(s, usec, userdata);
 }
 
 static int dhcp_option_parse_and_verify(
