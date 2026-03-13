@@ -1572,6 +1572,8 @@ static int client_start_delayed(sd_dhcp_client *client) {
 }
 
 static int client_start(sd_dhcp_client *client) {
+        assert(client);
+
         client->start_delay = 0;
         return client_start_delayed(client);
 }
