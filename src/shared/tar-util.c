@@ -1130,6 +1130,32 @@ struct make_archive_data {
         int have_unique_mount_id;
 };
 
+static int filter_item(
+                int inode_fd,
+                const struct statx *sx,
+                const char *path) {
+        mode_t m;
+        int r;
+
+        if (FLAGS_SET(sx->stx_mask, STATX_TYPE))
+                m =  sx->stx_mode;
+        else {
+                struct stat st;
+                r = RET_NERRNO(fstat(inode_fd, &st));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to stat '%s': %m", path);
+                m = st.st_mode;
+        }
+
+        /* Filter out sockets, fifos, and weird misc fds such as eventfds() that have no inode type. */
+        if (IN_SET(m & S_IFMT, S_IFSOCK, S_IFIFO, 0)) {
+                log_debug("Skipping '%s' (%s).", path, inode_type_to_string(m) ?: "unknown");
+                return false;
+        }
+
+        return true;
+}
+
 static int hardlink_lookup(
                 struct make_archive_data *d,
                 int inode_fd,
@@ -1387,7 +1413,13 @@ static int archive_item(
         assert(inode_fd >= 0);
         assert(sx);
 
-        log_debug("Archiving %s\n", path);
+        r = filter_item(inode_fd, sx, path);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return RECURSE_DIR_CONTINUE;
+
+        log_debug("Archiving '%s'...\n", path);
 
         _cleanup_(archive_entry_freep) struct archive_entry *entry = NULL;
         entry = sym_archive_entry_new();
