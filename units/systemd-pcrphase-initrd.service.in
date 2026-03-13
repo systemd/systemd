@@ -15,7 +15,7 @@ Conflicts=shutdown.target initrd-switch-root.target
 After=tpm2.target
 Before=sysinit.target cryptsetup-pre.target cryptsetup.target shutdown.target initrd-switch-root.target systemd-sysext.service
 ConditionPathExists=/etc/initrd-release
-ConditionSecurity=measured-uki
+ConditionSecurity=measured-os
 FailureAction=reboot-force
 
 [Service]

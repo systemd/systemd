@@ -1030,11 +1030,11 @@ static int measure_volume_key(
                 return 0;
         }
 
-        r = efi_measured_uki(LOG_WARNING);
+        r = efi_measured_os(LOG_WARNING);
         if (r < 0)
                 return r;
         if (r == 0) {
-                log_debug("Kernel stub did not measure kernel image into the expected PCR, skipping userspace volume key measurement, too.");
+                log_debug("OS measurements not explicitly requested and kernel stub did not measure kernel image into the expected PCR, skipping userspace volume key measurement, too.");
                 return 0;
         }
 
@@ -1109,11 +1109,11 @@ static int measure_keyslot(
         }
 
 #if HAVE_TPM2
-        r = efi_measured_uki(LOG_WARNING);
+        r = efi_measured_os(LOG_WARNING);
         if (r < 0)
                 return r;
         if (r == 0) {
-                log_debug("Kernel stub did not measure kernel image into the expected PCR, skipping userspace key slot measurement, too.");
+                log_debug("OS measurements not explicitly requested and kernel stub did not measure kernel image into the expected PCR, skipping userspace key slot measurement, too.");
                 return 0;
         }
 
