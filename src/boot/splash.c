@@ -127,7 +127,7 @@ static EFI_STATUS bmp_parse_header(
 }
 
 enum Channels { R, G, B, A, _CHANNELS_MAX };
-static void read_channel_maks(
+static void read_channel_mask(
                 const struct bmp_dib *dib,
                 uint32_t channel_mask[static _CHANNELS_MAX],
                 uint8_t channel_shift[static _CHANNELS_MAX],
@@ -187,7 +187,7 @@ static EFI_STATUS bmp_to_blt(
 
         uint32_t channel_mask[_CHANNELS_MAX];
         uint8_t channel_shift[_CHANNELS_MAX], channel_scale[_CHANNELS_MAX];
-        read_channel_maks(dib, channel_mask, channel_shift, channel_scale);
+        read_channel_mask(dib, channel_mask, channel_shift, channel_scale);
 
         /* transform and copy pixels */
         in = pixmap;
