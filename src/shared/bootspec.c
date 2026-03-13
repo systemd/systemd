@@ -963,7 +963,7 @@ static int trim_cmdline(char **cmdline) {
  * the ones we do care about and we are willing to load into memory have this size limit.) */
 #define PE_SECTION_SIZE_MAX (4U*1024U*1024U)
 
-static int pe_find_uki_sections(
+int pe_find_uki_sections(
                 int fd,
                 const char *path,
                 unsigned profile,
@@ -979,9 +979,6 @@ static int pe_find_uki_sections(
         assert(fd >= 0);
         assert(path);
         assert(profile != UINT_MAX);
-        assert(ret_osrelease);
-        assert(ret_profile);
-        assert(ret_cmdline);
 
         r = pe_load_headers_and_sections(fd, path, &sections, &pe_header);
         if (r < 0)
@@ -1038,13 +1035,22 @@ static int pe_find_uki_sections(
         if (trim_cmdline(&cmdline_text) < 0)
                 return log_oom();
 
-        *ret_osrelease = TAKE_PTR(osrelease_text);
-        *ret_profile = TAKE_PTR(profile_text);
-        *ret_cmdline = TAKE_PTR(cmdline_text);
+        if (ret_osrelease)
+                *ret_osrelease = TAKE_PTR(osrelease_text);
+        if (ret_profile)
+                *ret_profile = TAKE_PTR(profile_text);
+        if (ret_cmdline)
+                *ret_cmdline = TAKE_PTR(cmdline_text);
         return 1;
 
 nothing:
-        *ret_osrelease = *ret_profile = *ret_cmdline = NULL;
+        if (ret_osrelease)
+                *ret_osrelease = NULL;
+        if (ret_profile)
+                *ret_profile = NULL;
+        if (ret_cmdline)
+                *ret_cmdline = NULL;
+
         return 0;
 }
 
