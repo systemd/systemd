@@ -1578,6 +1578,22 @@ static int client_start(sd_dhcp_client *client) {
         return client_start_delayed(client);
 }
 
+static int client_restart(sd_dhcp_client *client) {
+        assert(client);
+
+        /* This is called when we receive a DHCPNAK or could not receive any replies.
+         * In that case, we should restart the client with a short delay. */
+
+        if (client->state == DHCP_STATE_BOUND)
+                client_notify(client, SD_DHCP_CLIENT_EVENT_EXPIRED);
+
+        client->start_delay = CLAMP(client->start_delay * 2,
+                                    RESTART_AFTER_NAK_MIN_USEC, RESTART_AFTER_NAK_MAX_USEC);
+
+        log_dhcp_client(client, "REBOOT in %s", FORMAT_TIMESPAN(client->start_delay, USEC_PER_SEC));
+        return client_start_delayed(client);
+}
+
 static int client_timeout_expire(sd_event_source *s, uint64_t usec, void *userdata) {
         sd_dhcp_client *client = userdata;
         DHCP_CLIENT_DONT_DESTROY(client);
@@ -2066,23 +2082,6 @@ static int client_enter_bound(sd_dhcp_client *client, int notify_event) {
         }
 
         return client_enter_bound_now(client, notify_event);
-}
-
-static int client_restart(sd_dhcp_client *client) {
-        int r;
-        assert(client);
-
-        client_notify(client, SD_DHCP_CLIENT_EVENT_EXPIRED);
-
-        r = client_start_delayed(client);
-        if (r < 0)
-                return r;
-
-        log_dhcp_client(client, "REBOOT in %s", FORMAT_TIMESPAN(client->start_delay, USEC_PER_SEC));
-
-        client->start_delay = CLAMP(client->start_delay * 2,
-                                    RESTART_AFTER_NAK_MIN_USEC, RESTART_AFTER_NAK_MAX_USEC);
-        return 0;
 }
 
 static int client_verify_message_header(sd_dhcp_client *client, DHCPMessage *message, size_t len) {
