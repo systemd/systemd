@@ -88,7 +88,7 @@ executables += [
                 'sources' : files('import-generator.c'),
         },
         test_template + {
-                'sources' : files('test-tar-extract.c'),
+                'sources' : files('test-tar.c'),
                 'type' : 'manual',
         },
         test_template + {
