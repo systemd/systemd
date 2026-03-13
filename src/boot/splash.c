@@ -119,6 +119,12 @@ static EFI_STATUS bmp_parse_header(
                         return EFI_INVALID_PARAMETER;
         }
 
+        /* Ensure there can be no OOB accesses in bmp_to_blt() due to malformed images (e.g.: color depth 8
+         * but smaller color map) via map[*in]. */
+        if (IN_SET(dib->depth, 1, 4, 8) &&
+            file->offset - (sizeof(struct bmp_file) + dib->size) < sizeof(struct bmp_map) * (1U << dib->depth))
+                return EFI_INVALID_PARAMETER;
+
         *ret_map = map;
         *ret_dib = dib;
         *pixmap = bmp + file->offset;
