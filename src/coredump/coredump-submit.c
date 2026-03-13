@@ -201,6 +201,9 @@ static int fix_xattr(int fd, const CoredumpContext *context) {
         RET_GATHER(r, fix_xattr_one(fd, "user.coredump.hostname", context->hostname));
         RET_GATHER(r, fix_xattr_one(fd, "user.coredump.comm", context->comm));
         RET_GATHER(r, fix_xattr_one(fd, "user.coredump.exe", context->exe));
+        if (context->tid > 0)
+                RET_GATHER(r, fix_xattr_format(fd, "user.coredump.tid", PID_FMT, context->tid));
+        RET_GATHER(r, fix_xattr_one(fd, "user.coredump.thread_name", context->thread_name));
 
         return r;
 }
