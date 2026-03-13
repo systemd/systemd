@@ -162,3 +162,5 @@ int show_boot_entries(
 int boot_filename_extract_tries(const char *fname, char **ret_stripped, unsigned *ret_tries_left, unsigned *ret_tries_done);
 
 int boot_entry_to_json(const BootConfig *c, size_t i, sd_json_variant **ret);
+
+int pe_find_uki_sections(int fd, const char *path, unsigned profile, char **ret_osrelease, char **ret_profile, char **ret_cmdline);
