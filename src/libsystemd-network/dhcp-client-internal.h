@@ -65,7 +65,6 @@ struct sd_dhcp_client {
         uint64_t discover_attempt;
         uint64_t request_attempt;
         uint64_t max_discover_attempts;
-        uint64_t max_request_attempts;
         OrderedHashmap *extra_options;
         OrderedHashmap *vendor_options;
         sd_event_source *timeout_t1;
