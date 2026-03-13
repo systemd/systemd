@@ -288,7 +288,8 @@ EFI_STATUS tpm_log_tagged_event(
         if (!err)
                 return err;
 
-        *ret_measured = true;
+        if (ret_measured)
+                *ret_measured = true;
         return EFI_SUCCESS;
 }
 
