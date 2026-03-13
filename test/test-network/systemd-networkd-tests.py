@@ -8023,7 +8023,10 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         success = False
         for _ in range(20):
             time.sleep(0.5)
-            output = read_dnsmasq_log_file()
+            try:
+                output = read_dnsmasq_log_file()
+            except FileNotFoundError:
+                output = ""
             if 'DHCPRELEASE' in output:
                 success = True
                 break
