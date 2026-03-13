@@ -4433,6 +4433,7 @@ static int parse_arguments(
         int r;
 
         assert(c);
+        assert(invalid_config);
 
         STRV_FOREACH(arg, args) {
                 if (arg_inline) {

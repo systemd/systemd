@@ -509,7 +509,7 @@ static int refresh(
 }
 
 static int group_compare(Group * const *a, Group * const *b) {
-        const Group *x = *a, *y = *b;
+        const Group *x = *ASSERT_PTR(a), *y = *ASSERT_PTR(b);
         int r;
 
         if (arg_order != ORDER_TASKS || arg_recursive) {

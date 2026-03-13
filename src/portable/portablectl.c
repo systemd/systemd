@@ -57,6 +57,8 @@ static bool is_portable_managed(const char *unit) {
 static int determine_image(const char *image, bool permit_non_existing, char **ret) {
         int r;
 
+        assert(ret);
+
         /* If the specified name is a valid image name, we pass it as-is to portabled, which will search for it in the
          * usual search directories. Otherwise we presume it's a path, and will normalize it on the client's side
          * (among other things, to make the path independent of the client's working directory) before passing it
@@ -234,6 +236,8 @@ static int acquire_bus(sd_bus **bus) {
 
 static int maybe_reload(sd_bus **bus) {
         int r;
+
+        assert(bus);
 
         if (!arg_reload)
                 return 0;

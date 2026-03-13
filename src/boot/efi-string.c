@@ -349,6 +349,8 @@ static bool efi_fnmatch_prefix(const char16_t *p, const char16_t *h, const char1
 
 /* Patterns are fnmatch-compatible (with reduced feature support). */
 bool efi_fnmatch(const char16_t *pattern, const char16_t *haystack) {
+        assert(haystack);
+
         /* Patterns can be considered as simple patterns (without '*') concatenated by '*'. By doing so we
          * simply have to make sure the very first simple pattern matches the start of haystack. Then we just
          * look for the remaining simple patterns *somewhere* within the haystack (in order) as any extra

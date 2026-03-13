@@ -652,6 +652,8 @@ static int calculate_verity_hash_size(
                 uint64_t data_block_size,
                 uint64_t *ret_bytes) {
 
+        assert(ret_bytes);
+
         /* The calculation here is based on the documented on-disk format of the dm-verity
          * https://docs.kernel.org/admin-guide/device-mapper/verity.html#hash-tree
          *
@@ -1264,6 +1266,8 @@ static uint64_t free_area_available_for_new_partitions(Context *context, const F
 }
 
 static int free_area_compare(FreeArea *const *a, FreeArea *const*b, Context *context) {
+        assert(a);
+        assert(b);
         assert(context);
 
         return CMP(free_area_available_for_new_partitions(context, *a),
@@ -4041,6 +4045,8 @@ static void context_unload_partition_table(Context *context) {
 
 static int format_size_change(uint64_t from, uint64_t to, char **ret) {
         char *t;
+
+        assert(ret);
 
         if (from != UINT64_MAX) {
                 if (from == to || to == UINT64_MAX)

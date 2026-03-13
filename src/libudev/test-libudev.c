@@ -416,6 +416,9 @@ static int parse_args(int argc, char *argv[], const char **syspath, const char *
         };
         int c;
 
+        assert(syspath);
+        assert(subsystem);
+
         while ((c = getopt_long(argc, argv, "p:s:dhVm", options, NULL)) >= 0)
                 switch (c) {
                 case 'p':

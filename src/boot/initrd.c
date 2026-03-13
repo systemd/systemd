@@ -74,6 +74,7 @@ EFI_STATUS initrd_register(
         EFI_HANDLE handle;
         struct initrd_loader *loader;
 
+        POINTER_MAY_BE_NULL(initrd);
         assert(ret_initrd_handle);
 
         /* If no initrd is specified we'll not install any. This avoids registration of the protocol for that

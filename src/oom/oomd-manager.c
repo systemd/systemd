@@ -438,6 +438,8 @@ static int monitor_swap_contexts_handler(sd_event_source *s, uint64_t usec, void
 }
 
 static void clear_candidate_hashmapp(Manager **m) {
+        assert(m);
+
         if (*m)
                 hashmap_clear((*m)->monitored_mem_pressure_cgroup_contexts_candidates);
 }

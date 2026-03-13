@@ -1046,6 +1046,8 @@ static BootEntry* boot_entry_free(BootEntry *entry) {
 DEFINE_TRIVIAL_CLEANUP_FUNC(BootEntry *, boot_entry_free);
 
 static EFI_STATUS config_timeout_sec_from_string(const char *value, uint64_t *dst) {
+        assert(dst);
+
         if (streq8(value, "menu-disabled"))
                 *dst = TIMEOUT_MENU_DISABLED;
         else if (streq8(value, "menu-force"))
@@ -1555,6 +1557,7 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
         EFI_STATUS err;
 
         assert(root_dir);
+        assert(config);
 
         *config = (Config) {
                 .editor = true,

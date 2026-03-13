@@ -67,6 +67,9 @@ static int list_dependencies_compare(char *const *a, char *const *b) {
         usec_t usa = 0, usb = 0;
         UnitTimes *times;
 
+        assert(a);
+        assert(b);
+
         times = hashmap_get(unit_times_hashmap, *a);
         if (times)
                 usa = times->activated;

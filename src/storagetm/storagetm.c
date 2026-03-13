@@ -746,6 +746,8 @@ static int plymouth_notify_port(NvmePort *port, struct local_address *a) {
 }
 
 static int nvme_port_report(NvmePort *port, bool *plymouth_done) {
+        POINTER_MAY_BE_NULL(plymouth_done);
+
         if (!port)
                 return 0;
 

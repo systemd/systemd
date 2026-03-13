@@ -822,6 +822,8 @@ static int context_update_kernel_hostname(
 }
 
 static void unset_statp(struct stat **p) {
+        assert(p);
+
         if (!*p)
                 return;
 

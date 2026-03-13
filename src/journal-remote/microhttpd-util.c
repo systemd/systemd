@@ -230,6 +230,8 @@ static int get_auth_dn(gnutls_x509_crt_t client_cert, char **buf) {
 }
 
 static void gnutls_x509_crt_deinitp(gnutls_x509_crt_t *p) {
+        assert(p);
+
         gnutls_x509_crt_deinit(*p);
 }
 

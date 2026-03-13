@@ -11,6 +11,8 @@
 #define VIEWPORT_RATIO 10
 
 static void event_closep(EFI_EVENT *event) {
+        assert(event);
+
         if (!*event)
                 return;
 
@@ -190,6 +192,9 @@ static EFI_STATUS change_mode(int64_t mode) {
 EFI_STATUS query_screen_resolution(uint32_t *ret_w, uint32_t *ret_h) {
         EFI_STATUS err;
         EFI_GRAPHICS_OUTPUT_PROTOCOL *go;
+
+        assert(ret_w);
+        assert(ret_h);
 
         err = BS->LocateProtocol(MAKE_GUID_PTR(EFI_GRAPHICS_OUTPUT_PROTOCOL), NULL, (void **) &go);
         if (err != EFI_SUCCESS)
