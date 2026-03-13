@@ -1522,23 +1522,16 @@ error:
 }
 
 static int client_initialize_time_events(sd_dhcp_client *client) {
-        usec_t usec = 0;
-
         assert(client);
         assert(client->event);
 
         (void) event_source_disable(client->timeout_ipv6_only_mode);
 
-        if (client->start_delay > 0) {
-                assert_se(sd_event_now(client->event, CLOCK_BOOTTIME, &usec) >= 0);
-                usec = usec_add(usec, client->start_delay);
-        }
-
-        return event_reset_time(
+        return event_reset_time_relative(
                         client->event,
                         &client->timeout_resend,
                         CLOCK_BOOTTIME,
-                        usec,
+                        client->start_delay,
                         /* accuracy= */ 0,
                         client_timeout_resend,
                         client,
