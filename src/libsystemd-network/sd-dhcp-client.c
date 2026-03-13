@@ -1309,17 +1309,17 @@ static int client_initialize_time_events(sd_dhcp_client *client) {
 }
 
 static int client_start_delayed(sd_dhcp_client *client) {
-        assert_return(client, -EINVAL);
-        assert_return(client->event, -EINVAL);
-        assert_return(client->ifindex > 0, -EINVAL);
-        assert_return(client->xid == 0, -EINVAL);
-        assert_return(IN_SET(client->state, DHCP_STATE_STOPPED, DHCP_STATE_INIT_REBOOT), -EBUSY);
+        assert(client);
+        DHCP_CLIENT_DONT_DESTROY(client);
+
+        client_disable_event_sources(client);
+        client->lease = sd_dhcp_lease_unref(client->lease);
 
         client->xid = random_u32();
         client->start_time = now(CLOCK_BOOTTIME);
 
-        if (client->state == DHCP_STATE_STOPPED)
-                client->state = DHCP_STATE_INIT;
+        if (client->state != DHCP_STATE_INIT_REBOOT)
+                client_set_state(client, DHCP_STATE_INIT);
 
         return client_initialize_time_events(client);
 }
@@ -1340,16 +1340,12 @@ static int client_timeout_expire(sd_event_source *s, uint64_t usec, void *userda
 
         client_notify(client, SD_DHCP_CLIENT_EVENT_EXPIRED);
 
-        /* lease was lost, start over if not freed or stopped in callback */
-        if (client->state != DHCP_STATE_STOPPED) {
-                client_initialize(client);
+        if (client->state == DHCP_STATE_STOPPED)
+                return 0; /* The notify callback stopped the client. */
 
-                r = client_start(client);
-                if (r < 0) {
-                        client_stop(client, r);
-                        return 0;
-                }
-        }
+        r = client_start(client);
+        if (r < 0)
+                client_stop(client, r);
 
         return 0;
 }
@@ -1861,8 +1857,6 @@ static int client_restart(sd_dhcp_client *client) {
 
         client_notify(client, SD_DHCP_CLIENT_EVENT_EXPIRED);
 
-        client_initialize(client);
-
         r = client_start_delayed(client);
         if (r < 0)
                 return r;
@@ -2124,8 +2118,6 @@ int sd_dhcp_client_start(sd_dhcp_client *client) {
         /* Note, do not reset the flag in client_initialize(), as it is also called on expire. */
         client->ipv6_acquired = false;
 
-        client_initialize(client);
-
         /* If no client identifier exists, construct an RFC 4361-compliant one */
         if (!sd_dhcp_client_id_is_set(&client->client_id)) {
                 r = sd_dhcp_client_set_iaid_duid_en(client, /* iaid_set= */ false, /* iaid= */ 0);
@@ -2282,7 +2274,6 @@ int sd_dhcp_client_interrupt_ipv6_only_mode(sd_dhcp_client *client) {
         if (sd_event_source_get_enabled(client->timeout_ipv6_only_mode, NULL) <= 0)
                 return 0;
 
-        client_initialize(client);
         return client_start(client);
 }
 
