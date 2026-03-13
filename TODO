@@ -121,6 +121,9 @@ Deprecations and removals:
 
 Features:
 
+* crypttab/gpt-auto-generator: allow explicit control over which unlock mechs
+  to permit, and maybe have a global headless kernel cmdline option
+
 * start making use of the new --graceful switch to util-linux' umount command
 
 * make systemd work nicely without /bin/sh, logins and associated shell tools around
