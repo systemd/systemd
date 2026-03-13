@@ -2062,7 +2062,7 @@ int vl_method_install(
         if (p.context.entry_token_type < 0)
                 p.context.entry_token_type = BOOT_ENTRY_TOKEN_AUTO;
 
-        r = find_esp_and_warn_at(
+        r = find_esp_and_warn_at_full(
                         p.context.root_fd,
                         /* path= */ NULL,
                         /* unprivileged_mode= */ false,
@@ -2081,9 +2081,7 @@ int vl_method_install(
                         p.context.root_fd,
                         /* path= */ NULL,
                         /* unprivileged_mode= */ false,
-                        &p.context.xbootldr_path,
-                        /* ret_uuid= */ NULL,
-                        /* ret_devid= */ NULL);
+                        &p.context.xbootldr_path);
         if (r == -ENOKEY)
                 log_debug_errno(r, "Didn't find an XBOOTLDR partition, using ESP as $BOOT.");
         else if (r < 0)

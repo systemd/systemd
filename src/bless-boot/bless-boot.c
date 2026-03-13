@@ -107,11 +107,26 @@ static int acquire_path(void) {
         if (!strv_isempty(arg_path))
                 return 0;
 
-        r = find_esp_and_warn(NULL, NULL, /* unprivileged_mode= */ false, &esp_path, NULL, NULL, NULL, NULL, &esp_devid);
+        r = find_esp_and_warn_full(
+                        /* root= */ NULL,
+                        /* path= */ NULL,
+                        /* unprivileged_mode= */ false,
+                        &esp_path,
+                        /* ret_part= */ NULL,
+                        /* ret_pstart= */ NULL,
+                        /* ret_psize= */ NULL,
+                        /* ret_uuid= */ NULL,
+                        &esp_devid);
         if (r < 0 && r != -ENOKEY) /* ENOKEY means not found, and is the only error the function won't log about on its own */
                 return r;
 
-        r = find_xbootldr_and_warn(NULL, NULL, /* unprivileged_mode= */ false, &xbootldr_path, NULL, &xbootldr_devid);
+        r = find_xbootldr_and_warn_full(
+                        /* root= */ NULL,
+                        /* path= */ NULL,
+                        /* unprivileged_mode= */ false,
+                        &xbootldr_path,
+                        /* ret_uuid= */ NULL,
+                        &xbootldr_devid);
         if (r < 0 && r != -ENOKEY)
                 return r;
 
