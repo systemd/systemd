@@ -633,7 +633,8 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 *slice = NULL, *cgroup = NULL, *owner_uid = NULL,
                 *message = NULL, *timestamp = NULL, *filename = NULL,
                 *truncated = NULL, *coredump = NULL,
-                *pkgmeta_name = NULL, *pkgmeta_version = NULL, *pkgmeta_json = NULL;
+                *pkgmeta_name = NULL, *pkgmeta_version = NULL, *pkgmeta_json = NULL,
+                *tid = NULL, *thread_name = NULL;
         const void *d;
         size_t l;
         bool normal_coredump;
@@ -667,6 +668,8 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 RETRIEVE(d, l, "COREDUMP_PACKAGE_NAME", pkgmeta_name);
                 RETRIEVE(d, l, "COREDUMP_PACKAGE_VERSION", pkgmeta_version);
                 RETRIEVE(d, l, "COREDUMP_PACKAGE_JSON", pkgmeta_json);
+                RETRIEVE(d, l, "COREDUMP_TID", tid);
+                RETRIEVE(d, l, "COREDUMP_THREAD_NAME", thread_name);
                 RETRIEVE(d, l, "_BOOT_ID", boot_id);
                 RETRIEVE(d, l, "_MACHINE_ID", machine_id);
                 RETRIEVE(d, l, "MESSAGE", message);
@@ -685,6 +688,13 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
                 fprintf(file,
                         "           PID: %s%s%s\n",
                         ansi_highlight(), strna(pid), ansi_normal());
+
+        if (tid) {
+                if (thread_name)
+                        fprintf(file, "           TID: %s (%s)\n", tid, thread_name);
+                else
+                        fprintf(file, "           TID: %s\n", tid);
+        }
 
         if (uid) {
                 uid_t n;
