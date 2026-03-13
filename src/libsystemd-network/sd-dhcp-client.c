@@ -1328,6 +1328,34 @@ static int client_start(sd_dhcp_client *client) {
         return client_start_delayed(client);
 }
 
+static int client_restart(sd_dhcp_client *client) {
+        assert(client);
+        DHCP_CLIENT_DONT_DESTROY(client);
+
+        /* This is called when we receive a DHCPNAK or could not receive any replies. */
+
+        /* First, if we have a bound lease, then notify it is expired. */
+        if (IN_SET(client->state, DHCP_STATE_BOUND, DHCP_STATE_RENEWING, DHCP_STATE_REBINDING)) {
+                client_notify(client, SD_DHCP_CLIENT_EVENT_EXPIRED);
+
+                if (client->state == DHCP_STATE_STOPPED)
+                        return 0; /* The notify callback stopped the client. */
+        }
+
+        /* On reboot, DHCPNAK or no reply suggests that the network is changed or the address is already
+         * used by another host. Let's restart the client immediately without any delay to speed up the
+         * reboot process. */
+        if (client->state == DHCP_STATE_REBOOTING)
+                return client_start(client);
+
+        /* Otherwise, we should restart the client with a short delay. */
+        client->start_delay = CLAMP(client->start_delay * 2,
+                                    RESTART_AFTER_NAK_MIN_USEC, RESTART_AFTER_NAK_MAX_USEC);
+
+        log_dhcp_client(client, "REBOOT in %s", FORMAT_TIMESPAN(client->start_delay, USEC_PER_SEC));
+        return client_start_delayed(client);
+}
+
 static int client_timeout_expire(sd_event_source *s, uint64_t usec, void *userdata) {
         sd_dhcp_client *client = userdata;
         DHCP_CLIENT_DONT_DESTROY(client);
@@ -1772,23 +1800,6 @@ static int client_enter_bound(sd_dhcp_client *client, int notify_event) {
                 return log_dhcp_client_errno(client, r, "Failed to set lease timeouts: %m");
 
         client_notify(client, notify_event);
-        return 0;
-}
-
-static int client_restart(sd_dhcp_client *client) {
-        int r;
-        assert(client);
-
-        client_notify(client, SD_DHCP_CLIENT_EVENT_EXPIRED);
-
-        r = client_start_delayed(client);
-        if (r < 0)
-                return r;
-
-        log_dhcp_client(client, "REBOOT in %s", FORMAT_TIMESPAN(client->start_delay, USEC_PER_SEC));
-
-        client->start_delay = CLAMP(client->start_delay * 2,
-                                    RESTART_AFTER_NAK_MIN_USEC, RESTART_AFTER_NAK_MAX_USEC);
         return 0;
 }
 
