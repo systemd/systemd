@@ -305,6 +305,56 @@ static void test_sd_device_one(sd_device *d) {
                 ASSERT_OK(r = device_get_sysattr_unsigned(d, "nsid", &x));
                 ASSERT_EQ(x > 0, r > 0);
         }
+
+        const char *uevent;
+        if (sd_device_get_sysattr_value(d, "uevent", &uevent) >= 0) {
+                const char *uevent_safe;
+
+                /* uevent file may contains line break, hence _safe_string() may refuse the value. */
+                if (ASSERT_OK_OR(device_get_sysattr_safe_string(d, "uevent", &uevent_safe), -ENXIO) >= 0)
+                        ASSERT_STREQ(uevent, uevent_safe);
+                else
+                        ASSERT_NOT_NULL(strchr(uevent, '\n'));
+
+                /* uevent file should not contain any other control characters, hopefully. */
+                ASSERT_OK(device_get_sysattr_safe_string_full(d, "\n", "uevent", &uevent_safe));
+                ASSERT_STREQ(uevent, uevent_safe);
+        }
+
+        if (sd_device_get_ifindex(d, &ifindex) >= 0) {
+                int i;
+                ASSERT_OK_POSITIVE(device_get_sysattr_int(d, "ifindex", &i));
+                ASSERT_EQ(i, ifindex);
+
+                unsigned u;
+                ASSERT_OK_POSITIVE(device_get_sysattr_unsigned(d, "ifindex", &u));
+                ASSERT_EQ(u, (unsigned) ifindex);
+
+                uint64_t u64;
+                ASSERT_OK_POSITIVE(device_get_sysattr_u64(d, "ifindex", &u64));
+                ASSERT_EQ(u64, (uint64_t) ifindex);
+
+                uint32_t u32;
+                ASSERT_OK_POSITIVE(device_get_sysattr_u32(d, "ifindex", &u32));
+                ASSERT_EQ(u32, (uint32_t) ifindex);
+
+                if (ifindex <= UINT16_MAX) {
+                        uint16_t u16;
+                        ASSERT_OK_POSITIVE(device_get_sysattr_u16(d, "ifindex", &u16));
+                        ASSERT_EQ(u16, (uint16_t) ifindex);
+                }
+
+                if (ifindex <= UINT8_MAX) {
+                        uint8_t u8;
+                        ASSERT_OK_POSITIVE(device_get_sysattr_u8(d, "ifindex", &u8));
+                        ASSERT_EQ(u8, (uint8_t) ifindex);
+                }
+
+                const char *s;
+                ASSERT_OK(sd_device_get_sysattr_value(d, "ifindex", &s));
+                ASSERT_OK_POSITIVE(device_get_sysattr_streq(d, "ifindex", s));
+                ASSERT_OK_ZERO(device_get_sysattr_streq(d, "ifindex", "hoge"));
+        }
 }
 
 static void exclude_problematic_devices(sd_device_enumerator *e) {
