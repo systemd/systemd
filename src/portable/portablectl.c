@@ -13,8 +13,6 @@
 #include "bus-wait-for-jobs.h"
 #include "chase.h"
 #include "env-file.h"
-#include "fd-util.h"
-#include "fileio.h"
 #include "format-table.h"
 #include "fs-util.h"
 #include "install.h"
@@ -332,15 +330,12 @@ static int verb_inspect_image(int argc, char *argv[], uintptr_t _data, void *use
                 nl = true;
         } else {
                 _cleanup_free_ char *pretty_portable = NULL, *pretty_os = NULL;
-                _cleanup_fclose_ FILE *f = NULL;
 
-                f = fmemopen_unlocked((void*) data, sz, "r");
-                if (!f)
-                        return log_error_errno(errno, "Failed to open /etc/os-release buffer: %m");
-
-                r = parse_env_file(f, "/etc/os-release",
-                                   "PORTABLE_PRETTY_NAME", &pretty_portable,
-                                   "PRETTY_NAME", &pretty_os);
+                r = parse_env_data(
+                                data, sz,
+                                "/etc/os-release",
+                                "PORTABLE_PRETTY_NAME", &pretty_portable,
+                                "PRETTY_NAME", &pretty_os);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse /etc/os-release: %m");
 
@@ -396,33 +391,30 @@ static int verb_inspect_image(int argc, char *argv[], uintptr_t _data, void *use
                                                     *confext_version_id = NULL, *confext_scope = NULL,
                                                     *confext_image_id = NULL, *confext_image_version = NULL,
                                                     *confext_build_id = NULL;
-                                _cleanup_fclose_ FILE *f = NULL;
 
-                                f = fmemopen_unlocked((void*) data, sz, "r");
-                                if (!f)
-                                        return log_error_errno(errno, "Failed to open extension-release buffer: %m");
-
-                                r = parse_env_file(f, name,
-                                                   "SYSEXT_ID", &sysext_id,
-                                                   "SYSEXT_VERSION_ID", &sysext_version_id,
-                                                   "SYSEXT_BUILD_ID", &sysext_build_id,
-                                                   "SYSEXT_IMAGE_ID", &sysext_image_id,
-                                                   "SYSEXT_IMAGE_VERSION", &sysext_image_version,
-                                                   "SYSEXT_SCOPE", &sysext_scope,
-                                                   "SYSEXT_LEVEL", &sysext_level,
-                                                   "SYSEXT_PRETTY_NAME", &sysext_pretty_os,
-                                                   "CONFEXT_ID", &confext_id,
-                                                   "CONFEXT_VERSION_ID", &confext_version_id,
-                                                   "CONFEXT_BUILD_ID", &confext_build_id,
-                                                   "CONFEXT_IMAGE_ID", &confext_image_id,
-                                                   "CONFEXT_IMAGE_VERSION", &confext_image_version,
-                                                   "CONFEXT_SCOPE", &confext_scope,
-                                                   "CONFEXT_LEVEL", &confext_level,
-                                                   "CONFEXT_PRETTY_NAME", &confext_pretty_os,
-                                                   "ID", &id,
-                                                   "VERSION_ID", &version_id,
-                                                   "PORTABLE_PRETTY_NAME", &pretty_portable,
-                                                   "PORTABLE_PREFIXES", &portable_prefixes);
+                                r = parse_env_data(
+                                                data, sz,
+                                                name,
+                                                "SYSEXT_ID", &sysext_id,
+                                                "SYSEXT_VERSION_ID", &sysext_version_id,
+                                                "SYSEXT_BUILD_ID", &sysext_build_id,
+                                                "SYSEXT_IMAGE_ID", &sysext_image_id,
+                                                "SYSEXT_IMAGE_VERSION", &sysext_image_version,
+                                                "SYSEXT_SCOPE", &sysext_scope,
+                                                "SYSEXT_LEVEL", &sysext_level,
+                                                "SYSEXT_PRETTY_NAME", &sysext_pretty_os,
+                                                "CONFEXT_ID", &confext_id,
+                                                "CONFEXT_VERSION_ID", &confext_version_id,
+                                                "CONFEXT_BUILD_ID", &confext_build_id,
+                                                "CONFEXT_IMAGE_ID", &confext_image_id,
+                                                "CONFEXT_IMAGE_VERSION", &confext_image_version,
+                                                "CONFEXT_SCOPE", &confext_scope,
+                                                "CONFEXT_LEVEL", &confext_level,
+                                                "CONFEXT_PRETTY_NAME", &confext_pretty_os,
+                                                "ID", &id,
+                                                "VERSION_ID", &version_id,
+                                                "PORTABLE_PRETTY_NAME", &pretty_portable,
+                                                "PORTABLE_PREFIXES", &portable_prefixes);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to parse extension release from '%s': %m", name);
 
