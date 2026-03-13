@@ -256,8 +256,11 @@ int dhcp_network_send_raw_socket(
         assert(packet);
         assert(len > 0);
 
-        if (sendto(s, packet, len, 0, &link->sa, sockaddr_ll_len(&link->ll)) < 0)
+        ssize_t n = sendto(s, packet, len, 0, &link->sa, sockaddr_ll_len(&link->ll));
+        if (n < 0)
                 return -errno;
+        if ((size_t) n != len)
+                return -EIO;
 
         return 0;
 }
@@ -279,8 +282,11 @@ int dhcp_network_send_udp_socket(
         assert(packet);
         assert(len > 0);
 
-        if (sendto(s, packet, len, 0, &dest.sa, sizeof(dest.in)) < 0)
+        ssize_t n = sendto(s, packet, len, 0, &dest.sa, sizeof(dest.in));
+        if (n < 0)
                 return -errno;
+        if ((size_t) n != len)
+                return -EIO;
 
         return 0;
 }
