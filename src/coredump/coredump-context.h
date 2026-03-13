@@ -23,6 +23,7 @@ typedef enum MetadataField {
         META_ARGV_HOSTNAME = _META_ARGV_REQUIRED,  /* %h: hostname */
         META_ARGV_DUMPABLE,     /* %d: as set by the kernel */
         META_ARGV_PIDFD,        /* %F: pidfd of the process, since v6.16 */
+        META_ARGV_TID,          /* %I: TID of the crashing thread, as seen in the initial pid namespace */
         /* If new fields are added, they should be added here, to maintain compatibility
          * with callers which don't know about the new fields. */
         _META_ARGV_MAX,
@@ -40,6 +41,7 @@ typedef enum MetadataField {
         META_EXE,
         META_UNIT,
         META_PROC_AUXV,
+        META_THREAD_NAME,
         _META_MAX,
         _META_INVALID = -EINVAL,
 } MetadataField;
@@ -53,11 +55,13 @@ struct CoredumpContext {
         uint64_t rlimit;   /* META_ARGV_RLIMIT */
         char *hostname;    /* META_ARGV_HOSTNAME */
         unsigned dumpable; /* META_ARGV_DUMPABLE */
+        pid_t tid;         /* META_ARGV_TID */
         char *comm;        /* META_COMM */
         char *exe;         /* META_EXE */
         char *unit;        /* META_UNIT */
         char *auxv;        /* META_PROC_AUXV */
         size_t auxv_size;  /* META_PROC_AUXV */
+        char *thread_name; /* META_THREAD_NAME */
         bool got_pidfd;    /* META_ARGV_PIDFD */
         bool same_pidns;
         bool forwarded;
