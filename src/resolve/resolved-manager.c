@@ -49,6 +49,7 @@
 #include "resolved-mdns.h"
 #include "resolved-resolv-conf.h"
 #include "resolved-socket-graveyard.h"
+#include "resolved-static-records.h"
 #include "resolved-util.h"
 #include "resolved-varlink.h"
 #include "set.h"
@@ -637,6 +638,7 @@ static void manager_set_defaults(Manager *m) {
         m->enable_cache = DNS_CACHE_MODE_YES;
         m->dns_stub_listener_mode = DNS_STUB_LISTENER_YES;
         m->read_etc_hosts = true;
+        m->read_static_records = true;
         m->resolve_unicast_single_label = false;
         m->cache_from_localhost = false;
         m->stale_retention_usec = 0;
@@ -659,6 +661,8 @@ static int manager_dispatch_reload_signal(sd_event_source *s, const struct signa
         m->unicast_scope = dns_scope_free(m->unicast_scope);
         m->delegates = hashmap_free(m->delegates);
         dns_trust_anchor_flush(&m->trust_anchor);
+        manager_etc_hosts_flush(m);
+        manager_static_records_flush(m);
 
         manager_set_defaults(m);
 
@@ -729,6 +733,7 @@ int manager_new(Manager **ret) {
                 .read_resolv_conf = true,
                 .need_builtin_fallbacks = true,
                 .etc_hosts_last = USEC_INFINITY,
+                .static_records_last = USEC_INFINITY,
 
                 .sigrtmin18_info.memory_pressure_handler = manager_memory_pressure,
                 .sigrtmin18_info.memory_pressure_userdata = m,
@@ -917,6 +922,7 @@ Manager* manager_free(Manager *m) {
 
         dns_trust_anchor_flush(&m->trust_anchor);
         manager_etc_hosts_flush(m);
+        manager_static_records_flush(m);
 
         while ((sb = hashmap_first(m->dns_service_browsers)))
                 dns_service_browser_free(sb);
