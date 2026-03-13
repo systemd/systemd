@@ -30,7 +30,7 @@ foreach item : [
         ['_run0',                     ''],
         ['_sd_bus_address',           ''],
         ['_sd_hosts_or_user_at_host', ''],
-        ['_sd_machines',              ''],
+        ['_sd_machines',              'ENABLE_MACHINED'],
         ['_sd_outputmodes',           ''],
         ['_sd_unit_files',            ''],
         ['_systemd',                  ''],
