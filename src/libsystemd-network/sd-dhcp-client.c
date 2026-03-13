@@ -1216,7 +1216,6 @@ static int client_send_dhcp_discover(sd_dhcp_client *client) {
         int r;
 
         assert(client);
-        assert(IN_SET(client->state, DHCP_STATE_INIT, DHCP_STATE_SELECTING));
 
         r = client_message_init(client, DHCP_DISCOVER, &discover, &optlen, &optoffset);
         if (r < 0)
@@ -1259,7 +1258,6 @@ static int client_send_dhcp_discover(sd_dhcp_client *client) {
                 return r;
 
         log_dhcp_client(client, "DISCOVER");
-
         return 0;
 }
 
@@ -1269,7 +1267,6 @@ static int client_send_bootp_discover(sd_dhcp_client *client) {
         int r;
 
         assert(client);
-        assert(IN_SET(client->state, DHCP_STATE_INIT, DHCP_STATE_SELECTING));
 
         r = client_message_init(client, DHCP_DISCOVER, &discover, &optlen, &optoffset);
         if (r < 0)
@@ -1298,6 +1295,15 @@ static int client_send_bootp_discover(sd_dhcp_client *client) {
 
         log_dhcp_client(client, "DISCOVER");
         return 0;
+}
+
+static int client_send_discover(sd_dhcp_client *client) {
+        assert(client);
+        assert(IN_SET(client->state, DHCP_STATE_INIT, DHCP_STATE_SELECTING));
+
+        return client->bootp ?
+                client_send_bootp_discover(client) :
+                client_send_dhcp_discover(client);
 }
 
 static int client_send_request(sd_dhcp_client *client) {
@@ -1492,10 +1498,7 @@ static int client_timeout_resend(
 
         switch (client->state) {
         case DHCP_STATE_INIT:
-                if (client->bootp)
-                        r = client_send_bootp_discover(client);
-                else
-                        r = client_send_dhcp_discover(client);
+                r = client_send_discover(client);
                 if (r >= 0) {
                         client_set_state(client, DHCP_STATE_SELECTING);
                         client->discover_attempt = 0;
@@ -1504,10 +1507,7 @@ static int client_timeout_resend(
                 break;
 
         case DHCP_STATE_SELECTING:
-                if (client->bootp)
-                        r = client_send_bootp_discover(client);
-                else
-                        r = client_send_dhcp_discover(client);
+                r = client_send_discover(client);
                 if (r < 0 && client->discover_attempt >= client->max_discover_attempts)
                         goto error;
                 break;
