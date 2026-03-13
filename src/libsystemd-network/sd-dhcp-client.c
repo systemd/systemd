@@ -35,6 +35,7 @@
 #define RESTART_AFTER_NAK_MIN_USEC (1 * USEC_PER_SEC)
 #define RESTART_AFTER_NAK_MAX_USEC (30 * USEC_PER_MINUTE)
 
+#define MAX_REQUEST_ATTEMPTS 5
 #define TRANSIENT_FAILURE_ATTEMPTS 3 /* Arbitrary limit: how many attempts are considered enough to report
                                       * transient failure. */
 
@@ -1222,7 +1223,7 @@ static int client_timeout_resend(
                 break;
         case DHCP_STATE_REQUESTING:
         case DHCP_STATE_BOUND:
-                if (client->request_attempt >= client->max_request_attempts)
+                if (client->request_attempt >= MAX_REQUEST_ATTEMPTS)
                         goto error;
 
                 client->request_attempt++;
@@ -1266,7 +1267,7 @@ static int client_timeout_resend(
         case DHCP_STATE_RENEWING:
         case DHCP_STATE_REBINDING:
                 r = client_send_request(client);
-                if (r < 0 && client->request_attempt >= client->max_request_attempts)
+                if (r < 0 && client->request_attempt >= MAX_REQUEST_ATTEMPTS)
                          goto error;
 
                 if (client->state == DHCP_STATE_INIT_REBOOT)
@@ -1292,7 +1293,7 @@ error:
         /* Avoid REQUEST infinite loop. Per RFC 2131 section 3.1.5: if the client receives
            neither a DHCPACK or a DHCPNAK message after employing the retransmission algorithm,
            the client reverts to INIT state and restarts the initialization process */
-        if (client->request_attempt >= client->max_request_attempts) {
+        if (client->request_attempt >= MAX_REQUEST_ATTEMPTS) {
                 log_dhcp_client(client, "Max REQUEST attempts reached. Restarting...");
                 r = client_restart(client);
                 if (r >= 0)
@@ -2394,7 +2395,6 @@ int sd_dhcp_client_new(sd_dhcp_client **ret, int anonymize) {
                 .server_port = DHCP_PORT_SERVER,
                 .anonymize = !!anonymize,
                 .max_discover_attempts = UINT64_MAX,
-                .max_request_attempts = 5,
                 .ip_service_type = -1,
         };
         /* NOTE: this could be moved to a function. */
