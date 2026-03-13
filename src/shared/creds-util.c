@@ -1689,9 +1689,7 @@ int get_global_boot_credentials_path(char **ret) {
                         /* root= */ NULL,
                         /* path= */ NULL,
                         /* unprivileged_mode= */ false,
-                        &path,
-                        /* ret_uuid= */ NULL,
-                        /* ret_devid= */ NULL);
+                        &path);
         if (r < 0) {
                 if (r != -ENOKEY)
                         return log_error_errno(r, "Failed to find XBOOTLDR partition: %m");
@@ -1700,12 +1698,7 @@ int get_global_boot_credentials_path(char **ret) {
                                 /* root= */ NULL,
                                 /* path= */ NULL,
                                 /* unprivileged_mode= */ false,
-                                &path,
-                                /* ret_part= */ NULL,
-                                /* ret_pstart= */ NULL,
-                                /* ret_psize= */ NULL,
-                                /* ret_uuid= */ NULL,
-                                /* ret_devid= */ NULL);
+                                &path);
                 if (r < 0) {
                         if (r != -ENOKEY)
                                 return log_error_errno(r, "Failed to find ESP partition: %m");
