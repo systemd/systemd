@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "errno-util.h"
 #include "fd-util.h"
 #include "libarchive-util.h"
 #include "main-func.h"
@@ -19,11 +20,11 @@ static int run(int argc, char **argv) {
         if (r < 0)
                 return r;
 
-        _cleanup_close_ int input_fd = open(argv[1], O_RDONLY | O_CLOEXEC);
+        _cleanup_close_ int input_fd = RET_NERRNO(open(argv[1], O_RDONLY | O_CLOEXEC));
         if (input_fd < 0)
                 return log_error_errno(input_fd, "Cannot open %s: %m", argv[1]);
 
-        _cleanup_close_ int output_fd = open(argv[2], O_DIRECTORY | O_CLOEXEC);
+        _cleanup_close_ int output_fd = RET_NERRNO(open(argv[2], O_DIRECTORY | O_CLOEXEC));
         if (output_fd < 0)
                 return log_error_errno(output_fd, "Cannot open %s: %m", argv[2]);
 
