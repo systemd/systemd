@@ -150,6 +150,11 @@ coredumpctl info foo bar baz "${CORE_TEST_BIN##*/}"
 coredumpctl info COREDUMP_EXE="$CORE_TEST_BIN"
 coredumpctl info COREDUMP_EXE=aaaaa COREDUMP_EXE= COREDUMP_EXE="$CORE_TEST_BIN"
 
+# Check that COREDUMP_TID= is present and displayed by coredumpctl info
+coredumpctl info "$CORE_TEST_BIN" | grep "TID:" >/dev/null
+# Check the field is queryable in the journal
+coredumpctl -F COREDUMP_TID
+
 coredumpctl debug --debugger=/bin/true "$CORE_TEST_BIN"
 SYSTEMD_DEBUGGER=/bin/true coredumpctl debug "$CORE_TEST_BIN"
 coredumpctl debug --debugger=/bin/true --debugger-arguments="-this --does --not 'do anything' -a -t --all" "${CORE_TEST_BIN##*/}"
