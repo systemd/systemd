@@ -293,6 +293,7 @@ EFI_STATUS tpm_log_tagged_event(
 
         EFI_TCG2_PROTOCOL *tpm2;
         EFI_STATUS err;
+        bool tpm_ret_measured = false, cc_ret_measured;
 
         assert(description || pcrindex == UINT32_MAX);
         assert(event_id > 0);
@@ -300,20 +301,32 @@ EFI_STATUS tpm_log_tagged_event(
         /* If EFI_SUCCESS is returned, will initialize ret_measured to true if we actually measured
          * something, or false if measurement was turned off. */
 
-        tpm2 = tcg2_interface_check(/* ret_version= */ NULL);
-        if (!tpm2 || pcrindex == UINT32_MAX) { /* PCR disabled? */
+        if (pcrindex == UINT32_MAX) { /* PCR disabled? */
                 if (ret_measured)
                         *ret_measured = false;
 
                 return EFI_SUCCESS;
         }
 
-        err = tpm2_measure_to_pcr_and_tagged_event_log(tpm2, pcrindex, buffer, buffer_size, event_id, description);
+        /* Measure into both CC and TPM if both are available to avoid a problem like CVE-2021-42299.
+         * The CC protocol has no tagged-event concept, hence use the IPL event log there. */
+        err = cc_log_event(pcrindex, buffer, buffer_size, description, &cc_ret_measured);
         if (err != EFI_SUCCESS)
                 return err;
 
+        tpm2 = tcg2_interface_check(/* ret_version= */ NULL);
+
+        if (tpm2) {
+                err = tpm2_measure_to_pcr_and_tagged_event_log(tpm2, pcrindex, buffer, buffer_size, event_id, description);
+                if (err != EFI_SUCCESS)
+                        return err;
+
+                tpm_ret_measured = true;
+        }
+
         if (ret_measured)
-                *ret_measured = true;
+                *ret_measured = tpm_ret_measured || cc_ret_measured;
+
         return EFI_SUCCESS;
 }
 
