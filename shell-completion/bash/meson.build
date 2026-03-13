@@ -46,6 +46,7 @@ foreach item : [
         ['systemd-delta',       ''],
         ['systemd-detect-virt', ''],
         ['systemd-dissect',     'HAVE_BLKID'],
+        ['systemd-hwdb',        'ENABLE_HWDB'],
         ['systemd-id128',       ''],
         ['systemd-nspawn',      'ENABLE_NSPAWN'],
         ['systemd-path',        ''],
