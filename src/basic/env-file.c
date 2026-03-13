@@ -420,6 +420,40 @@ int parse_env_file_fd_sentinel(
         return r;
 }
 
+int parse_env_datav(
+                const char *data,
+                size_t size,
+                const char *fname, /* only used for logging */
+                va_list ap) {
+
+        assert(data);
+
+        if (size == SIZE_MAX)
+                size = strlen_ptr(data);
+
+        _cleanup_fclose_ FILE *f = fmemopen_unlocked((void*) data, size, "r");
+        if (!f)
+                return -ENOMEM;
+
+        return parse_env_filev(f, fname, ap);
+}
+
+int parse_env_data_sentinel(
+                const char *data,
+                size_t size,
+                const char *fname, /* only used for logging */
+                ...) {
+
+        va_list ap;
+        int r;
+
+        va_start(ap, fname);
+        r = parse_env_datav(data, size, fname, ap);
+        va_end(ap);
+
+        return r;
+}
+
 static int load_env_file_push(
                 const char *filename, unsigned line,
                 const char *key, char *value,
