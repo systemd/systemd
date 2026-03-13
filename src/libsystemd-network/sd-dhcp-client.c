@@ -36,6 +36,7 @@
 #define RESTART_AFTER_NAK_MIN_USEC (1 * USEC_PER_SEC)
 #define RESTART_AFTER_NAK_MAX_USEC (30 * USEC_PER_MINUTE)
 
+#define MAX_REQUEST_ATTEMPTS_ON_REBOOTING 2
 #define MAX_REQUEST_ATTEMPTS 5
 #define TRANSIENT_FAILURE_ATTEMPTS 3 /* Arbitrary limit: how many attempts are considered enough to report
                                       * transient failure. */
@@ -1050,7 +1051,7 @@ static int client_send_bootp_discover(sd_dhcp_client *client) {
 
 static int client_send_discover(sd_dhcp_client *client) {
         assert(client);
-        assert(IN_SET(client->state, DHCP_STATE_INIT, DHCP_STATE_SELECTING));
+        assert(client->state == DHCP_STATE_SELECTING);
 
         return client->bootp ?
                 client_send_bootp_discover(client) :
@@ -1091,10 +1092,9 @@ static int client_send_request(sd_dhcp_client *client) {
                                        4, &client->lease->address);
                 if (r < 0)
                         return r;
-
                 break;
 
-        case DHCP_STATE_INIT_REBOOT:
+        case DHCP_STATE_REBOOTING:
                 /* ’server identifier’ MUST NOT be filled in, ’requested IP address’
                    option MUST be filled in with client’s notion of its previously
                    assigned address. ’ciaddr’ MUST be zero.
@@ -1120,16 +1120,10 @@ static int client_send_request(sd_dhcp_client *client) {
                    This message MUST be broadcast to the 0xffffffff IP broadcast address.
                  */
                 request->dhcp.ciaddr = client->lease->address;
-
                 break;
 
-        case DHCP_STATE_INIT:
-        case DHCP_STATE_SELECTING:
-        case DHCP_STATE_REBOOTING:
-        case DHCP_STATE_BOUND:
-        case DHCP_STATE_STOPPED:
         default:
-                return -EINVAL;
+                assert_not_reached();
         }
 
         r = client_append_common_discover_request_options(client, request, &optoffset, optlen);
@@ -1154,8 +1148,8 @@ static int client_send_request(sd_dhcp_client *client) {
                 log_dhcp_client(client, "REQUEST (requesting)");
                 break;
 
-        case DHCP_STATE_INIT_REBOOT:
-                log_dhcp_client(client, "REQUEST (init-reboot)");
+        case DHCP_STATE_REBOOTING:
+                log_dhcp_client(client, "REQUEST (rebooting)");
                 break;
 
         case DHCP_STATE_RENEWING:
@@ -1167,13 +1161,11 @@ static int client_send_request(sd_dhcp_client *client) {
                 break;
 
         default:
-                log_dhcp_client(client, "REQUEST (invalid)");
+                assert_not_reached();
         }
 
         return 0;
 }
-
-static int client_start(sd_dhcp_client *client);
 
 static int client_timeout_resend(
                 sd_event_source *s,
@@ -1202,38 +1194,42 @@ static int client_timeout_resend(
                 next_timeout = client_compute_reacquisition_timeout(time_now, client->expire_time);
                 break;
 
-        case DHCP_STATE_REBOOTING:
-                /* start over as we did not receive a timely ack or nak */
-                client_initialize(client);
-
-                r = client_start(client);
-                if (r < 0)
-                        goto error;
-
-                log_dhcp_client(client, "REBOOTED");
-                return 0;
-
         case DHCP_STATE_INIT:
-        case DHCP_STATE_INIT_REBOOT:
+                client_set_state(client, DHCP_STATE_SELECTING);
+                _fallthrough_;
+
         case DHCP_STATE_SELECTING:
-                if (client->discover_attempt >= client->max_discover_attempts)
+                if (client->discover_attempt >= client->max_discover_attempts) {
+                        r = -ETIMEDOUT;
                         goto error;
+                }
 
                 client->discover_attempt++;
                 next_timeout = client_compute_request_timeout(client->discover_attempt);
                 break;
+
+        case DHCP_STATE_INIT_REBOOT:
+                client_set_state(client, DHCP_STATE_REBOOTING);
+                _fallthrough_;
+
+        case DHCP_STATE_REBOOTING:
+                /* There is nothing explicitly mentioned about retry interval on reboot. Let's reuse the same
+                 * algorithm as in the requesting state below, but slightly speed up for faster reboot. */
+
+                if (client->request_attempt >= MAX_REQUEST_ATTEMPTS_ON_REBOOTING)
+                        goto restart;
+
+                client->request_attempt++;
+                next_timeout = client_compute_request_timeout(client->request_attempt) / 4;
+                break;
+
         case DHCP_STATE_REQUESTING:
-        case DHCP_STATE_BOUND:
                 if (client->request_attempt >= MAX_REQUEST_ATTEMPTS)
-                        goto error;
+                        goto restart;
 
                 client->request_attempt++;
                 next_timeout = client_compute_request_timeout(client->request_attempt);
                 break;
-
-        case DHCP_STATE_STOPPED:
-                r = -EINVAL;
-                goto error;
 
         default:
                 assert_not_reached();
@@ -1248,58 +1244,45 @@ static int client_timeout_resend(
                 goto error;
 
         switch (client->state) {
-        case DHCP_STATE_INIT:
-                r = client_send_discover(client);
-                if (r >= 0) {
-                        client_set_state(client, DHCP_STATE_SELECTING);
-                        client->discover_attempt = 0;
-                } else if (client->discover_attempt >= client->max_discover_attempts)
-                        goto error;
-                break;
-
         case DHCP_STATE_SELECTING:
                 r = client_send_discover(client);
                 if (r < 0 && client->discover_attempt >= client->max_discover_attempts)
                         goto error;
+
+                if (client->discover_attempt >= TRANSIENT_FAILURE_ATTEMPTS)
+                        client_notify(client, SD_DHCP_CLIENT_EVENT_TRANSIENT_FAILURE);
                 break;
 
-        case DHCP_STATE_INIT_REBOOT:
+        case DHCP_STATE_REBOOTING:
+                r = client_send_request(client);
+                if (r < 0 && client->request_attempt >= MAX_REQUEST_ATTEMPTS_ON_REBOOTING)
+                        goto restart;
+                break;
+
         case DHCP_STATE_REQUESTING:
         case DHCP_STATE_RENEWING:
         case DHCP_STATE_REBINDING:
                 r = client_send_request(client);
                 if (r < 0 && client->request_attempt >= MAX_REQUEST_ATTEMPTS)
-                         goto error;
-
-                if (client->state == DHCP_STATE_INIT_REBOOT)
-                        client_set_state(client, DHCP_STATE_REBOOTING);
+                        goto restart;
                 break;
 
-        case DHCP_STATE_REBOOTING:
-        case DHCP_STATE_BOUND:
-                break;
-
-        case DHCP_STATE_STOPPED:
         default:
-                r = -EINVAL;
-                goto error;
+                assert_not_reached();
         }
-
-        if (client->discover_attempt >= TRANSIENT_FAILURE_ATTEMPTS)
-                client_notify(client, SD_DHCP_CLIENT_EVENT_TRANSIENT_FAILURE);
 
         return 0;
 
-error:
+restart:
         /* Avoid REQUEST infinite loop. Per RFC 2131 section 3.1.5: if the client receives
            neither a DHCPACK or a DHCPNAK message after employing the retransmission algorithm,
            the client reverts to INIT state and restarts the initialization process */
-        if (client->request_attempt >= MAX_REQUEST_ATTEMPTS) {
-                log_dhcp_client(client, "Max REQUEST attempts reached. Restarting...");
-                r = client_restart(client);
-                if (r >= 0)
-                        return 0;
-        }
+        log_dhcp_client(client, "Max REQUEST attempts reached. Restarting...");
+        r = client_restart(client);
+        if (r >= 0)
+                return 0;
+
+error:
         client_stop(client, r);
 
         /* Errors were dealt with when stopping the client, don't spill
