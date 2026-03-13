@@ -127,12 +127,9 @@ Features:
 * start making use of the new --graceful switch to util-linux' umount command
 
 * make systemd work nicely without /bin/sh, logins and associated shell tools around
-  - add a small unit that just prints "boot complete" which we can pull in
-    wherever we pull in getty@1.service, but is conditioned on /bin/sh being
-    gone.
-  - get rid of /bin/rm in ExecStart= of system-update-cleanup.service
   - make sure debug shell service (sushell) has a nice failure mode, prints a message and reboots
   - varlink interface for "systemctl start" and friends
+  - https://github.com/util-linux/util-linux/issues/4117
 
 * drop NV_ORDERLY flag from the product uuid nvpcr. Effect of the flag is that
   it pushes the thing into TPM RAM, but a TPM usually has very little of that,
