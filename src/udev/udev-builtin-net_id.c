@@ -249,7 +249,7 @@ static int pci_get_onboard_index(sd_device *dev, unsigned *ret) {
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
                                               "Naming scheme does not allow onboard index==0.");
         if (!is_valid_onboard_index(idx))
-                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(ENOENT),
+                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
                                               "Not a valid onboard index: %u", idx);
 
         *ret = idx;
@@ -767,7 +767,7 @@ static int names_platform(UdevEvent *event, const char *prefix) {
                 return -EOPNOTSUPP;
 
         if (!in_charset(vendor, validchars))
-                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(ENOENT),
+                return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
                                               "Platform vendor contains invalid characters: %s", vendor);
 
         ascii_strlower(vendor);
