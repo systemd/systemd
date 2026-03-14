@@ -607,6 +607,28 @@ static void client_set_state(sd_dhcp_client *client, DHCPState state) {
 
         client->state = state;
 
+        switch (state) {
+        case DHCP_STATE_STOPPED:
+        case DHCP_STATE_BOUND:
+                /* In these cases, the next DHCPDISCOVER message will be sent in a new cycle.
+                 * Hence, clear the counter for DHCPDISCOVER messages. */
+                client->discover_attempt = 0;
+                break;
+
+        case DHCP_STATE_REBOOTING:
+        case DHCP_STATE_REQUESTING:
+        case DHCP_STATE_RENEWING:
+        case DHCP_STATE_REBINDING:
+                /* In these cases, the next DHCPREQUEST message will be the first message in this new state.
+                 * Hence, clear the counter for DHCPREQUEST messages. */
+                client->request_attempt = 0;
+                break;
+
+        default:
+                /* otherwise, do not reset the counters. */
+                ;
+        }
+
         if (client->state_callback)
                 client->state_callback(client, state, client->state_userdata);
 }
@@ -641,9 +663,6 @@ static void client_initialize(sd_dhcp_client *client) {
         assert(client);
 
         client_disable_event_sources(client);
-
-        client->discover_attempt = 0;
-        client->request_attempt = 0;
 
         client_set_state(client, DHCP_STATE_STOPPED);
         client->xid = 0;
@@ -1385,8 +1404,6 @@ static int client_timeout_t2(sd_event_source *s, uint64_t usec, void *userdata) 
         client->receive_message = sd_event_source_disable_unref(client->receive_message);
 
         client_set_state(client, DHCP_STATE_REBINDING);
-        client->discover_attempt = 0;
-        client->request_attempt = 0;
 
         return client_timeout_resend(s, usec, userdata);
 }
@@ -1396,8 +1413,6 @@ static int client_timeout_t1(sd_event_source *s, uint64_t usec, void *userdata) 
         DHCP_CLIENT_DONT_DESTROY(client);
 
         client_set_state(client, DHCP_STATE_RENEWING);
-        client->discover_attempt = 0;
-        client->request_attempt = 0;
 
         return client_timeout_resend(s, usec, userdata);
 }
@@ -1598,8 +1613,6 @@ static int client_enter_requesting(sd_dhcp_client *client) {
         client_disable_event_sources(client);
 
         client_set_state(client, DHCP_STATE_REQUESTING);
-        client->discover_attempt = 0;
-        client->request_attempt = 0;
 
         if (sd_dhcp_client_is_waiting_for_ipv6_connectivity(client)) {
                 if (client->ipv6_acquired) {
@@ -1790,8 +1803,6 @@ static int client_enter_bound(sd_dhcp_client *client, int notify_event) {
         client->start_delay = 0;
 
         client_set_state(client, DHCP_STATE_BOUND);
-        client->discover_attempt = 0;
-        client->request_attempt = 0;
 
         client->last_addr = client->lease->address;
 
@@ -2030,11 +2041,9 @@ int sd_dhcp_client_send_renew(sd_dhcp_client *client) {
         if (!sd_dhcp_client_is_running(client) || client->state != DHCP_STATE_BOUND || client->bootp)
                 return 0; /* do nothing */
 
-        client->start_delay = 0;
-        client->discover_attempt = 1;
-        client->request_attempt = 1;
         client_set_state(client, DHCP_STATE_RENEWING);
 
+        client->start_delay = 0;
         return client_initialize_time_events(client);
 }
 
