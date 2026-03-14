@@ -653,6 +653,28 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>BtrfsReplace=</varname></term>
+
+        <listitem><para>If assigned and the filesystem at the mountpoint specified is btrfs, then that
+        filesystem will replace its device to the partition created.</para>
+
+        <para>This option is only supported in combination with <option>--offline=no</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>VolumeName=</varname></term>
+
+        <listitem><para>If an encrypted partition is created through <varname>Encrypt=</varname>, and it will stay mounted
+        after <command>systemd-repart</command> is done (for example using <varname>BtrfsReplace=</varname>, then
+        the name of the device mapper volume created will use the name specified by <varname>VolumeName=</varname>.
+        If not given, it will default to the value of <varname>VolumeLabel=</varname>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>Encrypt=</varname></term>
 
         <listitem><para>Takes one of <literal>off</literal>, <literal>key-file</literal>,
