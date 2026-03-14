@@ -13,6 +13,7 @@
 #include "bus-locator.h"
 #include "cgroup-util.h"
 #include "conf-parser.h"
+#include "device-private.h"
 #include "device-util.h"
 #include "efi-loader.h"
 #include "errno-util.h"
@@ -676,21 +677,17 @@ static int manager_count_external_displays(Manager *m) {
                         continue;
 
                 /* Ignore ports that are not enabled */
-                const char *enabled;
-                r = sd_device_get_sysattr_value(d, "enabled", &enabled);
-                if (r == -ENOENT)
+                r = device_get_sysattr_streq(d, "enabled", "enabled");
+                if (IN_SET(r, 0, -ENOENT))
                         continue;
                 if (r < 0)
                         return r;
-                if (!streq(enabled, "enabled"))
-                        continue;
 
                 /* We count any connector which is not explicitly "disconnected" as connected. */
-                const char *status = NULL;
-                r = sd_device_get_sysattr_value(d, "status", &status);
+                r = device_get_sysattr_streq(d, "status", "disconnected");
                 if (r < 0 && r != -ENOENT)
                         return r;
-                if (!streq_ptr(status, "disconnected"))
+                if (r <= 0)
                         n++;
         }
 
