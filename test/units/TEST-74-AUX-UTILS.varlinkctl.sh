@@ -243,6 +243,78 @@ varlinkctl introspect -j /run/systemd/report/io.systemd.Manager io.systemd.Metri
 varlinkctl --more call /run/systemd/report/io.systemd.Manager io.systemd.Metrics.List {}
 varlinkctl --more call /run/systemd/report/io.systemd.Manager io.systemd.Metrics.Describe {}
 
+# Validate new manager-level metrics via Describe
+METRICS_DESCRIBE="$(varlinkctl --more call /run/systemd/report/io.systemd.Manager io.systemd.Metrics.Describe '{}')"
+
+for metric_name_type in \
+        "io.systemd.Manager.ActiveEnterTimestampUSec:gauge" \
+        "io.systemd.Manager.ActiveExitTimestampUSec:gauge" \
+        "io.systemd.Manager.CpuUsageNSec:counter" \
+        "io.systemd.Manager.IOReadBytes:counter" \
+        "io.systemd.Manager.IOReadOperations:counter" \
+        "io.systemd.Manager.InactiveExitTimestampUSec:gauge" \
+        "io.systemd.Manager.JobsQueued:gauge" \
+        "io.systemd.Manager.MemoryAvailable:gauge" \
+        "io.systemd.Manager.MemoryCurrent:gauge" \
+        "io.systemd.Manager.Pid1CpuTimeKernelUSec:counter" \
+        "io.systemd.Manager.Pid1CpuTimeUserUSec:counter" \
+        "io.systemd.Manager.Pid1FdCount:gauge" \
+        "io.systemd.Manager.Pid1MemoryUsageBytes:gauge" \
+        "io.systemd.Manager.Pid1Tasks:gauge" \
+        "io.systemd.Manager.RestartUSec:gauge" \
+        "io.systemd.Manager.StateChangeTimestampUSec:gauge" \
+        "io.systemd.Manager.StatusErrno:gauge" \
+        "io.systemd.Manager.SystemState:string" \
+        "io.systemd.Manager.TasksCurrent:gauge" \
+        "io.systemd.Manager.TimeoutCleanUSec:gauge" \
+        "io.systemd.Manager.UnitsByLoadStateTotal:gauge" \
+        "io.systemd.Manager.UnitsTotal:gauge" \
+        "io.systemd.Manager.WatchdogUSec:gauge"; do
+    metric_name="${metric_name_type%%:*}"
+    metric_type="${metric_name_type##*:}"
+    echo "$METRICS_DESCRIBE" | jq -e "select(.name == \"$metric_name\" and .type == \"$metric_type\")" >/dev/null
+done
+
+# Validate metrics via List
+METRICS_LIST="$(varlinkctl --more call /run/systemd/report/io.systemd.Manager io.systemd.Metrics.List '{}')"
+
+# Pid1 CPU time metrics should be integers >= 0
+echo "$METRICS_LIST" | jq -se '[.[] | select(.name == "io.systemd.Manager.Pid1CpuTimeKernelUSec")] | length > 0 and .[0].value >= 0' >/dev/null
+echo "$METRICS_LIST" | jq -se '[.[] | select(.name == "io.systemd.Manager.Pid1CpuTimeUserUSec")] | length > 0 and .[0].value >= 0' >/dev/null
+
+# Pid1 FD count should be > 0
+echo "$METRICS_LIST" | jq -se '[.[] | select(.name == "io.systemd.Manager.Pid1FdCount")] | length > 0 and .[0].value > 0' >/dev/null
+
+# Pid1 memory usage should be > 0
+echo "$METRICS_LIST" | jq -se '[.[] | select(.name == "io.systemd.Manager.Pid1MemoryUsageBytes")] | length > 0 and .[0].value > 0' >/dev/null
+
+# Pid1 tasks should be >= 1
+echo "$METRICS_LIST" | jq -se '[.[] | select(.name == "io.systemd.Manager.Pid1Tasks")] | length > 0 and .[0].value >= 1' >/dev/null
+
+# SystemState should be a known state string
+echo "$METRICS_LIST" | jq -se '[.[] | select(.name == "io.systemd.Manager.SystemState")] | length > 0 and (.[0].value | test("^(initializing|starting|running|degraded|maintenance|stopping)$"))' >/dev/null
+
+# JobsQueued should be an integer >= 0
+echo "$METRICS_LIST" | jq -se '[.[] | select(.name == "io.systemd.Manager.JobsQueued")] | length > 0 and .[0].value >= 0' >/dev/null
+
+# UnitsTotal should be > 0
+echo "$METRICS_LIST" | jq -se '[.[] | select(.name == "io.systemd.Manager.UnitsTotal")] | length > 0 and .[0].value > 0' >/dev/null
+
+# UnitsByLoadStateTotal should have entries with load_state field
+echo "$METRICS_LIST" | jq -se '[.[] | select(.name == "io.systemd.Manager.UnitsByLoadStateTotal")] | length > 0 and all(.[]; .fields.load_state != null)' >/dev/null
+
+# Per-service metrics should have at least one entry with a per-unit object field
+echo "$METRICS_LIST" | jq -se '[.[] | select(.name == "io.systemd.Manager.RestartUSec")] | length > 0 and all(.[]; .object != null)' >/dev/null
+echo "$METRICS_LIST" | jq -se '[.[] | select(.name == "io.systemd.Manager.StatusErrno")] | length > 0 and all(.[]; .object != null)' >/dev/null
+echo "$METRICS_LIST" | jq -se '[.[] | select(.name == "io.systemd.Manager.WatchdogUSec")] | length > 0 and all(.[]; .object != null)' >/dev/null
+echo "$METRICS_LIST" | jq -se '[.[] | select(.name == "io.systemd.Manager.TimeoutCleanUSec")] | length > 0 and all(.[]; .object != null)' >/dev/null
+
+# Per-unit timestamp metrics should have entries with per-unit object field
+echo "$METRICS_LIST" | jq -se '[.[] | select(.name == "io.systemd.Manager.ActiveEnterTimestampUSec")] | length > 0 and all(.[]; .object != null)' >/dev/null
+echo "$METRICS_LIST" | jq -se '[.[] | select(.name == "io.systemd.Manager.ActiveExitTimestampUSec")] | length > 0 and all(.[]; .object != null)' >/dev/null
+echo "$METRICS_LIST" | jq -se '[.[] | select(.name == "io.systemd.Manager.InactiveExitTimestampUSec")] | length > 0 and all(.[]; .object != null)' >/dev/null
+echo "$METRICS_LIST" | jq -se '[.[] | select(.name == "io.systemd.Manager.StateChangeTimestampUSec")] | length > 0 and all(.[]; .object != null)' >/dev/null
+
 # test io.systemd.Manager in user manager
 testuser_uid=$(id -u testuser)
 systemd-run --wait --pipe --user --machine testuser@ \
