@@ -32,13 +32,13 @@ jobs:
       github.repository_owner == 'systemd' &&
       ((github.event_name == 'issue_comment' &&
         github.event.issue.pull_request &&
-        contains(github.event.comment.body, '@claude') &&
+        contains(github.event.comment.body, '@claude review') &&
         contains(fromJSON('["MEMBER","OWNER","COLLABORATOR"]'), github.event.comment.author_association)) ||
        (github.event_name == 'pull_request_review_comment' &&
-        contains(github.event.comment.body, '@claude') &&
+        contains(github.event.comment.body, '@claude review') &&
         contains(fromJSON('["MEMBER","OWNER","COLLABORATOR"]'), github.event.comment.author_association)) ||
        (github.event_name == 'pull_request_review' &&
-        contains(github.event.review.body, '@claude') &&
+        contains(github.event.review.body, '@claude review') &&
         contains(fromJSON('["MEMBER","OWNER","COLLABORATOR"]'), github.event.review.author_association)))
 
     permissions:
@@ -71,12 +71,10 @@ jobs:
             const runUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
             const MARKER = "<!-- claude-pr-review -->";
 
-            const {data: issueComments} = await github.rest.issues.listComments({
-              owner,
-              repo,
-              issue_number: prNumber,
-              per_page: 100,
-            });
+            const issueComments = await github.paginate(
+              github.rest.issues.listComments,
+              { owner, repo, issue_number: prNumber, per_page: 100 },
+            );
 
             const existing = issueComments.find((c) => c.body && c.body.includes(MARKER));
 
@@ -146,7 +144,7 @@ jobs:
                   "type": "array",
                   "items": {
                     "type": "object",
-                    "required": ["file", "line", "severity", "body"],
+                    "required": ["file", "severity", "body"],
                     "properties": {
                       "file": {
                         "type": "string",
@@ -331,6 +329,7 @@ jobs:
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
         env:
           STRUCTURED_OUTPUT: ${{ needs.review.outputs.structured_output }}
+          REVIEW_RESULT: ${{ needs.review.result }}
           PR_NUMBER: ${{ needs.setup.outputs.pr_number }}
           HEAD_SHA: ${{ needs.setup.outputs.head_sha }}
           COMMENT_ID: ${{ needs.setup.outputs.comment_id }}
@@ -346,7 +345,7 @@ jobs:
 
             /* If the review job failed or was cancelled, update the tracking
              * comment to reflect that and bail out. */
-            if ("${{ needs.review.result }}" !== "success") {
+            if (process.env.REVIEW_RESULT !== "success") {
               await github.rest.issues.updateComment({
                 owner,
                 repo,
@@ -372,7 +371,7 @@ jobs:
                 if (typeof review.summary === "string")
                   summary = review.summary;
               } catch (e) {
-                console.log(`Failed to parse structured output: ${e.message}`);
+                core.warning(`Failed to parse structured output: ${e.message}`);
               }
             }
 
@@ -382,8 +381,13 @@ jobs:
              * comments is handled by Claude in the prompt, so we just post whatever
              * it returns. Using individual comments (rather than a review) means
              * re-runs only add new comments instead of creating a whole new review. */
+            const inlineComments = comments.filter((c) => c.line);
+            const skipped = comments.length - inlineComments.length;
+            if (skipped > 0)
+              console.log(`Skipping ${skipped} file-level comment(s) (no line number).`);
+
             let posted = 0;
-            for (const c of comments) {
+            for (const c of inlineComments) {
               console.log(`  Posting comment on ${c.file}:${c.line}`);
               try {
                 await github.rest.pulls.createReviewComment({
@@ -404,19 +408,19 @@ jobs:
             }
 
             if (posted > 0)
-              console.log(`Posted ${posted}/${comments.length} inline comment(s).`);
-            else if (comments.length > 0)
-              console.log(`Could not post any of ${comments.length} inline comment(s) — see warnings above.`);
+              console.log(`Posted ${posted}/${inlineComments.length} inline comment(s).`);
+            else if (inlineComments.length > 0)
+              console.log(`Could not post any of ${inlineComments.length} inline comment(s) — see warnings above.`);
             else
               console.log("No inline comments to post.");
 
-            const failed = comments.length > 0 && posted < comments.length;
+            const failed = inlineComments.length > 0 && posted < inlineComments.length;
 
             /* Update the tracking comment with Claude's summary. */
             if (!summary)
               summary = "Claude review: no issues found :tada:\n\n" + MARKER;
             else if (!summary.includes(MARKER))
-              summary = summary.replace(/\n/, `\n${MARKER}\n`);
+              summary += "\n\n" + MARKER;
             summary += `\n\n[Workflow run](${runUrl})`;
 
             await github.rest.issues.updateComment({
