@@ -1,0 +1,16 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
+#include "ip-util.h"
+#include "tests.h"
+
+TEST(ip_checksum) {
+        uint8_t buf[20] = {
+                0x45, 0x00, 0x02, 0x40, 0x00, 0x00, 0x00, 0x00,
+                0x40, 0x11, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0xff, 0xff, 0xff, 0xff
+        };
+
+        ASSERT_EQ(ip_checksum(buf, 20), be16toh(0x78ae));
+}
+
+DEFINE_TEST_MAIN(LOG_DEBUG);
