@@ -98,7 +98,7 @@ int dhcp_client_send_raw(
                 fd_close = fd;
         }
 
-        dhcp_packet_append_ip_headers(
+        r = dhcp_packet_append_ip_headers(
                         packet,
                         INADDR_ANY,
                         client->port,
@@ -106,6 +106,8 @@ int dhcp_client_send_raw(
                         client->server_port,
                         sizeof(DHCPPacket) + optoffset,
                         client->ip_service_type);
+        if (r < 0)
+                return r;
 
         r = dhcp_network_send_raw_socket(
                         fd,
