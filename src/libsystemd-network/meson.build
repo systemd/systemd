@@ -11,6 +11,7 @@ libsystemd_network_sources = files(
         'dhcp6-protocol.c',
         'icmp6-packet.c',
         'icmp6-util.c',
+        'ip-util.c',
         'lldp-neighbor.c',
         'lldp-network.c',
         'ndisc-option.c',
@@ -82,6 +83,9 @@ executables += [
         },
         network_test_template + {
                 'sources' : files('test-dhcp6-client.c'),
+        },
+        network_test_template + {
+                'sources' : files('test-ip-util.c'),
         },
         network_test_template + {
                 'sources' : files('test-ipv4ll-manual.c'),
