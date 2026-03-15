@@ -2,17 +2,26 @@
 #pragma once
 
 #include "sd-dhcp-option.h" /* IWYU pragma: export */
+#include "sd-forward.h"
 
 #include "dhcp-protocol.h"
-#include "sd-forward.h"
 #include "hash-funcs.h"
+#include "list.h"
 
 struct sd_dhcp_option {
         unsigned n_ref;
 
-        uint8_t option;
-        void *data;
-        size_t length;
+        LIST_FIELDS(struct sd_dhcp_option, option);
+
+        union {
+                struct {
+                        uint8_t option;
+                        uint8_t length;
+                        uint8_t data[];
+                } _packed_;
+                uint8_t tlv[0]; /* this is an array; since we are not allowed to place a variable sized array
+                                 * in a union, we just zero-size it, even if it is generally longer. */
+        };
 };
 
 extern const struct hash_ops dhcp_option_hash_ops;
