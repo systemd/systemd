@@ -4,10 +4,10 @@
 ***/
 
 #include <net/if_arp.h>
-#include <string.h>
 
 #include "dhcp-option.h"
 #include "dhcp-packet.h"
+#include "ip-util.h"
 #include "log.h"
 #include "memory-util.h"
 
@@ -79,41 +79,6 @@ int dhcp_message_init(
         return 0;
 }
 
-uint16_t dhcp_packet_checksum(uint8_t *buf, size_t len) {
-        uint64_t *buf_64 = (uint64_t*)buf;
-        uint64_t *end_64 = buf_64 + (len / sizeof(uint64_t));
-        uint64_t sum = 0;
-
-        /* See RFC1071 */
-
-        while (buf_64 < end_64) {
-                sum += *buf_64;
-                if (sum < *buf_64)
-                        /* wrap around in one's complement */
-                        sum++;
-
-                buf_64++;
-        }
-
-        if (len % sizeof(uint64_t)) {
-                /* If the buffer is not aligned to 64-bit, we need
-                   to zero-pad the last few bytes and add them in */
-                uint64_t buf_tail = 0;
-
-                memcpy(&buf_tail, buf_64, len % sizeof(uint64_t));
-
-                sum += buf_tail;
-                if (sum < buf_tail)
-                        /* wrap around */
-                        sum++;
-        }
-
-        while (sum >> 16)
-                sum = (sum & 0xffff) + (sum >> 16);
-
-        return ~sum;
-}
-
 void dhcp_packet_append_ip_headers(DHCPPacket *packet, be32_t source_addr,
                                    uint16_t source_port, be32_t destination_addr,
                                    uint16_t destination_port, uint16_t len, int ip_service_type) {
@@ -136,11 +101,11 @@ void dhcp_packet_append_ip_headers(DHCPPacket *packet, be32_t source_addr,
         packet->udp.len = htobe16(len - DHCP_IP_SIZE);
 
         packet->ip.check = packet->udp.len;
-        packet->udp.check = dhcp_packet_checksum(&packet->ip.ttl, len - 8);
+        packet->udp.check = ip_checksum(&packet->ip.ttl, len - 8);
 
         packet->ip.ttl = IPDEFTTL;
         packet->ip.check = 0;
-        packet->ip.check = dhcp_packet_checksum((uint8_t*)&packet->ip, DHCP_IP_SIZE);
+        packet->ip.check = ip_checksum(&packet->ip, DHCP_IP_SIZE);
 }
 
 int dhcp_packet_verify_headers(DHCPPacket *packet, size_t len, bool checksum, uint16_t port) {
@@ -193,7 +158,7 @@ int dhcp_packet_verify_headers(DHCPPacket *packet, size_t len, bool checksum, ui
            if all the other checks have passed
          */
 
-        if (dhcp_packet_checksum((uint8_t*)&packet->ip, hdrlen))
+        if (ip_checksum(&packet->ip, hdrlen))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "ignoring packet: invalid IP checksum");
 
@@ -201,8 +166,7 @@ int dhcp_packet_verify_headers(DHCPPacket *packet, size_t len, bool checksum, ui
                 packet->ip.check = packet->udp.len;
                 packet->ip.ttl = 0;
 
-                if (dhcp_packet_checksum(&packet->ip.ttl,
-                                  be16toh(packet->udp.len) + 12))
+                if (ip_checksum(&packet->ip.ttl, be16toh(packet->udp.len) + 12))
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "ignoring packet: invalid UDP checksum");
         }
