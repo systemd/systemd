@@ -23,7 +23,7 @@ int dhcp_message_init(
                 size_t optlen,
                 size_t *ret_optoffset);
 
-void dhcp_packet_append_ip_headers(
+int dhcp_packet_append_ip_headers(
                 DHCPPacket *packet,
                 be32_t source_addr,
                 uint16_t source,
