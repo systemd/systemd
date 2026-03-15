@@ -463,21 +463,28 @@ int dhcp_option_parse_hostname(const uint8_t *option, size_t len, char **ret) {
         return 0;
 }
 
-static sd_dhcp_option* dhcp_option_free(sd_dhcp_option *i) {
-        if (!i)
+static sd_dhcp_option* dhcp_option_free(sd_dhcp_option *o) {
+        if (!o)
                 return NULL;
 
-        free(i->data);
-        return mfree(i);
+        free(o->tlv);
+        return mfree(o);
 }
 
 int sd_dhcp_option_new(uint8_t option, const void *data, size_t length, sd_dhcp_option **ret) {
         assert_return(ret, -EINVAL);
         assert_return(length == 0 || data, -EINVAL);
 
-        _cleanup_free_ void *q = memdup(data, length);
-        if (!q)
+        if (length > UINT8_MAX)
+                return -EINVAL;
+
+        _cleanup_free_ uint8_t *tlv = new(uint8_t, length + 2);
+        if (!tlv)
                 return -ENOMEM;
+
+        tlv[0] = option;
+        tlv[1] = length;
+        memcpy_safe(tlv + 2, data, length);
 
         sd_dhcp_option *p = new(sd_dhcp_option, 1);
         if (!p)
@@ -485,9 +492,7 @@ int sd_dhcp_option_new(uint8_t option, const void *data, size_t length, sd_dhcp_
 
         *p = (sd_dhcp_option) {
                 .n_ref = 1,
-                .option = option,
-                .length = length,
-                .data = TAKE_PTR(q),
+                .tlv = TAKE_PTR(tlv),
         };
 
         *ret = TAKE_PTR(p);
