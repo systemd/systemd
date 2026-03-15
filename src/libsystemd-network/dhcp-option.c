@@ -463,23 +463,31 @@ int dhcp_option_parse_hostname(const uint8_t *option, size_t len, char **ret) {
         return 0;
 }
 
-static sd_dhcp_option* dhcp_option_free(sd_dhcp_option *i) {
-        if (!i)
+static sd_dhcp_option* dhcp_option_free(sd_dhcp_option *o) {
+        if (!o)
                 return NULL;
 
-        free(i->data);
-        return mfree(i);
+        if (!o->option_prev)
+                /* If this is the head one, remove all subsequent options. */
+                LIST_CLEAR(option, o->option_next, sd_dhcp_option_unref);
+        else
+                /* Otherwise, remove this option from the list. */
+                LIST_REMOVE(option, o->option_prev, o);
+
+        return mfree(o);
 }
 
 int sd_dhcp_option_new(uint8_t option, const void *data, size_t length, sd_dhcp_option **ret) {
         assert_return(ret, -EINVAL);
         assert_return(length == 0 || data, -EINVAL);
 
-        _cleanup_free_ void *q = memdup(data, length);
-        if (!q)
-                return -ENOMEM;
+        if (IN_SET(option, SD_DHCP_OPTION_PAD, SD_DHCP_OPTION_END))
+                return -EINVAL;
 
-        sd_dhcp_option *p = new(sd_dhcp_option, 1);
+        if (length > UINT8_MAX)
+                return -EINVAL;
+
+        sd_dhcp_option *p = malloc(MAX(sizeof(sd_dhcp_option), offsetof(sd_dhcp_option, data) + length));
         if (!p)
                 return -ENOMEM;
 
@@ -487,8 +495,9 @@ int sd_dhcp_option_new(uint8_t option, const void *data, size_t length, sd_dhcp_
                 .n_ref = 1,
                 .option = option,
                 .length = length,
-                .data = TAKE_PTR(q),
         };
+
+        memcpy_safe(p->data, data, length);
 
         *ret = TAKE_PTR(p);
         return 0;
