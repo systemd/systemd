@@ -7,6 +7,8 @@
 
 #include "dhcp-option.h"
 #include "dhcp-packet.h"
+#include "iovec-util.h"
+#include "iovec-wrapper.h"
 #include "ip-util.h"
 #include "log.h"
 #include "memory-util.h"
@@ -79,33 +81,40 @@ int dhcp_message_init(
         return 0;
 }
 
-void dhcp_packet_append_ip_headers(DHCPPacket *packet, be32_t source_addr,
-                                   uint16_t source_port, be32_t destination_addr,
-                                   uint16_t destination_port, uint16_t len, int ip_service_type) {
-        packet->ip.version = IPVERSION;
-        packet->ip.ihl = DHCP_IP_SIZE / 4;
-        packet->ip.tot_len = htobe16(len);
+int dhcp_packet_append_ip_headers(
+                DHCPPacket *packet,
+                be32_t source_addr,
+                uint16_t source_port,
+                be32_t destination_addr,
+                uint16_t destination_port,
+                uint16_t len,
+                int ip_service_type) {
 
-        if (ip_service_type >= 0)
-                packet->ip.tos = ip_service_type;
-        else
-                packet->ip.tos = IPTOS_CLASS_CS6;
+        struct iphdr ip;
+        struct udphdr udp;
+        int r;
 
-        packet->ip.protocol = IPPROTO_UDP;
-        packet->ip.saddr = source_addr;
-        packet->ip.daddr = destination_addr;
+        assert(packet);
+        assert(len > offsetof(DHCPPacket, dhcp));
 
-        packet->udp.source = htobe16(source_port);
-        packet->udp.dest = htobe16(destination_port);
+        r = udp_packet_build(
+                        source_addr,
+                        source_port,
+                        destination_addr,
+                        destination_port,
+                        ip_service_type,
+                        &(struct iovec_wrapper) {
+                                .iovec = &IOVEC_MAKE(&packet->dhcp, len - offsetof(DHCPPacket, dhcp)),
+                                .count = 1,
+                        },
+                        &ip,
+                        &udp);
+        if (r < 0)
+                return r;
 
-        packet->udp.len = htobe16(len - DHCP_IP_SIZE);
-
-        packet->ip.check = packet->udp.len;
-        packet->udp.check = ip_checksum(&packet->ip.ttl, len - 8);
-
-        packet->ip.ttl = IPDEFTTL;
-        packet->ip.check = 0;
-        packet->ip.check = ip_checksum(&packet->ip, DHCP_IP_SIZE);
+        packet->ip = ip;
+        packet->udp = udp;
+        return 0;
 }
 
 int dhcp_packet_verify_headers(DHCPPacket *packet, size_t len, bool checksum, uint16_t port) {
