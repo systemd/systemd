@@ -467,6 +467,13 @@ static sd_dhcp_option* dhcp_option_free(sd_dhcp_option *o) {
         if (!o)
                 return NULL;
 
+        if (!o->option_prev)
+                /* If this is the head one, remove all subsequent options. */
+                LIST_CLEAR(option, o->option_next, sd_dhcp_option_unref);
+        else
+                /* Otherwise, remove this option from the list. */
+                LIST_REMOVE(option, o->option_prev, o);
+
         free(o->tlv);
         return mfree(o);
 }

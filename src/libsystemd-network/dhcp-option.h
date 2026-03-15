@@ -6,9 +6,12 @@
 
 #include "dhcp-protocol.h"
 #include "hash-funcs.h"
+#include "list.h"
 
 struct sd_dhcp_option {
         unsigned n_ref;
+
+        LIST_FIELDS(struct sd_dhcp_option, option);
 
         union {
                 uint8_t *tlv;
