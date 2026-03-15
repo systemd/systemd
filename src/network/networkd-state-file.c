@@ -5,9 +5,11 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "sd-dhcp-lease.h"
 #include "sd-dhcp6-lease.h"
 
 #include "alloc-util.h"
+#include "dhcp-client-internal.h"
 #include "dns-domain.h"
 #include "dns-resolver-internal.h"
 #include "errno-util.h"
@@ -958,6 +960,20 @@ static int link_save(Link *link) {
 
         print_link_hashmap(f, "CARRIER_BOUND_TO=", link->bound_to_links);
         print_link_hashmap(f, "CARRIER_BOUND_BY=", link->bound_by_links);
+
+        if (link->dhcp_client) {
+                const char *state = dhcp_state_to_string(dhcp_client_get_state(link->dhcp_client));
+                if (state)
+                        fprintf(f, "DHCP_CLIENT_STATE=%s\n", state);
+        }
+
+        if (link->dhcp_lease) {
+                usec_t ts;
+
+                r = sd_dhcp_lease_get_timestamp(link->dhcp_lease, CLOCK_REALTIME, &ts);
+                if (r >= 0)
+                        fprintf(f, "DHCP_LEASE_TIMESTAMP=" USEC_FMT "\n", ts);
+        }
 
         if (link->dhcp_lease) {
                 r = dhcp_lease_save(link->dhcp_lease, link->lease_file);
