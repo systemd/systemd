@@ -192,11 +192,23 @@ int sd_network_link_get_carrier_bound_to(int ifindex, int **ret);
 /* Get the CARRIERS that are bound to current link. */
 int sd_network_link_get_carrier_bound_by(int ifindex, int **ret);
 
+/* Get DHCPv4 client state for a given link. */
+int sd_network_link_get_dhcp_client_state(int ifindex, char **ret);
+
+/* Get DHCPv4 lease timestamp for a given link. */
+int sd_network_link_get_dhcp_lease_timestamp(int ifindex, uint64_t *ret);
+
+/* Get DHCPv6 client state for a given link. */
+int sd_network_link_get_dhcp6_client_state(int ifindex, char **ret);
+
 /* Get DHCPv6 client IAID for a given link. */
 int sd_network_link_get_dhcp6_client_iaid_string(int ifindex, char **ret);
 
 /* Get DHCPv6 client DUID for a given link. */
 int sd_network_link_get_dhcp6_client_duid_string(int ifindex, char **ret);
+
+/* Get DHCPv6 lease timestamp for a given link. */
+int sd_network_link_get_dhcp6_lease_timestamp(int ifindex, uint64_t *ret);
 
 int sd_network_link_get_stat(int ifindex, struct stat *ret);
 
