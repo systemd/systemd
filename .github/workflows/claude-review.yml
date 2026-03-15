@@ -176,6 +176,7 @@ jobs:
           # so it cannot post comments or modify the PR.
           github_token: ${{ secrets.GITHUB_TOKEN }}
           track_progress: false
+          show_full_output: "true"
           additional_permissions: |
             actions: read
           claude_args: |
