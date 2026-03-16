@@ -2124,34 +2124,30 @@ static int setup_resolv_conf(const char *dest) {
 }
 
 static int setup_boot_id(void) {
-        _cleanup_(unlink_and_freep) char *from = NULL;
-        _cleanup_free_ char *path = NULL;
         sd_id128_t rnd = SD_ID128_NULL;
-        const char *to;
         int r;
 
         /* Generate a new randomized boot ID, so that each boot-up of the container gets a new one */
-
-        r = tempfn_random_child("/run", "proc-sys-kernel-random-boot-id", &path);
-        if (r < 0)
-                return log_error_errno(r, "Failed to generate random boot ID path: %m");
 
         r = sd_id128_randomize(&rnd);
         if (r < 0)
                 return log_error_errno(r, "Failed to generate random boot id: %m");
 
-        r = id128_write(path, ID128_FORMAT_UUID, rnd);
+        r = id128_write("/run/proc-sys-kernel-random-boot-id", ID128_FORMAT_UUID, rnd);
         if (r < 0)
                 return log_error_errno(r, "Failed to write boot id: %m");
 
-        from = TAKE_PTR(path);
-        to = "/proc/sys/kernel/random/boot_id";
-
-        r = mount_nofollow_verbose(LOG_ERR, from, to, NULL, MS_BIND, NULL);
+        r = mount_nofollow_verbose(LOG_ERR, "/run/proc-sys-kernel-random-boot-id", "/proc/sys/kernel/random/boot_id", NULL, MS_BIND, NULL);
         if (r < 0)
                 return r;
 
-        return mount_nofollow_verbose(LOG_ERR, NULL, to, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);
+        /* NB: We intentionally do not unlink the backing file. Bind mounts of unlinked files cannot be
+         * replicated to other mount namespaces (both the old and new mount APIs fail with ENOENT). Since
+         * mount_private_apivfs() needs to replicate submounts like boot_id when setting up a fresh /proc
+         * instance, the backing file must remain on disk. It lives in /run which is cleaned up on
+         * shutdown anyway. */
+
+        return mount_nofollow_verbose(LOG_ERR, NULL, "/proc/sys/kernel/random/boot_id", NULL, MS_BIND|MS_REMOUNT|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV, NULL);
 }
 
 static int bind_mount_devnode(const char *from, const char *to) {
@@ -2532,8 +2528,6 @@ static int setup_credentials(const char *root) {
 }
 
 static int setup_kmsg(int fd_inner_socket) {
-        _cleanup_(unlink_and_freep) char *from = NULL;
-        _cleanup_free_ char *fifo = NULL;
         _cleanup_close_ int fd = -EBADF;
         int r;
 
@@ -2541,27 +2535,23 @@ static int setup_kmsg(int fd_inner_socket) {
 
         BLOCK_WITH_UMASK(0000);
 
-        /* We create the kmsg FIFO as a temporary file in /run, but immediately delete it after bind mounting it to
-         * /proc/kmsg. While FIFOs on the reading side behave very similar to /proc/kmsg, their writing side behaves
-         * differently from /dev/kmsg in that writing blocks when nothing is reading. In order to avoid any problems
-         * with containers deadlocking due to this we simply make /dev/kmsg unavailable to the container. */
+        /* We create the kmsg FIFO in /run, and bind mount it to /proc/kmsg. While FIFOs on the reading
+         * side behave very similar to /proc/kmsg, their writing side behaves differently from /dev/kmsg in
+         * that writing blocks when nothing is reading. In order to avoid any problems with containers
+         * deadlocking due to this we simply make /dev/kmsg unavailable to the container. */
 
-        r = tempfn_random_child("/run", "proc-kmsg", &fifo);
-        if (r < 0)
-                return log_error_errno(r, "Failed to generate kmsg path: %m");
-
-        if (mkfifo(fifo, 0600) < 0)
+        if (mkfifo("/run/proc-kmsg", 0600) < 0)
                 return log_error_errno(errno, "mkfifo() for /run/kmsg failed: %m");
 
-        from = TAKE_PTR(fifo);
-
-        r = mount_nofollow_verbose(LOG_ERR, from, "/proc/kmsg", NULL, MS_BIND, NULL);
+        r = mount_nofollow_verbose(LOG_ERR, "/run/proc-kmsg", "/proc/kmsg", NULL, MS_BIND, NULL);
         if (r < 0)
                 return r;
 
-        fd = open(from, O_RDWR|O_NONBLOCK|O_CLOEXEC);
+        fd = open("/run/proc-kmsg", O_RDWR|O_NONBLOCK|O_CLOEXEC);
         if (fd < 0)
                 return log_error_errno(errno, "Failed to open fifo: %m");
+
+        /* NB: We intentionally do not unlink the backing FIFO. See setup_boot_id() for details. */
 
         /* Store away the fd in the socket, so that it stays open as long as we run the child */
         r = send_one_fd(fd_inner_socket, fd, 0);
@@ -3465,13 +3455,6 @@ static int inner_child(
                 r = reset_uid_gid();
                 if (r < 0)
                         return log_error_errno(r, "Couldn't become new root: %m");
-
-                /* Creating a new user namespace means all MS_SHARED mounts become MS_SLAVE. Let's put them
-                 * back to MS_SHARED here, since that's what we want as defaults. (This will not reconnect
-                 * propagation, but simply create new peer groups for all our mounts). */
-                r = mount_follow_verbose(LOG_ERR, NULL, "/", NULL, MS_SHARED|MS_REC, NULL);
-                if (r < 0)
-                        return r;
         }
 
         r = mount_all(/* dest= */ NULL,
@@ -3538,6 +3521,18 @@ static int inner_child(
                         0,
                         arg_selinux_apifs_context,
                         MOUNT_NON_ROOT_ONLY | MOUNT_IN_USERNS);
+        if (r < 0)
+                return r;
+
+        /* Now that all our setup mounts are in place, restore shared propagation as the default for
+         * the container runtime. Note that we delay this until after all our setup mounts are done
+         * (mount_all(), setup_boot_id(), etc.) below. If we restored shared propagation before those mounts,
+         * bind mounts like /proc/sys (which is bind-mounted read-only on top of /proc/sys) would end up
+         * in the same peer group as the underlying /proc mount, causing any subsequent mounts under
+         * /proc/sys (such as boot_id) to propagate and appear as duplicate mount table entries. By
+         * keeping slave propagation during setup, each bind mount gets its own independent peer group
+         * when we finally switch to shared, avoiding the unwanted propagation. */
+        r = mount_follow_verbose(LOG_ERR, NULL, "/", NULL, MS_SHARED|MS_REC, NULL);
         if (r < 0)
                 return r;
 
@@ -4126,17 +4121,6 @@ static int outer_child(
         }
 
         if (arg_userns_mode != USER_NAMESPACE_NO) {
-                _cleanup_close_ int mntns_fd = -EBADF;
-
-                mntns_fd = namespace_open_by_type(NAMESPACE_MOUNT);
-                if (mntns_fd < 0)
-                        return log_error_errno(mntns_fd, "Failed to pin outer mount namespace: %m");
-
-                l = send_one_fd(fd_outer_socket, mntns_fd, 0);
-                if (l < 0)
-                        return log_error_errno(l, "Failed to send outer mount namespace fd: %m");
-                mntns_fd = safe_close(mntns_fd);
-
                 /* Let the parent know which UID shift we read from the image */
                 l = send(fd_outer_socket, &arg_uid_shift, sizeof(arg_uid_shift), MSG_NOSIGNAL);
                 if (l < 0)
@@ -4466,22 +4450,23 @@ static int outer_child(
 
         _cleanup_close_ int notify_fd = -EBADF;
         if (arg_userns_mode != USER_NAMESPACE_MANAGED) {
-                /* Mark everything as shared so our mounts get propagated down. This is required to make new
-                 * bind mounts available in systemd services inside the container that create a new mount
-                 * namespace.  See https://github.com/systemd/systemd/issues/3860 Further submounts (such as
-                 * /dev/) done after this will inherit the shared propagation mode.
+                /* Switch root but use slave propagation for now. We delay restoring MS_SHARED until
+                 * inner_child() has finished all its setup mounts. If we made everything shared here,
+                 * bind mounts set up by inner_child() (e.g. /proc/sys on top of /proc/sys) would join
+                 * the same peer group as the underlying mount, causing subsequent mounts (like boot_id)
+                 * to propagate and appear as duplicate mount table entries.
                  *
-                 * IMPORTANT: Do not overmount the root directory anymore from now on to enable moving the root
-                 * directory mount to root later on.
+                 * IMPORTANT: Do not overmount the root directory anymore from now on to enable moving the
+                 * root directory mount to root later on.
                  * https://github.com/systemd/systemd/issues/3847#issuecomment-562735251
                  */
-                r = mount_switch_root(directory, MS_SHARED);
+                r = mount_switch_root(directory, MS_SLAVE);
                 if (r < 0)
                         return log_error_errno(r, "Failed to move root directory: %m");
 
-                /* We finished setting up the rootfs which is a shared mount. The mount tunnel needs to be a
-                 * dependent mount otherwise we can't MS_MOVE mounts that were propagated from the host into
-                 * the container. */
+                /* We finished setting up the rootfs which is a dependent mount. The mount tunnel also
+                 * needs to be a dependent mount otherwise we can't MS_MOVE mounts that were propagated
+                 * from the host into the container. */
                 r = mount_tunnel_open();
                 if (r < 0)
                         return r;
@@ -4490,11 +4475,9 @@ static int outer_child(
                         /* In order to mount procfs and sysfs in an unprivileged container the kernel
                          * requires that a fully visible instance is already present in the target mount
                          * namespace. Mount one here so the inner child can mount its own instances. Later
-                         * we umount the temporary instances created here before we actually exec the
-                         * payload. Since the rootfs is shared the umount will propagate into the container.
-                         * Note, the inner child wouldn't be able to unmount the instances on its own since
-                         * it doesn't own the originating mount namespace. IOW, the outer child needs to do
-                         * this. */
+                         * the parent will enter the inner child's mount namespace and umount these
+                         * temporary instances before the inner child actually execs the payload (see
+                         * wipe_fully_visible_api_fs()). */
                         r = pin_fully_visible_api_fs();
                         if (r < 0)
                                 return r;
@@ -4540,7 +4523,10 @@ static int outer_child(
                         if (r < 0)
                                 return r;
 
-                        r = mount_switch_root(directory, MS_SHARED);
+                        /* Switch root but don't restore shared propagation yet — inner_child() will
+                         * restore MS_SHARED after all its setup mounts are done, to avoid spurious
+                         * mount propagation (e.g. duplicate boot_id mount entries). */
+                        r = mount_switch_root(directory, MS_SLAVE);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to move root directory: %m");
                 }
@@ -5257,7 +5243,7 @@ static int run_container(
                 fd_inner_socket_pair[2] = EBADF_PAIR,
                 fd_outer_socket_pair[2] = EBADF_PAIR;
 
-        _cleanup_close_ int notify_socket = -EBADF, mntns_fd = -EBADF, fd_kmsg_fifo = -EBADF;
+        _cleanup_close_ int notify_socket = -EBADF, fd_kmsg_fifo = -EBADF;
         _cleanup_(barrier_destroy) Barrier barrier = BARRIER_NULL;
         _cleanup_(sd_event_source_unrefp) sd_event_source *notify_event_source = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *unix_export_host_dir = NULL;
@@ -5412,10 +5398,6 @@ static int run_container(
         fd_outer_socket_pair[1] = safe_close(fd_outer_socket_pair[1]);
 
         if (arg_userns_mode != USER_NAMESPACE_NO) {
-                mntns_fd = receive_one_fd(fd_outer_socket_pair[0], 0);
-                if (mntns_fd < 0)
-                        return log_error_errno(mntns_fd, "Failed to receive mount namespace fd from outer child: %m");
-
                 /* The child just let us know the UID shift it might have read from the image. */
                 l = recv(fd_outer_socket_pair[0], &arg_uid_shift, sizeof arg_uid_shift, 0);
                 if (l < 0)
@@ -5750,10 +5732,17 @@ static int run_container(
                 return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "Child died too early.");
 
         if (!IN_SET(arg_userns_mode, USER_NAMESPACE_NO, USER_NAMESPACE_MANAGED)) {
-                r = wipe_fully_visible_api_fs(mntns_fd);
+                /* Open the inner child's mount namespace so we can unmount the pinned api fs mounts
+                 * directly. We can't rely on mount propagation from the outer child since with MS_SLAVE
+                 * on the outer child's rootfs, both the outer and inner child are slaves of the host's
+                 * peer group — there is no outer→inner propagation path. */
+                _cleanup_close_ int child_mntns_fd = pidref_namespace_open_by_type(pid, NAMESPACE_MOUNT);
+                if (child_mntns_fd < 0)
+                        return log_error_errno(child_mntns_fd, "Failed to open inner child's mount namespace: %m");
+
+                r = wipe_fully_visible_api_fs(child_mntns_fd);
                 if (r < 0)
                         return r;
-                mntns_fd = safe_close(mntns_fd);
         }
 
         /* And now let the child know that we completed removing the procfs instances, and it can start the
