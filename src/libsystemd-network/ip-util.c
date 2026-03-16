@@ -5,6 +5,7 @@
 #include "iovec-util.h"
 #include "iovec-wrapper.h"
 #include "ip-util.h"
+#include "log.h"
 
 union iphdr_union {
         struct iphdr ip;
@@ -147,5 +148,92 @@ int udp_packet_build(
 
         *ret_iphdr = ip.ip;
         *ret_udphdr = udp;
+        return 0;
+}
+
+int udp_packet_verify(
+                const struct iovec *packet,
+                uint16_t port,
+                bool checksum,
+                struct iovec *ret_payload) {
+
+        assert(packet);
+
+        /* This verifies IP and UDP packet headers and optionally returns the UDP payload. */
+
+        /* IP */
+        if (packet->iov_len < sizeof(struct iphdr))
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "IPv4: packet (%zu bytes) smaller than minimum IP header (%zu bytes), ignoring packet.",
+                                       packet->iov_len, sizeof(struct iphdr));
+
+        const union iphdr_union *ip = (const union iphdr_union*) packet->iov_base;
+        if (ip->ip.version != IPVERSION)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "IPv4: packet is not IPv4, ignoring packet.");
+
+        size_t iphdrlen = ip->ip.ihl * 4;
+        if (iphdrlen < sizeof(struct iphdr))
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "IPv4: IP header size (%zu bytes) smaller than minimum (%zu bytes), ignoring packet.",
+                                       iphdrlen, sizeof(struct iphdr));
+
+        if (packet->iov_len < iphdrlen)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "IPv4: packet (%zu bytes) smaller than IP header size (%zu bytes), ignoring packet.",
+                                       packet->iov_len, iphdrlen);
+
+        size_t totlen = be16toh(ip->ip.tot_len);
+        if (packet->iov_len < totlen)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "IPv4: packet (%zu bytes) smaller than expected (%zu) by IP header, ignoring packet.",
+                                       packet->iov_len, totlen);
+
+        if (ip->ip.protocol != IPPROTO_UDP)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "IPv4: not UDP, ignoring packet.");
+
+        if (iphdr_checksum(ip) != 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "IPv4: invalid IP checksum, ignoring packet.");
+
+        /* UDP */
+        if (packet->iov_len < iphdrlen + sizeof(struct udphdr))
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "UDP: packet (%zu bytes) smaller than IP header + UDP header, ignoring packet.",
+                                       packet->iov_len);
+
+        const struct udphdr *udp = (const struct udphdr*) ((const uint8_t*) packet->iov_base + iphdrlen);
+        size_t udplen = be16toh(udp->len);
+        if (udplen < sizeof(struct udphdr))
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "UDP: UDP datagram (%zu bytes) smaller than UDP header (%zu bytes), ignoring packet.",
+                                       udplen, sizeof(struct udphdr));
+
+        if (totlen != iphdrlen + udplen)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "UDP: packet length by IP header (%zu bytes) does not match with the one by UDP header "
+                                       "(IP header %zu bytes + UDP %zu bytes = %zu bytes), ignoring packet.",
+                                       totlen, iphdrlen, udplen, iphdrlen + udplen);
+
+        if (be16toh(udp->dest) != port)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "UDP: to port %u, which is not the expected port (%u), ignoring packet.",
+                                       be16toh(udp->dest), port);
+
+        /* Calculate the UDP payload length from the UDP header (udplen) or IP header (totlen), rather than
+         * the input packet length (len). The packet may contain garbage at the end. */
+        struct iovec payload = IOVEC_SHIFT(packet, iphdrlen + sizeof(struct udphdr));
+        if (checksum && udp->check != 0 &&
+            udphdr_checksum(ip->ip.saddr, ip->ip.daddr, udp,
+                            &(struct iovec_wrapper) {
+                                    .iovec = &payload,
+                                    .count = 1,
+                            }) != 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                       "UDP: invalid UDP checksum, ignoring packet.");
+
+        if (ret_payload)
+                *ret_payload = payload;
         return 0;
 }
