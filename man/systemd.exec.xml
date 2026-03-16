@@ -1773,6 +1773,15 @@ StateDirectory=aaa/bbb ccc</programlisting>
         <literal>tmpfs</literal>, then for system services the directories specified in
         <varname>RuntimeDirectory=</varname> are removed when the system is rebooted.</para>
 
+        <para>If <varname>DynamicUser=</varname> is used together with
+        <varname>RuntimeDirectoryPreserve=</varname> set to values other than <option>no</option>, the logic
+        is slightly altered: the <varname>RuntimeDirectory=</varname> directories are created below
+        <filename>/run/private/</filename>, which is a host directory made inaccessible to unprivileged
+        users, which ensures that access to these directories cannot be gained through dynamic user ID
+        recycling. Symbolic links are created to hide this difference in behaviour. Both from perspective of
+        the host and from inside the unit, the relevant directories hence always appear directly below
+        <filename>/run/</filename>.</para>
+
         <xi:include href="version-info.xml" xpointer="v235"/></listitem>
       </varlistentry>
 
