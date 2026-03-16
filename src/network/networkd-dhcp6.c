@@ -11,6 +11,7 @@
 #include "conf-parser.h"
 #include "dhcp6-client-internal.h"
 #include "dhcp6-lease-internal.h"
+#include "dhcp6-protocol.h"
 #include "errno-util.h"
 #include "hashmap.h"
 #include "hostname-setup.h"
@@ -28,6 +29,7 @@
 #include "set.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "time-util.h"
 
 bool link_dhcp6_with_address_enabled(Link *link) {
         if (!link_dhcp6_enabled(link))
@@ -889,6 +891,10 @@ int link_serialize_dhcp6_client(Link *link, FILE *f) {
         if (!link->dhcp6_client)
                 return 0;
 
+        const char *state = dhcp6_state_to_string(dhcp6_client_get_state(link->dhcp6_client));
+        if (state)
+                fprintf(f, "DHCP6_CLIENT_STATE=%s\n", state);
+
         r = sd_dhcp6_client_get_iaid(link->dhcp6_client, &iaid);
         if (r >= 0)
                 fprintf(f, "DHCP6_CLIENT_IAID=0x%x\n", iaid);
@@ -896,6 +902,14 @@ int link_serialize_dhcp6_client(Link *link, FILE *f) {
         r = sd_dhcp6_client_get_duid_as_string(link->dhcp6_client, &duid);
         if (r >= 0)
                 fprintf(f, "DHCP6_CLIENT_DUID=%s\n", duid);
+
+        if (link->dhcp6_lease) {
+                usec_t ts;
+
+                r = sd_dhcp6_lease_get_timestamp(link->dhcp6_lease, CLOCK_REALTIME, &ts);
+                if (r >= 0)
+                        fprintf(f, "DHCP6_LEASE_TIMESTAMP=" USEC_FMT "\n", ts);
+        }
 
         return 0;
 }
