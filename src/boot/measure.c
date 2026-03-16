@@ -309,10 +309,11 @@ EFI_STATUS tpm_log_tagged_event(
         }
 
         err = tpm2_measure_to_pcr_and_tagged_event_log(tpm2, pcrindex, buffer, buffer_size, event_id, description);
-        if (!err)
+        if (err != EFI_SUCCESS)
                 return err;
 
-        *ret_measured = true;
+        if (ret_measured)
+                *ret_measured = true;
         return EFI_SUCCESS;
 }
 

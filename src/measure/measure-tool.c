@@ -935,7 +935,10 @@ static int build_policy_digest(bool sign) {
                         _cleanup_free_ void *sig = NULL;
                         size_t ss = 0;
                         if (privkey) {
-                                r = digest_and_sign(p->md, privkey, pcr_policy_digest.buffer, pcr_policy_digest.size, &sig, &ss);
+                                /* We always use SHA256 for signing currently. Regardless of the bank. */
+                                const EVP_MD *sha256 = ASSERT_PTR(EVP_get_digestbyname("sha256"));
+
+                                r = digest_and_sign(sha256, privkey, pcr_policy_digest.buffer, pcr_policy_digest.size, &sig, &ss);
                                 if (r == -EADDRNOTAVAIL)
                                         return log_error_errno(r, "Hash algorithm '%s' not available while signing. (Maybe OS security policy disables this algorithm?)", EVP_MD_name(p->md));
                                 if (r < 0)

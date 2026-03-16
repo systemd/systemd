@@ -10,6 +10,8 @@
 name: Claude Review
 
 on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
   # Strangely enough you have to use issue_comment to react to regular comments on PRs.
   # See https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#pull_request_comment-use-issue_comment.
   issue_comment:
@@ -30,15 +32,18 @@ jobs:
 
     if: |
       github.repository_owner == 'systemd' &&
-      ((github.event_name == 'issue_comment' &&
+      ((github.event_name == 'pull_request_target' &&
+        contains(fromJSON('["MEMBER","OWNER","COLLABORATOR"]'), github.event.pull_request.author_association) &&
+        github.event.pull_request.user.login != 'YHNdnzj') ||
+       (github.event_name == 'issue_comment' &&
         github.event.issue.pull_request &&
-        contains(github.event.comment.body, '@claude') &&
+        contains(github.event.comment.body, '@claude review') &&
         contains(fromJSON('["MEMBER","OWNER","COLLABORATOR"]'), github.event.comment.author_association)) ||
        (github.event_name == 'pull_request_review_comment' &&
-        contains(github.event.comment.body, '@claude') &&
+        contains(github.event.comment.body, '@claude review') &&
         contains(fromJSON('["MEMBER","OWNER","COLLABORATOR"]'), github.event.comment.author_association)) ||
        (github.event_name == 'pull_request_review' &&
-        contains(github.event.review.body, '@claude') &&
+        contains(github.event.review.body, '@claude review') &&
         contains(fromJSON('["MEMBER","OWNER","COLLABORATOR"]'), github.event.review.author_association)))
 
     permissions:
@@ -62,7 +67,7 @@ jobs:
 
       - name: Create or update tracking comment
         id: tracking
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd
         with:
           script: |
             const owner = context.repo.owner;
@@ -71,12 +76,10 @@ jobs:
             const runUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
             const MARKER = "<!-- claude-pr-review -->";
 
-            const {data: issueComments} = await github.rest.issues.listComments({
-              owner,
-              repo,
-              issue_number: prNumber,
-              per_page: 100,
-            });
+            const issueComments = await github.paginate(
+              github.rest.issues.listComments,
+              { owner, repo, issue_number: prNumber, per_page: 100 },
+            );
 
             const existing = issueComments.find((c) => c.body && c.body.includes(MARKER));
 
@@ -146,7 +149,7 @@ jobs:
                   "type": "array",
                   "items": {
                     "type": "object",
-                    "required": ["file", "line", "severity", "body"],
+                    "required": ["file", "severity", "body"],
                     "properties": {
                       "file": {
                         "type": "string",
@@ -176,6 +179,7 @@ jobs:
           # so it cannot post comments or modify the PR.
           github_token: ${{ secrets.GITHUB_TOKEN }}
           track_progress: false
+          show_full_output: "true"
           additional_permissions: |
             actions: read
           claude_args: |
@@ -205,7 +209,7 @@ jobs:
               HEAD SHA: ${{ needs.setup.outputs.head_sha }}
 
               You are a code reviewer for the ${{ github.repository }} project. Review this pull request and
-              produce a structured JSON result containing your review comments. Do NOT attempt
+              produce a structured JSON result containing your review. Do NOT attempt
               to post comments yourself — just return the JSON. You are in the upstream repo
               without the patch applied. Do not apply it.
 
@@ -247,12 +251,13 @@ jobs:
               Give each subagent the PR title, description, full patch, and the list of changed files.
 
               Each subagent must return a JSON array of issues:
-              `[{"file": "path", "line": <number>, "severity": "must-fix|suggestion|nit", "body": "..."}]`
+              `[{"file": "path", "line": <number> (optional), "severity": "must-fix|suggestion|nit", "body": "..."}]`
 
-              `line` must be a line number from the NEW side of the diff **that appears inside
+              `line` should be a line number from the NEW side of the diff **that appears inside
               a diff hunk** (i.e. a line that is shown in the patch output). GitHub's review
               comment API rejects lines outside the diff context, so never reference lines
-              that are not visible in the patch.
+              that are not visible in the patch. If you cannot determine a valid diff line,
+              omit `line` — the comment will still appear in the tracking comment summary.
 
               Each subagent MUST verify its findings before returning them:
               - For style/convention claims, check at least 3 existing examples in the codebase to confirm
@@ -269,8 +274,9 @@ jobs:
                  comment if one already exists on the same file and line about the same problem.
                  Also check for author replies that dismiss or reject a previous comment — do NOT
                  re-raise an issue the PR author has already responded to disagreeing with.
-              4. Prefix ALL comment bodies with a severity tag: `**must-fix**: `, `**suggestion**: `,
-                 or `**nit**: `.
+              4. Do NOT prefix `body` with a severity tag — the severity is already
+                 captured in the `severity` field and will be added automatically when
+                 posting inline comments.
               5. Write a `summary` field in markdown for a top-level tracking comment.
 
                  **If no existing tracking comment was found (first run):**
@@ -294,13 +300,6 @@ jobs:
                  Omit empty sections. Each checkbox item must correspond to an entry in `comments`.
                  If there are no issues at all, write a short message saying the PR looks good.
 
-                 Throughout all phases, track any errors that prevented you from doing
-                 your job fully: permission denials (403, "Resource not accessible by
-                 integration"), tools that were not available, rate limits, or any other
-                 failures that degraded the review quality. If there were any, append a
-                 `### Errors` section listing each failed tool/action and the error
-                 message, so maintainers can fix the workflow configuration.
-
                  **If an existing tracking comment was found (subsequent run):**
                  Use the existing comment as the starting point. Preserve the order and wording
                  of all existing items. Then apply these updates:
@@ -314,7 +313,26 @@ jobs:
                    in the appropriate severity section, after the existing items.
                  - Do NOT reorder, reword, or remove existing items.
 
-              Return the final JSON object with your `comments` array and `summary` string.
+              ## Error tracking
+
+              Throughout all phases, track any errors that prevented you from doing
+              your job fully: permission denials (403, "Resource not accessible by
+              integration"), tools that were not available, rate limits, or any other
+              failures that degraded the review quality. If there were any, append a
+              `### Errors` section to the summary listing each failed tool/action and
+              the error message, so maintainers can fix the workflow configuration.
+
+              ## CRITICAL: Return structured JSON output
+
+              Your FINAL action must be to return a JSON object matching the following
+              JSON schema — do NOT end with a text summary or narrative. The `--json-schema`
+              flag is set, so your last response must be the structured JSON result, not a
+              text message.
+
+              ```json
+              ${{ env.REVIEW_SCHEMA }}
+              ```
+
               Do NOT attempt to post comments or use any MCP tools to modify the PR.
 
   post:
@@ -327,9 +345,10 @@ jobs:
 
     steps:
       - name: Post review comments
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd
         env:
           STRUCTURED_OUTPUT: ${{ needs.review.outputs.structured_output }}
+          REVIEW_RESULT: ${{ needs.review.result }}
           PR_NUMBER: ${{ needs.setup.outputs.pr_number }}
           HEAD_SHA: ${{ needs.setup.outputs.head_sha }}
           COMMENT_ID: ${{ needs.setup.outputs.comment_id }}
@@ -345,12 +364,13 @@ jobs:
 
             /* If the review job failed or was cancelled, update the tracking
              * comment to reflect that and bail out. */
-            if ("${{ needs.review.result }}" !== "success") {
+            if (process.env.REVIEW_RESULT !== "success") {
+              const verb = process.env.REVIEW_RESULT === "cancelled" ? "was cancelled" : "failed";
               await github.rest.issues.updateComment({
                 owner,
                 repo,
                 comment_id: commentId,
-                body: `Claude review failed — see [workflow run](${runUrl}) for details.\n\n${MARKER}`,
+                body: `Claude review ${verb} — see [workflow run](${runUrl}) for details.\n\n${MARKER}`,
               });
               core.setFailed("Review job did not succeed.");
               return;
@@ -371,7 +391,7 @@ jobs:
                 if (typeof review.summary === "string")
                   summary = review.summary;
               } catch (e) {
-                console.log(`Failed to parse structured output: ${e.message}`);
+                core.warning(`Failed to parse structured output: ${e.message}`);
               }
             }
 
@@ -381,8 +401,13 @@ jobs:
              * comments is handled by Claude in the prompt, so we just post whatever
              * it returns. Using individual comments (rather than a review) means
              * re-runs only add new comments instead of creating a whole new review. */
+            const inlineComments = comments.filter((c) => c.line);
+            const skipped = comments.length - inlineComments.length;
+            if (skipped > 0)
+              console.log(`Skipping ${skipped} file-level comment(s) (no line number).`);
+
             let posted = 0;
-            for (const c of comments) {
+            for (const c of inlineComments) {
               console.log(`  Posting comment on ${c.file}:${c.line}`);
               try {
                 await github.rest.pulls.createReviewComment({
@@ -392,7 +417,9 @@ jobs:
                   commit_id: headSha,
                   path: c.file,
                   line: c.line,
-                  body: `Claude: ${c.body}`,
+                  side: "RIGHT",
+                  subject_type: "line",
+                  body: `Claude: **${c.severity}**: ${c.body}`,
                 });
                 posted++;
               } catch (e) {
@@ -403,19 +430,17 @@ jobs:
             }
 
             if (posted > 0)
-              console.log(`Posted ${posted}/${comments.length} inline comment(s).`);
-            else if (comments.length > 0)
-              console.log(`Could not post any of ${comments.length} inline comment(s) — see warnings above.`);
+              console.log(`Posted ${posted}/${inlineComments.length} inline comment(s).`);
+            else if (inlineComments.length > 0)
+              console.log(`Could not post any of ${inlineComments.length} inline comment(s) — see warnings above.`);
             else
               console.log("No inline comments to post.");
-
-            const failed = comments.length > 0 && posted < comments.length;
 
             /* Update the tracking comment with Claude's summary. */
             if (!summary)
               summary = "Claude review: no issues found :tada:\n\n" + MARKER;
             else if (!summary.includes(MARKER))
-              summary = summary.replace(/\n/, `\n${MARKER}\n`);
+              summary += "\n\n" + MARKER;
             summary += `\n\n[Workflow run](${runUrl})`;
 
             await github.rest.issues.updateComment({
@@ -427,5 +452,7 @@ jobs:
 
             console.log("Tracking comment updated successfully.");
 
-            if (failed)
-              core.setFailed(`Failed to post ${comments.length - posted}/${comments.length} inline comment(s).`);
+            if (inlineComments.length > 0 && posted === 0)
+              core.setFailed(`Could not post any of ${inlineComments.length} inline comment(s) — see warnings above.`);
+            else if (posted < inlineComments.length)
+              core.warning(`${inlineComments.length - posted}/${inlineComments.length} inline comment(s) could not be posted.`);
