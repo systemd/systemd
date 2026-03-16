@@ -62,7 +62,7 @@
     Note that this is a privileged option as, even if it has a timeout, is synchronous and delays the kill,
     so use with care.
     The typically preferable mechanism to process memory pressure is to do what
-    <ulink url="https://systemd.io/MEMORY_PRESSURE/">MEMORY_PRESSURE</ulink> describes which is unprivileged,
+    <ulink url="https://systemd.io/PRESSURE">Resource Pressure Handling</ulink> describes which is unprivileged,
     asynchronous and does not delay the kill.
     </para>
 
