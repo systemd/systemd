@@ -71,53 +71,91 @@ finish_rmdir:
         return r;
 }
 
-static int make_overlay(const char *root) {
-        _cleanup_free_ char *escaped_path = NULL;
+static int make_overlay(const char *root, VolatileMode overlay_type) {
+        _cleanup_free_ char *escaped_path = NULL, *usr_path = NULL, *mount_path = NULL;
+        const char *overlay_name;
+        bool overlay_dir_created = false;
         bool tmpfs_mounted = false;
-        const char *options = NULL;
         int r;
 
         assert(root);
 
-        r = mkdir_p("/run/systemd/overlay-sysroot", 0700);
-        if (r < 0)
-                return log_error_errno(r, "Couldn't create overlay sysroot directory: %m");
+        if (overlay_type == VOLATILE_OVERLAY_ROOT) {
+                overlay_name = "overlay-root";
+                mount_path = strdup(root);
+                if (!mount_path)
+                        return log_oom();
+        } else {
+                assert(overlay_type == VOLATILE_OVERLAY_USR);
+                overlay_name = "overlay-usr";
+                mount_path = strjoin(root, "/usr");
+                if (!mount_path)
+                        return log_oom();
+        }
 
-        r = mount_nofollow_verbose(LOG_ERR, "tmpfs", "/run/systemd/overlay-sysroot", "tmpfs", MS_STRICTATIME, "mode=0755" TMPFS_LIMITS_ROOTFS);
-        if (r < 0)
-                goto finish;
+        const char *overlay_dir = strjoina("/run/systemd/", overlay_name);
+        const char *upper_dir = strjoina(overlay_dir, "/upper");
+        const char *work_dir = strjoina(overlay_dir, "/work");
 
-        tmpfs_mounted = true;
+        /* Mount tmpfs to overlay_dir if it is not a mountpoint already */
+        r = path_is_mount_point_full(overlay_dir, /* root= */ NULL, AT_SYMLINK_FOLLOW);
+        if (r < 0 && r != -ENOENT)
+                return log_error_errno(r, "Couldn't determine whether %s is a mount point: %m", overlay_dir);
+        if (r == -ENOENT) {
+                r = mkdir_p(overlay_dir, 0700);
+                if (r < 0)
+                        return log_error_errno(r, "Couldn't create overlay %s directory: %m", overlay_name);
 
-        if (mkdir("/run/systemd/overlay-sysroot/upper", 0755) < 0) {
-                r = log_error_errno(errno, "Failed to create /run/systemd/overlay-sysroot/upper: %m");
+                overlay_dir_created = true;
+
+                r = mount_nofollow_verbose(LOG_ERR, "tmpfs", overlay_dir, "tmpfs", MS_STRICTATIME, "mode=0755" TMPFS_LIMITS_ROOTFS);
+                if (r < 0)
+                        goto finish;
+
+                tmpfs_mounted = true;
+        }
+
+        r = mkdir_p(upper_dir, 0755);
+        if (r < 0) {
+                r = log_error_errno(errno, "Failed to create %s: %m", upper_dir);
                 goto finish;
         }
 
-        if (mkdir("/run/systemd/overlay-sysroot/work", 0755) < 0) {
-                r = log_error_errno(errno, "Failed to create /run/systemd/overlay-sysroot/work: %m");
+        r = mkdir_p(work_dir, 0755);
+        if (r < 0) {
+                r = log_error_errno(errno, "Failed to create %s: %m", work_dir);
                 goto finish;
         }
 
-        escaped_path = shell_escape(root, ",:");
+        if (overlay_type == VOLATILE_OVERLAY_USR) {
+                /* Verify that /usr exists in the sysroot before creating overlay */
+                r = chase("/usr", root, CHASE_PREFIX_ROOT, &usr_path, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "/usr not available in sysroot: %m");
+        }
+
+        escaped_path = shell_escape(mount_path, ",:");
         if (!escaped_path) {
                 r = log_oom();
                 goto finish;
         }
 
-        options = strjoina("lowerdir=", escaped_path, ",upperdir=/run/systemd/overlay-sysroot/upper,workdir=/run/systemd/overlay-sysroot/work");
-        r = mount_nofollow_verbose(LOG_ERR, "overlay", root, "overlay", 0, options);
+        const char *options = strjoina("lowerdir=", escaped_path, ",upperdir=", upper_dir, ",workdir=", work_dir);
+        r = mount_nofollow_verbose(LOG_ERR, "overlay", mount_path, "overlay", 0, options);
 
 finish:
         if (tmpfs_mounted)
-                (void) umount_verbose(LOG_ERR, "/run/systemd/overlay-sysroot", UMOUNT_NOFOLLOW);
+                (void) umount_verbose(LOG_ERR, overlay_dir, UMOUNT_NOFOLLOW);
 
-        (void) rmdir("/run/systemd/overlay-sysroot");
+        if (overlay_dir_created)
+                (void) rmdir(overlay_dir);
+
         return r;
 }
 
 static int run(int argc, char *argv[]) {
         VolatileMode m = _VOLATILE_MODE_INVALID;
+        bool symlink_created = false;
         const char *root;
         dev_t devt;
         int r;
@@ -154,7 +192,7 @@ static int run(int argc, char *argv[]) {
                                                "Directory cannot be the root directory.");
         }
 
-        if (!IN_SET(m, VOLATILE_YES, VOLATILE_OVERLAY_ROOT))
+        if (!IN_SET(m, VOLATILE_YES, VOLATILE_OVERLAY_ROOT, VOLATILE_OVERLAY_USR))
                 return 0;
 
         r = path_is_mount_point_full(root, /* root= */ NULL, AT_SYMLINK_FOLLOW);
@@ -171,30 +209,46 @@ static int run(int argc, char *argv[]) {
                 return 0;
         }
 
-        /* We are about to replace the root directory with something else. Later code might want to know what we
-         * replaced here, hence let's save that information as a symlink we can later use. (This is particularly
-         * relevant for the overlayfs case where we'll fully obstruct the view onto the underlying device, hence
-         * querying the backing device node from the file system directly is no longer possible. */
-        r = get_block_device_harder(root, &devt);
-        if (r < 0)
-                return log_error_errno(r, "Failed to determine device major/minor of %s: %m", root);
-        else if (r > 0) { /* backed by block device */
-                _cleanup_free_ char *dn = NULL;
-
-                r = device_path_make_major_minor(S_IFBLK, devt, &dn);
+        if (m != VOLATILE_OVERLAY_USR) {
+                /* We are about to replace the root directory with something else. Later code might want to know what we
+                 * replaced here, hence let's save that information as a symlink we can later use. (This is particularly
+                 * relevant for the overlayfs case where we'll fully obstruct the view onto the underlying device, hence
+                 * querying the backing device node from the file system directly is no longer possible. */
+                r = get_block_device_harder(root, &devt);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to format device node path: %m");
+                        return log_error_errno(r, "Failed to determine device major/minor of %s: %m", root);
+                else if (r > 0) { /* backed by block device */
+                        _cleanup_free_ char *dn = NULL;
 
-                if (symlink(dn, "/run/systemd/volatile-root") < 0)
-                        log_warning_errno(errno, "Failed to create symlink /run/systemd/volatile-root: %m");
+                        r = device_path_make_major_minor(S_IFBLK, devt, &dn);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to format device node path: %m");
+
+                        if (symlink(dn, "/run/systemd/volatile-root") < 0)
+                                log_warning_errno(errno, "Failed to create symlink /run/systemd/volatile-root: %m");
+                        else
+                                symlink_created = true;
+                }
         }
 
-        if (m == VOLATILE_YES)
-                return make_volatile(root);
-        else {
-                assert(m == VOLATILE_OVERLAY_ROOT);
-                return make_overlay(root);
+        switch (m) {
+        case VOLATILE_YES:
+                r = make_volatile(root);
+                break;
+        case VOLATILE_OVERLAY_ROOT:
+                r = make_overlay(root, VOLATILE_OVERLAY_ROOT);
+                break;
+        case VOLATILE_OVERLAY_USR:
+                r = make_overlay(root, VOLATILE_OVERLAY_USR);
+                break;
+        default:
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid volatile mode: %d", m);
         }
+
+        if (r < 0 && symlink_created)
+                unlink("/run/systemd/volatile-root");
+
+        return r;
 }
 
 DEFINE_MAIN_FUNCTION(run);
