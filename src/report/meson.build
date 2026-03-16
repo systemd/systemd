@@ -4,6 +4,9 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-report',
                 'public' : true,
-                'sources' : files('report.c'),
+                'sources' : files(
+                        'report.c',
+                        'report-facts.c',
+                ),
         },
 ]
