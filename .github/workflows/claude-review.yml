@@ -117,7 +117,6 @@ jobs:
       pull-requests: read   # Fetch PR comments and reviews
       issues: read          # Fetch issue comments
       id-token: write       # Authenticate with AWS via OIDC
-      actions: read
 
     outputs:
       structured_output: ${{ steps.claude.outputs.structured_output }}
@@ -149,7 +148,7 @@ jobs:
                   "type": "array",
                   "items": {
                     "type": "object",
-                    "required": ["file", "severity", "body"],
+                    "required": ["file", "severity", "body", "commit"],
                     "properties": {
                       "file": {
                         "type": "string",
@@ -166,6 +165,10 @@ jobs:
                       "body": {
                         "type": "string",
                         "description": "The review comment body in markdown"
+                      },
+                      "commit": {
+                        "type": "string",
+                        "description": "The SHA of the PR commit that introduced the code being commented on"
                       }
                     }
                   }
@@ -180,8 +183,6 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           track_progress: false
           show_full_output: "true"
-          additional_permissions: |
-            actions: read
           claude_args: |
             --model us.anthropic.claude-opus-4-6-v1
             --max-turns 100
@@ -189,18 +190,15 @@ jobs:
                 Read,LS,Grep,Glob,Task,
                 Bash(cat:*),Bash(test:*),Bash(printf:*),Bash(jq:*),Bash(head:*),Bash(tail:*),
                 Bash(git:*),Bash(grep:*),Bash(find:*),Bash(ls:*),Bash(wc:*),
+                Bash(gh:api *),
                 Bash(diff:*),Bash(sed:*),Bash(awk:*),Bash(sort:*),Bash(uniq:*),
                 mcp__github__get_pull_request,
-                mcp__github__get_pull_request_diff,
                 mcp__github__get_pull_request_files,
                 mcp__github__get_pull_request_reviews,
                 mcp__github__get_pull_request_comments,
                 mcp__github__get_pull_request_review_comments,
                 mcp__github__get_pull_request_status,
                 mcp__github__get_issue_comments,
-                mcp__github_ci__get_ci_status,
-                mcp__github_ci__get_workflow_run_details,
-                mcp__github_ci__download_job_log,
                 "
             --json-schema '${{ env.REVIEW_SCHEMA }}'
           prompt: |
@@ -218,10 +216,12 @@ jobs:
               Use the GitHub MCP server tools to fetch PR data. For all tools, pass
               owner `${{ github.repository_owner }}`, repo `${{ github.event.repository.name }}`,
               and pullNumber/issue_number ${{ needs.setup.outputs.pr_number }}:
-              - `mcp__github__get_pull_request_diff` to get the PR diff
               - `mcp__github__get_pull_request` to get the PR title, body, and metadata
               - `mcp__github__get_pull_request_comments` to get top-level PR comments
               - `mcp__github__get_pull_request_reviews` to get PR reviews
+
+              Fetch the list of commits in the PR using:
+              `gh api repos/{owner}/{repo}/pulls/{number}/commits --paginate --jq '.[].sha'`
 
               Also fetch issue comments using `mcp__github__get_issue_comments` with
               issue_number ${{ needs.setup.outputs.pr_number }}.
@@ -230,28 +230,33 @@ jobs:
               in the issue comments. If one exists, you will use it as the basis for
               your `summary` in Phase 3.
 
-              Check CI status for the PR head commit using `mcp__github_ci__get_ci_status`.
-              If any workflow runs have failed, use `mcp__github_ci__get_workflow_run_details`
-              and `mcp__github_ci__download_job_log` to fetch the failure logs. Pass these
-              logs to the review subagents in Phase 2 so they can identify whether the PR
-              changes caused the failures.
+              ## Phase 2: Per-commit review with subagents
 
-              ## Phase 2: Parallel review subagents
+              Review each commit in the PR individually, in order (oldest first). For each
+              commit, fetch its diff using `gh api repos/{owner}/{repo}/commits/{sha}
+              -H 'Accept: application/vnd.github.diff'` via Bash, then launch a subagent
+              to review that commit's changes.
 
-              Review:
+              Each commit review subagent receives:
+              - The PR title and description (for overall context)
+              - The diffs of all preceding commits in the PR (for context on what was already changed)
+              - The commit message and SHA of the commit being reviewed
+              - The commit diff (from `gh api`)
+
+              Each commit review subagent reviews:
               - Code quality, style, and best practices
               - Potential bugs, issues, incorrect logic
               - Security implications
               - CLAUDE.md compliance
-              - CI failures (if any logs were fetched in Phase 1)
 
-              For every category, launch subagents to review them in parallel. Group related sections
-              as needed — use 2-4 subagents based on PR size and scope.
+              Each commit review subagent must return a JSON array of issues:
+              `[{"file": "path", "line": <number> (optional), "severity": "must-fix|suggestion|nit", "body": "...", "commit": "<sha>"}]`
 
-              Give each subagent the PR title, description, full patch, and the list of changed files.
-
-              Each subagent must return a JSON array of issues:
-              `[{"file": "path", "line": <number> (optional), "severity": "must-fix|suggestion|nit", "body": "..."}]`
+              The `commit` field MUST be set to the SHA of the commit being reviewed.
+              Each commit review subagent MUST only return comments about changes in the commit it is
+              reviewing — do NOT comment on code from preceding commits, even if it was
+              provided for context. If a preceding commit has an issue, it will be caught
+              by the subagent reviewing that commit.
 
               `line` should be a line number from the NEW side of the diff **that appears inside
               a diff hunk** (i.e. a line that is shown in the patch output). GitHub's review
@@ -259,15 +264,18 @@ jobs:
               that are not visible in the patch. If you cannot determine a valid diff line,
               omit `line` — the comment will still appear in the tracking comment summary.
 
-              Each subagent MUST verify its findings before returning them:
+              Each commit review subagent MUST verify its findings before returning them:
               - For style/convention claims, check at least 3 existing examples in the codebase to confirm
                 the pattern actually exists before flagging a violation.
               - For "use X instead of Y" suggestions, confirm X actually exists and works for this case.
               - If unsure, don't include the issue.
 
+              Launch commit review subagents for all commits in parallel (e.g. if
+              reviewing a 7-commit PR, launch all 7 commit review subagents at once).
+
               ## Phase 3: Collect, deduplicate, and summarize
 
-              After ALL subagents complete:
+              After ALL commit review subagents complete:
               1. Collect all issues. Merge duplicates (same file, lines within 3 of each other, same problem).
               2. Drop low-confidence findings.
               3. Check the existing inline review comments fetched in Phase 1. Do NOT include a
@@ -414,7 +422,7 @@ jobs:
                   owner,
                   repo,
                   pull_number: prNumber,
-                  commit_id: headSha,
+                  commit_id: c.commit,
                   path: c.file,
                   line: c.line,
                   body: `Claude: **${c.severity}**: ${c.body}`,
