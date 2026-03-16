@@ -172,6 +172,13 @@ jobs:
                       }
                     }
                   }
+                },
+                "resolve": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer"
+                  },
+                  "description": "REST API IDs of existing review comments whose threads should be resolved because the issue was addressed or the author left a disagreeing reply"
                 }
               }
             }
@@ -187,18 +194,11 @@ jobs:
             --model us.anthropic.claude-opus-4-6-v1
             --max-turns 100
             --allowedTools "
-                Read,LS,Grep,Glob,Task,
+                Read,LS,Grep,Glob,Task,TaskStop,
                 Bash(cat:*),Bash(test:*),Bash(printf:*),Bash(jq:*),Bash(head:*),Bash(tail:*),
                 Bash(git:*),Bash(grep:*),Bash(find:*),Bash(ls:*),Bash(wc:*),
                 Bash(gh:api *),
                 Bash(diff:*),Bash(sed:*),Bash(awk:*),Bash(sort:*),Bash(uniq:*),
-                mcp__github__get_pull_request,
-                mcp__github__get_pull_request_files,
-                mcp__github__get_pull_request_reviews,
-                mcp__github__get_pull_request_comments,
-                mcp__github__get_pull_request_review_comments,
-                mcp__github__get_pull_request_status,
-                mcp__github__get_issue_comments,
                 "
             --json-schema '${{ env.REVIEW_SCHEMA }}'
           prompt: |
@@ -213,22 +213,27 @@ jobs:
 
               ## Phase 1: Gather context
 
-              Use the GitHub MCP server tools to fetch PR data. For all tools, pass
-              owner `${{ github.repository_owner }}`, repo `${{ github.event.repository.name }}`,
-              and pullNumber/issue_number ${{ needs.setup.outputs.pr_number }}:
-              - `mcp__github__get_pull_request` to get the PR title, body, and metadata
-              - `mcp__github__get_pull_request_comments` to get top-level PR comments
-              - `mcp__github__get_pull_request_reviews` to get PR reviews
+              Use `gh api` to fetch all PR data. The base path for all endpoints is
+              `repos/${{ github.repository }}/pulls/${{ needs.setup.outputs.pr_number }}`.
 
-              Fetch the list of commits in the PR using:
-              `gh api repos/{owner}/{repo}/pulls/{number}/commits --paginate --jq '.[].sha'`
+              **IMPORTANT: All data fetching in this phase MUST complete before moving to
+              Phase 2. Do NOT use `run_in_background` for any commands in this phase. Wait
+              for all results before proceeding.**
 
-              Also fetch issue comments using `mcp__github__get_issue_comments` with
-              issue_number ${{ needs.setup.outputs.pr_number }}.
-
-              Look for an existing tracking comment (containing `<!-- claude-pr-review -->`)
-              in the issue comments. If one exists, you will use it as the basis for
-              your `summary` in Phase 3.
+              Fetch the following in parallel:
+              - `gh api repos/${{ github.repository }}/pulls/${{ needs.setup.outputs.pr_number }}`
+                — PR title, body, and metadata
+              - `gh api repos/${{ github.repository }}/pulls/${{ needs.setup.outputs.pr_number }}/reviews --paginate`
+                — PR reviews
+              - `gh api repos/${{ github.repository }}/pulls/${{ needs.setup.outputs.pr_number }}/commits --paginate --jq '.[].sha'`
+                — list of commit SHAs
+              - `gh api repos/${{ github.repository }}/issues/${{ needs.setup.outputs.pr_number }}/comments --paginate`
+                — issue comments (look for the tracking comment containing `<!-- claude-pr-review -->`;
+                if one exists, use it as the basis for your `summary` in Phase 3)
+              - `gh api repos/${{ github.repository }}/pulls/${{ needs.setup.outputs.pr_number }}/comments --paginate`
+                — inline review comments including each comment's numeric `id`, `path`,
+                `line`, `body`, `user.login`, and `in_reply_to_id`; you will need the
+                `id` fields in Phase 3 to populate the `resolve` array
 
               ## Phase 2: Per-commit review with subagents
 
@@ -282,6 +287,15 @@ jobs:
                  comment if one already exists on the same file and line about the same problem.
                  Also check for author replies that dismiss or reject a previous comment — do NOT
                  re-raise an issue the PR author has already responded to disagreeing with.
+                 Populate the `resolve` array with the REST API `id` (integer) of existing
+                 review comments whose threads should be resolved. A thread should be resolved if:
+                 - The issue it raised has been addressed in the current PR (i.e. your review
+                   no longer flags it), OR
+                 - The PR author (or another reviewer) left a reply disagreeing with or
+                   dismissing the comment.
+                 Only include the `id` of the **first** comment in each thread (the one that
+                 started the conversation). Do NOT resolve threads for issues that are still
+                 present and unaddressed.
               4. Do NOT prefix `body` with a severity tag — the severity is already
                  captured in the `severity` field and will be added automatically when
                  posting inline comments.
@@ -331,6 +345,11 @@ jobs:
               the error message, so maintainers can fix the workflow configuration.
 
               ## CRITICAL: Return structured JSON output
+
+              Before returning structured output, cancel ALL running background tasks
+              using the TaskStop tool. A background task completing after you return
+              structured output will trigger a new conversation turn that overwrites your
+              result and causes the workflow to fail.
 
               Your FINAL action must be to return a JSON object matching the following
               JSON schema — do NOT end with a text summary or narrative. The `--json-schema`
@@ -390,12 +409,15 @@ jobs:
             console.log(raw || "(empty)");
 
             let comments = [];
+            let resolveIds = [];
             let summary = "";
             if (raw) {
               try {
                 const review = JSON.parse(raw);
                 if (Array.isArray(review.comments))
                   comments = review.comments;
+                if (Array.isArray(review.resolve))
+                  resolveIds = review.resolve;
                 if (typeof review.summary === "string")
                   summary = review.summary;
               } catch (e) {
@@ -441,6 +463,91 @@ jobs:
               console.log(`Could not post any of ${inlineComments.length} inline comment(s) — see warnings above.`);
             else
               console.log("No inline comments to post.");
+
+            /* Resolve review threads that Claude identified as addressed or dismissed. */
+            if (resolveIds.length > 0) {
+              const resolveSet = new Set(resolveIds);
+
+              /* Fetch all review threads and map first-comment database IDs to thread IDs. */
+              let threads = [];
+              try {
+                let threadCursor = null;
+                do {
+                  const threadQuery = `
+                    query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
+                      repository(owner: $owner, name: $repo) {
+                        pullRequest(number: $number) {
+                          reviewThreads(first: 100, after: $cursor) {
+                            pageInfo { hasNextPage endCursor }
+                            nodes {
+                              id
+                              isResolved
+                              comments(first: 1) {
+                                nodes {
+                                  databaseId
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  `;
+
+                  const threadResult = await github.graphql(threadQuery, { owner, repo, number: prNumber, cursor: threadCursor });
+                  const page = threadResult.repository.pullRequest.reviewThreads;
+                  threads.push(...page.nodes);
+                  threadCursor = page.pageInfo.hasNextPage ? page.pageInfo.endCursor : null;
+                } while (threadCursor);
+              } catch (e) {
+                console.log(`Warning: failed to fetch review threads, skipping resolution: ${e.message}`);
+                threads = [];
+              }
+
+              let resolved = 0;
+              let alreadyResolved = 0;
+              const matchedIds = new Set();
+              for (const thread of threads) {
+                const firstCommentId = thread.comments.nodes[0]?.databaseId;
+                if (!firstCommentId || !resolveSet.has(firstCommentId)) continue;
+
+                matchedIds.add(firstCommentId);
+
+                if (thread.isResolved) {
+                  alreadyResolved++;
+                  continue;
+                }
+
+                try {
+                  await github.graphql(`
+                    mutation($threadId: ID!) {
+                      resolveReviewThread(input: { threadId: $threadId }) {
+                        thread { id }
+                      }
+                    }
+                  `, { threadId: thread.id });
+                  resolved++;
+                  console.log(`  Resolved thread for comment ${firstCommentId}`);
+                } catch (e) {
+                  console.log(`  Warning: failed to resolve thread for comment ${firstCommentId}: ${e.message}`);
+                }
+              }
+
+              const requested = resolveSet.size;
+              const unmatched = [...resolveSet].filter(id => !matchedIds.has(id));
+              if (resolved > 0)
+                console.log(`Resolved ${resolved}/${requested} review thread(s)${alreadyResolved > 0 ? ` (${alreadyResolved} already resolved)` : ""}.`);
+              else if (alreadyResolved === requested)
+                console.log(`All ${requested} review thread(s) were already resolved.`);
+              else if (alreadyResolved > 0)
+                console.log(`${alreadyResolved}/${requested} review thread(s) were already resolved; could not resolve the rest — see warnings above.`);
+              else if (threads.length > 0)
+                console.log(`Could not resolve any of ${requested} review thread(s) — see warnings above.`);
+              if (unmatched.length > 0)
+                console.log(`  ${unmatched.length} comment ID(s) not found in any thread: ${unmatched.join(", ")}`);
+            } else {
+              console.log("No review threads to resolve.");
+            }
 
             /* Update the tracking comment with Claude's summary. */
             if (!summary)
