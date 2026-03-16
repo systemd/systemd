@@ -206,8 +206,9 @@ int bus_name_has_owner(sd_bus *bus, const char *name, sd_bus_error *reterr_error
 
 bool bus_error_is_unknown_service(const sd_bus_error *error) {
         return sd_bus_error_has_names(error,
-                                      SD_BUS_ERROR_SERVICE_UNKNOWN,
                                       SD_BUS_ERROR_NAME_HAS_NO_OWNER,
+                                      SD_BUS_ERROR_SERVICE_UNKNOWN,
+                                      SD_BUS_ERROR_UNKNOWN_OBJECT,
                                       BUS_ERROR_NO_SUCH_UNIT);
 }
 
