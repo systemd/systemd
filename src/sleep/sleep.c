@@ -225,7 +225,7 @@ static int lock_all_homes(void) {
         r = sd_bus_call(bus, m, DEFAULT_TIMEOUT_USEC, &error, NULL);
         if (r < 0) {
                 if (!bus_error_is_unknown_service(&error))
-                        return log_error_errno(r, "Failed to lock home directories: %s", bus_error_message(&error, r));
+                        return log_debug_errno(r, "Failed to lock home directories: %s", bus_error_message(&error, r));
 
                 log_debug("systemd-homed is not running, locking of home directories skipped.");
         } else
