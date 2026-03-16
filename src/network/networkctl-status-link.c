@@ -268,7 +268,8 @@ static int link_status_one(
         _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **sip = NULL, **search_domains = NULL,
                 **route_domains = NULL, **link_dropins = NULL, **network_dropins = NULL, **netdev_dropins = NULL;
         _cleanup_free_ char *t = NULL, *network = NULL, *netdev = NULL, *iaid = NULL, *duid = NULL, *captive_portal = NULL,
-                *setup_state = NULL, *operational_state = NULL, *online_state = NULL, *activation_policy = NULL;
+                *setup_state = NULL, *operational_state = NULL, *online_state = NULL, *activation_policy = NULL,
+                *dhcp_state = NULL, *dhcp6_state = NULL;
         const char *driver = NULL, *path = NULL, *vendor = NULL, *model = NULL, *link = NULL,
                 *on_color_operational, *off_color_operational, *on_color_setup, *off_color_setup, *on_color_online;
         _cleanup_free_ int *carrier_bound_to = NULL, *carrier_bound_by = NULL;
@@ -869,9 +870,19 @@ static int link_status_one(
                         return table_log_add_error(r);
         }
 
+        (void) sd_network_link_get_dhcp_client_state(info->ifindex, &dhcp_state);
+        if (dhcp_state) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "DHCPv4 Client State",
+                                   TABLE_STRING, dhcp_state);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
         if (lease) {
                 const sd_dhcp_client_id *client_id;
                 const char *tz;
+                usec_t ts;
 
                 r = sd_dhcp_lease_get_timezone(lease, &tz);
                 if (r >= 0) {
@@ -895,6 +906,24 @@ static int link_status_one(
                                         return table_log_add_error(r);
                         }
                 }
+
+                r = sd_dhcp_lease_get_timestamp(lease, CLOCK_REALTIME, &ts);
+                if (r >= 0) {
+                        r = table_add_many(table,
+                                           TABLE_FIELD, "DHCPv4 Lease Timestamp",
+                                           TABLE_TIMESTAMP, ts);
+                        if (r < 0)
+                                return table_log_add_error(r);
+                }
+        }
+
+        (void) sd_network_link_get_dhcp6_client_state(info->ifindex, &dhcp6_state);
+        if (dhcp6_state) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "DHCPv6 Client State",
+                                   TABLE_STRING, dhcp6_state);
+                if (r < 0)
+                        return table_log_add_error(r);
         }
 
         r = sd_network_link_get_dhcp6_client_iaid_string(info->ifindex, &iaid);
@@ -913,6 +942,19 @@ static int link_status_one(
                                    TABLE_STRING, duid);
                 if (r < 0)
                         return table_log_add_error(r);
+        }
+
+        {
+                uint64_t dhcp6_ts;
+
+                r = sd_network_link_get_dhcp6_lease_timestamp(info->ifindex, &dhcp6_ts);
+                if (r >= 0) {
+                        r = table_add_many(table,
+                                           TABLE_FIELD, "DHCPv6 Lease Timestamp",
+                                           TABLE_TIMESTAMP, dhcp6_ts);
+                        if (r < 0)
+                                return table_log_add_error(r);
+                }
         }
 
         r = dump_lldp_neighbors(vl, table, info->ifindex);
