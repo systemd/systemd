@@ -472,6 +472,7 @@ typedef struct Partition {
         char *compression;
         char *compression_level;
         uint64_t fs_sector_size;
+        int discard;
 
         int add_validatefs;
         CopyFiles *copy_files;
@@ -728,6 +729,7 @@ static Partition *partition_new(Context *c) {
                 .last_percent = UINT_MAX,
                 .progress_ratelimit = { 100 * USEC_PER_MSEC, 1 },
                 .fs_sector_size = UINT64_MAX,
+                .discard = -1,
         };
 
         return p;
@@ -851,6 +853,7 @@ static void partition_foreignize(Partition *p) {
         p->verity = VERITY_OFF;
         p->add_validatefs = false;
         p->fs_sector_size = UINT64_MAX;
+        p->discard = -1;
 
         partition_mountpoint_free_many(p->mountpoints, p->n_mountpoints);
         p->mountpoints = NULL;
@@ -2882,6 +2885,7 @@ static int partition_read_definition(
                 { "Partition", "SupplementFor",            config_parse_string,            0,                                  &p->supplement_for_name     },
                 { "Partition", "AddValidateFS",            config_parse_tristate,          0,                                  &p->add_validatefs          },
                 { "Partition", "FileSystemSectorSize",     config_parse_fs_sector_size,    0,                                  &p->fs_sector_size          },
+                { "Partition", "Discard",                  config_parse_tristate,          0,                                  &p->discard                 },
                 {}
         };
         _cleanup_free_ char *filename = NULL;
@@ -3031,6 +3035,14 @@ static int partition_read_definition(
                         return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                           "SupplementFor= cannot be combined with CopyBlocks=/Encrypt=/Verity=");
         }
+
+        if (p->encrypt == ENCRYPT_OFF && p->discard > 0)
+                log_syntax(NULL, LOG_WARNING, path, 1, 0,
+                           "Discard=yes has no effect with Encrypt=off.");
+
+        if (p->encrypt != ENCRYPT_OFF && p->integrity == INTEGRITY_INLINE && p->discard > 0)
+                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                  "Integrity=inline is incompatible with Discard=yes.");
 
         /* Verity partitions are read only, let's imply the RO flag hence, unless explicitly configured otherwise. */
         if ((partition_designator_is_verity_hash(p->type.designator) ||
@@ -5225,6 +5237,22 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
         if (r < 0)
                 return log_error_errno(r, "Failed to LUKS2 format future partition: %m");
 
+        bool allow_discards = p->integrity != INTEGRITY_INLINE && (arg_discard ? p->discard != 0 : p->discard > 0);
+        if (allow_discards) {
+                uint32_t flags;
+
+                r = sym_crypt_persistent_flags_get(cd, CRYPT_FLAGS_ACTIVATION, &flags);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get persistent activation flags for %s: %m", node);
+
+                if (!FLAGS_SET(flags, CRYPT_ACTIVATE_ALLOW_DISCARDS)) {
+                        flags |= CRYPT_ACTIVATE_ALLOW_DISCARDS;
+                        r = sym_crypt_persistent_flags_set(cd, CRYPT_FLAGS_ACTIVATION, flags);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set persistent activation flags for %s: %m", node);
+                }
+        }
+
         if (p->encrypted_volume && p->encrypted_volume->fixate_volume_key) {
                 _cleanup_free_ char *key_id = NULL, *hash_option = NULL;
 
@@ -5543,7 +5571,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                                 dm_name,
                                 NULL,
                                 /* volume_key_size= */ volume_key_size,
-                                (arg_discard && p->integrity != INTEGRITY_INLINE ? CRYPT_ACTIVATE_ALLOW_DISCARDS : 0) | CRYPT_ACTIVATE_PRIVATE);
+                                (allow_discards ? CRYPT_ACTIVATE_ALLOW_DISCARDS : 0) | CRYPT_ACTIVATE_PRIVATE);
                 if (r < 0)
                         return log_error_errno(r, "Failed to activate LUKS superblock: %m");
 
