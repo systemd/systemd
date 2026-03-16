@@ -1049,6 +1049,47 @@ TEST(tpm2_get_srk_template) {
         check_srk_ecc_template(&template);
 }
 
+static void check_ak_ecc_template(TPMT_PUBLIC *template) {
+        assert_se(template->type == TPM2_ALG_ECC);
+        assert_se(template->nameAlg == TPM2_ALG_SHA256);
+        assert_se(FLAGS_SET(template->objectAttributes, TPMA_OBJECT_SIGN_ENCRYPT));
+        assert_se(FLAGS_SET(template->objectAttributes, TPMA_OBJECT_RESTRICTED));
+        assert_se(template->parameters.eccDetail.scheme.scheme == TPM2_ALG_ECDSA);
+        assert_se(template->parameters.eccDetail.curveID == TPM2_ECC_NIST_P256);
+}
+
+static void check_ak_rsa_template(TPMT_PUBLIC *template) {
+        assert_se(template->type == TPM2_ALG_RSA);
+        assert_se(template->nameAlg == TPM2_ALG_SHA256);
+        assert_se(FLAGS_SET(template->objectAttributes, TPMA_OBJECT_SIGN_ENCRYPT));
+        assert_se(FLAGS_SET(template->objectAttributes, TPMA_OBJECT_RESTRICTED));
+        assert_se(template->parameters.rsaDetail.scheme.scheme == TPM2_ALG_RSASSA);
+        assert_se(template->parameters.rsaDetail.keyBits == 2048);
+}
+
+TEST(tpm2_get_ak_template) {
+        TPMT_PUBLIC template;
+
+        assert_se(tpm2_get_ak_template(TPM2_ALG_RSA, &template) >= 0);
+        check_ak_rsa_template(&template);
+
+        assert_se(tpm2_get_ak_template(TPM2_ALG_ECC, &template) >= 0);
+        check_ak_ecc_template(&template);
+}
+
+static void check_best_ak_template(Tpm2Context *c) {
+        TEST_LOG_FUNC();
+
+        TPMT_PUBLIC template;
+
+        assert_se(tpm2_get_best_ak_template(c, &template) >= 0);
+        assert_se(IN_SET(template.type, TPM2_ALG_ECC, TPM2_ALG_RSA));
+        if (template.type == TPM2_ALG_RSA)
+                check_ak_rsa_template(&template);
+        else
+                check_ak_ecc_template(&template);
+}
+
 static void check_best_srk_template(Tpm2Context *c) {
         TEST_LOG_FUNC();
 
@@ -1327,6 +1368,7 @@ TEST_RET(tests_which_require_tpm) {
         check_supports_alg(c);
         check_supports_command(c);
         check_best_srk_template(c);
+        check_best_ak_template(c);
         check_get_or_create_srk(c);
         check_seal_unseal(c);
 
