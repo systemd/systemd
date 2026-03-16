@@ -7612,7 +7612,6 @@ int tpm2_nvpcr_acquire_anchor_secret(struct iovec *ret, bool sync_secondary) {
 }
 
 #if HAVE_OPENSSL
-#define TPM2_AK_CREDENTIAL_RUNTIME_PATH "/run/systemd/tpm2/tpm2-ak.cred"
 #define TPM2_AK_CREDENTIAL_VAR_PATH "/var/lib/systemd/tpm2/tpm2-ak.cred"
 
 static int tpm2_ak_write_credential(

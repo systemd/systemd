@@ -1078,6 +1078,8 @@ TEST(tpm2_get_ak_template) {
 }
 
 static void check_best_ak_template(Tpm2Context *c) {
+        TEST_LOG_FUNC();
+
         TPMT_PUBLIC template;
 
         assert_se(tpm2_get_best_ak_template(c, &template) >= 0);
