@@ -1,5 +1,18 @@
 systemd System and Service Manager
 
+CHANGES WITH 261 in spe:
+
+        Feature Removals and Incompatible Changes:
+
+        * It was discovered that systemd-stub does not measure all the events
+          it measures to the TPM to the hardware CC registers (e.g. Intel TDX
+          RTMRs) using EFI_CC_MEASUREMENT_PROTOCOL. In particular, devicetree,
+          initrd, ucode addons and the UKI profile were only measured to the
+          TPM. The missing measurements got added, however, the expected
+          register values are now changed. This may need to be reflected in the
+          attestation environments which use hardware CC registers and not the
+          TPM quote.
+
 CHANGES WITH 260 in spe:
 
         Feature Removals and Incompatible Changes:
