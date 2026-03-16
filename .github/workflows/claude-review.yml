@@ -417,8 +417,6 @@ jobs:
                   commit_id: headSha,
                   path: c.file,
                   line: c.line,
-                  side: "RIGHT",
-                  subject_type: "line",
                   body: `Claude: **${c.severity}**: ${c.body}`,
                 });
                 posted++;
