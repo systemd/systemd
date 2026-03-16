@@ -175,14 +175,14 @@ that control pressure handling:
 * `MemoryPressureThresholdSec=` / `CPUPressureThresholdSec=` /
   `IOPressureThresholdSec=` allows configuring the threshold when to signal
   pressure to the services. It takes a time value (usually in the millisecond
-  range) that defines a threshold per 1s time window: if resource latencies grow
+  range) that defines a threshold per 2s time window: if resource latencies grow
   beyond this threshold notifications are generated towards the service,
   requesting it to release resources.
 
 The `/etc/systemd/system.conf` file provides two settings for each resource
 type that may be used to select the default values for the above settings. If
 the threshold isn't configured via the per-service nor system-wide option, it
-defaults to 100ms.
+defaults to 200ms.
 
 When pressure monitoring is enabled for a service this primarily does three
 things:
