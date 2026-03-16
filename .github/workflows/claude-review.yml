@@ -313,7 +313,17 @@ jobs:
                    in the appropriate severity section, after the existing items.
                  - Do NOT reorder, reword, or remove existing items.
 
-              Return the final JSON object with your `comments` array and `summary` string.
+              ## CRITICAL: Return structured JSON output
+
+              Your FINAL action must be to return a JSON object matching the following
+              JSON schema — do NOT end with a text summary or narrative. The `--json-schema`
+              flag is set, so your last response must be the structured JSON result, not a
+              text message.
+
+              ```json
+              ${{ env.REVIEW_SCHEMA }}
+              ```
+
               Do NOT attempt to post comments or use any MCP tools to modify the PR.
 
   post:
