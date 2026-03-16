@@ -1,5 +1,20 @@
 systemd System and Service Manager
 
+CHANGES WITH 261 in spe:
+        Changes in systemd-volatile-root:
+
+        * A new "overlay-usr" mode of operation has been added. Similar to
+          the already existing "overlay-root" mode, the feature can be used to
+          create ephemeral overlay for the /usr partition. This may be used to
+          make otherwise read-only /usr (e.g. when 'usrhash=' verity protection
+          feature is used) writeable. The mode can be activated by specifying
+          "systemd.volatile=overlay-usr" on the kernel cmdline.
+
+        * The previously existing "systemd.volatile=overlay" kernel cmdline
+          option is renamed to "systemd.volatile=overlay-root" to differentiate
+          it from the newly added "systemd.volatile=overlay-usr". Backwards
+          compatibility is preserved.
+
 CHANGES WITH 260 in spe:
 
         Feature Removals and Incompatible Changes:

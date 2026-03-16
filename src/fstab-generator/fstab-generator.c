@@ -1370,7 +1370,7 @@ static int add_volatile_root(void) {
         /* Let's add in systemd-remount-volatile.service which will remount the root device to tmpfs if this is
          * requested (or as an overlayfs), leaving only /usr from the root mount inside. */
 
-        if (!IN_SET(arg_volatile_mode, VOLATILE_YES, VOLATILE_OVERLAY_ROOT))
+        if (!IN_SET(arg_volatile_mode, VOLATILE_YES, VOLATILE_OVERLAY_ROOT, VOLATILE_OVERLAY_USR))
                 return 0;
 
         return generator_add_symlink(arg_dest, SPECIAL_INITRD_ROOT_FS_TARGET, "requires",
