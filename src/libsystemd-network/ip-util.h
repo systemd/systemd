@@ -21,3 +21,9 @@ int udp_packet_build(
                 const struct iovec_wrapper *payload,
                 struct iphdr *ret_iphdr,
                 struct udphdr *ret_udphdr);
+
+int udp_packet_verify(
+                const struct iovec *packet,
+                uint16_t port,
+                bool checksum,
+                struct iovec *ret_payload);
