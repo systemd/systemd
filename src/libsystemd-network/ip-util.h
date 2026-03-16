@@ -15,3 +15,10 @@ int udp_packet_build(
                 int ip_service_type,
                 const struct iovec *payload,
                 struct iovec_wrapper *ret);
+
+int udp_packet_verify(
+                const uint8_t *packet,
+                size_t len,
+                uint16_t port,
+                bool checksum,
+                struct iovec *ret_payload);

@@ -24,6 +24,7 @@
 #include "fd-util.h"
 #include "hostname-util.h"
 #include "iovec-util.h"
+#include "ip-util.h"
 #include "memory-util.h"
 #include "network-common.h"
 #include "random-util.h"
@@ -2281,7 +2282,6 @@ static int client_receive_message_raw(
                 void *userdata) {
 
         sd_dhcp_client *client = ASSERT_PTR(userdata);
-        _cleanup_free_ DHCPPacket *packet = NULL;
         /* This needs to be initialized with zero. See #20741.
          * The issue is fixed on glibc-2.35 (8fba672472ae0055387e9315fc2eddfa6775ca79). */
         CMSG_BUFFER_TYPE(CMSG_SPACE_TIMEVAL +
@@ -2307,7 +2307,7 @@ static int client_receive_message_raw(
                 return 0;
         }
 
-        packet = malloc0(buflen);
+        _cleanup_free_ void *packet = malloc0(buflen);
         if (!packet)
                 return -ENOMEM;
 
@@ -2325,13 +2325,11 @@ static int client_receive_message_raw(
         if (aux)
                 checksum = !(aux->tp_status & TP_STATUS_CSUMNOTREADY);
 
-        if (dhcp_packet_verify_headers(packet, len, checksum, client->port) < 0)
+        if (udp_packet_verify(packet, len, client->port, checksum, &iov) < 0)
                 return 0;
 
-        len -= DHCP_IP_UDP_SIZE;
-
         log_dhcp_client(client, "Received message from RAW socket, processing.");
-        r = client_handle_message(client, &packet->dhcp, len, TRIPLE_TIMESTAMP_FROM_CMSG(&msg));
+        r = client_handle_message(client, iov.iov_base, iov.iov_len, TRIPLE_TIMESTAMP_FROM_CMSG(&msg));
         if (r < 0)
                 client_stop(client, r);
 
