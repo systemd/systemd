@@ -42,6 +42,8 @@ DLSYM_PROTOTYPE(crypt_keyslot_destroy) = NULL;
 DLSYM_PROTOTYPE(crypt_keyslot_max) = NULL;
 DLSYM_PROTOTYPE(crypt_load) = NULL;
 DLSYM_PROTOTYPE(crypt_metadata_locking) = NULL;
+DLSYM_PROTOTYPE(crypt_persistent_flags_get) = NULL;
+DLSYM_PROTOTYPE(crypt_persistent_flags_set) = NULL;
 DLSYM_PROTOTYPE(crypt_reencrypt_init_by_passphrase) = NULL;
 DLSYM_PROTOTYPE(crypt_reencrypt_run);
 DLSYM_PROTOTYPE(crypt_resize) = NULL;
@@ -302,6 +304,8 @@ int dlopen_cryptsetup(void) {
                         DLSYM_ARG(crypt_keyslot_max),
                         DLSYM_ARG(crypt_load),
                         DLSYM_ARG(crypt_metadata_locking),
+                        DLSYM_ARG(crypt_persistent_flags_get),
+                        DLSYM_ARG(crypt_persistent_flags_set),
                         DLSYM_ARG(crypt_reencrypt_init_by_passphrase),
                         DLSYM_ARG(crypt_reencrypt_run),
                         DLSYM_ARG(crypt_resize),
