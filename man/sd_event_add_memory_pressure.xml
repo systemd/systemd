@@ -21,7 +21,15 @@
     <refname>sd_event_source_set_memory_pressure_period</refname>
     <refname>sd_event_trim_memory</refname>
 
-    <refpurpose>Add and configure an event source run as result of memory pressure</refpurpose>
+    <refname>sd_event_add_cpu_pressure</refname>
+    <refname>sd_event_source_set_cpu_pressure_type</refname>
+    <refname>sd_event_source_set_cpu_pressure_period</refname>
+
+    <refname>sd_event_add_io_pressure</refname>
+    <refname>sd_event_source_set_io_pressure_type</refname>
+    <refname>sd_event_source_set_io_pressure_period</refname>
+
+    <refpurpose>Add and configure an event source for memory, CPU, or IO pressure notifications</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -52,6 +60,48 @@
       </funcprototype>
 
       <funcprototype>
+        <funcdef>int <function>sd_event_add_cpu_pressure</function></funcdef>
+        <paramdef>sd_event *<parameter>event</parameter></paramdef>
+        <paramdef>sd_event_source **<parameter>ret_source</parameter></paramdef>
+        <paramdef>sd_event_handler_t <parameter>handler</parameter></paramdef>
+        <paramdef>void *<parameter>userdata</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_event_source_set_cpu_pressure_type</function></funcdef>
+        <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
+        <paramdef>const char *<parameter>type</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_event_source_set_cpu_pressure_period</function></funcdef>
+        <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
+        <paramdef>uint64_t <parameter>threshold_usec</parameter></paramdef>
+        <paramdef>uint64_t <parameter>window_usec</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_event_add_io_pressure</function></funcdef>
+        <paramdef>sd_event *<parameter>event</parameter></paramdef>
+        <paramdef>sd_event_source **<parameter>ret_source</parameter></paramdef>
+        <paramdef>sd_event_handler_t <parameter>handler</parameter></paramdef>
+        <paramdef>void *<parameter>userdata</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_event_source_set_io_pressure_type</function></funcdef>
+        <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
+        <paramdef>const char *<parameter>type</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_event_source_set_io_pressure_period</function></funcdef>
+        <paramdef>sd_event_source *<parameter>source</parameter></paramdef>
+        <paramdef>uint64_t <parameter>threshold_usec</parameter></paramdef>
+        <paramdef>uint64_t <parameter>window_usec</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
         <funcdef>int <function>sd_event_trim_memory</function></funcdef>
         <paramdef>void</paramdef>
       </funcprototype>
@@ -62,18 +112,25 @@
     <title>Description</title>
 
     <para><function>sd_event_add_memory_pressure()</function> adds a new event source that is triggered
-    whenever memory pressure is seen. This functionality is built around the Linux kernel's <ulink
+    whenever memory pressure is seen. Similarly,
+    <function>sd_event_add_cpu_pressure()</function> and <function>sd_event_add_io_pressure()</function> add
+    new event sources that are triggered whenever CPU or IO pressure is seen, respectively. This functionality
+    is built around the Linux kernel's <ulink
     url="https://docs.kernel.org/accounting/psi.html">Pressure Stall Information (PSI)</ulink> logic.</para>
 
-    <para>Expects an event loop object as first parameter, and returns the allocated event source object in
-    the second parameter, on success. The <parameter>handler</parameter> parameter is a function to call when
-    memory pressure is seen, or <constant>NULL</constant>. The handler function will be passed the
+    <para>These functions expect an event loop object as first parameter, and return the allocated event source
+    object in the second parameter, on success. The <parameter>handler</parameter> parameter is a function to
+    call when pressure is seen, or <constant>NULL</constant>. The handler function will be passed the
     <parameter>userdata</parameter> pointer, which may be chosen freely by the caller. The handler may return
     negative to signal an error (see below), other return values are ignored. If
-    <parameter>handler</parameter> is <constant>NULL</constant>, a default handler that compacts allocation
-    caches maintained by <filename>libsystemd</filename> as well as glibc (via <citerefentry
-    project='man-pages'><refentrytitle>malloc_trim</refentrytitle><manvolnum>3</manvolnum></citerefentry>)
-    will be used.</para>
+    <parameter>handler</parameter> is <constant>NULL</constant>, a default handler is used. For
+    <function>sd_event_add_memory_pressure()</function>, the default handler compacts allocation caches
+    maintained by <filename>libsystemd</filename> as well as glibc (via <citerefentry
+    project='man-pages'><refentrytitle>malloc_trim</refentrytitle><manvolnum>3</manvolnum></citerefentry>).
+    For <function>sd_event_add_cpu_pressure()</function> and
+    <function>sd_event_add_io_pressure()</function>, the default handler is a no-op. It is recommended to
+    pass a custom handler for CPU and IO pressure to take meaningful action when pressure is
+    detected.</para>
 
     <para>To destroy an event source object use
     <citerefentry><refentrytitle>sd_event_source_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
@@ -83,12 +140,13 @@
     <citerefentry><refentrytitle>sd_event_source_set_enabled</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     with <constant>SD_EVENT_OFF</constant>.</para>
 
-    <para>If the second parameter of <function>sd_event_add_memory_pressure()</function> is
+    <para>If the second parameter of <function>sd_event_add_memory_pressure()</function>,
+    <function>sd_event_add_cpu_pressure()</function>, or <function>sd_event_add_io_pressure()</function> is
     <constant>NULL</constant> no reference to the event source object is returned. In this case, the event
     source is considered "floating", and will be destroyed implicitly when the event loop itself is
     destroyed.</para>
 
-    <para>The event source will fire according to the following logic:</para>
+    <para>The memory pressure event source will fire according to the following logic:</para>
 
     <orderedlist>
       <listitem><para>If the
@@ -110,6 +168,18 @@
       <listitem><para>If that file does not exist, the system-wide PSI interface file
       <filename>/proc/pressure/memory</filename> is watched instead.</para></listitem>
     </orderedlist>
+
+    <para>The CPU pressure event source follows the same logic, but uses the
+    <varname>$CPU_PRESSURE_WATCH</varname>/<varname>$CPU_PRESSURE_WRITE</varname> environment variables,
+    the <filename>cpu.pressure</filename> cgroup file, and the system-wide PSI interface file
+    <filename>/proc/pressure/cpu</filename> instead. Note that <filename>/proc/pressure/cpu</filename> only
+    provides the <literal>some</literal> line, not the <literal>full</literal> line, so only
+    <literal>some</literal> is valid when watching at the system level.</para>
+
+    <para>The IO pressure event source follows the same logic, but uses the
+    <varname>$IO_PRESSURE_WATCH</varname>/<varname>$IO_PRESSURE_WRITE</varname> environment variables,
+    the <filename>io.pressure</filename> cgroup file, and the system-wide PSI interface file
+    <filename>/proc/pressure/io</filename> instead.</para>
 
     <para>Or in other words: preferably any explicit configuration passed in by an invoking service manager
     (or similar) is used as notification source, before falling back to local notifications of the service,
@@ -143,7 +213,7 @@
 
     <para>The <function>sd_event_source_set_memory_pressure_type()</function> and
     <function>sd_event_source_set_memory_pressure_period()</function> functions can be used to fine-tune the
-    PSI parameters for pressure notifications. The former takes either <literal>some</literal>,
+    PSI parameters for memory pressure notifications. The former takes either <literal>some</literal>,
     <literal>full</literal> as second parameter, the latter takes threshold and period times in microseconds
     as parameters. For details about these three parameters see the PSI documentation. Note that these two
     calls must be invoked immediately after allocating the event source, as they must be configured before
@@ -151,6 +221,19 @@
     in via the <varname>$MEMORY_PRESSURE_WATCH</varname>/<varname>$MEMORY_PRESSURE_WRITE</varname>
     environment variables (or in other words: configuration supplied by a service manager wins over internal
     settings).</para>
+
+    <para>Similarly, <function>sd_event_source_set_cpu_pressure_type()</function> and
+    <function>sd_event_source_set_cpu_pressure_period()</function> can be used to fine-tune the PSI
+    parameters for CPU pressure notifications, and
+    <function>sd_event_source_set_io_pressure_type()</function> and
+    <function>sd_event_source_set_io_pressure_period()</function> can be used to fine-tune the PSI
+    parameters for IO pressure notifications. They work identically to their memory pressure counterparts.
+    The type parameter takes either <literal>some</literal> or <literal>full</literal>, and the period
+    function takes threshold and period times in microseconds. The same constraints apply: these calls must
+    be invoked immediately after allocating the event source, and will fail if pressure parameterization
+    has been passed in via the corresponding
+    <varname>$*_PRESSURE_WATCH</varname>/<varname>$*_PRESSURE_WRITE</varname> environment
+    variables.</para>
 
     <para>The <function>sd_event_trim_memory()</function> function releases various internal allocation
     caches maintained by <filename>libsystemd</filename> and then invokes glibc's <citerefentry
@@ -161,7 +244,7 @@
     <constant>LOG_DEBUG</constant> level (with message ID f9b0be465ad540d0850ad32172d57c21) about the memory
     pressure operation.</para>
 
-    <para>For further details see <ulink url="https://systemd.io/MEMORY_PRESSURE">Memory Pressure Handling in
+    <para>For further details see <ulink url="https://systemd.io/PRESSURE">Resource Pressure Handling in
     systemd</ulink>.</para>
   </refsect1>
 
@@ -197,8 +280,9 @@
         <varlistentry>
           <term><constant>-EHOSTDOWN</constant></term>
 
-          <listitem><para>The <varname>$MEMORY_PRESSURE_WATCH</varname> variable has been set to the literal
-          string <filename>/dev/null</filename>, in order to explicitly disable memory pressure
+          <listitem><para>The <varname>$MEMORY_PRESSURE_WATCH</varname>,
+          <varname>$CPU_PRESSURE_WATCH</varname>, or <varname>$IO_PRESSURE_WATCH</varname> variable has been
+          set to the literal string <filename>/dev/null</filename>, in order to explicitly disable pressure
           handling.</para>
 
           <xi:include href="version-info.xml" xpointer="v254"/></listitem>
@@ -207,8 +291,9 @@
         <varlistentry>
           <term><constant>-EBADMSG</constant></term>
 
-          <listitem><para>The <varname>$MEMORY_PRESSURE_WATCH</varname> variable has been set to an invalid
-          string, for example a relative rather than an absolute path.</para>
+          <listitem><para>The <varname>$MEMORY_PRESSURE_WATCH</varname>,
+          <varname>$CPU_PRESSURE_WATCH</varname>, or <varname>$IO_PRESSURE_WATCH</varname> variable has been
+          set to an invalid string, for example a relative rather than an absolute path.</para>
 
           <xi:include href="version-info.xml" xpointer="v254"/></listitem>
         </varlistentry>
@@ -216,8 +301,9 @@
         <varlistentry>
           <term><constant>-ENOTTY</constant></term>
 
-          <listitem><para>The <varname>$MEMORY_PRESSURE_WATCH</varname> variable points to a regular file
-          outside of the procfs or cgroupfs file systems.</para>
+          <listitem><para>The <varname>$MEMORY_PRESSURE_WATCH</varname>,
+          <varname>$CPU_PRESSURE_WATCH</varname>, or <varname>$IO_PRESSURE_WATCH</varname> variable points
+          to a regular file outside of the procfs or cgroupfs file systems.</para>
 
           <xi:include href="version-info.xml" xpointer="v254"/></listitem>
         </varlistentry>
@@ -225,7 +311,8 @@
         <varlistentry>
           <term><constant>-EOPNOTSUPP</constant></term>
 
-          <listitem><para>No configuration via <varname>$MEMORY_PRESSURE_WATCH</varname> has been specified
+          <listitem><para>No configuration via <varname>$MEMORY_PRESSURE_WATCH</varname>,
+          <varname>$CPU_PRESSURE_WATCH</varname>, or <varname>$IO_PRESSURE_WATCH</varname> has been specified
           and the local kernel does not support the PSI interface.</para>
 
           <xi:include href="version-info.xml" xpointer="v254"/></listitem>
@@ -234,8 +321,12 @@
         <varlistentry>
           <term><constant>-EBUSY</constant></term>
 
-          <listitem><para>This is returned by <function>sd_event_source_set_memory_pressure_type()</function>
-          and <function>sd_event_source_set_memory_pressure_period()</function> if invoked on event sources
+          <listitem><para>This is returned by <function>sd_event_source_set_memory_pressure_type()</function>,
+          <function>sd_event_source_set_memory_pressure_period()</function>,
+          <function>sd_event_source_set_cpu_pressure_type()</function>,
+          <function>sd_event_source_set_cpu_pressure_period()</function>,
+          <function>sd_event_source_set_io_pressure_type()</function>,
+          and <function>sd_event_source_set_io_pressure_period()</function> if invoked on event sources
           at a time later than immediately after allocating them.</para>
 
           <xi:include href="version-info.xml" xpointer="v254"/></listitem>
@@ -277,6 +368,12 @@
     <function>sd_event_source_set_memory_pressure_type()</function>,
     <function>sd_event_source_set_memory_pressure_period()</function>, and
     <function>sd_event_trim_memory()</function> were added in version 254.</para>
+    <para><function>sd_event_add_cpu_pressure()</function>,
+    <function>sd_event_source_set_cpu_pressure_type()</function>,
+    <function>sd_event_source_set_cpu_pressure_period()</function>,
+    <function>sd_event_add_io_pressure()</function>,
+    <function>sd_event_source_set_io_pressure_type()</function>, and
+    <function>sd_event_source_set_io_pressure_period()</function> were added in version 261.</para>
   </refsect1>
 
   <refsect1>
