@@ -536,6 +536,19 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--grain-size=<replaceable>BYTES</replaceable></option></term>
+
+        <listitem><para>This option controls the partition alignment granularity used when placing
+        partitions. It takes a power-of-2 value that is at least the sector size. All partition start
+        offsets will be rounded up to a multiple of this value. Defaults to
+        <constant>MAX(4096, sector_size)</constant>, matching the conventional 4 KiB alignment. Setting
+        this to <literal>1M</literal> ensures proper alignment for modern storage devices even after
+        small fixed-size partitions such as a verity signature partition.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--architecture=<replaceable>ARCH</replaceable></option></term>
 
         <listitem><para>This option allows overriding the architecture used for architecture specific
