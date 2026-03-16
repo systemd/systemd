@@ -10,6 +10,7 @@
 #include "fileio.h"
 #include "parse-util.h"
 #include "psi-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 
@@ -103,6 +104,32 @@ int read_resource_pressure(const char *path, PressureType type, ResourcePressure
         *ret = rp;
         return 0;
 }
+
+const PressureResourceInfo pressure_resource_info[_PRESSURE_RESOURCE_MAX] = {
+        [PRESSURE_MEMORY] = {
+                .name      = "memory",
+                .env_watch = "MEMORY_PRESSURE_WATCH",
+                .env_write = "MEMORY_PRESSURE_WRITE",
+        },
+        [PRESSURE_CPU] = {
+                .name      = "cpu",
+                .env_watch = "CPU_PRESSURE_WATCH",
+                .env_write = "CPU_PRESSURE_WRITE",
+        },
+        [PRESSURE_IO] = {
+                .name      = "io",
+                .env_watch = "IO_PRESSURE_WATCH",
+                .env_write = "IO_PRESSURE_WRITE",
+        },
+};
+
+static const char* const pressure_resource_table[_PRESSURE_RESOURCE_MAX] = {
+        [PRESSURE_MEMORY] = "memory",
+        [PRESSURE_CPU]    = "cpu",
+        [PRESSURE_IO]     = "io",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(pressure_resource, PressureResource);
 
 int is_pressure_supported(void) {
         static thread_local int cached = -1;
