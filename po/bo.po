@@ -1,0 +1,1198 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# Tibetan translation for systemd.
+# Dongshengyuan <dongshengyuan@uniontech.com>, 2026.
+msgid ""
+msgstr ""
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-03-06 03:46+0900\n"
+"PO-Revision-Date: 2026-03-16 14:21+0000\n"
+"Last-Translator: Dongshengyuan <dongshengyuan@uniontech.com>\n"
+"Language-Team: Tibetan\n"
+"Language: bo\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"X-Generator: manual\n"
+
+#: src/core/org.freedesktop.systemd1.policy.in:22
+msgid "Send passphrase back to system"
+msgstr "གསང་ཚིག་རྒྱུད་ལམ་ལ་ཕྱིར་སྐྱེལ།"
+
+#: src/core/org.freedesktop.systemd1.policy.in:23
+msgid ""
+"Authentication is required to send the entered passphrase back to the system."
+msgstr "ནང་འཇུག་བྱས་པའི་གསང་ཚིག་རྒྱུད་ལམ་ལ་ཕྱིར་སྐྱེལ་བར་ར་སྤྲོད་དགོས།"
+
+#: src/core/org.freedesktop.systemd1.policy.in:33
+msgid "Manage system services or other units"
+msgstr "རྒྱུད་ལམ་ཞབས་ཞུ་དང་སྡེ་ཚན་གཞན་དག་དོ་དམ་བྱེད།"
+
+#: src/core/org.freedesktop.systemd1.policy.in:34
+msgid "Authentication is required to manage system services or other units."
+msgstr "རྒྱུད་ལམ་ཞབས་ཞུ་དང་སྡེ་ཚན་གཞན་དག་དོ་དམ་བྱེད་པར་ར་སྤྲོད་དགོས།"
+
+#: src/core/org.freedesktop.systemd1.policy.in:43
+msgid "Manage system service or unit files"
+msgstr "རྒྱུད་ལམ་ཞབས་ཞུའམ་སྡེ་ཚན་ཡིག་ཆ་དོ་དམ་བྱེད།"
+
+#: src/core/org.freedesktop.systemd1.policy.in:44
+msgid "Authentication is required to manage system service or unit files."
+msgstr "རྒྱུད་ལམ་ཞབས་ཞུའམ་སྡེ་ཚན་ཡིག་ཆ་དོ་དམ་བྱེད་པར་ར་སྤྲོད་དགོས།"
+
+#: src/core/org.freedesktop.systemd1.policy.in:54
+msgid "Set or unset system and service manager environment variables"
+msgstr "རྒྱུད་ལམ་དང་ཞབས་ཞུ་དོ་དམ་པའི་ཁོར་ཡུག་འགྱུར་ཚད་སྒྲིག་གམ་སུབ།"
+
+#: src/core/org.freedesktop.systemd1.policy.in:55
+msgid ""
+"Authentication is required to set or unset system and service manager "
+"environment variables."
+msgstr "རྒྱུད་ལམ་དང་ཞབས་ཞུ་དོ་དམ་པའི་ཁོར་ཡུག་འགྱུར་ཚད་སྒྲིག་པའམ་སུབ་པར་ར་སྤྲོད་དགོས།"
+
+#: src/core/org.freedesktop.systemd1.policy.in:64
+msgid "Reload the systemd state"
+msgstr "systemd གནས་ཚུལ་བསྐྱར་འཇུག་བྱེད།"
+
+#: src/core/org.freedesktop.systemd1.policy.in:65
+msgid "Authentication is required to reload the systemd state."
+msgstr "systemd གནས་ཚུལ་བསྐྱར་འཇུག་བྱེད་པར་ར་སྤྲོད་དགོས།"
+
+#: src/core/org.freedesktop.systemd1.policy.in:74
+msgid "Dump the systemd state without rate limits"
+msgstr "མྱུར་ཚད་ཚད་བཀག་མེད་པར systemd གནས་ཚུལ་ཕྱིར་འདོན།"
+
+#: src/core/org.freedesktop.systemd1.policy.in:75
+msgid ""
+"Authentication is required to dump the systemd state without rate limits."
+msgstr "མྱུར་ཚད་ཚད་བཀག་མེད་པར systemd གནས་ཚུལ་ཕྱིར་འདོན་པར་ར་སྤྲོད་དགོས།"
+
+#: src/home/org.freedesktop.home1.policy:13
+msgid "Create a home area"
+msgstr "ཁྱིམ་ཁོངས་གསར་བཟོ།"
+
+#: src/home/org.freedesktop.home1.policy:14
+msgid "Authentication is required to create a user's home area."
+msgstr "སྤྱོད་མཁན་གྱི་ཁྱིམ་ཁོངས་གསར་བཟོ་བར་ར་སྤྲོད་དགོས།"
+
+#: src/home/org.freedesktop.home1.policy:23
+msgid "Remove a home area"
+msgstr "ཁྱིམ་ཁོངས་སྤོ་བ།"
+
+#: src/home/org.freedesktop.home1.policy:24
+msgid "Authentication is required to remove a user's home area."
+msgstr "སྤྱོད་མཁན་གྱི་ཁྱིམ་ཁོངས་སྤོ་བར་ར་སྤྲོད་དགོས།"
+
+#: src/home/org.freedesktop.home1.policy:33
+msgid "Check credentials of a home area"
+msgstr "ཁྱིམ་ཁོངས་ཀྱི་དཔང་ཡིག་ཞིབ་བཤེར།"
+
+#: src/home/org.freedesktop.home1.policy:34
+msgid ""
+"Authentication is required to check credentials against a user's home area."
+msgstr "སྤྱོད་མཁན་གྱི་ཁྱིམ་ཁོངས་ལ་བསྟུན་ནས་དཔང་ཡིག་ཞིབ་བཤེར་བྱེད་པར་ར་སྤྲོད་དགོས།"
+
+#: src/home/org.freedesktop.home1.policy:43
+msgid "Update a home area"
+msgstr "ཁྱིམ་ཁོངས་གསར་བསྒྱུར།"
+
+#: src/home/org.freedesktop.home1.policy:44
+msgid "Authentication is required to update a user's home area."
+msgstr "སྤྱོད་མཁན་གྱི་ཁྱིམ་ཁོངས་གསར་བསྒྱུར་བར་ར་སྤྲོད་དགོས།"
+
+#: src/home/org.freedesktop.home1.policy:53
+msgid "Update your home area"
+msgstr "ཁྱེད་ཀྱི་ཁྱིམ་ཁོངས་གསར་བསྒྱུར།"
+
+#: src/home/org.freedesktop.home1.policy:54
+msgid "Authentication is required to update your home area."
+msgstr "ཁྱེད་ཀྱི་ཁྱིམ་ཁོངས་གསར་བསྒྱུར་བར་ར་སྤྲོད་དགོས།"
+
+#: src/home/org.freedesktop.home1.policy:63
+msgid "Resize a home area"
+msgstr "ཁྱིམ་ཁོངས་ཆེ་ཆུང་བསྒྱུར།"
+
+#: src/home/org.freedesktop.home1.policy:64
+msgid "Authentication is required to resize a user's home area."
+msgstr "སྤྱོད་མཁན་གྱི་ཁྱིམ་ཁོངས་ཆེ་ཆུང་བསྒྱུར་བར་ར་སྤྲོད་དགོས།"
+
+#: src/home/org.freedesktop.home1.policy:73
+msgid "Change password of a home area"
+msgstr "ཁྱིམ་ཁོངས་ཀྱི་གསང་ཚིག་བསྒྱུར།"
+
+#: src/home/org.freedesktop.home1.policy:74
+msgid ""
+"Authentication is required to change the password of a user's home area."
+msgstr "སྤྱོད་མཁན་གྱི་ཁྱིམ་ཁོངས་གསང་ཚིག་བསྒྱུར་བར་ར་སྤྲོད་དགོས།"
+
+#: src/home/org.freedesktop.home1.policy:83
+msgid "Activate a home area"
+msgstr "ཁྱིམ་ཁོངས་སྐུལ་སློང་།"
+
+#: src/home/org.freedesktop.home1.policy:84
+msgid "Authentication is required to activate a user's home area."
+msgstr "སྤྱོད་མཁན་གྱི་ཁྱིམ་ཁོངས་སྐུལ་སློང་བར་ར་སྤྲོད་དགོས།"
+
+#: src/home/org.freedesktop.home1.policy:93
+msgid "Manage Home Directory Signing Keys"
+msgstr "ཁྱིམ་དཀར་ཆག་མིང་རྟགས་ལྡེ་མིག་དོ་དམ།"
+
+#: src/home/org.freedesktop.home1.policy:94
+msgid "Authentication is required to manage signing keys for home directories."
+msgstr "ཁྱིམ་དཀར་ཆག་མིང་རྟགས་ལྡེ་མིག་དོ་དམ་བྱེད་པར་ར་སྤྲོད་དགོས།"
+
+#: src/home/pam_systemd_home.c:330
+#, c-format
+msgid ""
+"Home of user %s is currently absent, please plug in the necessary storage "
+"device or backing file system."
+msgstr "སྤྱོད་མཁན %s ཡི་ཁྱིམ་དཀར་ཆག་ད་ལྟ་མེད། དགོས་ངེས་ཀྱི་གསོག་ཉར་སྒྲིག་ཆས་སམ་རྒྱབ་རྟེན་ཡིག་ཚགས་མ་ལག་སྦྲེལ་རོགས།"
+
+#: src/home/pam_systemd_home.c:335
+#, c-format
+msgid "Too frequent login attempts for user %s, try again later."
+msgstr "སྤྱོད་མཁན %s ཡི་ནང་འཛུལ་ཚོད་ལྟ་མང་དྲགས་པས་རྗེས་སུ་ཡང་བསྐྱར་ཚོད་ལྟ་བྱེད།"
+
+#: src/home/pam_systemd_home.c:347
+msgid "Password: "
+msgstr "གསང་ཚིག: "
+
+#: src/home/pam_systemd_home.c:349
+#, c-format
+msgid "Password incorrect or not sufficient for authentication of user %s."
+msgstr "སྤྱོད་མཁན %s ཡི་གསང་ཚིག་ནོར་འཁྲུལ་ཡིན་པའམ་ར་སྤྲོད་ལ་མི་འདང་།"
+
+#: src/home/pam_systemd_home.c:350
+msgid "Sorry, try again: "
+msgstr "དགོངས་དག ཡང་བསྐྱར་ཚོད་ལྟ: "
+
+#: src/home/pam_systemd_home.c:372
+msgid "Recovery key: "
+msgstr "སླར་གསོ་ལྡེ་མིག: "
+
+#: src/home/pam_systemd_home.c:374
+#, c-format
+msgid ""
+"Password/recovery key incorrect or not sufficient for authentication of user "
+"%s."
+msgstr "སྤྱོད་མཁན %s ཡི་གསང་ཚིག/སླར་གསོ་ལྡེ་མིག་ནོར་འཁྲུལ་ཡིན་པའམ་ར་སྤྲོད་ལ་མི་འདང་།"
+
+#: src/home/pam_systemd_home.c:375
+msgid "Sorry, reenter recovery key: "
+msgstr "དགོངས་དག སླར་གསོ་ལྡེ་མིག་ཡང་བསྐྱར་ནང་འཇུག: "
+
+#: src/home/pam_systemd_home.c:395
+#, c-format
+msgid "Security token of user %s not inserted."
+msgstr "སྤྱོད་མཁན %s ཡི་བདེ་འཇགས་རྟགས་མ་བཙུགས་པ།"
+
+#: src/home/pam_systemd_home.c:396 src/home/pam_systemd_home.c:399
+msgid "Try again with password: "
+msgstr "གསང་ཚིག་སྤྱད་ནས་ཡང་བསྐྱར་ཚོད་ལྟ: "
+
+#: src/home/pam_systemd_home.c:398
+#, c-format
+msgid ""
+"Password incorrect or not sufficient, and configured security token of user "
+"%s not inserted."
+msgstr "གསང་ཚིག་ནོར་འཁྲུལ་ཡིན་པའམ་མི་འདང་། སྤྱོད་མཁན %s ཡི་སྒྲིག་བཀོད་བདེ་འཇགས་རྟགས་ཀྱང་མ་བཙུགས།"
+
+#: src/home/pam_systemd_home.c:418
+msgid "Security token PIN: "
+msgstr "བདེ་འཇགས་རྟགས PIN: "
+
+#: src/home/pam_systemd_home.c:435
+#, c-format
+msgid "Please authenticate physically on security token of user %s."
+msgstr "སྤྱོད་མཁན %s ཡི་བདེ་འཇགས་རྟགས་སྟེང་ལུས་ངོས་ར་སྤྲོད་གནང་རོགས།"
+
+#: src/home/pam_systemd_home.c:446
+#, c-format
+msgid "Please confirm presence on security token of user %s."
+msgstr "སྤྱོད་མཁན %s ཡི་བདེ་འཇགས་རྟགས་སྟེང་ཡོད་པ་ངེས་གཏན་གནང་རོགས།"
+
+#: src/home/pam_systemd_home.c:457
+#, c-format
+msgid "Please verify user on security token of user %s."
+msgstr "སྤྱོད་མཁན %s ཡི་བདེ་འཇགས་རྟགས་སྟེང་སྤྱོད་མཁན་ཞིབ་བཤེར་གནང་རོགས།"
+
+#: src/home/pam_systemd_home.c:466
+msgid ""
+"Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
+"insertion might suffice.)"
+msgstr "བདེ་འཇགས་རྟགས PIN སྒོ་ལྕགས་བཀག་ཟིན། སྔོན་ལ་སྒྲོལ་རོགས། (ཁ་སྣོན: ཕྱིར་བཏོན་ནས་ཡང་བསྐྱར་བཙུགས་ན་འགྲིག་སྲིད།)"
+
+#: src/home/pam_systemd_home.c:474
+#, c-format
+msgid "Security token PIN incorrect for user %s."
+msgstr "སྤྱོད་མཁན %s ཡི་བདེ་འཇགས་རྟགས PIN ནོར་འཁྲུལ།"
+
+#: src/home/pam_systemd_home.c:475 src/home/pam_systemd_home.c:494
+#: src/home/pam_systemd_home.c:513
+msgid "Sorry, retry security token PIN: "
+msgstr "དགོངས་དག བདེ་འཇགས་རྟགས PIN ཡང་བསྐྱར་ཚོད་ལྟ: "
+
+#: src/home/pam_systemd_home.c:493
+#, c-format
+msgid "Security token PIN of user %s incorrect (only a few tries left!)"
+msgstr "སྤྱོད་མཁན %s ཡི་བདེ་འཇགས་རྟགས PIN ནོར་འཁྲུལ། (ཚོད་ལྟ་ཆེས་ཉུང་ཙམ་ལས་མེད!)"
+
+#: src/home/pam_systemd_home.c:512
+#, c-format
+msgid "Security token PIN of user %s incorrect (only one try left!)"
+msgstr "སྤྱོད་མཁན %s ཡི་བདེ་འཇགས་རྟགས PIN ནོར་འཁྲུལ། (ཚོད་ལྟ་གཅིག་ལས་མེད!)"
+
+#: src/home/pam_systemd_home.c:679
+#, c-format
+msgid "Home of user %s is currently not active, please log in locally first."
+msgstr "སྤྱོད་མཁན %s ཡི་ཁྱིམ་དཀར་ཆག་ད་ལྟ་སྐུལ་སློང་མེད། སྔོན་ལ་ས་གནས་ནས་ནང་འཛུལ་གནང་རོགས།"
+
+#: src/home/pam_systemd_home.c:681
+#, c-format
+msgid "Home of user %s is currently locked, please unlock locally first."
+msgstr "སྤྱོད་མཁན %s ཡི་ཁྱིམ་དཀར་ཆག་ད་ལྟ་སྒོ་ལྕགས་བཀག་ཡོད། སྔོན་ལ་ས་གནས་ནས་སྒྲོལ་རོགས།"
+
+#: src/home/pam_systemd_home.c:715
+#, c-format
+msgid "Too many unsuccessful login attempts for user %s, refusing."
+msgstr "སྤྱོད་མཁན %s ཡི་ནང་འཛུལ་མ་ལེགས་པའི་ཚོད་ལྟ་མང་དྲགས་པས་ངོས་ལེན་མི་བྱེད།"
+
+#: src/home/pam_systemd_home.c:1012
+msgid "User record is blocked, prohibiting access."
+msgstr "སྤྱོད་མཁན་ཐོ་བཀག་ཟིན་པས་ལྟ་སྤྱོད་བཀག་ཡོད།"
+
+#: src/home/pam_systemd_home.c:1016
+msgid "User record is not valid yet, prohibiting access."
+msgstr "སྤྱོད་མཁན་ཐོ་ད་དུང་ནུས་ལྡན་མིན་པས་ལྟ་སྤྱོད་བཀག་ཡོད།"
+
+#: src/home/pam_systemd_home.c:1020
+msgid "User record is not valid anymore, prohibiting access."
+msgstr "སྤྱོད་མཁན་ཐོ་ད་ནས་ནུས་མེད་པས་ལྟ་སྤྱོད་བཀག་ཡོད།"
+
+#: src/home/pam_systemd_home.c:1025 src/home/pam_systemd_home.c:1074
+msgid "User record not valid, prohibiting access."
+msgstr "སྤྱོད་མཁན་ཐོ་ནུས་མེད་པས་ལྟ་སྤྱོད་བཀག་ཡོད།"
+
+#: src/home/pam_systemd_home.c:1035
+#, c-format
+msgid "Too many logins, try again in %s."
+msgstr "ནང་འཛུལ་མང་དྲགས་པས %s རྗེས་སུ་ཡང་བསྐྱར་ཚོད་ལྟ་བྱེད།"
+
+#: src/home/pam_systemd_home.c:1046
+msgid "Password change required."
+msgstr "གསང་ཚིག་བསྒྱུར་དགོས།"
+
+#: src/home/pam_systemd_home.c:1050
+msgid "Password expired, change required."
+msgstr "གསང་ཚིག་དུས་ཡོལ་ཟིན་པས་བསྒྱུར་དགོས།"
+
+#: src/home/pam_systemd_home.c:1056
+msgid "Password is expired, but can't change, refusing login."
+msgstr "གསང་ཚིག་དུས་ཡོལ་ཟིན་ཡང་བསྒྱུར་མི་ཐུབ་པས་ནང་འཛུལ་ཁས་མི་ལེན།"
+
+#: src/home/pam_systemd_home.c:1060
+msgid "Password will expire soon, please change."
+msgstr "གསང་ཚིག་མི་རིང་བར་དུས་ཡོལ་འགྲོ་གི་ཡོད་པས་བསྒྱུར་རོགས།"
+
+#: src/hostname/org.freedesktop.hostname1.policy:20
+msgid "Set hostname"
+msgstr "གཙོ་འཁོར་མིང་སྒྲིག"
+
+#: src/hostname/org.freedesktop.hostname1.policy:21
+msgid "Authentication is required to set the local hostname."
+msgstr "ས་གནས་གཙོ་འཁོར་མིང་སྒྲིག་པར་ར་སྤྲོད་དགོས།"
+
+#: src/hostname/org.freedesktop.hostname1.policy:30
+msgid "Set static hostname"
+msgstr "བརྟན་པོའི་གཙོ་འཁོར་མིང་སྒྲིག"
+
+#: src/hostname/org.freedesktop.hostname1.policy:31
+msgid ""
+"Authentication is required to set the statically configured local hostname, "
+"as well as the pretty hostname."
+msgstr "བརྟན་པོར་སྒྲིག་པའི་ས་གནས་གཙོ་འཁོར་མིང་དང pretty hostname སྒྲིག་པར་ར་སྤྲོད་དགོས།"
+
+#: src/hostname/org.freedesktop.hostname1.policy:41
+msgid "Set machine information"
+msgstr "འཕྲུལ་ཆས་ཆ་འཕྲིན་སྒྲིག"
+
+#: src/hostname/org.freedesktop.hostname1.policy:42
+msgid "Authentication is required to set local machine information."
+msgstr "ས་གནས་འཕྲུལ་ཆས་ཆ་འཕྲིན་སྒྲིག་པར་ར་སྤྲོད་དགོས།"
+
+#: src/hostname/org.freedesktop.hostname1.policy:51
+msgid "Get product UUID"
+msgstr "ཐོན་རྫས UUID ལེན"
+
+#: src/hostname/org.freedesktop.hostname1.policy:52
+msgid "Authentication is required to get product UUID."
+msgstr "ཐོན་རྫས UUID ལེན་པར་ར་སྤྲོད་དགོས།"
+
+#: src/hostname/org.freedesktop.hostname1.policy:61
+msgid "Get hardware serial number"
+msgstr "སྲ་ཆས་རིམ་ཨང་ལེན"
+
+#: src/hostname/org.freedesktop.hostname1.policy:62
+msgid "Authentication is required to get hardware serial number."
+msgstr "སྲ་ཆས་རིམ་ཨང་ལེན་པར་ར་སྤྲོད་དགོས།"
+
+#: src/hostname/org.freedesktop.hostname1.policy:71
+msgid "Get system description"
+msgstr "རྒྱུད་ལམ་འགྲེལ་བཤད་ལེན"
+
+#: src/hostname/org.freedesktop.hostname1.policy:72
+msgid "Authentication is required to get system description."
+msgstr "རྒྱུད་ལམ་འགྲེལ་བཤད་ལེན་པར་ར་སྤྲོད་དགོས།"
+
+#: src/import/org.freedesktop.import1.policy:22
+msgid "Import a disk image"
+msgstr "ཌིསྐ་མཚོན་རིས་ནང་འདྲེན།"
+
+#: src/import/org.freedesktop.import1.policy:23
+msgid "Authentication is required to import an image."
+msgstr "མཚོན་རིས་ནང་འདྲེན་པར་ར་སྤྲོད་དགོས།"
+
+#: src/import/org.freedesktop.import1.policy:32
+msgid "Export a disk image"
+msgstr "ཌིསྐ་མཚོན་རིས་ཕྱིར་འདོན།"
+
+#: src/import/org.freedesktop.import1.policy:33
+msgid "Authentication is required to export disk image."
+msgstr "ཌིསྐ་མཚོན་རིས་ཕྱིར་འདོན་པར་ར་སྤྲོད་དགོས།"
+
+#: src/import/org.freedesktop.import1.policy:42
+msgid "Download a disk image"
+msgstr "ཌིསྐ་མཚོན་རིས་ཕབ་ལེན།"
+
+#: src/import/org.freedesktop.import1.policy:43
+msgid "Authentication is required to download a disk image."
+msgstr "ཌིསྐ་མཚོན་རིས་ཕབ་ལེན་པར་ར་སྤྲོད་དགོས།"
+
+#: src/import/org.freedesktop.import1.policy:52
+msgid "Cancel transfer of a disk image"
+msgstr "ཌིསྐ་མཚོན་རིས་བརྒྱུད་སྐྱེལ་མེད་པར་བཟོ"
+
+#: src/import/org.freedesktop.import1.policy:53
+msgid ""
+"Authentication is required to cancel the ongoing transfer of a disk image."
+msgstr "ད་ལྟ་བྱེད་བཞིན་པའི་ཌིསྐ་མཚོན་རིས་བརྒྱུད་སྐྱེལ་མེད་པར་བཟོ་བར་ར་སྤྲོད་དགོས།"
+
+#: src/locale/org.freedesktop.locale1.policy:22
+msgid "Set system locale"
+msgstr "རྒྱུད་ལམ locale སྒྲིག"
+
+#: src/locale/org.freedesktop.locale1.policy:23
+msgid "Authentication is required to set the system locale."
+msgstr "རྒྱུད་ལམ locale སྒྲིག་པར་ར་སྤྲོད་དགོས།"
+
+#: src/locale/org.freedesktop.locale1.policy:33
+msgid "Set system keyboard settings"
+msgstr "རྒྱུད་ལམ་མཐེབ་གཞོང་སྒྲིག་འགོད་སྒྲིག"
+
+#: src/locale/org.freedesktop.locale1.policy:34
+msgid "Authentication is required to set the system keyboard settings."
+msgstr "རྒྱུད་ལམ་མཐེབ་གཞོང་སྒྲིག་འགོད་སྒྲིག་པར་ར་སྤྲོད་དགོས།"
+
+#: src/login/org.freedesktop.login1.policy:22
+msgid "Allow applications to inhibit system shutdown"
+msgstr "མཉེན་ཆས་ཀྱིས་རྒྱུད་ལམ་སྒོ་རྒྱག་འགོག་པར་ཆོག"
+
+#: src/login/org.freedesktop.login1.policy:23
+msgid ""
+"Authentication is required for an application to inhibit system shutdown."
+msgstr "མཉེན་ཆས་ཀྱིས་རྒྱུད་ལམ་སྒོ་རྒྱག་འགོག་པར་ར་སྤྲོད་དགོས།"
+
+#: src/login/org.freedesktop.login1.policy:33
+msgid "Allow applications to delay system shutdown"
+msgstr "མཉེན་ཆས་ཀྱིས་རྒྱུད་ལམ་སྒོ་རྒྱག་ཕྱིར་འགྱངས་བྱེད་པར་ཆོག"
+
+#: src/login/org.freedesktop.login1.policy:34
+msgid "Authentication is required for an application to delay system shutdown."
+msgstr "མཉེན་ཆས་ཀྱིས་རྒྱུད་ལམ་སྒོ་རྒྱག་ཕྱིར་འགྱངས་བྱེད་པར་ར་སྤྲོད་དགོས།"
+
+#: src/login/org.freedesktop.login1.policy:44
+msgid "Allow applications to inhibit system sleep"
+msgstr "མཉེན་ཆས་ཀྱིས་རྒྱུད་ལམ་གཉིད་ཁུག་པ་འགོག་པར་ཆོག"
+
+#: src/login/org.freedesktop.login1.policy:45
+msgid "Authentication is required for an application to inhibit system sleep."
+msgstr "མཉེན་ཆས་ཀྱིས་རྒྱུད་ལམ་གཉིད་ཁུག་པ་འགོག་པར་ར་སྤྲོད་དགོས།"
+
+#: src/login/org.freedesktop.login1.policy:55
+msgid "Allow applications to delay system sleep"
+msgstr "མཉེན་ཆས་ཀྱིས་རྒྱུད་ལམ་གཉིད་ཁུག་པ་ཕྱིར་འགྱངས་བྱེད་པར་ཆོག"
+
+#: src/login/org.freedesktop.login1.policy:56
+msgid "Authentication is required for an application to delay system sleep."
+msgstr "མཉེན་ཆས་ཀྱིས་རྒྱུད་ལམ་གཉིད་ཁུག་པ་ཕྱིར་འགྱངས་བྱེད་པར་ར་སྤྲོད་དགོས།"
+
+#: src/login/org.freedesktop.login1.policy:65
+msgid "Allow applications to inhibit automatic system suspend"
+msgstr "མཉེན་ཆས་ཀྱིས་རྒྱུད་ལམ་རང་འགུལ་འགེལ་འཇོག་འགོག་པར་ཆོག"
+
+#: src/login/org.freedesktop.login1.policy:66
+msgid ""
+"Authentication is required for an application to inhibit automatic system "
+"suspend."
+msgstr "མཉེན་ཆས་ཀྱིས་རྒྱུད་ལམ་རང་འགུལ་འགེལ་འཇོག་འགོག་པར་ར་སྤྲོད་དགོས།"
+
+#: src/login/org.freedesktop.login1.policy:75
+msgid "Allow applications to inhibit system handling of the power key"
+msgstr "མཉེན་ཆས་ཀྱིས་རྒྱུད་ལམ་གློག་སྒོ་མཐེབ་ལ་ལག་ལེན་བྱེད་པ་འགོག་པར་ཆོག"
+
+#: src/login/org.freedesktop.login1.policy:76
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the power key."
+msgstr "མཉེན་ཆས་ཀྱིས་རྒྱུད་ལམ་གློག་སྒོ་མཐེབ་ལ་ལག་ལེན་བྱེད་པ་འགོག་པར་ར་སྤྲོད་དགོས།"
+
+#: src/login/org.freedesktop.login1.policy:86
+msgid "Allow applications to inhibit system handling of the suspend key"
+msgstr "མཉེན་ཆས་ཀྱིས་རྒྱུད་ལམ་འགེལ་འཇོག་མཐེབ་ལ་ལག་ལེན་བྱེད་པ་འགོག་པར་ཆོག"
+
+#: src/login/org.freedesktop.login1.policy:87
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the suspend key."
+msgstr "མཉེན་ཆས་ཀྱིས་རྒྱུད་ལམ་འགེལ་འཇོག་མཐེབ་ལ་ལག་ལེན་བྱེད་པ་འགོག་པར་ར་སྤྲོད་དགོས།"
+
+#: src/login/org.freedesktop.login1.policy:97
+msgid "Allow applications to inhibit system handling of the hibernate key"
+msgstr "མཉེན་ཆས་ཀྱིས་རྒྱུད་ལམ་ཉལ་ཉིན་མཐེབ་ལ་ལག་ལེན་བྱེད་པ་འགོག་པར་ཆོག"
+
+#: src/login/org.freedesktop.login1.policy:98
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the hibernate key."
+msgstr "མཉེན་ཆས་ཀྱིས་རྒྱུད་ལམ་ཉལ་ཉིན་མཐེབ་ལ་ལག་ལེན་བྱེད་པ་འགོག་པར་ར་སྤྲོད་དགོས།"
+
+#: src/login/org.freedesktop.login1.policy:107
+msgid "Allow applications to inhibit system handling of the lid switch"
+msgstr "མཉེན་ཆས་ཀྱིས་རྒྱུད་ལམ་ལཔ་ཊོཔ་ཁ་ལེབ་སྒྱུར་མཐེབ་ལ་ལག་ལེན་བྱེད་པ་འགོག་པར་ཆོག"
+
+#: src/login/org.freedesktop.login1.policy:108
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the lid switch."
+msgstr "མཉེན་ཆས་ཀྱིས་རྒྱུད་ལམ་ལཔ་ཊོཔ་ཁ་ལེབ་སྒྱུར་མཐེབ་ལ་ལག་ལེན་བྱེད་པ་འགོག་པར་ར་སྤྲོད་དགོས།"
+
+#: src/login/org.freedesktop.login1.policy:117
+msgid "Allow applications to inhibit system handling of the reboot key"
+msgstr "མཉེན་ཆས་ཀྱིས་རྒྱུད་ལམ་བསྐྱར་འགོ་མཐེབ་ལ་ལག་ལེན་བྱེད་པ་འགོག་པར་ཆོག"
+
+#: src/login/org.freedesktop.login1.policy:118
+msgid ""
+"Authentication is required for an application to inhibit system handling of "
+"the reboot key."
+msgstr "མཉེན་ཆས་ཀྱིས་རྒྱུད་ལམ་བསྐྱར་འགོ་མཐེབ་ལ་ལག་ལེན་བྱེད་པ་འགོག་པར་ར་སྤྲོད་དགོས།"
+
+#: src/login/org.freedesktop.login1.policy:128
+msgid "Allow non-logged-in user to run programs"
+msgstr "ནང་འཛུལ་མ་བྱས་པའི་སྤྱོད་མཁན་ལ་ལས་རིམ་འགྲོ་བར་ཆོག"
+
+#: src/login/org.freedesktop.login1.policy:129
+msgid "Explicit request is required to run programs as a non-logged-in user."
+msgstr "ནང་འཛུལ་མ་བྱས་པའི་སྤྱོད་མཁན་དབང་གིས་ལས་རིམ་འགྲོ་བར་གསལ་བཤད་ཀྱི་ཞུ་བ་དགོས།"
+
+#: src/login/org.freedesktop.login1.policy:138
+msgid "Allow non-logged-in users to run programs"
+msgstr "ནང་འཛུལ་མ་བྱས་པའི་སྤྱོད་མཁན་ཚོར་ལས་རིམ་འགྲོ་བར་ཆོག"
+
+#: src/login/org.freedesktop.login1.policy:139
+msgid "Authentication is required to run programs as a non-logged-in user."
+msgstr "ནང་འཛུལ་མ་བྱས་པའི་སྤྱོད་མཁན་དབང་གིས་ལས་རིམ་འགྲོ་བར་ར་སྤྲོད་དགོས།"
+
+#: src/login/org.freedesktop.login1.policy:148
+msgid "Allow attaching devices to seats"
+msgstr "སྒྲིག་ཆས seat ལ་སྦྲེལ་བར་ཆོག"
+
+# Pay attention to the concept of "seat".
+#
+# To fully understand the meaning, please refer to session management in old ConsoleKit and new systemd-logind.
+#: src/login/org.freedesktop.login1.policy:149
+msgid "Authentication is required to attach a device to a seat."
+msgstr "སྒྲིག་ཆས seat ལ་སྦྲེལ་བར་ར་སྤྲོད་དགོས།"
+
+#: src/login/org.freedesktop.login1.policy:159
+msgid "Flush device to seat attachments"
+msgstr "སྒྲིག་ཆས་དང seat སྦྲེལ་བ་བསྐྱར་སྒྲིག"
+
+#: src/login/org.freedesktop.login1.policy:160
+msgid "Authentication is required to reset how devices are attached to seats."
+msgstr "སྒྲིག་ཆས seat ལ་སྦྲེལ་ཚུལ་བསྐྱར་སྒྲིག་པར་ར་སྤྲོད་དགོས།"
+
+#: src/login/org.freedesktop.login1.policy:169
+msgid "Power off the system"
+msgstr "རྒྱུད་ལམ་སྒོ་རྒྱག"
+
+#: src/login/org.freedesktop.login1.policy:170
+msgid "Authentication is required to power off the system."
+msgstr "རྒྱུད་ལམ་སྒོ་རྒྱག་པར་ར་སྤྲོད་དགོས།"
+
+#: src/login/org.freedesktop.login1.policy:180
+msgid "Power off the system while other users are logged in"
+msgstr "སྤྱོད་མཁན་གཞན་ནང་འཛུལ་ཡོད་སྐབས་རྒྱུད་ལམ་སྒོ་རྒྱག"
+
+#: src/login/org.freedesktop.login1.policy:181
+msgid ""
+"Authentication is required to power off the system while other users are "
+"logged in."
+msgstr "སྤྱོད་མཁན་གཞན་ནང་འཛུལ་ཡོད་སྐབས་རྒྱུད་ལམ་སྒོ་རྒྱག་པར་ར་སྤྲོད་དགོས།"
+
+#: src/login/org.freedesktop.login1.policy:191
+msgid "Power off the system while an application is inhibiting this"
+msgstr "མཉེན་ཆས་ཀྱིས་འགོག་བཞིན་སྐབས་རྒྱུད་ལམ་སྒོ་རྒྱག"
+
+#: src/login/org.freedesktop.login1.policy:192
+msgid ""
+"Authentication is required to power off the system while an application is "
+"inhibiting this."
+msgstr "མཉེན་ཆས་ཀྱིས་འགོག་བཞིན་སྐབས་རྒྱུད་ལམ་སྒོ་རྒྱག་པར་ར་སྤྲོད་དགོས།"
+
+#: src/login/org.freedesktop.login1.policy:202
+msgid "Reboot the system"
+msgstr "རྒྱུད་ལམ་བསྐྱར་འགོ"
+
+#: src/login/org.freedesktop.login1.policy:203
+msgid "Authentication is required to reboot the system."
+msgstr "རྒྱུད་ལམ་བསྐྱར་འགོ་བྱེད་པར་ར་སྤྲོད་དགོས།"
+
+#: src/login/org.freedesktop.login1.policy:213
+msgid "Reboot the system while other users are logged in"
+msgstr "སྤྱོད་མཁན་གཞན་ནང་འཛུལ་ཡོད་སྐབས་རྒྱུད་ལམ་བསྐྱར་འགོ"
+
+#: src/login/org.freedesktop.login1.policy:214
+msgid ""
+"Authentication is required to reboot the system while other users are logged "
+"in."
+msgstr "སྤྱོད་མཁན་གཞན་ནང་འཛུལ་ཡོད་སྐབས་རྒྱུད་ལམ་བསྐྱར་འགོ་བྱེད་པར་ར་སྤྲོད་དགོས།"
+
+#: src/login/org.freedesktop.login1.policy:224
+msgid "Reboot the system while an application is inhibiting this"
+msgstr "མཉེན་ཆས་ཀྱིས་འགོག་བཞིན་སྐབས་རྒྱུད་ལམ་བསྐྱར་འགོ"
+
+#: src/login/org.freedesktop.login1.policy:225
+msgid ""
+"Authentication is required to reboot the system while an application is "
+"inhibiting this."
+msgstr "མཉེན་ཆས་ཀྱིས་འགོག་བཞིན་སྐབས་རྒྱུད་ལམ་བསྐྱར་འགོ་བྱེད་པར་ར་སྤྲོད་དགོས།"
+
+#: src/login/org.freedesktop.login1.policy:235
+msgid "Halt the system"
+msgstr "རྒྱུད་ལམ་མཚམས་འཇོག"
+
+#: src/login/org.freedesktop.login1.policy:236
+msgid "Authentication is required to halt the system."
+msgstr "རྒྱུད་ལམ་མཚམས་འཇོག་པར་ར་སྤྲོད་དགོས།"
+
+#: src/login/org.freedesktop.login1.policy:246
+msgid "Halt the system while other users are logged in"
+msgstr "སྤྱོད་མཁན་གཞན་ནང་འཛུལ་ཡོད་སྐབས་རྒྱུད་ལམ་མཚམས་འཇོག"
+
+#: src/login/org.freedesktop.login1.policy:247
+msgid ""
+"Authentication is required to halt the system while other users are logged "
+"in."
+msgstr "སྤྱོད་མཁན་གཞན་ནང་འཛུལ་ཡོད་སྐབས་རྒྱུད་ལམ་མཚམས་འཇོག་པར་ར་སྤྲོད་དགོས།"
+
+#: src/login/org.freedesktop.login1.policy:257
+msgid "Halt the system while an application is inhibiting this"
+msgstr "མཉེན་ཆས་ཀྱིས་འགོག་བཞིན་སྐབས་རྒྱུད་ལམ་མཚམས་འཇོག"
+
+#: src/login/org.freedesktop.login1.policy:258
+msgid ""
+"Authentication is required to halt the system while an application is "
+"inhibiting this."
+msgstr "མཉེན་ཆས་ཀྱིས་འགོག་བཞིན་སྐབས་རྒྱུད་ལམ་མཚམས་འཇོག་པར་ར་སྤྲོད་དགོས།"
+
+#: src/login/org.freedesktop.login1.policy:268
+msgid "Suspend the system"
+msgstr "རྒྱུད་ལམ་འགེལ་འཇོག"
+
+#: src/login/org.freedesktop.login1.policy:269
+msgid "Authentication is required to suspend the system."
+msgstr "རྒྱུད་ལམ་འགེལ་འཇོག་བྱེད་པར་ར་སྤྲོད་དགོས།"
+
+#: src/login/org.freedesktop.login1.policy:278
+msgid "Suspend the system while other users are logged in"
+msgstr "སྤྱོད་མཁན་གཞན་ནང་འཛུལ་ཡོད་སྐབས་རྒྱུད་ལམ་འགེལ་འཇོག"
+
+#: src/login/org.freedesktop.login1.policy:279
+msgid ""
+"Authentication is required to suspend the system while other users are "
+"logged in."
+msgstr "སྤྱོད་མཁན་གཞན་ནང་འཛུལ་ཡོད་སྐབས་རྒྱུད་ལམ་འགེལ་འཇོག་བྱེད་པར་ར་སྤྲོད་དགོས།"
+
+#: src/login/org.freedesktop.login1.policy:289
+msgid "Suspend the system while an application is inhibiting this"
+msgstr "མཉེན་ཆས་ཀྱིས་འགོག་བཞིན་སྐབས་རྒྱུད་ལམ་འགེལ་འཇོག"
+
+#: src/login/org.freedesktop.login1.policy:290
+msgid ""
+"Authentication is required to suspend the system while an application is "
+"inhibiting this."
+msgstr "མཉེན་ཆས་ཀྱིས་འགོག་བཞིན་སྐབས་རྒྱུད་ལམ་འགེལ་འཇོག་བྱེད་པར་ར་སྤྲོད་དགོས།"
+
+#: src/login/org.freedesktop.login1.policy:300
+msgid "Hibernate the system"
+msgstr "རྒྱུད་ལམ་ཉལ་ཉིན"
+
+#: src/login/org.freedesktop.login1.policy:301
+msgid "Authentication is required to hibernate the system."
+msgstr "རྒྱུད་ལམ་ཉལ་ཉིན་བྱེད་པར་ར་སྤྲོད་དགོས།"
+
+#: src/login/org.freedesktop.login1.policy:310
+msgid "Hibernate the system while other users are logged in"
+msgstr "སྤྱོད་མཁན་གཞན་ནང་འཛུལ་ཡོད་སྐབས་རྒྱུད་ལམ་ཉལ་ཉིན"
+
+#: src/login/org.freedesktop.login1.policy:311
+msgid ""
+"Authentication is required to hibernate the system while other users are "
+"logged in."
+msgstr "སྤྱོད་མཁན་གཞན་ནང་འཛུལ་ཡོད་སྐབས་རྒྱུད་ལམ་ཉལ་ཉིན་བྱེད་པར་ར་སྤྲོད་དགོས།"
+
+#: src/login/org.freedesktop.login1.policy:321
+msgid "Hibernate the system while an application is inhibiting this"
+msgstr "མཉེན་ཆས་ཀྱིས་འགོག་བཞིན་སྐབས་རྒྱུད་ལམ་ཉལ་ཉིན"
+
+#: src/login/org.freedesktop.login1.policy:322
+msgid ""
+"Authentication is required to hibernate the system while an application is "
+"inhibiting this."
+msgstr "མཉེན་ཆས་ཀྱིས་འགོག་བཞིན་སྐབས་རྒྱུད་ལམ་ཉལ་ཉིན་བྱེད་པར་ར་སྤྲོད་དགོས།"
+
+#: src/login/org.freedesktop.login1.policy:332
+msgid "Manage active sessions, users and seats"
+msgstr "སྐུལ་སློང་ཅན་གྱི་གླེང་མོལ་(session) སྤྱོད་མཁན་དང seat དོ་དམ"
+
+#: src/login/org.freedesktop.login1.policy:333
+msgid "Authentication is required to manage active sessions, users and seats."
+msgstr "སྐུལ་སློང་ཅན་གྱི session སྤྱོད་མཁན་དང seat དོ་དམ་བྱེད་པར་ར་སྤྲོད་དགོས།"
+
+#: src/login/org.freedesktop.login1.policy:342
+msgid "Lock or unlock active sessions"
+msgstr "སྐུལ་སློང་ཅན་གྱི session སྒོ་ལྕགས་བཀག་གམ་སྒྲོལ"
+
+#: src/login/org.freedesktop.login1.policy:343
+msgid "Authentication is required to lock or unlock active sessions."
+msgstr "སྐུལ་སློང་ཅན་གྱི session སྒོ་ལྕགས་བཀག་གམ་སྒྲོལ་བར་ར་སྤྲོད་དགོས།"
+
+#: src/login/org.freedesktop.login1.policy:352
+msgid "Set the reboot \"reason\" in the kernel"
+msgstr "kernel ནང་བསྐྱར་འགོའི \"reason\" སྒྲིག"
+
+#: src/login/org.freedesktop.login1.policy:353
+msgid "Authentication is required to set the reboot \"reason\" in the kernel."
+msgstr "kernel ནང་བསྐྱར་འགོའི \"reason\" སྒྲིག་པར་ར་སྤྲོད་དགོས།"
+
+#: src/login/org.freedesktop.login1.policy:363
+msgid "Indicate to the firmware to boot to setup interface"
+msgstr "firmware ལ་སྒྲིག་འགོད་འཆར་ངོས་སུ་འགོ་ཚུགས་དགོས་ཞེས་བརྡ་སྟོན"
+
+#: src/login/org.freedesktop.login1.policy:364
+msgid ""
+"Authentication is required to indicate to the firmware to boot to setup "
+"interface."
+msgstr "firmware ལ་སྒྲིག་འགོད་འཆར་ངོས་སུ་འགོ་ཚུགས་དགོས་ཞེས་བརྡ་སྟོན་པར་ར་སྤྲོད་དགོས།"
+
+#: src/login/org.freedesktop.login1.policy:374
+msgid "Indicate to the boot loader to boot to the boot loader menu"
+msgstr "boot loader ལ་ boot loader དཀར་ཆག་ཏུ་འགོ་ཚུགས་དགོས་ཞེས་བརྡ་སྟོན"
+
+#: src/login/org.freedesktop.login1.policy:375
+msgid ""
+"Authentication is required to indicate to the boot loader to boot to the "
+"boot loader menu."
+msgstr "boot loader ལ་ boot loader དཀར་ཆག་ཏུ་འགོ་ཚུགས་དགོས་ཞེས་བརྡ་སྟོན་པར་ར་སྤྲོད་དགོས།"
+
+#: src/login/org.freedesktop.login1.policy:385
+msgid "Indicate to the boot loader to boot a specific entry"
+msgstr "boot loader ལ་དམིགས་བསལ་གྱི་འཇུག་ཚན་ཞིག་ཏུ་འགོ་ཚུགས་དགོས་ཞེས་བརྡ་སྟོན"
+
+#: src/login/org.freedesktop.login1.policy:386
+msgid ""
+"Authentication is required to indicate to the boot loader to boot into a "
+"specific boot loader entry."
+msgstr "boot loader ལ་དམིགས་བསལ་གྱི boot loader འཇུག་ཚན་ཏུ་འགོ་ཚུགས་དགོས་ཞེས་བརྡ་སྟོན་པར་ར་སྤྲོད་དགོས།"
+
+#: src/login/org.freedesktop.login1.policy:396
+msgid "Set a wall message"
+msgstr "wall འཕྲིན་སྒྲིག"
+
+#: src/login/org.freedesktop.login1.policy:397
+msgid "Authentication is required to set a wall message."
+msgstr "wall འཕྲིན་སྒྲིག་པར་ར་སྤྲོད་དགོས།"
+
+#: src/login/org.freedesktop.login1.policy:406
+msgid "Change Session"
+msgstr "Session བསྒྱུར"
+
+#: src/login/org.freedesktop.login1.policy:407
+msgid "Authentication is required to change the virtual terminal."
+msgstr "virtual terminal བསྒྱུར་བར་ར་སྤྲོད་དགོས།"
+
+#: src/machine/org.freedesktop.machine1.policy:22
+msgid "Log into a local container"
+msgstr "ས་གནས container དུ་ནང་འཛུལ"
+
+#: src/machine/org.freedesktop.machine1.policy:23
+msgid "Authentication is required to log into a local container."
+msgstr "ས་གནས container དུ་ནང་འཛུལ་བར་ར་སྤྲོད་དགོས།"
+
+#: src/machine/org.freedesktop.machine1.policy:32
+msgid "Log into the local host"
+msgstr "ས་གནས་གཙོ་འཁོར་ལ་ནང་འཛུལ"
+
+#: src/machine/org.freedesktop.machine1.policy:33
+msgid "Authentication is required to log into the local host."
+msgstr "ས་གནས་གཙོ་འཁོར་ལ་ནང་འཛུལ་བར་ར་སྤྲོད་དགོས།"
+
+#: src/machine/org.freedesktop.machine1.policy:42
+msgid "Acquire a shell in a local container"
+msgstr "ས་གནས container ནང shell ཞིག་ཐོབ"
+
+#: src/machine/org.freedesktop.machine1.policy:43
+msgid "Authentication is required to acquire a shell in a local container."
+msgstr "ས་གནས container ནང shell ཐོབ་པར་ར་སྤྲོད་དགོས།"
+
+#: src/machine/org.freedesktop.machine1.policy:53
+msgid "Acquire a shell on the local host"
+msgstr "ས་གནས་གཙོ་འཁོར་སྟེང shell ཞིག་ཐོབ"
+
+#: src/machine/org.freedesktop.machine1.policy:54
+msgid "Authentication is required to acquire a shell on the local host."
+msgstr "ས་གནས་གཙོ་འཁོར་སྟེང shell ཐོབ་པར་ར་སྤྲོད་དགོས།"
+
+#: src/machine/org.freedesktop.machine1.policy:64
+msgid "Acquire a pseudo TTY in a local container"
+msgstr "ས་གནས container ནང pseudo TTY ཞིག་ཐོབ"
+
+#: src/machine/org.freedesktop.machine1.policy:65
+msgid ""
+"Authentication is required to acquire a pseudo TTY in a local container."
+msgstr "ས་གནས container ནང pseudo TTY ཐོབ་པར་ར་སྤྲོད་དགོས།"
+
+#: src/machine/org.freedesktop.machine1.policy:74
+msgid "Acquire a pseudo TTY on the local host"
+msgstr "ས་གནས་གཙོ་འཁོར་སྟེང pseudo TTY ཞིག་ཐོབ"
+
+#: src/machine/org.freedesktop.machine1.policy:75
+msgid "Authentication is required to acquire a pseudo TTY on the local host."
+msgstr "ས་གནས་གཙོ་འཁོར་སྟེང pseudo TTY ཐོབ་པར་ར་སྤྲོད་དགོས།"
+
+#: src/machine/org.freedesktop.machine1.policy:84
+msgid "Manage local virtual machines and containers"
+msgstr "ས་གནས virtual machine དང container དོ་དམ"
+
+#: src/machine/org.freedesktop.machine1.policy:85
+msgid ""
+"Authentication is required to manage local virtual machines and containers."
+msgstr "ས་གནས virtual machine དང container དོ་དམ་བྱེད་པར་ར་སྤྲོད་དགོས།"
+
+#: src/machine/org.freedesktop.machine1.policy:95
+msgid "Create a local virtual machine or container"
+msgstr "ས་གནས virtual machine ཡང་ན container གསར་བཟོ"
+
+#: src/machine/org.freedesktop.machine1.policy:96
+msgid ""
+"Authentication is required to create a local virtual machine or container."
+msgstr "ས་གནས virtual machine ཡང་ན container གསར་བཟོ་བར་ར་སྤྲོད་དགོས།"
+
+#: src/machine/org.freedesktop.machine1.policy:106
+msgid "Register a local virtual machine or container"
+msgstr "ས་གནས virtual machine ཡང་ན container ཐོ་འགོད"
+
+#: src/machine/org.freedesktop.machine1.policy:107
+msgid ""
+"Authentication is required to register a local virtual machine or container."
+msgstr "ས་གནས virtual machine ཡང་ན container ཐོ་འགོད་པར་ར་སྤྲོད་དགོས།"
+
+#: src/machine/org.freedesktop.machine1.policy:116
+msgid "Manage local virtual machine and container images"
+msgstr "ས་གནས virtual machine དང container མཚོན་རིས་དོ་དམ"
+
+#: src/machine/org.freedesktop.machine1.policy:117
+msgid ""
+"Authentication is required to manage local virtual machine and container "
+"images."
+msgstr "ས་གནས virtual machine དང container མཚོན་རིས་དོ་དམ་བྱེད་པར་ར་སྤྲོད་དགོས།"
+
+#: src/network/org.freedesktop.network1.policy:22
+msgid "Set NTP servers"
+msgstr "NTP ཞབས་ཞུ་ཆས་སྒྲིག"
+
+#: src/network/org.freedesktop.network1.policy:23
+msgid "Authentication is required to set NTP servers."
+msgstr "NTP ཞབས་ཞུ་ཆས་སྒྲིག་པར་ར་སྤྲོད་དགོས།"
+
+#: src/network/org.freedesktop.network1.policy:33
+#: src/resolve/org.freedesktop.resolve1.policy:44
+msgid "Set DNS servers"
+msgstr "DNS ཞབས་ཞུ་ཆས་སྒྲིག"
+
+#: src/network/org.freedesktop.network1.policy:34
+#: src/resolve/org.freedesktop.resolve1.policy:45
+msgid "Authentication is required to set DNS servers."
+msgstr "DNS ཞབས་ཞུ་ཆས་སྒྲིག་པར་ར་སྤྲོད་དགོས།"
+
+#: src/network/org.freedesktop.network1.policy:44
+#: src/resolve/org.freedesktop.resolve1.policy:55
+msgid "Set domains"
+msgstr "domain སྒྲིག"
+
+#: src/network/org.freedesktop.network1.policy:45
+#: src/resolve/org.freedesktop.resolve1.policy:56
+msgid "Authentication is required to set domains."
+msgstr "domain སྒྲིག་པར་ར་སྤྲོད་དགོས།"
+
+#: src/network/org.freedesktop.network1.policy:55
+#: src/resolve/org.freedesktop.resolve1.policy:66
+msgid "Set default route"
+msgstr "སྔོན་སྒྲིག route སྒྲིག"
+
+#: src/network/org.freedesktop.network1.policy:56
+#: src/resolve/org.freedesktop.resolve1.policy:67
+msgid "Authentication is required to set default route."
+msgstr "སྔོན་སྒྲིག route སྒྲིག་པར་ར་སྤྲོད་དགོས།"
+
+#: src/network/org.freedesktop.network1.policy:66
+#: src/resolve/org.freedesktop.resolve1.policy:77
+msgid "Enable/disable LLMNR"
+msgstr "LLMNR སྒོ་འབྱེད/ཁ་རྒྱག"
+
+#: src/network/org.freedesktop.network1.policy:67
+#: src/resolve/org.freedesktop.resolve1.policy:78
+msgid "Authentication is required to enable or disable LLMNR."
+msgstr "LLMNR སྒོ་འབྱེད་དམ་ཁ་རྒྱག་པར་ར་སྤྲོད་དགོས།"
+
+#: src/network/org.freedesktop.network1.policy:77
+#: src/resolve/org.freedesktop.resolve1.policy:88
+msgid "Enable/disable multicast DNS"
+msgstr "multicast DNS སྒོ་འབྱེད/ཁ་རྒྱག"
+
+#: src/network/org.freedesktop.network1.policy:78
+#: src/resolve/org.freedesktop.resolve1.policy:89
+msgid "Authentication is required to enable or disable multicast DNS."
+msgstr "multicast DNS སྒོ་འབྱེད་དམ་ཁ་རྒྱག་པར་ར་སྤྲོད་དགོས།"
+
+#: src/network/org.freedesktop.network1.policy:88
+#: src/resolve/org.freedesktop.resolve1.policy:99
+msgid "Enable/disable DNS over TLS"
+msgstr "DNS over TLS སྒོ་འབྱེད/ཁ་རྒྱག"
+
+#: src/network/org.freedesktop.network1.policy:89
+#: src/resolve/org.freedesktop.resolve1.policy:100
+msgid "Authentication is required to enable or disable DNS over TLS."
+msgstr "DNS over TLS སྒོ་འབྱེད་དམ་ཁ་རྒྱག་པར་ར་སྤྲོད་དགོས།"
+
+#: src/network/org.freedesktop.network1.policy:99
+#: src/resolve/org.freedesktop.resolve1.policy:110
+msgid "Enable/disable DNSSEC"
+msgstr "DNSSEC སྒོ་འབྱེད/ཁ་རྒྱག"
+
+#: src/network/org.freedesktop.network1.policy:100
+#: src/resolve/org.freedesktop.resolve1.policy:111
+msgid "Authentication is required to enable or disable DNSSEC."
+msgstr "DNSSEC སྒོ་འབྱེད་དམ་ཁ་རྒྱག་པར་ར་སྤྲོད་དགོས།"
+
+#: src/network/org.freedesktop.network1.policy:110
+#: src/resolve/org.freedesktop.resolve1.policy:121
+msgid "Set DNSSEC Negative Trust Anchors"
+msgstr "DNSSEC Negative Trust Anchors སྒྲིག"
+
+#: src/network/org.freedesktop.network1.policy:111
+#: src/resolve/org.freedesktop.resolve1.policy:122
+msgid "Authentication is required to set DNSSEC Negative Trust Anchors."
+msgstr "DNSSEC Negative Trust Anchors སྒྲིག་པར་ར་སྤྲོད་དགོས།"
+
+#: src/network/org.freedesktop.network1.policy:121
+msgid "Revert NTP settings"
+msgstr "NTP སྒྲིག་འགོད་སླར་གསོ"
+
+#: src/network/org.freedesktop.network1.policy:122
+msgid "Authentication is required to reset NTP settings."
+msgstr "NTP སྒྲིག་འགོད་བསྐྱར་སྒྲིག་པར་ར་སྤྲོད་དགོས།"
+
+#: src/network/org.freedesktop.network1.policy:132
+msgid "Revert DNS settings"
+msgstr "DNS སྒྲིག་འགོད་སླར་གསོ"
+
+#: src/network/org.freedesktop.network1.policy:133
+msgid "Authentication is required to reset DNS settings."
+msgstr "DNS སྒྲིག་འགོད་བསྐྱར་སྒྲིག་པར་ར་སྤྲོད་དགོས།"
+
+#: src/network/org.freedesktop.network1.policy:143
+msgid "DHCP server sends force renew message"
+msgstr "DHCP ཞབས་ཞུ་ཆས་ཀྱིས force renew འཕྲིན་གཏོང"
+
+#: src/network/org.freedesktop.network1.policy:144
+msgid ""
+"Authentication is required to send a force renew message from the DHCP "
+"server."
+msgstr "DHCP ཞབས་ཞུ་ཆས་ནས force renew འཕྲིན་གཏོང་བར་ར་སྤྲོད་དགོས།"
+
+#: src/network/org.freedesktop.network1.policy:154
+msgid "Renew dynamic addresses"
+msgstr "dynamic གནས་ཡུལ་སླར་གསོ"
+
+#: src/network/org.freedesktop.network1.policy:155
+msgid "Authentication is required to renew dynamic addresses."
+msgstr "dynamic གནས་ཡུལ་སླར་གསོ་བར་ར་སྤྲོད་དགོས།"
+
+#: src/network/org.freedesktop.network1.policy:165
+msgid "Reload network settings"
+msgstr "དྲ་རྒྱའི་སྒྲིག་འགོད་བསྐྱར་འཇུག"
+
+#: src/network/org.freedesktop.network1.policy:166
+msgid "Authentication is required to reload network settings."
+msgstr "དྲ་རྒྱའི་སྒྲིག་འགོད་བསྐྱར་འཇུག་བྱེད་པར་ར་སྤྲོད་དགོས།"
+
+#: src/network/org.freedesktop.network1.policy:176
+msgid "Reconfigure network interface"
+msgstr "དྲ་རྒྱའི་མཐུད་ཁ་བསྐྱར་སྒྲིག"
+
+#: src/network/org.freedesktop.network1.policy:177
+msgid "Authentication is required to reconfigure network interface."
+msgstr "དྲ་རྒྱའི་མཐུད་ཁ་བསྐྱར་སྒྲིག་བྱེད་པར་ར་སྤྲོད་དགོས།"
+
+#: src/network/org.freedesktop.network1.policy:187
+msgid "Specify whether persistent storage for systemd-networkd is available"
+msgstr "systemd-networkd ཡི་བརྟན་པོའི་གསོག་ཉར་སྤྱོད་ཆོག་མིན་སྟོན"
+
+#: src/network/org.freedesktop.network1.policy:188
+msgid ""
+"Authentication is required to specify whether persistent storage for systemd-"
+"networkd is available."
+msgstr "systemd-networkd ཡི་བརྟན་པོའི་གསོག་ཉར་སྤྱོད་ཆོག་མིན་སྟོན་པར་ར་སྤྲོད་དགོས།"
+
+#: src/network/org.freedesktop.network1.policy:198
+msgid "Manage network links"
+msgstr "དྲ་རྒྱའི་སྦྲེལ་ལམ་དོ་དམ"
+
+#: src/network/org.freedesktop.network1.policy:199
+msgid "Authentication is required to manage network links."
+msgstr "དྲ་རྒྱའི་སྦྲེལ་ལམ་དོ་དམ་བྱེད་པར་ར་སྤྲོད་དགོས།"
+
+#: src/portable/org.freedesktop.portable1.policy:13
+msgid "Inspect a portable service image"
+msgstr "portable service image ཞིབ་བཤེར"
+
+#: src/portable/org.freedesktop.portable1.policy:14
+msgid "Authentication is required to inspect a portable service image."
+msgstr "portable service image ཞིབ་བཤེར་བྱེད་པར་ར་སྤྲོད་དགོས།"
+
+#: src/portable/org.freedesktop.portable1.policy:23
+msgid "Attach or detach a portable service image"
+msgstr "portable service image སྦྲེལ་བའམ་བཀོལ་འཐེན"
+
+#: src/portable/org.freedesktop.portable1.policy:24
+msgid ""
+"Authentication is required to attach or detach a portable service image."
+msgstr "portable service image སྦྲེལ་བའམ་བཀོལ་འཐེན་བྱེད་པར་ར་སྤྲོད་དགོས།"
+
+#: src/portable/org.freedesktop.portable1.policy:34
+msgid "Delete or modify portable service image"
+msgstr "portable service image བསུབ་པའམ་བཟོ་བཅོས"
+
+#: src/portable/org.freedesktop.portable1.policy:35
+msgid ""
+"Authentication is required to delete or modify a portable service image."
+msgstr "portable service image བསུབ་པའམ་བཟོ་བཅོས་བྱེད་པར་ར་སྤྲོད་དགོས།"
+
+#: src/resolve/org.freedesktop.resolve1.policy:22
+msgid "Register a DNS-SD service"
+msgstr "DNS-SD ཞབས་ཞུ་ཐོ་འགོད"
+
+#: src/resolve/org.freedesktop.resolve1.policy:23
+msgid "Authentication is required to register a DNS-SD service."
+msgstr "DNS-SD ཞབས་ཞུ་ཐོ་འགོད་པར་ར་སྤྲོད་དགོས།"
+
+#: src/resolve/org.freedesktop.resolve1.policy:33
+msgid "Unregister a DNS-SD service"
+msgstr "DNS-SD ཞབས་ཞུ་ཐོ་འགོད་མེད་པར་བཟོ"
+
+#: src/resolve/org.freedesktop.resolve1.policy:34
+msgid "Authentication is required to unregister a DNS-SD service."
+msgstr "DNS-SD ཞབས་ཞུ་ཐོ་འགོད་མེད་པར་བཟོ་བར་ར་སྤྲོད་དགོས།"
+
+#: src/resolve/org.freedesktop.resolve1.policy:132
+msgid "Revert name resolution settings"
+msgstr "མིང་འགྲེལ་སྒྲིག་འགོད་སླར་གསོ"
+
+#: src/resolve/org.freedesktop.resolve1.policy:133
+msgid "Authentication is required to reset name resolution settings."
+msgstr "མིང་འགྲེལ་སྒྲིག་འགོད་བསྐྱར་སྒྲིག་པར་ར་སྤྲོད་དགོས།"
+
+#: src/resolve/org.freedesktop.resolve1.policy:143
+msgid "Subscribe query results"
+msgstr "འཚོལ་ཞིབ་འབྲས་བུ་མངགས་ཉན"
+
+#: src/resolve/org.freedesktop.resolve1.policy:144
+msgid "Authentication is required to subscribe query results."
+msgstr "འཚོལ་ཞིབ་འབྲས་བུ་མངགས་ཉན་བྱེད་པར་ར་སྤྲོད་དགོས།"
+
+#: src/resolve/org.freedesktop.resolve1.policy:154
+msgid "Subscribe to DNS configuration"
+msgstr "DNS སྒྲིག་འགོད་མངགས་ཉན"
+
+#: src/resolve/org.freedesktop.resolve1.policy:155
+msgid "Authentication is required to subscribe to DNS configuration."
+msgstr "DNS སྒྲིག་འགོད་མངགས་ཉན་བྱེད་པར་ར་སྤྲོད་དགོས།"
+
+#: src/resolve/org.freedesktop.resolve1.policy:165
+msgid "Dump cache"
+msgstr "cache ཕྱིར་འདོན"
+
+#: src/resolve/org.freedesktop.resolve1.policy:166
+msgid "Authentication is required to dump cache."
+msgstr "cache ཕྱིར་འདོན་པར་ར་སྤྲོད་དགོས།"
+
+#: src/resolve/org.freedesktop.resolve1.policy:176
+msgid "Dump server state"
+msgstr "server གནས་ཚུལ་ཕྱིར་འདོན"
+
+#: src/resolve/org.freedesktop.resolve1.policy:177
+msgid "Authentication is required to dump server state."
+msgstr "server གནས་ཚུལ་ཕྱིར་འདོན་པར་ར་སྤྲོད་དགོས།"
+
+#: src/resolve/org.freedesktop.resolve1.policy:187
+msgid "Dump statistics"
+msgstr "གྲངས་ཚད་ཕྱིར་འདོན"
+
+#: src/resolve/org.freedesktop.resolve1.policy:188
+msgid "Authentication is required to dump statistics."
+msgstr "གྲངས་ཚད་ཕྱིར་འདོན་པར་ར་སྤྲོད་དགོས།"
+
+#: src/resolve/org.freedesktop.resolve1.policy:198
+msgid "Reset statistics"
+msgstr "གྲངས་ཚད་བསྐྱར་སྒྲིག"
+
+#: src/resolve/org.freedesktop.resolve1.policy:199
+msgid "Authentication is required to reset statistics."
+msgstr "གྲངས་ཚད་བསྐྱར་སྒྲིག་པར་ར་སྤྲོད་དགོས།"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:35
+msgid "Check for system updates"
+msgstr "རྒྱུད་ལམ་གསར་སྒྱུར་ཞིབ་བཤེར"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:36
+msgid "Authentication is required to check for system updates."
+msgstr "རྒྱུད་ལམ་གསར་སྒྱུར་ཞིབ་བཤེར་བྱེད་པར་ར་སྤྲོད་དགོས།"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:45
+msgid "Install system updates"
+msgstr "རྒྱུད་ལམ་གསར་སྒྱུར་སྒྲིག་འཇུག"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:46
+msgid "Authentication is required to install system updates."
+msgstr "རྒྱུད་ལམ་གསར་སྒྱུར་སྒྲིག་འཇུག་བྱེད་པར་ར་སྤྲོད་དགོས།"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:55
+msgid "Install specific system version"
+msgstr "དམིགས་བསལ་རྒྱུད་ལམ་པར་གཞི་སྒྲིག་འཇུག"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:56
+msgid ""
+"Authentication is required to update the system to a specific (possibly old) "
+"version."
+msgstr "རྒྱུད་ལམ་དེ་དམིགས་བསལ་(རྙིང་པ་ཡིན་སྲིད་པའི) པར་གཞིར་གསར་སྒྱུར་བྱེད་པར་ར་སྤྲོད་དགོས།"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:65
+msgid "Cleanup old system updates"
+msgstr "རྒྱུད་ལམ་གསར་སྒྱུར་རྙིང་པ་གཙང་སེལ"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:66
+msgid "Authentication is required to cleanup old system updates."
+msgstr "རྒྱུད་ལམ་གསར་སྒྱུར་རྙིང་པ་གཙང་སེལ་བྱེད་པར་ར་སྤྲོད་དགོས།"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:75
+msgid "Manage optional features"
+msgstr "འདེམས་ཆོག་པའི་ལས་འགན་དོ་དམ"
+
+#: src/sysupdate/org.freedesktop.sysupdate1.policy:76
+msgid "Authentication is required to manage optional features."
+msgstr "འདེམས་ཆོག་པའི་ལས་འགན་དོ་དམ་བྱེད་པར་ར་སྤྲོད་དགོས།"
+
+#: src/timedate/org.freedesktop.timedate1.policy:22
+msgid "Set system time"
+msgstr "རྒྱུད་ལམ་དུས་ཚོད་སྒྲིག"
+
+#: src/timedate/org.freedesktop.timedate1.policy:23
+msgid "Authentication is required to set the system time."
+msgstr "རྒྱུད་ལམ་དུས་ཚོད་སྒྲིག་པར་ར་སྤྲོད་དགོས།"
+
+#: src/timedate/org.freedesktop.timedate1.policy:33
+msgid "Set system timezone"
+msgstr "རྒྱུད་ལམ་དུས་ཁུལ་སྒྲིག"
+
+#: src/timedate/org.freedesktop.timedate1.policy:34
+msgid "Authentication is required to set the system timezone."
+msgstr "རྒྱུད་ལམ་དུས་ཁུལ་སྒྲིག་པར་ར་སྤྲོད་དགོས།"
+
+#: src/timedate/org.freedesktop.timedate1.policy:43
+msgid "Set RTC to local timezone or UTC"
+msgstr "RTC ས་གནས་དུས་ཁུལ་ཡང་ན UTC ལ་སྒྲིག"
+
+#: src/timedate/org.freedesktop.timedate1.policy:44
+msgid ""
+"Authentication is required to control whether the RTC stores the local or "
+"UTC time."
+msgstr "RTC ཡིས་ས་གནས་དུས་ཚོད་དམ UTC ཉར་ཚགས་བྱེད་མིན་ཚོད་འཛིན་པར་ར་སྤྲོད་དགོས།"
+
+#: src/timedate/org.freedesktop.timedate1.policy:53
+msgid "Turn network time synchronization on or off"
+msgstr "དྲ་རྒྱའི་དུས་ཚོད་མཉམ་བགྲོད་སྒོ་འབྱེད་དམ་ཁ་རྒྱག"
+
+#: src/timedate/org.freedesktop.timedate1.policy:54
+msgid ""
+"Authentication is required to control whether network time synchronization "
+"shall be enabled."
+msgstr "དྲ་རྒྱའི་དུས་ཚོད་མཉམ་བགྲོད་སྒོ་འབྱེད་མིན་ཚོད་འཛིན་པར་ར་སྤྲོད་དགོས།"
+
+#: src/core/dbus-unit.c:372
+msgid "Authentication is required to start '$(unit)'."
+msgstr "'$(unit)' འགོ་སློང་བར་ར་སྤྲོད་དགོས།"
+
+#: src/core/dbus-unit.c:373
+msgid "Authentication is required to stop '$(unit)'."
+msgstr "'$(unit)' མཚམས་འཇོག་པར་ར་སྤྲོད་དགོས།"
+
+#: src/core/dbus-unit.c:374
+msgid "Authentication is required to reload '$(unit)'."
+msgstr "'$(unit)' བསྐྱར་འཇུག་བྱེད་པར་ར་སྤྲོད་དགོས།"
+
+#: src/core/dbus-unit.c:375 src/core/dbus-unit.c:376
+msgid "Authentication is required to restart '$(unit)'."
+msgstr "'$(unit)' བསྐྱར་འགོ་བྱེད་པར་ར་སྤྲོད་དགོས།"
+
+#: src/core/dbus-unit.c:568
+msgid ""
+"Authentication is required to send a UNIX signal to the processes of '$"
+"(unit)'."
+msgstr "UNIX རྟགས་རྒྱ་དེ '$(unit)' གི་བརྒྱུད་རིམ་ལ་གཏོང་བར་ར་སྤྲོད་དགོས།"
+
+#: src/core/dbus-unit.c:621
+msgid ""
+"Authentication is required to send a UNIX signal to the processes of "
+"subgroup of '$(unit)'."
+msgstr "UNIX རྟགས་རྒྱ་དེ '$(unit)' གི subgroup བརྒྱུད་རིམ་ལ་གཏོང་བར་ར་སྤྲོད་དགོས།"
+
+#: src/core/dbus-unit.c:649
+msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
+msgstr "'$(unit)' གི \"failed\" གནས་ཚུལ་བསྐྱར་སྒྲིག་པར་ར་སྤྲོད་དགོས།"
+
+#: src/core/dbus-unit.c:679
+msgid "Authentication is required to set properties on '$(unit)'."
+msgstr "'$(unit)' སྟེང་གི་གཏོགས་གཤིས་སྒྲིག་པར་ར་སྤྲོད་དགོས།"
+
+#: src/core/dbus-unit.c:776
+msgid ""
+"Authentication is required to delete files and directories associated with '$"
+"(unit)'."
+msgstr "'$(unit)' དང་འབྲེལ་བའི་ཡིག་ཆ་དང་དཀར་ཆག་བསུབ་པར་ར་སྤྲོད་དགོས།"
+
+#: src/core/dbus-unit.c:813
+msgid ""
+"Authentication is required to freeze or thaw the processes of '$(unit)' unit."
+msgstr "'$(unit)' unit གི་བརྒྱུད་རིམ་འཁྱགས་བཅུག་གམ་གྲོལ་བར་ར་སྤྲོད་དགོས།"
