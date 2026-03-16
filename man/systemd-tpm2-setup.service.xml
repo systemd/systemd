@@ -103,7 +103,8 @@
         <listitem><para>Encrypted Attestation Key (AK) credential sidecar. The AK is generated under the
         SRK and cached in <filename>/run/</filename>, synchronized to <filename>/var/lib/</filename>, and
         copied to the boot credential directory so it can be passed into the initrd by
-        <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para></listitem>
+        <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
