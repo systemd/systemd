@@ -10,6 +10,8 @@
 name: Claude Review
 
 on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
   # Strangely enough you have to use issue_comment to react to regular comments on PRs.
   # See https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#pull_request_comment-use-issue_comment.
   issue_comment:
@@ -30,7 +32,10 @@ jobs:
 
     if: |
       github.repository_owner == 'systemd' &&
-      ((github.event_name == 'issue_comment' &&
+      ((github.event_name == 'pull_request_target' &&
+        contains(fromJSON('["MEMBER","OWNER","COLLABORATOR"]'), github.event.pull_request.author_association) &&
+        github.event.pull_request.user.login != 'YHNdnzj') ||
+       (github.event_name == 'issue_comment' &&
         github.event.issue.pull_request &&
         contains(github.event.comment.body, '@claude review') &&
         contains(fromJSON('["MEMBER","OWNER","COLLABORATOR"]'), github.event.comment.author_association)) ||
