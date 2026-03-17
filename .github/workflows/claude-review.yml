@@ -195,10 +195,10 @@ jobs:
             --max-turns 100
             --allowedTools "
                 Read,LS,Grep,Glob,Task,TaskStop,
-                Bash(cat:*),Bash(test:*),Bash(printf:*),Bash(jq:*),Bash(head:*),Bash(tail:*),
-                Bash(git:*),Bash(grep:*),Bash(find:*),Bash(ls:*),Bash(wc:*),
-                Bash(gh:api *),
-                Bash(diff:*),Bash(sed:*),Bash(awk:*),Bash(sort:*),Bash(uniq:*),
+                Bash(cat *),Bash(test *),Bash(printf *),Bash(jq *),Bash(head *),Bash(tail *),
+                Bash(git *),Bash(grep *),Bash(find *),Bash(ls *),Bash(wc *),
+                Bash(gh api *),
+                Bash(diff *),Bash(sed *),Bash(awk *),Bash(sort *),Bash(uniq *),
                 "
             --json-schema '${{ env.REVIEW_SCHEMA }}'
           prompt: |
