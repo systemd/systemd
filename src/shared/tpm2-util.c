@@ -1610,19 +1610,17 @@ int tpm2_get_or_create_srk(
 /* Get an Attestation Key (AK) template suitable for TPM Quote generation.
  * Returns 0 if the specified algorithm is ECC or RSA, otherwise -EOPNOTSUPP. */
 int tpm2_get_ak_template(TPMI_ALG_PUBLIC alg, TPMT_PUBLIC *ret_template) {
-        TPMA_OBJECT ak_attributes =
-                        TPMA_OBJECT_FIXEDPARENT |
-                        TPMA_OBJECT_FIXEDTPM |
-                        TPMA_OBJECT_NODA |
-                        TPMA_OBJECT_RESTRICTED |
-                        TPMA_OBJECT_SENSITIVEDATAORIGIN |
-                        TPMA_OBJECT_SIGN_ENCRYPT |
-                        TPMA_OBJECT_USERWITHAUTH;
-
-        TPMT_PUBLIC ak_ecc = {
+        static const TPMT_PUBLIC ak_ecc = {
                 .type = TPM2_ALG_ECC,
                 .nameAlg = TPM2_ALG_SHA256,
-                .objectAttributes = ak_attributes,
+                .objectAttributes =
+                                TPMA_OBJECT_FIXEDPARENT |
+                                TPMA_OBJECT_FIXEDTPM |
+                                TPMA_OBJECT_NODA |
+                                TPMA_OBJECT_RESTRICTED |
+                                TPMA_OBJECT_SENSITIVEDATAORIGIN |
+                                TPMA_OBJECT_SIGN_ENCRYPT |
+                                TPMA_OBJECT_USERWITHAUTH,
                 .parameters.eccDetail = {
                         .symmetric = { .algorithm = TPM2_ALG_NULL, },
                         .scheme = {
@@ -1634,10 +1632,17 @@ int tpm2_get_ak_template(TPMI_ALG_PUBLIC alg, TPMT_PUBLIC *ret_template) {
                 },
         };
 
-        TPMT_PUBLIC ak_rsa = {
+        static const TPMT_PUBLIC ak_rsa = {
                 .type = TPM2_ALG_RSA,
                 .nameAlg = TPM2_ALG_SHA256,
-                .objectAttributes = ak_attributes,
+                .objectAttributes =
+                                TPMA_OBJECT_FIXEDPARENT |
+                                TPMA_OBJECT_FIXEDTPM |
+                                TPMA_OBJECT_NODA |
+                                TPMA_OBJECT_RESTRICTED |
+                                TPMA_OBJECT_SENSITIVEDATAORIGIN |
+                                TPMA_OBJECT_SIGN_ENCRYPT |
+                                TPMA_OBJECT_USERWITHAUTH,
                 .parameters.rsaDetail = {
                         .symmetric = { .algorithm = TPM2_ALG_NULL, },
                         .scheme = {
@@ -7384,8 +7389,6 @@ static int tpm2_nvpcr_acquire_anchor_secret_from_credential(struct iovec *ret_cr
                 return log_error_errno(r, "Failed to get encrypted system credentials directory: %m");
 
         /* Define early, so that it is definitely initialized, even if we take "goto not_found" branch below. */
-        _cleanup_free_ DirectoryEntries *de = NULL;
-
         _cleanup_close_ int dfd = open(dp, O_CLOEXEC|O_DIRECTORY);
         if (dfd < 0) {
                 if (errno == ENOENT) {
@@ -7396,6 +7399,7 @@ static int tpm2_nvpcr_acquire_anchor_secret_from_credential(struct iovec *ret_cr
                 return log_error_errno(errno, "Failed to open system credentials directory.");
         }
 
+        _cleanup_free_ DirectoryEntries *de = NULL;
         r = readdir_all(dfd, RECURSE_DIR_IGNORE_DOT, &de);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate system credentials: %m");

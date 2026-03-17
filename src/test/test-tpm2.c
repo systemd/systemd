@@ -1050,6 +1050,8 @@ TEST(tpm2_get_srk_template) {
 }
 
 static void check_ak_ecc_template(TPMT_PUBLIC *template) {
+        assert(template);
+
         assert_se(template->type == TPM2_ALG_ECC);
         assert_se(template->nameAlg == TPM2_ALG_SHA256);
         assert_se(FLAGS_SET(template->objectAttributes, TPMA_OBJECT_SIGN_ENCRYPT));
@@ -1059,6 +1061,8 @@ static void check_ak_ecc_template(TPMT_PUBLIC *template) {
 }
 
 static void check_ak_rsa_template(TPMT_PUBLIC *template) {
+        assert(template);
+
         assert_se(template->type == TPM2_ALG_RSA);
         assert_se(template->nameAlg == TPM2_ALG_SHA256);
         assert_se(FLAGS_SET(template->objectAttributes, TPMA_OBJECT_SIGN_ENCRYPT));

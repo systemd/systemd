@@ -799,16 +799,6 @@ Documentation: man:systemd-tpm2-setup.service(8)
 За да махнете ПИНа или паролата в йерархията на собствениците, изпълнете командата:
 „tpm2_changeauth -c o -p <OLDPW> ""“.
 
--- 628b08850b2a4e5cb082b4ae11f47e4b
-Subject: Failed to set up TPM Attestation Key (AK)
-Defined-By: systemd
-Support: %SUPPORT_URL%
-Documentation: man:systemd-tpm2-setup.service(8)
-
-Setup of the TPM Attestation Key (AK) failed. systemd-tpm2-setup will continue
-without an AK, but TPM Quote/attestation functionality may be unavailable until
-the key is successfully provisioned.
-
 -- 9cf56b8baf9546cf9478783a8de42113
 Subject: Чужд процес променѝ системно извикване управлявано от systemd-networkd
 Defined-By: systemd
