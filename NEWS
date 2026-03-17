@@ -1,6 +1,6 @@
 systemd System and Service Manager
 
-CHANGES WITH 260 in spe:
+CHANGES WITH 260:
 
         Feature Removals and Incompatible Changes:
 
@@ -527,7 +527,7 @@ CHANGES WITH 260 in spe:
         naly zzwd, nikstur, novenary, noxiouz, patrick, ppkramer-hub, r-vdp,
         safforddr, scarlet-storm, sd416, seidlerv, smosia, tuhaowen, zefr0x
 
-        — Edinburgh, 2026/03/13
+        — Edinburgh, 2026/03/17
 
 CHANGES WITH 259:
 
