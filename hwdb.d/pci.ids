@@ -1,8 +1,8 @@
 #
 #	List of PCI IDs
 #
-#	Version: 2026.03.10
-#	Date:    2026-03-10 03:15:01
+#	Version: 2026.03.16
+#	Date:    2026-03-16 03:15:01
 #
 #	Maintained by Albert Pool, Martin Mares, and other volunteers from
 #	the PCI ID Project at https://pci-ids.ucw.cz/.
@@ -4149,6 +4149,7 @@
 	74bd  Aqua Vanjaram [Instinct MI300X HF]
 	7550  Navi 48 [Radeon RX 9070/9070 XT/9070 GRE]
 		148c 2435  Radeon RX 9070 XT 16GB
+		1849 5403  Navi 48 XTX [Steel Legend Radeon RX 9070 XT]
 		1da2 e490  Navi 48 XTX [Sapphire Pulse Radeon RX 9070 XT]
 	7551  Navi 48 [Radeon AI PRO R9700]
 	7590  Navi 44 [Radeon RX 9060 XT]
@@ -21602,6 +21603,8 @@
 		14e4 9340  BCM57608 4x100G OCP Ethernet NIC
 		14e4 9345  BCM57608 4x25G OCP Ethernet NIC
 		14e4 d125  BCM57608 2x200G PCIe Ethernet NIC
+		193d 105b  NIC-ETH2030F-LP-2P 2x200G PCIe Ethernet NIC
+		193d 105c  NIC-ETH4030F-LP-1P 1x400G PCIe Ethernet NIC
 	1800  BCM57502 NetXtreme-E Ethernet Partition
 	1801  BCM57504 NetXtreme-E Ethernet Partition
 		1590 0420  Ethernet NPAR 6310C Adapter
@@ -29443,6 +29446,10 @@
 	10a1  NIC1160 Ethernet Controller Family
 		1ff2 0c11  10GE Ethernet Adapter 1160-2X
 	10a2  NIC1160 Ethernet Controller Virtual Function Family
+	10b1  NIC 1260 Ethernet Controller Family
+	10b2  NIC 1260 Ethernet Controller Virtual Function Family
+	10b3  NIC 1260C Ethernet Controller Family
+	10b4  NIC 1260C Ethernet Controller Virtual Function Family
 	20a1  IOC2110 Storage Controller
 		1ff2 0a11  2120-16i SATA3/SAS3 HBA Adapter
 		1ff2 0a12  2120-8i SATA3/SAS3 HBA Adapter
@@ -29708,6 +29715,10 @@
 	7101  LS X710-E
 	7103  LS X710-M
 	7104  LS X710-P
+	7180  LS X718
+	7211  LS X721-E
+	7223  LS X722-M
+	7224  LS X722-P
 20e3  Elix Systems SA
 20e7  TOPSSD
 20f4  TRENDnet
