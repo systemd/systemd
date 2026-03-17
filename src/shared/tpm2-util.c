@@ -1607,6 +1607,7 @@ int tpm2_get_or_create_srk(
         return 1; /* > 0 → SRK newly set up */
 }
 
+#if HAVE_OPENSSL
 /* Well-known persistent EK handles from the TCG Provisioning Guidance. */
 #define TPM2_EK_RSA_HANDLE UINT32_C(0x81010001)
 #define TPM2_EK_ECC_HANDLE UINT32_C(0x81010002)
@@ -1638,6 +1639,7 @@ static int tpm2_get_ek(
 
         return 0;
 }
+#endif
 
 /* Get an Attestation Key (AK) template suitable for TPM Quote generation.
  * Returns 0 if the specified algorithm is ECC or RSA, otherwise -EOPNOTSUPP. */
