@@ -83,9 +83,7 @@ static int test_basic(bool bind_to_interface) {
 static void test_message_handler(void) {
         _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
         struct {
-                struct {
-                        DHCP_MESSAGE_HEADER_DEFINITION;
-                } _packed_ message;
+                DHCPMessageHeader header;
                 struct {
                         uint8_t code;
                         uint8_t length;
@@ -113,11 +111,11 @@ static void test_message_handler(void) {
                 } _packed_ option_hostname;
                 uint8_t end;
         } _packed_ test = {
-                .message.op = BOOTREQUEST,
-                .message.htype = ARPHRD_ETHER,
-                .message.hlen = ETHER_ADDR_LEN,
-                .message.xid = htobe32(0x12345678),
-                .message.chaddr = { 'A', 'B', 'C', 'D', 'E', 'F' },
+                .header.op = BOOTREQUEST,
+                .header.htype = ARPHRD_ETHER,
+                .header.hlen = ETHER_ADDR_LEN,
+                .header.xid = htobe32(0x12345678),
+                .header.chaddr = { 'A', 'B', 'C', 'D', 'E', 'F' },
                 .option_type.code = SD_DHCP_OPTION_MESSAGE_TYPE,
                 .option_type.length = 1,
                 .option_type.type = DHCP_DISCOVER,
@@ -168,19 +166,19 @@ static void test_message_handler(void) {
         test.option_type.type = DHCP_DISCOVER;
         ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_OFFER);
 
-        test.message.op = 0;
+        test.header.op = 0;
         ASSERT_OK_ZERO(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL));
-        test.message.op = BOOTREQUEST;
+        test.header.op = BOOTREQUEST;
         ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_OFFER);
 
-        test.message.htype = 0;
+        test.header.htype = 0;
         ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_OFFER);
-        test.message.htype = ARPHRD_ETHER;
+        test.header.htype = ARPHRD_ETHER;
         ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_OFFER);
 
-        test.message.hlen = 0;
+        test.header.hlen = 0;
         ASSERT_ERROR(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), EBADMSG);
-        test.message.hlen = ETHER_ADDR_LEN;
+        test.header.hlen = ETHER_ADDR_LEN;
         ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_OFFER);
 
         test.option_type.type = DHCP_REQUEST;
@@ -246,7 +244,7 @@ static void test_message_handler(void) {
         ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_ACK);
 
         /* release the bound static lease */
-        test.message.ciaddr = htobe32(INADDR_LOOPBACK + 31);
+        test.header.ciaddr = htobe32(INADDR_LOOPBACK + 31);
         test.option_type.type = DHCP_RELEASE;
         ASSERT_OK_ZERO(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL));
 
@@ -261,7 +259,7 @@ static void test_message_handler(void) {
         ASSERT_OK(sd_dhcp_server_start(server));
 
         /* request a new non-static address */
-        test.message.ciaddr = 0;
+        test.header.ciaddr = 0;
         test.option_type.type = DHCP_REQUEST;
         test.option_requested_ip.address = htobe32(INADDR_LOOPBACK + 29);
         ASSERT_OK_EQ(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL), DHCP_ACK);
