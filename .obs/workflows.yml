@@ -1,17 +1,17 @@
 rebuild:
   steps:
     - trigger_services:
-        project: system:systemd
+        project: system:systemd:stable
         package: systemd
   filters:
     event: push
     branches:
       only:
-        - main
+        - v261-stable
 ci:
   steps:
     - branch_package:
-        source_project: system:systemd
+        source_project: system:systemd:stable
         source_package: systemd
         target_project: system:systemd:ci
     # Also prepare some images, but disabled by default to avoid wasting cpu/disk
@@ -50,4 +50,4 @@ ci:
     event: pull_request
     branches:
       only:
-        - main
+        - v261-stable
