@@ -3,7 +3,7 @@
 # via AWS Bedrock using OIDC — no long-lived API keys required.
 #
 # Architecture: The workflow is split into three jobs for least-privilege:
-#   1. "setup" — posts/updates a "reviewing…" tracking comment (write permissions)
+#   1. "setup" — fetches PR context, posts/updates tracking comment (write permissions)
 #   2. "review" — runs Claude with read-only permissions, produces structured JSON
 #   3. "post"   — reads the JSON and posts comments to the PR (write permissions)
 
@@ -54,9 +54,9 @@ jobs:
       pull-requests: write
 
     outputs:
-      pr_number: ${{ steps.pr.outputs.number }}
-      head_sha: ${{ steps.pr.outputs.head_sha }}
-      comment_id: ${{ steps.tracking.outputs.comment_id }}
+      pr_number: ${{ steps.context.outputs.pr_number }}
+      comment_id: ${{ steps.context.outputs.comment_id }}
+      pr_context: ${{ steps.context.outputs.pr_context }}
 
     steps:
       - name: Auto-add claude-review label for trusted contributors
@@ -65,17 +65,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh pr edit --repo "${{ github.repository }}" "$PR_NUMBER" --add-label claude-review
 
-      - name: Resolve PR metadata
-        id: pr
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          echo "number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
-          gh pr view --repo "${{ github.repository }}" "$PR_NUMBER" --json headRefOid --jq '.headRefOid' | \
-            xargs -I{} echo "head_sha={}" >> "$GITHUB_OUTPUT"
-
-      - name: Create or update tracking comment
-        id: tracking
+      - name: Fetch PR context and create tracking comment
+        id: context
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd
         with:
           script: |
@@ -85,14 +76,19 @@ jobs:
             const runUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
             const MARKER = "<!-- claude-pr-review -->";
 
-            const issueComments = await github.paginate(
-              github.rest.issues.listComments,
-              { owner, repo, issue_number: prNumber, per_page: 100 },
-            );
+            /* Fetch all PR data in parallel. */
+            const [pr, reviews, issueComments, reviewComments] = await Promise.all([
+              github.rest.pulls.get({ owner, repo, pull_number: prNumber }),
+              github.paginate(github.rest.pulls.listReviews, { owner, repo, pull_number: prNumber, per_page: 100 }),
+              github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: prNumber, per_page: 100 }),
+              github.paginate(github.rest.pulls.listReviewComments, { owner, repo, pull_number: prNumber, per_page: 100 }),
+            ]);
 
+            /* Find or create tracking comment. */
             const existing = issueComments.find((c) => c.body && c.body.includes(MARKER));
-
             let commentId;
+            let trackingCommentBody = null;
+
             if (existing) {
               console.log(`Updating existing tracking comment ${existing.id}.`);
               /* Prepend a re-reviewing banner but keep the previous review visible. */
@@ -104,6 +100,7 @@ jobs:
                 body: `> **Claude is re-reviewing this PR…** ([workflow run](${runUrl}))\n\n${prevBody}`,
               });
               commentId = existing.id;
+              trackingCommentBody = prevBody;
             } else {
               console.log("Creating new tracking comment.");
               const {data: created} = await github.rest.issues.createComment({
@@ -115,7 +112,17 @@ jobs:
               commentId = created.id;
             }
 
+            /* Build context JSON for Claude. */
+            const prContext = {
+              pr: pr.data,
+              reviews,
+              tracking_comment: trackingCommentBody,
+              review_comments: reviewComments,
+            };
+
+            core.setOutput("pr_number", prNumber);
             core.setOutput("comment_id", commentId);
+            core.setOutput("pr_context", JSON.stringify(prContext));
 
   review:
     runs-on: ubuntu-latest
@@ -123,8 +130,6 @@ jobs:
 
     permissions:
       contents: read
-      pull-requests: read   # Fetch PR comments and reviews
-      issues: read          # Fetch issue comments
       id-token: write       # Authenticate with AWS via OIDC
 
     outputs:
@@ -132,6 +137,19 @@ jobs:
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          # Need full history so git diff <sha>~1..<sha> works for all PR commits.
+          fetch-depth: 0
+
+      - name: Fetch PR branch
+        env:
+          PR_NUMBER: ${{ needs.setup.outputs.pr_number }}
+        run: git fetch origin "pull/${PR_NUMBER}/head:pr-review"
+
+      - name: Write PR context
+        env:
+          PR_CONTEXT: ${{ needs.setup.outputs.pr_context }}
+        run: printenv PR_CONTEXT > pr-context.json
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@8df5847569e6427dd6c4fb1cf565c83acfa8afa7
@@ -193,9 +211,8 @@ jobs:
             }
         with:
           use_bedrock: "true"
-          # We still have to pass GITHUB_TOKEN here because claude-code-action
-          # requires it, but we restrict Claude's tools to read-only operations
-          # so it cannot post comments or modify the PR.
+          # Required by claude-code-action even though Claude itself doesn't
+          # call the GitHub API — the action uses it for permission checks.
           github_token: ${{ secrets.GITHUB_TOKEN }}
           track_progress: false
           show_full_output: "true"
@@ -205,87 +222,59 @@ jobs:
             --allowedTools "
                 Read,LS,Grep,Glob,Task,TaskStop,
                 Bash(cat *),Bash(test *),Bash(printf *),Bash(jq *),Bash(head *),Bash(tail *),
-                Bash(git *),Bash(grep *),Bash(find *),Bash(ls *),Bash(wc *),
-                Bash(gh api *),
+                Bash(git log *),Bash(git diff *),Bash(git show *),Bash(git rev-parse *),
+                Bash(git merge-base *),Bash(git blame *),Bash(git branch *),Bash(git status *),
+                Bash(grep *),Bash(find *),Bash(ls *),Bash(wc *),
                 Bash(diff *),Bash(sed *),Bash(awk *),Bash(sort *),Bash(uniq *),
                 "
             --json-schema '${{ env.REVIEW_SCHEMA }}'
           prompt: |
               REPO: ${{ github.repository }}
               PR NUMBER: ${{ needs.setup.outputs.pr_number }}
-              HEAD SHA: ${{ needs.setup.outputs.head_sha }}
 
               You are a code reviewer for the ${{ github.repository }} project. Review this pull request and
               produce a structured JSON result containing your review. Do NOT attempt
               to post comments yourself — just return the JSON. You are in the upstream repo
-              without the patch applied. Do not apply it.
+              with the PR branch available as `pr-review`. Do not apply or merge the patch.
 
-              ## Phase 1: Gather context
+              ## Phase 1: Read context
 
-              Use `gh api` to fetch all PR data. The base path for all endpoints is
-              `repos/${{ github.repository }}/pulls/${{ needs.setup.outputs.pr_number }}`.
+              All PR data has been pre-fetched. Read `pr-context.json` from the repo root.
+              It contains a JSON object with:
+              - `pr` — full GitHub PR object (title, body, user, head SHA, etc.)
+              - `reviews` — array of PR reviews from the GitHub API
+              - `tracking_comment` — body of the existing tracking comment (null on first run);
+                if present, use it as the basis for your `summary` in Phase 3
+              - `review_comments` — array of inline review comments from the GitHub API;
+                you will need the `id` fields in Phase 3 to populate the `resolve` array
 
-              **IMPORTANT: All data fetching in this phase MUST complete before moving to
-              Phase 2. Do NOT use `run_in_background` for any commands in this phase. Wait
-              for all results before proceeding.**
-
-              Fetch the following in parallel:
-              - `gh api repos/${{ github.repository }}/pulls/${{ needs.setup.outputs.pr_number }}`
-                — PR title, body, and metadata
-              - `gh api repos/${{ github.repository }}/pulls/${{ needs.setup.outputs.pr_number }}/reviews --paginate`
-                — PR reviews
-              - `gh api repos/${{ github.repository }}/pulls/${{ needs.setup.outputs.pr_number }}/commits --paginate --jq '.[].sha'`
-                — list of commit SHAs
-              - `gh api repos/${{ github.repository }}/issues/${{ needs.setup.outputs.pr_number }}/comments --paginate`
-                — issue comments (look for the tracking comment containing `<!-- claude-pr-review -->`;
-                if one exists, use it as the basis for your `summary` in Phase 3)
-              - `gh api repos/${{ github.repository }}/pulls/${{ needs.setup.outputs.pr_number }}/comments --paginate`
-                — inline review comments including each comment's numeric `id`, `path`,
-                `line`, `body`, `user.login`, and `in_reply_to_id`; you will need the
-                `id` fields in Phase 3 to populate the `resolve` array
+              The PR branch has been fetched locally as `pr-review`. Use
+              `git log --reverse --format=%H HEAD..pr-review` to list the PR commits, and
+              `git show <sha>` or `git diff <sha>~1..<sha>` to access commit diffs.
 
               ## Phase 2: Per-commit review with subagents
 
-              Review each commit in the PR individually, in order (oldest first). For each
-              commit, fetch its diff using `gh api repos/{owner}/{repo}/commits/{sha}
-              -H 'Accept: application/vnd.github.diff'` via Bash, then launch a subagent
-              to review that commit's changes.
+              Launch a subagent for each commit in the PR, all in parallel. Each subagent
+              receives only the commit SHA to review. It reads `pr-context.json` for PR
+              context, uses `git show <sha>` or `git diff <sha>~1..<sha>` to fetch the
+              diff, and reads the codebase to verify its findings.
 
-              Each commit review subagent receives:
-              - The PR title and description (for overall context)
-              - The diffs of all preceding commits in the PR (for context on what was already changed)
-              - The commit message and SHA of the commit being reviewed
-              - The commit diff (from `gh api`)
-
-              Each commit review subagent reviews:
-              - Code quality, style, and best practices
-              - Potential bugs, issues, incorrect logic
-              - Security implications
-              - CLAUDE.md compliance
-
-              Each commit review subagent must return a JSON array of issues:
+              Each subagent reviews code quality, style, potential bugs, and security
+              implications. It must return a JSON array:
               `[{"file": "path", "line": <number> (optional), "severity": "must-fix|suggestion|nit", "body": "...", "commit": "<sha>"}]`
 
-              The `commit` field MUST be set to the SHA of the commit being reviewed.
-              Each commit review subagent MUST only return comments about changes in the commit it is
-              reviewing — do NOT comment on code from preceding commits, even if it was
-              provided for context. If a preceding commit has an issue, it will be caught
-              by the subagent reviewing that commit.
+              The `commit` field MUST be the SHA of the commit being reviewed. Only
+              comment on changes in that commit — not preceding commits.
 
-              `line` should be a line number from the NEW side of the diff **that appears inside
-              a diff hunk** (i.e. a line that is shown in the patch output). GitHub's review
-              comment API rejects lines outside the diff context, so never reference lines
-              that are not visible in the patch. If you cannot determine a valid diff line,
-              omit `line` — the comment will still appear in the tracking comment summary.
+              `line` should be a line number from the NEW side of the diff **that appears
+              inside a diff hunk**. GitHub rejects lines outside the diff context. If you
+              cannot determine a valid diff line, omit `line`.
 
-              Each commit review subagent MUST verify its findings before returning them:
-              - For style/convention claims, check at least 3 existing examples in the codebase to confirm
-                the pattern actually exists before flagging a violation.
-              - For "use X instead of Y" suggestions, confirm X actually exists and works for this case.
+              Each subagent MUST verify findings before returning them:
+              - For style/convention claims, check at least 3 existing examples in the
+                codebase to confirm the pattern actually exists before flagging a violation.
+              - For "use X instead of Y" suggestions, confirm X actually exists and works.
               - If unsure, don't include the issue.
-
-              Launch commit review subagents for all commits in parallel (e.g. if
-              reviewing a 7-commit PR, launch all 7 commit review subagents at once).
 
               ## Phase 3: Collect, deduplicate, and summarize
 
@@ -346,12 +335,9 @@ jobs:
 
               ## Error tracking
 
-              Throughout all phases, track any errors that prevented you from doing
-              your job fully: permission denials (403, "Resource not accessible by
-              integration"), tools that were not available, rate limits, or any other
-              failures that degraded the review quality. If there were any, append a
-              `### Errors` section to the summary listing each failed tool/action and
-              the error message, so maintainers can fix the workflow configuration.
+              If any errors prevented you from doing your job fully (tools that were
+              not available, git commands that failed, etc.), append a `### Errors`
+              section to the summary listing each failed action and the error message.
 
               ## CRITICAL: Return structured JSON output
 
@@ -386,14 +372,12 @@ jobs:
           STRUCTURED_OUTPUT: ${{ needs.review.outputs.structured_output }}
           REVIEW_RESULT: ${{ needs.review.result }}
           PR_NUMBER: ${{ needs.setup.outputs.pr_number }}
-          HEAD_SHA: ${{ needs.setup.outputs.head_sha }}
           COMMENT_ID: ${{ needs.setup.outputs.comment_id }}
         with:
           script: |
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const prNumber = parseInt(process.env.PR_NUMBER, 10);
-            const headSha = process.env.HEAD_SHA;
             const commentId = parseInt(process.env.COMMENT_ID, 10);
             const runUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
             const MARKER = "<!-- claude-pr-review -->";
