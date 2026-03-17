@@ -49,6 +49,26 @@
   <xi:include href="standard-conf.xml" xpointer="main-conf" />
 
   <refsect1>
+    <title>Prekill event</title>
+
+    <para><command>systemd-oomd</command> supports notifying external components before killing a control
+    group.
+    This is done by sending a notification over varlink to all sockets found in
+    <filename>/run/systemd/oomd.prekill.hook/</filename> folder. Each socket should implement the
+    <constant>io.systemd.oom.Prekill</constant> interface. The notification contains the control group path
+    to allow the hook to identify which control group is being killed. This allows external components to
+    perform any necessary cleanup or logging before the control group is terminated. The hook is not intended
+    as a way to avoid the kill, but rather as a notification mechanism.
+    Note that this is a privileged option as, even if it has a timeout, is synchronous and delays the kill,
+    so use with care.
+    The typically preferable mechanism to process memory pressure is to do what
+    <ulink url="https://systemd.io/MEMORY_PRESSURE/">MEMORY_PRESSURE</ulink> describes which is unprivileged,
+    asynchronous and does not delay the kill.
+    </para>
+
+  </refsect1>
+
+  <refsect1>
     <title>[OOM] Section Options</title>
 
     <para>The following options are available in the [OOM] section:</para>
@@ -96,6 +116,22 @@
         Must be set to 0, or at least 1 second. Defaults to 30 seconds when unset or 0.</para>
 
         <xi:include href="version-info.xml" xpointer="v248"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>PrekillHookTimeoutSec=</varname></term>
+
+        <listitem><para>Sets the amount of time <command>systemd-oomd</command> will wait for pre-kill hooks
+        to complete, before proceeding with the control group termination. Pre-kill hooks work by placing
+        varlink socket to <filename>/run/systemd/oomd.prekill.hook/</filename> folder. Each socket should
+        implement interface for notification to work. <command>systemd-oomd</command> sends a notification
+        before killing a control group for each discovered socket. The timeout is intended to be global and
+        not per hook. If all hooks return earlier, the kill is performed as soon as possible. The timeout
+        must be at least 1s.
+        Defaults to 0, which means <command>systemd-oomd</command> will not wait and no notifications
+        will be sent.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/></listitem>
       </varlistentry>
 
     </variablelist>
