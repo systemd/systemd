@@ -8249,6 +8249,12 @@ AC6000-AC6FFF     (base 16)		Starts Facility Service Co.,Ltd
 				Chuo-ku  Tokyo  103-0027
 				JP
 
+8C-1F-64   (hex)		ARKTRON ELECTRONICS
+D6F000-D6FFFF     (base 16)		ARKTRON ELECTRONICS
+				PLOT NO-605,SECTOR-58
+				FARIDABAD  HARYANA  121004
+				IN
+
 8C-1F-64   (hex)		Jacobs Technology, Inc.
 A98000-A98FFF     (base 16)		Jacobs Technology, Inc.
 				7765 Old Telegraph Road
@@ -16609,6 +16615,30 @@ BCF000-BCFFFF     (base 16)		Erba Lachema s.r.o.
 				Karasek1d
 				Brno    62100
 				CZ
+
+8C-1F-64   (hex)		MITSUBISHI ELECTRIC INDIA PVT. LTD.
+FF2000-FF2FFF     (base 16)		MITSUBISHI ELECTRIC INDIA PVT. LTD.
+				Plot No B-3, Talegaon Industrial Area,Phase-II, Badhalwadi MIDC, Talegoan,,
+				Pune  Maharashtra  410507
+				IN
+
+8C-1F-64   (hex)		BCMTECH
+17F000-17FFFF     (base 16)		BCMTECH
+				A-1605Ho,Anyang-dong 1432,Manan-gu
+				Anyang-si  Gyeonggi-do  14084
+				KR
+
+8C-1F-64   (hex)		PERSOL EXCEL HR PARTNERS CO., LTD.
+46B000-46BFFF     (base 16)		PERSOL EXCEL HR PARTNERS CO., LTD.
+				1-6-1-B1 Awaza, Nishi-ku
+				Osaka City  Osaka Prefecture  550-0011
+				JP
+
+8C-1F-64   (hex)		Owl Home Inc.
+51E000-51EFFF     (base 16)		Owl Home Inc.
+				SE #82363, 1-1100 Courtneypark Dr E
+				Mississauga  Ontario  L5T1L7
+				CA
 
 8C-1F-64   (hex)		Vision Systems Safety Tech
 E6F000-E6FFFF     (base 16)		Vision Systems Safety Tech
@@ -24980,6 +25010,18 @@ D67000-D67FFF     (base 16)		Groundtruth Ltd
 				Paekakariki    5034
 				NZ
 
+8C-1F-64   (hex)		CRUXELL Corp.
+3E1000-3E1FFF     (base 16)		CRUXELL Corp.
+				A-405 Migun techno world II,187 techno 2-ro, Yusong-gu
+				Daejeon  Daejeon  34025
+				KR
+
+8C-1F-64   (hex)		RFT Corp.
+0A9000-0A9FFF     (base 16)		RFT Corp.
+				516 Kamikocho, Omiya-ku
+				Saitama-shi  Saitama  330-0855
+				JP
+
 8C-1F-64   (hex)		Flow Power
 82B000-82BFFF     (base 16)		Flow Power
 				Suite 2, Level 3, 18 - 20 York St
@@ -33227,6 +33269,30 @@ A78000-A78FFF     (base 16)		TAIT Global LLC
 				Durham  OR  97224
 				US
 
+8C-1F-64   (hex)		Fischer & Connectors SA
+0A3000-0A3FFF     (base 16)		Fischer & Connectors SA
+				Chemin du Glapin 20
+				Saint-Prex    CH-1162
+				CH
+
+8C-1F-64   (hex)		Schildknecht AG
+F16000-F16FFF     (base 16)		Schildknecht AG
+				Haugweg 26
+				Murr    71711
+				DE
+
+8C-1F-64   (hex)		Teledyne Scientific and Imaging
+590000-590FFF     (base 16)		Teledyne Scientific and Imaging
+				1049 Camino Dos Rios
+				Thousand Oaks  CA  91360-2362
+				US
+
+8C-1F-64   (hex)		CMI, Inc.
+5A2000-5A2FFF     (base 16)		CMI, Inc.
+				316 East 9th Street
+				Owensboro  KY  42303
+				US
+
 8C-1F-64   (hex)		Mobileye
 D63000-D63FFF     (base 16)		Mobileye
 				13 Hartom st.
@@ -41416,3 +41482,9 @@ D2C000-D2CFFF     (base 16)		DEUTA Werke GmbH
 				5490 Great America Pkwy
 				Santa Clara  CA  95054
 				US
+
+8C-1F-64   (hex)		PROVENRUN
+ACF000-ACFFFF     (base 16)		PROVENRUN
+				77 avenue Niel
+				PARIS    75017
+				FR

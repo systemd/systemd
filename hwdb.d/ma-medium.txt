@@ -7655,6 +7655,12 @@ C00000-CFFFFF     (base 16)		Guangzhou Sunrise Technology Co., Ltd.
 				Singapore    408564
 				SG
 
+20-B3-7F   (hex)		EGSTON Power Electronics GmbH
+C00000-CFFFFF     (base 16)		EGSTON Power Electronics GmbH
+				Grafenbergerstraße 37
+				Eggenburg    3730
+				AT
+
 B8-4C-87   (hex)		Shenzhen Link-all Technology Co., Ltd
 300000-3FFFFF     (base 16)		Shenzhen Link-all Technology Co., Ltd
 				Floor 5th, Block 9th, Sunny Industrial Zone, Xili Town, Nanshan District, Shenzhen, China 
@@ -14773,6 +14779,36 @@ B00000-BFFFFF     (base 16)		MyPlace Australia Pty Ltd
 				Rm. 2, 9 F., No. 6, Ln. 180, Sec. 6,Minquan E. Rd., Neihu Dist.,
 				Taipei City    114708
 				TW
+
+20-B3-7F   (hex)		Kitchen Armor
+600000-6FFFFF     (base 16)		Kitchen Armor
+				17500 Cartwright Rd
+				Irvine  CA  92614
+				US
+
+20-B3-7F   (hex)		OTP CO.,LTD.
+400000-4FFFFF     (base 16)		OTP CO.,LTD.
+				817 the SOHO, 2-7-4, AOMI, KOTO-KU,TOKYO JAPAN 
+				TOKYO   TOKYO   135-0064
+				JP
+
+20-B3-7F   (hex)		Shenzhen HantangFengyun Technology Co.,Ltd
+500000-5FFFFF     (base 16)		Shenzhen HantangFengyun Technology Co.,Ltd
+				741, HUAMEIJU Building 2.， 82 of Haiyu Community., Xin'an Street, Bao'an District, Shenzhen
+				Shenzhen    518000
+				CN
+
+20-B3-7F   (hex)		Annapurna labs
+900000-9FFFFF     (base 16)		Annapurna labs
+				Matam Scientific Industries Center,   Building 8.2
+				Mail box 15123  Haifa  3508409
+				IL
+
+20-B3-7F   (hex)		ShenZhen C&D Electronics CO.Ltd.
+A00000-AFFFFF     (base 16)		ShenZhen C&D Electronics CO.Ltd.
+				9th FIoor, Building 9, No.1 Qingxiang road, BaoNeng Science and TechnoIogy Industrial Park,  Longhua New District
+				ShenZhen  GuangDong  518000
+				CN
 
 B8-4C-87   (hex)		Altronix , Corp
 A00000-AFFFFF     (base 16)		Altronix , Corp
@@ -22544,6 +22580,24 @@ B00000-BFFFFF     (base 16)		B810 SPA
 				REGGIO EMILIA  Reggio Emilia  42122
 				IT
 
+20-B3-7F   (hex)		Luxedo
+700000-7FFFFF     (base 16)		Luxedo
+				1232 Topside Rd.
+				Louisville  TN  37777
+				US
+
+20-B3-7F   (hex)		Chelsio Communications Inc
+000000-0FFFFF     (base 16)		Chelsio Communications Inc
+				735, N Pastoria Av
+				SUNNYVALE  CA  94085
+				US
+
+20-B3-7F   (hex)		Xunmu Information Technology (Shanghai) Co., Ltd.
+D00000-DFFFFF     (base 16)		Xunmu Information Technology (Shanghai) Co., Ltd.
+				15F,New Bund Oriental Plaza 1,No.512,Haiyang West Road, Pudong New Area, Shanghai
+				Shanghai    200135
+				CN
+
 D0-14-11   (hex)		P.B. Elettronica srl
 100000-1FFFFF     (base 16)		P.B. Elettronica srl
 				Via Santorelli, 8
@@ -26303,12 +26357,6 @@ B00000-BFFFFF     (base 16)		JNL Technologies Inc
 				Ixonia  WI  53036
 				US
 
-C4-FF-BC   (hex)		iMageTech CO.,LTD.
-400000-4FFFFF     (base 16)		iMageTech CO.,LTD.
-				5F., No.16, Lane 15, Sec. 6, Mincyuan E. Rd., Neihu District,
-				TAIPEI    114
-				TW
-
 9C-43-1E   (hex)		SuZhou Jinruiyang Information Technology CO.,LTD
 C00000-CFFFFF     (base 16)		SuZhou Jinruiyang Information Technology CO.,LTD
 				NO.1003 Room A1 Buliding Tengfei Business Park in Suzhou Industrial Park.
@@ -29954,11 +30002,29 @@ D00000-DFFFFF     (base 16)		Posital B.V.
 38-B1-4E   (hex)		Private
 D00000-DFFFFF     (base 16)		Private
 
+C4-FF-BC   (hex)		HyperNet CO., LTD
+400000-4FFFFF     (base 16)		HyperNet CO., LTD
+				5F., No.16, Lane 15, Sec. 6, Mincyuan E. Rd., Neihu District,
+				TAIPEI    114
+				TW
+
+20-B3-7F   (hex)		QT medical inc
+300000-3FFFFF     (base 16)		QT medical inc
+				1370 Valley Vista Dr Ste 266
+				Diamond Bar  CA  91765
+				US
+
 38-B1-4E   (hex)		Knit Sound Company
 E00000-EFFFFF     (base 16)		Knit Sound Company
 				496 Ada Dr SE Ste 201
 				Ada  MI  49301
 				US
+
+20-B3-7F   (hex)		Xconnect LLP
+800000-8FFFFF     (base 16)		Xconnect LLP
+				Kurmangazy st 77
+				Almaty  Almaty  050022
+				KZ
 
 C8-5C-E2   (hex)		Fela Management AG 
 000000-0FFFFF     (base 16)		Fela Management AG 
@@ -31192,12 +31258,6 @@ E00000-EFFFFF     (base 16)		Suzhou Sidi Information Technology Co., Ltd.
 				No.18, Yuebang Street, Wuzhong District,
 				Suzhou    215000
 				CN
-
-F4-A4-54   (hex)		TRI WORKS
-200000-2FFFFF     (base 16)		TRI WORKS
-				#402 Goto building 4F 2-2-2 Daimyo Chuo-ku
-				Fukuoka-shi    810-0041
-				JP
 
 F4-A4-54   (hex)		Chongqing Hengxun Liansheng Industrial Co.,Ltd
 300000-3FFFFF     (base 16)		Chongqing Hengxun Liansheng Industrial Co.,Ltd
@@ -37558,3 +37618,15 @@ A00000-AFFFFF     (base 16)		Amissiontech Co., Ltd
 				16192 Coastal Highway
 				Lewes  DE  19958
 				US
+
+F4-A4-54   (hex)		TRI WORKS
+200000-2FFFFF     (base 16)		TRI WORKS
+				Kiyokawa place 3F 1-14-18 kiyokawa Chuo-ku
+				Fukuoka-shi  Fukuoka  810-0041
+				JP
+
+20-B3-7F   (hex)		TDK-Lambda UK
+100000-1FFFFF     (base 16)		TDK-Lambda UK
+				Kingsley Avenue
+				Ilfracombe  Devon  EX348ES
+				GB
