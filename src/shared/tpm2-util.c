@@ -1607,6 +1607,162 @@ int tpm2_get_or_create_srk(
         return 1; /* > 0 → SRK newly set up */
 }
 
+#if HAVE_OPENSSL
+/* Well-known persistent EK handles from the TCG Provisioning Guidance. */
+#define TPM2_EK_RSA_HANDLE UINT32_C(0x81010001)
+#define TPM2_EK_ECC_HANDLE UINT32_C(0x81010002)
+
+/* Get the EK. Returns 1 if an EK is found, 0 if no known EK handle is populated, or < 0 on error. */
+static int tpm2_get_ek(
+                Tpm2Context *c,
+                const Tpm2Handle *session,
+                TPM2B_PUBLIC **ret_public,
+                TPM2B_NAME **ret_name,
+                TPM2B_NAME **ret_qname,
+                Tpm2Handle **ret_handle) {
+
+        int r;
+
+        assert(c);
+
+        r = tpm2_index_to_handle(c, TPM2_EK_ECC_HANDLE, session, ret_public, ret_name, ret_qname, ret_handle);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                return 1;
+
+        r = tpm2_index_to_handle(c, TPM2_EK_RSA_HANDLE, session, ret_public, ret_name, ret_qname, ret_handle);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                return 1;
+
+        return 0;
+}
+#endif
+
+/* Get an Attestation Key (AK) template suitable for TPM Quote generation.
+ * Returns 0 if the specified algorithm is ECC or RSA, otherwise -EOPNOTSUPP. */
+int tpm2_get_ak_template(TPMI_ALG_PUBLIC alg, TPMT_PUBLIC *ret_template) {
+        static const TPMT_PUBLIC ak_ecc = {
+                .type = TPM2_ALG_ECC,
+                .nameAlg = TPM2_ALG_SHA256,
+                .objectAttributes =
+                                TPMA_OBJECT_FIXEDPARENT |
+                                TPMA_OBJECT_FIXEDTPM |
+                                TPMA_OBJECT_NODA |
+                                TPMA_OBJECT_RESTRICTED |
+                                TPMA_OBJECT_SENSITIVEDATAORIGIN |
+                                TPMA_OBJECT_SIGN_ENCRYPT |
+                                TPMA_OBJECT_USERWITHAUTH,
+                .parameters.eccDetail = {
+                        .symmetric = { .algorithm = TPM2_ALG_NULL, },
+                        .scheme = {
+                                .scheme = TPM2_ALG_ECDSA,
+                                .details.ecdsa = { .hashAlg = TPM2_ALG_SHA256, },
+                        },
+                        .curveID = TPM2_ECC_NIST_P256,
+                        .kdf.scheme = TPM2_ALG_NULL,
+                },
+        };
+
+        static const TPMT_PUBLIC ak_rsa = {
+                .type = TPM2_ALG_RSA,
+                .nameAlg = TPM2_ALG_SHA256,
+                .objectAttributes =
+                                TPMA_OBJECT_FIXEDPARENT |
+                                TPMA_OBJECT_FIXEDTPM |
+                                TPMA_OBJECT_NODA |
+                                TPMA_OBJECT_RESTRICTED |
+                                TPMA_OBJECT_SENSITIVEDATAORIGIN |
+                                TPMA_OBJECT_SIGN_ENCRYPT |
+                                TPMA_OBJECT_USERWITHAUTH,
+                .parameters.rsaDetail = {
+                        .symmetric = { .algorithm = TPM2_ALG_NULL, },
+                        .scheme = {
+                                .scheme = TPM2_ALG_RSASSA,
+                                .details.rsassa = { .hashAlg = TPM2_ALG_SHA256, },
+                        },
+                        .keyBits = 2048,
+                },
+        };
+
+        assert(ret_template);
+
+        switch (alg) {
+        case TPM2_ALG_ECC:
+                *ret_template = ak_ecc;
+                return 0;
+        case TPM2_ALG_RSA:
+                *ret_template = ak_rsa;
+                return 0;
+        }
+
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "No AK template for algorithm 0x%" PRIx16, alg);
+}
+
+/* Get the best supported AK template. ECC is preferred, then RSA. */
+int tpm2_get_best_ak_template(Tpm2Context *c, TPMT_PUBLIC *ret_template) {
+        TPMT_PUBLIC template;
+        int r;
+
+        assert(c);
+        assert(ret_template);
+
+        r = tpm2_get_ak_template(TPM2_ALG_ECC, &template);
+        if (r < 0)
+                return r;
+
+        if (!tpm2_supports_alg(c, TPM2_ALG_ECC))
+                log_debug("TPM does not support ECC.");
+        else if (!tpm2_supports_ecc_curve(c, template.parameters.eccDetail.curveID))
+                log_debug("TPM does not support ECC-NIST-P256 curve.");
+        else if (!tpm2_supports_tpmt_public(c, &template))
+                log_debug("TPM does not support AK ECC template.");
+        else {
+                *ret_template = template;
+                return 0;
+        }
+
+        r = tpm2_get_ak_template(TPM2_ALG_RSA, &template);
+        if (r < 0)
+                return r;
+
+        if (!tpm2_supports_alg(c, TPM2_ALG_RSA))
+                log_debug("TPM does not support RSA.");
+        else if (!tpm2_supports_tpmt_public(c, &template))
+                log_debug("TPM does not support AK RSA template.");
+        else {
+                *ret_template = template;
+                return 0;
+        }
+
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                               "TPM does not support either AK template (ECC or RSA).");
+}
+
+int tpm2_create_ak(
+                Tpm2Context *c,
+                const Tpm2Handle *parent_handle,
+                const Tpm2Handle *session,
+                TPM2B_PUBLIC **ret_public,
+                TPM2B_PRIVATE **ret_private) {
+
+        TPMT_PUBLIC template;
+        int r;
+
+        assert(c);
+        assert(parent_handle);
+        assert(ret_public);
+        assert(ret_private);
+
+        r = tpm2_get_best_ak_template(c, &template);
+        if (r < 0)
+                return r;
+
+        return tpm2_create(c, parent_handle, session, &template, /* sensitive= */ NULL, ret_public, ret_private);
+}
+
 /* Utility functions for TPMS_PCR_SELECTION. */
 
 /* Convert a TPMS_PCR_SELECTION object to a mask. */
@@ -7267,8 +7423,6 @@ static int tpm2_nvpcr_acquire_anchor_secret_from_credential(struct iovec *ret_cr
                 return log_error_errno(r, "Failed to get encrypted system credentials directory: %m");
 
         /* Define early, so that it is definitely initialized, even if we take "goto not_found" branch below. */
-        _cleanup_free_ DirectoryEntries *de = NULL;
-
         _cleanup_close_ int dfd = open(dp, O_CLOEXEC|O_DIRECTORY);
         if (dfd < 0) {
                 if (errno == ENOENT) {
@@ -7279,6 +7433,7 @@ static int tpm2_nvpcr_acquire_anchor_secret_from_credential(struct iovec *ret_cr
                 return log_error_errno(errno, "Failed to open system credentials directory.");
         }
 
+        _cleanup_free_ DirectoryEntries *de = NULL;
         r = readdir_all(dfd, RECURSE_DIR_IGNORE_DOT, &de);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate system credentials: %m");
@@ -7495,6 +7650,346 @@ int tpm2_nvpcr_acquire_anchor_secret(struct iovec *ret, bool sync_secondary) {
 }
 
 #if HAVE_OPENSSL
+#define TPM2_AK_CREDENTIAL_VAR_PATH "/var/lib/systemd/tpm2/tpm2-ak.cred"
+
+static int tpm2_ak_write_credential(
+                const char *dir,
+                const char *fname,
+                const struct iovec *credential) {
+
+        int r;
+
+        assert(dir);
+        assert(fname);
+        assert(iovec_is_set(credential));
+
+        _cleanup_close_ int dfd = -EBADF;
+        r = chase(dir, /* root= */ NULL, CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY, /* ret_path= */ NULL, &dfd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create '%s' directory: %m", dir);
+
+        _cleanup_free_ char *joined = path_join(dir, fname);
+        if (!joined)
+                return log_oom();
+
+        _cleanup_(iovec_done) struct iovec existing = {};
+        r = read_full_file_full(
+                        dfd,
+                        fname,
+                        /* offset= */ UINT64_MAX,
+                        CREDENTIAL_ENCRYPTED_SIZE_MAX,
+                        READ_FULL_FILE_UNBASE64|READ_FULL_FILE_FAIL_WHEN_LARGER,
+                        /* bind_name= */ NULL,
+                        (char**) &existing.iov_base,
+                        &existing.iov_len);
+        if (r < 0) {
+                if (r != -ENOENT)
+                        return log_error_errno(r, "Failed to read '%s' file: %m", joined);
+        } else if (iovec_memcmp(&existing, credential) == 0) {
+                log_debug("AK credential file '%s' already matches expectations, not updating.", joined);
+                return 0;
+        } else
+                log_notice("AK credential file '%s' differs, updating.", joined);
+
+        r = write_base64_file_at(
+                        dfd,
+                        fname,
+                        credential,
+                        WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_SYNC);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write AK credential file to '%s': %m", joined);
+
+        log_info("Successfully written AK credential to '%s'.", joined);
+        return 1;
+}
+
+static int tpm2_ak_write_credential_to_var(const struct iovec *credential) {
+        return tpm2_ak_write_credential("/var/lib/systemd/tpm2", "tpm2-ak.cred", credential);
+}
+
+static int tpm2_ak_write_credential_to_boot(const struct iovec *credential) {
+        int r;
+
+        assert(iovec_is_set(credential));
+
+        _cleanup_free_ char *dir = NULL;
+        r = get_global_boot_credentials_path(&dir);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                log_debug("No XBOOTLDR/ESP partition found, not writing boot AK credential file.");
+                return 0;
+        }
+
+        sd_id128_t machine_id;
+        r = sd_id128_get_machine(&machine_id);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read machine ID: %m");
+
+        BootEntryTokenType entry_token_type = BOOT_ENTRY_TOKEN_AUTO;
+        _cleanup_free_ char *entry_token = NULL;
+        r = boot_entry_token_ensure(
+                        /* root= */ NULL,
+                        /* conf_root= */ NULL,
+                        machine_id,
+                        /* machine_id_is_random= */ false,
+                        &entry_token_type,
+                        &entry_token);
+        if (r < 0)
+                return r;
+
+        _cleanup_free_ char *fname = strjoin("tpm2-ak.", entry_token, ".cred");
+        if (!fname)
+                return log_oom();
+
+        if (!filename_is_valid(fname))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Credential name '%s' would not be a valid file name, refusing.", fname);
+
+        return tpm2_ak_write_credential(dir, fname, credential);
+}
+
+static int tpm2_ak_acquire_credential_from_var(struct iovec *ret_credential) {
+        int r;
+
+        assert(ret_credential);
+
+        r = read_full_file_full(
+                        AT_FDCWD,
+                        TPM2_AK_CREDENTIAL_VAR_PATH,
+                        /* offset= */ UINT64_MAX,
+                        CREDENTIAL_ENCRYPTED_SIZE_MAX,
+                        READ_FULL_FILE_UNBASE64|READ_FULL_FILE_FAIL_WHEN_LARGER|READ_FULL_FILE_VERIFY_REGULAR,
+                        /* bind_name= */ NULL,
+                        (char**) &ret_credential->iov_base,
+                        &ret_credential->iov_len);
+        if (r == -ENOENT) {
+                *ret_credential = (struct iovec) {};
+                return 0;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to read '%s': %m", TPM2_AK_CREDENTIAL_VAR_PATH);
+
+        return 1;
+}
+
+static int tpm2_ak_acquire_credential_from_system(struct iovec *ret_credential) {
+        int r;
+
+        assert(ret_credential);
+
+        const char *dp;
+        r = get_encrypted_system_credentials_dir(&dp);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get encrypted system credentials directory: %m");
+
+        _cleanup_free_ DirectoryEntries *de = NULL;
+
+        _cleanup_close_ int dfd = open(dp, O_CLOEXEC|O_DIRECTORY);
+        if (dfd < 0) {
+                if (errno == ENOENT) {
+                        *ret_credential = (struct iovec) {};
+                        return 0;
+                }
+
+                return log_error_errno(errno, "Failed to open system credentials directory.");
+        }
+
+        r = readdir_all(dfd, RECURSE_DIR_IGNORE_DOT, &de);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate system credentials: %m");
+
+        FOREACH_ARRAY(i, de->entries, de->n_entries) {
+                _cleanup_(iovec_done) struct iovec credential = {};
+                _cleanup_(iovec_done_erase) struct iovec plaintext = {};
+                struct dirent *d = *i;
+
+                if (!startswith_no_case(d->d_name, "tpm2-ak.")) /* VFAT is case-insensitive */
+                        continue;
+
+                r = read_full_file_full(
+                                dfd,
+                                d->d_name,
+                                /* offset= */ UINT64_MAX,
+                                CREDENTIAL_ENCRYPTED_SIZE_MAX,
+                                READ_FULL_FILE_UNBASE64|READ_FULL_FILE_FAIL_WHEN_LARGER,
+                                /* bind_name= */ NULL,
+                                (char**) &credential.iov_base,
+                                &credential.iov_len);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to read AK credential file '%s/%s', skipping: %m", dp, d->d_name);
+                        continue;
+                }
+
+                /* Verify decryptability before accepting. */
+                r = decrypt_credential_and_warn(
+                                "tpm2-ak.cred",
+                                now(CLOCK_REALTIME),
+                                /* tpm2_device= */ NULL,
+                                /* tpm2_signature_path= */ NULL,
+                                /* uid= */ UID_INVALID,
+                                &credential,
+                                /* flags= */ 0,
+                                &plaintext);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to decrypt AK credential '%s', skipping: %m", d->d_name);
+                        continue;
+                }
+
+                *ret_credential = TAKE_STRUCT(credential);
+                return 1;
+        }
+
+        *ret_credential = (struct iovec) {};
+        return 0;
+}
+
+int tpm2_ak_acquire_credential(const char *tpm2_device, struct iovec *ret_credential, bool sync_secondary) {
+        int r;
+
+        assert(ret_credential);
+
+        _cleanup_close_ int dfd = open_mkdir("/run/systemd/tpm2", O_CLOEXEC, 0755);
+        if (dfd < 0)
+                return log_error_errno(dfd, "Failed to open directory '/run/systemd/tpm2': %m");
+
+        _cleanup_close_ int fd = openat(dfd, "tpm2-ak.cred", O_RDWR|O_CLOEXEC|O_CREAT|O_NOCTTY, 0644);
+        if (fd < 0)
+                return log_error_errno(errno, "Failed to open AK credential: %m");
+
+        r = lock_generic(fd, LOCK_BSD, LOCK_SH);
+        if (r < 0)
+                return log_error_errno(r, "Failed to lock AK credential file: %m");
+
+        struct stat st;
+        if (fstat(fd, &st) < 0)
+                return log_error_errno(errno, "Failed to stat() AK credential: %m");
+
+        r = stat_verify_regular(&st);
+        if (r < 0)
+                return log_error_errno(r, "AK credential file is not a regular file: %m");
+
+        if (st.st_size == 0) {
+                r = lock_generic(fd, LOCK_BSD, LOCK_EX);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to upgrade lock on AK credential file: %m");
+
+                if (fstat(fd, &st) < 0)
+                        return log_error_errno(errno, "Failed to stat() AK credential: %m");
+        }
+
+        bool copy_to_var = true, copy_to_boot = true;
+        _cleanup_(iovec_done) struct iovec credential = {};
+        if (st.st_size == 0) {
+                if (!sync_secondary) {
+                        r = tpm2_ak_acquire_credential_from_var(&credential);
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
+                                copy_to_var = false;
+                }
+
+                if (!iovec_is_set(&credential)) {
+                        r = tpm2_ak_acquire_credential_from_system(&credential);
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
+                                copy_to_boot = false;
+                }
+
+                if (!iovec_is_set(&credential)) {
+                        _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
+                        _cleanup_(tpm2_handle_freep) Tpm2Handle *ek_handle = NULL;
+                        _cleanup_(Esys_Freep) TPM2B_PUBLIC *ak_public = NULL;
+                        _cleanup_(Esys_Freep) TPM2B_PRIVATE *ak_private = NULL;
+                        _cleanup_(iovec_done_erase) struct iovec blob = {};
+
+                        r = tpm2_context_new_or_warn(tpm2_device, &c);
+                        if (r < 0)
+                                return r;
+
+                        r = tpm2_get_ek(
+                                        c,
+                                        /* session= */ NULL,
+                                        /* ret_public= */ NULL,
+                                        /* ret_name= */ NULL,
+                                        /* ret_qname= */ NULL,
+                                        &ek_handle);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to access EK for AK generation: %m");
+                        if (r == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "No populated EK found at known persistent handles, cannot create AK.");
+
+                        r = tpm2_create_ak(c, ek_handle, /* session= */ NULL, &ak_public, &ak_private);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to create AK: %m");
+
+                        r = tpm2_marshal_blob(ak_public, ak_private, /* seed= */ NULL, &blob.iov_base, &blob.iov_len);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to marshal AK blob: %m");
+
+                        r = encrypt_credential_and_warn(
+                                        _CRED_AUTO_TPM2,
+                                        "tpm2-ak.cred",
+                                        now(CLOCK_REALTIME),
+                                        /* not_after= */ USEC_INFINITY,
+                                        /* tpm2_device= */ NULL,
+                                        /* tpm2_hash_pcr_mask= */ 0,
+                                        /* tpm2_pubkey_path= */ NULL,
+                                        /* tpm2_pubkey_pcrs= */ UINT32_MAX,
+                                        /* uid= */ UID_INVALID,
+                                        &blob,
+                                        /* flags= */ 0,
+                                        &credential);
+                        if (r < 0)
+                                return r;
+                }
+
+                _cleanup_free_ char *encoded = NULL;
+                ssize_t n = base64mem_full(credential.iov_base, credential.iov_len, 79, &encoded);
+                if (n < 0)
+                        return log_error_errno(n, "Failed to base64 encode AK credential: %m");
+
+                if (!strextend(&encoded, "\n"))
+                        return log_oom();
+
+                n++;
+                r = loop_write(fd, encoded, n);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to write AK credential to disk: %m");
+        } else {
+                r = read_full_file_full(
+                                fd,
+                                /* filename= */ NULL,
+                                /* offset= */ UINT64_MAX,
+                                CREDENTIAL_ENCRYPTED_SIZE_MAX,
+                                READ_FULL_FILE_UNBASE64|READ_FULL_FILE_FAIL_WHEN_LARGER,
+                                /* bind_name= */ NULL,
+                                (char**) &credential.iov_base,
+                                &credential.iov_len);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read AK credential file: %m");
+        }
+
+        if (sync_secondary) {
+                if (copy_to_var) {
+                        r = tpm2_ak_write_credential_to_var(&credential);
+                        if (r < 0)
+                                return r;
+                }
+
+                if (copy_to_boot) {
+                        r = tpm2_ak_write_credential_to_boot(&credential);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        *ret_credential = TAKE_STRUCT(credential);
+        return 0;
+}
+
 static int tpm2_context_can_nvindex(Tpm2Context *c) {
         int r;
 
