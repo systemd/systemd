@@ -2,17 +2,25 @@
 #pragma once
 
 #include "sd-dhcp-option.h" /* IWYU pragma: export */
+#include "sd-forward.h"
 
 #include "dhcp-protocol.h"
-#include "sd-forward.h"
 #include "hash-funcs.h"
+#include "list.h"
 
 struct sd_dhcp_option {
         unsigned n_ref;
 
-        uint8_t option;
-        void *data;
-        size_t length;
+        LIST_FIELDS(struct sd_dhcp_option, option);
+
+        union {
+                uint8_t *tlv;
+                struct {
+                        uint8_t option;
+                        size_t length;
+                        void *data;
+                } _packed_;
+        };
 };
 
 extern const struct hash_ops dhcp_option_hash_ops;
