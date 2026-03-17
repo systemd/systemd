@@ -89,10 +89,12 @@ enum {
         DHCPTLS                                 = 18, /* [RFC7724] */
 };
 
-enum {
-        DHCP_OVERLOAD_FILE                      = 1,
-        DHCP_OVERLOAD_SNAME                     = 2,
-};
+typedef enum {
+        DHCP_OVERLOAD_NONE                      = 0,
+        DHCP_OVERLOAD_FILE                      = 1 << 0,
+        DHCP_OVERLOAD_SNAME                     = 1 << 1,
+        _DHCP_OVERLOAD_ALL                      = DHCP_OVERLOAD_FILE | DHCP_OVERLOAD_SNAME,
+} DHCPOptionOverload;
 
 #define DHCP_MAX_FQDN_LENGTH 255
 
