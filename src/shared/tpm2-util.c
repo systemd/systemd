@@ -7427,7 +7427,9 @@ static int tpm2_nvpcr_acquire_anchor_secret_from_credential(struct iovec *ret_cr
         if (dfd < 0) {
                 if (errno == ENOENT) {
                         log_debug("No encrypted system credentials passed.");
-                        goto not_found;
+                        *ret_credential = (struct iovec) {};
+                        *ret_secret = (struct iovec) {};
+                        return 0;
                 }
 
                 return log_error_errno(errno, "Failed to open system credentials directory.");
@@ -7479,8 +7481,6 @@ static int tpm2_nvpcr_acquire_anchor_secret_from_credential(struct iovec *ret_cr
         }
 
         log_debug("No suitable anchor secret passed as system credential.");
-
-not_found:
         *ret_credential = (struct iovec) {};
         *ret_secret = (struct iovec) {};
         return 0;
