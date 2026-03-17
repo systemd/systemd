@@ -34,7 +34,7 @@
     <para><filename>systemd-tpm2-setup.service</filename> and
     <filename>systemd-tpm2-setup-early.service</filename> are services that generate the Storage Root Key
     (SRK) if it has not been generated yet, and stores it in the TPM. They also provision an Attestation Key
-    (AK) under the SRK via encrypted credential sidecars. If NvPCRs (additional PCR registers in TPM NV
+    (AK) under the Endorsement Key (EK) via encrypted credential sidecars. If NvPCRs (additional PCR registers in TPM NV
     Indexes) are defined, these are initialized with the anchoring secret.</para>
 
     <para>The services will store the public key of the SRK key pair in a PEM file in
@@ -101,7 +101,7 @@
         <term><filename>$BOOT/loader/credentials/tpm2-ak.*.cred</filename></term>
 
         <listitem><para>Encrypted Attestation Key (AK) credential sidecar. The AK is generated under the
-        SRK and cached in <filename>/run/</filename>, synchronized to <filename>/var/lib/</filename>, and
+        EK and cached in <filename>/run/</filename>, synchronized to <filename>/var/lib/</filename>, and
         copied to the boot credential directory so it can be passed into the initrd by
         <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
         <xi:include href="version-info.xml" xpointer="v260"/></listitem>

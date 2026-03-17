@@ -1607,6 +1607,38 @@ int tpm2_get_or_create_srk(
         return 1; /* > 0 → SRK newly set up */
 }
 
+/* Well-known persistent EK handles from the TCG Provisioning Guidance. */
+#define TPM2_EK_RSA_HANDLE UINT32_C(0x81010001)
+#define TPM2_EK_ECC_HANDLE UINT32_C(0x81010002)
+
+/* Get the EK. Returns 1 if an EK is found, 0 if no known EK handle is populated, or < 0 on error. */
+static int tpm2_get_ek(
+                Tpm2Context *c,
+                const Tpm2Handle *session,
+                TPM2B_PUBLIC **ret_public,
+                TPM2B_NAME **ret_name,
+                TPM2B_NAME **ret_qname,
+                Tpm2Handle **ret_handle) {
+
+        int r;
+
+        assert(c);
+
+        r = tpm2_index_to_handle(c, TPM2_EK_ECC_HANDLE, session, ret_public, ret_name, ret_qname, ret_handle);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                return 1;
+
+        r = tpm2_index_to_handle(c, TPM2_EK_RSA_HANDLE, session, ret_public, ret_name, ret_qname, ret_handle);
+        if (r < 0)
+                return r;
+        if (r > 0)
+                return 1;
+
+        return 0;
+}
+
 /* Get an Attestation Key (AK) template suitable for TPM Quote generation.
  * Returns 0 if the specified algorithm is ECC or RSA, otherwise -EOPNOTSUPP. */
 int tpm2_get_ak_template(TPMI_ALG_PUBLIC alg, TPMT_PUBLIC *ret_template) {
@@ -1709,7 +1741,7 @@ int tpm2_get_best_ak_template(Tpm2Context *c, TPMT_PUBLIC *ret_template) {
 
 int tpm2_create_ak(
                 Tpm2Context *c,
-                const Tpm2Handle *srk_handle,
+                const Tpm2Handle *parent_handle,
                 const Tpm2Handle *session,
                 TPM2B_PUBLIC **ret_public,
                 TPM2B_PRIVATE **ret_private) {
@@ -1718,7 +1750,7 @@ int tpm2_create_ak(
         int r;
 
         assert(c);
-        assert(srk_handle);
+        assert(parent_handle);
         assert(ret_public);
         assert(ret_private);
 
@@ -1726,7 +1758,7 @@ int tpm2_create_ak(
         if (r < 0)
                 return r;
 
-        return tpm2_create(c, srk_handle, session, &template, /* sensitive= */ NULL, ret_public, ret_private);
+        return tpm2_create(c, parent_handle, session, &template, /* sensitive= */ NULL, ret_public, ret_private);
 }
 
 /* Utility functions for TPMS_PCR_SELECTION. */
@@ -7866,7 +7898,7 @@ int tpm2_ak_acquire_credential(const char *tpm2_device, struct iovec *ret_creden
 
                 if (!iovec_is_set(&credential)) {
                         _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
-                        _cleanup_(tpm2_handle_freep) Tpm2Handle *srk_handle = NULL;
+                        _cleanup_(tpm2_handle_freep) Tpm2Handle *ek_handle = NULL;
                         _cleanup_(Esys_Freep) TPM2B_PUBLIC *ak_public = NULL;
                         _cleanup_(Esys_Freep) TPM2B_PRIVATE *ak_private = NULL;
                         _cleanup_(iovec_done_erase) struct iovec blob = {};
@@ -7875,17 +7907,19 @@ int tpm2_ak_acquire_credential(const char *tpm2_device, struct iovec *ret_creden
                         if (r < 0)
                                 return r;
 
-                        r = tpm2_get_or_create_srk(
+                        r = tpm2_get_ek(
                                         c,
                                         /* session= */ NULL,
                                         /* ret_public= */ NULL,
                                         /* ret_name= */ NULL,
                                         /* ret_qname= */ NULL,
-                                        &srk_handle);
+                                        &ek_handle);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to get or create SRK for AK: %m");
+                                return log_error_errno(r, "Failed to access EK for AK generation: %m");
+                        if (r == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "No populated EK found at known persistent handles, cannot create AK.");
 
-                        r = tpm2_create_ak(c, srk_handle, /* session= */ NULL, &ak_public, &ak_private);
+                        r = tpm2_create_ak(c, ek_handle, /* session= */ NULL, &ak_public, &ak_private);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to create AK: %m");
 

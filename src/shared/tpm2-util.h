@@ -309,7 +309,7 @@ int tpm2_get_best_ak_template(Tpm2Context *c, TPMT_PUBLIC *ret_template);
 
 int tpm2_get_srk(Tpm2Context *c, const Tpm2Handle *session, TPM2B_PUBLIC **ret_public, TPM2B_NAME **ret_name, TPM2B_NAME **ret_qname, Tpm2Handle **ret_handle);
 int tpm2_get_or_create_srk(Tpm2Context *c, const Tpm2Handle *session, TPM2B_PUBLIC **ret_public, TPM2B_NAME **ret_name, TPM2B_NAME **ret_qname, Tpm2Handle **ret_handle);
-int tpm2_create_ak(Tpm2Context *c, const Tpm2Handle *srk_handle, const Tpm2Handle *session, TPM2B_PUBLIC **ret_public, TPM2B_PRIVATE **ret_private);
+int tpm2_create_ak(Tpm2Context *c, const Tpm2Handle *parent_handle, const Tpm2Handle *session, TPM2B_PUBLIC **ret_public, TPM2B_PRIVATE **ret_private);
 int tpm2_ak_acquire_credential(const char *tpm2_device, struct iovec *ret_credential, bool sync_secondary);
 
 int tpm2_seal(Tpm2Context *c, uint32_t seal_key_handle, const TPM2B_DIGEST policy_hash[], size_t n_policy, const char *pin, struct iovec *ret_secret, struct iovec **ret_blobs, size_t *ret_n_blobs, uint16_t *ret_primary_alg, struct iovec *ret_srk);
