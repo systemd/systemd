@@ -56,7 +56,6 @@ jobs:
     outputs:
       pr_number: ${{ steps.context.outputs.pr_number }}
       comment_id: ${{ steps.context.outputs.comment_id }}
-      pr_context: ${{ steps.context.outputs.pr_context }}
 
     steps:
       - name: Auto-add claude-review label for trusted contributors
@@ -123,7 +122,16 @@ jobs:
 
             core.setOutput("pr_number", prNumber);
             core.setOutput("comment_id", commentId);
-            core.setOutput("pr_context", JSON.stringify(prContext));
+
+            const fs = require("fs");
+            fs.writeFileSync("pr-context.json", JSON.stringify(prContext));
+
+      - name: Upload PR context
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        with:
+          name: pr-context
+          path: pr-context.json
+          archive: false
 
   review:
     runs-on: ubuntu-latest
@@ -147,10 +155,10 @@ jobs:
           PR_NUMBER: ${{ needs.setup.outputs.pr_number }}
         run: git fetch origin "pull/${PR_NUMBER}/head:pr-review"
 
-      - name: Write PR context
-        env:
-          PR_CONTEXT: ${{ needs.setup.outputs.pr_context }}
-        run: printenv PR_CONTEXT > pr-context.json
+      - name: Download PR context
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: pr-context
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@8df5847569e6427dd6c4fb1cf565c83acfa8afa7
