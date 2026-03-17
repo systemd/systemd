@@ -112,6 +112,7 @@
 
 #define BUS_ERROR_NO_PRODUCT_UUID              "org.freedesktop.hostname1.NoProductUUID"
 #define BUS_ERROR_NO_HARDWARE_SERIAL           "org.freedesktop.hostname1.NoHardwareSerial"
+#define BUS_ERROR_FIELD_NOT_SET                "org.freedesktop.hostname1.FieldNotSet"
 #define BUS_ERROR_FILE_IS_PROTECTED            "org.freedesktop.hostname1.FileIsProtected"
 #define BUS_ERROR_READ_ONLY_FILESYSTEM         "org.freedesktop.hostname1.ReadOnlyFilesystem"
 
