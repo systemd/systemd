@@ -35,12 +35,19 @@
         uint8_t file[128];             \
         be32_t magic;
 
+struct DHCPMessageHeader {
+        DHCP_MESSAGE_HEADER_DEFINITION;
+} _packed_;
+
+typedef struct DHCPMessageHeader DHCPMessageHeader;
+
 struct DHCPMessage {
         DHCP_MESSAGE_HEADER_DEFINITION;
         uint8_t options[];
 } _packed_;
 
 typedef struct DHCPMessage DHCPMessage;
+assert_cc(sizeof(DHCPMessageHeader) == offsetof(DHCPMessage, options));
 
 struct DHCPPacket {
         struct iphdr ip;
