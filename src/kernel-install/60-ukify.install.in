@@ -185,7 +185,12 @@ def devicetree_file_location(opts) -> Optional[Path]:
 def kernel_cmdline_base() -> list[str]:
     path = input_file_location('cmdline')
     if path:
-        return path.read_text().split()
+        # Filter out commented out lines from cmdline.
+        lines = path.read_text().splitlines()
+        return [opt
+                for line in lines
+                if not line.startswith('#')
+                for opt in line.split()]
 
     # If we read /proc/cmdline, we need to do some additional filtering.
     options = Path('/proc/cmdline').read_text().split()
