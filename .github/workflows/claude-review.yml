@@ -116,6 +116,7 @@ jobs:
             const prContext = {
               pr: pr.data,
               reviews,
+              issue_comments: issueComments,
               tracking_comment: trackingCommentBody,
               review_comments: reviewComments,
             };
@@ -243,6 +244,7 @@ jobs:
               It contains a JSON object with:
               - `pr` — full GitHub PR object (title, body, user, head SHA, etc.)
               - `reviews` — array of PR reviews from the GitHub API
+              - `issue_comments` — array of issue comments on the PR from the GitHub API
               - `tracking_comment` — body of the existing tracking comment (null on first run);
                 if present, use it as the basis for your `summary` in Phase 3
               - `review_comments` — array of inline review comments from the GitHub API;
