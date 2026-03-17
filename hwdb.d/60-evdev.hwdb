@@ -422,6 +422,17 @@ evdev:name:Atmel maXTouch Touch*:dmi:bvn*:bvr*:bd*:svnGOOGLE:pnSamus:*
  EVDEV_ABS_36=::10
 
 #########################################
+# Goodix
+#########################################
+
+# Goodix GXTP5100 Forcepad (Lenovo ThinkBook 16 G7+ IAH, ThinkPad X9 15 Gen 1)
+# The kernel hid-multitouch driver reports ABS_PRESSURE with min==max==0,
+# an invalid range that causes libinput to reject the device entirely.
+# Override ABS_PRESSURE (axis 0x18=24) to a valid range.
+evdev:input:b0018v27C6p01E9*
+ EVDEV_ABS_18=0:255:0:0
+
+#########################################
 # Granite Devices Simucube wheel bases
 #########################################
 
