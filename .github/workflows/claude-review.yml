@@ -264,6 +264,7 @@ jobs:
             --model us.anthropic.claude-opus-4-6-v1
             --max-turns 200
             --disallowedTools "WebFetch,WebSearch,Agent,TaskCreate"
+            --setting-sources user
             --json-schema '${{ env.REVIEW_SCHEMA }}'
           prompt: |
               REPO: ${{ github.repository }}
