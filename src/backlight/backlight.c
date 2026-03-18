@@ -555,7 +555,7 @@ static int device_new_from_arg(const char *s, sd_device **ret) {
         return 1; /* Found. */
 }
 
-static int verb_load(int argc, char *argv[], void *userdata) {
+static int verb_load(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         unsigned max_brightness, brightness, percent;
         bool clamp;
@@ -605,7 +605,7 @@ static int verb_load(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int verb_save(int argc, char *argv[], void *userdata) {
+static int verb_save(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         _cleanup_free_ char *path = NULL;
         unsigned max_brightness, brightness;

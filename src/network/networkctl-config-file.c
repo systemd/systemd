@@ -470,7 +470,7 @@ static int reload_daemons(ReloadFlags flags) {
         return ret;
 }
 
-int verb_edit(int argc, char *argv[], void *userdata) {
+int verb_edit(int argc, char *argv[], uintptr_t _data, void *userdata) {
         char **args = ASSERT_PTR(strv_skip(argv, 1));
         _cleanup_(edit_file_context_done) EditFileContext context = {
                 .marker_start = DROPIN_MARKER_START,
@@ -630,7 +630,7 @@ static int cat_files_by_link_config(const char *link_config, sd_netlink **rtnl, 
         return cat_files_by_link_one(ifname, type, rtnl, /* ignore_missing= */ false, first);
 }
 
-int verb_cat(int argc, char *argv[], void *userdata) {
+int verb_cat(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         char **args = strv_skip(argv, 1);
         int r, ret = 0;
@@ -683,7 +683,7 @@ int verb_cat(int argc, char *argv[], void *userdata) {
         return ret;
 }
 
-int verb_mask(int argc, char *argv[], void *userdata) {
+int verb_mask(int argc, char *argv[], uintptr_t _data, void *userdata) {
         ReloadFlags flags = 0;
         int r;
 
@@ -747,7 +747,7 @@ int verb_mask(int argc, char *argv[], void *userdata) {
         return reload_daemons(flags);
 }
 
-int verb_unmask(int argc, char *argv[], void *userdata) {
+int verb_unmask(int argc, char *argv[], uintptr_t _data, void *userdata) {
         ReloadFlags flags = 0;
         int r;
 

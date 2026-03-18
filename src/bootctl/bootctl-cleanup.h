@@ -3,4 +3,4 @@
 
 #include "shared-forward.h"
 
-int verb_cleanup(int argc, char *argv[], void *userdata);
+int verb_cleanup(int argc, char *argv[], uintptr_t _data, void *userdata);

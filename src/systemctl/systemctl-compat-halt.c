@@ -170,7 +170,7 @@ int halt_main(void) {
                 arg_no_block = true;
 
                 if (!arg_dry_run)
-                        return verb_start(0, NULL, NULL);
+                        return verb_start(0, NULL, /* data= */ 0, NULL);
         }
 
         r = must_be_root();

@@ -228,7 +228,7 @@ static int lock_device(
         return TAKE_FD(fd);
 }
 
-int lock_main(int argc, char *argv[], void *userdata) {
+int verb_lock_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_fdset_free_ FDSet *fds = NULL;
         _cleanup_free_ dev_t *devnos = NULL;
         size_t n_devnos = 0;

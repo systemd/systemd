@@ -170,7 +170,7 @@ void time_parsing_hint(const char *p, bool calendar, bool timestamp, bool timesp
                            "Use 'systemd-analyze timespan \"%s\"' instead?", p);
 }
 
-static int verb_transient_settings(int argc, char *argv[], void *userdata) {
+static int verb_transient_settings(int argc, char *argv[], uintptr_t _data, void *userdata) {
         assert(argc >= 2);
 
         pager_open(arg_pager_flags);
@@ -193,7 +193,7 @@ static int verb_transient_settings(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
-static int help(int argc, char *argv[], void *userdata) {
+static int help(void) {
         _cleanup_free_ char *link = NULL, *dot_link = NULL;
         int r;
 
@@ -324,6 +324,10 @@ static int help(int argc, char *argv[], void *userdata) {
          * shell-completion/bash/systemd-analyze and shell-completion/zsh/_systemd-analyze too. */
 
         return 0;
+}
+
+static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        return help();
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -466,7 +470,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'h':
-                        return help(0, NULL, NULL);
+                        return help();
 
                 case ARG_VERSION:
                         return version();
@@ -773,7 +777,7 @@ static int run(int argc, char *argv[]) {
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
 
         static const Verb verbs[] = {
-                { "help",               VERB_ANY, VERB_ANY, 0,            help                         },
+                { "help",               VERB_ANY, VERB_ANY, 0,            verb_help                    },
                 { "time",               VERB_ANY, 1,        VERB_DEFAULT, verb_time                    },
                 { "blame",              VERB_ANY, 1,        0,            verb_blame                   },
                 { "critical-chain",     VERB_ANY, VERB_ANY, 0,            verb_critical_chain          },

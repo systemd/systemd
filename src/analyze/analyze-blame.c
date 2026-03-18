@@ -9,7 +9,7 @@
 #include "format-table.h"
 #include "runtime-scope.h"
 
-int verb_blame(int argc, char *argv[], void *userdata) {
+int verb_blame(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(unit_times_free_arrayp) UnitTimes *times = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;

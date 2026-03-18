@@ -87,7 +87,7 @@ static int cleanup_orphaned_files(
         return r;
 }
 
-int verb_cleanup(int argc, char *argv[], void *userdata) {
+int verb_cleanup(int argc, char *argv[], uintptr_t _data, void *userdata) {
         dev_t esp_devid = 0, xbootldr_devid = 0;
         int r;
 

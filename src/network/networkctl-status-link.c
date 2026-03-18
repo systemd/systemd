@@ -939,7 +939,7 @@ static int link_status_one(
         return show_logs(info->ifindex, info->name);
 }
 
-int link_status(int argc, char *argv[], void *userdata) {
+int verb_link_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;

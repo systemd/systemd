@@ -136,7 +136,7 @@ static int verify_conditions(char **lines, RuntimeScope scope, const char *unit,
         return r > 0 && q > 0 ? 0 : -EIO;
 }
 
-int verb_condition(int argc, char *argv[], void *userdata) {
+int verb_condition(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
         r = verify_conditions(strv_skip(argv, 1), arg_runtime_scope, arg_unit, arg_root);

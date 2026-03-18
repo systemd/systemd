@@ -106,7 +106,7 @@ static void dump_syscall_filter(const SyscallFilterSet *set) {
                 printf("    %s%s%s\n", syscall[0] == '@' ? ansi_underline() : "", syscall, ansi_normal());
 }
 
-int verb_syscall_filters(int argc, char *argv[], void *userdata) {
+int verb_syscall_filters(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
         pager_open(arg_pager_flags);
@@ -195,7 +195,7 @@ int verb_syscall_filters(int argc, char *argv[], void *userdata) {
 }
 
 #else
-int verb_syscall_filters(int argc, char *argv[], void *userdata) {
+int verb_syscall_filters(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Not compiled with syscall filters, sorry.");
 }
 #endif

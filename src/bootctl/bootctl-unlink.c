@@ -199,7 +199,7 @@ static int unlink_entry(const BootConfig *config, const char *root, const char *
         return 0;
 }
 
-int verb_unlink(int argc, char *argv[], void *userdata) {
+int verb_unlink(int argc, char *argv[], uintptr_t _data, void *userdata) {
         dev_t esp_devid = 0, xbootldr_devid = 0;
         int r;
 

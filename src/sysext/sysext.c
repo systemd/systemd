@@ -597,7 +597,7 @@ static int unmerge(
         return 0;
 }
 
-static int verb_unmerge(int argc, char **argv, void *userdata) {
+static int verb_unmerge(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
         r = have_effective_cap(CAP_SYS_ADMIN);
@@ -690,7 +690,7 @@ static int vl_method_unmerge(sd_varlink *link, sd_json_variant *parameters, sd_v
         return sd_varlink_reply(link, NULL);
 }
 
-static int verb_status(int argc, char **argv, void *userdata) {
+static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(table_unrefp) Table *t = NULL;
         int r, ret = 0;
 
@@ -2474,7 +2474,7 @@ static int look_for_merged_hierarchies(
         return 0;
 }
 
-static int verb_merge(int argc, char **argv, void *userdata) {
+static int verb_merge(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_hashmap_free_ Hashmap *images = NULL;
         const char *which;
         int r;
@@ -2637,7 +2637,7 @@ static int refresh(
         return r;
 }
 
-static int verb_refresh(int argc, char **argv, void *userdata) {
+static int verb_refresh(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
         r = have_effective_cap(CAP_SYS_ADMIN);
@@ -2703,7 +2703,7 @@ static int vl_method_refresh(sd_varlink *link, sd_json_variant *parameters, sd_v
         return sd_varlink_reply(link, NULL);
 }
 
-static int verb_list(int argc, char **argv, void *userdata) {
+static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_hashmap_free_ Hashmap *images = NULL;
         _cleanup_(table_unrefp) Table *t = NULL;
         Image *img;
@@ -2794,7 +2794,7 @@ static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varl
         return 0;
 }
 
-static int verb_help(int argc, char **argv, void *userdata) {
+static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
@@ -2839,8 +2839,11 @@ static int verb_help(int argc, char **argv, void *userdata) {
         return 0;
 }
 
-static int parse_argv(int argc, char *argv[]) {
+static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        return help();
+}
 
+static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_NO_PAGER,
@@ -2881,7 +2884,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        return verb_help(argc, argv, NULL);
+                        return help();
 
                 case ARG_VERSION:
                         return version();
