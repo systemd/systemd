@@ -7905,9 +7905,11 @@ int tpm2_ak_acquire_credential(const char *tpm2_device, struct iovec *ret_creden
                 if (!iovec_is_set(&credential)) {
                         _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
                         _cleanup_(tpm2_handle_freep) Tpm2Handle *ek_handle = NULL;
+                        _cleanup_(tpm2_handle_freep) Tpm2Handle *srk_handle = NULL;
                         _cleanup_(Esys_Freep) TPM2B_PUBLIC *ak_public = NULL;
                         _cleanup_(Esys_Freep) TPM2B_PRIVATE *ak_private = NULL;
                         _cleanup_(iovec_done_erase) struct iovec blob = {};
+                        bool tried_ek = false;
 
                         r = tpm2_context_new_or_warn(tpm2_device, &c);
                         if (r < 0)
@@ -7922,12 +7924,37 @@ int tpm2_ak_acquire_credential(const char *tpm2_device, struct iovec *ret_creden
                                         &ek_handle);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to access EK for AK generation: %m");
-                        if (r == 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "No populated EK found at known persistent handles, cannot create AK.");
+                        if (r > 0) {
+                                _cleanup_(Esys_Freep) TPM2B_PUBLIC *ek_ak_public = NULL;
+                                _cleanup_(Esys_Freep) TPM2B_PRIVATE *ek_ak_private = NULL;
 
-                        r = tpm2_create_ak(c, ek_handle, /* session= */ NULL, &ak_public, &ak_private);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to create AK: %m");
+                                tried_ek = true;
+                                r = tpm2_create_ak(c, ek_handle, /* session= */ NULL, &ek_ak_public, &ek_ak_private);
+                                if (r < 0)
+                                        log_notice_errno(r, "Failed to create AK under EK, falling back to SRK: %m");
+                                else {
+                                        ak_public = TAKE_PTR(ek_ak_public);
+                                        ak_private = TAKE_PTR(ek_ak_private);
+                                }
+                        }
+
+                        if (!ak_public) {
+                                r = tpm2_get_or_create_srk(
+                                                c,
+                                                /* session= */ NULL,
+                                                /* ret_public= */ NULL,
+                                                /* ret_name= */ NULL,
+                                                /* ret_qname= */ NULL,
+                                                &srk_handle);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to get or create SRK for AK generation: %m");
+
+                                r = tpm2_create_ak(c, srk_handle, /* session= */ NULL, &ak_public, &ak_private);
+                                if (r < 0)
+                                        return log_error_errno(
+                                                        r,
+                                                        tried_ek ? "Failed to create AK under SRK after EK attempt: %m" : "Failed to create AK under SRK: %m");
+                        }
 
                         r = tpm2_marshal_blob(ak_public, ak_private, /* seed= */ NULL, &blob.iov_base, &blob.iov_len);
                         if (r < 0)
