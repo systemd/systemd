@@ -241,6 +241,9 @@ jobs:
           # filesystem writes to the working directory.
           settings: |
             {
+              "permissions": {
+                "allow": ["*"]
+              },
               "sandbox": {
                 "enabled": true,
                 "autoAllowBashIfSandboxed": true,
