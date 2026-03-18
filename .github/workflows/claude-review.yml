@@ -162,6 +162,9 @@ jobs:
         with:
           name: pr-context.json
 
+      - name: Prettify PR context
+        run: python3 -m json.tool pr-context.json > pr-context-pretty.json && mv pr-context-pretty.json pr-context.json
+
       - name: Install sandbox dependencies
         run: |
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
