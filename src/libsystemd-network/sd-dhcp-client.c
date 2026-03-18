@@ -24,7 +24,6 @@
 #include "network-common.h"
 #include "random-util.h"
 #include "set.h"
-#include "sort-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "time-util.h"
@@ -715,495 +714,6 @@ static usec_t client_compute_reacquisition_timeout(usec_t now_usec, usec_t expir
         return MAX(usec_sub_unsigned(expire, now_usec) / 2, 60 * USEC_PER_SEC);
 }
 
-static int cmp_uint8(const uint8_t *a, const uint8_t *b) {
-        assert(a);
-        assert(b);
-
-        return CMP(*a, *b);
-}
-
-static int client_message_init(
-                sd_dhcp_client *client,
-                uint8_t type,
-                DHCPPacket **ret_packet,
-                size_t *ret_optlen,
-                size_t *ret_optoffset) {
-
-        _cleanup_free_ DHCPPacket *packet = NULL;
-        size_t optlen, optoffset, size;
-        usec_t time_now;
-        uint16_t secs;
-        int r;
-
-        assert(client);
-        assert(IN_SET(type, DHCP_DISCOVER, DHCP_REQUEST, DHCP_RELEASE, DHCP_DECLINE));
-        assert(ret_packet);
-        assert(ret_optlen);
-        assert(ret_optoffset);
-
-        optlen = DHCP_MIN_OPTIONS_SIZE;
-        size = sizeof(DHCPPacket) + optlen;
-
-        packet = malloc0(size);
-        if (!packet)
-                return -ENOMEM;
-        if (client->bootp) {
-                /* BOOTP supports options, but only DHCP_OPTION_END is used. The rest of the 64-byte buffer
-                 * is set to zero, per RFC1542. Allow for this by initialaizing optoffset to 0. */
-                optoffset = 0;
-                r = bootp_message_init(
-                                &packet->dhcp, BOOTREQUEST, client->xid, client->arp_type,
-                                client->hw_addr.length, client->hw_addr.bytes);
-        } else
-                r = dhcp_message_init(
-                                &packet->dhcp, BOOTREQUEST, client->xid, client->arp_type,
-                                client->hw_addr.length, client->hw_addr.bytes,
-                                type, optlen, &optoffset);
-        if (r < 0)
-                return r;
-
-        /* Although 'secs' field is a SHOULD in RFC 2131, certain DHCP servers
-           refuse to issue an DHCP lease if 'secs' is set to zero */
-        r = sd_event_now(client->event, CLOCK_BOOTTIME, &time_now);
-        if (r < 0)
-                return r;
-        assert(time_now >= client->start_time);
-
-        /* seconds between sending first and last DISCOVER
-         * must always be strictly positive to deal with broken servers */
-        secs = ((time_now - client->start_time) / USEC_PER_SEC) ?: 1;
-        packet->dhcp.secs = htobe16(secs);
-
-        /* RFC2131 section 4.1
-           A client that cannot receive unicast IP datagrams until its protocol
-           software has been configured with an IP address SHOULD set the
-           BROADCAST bit in the 'flags' field to 1 in any DHCPDISCOVER or
-           DHCPREQUEST messages that client sends.  The BROADCAST bit will
-           provide a hint to the DHCP server and BOOTP relay agent to broadcast
-           any messages to the client on the client's subnet.
-
-           Note: some interfaces needs this to be enabled, but some networks
-           needs this to be disabled as broadcasts are filteretd, so this
-           needs to be configurable */
-        if (client->request_broadcast || client->arp_type != ARPHRD_ETHER)
-                packet->dhcp.flags = htobe16(0x8000);
-
-        if (client->bootp) {
-                *ret_optlen = optlen;
-                *ret_optoffset = optoffset;
-                *ret_packet = TAKE_PTR(packet);
-                return 0;
-        }
-
-        /* Some DHCP servers will refuse to issue an DHCP lease if the Client
-           Identifier option is not set */
-        r = dhcp_option_append(&packet->dhcp, optlen, &optoffset, 0,
-                               SD_DHCP_OPTION_CLIENT_IDENTIFIER,
-                               client->client_id.size,
-                               client->client_id.raw);
-        if (r < 0)
-                return r;
-
-        /* RFC2131 section 3.5:
-           in its initial DHCPDISCOVER or DHCPREQUEST message, a
-           client may provide the server with a list of specific
-           parameters the client is interested in. If the client
-           includes a list of parameters in a DHCPDISCOVER message,
-           it MUST include that list in any subsequent DHCPREQUEST
-           messages.
-         */
-
-        /* RFC7844 section 3:
-           MAY contain the Parameter Request List option. */
-        /* NOTE: in case that there would be an option to do not send
-         * any PRL at all, the size should be checked before sending */
-        if (!set_isempty(client->req_opts) && IN_SET(type, DHCP_DISCOVER, DHCP_REQUEST)) {
-                _cleanup_free_ uint8_t *opts = NULL;
-                size_t n_opts, i = 0;
-                void *val;
-
-                n_opts = set_size(client->req_opts);
-                opts = new(uint8_t, n_opts);
-                if (!opts)
-                        return -ENOMEM;
-
-                SET_FOREACH(val, client->req_opts)
-                        opts[i++] = PTR_TO_UINT8(val);
-                assert(i == n_opts);
-
-                /* For anonymizing the request, let's sort the options. */
-                typesafe_qsort(opts, n_opts, cmp_uint8);
-
-                r = dhcp_option_append(&packet->dhcp, optlen, &optoffset, 0,
-                                       SD_DHCP_OPTION_PARAMETER_REQUEST_LIST,
-                                       n_opts, opts);
-                if (r < 0)
-                        return r;
-        }
-
-        /* RFC2131 section 3.5:
-           The client SHOULD include the ’maximum DHCP message size’ option to
-           let the server know how large the server may make its DHCP messages.
-
-           Note (from ConnMan): Some DHCP servers will send bigger DHCP packets
-           than the defined default size unless the Maximum Message Size option
-           is explicitly set
-
-           RFC3442 "Requirements to Avoid Sizing Constraints":
-           Because a full routing table can be quite large, the standard 576
-           octet maximum size for a DHCP message may be too short to contain
-           some legitimate Classless Static Route options.  Because of this,
-           clients implementing the Classless Static Route option SHOULD send a
-           Maximum DHCP Message Size [4] option if the DHCP client's TCP/IP
-           stack is capable of receiving larger IP datagrams.  In this case, the
-           client SHOULD set the value of this option to at least the MTU of the
-           interface that the client is configuring.  The client MAY set the
-           value of this option higher, up to the size of the largest UDP packet
-           it is prepared to accept.  (Note that the value specified in the
-           Maximum DHCP Message Size option is the total maximum packet size,
-           including IP and UDP headers.)
-         */
-        /* RFC7844 section 3:
-           SHOULD NOT contain any other option. */
-        if (!client->anonymize && IN_SET(type, DHCP_DISCOVER, DHCP_REQUEST)) {
-                be16_t max_size = htobe16(MIN(client->mtu - DHCP_IP_UDP_SIZE, (uint32_t) UINT16_MAX));
-                r = dhcp_option_append(&packet->dhcp, optlen, &optoffset, 0,
-                                       SD_DHCP_OPTION_MAXIMUM_MESSAGE_SIZE,
-                                       2, &max_size);
-                if (r < 0)
-                        return r;
-        }
-
-        *ret_optlen = optlen;
-        *ret_optoffset = optoffset;
-        *ret_packet = TAKE_PTR(packet);
-
-        return 0;
-}
-
-static int client_append_fqdn_option(
-                DHCPMessage *message,
-                size_t optlen,
-                size_t *optoffset,
-                const char *fqdn) {
-
-        uint8_t buffer[3 + DHCP_MAX_FQDN_LENGTH];
-        int r;
-
-        buffer[0] = DHCP_FQDN_FLAG_S | /* Request server to perform A RR DNS updates */
-                    DHCP_FQDN_FLAG_E;  /* Canonical wire format */
-        buffer[1] = 0;                 /* RCODE1 (deprecated) */
-        buffer[2] = 0;                 /* RCODE2 (deprecated) */
-
-        r = dns_name_to_wire_format(fqdn, buffer + 3, sizeof(buffer) - 3, false);
-        if (r > 0)
-                r = dhcp_option_append(message, optlen, optoffset, 0,
-                                       SD_DHCP_OPTION_FQDN, 3 + r, buffer);
-
-        return r;
-}
-
-static int client_append_common_discover_request_options(sd_dhcp_client *client, DHCPPacket *packet, size_t *optoffset, size_t optlen) {
-        int r;
-
-        assert(client);
-
-        if (client->hostname) {
-                /* According to RFC 4702 "clients that send the Client FQDN option in
-                   their messages MUST NOT also send the Host Name option". Just send
-                   one of the two depending on the hostname type.
-                */
-                if (dns_name_is_single_label(client->hostname)) {
-                        /* it is unclear from RFC 2131 if client should send hostname in
-                           DHCPDISCOVER but dhclient does and so we do as well
-                        */
-                        r = dhcp_option_append(&packet->dhcp, optlen, optoffset, 0,
-                                               SD_DHCP_OPTION_HOST_NAME,
-                                               strlen(client->hostname), client->hostname);
-                } else
-                        r = client_append_fqdn_option(&packet->dhcp, optlen, optoffset,
-                                                      client->hostname);
-                if (r < 0)
-                        return r;
-        }
-
-        if (client->vendor_class_identifier) {
-                r = dhcp_option_append(&packet->dhcp, optlen, optoffset, 0,
-                                       SD_DHCP_OPTION_VENDOR_CLASS_IDENTIFIER,
-                                       strlen(client->vendor_class_identifier),
-                                       client->vendor_class_identifier);
-                if (r < 0)
-                        return r;
-        }
-
-        if (client->mudurl) {
-                r = dhcp_option_append(&packet->dhcp, optlen, optoffset, 0,
-                                       SD_DHCP_OPTION_MUD_URL,
-                                       strlen(client->mudurl),
-                                       client->mudurl);
-                if (r < 0)
-                        return r;
-        }
-
-        if (!iovw_isempty(&client->user_class)) {
-                size_t sz = iovw_size(&client->user_class) + client->user_class.count;
-                if (sz <= UINT8_MAX) {
-                        _cleanup_free_ uint8_t *buf = new(uint8_t, sz);
-                        if (!buf)
-                                return -ENOMEM;
-
-                        uint8_t *p = buf;
-                        FOREACH_ARRAY(iovec, client->user_class.iovec, client->user_class.count) {
-                                assert(iovec->iov_len > 0 && iovec->iov_len <= UINT8_MAX);
-                                *p++ = iovec->iov_len;
-                                p = mempcpy(p, iovec->iov_base, iovec->iov_len);
-                        }
-
-                        r = dhcp_option_append(&packet->dhcp, optlen, optoffset, 0,
-                                               SD_DHCP_OPTION_USER_CLASS,
-                                               sz, buf);
-                        if (r < 0)
-                                return r;
-                }
-        }
-
-        if (client->extra_options) {
-                void *key;
-                struct iovec_wrapper *iovw;
-                HASHMAP_FOREACH_KEY(iovw, key, client->extra_options->entries) {
-                        uint32_t tag = PTR_TO_UINT32(key);
-
-                        FOREACH_ARRAY(iov, iovw->iovec, iovw->count) {
-                                r = dhcp_option_append(&packet->dhcp, optlen, optoffset, 0,
-                                               tag, iov->iov_len, iov->iov_base);
-                                if (r < 0)
-                                        return r;
-                        }
-                }
-        }
-
-        if (!tlv_isempty(client->vendor_options)) {
-                _cleanup_(iovec_done) struct iovec iov = {};
-                r = tlv_build(client->vendor_options, &iov);
-                if (r < 0)
-                        return r;
-
-                r = dhcp_option_append(
-                                &packet->dhcp, optlen, optoffset, 0,
-                                SD_DHCP_OPTION_VENDOR_SPECIFIC_INFORMATION,
-                                iov.iov_len, iov.iov_base);
-                if (r < 0)
-                        return r;
-        }
-
-        return 0;
-}
-
-static int client_send_dhcp_discover(sd_dhcp_client *client) {
-        _cleanup_free_ DHCPPacket *discover = NULL;
-        size_t optoffset, optlen;
-        int r;
-
-        assert(client);
-
-        r = client_message_init(client, DHCP_DISCOVER, &discover, &optlen, &optoffset);
-        if (r < 0)
-                return r;
-
-        /* the client may suggest values for the network address
-           and lease time in the DHCPDISCOVER message. The client may include
-           the ’requested IP address’ option to suggest that a particular IP
-           address be assigned, and may include the ’IP address lease time’
-           option to suggest the lease time it would like.
-         */
-        /* RFC7844 section 3:
-           SHOULD NOT contain any other option. */
-        if (!client->anonymize && client->last_addr != INADDR_ANY) {
-                r = dhcp_option_append(&discover->dhcp, optlen, &optoffset, 0,
-                                       SD_DHCP_OPTION_REQUESTED_IP_ADDRESS,
-                                       4, &client->last_addr);
-                if (r < 0)
-                        return r;
-        }
-
-        if (client->rapid_commit) {
-                r = dhcp_option_append(&discover->dhcp, optlen, &optoffset, 0,
-                                       SD_DHCP_OPTION_RAPID_COMMIT, 0, NULL);
-                if (r < 0)
-                        return r;
-        }
-
-        r = client_append_common_discover_request_options(client, discover, &optoffset, optlen);
-        if (r < 0)
-                return r;
-
-        r = dhcp_option_append(&discover->dhcp, optlen, &optoffset, 0,
-                               SD_DHCP_OPTION_END, 0, NULL);
-        if (r < 0)
-                return r;
-
-        r = dhcp_client_send_raw(client, /* expect_reply= */ true, discover, optoffset);
-        if (r < 0)
-                return r;
-
-        log_dhcp_client(client, "DISCOVER");
-        return 0;
-}
-
-static int client_send_bootp_discover(sd_dhcp_client *client) {
-        _cleanup_free_ DHCPPacket *discover = NULL;
-        size_t optoffset, optlen;
-        int r;
-
-        assert(client);
-
-        r = client_message_init(client, DHCP_DISCOVER, &discover, &optlen, &optoffset);
-        if (r < 0)
-                return r;
-
-        r = dhcp_option_append(&discover->dhcp, optlen, &optoffset, 0, SD_DHCP_OPTION_END, 0, NULL);
-        if (r < 0)
-                return r;
-
-        /* RFC1542 section 3.5:
-         * if the client has no information to communicate to the server, the octet immediately following the
-         * magic cookie SHOULD be set to the "End" tag (255) and the remaining octets of the 'vend' field
-         * SHOULD be set to zero.
-         *
-         * Use this RFC, along with the fact that some BOOTP servers require a 64-byte vend field, to suggest
-         * that we always zero and send 64 bytes in the options field. The first four bites are the "magic"
-         * field, so this only needs to add 60 bytes. */
-        if (optoffset < 60 && optlen >= 60) {
-                memzero(&discover->dhcp.options[optoffset], optlen - optoffset);
-                optoffset = 60;
-        }
-
-        r = dhcp_client_send_raw(client, /* expect_reply= */ true, discover, optoffset);
-        if (r < 0)
-                return r;
-
-        log_dhcp_client(client, "DISCOVER");
-        return 0;
-}
-
-static int client_send_discover(sd_dhcp_client *client) {
-        assert(client);
-        assert(client->state == DHCP_STATE_SELECTING);
-
-        return client->bootp ?
-                client_send_bootp_discover(client) :
-                client_send_dhcp_discover(client);
-}
-
-static int client_send_request(sd_dhcp_client *client) {
-        _cleanup_free_ DHCPPacket *request = NULL;
-        size_t optoffset, optlen;
-        int r;
-
-        assert(client);
-        assert(!client->bootp);
-
-        r = client_message_init(client, DHCP_REQUEST, &request, &optlen, &optoffset);
-        if (r < 0)
-                return r;
-
-        switch (client->state) {
-        /* See RFC2131 section 4.3.2 (note that there is a typo in the RFC,
-           SELECTING should be REQUESTING)
-         */
-
-        case DHCP_STATE_REQUESTING:
-                /* Client inserts the address of the selected server in ’server
-                   identifier’, ’ciaddr’ MUST be zero, ’requested IP address’ MUST be
-                   filled in with the yiaddr value from the chosen DHCPOFFER.
-                 */
-
-                r = dhcp_option_append(&request->dhcp, optlen, &optoffset, 0,
-                                       SD_DHCP_OPTION_SERVER_IDENTIFIER,
-                                       4, &client->lease->server_address);
-                if (r < 0)
-                        return r;
-
-                r = dhcp_option_append(&request->dhcp, optlen, &optoffset, 0,
-                                       SD_DHCP_OPTION_REQUESTED_IP_ADDRESS,
-                                       4, &client->lease->address);
-                if (r < 0)
-                        return r;
-                break;
-
-        case DHCP_STATE_REBOOTING:
-                /* ’server identifier’ MUST NOT be filled in, ’requested IP address’
-                   option MUST be filled in with client’s notion of its previously
-                   assigned address. ’ciaddr’ MUST be zero.
-                 */
-                r = dhcp_option_append(&request->dhcp, optlen, &optoffset, 0,
-                                       SD_DHCP_OPTION_REQUESTED_IP_ADDRESS,
-                                       4, &client->last_addr);
-                if (r < 0)
-                        return r;
-                break;
-
-        case DHCP_STATE_RENEWING:
-                /* ’server identifier’ MUST NOT be filled in, ’requested IP address’
-                   option MUST NOT be filled in, ’ciaddr’ MUST be filled in with
-                   client’s IP address.
-                */
-
-        case DHCP_STATE_REBINDING:
-                /* ’server identifier’ MUST NOT be filled in, ’requested IP address’
-                   option MUST NOT be filled in, ’ciaddr’ MUST be filled in with
-                   client’s IP address.
-
-                   This message MUST be broadcast to the 0xffffffff IP broadcast address.
-                 */
-                request->dhcp.ciaddr = client->lease->address;
-                break;
-
-        default:
-                assert_not_reached();
-        }
-
-        r = client_append_common_discover_request_options(client, request, &optoffset, optlen);
-        if (r < 0)
-                return r;
-
-        r = dhcp_option_append(&request->dhcp, optlen, &optoffset, 0,
-                               SD_DHCP_OPTION_END, 0, NULL);
-        if (r < 0)
-                return r;
-
-        if (client->state == DHCP_STATE_RENEWING)
-                r = dhcp_client_send_udp(client, /* expect_reply= */ true, request, optoffset);
-        else
-                r = dhcp_client_send_raw(client, /* expect_reply= */ true, request, optoffset);
-        if (r < 0)
-                return r;
-
-        switch (client->state) {
-
-        case DHCP_STATE_REQUESTING:
-                log_dhcp_client(client, "REQUEST (requesting)");
-                break;
-
-        case DHCP_STATE_REBOOTING:
-                log_dhcp_client(client, "REQUEST (rebooting)");
-                break;
-
-        case DHCP_STATE_RENEWING:
-                log_dhcp_client(client, "REQUEST (renewing)");
-                break;
-
-        case DHCP_STATE_REBINDING:
-                log_dhcp_client(client, "REQUEST (rebinding)");
-                break;
-
-        default:
-                assert_not_reached();
-        }
-
-        return 0;
-}
-
 static int client_timeout_resend(
                 sd_event_source *s,
                 uint64_t usec,
@@ -1282,7 +792,7 @@ static int client_timeout_resend(
 
         switch (client->state) {
         case DHCP_STATE_SELECTING:
-                r = client_send_discover(client);
+                r = dhcp_client_send_message(client, DHCP_DISCOVER);
                 if (r < 0 && client->discover_attempt >= client->max_discover_attempts)
                         goto error;
 
@@ -1291,7 +801,7 @@ static int client_timeout_resend(
                 break;
 
         case DHCP_STATE_REBOOTING:
-                r = client_send_request(client);
+                r = dhcp_client_send_message(client, DHCP_REQUEST);
                 if (r < 0 && client->request_attempt >= MAX_REQUEST_ATTEMPTS_ON_REBOOTING)
                         goto restart;
                 break;
@@ -1299,7 +809,7 @@ static int client_timeout_resend(
         case DHCP_STATE_REQUESTING:
         case DHCP_STATE_RENEWING:
         case DHCP_STATE_REBINDING:
-                r = client_send_request(client);
+                r = dhcp_client_send_message(client, DHCP_REQUEST);
                 if (r < 0 && client->request_attempt >= MAX_REQUEST_ATTEMPTS)
                         goto restart;
                 break;
@@ -2109,99 +1619,31 @@ int sd_dhcp_client_start(sd_dhcp_client *client) {
         return r;
 }
 
-static int client_send_release_or_decline(sd_dhcp_client *client, uint8_t type) {
-        int r;
-
-        assert(IN_SET(type, DHCP_RELEASE, DHCP_DECLINE));
-
-        if (!sd_dhcp_client_is_running(client) || !client->lease || client->bootp)
-                return 0; /* there is nothing to release or decline */
-
-        const char *name = type == DHCP_RELEASE ? "RELEASE" : "DECLINE";
-
-        _cleanup_free_ DHCPPacket *packet = NULL;
-        size_t optoffset, optlen;
-        r = client_message_init(client, type, &packet, &optlen, &optoffset);
-        if (r < 0)
-                return log_dhcp_client_errno(client, r, "Failed to initialize DHCP %s message: %m", name);
-
-        /* See RFC 2131, Table 5 */
-        switch (type) {
-        case DHCP_RELEASE:
-                /* On release, the acquired address must be set in ciaddr. */
-                packet->dhcp.ciaddr = client->lease->address;
-                break;
-
-        case DHCP_DECLINE:
-                /* On decline, the acquired address must be set in Requested IP Address option. */
-                r = dhcp_option_append(&packet->dhcp, optlen, &optoffset, /* overload= */ 0,
-                                       SD_DHCP_OPTION_REQUESTED_IP_ADDRESS,
-                                       4, &client->lease->address);
-                if (r < 0)
-                        return log_dhcp_client_errno(
-                                        client, r,
-                                        "Failed to append Requested IP Address option to DHCP %s message: %m",
-                                        name);
-                break;
-
-        default:
-                assert_not_reached();
-        }
-
-        /* In both cases, the server identifier must be set. */
-        r = dhcp_option_append(&packet->dhcp, optlen, &optoffset, /* overload= */ 0,
-                               SD_DHCP_OPTION_SERVER_IDENTIFIER,
-                               4, &client->lease->server_address);
-        if (r < 0)
-                return log_dhcp_client_errno(
-                                client, r,
-                                "Failed to append Server Identifier option to DHCP %s message: %m",
-                                name);
-
-        r = dhcp_option_append(&packet->dhcp, optlen, &optoffset, /* overload= */ 0,
-                               SD_DHCP_OPTION_END, /* optlen= */ 0, /* optval= */ NULL);
-        if (r < 0)
-                return log_dhcp_client_errno(
-                                client, r,
-                                "Failed to finalize DHCP %s message: %m",
-                                name);
-
-        switch (type) {
-        case DHCP_RELEASE:
-                r = dhcp_client_send_udp(client, /* expect_reply= */ false, packet, optoffset);
-                break;
-        case DHCP_DECLINE:
-                r = dhcp_client_send_raw(client, /* expect_reply= */ false, packet, optoffset);
-                break;
-        default:
-                assert_not_reached();
-        }
-        if (r < 0)
-                return log_dhcp_client_errno(
-                                client, r,
-                                "Failed to send DHCP %s message: %m",
-                                name);
-
-        log_dhcp_client(client, "%s", name);
-        return 1; /* sent */
-}
-
 int sd_dhcp_client_send_decline(sd_dhcp_client *client) {
         int r;
 
-        r = client_send_release_or_decline(client, DHCP_DECLINE);
-        if (r <= 0)
-                return r;
+        if (!sd_dhcp_client_is_running(client) || !client->lease || client->bootp)
+                return 0; /* there is nothing to decline */
 
-        log_dhcp_client(client, "DECLINE");
-
-        /* This function is mostly called when the acquired address conflicts with another host.
-         * Restarting the daemon to acquire another address. */
-        r = client_restart(client);
+        r = dhcp_client_send_message(client, DHCP_DECLINE);
         if (r < 0)
                 return r;
 
-        return 1; /* sent and restarted. */
+        /* This function is mostly called when the acquired address conflicts with another host.
+         * Restarting the daemon to acquire another address. */
+        return client_restart(client);
+}
+
+static int client_send_release(sd_dhcp_client *client) {
+        assert(client);
+
+        if (!client->send_release)
+                return 0;
+
+        if (!sd_dhcp_client_is_running(client) || !client->lease || client->bootp)
+                return 0; /* there is nothing to release */
+
+        return dhcp_client_send_message(client, DHCP_RELEASE);
 }
 
 int sd_dhcp_client_stop(sd_dhcp_client *client) {
@@ -2210,8 +1652,7 @@ int sd_dhcp_client_stop(sd_dhcp_client *client) {
 
         DHCP_CLIENT_DONT_DESTROY(client);
 
-        if (client->send_release)
-                (void) client_send_release_or_decline(client, DHCP_RELEASE);
+        (void) client_send_release(client);
 
         client_stop(client, SD_DHCP_CLIENT_EVENT_STOP);
         return 0;
