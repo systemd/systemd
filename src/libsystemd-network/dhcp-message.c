@@ -5,12 +5,15 @@
 #include "alloc-util.h"
 #include "dhcp-message.h"
 #include "dhcp-option.h"
+#include "dhcp-packet.h"
 #include "dns-domain.h"
 #include "hashmap.h"
 #include "in-addr-util.h"
 #include "iovec-util.h"
+#include "iovec-wrapper.h"
 #include "ip-util.h"
 #include "set.h"
+#include "socket-util.h"
 #include "sort-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -565,5 +568,202 @@ int dhcp_message_build(const sd_dhcp_message *message, struct iovec *ret) {
         memzero(p, LESS_BY(BOOTP_MAX_MESSAGE_SIZE, size));
 
         *ret = IOVEC_MAKE(TAKE_PTR(buf), size);
+        return 0;
+}
+
+int dhcp_message_build_packet(
+                const sd_dhcp_message *message,
+                be32_t source_addr,
+                uint16_t source_port,
+                be32_t destination_addr,
+                uint16_t destination_port,
+                int ip_service_type,
+                struct iovec_wrapper *ret) {
+
+        int r;
+
+        assert(message);
+        assert(ret);
+
+        _cleanup_(iovec_done) struct iovec payload = {};
+        r = dhcp_message_build(message, &payload);
+        if (r < 0)
+                return r;
+
+        _cleanup_(iovw_done_free) struct iovec_wrapper iovw = {};
+        r = udp_packet_build(
+                        source_addr,
+                        source_port,
+                        destination_addr,
+                        destination_port,
+                        ip_service_type,
+                        &payload,
+                        &iovw);
+        if (r < 0)
+                return r;
+
+        TAKE_STRUCT(payload);
+
+        *ret = TAKE_STRUCT(iovw);
+        return 0;
+}
+
+int dhcp_message_send_udp(const sd_dhcp_message *message, int fd, be32_t dest, uint16_t port) {
+        int r;
+
+        assert(message);
+        assert(fd >= 0);
+
+        _cleanup_(iovec_done) struct iovec payload = {};
+        r = dhcp_message_build(message, &payload);
+        if (r < 0)
+                return r;
+
+        union sockaddr_union sa = {
+                .in.sin_family = AF_INET,
+                .in.sin_port = htobe16(port),
+                .in.sin_addr.s_addr = dest,
+        };
+
+        struct msghdr mh = {
+                .msg_name = &sa.sa,
+                .msg_namelen = sizeof(sa.in),
+                .msg_iov = &payload,
+                .msg_iovlen = 1,
+        };
+
+        ssize_t n = sendmsg(fd, &mh, MSG_NOSIGNAL);
+        if (n < 0)
+                return -errno;
+
+        return 0;
+}
+
+int dhcp_message_send_raw(
+                const sd_dhcp_message *message,
+                int fd,
+                be32_t source_addr,
+                uint16_t source_port,
+                be32_t destination_addr,
+                uint16_t destination_port,
+                int ip_service_type) {
+
+        int r;
+
+        assert(message);
+        assert(fd >= 0);
+
+        _cleanup_(iovw_done_free) struct iovec_wrapper packet = {};
+        r = dhcp_message_build_packet(
+                        message,
+                        source_addr,
+                        source_port,
+                        destination_addr,
+                        destination_port,
+                        ip_service_type,
+                        &packet);
+        if (r < 0)
+                return r;
+
+        union sockaddr_union sa;
+        socklen_t salen = sizeof(sa);
+        if (getsockname(fd, &sa.sa, &salen) < 0)
+                return -errno;
+
+        struct msghdr mh = {
+                .msg_name = &sa.sa,
+                .msg_namelen = salen,
+                .msg_iov = packet.iovec,
+                .msg_iovlen = packet.count,
+        };
+
+        ssize_t n = sendmsg(fd, &mh, MSG_NOSIGNAL);
+        if (n < 0)
+                return -errno;
+
+        return 0;
+}
+
+int dhcp_message_recv_udp(int fd, sd_dhcp_message **ret) {
+        int r;
+
+        assert(fd >= 0);
+        assert(ret);
+
+        ssize_t buflen = next_datagram_size_fd(fd);
+        if (buflen < 0)
+                return buflen;
+
+        _cleanup_free_ void *buf = malloc(buflen);
+        if (!buf)
+                return -ENOMEM;
+
+        /* This needs to be initialized with zero. See #20741.
+         * The issue is fixed on glibc-2.35 (8fba672472ae0055387e9315fc2eddfa6775ca79). */
+        CMSG_BUFFER_TYPE(CMSG_SPACE_TIMEVAL) control = {};
+        struct iovec iov = IOVEC_MAKE(buf, buflen);
+        struct msghdr msg = {
+                .msg_iov = &iov,
+                .msg_iovlen = 1,
+                .msg_control = &control,
+                .msg_controllen = sizeof(control),
+        };
+
+        ssize_t n = recvmsg_safe(fd, &msg, MSG_DONTWAIT);
+        if (n < 0)
+                return n;
+
+        _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *message = NULL;
+        r = dhcp_message_new(buf, n, &message);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(message);
+        return 0;
+}
+
+int dhcp_message_recv_raw(int fd, uint16_t port, sd_dhcp_message **ret) {
+        int r;
+
+        assert(fd >= 0);
+        assert(ret);
+
+        ssize_t buflen = next_datagram_size_fd(fd);
+        if (buflen < 0)
+                return buflen;
+
+        _cleanup_free_ void *buf = malloc(buflen);
+        if (!buf)
+                return -ENOMEM;
+
+        /* This needs to be initialized with zero. See #20741.
+         * The issue is fixed on glibc-2.35 (8fba672472ae0055387e9315fc2eddfa6775ca79). */
+        CMSG_BUFFER_TYPE(CMSG_SPACE_TIMEVAL +
+                         CMSG_SPACE(sizeof(struct tpacket_auxdata))) control = {};
+        struct iovec iov = IOVEC_MAKE(buf, buflen);
+        struct msghdr msg = {
+                .msg_iov = &iov,
+                .msg_iovlen = 1,
+                .msg_control = &control,
+                .msg_controllen = sizeof(control),
+        };
+
+        ssize_t n = recvmsg_safe(fd, &msg, MSG_DONTWAIT);
+        if (n < 0)
+                return n;
+
+        struct tpacket_auxdata *aux = CMSG_FIND_DATA(&msg, SOL_PACKET, PACKET_AUXDATA, struct tpacket_auxdata);
+        bool checksum = aux && !FLAGS_SET(aux->tp_status, TP_STATUS_CSUMNOTREADY);
+
+        r = udp_packet_verify(buf, n, port, checksum, &iov);
+        if (r < 0)
+                return r;
+
+        _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *message = NULL;
+        r = dhcp_message_new(iov.iov_base, iov.iov_len, &message);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(message);
         return 0;
 }
