@@ -66,6 +66,7 @@ def setUpModule():
         'systemd-networkd.socket',
         'systemd-networkd-resolve-hook.socket',
         'systemd-networkd-varlink.socket',
+        'systemd-networkd-varlink-metrics.socket',
         'systemd-networkd.service',
         'systemd-resolved-monitor.socket',
         'systemd-resolved-varlink.socket',
@@ -91,7 +92,8 @@ def setUpModule():
         subprocess.call(['useradd', '--system', '--no-create-home', 'systemd-network'])
 
     for d in ['/etc/systemd/network', '/run/systemd/network',
-              '/run/systemd/netif', '/run/systemd/resolve', '/run/systemd/resolve.hook']:
+              '/run/systemd/netif', '/run/systemd/report',
+              '/run/systemd/resolve', '/run/systemd/resolve.hook']:
         subprocess.check_call(["mount", "-m", "-t", "tmpfs", "none", d])
         tmpmounts.append(d)
     if os.path.isdir('/run/systemd/resolve'):
@@ -281,6 +283,7 @@ Gateway=192.168.250.1
         subprocess.check_call(['systemctl', 'stop', 'systemd-networkd.socket'])
         subprocess.check_call(['systemctl', 'stop', 'systemd-networkd-resolve-hook.socket'])
         subprocess.check_call(['systemctl', 'stop', 'systemd-networkd-varlink.socket'])
+        subprocess.check_call(['systemctl', 'stop', 'systemd-networkd-varlink-metrics.socket'])
         subprocess.check_call(['systemctl', 'stop', 'systemd-networkd.service'])
         subprocess.check_call(['ip', 'link', 'del', 'mybridge'])
         subprocess.check_call(['ip', 'link', 'del', 'port1'])
@@ -378,6 +381,7 @@ class ClientTestBase(NetworkdTestingUtilities):
         subprocess.call(['systemctl', 'stop', 'systemd-networkd.socket'])
         subprocess.call(['systemctl', 'stop', 'systemd-networkd-resolve-hook.socket'])
         subprocess.call(['systemctl', 'stop', 'systemd-networkd-varlink.socket'])
+        subprocess.call(['systemctl', 'stop', 'systemd-networkd-varlink-metrics.socket'])
         subprocess.call(['systemctl', 'stop', 'systemd-networkd.service'])
         subprocess.call(['ip', 'link', 'del', 'dummy0'],
                         stderr=subprocess.DEVNULL)
@@ -935,10 +939,12 @@ class NetworkdClientTest(ClientTestBase, unittest.TestCase):
 set -eu
 mkdir -p /run/systemd/network
 mkdir -p /run/systemd/netif
+mkdir -p /run/systemd/report
 mkdir -p /run/systemd/resolve.hook
 mkdir -p /var/lib/systemd/network
 mount -t tmpfs none /run/systemd/network
 mount -t tmpfs none /run/systemd/netif
+mount -t tmpfs none /run/systemd/report
 mount -t tmpfs none /run/systemd/resolve.hook
 mount -t tmpfs none /var/lib/systemd/network
 [ ! -e /run/dbus ] || mount -t tmpfs none /run/dbus
@@ -989,6 +995,7 @@ exec $(systemctl cat systemd-networkd.service | sed -n '/^ExecStart=/ {{ s/^.*=/
                                '-p', 'InaccessibleDirectories=-/etc/systemd/network',
                                '-p', 'InaccessibleDirectories=-/run/systemd/network',
                                '-p', 'InaccessibleDirectories=-/run/systemd/netif',
+                               '-p', 'InaccessibleDirectories=-/run/systemd/report',
                                '-p', 'InaccessibleDirectories=-/run/systemd/resolve.hook',
                                '-p', 'InaccessibleDirectories=-/var/lib/systemd/network',
                                '--service-type=notify', script])
