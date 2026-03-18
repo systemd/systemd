@@ -3,8 +3,12 @@
 
 #include "basic-forward.h"
 
-void random_bytes(void *p, size_t n) _nonnull_if_nonzero_(1, 2); /* Returns random bytes suitable for most uses, but may be insecure sometimes. */
-int crypto_random_bytes(void *p, size_t n) _nonnull_if_nonzero_(1, 2); /* Returns secure random bytes after waiting for the RNG to initialize. */
+/* Returns random bytes suitable for most uses, but may be insecure sometimes. */
+void random_bytes(void *p, size_t n) _nonnull_if_nonzero_(1, 2);
+int random_bytes_allocate_iovec(size_t n, struct iovec *ret);
+
+/* Returns secure random bytes after waiting for the RNG to initialize. */
+int crypto_random_bytes(void *p, size_t n) _nonnull_if_nonzero_(1, 2);
 int crypto_random_bytes_allocate_iovec(size_t n, struct iovec *ret);
 
 static inline uint64_t random_u64(void) {
