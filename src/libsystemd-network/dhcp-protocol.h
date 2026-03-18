@@ -64,6 +64,10 @@ typedef struct DHCPPacket DHCPPacket;
 #define DHCP_MIN_PACKET_SIZE    (DHCP_MIN_MESSAGE_SIZE + DHCP_IP_UDP_SIZE)
 #define DHCP_MAGIC_COOKIE       (uint32_t)(0x63825363)
 
+/* The maximal size of BOOTP message including the optional 64-byte vendor field.
+ * Note that BOOTP message does not have the magic field. */
+#define BOOTP_MAX_MESSAGE_SIZE (offsetof(DHCPMessageHeader, magic) + 64)
+
 enum {
         DHCP_PORT_SERVER                        = 67,
         DHCP_PORT_CLIENT                        = 68,
