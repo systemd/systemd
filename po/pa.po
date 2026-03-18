@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-03-06 03:46+0900\n"
-"PO-Revision-Date: 2026-03-07 01:58+0000\n"
+"PO-Revision-Date: 2026-03-18 18:58+0000\n"
 "Last-Translator: A S Alam <aalam@users.noreply.translate.fedoraproject.org>\n"
 "Language-Team: Punjabi <https://translate.fedoraproject.org/projects/systemd/"
 "main/pa/>\n"
@@ -140,9 +140,9 @@ msgid "Manage Home Directory Signing Keys"
 msgstr ""
 
 #: src/home/org.freedesktop.home1.policy:94
-#, fuzzy
 msgid "Authentication is required to manage signing keys for home directories."
-msgstr "ਸਿਸਟਮ ਸੇਵਾਵਾਂ ਜਾਂ ਹੋਰ ਇਕਾਈਆਂ ਦੇ ਇੰਤਜਾਮ ਲਈ ਪਰਮਾਣਕਿਤਾ ਚਾਹੀਦੀ ਹੈ।"
+msgstr ""
+"ਘਰ ਡਾਇਰੈਕਟਰੀਆਂ ਲਈ ਸਾਈਨ ਕਰਨ ਵਾਲੀਆਂ ਕੁੰਜੀਆਂ ਦੇ ਇੰਤਜ਼ਾਮ ਲਈ ਪਰਮਾਣਕਿਤਾ ਚਾਹੀਦੀ ਹੈ।"
 
 #: src/home/pam_systemd_home.c:330
 #, c-format
