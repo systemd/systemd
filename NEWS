@@ -13,6 +13,15 @@ CHANGES WITH 261 in spe:
           attestation environments which use hardware CC registers and not the
           TPM quote.
 
+        Changes in systemd-sysext/systemd-confext:
+
+        * New initrd services systemd-sysext-system-initrd.service and
+        systemd-confext-system-initrd.service are provided. These services are
+        used to merge system and configuration extensions for the main system from
+        initrd. This allows to overcome the limitation when system and configuration
+        extensions merged from the main system itself cannot be used to modify the
+        resources which are used in the early boot.
+
 CHANGES WITH 260:
 
         Feature Removals and Incompatible Changes:
@@ -674,9 +683,9 @@ CHANGES WITH 259:
         systemd-sysext/systemd-confext:
 
         * systemd-sysext and systemd-confext now support configuration files
-          /etc/systemd/systemd-sysext.conf and /etc/systemd/systemd-confext.conf,
-          which can be used to configure mutability or the image policy to
-          apply to DDI images.
+          /etc/systemd/sysext.conf and /etc/systemd/confext.conf, which can be
+          used to configure mutability or the image policy to apply to DDI
+          images.
 
         * systemd-sysext's and systemd-confext's --mutable= switch now accepts
           a new value "help" for listing available mutability modes.

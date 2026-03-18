@@ -20,9 +20,11 @@
     <refname>systemd-sysext</refname>
     <refname>systemd-sysext.service</refname>
     <refname>systemd-sysext-initrd.service</refname>
+    <refname>systemd-sysext-system-initrd.service</refname>
     <refname>systemd-confext</refname>
     <refname>systemd-confext.service</refname>
     <refname>systemd-confext-initrd.service</refname>
+    <refname>systemd-confext-system-initrd.service</refname>
     <refpurpose>Activates System Extension Images</refpurpose>
   </refnamediv>
 
@@ -114,11 +116,12 @@
     <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> with
     extension images found in the system's EFI System Partition.</para>
 
-    <para>During boot OS extension images are activated automatically, if the
-    <filename>systemd-sysext.service</filename> is enabled. Note that this service runs only after the
-    underlying file systems where system extensions may be located have been mounted. This means they are not
-    suitable for shipping resources that are processed by subsystems running in earliest boot. Specifically,
-    OS extension images are not suitable for shipping system services or
+    <para>During boot OS system and configuration extension images are activated automatically, if the
+    <filename>systemd-sysext.service</filename> and <filename>systemd-confext.service</filename> are enabled.
+    Note that these services runs only after the underlying file systems where system extensions may be
+    located have been mounted. This means they are not suitable for shipping resources that are processed by
+    subsystems running in earliest boot. Specifically, OS extension images are not suitable for shipping
+    system services or
     <citerefentry><refentrytitle>systemd-sysusers</refentrytitle><manvolnum>8</manvolnum></citerefentry>
     definitions. See the <ulink url="https://systemd.io/PORTABLE_SERVICES">Portable Services</ulink> page
     for a simple mechanism for shipping system services in disk images, in a similar fashion to OS
@@ -129,7 +132,14 @@
     guaranteed to finish start-up before <filename>basic.target</filename> is reached; i.e. at the time
     regular services initialize (those which do not use <varname>DefaultDependencies=no</varname>), the files
     and directories system extensions provide are available in <filename>/usr/</filename> and
-    <filename>/opt/</filename> and may be accessed.</para>
+    <filename>/opt/</filename> and may be accessed.
+    <filename>systemd-sysext-initrd.service</filename> and <filename>systemd-confext-initrd.service</filename>
+    are intended to be run in the initrd and extend it. Same limitations apply: resources, which are
+    used in the earliest boot stages of the initrd cannot be updated.
+    <filename>systemd-sysext-system-initrd.service</filename> and
+    <filename>systemd-confext-system-initrd.service</filename> are also intended to be run in the initrd,
+    however, these services activate system and configuration extensions for the main system
+    (<literal>--root=/sysroot</literal> is used) and thus can be used to extend any part of it.</para>
 
     <para>Note that there is no concept of enabling/disabling installed system extension images: all
     installed extension images are automatically activated at boot. However, you can place an empty directory
