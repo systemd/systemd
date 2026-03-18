@@ -247,7 +247,10 @@ jobs:
               "sandbox": {
                 "enabled": true,
                 "autoAllowBashIfSandboxed": true,
-                "allowUnsandboxedCommands": false
+                "allowUnsandboxedCommands": false,
+                "filesystem": {
+                  "allowWrite": ["//tmp", "//var/tmp"]
+                }
               }
             }
           # Agent and TaskCreate are disabled because background task
