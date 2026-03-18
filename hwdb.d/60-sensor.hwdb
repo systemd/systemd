@@ -161,6 +161,9 @@ sensor:modalias:acpi:INVN6500:*:dmi:*:svnASUSTeK*:*:rnT200TA:*       # Transform
 sensor:modalias:acpi:BOSC0200:*:dmi:*:svnASUSTeK*:*:rnRC72LA:*       # ROG Ally X (2024) (RC72LA)
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, -1
 
+sensor:modalias:platform:HID-SENSOR-200073*:dmi:*:svnASUSTeK*:*:rnT103HAF:*    #Transformer Mini (T103HAF)
+ ACCEL_MOUNT_MATRIX=0, -1, 0; 1, 0, 0; 0, 0, -1
+
 sensor:modalias:acpi:INVN6500:*:dmi:*:svnASUSTeK*:*:rnT300CHI:*      # Transformer Book (T300 Chi)
 sensor:modalias:acpi:BOSC0200:*:dmi:*:svnASUSTeK*:*:rnTP412UA:*      # VivoBook Flip 14 (TP412UA)
  ACCEL_MOUNT_MATRIX=0, -1, 0; 1, 0, 0; 0, 0, 1
