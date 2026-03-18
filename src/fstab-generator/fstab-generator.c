@@ -326,6 +326,7 @@ static int write_idle_timeout(FILE *f, const char *where, const char *opts) {
 
 static int write_automount_extra_options(FILE *f, const char *where, const char *opts) {
         _cleanup_free_ char *value = NULL;
+        _cleanup_free_ char *escaped = NULL;
         int r;
 
         assert(f);
@@ -336,7 +337,11 @@ static int write_automount_extra_options(FILE *f, const char *where, const char 
         if (r == 0)
                 return 0;
 
-        fprintf(f, "ExtraOptions=%s\n", value);
+
+        escaped = specifier_escape(value);
+        if (!escaped)
+                return log_oom();
+        fprintf(f, "ExtraOptions=%s\n", escaped);
         return 1;
 }
 

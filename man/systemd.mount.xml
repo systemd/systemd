@@ -340,6 +340,7 @@
         mountpoint. See <varname>ExtraOptions=</varname> in
         <citerefentry><refentrytitle>systemd.automount</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for details.</para>
+
         <xi:include href="version-info.xml" xpointer="v261"/></listitem>
       </varlistentry>
 
