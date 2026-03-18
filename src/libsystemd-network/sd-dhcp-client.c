@@ -7,11 +7,8 @@
 #include <net/if_arp.h>
 #include <stdio.h>
 
-#include "sd-dhcp-client.h"
-
 #include "alloc-util.h"
 #include "device-util.h"
-#include "dhcp-client-id-internal.h"
 #include "dhcp-client-internal.h"
 #include "dhcp-lease-internal.h"
 #include "dhcp-network.h"
@@ -19,7 +16,6 @@
 #include "dhcp-packet.h"
 #include "dns-domain.h"
 #include "errno-util.h"
-#include "ether-addr-util.h"
 #include "event-util.h"
 #include "fd-util.h"
 #include "hostname-util.h"
@@ -28,7 +24,6 @@
 #include "network-common.h"
 #include "random-util.h"
 #include "set.h"
-#include "socket-util.h"
 #include "sort-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -43,68 +38,6 @@
 
 #define TRANSIENT_FAILURE_ATTEMPTS 3 /* Arbitrary limit: how many attempts are considered enough to report
                                       * transient failure. */
-
-struct sd_dhcp_client {
-        unsigned n_ref;
-
-        DHCPState state;
-        sd_event *event;
-        int event_priority;
-        sd_event_source *timeout_resend;
-
-        int ifindex;
-        char *ifname;
-
-        sd_device *dev;
-
-        int fd;
-        uint16_t port;
-        uint16_t server_port;
-        union sockaddr_union link;
-        sd_event_source *receive_message;
-        bool request_broadcast;
-        Set *req_opts;
-        bool anonymize;
-        bool rapid_commit;
-        be32_t last_addr;
-        struct hw_addr_data hw_addr;
-        struct hw_addr_data bcast_addr;
-        uint16_t arp_type;
-        sd_dhcp_client_id client_id;
-        char *hostname;
-        char *vendor_class_identifier;
-        char *mudurl;
-        char **user_class;
-        uint32_t mtu;
-        usec_t fallback_lease_lifetime;
-        uint32_t xid;
-        usec_t start_time;
-        usec_t t1_time;
-        usec_t t2_time;
-        usec_t expire_time;
-        uint64_t discover_attempt;
-        uint64_t request_attempt;
-        uint64_t max_discover_attempts;
-        uint64_t max_request_attempts;
-        OrderedHashmap *extra_options;
-        OrderedHashmap *vendor_options;
-        sd_event_source *timeout_t1;
-        sd_event_source *timeout_t2;
-        sd_event_source *timeout_expire;
-        sd_event_source *timeout_ipv6_only_mode;
-        sd_dhcp_client_callback_t callback;
-        void *userdata;
-        sd_dhcp_client_callback_t state_callback;
-        void *state_userdata;
-        sd_dhcp_lease *lease;
-        usec_t start_delay;
-        int ip_service_type;
-        int socket_priority;
-        bool socket_priority_set;
-        bool ipv6_acquired;
-        bool bootp;
-        bool send_release;
-};
 
 static const uint8_t default_req_opts[] = {
         SD_DHCP_OPTION_SUBNET_MASK,
