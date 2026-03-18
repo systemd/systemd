@@ -338,13 +338,17 @@ TEST(get_color_mode) {
         test_get_color_mode_with_env("SYSTEMD_COLORS", "auto-256",   terminal_is_dumb() ? COLOR_OFF : COLOR_256);
         test_get_color_mode_with_env("SYSTEMD_COLORS", "auto-24bit", terminal_is_dumb() ? COLOR_OFF : COLOR_24BIT);
         ASSERT_OK_ERRNO(setenv("COLORTERM", "truecolor", true));
-        test_get_color_mode_with_env("SYSTEMD_COLORS", "1",          terminal_is_dumb() ? COLOR_OFF : COLOR_24BIT);
-        test_get_color_mode_with_env("SYSTEMD_COLORS", "yes",        terminal_is_dumb() ? COLOR_OFF : COLOR_24BIT);
+        /* SYSTEMD_COLORS=1/yes/true all map to COLOR_TRUE and must force colors on
+         * even when stdout is not a TTY (piped). With COLORTERM=truecolor, we get 24bit. */
+        test_get_color_mode_with_env("SYSTEMD_COLORS", "1",          COLOR_24BIT);
+        test_get_color_mode_with_env("SYSTEMD_COLORS", "yes",        COLOR_24BIT);
         ASSERT_OK_ERRNO(unsetenv("COLORTERM"));
-        test_get_color_mode_with_env("SYSTEMD_COLORS", "true",       terminal_is_dumb() ? COLOR_OFF : COLOR_256);
+        /* Without COLORTERM, COLOR_TRUE still bypasses the TTY check but autodetects depth. */
+        test_get_color_mode_with_env("SYSTEMD_COLORS", "true",       COLOR_256);
 
         ASSERT_OK_ERRNO(setenv("NO_COLOR", "1", true));
-        test_get_color_mode_with_env("SYSTEMD_COLORS", "true",       terminal_is_dumb() ? COLOR_OFF : COLOR_256);
+        /* COLOR_TRUE also bypasses NO_COLOR. */
+        test_get_color_mode_with_env("SYSTEMD_COLORS", "true",       COLOR_256);
         test_get_color_mode_with_env("SYSTEMD_COLORS", "auto-16",    COLOR_OFF);
         test_get_color_mode_with_env("SYSTEMD_COLORS", "auto-256",   COLOR_OFF);
         test_get_color_mode_with_env("SYSTEMD_COLORS", "auto-24bit", COLOR_OFF);

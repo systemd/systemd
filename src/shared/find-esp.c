@@ -429,7 +429,7 @@ finish:
         return 0;
 }
 
-int find_esp_and_warn_at(
+int find_esp_and_warn_at_full(
                 int rfd,
                 const char *path,
                 int unprivileged_mode,
@@ -509,7 +509,7 @@ int find_esp_and_warn_at(
         return -ENOKEY;
 }
 
-int find_esp_and_warn(
+int find_esp_and_warn_full(
                 const char *root,
                 const char *path,
                 int unprivileged_mode,
@@ -536,7 +536,7 @@ int find_esp_and_warn(
                         return -errno;
         }
 
-        r = find_esp_and_warn_at(
+        r = find_esp_and_warn_at_full(
                         rfd,
                         path,
                         unprivileged_mode,
@@ -792,7 +792,7 @@ finish:
         return 0;
 }
 
-int find_xbootldr_and_warn_at(
+int find_xbootldr_and_warn_at_full(
                 int rfd,
                 const char *path,
                 int unprivileged_mode,
@@ -853,7 +853,7 @@ int find_xbootldr_and_warn_at(
         return 0;
 }
 
-int find_xbootldr_and_warn(
+int find_xbootldr_and_warn_full(
                 const char *root,
                 const char *path,
                 int unprivileged_mode,
@@ -875,7 +875,7 @@ int find_xbootldr_and_warn(
                         return -errno;
         }
 
-        r = find_xbootldr_and_warn_at(
+        r = find_xbootldr_and_warn_at_full(
                         rfd,
                         path,
                         unprivileged_mode,

@@ -1,6 +1,19 @@
 systemd System and Service Manager
 
-CHANGES WITH 260 in spe:
+CHANGES WITH 261 in spe:
+
+        Feature Removals and Incompatible Changes:
+
+        * It was discovered that systemd-stub does not measure all the events
+          it measures to the TPM to the hardware CC registers (e.g. Intel TDX
+          RTMRs) using EFI_CC_MEASUREMENT_PROTOCOL. In particular, devicetree,
+          initrd, ucode addons and the UKI profile were only measured to the
+          TPM. The missing measurements got added, however, the expected
+          register values are now changed. This may need to be reflected in the
+          attestation environments which use hardware CC registers and not the
+          TPM quote.
+
+CHANGES WITH 260:
 
         Feature Removals and Incompatible Changes:
 
@@ -495,7 +508,8 @@ CHANGES WITH 260 in spe:
         Betacentury, Bouke van der Bijl, Carlos Peón Costa,
         Carolina Jubran, Cathy Hu, Chris Down, Chris Lindee,
         Christian Brauner, Christian Glombek, Christian Hesse,
-        Christopher Cooper, Christopher Head, Cyrus Xi, Daan De Meyer,
+        Christopher Cooper, Christopher Head,
+        Copilot Autofix powered by AI, Cyrus Xi, Daan De Meyer,
         Dan McGregor, Daniel Foster, Daniel Nylander, Daniel Rusek,
         David Santamaría Rogado, David Tardon, Derek J. Clark, Dirk Su,
         Dmitry V. Levin, Dmytro Bagrii, Dylan M. Taylor,
@@ -521,12 +535,12 @@ CHANGES WITH 260 in spe:
         Usama Arif, Val Markovic, Vitaly Kuznetsov, Vunny Sodhi,
         Weixie Cui, Yaping Li, Yaron Shahrabani, Yu Watanabe,
         Yuri Chornoivan, ZauberNerd, Zbigniew Jędrzejewski-Szmek,
-        Zongyuan He, andre4ik3, calm329, cdown, cyclopentane, francescoza6,
-        gvenugo3, joo es, kiamvdd, lumingzh, naly zzwd, nikstur, novenary,
-        noxiouz, patrick, ppkramer-hub, r-vdp, safforddr, scarlet-storm, sd416,
-        seidlerv, smosia, tuhaowen, zefr0x
+        Zongyuan He, andre4ik3, calm329, cdown, cyclopentane, davidak,
+        dongshengyuan, francescoza6, gvenugo3, joo es, kiamvdd, lumingzh,
+        naly zzwd, nikstur, novenary, noxiouz, patrick, ppkramer-hub, r-vdp,
+        safforddr, scarlet-storm, sd416, seidlerv, smosia, tuhaowen, zefr0x
 
-        — Edinburgh, 2026/03/13
+        — Edinburgh, 2026/03/17
 
 CHANGES WITH 259:
 
