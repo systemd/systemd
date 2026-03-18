@@ -3,6 +3,7 @@
 #include <getopt.h>
 
 #include "env-util.h"
+#include "format-table.h"
 #include "log.h"
 #include "string-util.h"
 #include "strv.h"
@@ -57,40 +58,34 @@ bool should_bypass(const char *env_prefix) {
         return true;
 }
 
-const Verb* verbs_find_verb(const char *name, const Verb verbs[]) {
+const Verb* verbs_find_verb(const char *name, const Verb verbs[], const Verb verbs_end[]) {
         assert(verbs);
 
-        for (size_t i = 0; verbs[i].dispatch; i++)
-                if (name ? streq(name, verbs[i].verb) : FLAGS_SET(verbs[i].flags, VERB_DEFAULT))
-                        return verbs + i;
+        for (const Verb *verb = verbs; verb < verbs_end; verb++)
+                if (name ? streq(name, verb->verb) : FLAGS_SET(verb->flags, VERB_DEFAULT))
+                        return verb;
 
         /* At the end of the list? */
         return NULL;
 }
 
-int dispatch_verb(int argc, char *argv[], const Verb verbs[], void *userdata) {
-        const Verb *verb;
-        const char *name;
-        int r, left;
+int _dispatch_verb_with_args(char **args, const Verb verbs[], const Verb verbs_end[], void *userdata) {
+        int r;
 
         assert(verbs);
+        assert(verbs_end > verbs);
         assert(verbs[0].dispatch);
         assert(verbs[0].verb);
-        assert(argc >= 0);
-        assert(argv);
-        assert(argc >= optind);
 
-        left = argc - optind;
-        argv += optind;
-        optind = 0;
-        name = argv[0];
+        const char *name = args ? args[0] : NULL;
+        size_t left = strv_length(args);
 
-        verb = verbs_find_verb(name, verbs);
+        const Verb *verb = verbs_find_verb(name, verbs, verbs_end);
         if (!verb) {
                 _cleanup_strv_free_ char **verb_strv = NULL;
 
-                for (size_t i = 0; verbs[i].dispatch; i++) {
-                        r = strv_extend(&verb_strv, verbs[i].verb);
+                for (verb = verbs; verb < verbs_end; verb++) {
+                        r = strv_extend(&verb_strv, verb->verb);
                         if (r < 0)
                                 return log_oom();
                 }
@@ -120,12 +115,10 @@ int dispatch_verb(int argc, char *argv[], const Verb verbs[], void *userdata) {
         if (!name)
                 left = 1;
 
-        if (verb->min_args != VERB_ANY &&
-            (unsigned) left < verb->min_args)
+        if (verb->min_args != VERB_ANY && left < verb->min_args)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Too few arguments.");
 
-        if (verb->max_args != VERB_ANY &&
-            (unsigned) left > verb->max_args)
+        if (verb->max_args != VERB_ANY && left > verb->max_args)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Too many arguments.");
 
         if ((verb->flags & VERB_ONLINE_ONLY) && running_in_chroot_or_offline()) {
@@ -136,5 +129,112 @@ int dispatch_verb(int argc, char *argv[], const Verb verbs[], void *userdata) {
         if (!name)
                 return verb->dispatch(1, STRV_MAKE(verb->verb), verb->data, userdata);
 
-        return verb->dispatch(left, argv, verb->data, userdata);
+        return verb->dispatch(left, args, verb->data, userdata);
+}
+
+int dispatch_verb(int argc, char *argv[], const Verb verbs[], void *userdata) {
+        /* getopt wrapper for dispatch_verb_adjusted */
+
+        assert(argc >= 0);
+        assert(argv);
+        assert(argc >= optind);
+
+        size_t n = 0;
+        while (verbs[n].dispatch)
+                n++;
+
+        return _dispatch_verb_with_args(strv_skip(argv, optind), verbs, verbs + n, userdata);
+}
+
+int _verbs_get_help_table(const Verb verbs[], const Verb verbs_end[], Table **ret, size_t *ret_width_of_first_column) {
+        size_t w = 0;
+        int r;
+
+        assert(ret);
+
+        _cleanup_(table_unrefp) Table *table = table_new("verb", "help");
+        if (!table)
+                return log_oom();
+
+        for (const Verb *verb = verbs; verb < verbs_end; verb++) {
+                assert(verb->dispatch);
+
+                /* We indent the option string by two spaces. We could set the minimum cell width and
+                 * right-align for a similar result, but that'd be more work. This is only used for
+                 * display. */
+                TableCell *cell;
+                r = table_add_cell_stringf(table, &cell, "  %s%s%s",
+                                           verb->verb,
+                                           verb->argspec ? " " : "",
+                                           strempty(verb->argspec));
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                w = MAX(w, strlen(table_get(table, cell)));
+
+                _cleanup_strv_free_ char **s = strv_split(verb->help, /* separators= */ NULL);
+                if (!s)
+                        return log_oom();
+
+                r = table_add_many(table, TABLE_STRV_WRAPPED, s);
+                if (r < 0)
+                        return table_log_add_error(r);
+        };
+
+        table_set_header(table, false);
+
+        *ret = TAKE_PTR(table);
+        if (ret_width_of_first_column)
+                *ret_width_of_first_column = w;
+        return 0;
+}
+
+int _introspect_verbs(const Verb verbs[], const Verb verbs_end[], sd_json_format_flags_t flags) {
+        int r;
+
+        assert(verbs ? verbs_end > verbs : verbs == verbs_end);
+
+        if (flags == SD_JSON_FORMAT_OFF)
+                flags = SD_JSON_FORMAT_PRETTY_AUTO;
+
+        for (const Verb *verb = verbs; verb < verbs_end; verb++) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *o = NULL;
+
+                assert(verb->dispatch);
+
+                r = sd_json_buildo(
+                                &o,
+                                SD_JSON_BUILD_PAIR_STRING("verb", verb->verb),
+                                SD_JSON_BUILD_PAIR_CONDITION(
+                                                verb->min_args != VERB_ANY,
+                                                "minArguments",
+                                                SD_JSON_BUILD_UNSIGNED(verb->min_args)
+                                ),
+                                SD_JSON_BUILD_PAIR_CONDITION(
+                                                verb->max_args != VERB_ANY,
+                                                "maxArguments",
+                                                SD_JSON_BUILD_UNSIGNED(verb->max_args)
+                                ),
+                                SD_JSON_BUILD_PAIR_CONDITION(
+                                                verb->flags & VERB_DEFAULT,
+                                                "isDefault",
+                                                SD_JSON_BUILD_BOOLEAN(true)
+                                ),
+                                SD_JSON_BUILD_PAIR_CONDITION(
+                                                verb->flags & VERB_ONLINE_ONLY,
+                                                "isOnlineOnly",
+                                                SD_JSON_BUILD_BOOLEAN(true)
+                                ),
+                                SD_JSON_BUILD_PAIR_CONDITION(
+                                                !!verb->help,
+                                                "help",
+                                                SD_JSON_BUILD_STRING(verb->help)
+                                ));
+
+                r = sd_json_variant_dump(o, flags, stdout, /* prefix= */ NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }
