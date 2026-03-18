@@ -224,6 +224,11 @@ jobs:
           # Required by claude-code-action even though Claude itself doesn't
           # call the GitHub API — the action uses it for permission checks.
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          # Safe because the workflow's `if` condition already restricts
+          # execution to trusted actors (MEMBER/OWNER/COLLABORATOR) or PRs
+          # that a trusted actor explicitly labeled, and this job only has
+          # read-only permissions.
+          allowed_non_write_users: "*"
           track_progress: false
           show_full_output: "true"
           claude_args: |
