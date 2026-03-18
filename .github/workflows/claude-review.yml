@@ -133,6 +133,7 @@ jobs:
         with:
           path: pr-context.json
           archive: false
+          retention-days: 7
 
   review:
     runs-on: ubuntu-latest
