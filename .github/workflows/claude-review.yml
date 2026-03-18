@@ -250,10 +250,14 @@ jobs:
                 "allowUnsandboxedCommands": false
               }
             }
+          # Agent and TaskCreate are disabled because background task
+          # notifications race with --json-schema structured output,
+          # causing a redundant turn that overwrites the result.
+          # See https://github.com/anthropics/claude-code/issues/33872
           claude_args: |
             --model us.anthropic.claude-opus-4-6-v1
             --max-turns 200
-            --disallowedTools "WebFetch,WebSearch"
+            --disallowedTools "WebFetch,WebSearch,Agent,TaskCreate"
             --json-schema '${{ env.REVIEW_SCHEMA }}'
           prompt: |
               REPO: ${{ github.repository }}
@@ -263,7 +267,8 @@ jobs:
               produce a structured JSON result containing your review. Do NOT attempt
               to post comments yourself — just return the JSON. You are in the upstream repo
               with the PR branch available as `pr-review`. Do not apply or merge the patch.
-              You have no network access — all required context has been pre-fetched locally.
+              You have no network access — all required context has been pre-fetched
+              locally. You cannot spawn subagents or background tasks.
 
               ## Phase 1: Read context
 
@@ -281,16 +286,15 @@ jobs:
               `git log --reverse --format=%H HEAD..pr-review` to list the PR commits, and
               `git show <sha>` or `git diff <sha>~1..<sha>` to access commit diffs.
 
-              ## Phase 2: Per-commit review with subagents
+              ## Phase 2: Per-commit review
 
-              Launch a subagent for each commit in the PR, all in parallel. Each subagent
-              receives only the commit SHA to review. It reads `pr-context.json` for PR
-              context, uses `git show <sha>` or `git diff <sha>~1..<sha>` to fetch the
-              diff, and reads the codebase to verify its findings.
+              Review each commit in the PR sequentially. For each commit, use
+              `git show <sha>` or `git diff <sha>~1..<sha>` to fetch the diff,
+              and read relevant source files in the codebase to verify findings.
 
-              Each subagent reviews code quality, style, potential bugs, and security
-              implications. It must return a JSON array:
-              `[{"file": "path", "line": <number> (optional), "severity": "must-fix|suggestion|nit", "body": "...", "commit": "<sha>"}]`
+              For each commit, review code quality, style, potential bugs, and
+              security implications. Collect issues in the format:
+              `{"file": "path", "line": <number> (optional), "severity": "must-fix|suggestion|nit", "body": "...", "commit": "<sha>"}`
 
               The `commit` field MUST be the SHA of the commit being reviewed. Only
               comment on changes in that commit — not preceding commits.
@@ -299,7 +303,7 @@ jobs:
               inside a diff hunk**. GitHub rejects lines outside the diff context. If you
               cannot determine a valid diff line, omit `line`.
 
-              Each subagent MUST verify findings before returning them:
+              You MUST verify findings before including them:
               - For style/convention claims, check at least 3 existing examples in the
                 codebase to confirm the pattern actually exists before flagging a violation.
               - For "use X instead of Y" suggestions, confirm X actually exists and works.
@@ -307,11 +311,7 @@ jobs:
 
               ## Phase 3: Collect, deduplicate, and summarize
 
-              Wait for all commit review subagents to complete. Monitor your
-              remaining turns — if you are running low (fewer than 20 turns
-              left), immediately stop all still-running subagents using
-              TaskStop and proceed with whatever results you have so far. A
-              partial review is better than no review. Then:
+              After reviewing all commits:
               1. Collect all issues. Merge duplicates (same file, lines within 3 of each other, same problem).
               2. Drop low-confidence findings.
               3. Check the existing inline review comments fetched in Phase 1. Do NOT include a
@@ -373,13 +373,6 @@ jobs:
               section to the summary listing each failed action and the error message.
 
               ## CRITICAL: Return structured JSON output
-
-              Before returning structured output, stop ALL running background tasks
-              using TaskStop and wait for each one to fully terminate. Do NOT
-              return structured output while any background task is still
-              running — a background task completing after you return will
-              trigger a new conversation turn that overwrites your result and
-              causes the workflow to fail.
 
               Your FINAL action must be to return a JSON object matching the following
               JSON schema — do NOT end with a text summary or narrative. The `--json-schema`
