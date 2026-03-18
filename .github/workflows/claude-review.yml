@@ -247,7 +247,7 @@ jobs:
             }
           claude_args: |
             --model us.anthropic.claude-opus-4-6-v1
-            --max-turns 100
+            --max-turns 200
             --disallowedTools "WebFetch,WebSearch"
             --json-schema '${{ env.REVIEW_SCHEMA }}'
           prompt: |
@@ -302,7 +302,11 @@ jobs:
 
               ## Phase 3: Collect, deduplicate, and summarize
 
-              After ALL commit review subagents complete:
+              Wait for all commit review subagents to complete. Monitor your
+              remaining turns — if you are running low (fewer than 20 turns
+              left), immediately stop all still-running subagents using
+              TaskStop and proceed with whatever results you have so far. A
+              partial review is better than no review. Then:
               1. Collect all issues. Merge duplicates (same file, lines within 3 of each other, same problem).
               2. Drop low-confidence findings.
               3. Check the existing inline review comments fetched in Phase 1. Do NOT include a
@@ -365,10 +369,12 @@ jobs:
 
               ## CRITICAL: Return structured JSON output
 
-              Before returning structured output, cancel ALL running background tasks
-              using the TaskStop tool. A background task completing after you return
-              structured output will trigger a new conversation turn that overwrites your
-              result and causes the workflow to fail.
+              Before returning structured output, stop ALL running background tasks
+              using TaskStop and wait for each one to fully terminate. Do NOT
+              return structured output while any background task is still
+              running — a background task completing after you return will
+              trigger a new conversation turn that overwrites your result and
+              causes the workflow to fail.
 
               Your FINAL action must be to return a JSON object matching the following
               JSON schema — do NOT end with a text summary or narrative. The `--json-schema`
