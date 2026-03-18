@@ -163,7 +163,9 @@ jobs:
           name: pr-context.json
 
       - name: Install sandbox dependencies
-        run: sudo apt-get update && sudo apt-get install -y bubblewrap socat
+        run: |
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          sudo apt-get update && sudo apt-get install -y bubblewrap socat
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@8df5847569e6427dd6c4fb1cf565c83acfa8afa7
