@@ -129,7 +129,7 @@ static int parse_loader_entry_target_arg(const char *arg1, char16_t **ret_target
         return 0;
 }
 
-int verb_set_efivar(int argc, char *argv[], void *userdata) {
+int verb_set_efivar(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
         r = verify_touch_variables_allowed(argv[0]);

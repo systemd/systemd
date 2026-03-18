@@ -167,7 +167,7 @@ static int list_dependencies_one(
         return 0;
 }
 
-int verb_list_dependencies(int argc, char *argv[], void *userdata) {
+int verb_list_dependencies(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_strv_free_ char **units = NULL, **done = NULL;
         char **patterns;
         sd_bus *bus;

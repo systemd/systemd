@@ -62,7 +62,7 @@ int daemon_reload(enum action action, bool graceful) {
         return 1;
 }
 
-int verb_daemon_reload(int argc, char *argv[], void *userdata) {
+int verb_daemon_reload(int argc, char *argv[], uintptr_t _data, void *userdata) {
         enum action a;
         int r;
 

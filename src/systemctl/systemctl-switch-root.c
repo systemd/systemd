@@ -38,7 +38,7 @@ static int same_file_in_root(
         return stat_inode_same(&sta, &stb);
 }
 
-int verb_switch_root(int argc, char *argv[], void *userdata) {
+int verb_switch_root(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *cmdline_init = NULL;
         const char *root, *init;

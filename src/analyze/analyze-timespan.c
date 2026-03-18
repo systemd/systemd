@@ -9,7 +9,7 @@
 #include "strv.h"
 #include "time-util.h"
 
-int verb_timespan(int argc, char *argv[], void *userdata) {
+int verb_timespan(int argc, char *argv[], uintptr_t _data, void *userdata) {
         STRV_FOREACH(input_timespan, strv_skip(argv, 1)) {
                 _cleanup_(table_unrefp) Table *table = NULL;
                 usec_t output_usecs;

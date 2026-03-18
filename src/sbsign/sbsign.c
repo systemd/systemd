@@ -45,7 +45,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_private_key_source, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_signed_data, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_signed_data_signature, freep);
 
-static int help(int argc, char *argv[], void *userdata) {
+static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
 
@@ -81,6 +81,10 @@ static int help(int argc, char *argv[], void *userdata) {
                ansi_normal());
 
         return 0;
+}
+
+static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        return help();
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -119,8 +123,7 @@ static int parse_argv(int argc, char *argv[]) {
                 switch (c) {
 
                 case 'h':
-                        help(0, NULL, NULL);
-                        return 0;
+                        return help();
 
                 case ARG_VERSION:
                         return version();
@@ -438,7 +441,7 @@ static int pkcs7_add_digest_attribute(PKCS7 *p7, BIO *data, PKCS7_SIGNER_INFO *s
         return 0;
 }
 
-static int verb_sign(int argc, char *argv[], void *userdata) {
+static int verb_sign(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(openssl_ask_password_ui_freep) OpenSSLAskPasswordUI *ui = NULL;
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *private_key = NULL;
         _cleanup_(X509_freep) X509 *certificate = NULL;
@@ -739,8 +742,8 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
 
 static int run(int argc, char *argv[]) {
         static const Verb verbs[] = {
-                { "help",         VERB_ANY, VERB_ANY, 0,    help              },
-                { "sign",         2,        2,        0,    verb_sign         },
+                { "help",         VERB_ANY, VERB_ANY, 0,    verb_help },
+                { "sign",         2,        2,        0,    verb_sign },
                 {}
         };
         int r;

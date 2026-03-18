@@ -534,7 +534,7 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-int trigger_main(int argc, char *argv[], void *userdata) {
+int verb_trigger_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *m = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;

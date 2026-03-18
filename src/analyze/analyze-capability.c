@@ -19,7 +19,7 @@ static int table_add_capability(Table *table, int c) {
         return 0;
 }
 
-int verb_capabilities(int argc, char *argv[], void *userdata) {
+int verb_capabilities(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(table_unrefp) Table *table = NULL;
         unsigned last_cap;
         int r;

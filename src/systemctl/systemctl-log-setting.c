@@ -26,7 +26,7 @@ static void give_log_control1_hint(const char *name) {
                    "      See the %s for details.", link ?: "org.freedesktop.LogControl1(5) man page");
 }
 
-int verb_log_setting(int argc, char *argv[], void *userdata) {
+int verb_log_setting(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus;
         int r;
 
@@ -71,7 +71,7 @@ static int service_name_to_dbus(sd_bus *bus, const char *name, char **ret_dbus_n
         return 0;
 }
 
-int verb_service_log_setting(int argc, char *argv[], void *userdata) {
+int verb_service_log_setting(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus;
         _cleanup_free_ char *unit = NULL, *dbus_name = NULL;
         int r;

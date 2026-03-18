@@ -143,9 +143,6 @@ jobs:
       contents: read
       id-token: write       # Authenticate with AWS via OIDC
 
-    outputs:
-      structured_output: ${{ steps.claude.outputs.structured_output }}
-
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
         with:
@@ -180,54 +177,6 @@ jobs:
       - name: Run Claude Code
         id: claude
         uses: anthropics/claude-code-action@26ec041249acb0a944c0a47b6c0c13f05dbc5b44
-        env:
-          REVIEW_SCHEMA: >-
-            {
-              "type": "object",
-              "required": ["comments", "summary"],
-              "properties": {
-                "summary": {
-                  "type": "string",
-                  "description": "A markdown summary of the review to post as a top-level tracking comment"
-                },
-                "comments": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "required": ["file", "severity", "body", "commit"],
-                    "properties": {
-                      "file": {
-                        "type": "string",
-                        "description": "Path to the file relative to the repo root"
-                      },
-                      "line": {
-                        "type": "integer",
-                        "description": "Line number in the diff (new file side) to attach the comment to"
-                      },
-                      "severity": {
-                        "type": "string",
-                        "enum": ["must-fix", "suggestion", "nit"]
-                      },
-                      "body": {
-                        "type": "string",
-                        "description": "The review comment body in markdown"
-                      },
-                      "commit": {
-                        "type": "string",
-                        "description": "The SHA of the PR commit that introduced the code being commented on"
-                      }
-                    }
-                  }
-                },
-                "resolve": {
-                  "type": "array",
-                  "items": {
-                    "type": "integer"
-                  },
-                  "description": "REST API IDs of existing review comments whose threads should be resolved because the issue was addressed or the author left a disagreeing reply"
-                }
-              }
-            }
         with:
           use_bedrock: "true"
           # Required by claude-code-action even though Claude itself doesn't
@@ -256,26 +205,22 @@ jobs:
                 }
               }
             }
-          # Agent and TaskCreate are disabled because background task
-          # notifications race with --json-schema structured output,
-          # causing a redundant turn that overwrites the result.
-          # See https://github.com/anthropics/claude-code/issues/33872
           claude_args: |
             --model us.anthropic.claude-opus-4-6-v1
             --max-turns 200
-            --disallowedTools "WebFetch,WebSearch,Agent,TaskCreate"
+            --disallowedTools "WebFetch,WebSearch"
             --setting-sources user
-            --json-schema '${{ env.REVIEW_SCHEMA }}'
           prompt: |
               REPO: ${{ github.repository }}
               PR NUMBER: ${{ needs.setup.outputs.pr_number }}
 
               You are a code reviewer for the ${{ github.repository }} project. Review this pull request and
-              produce a structured JSON result containing your review. Do NOT attempt
-              to post comments yourself — just return the JSON. You are in the upstream repo
-              with the PR branch available as `pr-review`. Do not apply or merge the patch.
-              You have no network access — all required context has been pre-fetched
-              locally. You cannot spawn subagents or background tasks.
+              produce a JSON result containing your review and write it to
+              `review-result.json` in the repo root. Do NOT attempt to post
+              comments yourself. You are in the upstream repo with the PR branch
+              available as `pr-review`. Do not apply or merge the patch.
+              You have no network access — all required context has been
+              pre-fetched locally.
 
               ## Phase 1: Read context
 
@@ -293,15 +238,31 @@ jobs:
               `git log --reverse --format=%H HEAD..pr-review` to list the PR commits, and
               `git show <sha>` or `git diff <sha>~1..<sha>` to access commit diffs.
 
-              ## Phase 2: Per-commit review
+              ## Phase 2: Review commits
 
-              Review each commit in the PR sequentially. For each commit, use
-              `git show <sha>` or `git diff <sha>~1..<sha>` to fetch the diff,
-              and read relevant source files in the codebase to verify findings.
+              Review every commit in the PR. Use subagents to parallelize the
+              work — decide how many subagents to spawn and how to divide commits
+              between them and the main conversation based on the number and size
+              of commits. Very large commits can be assigned to multiple subagents
+              for extra thoroughness. Always review some commits yourself so you
+              have useful work to do while subagents run in the background. For
+              single-commit PRs with small diffs, just review directly without
+              subagents. For large single-commit PRs, have multiple subagents
+              review it independently to maximize coverage.
 
-              For each commit, review code quality, style, potential bugs, and
-              security implications. Collect issues in the format:
-              `{"file": "path", "line": <number> (optional), "severity": "must-fix|suggestion|nit", "body": "...", "commit": "<sha>"}`
+              IMPORTANT: Always spawn subagents with `isolation: "worktree"` so
+              each gets its own git worktree. This prevents concurrent git
+              operations from interfering with each other. Because worktrees
+              do not include untracked files, first `git add pr-context.json`
+              so it is available in worktrees.
+
+              Each reviewer (you or a subagent) uses `git show <sha>` or
+              `git diff <sha>~1..<sha>` to fetch diffs, reads `pr-context.json`
+              for PR context, and reads the codebase to verify findings.
+
+              Each reviewer reviews code quality, style, potential bugs, and security
+              implications. It must return a JSON array of issues:
+              `[{"file": "path", "line": <number> (optional), "severity": "must-fix|suggestion|nit", "body": "...", "commit": "<sha>"}]`
 
               The `commit` field MUST be the SHA of the commit being reviewed. Only
               comment on changes in that commit — not preceding commits.
@@ -310,7 +271,7 @@ jobs:
               inside a diff hunk**. GitHub rejects lines outside the diff context. If you
               cannot determine a valid diff line, omit `line`.
 
-              You MUST verify findings before including them:
+              Each reviewer MUST verify findings before returning them:
               - For style/convention claims, check at least 3 existing examples in the
                 codebase to confirm the pattern actually exists before flagging a violation.
               - For "use X instead of Y" suggestions, confirm X actually exists and works.
@@ -318,7 +279,7 @@ jobs:
 
               ## Phase 3: Collect, deduplicate, and summarize
 
-              After reviewing all commits:
+              After all reviews (yours and any subagents') are done:
               1. Collect all issues. Merge duplicates (same file, lines within 3 of each other, same problem).
               2. Drop low-confidence findings.
               3. Check the existing inline review comments fetched in Phase 1. Do NOT include a
@@ -379,18 +340,41 @@ jobs:
               not available, git commands that failed, etc.), append a `### Errors`
               section to the summary listing each failed action and the error message.
 
-              ## CRITICAL: Return structured JSON output
+              ## CRITICAL: Write review result to file
 
-              Your FINAL action must be to return a JSON object matching the following
-              JSON schema — do NOT end with a text summary or narrative. The `--json-schema`
-              flag is set, so your last response must be the structured JSON result, not a
-              text message.
+              Your FINAL action must be to write `review-result.json` in the repo
+              root. The file must contain a JSON object with the following schema:
 
               ```json
-              ${{ env.REVIEW_SCHEMA }}
+              {
+                "summary": "...",
+                "comments": [
+                  {
+                    "file": "path/to/file",
+                    "line": 42,
+                    "severity": "must-fix|suggestion|nit",
+                    "body": "review comment in markdown",
+                    "commit": "abc123"
+                  }
+                ],
+                "resolve": [12345]
+              }
               ```
 
+              - `summary` (required): markdown summary for the tracking comment
+              - `comments` (required): array of review comments; `line` is optional
+              - `resolve` (optional): REST API IDs of review comment threads to resolve
+
               Do NOT attempt to post comments or use any MCP tools to modify the PR.
+
+      - name: Upload review result
+        if: always()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        with:
+          path: review-result.json
+          if-no-files-found: ignore
+          archive: false
+          retention-days: 7
 
   post:
     runs-on: ubuntu-latest
@@ -401,15 +385,22 @@ jobs:
       pull-requests: write
 
     steps:
+      - name: Download review result
+        if: needs.review.result == 'success'
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: review-result.json
+
       - name: Post review comments
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd
         env:
-          STRUCTURED_OUTPUT: ${{ needs.review.outputs.structured_output }}
           REVIEW_RESULT: ${{ needs.review.result }}
           PR_NUMBER: ${{ needs.setup.outputs.pr_number }}
           COMMENT_ID: ${{ needs.setup.outputs.comment_id }}
         with:
           script: |
+            const fs = require("fs");
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const prNumber = parseInt(process.env.PR_NUMBER, 10);
@@ -431,9 +422,14 @@ jobs:
               return;
             }
 
-            /* Parse Claude's structured output. */
-            const raw = process.env.STRUCTURED_OUTPUT;
-            console.log("Structured output from Claude:");
+            /* Parse Claude's review result from the downloaded artifact. */
+            let raw = "";
+            try {
+              raw = fs.readFileSync("review-result.json", "utf8");
+            } catch (e) {
+              console.log(`Failed to read review-result.json: ${e.message}`);
+            }
+            console.log("Review result from Claude:");
             console.log(raw || "(empty)");
 
             let comments = [];

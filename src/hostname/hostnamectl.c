@@ -549,7 +549,7 @@ static int get_hostname_based_on_flag(sd_bus *bus) {
         return get_one_name(bus, attr, NULL);
 }
 
-static int show_status(int argc, char **argv, void *userdata) {
+static int verb_show_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = userdata;
         int r;
 
@@ -601,7 +601,7 @@ static int set_simple_string(sd_bus *bus, const char *target, const char *method
         return set_simple_string_internal(bus, NULL, target, method, value);
 }
 
-static int set_hostname(int argc, char **argv, void *userdata) {
+static int verb_set_hostname(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_free_ char *h = NULL;
         const char *hostname = argv[1];
         sd_bus *bus = userdata;
@@ -687,27 +687,27 @@ static int set_hostname(int argc, char **argv, void *userdata) {
         return ret;
 }
 
-static int get_or_set_hostname(int argc, char **argv, void *userdata) {
+static int verb_get_or_set_hostname(int argc, char *argv[], uintptr_t data, void *userdata) {
         return argc == 1 ? get_hostname_based_on_flag(userdata) :
-                           set_hostname(argc, argv, userdata);
+                           verb_set_hostname(argc, argv, data, userdata);
 }
 
-static int get_or_set_icon_name(int argc, char **argv, void *userdata) {
+static int verb_get_or_set_icon_name(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return argc == 1 ? get_one_name(userdata, "IconName", NULL) :
                            set_simple_string(userdata, "icon", "SetIconName", argv[1]);
 }
 
-static int get_or_set_chassis(int argc, char **argv, void *userdata) {
+static int verb_get_or_set_chassis(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return argc == 1 ? get_one_name(userdata, "Chassis", NULL) :
                            set_simple_string(userdata, "chassis", "SetChassis", argv[1]);
 }
 
-static int get_or_set_deployment(int argc, char **argv, void *userdata) {
+static int verb_get_or_set_deployment(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return argc == 1 ? get_one_name(userdata, "Deployment", NULL) :
                            set_simple_string(userdata, "deployment", "SetDeployment", argv[1]);
 }
 
-static int get_or_set_location(int argc, char **argv, void *userdata) {
+static int verb_get_or_set_location(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return argc == 1 ? get_one_name(userdata, "Location", NULL) :
                            set_simple_string(userdata, "location", "SetLocation", argv[1]);
 }
@@ -752,7 +752,7 @@ static int help(void) {
         return 0;
 }
 
-static int verb_help(int argc, char **argv, void *userdata) {
+static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return help();
 }
 
@@ -846,18 +846,18 @@ static int parse_argv(int argc, char *argv[]) {
 static int hostnamectl_main(sd_bus *bus, int argc, char *argv[]) {
 
         static const Verb verbs[] = {
-                { "status",         VERB_ANY, 1,        VERB_DEFAULT, show_status           },
-                { "hostname",       VERB_ANY, 2,        0,            get_or_set_hostname   },
-                { "set-hostname",   2,        2,        0,            get_or_set_hostname   }, /* obsolete */
-                { "icon-name",      VERB_ANY, 2,        0,            get_or_set_icon_name  },
-                { "set-icon-name",  2,        2,        0,            get_or_set_icon_name  }, /* obsolete */
-                { "chassis",        VERB_ANY, 2,        0,            get_or_set_chassis    },
-                { "set-chassis",    2,        2,        0,            get_or_set_chassis    }, /* obsolete */
-                { "deployment",     VERB_ANY, 2,        0,            get_or_set_deployment },
-                { "set-deployment", 2,        2,        0,            get_or_set_deployment }, /* obsolete */
-                { "location",       VERB_ANY, 2,        0,            get_or_set_location   },
-                { "set-location",   2,        2,        0,            get_or_set_location   }, /* obsolete */
-                { "help",           VERB_ANY, VERB_ANY, 0,            verb_help             }, /* Not documented, but supported since it is created. */
+                { "status",         VERB_ANY, 1,        VERB_DEFAULT, verb_show_status           },
+                { "hostname",       VERB_ANY, 2,        0,            verb_get_or_set_hostname   },
+                { "set-hostname",   2,        2,        0,            verb_get_or_set_hostname   }, /* obsolete */
+                { "icon-name",      VERB_ANY, 2,        0,            verb_get_or_set_icon_name  },
+                { "set-icon-name",  2,        2,        0,            verb_get_or_set_icon_name  }, /* obsolete */
+                { "chassis",        VERB_ANY, 2,        0,            verb_get_or_set_chassis    },
+                { "set-chassis",    2,        2,        0,            verb_get_or_set_chassis    }, /* obsolete */
+                { "deployment",     VERB_ANY, 2,        0,            verb_get_or_set_deployment },
+                { "set-deployment", 2,        2,        0,            verb_get_or_set_deployment }, /* obsolete */
+                { "location",       VERB_ANY, 2,        0,            verb_get_or_set_location   },
+                { "set-location",   2,        2,        0,            verb_get_or_set_location   }, /* obsolete */
+                { "help",           VERB_ANY, VERB_ANY, 0,            verb_help                  }, /* Not documented, but supported since it is created. */
                 {}
         };
 
