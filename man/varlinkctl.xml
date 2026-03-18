@@ -270,6 +270,22 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--upgrade</option></term>
+
+        <listitem><para>When used with <command>call</command>: request a protocol upgrade. The method call
+        is sent with the <constant>upgrade</constant> flag set. The service is expected to send a single
+        reply confirming the upgrade. After the reply, the Varlink protocol is no longer in effect on
+        the connection. Instead, <command>varlinkctl</command> acts as a bidirectional proxy: data read
+        from standard input is forwarded to the upgraded connection, and data received from the connection
+        is written to standard output.</para>
+
+        <para>This option may not be combined with <option>--more</option>, <option>--oneway</option>,
+        <option>--collect</option>, or <option>--exec</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--json=<replaceable>MODE</replaceable></option></term>
 
         <listitem>
