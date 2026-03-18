@@ -8629,6 +8629,33 @@ static int context_update_verity_size(Context *context) {
 
                                 p->size_min = sz;
                         }
+                } else if (dp->copy_blocks_size != UINT64_MAX) {
+                        /* The data partition uses CopyBlocks=, and context_open_copy_block_paths()
+                         * already resolved the exact size of the copy source. Use it to derive the
+                         * minimum size for the hash partition so the user doesn't have to specify
+                         * SizeMinBytes= manually (which is error-prone since it depends on sector
+                         * size). */
+                        r = calculate_verity_hash_size(
+                                        dp->copy_blocks_size,
+                                        p->verity_hash_block_size,
+                                        p->verity_data_block_size,
+                                        &sz);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to calculate size of dm-verity hash partition: %m");
+
+                        if (sz > p->size_max)
+                                log_warning("The dm-verity hash partition %s may be too small for the data "
+                                            "partition copied from CopyBlocks= (size %s). The hash partition "
+                                            "would require %s. Consider increasing the size of the hash partition.",
+                                            p->definition_path, FORMAT_BYTES(dp->copy_blocks_size), FORMAT_BYTES(sz));
+                        else if (p->size_min == UINT64_MAX) {
+                                log_debug("Derived size %s of verity hash partition %s from CopyBlocks= data "
+                                          "partition %s (data size %s).",
+                                          FORMAT_BYTES(sz), p->definition_path, dp->definition_path,
+                                          FORMAT_BYTES(dp->copy_blocks_size));
+
+                                p->size_min = sz;
+                        }
                 }
         }
 
