@@ -126,10 +126,11 @@ jobs:
             const fs = require("fs");
             fs.writeFileSync("pr-context.json", JSON.stringify(prContext));
 
+      # archive: false makes upload-artifact use the file's basename
+      # (pr-context.json) as the artifact name, ignoring the name input.
       - name: Upload PR context
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         with:
-          name: pr-context
           path: pr-context.json
           archive: false
 
@@ -158,7 +159,7 @@ jobs:
       - name: Download PR context
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
-          name: pr-context
+          name: pr-context.json
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@8df5847569e6427dd6c4fb1cf565c83acfa8afa7
