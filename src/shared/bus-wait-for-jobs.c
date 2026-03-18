@@ -205,7 +205,7 @@ static int log_job_error_with_service_result(
                                 r = log_full_errno(quiet ? LOG_DEBUG : LOG_ERR,
                                                    SYNTHETIC_ERRNO(i->error),
                                                    "Job for %s failed because %s.\n"
-                                                   "See \"%s status %s\" and \"%s -xeu %s\" for details.\n",
+                                                   "See \"%s status %s\" and \"%s -eu %s\" for details.\n",
                                                    service, i->explanation,
                                                    systemctl, service_shell_quoted ?: "<service>",
                                                    journalctl, service_shell_quoted ?: "<service>");
@@ -215,7 +215,7 @@ static int log_job_error_with_service_result(
         r = log_full_errno(quiet ? LOG_DEBUG : LOG_ERR,
                            SYNTHETIC_ERRNO(ENOMEDIUM),
                            "Job for %s failed.\n"
-                           "See \"%s status %s\" and \"%s -xeu %s\" for details.\n",
+                           "See \"%s status %s\" and \"%s -eu %s\" for details.\n",
                            service,
                            systemctl, service_shell_quoted ?: "<service>",
                            journalctl, service_shell_quoted ?: "<service>");
