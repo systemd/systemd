@@ -96,6 +96,19 @@ void random_bytes(void *p, size_t n) {
         fallback_random_bytes(p, n);
 }
 
+int random_bytes_allocate_iovec(size_t n, struct iovec *ret) {
+        assert(ret);
+
+        void *p = malloc(MAX(n, 1U));
+        if (!p)
+                return -ENOMEM;
+
+        random_bytes(p, n);
+
+        *ret = IOVEC_MAKE(TAKE_PTR(p), n);
+        return 0;
+}
+
 int crypto_random_bytes(void *p, size_t n) {
         assert(p || n == 0);
 
