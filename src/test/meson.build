@@ -156,6 +156,7 @@ simple_tests += files(
         'test-nsresource.c',
         'test-nulstr-util.c',
         'test-open-file.c',
+        'test-options.c',
         'test-ordered-set.c',
         'test-os-util.c',
         'test-osc-context.c',
