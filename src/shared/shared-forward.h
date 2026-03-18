@@ -78,6 +78,7 @@ typedef struct MountOptions MountOptions;
 typedef struct MStack MStack;
 typedef struct OpenFile OpenFile;
 typedef struct Pkcs11EncryptedKey Pkcs11EncryptedKey;
+typedef struct SocketForward SocketForward;
 typedef struct Table Table;
 typedef struct Tpm2Context Tpm2Context;
 typedef struct Tpm2Handle Tpm2Handle;
