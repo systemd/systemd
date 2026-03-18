@@ -162,6 +162,9 @@ jobs:
         with:
           name: pr-context.json
 
+      - name: Install sandbox dependencies
+        run: sudo apt-get update && sudo apt-get install -y bubblewrap socat
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@8df5847569e6427dd6c4fb1cf565c83acfa8afa7
         with:
@@ -232,17 +235,20 @@ jobs:
           allowed_non_write_users: "*"
           track_progress: false
           show_full_output: "true"
+          # Sandbox Bash commands to prevent network access and restrict
+          # filesystem writes to the working directory.
+          settings: |
+            {
+              "sandbox": {
+                "enabled": true,
+                "autoAllowBashIfSandboxed": true,
+                "allowUnsandboxedCommands": false
+              }
+            }
           claude_args: |
             --model us.anthropic.claude-opus-4-6-v1
             --max-turns 100
-            --allowedTools "
-                Read,LS,Grep,Glob,Task,TaskStop,
-                Bash(cat *),Bash(test *),Bash(printf *),Bash(jq *),Bash(head *),Bash(tail *),
-                Bash(git log *),Bash(git diff *),Bash(git show *),Bash(git rev-parse *),
-                Bash(git merge-base *),Bash(git blame *),Bash(git branch *),Bash(git status *),
-                Bash(grep *),Bash(find *),Bash(ls *),Bash(wc *),
-                Bash(diff *),Bash(sed *),Bash(awk *),Bash(sort *),Bash(uniq *),
-                "
+            --disallowedTools "WebFetch,WebSearch"
             --json-schema '${{ env.REVIEW_SCHEMA }}'
           prompt: |
               REPO: ${{ github.repository }}
@@ -252,6 +258,7 @@ jobs:
               produce a structured JSON result containing your review. Do NOT attempt
               to post comments yourself — just return the JSON. You are in the upstream repo
               with the PR branch available as `pr-review`. Do not apply or merge the patch.
+              You have no network access — all required context has been pre-fetched locally.
 
               ## Phase 1: Read context
 
