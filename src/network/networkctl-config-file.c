@@ -2,17 +2,12 @@
 
 #include <unistd.h>
 
-#include "sd-bus.h"
 #include "sd-daemon.h"
 #include "sd-device.h"
 #include "sd-netlink.h"
 #include "sd-network.h"
 
 #include "alloc-util.h"
-#include "bus-error.h"
-#include "bus-locator.h"
-#include "bus-util.h"
-#include "bus-wait-for-jobs.h"
 #include "conf-files.h"
 #include "edit-util.h"
 #include "errno-util.h"
@@ -395,48 +390,8 @@ static int add_config_to_edit(
         return edit_files_add(context, dropin_path, old_dropin, comment_paths);
 }
 
-static int udevd_reload(sd_bus *bus) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
-        const char *job_path;
-        int r;
-
-        assert(bus);
-
-        r = bus_wait_for_jobs_new(bus, &w);
-        if (r < 0)
-                return log_error_errno(r, "Could not watch jobs: %m");
-
-        r = bus_call_method(bus,
-                            bus_systemd_mgr,
-                            "ReloadUnit",
-                            &error,
-                            &reply,
-                            "ss",
-                            "systemd-udevd.service",
-                            "replace");
-        if (r < 0)
-                return log_error_errno(r, "Failed to reload systemd-udevd: %s", bus_error_message(&error, r));
-
-        r = sd_bus_message_read(reply, "o", &job_path);
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        r = bus_wait_for_jobs_one(w, job_path, /* flags= */ 0, NULL);
-        if (r == -ENOEXEC) {
-                log_debug("systemd-udevd is not running, skipping reload.");
-                return 0;
-        }
-        if (r < 0)
-                return log_error_errno(r, "Failed to reload systemd-udevd: %m");
-
-        return 1;
-}
-
 static int reload_daemons(ReloadFlags flags) {
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        int r, ret = 1;
+        int ret = 1;
 
         if (arg_no_reload)
                 return 0;
@@ -449,22 +404,14 @@ static int reload_daemons(ReloadFlags flags) {
                 return 0;
         }
 
-        r = sd_bus_open_system(&bus);
-        if (r < 0)
-                return log_error_errno(r, "Failed to connect to system bus: %m");
-
         if (FLAGS_SET(flags, RELOAD_UDEVD))
-                RET_GATHER(ret, udevd_reload(bus));
+                RET_GATHER(ret, reload_udevd());
 
         if (FLAGS_SET(flags, RELOAD_NETWORKD)) {
-                if (networkd_is_running()) {
-                        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-
-                        r = bus_call_method(bus, bus_network_mgr, "Reload", &error, NULL, NULL);
-                        if (r < 0)
-                                RET_GATHER(ret, log_error_errno(r, "Failed to reload systemd-networkd: %s", bus_error_message(&error, r)));
-                } else
+                if (!networkd_is_running())
                         log_debug("systemd-networkd is not running, skipping reload.");
+                else
+                        RET_GATHER(ret, reload_networkd());
         }
 
         return ret;
