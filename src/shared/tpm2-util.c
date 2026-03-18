@@ -7787,8 +7787,6 @@ static int tpm2_ak_acquire_credential_from_system(struct iovec *ret_credential) 
         if (r < 0)
                 return log_error_errno(r, "Failed to get encrypted system credentials directory: %m");
 
-        _cleanup_free_ DirectoryEntries *de = NULL;
-
         _cleanup_close_ int dfd = open(dp, O_CLOEXEC|O_DIRECTORY);
         if (dfd < 0) {
                 if (errno == ENOENT) {
@@ -7799,6 +7797,7 @@ static int tpm2_ak_acquire_credential_from_system(struct iovec *ret_credential) 
                 return log_error_errno(errno, "Failed to open system credentials directory.");
         }
 
+        _cleanup_free_ DirectoryEntries *de = NULL;
         r = readdir_all(dfd, RECURSE_DIR_IGNORE_DOT, &de);
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate system credentials: %m");
