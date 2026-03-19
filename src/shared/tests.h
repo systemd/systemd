@@ -110,8 +110,8 @@ typedef struct TestFunc {
                 ##__VA_ARGS__                                                                           \
         }
 
-extern const TestFunc _weak_ __start_SYSTEMD_TEST_TABLE[];
-extern const TestFunc _weak_ __stop_SYSTEMD_TEST_TABLE[];
+extern const TestFunc __start_SYSTEMD_TEST_TABLE[];
+extern const TestFunc __stop_SYSTEMD_TEST_TABLE[];
 
 #define TEST(name, ...)                            \
         static void test_##name(void);             \
