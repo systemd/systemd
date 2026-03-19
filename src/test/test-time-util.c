@@ -439,7 +439,7 @@ static void test_format_timestamp_impl(usec_t x) {
          * Also, the same may happen on MSK timezone (e.g. Europe/Volgograd or Europe/Kirov). */
         bool ignore =
                 (streq_ptr(getenv("TZ"), "Africa/Windhoek") ||
-                 streq_ptr(get_tzname(/* dst= */ false), "MSK")) &&
+                 STRPTR_IN_SET(get_tzname(/* dst= */ false), "CAT", "EAT", "MSK", "WET")) &&
                 (x_sec > y_sec ? x_sec - y_sec : y_sec - x_sec) == 3600;
 
         log_full(ignore ? LOG_WARNING : LOG_ERR,
