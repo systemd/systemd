@@ -16,6 +16,7 @@ ConditionDirectoryNotEmpty=|/sysroot/etc/extensions
 ConditionDirectoryNotEmpty=|/sysroot/run/extensions
 ConditionDirectoryNotEmpty=|/sysroot/var/lib/extensions
 ConditionPathExists=/etc/initrd-release
+ConditionKernelCommandLine=!systemd.sysext=0
 
 DefaultDependencies=no
 Conflicts=shutdown.target

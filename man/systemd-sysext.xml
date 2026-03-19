@@ -151,6 +151,14 @@
     named like the extension (no <filename>.raw</filename>) in <filename>/etc/extensions/</filename> to "mask"
     an extension with the same name in a system folder with lower precedence.</para>
 
+    <para>System and configuration extensions are automatically merged to the main system and the initrd by
+    default. To disable automatic merging, <varname>rd.systemd.sysext=</varname>,
+    <varname>rd.systemd.confext=</varname>, <varname>systemd.sysext=</varname>, and
+    <varname>systemd.confext=</varname> kernel command line options can be used. Note that
+    <filename>systemd-sysext-sysroot.service</filename> and <filename>systemd-confext-sysroot.service</filename>
+    are controlled by <varname>systemd.sysext=</varname>, <varname>systemd.confext=</varname> options as
+    these services are merging system and configuration extensions for the main system, not for the initrd.</para>
+
     <para>A simple mechanism for version compatibility is enforced: a system extension image must carry a
     <filename>/usr/lib/extension-release.d/extension-release.<replaceable>NAME</replaceable></filename>
     file, which must match its image name, that is compared with the host <filename>os-release</filename>

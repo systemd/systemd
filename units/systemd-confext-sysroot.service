@@ -17,6 +17,7 @@ ConditionDirectoryNotEmpty=|/sysroot/var/lib/confexts
 ConditionDirectoryNotEmpty=|/sysroot/usr/local/lib/confexts
 ConditionDirectoryNotEmpty=|/sysroot/usr/lib/confexts
 ConditionPathExists=/etc/initrd-release
+ConditionKernelCommandLine=!systemd.confext=0
 
 DefaultDependencies=no
 Conflicts=shutdown.target
