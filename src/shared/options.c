@@ -279,7 +279,7 @@ int _option_parser_get_help_table(
                         /* No help string — we do not show the option */
                         continue;
 
-                char sc[3] = "";
+                char sc[3] = "  ";
                 if (opt->short_code != 0)
                         xsprintf(sc, "-%c", opt->short_code);
 
