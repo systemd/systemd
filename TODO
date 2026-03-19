@@ -120,6 +120,8 @@ Deprecations and removals:
   similar "devices"
 
 Features:
+* sysext: make systemd-{sys,conf}ext-sysroot.service work in the split '/var'
+  configuration.
 
 * crypttab/gpt-auto-generator: allow explicit control over which unlock mechs
   to permit, and maybe have a global headless kernel cmdline option
@@ -1754,9 +1756,6 @@ Features:
     i.e. a Compress=no option in the transfer definitions
 
 * in sd-id128: also parse UUIDs in RFC4122 URN syntax (i.e. chop off urn:uuid: prefix)
-
-* systemd-sysext: optionally, run it in initrd already, before transitioning
-  into host, to open up possibility for services shipped like that.
 
 * whenever we receive fds via SCM_RIGHTS make sure none got dropped due to the
   reception limit the kernel silently enforces.
