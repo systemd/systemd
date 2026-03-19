@@ -320,6 +320,74 @@ EOF
     assert_in "CHASSIS=watch" "$(cat /run/alternate-path/mymachine-info)"
 }
 
+testcase_get_machine_info() {
+    if [[ -f /etc/machine-info ]]; then
+        cp /etc/machine-info /tmp/machine-info.bak
+    fi
+
+    trap restore_machine_info RETURN
+
+    # Test all standard cached fields
+    cat >/etc/machine-info <<EOF
+PRETTY_HOSTNAME="Pretty Test"
+ICON_NAME=computer-laptop
+CHASSIS=laptop
+DEPLOYMENT=production
+LOCATION="Server Room 42"
+HARDWARE_VENDOR="Test Vendor"
+HARDWARE_MODEL="Test Model"
+HARDWARE_SKU="SKU-001"
+HARDWARE_VERSION="v1.0"
+TEST_CUSTOM_FIELD_1=still-here
+EOF
+
+    # Custom field should still work alongside standard fields
+    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s TEST_CUSTOM_FIELD_1 | cut -d'"' -f2)" "still-here"
+    # Should fail for a field that doesn't exist
+    assert_rc 1 busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s NONEXISTENT_FIELD
+    # Should fail for an empty field name
+    assert_rc 1 busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s ""
+    # Should fail for an invalid field name
+    assert_rc 1 busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s "invalid-name!"
+
+    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s PRETTY_HOSTNAME | cut -d'"' -f2)" "Pretty Test"
+    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s ICON_NAME | cut -d'"' -f2)" "computer-laptop"
+    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s CHASSIS | cut -d'"' -f2)" "laptop"
+    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s DEPLOYMENT | cut -d'"' -f2)" "production"
+    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s LOCATION | cut -d'"' -f2)" "Server Room 42"
+    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s HARDWARE_VENDOR | cut -d'"' -f2)" "Test Vendor"
+    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s HARDWARE_MODEL | cut -d'"' -f2)" "Test Model"
+    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s HARDWARE_SKU | cut -d'"' -f2)" "SKU-001"
+    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s HARDWARE_VERSION | cut -d'"' -f2)" "v1.0"
+
+    # Verify cache consistency for all standard fields against D-Bus properties
+    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s PRETTY_HOSTNAME | cut -d'"' -f2)" \
+              "$(busctl get-property org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 PrettyHostname | cut -d'"' -f2)"
+    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s ICON_NAME | cut -d'"' -f2)" \
+              "$(busctl get-property org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 IconName | cut -d'"' -f2)"
+    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s CHASSIS | cut -d'"' -f2)" \
+              "$(busctl get-property org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 Chassis | cut -d'"' -f2)"
+    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s DEPLOYMENT | cut -d'"' -f2)" \
+              "$(busctl get-property org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 Deployment | cut -d'"' -f2)"
+    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s LOCATION | cut -d'"' -f2)" \
+              "$(busctl get-property org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 Location | cut -d'"' -f2)"
+    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s HARDWARE_VENDOR | cut -d'"' -f2)" \
+              "$(busctl get-property org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 HardwareVendor | cut -d'"' -f2)"
+    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s HARDWARE_MODEL | cut -d'"' -f2)" \
+              "$(busctl get-property org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 HardwareModel | cut -d'"' -f2)"
+
+    # Test file modification is reflected (cache invalidation via stat)
+    cat >/etc/machine-info <<EOF
+PRETTY_HOSTNAME="Updated Host"
+TEST_CUSTOM_FIELD_1=updated-value
+EOF
+
+    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s PRETTY_HOSTNAME | cut -d'"' -f2)" "Updated Host"
+    assert_eq "$(busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s TEST_CUSTOM_FIELD_1 | cut -d'"' -f2)" "updated-value"
+    # Fields removed from the file should now fail
+    assert_rc 1 busctl call org.freedesktop.hostname1 /org/freedesktop/hostname1 org.freedesktop.hostname1 GetMachineInfo s CHASSIS
+}
+
 run_testcases
 
 touch /testok

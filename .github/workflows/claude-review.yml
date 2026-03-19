@@ -207,6 +207,7 @@ jobs:
             }
           claude_args: |
             --model us.anthropic.claude-opus-4-6-v1
+            --effort max
             --max-turns 200
             --disallowedTools "WebFetch,WebSearch"
             --setting-sources user
@@ -231,8 +232,15 @@ jobs:
               - `issue_comments` — array of issue comments on the PR from the GitHub API
               - `tracking_comment` — body of the existing tracking comment (null on first run);
                 if present, use it as the basis for your `summary` in Phase 3
-              - `review_comments` — array of inline review comments from the GitHub API;
-                you will need the `id` fields in Phase 3 to populate the `resolve` array
+              - `review_comments` — array of ALL inline review comments on the PR from the
+                GitHub API. Use these as context, but observe the following rules:
+                - Only re-check your own comments (user.login == "github-actions[bot]" and
+                  body starts with "Claude: "). Do NOT validate, re-raise, respond to, or
+                  duplicate comments from other authors.
+                - Items checked off in the tracking comment (`- [x]`) are resolved. Do NOT
+                  re-check or re-raise review comments that correspond to resolved items.
+                - You will need the `id` fields of your own unresolved comments in Phase 3
+                  to populate the `resolve` array.
 
               The PR branch has been fetched locally as `pr-review`. Use
               `git log --reverse --format=%H HEAD..pr-review` to list the PR commits, and
@@ -266,6 +274,9 @@ jobs:
 
               The `commit` field MUST be the SHA of the commit being reviewed. Only
               comment on changes in that commit — not preceding commits.
+
+              Do NOT escape characters in `body`. Write plain markdown — no backslash
+              escaping of `!` or other characters.
 
               `line` should be a line number from the NEW side of the diff **that appears
               inside a diff hunk**. GitHub rejects lines outside the diff context. If you

@@ -60,6 +60,8 @@ node /org/freedesktop/hostname1 {
                      out ay uuid);
       GetHardwareSerial(out s serial);
       Describe(out s json);
+      GetMachineInfo(in  s field,
+                     out s value);
     properties:
       readonly s Hostname = '...';
       readonly s StaticHostname = '...';
@@ -145,6 +147,8 @@ node /org/freedesktop/hostname1 {
     <variablelist class="dbus-method" generated="True" extra-ref="GetHardwareSerial()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="Describe()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="GetMachineInfo()"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Hostname"/>
 
@@ -377,6 +381,13 @@ node /org/freedesktop/hostname1 {
       access to unprivileged clients through the polkit framework.</para>
 
       <para><function>Describe()</function> returns a JSON representation of all properties in one.</para>
+
+      <para><function>GetMachineInfo()</function> returns the value of the given field from
+      <filename>/etc/machine-info</filename>. For well-known fields, this method reads values from the same
+      internal cache used by the corresponding D-Bus property getters, but returns only the raw
+      <filename>/etc/machine-info</filename> values (i.e. without property-level fallback logic such as
+      DMI/chassis-based detection). Custom (non-standard) fields are read directly from the file.
+      An error is returned if the field name is empty, invalid, or not set in the file.</para>
     </refsect2>
 
     <refsect2>
@@ -494,6 +505,7 @@ node /org/freedesktop/hostname1 {
       <varname>OperatingSystemImageVersion</varname>, <varname>HardwareSKU</varname>, and
       <varname>HardwareVersion</varname> were added in version 258.</para>
       <para><varname>OperatingSystemFancyName</varname> was added in version 260.</para>
+      <para><function>GetMachineInfo()</function> was added in version 261.</para>
     </refsect2>
   </refsect1>
 
