@@ -15,6 +15,7 @@ ConditionCapability=CAP_SYS_ADMIN
 ConditionDirectoryNotEmpty=|/sysroot/etc/extensions
 ConditionDirectoryNotEmpty=|/sysroot/var/lib/extensions
 ConditionPathExists=/etc/initrd-release
+ConditionKernelCommandLine=!systemd.sysext=0
 
 DefaultDependencies=no
 Conflicts=shutdown.target
