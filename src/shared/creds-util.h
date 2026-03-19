@@ -75,12 +75,24 @@ typedef enum CredentialFlags {
 #define CRED_AES256_GCM_BY_TPM2_HMAC          SD_ID128_MAKE(0c,7c,c0,7b,11,76,45,91,9c,4b,0b,ea,08,bc,20,fe)
 #define CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK  SD_ID128_MAKE(fa,f7,eb,93,41,e3,41,2c,a1,a4,36,f9,5a,29,36,2f)
 #define CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC SD_ID128_MAKE(93,a8,94,09,48,74,44,90,90,ca,f2,fc,93,ca,b5,53)
-#define CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED            \
+#define CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED                    \
                                               SD_ID128_MAKE(ef,4a,c1,36,79,a9,48,0e,a7,db,68,89,7f,9f,16,5d)
-#define CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK           \
+#define CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK                   \
                                               SD_ID128_MAKE(af,49,50,a8,49,13,4e,b1,a7,38,46,30,4f,f3,0c,05)
-#define CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED    \
+#define CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED            \
                                               SD_ID128_MAKE(ad,bc,4c,a3,ef,b6,42,01,ba,88,1b,6f,2e,40,95,ea)
+#define CRED_AES256_GCM_BY_TPM2_HMAC_PINNED_SRK                         \
+                                              SD_ID128_MAKE(3b,01,97,91,4e,df,0b,45,ec,f8,c9,04,ed,69,27,11)
+#define CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK_PINNED_SRK                 \
+                                              SD_ID128_MAKE(14,58,61,ab,7e,e8,d6,43,e2,ef,4c,48,12,18,87,51)
+#define CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_PINNED_SRK                \
+                                              SD_ID128_MAKE(bf,30,97,e8,6b,91,a2,b9,b9,48,13,d9,3a,65,77,0c)
+#define CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED_PINNED_SRK         \
+                                              SD_ID128_MAKE(5a,10,31,61,25,df,0f,3d,18,d0,a4,44,b2,cd,1f,f6)
+#define CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_PINNED_SRK        \
+                                              SD_ID128_MAKE(b1,4d,e6,6e,15,ab,9a,ed,98,02,6e,fb,ae,82,f1,47)
+#define CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED_PINNED_SRK \
+                                              SD_ID128_MAKE(ce,52,c1,33,ac,01,87,a7,5f,15,49,ef,35,e5,34,a7)
 #define CRED_AES256_GCM_BY_NULL               SD_ID128_MAKE(05,84,69,da,f6,f5,43,24,80,05,49,da,0f,8e,a2,fb)
 
 /* Five special IDs to pick a general automatic mode. These IDs will never be stored on disk, but are useful
@@ -102,64 +114,100 @@ typedef enum CredentialFlags {
 /* Like _CRED_AUTO, but with per-UID scoping */
 #define _CRED_AUTO_SCOPED                     SD_ID128_MAKE(23,88,96,85,6f,74,48,8a,9c,78,6f,6a,b0,e7,3b,6a)
 
-#define CRED_KEY_IS_VALID(key)                                          \
-        sd_id128_in_set((key),                                          \
-                        CRED_AES256_GCM_BY_HOST,                        \
-                        CRED_AES256_GCM_BY_HOST_SCOPED,                 \
-                        CRED_AES256_GCM_BY_TPM2_HMAC,                   \
-                        CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK,           \
-                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC,          \
-                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED,   \
-                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK,  \
-                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED, \
+#define CRED_KEY_IS_VALID(key)                                                          \
+        sd_id128_in_set((key),                                                          \
+                        CRED_AES256_GCM_BY_HOST,                                        \
+                        CRED_AES256_GCM_BY_HOST_SCOPED,                                 \
+                        CRED_AES256_GCM_BY_TPM2_HMAC,                                   \
+                        CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK,                           \
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC,                          \
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED,                   \
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK,                  \
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED,           \
+                        CRED_AES256_GCM_BY_TPM2_HMAC_PINNED_SRK,                        \
+                        CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK_PINNED_SRK,                \
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_PINNED_SRK,               \
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED_PINNED_SRK,        \
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_PINNED_SRK,       \
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED_PINNED_SRK,\
                         CRED_AES256_GCM_BY_NULL)
-#define CRED_KEY_IS_AUTO(key)                                           \
-        sd_id128_in_set((key),                                          \
-                        _CRED_AUTO,                                     \
-                        _CRED_AUTO_TPM2,                                \
-                        _CRED_AUTO_HOST_AND_TPM2,                       \
-                        _CRED_AUTO_INITRD,                              \
+#define CRED_KEY_IS_AUTO(key)                                                           \
+        sd_id128_in_set((key),                                                          \
+                        _CRED_AUTO,                                                     \
+                        _CRED_AUTO_TPM2,                                                \
+                        _CRED_AUTO_HOST_AND_TPM2,                                       \
+                        _CRED_AUTO_INITRD,                                              \
                         _CRED_AUTO_SCOPED)
-#define CRED_KEY_IS_SCOPED(key)                                         \
-        sd_id128_in_set((key),                                          \
-                        _CRED_AUTO_SCOPED,                              \
-                        CRED_AES256_GCM_BY_HOST_SCOPED,                 \
-                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED,   \
-                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED)
-#define CRED_KEY_REQUIRES_HOST(key)                                     \
-        sd_id128_in_set((key),                                          \
-                        _CRED_AUTO_HOST_AND_TPM2,                       \
-                        CRED_AES256_GCM_BY_HOST,                        \
-                        CRED_AES256_GCM_BY_HOST_SCOPED,                 \
-                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC,          \
-                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED,   \
-                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK,  \
-                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED)
+#define CRED_KEY_IS_SCOPED(key)                                                         \
+        sd_id128_in_set((key),                                                          \
+                        _CRED_AUTO_SCOPED,                                              \
+                        CRED_AES256_GCM_BY_HOST_SCOPED,                                 \
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED,                   \
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED,           \
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED_PINNED_SRK,        \
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED_PINNED_SRK)
+#define CRED_KEY_REQUIRES_HOST(key)                                                     \
+        sd_id128_in_set((key),                                                          \
+                        _CRED_AUTO_HOST_AND_TPM2,                                       \
+                        CRED_AES256_GCM_BY_HOST,                                        \
+                        CRED_AES256_GCM_BY_HOST_SCOPED,                                 \
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC,                          \
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED,                   \
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK,                  \
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED,           \
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_PINNED_SRK,               \
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED_PINNED_SRK,        \
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_PINNED_SRK,       \
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED_PINNED_SRK)
 #define CRED_KEY_WANTS_HOST(key)                                        \
         sd_id128_in_set((key),                                          \
                         _CRED_AUTO,                                     \
                         _CRED_AUTO_SCOPED)
-#define CRED_KEY_REQUIRES_TPM2(key)                                     \
-        sd_id128_in_set((key),                                          \
-                        _CRED_AUTO_TPM2,                                \
-                        _CRED_AUTO_HOST_AND_TPM2,                       \
-                        CRED_AES256_GCM_BY_TPM2_HMAC,                   \
-                        CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK,           \
-                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC,          \
-                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED,   \
-                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK,  \
-                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED)
+#define CRED_KEY_REQUIRES_TPM2(key)                                                     \
+        sd_id128_in_set((key),                                                          \
+                        _CRED_AUTO_TPM2,                                                \
+                        _CRED_AUTO_HOST_AND_TPM2,                                       \
+                        CRED_AES256_GCM_BY_TPM2_HMAC,                                   \
+                        CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK,                           \
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC,                          \
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED,                   \
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK,                  \
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED,           \
+                        CRED_AES256_GCM_BY_TPM2_HMAC_PINNED_SRK,                        \
+                        CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK_PINNED_SRK,                \
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_PINNED_SRK,               \
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED_PINNED_SRK,        \
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_PINNED_SRK,       \
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED_PINNED_SRK)
 #define CRED_KEY_WANTS_TPM2(key)                                        \
         sd_id128_in_set((key),                                          \
                         _CRED_AUTO,                                     \
                         _CRED_AUTO_INITRD,                              \
                         _CRED_AUTO_SCOPED)
-#define CRED_KEY_REQUIRES_TPM2_PK(key)                                  \
-        sd_id128_in_set((key),                                          \
-                        CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK,           \
-                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK,  \
-                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED)
+#define CRED_KEY_REQUIRES_TPM2_PK(key)                                                  \
+        sd_id128_in_set((key),                                                          \
+                        CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK,                           \
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK,                  \
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED,           \
+                        CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK_PINNED_SRK,                \
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_PINNED_SRK,       \
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED_PINNED_SRK)
 #define CRED_KEY_WANTS_TPM2_PK(key)                                     \
+        sd_id128_in_set((key),                                          \
+                        _CRED_AUTO,                                     \
+                        _CRED_AUTO_TPM2,                                \
+                        _CRED_AUTO_HOST_AND_TPM2,                       \
+                        _CRED_AUTO_INITRD,                              \
+                        _CRED_AUTO_SCOPED)
+#define CRED_KEY_REQUIRES_TPM2_PINNED_SRK(key)                                          \
+        sd_id128_in_set((key),                                                          \
+                        CRED_AES256_GCM_BY_TPM2_HMAC_PINNED_SRK,                        \
+                        CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK_PINNED_SRK,                \
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_PINNED_SRK,               \
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED_PINNED_SRK,        \
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_PINNED_SRK,       \
+                        CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED_PINNED_SRK)
+#define CRED_KEY_WANTS_TPM2_PINNED_SRK(key)                             \
         sd_id128_in_set((key),                                          \
                         _CRED_AUTO,                                     \
                         _CRED_AUTO_TPM2,                                \
