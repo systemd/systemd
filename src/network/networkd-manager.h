@@ -23,6 +23,7 @@ typedef struct Manager {
         sd_bus *bus;
         sd_varlink_server *varlink_server;
         sd_varlink_server *varlink_resolve_hook_server;
+        sd_varlink_server *varlink_metrics_server;
         Set *query_filter_subscriptions;
         sd_device_monitor *device_monitor;
         Hashmap *polkit_registry;
