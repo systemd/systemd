@@ -2919,7 +2919,7 @@ int verb_security(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         unsigned line = 0, column = 0;
         if (arg_security_policy) {
-                r = sd_json_parse_file(/* f= */ NULL, arg_security_policy, /* flags= */ 0, &policy, &line, &column);
+                r = sd_json_parse_file(/* f= */ NULL, arg_security_policy, SD_JSON_PARSE_MUST_BE_OBJECT, &policy, &line, &column);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse '%s' at %u:%u: %m", arg_security_policy, line, column);
         } else {

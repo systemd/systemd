@@ -1588,4 +1588,46 @@ TEST(json_variant_compare) {
         test_json_variant_compare_one("{\"a\":\"b\",\"b\":\"c\"}", "{\"a\":\"b\"}", 1);
 }
 
+TEST(must_be) {
+        ASSERT_OK(sd_json_parse("null", /* flags= */ 0, /* ret= */ NULL, /* reterr_line= */ NULL, /* reterr_column= */ NULL));
+        ASSERT_ERROR(sd_json_parse("null", SD_JSON_PARSE_MUST_BE_OBJECT, /* ret= */ NULL, /* ret_line= */ NULL, /* reterr_column= */ NULL), EINVAL);
+        ASSERT_ERROR(sd_json_parse("null", SD_JSON_PARSE_MUST_BE_ARRAY, /* ret= */ NULL, /* ret_line= */ NULL, /* reterr_column= */ NULL), EINVAL);
+        ASSERT_ERROR(sd_json_parse("null", SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_MUST_BE_ARRAY, /* ret= */ NULL, /* reterr_line= */ NULL, /* reterr_column= */ NULL), EINVAL);
+
+        ASSERT_OK(sd_json_parse("true", /* flags= */ 0, /* ret= */ NULL, /* reterr_line= */ NULL, /* reterr_column= */ NULL));
+        ASSERT_ERROR(sd_json_parse("true", SD_JSON_PARSE_MUST_BE_OBJECT, /* ret= */ NULL, /* ret_line= */ NULL, /* reterr_column= */ NULL), EINVAL);
+        ASSERT_ERROR(sd_json_parse("true", SD_JSON_PARSE_MUST_BE_ARRAY, /* ret= */ NULL, /* ret_line= */ NULL, /* reterr_column= */ NULL), EINVAL);
+        ASSERT_ERROR(sd_json_parse("true", SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_MUST_BE_ARRAY, /* ret= */ NULL, /* reterr_line= */ NULL, /* reterr_column= */ NULL), EINVAL);
+
+        ASSERT_OK(sd_json_parse("\"foo\"", /* flags= */ 0, /* ret= */ NULL, /* reterr_line= */ NULL, /* reterr_column= */ NULL));
+        ASSERT_ERROR(sd_json_parse("\"foo\"", SD_JSON_PARSE_MUST_BE_OBJECT, /* ret= */ NULL, /* ret_line= */ NULL, /* reterr_column= */ NULL), EINVAL);
+        ASSERT_ERROR(sd_json_parse("\"foo\"", SD_JSON_PARSE_MUST_BE_ARRAY, /* ret= */ NULL, /* ret_line= */ NULL, /* reterr_column= */ NULL), EINVAL);
+        ASSERT_ERROR(sd_json_parse("\"foo\"", SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_MUST_BE_ARRAY, /* ret= */ NULL, /* reterr_line= */ NULL, /* reterr_column= */ NULL), EINVAL);
+
+        ASSERT_OK(sd_json_parse("4711", /* flags= */ 0, /* ret= */ NULL, /* reterr_line= */ NULL, /* reterr_column= */ NULL));
+        ASSERT_ERROR(sd_json_parse("4711", SD_JSON_PARSE_MUST_BE_OBJECT, /* ret= */ NULL, /* ret_line= */ NULL, /* reterr_column= */ NULL), EINVAL);
+        ASSERT_ERROR(sd_json_parse("4711", SD_JSON_PARSE_MUST_BE_ARRAY, /* ret= */ NULL, /* ret_line= */ NULL, /* reterr_column= */ NULL), EINVAL);
+        ASSERT_ERROR(sd_json_parse("4711", SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_MUST_BE_ARRAY, /* ret= */ NULL, /* reterr_line= */ NULL, /* reterr_column= */ NULL), EINVAL);
+
+        ASSERT_OK(sd_json_parse("-4711", /* flags= */ 0, /* ret= */ NULL, /* reterr_line= */ NULL, /* reterr_column= */ NULL));
+        ASSERT_ERROR(sd_json_parse("-4711", SD_JSON_PARSE_MUST_BE_OBJECT, /* ret= */ NULL, /* ret_line= */ NULL, /* reterr_column= */ NULL), EINVAL);
+        ASSERT_ERROR(sd_json_parse("-4711", SD_JSON_PARSE_MUST_BE_ARRAY, /* ret= */ NULL, /* ret_line= */ NULL, /* reterr_column= */ NULL), EINVAL);
+        ASSERT_ERROR(sd_json_parse("-4711", SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_MUST_BE_ARRAY, /* ret= */ NULL, /* reterr_line= */ NULL, /* reterr_column= */ NULL), EINVAL);
+
+        ASSERT_OK(sd_json_parse("-4.5", /* flags= */ 0, /* ret= */ NULL, /* reterr_line= */ NULL, /* reterr_column= */ NULL));
+        ASSERT_ERROR(sd_json_parse("-4.5", SD_JSON_PARSE_MUST_BE_OBJECT, /* ret= */ NULL, /* ret_line= */ NULL, /* reterr_column= */ NULL), EINVAL);
+        ASSERT_ERROR(sd_json_parse("-4.5", SD_JSON_PARSE_MUST_BE_ARRAY, /* ret= */ NULL, /* ret_line= */ NULL, /* reterr_column= */ NULL), EINVAL);
+        ASSERT_ERROR(sd_json_parse("-4.5", SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_MUST_BE_ARRAY, /* ret= */ NULL, /* reterr_line= */ NULL, /* reterr_column= */ NULL), EINVAL);
+
+        ASSERT_OK(sd_json_parse("{}", /* flags= */ 0, /* ret= */ NULL, /* reterr_line= */ NULL, /* reterr_column= */ NULL));
+        ASSERT_OK(sd_json_parse("{}", SD_JSON_PARSE_MUST_BE_OBJECT, /* ret= */ NULL, /* ret_line= */ NULL, /* reterr_column= */ NULL));
+        ASSERT_ERROR(sd_json_parse("{}", SD_JSON_PARSE_MUST_BE_ARRAY, /* ret= */ NULL, /* ret_line= */ NULL, /* reterr_column= */ NULL), EINVAL);
+        ASSERT_OK(sd_json_parse("{}", SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_MUST_BE_ARRAY, /* ret= */ NULL, /* reterr_line= */ NULL, /* reterr_column= */ NULL));
+
+        ASSERT_OK(sd_json_parse("[]", /* flags= */ 0, /* ret= */ NULL, /* reterr_line= */ NULL, /* reterr_column= */ NULL));
+        ASSERT_ERROR(sd_json_parse("[]", SD_JSON_PARSE_MUST_BE_OBJECT, /* ret= */ NULL, /* ret_line= */ NULL, /* reterr_column= */ NULL), EINVAL);
+        ASSERT_OK(sd_json_parse("[]", SD_JSON_PARSE_MUST_BE_ARRAY, /* ret= */ NULL, /* ret_line= */ NULL, /* reterr_column= */ NULL));
+        ASSERT_OK(sd_json_parse("[]", SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_MUST_BE_ARRAY, /* ret= */ NULL, /* reterr_line= */ NULL, /* reterr_column= */ NULL));
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
