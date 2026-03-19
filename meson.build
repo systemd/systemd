@@ -524,6 +524,12 @@ if cc.compiles('''
         add_project_arguments('-Werror=shadow', language : 'c')
 endif
 
+have = cc.compiles(
+        '__attribute__((__retain__)) int x;',
+        args : '-Werror=attributes',
+        name : '__attribute__((__retain__))')
+conf.set10('HAVE_ATTRIBUTE_RETAIN', have)
+
 if cxx_cmd != ''
         add_project_arguments(cxx.get_supported_arguments(basic_disabled_warnings), language : 'cpp')
 endif
