@@ -921,6 +921,21 @@ TEST(option_macros) {
         test_macros_parse_one(STRV_MAKE("arg0",
                                         "--help",
                                         "--exec",
+                                        "--",
+                                        "--version",
+                                        "-h"),
+                              (Entry[]) {
+                                      { "help" },
+                                      { "exec" },
+                                      {}
+                              },
+                              STRV_MAKE("--version",
+                                        "-h"));
+
+        /* OPTION_STOPS_PARSING then later "--": "--" is not consumed */
+        test_macros_parse_one(STRV_MAKE("arg0",
+                                        "--help",
+                                        "--exec",
                                         "--version",
                                         "--",
                                         "-h"),
@@ -930,6 +945,24 @@ TEST(option_macros) {
                                       {}
                               },
                               STRV_MAKE("--version",
+                                        "--",
+                                        "-h"));
+
+        /* OPTION_STOPS_PARSING then "--" twice: second "--" is not consumed */
+        test_macros_parse_one(STRV_MAKE("arg0",
+                                        "--help",
+                                        "--exec",
+                                        "--",
+                                        "--",
+                                        "--version",
+                                        "-h"),
+                              (Entry[]) {
+                                      { "help" },
+                                      { "exec" },
+                                      {}
+                              },
+                              STRV_MAKE("--",
+                                        "--version",
                                         "-h"));
 }
 
