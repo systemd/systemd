@@ -143,13 +143,108 @@ static int units_by_state_total_build_json(MetricFamilyContext *context, void *u
         return 0;
 }
 
+static int jobs_queued_build_json(MetricFamilyContext *context, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+
+        assert(context);
+
+        return metric_build_send_unsigned(
+                        context,
+                        /* object= */ NULL,
+                        hashmap_size(manager->jobs),
+                        /* fields= */ NULL);
+}
+
+static int system_state_build_json(MetricFamilyContext *context, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+
+        assert(context);
+
+        return metric_build_send_string(
+                        context,
+                        /* object= */ NULL,
+                        manager_state_to_string(manager_state(manager)),
+                        /* fields= */ NULL);
+}
+
+static int units_by_load_state_total_build_json(MetricFamilyContext *context, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+        uint64_t counters[_UNIT_LOAD_STATE_MAX] = {};
+        Unit *unit;
+        char *key;
+        int r;
+
+        assert(context);
+
+        HASHMAP_FOREACH_KEY(unit, key, manager->units) {
+                /* ignore aliases */
+                if (key != unit->id)
+                        continue;
+
+                counters[unit->load_state]++;
+        }
+
+        for (UnitLoadState state = 0; state < _UNIT_LOAD_STATE_MAX; state++) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *fields = NULL;
+
+                r = sd_json_buildo(&fields, SD_JSON_BUILD_PAIR_STRING("load_state", unit_load_state_to_string(state)));
+                if (r < 0)
+                        return r;
+
+                r = metric_build_send_unsigned(
+                                context,
+                                /* object= */ NULL,
+                                counters[state],
+                                fields);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int units_total_build_json(MetricFamilyContext *context, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+        Unit *unit;
+        char *key;
+        uint64_t count = 0;
+
+        assert(context);
+
+        HASHMAP_FOREACH_KEY(unit, key, manager->units) {
+                /* ignore aliases */
+                if (key != unit->id)
+                        continue;
+
+                count++;
+        }
+
+        return metric_build_send_unsigned(
+                        context,
+                        /* object= */ NULL,
+                        count,
+                        /* fields= */ NULL);
+}
+
 static const MetricFamily metric_family_table[] = {
         /* Keep metrics ordered alphabetically */
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "JobsQueued",
+                .description = "Number of jobs currently queued",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = jobs_queued_build_json,
+        },
         {
                 .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "NRestarts",
                 .description = "Per unit metric: number of restarts",
                 .type = METRIC_FAMILY_TYPE_COUNTER,
                 .generate = nrestarts_build_json,
+        },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "SystemState",
+                .description = "Overall system state",
+                .type = METRIC_FAMILY_TYPE_STRING,
+                .generate = system_state_build_json,
         },
         {
                 .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "UnitActiveState",
@@ -164,6 +259,12 @@ static const MetricFamily metric_family_table[] = {
                 .generate = unit_load_state_build_json,
         },
         {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "UnitsByLoadStateTotal",
+                .description = "Total number of units by load state",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = units_by_load_state_total_build_json,
+        },
+        {
                 .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "UnitsByStateTotal",
                 .description = "Total number of units of different state",
                 .type = METRIC_FAMILY_TYPE_GAUGE,
@@ -174,6 +275,12 @@ static const MetricFamily metric_family_table[] = {
                 .description = "Total number of units of different types",
                 .type = METRIC_FAMILY_TYPE_GAUGE,
                 .generate = units_by_type_total_build_json,
+        },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "UnitsTotal",
+                .description = "Total number of units",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = units_total_build_json,
         },
         {}
 };
