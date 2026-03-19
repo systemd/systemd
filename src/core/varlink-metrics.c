@@ -4,6 +4,7 @@
 #include "sd-varlink.h"
 
 #include "alloc-util.h"
+#include "cgroup.h"
 #include "hashmap.h"
 #include "manager.h"
 #include "metrics.h"
@@ -11,6 +12,321 @@
 #include "unit-def.h"
 #include "unit.h"
 #include "varlink-metrics.h"
+
+static int active_timestamp_build_json(MetricFamilyContext *context, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+        Unit *unit;
+        char *key;
+        int r;
+
+        assert(context);
+
+        HASHMAP_FOREACH_KEY(unit, key, manager->units) {
+                if (key != unit->id)
+                        continue;
+
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *enter_fields = NULL;
+                r = sd_json_buildo(&enter_fields, SD_JSON_BUILD_PAIR_STRING("event", "enter"));
+                if (r < 0)
+                        return r;
+
+                r = metric_build_send_unsigned(
+                                context,
+                                unit->id,
+                                unit->active_enter_timestamp.realtime,
+                                enter_fields);
+                if (r < 0)
+                        return r;
+
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *exit_fields = NULL;
+                r = sd_json_buildo(&exit_fields, SD_JSON_BUILD_PAIR_STRING("event", "exit"));
+                if (r < 0)
+                        return r;
+
+                r = metric_build_send_unsigned(
+                                context,
+                                unit->id,
+                                unit->active_exit_timestamp.realtime,
+                                exit_fields);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int cpu_usage_build_json(MetricFamilyContext *context, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+        int r;
+
+        assert(context);
+
+        LIST_FOREACH(units_by_type, unit, manager->units_by_type[UNIT_SERVICE]) {
+                nsec_t nsec;
+
+                r = unit_get_cpu_usage(unit, &nsec);
+                if (r < 0)
+                        continue;
+
+                r = metric_build_send_unsigned(
+                                context,
+                                unit->id,
+                                nsec,
+                                /* fields= */ NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int inactive_exit_timestamp_build_json(MetricFamilyContext *context, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+        Unit *unit;
+        char *key;
+        int r;
+
+        assert(context);
+
+        HASHMAP_FOREACH_KEY(unit, key, manager->units) {
+                if (key != unit->id)
+                        continue;
+
+                r = metric_build_send_unsigned(
+                                context,
+                                unit->id,
+                                unit->inactive_exit_timestamp.realtime,
+                                /* fields= */ NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int io_read_bytes_build_json(MetricFamilyContext *context, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+        int r;
+
+        assert(context);
+
+        LIST_FOREACH(units_by_type, unit, manager->units_by_type[UNIT_SERVICE]) {
+                uint64_t val;
+
+                r = unit_get_io_accounting(unit, CGROUP_IO_READ_BYTES, &val);
+                if (r < 0)
+                        continue;
+
+                r = metric_build_send_unsigned(
+                                context,
+                                unit->id,
+                                val,
+                                /* fields= */ NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int io_read_operations_build_json(MetricFamilyContext *context, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+        int r;
+
+        assert(context);
+
+        LIST_FOREACH(units_by_type, unit, manager->units_by_type[UNIT_SERVICE]) {
+                uint64_t val;
+
+                r = unit_get_io_accounting(unit, CGROUP_IO_READ_OPERATIONS, &val);
+                if (r < 0)
+                        continue;
+
+                r = metric_build_send_unsigned(
+                                context,
+                                unit->id,
+                                val,
+                                /* fields= */ NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int memory_usage_build_json(MetricFamilyContext *context, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+        int r;
+
+        assert(context);
+
+        LIST_FOREACH(units_by_type, unit, manager->units_by_type[UNIT_SERVICE]) {
+                uint64_t val;
+
+                r = unit_get_memory_available(unit, &val);
+                if (r >= 0) {
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *fields = NULL;
+                        r = sd_json_buildo(&fields, SD_JSON_BUILD_PAIR_STRING("type", "available"));
+                        if (r < 0)
+                                return r;
+
+                        r = metric_build_send_unsigned(
+                                        context,
+                                        unit->id,
+                                        val,
+                                        fields);
+                        if (r < 0)
+                                return r;
+                }
+
+                r = unit_get_memory_accounting(unit, CGROUP_MEMORY_CURRENT, &val);
+                if (r >= 0) {
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *fields = NULL;
+                        r = sd_json_buildo(&fields, SD_JSON_BUILD_PAIR_STRING("type", "current"));
+                        if (r < 0)
+                                return r;
+
+                        r = metric_build_send_unsigned(
+                                        context,
+                                        unit->id,
+                                        val,
+                                        fields);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        return 0;
+}
+
+static int restart_delay_build_json(MetricFamilyContext *context, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+        int r;
+
+        assert(context);
+
+        LIST_FOREACH(units_by_type, unit, manager->units_by_type[UNIT_SERVICE]) {
+                r = metric_build_send_unsigned(
+                                context,
+                                unit->id,
+                                SERVICE(unit)->restart_usec,
+                                /* fields= */ NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int state_change_timestamp_build_json(MetricFamilyContext *context, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+        Unit *unit;
+        char *key;
+        int r;
+
+        assert(context);
+
+        HASHMAP_FOREACH_KEY(unit, key, manager->units) {
+                if (key != unit->id)
+                        continue;
+
+                r = metric_build_send_unsigned(
+                                context,
+                                unit->id,
+                                unit->state_change_timestamp.realtime,
+                                /* fields= */ NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int status_errno_build_json(MetricFamilyContext *context, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+        int r;
+
+        assert(context);
+
+        LIST_FOREACH(units_by_type, unit, manager->units_by_type[UNIT_SERVICE]) {
+                r = metric_build_send_unsigned(
+                                context,
+                                unit->id,
+                                (uint64_t) SERVICE(unit)->status_errno,
+                                /* fields= */ NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int tasks_current_build_json(MetricFamilyContext *context, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+        int r;
+
+        assert(context);
+
+        LIST_FOREACH(units_by_type, unit, manager->units_by_type[UNIT_SERVICE]) {
+                uint64_t val;
+
+                r = unit_get_tasks_current(unit, &val);
+                if (r < 0)
+                        continue;
+
+                r = metric_build_send_unsigned(
+                                context,
+                                unit->id,
+                                val,
+                                /* fields= */ NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int timeout_clean_build_json(MetricFamilyContext *context, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+        int r;
+
+        assert(context);
+
+        LIST_FOREACH(units_by_type, unit, manager->units_by_type[UNIT_SERVICE]) {
+                const ExecContext *ec = unit_get_exec_context(unit);
+                if (!ec)
+                        continue;
+
+                r = metric_build_send_unsigned(
+                                context,
+                                unit->id,
+                                ec->timeout_clean_usec,
+                                /* fields= */ NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int watchdog_timeout_build_json(MetricFamilyContext *context, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+        int r;
+
+        assert(context);
+
+        LIST_FOREACH(units_by_type, unit, manager->units_by_type[UNIT_SERVICE]) {
+                r = metric_build_send_unsigned(
+                                context,
+                                unit->id,
+                                service_get_watchdog_usec(SERVICE(unit)),
+                                /* fields= */ NULL);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
 
 static int unit_active_state_build_json(MetricFamilyContext *context, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
@@ -230,10 +546,46 @@ static int units_total_build_json(MetricFamilyContext *context, void *userdata) 
 static const MetricFamily metric_family_table[] = {
         /* Keep metrics ordered alphabetically */
         {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "ActiveTimestamp",
+                .description = "Per unit metric: timestamp of active state transitions in microseconds",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = active_timestamp_build_json,
+        },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "CpuUsage",
+                .description = "Per service metric: CPU usage in nanoseconds",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = cpu_usage_build_json,
+        },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "IOReadBytes",
+                .description = "Per service metric: IO bytes read",
+                .type = METRIC_FAMILY_TYPE_COUNTER,
+                .generate = io_read_bytes_build_json,
+        },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "IOReadOperations",
+                .description = "Per service metric: IO read operations",
+                .type = METRIC_FAMILY_TYPE_COUNTER,
+                .generate = io_read_operations_build_json,
+        },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "InactiveExitTimestamp",
+                .description = "Per unit metric: timestamp when the unit last exited the inactive state in microseconds",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = inactive_exit_timestamp_build_json,
+        },
+        {
                 .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "JobsQueued",
                 .description = "Number of jobs currently queued",
                 .type = METRIC_FAMILY_TYPE_GAUGE,
                 .generate = jobs_queued_build_json,
+        },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "MemoryUsage",
+                .description = "Per service metric: memory usage in bytes",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = memory_usage_build_json,
         },
         {
                 .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "NRestarts",
@@ -242,10 +594,40 @@ static const MetricFamily metric_family_table[] = {
                 .generate = nrestarts_build_json,
         },
         {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "RestartDelay",
+                .description = "Per service metric: configured restart delay in microseconds",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = restart_delay_build_json,
+        },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "StateChangeTimestamp",
+                .description = "Per unit metric: timestamp of the last state change in microseconds",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = state_change_timestamp_build_json,
+        },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "StatusErrno",
+                .description = "Per service metric: errno status of the service",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = status_errno_build_json,
+        },
+        {
                 .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "SystemState",
                 .description = "Overall system state",
                 .type = METRIC_FAMILY_TYPE_STRING,
                 .generate = system_state_build_json,
+        },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "TasksCurrent",
+                .description = "Per service metric: current number of tasks",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = tasks_current_build_json,
+        },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "TimeoutClean",
+                .description = "Per service metric: cleanup timeout in microseconds",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = timeout_clean_build_json,
         },
         {
                 .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "UnitActiveState",
@@ -282,6 +664,12 @@ static const MetricFamily metric_family_table[] = {
                 .description = "Total number of units",
                 .type = METRIC_FAMILY_TYPE_GAUGE,
                 .generate = units_total_build_json,
+        },
+        {
+                .name = METRIC_IO_SYSTEMD_MANAGER_PREFIX "WatchdogTimeout",
+                .description = "Per service metric: watchdog timeout in microseconds",
+                .type = METRIC_FAMILY_TYPE_GAUGE,
+                .generate = watchdog_timeout_build_json,
         },
         {}
 };
