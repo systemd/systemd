@@ -57,6 +57,7 @@ static inline bool hw_addr_equal(const struct hw_addr_data *a, const struct hw_a
         return hw_addr_compare(a, b) == 0;
 }
 bool hw_addr_is_null(const struct hw_addr_data *addr) _pure_;
+bool hw_addr_is_valid(const struct hw_addr_data *addr, uint16_t iftype);
 
 extern const struct hash_ops hw_addr_hash_ops;
 extern const struct hash_ops hw_addr_hash_ops_free;
