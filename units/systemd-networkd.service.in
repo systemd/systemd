@@ -46,7 +46,7 @@ RestrictRealtime=yes
 RestrictSUIDSGID=yes
 RuntimeDirectory=systemd/netif
 RuntimeDirectoryPreserve=yes
-Sockets=systemd-networkd.socket systemd-networkd-varlink.socket systemd-networkd-resolve-hook.socket
+Sockets=systemd-networkd.socket systemd-networkd-varlink.socket systemd-networkd-varlink-metrics.socket systemd-networkd-resolve-hook.socket
 SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service bpf
@@ -56,7 +56,7 @@ User=systemd-network
 
 [Install]
 WantedBy=multi-user.target
-Also=systemd-networkd.socket systemd-networkd-varlink.socket systemd-networkd-resolve-hook.socket
+Also=systemd-networkd.socket systemd-networkd-varlink.socket systemd-networkd-varlink-metrics.socket systemd-networkd-resolve-hook.socket
 Alias=dbus-org.freedesktop.network1.service
 
 # The output from this generator is used by udevd and networkd. Enable it by
