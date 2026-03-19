@@ -222,6 +222,9 @@ TEST(credential_encrypt_decrypt) {
                 test_encrypt_decrypt_with(CRED_AES256_GCM_BY_TPM2_HMAC, UID_INVALID);
                 test_encrypt_decrypt_with(CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC, UID_INVALID);
                 test_encrypt_decrypt_with(CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED, 0);
+                test_encrypt_decrypt_with(CRED_AES256_GCM_BY_TPM2_HMAC_PINNED_SRK, UID_INVALID);
+                test_encrypt_decrypt_with(CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_PINNED_SRK, UID_INVALID);
+                test_encrypt_decrypt_with(CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED_PINNED_SRK, 0);
         }
 
         if (ec)
@@ -268,6 +271,12 @@ TEST(mime_type_matches) {
                 CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED,
                 CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK,
                 CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED,
+                CRED_AES256_GCM_BY_TPM2_HMAC_PINNED_SRK,
+                CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK_PINNED_SRK,
+                CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_PINNED_SRK,
+                CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED_PINNED_SRK,
+                CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_PINNED_SRK,
+                CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED_PINNED_SRK,
                 CRED_AES256_GCM_BY_NULL,
         };
 
