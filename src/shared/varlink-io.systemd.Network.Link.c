@@ -41,6 +41,8 @@ static SD_VARLINK_DEFINE_METHOD(
                 VARLINK_NETWORK_INTERFACE_INPUTS,
                 VARLINK_DEFINE_POLKIT_INPUT);
 
+static SD_VARLINK_DEFINE_ERROR(InterfaceUnmanaged);
+
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Network_Link,
                 "io.systemd.Network.Link",
@@ -56,6 +58,8 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_Reconfigure,
                 SD_VARLINK_SYMBOL_COMMENT("Describe the specified link by index or name."),
                 &vl_method_Describe,
+                SD_VARLINK_SYMBOL_COMMENT("The specified interface is not managed by systemd-networkd."),
+                &vl_error_InterfaceUnmanaged,
                 &vl_type_Address,
                 &vl_type_BitRates,
                 &vl_type_DHCPLease,

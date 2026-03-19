@@ -136,6 +136,9 @@ int vl_method_link_renew(sd_varlink *vlink, sd_json_variant *parameters, sd_varl
         if (r != 0)
                 return r;
 
+        if (!link->network)
+                return sd_varlink_error(vlink, "io.systemd.Network.Link.InterfaceUnmanaged", NULL);
+
         r = varlink_verify_polkit_async(
                         vlink,
                         manager->bus,
@@ -162,6 +165,9 @@ int vl_method_link_force_renew(sd_varlink *vlink, sd_json_variant *parameters, s
         r = dispatch_link(vlink, parameters, manager, DISPATCH_LINK_POLKIT | DISPATCH_LINK_MANDATORY, &link);
         if (r != 0)
                 return r;
+
+        if (!link->network)
+                return sd_varlink_error(vlink, "io.systemd.Network.Link.InterfaceUnmanaged", NULL);
 
         r = varlink_verify_polkit_async(
                         vlink,

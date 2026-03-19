@@ -2,8 +2,8 @@
 
 #include <linux/if_tunnel.h>
 
-#include "sd-netlink.h"
 #include "sd-json.h"
+#include "sd-netlink.h"
 
 #include "alloc-util.h"
 #include "device-util.h"
