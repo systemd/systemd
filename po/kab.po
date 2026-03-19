@@ -9,7 +9,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-03-06 03:46+0900\n"
-"PO-Revision-Date: 2026-03-18 18:58+0000\n"
+"PO-Revision-Date: 2026-03-19 20:58+0000\n"
 "Last-Translator: Massii Aqvayli <massiin@proton.me>\n"
 "Language-Team: Kabyle <https://translate.fedoraproject.org/projects/systemd/"
 "main/kab/>\n"
@@ -54,6 +54,8 @@ msgid ""
 "Authentication is required to set or unset system and service manager "
 "environment variables."
 msgstr ""
+"Ilaq usesteb i usbadu neɣ tukksa n yimuttiyen n twennaṭ seg umsefrak n "
+"unagraw akked imeẓla."
 
 #: src/core/org.freedesktop.systemd1.policy.in:64
 msgid "Reload the systemd state"
@@ -65,12 +67,12 @@ msgstr "Asesteb yettwasra i wallus usali n waddad n unagraw."
 
 #: src/core/org.freedesktop.systemd1.policy.in:74
 msgid "Dump the systemd state without rate limits"
-msgstr ""
+msgstr "Silem addad n systemd war tilisa n watug"
 
 #: src/core/org.freedesktop.systemd1.policy.in:75
 msgid ""
 "Authentication is required to dump the systemd state without rate limits."
-msgstr ""
+msgstr "Asesteb yesra i usillem n waddad n systemd war tilisa n watug."
 
 #: src/home/org.freedesktop.home1.policy:13
 msgid "Create a home area"
@@ -78,32 +80,34 @@ msgstr "Rnu tmennaḍt agejdan"
 
 #: src/home/org.freedesktop.home1.policy:14
 msgid "Authentication is required to create a user's home area."
-msgstr ""
+msgstr "Asesteb yettwasra i tmerna n temnaḍt tagejdant n useqdac."
 
 #: src/home/org.freedesktop.home1.policy:23
 msgid "Remove a home area"
-msgstr ""
+msgstr "Kkes tamnaḍt tagejdant"
 
 #: src/home/org.freedesktop.home1.policy:24
 msgid "Authentication is required to remove a user's home area."
-msgstr ""
+msgstr "Asesteb yettwasra i tukksa n temnaḍt tagejdant n useqdac."
 
 #: src/home/org.freedesktop.home1.policy:33
 msgid "Check credentials of a home area"
-msgstr ""
+msgstr "Selken talɣut n usesteb n temnaḍt tagejdant"
 
 #: src/home/org.freedesktop.home1.policy:34
 msgid ""
 "Authentication is required to check credentials against a user's home area."
 msgstr ""
+"Asesteb yettwasra i uselken n talɣut n usesteb deg temnaḍt tagejdant n "
+"useqdac."
 
 #: src/home/org.freedesktop.home1.policy:43
 msgid "Update a home area"
-msgstr ""
+msgstr "Leqqem tamnaḍt tagejdant"
 
 #: src/home/org.freedesktop.home1.policy:44
 msgid "Authentication is required to update a user's home area."
-msgstr ""
+msgstr "Asesteb yettwasera i uleqqem n tamnaḍt tagejdant n useqdac."
 
 #: src/home/org.freedesktop.home1.policy:53
 msgid "Update your home area"
@@ -111,24 +115,25 @@ msgstr "Mucced tamnaḍt-ik·im tagejdant"
 
 #: src/home/org.freedesktop.home1.policy:54
 msgid "Authentication is required to update your home area."
-msgstr ""
+msgstr "Asesteb yettwasera i uleqqem n tamnaḍt tagejdant."
 
 #: src/home/org.freedesktop.home1.policy:63
 msgid "Resize a home area"
-msgstr ""
+msgstr "Ales tiddi n temnaḍt n tagejdant"
 
 #: src/home/org.freedesktop.home1.policy:64
 msgid "Authentication is required to resize a user's home area."
-msgstr ""
+msgstr "Asesteb yettwasera i wales tiddi n temnaḍt tagejdant n useqdac."
 
 #: src/home/org.freedesktop.home1.policy:73
 msgid "Change password of a home area"
-msgstr ""
+msgstr "Snifel awal n uɛeddi n temnaḍt tagejdant"
 
 #: src/home/org.freedesktop.home1.policy:74
 msgid ""
 "Authentication is required to change the password of a user's home area."
 msgstr ""
+"Asesteb yettwasera i usnifel n wawal n uɛeddi n temnaḍt tagejdant n useqdac."
 
 #: src/home/org.freedesktop.home1.policy:83
 msgid "Activate a home area"
@@ -136,15 +141,15 @@ msgstr "Rmed tamnaḍṭ-ik·im tagejdant"
 
 #: src/home/org.freedesktop.home1.policy:84
 msgid "Authentication is required to activate a user's home area."
-msgstr ""
+msgstr "Asesteb yettwasera i wesermed n temnaḍt tagejdant n useqdac."
 
 #: src/home/org.freedesktop.home1.policy:93
 msgid "Manage Home Directory Signing Keys"
-msgstr ""
+msgstr "Sefrek tisura uzmul n ukaram agejdan"
 
 #: src/home/org.freedesktop.home1.policy:94
 msgid "Authentication is required to manage signing keys for home directories."
-msgstr ""
+msgstr "Asesteb yettwasera i usefrek n tisura uzmul n ikaramen igejdanen."
 
 #: src/home/pam_systemd_home.c:330
 #, c-format
@@ -152,11 +157,13 @@ msgid ""
 "Home of user %s is currently absent, please plug in the necessary storage "
 "device or backing file system."
 msgstr ""
+"Agejdan n useqdac %s ulac-it akka tura, ttxil-k·m, qqen ibenk n usekles "
+"ilaqen neɣ anagraw n ufaylu i yellan deg-s."
 
 #: src/home/pam_systemd_home.c:335
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
-msgstr ""
+msgstr "Ddeqs n uɛraḍ n tuqqna ɣer useqdac %s, ɛreḍ tikelt nniḍen ticki."
 
 #: src/home/pam_systemd_home.c:347
 msgid "Password: "
