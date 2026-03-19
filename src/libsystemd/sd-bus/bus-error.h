@@ -31,12 +31,10 @@ const char* _bus_error_message(const sd_bus_error *e, int error, char buf[static
  * the error map is really added to the final binary.
  *
  * In addition, set the retain attribute so that the section cannot be
- * discarded by ld --gc-sections -z start-stop-gc. Older compilers would
- * warn for the unknown attribute, so just disable -Wattributes.
+ * discarded by ld --gc-sections -z start-stop-gc.
  */
 
 #define BUS_ERROR_MAP_ELF_REGISTER                                      \
-        _Pragma("GCC diagnostic ignored \"-Wattributes\"")              \
         _section_("SYSTEMD_BUS_ERROR_MAP")                              \
         _used_                                                          \
         _retain_                                                        \
