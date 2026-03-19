@@ -6,4 +6,11 @@ executables += [
                 'public' : true,
                 'sources' : files('report.c'),
         },
+        libexec_template + {
+                'name' : 'systemd-report-metrics',
+                'sources' : files(
+                        'report-metrics.c',
+                        'report-metrics-server.c',
+                ),
+        },
 ]
