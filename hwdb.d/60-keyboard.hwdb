@@ -2158,6 +2158,14 @@ evdev:name:SIPODEV USB Composite Device:dmi:bvn*:bvr*:bd*:svnVIOS:pnLTH17:*
  KEYBOARD_KEY_70073=touchpad_toggle                     # Touchpad toggle
 
 ###########################################################
+# Wareus
+###########################################################
+
+# Wareus B15 (8AD5A)
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnWareus*:pnB15*:*
+ KEYBOARD_KEY_55=fn
+
+###########################################################
 # WeiHeng
 ###########################################################
 
