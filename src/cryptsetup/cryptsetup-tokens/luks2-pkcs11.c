@@ -246,7 +246,7 @@ int parse_luks2_pkcs11_data(
         assert(ret_encrypted_key);
         assert(ret_encrypted_key_size);
 
-        r = sd_json_parse(json, 0, &v, NULL, NULL);
+        r = sd_json_parse(json, SD_JSON_PARSE_MUST_BE_OBJECT, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
         if (r < 0)
                 return r;
 

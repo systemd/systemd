@@ -682,14 +682,14 @@ static int verb_call(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 source = "<argv[4]>";
 
                 /* <argv[4]> is correct, as dispatch_verb() shifts arguments by one for the verb. */
-                r = sd_json_parse_with_source(parameter, source, 0, &jp, &line, &column);
+                r = sd_json_parse_with_source(parameter, source, SD_JSON_PARSE_MUST_BE_OBJECT, &jp, &line, &column);
         } else {
                 if (isatty_safe(STDIN_FILENO) && !arg_quiet)
                         log_notice("Expecting method call parameter JSON object on standard input. (Provide empty string or {} for no parameters.)");
 
                 source = "<stdin>";
 
-                r = sd_json_parse_file_at(stdin, AT_FDCWD, source, 0, &jp, &line, &column);
+                r = sd_json_parse_file_at(stdin, AT_FDCWD, source, SD_JSON_PARSE_MUST_BE_OBJECT, &jp, &line, &column);
         }
         if (r < 0 && r != -ENODATA)
                 return log_error_errno(r, "Failed to parse parameters at %s:%u:%u: %m", source, line, column);
