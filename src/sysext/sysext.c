@@ -51,6 +51,7 @@
 #include "path-util.h"
 #include "pidref.h"
 #include "pretty-print.h"
+#include "proc-cmdline.h"
 #include "process-util.h"
 #include "rm-rf.h"
 #include "runtime-scope.h"
@@ -3021,6 +3022,7 @@ static int sysext_main(int argc, char *argv[]) {
 
 static int run(int argc, char *argv[]) {
         int r;
+        bool enabled;
 
         log_setup();
 
@@ -3035,6 +3037,22 @@ static int run(int argc, char *argv[]) {
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
+
+        /* PROC_CMDLINE_STRIP_RD_PREFIX cannot be used here as we need to be able to distinguish between
+         * rd.systemd.{sysext,confext} and systemd.{sysext,confext} in the initrd where they are both used
+         * and have different meaning. */
+        const char *cmdline_opt = strjoina(
+                        in_initrd() && !arg_root ? "rd." : "",
+                        "systemd.",
+                        arg_image_class == IMAGE_CONFEXT ? "confext" : "sysext");
+
+        r = proc_cmdline_get_bool(cmdline_opt, PROC_CMDLINE_TRUE_WHEN_MISSING, &enabled);
+        if (r < 0)
+                log_debug_errno(r, "Failed to check '%s=' kernel command line option, proceeding: %m", cmdline_opt);
+        else if (!enabled) {
+                log_notice("Disabled by the kernel command line option '%s', skipping execution.", cmdline_opt);
+                return 0;
+        }
 
         /* Parse configuration file after argv because it needs --root=.
          * The config entries will not overwrite values set already by
