@@ -383,6 +383,7 @@ jobs:
     if: always() && needs.setup.result == 'success'
 
     permissions:
+      contents: write       # Required to resolve review comment threads
       pull-requests: write
 
     steps:
