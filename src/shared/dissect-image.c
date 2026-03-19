@@ -1488,7 +1488,7 @@ static int dissect_image(
                                 if (!sd_id128_is_null(usr_verity_uuid) && !sd_id128_equal(usr_verity_uuid, id)) {
                                         log_debug("Partition UUID '%s' does not match expected UUID '%s' derived from usr verity hash, ignoring.",
                                                   SD_ID128_TO_UUID_STRING(id),
-                                                  SD_ID128_TO_UUID_STRING(usr_uuid));
+                                                  SD_ID128_TO_UUID_STRING(usr_verity_uuid));
                                         continue;
                                 }
 
