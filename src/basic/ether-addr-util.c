@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <net/ethernet.h>
+#include <net/if_arp.h>
 #include <stdio.h>
 
 #include "ether-addr-util.h"
@@ -66,6 +67,29 @@ void hw_addr_hash_func(const struct hw_addr_data *p, struct siphash *state) {
 bool hw_addr_is_null(const struct hw_addr_data *addr) {
         assert(addr);
         return addr->length == 0 || memeqzero(addr->bytes, addr->length);
+}
+
+bool hw_addr_is_valid(const struct hw_addr_data *addr, uint16_t iftype) {
+        assert(addr);
+
+        switch (iftype) {
+        case ARPHRD_ETHER:
+                /* Refuse all zero and all 0xFF. */
+                if (addr->length != ETH_ALEN)
+                        return false;
+
+                return !ether_addr_is_null(&addr->ether) && !ether_addr_is_broadcast(&addr->ether);
+
+        case ARPHRD_INFINIBAND:
+                /* The last 8 bytes cannot be zero. */
+                if (addr->length != INFINIBAND_ALEN)
+                        return false;
+
+                return !memeqzero(addr->bytes + INFINIBAND_ALEN - 8, 8);
+
+        default:
+                return false;
+        }
 }
 
 DEFINE_HASH_OPS(hw_addr_hash_ops, struct hw_addr_data, hw_addr_hash_func, hw_addr_compare);
