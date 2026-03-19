@@ -51,6 +51,7 @@
 #include "path-util.h"
 #include "pidref.h"
 #include "pretty-print.h"
+#include "proc-cmdline.h"
 #include "process-util.h"
 #include "rm-rf.h"
 #include "runtime-scope.h"
@@ -3021,10 +3022,26 @@ static int sysext_main(int argc, char *argv[]) {
 
 static int run(int argc, char *argv[]) {
         int r;
+        const char *cmdline_opt;
+        bool enabled;
 
         log_setup();
 
-        arg_image_class = invoked_as(argv, "systemd-confext") ? IMAGE_CONFEXT : IMAGE_SYSEXT;
+        if (invoked_as(argv, "systemd-confext")) {
+                arg_image_class = IMAGE_CONFEXT;
+                cmdline_opt = "systemd.confext";
+        } else {
+                arg_image_class = IMAGE_SYSEXT;
+                cmdline_opt = "systemd.sysext";
+        }
+
+        r = proc_cmdline_get_bool(cmdline_opt, PROC_CMDLINE_STRIP_RD_PREFIX|PROC_CMDLINE_TRUE_WHEN_MISSING, &enabled);
+        if (r < 0)
+                log_debug_errno(r, "Failed to check '%s=' kernel command line option, proceeding: %m", cmdline_opt);
+        else if (!enabled) {
+                log_notice("Disabled by the kernel command line option '%s', skipping execution", cmdline_opt);
+                return 0;
+        }
 
         /* Parse environment variables first */
         r = parse_env();
