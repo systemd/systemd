@@ -233,6 +233,8 @@ static int run(int argc, char *argv[]) {
                 }
         }
 
+        context_finalize_bootif(&context);
+
         r = context_merge_networks(&context);
         if (r < 0)
                 return log_warning_errno(r, "Failed to merge multiple command line options: %m");
