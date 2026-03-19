@@ -114,8 +114,10 @@ int option_parse(
                                 return 0;
                         }
 
-                        if (!state->parsing_stopped &&
-                            argv[state->optind][0] == '-' &&
+                        if (state->parsing_stopped)
+                                return 0;
+
+                        if (argv[state->optind][0] == '-' &&
                             argv[state->optind][1] != '\0')
                                 /* Looks like we found an option parameter */
                                 break;
