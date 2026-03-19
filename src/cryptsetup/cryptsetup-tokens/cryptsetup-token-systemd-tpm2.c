@@ -72,7 +72,7 @@ _public_ int cryptsetup_token_open_pin(
         if (usrptr)
                 params = *(systemd_tpm2_plugin_params *)usrptr;
 
-        r = sd_json_parse(json, 0, &v, NULL, NULL);
+        r = sd_json_parse(json, SD_JSON_PARSE_MUST_BE_OBJECT, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
         if (r < 0)
                 return crypt_log_debug_errno(cd, r, "Failed to parse token JSON data: %m");
 
@@ -186,7 +186,7 @@ _public_ void cryptsetup_token_dump(
 
         assert(json);
 
-        r = sd_json_parse(json, 0, &v, NULL, NULL);
+        r = sd_json_parse(json, SD_JSON_PARSE_MUST_BE_OBJECT, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
         if (r < 0)
                 return (void) crypt_log_debug_errno(cd, r, "Failed to parse " TOKEN_NAME " JSON object: %m");
 
