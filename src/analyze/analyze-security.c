@@ -3,6 +3,7 @@
 #include <linux/capability.h>
 
 #include "sd-bus.h"
+#include "sd-json.h"
 
 #include "alloc-util.h"
 #include "analyze-verify-util.h"
@@ -2919,7 +2920,7 @@ int verb_security(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         unsigned line = 0, column = 0;
         if (arg_security_policy) {
-                r = sd_json_parse_file(/* f= */ NULL, arg_security_policy, /* flags= */ 0, &policy, &line, &column);
+                r = sd_json_parse_file(/* f= */ NULL, arg_security_policy, SD_JSON_PARSE_MUST_BE_OBJECT, &policy, &line, &column);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse '%s' at %u:%u: %m", arg_security_policy, line, column);
         } else {
@@ -2931,7 +2932,7 @@ int verb_security(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         return r;
 
                 if (f) {
-                        r = sd_json_parse_file(f, pp, /* flags= */ 0, &policy, &line, &column);
+                        r = sd_json_parse_file(f, pp, SD_JSON_PARSE_MUST_BE_OBJECT, &policy, &line, &column);
                         if (r < 0)
                                 return log_error_errno(r, "[%s:%u:%u] Failed to parse JSON policy: %m", pp, line, column);
                 }
