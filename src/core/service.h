@@ -216,6 +216,7 @@ typedef struct Service {
 
         sd_event_source *timer_event_source;
         PathSpec *pid_file_pathspec;
+        sd_event_source *pid_file_retry_event_source;
 
         NotifyAccess notify_access;
         NotifyAccess notify_access_override;

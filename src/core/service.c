@@ -130,6 +130,7 @@ static const UnitActiveState state_translation_table_idle[_SERVICE_STATE_MAX] = 
 };
 
 static int service_dispatch_inotify_io(sd_event_source *source, int fd, uint32_t events, void *userdata);
+static int service_dispatch_pid_file_retry(sd_event_source *source, void *userdata);
 static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata);
 static int service_dispatch_watchdog(sd_event_source *source, usec_t usec, void *userdata);
 static int service_dispatch_exec_io(sd_event_source *source, int fd, uint32_t events, void *userdata);
@@ -138,6 +139,8 @@ static void service_enter_signal(Service *s, ServiceState state, ServiceResult f
 
 static void service_reload_finish(Service *s, ServiceResult f);
 static void service_enter_reload_by_notify(Service *s);
+static int service_arm_pid_file_retry(Service *s);
+static int service_demand_pid_file(Service *s, bool immediate_retry);
 
 static bool service_can_reload_extensions(Service *s, bool warn);
 
@@ -221,8 +224,19 @@ static void service_unwatch_main_pid(Service *s) {
         unit_unwatch_pidref_done(UNIT(s), &s->main_pid);
 }
 
+static void service_disable_pid_file_retry(Service *s) {
+        assert(s);
+
+        if (!s->pid_file_retry_event_source)
+                return;
+
+        (void) sd_event_source_set_enabled(s->pid_file_retry_event_source, SD_EVENT_OFF);
+}
+
 static void service_unwatch_pid_file(Service *s) {
         assert(s);
+
+        service_disable_pid_file_retry(s);
 
         if (!s->pid_file_pathspec)
                 return;
@@ -561,6 +575,7 @@ static void service_done(Unit *u) {
         service_stop_watchdog(s);
 
         s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
+        s->pid_file_retry_event_source = sd_event_source_disable_unref(s->pid_file_retry_event_source);
         s->exec_fd_event_source = sd_event_source_disable_unref(s->exec_fd_event_source);
 
         s->bus_name_pid_lookup_slot = sd_bus_slot_unref(s->bus_name_pid_lookup_slot);
@@ -1321,7 +1336,10 @@ static void service_set_state(Service *s, ServiceState state) {
         old_state = s->state;
         s->state = state;
 
-        service_unwatch_pid_file(s);
+        /* During coldplug we may have just recreated the PID file watch for a forking service that is still
+         * waiting to publish its real main PID. Keep that watch intact across the state restore itself. */
+        if (!MANAGER_IS_RELOADING(u->manager))
+                service_unwatch_pid_file(s);
 
         if (!IN_SET(state,
                     SERVICE_CONDITION, SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST,
@@ -1485,6 +1503,22 @@ static int service_coldplug(Unit *u) {
                                 s->socket_peer = peer;
                         }
                 }
+        }
+
+        if (IN_SET(s->deserialized_state, SERVICE_START, SERVICE_START_POST) &&
+            s->pid_file &&
+            !pidref_is_set(&s->control_pid) &&
+            !s->main_pid_known) {
+                /* The starter already exited before daemon-reload, so we need to restore the pending PID file
+                 * watch before restoring the state. Then queue a deferred PID file retry behind SIGCHLD and
+                 * cgroup-empty processing, so coldplug itself remains a pure state restore. */
+                r = service_demand_pid_file(s, /* immediate_retry= */ false);
+                if (r < 0)
+                        return r;
+
+                r = service_arm_pid_file_retry(s);
+                if (r < 0)
+                        return r;
         }
 
         service_set_state(s, s->deserialized_state);
@@ -3988,7 +4022,33 @@ static int service_retry_pid_file(Service *s) {
         return 0;
 }
 
-static int service_watch_pid_file(Service *s) {
+static int service_arm_pid_file_retry(Service *s) {
+        int r;
+
+        assert(s);
+
+        if (!s->pid_file_retry_event_source) {
+                r = sd_event_add_defer(UNIT(s)->manager->event, &s->pid_file_retry_event_source, service_dispatch_pid_file_retry, s);
+                if (r < 0)
+                        return log_unit_error_errno(UNIT(s), r, "Failed to allocate deferred PID file event source: %m");
+
+                /* Run after SIGCHLD and cgroup-empty processing, so they get the first chance to advance
+                 * the service state before we retry the PID file ourselves. */
+                r = sd_event_source_set_priority(s->pid_file_retry_event_source, EVENT_PRIORITY_PID_FILE_RETRY);
+                if (r < 0)
+                        return log_unit_error_errno(UNIT(s), r, "Failed to set priority of deferred PID file event source: %m");
+
+                (void) sd_event_source_set_description(s->pid_file_retry_event_source, "service-pid-file-retry");
+        }
+
+        r = sd_event_source_set_enabled(s->pid_file_retry_event_source, SD_EVENT_ONESHOT);
+        if (r < 0)
+                return log_unit_error_errno(UNIT(s), r, "Failed to enable deferred PID file event source: %m");
+
+        return 0;
+}
+
+static int service_watch_pid_file(Service *s, bool immediate_retry) {
         int r;
 
         assert(s);
@@ -4002,14 +4062,16 @@ static int service_watch_pid_file(Service *s) {
                 return r;
         }
 
-        /* the pidfile might have appeared just before we set the watch */
-        log_unit_debug(UNIT(s), "Trying to read PID file %s in case it changed", s->pid_file_pathspec->path);
-        service_retry_pid_file(s);
+        if (immediate_retry) {
+                /* the pidfile might have appeared just before we set the watch */
+                log_unit_debug(UNIT(s), "Trying to read PID file %s in case it changed", s->pid_file_pathspec->path);
+                service_retry_pid_file(s);
+        }
 
         return 0;
 }
 
-static int service_demand_pid_file(Service *s) {
+static int service_demand_pid_file(Service *s, bool immediate_retry) {
         _cleanup_free_ PathSpec *ps = NULL;
 
         assert(s);
@@ -4036,7 +4098,23 @@ static int service_demand_pid_file(Service *s) {
 
         s->pid_file_pathspec = TAKE_PTR(ps);
 
-        return service_watch_pid_file(s);
+        return service_watch_pid_file(s, immediate_retry);
+}
+
+static int service_dispatch_pid_file_retry(sd_event_source *source, void *userdata) {
+        Service *s = ASSERT_PTR(SERVICE(userdata));
+
+        assert(source == s->pid_file_retry_event_source);
+
+        if (!IN_SET(s->state, SERVICE_START, SERVICE_START_POST))
+                return 0;
+
+        if (!s->pid_file_pathspec)
+                return 0;
+
+        log_unit_debug(UNIT(s), "Trying to read PID file %s after daemon-reload", s->pid_file_pathspec->path);
+        (void) service_retry_pid_file(s);
+        return 0;
 }
 
 static int service_dispatch_inotify_io(sd_event_source *source, int fd, uint32_t events, void *userdata) {
@@ -4056,7 +4134,7 @@ static int service_dispatch_inotify_io(sd_event_source *source, int fd, uint32_t
         if (service_retry_pid_file(s) == 0)
                 return 0;
 
-        if (service_watch_pid_file(s) < 0)
+        if (service_watch_pid_file(s, /* immediate_retry= */ true) < 0)
                 goto fail;
 
         return 0;
@@ -4521,7 +4599,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                         has_start_post = s->exec_command[SERVICE_EXEC_START_POST];
                                         r = service_load_pid_file(s, !has_start_post);
                                         if (!has_start_post && r < 0) {
-                                                r = service_demand_pid_file(s);
+                                                r = service_demand_pid_file(s, /* immediate_retry= */ true);
                                                 if (r < 0 || cgroup_good(s) == 0)
                                                         service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_FAILURE_PROTOCOL);
                                                 break;
@@ -4541,7 +4619,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 if (s->pid_file) {
                                         r = service_load_pid_file(s, true);
                                         if (r < 0) {
-                                                r = service_demand_pid_file(s);
+                                                r = service_demand_pid_file(s, /* immediate_retry= */ true);
                                                 if (r < 0 || cgroup_good(s) == 0)
                                                         service_enter_stop(s, SERVICE_FAILURE_PROTOCOL);
                                                 break;
