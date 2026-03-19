@@ -80,8 +80,11 @@ endif
 efi_conf = configuration_data()
 
 # import several configs from userspace
-foreach name : ['HAVE_WARNING_ZERO_LENGTH_BOUNDS', 'HAVE_WARNING_ZERO_AS_NULL_POINTER_CONSTANT']
-        efi_conf.set10(name, conf.get(name) == 1)
+foreach name : ['HAVE_ATTRIBUTE_RETAIN',
+                'HAVE_WARNING_ZERO_AS_NULL_POINTER_CONSTANT',
+                'HAVE_WARNING_ZERO_LENGTH_BOUNDS',
+               ]
+        efi_conf.set(name, conf.get(name))
 endforeach
 
 efi_conf.set10('ENABLE_TPM', get_option('tpm'))
