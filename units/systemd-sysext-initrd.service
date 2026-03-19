@@ -18,6 +18,7 @@ ConditionDirectoryNotEmpty=|/var/lib/extensions
 ConditionDirectoryNotEmpty=|/.extra/sysext
 ConditionDirectoryNotEmpty=|/.extra/global_sysext
 ConditionPathExists=/etc/initrd-release
+ConditionKernelCommandLine=!rd.systemd.sysext=0
 
 DefaultDependencies=no
 Before=local-fs-pre.target cryptsetup-pre.target systemd-tmpfiles-setup.service
