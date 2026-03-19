@@ -72,6 +72,7 @@
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "swtpm-util.h"
 #include "sync-util.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
@@ -1354,48 +1355,11 @@ static int start_tpm(
         if (r < 0)
                 return log_error_errno(r, "Failed to create TPM state directory '%s': %m", state_dir);
 
-        _cleanup_free_ char *swtpm_setup = NULL;
-        r = find_executable("swtpm_setup", &swtpm_setup);
+        r = manufacture_swtpm(state_dir, /* secret= */ NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to find swtpm_setup binary: %m");
+                return r;
 
-        /* Try passing --profile-name default-v2 first, in order to support RSA4096 pcrsig keys, which was
-         * added in 0.11. */
-        _cleanup_strv_free_ char **argv = strv_new(
-                        swtpm_setup,
-                        "--tpm-state", state_dir,
-                        "--tpm2",
-                        "--pcr-banks", "sha256",
-                        "--not-overwrite",
-                        "--profile-name", "default-v2");
-        if (!argv)
-                return log_oom();
-
-        r = pidref_safe_fork("(swtpm-setup)", FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_WAIT, /* ret= */ NULL);
-        if (r == 0) {
-                /* Child */
-                execvp(argv[0], argv);
-                log_error_errno(errno, "Failed to execute '%s': %m", argv[0]);
-                _exit(EXIT_FAILURE);
-        }
-        if (r == -EPROTO) {
-                /* If swtpm_setup fails, try again removing the default-v2 profile, as it might be an older
-                 * version. */
-                strv_remove(argv, "--profile-name");
-                strv_remove(argv, "default-v2");
-
-                r = pidref_safe_fork("(swtpm-setup)", FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_WAIT, /* ret= */ NULL);
-                if (r == 0) {
-                        /* Child */
-                        execvp(argv[0], argv);
-                        log_error_errno(errno, "Failed to execute '%s': %m", argv[0]);
-                        _exit(EXIT_FAILURE);
-                }
-        }
-        if (r < 0)
-                return log_error_errno(r, "Failed to run swtpm_setup: %m");
-
-        strv_free(argv);
+        _cleanup_strv_free_ char **argv = NULL;
         argv = strv_new(sd_socket_activate, "--listen", listen_address, swtpm, "socket", "--tpm2", "--tpmstate");
         if (!argv)
                 return log_oom();
