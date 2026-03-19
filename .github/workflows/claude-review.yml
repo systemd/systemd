@@ -207,6 +207,7 @@ jobs:
             }
           claude_args: |
             --model us.anthropic.claude-opus-4-6-v1
+            --effort max
             --max-turns 200
             --disallowedTools "WebFetch,WebSearch"
             --setting-sources user
