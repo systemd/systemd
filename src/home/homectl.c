@@ -758,7 +758,7 @@ static int inspect_home(sd_bus *bus, const char *name) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        r = sd_json_parse(json, SD_JSON_PARSE_SENSITIVE, &v, NULL, NULL);
+        r = sd_json_parse(json, SD_JSON_PARSE_SENSITIVE|SD_JSON_PARSE_MUST_BE_OBJECT, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse JSON identity: %m");
 
@@ -1159,7 +1159,11 @@ static int acquire_new_home_record(sd_json_variant *input, UserRecord **ret) {
 
                 r = sd_json_parse_file(
                                 streq(arg_identity, "-") ? stdin : NULL,
-                                streq(arg_identity, "-") ? "<stdin>" : arg_identity, SD_JSON_PARSE_SENSITIVE, &v, &line, &column);
+                                streq(arg_identity, "-") ? "<stdin>" : arg_identity,
+                                SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_SENSITIVE,
+                                &v,
+                                &line,
+                                &column);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse identity at %u:%u: %m", line, column);
         } else
@@ -1667,7 +1671,7 @@ static int register_home_one(sd_bus *bus, FILE *f, const char *path) {
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         unsigned line = 0, column = 0;
-        r = sd_json_parse_file(f, path, SD_JSON_PARSE_SENSITIVE, &v, &line, &column);
+        r = sd_json_parse_file(f, path, SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_SENSITIVE, &v, &line, &column);
         if (r < 0)
                 return log_error_errno(r, "[%s:%u:%u] Failed to parse user record: %m", path, line, column);
 
@@ -1785,7 +1789,11 @@ static int acquire_updated_home_record(
 
                 r = sd_json_parse_file(
                                 streq(arg_identity, "-") ? stdin : NULL,
-                                streq(arg_identity, "-") ? "<stdin>" : arg_identity, SD_JSON_PARSE_SENSITIVE, &json, &line, &column);
+                                streq(arg_identity, "-") ? "<stdin>" : arg_identity,
+                                SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_SENSITIVE,
+                                &json,
+                                &line,
+                                &column);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse identity at %u:%u: %m", line, column);
 
@@ -1822,7 +1830,12 @@ static int acquire_updated_home_record(
                 if (incomplete)
                         return log_error_errno(SYNTHETIC_ERRNO(EACCES), "Lacking rights to acquire user record including privileged metadata, can't update record.");
 
-                r = sd_json_parse(text, SD_JSON_PARSE_SENSITIVE, &json, NULL, NULL);
+                r = sd_json_parse(
+                                text,
+                                SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_SENSITIVE,
+                                &json,
+                                /* reterr_line= */ NULL,
+                                /* reterr_column= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse JSON identity: %m");
 
@@ -2569,7 +2582,7 @@ static int create_or_register_from_credentials(void) {
                                 /* f= */ NULL,
                                 fd,
                                 de->d_name,
-                                /* flags= */ 0,
+                                /* flags= */ SD_JSON_PARSE_MUST_BE_OBJECT,
                                 &identity,
                                 &line,
                                 &column);
@@ -5135,7 +5148,7 @@ static int fallback_shell(int argc, char *argv[]) {
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                r = sd_json_parse(json, SD_JSON_PARSE_SENSITIVE, &v, NULL, NULL);
+                r = sd_json_parse(json, SD_JSON_PARSE_SENSITIVE|SD_JSON_PARSE_MUST_BE_OBJECT, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse JSON identity: %m");
 
