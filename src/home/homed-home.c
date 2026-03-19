@@ -589,7 +589,7 @@ static int home_parse_worker_stdout(int _fd, UserRecord **ret) {
         }
 
         unsigned line = 0, column = 0;
-        r = sd_json_parse_file(f, "stdout", SD_JSON_PARSE_SENSITIVE, &v, &line, &column);
+        r = sd_json_parse_file(f, "stdout", SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_SENSITIVE, &v, &line, &column);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse identity at %u:%u: %m", line, column);
 

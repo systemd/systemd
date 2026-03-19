@@ -887,7 +887,7 @@ static int luks_validate_home_record(
                         return log_error_errno(r, "Failed to read LUKS token %i: %m", token);
 
                 unsigned line = 0, column = 0;
-                r = sd_json_parse(text, SD_JSON_PARSE_SENSITIVE, &v, &line, &column);
+                r = sd_json_parse(text, SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_SENSITIVE, &v, &line, &column);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse LUKS token JSON data %u:%u: %m", line, column);
 
@@ -940,7 +940,7 @@ static int luks_validate_home_record(
 
                 decrypted[decrypted_size] = 0;
 
-                r = sd_json_parse(decrypted, SD_JSON_PARSE_SENSITIVE, &rr, NULL, NULL);
+                r = sd_json_parse(decrypted, SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_SENSITIVE, &rr, NULL, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse decrypted JSON record, refusing.");
 

@@ -3039,7 +3039,6 @@ static int json_parse_internal(
         int r;
 
         assert_return(input, -EINVAL);
-        assert_return(ret, -EINVAL);
 
         p = *input;
 
@@ -3111,8 +3110,12 @@ static int json_parse_internal(
                         break;
 
                 case JSON_TOKEN_OBJECT_OPEN:
-
                         if (!IN_SET(current->expect, EXPECT_TOPLEVEL, EXPECT_OBJECT_VALUE, EXPECT_ARRAY_FIRST_ELEMENT, EXPECT_ARRAY_NEXT_ELEMENT)) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
+                        if (n_stack == 1 && FLAGS_SET(flags, SD_JSON_PARSE_MUST_BE_ARRAY) && !FLAGS_SET(flags, SD_JSON_PARSE_MUST_BE_OBJECT)) {
                                 r = -EINVAL;
                                 goto finish;
                         }
@@ -3168,6 +3171,11 @@ static int json_parse_internal(
                                 goto finish;
                         }
 
+                        if (n_stack == 1 && !FLAGS_SET(flags, SD_JSON_PARSE_MUST_BE_ARRAY) && FLAGS_SET(flags, SD_JSON_PARSE_MUST_BE_OBJECT)) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
                         if (!GREEDY_REALLOC(stack, n_stack+1)) {
                                 r = -ENOMEM;
                                 goto finish;
@@ -3217,6 +3225,11 @@ static int json_parse_internal(
                                 goto finish;
                         }
 
+                        if (n_stack == 1 && (flags & (SD_JSON_PARSE_MUST_BE_ARRAY|SD_JSON_PARSE_MUST_BE_OBJECT)) != 0) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
                         r = sd_json_variant_new_string(&add, string);
                         if (r < 0)
                                 goto finish;
@@ -3236,6 +3249,11 @@ static int json_parse_internal(
 
                 case JSON_TOKEN_REAL:
                         if (!IN_SET(current->expect, EXPECT_TOPLEVEL, EXPECT_OBJECT_VALUE, EXPECT_ARRAY_FIRST_ELEMENT, EXPECT_ARRAY_NEXT_ELEMENT)) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
+                        if (n_stack == 1 && (flags & (SD_JSON_PARSE_MUST_BE_ARRAY|SD_JSON_PARSE_MUST_BE_OBJECT)) != 0) {
                                 r = -EINVAL;
                                 goto finish;
                         }
@@ -3261,6 +3279,11 @@ static int json_parse_internal(
                                 goto finish;
                         }
 
+                        if (n_stack == 1 && (flags & (SD_JSON_PARSE_MUST_BE_ARRAY|SD_JSON_PARSE_MUST_BE_OBJECT)) != 0) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
                         r = sd_json_variant_new_integer(&add, value.integer);
                         if (r < 0)
                                 goto finish;
@@ -3278,6 +3301,11 @@ static int json_parse_internal(
 
                 case JSON_TOKEN_UNSIGNED:
                         if (!IN_SET(current->expect, EXPECT_TOPLEVEL, EXPECT_OBJECT_VALUE, EXPECT_ARRAY_FIRST_ELEMENT, EXPECT_ARRAY_NEXT_ELEMENT)) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
+                        if (n_stack == 1 && (flags & (SD_JSON_PARSE_MUST_BE_ARRAY|SD_JSON_PARSE_MUST_BE_OBJECT)) != 0) {
                                 r = -EINVAL;
                                 goto finish;
                         }
@@ -3303,6 +3331,11 @@ static int json_parse_internal(
                                 goto finish;
                         }
 
+                        if (n_stack == 1 && (flags & (SD_JSON_PARSE_MUST_BE_ARRAY|SD_JSON_PARSE_MUST_BE_OBJECT)) != 0) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
                         r = sd_json_variant_new_boolean(&add, value.boolean);
                         if (r < 0)
                                 goto finish;
@@ -3320,6 +3353,11 @@ static int json_parse_internal(
 
                 case JSON_TOKEN_NULL:
                         if (!IN_SET(current->expect, EXPECT_TOPLEVEL, EXPECT_OBJECT_VALUE, EXPECT_ARRAY_FIRST_ELEMENT, EXPECT_ARRAY_NEXT_ELEMENT)) {
+                                r = -EINVAL;
+                                goto finish;
+                        }
+
+                        if (n_stack == 1 && (flags & (SD_JSON_PARSE_MUST_BE_ARRAY|SD_JSON_PARSE_MUST_BE_OBJECT)) != 0) {
                                 r = -EINVAL;
                                 goto finish;
                         }
@@ -3365,7 +3403,8 @@ done:
         assert(n_stack == 1);
         assert(stack[0].n_elements == 1);
 
-        *ret = sd_json_variant_ref(stack[0].elements[0]);
+        if (ret)
+                *ret = sd_json_variant_ref(stack[0].elements[0]);
         *input = p;
         r = 0;
 

@@ -253,7 +253,7 @@ static int load_firmware_data(const char *path, FirmwareData **ret) {
         r = sd_json_parse_file(
                         /* f= */ NULL,
                         path,
-                        /* flags= */ 0,
+                        /* flags= */ SD_JSON_PARSE_MUST_BE_OBJECT,
                         &json,
                         /* reterr_line= */ NULL,
                         /* ret_column= */ NULL);
