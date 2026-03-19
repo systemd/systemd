@@ -268,6 +268,9 @@ jobs:
               The `commit` field MUST be the SHA of the commit being reviewed. Only
               comment on changes in that commit — not preceding commits.
 
+              Do NOT escape characters in `body`. Write plain markdown — no backslash
+              escaping of `!` or other characters.
+
               `line` should be a line number from the NEW side of the diff **that appears
               inside a diff hunk**. GitHub rejects lines outside the diff context. If you
               cannot determine a valid diff line, omit `line`.
