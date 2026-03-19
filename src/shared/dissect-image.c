@@ -1395,41 +1395,43 @@ static int dissect_image(
                                 if (!fstype)
                                         fstype = "vfat";
 
-                        } else if (type.designator == PARTITION_ROOT) {
+                        } else if (IN_SET(type.designator, PARTITION_ROOT, PARTITION_USR)) {
+                                sd_id128_t expected_uuid = type.designator == PARTITION_ROOT ? root_uuid : usr_uuid;
 
                                 check_partition_flags(node, pflags,
                                                       SD_GPT_FLAG_NO_AUTO | SD_GPT_FLAG_READ_ONLY | SD_GPT_FLAG_GROWFS);
 
-                                /* If a root ID is specified, ignore everything but the root id */
-                                if (!sd_id128_is_null(root_uuid) && !sd_id128_equal(root_uuid, id)) {
-                                        log_debug("Partition UUID '%s' does not match expected UUID '%s' derived from root verity hash, ignoring.",
+                                if (!sd_id128_is_null(expected_uuid) && !sd_id128_equal(expected_uuid, id)) {
+                                        log_debug("Partition UUID '%s' does not match expected UUID '%s' derived from %s verity hash, ignoring.",
                                                   SD_ID128_TO_UUID_STRING(id),
-                                                  SD_ID128_TO_UUID_STRING(root_uuid));
+                                                  SD_ID128_TO_UUID_STRING(expected_uuid),
+                                                  partition_designator_to_string(type.designator));
                                         continue;
                                 }
 
                                 rw = !(pflags & SD_GPT_FLAG_READ_ONLY);
                                 growfs = FLAGS_SET(pflags, SD_GPT_FLAG_GROWFS);
 
-                        } else if (type.designator == PARTITION_ROOT_VERITY) {
+                        } else if (IN_SET(type.designator, PARTITION_ROOT_VERITY, PARTITION_USR_VERITY)) {
+                                sd_id128_t expected_uuid = type.designator == PARTITION_ROOT_VERITY ? root_verity_uuid : usr_verity_uuid;
 
                                 check_partition_flags(node, pflags,
                                                       SD_GPT_FLAG_NO_AUTO | SD_GPT_FLAG_READ_ONLY);
 
                                 m->has_verity = true;
 
-                                /* If root hash is specified, then ignore everything but the root id */
-                                if (!sd_id128_is_null(root_verity_uuid) && !sd_id128_equal(root_verity_uuid, id)) {
-                                        log_debug("Partition UUID '%s' does not match expected UUID '%s' derived from root verity hash, ignoring.",
+                                if (!sd_id128_is_null(expected_uuid) && !sd_id128_equal(expected_uuid, id)) {
+                                        log_debug("Partition UUID '%s' does not match expected UUID '%s' derived from %s verity hash, ignoring.",
                                                   SD_ID128_TO_UUID_STRING(id),
-                                                  SD_ID128_TO_UUID_STRING(root_verity_uuid));
+                                                  SD_ID128_TO_UUID_STRING(expected_uuid),
+                                                  partition_designator_to_string(partition_verity_to_data(type.designator)));
                                         continue;
                                 }
 
                                 fstype = "DM_verity_hash";
                                 rw = false;
 
-                        } else if (type.designator == PARTITION_ROOT_VERITY_SIG) {
+                        } else if (IN_SET(type.designator, PARTITION_ROOT_VERITY_SIG, PARTITION_USR_VERITY_SIG)) {
                                 if (verity && iovec_is_set(&verity->root_hash)) {
                                         _cleanup_(iovec_done) struct iovec root_hash = {};
 
@@ -1448,73 +1450,7 @@ static int dissect_image(
                                                         found = hexmem(root_hash.iov_base, root_hash.iov_len);
                                                         expected = hexmem(verity->root_hash.iov_base, verity->root_hash.iov_len);
 
-                                                        log_debug("Root hash in signature JSON data (%s) doesn't match configured hash (%s).", strna(found), strna(expected));
-                                                }
-                                                continue;
-                                        }
-                                }
-
-                                check_partition_flags(node, pflags,
-                                                      SD_GPT_FLAG_NO_AUTO | SD_GPT_FLAG_READ_ONLY);
-
-                                m->has_verity_sig = true;
-                                fstype = "verity_hash_signature";
-                                rw = false;
-
-                        } else if (type.designator == PARTITION_USR) {
-
-                                check_partition_flags(node, pflags,
-                                                      SD_GPT_FLAG_NO_AUTO | SD_GPT_FLAG_READ_ONLY | SD_GPT_FLAG_GROWFS);
-
-                                /* If a usr ID is specified, ignore everything but the usr id */
-                                if (!sd_id128_is_null(usr_uuid) && !sd_id128_equal(usr_uuid, id)) {
-                                        log_debug("Partition UUID '%s' does not match expected UUID '%s' derived from usr verity hash, ignoring.",
-                                                  SD_ID128_TO_UUID_STRING(id),
-                                                  SD_ID128_TO_UUID_STRING(usr_uuid));
-                                        continue;
-                                }
-
-                                rw = !(pflags & SD_GPT_FLAG_READ_ONLY);
-                                growfs = FLAGS_SET(pflags, SD_GPT_FLAG_GROWFS);
-
-                        } else if (type.designator == PARTITION_USR_VERITY) {
-
-                                check_partition_flags(node, pflags,
-                                                      SD_GPT_FLAG_NO_AUTO | SD_GPT_FLAG_READ_ONLY);
-
-                                m->has_verity = true;
-
-                                /* If usr hash is specified, then ignore everything but the usr id */
-                                if (!sd_id128_is_null(usr_verity_uuid) && !sd_id128_equal(usr_verity_uuid, id)) {
-                                        log_debug("Partition UUID '%s' does not match expected UUID '%s' derived from usr verity hash, ignoring.",
-                                                  SD_ID128_TO_UUID_STRING(id),
-                                                  SD_ID128_TO_UUID_STRING(usr_verity_uuid));
-                                        continue;
-                                }
-
-                                fstype = "DM_verity_hash";
-                                rw = false;
-
-                        } else if (type.designator == PARTITION_USR_VERITY_SIG) {
-                                if (verity && iovec_is_set(&verity->root_hash)) {
-                                        _cleanup_(iovec_done) struct iovec root_hash = {};
-
-                                        r = acquire_sig_for_roothash(
-                                                        fd,
-                                                        start * 512,
-                                                        size * 512,
-                                                        &root_hash,
-                                                        /* ret_root_hash_sig= */ NULL);
-                                        if (r < 0)
-                                                return r;
-                                        if (iovec_memcmp(&verity->root_hash, &root_hash) != 0) {
-                                                if (DEBUG_LOGGING) {
-                                                        _cleanup_free_ char *found = NULL, *expected = NULL;
-
-                                                        found = hexmem(root_hash.iov_base, root_hash.iov_len);
-                                                        expected = hexmem(verity->root_hash.iov_base, verity->root_hash.iov_len);
-
-                                                        log_debug("Root hash in signature JSON data (%s) doesn't match configured hash (%s).", strna(found), strna(expected));
+                                                        log_debug("Verity root hash in signature JSON data (%s) doesn't match configured hash (%s).", strna(found), strna(expected));
                                                 }
                                                 continue;
                                         }
