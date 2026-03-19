@@ -820,13 +820,9 @@ static int build_policy_digest(bool sign) {
         assert(!strv_isempty(arg_phase));
 
         if (arg_append) {
-                r = sd_json_parse_file(NULL, arg_append, 0, &v, NULL, NULL);
+                r = sd_json_parse_file(/* f= */ NULL, arg_append, SD_JSON_PARSE_MUST_BE_OBJECT, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse '%s': %m", arg_append);
-
-                if (!sd_json_variant_is_object(v))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                               "File '%s' is not a valid JSON object, refusing.", arg_append);
+                        return log_error_errno(r, "Failed to parse JSON object '%s': %m", arg_append);
         }
 
         /* When signing/building digest we only support JSON output */
