@@ -571,7 +571,7 @@ static int read_identity_file(int root_fd, sd_json_variant **ret) {
                 return log_oom();
 
         unsigned line = 0, column = 0;
-        r = sd_json_parse_file(identity_file, ".identity", SD_JSON_PARSE_SENSITIVE, ret, &line, &column);
+        r = sd_json_parse_file(identity_file, ".identity", SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_SENSITIVE, ret, &line, &column);
         if (r < 0)
                 return log_error_errno(r, "[.identity:%u:%u] Failed to parse JSON data: %m", line, column);
 
