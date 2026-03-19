@@ -567,7 +567,7 @@ static int verb_show_status(int argc, char *argv[], uintptr_t _data, void *userd
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                r = sd_json_parse(text, 0, &v, NULL, NULL);
+                r = sd_json_parse(text, SD_JSON_PARSE_MUST_BE_OBJECT, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse JSON: %m");
 

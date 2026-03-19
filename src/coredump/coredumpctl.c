@@ -829,7 +829,7 @@ static int print_info(FILE *file, sd_journal *j, bool need_space) {
         if (exe && pkgmeta_json) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
-                r = sd_json_parse(pkgmeta_json, 0, &v, NULL, NULL);
+                r = sd_json_parse(pkgmeta_json, SD_JSON_PARSE_MUST_BE_OBJECT, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
                 if (r < 0) {
                         _cleanup_free_ char *esc = cescape(pkgmeta_json);
                         log_warning_errno(r, "json_parse on \"%s\" failed, ignoring: %m", strnull(esc));
