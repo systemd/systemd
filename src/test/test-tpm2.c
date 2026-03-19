@@ -1054,8 +1054,7 @@ static void check_ak_ecc_template(TPMT_PUBLIC *template) {
 
         assert_se(template->type == TPM2_ALG_ECC);
         assert_se(template->nameAlg == TPM2_ALG_SHA256);
-        assert_se(FLAGS_SET(template->objectAttributes, TPMA_OBJECT_SIGN_ENCRYPT));
-        assert_se(FLAGS_SET(template->objectAttributes, TPMA_OBJECT_RESTRICTED));
+        assert_se(template->objectAttributes == 0x50472);
         assert_se(template->parameters.eccDetail.scheme.scheme == TPM2_ALG_ECDSA);
         assert_se(template->parameters.eccDetail.curveID == TPM2_ECC_NIST_P256);
 }
@@ -1065,8 +1064,7 @@ static void check_ak_rsa_template(TPMT_PUBLIC *template) {
 
         assert_se(template->type == TPM2_ALG_RSA);
         assert_se(template->nameAlg == TPM2_ALG_SHA256);
-        assert_se(FLAGS_SET(template->objectAttributes, TPMA_OBJECT_SIGN_ENCRYPT));
-        assert_se(FLAGS_SET(template->objectAttributes, TPMA_OBJECT_RESTRICTED));
+        assert_se(template->objectAttributes == 0x50472);
         assert_se(template->parameters.rsaDetail.scheme.scheme == TPM2_ALG_RSASSA);
         assert_se(template->parameters.rsaDetail.keyBits == 2048);
 }
