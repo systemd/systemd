@@ -442,7 +442,7 @@ jobs:
                 if (Array.isArray(review.comments))
                   comments = review.comments;
                 if (Array.isArray(review.resolve))
-                  resolveIds = review.resolve;
+                  resolveIds = review.resolve.filter((id) => Number.isInteger(id) && id > 0);
                 if (typeof review.summary === "string")
                   summary = review.summary;
               } catch (e) {
