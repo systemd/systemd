@@ -77,6 +77,9 @@ static char *arg_usr_what = NULL;
 static char *arg_usr_fstype = NULL;
 static char *arg_usr_options = NULL;
 static char *arg_usr_hash = NULL;
+static char *arg_var_what = NULL;
+static char *arg_var_fstype = NULL;
+static char *arg_var_options = NULL;
 static VolatileMode arg_volatile_mode = _VOLATILE_MODE_INVALID;
 static bool arg_verity = true;
 static Mount *arg_mounts = NULL;
@@ -90,6 +93,9 @@ STATIC_DESTRUCTOR_REGISTER(arg_usr_what, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_usr_fstype, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_usr_options, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_usr_hash, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_var_what, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_var_fstype, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_var_options, freep);
 STATIC_ARRAY_DESTRUCTOR_REGISTER(arg_mounts, arg_n_mounts, mount_array_free);
 
 static void mount_done(Mount *m) {
@@ -316,7 +322,7 @@ static bool mount_is_network(const char *fstype, const char *options) {
 
 static bool mount_in_initrd(const char *where, const char *options, bool accept_root) {
         return fstab_test_option(options, "x-initrd.mount\0") ||
-                (where && PATH_IN_SET(where, "/usr", accept_root ? "/" : NULL));
+                (where && PATH_IN_SET(where, "/usr", "/var", accept_root ? "/" : NULL));
 }
 
 static int write_idle_timeout(FILE *f, const char *where, const char *opts) {
@@ -816,13 +822,13 @@ static bool sysfs_check(void) {
         return cached;
 }
 
-static int add_sysusr_sysroot_usr_bind_mount(const char *source, bool validatefs) {
-        log_debug("Synthesizing entry what=/sysusr/usr where=/sysroot/usr opts=bind validatefs=%s", yes_no(validatefs));
+static int add_additional_mount_bind_mount(const char* what, const char* where, const char *source, bool validatefs) {
+        log_debug("Synthesizing entry what=%s where=%s opts=bind validatefs=%s", what, where, yes_no(validatefs));
 
         return add_mount(source,
                          arg_dest,
-                         "/sysusr/usr",
-                         "/sysroot/usr",
+                         what,
+                         where,
                          /* original_where= */ NULL,
                          /* fstype= */ NULL,
                          "bind",
@@ -981,17 +987,24 @@ static int parse_fstab_one(
                   yes_no(flags & MOUNT_NOAUTO), yes_no(flags & MOUNT_NOFAIL));
 
         bool is_sysroot = in_initrd() && path_equal(where, "/sysroot");
-        /* See comment from add_sysroot_usr_mount() about the need for extra indirection in case /usr needs
+        /* See comment from add_sysroot_additional_mount() about the need for extra indirection in case /usr needs
          * to be mounted in order for the root fs to be synthesized based on configuration included in /usr/,
          * e.g. systemd-repart. */
         bool is_sysroot_usr = in_initrd() && path_equal(where, "/sysroot/usr");
+        bool is_sysroot_var = in_initrd() && path_equal(where, "/sysroot/var");
 
         const char *target_unit =
                         is_sysroot ?                        SPECIAL_INITRD_ROOT_FS_TARGET :
                         is_sysroot_usr ?                    SPECIAL_INITRD_USR_FS_TARGET :
+                        is_sysroot_var ?                    SPECIAL_INITRD_VAR_FS_TARGET :
                         prefix_sysroot ?                    SPECIAL_INITRD_FS_TARGET :
                         mount_is_network(fstype, options) ? SPECIAL_REMOTE_FS_TARGET :
                                                             SPECIAL_LOCAL_FS_TARGET;
+
+        const char *final_where =
+                        is_sysroot_usr ? "/sysusr/usr" :
+                        is_sysroot_var ? "/sysvar/var" :
+                                         where;
 
         /* nofail, noauto and x-systemd.automount don't make sense for critical filesystems we must mount in initrd. */
         if (is_sysroot || is_sysroot_usr) {
@@ -1004,7 +1017,7 @@ static int parse_fstab_one(
         r = add_mount(source,
                       arg_dest,
                       what,
-                      is_sysroot_usr ? "/sysusr/usr" : where,
+                      final_where,
                       !is_sysroot_usr && where_changed ? where_original : NULL,
                       fstype,
                       options,
@@ -1016,7 +1029,13 @@ static int parse_fstab_one(
                 return r;
 
         if (is_sysroot_usr) {
-                r = add_sysusr_sysroot_usr_bind_mount(source, flags & MOUNT_VALIDATEFS);
+                r = add_additional_mount_bind_mount("/sysusr/usr", "/sysroot/usr", source, flags & MOUNT_VALIDATEFS);
+                if (r < 0)
+                        return r;
+        }
+
+        if (is_sysroot_var) {
+                r = add_additional_mount_bind_mount("/sysvar/var", "/sysroot/var", source, flags & MOUNT_VALIDATEFS);
                 if (r < 0)
                         return r;
         }
@@ -1121,7 +1140,7 @@ static int mount_source_is_nfsroot(const char *what) {
         return path_is_absolute(what) && !path_startswith(what, "/dev");
 }
 
-static bool validate_root_or_usr_mount_source(const char *what, const char *switch_name) {
+static bool validate_root_or_additional_mount_source(const char *what, const char *switch_name) {
         int r;
 
         assert(switch_name);
@@ -1181,7 +1200,7 @@ static int add_sysroot_mount(void) {
         bool default_rw = true;
         MountPointFlags flags;
 
-        if (!validate_root_or_usr_mount_source(arg_root_what, "root="))
+        if (!validate_root_or_additional_mount_source(arg_root_what, "root="))
                 return 0;
 
         const char *bind = startswith(arg_root_what, "bind:");
@@ -1248,44 +1267,51 @@ static int add_sysroot_mount(void) {
                          "imports.target");
 }
 
-static int add_sysroot_usr_mount(void) {
+static int add_sysroot_additional_mount(
+                char **arg_what,
+                char **arg_fstype,
+                char **arg_options,
+                const char *where,
+                const char *where_bind,
+                const char *switch_name,
+                const char *target) {
         _cleanup_free_ char *what = NULL;
         const char *extra_opts = NULL;
         bool makefs, validatefs;
         int r;
 
-        /* Returns 0 if we didn't do anything, > 0 if we either generated a unit for the /usr/ mount, or we
+        /* Returns 0 if we didn't do anything, > 0 if we either generated a unit for the additional mount, or we
          * know for sure something else did */
 
-        if (!arg_usr_what && !arg_usr_fstype && !arg_usr_options)
+        if (!*arg_what && !*arg_fstype && !*arg_options)
                 return 0;
 
-        if (arg_root_what && !arg_usr_what) {
-                /* Copy over the root device, in case the /usr mount just differs in a mount option (consider btrfs subvolumes) */
-                arg_usr_what = strdup(arg_root_what);
-                if (!arg_usr_what)
+        if (arg_root_what && !*arg_what) {
+                /* Copy over the root device, in case the additional mount just differs in a mount option (consider btrfs subvolumes) */
+                *arg_what = strdup(arg_root_what);
+                if (!*arg_what)
                         return log_oom();
         }
 
-        if (arg_root_fstype && !arg_usr_fstype) {
-                arg_usr_fstype = strdup(arg_root_fstype);
-                if (!arg_usr_fstype)
+        if (arg_root_fstype && !*arg_fstype) {
+                *arg_fstype = strdup(arg_root_fstype);
+                if (!*arg_fstype)
                         return log_oom();
         }
 
-        if (arg_root_options && !arg_usr_options) {
-                arg_usr_options = strdup(arg_root_options);
-                if (!arg_usr_options)
+        if (arg_root_options && !*arg_options) {
+                *arg_options = strdup(arg_root_options);
+                if (!*arg_options)
                         return log_oom();
         }
 
-        if (!validate_root_or_usr_mount_source(arg_usr_what, "mount.usr="))
+        if (!validate_root_or_additional_mount_source(*arg_what, switch_name))
                 return 0;
 
-        const char *bind = startswith(arg_usr_what, "bind:");
+        const char *bind = startswith(*arg_what, "bind:");
         if (bind) {
                 if (!path_is_valid(bind) || !path_is_absolute(bind)) {
-                        log_debug("Invalid mount.usr=bind: source path, ignoring: %s", bind);
+                        log_debug("Invalid %sbind: source path, ignoring: %s", switch_name, bind);
                         return 0;
                 }
 
@@ -1295,13 +1321,13 @@ static int add_sysroot_usr_mount(void) {
 
                 extra_opts = "bind";
         } else {
-                what = fstab_node_to_udev_node(arg_usr_what);
+                what = fstab_node_to_udev_node(*arg_what);
                 if (!what)
                         return log_oom();
         }
 
         _cleanup_free_ char *combined_options = NULL;
-        if (strdup_to(&combined_options, arg_usr_options) < 0)
+        if (strdup_to(&combined_options, *arg_options) < 0)
                 return log_oom();
 
         if (!fstab_test_option(combined_options, "ro\0" "rw\0"))
@@ -1319,7 +1345,7 @@ static int add_sysroot_usr_mount(void) {
          * this should order itself after initrd-usr-fs.target and before initrd-fs.target; and it should
          * look into both /sysusr/ and /sysroot/ for the configuration data to apply. */
 
-        log_debug("Found entry what=%s where=/sysusr/usr type=%s opts=%s", what, strna(arg_usr_fstype), strempty(combined_options));
+        log_debug("Found entry what=%s where=%s type=%s opts=%s", what, where, strna(*arg_fstype), strempty(combined_options));
 
         /* Only honor x-systemd.makefs and .validatefs here, others are not relevant in initrd/not used
          * at all (also see mandatory_mount_drop_unapplicable_options()) */
@@ -1329,28 +1355,35 @@ static int add_sysroot_usr_mount(void) {
         r = add_mount("/proc/cmdline",
                       arg_dest,
                       what,
-                      "/sysusr/usr",
+                      where,
                       /* original_where= */ NULL,
-                      arg_usr_fstype,
+                      *arg_fstype,
                       combined_options,
                       /* passno= */ is_device_path(what) ? 1 : 0,
                       makefs ? MOUNT_MAKEFS : 0,
-                      SPECIAL_INITRD_USR_FS_TARGET,
+                      target,
                       "imports.target");
         if (r < 0)
                 return r;
 
-        r = add_sysusr_sysroot_usr_bind_mount("/proc/cmdline", validatefs);
+        r = add_additional_mount_bind_mount(where, where_bind, "/proc/cmdline", validatefs);
         if (r < 0)
                 return r;
 
         return 1;
 }
 
-static int add_sysroot_usr_mount_or_fallback(void) {
+static int add_sysroot_additional_mount_or_fallback(
+                char **arg_what,
+                char **arg_fstype,
+                char **arg_options,
+                const char *where,
+                const char *where_bind,
+                const char *switch_name,
+                const char *target) {
         int r;
 
-        r = add_sysroot_usr_mount();
+        r = add_sysroot_additional_mount(arg_what, arg_fstype, arg_options, where, where_bind, switch_name, target);
         if (r != 0)
                 return r;
 
@@ -1360,7 +1393,7 @@ static int add_sysroot_usr_mount_or_fallback(void) {
 
         return generator_add_symlink(
                         arg_dest,
-                        SPECIAL_INITRD_USR_FS_TARGET,
+                        target,
                         "requires",
                         "sysroot.mount");
 }
@@ -1536,6 +1569,28 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (!strextend_with_separator(&arg_usr_options, ",", value))
                         return log_oom();
 
+        } else if (streq(key, "mount.var")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                return free_and_strdup_warn(&arg_var_what, empty_to_null(value));
+
+        } else if (streq(key, "mount.varfstype")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                return free_and_strdup_warn(&arg_var_fstype, empty_to_null(value));
+
+        } else if (streq(key, "mount.varflags")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                if (!strextend_with_separator(&arg_var_options, ",", value))
+                        return log_oom();
+
         } else if (streq(key, "usrhash")) {
 
                 if (proc_cmdline_value_missing(key, value))
@@ -1669,7 +1724,24 @@ static int run_generator(void) {
         if (in_initrd()) {
                 RET_GATHER(r, add_sysroot_mount());
 
-                RET_GATHER(r, add_sysroot_usr_mount_or_fallback());
+                RET_GATHER(r,
+                           add_sysroot_additional_mount_or_fallback(
+                                           &arg_usr_what,
+                                           &arg_usr_fstype,
+                                           &arg_usr_options,
+                                           "/sysusr/usr",
+                                           "/sysroot/usr",
+                                           "mount.usr=",
+                                           SPECIAL_INITRD_USR_FS_TARGET));
+                RET_GATHER(r,
+                           add_sysroot_additional_mount_or_fallback(
+                                           &arg_var_what,
+                                           &arg_var_fstype,
+                                           &arg_var_options,
+                                           "/sysvar/var",
+                                           "/sysroot/var",
+                                           "mount.var=",
+                                           SPECIAL_INITRD_VAR_FS_TARGET));
 
                 RET_GATHER(r, add_volatile_root());
         } else
