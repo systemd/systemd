@@ -160,6 +160,8 @@ mv "$MINIMAL_IMAGE.foohash" "$MINIMAL_IMAGE.roothash"
 # Derive partition UUIDs from root hash, in UUID syntax
 ROOT_UUID="$(systemd-id128 -u show "$(head -c 32 "$MINIMAL_IMAGE.roothash")" -u | tail -n 1 | cut -b 6-)"
 VERITY_UUID="$(systemd-id128 -u show "$(tail -c 32 "$MINIMAL_IMAGE.roothash")" -u | tail -n 1 | cut -b 6-)"
+USR_UUID="$ROOT_UUID"
+USR_VERITY_UUID="$VERITY_UUID"
 
 systemd-dissect --json=short \
                 --root-hash "$MINIMAL_IMAGE_ROOTHASH" \
@@ -177,6 +179,20 @@ if [[ -n "${OPENSSL_CONFIG:-}" ]]; then
 fi
 systemd-dissect --root-hash "$MINIMAL_IMAGE_ROOTHASH" "$MINIMAL_IMAGE.gpt" | grep -F "MARKER=1" >/dev/null
 systemd-dissect --root-hash "$MINIMAL_IMAGE_ROOTHASH" "$MINIMAL_IMAGE.gpt" | grep -F -f <(sed 's/"//g' "$OS_RELEASE") >/dev/null
+systemd-dissect --json=short \
+                --usr-hash "$MINIMAL_IMAGE_ROOTHASH" \
+                "$MINIMAL_IMAGE.usr.gpt" | \
+                grep '{"rw":"ro","designator":"usr","partition_uuid":"'"$USR_UUID"'","partition_label":"Usr Partition","fstype":"squashfs","architecture":"'"$ARCHITECTURE"'","verity":"signed",' >/dev/null
+systemd-dissect --json=short \
+                --usr-hash "$MINIMAL_IMAGE_ROOTHASH" \
+                "$MINIMAL_IMAGE.usr.gpt" | \
+                grep '{"rw":"ro","designator":"usr-verity","partition_uuid":"'"$USR_VERITY_UUID"'","partition_label":"Usr Verity Partition","fstype":"DM_verity_hash","architecture":"'"$ARCHITECTURE"'","verity":null,' >/dev/null
+if [[ -n "${OPENSSL_CONFIG:-}" ]]; then
+    systemd-dissect --json=short \
+                    --usr-hash "$MINIMAL_IMAGE_ROOTHASH" \
+                    "$MINIMAL_IMAGE.usr.gpt" | \
+                    grep -E '{"rw":"ro","designator":"usr-verity-sig","partition_uuid":"'".*"'","partition_label":"Usr Signature Partition","fstype":"verity_hash_signature","architecture":"'"$ARCHITECTURE"'","verity":null,' >/dev/null
+fi
 
 # Test image policies
 systemd-dissect --validate "$MINIMAL_IMAGE.gpt"
@@ -194,6 +210,12 @@ systemd-dissect --validate "$MINIMAL_IMAGE.gpt" --image-policy=root=verity:swap=
 systemd-dissect --validate "$MINIMAL_IMAGE.gpt" --image-policy=root=signed
 (! systemd-dissect --validate "$MINIMAL_IMAGE.gpt" --image-policy=root=signed:root-verity-sig=unused+absent)
 (! systemd-dissect --validate "$MINIMAL_IMAGE.gpt" --image-policy=root=signed:root-verity=unused+absent)
+systemd-dissect --validate "$MINIMAL_IMAGE.usr.gpt" --image-policy=usr=verity
+systemd-dissect --validate "$MINIMAL_IMAGE.usr.gpt" --image-policy=usr=verity:usr-verity-sig=unused+absent
+(! systemd-dissect --validate "$MINIMAL_IMAGE.usr.gpt" --image-policy=usr=verity:usr-verity=unused+absent)
+systemd-dissect --validate "$MINIMAL_IMAGE.usr.gpt" --image-policy=usr=signed
+(! systemd-dissect --validate "$MINIMAL_IMAGE.usr.gpt" --image-policy=usr=signed:usr-verity-sig=unused+absent)
+(! systemd-dissect --validate "$MINIMAL_IMAGE.usr.gpt" --image-policy=usr=signed:usr-verity=unused+absent)
 
 # Test RootImagePolicy= unit file setting
 systemd-run --wait -P \
