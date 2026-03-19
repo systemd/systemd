@@ -7,6 +7,21 @@
 #include "dns-type.h"
 #include "tests.h"
 
+static void test_to_json_from_json(DnsResourceRecord *rr) {
+        int r;
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+        ASSERT_OK(dns_resource_record_to_json(rr, &j));
+
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr2 = NULL;
+        r = dns_resource_record_from_json(j, &rr2);
+        if (r == -EOPNOTSUPP)
+                return;
+        ASSERT_OK(r);
+
+        ASSERT_TRUE(dns_resource_record_equal(rr, rr2));
+}
+
 /* ================================================================
  * DNS_RESOURCE_RECORD_RDATA()
  * ================================================================ */
@@ -802,6 +817,8 @@ TEST(dns_resource_record_new_address_ipv4) {
         ASSERT_EQ(rr->key->type, DNS_TYPE_A);
         ASSERT_STREQ(dns_resource_key_name(rr->key), "www.example.com");
         ASSERT_EQ(rr->a.in_addr.s_addr, addr.in.s_addr);
+
+        test_to_json_from_json(rr);
 }
 
 TEST(dns_resource_record_new_address_ipv6) {
@@ -818,6 +835,8 @@ TEST(dns_resource_record_new_address_ipv6) {
         ASSERT_EQ(rr->key->type, DNS_TYPE_AAAA);
         ASSERT_STREQ(dns_resource_key_name(rr->key), "www.example.com");
         ASSERT_EQ(memcmp(&rr->aaaa.in6_addr, &addr.in6, sizeof(struct in6_addr)), 0);
+
+        test_to_json_from_json(rr);
 }
 
 /* ================================================================
@@ -1003,11 +1022,13 @@ TEST(dns_resource_record_equal_cname_copy) {
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_CNAME, "www.example.com");
         ASSERT_NOT_NULL(a);
-        a->cname.name = strdup("example.com");
+        a->cname.name = ASSERT_PTR(strdup("example.com"));
 
         b = dns_resource_record_copy(a);
         ASSERT_NOT_NULL(b);
         ASSERT_TRUE(dns_resource_record_equal(a, b));
+
+        test_to_json_from_json(a);
 }
 
 TEST(dns_resource_record_equal_cname_fail) {
@@ -1220,11 +1241,13 @@ TEST(dns_resource_record_equal_ptr_copy) {
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_PTR, "127.1.168.192.in-addr-arpa");
         ASSERT_NOT_NULL(a);
-        a->ptr.name = strdup("example.com");
+        a->ptr.name = ASSERT_PTR(strdup("example.com"));
 
         b = dns_resource_record_copy(a);
         ASSERT_NOT_NULL(b);
         ASSERT_TRUE(dns_resource_record_equal(a, b));
+
+        test_to_json_from_json(a);
 }
 
 TEST(dns_resource_record_equal_ptr_fail) {
