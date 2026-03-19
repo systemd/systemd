@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-json.h"
 #include "sd-varlink.h"
 
+#include "alloc-util.h"
 #include "argv-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -99,6 +101,55 @@ static int managed_interfaces_build_json(MetricFamilyContext *context, void *use
         return metric_build_send_unsigned(context, /* object= */ NULL, count, /* fields= */ NULL);
 }
 
+static int required_for_online_build_json(MetricFamilyContext *context, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
+        Link *link;
+        int r;
+
+        assert(context);
+
+        HASHMAP_FOREACH(link, manager->links_by_index) {
+                if (!link->network)
+                        continue;
+
+                if (link->network->required_for_online == 0) {
+                        r = metric_build_send_string(
+                                        context,
+                                        link->ifname,
+                                        "no",
+                                        /* fields= */ NULL);
+                } else {
+                        LinkOperationalStateRange range;
+                        link_required_operstate_for_online(link, &range);
+
+                        const char *min_str = link_operstate_to_string(range.min);
+                        const char *max_str = link_operstate_to_string(range.max);
+
+                        if (range.min == range.max)
+                                r = metric_build_send_string(
+                                                context,
+                                                link->ifname,
+                                                min_str,
+                                                /* fields= */ NULL);
+                        else {
+                                _cleanup_free_ char *value = NULL;
+                                if (asprintf(&value, "%s:%s", min_str, max_str) < 0)
+                                        return -ENOMEM;
+
+                                r = metric_build_send_string(
+                                                context,
+                                                link->ifname,
+                                                value,
+                                                /* fields= */ NULL);
+                        }
+                }
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 /* Keep metrics ordered alphabetically */
 static const MetricFamily network_metric_family_table[] = {
         {
@@ -142,6 +193,12 @@ static const MetricFamily network_metric_family_table[] = {
                 .description = "Per interface metric: operational state",
                 .type = METRIC_FAMILY_TYPE_STRING,
                 .generate = link_oper_state_build_json,
+        },
+        {
+                .name = METRIC_IO_SYSTEMD_NETWORK_PREFIX "RequiredForOnline",
+                .description = "Per interface metric: required operational state for online, or 'no' if not required",
+                .type = METRIC_FAMILY_TYPE_STRING,
+                .generate = required_for_online_build_json,
         },
         {}
 };
