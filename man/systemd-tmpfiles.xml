@@ -211,6 +211,14 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--inline</option></term>
+        <listitem><para>Treat each positional argument as a separate configuration
+        line instead of a file name.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--prefix=<replaceable>path</replaceable></option></term>
         <listitem><para>Only apply rules with paths that start with
         the specified prefix. This option can be specified multiple
