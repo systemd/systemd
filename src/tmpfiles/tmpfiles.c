@@ -590,8 +590,8 @@ static int opendir_and_stat(
                         /* path= */ NULL,
                         AT_EMPTY_PATH,
                         /* xstatx_flags= */ 0,
-                        STATX_MODE|STATX_INO|STATX_ATIME|STATX_MTIME,
-                        /* optional_mask= */ 0,
+                        STATX_MODE|STATX_INO,
+                        STATX_ATIME|STATX_MTIME,
                         STATX_ATTR_MOUNT_ROOT,
                         &sx);
         if (r < 0)
@@ -3123,6 +3123,7 @@ static int clean_item_instance(
                 return 0;
 
         usec_t cutoff = n - i->age;
+        nsec_t atime_nsec, mtime_nsec;
 
         _cleanup_closedir_ DIR *d = NULL;
         struct statx sx;
@@ -3132,6 +3133,9 @@ static int clean_item_instance(
         r = opendir_and_stat(instance, &d, &sx, &mountpoint);
         if (r <= 0)
                 return r;
+
+        atime_nsec = FLAGS_SET(sx.stx_mask, STATX_ATIME) ? statx_timestamp_load_nsec(&sx.stx_atime) : NSEC_INFINITY;
+        mtime_nsec = FLAGS_SET(sx.stx_mask, STATX_MTIME) ? statx_timestamp_load_nsec(&sx.stx_mtime) : NSEC_INFINITY;
 
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *ab_f = NULL, *ab_d = NULL;
@@ -3152,8 +3156,8 @@ static int clean_item_instance(
         }
 
         return dir_cleanup(c, i, instance, d,
-                           statx_timestamp_load_nsec(&sx.stx_atime),
-                           statx_timestamp_load_nsec(&sx.stx_mtime),
+                           atime_nsec,
+                           mtime_nsec,
                            cutoff * NSEC_PER_USEC,
                            sx.stx_dev_major, sx.stx_dev_minor,
                            mountpoint,
