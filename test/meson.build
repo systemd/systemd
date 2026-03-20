@@ -357,6 +357,7 @@ if install_tests
                 'integration-tests/TEST-63-PATH/TEST-63-PATH.units',
                 'integration-tests/TEST-65-ANALYZE/TEST-65-ANALYZE.units',
                 'integration-tests/TEST-66-DEVICE-ISOLATION/TEST-66-DEVICE-ISOLATION.units',
+                'integration-tests/TEST-74-AUX-UTILS/TEST-74-AUX-UTILS.units',
                 'integration-tests/TEST-80-NOTIFYACCESS/TEST-80-NOTIFYACCESS.units',
                 'units',
         ]
