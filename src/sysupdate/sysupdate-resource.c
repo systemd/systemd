@@ -433,10 +433,24 @@ static int process_magic_file(
         if (iovec_memcmp(&IOVEC_MAKE(expected_hash, sizeof(expected_hash)), hash) != 0)
                 log_warning("Hash of best before marker file '%s' has unexpected value, proceeding anyway.", fn);
 
+        struct tm parsed_tm = {};
+        const char *n = strptime(e, "%Y-%m-%d", &parsed_tm);
+        if (!n || *n != 0) {
+                /* Doesn't parse? Then it's not a best-before date */
+                log_warning("Found best before marker with an invalid date, ignoring: %s", fn);
+                return 0;
+        }
+
+        struct tm copy_tm = parsed_tm;
         usec_t best_before;
-        r = parse_calendar_date(e, &best_before);
-        if (r < 0) {
-                log_warning_errno(r, "Found best before marker with an invalid date, ignoring: %s", fn);
+        r = mktime_or_timegm_usec(&copy_tm, /* utc= */ true, &best_before);
+        if (r < 0)
+                return log_error_errno(r, "Failed to convert best before time: %m");
+        if (copy_tm.tm_mday != parsed_tm.tm_mday ||
+            copy_tm.tm_mon != parsed_tm.tm_mon ||
+            copy_tm.tm_year != parsed_tm.tm_year) {
+                /* date was not normalized? (e.g. "30th of feb") */
+                log_warning("Found best before marker with a non-normalized data, ignoring: %s", fn);
                 return 0;
         }
 
