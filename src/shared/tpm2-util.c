@@ -2892,11 +2892,11 @@ int tpm2_get_best_pcr_bank(
         uint32_t efi_banks;
         r = efi_get_active_pcr_banks(&efi_banks);
         if (r < 0) {
-                if (r != -ENOENT)
+                if (!IN_SET(r, -ENOENT, -EOPNOTSUPP))
                         return r;
 
                 /* If variable is not set use guesswork below */
-                log_debug("Boot loader didn't set the LoaderTpm2ActivePcrBanks EFI variable, we have to guess the used PCR banks.");
+                log_debug("Boot loader didn't set the LoaderTpm2ActivePcrBanks EFI variable or EFI support is unavailable, we have to guess the used PCR banks.");
         } else if (efi_banks == UINT32_MAX)
                 log_debug("Boot loader set the LoaderTpm2ActivePcrBanks EFI variable to indicate that the GetActivePcrBanks() API is not available in the firmware. We have to guess the used PCR banks.");
         else {
@@ -3001,11 +3001,11 @@ int tpm2_get_good_pcr_banks(
         uint32_t efi_banks;
         r = efi_get_active_pcr_banks(&efi_banks);
         if (r < 0) {
-                if (r != -ENOENT)
+                if (!IN_SET(r, -ENOENT, -EOPNOTSUPP))
                         return r;
 
                 /* If the variable is not set we have to guess via the code below */
-                log_debug("Boot loader didn't set the LoaderTpm2ActivePcrBanks EFI variable, we have to guess the used PCR banks.");
+                log_debug("Boot loader didn't set the LoaderTpm2ActivePcrBanks EFI variable or EFI support is unavailable, we have to guess the used PCR banks.");
         } else if (efi_banks == UINT32_MAX)
                 log_debug("Boot loader set the LoaderTpm2ActivePcrBanks EFI variable to indicate that the GetActivePcrBanks() API is not available in the firmware. We have to guess the used PCR banks.");
         else {
