@@ -273,9 +273,6 @@ This must be a string, and should follow the semantics defined in the
 It's probably wise to use a location string processable by geo-location subsystems, but this is not enforced nor required.
 Example: `Berlin, Germany` or `Basement, Room 3a`.
 
-`birthDate` → A string in ISO 8601 calendar date format (`YYYY-MM-DD`) indicating the user's date
-of birth. The earliest representable year is 1900. This field is optional.
-
 `disposition` → A string, one of `intrinsic`, `system`, `dynamic`, `regular`,
 `container`, `foreign`, `reserved`. If specified clarifies the disposition of the user,
 i.e. the context it is defined in.
