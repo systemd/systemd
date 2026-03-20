@@ -151,7 +151,7 @@ TEST(fd_move_above_stdio) {
         new_fd = fd_move_above_stdio(new_fd);
         assert_se(new_fd >= 3);
 
-        assert_se(dup(original_stdin) == 0);
+        assert_se(fcntl(original_stdin, F_DUPFD, 0) == 0);
         assert_se(close_nointr(original_stdin) != EBADF);
         assert_se(close_nointr(new_fd) != EBADF);
 }
