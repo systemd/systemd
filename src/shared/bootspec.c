@@ -31,6 +31,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "uki.h"
+#include "utf8.h"
 
 static const char* const boot_entry_type_description_table[_BOOT_ENTRY_TYPE_MAX] = {
         [BOOT_ENTRY_TYPE1]  = "Boot Loader Specification Type #1 (.conf)",
@@ -711,6 +712,97 @@ static int boot_entries_find_type1(
         return 0;
 }
 
+int bootspec_extract_osrelease(
+                const char *text,
+                char **ret_good_name,
+                char **ret_good_version,
+                char **ret_good_sort_key,
+                char **ret_os_id,
+                char **ret_os_version_id,
+                char **ret_image_id,
+                char **ret_image_version) {
+
+        int r;
+
+        assert(text);
+
+        _cleanup_free_ char *os_pretty_name = NULL, *image_id = NULL, *os_name = NULL, *os_id = NULL,
+                *image_version = NULL, *os_version = NULL, *os_version_id = NULL, *os_build_id = NULL;
+        r = parse_env_data(text, /* size= */ SIZE_MAX,
+                           "os-release",
+                           "PRETTY_NAME", &os_pretty_name,
+                           "IMAGE_ID", &image_id,
+                           "NAME", &os_name,
+                           "ID", &os_id,
+                           "IMAGE_VERSION", &image_version,
+                           "VERSION", &os_version,
+                           "VERSION_ID", &os_version_id,
+                           "BUILD_ID", &os_build_id);
+        if (r < 0)
+                return r;
+
+        const char *good_name, *good_version, *good_sort_key;
+        if (!bootspec_pick_name_version_sort_key(
+                            os_pretty_name,
+                            image_id,
+                            os_name,
+                            os_id,
+                            image_version,
+                            os_version,
+                            os_version_id,
+                            os_build_id,
+                            &good_name,
+                            &good_version,
+                            &good_sort_key))
+                return -EBADMSG;
+
+        _cleanup_free_ char *copy_good_name = NULL, *copy_good_version = NULL, *copy_good_sort_key = NULL;
+        if (ret_good_name) {
+                if (isempty(good_name) || string_has_cc(good_name, /* ok= */ NULL) || !utf8_is_valid(good_name))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "OS name '%s' is not clean.", good_name);
+
+                copy_good_name = strdup(good_name);
+                if (!copy_good_name)
+                        return -ENOMEM;
+        }
+
+        if (ret_good_version && good_version) {
+                if (isempty(good_version) || string_has_cc(good_version, /* oK= */ NULL) || !utf8_is_valid(good_version))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "OS version '%s' is not clean.", good_version);
+
+                copy_good_version = strdup(good_version);
+                if (!copy_good_version)
+                        return -ENOMEM;
+        }
+
+        if (ret_good_sort_key && good_sort_key) {
+                if (isempty(good_sort_key) || string_has_cc(good_sort_key, /* ok= */ NULL) || !utf8_is_valid(good_sort_key))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Sort key '%s' is not clean.", good_sort_key);
+
+                copy_good_sort_key = strdup(good_sort_key);
+                if (!copy_good_sort_key)
+                        return -ENOMEM;
+        }
+
+        if (ret_good_name)
+                *ret_good_name = TAKE_PTR(copy_good_name);
+        if (ret_good_version)
+                *ret_good_version = TAKE_PTR(copy_good_version);
+        if (ret_good_sort_key)
+                *ret_good_sort_key = TAKE_PTR(copy_good_sort_key);
+        if (ret_os_id)
+                *ret_os_id = TAKE_PTR(os_id);
+        if (ret_os_version_id)
+                *ret_os_version_id = TAKE_PTR(os_version_id);
+        if (ret_image_id)
+                *ret_image_id = TAKE_PTR(image_id);
+        if (ret_image_version)
+                *ret_image_version = TAKE_PTR(image_version);
+
+
+        return 0;
+}
+
 static int boot_entry_load_unified(
                 const char *root,
                 const BootEntrySource source,
@@ -721,9 +813,6 @@ static int boot_entry_load_unified(
                 const char *cmdline_text,
                 BootEntry *ret) {
 
-        _cleanup_free_ char *fname = NULL, *os_pretty_name = NULL, *os_image_id = NULL, *os_name = NULL, *os_id = NULL,
-                *os_image_version = NULL, *os_version = NULL, *os_version_id = NULL, *os_build_id = NULL;
-        const char *k, *good_name, *good_version, *good_sort_key;
         int r;
 
         assert(root);
@@ -731,36 +820,22 @@ static int boot_entry_load_unified(
         assert(osrelease_text);
         assert(ret);
 
-        k = path_startswith(path, root);
+        const char *k = path_startswith(path, root);
         if (!k)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Path is not below root: %s", path);
 
-        r = parse_env_data(osrelease_text, /* size= */ SIZE_MAX,
-                           ".osrel",
-                           "PRETTY_NAME", &os_pretty_name,
-                           "IMAGE_ID", &os_image_id,
-                           "NAME", &os_name,
-                           "ID", &os_id,
-                           "IMAGE_VERSION", &os_image_version,
-                           "VERSION", &os_version,
-                           "VERSION_ID", &os_version_id,
-                           "BUILD_ID", &os_build_id);
+        _cleanup_free_ char *good_name = NULL, *good_version = NULL, *good_sort_key = NULL, *os_id = NULL, *os_version_id = NULL;
+        r = bootspec_extract_osrelease(
+                        osrelease_text,
+                        &good_name,
+                        &good_version,
+                        &good_sort_key,
+                        &os_id,
+                        &os_version_id,
+                        /* ret_image_id= */ NULL,
+                        /* ret_image_version= */ NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to parse os-release data from unified kernel image %s: %m", path);
-
-        if (!bootspec_pick_name_version_sort_key(
-                            os_pretty_name,
-                            os_image_id,
-                            os_name,
-                            os_id,
-                            os_image_version,
-                            os_version,
-                            os_version_id,
-                            os_build_id,
-                            &good_name,
-                            &good_version,
-                            &good_sort_key))
-                return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Missing fields in os-release data from unified kernel image %s, refusing.", path);
+                return log_error_errno(r, "Failed to extract name/version/sort-key from os-release data from unified kernel image %s, refusing: %m", path);
 
         _cleanup_free_ char *profile_id = NULL, *profile_title = NULL;
         if (profile_text) {
@@ -773,6 +848,7 @@ static int boot_entry_load_unified(
                         return log_error_errno(r, "Failed to parse profile data from unified kernel image '%s': %m", path);
         }
 
+        _cleanup_free_ char *fname = NULL;
         r = path_extract_filename(path, &fname);
         if (r < 0)
                 return log_error_errno(r, "Failed to extract file name from '%s': %m", path);
