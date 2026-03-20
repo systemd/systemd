@@ -13,10 +13,9 @@
 #include "time-util.h"
 
 int mac_selinux_setup(bool *loaded_policy) {
-        assert(loaded_policy);
-
-#if HAVE_SELINUX
         int r;
+
+        assert(loaded_policy);
 
         r = dlopen_libselinux();
         if (r < 0) {
@@ -92,7 +91,6 @@ int mac_selinux_setup(bool *loaded_policy) {
                 } else
                         log_debug("Unable to load SELinux policy. Ignoring.");
         }
-#endif
 
         return 0;
 }
