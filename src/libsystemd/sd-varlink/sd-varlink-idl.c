@@ -1705,7 +1705,12 @@ static int varlink_idl_validate_symbol(const sd_varlink_symbol *symbol, sd_json_
 static int varlink_idl_validate_field_element_type(const sd_varlink_field *field, sd_json_variant *v) {
         assert(field);
         assert(v);
-        assert(!sd_json_variant_is_null(v));
+
+        if (sd_json_variant_is_null(v))
+                return varlink_idl_log(
+                                SYNTHETIC_ERRNO(EMEDIUMTYPE),
+                                "Field '%s' element is null, refusing.",
+                                strna(field->name));
 
         switch (field->field_type) {
 
