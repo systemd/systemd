@@ -178,8 +178,8 @@ static void unit_init(Unit *u) {
                 if (u->type != UNIT_SLICE)
                         cc->tasks_max = u->manager->defaults.tasks_max;
 
-                cc->memory_pressure_watch = u->manager->defaults.memory_pressure_watch;
-                cc->memory_pressure_threshold_usec = u->manager->defaults.memory_pressure_threshold_usec;
+                memcpy(cc->pressure_watch, u->manager->defaults.pressure_watch, sizeof(cc->pressure_watch));
+                memcpy(cc->pressure_threshold_usec, u->manager->defaults.pressure_threshold_usec, sizeof(cc->pressure_threshold_usec));
         }
 
         ec = unit_get_exec_context(u);

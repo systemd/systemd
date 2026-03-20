@@ -185,8 +185,8 @@ void cgroup_context_init(CGroupContext *c) {
                  * moom_mem_pressure_duration_usec is set to infinity. */
                 .moom_mem_pressure_duration_usec = USEC_INFINITY,
 
-                .memory_pressure_watch = _CGROUP_PRESSURE_WATCH_INVALID,
-                .memory_pressure_threshold_usec = USEC_INFINITY,
+                .pressure_watch = { _CGROUP_PRESSURE_WATCH_INVALID, _CGROUP_PRESSURE_WATCH_INVALID, _CGROUP_PRESSURE_WATCH_INVALID },
+                .pressure_threshold_usec = { USEC_INFINITY, USEC_INFINITY, USEC_INFINITY },
         };
 }
 
@@ -526,6 +526,8 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 "%sManagedOOMMemoryPressureLimit: " PERMYRIAD_AS_PERCENT_FORMAT_STR "\n"
                 "%sManagedOOMPreference: %s\n"
                 "%sMemoryPressureWatch: %s\n"
+                "%sCPUPressureWatch: %s\n"
+                "%sIOPressureWatch: %s\n"
                 "%sCoredumpReceive: %s\n",
                 prefix, yes_no(c->io_accounting),
                 prefix, yes_no(c->memory_accounting),
@@ -561,7 +563,9 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 prefix, managed_oom_mode_to_string(c->moom_mem_pressure),
                 prefix, PERMYRIAD_AS_PERCENT_FORMAT_VAL(UINT32_SCALE_TO_PERMYRIAD(c->moom_mem_pressure_limit)),
                 prefix, managed_oom_preference_to_string(c->moom_preference),
-                prefix, cgroup_pressure_watch_to_string(c->memory_pressure_watch),
+                prefix, cgroup_pressure_watch_to_string(c->pressure_watch[PRESSURE_MEMORY]),
+                prefix, cgroup_pressure_watch_to_string(c->pressure_watch[PRESSURE_CPU]),
+                prefix, cgroup_pressure_watch_to_string(c->pressure_watch[PRESSURE_IO]),
                 prefix, yes_no(c->coredump_receive));
 
         if (c->delegate_subgroup)
@@ -572,9 +576,17 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 fprintf(f, "%sBindNetworkInterface: %s\n",
                         prefix, c->bind_network_interface);
 
-        if (c->memory_pressure_threshold_usec != USEC_INFINITY)
+        if (c->pressure_threshold_usec[PRESSURE_MEMORY] != USEC_INFINITY)
                 fprintf(f, "%sMemoryPressureThresholdSec: %s\n",
-                        prefix, FORMAT_TIMESPAN(c->memory_pressure_threshold_usec, 1));
+                        prefix, FORMAT_TIMESPAN(c->pressure_threshold_usec[PRESSURE_MEMORY], 1));
+
+        if (c->pressure_threshold_usec[PRESSURE_CPU] != USEC_INFINITY)
+                fprintf(f, "%sCPUPressureThresholdSec: %s\n",
+                        prefix, FORMAT_TIMESPAN(c->pressure_threshold_usec[PRESSURE_CPU], 1));
+
+        if (c->pressure_threshold_usec[PRESSURE_IO] != USEC_INFINITY)
+                fprintf(f, "%sIOPressureThresholdSec: %s\n",
+                        prefix, FORMAT_TIMESPAN(c->pressure_threshold_usec[PRESSURE_IO], 1));
 
         if (c->moom_mem_pressure_duration_usec != USEC_INFINITY)
                 fprintf(f, "%sManagedOOMMemoryPressureDurationSec: %s\n",
@@ -2105,12 +2117,13 @@ static int unit_update_cgroup(
         cgroup_context_apply(u, target_mask, state);
         cgroup_xattr_apply(u);
 
-        /* For most units we expect that memory monitoring is set up before the unit is started and we won't
-         * touch it after. For PID 1 this is different though, because we couldn't possibly do that given
-         * that PID 1 runs before init.scope is even set up. Hence, whenever init.scope is realized, let's
-         * try to open the memory pressure interface anew. */
+        /* For most units we expect that pressure monitoring is set up before the unit is started and we
+         * won't touch it after. For PID 1 this is different though, because we couldn't possibly do that
+         * given that PID 1 runs before init.scope is even set up. Hence, whenever init.scope is realized,
+         * let's try to open the pressure interfaces anew. */
         if (unit_has_name(u, SPECIAL_INIT_SCOPE))
-                (void) manager_setup_memory_pressure_event_source(u->manager);
+                for (PressureResource t = 0; t < _PRESSURE_RESOURCE_MAX; t++)
+                        (void) manager_setup_pressure_event_source(u->manager, t);
 
         return 0;
 }
