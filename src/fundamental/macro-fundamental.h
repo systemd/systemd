@@ -88,7 +88,6 @@
 #define _printf_(a, b) __attribute__((__format__(printf, a, b)))
 #define _public_ __attribute__((__visibility__("default")))
 #define _pure_ __attribute__((__pure__))
-#define _retain_ __attribute__((__retain__))
 #define _returns_nonnull_ __attribute__((__returns_nonnull__))
 #define _section_(x) __attribute__((__section__(x)))
 #define _sentinel_ __attribute__((__sentinel__))
@@ -98,6 +97,12 @@
 #define _warn_unused_result_ __attribute__((__warn_unused_result__))
 #define _weak_ __attribute__((__weak__))
 #define _weakref_(x) __attribute__((__weakref__(#x)))
+
+#if defined(__has_attribute) && __has_attribute(retain)
+#  define _retain_ __attribute__((__retain__))
+#else
+#  define _retain_
+#endif
 
 #ifdef __clang__
 #  define _alloc_(...)
