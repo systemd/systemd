@@ -11,6 +11,7 @@
 #include "build.h"
 #include "bus-util.h"
 #include "chase.h"
+#include "copy.h"
 #include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
