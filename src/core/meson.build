@@ -170,10 +170,13 @@ systemd_sources = files(
         'apparmor-setup.c',
         'ima-setup.c',
         'ipe-setup.c',
-        'selinux-setup.c',
         'smack-setup.c',
         'efi-random.c',
 )
+
+if conf.get('HAVE_SELINUX') == 1
+        systemd_sources += files('selinux-setup.c')
+endif
 
 systemd_executor_sources = files(
         'executor.c',
