@@ -57,7 +57,7 @@
 #include "reboot-util.h"
 #include "seccomp-util.h"
 #include "securebits-util.h"
-#include "selinux-util.h"
+#include "selinux-util.h"               /* IWYU pragma: keep */
 #include "set.h"
 #include "show-status.h"
 #include "signal-util.h"

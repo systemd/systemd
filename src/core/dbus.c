@@ -39,7 +39,7 @@
 #include "path-util.h"
 #include "pidref.h"
 #include "process-util.h"
-#include "selinux-access.h"
+#include "selinux-access.h"     /* IWYU pragma: keep */
 #include "serialize.h"
 #include "set.h"
 #include "special.h"
