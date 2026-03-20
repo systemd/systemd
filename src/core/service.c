@@ -135,6 +135,8 @@ static void service_enter_signal(Service *s, ServiceState state, ServiceResult f
 
 static void service_reload_finish(Service *s, ServiceResult f);
 static void service_enter_reload_by_notify(Service *s);
+static int service_demand_pid_file(Service *s);
+static void service_enter_stop(Service *s, ServiceResult f);
 
 static bool service_can_reload_extensions(Service *s, bool warn);
 
@@ -1478,6 +1480,22 @@ static int service_coldplug(Unit *u) {
         }
 
         service_set_state(s, s->deserialized_state);
+
+        if (IN_SET(s->state, SERVICE_START, SERVICE_START_POST) &&
+            s->pid_file &&
+            !pidref_is_set(&s->control_pid) &&
+            !s->main_pid_known) {
+                /* The starter already exited before daemon-reload, so we need to restore the pending PID file
+                 * watch explicitly or we might never notice that the daemon published its real PID. */
+                r = service_demand_pid_file(s);
+                if (r < 0) {
+                        if (s->state == SERVICE_START)
+                                service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_FAILURE_PROTOCOL);
+                        else
+                                service_enter_stop(s, SERVICE_FAILURE_PROTOCOL);
+                }
+        }
+
         return 0;
 }
 
