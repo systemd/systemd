@@ -15,6 +15,7 @@ Checks: '
     bugprone-suspicious-string-compare,
     bugprone-swapped-arguments,
     bugprone-tautological-type-limits,
+    bugprone-unsafe-functions,
     bugprone-unused-return-value,
     misc-header-include-cycle,
     misc-include-cleaner,
@@ -50,6 +51,23 @@ CheckOptions:
     varlink-io\.systemd\..*;
     varlink-idl-common\.h;
     unistd\.h
+'
+  bugprone-unsafe-functions.ReportDefaultFunctions: false
+  bugprone-unsafe-functions.CustomFunctions: '
+    ^fgets$,read_line(),is potentially dangerous;
+    ^strtok$,extract_first_word(),is potentially dangerous;
+    ^strsep$,extract_first_word(),is potentially dangerous;
+    ^dup$,fcntl() with F_DUPFD_CLOEXEC,is potentially dangerous;
+    ^htonl$,htobe32(),is confusing;
+    ^htons$,htobe16(),is confusing;
+    ^ntohl$,be32toh(),is confusing;
+    ^ntohs$,be16toh(),is confusing;
+    ^strerror$,STRERROR() or printf %m,is not thread-safe;
+    ^accept$,accept4(),is not O_CLOEXEC-safe;
+    ^dirname$,path_extract_directory(),is icky;
+    ^basename$,path_extract_filename(),is icky;
+    ^setmntent$,libmount_parse_fstab(),libmount parser should be used instead;
+    ^getmntent$,mnt_table_next_fs(),libmount parser should be used instead
 '
   misc-header-include-cycle.IgnoredFilesList: 'glib-2.0'
 WarningsAsErrors: '*'
