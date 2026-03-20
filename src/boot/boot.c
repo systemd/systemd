@@ -120,6 +120,7 @@ typedef struct BootEntry {
         char16_t *options;
         bool options_implied; /* If true, these options are implied if we invoke the PE binary without any parameters (as in: UKI). If false we must specify these options explicitly. */
         char16_t **initrd;
+        char16_t **extras;
         char16_t key;
         EFI_STATUS (*call)(const struct BootEntry *entry, EFI_FILE *root_dir, EFI_HANDLE parent_image);
         int tries_done;
@@ -424,6 +425,8 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
                         printf("           url: %ls\n", entry->url);
                 STRV_FOREACH(initrd, entry->initrd)
                         printf("        initrd: %ls\n", *initrd);
+                STRV_FOREACH(extra, entry->extras)
+                        printf("         extra: %ls\n", *extra);
                 if (entry->devicetree)
                         printf("    devicetree: %ls\n", entry->devicetree);
                 if (entry->options)
@@ -1047,6 +1050,7 @@ static BootEntry* boot_entry_free(BootEntry *entry) {
         free(entry->devicetree);
         free(entry->options);
         strv_free(entry->initrd);
+        strv_free(entry->extras);
         free(entry->directory);
         free(entry->current_name);
         free(entry->next_name);
@@ -1363,7 +1367,7 @@ static void boot_entry_add_type1(
 
         _cleanup_(boot_entry_freep) BootEntry *entry = NULL;
         char *line;
-        size_t pos = 0, n_initrd = 0;
+        size_t pos = 0, n_initrd = 0, n_extras = 0;
         char *key, *value;
         EFI_STATUS err;
 
@@ -1491,6 +1495,14 @@ static void boot_entry_add_type1(
                                 (n_initrd + 2) * sizeof(uint16_t *));
                         entry->initrd[n_initrd++] = xstr8_to_path(value);
                         entry->initrd[n_initrd] = NULL;
+
+                } else if (streq8(key, "extra")) {
+                        entry->extras = xrealloc(
+                                entry->extras,
+                                n_extras == 0 ? 0 : (n_extras + 1) * sizeof(uint16_t *),
+                                (n_extras + 2) * sizeof(uint16_t *));
+                        entry->extras[n_extras++] = xstr8_to_path(value);
+                        entry->extras[n_extras] = NULL;
 
                 } else if (streq8(key, "options")) {
                         _cleanup_free_ char16_t *new = NULL;
