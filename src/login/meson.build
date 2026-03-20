@@ -18,6 +18,7 @@ systemd_logind_extract_sources = files(
         'logind-polkit.c',
         'logind-seat-dbus.c',
         'logind-seat.c',
+        'logind-shutdown.c',
         'logind-session-dbus.c',
         'logind-session-device.c',
         'logind-session.c',
