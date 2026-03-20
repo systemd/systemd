@@ -194,7 +194,7 @@ static int acquire_user_record(
                 fresh_data = true;
         }
 
-        r = sd_json_parse(json, /* flags= */ 0, &v, NULL, NULL);
+        r = sd_json_parse(json, SD_JSON_PARSE_MUST_BE_OBJECT, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
         if (r < 0)
                 return pam_syslog_errno(pamh, LOG_ERR, r, "Failed to parse JSON user record: %m");
 

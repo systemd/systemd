@@ -1009,14 +1009,14 @@ static int varlink_parse_message(sd_varlink *v) {
 
         sz = e - begin + 1;
 
-        r = sd_json_parse(begin, 0, &v->current, NULL, NULL);
+        r = sd_json_parse(begin, SD_JSON_PARSE_MUST_BE_OBJECT, &v->current, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
         if (v->input_sensitive)
                 explicit_bzero_safe(begin, sz);
         if (r < 0) {
                 /* If we encounter a parse failure flush all data. We cannot possibly recover from this,
                  * hence drop all buffered data now. */
                 v->input_buffer_index = v->input_buffer_size = v->input_buffer_unscanned = 0;
-                return varlink_log_errno(v, r, "Failed to parse JSON: %m");
+                return varlink_log_errno(v, r, "Failed to parse JSON object: %m");
         }
 
         if (v->input_sensitive) {

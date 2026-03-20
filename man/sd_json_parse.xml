@@ -1,0 +1,248 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="sd_json_parse" xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>sd_json_parse</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>sd_json_parse</refentrytitle>
+    <manvolnum>3</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>sd_json_parse</refname>
+    <refname>sd_json_parse_continue</refname>
+    <refname>sd_json_parse_with_source</refname>
+    <refname>sd_json_parse_with_source_continue</refname>
+    <refname>sd_json_parse_file</refname>
+    <refname>sd_json_parse_file_at</refname>
+    <refname>SD_JSON_PARSE_SENSITIVE</refname>
+    <refname>SD_JSON_PARSE_MUST_BE_OBJECT</refname>
+    <refname>SD_JSON_PARSE_MUST_BE_ARRAY</refname>
+
+    <refpurpose>Parse JSON strings and files into JSON variant objects</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <funcsynopsis>
+      <funcsynopsisinfo>#include &lt;systemd/sd-json.h&gt;</funcsynopsisinfo>
+
+      <funcprototype>
+        <funcdef>int <function>sd_json_parse</function></funcdef>
+        <paramdef>const char *<parameter>string</parameter></paramdef>
+        <paramdef>sd_json_parse_flags_t <parameter>flags</parameter></paramdef>
+        <paramdef>sd_json_variant **<parameter>ret</parameter></paramdef>
+        <paramdef>unsigned *<parameter>reterr_line</parameter></paramdef>
+        <paramdef>unsigned *<parameter>reterr_column</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_json_parse_continue</function></funcdef>
+        <paramdef>const char **<parameter>p</parameter></paramdef>
+        <paramdef>sd_json_parse_flags_t <parameter>flags</parameter></paramdef>
+        <paramdef>sd_json_variant **<parameter>ret</parameter></paramdef>
+        <paramdef>unsigned *<parameter>reterr_line</parameter></paramdef>
+        <paramdef>unsigned *<parameter>reterr_column</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_json_parse_with_source</function></funcdef>
+        <paramdef>const char *<parameter>string</parameter></paramdef>
+        <paramdef>const char *<parameter>source</parameter></paramdef>
+        <paramdef>sd_json_parse_flags_t <parameter>flags</parameter></paramdef>
+        <paramdef>sd_json_variant **<parameter>ret</parameter></paramdef>
+        <paramdef>unsigned *<parameter>reterr_line</parameter></paramdef>
+        <paramdef>unsigned *<parameter>reterr_column</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_json_parse_with_source_continue</function></funcdef>
+        <paramdef>const char **<parameter>p</parameter></paramdef>
+        <paramdef>const char *<parameter>source</parameter></paramdef>
+        <paramdef>sd_json_parse_flags_t <parameter>flags</parameter></paramdef>
+        <paramdef>sd_json_variant **<parameter>ret</parameter></paramdef>
+        <paramdef>unsigned *<parameter>reterr_line</parameter></paramdef>
+        <paramdef>unsigned *<parameter>reterr_column</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_json_parse_file</function></funcdef>
+        <paramdef>FILE *<parameter>f</parameter></paramdef>
+        <paramdef>const char *<parameter>path</parameter></paramdef>
+        <paramdef>sd_json_parse_flags_t <parameter>flags</parameter></paramdef>
+        <paramdef>sd_json_variant **<parameter>ret</parameter></paramdef>
+        <paramdef>unsigned *<parameter>reterr_line</parameter></paramdef>
+        <paramdef>unsigned *<parameter>reterr_column</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_json_parse_file_at</function></funcdef>
+        <paramdef>FILE *<parameter>f</parameter></paramdef>
+        <paramdef>int <parameter>dir_fd</parameter></paramdef>
+        <paramdef>const char *<parameter>path</parameter></paramdef>
+        <paramdef>sd_json_parse_flags_t <parameter>flags</parameter></paramdef>
+        <paramdef>sd_json_variant **<parameter>ret</parameter></paramdef>
+        <paramdef>unsigned *<parameter>reterr_line</parameter></paramdef>
+        <paramdef>unsigned *<parameter>reterr_column</parameter></paramdef>
+      </funcprototype>
+    </funcsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><function>sd_json_parse()</function> parses the JSON string in <parameter>string</parameter> and
+    returns the resulting JSON variant object in <parameter>ret</parameter>. The input must contain exactly
+    one JSON value (object, array, string, number, boolean, or null); any trailing non-whitespace content
+    after the first parsed value is considered an error.</para>
+
+    <para>If parsing fails, the <parameter>reterr_line</parameter> and <parameter>reterr_column</parameter>
+    arguments are set to the line and column (both one-based) where the parse error occurred. One or both
+    may be passed as <constant>NULL</constant> if the caller is not interested in error location
+    information. On success, the return value is non-negative and <parameter>ret</parameter> is set to a
+    newly allocated JSON variant object (which must be freed with
+    <citerefentry><refentrytitle>sd_json_variant_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+    when no longer needed). <parameter>ret</parameter> may be passed as <constant>NULL</constant>, in which
+    case the input is validated but no object is returned.</para>
+
+    <para><function>sd_json_parse_continue()</function> is similar, but is intended for parsing a sequence of
+    concatenated JSON values from a single input string. Instead of taking a <type>const char *</type> string
+    directly, it takes a pointer to a <type>const char *</type> pointer. After each successful parse, the
+    pointer is advanced past the consumed input, so that subsequent calls will parse the next JSON
+    value. This is useful for parsing newline-delimited JSON (NDJSON) streams or similar concatenated JSON
+    formats. Unlike <function>sd_json_parse()</function>, trailing content after the first JSON value is not
+    considered an error — it is expected to be the beginning of the next value.</para>
+
+    <para><function>sd_json_parse_with_source()</function> and
+    <function>sd_json_parse_with_source_continue()</function> are similar to
+    <function>sd_json_parse()</function> and <function>sd_json_parse_continue()</function>, respectively, but
+    take an additional <parameter>source</parameter> argument. This is a human-readable string (typically a
+    file name or other origin identifier) that is attached to the parsed JSON variant object and can later be
+    retrieved via
+    <citerefentry><refentrytitle>sd_json_variant_get_source</refentrytitle><manvolnum>3</manvolnum></citerefentry>. If
+    <parameter>source</parameter> is <constant>NULL</constant>, no source information is
+    attached. <function>sd_json_parse()</function> and <function>sd_json_parse_continue()</function> are
+    equivalent to calling their <function>_with_source</function> counterparts with
+    <parameter>source</parameter> set to <constant>NULL</constant>.</para>
+
+    <para><function>sd_json_parse_file()</function> reads and parses a JSON value from a file. If the
+    <parameter>f</parameter> argument is non-<constant>NULL</constant>, the JSON text is read from the
+    specified <type>FILE</type> stream. If <parameter>f</parameter> is <constant>NULL</constant>, the file
+    indicated by <parameter>path</parameter> is opened and read instead. The <parameter>path</parameter>
+    argument serves a dual purpose: it is both used for opening the file (if <parameter>f</parameter> is
+    <constant>NULL</constant>) and recorded as source information in the resulting JSON variant (see
+    above).</para>
+
+    <para><function>sd_json_parse_file_at()</function> is similar to
+    <function>sd_json_parse_file()</function>, but takes an additional <parameter>dir_fd</parameter> argument
+    which specifies a file descriptor referring to the directory to resolve relative paths specified in
+    <parameter>path</parameter> against. If set to <constant>AT_FDCWD</constant>, relative paths are resolved
+    against the current working directory, which is the default behaviour of
+    <function>sd_json_parse_file()</function>.</para>
+
+    <para>The <parameter>flags</parameter> argument is a bitmask of zero or more of the following
+    flags:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><constant>SD_JSON_PARSE_SENSITIVE</constant></term>
+
+        <listitem><para>Marks the resulting JSON variant as "sensitive", indicating that it contains secret
+        key material or similar confidential data. Sensitive variants are erased from memory when freed and
+        are excluded from certain debug logging and introspection operations. See
+        <citerefentry><refentrytitle>sd_json_variant_sensitive</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+        for details.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>SD_JSON_PARSE_MUST_BE_OBJECT</constant></term>
+
+        <listitem><para>Requires that the top-level JSON value be a JSON object (i.e. <literal>{…}</literal>).
+        If the top-level value is an array, string, number, boolean, or null, parsing fails with
+        <constant>-EINVAL</constant>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><constant>SD_JSON_PARSE_MUST_BE_ARRAY</constant></term>
+
+        <listitem><para>Requires that the top-level JSON value be a JSON array (i.e. <literal>[…]</literal>).
+        If the top-level value is an object, string, number, boolean, or null, parsing fails with
+        <constant>-EINVAL</constant>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>If both <constant>SD_JSON_PARSE_MUST_BE_OBJECT</constant> and
+    <constant>SD_JSON_PARSE_MUST_BE_ARRAY</constant> are set, both objects and arrays are accepted, but
+    non-container values (strings, numbers, booleans, null) are still refused.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Return Value</title>
+
+    <para>On success, these functions return 0. On failure, they return a negative errno-style error
+    code.</para>
+
+    <refsect2>
+      <title>Errors</title>
+
+      <para>Returned errors may indicate the following problems:</para>
+
+      <variablelist>
+        <varlistentry>
+          <term><constant>-EINVAL</constant></term>
+
+          <listitem><para>The input is not valid JSON, the input contains trailing content after the parsed
+          value (only for non-<function>_continue</function> variants), or a top-level type constraint
+          specified via <constant>SD_JSON_PARSE_MUST_BE_OBJECT</constant> or
+          <constant>SD_JSON_PARSE_MUST_BE_ARRAY</constant> was violated.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENODATA</constant></term>
+
+          <listitem><para>The input string is empty or <constant>NULL</constant>.</para></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><constant>-ENOMEM</constant></term>
+
+          <listitem><para>Memory allocation failed.</para></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <xi:include href="libsystemd-pkgconfig.xml" />
+
+  <refsect1>
+    <title>History</title>
+    <para><function>sd_json_parse()</function>,
+    <function>sd_json_parse_continue()</function>,
+    <function>sd_json_parse_with_source()</function>,
+    <function>sd_json_parse_with_source_continue()</function>,
+    <function>sd_json_parse_file()</function>, and
+    <function>sd_json_parse_file_at()</function> were added in version 257.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd-json</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_json_variant_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_json_variant_get_source</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_json_dispatch</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>

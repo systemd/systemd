@@ -406,9 +406,9 @@ static int manager_add_home_by_record(
                 goto unlink_this_file;
 
         unsigned line = 0, column = 0;
-        r = sd_json_parse_file_at(NULL, dir_fd, fname, SD_JSON_PARSE_SENSITIVE, &v, &line, &column);
+        r = sd_json_parse_file_at(/* f= */ NULL, dir_fd, fname, SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_SENSITIVE, &v, &line, &column);
         if (r < 0)
-                return log_error_errno(r, "Failed to parse identity record at %s:%u%u: %m", fname, line, column);
+                return log_error_errno(r, "Failed to parse identity record at %s:%u:%u: %m", fname, line, column);
 
         if (sd_json_variant_is_blank_object(v))
                 goto unlink_this_file;
