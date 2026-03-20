@@ -4,8 +4,7 @@
 
 #include "sd-bus.h"
 #include "sd-event.h"
-
-#include "alloc-util.h"
+#include "sd-varlink.h"
 #include "bus-common-errors.h"
 #include "bus-polkit.h"
 #include "fs-util.h"
@@ -40,11 +39,11 @@ int have_multiple_sessions(
 int verify_shutdown_creds(
                 Manager *m,
                 sd_bus_message *message,
+                sd_varlink *link,
                 const HandleActionData *a,
                 uint64_t flags,
                 sd_bus_error *error) {
 
-        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         bool multiple_sessions, blocked, interactive;
         _unused_ bool error_or_denial = false;
         Inhibitor *offending = NULL;
@@ -53,15 +52,23 @@ int verify_shutdown_creds(
 
         assert(m);
         assert(a);
-        assert(message);
+        assert(!!message != !!link); /* exactly one transport */
 
-        r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_EUID, &creds);
-        if (r < 0)
-                return r;
+        if (message) {
+                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
 
-        r = sd_bus_creds_get_euid(creds, &uid);
-        if (r < 0)
-                return r;
+                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_EUID, &creds);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_creds_get_euid(creds, &uid);
+                if (r < 0)
+                        return r;
+        } else {
+                r = sd_varlink_get_peer_uid(link, &uid);
+                if (r < 0)
+                        return r;
+        }
 
         r = have_multiple_sessions(m, uid);
         if (r < 0)
@@ -72,14 +79,25 @@ int verify_shutdown_creds(
         interactive = flags & SD_LOGIND_INTERACTIVE;
 
         if (multiple_sessions) {
-                r = bus_verify_polkit_async_full(
-                                message,
-                                a->polkit_action_multiple_sessions,
-                                /* details= */ NULL,
-                                /* good_user= */ UID_INVALID,
-                                interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
-                                &m->polkit_registry,
-                                error);
+                if (message)
+                        r = bus_verify_polkit_async_full(
+                                        message,
+                                        a->polkit_action_multiple_sessions,
+                                        /* details= */ NULL,
+                                        /* good_user= */ UID_INVALID,
+                                        interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
+                                        &m->polkit_registry,
+                                        error);
+                else
+                        r = varlink_verify_polkit_async_full(
+                                        link,
+                                        m->bus,
+                                        a->polkit_action_multiple_sessions,
+                                        /* details= */ NULL,
+                                        /* good_user= */ UID_INVALID,
+                                        interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
+                                        &m->polkit_registry);
+
                 if (r < 0) {
                         /* If we get -EBUSY, it means a polkit decision was made, but not for
                          * this action in particular. Assuming we are blocked on inhibitors,
@@ -117,14 +135,25 @@ int verify_shutdown_creds(
                 if (interactive)
                         polkit_flags |= POLKIT_ALLOW_INTERACTIVE;
 
-                r = bus_verify_polkit_async_full(
-                                message,
-                                a->polkit_action_ignore_inhibit,
-                                /* details= */ NULL,
-                                /* good_user= */ UID_INVALID,
-                                polkit_flags,
-                                &m->polkit_registry,
-                                error);
+                if (message)
+                        r = bus_verify_polkit_async_full(
+                                        message,
+                                        a->polkit_action_ignore_inhibit,
+                                        /* details= */ NULL,
+                                        /* good_user= */ UID_INVALID,
+                                        polkit_flags,
+                                        &m->polkit_registry,
+                                        error);
+                else
+                        r = varlink_verify_polkit_async_full(
+                                        link,
+                                        m->bus,
+                                        a->polkit_action_ignore_inhibit,
+                                        /* details= */ NULL,
+                                        /* good_user= */ UID_INVALID,
+                                        polkit_flags,
+                                        &m->polkit_registry);
+
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -132,14 +161,25 @@ int verify_shutdown_creds(
         }
 
         if (!multiple_sessions && !blocked) {
-                r = bus_verify_polkit_async_full(
-                                message,
-                                a->polkit_action,
-                                /* details= */ NULL,
-                                /* good_user= */ UID_INVALID,
-                                interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
-                                &m->polkit_registry,
-                                error);
+                if (message)
+                        r = bus_verify_polkit_async_full(
+                                        message,
+                                        a->polkit_action,
+                                        /* details= */ NULL,
+                                        /* good_user= */ UID_INVALID,
+                                        interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
+                                        &m->polkit_registry,
+                                        error);
+                else
+                        r = varlink_verify_polkit_async_full(
+                                        link,
+                                        m->bus,
+                                        a->polkit_action,
+                                        /* details= */ NULL,
+                                        /* good_user= */ UID_INVALID,
+                                        interactive ? POLKIT_ALLOW_INTERACTIVE : 0,
+                                        &m->polkit_registry);
+
                 if (r < 0)
                         return r;
                 if (r == 0)
