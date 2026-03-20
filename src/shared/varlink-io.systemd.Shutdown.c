@@ -30,7 +30,12 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_DEFINE_INPUT(skipInhibitors, SD_VARLINK_BOOL, SD_VARLINK_NULLABLE));
 
 static SD_VARLINK_DEFINE_ERROR(AlreadyInProgress);
-static SD_VARLINK_DEFINE_ERROR(BlockedByInhibitor);
+static SD_VARLINK_DEFINE_ERROR(
+                BlockedByInhibitor,
+                SD_VARLINK_FIELD_COMMENT("Who is holding the inhibitor"),
+                SD_VARLINK_DEFINE_OUTPUT(who, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Why the inhibitor is held"),
+                SD_VARLINK_DEFINE_OUTPUT(why, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
 SD_VARLINK_DEFINE_INTERFACE(
                 io_systemd_Shutdown,
