@@ -58,16 +58,20 @@ static ColorMode get_color_mode_impl(void) {
         if (m >= 0 && m < _COLOR_MODE_FIXED_MAX)
                 return m;
 
-        /* Next, check for the presence of $NO_COLOR; value is ignored. */
-        if (m != COLOR_TRUE && getenv("NO_COLOR"))
-                return COLOR_OFF;
+        /* If SYSTEMD_COLORS=true was set explicitly, skip the environment checks below — the user
+         * explicitly requested colors, so honor it even when stdout is piped or $NO_COLOR is set. */
+        if (m != COLOR_TRUE) {
+                /* Check for the presence of $NO_COLOR; value is ignored. */
+                if (getenv("NO_COLOR"))
+                        return COLOR_OFF;
 
-        /* If the above didn't work, we turn colors off unless we are on a TTY. And if we are on a TTY we
-         * turn it off if $TERM is set to "dumb". There's one special tweak though: if we are PID 1 then we
-         * do not check whether we are connected to a TTY, because we don't keep /dev/console open
-         * continuously due to fear of SAK, and hence things are a bit weird. */
-        if (getpid_cached() == 1 ? getenv_terminal_is_dumb() : terminal_is_dumb())
-                return COLOR_OFF;
+                /* Turn colors off unless we are on a TTY. And if we are on a TTY we turn it off if $TERM
+                 * is set to "dumb". There's one special tweak though: if we are PID 1 then we do not check
+                 * whether we are connected to a TTY, because we don't keep /dev/console open continuously
+                 * due to fear of SAK, and hence things are a bit weird. */
+                if (getpid_cached() == 1 ? getenv_terminal_is_dumb() : terminal_is_dumb())
+                        return COLOR_OFF;
+        }
 
         /* We failed to figure out any reason to *disable* colors. Let's see how many colors we shall use. */
         if (m == COLOR_AUTO_16)
