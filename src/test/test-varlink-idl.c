@@ -581,4 +581,42 @@ TEST(any) {
         ASSERT_NULL(bad_field);
 }
 
+static SD_VARLINK_DEFINE_METHOD(
+                ArrayTest,
+                SD_VARLINK_DEFINE_INPUT(arr, SD_VARLINK_INT, SD_VARLINK_ARRAY));
+
+static SD_VARLINK_DEFINE_METHOD(
+                MapTest,
+                SD_VARLINK_DEFINE_INPUT(m, SD_VARLINK_STRING, SD_VARLINK_MAP));
+
+TEST(null_array_element) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+        /* Build an array with a null element - this should be rejected gracefully, not crash */
+        ASSERT_OK(sd_json_buildo(&v,
+                                 SD_JSON_BUILD_PAIR("arr", SD_JSON_BUILD_ARRAY(
+                                                 SD_JSON_BUILD_INTEGER(1),
+                                                 SD_JSON_BUILD_NULL,
+                                                 SD_JSON_BUILD_INTEGER(3)))));
+
+        const char *bad_field = NULL;
+        ASSERT_ERROR(varlink_idl_validate_method_call(&vl_method_ArrayTest, v, /* flags= */ 0, &bad_field), EMEDIUMTYPE);
+        ASSERT_STREQ(bad_field, "arr");
+}
+
+TEST(null_map_element) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+        /* Build a map with a null value - this should be rejected gracefully, not crash */
+        ASSERT_OK(sd_json_buildo(&v,
+                                 SD_JSON_BUILD_PAIR("m", SD_JSON_BUILD_OBJECT(
+                                                 SD_JSON_BUILD_PAIR_STRING("key1", "value1"),
+                                                 SD_JSON_BUILD_PAIR_NULL("key2"),
+                                                 SD_JSON_BUILD_PAIR_STRING("key3", "value3")))));
+
+        const char *bad_field = NULL;
+        ASSERT_ERROR(varlink_idl_validate_method_call(&vl_method_MapTest, v, /* flags= */ 0, &bad_field), EMEDIUMTYPE);
+        ASSERT_STREQ(bad_field, "m");
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
