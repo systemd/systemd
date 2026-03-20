@@ -45,6 +45,7 @@
 #include "logind-seat.h"
 #include "logind-seat-dbus.h"
 #include "logind-session-dbus.h"
+#include "logind-shutdown.h"
 #include "logind-user.h"
 #include "logind-user-dbus.h"
 #include "logind-utmp.h"
@@ -75,10 +76,6 @@
  * allow 4k.
  */
 #define WALL_MESSAGE_MAX 4096U
-
-#define SHUTDOWN_SCHEDULE_FILE "/run/systemd/shutdown/scheduled"
-
-static void reset_scheduled_shutdown(Manager *m);
 
 static int get_sender_session(
                 Manager *m,
@@ -2454,7 +2451,7 @@ static int method_do_shutdown_or_sleep(
 
         /* reset case we're shorting a scheduled shutdown */
         m->unlink_nologin = false;
-        reset_scheduled_shutdown(m);
+        manager_reset_scheduled_shutdown(m);
 
         m->scheduled_shutdown_timeout = 0;
         m->scheduled_shutdown_action = action;
@@ -2568,29 +2565,6 @@ static usec_t nologin_timeout_usec(usec_t elapse) {
         return LESS_BY(elapse, 5 * USEC_PER_MINUTE);
 }
 
-static void reset_scheduled_shutdown(Manager *m) {
-        assert(m);
-
-        m->scheduled_shutdown_timeout_source = sd_event_source_disable_unref(m->scheduled_shutdown_timeout_source);
-        m->wall_message_timeout_source = sd_event_source_disable_unref(m->wall_message_timeout_source);
-        m->nologin_timeout_source = sd_event_source_disable_unref(m->nologin_timeout_source);
-
-        m->scheduled_shutdown_action = _HANDLE_ACTION_INVALID;
-        m->scheduled_shutdown_timeout = USEC_INFINITY;
-        m->scheduled_shutdown_uid = UID_INVALID;
-        m->scheduled_shutdown_tty = mfree(m->scheduled_shutdown_tty);
-        m->shutdown_dry_run = false;
-
-        if (m->unlink_nologin) {
-                (void) unlink_or_warn("/run/nologin");
-                m->unlink_nologin = false;
-        }
-
-        (void) unlink(SHUTDOWN_SCHEDULE_FILE);
-
-        manager_send_changed(m, "ScheduledShutdown");
-}
-
 static int update_schedule_file(Manager *m) {
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
@@ -2669,7 +2643,7 @@ static int manager_scheduled_shutdown_handler(
 
                 bus_manager_log_shutdown(m, a);
                 log_info("Running in dry run, suppressing action.");
-                reset_scheduled_shutdown(m);
+                manager_reset_scheduled_shutdown(m);
 
                 return 0;
         }
@@ -2683,7 +2657,7 @@ static int manager_scheduled_shutdown_handler(
         return 0;
 
 error:
-        reset_scheduled_shutdown(m);
+        manager_reset_scheduled_shutdown(m);
         return r;
 }
 
@@ -2738,7 +2712,7 @@ void manager_load_scheduled_shutdown(Manager *m) {
                            "TTY", &tty);
 
         /* reset will delete the file */
-        reset_scheduled_shutdown(m);
+        manager_reset_scheduled_shutdown(m);
 
         if (r == -ENOENT)
                 return;
@@ -2784,7 +2758,7 @@ void manager_load_scheduled_shutdown(Manager *m) {
 
         r = manager_setup_shutdown_timers(m);
         if (r < 0)
-                return reset_scheduled_shutdown(m);
+                return manager_reset_scheduled_shutdown(m);
 
         (void) manager_setup_wall_message_timer(m);
         (void) update_schedule_file(m);
@@ -2853,7 +2827,7 @@ static int method_schedule_shutdown(sd_bus_message *message, void *userdata, sd_
                 r = update_schedule_file(m);
 
         if (r < 0) {
-                reset_scheduled_shutdown(m);
+                manager_reset_scheduled_shutdown(m);
                 return r;
         }
 
@@ -2913,7 +2887,7 @@ static int method_cancel_scheduled_shutdown(sd_bus_message *message, void *userd
         }
 
         cancel_delayed_action(m);
-        reset_scheduled_shutdown(m);
+        manager_reset_scheduled_shutdown(m);
 
         return sd_bus_reply_method_return(message, "b", true);
 }
