@@ -710,10 +710,10 @@ static int dir_cleanup(
                         continue;
                 }
 
-                atime_nsec = FLAGS_SET(sx.stx_mask, STATX_ATIME) ? statx_timestamp_load_nsec(&sx.stx_atime) : 0;
-                mtime_nsec = FLAGS_SET(sx.stx_mask, STATX_MTIME) ? statx_timestamp_load_nsec(&sx.stx_mtime) : 0;
-                ctime_nsec = FLAGS_SET(sx.stx_mask, STATX_CTIME) ? statx_timestamp_load_nsec(&sx.stx_ctime) : 0;
-                btime_nsec = FLAGS_SET(sx.stx_mask, STATX_BTIME) ? statx_timestamp_load_nsec(&sx.stx_btime) : 0;
+                atime_nsec = FLAGS_SET(sx.stx_mask, STATX_ATIME) ? statx_timestamp_load_nsec(&sx.stx_atime) : NSEC_INFINITY;
+                mtime_nsec = FLAGS_SET(sx.stx_mask, STATX_MTIME) ? statx_timestamp_load_nsec(&sx.stx_mtime) : NSEC_INFINITY;
+                ctime_nsec = FLAGS_SET(sx.stx_mask, STATX_CTIME) ? statx_timestamp_load_nsec(&sx.stx_ctime) : NSEC_INFINITY;
+                btime_nsec = FLAGS_SET(sx.stx_mask, STATX_BTIME) ? statx_timestamp_load_nsec(&sx.stx_btime) : NSEC_INFINITY;
 
                 sub_path = path_join(p, de->d_name);
                 if (!sub_path) {
