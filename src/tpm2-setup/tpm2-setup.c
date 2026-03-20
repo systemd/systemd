@@ -47,7 +47,7 @@ static int help(int argc, char *argv[], void *userdata) {
                 return log_oom();
 
         printf("%1$s [OPTIONS...]\n"
-               "\n%5$sSet up the TPM2 Storage Root Key (SRK), and initialize NvPCRs.%6$s\n"
+               "\n%5$sSet up the TPM2 Storage Root Key (SRK), Attestation Key (AK), and initialize NvPCRs.%6$s\n"
                "\n%3$sOptions:%4$s\n"
                "  -h --help               Show this help\n"
                "     --version            Show package version\n"
@@ -507,6 +507,22 @@ static int setup_nvpcr(void) {
         return ret;
 }
 
+static int setup_ak(void) {
+        _cleanup_(iovec_done_erase) struct iovec credential = {};
+        int r;
+
+        r = tpm2_ak_acquire_credential(arg_tpm2_device, &credential, /* sync_secondary= */ !arg_early);
+        if (r < 0)
+                return r;
+
+        if (iovec_is_set(&credential))
+                log_info("AK credential ready.");
+        else
+                log_debug("No AK credential available.");
+
+        return 0;
+}
+
 static int run(int argc, char *argv[]) {
         int r;
 
@@ -523,14 +539,19 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
-        /* Execute both jobs, and then return unlisted errors preferably, and listed errors
+        /* Execute all jobs, and then return unlisted errors preferably, and listed errors
          * (i.e. EX_UNAVAILABLE, EX_CANTCREAT, EX_PROTOCOL) otherwise. */
         r = setup_srk();
         int k = setup_nvpcr();
+        int m = setup_ak();
         if (r < 0)
                 return r;
         if (k < 0)
                 return k;
+        if (m < 0)
+                log_struct_errno(LOG_WARNING, m,
+                                 LOG_MESSAGE("Failed to set up AK credential, continuing without AK: %m"),
+                                 LOG_MESSAGE_ID(SD_MESSAGE_TPM_AK_SETUP_FAILED_STR));
         return r != EXIT_SUCCESS ? r : k;
 }
 
