@@ -200,7 +200,7 @@ static inline int parse_birth_date(const char *s, struct tm *ret) {
 }
 
 uint32_t usec_to_jiffies(usec_t usec);
-usec_t jiffies_to_usec(uint32_t jiffies);
+usec_t jiffies_to_usec(unsigned long jiffies);
 
 bool in_utc_timezone(void);
 
