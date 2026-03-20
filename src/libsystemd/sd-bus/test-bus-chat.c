@@ -567,10 +567,16 @@ TEST(ctrunc) {
 
         /* The very first message should be the one we expect */
         ASSERT_OK(get_one_message(bus, &recvd));
-        ASSERT_TRUE(sd_bus_message_is_method_call(recvd, "org.freedesktop.systemd.test", "SendFds"));
 
         /* This needs to succeed or the following tests are going to be unhappy... */
         ASSERT_EQ(setrlimit(RLIMIT_NOFILE, &orig_rl), 0);
+
+        /* dbus-daemon disconnects peers when FDs get truncated
+         * https://github.com/systemd/systemd/issues/41150 */
+        if (sd_bus_message_is_signal(recvd, "org.freedesktop.DBus.Local", "Disconnected") > 0)
+                return (void) log_tests_skipped("Running with dbus-daemon, which doesn't support fd passing with truncation");
+
+        ASSERT_TRUE(sd_bus_message_is_method_call(recvd, "org.freedesktop.systemd.test", "SendFds"));
 
         /* Try to read all the fds. We expect at least one to fail with -EBADMSG due to
          * truncation, and all subsequent reads must also fail with -EBADMSG. */
