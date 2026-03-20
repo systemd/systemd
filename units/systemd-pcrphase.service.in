@@ -13,7 +13,7 @@ Documentation=man:systemd-pcrphase.service(8)
 After=remote-fs.target remote-cryptsetup.target tpm2.target
 Before=systemd-user-sessions.service
 ConditionPathExists=!/etc/initrd-release
-ConditionSecurity=measured-uki
+ConditionSecurity=measured-os
 FailureAction=reboot-force
 
 [Service]
