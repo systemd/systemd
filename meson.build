@@ -895,6 +895,7 @@ foreach option : ['adm-gid',
                   'video-gid',
                   'wheel-gid',
                   'systemd-journal-gid',
+                  'systemd-imds-uid',
                   'systemd-network-uid',
                   'systemd-resolve-uid',
                   'systemd-timesync-uid']
@@ -1527,6 +1528,11 @@ endif
 conf.set('DEFAULT_DNSSEC_MODE',
          'DNSSEC_' + default_dnssec.underscorify().to_upper())
 conf.set_quoted('DEFAULT_DNSSEC_MODE_STR', default_dnssec)
+
+have = get_option('imds').require(
+        conf.get('HAVE_LIBCURL') == 1,
+        error_message : 'curl required').allowed()
+conf.set10('ENABLE_IMDS', have)
 
 have = get_option('importd').require(
         conf.get('HAVE_LIBCURL') == 1 and
@@ -2363,6 +2369,7 @@ subdir('src/home')
 subdir('src/hostname')
 subdir('src/hwdb')
 subdir('src/id128')
+subdir('src/imds')
 subdir('src/import')
 subdir('src/integritysetup')
 subdir('src/journal')
@@ -3134,6 +3141,7 @@ foreach tuple : [
         ['homed'],
         ['hostnamed'],
         ['hwdb'],
+        ['imds'],
         ['importd'],
         ['initrd'],
         ['kernel-install'],
