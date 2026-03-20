@@ -72,7 +72,6 @@ EFI_STATUS initrd_register(
         EFI_STATUS err;
         EFI_DEVICE_PATH *dp = (EFI_DEVICE_PATH *) &efi_initrd_device_path;
         EFI_HANDLE handle;
-        struct initrd_loader *loader;
 
         assert(ret_initrd_handle);
 
@@ -82,15 +81,14 @@ EFI_STATUS initrd_register(
         if (!iovec_is_set(initrd))
                 return EFI_SUCCESS;
 
-        /* check if a LINUX_INITRD_MEDIA_GUID DevicePath is already registered.
-           LocateDevicePath checks for the "closest DevicePath" and returns its handle,
-           where as InstallMultipleProtocolInterfaces only matches identical DevicePaths.
-         */
+        /* Check if a LINUX_INITRD_MEDIA_GUID DevicePath is already registered.  LocateDevicePath checks for
+         * the "closest DevicePath" and returns its handle, where as InstallMultipleProtocolInterfaces only
+         * matches identical DevicePaths. */
         err = BS->LocateDevicePath(MAKE_GUID_PTR(EFI_LOAD_FILE2_PROTOCOL), &dp, &handle);
         if (err != EFI_NOT_FOUND) /* InitrdMedia is already registered */
                 return EFI_ALREADY_STARTED;
 
-        loader = xnew(struct initrd_loader, 1);
+        _cleanup_free_ struct initrd_loader *loader = xnew(struct initrd_loader, 1);
         *loader = (struct initrd_loader) {
                 .load_file.LoadFile = initrd_load_file,
                 .data = *initrd,
@@ -98,14 +96,17 @@ EFI_STATUS initrd_register(
 
         /* create a new handle and register the LoadFile2 protocol with the InitrdMediaPath on it */
         err = BS->InstallMultipleProtocolInterfaces(
-                        ret_initrd_handle, MAKE_GUID_PTR(EFI_DEVICE_PATH_PROTOCOL),
-                        &efi_initrd_device_path, MAKE_GUID_PTR(EFI_LOAD_FILE2_PROTOCOL),
-                        loader,
-                        NULL);
+                        ret_initrd_handle,
+                        MAKE_GUID_PTR(EFI_DEVICE_PATH_PROTOCOL), &efi_initrd_device_path,
+                        MAKE_GUID_PTR(EFI_LOAD_FILE2_PROTOCOL), loader,
+                        /* sentinel= */ NULL);
         if (err != EFI_SUCCESS)
-                free(loader);
+                return log_debug_status(err, "Failed to install new initrd device: %m");
 
-        return err;
+        log_debug("Installed new initrd of size %zu.", loader->data.iov_len);
+
+        TAKE_PTR(loader);
+        return EFI_SUCCESS;
 }
 
 EFI_STATUS initrd_unregister(EFI_HANDLE initrd_handle) {
