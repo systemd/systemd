@@ -8,6 +8,8 @@
 #include "dhcp-network.h"
 #include "dhcp-packet.h"
 #include "fd-util.h"
+#include "iovec-util.h"
+#include "iovec-wrapper.h"
 #include "socket-util.h"
 
 static int client_get_socket(sd_dhcp_client *client, int domain) {
@@ -112,8 +114,10 @@ int dhcp_client_send_raw(
         r = dhcp_network_send_raw_socket(
                         fd,
                         &client->link,
-                        packet,
-                        sizeof(DHCPPacket) + optoffset);
+                        &(struct iovec_wrapper) {
+                                .iovec = &IOVEC_MAKE(packet, sizeof(DHCPPacket) + optoffset),
+                                .count = 1,
+                        });
         if (r < 0)
                 return r;
 
@@ -166,8 +170,10 @@ int dhcp_client_send_udp(
                         fd,
                         client->lease->server_address,
                         client->server_port,
-                        &packet->dhcp,
-                        sizeof(DHCPMessage) + optoffset);
+                        &(struct iovec_wrapper) {
+                                .iovec = &IOVEC_MAKE(&packet->dhcp, sizeof(DHCPMessage) + optoffset),
+                                .count = 1,
+                        });
         if (r < 0)
                 return r;
 
