@@ -364,11 +364,11 @@ static int setup_wall_message_timer(Manager *m, sd_varlink *link) {
 static int manager_do_shutdown_action(sd_varlink *link, sd_json_variant *parameters, HandleAction action) {
         Manager *m = ASSERT_PTR(sd_varlink_get_userdata(link));
         int skip_inhibitors = -1;
-        uid_t uid;
         int r;
 
         static const sd_json_dispatch_field dispatch_table[] = {
                 { "skipInhibitors", SD_JSON_VARIANT_BOOLEAN, sd_json_dispatch_tristate, 0, 0 },
+                VARLINK_DISPATCH_POLKIT_FIELD,
                 {}
         };
 
@@ -381,22 +381,9 @@ static int manager_do_shutdown_action(sd_varlink *link, sd_json_variant *paramet
         const HandleActionData *a = handle_action_lookup(action);
         assert(a);
 
-        /* TODO: provide full polkit support (matching the D-Bus verify_shutdown_creds() with
-         * multiple-sessions and inhibitor-override checks). This requires some refactor. */
-        r = varlink_check_privileged_peer(link);
-        if (r < 0)
+        r = manager_verify_shutdown_creds(m, /* message= */ NULL, link, a, flags, /* error= */ NULL);
+        if (r != 0)
                 return r;
-
-        r = sd_varlink_get_peer_uid(link, &uid);
-        if (r < 0)
-                return r;
-
-        /* Check for active inhibitors, mirroring the D-Bus verify_shutdown_creds() logic,
-         * we need this to ensure we handle the strong INHIBIT_BLOCK
-         * TODO: drop once we do the verify_shutdown_creds() */
-        if (manager_is_inhibited(m, a->inhibit_what, NULL, /* flags= */ 0, uid, /* ret_offending= */ NULL) &&
-            !FLAGS_SET(flags, SD_LOGIND_SKIP_INHIBITORS))
-                return sd_varlink_error(link, "io.systemd.Shutdown.BlockedByInhibitor", /* parameters= */ NULL);
 
         if (m->delayed_action)
                 return sd_varlink_error(link, "io.systemd.Shutdown.AlreadyInProgress", /* parameters= */ NULL);
