@@ -1,21 +1,23 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <stdint.h>
-#include <sys/ioctl.h>
-#include <sys/mman.h>
 #include <sys/syscall.h>
 #include <unistd.h>
 
 #if HAVE_XENCTRL
+#include <sys/ioctl.h>
+#include <sys/mman.h>
+
 #define __XEN_INTERFACE_VERSION__ 0x00040900
 #include <xen/kexec.h>
 #include <xen/sys/privcmd.h>
 #include <xen/xen.h>
+
+#include "errno-util.h"
+#include "fd-util.h"
 #endif
 
 #include "alloc-util.h"
-#include "errno-util.h"
-#include "fd-util.h"
 #include "fileio.h"
 #include "log.h"
 #include "proc-cmdline.h"
