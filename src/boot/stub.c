@@ -10,6 +10,7 @@
 #include "efi-string.h"
 #include "export-vars.h"
 #include "graphics.h"
+#include "initrd.h"
 #include "iovec-util-fundamental.h"
 #include "linux.h"
 #include "measure.h"
@@ -32,13 +33,10 @@
 
 /* The list of initrds we combine into one, in the order we want to merge them */
 enum {
-        /* The first two are part of the PE binary */
-        INITRD_UCODE,
-        INITRD_BASE,
-
-        /* The rest are dynamically generated, and hence in dynamic memory */
-        _INITRD_DYNAMIC_FIRST,
-        INITRD_CREDENTIAL = _INITRD_DYNAMIC_FIRST,
+        INITRD_UCODE,    /* Part of the PE binary */
+        INITRD_PREVIOUS, /* initrd already configured via the EFI protocol before we were invoked */
+        INITRD_BASE,     /* Part of the PE binary */
+        INITRD_CREDENTIAL,
         INITRD_GLOBAL_CREDENTIAL,
         INITRD_SYSEXT,
         INITRD_GLOBAL_SYSEXT,
@@ -51,6 +49,8 @@ enum {
         INITRD_BOOT_SECRET,
         _INITRD_MAX,
 };
+
+#define INITRD_IS_STATIC(idx) IN_SET(idx, INITRD_UCODE, INITRD_BASE)
 
 /* magic string to find in the binary image */
 DECLARE_NOALLOC_SECTION(".sdmagic", "#### LoaderInfo: systemd-stub " GIT_VERSION " ####");
@@ -550,6 +550,18 @@ static void extend_initrds(
                 iovec_array_extend(all_initrds, n_all_initrds, *i);
 }
 
+static void acquire_previous_initrd(struct iovec initrds[static _INITRD_MAX]) {
+        EFI_STATUS err;
+
+        err = initrd_read_previous(initrds + INITRD_PREVIOUS);
+        if (err == EFI_NOT_FOUND)
+                log_debug_status(err, "No previous initrd installed.");
+        else if (err != EFI_SUCCESS)
+                log_warning_status(err, "Failed to read previously registered initrd, ignoring.");
+        else
+                log_debug("Successfully loaded previously installed initrd (%zu bytes).", initrds[INITRD_PREVIOUS].iov_len);
+}
+
 static EFI_STATUS load_addons(
                 EFI_HANDLE stub_image,
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
@@ -823,8 +835,9 @@ static void initrds_free(struct iovec (*initrds)[_INITRD_MAX]) {
 
         /* Free the dynamic initrds, but leave the non-dynamic ones around */
 
-        for (size_t i = _INITRD_DYNAMIC_FIRST; i < _INITRD_MAX; i++)
-                iovec_done((*initrds) + i);
+        for (size_t i = 0; i < _INITRD_MAX; i++)
+                if (!INITRD_IS_STATIC(i))
+                        iovec_done((*initrds) + i);
 }
 
 static void generate_sidecar_initrds(
@@ -1309,6 +1322,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
         install_addon_devicetrees(&dt_state, dt_addons, n_dt_addons, &parameters_measured);
 
         /* Generate & find all initrds */
+        acquire_previous_initrd(initrds);
         generate_sidecar_initrds(loaded_image, initrds, &parameters_measured, &sysext_measured, &confext_measured);
         generate_embedded_initrds(loaded_image, sections, initrds);
         generate_boot_secret_initrd(boot_secret, initrds);
@@ -1319,9 +1333,10 @@ static EFI_STATUS run(EFI_HANDLE image) {
          * We want addons to take precedence over the base initrds, so the order is:
          * 1. Ucode addons
          * 2. UKI ucode
-         * 3. UKI initrd
-         * 4. Generated initrds
-         * 5. initrd addons */
+         * 3. Previous initds
+         * 4. UKI initrd
+         * 5. Generated initrds
+         * 6. initrd addons */
         measure_and_append_ucode_addons(&all_initrds, &n_all_initrds, ucode_addons, n_ucode_addons, &parameters_measured);
         extend_initrds(initrds, &all_initrds, &n_all_initrds);
         measure_and_append_initrd_addons(&all_initrds, &n_all_initrds, initrd_addons, n_initrd_addons, &parameters_measured);
