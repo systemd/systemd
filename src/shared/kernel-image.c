@@ -28,7 +28,6 @@ static int uki_read_pretty_name(
                 char **ret) {
 
         _cleanup_free_ char *pname = NULL, *name = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ void *osrel = NULL;
         size_t osrel_size;
         int r;
@@ -51,12 +50,8 @@ static int uki_read_pretty_name(
                 return 0;
         }
 
-        f = fmemopen(osrel, osrel_size, "r");
-        if (!f)
-                return log_error_errno(errno, "Failed to open embedded os-release file: %m");
-
-        r = parse_env_file(
-                        f, NULL,
+        r = parse_env_data(
+                        osrel, osrel_size, ".osrel",
                         "PRETTY_NAME", &pname,
                         "NAME",        &name);
         if (r < 0)
