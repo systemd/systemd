@@ -408,7 +408,7 @@ static int manager_do_shutdown_action(sd_varlink *link, sd_json_variant *paramet
 
         /* reset case we're shorting a scheduled shutdown */
         m->unlink_nologin = false;
-        reset_scheduled_shutdown(m);
+        manager_reset_scheduled_shutdown(m);
 
         m->scheduled_shutdown_timeout = 0;
         m->scheduled_shutdown_action = action;
