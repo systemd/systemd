@@ -205,7 +205,7 @@ static int acquire_user_record(pam_handle_t *pamh, UserRecord **ret_record) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
                 /* Parse cached record */
-                r = sd_json_parse(json, SD_JSON_PARSE_SENSITIVE, &v, NULL, NULL);
+                r = sd_json_parse(json, SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_SENSITIVE, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
                 if (r < 0)
                         return pam_syslog_errno(pamh, LOG_ERR, r, "Failed to parse JSON user record: %m");
 
