@@ -1732,4 +1732,98 @@ TEST(json_dispatch_in_addr) {
                                 &dummy), EINVAL);
 }
 
+TEST(json_dispatch_in6_addr) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+
+        /* ::1 */
+        ASSERT_OK(sd_json_build(&j, SD_JSON_BUILD_OBJECT(
+                                             SD_JSON_BUILD_PAIR("addr", JSON_BUILD_IN6_ADDR(&(const struct in6_addr) { .s6_addr = { [15] = 1 } })),
+                                             SD_JSON_BUILD_PAIR("null_addr", SD_JSON_BUILD_NULL))));
+
+        struct {
+                struct in6_addr addr;
+                struct in6_addr null_addr;
+        } data = {};
+
+        ASSERT_OK(sd_json_dispatch(j,
+                                (const sd_json_dispatch_field[]) {
+                                        { "addr",      _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_in6_addr, offsetof(typeof(data), addr)      },
+                                        { "null_addr", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_in6_addr, offsetof(typeof(data), null_addr) },
+                                        {},
+                                },
+                                /* flags= */ 0,
+                                &data));
+
+        ASSERT_EQ(data.addr.s6_addr[15], 1);
+        for (size_t i = 0; i < 15; i++)
+                ASSERT_EQ(data.addr.s6_addr[i], 0);
+        for (size_t i = 0; i < 16; i++)
+                ASSERT_EQ(data.null_addr.s6_addr[i], 0);
+
+        struct in6_addr dummy = {};
+
+        /* Too few bytes (15 instead of 16) */
+        j = sd_json_variant_unref(j);
+        ASSERT_OK(sd_json_build(&j, SD_JSON_BUILD_OBJECT(
+                                             SD_JSON_BUILD_PAIR("addr", SD_JSON_BUILD_ARRAY(
+                                                                                SD_JSON_BUILD_UNSIGNED(0), SD_JSON_BUILD_UNSIGNED(0), SD_JSON_BUILD_UNSIGNED(0), SD_JSON_BUILD_UNSIGNED(0),
+                                                                                SD_JSON_BUILD_UNSIGNED(0), SD_JSON_BUILD_UNSIGNED(0), SD_JSON_BUILD_UNSIGNED(0), SD_JSON_BUILD_UNSIGNED(0),
+                                                                                SD_JSON_BUILD_UNSIGNED(0), SD_JSON_BUILD_UNSIGNED(0), SD_JSON_BUILD_UNSIGNED(0), SD_JSON_BUILD_UNSIGNED(0),
+                                                                                SD_JSON_BUILD_UNSIGNED(0), SD_JSON_BUILD_UNSIGNED(0), SD_JSON_BUILD_UNSIGNED(1))))));
+        ASSERT_ERROR(sd_json_dispatch(j,
+                                (const sd_json_dispatch_field[]) {
+                                        { "addr", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_in6_addr, 0 },
+                                        {},
+                                },
+                                /* flags= */ 0,
+                                &dummy), EINVAL);
+
+        /* Too many bytes (17 instead of 16) */
+        j = sd_json_variant_unref(j);
+        ASSERT_OK(sd_json_build(&j, SD_JSON_BUILD_OBJECT(
+                                             SD_JSON_BUILD_PAIR("addr", SD_JSON_BUILD_ARRAY(
+                                                                                SD_JSON_BUILD_UNSIGNED(0), SD_JSON_BUILD_UNSIGNED(0), SD_JSON_BUILD_UNSIGNED(0), SD_JSON_BUILD_UNSIGNED(0),
+                                                                                SD_JSON_BUILD_UNSIGNED(0), SD_JSON_BUILD_UNSIGNED(0), SD_JSON_BUILD_UNSIGNED(0), SD_JSON_BUILD_UNSIGNED(0),
+                                                                                SD_JSON_BUILD_UNSIGNED(0), SD_JSON_BUILD_UNSIGNED(0), SD_JSON_BUILD_UNSIGNED(0), SD_JSON_BUILD_UNSIGNED(0),
+                                                                                SD_JSON_BUILD_UNSIGNED(0), SD_JSON_BUILD_UNSIGNED(0), SD_JSON_BUILD_UNSIGNED(0), SD_JSON_BUILD_UNSIGNED(1),
+                                                                                SD_JSON_BUILD_UNSIGNED(0))))));
+        ASSERT_ERROR(sd_json_dispatch(j,
+                                (const sd_json_dispatch_field[]) {
+                                        { "addr", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_in6_addr, 0 },
+                                        {},
+                                },
+                                /* flags= */ 0,
+                                &dummy), EINVAL);
+
+        /* Not an array */
+        j = sd_json_variant_unref(j);
+        ASSERT_OK(sd_json_build(&j, SD_JSON_BUILD_OBJECT(
+                                             SD_JSON_BUILD_PAIR("addr", SD_JSON_BUILD_BOOLEAN(true)))));
+        ASSERT_ERROR(sd_json_dispatch(j,
+                                (const sd_json_dispatch_field[]) {
+                                        { "addr", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_in6_addr, 0 },
+                                        {},
+                                },
+                                /* flags= */ 0,
+                                &dummy), EINVAL);
+
+        /* A string */
+        j = sd_json_variant_unref(j);
+        ASSERT_OK(sd_json_build(&j, SD_JSON_BUILD_OBJECT(
+                                             SD_JSON_BUILD_PAIR("addr", JSON_BUILD_CONST_STRING("::1")))));
+
+        dummy = (struct in6_addr) {};
+        ASSERT_OK(sd_json_dispatch(j,
+                                (const sd_json_dispatch_field[]) {
+                                        { "addr", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_in6_addr, 0 },
+                                        {},
+                                },
+                                /* flags= */ 0,
+                                &dummy));
+
+        ASSERT_EQ(data.addr.s6_addr[15], 1);
+        for (size_t i = 0; i < 15; i++)
+                ASSERT_EQ(data.addr.s6_addr[i], 0);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
