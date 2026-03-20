@@ -349,7 +349,13 @@ static int dhcp_server_send_unicast_raw(
         if (r < 0)
                 return r;
 
-        return dhcp_network_send_raw_socket(server->fd_raw, &link, packet, len);
+        return dhcp_network_send_raw_socket(
+                        server->fd_raw,
+                        &link,
+                        &(struct iovec_wrapper) {
+                                .iovec = &IOVEC_MAKE(packet, len),
+                                .count = 1,
+                        });
 }
 
 static int dhcp_server_send_udp(sd_dhcp_server *server, be32_t destination,
