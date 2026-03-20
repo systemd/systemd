@@ -45,6 +45,7 @@
 #include "logind-seat.h"
 #include "logind-seat-dbus.h"
 #include "logind-session-dbus.h"
+#include "logind-shutdown.h"
 #include "logind-user.h"
 #include "logind-user-dbus.h"
 #include "logind-utmp.h"
@@ -75,10 +76,6 @@
  * allow 4k.
  */
 #define WALL_MESSAGE_MAX 4096U
-
-#define SHUTDOWN_SCHEDULE_FILE "/run/systemd/shutdown/scheduled"
-
-static void reset_scheduled_shutdown(Manager *m);
 
 static int get_sender_session(
                 Manager *m,
@@ -2566,29 +2563,6 @@ static int nologin_timeout_handler(
 static usec_t nologin_timeout_usec(usec_t elapse) {
         /* Issue /run/nologin five minutes before shutdown */
         return LESS_BY(elapse, 5 * USEC_PER_MINUTE);
-}
-
-static void reset_scheduled_shutdown(Manager *m) {
-        assert(m);
-
-        m->scheduled_shutdown_timeout_source = sd_event_source_disable_unref(m->scheduled_shutdown_timeout_source);
-        m->wall_message_timeout_source = sd_event_source_disable_unref(m->wall_message_timeout_source);
-        m->nologin_timeout_source = sd_event_source_disable_unref(m->nologin_timeout_source);
-
-        m->scheduled_shutdown_action = _HANDLE_ACTION_INVALID;
-        m->scheduled_shutdown_timeout = USEC_INFINITY;
-        m->scheduled_shutdown_uid = UID_INVALID;
-        m->scheduled_shutdown_tty = mfree(m->scheduled_shutdown_tty);
-        m->shutdown_dry_run = false;
-
-        if (m->unlink_nologin) {
-                (void) unlink_or_warn("/run/nologin");
-                m->unlink_nologin = false;
-        }
-
-        (void) unlink(SHUTDOWN_SCHEDULE_FILE);
-
-        manager_send_changed(m, "ScheduledShutdown");
 }
 
 static int update_schedule_file(Manager *m) {
