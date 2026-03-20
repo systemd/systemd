@@ -1762,9 +1762,9 @@ uint32_t usec_to_jiffies(usec_t u) {
         return DIV_ROUND_UP(u, USEC_PER_SEC / hz);
 }
 
-usec_t jiffies_to_usec(uint32_t j) {
+usec_t jiffies_to_usec(unsigned long j) {
         uint32_t hz = sysconf_clock_ticks_cached();
-        return DIV_ROUND_UP(j * USEC_PER_SEC, hz);
+        return DIV_ROUND_UP((usec_t) j * USEC_PER_SEC, hz);
 }
 
 usec_t usec_shift_clock(usec_t x, clockid_t from, clockid_t to) {
