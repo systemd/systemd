@@ -13,3 +13,5 @@ static inline void cleanup_initrd(EFI_HANDLE *initrd_handle) {
         (void) initrd_unregister(*initrd_handle);
         *initrd_handle = NULL;
 }
+
+EFI_STATUS initrd_read_previous(struct iovec *ret_initrd);
