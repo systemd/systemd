@@ -146,6 +146,12 @@ static int boot_entry_ref_files(
                         return r;
         }
 
+        FOREACH_ARRAY(x, e->local_extras.items, e->local_extras.n_items) {
+                r = ref_file(known_files, x->location, increment);
+                if (r < 0)
+                        return r;
+        }
+
         return 0;
 }
 
@@ -276,6 +282,8 @@ int boot_entry_unlink(
         (void) unref_unlink_file(&known_files, root, root_fd, e->device_tree, dry_run);
         STRV_FOREACH(s, e->device_tree_overlay)
                 (void) unref_unlink_file(&known_files, root, root_fd, *s, dry_run);
+        FOREACH_ARRAY(x, e->local_extras.items, e->local_extras.n_items)
+                (void) unref_unlink_file(&known_files, root, root_fd, x->location, dry_run);
 
         if (dry_run)
                 log_info("Would remove \"%s\"", e->path);
