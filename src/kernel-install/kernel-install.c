@@ -152,10 +152,10 @@ static int context_copy(const Context *source, Context *ret) {
 
         assert(source);
         assert(ret);
-        assert(source->rfd >= 0 || source->rfd == AT_FDCWD);
+        assert(source->rfd >= 0 || source->rfd == AT_FDCWD || source->rfd == XAT_FDROOT);
 
         _cleanup_(context_done) Context copy = (Context) {
-                .rfd = AT_FDCWD,
+                .rfd = source->rfd,
                 .action = source->action,
                 .machine_id = source->machine_id,
                 .machine_id_is_random = source->machine_id_is_random,
