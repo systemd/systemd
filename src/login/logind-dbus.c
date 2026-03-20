@@ -2306,7 +2306,7 @@ static int method_do_shutdown_or_sleep(
         } else if (!a)
                 assert_se(a = handle_action_lookup(action));
 
-        r = manager_verify_shutdown_creds(m, message, a, flags, error);
+        r = manager_verify_shutdown_creds(m, message, /* link= */ NULL, a, flags, error);
         if (r != 0)
                 return r;
 
@@ -2660,7 +2660,7 @@ static int method_schedule_shutdown(sd_bus_message *message, void *userdata, sd_
         assert_se(a = handle_action_lookup(handle));
         assert(a->polkit_action);
 
-        r = manager_verify_shutdown_creds(m, message, a, 0, error);
+        r = manager_verify_shutdown_creds(m, message, /* link= */ NULL, a, 0, error);
         if (r != 0)
                 return r;
 
