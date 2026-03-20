@@ -162,7 +162,7 @@ _public_ int cryptsetup_token_validate(
 
         assert(json);
 
-        r = sd_json_parse(json, 0, &v, NULL, NULL);
+        r = sd_json_parse(json, SD_JSON_PARSE_MUST_BE_OBJECT, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
         if (r < 0)
                 return crypt_log_debug_errno(cd, r, "Could not parse " TOKEN_NAME " json object: %m.");
 

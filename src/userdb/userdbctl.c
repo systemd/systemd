@@ -1260,7 +1260,7 @@ static int load_credential_one(
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         unsigned line = 0, column = 0;
-        r = sd_json_parse_file_at(NULL, credential_dir_fd, name, SD_JSON_PARSE_SENSITIVE, &v, &line, &column);
+        r = sd_json_parse_file_at(/* f= */ NULL, credential_dir_fd, name, SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_SENSITIVE, &v, &line, &column);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse credential '%s' as JSON at %u:%u: %m", name, line, column);
 
@@ -1844,7 +1844,7 @@ static int parse_argv(int argc, char *argv[]) {
                         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
                         const char *fn = streq(optarg, "-") ? NULL : optarg;
                         unsigned line = 0;
-                        r = sd_json_parse_file(fn ? NULL : stdin, fn ?: "<stdin>", SD_JSON_PARSE_SENSITIVE, &v, &line, /* reterr_column= */ NULL);
+                        r = sd_json_parse_file(fn ? NULL : stdin, fn ?: "<stdin>", SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_SENSITIVE, &v, &line, /* reterr_column= */ NULL);
                         if (r < 0)
                                 return log_syntax(/* unit= */ NULL, LOG_ERR, fn ?: "<stdin>", line, r, "JSON parse failure.");
 
