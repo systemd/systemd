@@ -92,6 +92,11 @@ int boot_config_count_known_files(
                         if (r < 0)
                                 return r;
                 }
+                FOREACH_ARRAY(x, e->local_extras.items, e->local_extras.n_items) {
+                        r = ref_file(&known_files, x->location, +1);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         *ret_known_files = TAKE_PTR(known_files);
@@ -183,6 +188,8 @@ static int unlink_entry(const BootConfig *config, const char *root, const char *
         deref_unlink_file(&known_files, e->device_tree, e->root);
         STRV_FOREACH(s, e->device_tree_overlay)
                 deref_unlink_file(&known_files, *s, e->root);
+        FOREACH_ARRAY(x, e->local_extras.items, e->local_extras.n_items)
+                deref_unlink_file(&known_files, x->location, e->root);
 
         if (arg_dry_run)
                 log_info("Would remove \"%s\"", e->path);
