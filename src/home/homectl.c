@@ -3958,7 +3958,6 @@ static int help(void) {
                "     --alias=ALIAS             Define alias usernames for this account\n"
                "     --email-address=EMAIL     Email address for user\n"
                "     --location=LOCATION       Set location of user on earth\n"
-               "     --birth-date=[DATE]       Set user birth date (YYYY-MM-DD)\n"
                "     --icon-name=NAME          Icon name for user\n"
                "  -d --home-dir=PATH           Home directory\n"
                "  -u --uid=UID                 Numeric UID for user\n"
@@ -4127,7 +4126,6 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_LOCKED,
                 ARG_SSH_AUTHORIZED_KEYS,
                 ARG_LOCATION,
-                ARG_BIRTH_DATE,
                 ARG_ICON_NAME,
                 ARG_PASSWORD_HINT,
                 ARG_NICE,
@@ -4214,7 +4212,6 @@ static int parse_argv(int argc, char *argv[]) {
                 { "alias",                        required_argument, NULL, ARG_ALIAS                       },
                 { "email-address",                required_argument, NULL, ARG_EMAIL_ADDRESS               },
                 { "location",                     required_argument, NULL, ARG_LOCATION                    },
-                { "birth-date",                   required_argument, NULL, ARG_BIRTH_DATE                  },
                 { "password-hint",                required_argument, NULL, ARG_PASSWORD_HINT               },
                 { "icon-name",                    required_argument, NULL, ARG_ICON_NAME                   },
                 { "home-dir",                     required_argument, NULL, 'd'                             }, /* Compatible with useradd(8) */
@@ -4427,22 +4424,6 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
                 }
-
-                case ARG_BIRTH_DATE:
-                        if (isempty(optarg)) {
-                                r = drop_from_identity("birthDate");
-                                if (r < 0)
-                                        return r;
-                        } else {
-                                r = parse_birth_date(optarg, /* ret= */ NULL);
-                                if (r < 0)
-                                        return log_error_errno(r, "Invalid birth date (expected YYYY-MM-DD): %s", optarg);
-
-                                r = parse_string_field(&arg_identity_extra, "birthDate", optarg);
-                                if (r < 0)
-                                        return r;
-                        }
-                        break;
 
                 case ARG_CIFS_SERVICE:
                         if (!isempty(optarg)) {
