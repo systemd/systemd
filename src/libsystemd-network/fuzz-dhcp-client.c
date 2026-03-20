@@ -24,7 +24,7 @@ int dhcp_network_bind_raw_socket(
         return ASSERT_OK_ERRNO(socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0));
 }
 
-int dhcp_network_send_raw_socket(int s, const union sockaddr_union *link, const void *packet, size_t len) {
+int dhcp_network_send_raw_socket(int fd, const union sockaddr_union *link, const struct iovec_wrapper *iovw) {
         return 0;
 }
 
@@ -32,7 +32,7 @@ int dhcp_network_bind_udp_socket(int ifindex, be32_t address, uint16_t port, int
         return ASSERT_OK_ERRNO(socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0));
 }
 
-int dhcp_network_send_udp_socket(int s, be32_t address, uint16_t port, const void *packet, size_t len) {
+int dhcp_network_send_udp_socket(int fd, be32_t address, uint16_t port, const struct iovec_wrapper *iovw) {
         return 0;
 }
 
