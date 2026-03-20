@@ -1,1 +1,1 @@
-AGENTS.md
+No ai allowed
