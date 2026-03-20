@@ -286,14 +286,14 @@ static void init_watchdog(void) {
         const char *s;
         int r;
 
-        s = getenv("WATCHDOG_DEVICE");
+        s = secure_getenv("WATCHDOG_DEVICE");
         if (s) {
                 r = watchdog_set_device(s);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to set watchdog device to %s, ignoring: %m", s);
+                        log_warning_errno(r, "Failed to set watchdog device to '%s', ignoring: %m", s);
         }
 
-        s = getenv("WATCHDOG_USEC");
+        s = secure_getenv("WATCHDOG_USEC");
         if (s) {
                 usec_t usec;
 
