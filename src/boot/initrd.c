@@ -165,3 +165,41 @@ EFI_STATUS initrd_unregister(EFI_HANDLE initrd_handle) {
         free(loader);
         return EFI_SUCCESS;
 }
+
+EFI_STATUS initrd_read_previous(struct iovec *ret_initrd) {
+        EFI_STATUS err;
+
+        /* If there's already an initrd registered, read it out, so that we can incorporate it in ours */
+
+        /* Get from the device path to the handle */
+        EFI_DEVICE_PATH *dp = (EFI_DEVICE_PATH *) &efi_initrd_device_path;
+        EFI_HANDLE handle;
+        err = BS->LocateDevicePath(MAKE_GUID_PTR(EFI_LOAD_FILE2_PROTOCOL), &dp, &handle);
+        if (err != EFI_SUCCESS)
+                return err;
+
+        /* Get from the handle to the protocol */
+        EFI_LOAD_FILE2_PROTOCOL *protocol = NULL;
+        err = BS->HandleProtocol(handle, MAKE_GUID_PTR(EFI_LOAD_FILE2_PROTOCOL), (void**) &protocol);
+        if (err != EFI_SUCCESS)
+                return err;
+
+        size_t size = 0;
+        err = protocol->LoadFile(protocol, dp, /* bootPolicy= */ false, &size, /* Buffer= */ NULL);
+        if (err != EFI_BUFFER_TOO_SMALL)
+                return err;
+        if (size == 0)
+                return EFI_NOT_FOUND; /* Treat empty initrds like missing ones */
+
+        _cleanup_free_ void *data = xmalloc(size);
+        err = protocol->LoadFile(protocol, dp, /* bootPolicy= */ false, &size, data);
+        if (err != EFI_SUCCESS)
+                return err;
+
+        *ret_initrd = (struct iovec) {
+                .iov_base = TAKE_PTR(data),
+                .iov_len = size,
+        };
+
+        return EFI_SUCCESS;
+}
