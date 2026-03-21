@@ -1840,6 +1840,14 @@ static int print_configuration(DNSConfiguration *configuration, StatusMode mode,
                         return table_log_add_error(r);
         }
 
+        if (configuration->dns_server_policy_str) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "DNS Server Policy",
+                                   TABLE_STRING, configuration->dns_server_policy_str);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
         if (configuration->current_dns_server) {
                 _cleanup_free_ char *s = NULL;
                 r = format_dns_server_one(configuration, configuration->current_dns_server, &s);

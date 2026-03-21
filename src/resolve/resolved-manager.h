@@ -28,6 +28,7 @@ typedef struct Manager {
         bool cache_from_localhost;
         DnsStubListenerMode dns_stub_listener_mode;
         usec_t stale_retention_usec;
+        DnsServerPolicy dns_server_policy;
 
 #if ENABLE_DNS_OVER_TLS
         DnsTlsManagerData dnstls_data;

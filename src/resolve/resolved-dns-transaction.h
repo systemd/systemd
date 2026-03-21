@@ -126,6 +126,10 @@ typedef struct DnsTransaction {
 
         unsigned n_picked_servers;
 
+        /* For sequential policy: tracks next server to try in list order.
+         * NULL means iteration hasn't started yet. Ref'd to prevent use-after-free. */
+        DnsServer *sequential_next_server;
+
         unsigned block_gc;
 
         /* Set when we're willing to let this transaction live beyond it's usefulness for the original query,
@@ -147,6 +151,7 @@ DnsTransaction* dns_transaction_gc(DnsTransaction *t);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DnsTransaction*, dns_transaction_gc);
 
 int dns_transaction_go(DnsTransaction *t);
+int dns_transaction_pick_server(DnsTransaction *t);
 
 void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypted);
 void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state);
