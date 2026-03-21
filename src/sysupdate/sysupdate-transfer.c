@@ -34,19 +34,19 @@
 #include "stdio-util.h"
 #include "strv.h"
 #include "sync-util.h"
-#include "sysupdate.h"
 #include "sysupdate-feature.h"
 #include "sysupdate-instance.h"
 #include "sysupdate-pattern.h"
 #include "sysupdate-resource.h"
 #include "sysupdate-transfer.h"
+#include "sysupdate.h"
 #include "time-util.h"
 #include "web-util.h"
 
 /* Default value for InstancesMax= for fs object targets */
 #define DEFAULT_FILE_INSTANCES_MAX 3
 
-Transfer* transfer_free(Transfer *t) {
+Transfer *transfer_free(Transfer *t) {
         if (!t)
                 return NULL;
 
@@ -75,7 +75,7 @@ Transfer* transfer_free(Transfer *t) {
         return mfree(t);
 }
 
-Transfer* transfer_new(Context *ctx) {
+Transfer *transfer_new(Context *ctx) {
         Transfer *t;
 
         t = new(Transfer, 1);
@@ -127,14 +127,24 @@ static int config_parse_protect_version(
 
         r = specifier_printf(rvalue, NAME_MAX, specifier_table, arg_root, NULL, &resolved);
         if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to expand specifiers in ProtectVersion=, ignoring: %s", rvalue);
+                log_syntax(unit,
+                           LOG_WARNING,
+                           filename,
+                           line,
+                           r,
+                           "Failed to expand specifiers in ProtectVersion=, ignoring: %s",
+                           rvalue);
                 return 0;
         }
 
-        if (!version_is_valid(resolved))  {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "ProtectVersion= string is not valid, ignoring: %s", resolved);
+        if (!version_is_valid(resolved)) {
+                log_syntax(unit,
+                           LOG_WARNING,
+                           filename,
+                           line,
+                           0,
+                           "ProtectVersion= string is not valid, ignoring: %s",
+                           resolved);
                 return 0;
         }
 
@@ -165,14 +175,24 @@ static int config_parse_min_version(
 
         r = specifier_printf(rvalue, NAME_MAX, specifier_table, arg_root, NULL, &resolved);
         if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to expand specifiers in MinVersion=, ignoring: %s", rvalue);
+                log_syntax(unit,
+                           LOG_WARNING,
+                           filename,
+                           line,
+                           r,
+                           "Failed to expand specifiers in MinVersion=, ignoring: %s",
+                           rvalue);
                 return 0;
         }
 
         if (!version_is_valid(rvalue)) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "MinVersion= string is not valid, ignoring: %s", resolved);
+                log_syntax(unit,
+                           LOG_WARNING,
+                           filename,
+                           line,
+                           0,
+                           "MinVersion= string is not valid, ignoring: %s",
+                           resolved);
                 return 0;
         }
 
@@ -203,14 +223,19 @@ static int config_parse_url_specifiers(
 
         r = specifier_printf(rvalue, NAME_MAX, specifier_table, arg_root, NULL, &resolved);
         if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to expand specifiers in %s=, ignoring: %s", lvalue, rvalue);
+                log_syntax(unit,
+                           LOG_WARNING,
+                           filename,
+                           line,
+                           r,
+                           "Failed to expand specifiers in %s=, ignoring: %s",
+                           lvalue,
+                           rvalue);
                 return 0;
         }
 
         if (!http_url_is_valid(resolved)) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "%s= URL is not valid, ignoring: %s", lvalue, rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "%s= URL is not valid, ignoring: %s", lvalue, rvalue);
                 return 0;
         }
 
@@ -241,8 +266,13 @@ static int config_parse_current_symlink(
 
         r = specifier_printf(rvalue, NAME_MAX, specifier_table, arg_root, NULL, &resolved);
         if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to expand specifiers in CurrentSymlink=, ignoring: %s", rvalue);
+                log_syntax(unit,
+                           LOG_WARNING,
+                           filename,
+                           line,
+                           r,
+                           "Failed to expand specifiers in CurrentSymlink=, ignoring: %s",
+                           rvalue);
                 return 0;
         }
 
@@ -278,14 +308,24 @@ static int config_parse_instances_max(
 
         r = safe_atou64(rvalue, &i);
         if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse InstancesMax= value, ignoring: %s", rvalue);
+                log_syntax(unit,
+                           LOG_WARNING,
+                           filename,
+                           line,
+                           r,
+                           "Failed to parse InstancesMax= value, ignoring: %s",
+                           rvalue);
                 return 0;
         }
 
         if (i < 2) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "InstancesMax= value must be at least 2, bumping: %s", rvalue);
+                log_syntax(unit,
+                           LOG_WARNING,
+                           filename,
+                           line,
+                           0,
+                           "InstancesMax= value must be at least 2, bumping: %s",
+                           rvalue);
                 *instances_max = 2;
         } else
                 *instances_max = i;
@@ -318,10 +358,15 @@ static int config_parse_resource_pattern(
         for (;;) {
                 _cleanup_free_ char *word = NULL, *resolved = NULL;
 
-                r = extract_first_word(&rvalue, &word, NULL, EXTRACT_CUNESCAPE|EXTRACT_UNESCAPE_RELAX);
+                r = extract_first_word(&rvalue, &word, NULL, EXTRACT_CUNESCAPE | EXTRACT_UNESCAPE_RELAX);
                 if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to extract first pattern from MatchPattern=, ignoring: %s", rvalue);
+                        log_syntax(unit,
+                                   LOG_WARNING,
+                                   filename,
+                                   line,
+                                   r,
+                                   "Failed to extract first pattern from MatchPattern=, ignoring: %s",
+                                   rvalue);
                         return 0;
                 }
                 if (r == 0)
@@ -329,14 +374,25 @@ static int config_parse_resource_pattern(
 
                 r = specifier_printf(word, NAME_MAX, specifier_table, arg_root, NULL, &resolved);
                 if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to expand specifiers in MatchPattern=, ignoring: %s", rvalue);
+                        log_syntax(unit,
+                                   LOG_WARNING,
+                                   filename,
+                                   line,
+                                   r,
+                                   "Failed to expand specifiers in MatchPattern=, ignoring: %s",
+                                   rvalue);
                         return 0;
                 }
 
                 if (!pattern_valid(resolved))
-                        return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
-                                          "MatchPattern= string is not valid, refusing: %s", resolved);
+                        return log_syntax(
+                                        unit,
+                                        LOG_ERR,
+                                        filename,
+                                        line,
+                                        SYNTHETIC_ERRNO(EINVAL),
+                                        "MatchPattern= string is not valid, refusing: %s",
+                                        resolved);
 
                 r = strv_consume(patterns, TAKE_PTR(resolved));
                 if (r < 0)
@@ -370,10 +426,15 @@ static int config_parse_resource_path(
                 return 0;
         }
 
-        r = specifier_printf(rvalue, PATH_MAX-1, specifier_table, arg_root, NULL, &resolved);
+        r = specifier_printf(rvalue, PATH_MAX - 1, specifier_table, arg_root, NULL, &resolved);
         if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to expand specifiers in Path=, ignoring: %s", rvalue);
+                log_syntax(unit,
+                           LOG_WARNING,
+                           filename,
+                           line,
+                           r,
+                           "Failed to expand specifiers in Path=, ignoring: %s",
+                           rvalue);
                 return 0;
         }
 
@@ -387,8 +448,8 @@ static int config_parse_resource_path(
 
 static DEFINE_CONFIG_PARSE_ENUM(config_parse_resource_type, resource_type, ResourceType);
 
-static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_resource_path_relto, path_relative_to, PathRelativeTo,
-                                             PATH_RELATIVE_TO_ROOT);
+static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(
+                config_parse_resource_path_relto, path_relative_to, PathRelativeTo, PATH_RELATIVE_TO_ROOT);
 
 static int config_parse_resource_ptype(
                 const char *unit,
@@ -409,8 +470,13 @@ static int config_parse_resource_ptype(
 
         r = gpt_partition_type_from_string(rvalue, &rr->partition_type);
         if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse partition type, ignoring: %s", rvalue);
+                log_syntax(unit,
+                           LOG_WARNING,
+                           filename,
+                           line,
+                           r,
+                           "Failed to parse partition type, ignoring: %s",
+                           rvalue);
                 return 0;
         }
 
@@ -437,8 +503,13 @@ static int config_parse_partition_uuid(
 
         r = sd_id128_from_string(rvalue, &t->partition_uuid);
         if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse partition UUID, ignoring: %s", rvalue);
+                log_syntax(unit,
+                           LOG_WARNING,
+                           filename,
+                           line,
+                           r,
+                           "Failed to parse partition UUID, ignoring: %s",
+                           rvalue);
                 return 0;
         }
 
@@ -465,8 +536,13 @@ static int config_parse_partition_flags(
 
         r = safe_atou64(rvalue, &t->partition_flags);
         if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse partition flags, ignoring: %s", rvalue);
+                log_syntax(unit,
+                           LOG_WARNING,
+                           filename,
+                           line,
+                           r,
+                           "Failed to parse partition flags, ignoring: %s",
+                           rvalue);
                 return 0;
         }
 
@@ -503,33 +579,33 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
         assert(t);
 
         ConfigTableItem table[] = {
-                { "Transfer",    "MinVersion",              config_parse_min_version,          0, &t->min_version             },
-                { "Transfer",    "ProtectVersion",          config_parse_protect_version,      0, &t->protected_versions      },
-                { "Transfer",    "Verify",                  config_parse_bool,                 0, &t->verify                  },
-                { "Transfer",    "ChangeLog",               config_parse_url_specifiers,       0, &t->changelog               },
-                { "Transfer",    "AppStream",               config_parse_url_specifiers,       0, &t->appstream               },
-                { "Transfer",    "Features",                config_parse_strv,                 0, &t->features                },
-                { "Transfer",    "RequisiteFeatures",       config_parse_strv,                 0, &t->requisite_features      },
-                { "Source",      "Type",                    config_parse_resource_type,        0, &t->source.type             },
-                { "Source",      "Path",                    config_parse_resource_path,        0, &t->source                  },
-                { "Source",      "PathRelativeTo",          config_parse_resource_path_relto,  0, &t->source.path_relative_to },
-                { "Source",      "MatchPattern",            config_parse_resource_pattern,     0, &t->source.patterns         },
-                { "Target",      "Type",                    config_parse_resource_type,        0, &t->target.type             },
-                { "Target",      "Path",                    config_parse_resource_path,        0, &t->target                  },
-                { "Target",      "PathRelativeTo",          config_parse_resource_path_relto,  0, &t->target.path_relative_to },
-                { "Target",      "MatchPattern",            config_parse_resource_pattern,     0, &t->target.patterns         },
-                { "Target",      "MatchPartitionType",      config_parse_resource_ptype,       0, &t->target                  },
-                { "Target",      "PartitionUUID",           config_parse_partition_uuid,       0, t                           },
-                { "Target",      "PartitionFlags",          config_parse_partition_flags,      0, t                           },
-                { "Target",      "PartitionNoAuto",         config_parse_tristate,             0, &t->no_auto                 },
-                { "Target",      "PartitionGrowFileSystem", config_parse_tristate,             0, &t->growfs                  },
-                { "Target",      "ReadOnly",                config_parse_tristate,             0, &t->read_only               },
-                { "Target",      "Mode",                    config_parse_mode,                 0, &t->mode                    },
-                { "Target",      "TriesLeft",               config_parse_uint64,               0, &t->tries_left              },
-                { "Target",      "TriesDone",               config_parse_uint64,               0, &t->tries_done              },
-                { "Target",      "InstancesMax",            config_parse_instances_max,        0, &t->instances_max           },
-                { "Target",      "RemoveTemporary",         config_parse_bool,                 0, &t->remove_temporary        },
-                { "Target",      "CurrentSymlink",          config_parse_current_symlink,      0, &t->current_symlink         },
+                { "Transfer", "MinVersion", config_parse_min_version, 0, &t->min_version },
+                { "Transfer", "ProtectVersion", config_parse_protect_version, 0, &t->protected_versions },
+                { "Transfer", "Verify", config_parse_bool, 0, &t->verify },
+                { "Transfer", "ChangeLog", config_parse_url_specifiers, 0, &t->changelog },
+                { "Transfer", "AppStream", config_parse_url_specifiers, 0, &t->appstream },
+                { "Transfer", "Features", config_parse_strv, 0, &t->features },
+                { "Transfer", "RequisiteFeatures", config_parse_strv, 0, &t->requisite_features },
+                { "Source", "Type", config_parse_resource_type, 0, &t->source.type },
+                { "Source", "Path", config_parse_resource_path, 0, &t->source },
+                { "Source", "PathRelativeTo", config_parse_resource_path_relto, 0, &t->source.path_relative_to },
+                { "Source", "MatchPattern", config_parse_resource_pattern, 0, &t->source.patterns },
+                { "Target", "Type", config_parse_resource_type, 0, &t->target.type },
+                { "Target", "Path", config_parse_resource_path, 0, &t->target },
+                { "Target", "PathRelativeTo", config_parse_resource_path_relto, 0, &t->target.path_relative_to },
+                { "Target", "MatchPattern", config_parse_resource_pattern, 0, &t->target.patterns },
+                { "Target", "MatchPartitionType", config_parse_resource_ptype, 0, &t->target },
+                { "Target", "PartitionUUID", config_parse_partition_uuid, 0, t },
+                { "Target", "PartitionFlags", config_parse_partition_flags, 0, t },
+                { "Target", "PartitionNoAuto", config_parse_tristate, 0, &t->no_auto },
+                { "Target", "PartitionGrowFileSystem", config_parse_tristate, 0, &t->growfs },
+                { "Target", "ReadOnly", config_parse_tristate, 0, &t->read_only },
+                { "Target", "Mode", config_parse_mode, 0, &t->mode },
+                { "Target", "TriesLeft", config_parse_uint64, 0, &t->tries_left },
+                { "Target", "TriesDone", config_parse_uint64, 0, &t->tries_done },
+                { "Target", "InstancesMax", config_parse_instances_max, 0, &t->instances_max },
+                { "Target", "RemoveTemporary", config_parse_bool, 0, &t->remove_temporary },
+                { "Target", "CurrentSymlink", config_parse_current_symlink, 0, &t->current_symlink },
                 {}
         };
 
@@ -553,7 +629,8 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
                         "Transfer\0"
                         "Source\0"
                         "Target\0",
-                        config_item_table_lookup, table,
+                        config_item_table_lookup,
+                        table,
                         CONFIG_PARSE_WARN,
                         /* userdata= */ NULL,
                         /* stats_by_path= */ NULL,
@@ -568,17 +645,22 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
         t->enabled = transfer_decide_if_enabled(t, known_features);
 
         if (!RESOURCE_IS_SOURCE(t->source.type))
-                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "Source Type= must be one of url-file, url-tar, tar, regular-file, directory, subvolume.");
+                return log_syntax(
+                                NULL,
+                                LOG_ERR,
+                                path,
+                                1,
+                                SYNTHETIC_ERRNO(EINVAL),
+                                "Source Type= must be one of url-file, url-tar, tar, regular-file, directory, subvolume.");
 
         if (t->target.type < 0) {
                 switch (t->source.type) {
 
                 case RESOURCE_URL_FILE:
                 case RESOURCE_REGULAR_FILE:
-                        t->target.type =
-                                t->target.path && path_startswith(t->target.path, "/dev/") ?
-                                RESOURCE_PARTITION : RESOURCE_REGULAR_FILE;
+                        t->target.type = t->target.path && path_startswith(t->target.path, "/dev/") ?
+                                        RESOURCE_PARTITION :
+                                        RESOURCE_REGULAR_FILE;
                         break;
 
                 case RESOURCE_URL_TAR:
@@ -597,80 +679,143 @@ int transfer_read_definition(Transfer *t, const char *path, const char **dirs, H
         }
 
         if (!RESOURCE_IS_TARGET(t->target.type))
-                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "Target Type= must be one of partition, regular-file, directory, subvolume.");
+                return log_syntax(
+                                NULL,
+                                LOG_ERR,
+                                path,
+                                1,
+                                SYNTHETIC_ERRNO(EINVAL),
+                                "Target Type= must be one of partition, regular-file, directory, subvolume.");
 
         if ((IN_SET(t->source.type, RESOURCE_URL_FILE, RESOURCE_PARTITION, RESOURCE_REGULAR_FILE) &&
              !IN_SET(t->target.type, RESOURCE_PARTITION, RESOURCE_REGULAR_FILE)) ||
             (IN_SET(t->source.type, RESOURCE_URL_TAR, RESOURCE_TAR, RESOURCE_DIRECTORY, RESOURCE_SUBVOLUME) &&
              !IN_SET(t->target.type, RESOURCE_DIRECTORY, RESOURCE_SUBVOLUME)))
-                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "Target type '%s' is incompatible with source type '%s', refusing.",
-                                  resource_type_to_string(t->target.type), resource_type_to_string(t->source.type));
+                return log_syntax(
+                                NULL,
+                                LOG_ERR,
+                                path,
+                                1,
+                                SYNTHETIC_ERRNO(EINVAL),
+                                "Target type '%s' is incompatible with source type '%s', refusing.",
+                                resource_type_to_string(t->target.type),
+                                resource_type_to_string(t->source.type));
 
         if (!t->source.path && !t->source.path_auto)
-                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "Source specification lacks Path=.");
+                return log_syntax(
+                                NULL,
+                                LOG_ERR,
+                                path,
+                                1,
+                                SYNTHETIC_ERRNO(EINVAL),
+                                "Source specification lacks Path=.");
 
         if (t->source.path_relative_to == PATH_RELATIVE_TO_EXPLICIT && !arg_transfer_source)
-                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "PathRelativeTo=explicit requires --transfer-source= to be specified.");
+                return log_syntax(
+                                NULL,
+                                LOG_ERR,
+                                path,
+                                1,
+                                SYNTHETIC_ERRNO(EINVAL),
+                                "PathRelativeTo=explicit requires --transfer-source= to be specified.");
 
         if (t->target.path_relative_to == PATH_RELATIVE_TO_EXPLICIT)
-                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "PathRelativeTo=explicit can only be used in source specifications.");
+                return log_syntax(
+                                NULL,
+                                LOG_ERR,
+                                path,
+                                1,
+                                SYNTHETIC_ERRNO(EINVAL),
+                                "PathRelativeTo=explicit can only be used in source specifications.");
 
         if (t->source.path) {
                 if (RESOURCE_IS_FILESYSTEM(t->source.type) || t->source.type == RESOURCE_PARTITION)
                         if (!path_is_absolute(t->source.path) || !path_is_normalized(t->source.path))
-                                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                                  "Source path is not a normalized, absolute path: %s", t->source.path);
+                                return log_syntax(
+                                                NULL,
+                                                LOG_ERR,
+                                                path,
+                                                1,
+                                                SYNTHETIC_ERRNO(EINVAL),
+                                                "Source path is not a normalized, absolute path: %s",
+                                                t->source.path);
 
                 /* We unofficially support file:// in addition to http:// and https:// for url
                  * sources. That's mostly for testing, since it relieves us from having to set up a HTTP
                  * server, and CURL abstracts this away from us thankfully. */
                 if (RESOURCE_IS_URL(t->source.type))
                         if (!http_url_is_valid(t->source.path) && !file_url_is_valid(t->source.path))
-                                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                                  "Source path is not a valid HTTP or HTTPS URL: %s", t->source.path);
+                                return log_syntax(
+                                                NULL,
+                                                LOG_ERR,
+                                                path,
+                                                1,
+                                                SYNTHETIC_ERRNO(EINVAL),
+                                                "Source path is not a valid HTTP or HTTPS URL: %s",
+                                                t->source.path);
         }
 
         if (strv_isempty(t->source.patterns))
-                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "Source specification lacks MatchPattern=.");
+                return log_syntax(
+                                NULL,
+                                LOG_ERR,
+                                path,
+                                1,
+                                SYNTHETIC_ERRNO(EINVAL),
+                                "Source specification lacks MatchPattern=.");
 
         if (!t->target.path && !t->target.path_auto)
-                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "Target specification lacks Path= field.");
+                return log_syntax(
+                                NULL,
+                                LOG_ERR,
+                                path,
+                                1,
+                                SYNTHETIC_ERRNO(EINVAL),
+                                "Target specification lacks Path= field.");
 
-        if (t->target.path &&
-            (!path_is_absolute(t->target.path) || !path_is_normalized(t->target.path)))
-                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "Target path is not a normalized, absolute path: %s", t->target.path);
+        if (t->target.path && (!path_is_absolute(t->target.path) || !path_is_normalized(t->target.path)))
+                return log_syntax(
+                                NULL,
+                                LOG_ERR,
+                                path,
+                                1,
+                                SYNTHETIC_ERRNO(EINVAL),
+                                "Target path is not a normalized, absolute path: %s",
+                                t->target.path);
 
         if (strv_isempty(t->target.patterns)) {
-                log_syntax(NULL, LOG_INFO, path, 1, 0, "Target specification lacks MatchPattern= expression. Assuming same value as in source specification.");
+                log_syntax(NULL,
+                           LOG_INFO,
+                           path,
+                           1,
+                           0,
+                           "Target specification lacks MatchPattern= expression. Assuming same value as in source specification.");
                 strv_free(t->target.patterns);
                 t->target.patterns = strv_copy(t->source.patterns);
                 if (!t->target.patterns)
                         return log_oom();
         }
 
-        if (t->current_symlink && !RESOURCE_IS_FILESYSTEM(t->target.type) && !path_is_absolute(t->current_symlink))
-                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "Current symlink must be absolute path if target is partition: %s", t->current_symlink);
+        if (t->current_symlink && !RESOURCE_IS_FILESYSTEM(t->target.type) &&
+            !path_is_absolute(t->current_symlink))
+                return log_syntax(
+                                NULL,
+                                LOG_ERR,
+                                path,
+                                1,
+                                SYNTHETIC_ERRNO(EINVAL),
+                                "Current symlink must be absolute path if target is partition: %s",
+                                t->current_symlink);
 
         /* When no instance limit is set, use all available partition slots in case of partitions, or 3 in case of fs objects */
         if (t->instances_max == 0)
-                t->instances_max = t->target.type == RESOURCE_PARTITION ? UINT64_MAX : DEFAULT_FILE_INSTANCES_MAX;
+                t->instances_max = t->target.type == RESOURCE_PARTITION ? UINT64_MAX :
+                                                                          DEFAULT_FILE_INSTANCES_MAX;
 
         return 0;
 }
 
-int transfer_resolve_paths(
-                Transfer *t,
-                const char *root,
-                const char *node) {
+int transfer_resolve_paths(Transfer *t, const char *root, const char *node) {
 
         int r;
 
@@ -722,18 +867,24 @@ static void transfer_remove_temporary(Transfer *t) {
                 de = readdir_no_dot(d);
                 if (!de) {
                         if (errno != 0)
-                                log_debug_errno(errno, "Failed to read target directory '%s', ignoring: %m", t->target.path);
+                                log_debug_errno(errno,
+                                                "Failed to read target directory '%s', ignoring: %m",
+                                                t->target.path);
                         break;
                 }
 
                 if (!startswith(de->d_name, ".#"))
                         continue;
 
-                r = rm_rf_child(dirfd(d), de->d_name, REMOVE_PHYSICAL|REMOVE_SUBVOLUME|REMOVE_CHMOD);
+                r = rm_rf_child(dirfd(d), de->d_name, REMOVE_PHYSICAL | REMOVE_SUBVOLUME | REMOVE_CHMOD);
                 if (r == -ENOENT)
                         continue;
                 if (r < 0) {
-                        log_warning_errno(r, "Failed to remove temporary resource instance '%s/%s', ignoring: %m", t->target.path, de->d_name);
+                        log_warning_errno(
+                                        r,
+                                        "Failed to remove temporary resource instance '%s/%s', ignoring: %m",
+                                        t->target.path,
+                                        de->d_name);
                         continue;
                 }
 
@@ -741,9 +892,7 @@ static void transfer_remove_temporary(Transfer *t) {
         }
 }
 
-static int transfer_instance_vacuum(
-                Transfer *t,
-                Instance *instance) {
+static int transfer_instance_vacuum(Transfer *t, Instance *instance) {
         int r;
 
         assert(t);
@@ -754,9 +903,11 @@ static int transfer_instance_vacuum(
         case RESOURCE_REGULAR_FILE:
         case RESOURCE_DIRECTORY:
         case RESOURCE_SUBVOLUME:
-                r = rm_rf(instance->path, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME|REMOVE_MISSING_OK|REMOVE_CHMOD);
+                r = rm_rf(instance->path,
+                          REMOVE_ROOT | REMOVE_PHYSICAL | REMOVE_SUBVOLUME | REMOVE_MISSING_OK | REMOVE_CHMOD);
                 if (r < 0 && r != -ENOENT)
-                        return log_error_errno(r, "Failed to make room, deleting '%s' failed: %m", instance->path);
+                        return log_error_errno(
+                                        r, "Failed to make room, deleting '%s' failed: %m", instance->path);
 
                 (void) rmdir_parents(instance->path, t->target.path);
 
@@ -767,7 +918,7 @@ static int transfer_instance_vacuum(
                 PartitionChange change = PARTITION_LABEL;
 
                 /* label "_empty" means "no contents" for our purposes */
-                pinfo.label = (char*) "_empty";
+                pinfo.label = (char *) "_empty";
 
                 /* If the partition had a derived partial/pending type UUID, restore the original
                  * partition type so that the slot is properly recognized as empty in subsequent
@@ -793,10 +944,7 @@ static int transfer_instance_vacuum(
         return 0;
 }
 
-int transfer_vacuum(
-                Transfer *t,
-                uint64_t space,
-                const char *extra_protected_version) {
+int transfer_vacuum(Transfer *t, uint64_t space, const char *extra_protected_version) {
 
         uint64_t instances_max, limit;
         int r, count = 0;
@@ -819,7 +967,8 @@ int transfer_vacuum(
                 /* If this is listed among the protected versions, then let's not remove it */
                 if (strv_contains(t->protected_versions, instance->metadata.version) ||
                     (extra_protected_version && streq(extra_protected_version, instance->metadata.version))) {
-                        log_debug("Version '%s' is pending/partial but protected, not removing.", instance->metadata.version);
+                        log_debug("Version '%s' is pending/partial but protected, not removing.",
+                                  instance->metadata.version);
                         i++;
                         continue;
                 }
@@ -837,7 +986,9 @@ int transfer_vacuum(
                         return 0;
 
                 instance_free(instance);
-                memmove(t->target.instances + i, t->target.instances + i + 1, (t->target.n_instances - i - 1) * sizeof(Instance*));
+                memmove(t->target.instances + i,
+                        t->target.instances + i + 1,
+                        (t->target.n_instances - i - 1) * sizeof(Instance *));
                 t->target.n_instances--;
 
                 count++;
@@ -852,11 +1003,13 @@ int transfer_vacuum(
         else if (space == UINT64_MAX) /* forcibly delete all instances? */
                 limit = 0;
         else if (space > instances_max)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOSPC),
-                                       "Asked to delete more instances than total maximum allowed number of instances, refusing.");
+                return log_error_errno(
+                                SYNTHETIC_ERRNO(ENOSPC),
+                                "Asked to delete more instances than total maximum allowed number of instances, refusing.");
         else if (space == instances_max)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOSPC),
-                                       "Asked to delete all possible instances, can't allow that. One instance must always remain.");
+                return log_error_errno(
+                                SYNTHETIC_ERRNO(ENOSPC),
+                                "Asked to delete all possible instances, can't allow that. One instance must always remain.");
         else
                 limit = instances_max - space;
 
@@ -872,26 +1025,32 @@ int transfer_vacuum(
                  * partition slots of the right type are available */
 
                 if (t->target.n_empty + t->target.n_instances < 2)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOSPC),
-                                               "Partition table has less than two partition slots of the right type " SD_ID128_UUID_FORMAT_STR " (%s)%s%s%s, refusing.",
-                                               SD_ID128_FORMAT_VAL(t->target.partition_type.uuid),
-                                               gpt_partition_type_uuid_to_string(t->target.partition_type.uuid),
-                                               !isempty(patterns) ? " and matching the expected pattern '" : "",
-                                               strempty(patterns),
-                                               !isempty(patterns) ? "'" : "");
+                        return log_error_errno(
+                                        SYNTHETIC_ERRNO(ENOSPC),
+                                        "Partition table has less than two partition slots of the right type " SD_ID128_UUID_FORMAT_STR
+                                        " (%s)%s%s%s, refusing.",
+                                        SD_ID128_FORMAT_VAL(t->target.partition_type.uuid),
+                                        gpt_partition_type_uuid_to_string(t->target.partition_type.uuid),
+                                        !isempty(patterns) ? " and matching the expected pattern '" : "",
+                                        strempty(patterns),
+                                        !isempty(patterns) ? "'" : "");
                 if (space > t->target.n_empty + t->target.n_instances)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOSPC),
-                                               "Partition table does not have enough partition slots of right type " SD_ID128_UUID_FORMAT_STR " (%s)%s%s%s for operation.",
-                                               SD_ID128_FORMAT_VAL(t->target.partition_type.uuid),
-                                               gpt_partition_type_uuid_to_string(t->target.partition_type.uuid),
-                                               !isempty(patterns) ? " and matching the expected pattern '" : "",
-                                               strempty(patterns),
-                                               !isempty(patterns) ? "'" : "");
+                        return log_error_errno(
+                                        SYNTHETIC_ERRNO(ENOSPC),
+                                        "Partition table does not have enough partition slots of right type " SD_ID128_UUID_FORMAT_STR
+                                        " (%s)%s%s%s for operation.",
+                                        SD_ID128_FORMAT_VAL(t->target.partition_type.uuid),
+                                        gpt_partition_type_uuid_to_string(t->target.partition_type.uuid),
+                                        !isempty(patterns) ? " and matching the expected pattern '" : "",
+                                        strempty(patterns),
+                                        !isempty(patterns) ? "'" : "");
                 if (space == t->target.n_empty + t->target.n_instances)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOSPC),
-                                               "Asked to empty all partition table slots of the right type " SD_ID128_UUID_FORMAT_STR " (%s), can't allow that. One instance must always remain.",
-                                               SD_ID128_FORMAT_VAL(t->target.partition_type.uuid),
-                                               gpt_partition_type_uuid_to_string(t->target.partition_type.uuid));
+                        return log_error_errno(
+                                        SYNTHETIC_ERRNO(ENOSPC),
+                                        "Asked to empty all partition table slots of the right type " SD_ID128_UUID_FORMAT_STR
+                                        " (%s), can't allow that. One instance must always remain.",
+                                        SD_ID128_FORMAT_VAL(t->target.partition_type.uuid),
+                                        gpt_partition_type_uuid_to_string(t->target.partition_type.uuid));
 
                 rm = LESS_BY(space, t->target.n_empty);
                 remain = LESS_BY(t->target.n_instances, rm);
@@ -908,7 +1067,8 @@ int transfer_vacuum(
 
                         /* If this is listed among the protected versions, then let's not remove it */
                         if (!strv_contains(t->protected_versions, oldest->metadata.version) &&
-                            (!extra_protected_version || !streq(extra_protected_version, oldest->metadata.version)))
+                            (!extra_protected_version ||
+                             !streq(extra_protected_version, oldest->metadata.version)))
                                 break;
 
                         log_debug("Version '%s' is protected, not removing.", oldest->metadata.version);
@@ -936,7 +1096,9 @@ int transfer_vacuum(
                         return 0;
 
                 instance_free(oldest);
-                memmove(t->target.instances + p, t->target.instances + p + 1, (t->target.n_instances - p - 1) * sizeof(Instance*));
+                memmove(t->target.instances + p,
+                        t->target.instances + p + 1,
+                        (t->target.n_instances - p - 1) * sizeof(Instance *));
                 t->target.n_instances--;
 
                 count++;
@@ -945,10 +1107,7 @@ int transfer_vacuum(
         return count;
 }
 
-static void compile_pattern_fields(
-                const Transfer *t,
-                const Instance *i,
-                InstanceMetadata *ret) {
+static void compile_pattern_fields(const Transfer *t, const Instance *i, InstanceMetadata *ret) {
 
         assert(t);
         assert(i);
@@ -965,12 +1124,16 @@ static void compile_pattern_fields(
                 .partition_flags = t->partition_flags_set ? t->partition_flags : i->metadata.partition_flags,
                 .partition_flags_set = t->partition_flags_set || i->metadata.partition_flags_set,
                 .mtime = RESOURCE_IS_TAR(i->resource->type) ? USEC_INFINITY : i->metadata.mtime,
-                .mode = t->mode != MODE_INVALID ? t->mode : (RESOURCE_IS_TAR(i->resource->type) ? MODE_INVALID : i->metadata.mode),
+                .mode = t->mode != MODE_INVALID ?
+                                t->mode :
+                                (RESOURCE_IS_TAR(i->resource->type) ? MODE_INVALID : i->metadata.mode),
                 .size = i->metadata.size,
-                .tries_done = t->tries_done != UINT64_MAX ? t->tries_done :
-                              i->metadata.tries_done != UINT64_MAX ? i->metadata.tries_done : 0,
-                .tries_left = t->tries_left != UINT64_MAX ? t->tries_left :
-                              i->metadata.tries_left != UINT64_MAX ? i->metadata.tries_left : 3,
+                .tries_done = t->tries_done != UINT64_MAX            ? t->tries_done :
+                                i->metadata.tries_done != UINT64_MAX ? i->metadata.tries_done :
+                                                                       0,
+                .tries_left = t->tries_left != UINT64_MAX            ? t->tries_left :
+                                i->metadata.tries_left != UINT64_MAX ? i->metadata.tries_left :
+                                                                       3,
                 .no_auto = t->no_auto >= 0 ? t->no_auto : i->metadata.no_auto,
                 .read_only = t->read_only >= 0 ? t->read_only : i->metadata.read_only,
                 .growfs = t->growfs >= 0 ? t->growfs : i->metadata.growfs,
@@ -987,7 +1150,7 @@ typedef struct CalloutContext {
         PidRef pid;
         const char *name;
         int helper_errno;
-        void* userdata;
+        void *userdata;
 } CalloutContext;
 
 static CalloutContext *callout_context_free(CalloutContext *ctx) {
@@ -1000,10 +1163,15 @@ static CalloutContext *callout_context_free(CalloutContext *ctx) {
         return mfree(ctx);
 }
 
-DEFINE_TRIVIAL_CLEANUP_FUNC(CalloutContext*, callout_context_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(CalloutContext *, callout_context_free);
 
-static int callout_context_new(const Transfer *t, const Instance *i, TransferProgress cb,
-                               const char *name, void* userdata, CalloutContext **ret) {
+static int callout_context_new(
+                const Transfer *t,
+                const Instance *i,
+                TransferProgress cb,
+                const char *name,
+                void *userdata,
+                CalloutContext **ret) {
         _cleanup_(callout_context_freep) CalloutContext *ctx = NULL;
 
         assert(t);
@@ -1105,13 +1273,13 @@ static int helper_on_notify(sd_event_source *s, int fd, uint32_t revents, void *
         return 0;
 }
 
-static int run_callout(
-                const char *name,
-                char *cmdline[],
-                const Transfer *transfer,
-                const Instance *instance,
-                TransferProgress callback,
-                void *userdata) {
+static int
+                run_callout(const char *name,
+                            char *cmdline[],
+                            const Transfer *transfer,
+                            const Instance *instance,
+                            TransferProgress callback,
+                            void *userdata) {
 
         int r;
 
@@ -1138,16 +1306,11 @@ static int run_callout(
                 return log_error_errno(r, "Failed to register signal to event: %m");
 
         _cleanup_free_ char *bind_name = NULL;
-        r = notify_socket_prepare(
-                        event,
-                        SD_EVENT_PRIORITY_NORMAL - 5,
-                        helper_on_notify,
-                        ctx,
-                        &bind_name);
+        r = notify_socket_prepare(event, SD_EVENT_PRIORITY_NORMAL - 5, helper_on_notify, ctx, &bind_name);
         if (r < 0)
                 return log_error_errno(r, "Failed to prepare notify socket: %m");
 
-        r = pidref_safe_fork(ctx->name, FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_LOG, &ctx->pid);
+        r = pidref_safe_fork(ctx->name, FORK_RESET_SIGNALS | FORK_DEATHSIG_SIGTERM | FORK_LOG, &ctx->pid);
         if (r < 0)
                 return log_error_errno(r, "Failed to fork process %s: %m", ctx->name);
         if (r == 0) {
@@ -1156,7 +1319,7 @@ static int run_callout(
                         log_error_errno(errno, "setenv() failed: %m");
                         _exit(EXIT_FAILURE);
                 }
-                r = invoke_callout_binary(cmdline[0], (char *const*) cmdline);
+                r = invoke_callout_binary(cmdline[0], (char * const *) cmdline);
                 log_error_errno(r, "Failed to execute %s tool: %m", cmdline[0]);
                 _exit(EXIT_FAILURE);
         }
@@ -1198,10 +1361,14 @@ int transfer_compute_temporary_paths(Transfer *t, Instance *i, InstanceMetadata 
                 return log_error_errno(r, "Failed to format target pattern: %m");
 
         if (RESOURCE_IS_FILESYSTEM(t->target.type)) {
-                _cleanup_free_ char *final_dir = NULL, *final_filename = NULL, *partial_filename = NULL, *pending_filename = NULL;
+                _cleanup_free_ char *final_dir = NULL, *final_filename = NULL, *partial_filename = NULL,
+                                    *pending_filename = NULL;
 
                 if (!path_is_safe(formatted_pattern))
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Formatted pattern is not suitable as file name, refusing: %s", formatted_pattern);
+                        return log_error_errno(
+                                        SYNTHETIC_ERRNO(EINVAL),
+                                        "Formatted pattern is not suitable as file name, refusing: %s",
+                                        formatted_pattern);
 
                 t->final_path = path_join(t->target.path, formatted_pattern);
                 if (!t->final_path)
@@ -1235,20 +1402,30 @@ int transfer_compute_temporary_paths(Transfer *t, Instance *i, InstanceMetadata 
         if (t->target.type == RESOURCE_PARTITION) {
                 r = gpt_partition_label_valid(formatted_pattern);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to determine if formatted pattern is suitable as GPT partition label: %s", formatted_pattern);
+                        return log_error_errno(
+                                        r,
+                                        "Failed to determine if formatted pattern is suitable as GPT partition label: %s",
+                                        formatted_pattern);
                 if (!r)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Formatted pattern is not suitable as GPT partition label, refusing: %s", formatted_pattern);
+                        return log_error_errno(
+                                        SYNTHETIC_ERRNO(EINVAL),
+                                        "Formatted pattern is not suitable as GPT partition label, refusing: %s",
+                                        formatted_pattern);
 
                 if (!t->target.partition_type_set)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Partition type must be set for partition targets.");
+                        return log_error_errno(
+                                        SYNTHETIC_ERRNO(EINVAL),
+                                        "Partition type must be set for partition targets.");
 
                 /* Derive temporary partition type UUIDs for partial/pending states from the configured
                  * partition type. This avoids the need for label prefixes. */
-                r = gpt_partition_type_uuid_for_sysupdate_partial(t->target.partition_type.uuid, &t->partition_type_partial);
+                r = gpt_partition_type_uuid_for_sysupdate_partial(
+                                t->target.partition_type.uuid, &t->partition_type_partial);
                 if (r < 0)
                         return log_error_errno(r, "Failed to derive partial partition type UUID: %m");
 
-                r = gpt_partition_type_uuid_for_sysupdate_pending(t->target.partition_type.uuid, &t->partition_type_pending);
+                r = gpt_partition_type_uuid_for_sysupdate_pending(
+                                t->target.partition_type.uuid, &t->partition_type_pending);
                 if (r < 0)
                         return log_error_errno(r, "Failed to derive pending partition type UUID: %m");
 
@@ -1260,7 +1437,7 @@ int transfer_compute_temporary_paths(Transfer *t, Instance *i, InstanceMetadata 
 
 int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, TransferProgress cb, void *userdata) {
         _cleanup_free_ char *digest = NULL;
-        char offset[DECIMAL_STR_MAX(uint64_t)+1], max_size[DECIMAL_STR_MAX(uint64_t)+1];
+        char offset[DECIMAL_STR_MAX(uint64_t) + 1], max_size[DECIMAL_STR_MAX(uint64_t) + 1];
         const char *where = NULL;
         Instance *existing;
         int r;
@@ -1274,7 +1451,10 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
         /* Does this instance already exist in the target? Then we don't need to acquire anything */
         existing = resource_find_instance(&t->target, i->metadata.version);
         if (existing && (existing->is_partial || existing->is_pending))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to acquire '%s', instance is already partial or pending in the target.", i->path);
+                return log_error_errno(
+                                SYNTHETIC_ERRNO(EINVAL),
+                                "Failed to acquire '%s', instance is already partial or pending in the target.",
+                                i->path);
         if (existing) {
                 log_info("No need to acquire '%s', already installed.", i->path);
                 return 0;
@@ -1322,10 +1502,7 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                           t->partition_info.device,
                           t->partition_info.label,
                           SD_ID128_TO_UUID_STRING(t->partition_info.type));
-                r = patch_partition(
-                                t->target.path,
-                                &t->partition_info,
-                                t->partition_change);
+                r = patch_partition(t->target.path, &t->partition_info, t->partition_change);
                 if (r < 0)
                         return r;
         }
@@ -1339,7 +1516,8 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                  * download. */
 
                 if (!i->metadata.sha256sum_set)
-                        return log_error_errno(r, "SHA256 checksum not known for download '%s', refusing.", i->path);
+                        return log_error_errno(
+                                        r, "SHA256 checksum not known for download '%s', refusing.", i->path);
 
                 digest = hexmem(i->metadata.sha256sum, sizeof(i->metadata.sha256sum));
                 if (!digest)
@@ -1360,14 +1538,16 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                          * want to take benefit of, too.) */
 
                         r = run_callout("(sd-import-raw)",
-                                        STRV_MAKE(
-                                               SYSTEMD_IMPORT_PATH,
-                                               "raw",
-                                               "--direct",          /* just copy/unpack the specified file, don't do anything else */
-                                               arg_sync ? "--sync=yes" : "--sync=no",
-                                               i->path,
-                                               t->temporary_partial_path),
-                                        t, i, cb, userdata);
+                                        STRV_MAKE(SYSTEMD_IMPORT_PATH,
+                                                  "raw",
+                                                  "--direct", /* just copy/unpack the specified file, don't do anything else */
+                                                  arg_sync ? "--sync=yes" : "--sync=no",
+                                                  i->path,
+                                                  t->temporary_partial_path),
+                                        t,
+                                        i,
+                                        cb,
+                                        userdata);
                         break;
 
                 case RESOURCE_PARTITION:
@@ -1375,16 +1555,20 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                         /* regular file → partition */
 
                         r = run_callout("(sd-import-raw)",
-                                        STRV_MAKE(
-                                               SYSTEMD_IMPORT_PATH,
-                                               "raw",
-                                               "--direct",          /* just copy/unpack the specified file, don't do anything else */
-                                               "--offset", offset,
-                                               "--size-max", max_size,
-                                               arg_sync ? "--sync=yes" : "--sync=no",
-                                               i->path,
-                                               t->target.path),
-                                        t, i, cb, userdata);
+                                        STRV_MAKE(SYSTEMD_IMPORT_PATH,
+                                                  "raw",
+                                                  "--direct", /* just copy/unpack the specified file, don't do anything else */
+                                                  "--offset",
+                                                  offset,
+                                                  "--size-max",
+                                                  max_size,
+                                                  arg_sync ? "--sync=yes" : "--sync=no",
+                                                  i->path,
+                                                  t->target.path),
+                                        t,
+                                        i,
+                                        cb,
+                                        userdata);
                         break;
 
                 default:
@@ -1400,15 +1584,18 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                 /* directory/subvolume → directory/subvolume */
 
                 r = run_callout("(sd-import-fs)",
-                                STRV_MAKE(
-                                       SYSTEMD_IMPORT_FS_PATH,
-                                       "run",
-                                       "--direct",          /* just untar the specified file, don't do anything else */
-                                       arg_sync ? "--sync=yes" : "--sync=no",
-                                       t->target.type == RESOURCE_SUBVOLUME ? "--btrfs-subvol=yes" : "--btrfs-subvol=no",
-                                       i->path,
-                                       t->temporary_partial_path),
-                                t, i, cb, userdata);
+                                STRV_MAKE(SYSTEMD_IMPORT_FS_PATH,
+                                          "run",
+                                          "--direct", /* just untar the specified file, don't do anything else */
+                                          arg_sync ? "--sync=yes" : "--sync=no",
+                                          t->target.type == RESOURCE_SUBVOLUME ? "--btrfs-subvol=yes" :
+                                                                                 "--btrfs-subvol=no",
+                                          i->path,
+                                          t->temporary_partial_path),
+                                t,
+                                i,
+                                cb,
+                                userdata);
                 break;
 
         case RESOURCE_TAR:
@@ -1417,15 +1604,18 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                 /* tar → directory/subvolume */
 
                 r = run_callout("(sd-import-tar)",
-                                STRV_MAKE(
-                                       SYSTEMD_IMPORT_PATH,
-                                       "tar",
-                                       "--direct",          /* just untar the specified file, don't do anything else */
-                                       arg_sync ? "--sync=yes" : "--sync=no",
-                                       t->target.type == RESOURCE_SUBVOLUME ? "--btrfs-subvol=yes" : "--btrfs-subvol=no",
-                                       i->path,
-                                       t->temporary_partial_path),
-                                t, i, cb, userdata);
+                                STRV_MAKE(SYSTEMD_IMPORT_PATH,
+                                          "tar",
+                                          "--direct", /* just untar the specified file, don't do anything else */
+                                          arg_sync ? "--sync=yes" : "--sync=no",
+                                          t->target.type == RESOURCE_SUBVOLUME ? "--btrfs-subvol=yes" :
+                                                                                 "--btrfs-subvol=no",
+                                          i->path,
+                                          t->temporary_partial_path),
+                                t,
+                                i,
+                                cb,
+                                userdata);
                 break;
 
         case RESOURCE_URL_FILE:
@@ -1436,34 +1626,46 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
 
                         /* url file → regular file */
 
-                        r = run_callout("(sd-pull-raw)",
-                                       STRV_MAKE(
-                                               SYSTEMD_PULL_PATH,
-                                               "raw",
-                                               "--direct",          /* just download the specified URL, don't download anything else */
-                                               "--verify", digest,  /* validate by explicit SHA256 sum */
-                                               arg_sync ? "--sync=yes" : "--sync=no",
-                                               i->path,
-                                               t->temporary_partial_path),
-                                        t, i, cb, userdata);
+                        r =
+                                        run_callout("(sd-pull-raw)",
+                                                    STRV_MAKE(SYSTEMD_PULL_PATH,
+                                                              "raw",
+                                                              "--direct", /* just download the specified URL,
+                                                                             don't download anything else */
+                                                              "--verify",
+                                                              digest, /* validate by explicit SHA256 sum */
+                                                              arg_sync ? "--sync=yes" : "--sync=no",
+                                                              i->path,
+                                                              t->temporary_partial_path),
+                                                    t,
+                                                    i,
+                                                    cb,
+                                                    userdata);
                         break;
 
                 case RESOURCE_PARTITION:
 
                         /* url file → partition */
 
-                        r = run_callout("(sd-pull-raw)",
-                                        STRV_MAKE(
-                                               SYSTEMD_PULL_PATH,
-                                               "raw",
-                                               "--direct",              /* just download the specified URL, don't download anything else */
-                                               "--verify", digest,      /* validate by explicit SHA256 sum */
-                                               "--offset", offset,
-                                               "--size-max", max_size,
-                                               arg_sync ? "--sync=yes" : "--sync=no",
-                                               i->path,
-                                               t->target.path),
-                                        t, i, cb, userdata);
+                        r =
+                                        run_callout("(sd-pull-raw)",
+                                                    STRV_MAKE(SYSTEMD_PULL_PATH,
+                                                              "raw",
+                                                              "--direct", /* just download the specified URL,
+                                                                             don't download anything else */
+                                                              "--verify",
+                                                              digest, /* validate by explicit SHA256 sum */
+                                                              "--offset",
+                                                              offset,
+                                                              "--size-max",
+                                                              max_size,
+                                                              arg_sync ? "--sync=yes" : "--sync=no",
+                                                              i->path,
+                                                              t->target.path),
+                                                    t,
+                                                    i,
+                                                    cb,
+                                                    userdata);
                         break;
 
                 default:
@@ -1476,16 +1678,20 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                 assert(IN_SET(t->target.type, RESOURCE_DIRECTORY, RESOURCE_SUBVOLUME));
 
                 r = run_callout("(sd-pull-tar)",
-                                STRV_MAKE(
-                                       SYSTEMD_PULL_PATH,
-                                       "tar",
-                                       "--direct",          /* just download the specified URL, don't download anything else */
-                                       "--verify", digest,  /* validate by explicit SHA256 sum */
-                                       t->target.type == RESOURCE_SUBVOLUME ? "--btrfs-subvol=yes" : "--btrfs-subvol=no",
-                                       arg_sync ? "--sync=yes" : "--sync=no",
-                                       i->path,
-                                       t->temporary_partial_path),
-                                t, i, cb, userdata);
+                                STRV_MAKE(SYSTEMD_PULL_PATH,
+                                          "tar",
+                                          "--direct", /* just download the specified URL, don't download anything else */
+                                          "--verify",
+                                          digest, /* validate by explicit SHA256 sum */
+                                          t->target.type == RESOURCE_SUBVOLUME ? "--btrfs-subvol=yes" :
+                                                                                 "--btrfs-subvol=no",
+                                          arg_sync ? "--sync=yes" : "--sync=no",
+                                          i->path,
+                                          t->temporary_partial_path),
+                                t,
+                                i,
+                                cb,
+                                userdata);
                 break;
 
         default:
@@ -1505,8 +1711,14 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
 
                         timespec_store(&ts, f->mtime);
 
-                        if (utimensat(AT_FDCWD, t->temporary_partial_path, (struct timespec[2]) { ts, ts }, AT_SYMLINK_NOFOLLOW) < 0)
-                                return log_error_errno(errno, "Failed to adjust mtime of '%s': %m", t->temporary_partial_path);
+                        if (utimensat(AT_FDCWD,
+                                      t->temporary_partial_path,
+                                      (struct timespec[2]) { ts, ts },
+                                      AT_SYMLINK_NOFOLLOW) < 0)
+                                return log_error_errno(
+                                                errno,
+                                                "Failed to adjust mtime of '%s': %m",
+                                                t->temporary_partial_path);
 
                         need_sync = true;
                 }
@@ -1517,7 +1729,10 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                          * safe, but shouldn't be a problem, given that we don't create symlinks here. */
                         if (fchmodat(AT_FDCWD, t->temporary_partial_path, f->mode, AT_SYMLINK_NOFOLLOW) < 0 &&
                             (!ERRNO_IS_NOT_SUPPORTED(errno) || chmod(t->temporary_partial_path, f->mode) < 0))
-                                return log_error_errno(errno, "Failed to adjust mode of '%s': %m", t->temporary_partial_path);
+                                return log_error_errno(
+                                                errno,
+                                                "Failed to adjust mode of '%s': %m",
+                                                t->temporary_partial_path);
 
                         need_sync = true;
                 }
@@ -1531,20 +1746,32 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                                 r = syncfs_path(AT_FDCWD, t->temporary_partial_path);
                         }
                         if (r < 0)
-                                return log_error_errno(r, "Failed to synchronize file system backing '%s': %m", t->temporary_partial_path);
+                                return log_error_errno(
+                                                r,
+                                                "Failed to synchronize file system backing '%s': %m",
+                                                t->temporary_partial_path);
                 }
 
                 t->install_read_only = f->read_only;
 
-                /* Rename the file from `.sysupdate.partial.<VERSION>` to `.sysupdate.pending.<VERSION>` to indicate it’s ready to install. */
-                log_debug("Renaming resource instance '%s' to '%s'.", t->temporary_partial_path, t->temporary_pending_path);
-                r = install_file(AT_FDCWD, t->temporary_partial_path,
-                                 AT_FDCWD, t->temporary_pending_path,
-                                 INSTALL_REPLACE|
-                                 (t->install_read_only > 0 ? INSTALL_READ_ONLY : 0)|
-                                 (t->target.type == RESOURCE_REGULAR_FILE ? INSTALL_FSYNC_FULL : INSTALL_SYNCFS));
+                /* Rename the file from `.sysupdate.partial.<VERSION>` to `.sysupdate.pending.<VERSION>` to
+                 * indicate it’s ready to install. */
+                log_debug("Renaming resource instance '%s' to '%s'.",
+                          t->temporary_partial_path,
+                          t->temporary_pending_path);
+                r = install_file(
+                                AT_FDCWD,
+                                t->temporary_partial_path,
+                                AT_FDCWD,
+                                t->temporary_pending_path,
+                                INSTALL_REPLACE | (t->install_read_only > 0 ? INSTALL_READ_ONLY : 0) |
+                                                (t->target.type == RESOURCE_REGULAR_FILE ? INSTALL_FSYNC_FULL :
+                                                                                           INSTALL_SYNCFS));
                 if (r < 0)
-                        return log_error_errno(r, "Failed to move '%s' into pending place: %m", t->temporary_pending_path);
+                        return log_error_errno(
+                                        r,
+                                        "Failed to move '%s' into pending place: %m",
+                                        t->temporary_pending_path);
         }
 
         if (t->target.type == RESOURCE_PARTITION) {
@@ -1581,10 +1808,7 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
                 log_debug("Marking partition '%s' as pending (type=%s).",
                           t->partition_info.device,
                           SD_ID128_TO_UUID_STRING(t->partition_info.type));
-                r = patch_partition(
-                                t->target.path,
-                                &t->partition_info,
-                                t->partition_change);
+                r = patch_partition(t->target.path, &t->partition_info, t->partition_change);
                 if (r < 0)
                         return r;
         }
@@ -1609,8 +1833,10 @@ int transfer_process_partial_and_pending_instance(Transfer *t, Instance *i) {
 
         /* Does this instance already exist in the target but isn’t pending? */
         existing = resource_find_instance(&t->target, i->metadata.version);
-        if (existing && !existing->is_pending)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to acquire '%s', instance is already in the target but is not pending.", i->path);
+        if (existing && !existing->is_pending) {
+                log_debug("Instance '%s' already present in target and not pending, skipping.", i->path);
+                return 0;
+        }
 
         /* All we need to do is compute the temporary paths. We don’t need to do any of the other work in
          * transfer_acquire_instance(). */
@@ -1633,10 +1859,7 @@ int transfer_process_partial_and_pending_instance(Transfer *t, Instance *i) {
         return 0;
 }
 
-int transfer_install_instance(
-                Transfer *t,
-                Instance *i,
-                const char *root) {
+int transfer_install_instance(Transfer *t, Instance *i, const char *root) {
 
         int r;
 
@@ -1645,17 +1868,24 @@ int transfer_install_instance(
         assert(i->resource);
         assert(i->is_pending || t == container_of(i->resource, Transfer, source));
 
-        log_debug("transfer_install_instance %s %s %s %d", i->path, t->temporary_pending_path, t->final_partition_label, t->partition_change);
+        log_debug("transfer_install_instance %s %s %s %d",
+                  i->path,
+                  t->temporary_pending_path,
+                  t->final_partition_label,
+                  t->partition_change);
 
         if (t->temporary_pending_path) {
                 assert(RESOURCE_IS_FILESYSTEM(t->target.type));
                 assert(t->final_path);
 
-                r = install_file(AT_FDCWD, t->temporary_pending_path,
-                                 AT_FDCWD, t->final_path,
-                                 INSTALL_REPLACE|
-                                 (t->install_read_only > 0 ? INSTALL_READ_ONLY : 0)|
-                                 (t->target.type == RESOURCE_REGULAR_FILE ? INSTALL_FSYNC_FULL : INSTALL_SYNCFS));
+                r = install_file(
+                                AT_FDCWD,
+                                t->temporary_pending_path,
+                                AT_FDCWD,
+                                t->final_path,
+                                INSTALL_REPLACE | (t->install_read_only > 0 ? INSTALL_READ_ONLY : 0) |
+                                                (t->target.type == RESOURCE_REGULAR_FILE ? INSTALL_FSYNC_FULL :
+                                                                                           INSTALL_SYNCFS));
                 if (r < 0)
                         return log_error_errno(r, "Failed to move '%s' into place: %m", t->final_path);
 
@@ -1680,10 +1910,7 @@ int transfer_install_instance(
                 t->partition_info.type = t->target.partition_type.uuid;
                 t->partition_change = PARTITION_LABEL | PARTITION_TYPE;
 
-                r = patch_partition(
-                                t->target.path,
-                                &t->partition_info,
-                                t->partition_change);
+                r = patch_partition(t->target.path, &t->partition_info, t->partition_change);
                 if (r < 0)
                         return r;
 
@@ -1728,9 +1955,14 @@ int transfer_install_instance(
                         assert_not_reached();
 
                 if (resolve_link_path && root) {
-                        r = chase(link_path, root, CHASE_PREFIX_ROOT|CHASE_NONEXISTENT|CHASE_TRIGGER_AUTOFS, &resolved, NULL);
+                        r = chase(link_path,
+                                  root,
+                                  CHASE_PREFIX_ROOT | CHASE_NONEXISTENT | CHASE_TRIGGER_AUTOFS,
+                                  &resolved,
+                                  NULL);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to resolve current symlink path '%s': %m", link_path);
+                                return log_error_errno(
+                                                r, "Failed to resolve current symlink path '%s': %m", link_path);
 
                         link_path = resolved;
                 }
@@ -1738,21 +1970,29 @@ int transfer_install_instance(
                 if (link_target) {
                         r = path_extract_directory(link_path, &parent);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to extract directory of target path '%s': %m", link_path);
+                                return log_error_errno(
+                                                r,
+                                                "Failed to extract directory of target path '%s': %m",
+                                                link_path);
 
                         r = path_make_relative(parent, link_target, &relative);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to make symlink path '%s' relative to '%s': %m", link_target, parent);
+                                return log_error_errno(
+                                                r,
+                                                "Failed to make symlink path '%s' relative to '%s': %m",
+                                                link_target,
+                                                parent);
 
                         r = symlink_atomic(relative, link_path);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to update current symlink '%s' %s '%s': %m",
-                                                       link_path,
-                                                       glyph(GLYPH_ARROW_RIGHT),
-                                                       relative);
+                                return log_error_errno(
+                                                r,
+                                                "Failed to update current symlink '%s' %s '%s': %m",
+                                                link_path,
+                                                glyph(GLYPH_ARROW_RIGHT),
+                                                relative);
 
-                        log_info("Updated symlink '%s' %s '%s'.",
-                                 link_path, glyph(GLYPH_ARROW_RIGHT), relative);
+                        log_info("Updated symlink '%s' %s '%s'.", link_path, glyph(GLYPH_ARROW_RIGHT), relative);
                 }
         }
 
