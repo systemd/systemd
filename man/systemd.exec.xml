@@ -4698,11 +4698,35 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
           <term><varname>$MEMORY_PRESSURE_WRITE</varname></term>
 
           <listitem><para>If memory pressure monitoring is enabled for this service unit, the path to watch
-          and the data to write into it. See <ulink url="https://systemd.io/MEMORY_PRESSURE">Memory Pressure
+          and the data to write into it. See <ulink url="https://systemd.io/PRESSURE">Resource Pressure
           Handling</ulink> for details about these variables and the service protocol data they
           convey.</para>
 
           <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>$CPU_PRESSURE_WATCH</varname></term>
+          <term><varname>$CPU_PRESSURE_WRITE</varname></term>
+
+          <listitem><para>If CPU pressure monitoring is enabled for this service unit, the path to watch
+          and the data to write into it. See <ulink url="https://systemd.io/PRESSURE">Resource Pressure
+          Handling</ulink> for details about these variables and the service protocol data they
+          convey.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><varname>$IO_PRESSURE_WATCH</varname></term>
+          <term><varname>$IO_PRESSURE_WRITE</varname></term>
+
+          <listitem><para>If IO pressure monitoring is enabled for this service unit, the path to watch
+          and the data to write into it. See <ulink url="https://systemd.io/PRESSURE">Resource Pressure
+          Handling</ulink> for details about these variables and the service protocol data they
+          convey.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/></listitem>
         </varlistentry>
 
         <varlistentry>
