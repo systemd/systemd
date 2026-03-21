@@ -23,9 +23,7 @@ int dhcp_message_init(
                 size_t optlen,
                 size_t *ret_optoffset);
 
-uint16_t dhcp_packet_checksum(uint8_t *buf, size_t len);
-
-void dhcp_packet_append_ip_headers(
+int dhcp_packet_append_ip_headers(
                 DHCPPacket *packet,
                 be32_t source_addr,
                 uint16_t source,
@@ -33,5 +31,3 @@ void dhcp_packet_append_ip_headers(
                 uint16_t destination,
                 uint16_t len,
                 int ip_service_type);
-
-int dhcp_packet_verify_headers(DHCPPacket *packet, size_t len, bool checksum, uint16_t port);
