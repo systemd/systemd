@@ -49,6 +49,7 @@ int dns_delegate_new(Manager *m, const char *id, DnsDelegate **ret) {
 
         *d = (DnsDelegate) {
                 .id = TAKE_PTR(id_copy),
+                .dns_server_policy = _DNS_SERVER_POLICY_INVALID,
                 .default_route = -1,
         };
 
