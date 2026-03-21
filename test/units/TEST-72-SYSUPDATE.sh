@@ -8,7 +8,7 @@ set -o pipefail
 SYSUPDATE=/lib/systemd/systemd-sysupdate
 SYSUPDATED=/lib/systemd/systemd-sysupdated
 SECTOR_SIZES=(512 4096)
-WORKDIR="$(mktemp -d /var/tmp/test-72-XXXXXX)"
+: "${WORKDIR:=$(mktemp -d /var/tmp/test-72-XXXXXX)}"
 CONFIGDIR="/run/sysupdate.d"
 BACKING_FILE="$WORKDIR/joined.raw"
 export SYSTEMD_ESP_PATH="$WORKDIR/esp"
@@ -117,6 +117,8 @@ update_now() {
     elif [[ "$update_type" == "updatectl" ]]; then
         if $have_updatectl; then
             systemctl start systemd-sysupdated
+            updatectl update
+            # Ensure idempotency: running again should not fail
             updatectl update
         else
             # Gracefully fall back to sysupdate
