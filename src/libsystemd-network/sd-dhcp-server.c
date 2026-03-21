@@ -18,6 +18,7 @@
 #include "fd-util.h"
 #include "in-addr-util.h"
 #include "iovec-util.h"
+#include "iovec-wrapper.h"
 #include "memory-util.h"
 #include "network-common.h"
 #include "ordered-set.h"
@@ -314,6 +315,7 @@ static int dhcp_server_send_unicast_raw(
                 DHCPPacket *packet,
                 size_t len) {
 
+        int r;
         union sockaddr_union link = {
                 .ll.sll_family = AF_PACKET,
                 .ll.sll_protocol = htobe16(ETH_P_IP),
@@ -334,11 +336,24 @@ static int dhcp_server_send_unicast_raw(
         if (len > UINT16_MAX)
                 return -EOVERFLOW;
 
-        dhcp_packet_append_ip_headers(packet, server->address, DHCP_PORT_SERVER,
-                                      packet->dhcp.yiaddr,
-                                      DHCP_PORT_CLIENT, len, -1);
+        r = dhcp_packet_append_ip_headers(
+                        packet,
+                        server->address,
+                        DHCP_PORT_SERVER,
+                        packet->dhcp.yiaddr,
+                        DHCP_PORT_CLIENT,
+                        len,
+                        /* ip_service_type= */ -1);
+        if (r < 0)
+                return r;
 
-        return dhcp_network_send_raw_socket(server->fd_raw, &link, packet, len);
+        return dhcp_network_send_raw_socket(
+                        server->fd_raw,
+                        &link,
+                        &(struct iovec_wrapper) {
+                                .iovec = &IOVEC_MAKE(packet, len),
+                                .count = 1,
+                        });
 }
 
 static int dhcp_server_send_udp(sd_dhcp_server *server, be32_t destination,
