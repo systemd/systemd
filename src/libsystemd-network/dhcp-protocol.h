@@ -35,6 +35,12 @@
         uint8_t file[128];             \
         be32_t magic;
 
+struct DHCPMessageHeader {
+        DHCP_MESSAGE_HEADER_DEFINITION;
+} _packed_;
+
+typedef struct DHCPMessageHeader DHCPMessageHeader;
+
 struct DHCPMessage {
         DHCP_MESSAGE_HEADER_DEFINITION;
         uint8_t options[];
@@ -57,6 +63,10 @@ typedef struct DHCPPacket DHCPPacket;
 #define DHCP_MIN_OPTIONS_SIZE   (DHCP_MIN_MESSAGE_SIZE - DHCP_HEADER_SIZE)
 #define DHCP_MIN_PACKET_SIZE    (DHCP_MIN_MESSAGE_SIZE + DHCP_IP_UDP_SIZE)
 #define DHCP_MAGIC_COOKIE       (uint32_t)(0x63825363)
+
+/* The maximal size of BOOTP message including the optional 64 bytes vendor field.
+ * Note that BOOTP message does not have the magic field. */
+#define BOOTP_MAX_MESSAGE_SIZE (offsetof(DHCPMessageHeader, magic) + 64)
 
 enum {
         DHCP_PORT_SERVER                        = 67,
@@ -89,10 +99,12 @@ enum {
         DHCPTLS                                 = 18, /* [RFC7724] */
 };
 
-enum {
-        DHCP_OVERLOAD_FILE                      = 1,
-        DHCP_OVERLOAD_SNAME                     = 2,
-};
+typedef enum {
+        DHCP_OVERLOAD_NONE                      = 0,
+        DHCP_OVERLOAD_FILE                      = 1 << 0,
+        DHCP_OVERLOAD_SNAME                     = 1 << 1,
+        _DHCP_OVERLOAD_ALL                      = DHCP_OVERLOAD_FILE | DHCP_OVERLOAD_SNAME,
+} DHCPOptionOverload;
 
 #define DHCP_MAX_FQDN_LENGTH 255
 
