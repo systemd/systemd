@@ -269,6 +269,10 @@ typedef struct UserRecord {
         char *icon_name;
         char *location;
         struct tm birth_date;
+        /* Age verification bypass admin-only, like birthDate */
+        bool bypass_age_verification;
+        /* Polling rate cap microseconds between age queries, 0 = unlimited */
+        usec_t age_verification_poll_interval_usec;
 
         char *blob_directory;
         Hashmap *blob_manifest;
@@ -458,6 +462,8 @@ UserDisposition user_record_disposition(UserRecord *h);
 int user_record_removable(UserRecord *h);
 usec_t user_record_ratelimit_interval_usec(UserRecord *h);
 uint64_t user_record_ratelimit_burst(UserRecord *h);
+bool user_record_bypass_age_verification(UserRecord *h);
+uint64_t user_record_age_verification_poll_interval_usec(UserRecord *h);
 bool user_record_can_authenticate(UserRecord *h);
 bool user_record_drop_caches(UserRecord *h);
 AutoResizeMode user_record_auto_resize_mode(UserRecord *h);
