@@ -5220,8 +5220,12 @@ void manager_log_caller(Manager *manager, PidRef *caller, const char *method) {
         _cleanup_free_ char *comm = NULL;
 
         assert(manager);
-        assert(pidref_is_set(caller));
         assert(method);
+
+        if (!pidref_is_set(caller)) {
+                log_notice("%s requested from unknown client PID...", method);
+                return;
+        }
 
         (void) pidref_get_comm(caller, &comm);
         Unit *caller_unit = manager_get_unit_by_pidref(manager, caller);
