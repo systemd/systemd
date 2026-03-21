@@ -33,6 +33,7 @@
 #include "efivars.h"
 #include "errno-util.h"
 #include "extract-word.h"
+#include "env-util.h"
 #include "factory-reset.h"
 #include "fd-util.h"
 #include "fdisk-util.h"
@@ -213,6 +214,11 @@ static char *arg_generate_crypttab = NULL;
 static Set *arg_verity_settings = NULL;
 static bool arg_relax_copy_block_security = false;
 static bool arg_varlink = false;
+static bool arg_eltorito = false;
+static uint64_t arg_eltorito_esp_offset = 1024*1024;
+static char *arg_eltorito_volume = NULL;
+static char *arg_eltorito_system = NULL;
+static char *arg_eltorito_publisher = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_node, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
@@ -7620,6 +7626,468 @@ static int context_split(Context *context) {
         return 0;
 }
 
+struct _packed_ iso9660_volume_descriptor_header {
+        uint8_t type;
+        char identifier[5];
+        uint8_t version;
+};
+
+struct _packed_ iso9660_terminal_descriptor {
+        struct iso9660_volume_descriptor_header header;
+        char data[2041];
+};
+
+struct _packed_ iso9660_datetime {
+        char year[4];
+        char month[2];
+        char day[2];
+        char hour[2];
+        char minute[2];
+        char second[2];
+        char deci[2];
+        int8_t zone;
+};
+
+static void no_iso9660_datetime(struct iso9660_datetime *ret) {
+        memcpy(ret->year, "0000", 4);
+        memcpy(ret->month, "00", 2);
+        memcpy(ret->day, "00", 2);
+        memcpy(ret->hour, "00", 2);
+        memcpy(ret->minute, "00", 2);
+        memcpy(ret->second, "00", 2);
+        memcpy(ret->deci, "00", 2);
+        ret->zone = 0;
+}
+
+static void time_to_iso9660_datetime(const struct tm *t, struct iso9660_datetime *ret) {
+        assert(t->tm_yday + 1900 < 10000);
+        assert(t->tm_yday + 1900 >= 0);
+        char buf[5];
+        xsprintf(buf, "%04d", t->tm_yday + 1900);
+        memcpy(ret->year, buf, 4);
+        xsprintf(buf, "%02d", t->tm_mon + 1);
+        memcpy(ret->month, buf, 2);
+        xsprintf(buf, "%02d", t->tm_mday + 1);
+        memcpy(ret->day, buf, 2);
+        xsprintf(buf, "%02d", t->tm_hour);
+        memcpy(ret->hour, buf, 2);
+        xsprintf(buf, "%02d", t->tm_min);
+        memcpy(ret->minute, buf, 2);
+        int sec = t->tm_sec;
+        /* let's ignore leap seconds, no real hope for hardware */
+        if (sec >= 60)
+                sec = 59;
+        xsprintf(buf, "%02d", sec);
+        memcpy(ret->second, buf, 2);
+
+        /* like if that mattered... */
+        memcpy(ret->deci, "00", 2);
+
+        ret->zone = t->tm_gmtoff / 3600;
+}
+
+struct _packed_ iso9660_eltorito_descriptor {
+        struct iso9660_volume_descriptor_header header;
+
+        char boot_system_identifier[32];
+        char unused_1[32];
+        uint32_t boot_catalog_sector;
+        char unused_2[1973];
+};
+
+struct _packed_ iso9660_dir_time {
+        uint8_t year;
+        uint8_t month;
+        uint8_t day;
+        uint8_t hour;
+        uint8_t minute;
+        uint8_t second;
+        int8_t offset;
+};
+
+struct _packed_ iso9660_directory_entry {
+        uint8_t len;
+        uint8_t xattr_len;
+        le32_t extent_loc_little;
+        be32_t extent_loc_big;
+        le32_t data_len_little;
+        be32_t data_len_big;
+        struct iso9660_dir_time time;
+        uint8_t flags;
+        uint8_t unit_size;
+        uint8_t gap_size;
+        le16_t volume_seq_num_little;
+        be16_t volume_seq_num_big;
+        uint8_t ident_len;
+        char ident[1]; /* variable */
+};
+
+struct _packed_ iso9660_primary_volume_descriptor {
+        struct iso9660_volume_descriptor_header header;
+
+        char unused_1;
+        char system_identifier[32];
+        char volume_identifier[32];
+        char unused_2[8];
+        le32_t volume_space_size_little;
+        be32_t volume_space_size_big;
+        char unused_3[32];
+
+        le16_t volume_set_size_little;
+        be16_t volume_set_size_big;
+        le16_t volume_sequence_number_little;
+        be16_t volume_sequence_number_big;
+        le16_t logical_block_size_little;
+        be16_t logical_block_size_big;
+
+        le32_t path_table_size_little;
+        be32_t path_table_size_big;
+
+        le32_t path_table_little;
+        le32_t opt_path_table_little;
+
+        be32_t path_table_big;
+        be32_t opt_path_table_big;
+
+        struct iso9660_directory_entry root_directory_entry;
+
+        char volume_set_identifier[128];
+        char publisher_identifier[128];
+        char data_preparer_identifier[128];
+        char application_identifier[128];
+
+        char copyright_file_identifier[37];
+        char abstract_file_identifier[37];
+        char bibliographic_file_identifier[37];
+
+        struct iso9660_datetime volume_creation_date;
+        struct iso9660_datetime volume_modification_date;
+        struct iso9660_datetime volume_expiration_date;
+        struct iso9660_datetime volume_effective_date;
+
+        unsigned char file_structure_version; /* 1 */
+        char unused_5;
+        char application_used[512];
+        char reserved[653];
+};
+
+static void time_to_eltorito_datetime(const struct tm *t, struct iso9660_dir_time *ret) {
+        assert(ret);
+
+        ret->year = t->tm_year;
+        ret->month = t->tm_mon + 1;
+        ret->day = t->tm_mday;
+        ret->hour = t->tm_hour;
+        ret->minute = t->tm_min;
+        ret->second = t->tm_sec;
+        ret->offset = t->tm_gmtoff / 3600;
+}
+
+static
+int set_iso9660_string(char target[], size_t len, const char* source, bool allow_d_chars) {
+        /* note that d-string are not supposed to accept lower case letters, but it is still common practice to use them
+         */
+        if (source && !in_charset(source, allow_d_chars ? UPPERCASE_LETTERS LOWERCASE_LETTERS DIGITS " _!\"%&'()*+,-./:;<=>?" : UPPERCASE_LETTERS DIGITS "_")) {
+                return -EINVAL;
+        }
+
+        size_t i = 0;
+
+        if (source)
+                for (; source[i] && (i < len); i++)
+                        target[i] = source[i];
+
+        if (source && source[i])
+                return -EINVAL;
+
+        for (; (i < len); i++)
+                target[i] = ' ';
+
+        return 0;
+}
+
+static
+int write_primary_descriptor(int fd, uint32_t root_sector, const struct tm *t, const char* volume_id, const char* system_id, const char* publisher_id) {
+        int r;
+
+        struct iso9660_primary_volume_descriptor desc = {
+                .header = {
+                        .type = 1,
+                        .version = 1,
+                },
+                .volume_set_size_little = htole16(1),
+                .volume_set_size_big = htobe16(1),
+                .volume_sequence_number_little = htole16(1),
+                .volume_sequence_number_big = htobe16(1),
+                .logical_block_size_little = htole16(2048),
+                .logical_block_size_big = htobe16(2048),
+                .file_structure_version = 1,
+                .root_directory_entry = {
+                        .len = sizeof(struct iso9660_directory_entry),
+                        .extent_loc_little = htole32(root_sector),
+                        .extent_loc_big = htobe32(root_sector),
+                        .flags = 2, /* directory */
+                        .ident_len = 1,
+                        .ident[0] = 0, /* special value for root */
+                }
+        };
+
+        r = set_iso9660_string(desc.header.identifier, 5, "CD001", /* allow_d_chars= */ false);
+        assert(r == 0);
+
+        time_to_eltorito_datetime(t, &desc.root_directory_entry.time);
+
+        r = set_iso9660_string(desc.system_identifier, 32, system_id, /* allow_d_chars= */ false);
+        if (r < 0)
+                return r;
+        r = set_iso9660_string(desc.volume_identifier, 32, volume_id, /* allow_d_chars= */ true);
+        if (r < 0)
+                return r;
+
+        r = set_iso9660_string(desc.volume_set_identifier, 128, NULL, /* allow_d_chars= */ true);
+        assert(r == 0);
+
+        r = set_iso9660_string(desc.publisher_identifier, 128, publisher_id, /* allow_d_chars= */ false);
+        if (r < 0)
+                return r;
+        r = set_iso9660_string(desc.data_preparer_identifier, 128, NULL, /* allow_d_chars= */ false);
+        assert(r == 0);
+
+        r = set_iso9660_string(desc.application_identifier, 128, "SYSTEMD_REPART", /* allow_d_chars= */ false);
+        assert(r == 0);
+
+        r = set_iso9660_string(desc.copyright_file_identifier, 37, NULL, /* allow_d_chars= */ true);
+        assert(r == 0);
+
+        r = set_iso9660_string(desc.abstract_file_identifier, 37, NULL, /* allow_d_chars= */ true);
+        assert(r == 0);
+
+        r = set_iso9660_string(desc.bibliographic_file_identifier, 37, NULL, /* allow_d_chars= */ true);
+        assert(r == 0);
+
+        time_to_iso9660_datetime(t, &desc.volume_creation_date);
+        time_to_iso9660_datetime(t, &desc.volume_modification_date);
+        no_iso9660_datetime(&desc.volume_expiration_date);
+        no_iso9660_datetime(&desc.volume_effective_date);
+
+        assert(sizeof(desc) == 2048);
+        ssize_t s = write(fd, &desc, sizeof(desc));
+        if (s < 0)
+                return -errno;
+        if (s != sizeof(desc))
+                return -EAGAIN;
+
+        return 0;
+}
+
+static
+int write_eltorito_descriptor(int fd, uint32_t catalog_sector) {
+        int r;
+
+        struct iso9660_eltorito_descriptor desc = {
+                .header = {
+                        .type = 0,
+                        .version = 1,
+                },
+                .boot_catalog_sector = catalog_sector,
+        };
+
+        r = set_iso9660_string(desc.header.identifier, 5, "CD001", /* allow_d_chars= */ false);
+        assert(r == 0);
+        (void) r;
+
+        r = set_iso9660_string(desc.boot_system_identifier, 32, "EL TORITO SPECIFICATION", /* allow_d_chars= */ true);
+        assert(r == 0);
+        (void) r;
+
+        assert(sizeof(desc) == 2048);
+        ssize_t s = write(fd, &desc, sizeof(desc));
+        if (s < 0)
+                return -errno;
+        if (s != sizeof(desc))
+                return -EAGAIN;
+
+        return 0;
+}
+
+static int write_terminal_descriptor(int fd) {
+        int r;
+
+        struct iso9660_terminal_descriptor desc = {
+                .header = {
+                        .type = 255,
+                        .version = 1,
+                },
+        };
+
+        r = set_iso9660_string(desc.header.identifier, 5, "CD001", /* allow_d_chars= */ false);
+        assert(r == 0);
+        (void) r;
+
+        assert(sizeof(desc) == 2048);
+        ssize_t s = write(fd, &desc, sizeof(desc));
+        if (s < 0)
+                return -errno;
+        if (s != sizeof(desc))
+                return -EAGAIN;
+
+        return 0;
+}
+
+struct _packed_ el_torito_validation_entry {
+        uint8_t header_indicator;
+        uint8_t platform;
+        char reserved[2];
+        char id_string[24];
+        le16_t checksum;
+        uint8_t key_bytes[2];
+};
+
+struct _packed_ el_torito_intial_entry {
+        uint8_t boot_indicator;
+        uint8_t boot_media_type;
+        le16_t load_segment;
+        uint8_t system_type;
+        char unused_1[1];
+        le16_t sector_count;
+        le32_t load_rba;
+        char unused_2[20];
+};
+
+struct _packed_ el_torito_section_header {
+        uint8_t header_indicator;
+        uint8_t platform;
+        le16_t nentries;
+        char id_string[28];
+};
+
+static
+int write_boot_catalog(int fd, uint16_t load_block) {
+        struct el_torito_validation_entry ve = {
+                .header_indicator = 1,
+                .platform = 0xfe, /* EFI */
+                .key_bytes = {0x55, 0xaa},
+        };
+
+        uint16_t checksum = 0;
+        for (size_t i = 0; i < (sizeof(ve)/2); i++) {
+                checksum -= le16toh(((le16_t*)&ve)[i]);
+        }
+        ve.checksum = htole16(checksum);
+
+        struct el_torito_intial_entry ie = {
+                .boot_indicator = 0x88, /* bootable */
+                .boot_media_type = 0, /* no emul */
+                .load_rba = htole32(load_block),
+        };
+
+        struct el_torito_section_header sh =  {
+                .header_indicator = 0x91, /* final header */
+                .nentries = htole16(0), /* no more entries */
+        };
+
+        char sector[2048];
+        bzero(sector, sizeof(sector));
+        size_t off = 0;
+        memcpy(sector + off, &ve, sizeof(ve));
+        off += sizeof(ve);
+        memcpy(sector + off, &ie, sizeof(ie));
+        off += sizeof(ie);
+        memcpy(sector + off, &sh, sizeof(sh));
+        off += sizeof(sh);
+        assert(off <= 2048);
+
+        ssize_t s = write(fd, sector, sizeof(sector));
+        if (s < 0)
+                return -errno;
+        if (s != sizeof(sector))
+                return -EAGAIN;
+
+        return 0;
+}
+
+static
+int write_directories(int fd, const struct tm *t, uint32_t root_sector) {
+        struct iso9660_directory_entry self = {
+                .len = sizeof(struct iso9660_directory_entry),
+                .extent_loc_little = htole32(root_sector),
+                .extent_loc_big = htobe32(root_sector),
+                .flags = 2, /* directory */
+                .ident_len = 1,
+                .ident[0] = 0, /* special value for self */
+        };
+
+        time_to_eltorito_datetime(t, &(self.time));
+
+        struct iso9660_directory_entry parent = {
+                .len = sizeof(struct iso9660_directory_entry),
+                .extent_loc_little = htole32(root_sector),
+                .extent_loc_big = htobe32(root_sector),
+                .flags = 2, /* directory */
+                .ident_len = 1,
+                .ident[0] = 1, /* special value for parent */
+        };
+
+        /* TODO: we should probably add some text file explaining there is no content through ISO9660 */
+
+        time_to_eltorito_datetime(t, &(parent.time));
+
+        char sector[2048];
+        bzero(sector, sizeof(sector));
+        size_t off = 0;
+        memcpy(sector + off, &self, sizeof(self));
+        off += sizeof(self);
+        memcpy(sector + off, &parent, sizeof(parent));
+        off += sizeof(parent);
+        assert(off <= 2048);
+
+        ssize_t s = write(fd, sector, sizeof(sector));
+        if (s < 0)
+                return -errno;
+        if (s != sizeof(sector))
+                return -EAGAIN;
+
+        return 0;
+}
+
+static
+int write_eltorito(int fd, const struct tm *t, uint32_t load_block, const char* volume_id, const char* system_id, const char* publisher_id) {
+        int r;
+
+        if (lseek(fd, 16*2048, SEEK_SET) < 0)
+                return -errno;
+
+        uint32_t catalog_sector = 16+3;
+        uint32_t root_sector = 16+4;
+
+        /* block 16+0 */
+        r = write_primary_descriptor(fd, root_sector, t, volume_id, system_id, publisher_id);
+        if (r < 0)
+                return r;
+
+        /* block 16+1 */
+        r = write_eltorito_descriptor(fd, catalog_sector);
+        if (r < 0)
+                return r;
+
+        /* block 16+2 */
+        r = write_terminal_descriptor(fd);
+        if (r < 0)
+                return r;
+
+        /* block 16+3 */
+        r = write_boot_catalog(fd, load_block);
+        if (r < 0)
+                return r;
+
+        /* block 16+4 */
+        r = write_directories(fd, t, root_sector);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static int context_write_partition_table(Context *context) {
         _cleanup_(fdisk_unref_tablep) struct fdisk_table *original_table = NULL;
         int capable, r;
@@ -7704,6 +8172,26 @@ static int context_write_partition_table(Context *context) {
                         return log_error_errno(r, "Failed to reread partition table: %m");
         } else
                 log_notice("Not telling kernel to reread partition table, because selected image does not support kernel partition block devices.");
+
+        if (arg_eltorito) {
+                /* TODO: Use fdisk_table_get_nents and the block size to make sure that we do
+                   not overlap */
+                struct tm t;
+                uint64_t sec;
+                r = secure_getenv_uint64("SOURCE_DATE_EPOCH", &sec);
+                if (r >= 0) {
+                        r = localtime_or_gmtime_usec(sec * USEC_PER_SEC, true, &t);
+                        if (r < 0)
+                                return r;
+                } else {
+                        r = localtime_or_gmtime_usec(now(CLOCK_REALTIME), false, &t);
+                        if (r < 0)
+                                return r;
+                }
+                r = write_eltorito(fdisk_get_devfd(context->fdisk_context), &t, arg_eltorito_esp_offset / 2048, arg_eltorito_volume, arg_eltorito_system, arg_eltorito_publisher);
+                if (r < 0)
+                        return log_error_errno(r, "Cannot write : %m");
+        }
 
         log_info("All done.");
 
@@ -9233,6 +9721,11 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_GENERATE_CRYPTTAB,
                 ARG_LIST_DEVICES,
                 ARG_JOIN_SIGNATURE,
+                ARG_ELTORITO,
+                ARG_ELTORITO_ESP_OFFSET,
+                ARG_ELTORITO_VOLUME,
+                ARG_ELTORITO_SYSTEM,
+                ARG_ELTORITO_PUBLISHER,
         };
 
         static const struct option options[] = {
@@ -9283,6 +9776,11 @@ static int parse_argv(int argc, char *argv[]) {
                 { "generate-crypttab",              required_argument, NULL, ARG_GENERATE_CRYPTTAB              },
                 { "list-devices",                   no_argument,       NULL, ARG_LIST_DEVICES                   },
                 { "join-signature",                 required_argument, NULL, ARG_JOIN_SIGNATURE                 },
+                { "el-torito",                      required_argument, NULL, ARG_ELTORITO                       },
+                { "el-torito-esp-offset",               required_argument, NULL, ARG_ELTORITO_ESP_OFFSET        },
+                { "el-torito-publisher",            required_argument, NULL, ARG_ELTORITO_PUBLISHER             },
+                { "el-torito-volume",               required_argument, NULL, ARG_ELTORITO_VOLUME                },
+                { "el-torito-system",               required_argument, NULL, ARG_ELTORITO_SYSTEM                },
                 {}
         };
 
@@ -9707,6 +10205,44 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
+                case ARG_ELTORITO:
+                        r = parse_boolean_argument("--el-torito=", optarg, &arg_eltorito);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_ELTORITO_ESP_OFFSET:
+                        r = parse_size(optarg, 1024, &arg_eltorito_esp_offset);
+                        if (arg_eltorito_esp_offset % 2048 != 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Value for --el-torito-esp-offset= must be a multiple of 2048.");
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_ELTORITO_PUBLISHER:
+                        if (!in_charset(optarg, UPPERCASE_LETTERS DIGITS "_") || (strlen(optarg) > 128))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid value for --el-torito-publisher=.");
+                        arg_eltorito_publisher = strdup(optarg);
+                        if (!arg_eltorito_publisher)
+                                return log_oom();
+                        break;
+
+                case ARG_ELTORITO_VOLUME:
+                        if (!in_charset(optarg, UPPERCASE_LETTERS LOWERCASE_LETTERS DIGITS DIGITS " _!\"%&'()*+,-./:;<=>?") || (strlen(optarg) > 32))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid value for --el-torito-volume=.");
+                        arg_eltorito_volume = strdup(optarg);
+                        if (!arg_eltorito_volume)
+                                return log_oom();
+                        break;
+
+                case ARG_ELTORITO_SYSTEM:
+                        if (!in_charset(optarg, UPPERCASE_LETTERS DIGITS "_") || (strlen(optarg) > 32))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid value for --el-torito-system=.");
+                        arg_eltorito_system = strdup(optarg);
+                        if (!arg_eltorito_system)
+                                return log_oom();
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -9850,6 +10386,10 @@ static int parse_argv(int argc, char *argv[]) {
                 arg_varlink = true;
                 arg_pager_flags |= PAGER_DISABLE;
         }
+
+        if (arg_eltorito && !IN_SET(arg_empty, EMPTY_REQUIRE, EMPTY_FORCE, EMPTY_CREATE))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--el-torito=yes requires --empty= to be either require, force or create.");
 
         return 1;
 }
