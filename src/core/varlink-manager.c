@@ -223,10 +223,8 @@ static void varlink_log_caller(sd_varlink *link, Manager *manager, const char *m
         /* We need at least the pidref, otherwise there's nothing to log about. */
         r = varlink_get_peer_pidref(link, &pidref);
         if (r < 0)
-                /* We use log_notice here just as manager_log_caller would */
-                log_notice_errno(r, "Failed to get peer pidref when trying to log caller for %s, ignoring: %m", method);
-        else
-                manager_log_caller(manager, &pidref, method);
+                log_debug_errno(r, "Failed to get peer pidref, ignoring: %m");
+        manager_log_caller(manager, &pidref, method);
 }
 
 int vl_method_reload_manager(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
