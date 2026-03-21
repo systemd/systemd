@@ -655,8 +655,8 @@
       <varlistentry>
         <term><varname>BtrfsReplace=</varname></term>
 
-        <listitem><para>If assigned and the filesystem at the mountpoint specified is btrfs, then that
-        filesystem's backing device will be replaced with the newly created partition.</para>
+        <listitem><para>Takes a path to a mountpoint for a btrfs filesystem, then that filesystem's backing
+        device will be replaced with the newly created partition.</para>
 
         <para>If an error happens during the writing of the partition table, the moved filesystems might be
         lost. This feature is intended to save initially volatile mounted filesystems into the new disk with
