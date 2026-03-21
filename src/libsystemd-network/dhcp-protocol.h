@@ -89,15 +89,15 @@ enum {
         DHCP_RELEASE                            = 7,  /* [RFC2132] */
         DHCP_INFORM                             = 8,  /* [RFC2132] */
         DHCP_FORCERENEW                         = 9,  /* [RFC3203] */
-        DHCPLEASEQUERY                          = 10, /* [RFC4388] */
-        DHCPLEASEUNASSIGNED                     = 11, /* [RFC4388] */
-        DHCPLEASEUNKNOWN                        = 12, /* [RFC4388] */
-        DHCPLEASEACTIVE                         = 13, /* [RFC4388] */
-        DHCPBULKLEASEQUERY                      = 14, /* [RFC6926] */
-        DHCPLEASEQUERYDONE                      = 15, /* [RFC6926] */
-        DHCPACTIVELEASEQUERY                    = 16, /* [RFC7724] */
-        DHCPLEASEQUERYSTATUS                    = 17, /* [RFC7724] */
-        DHCPTLS                                 = 18, /* [RFC7724] */
+        DHCP_LEASEQUERY                         = 10, /* [RFC4388] */
+        DHCP_LEASEUNASSIGNED                    = 11, /* [RFC4388] */
+        DHCP_LEASEUNKNOWN                       = 12, /* [RFC4388] */
+        DHCP_LEASEACTIVE                        = 13, /* [RFC4388] */
+        DHCP_BULKLEASEQUERY                     = 14, /* [RFC6926] */
+        DHCP_LEASEQUERYDONE                     = 15, /* [RFC6926] */
+        DHCP_ACTIVELEASEQUERY                   = 16, /* [RFC7724] */
+        DHCP_LEASEQUERYSTATUS                   = 17, /* [RFC7724] */
+        DHCP_TLS                                = 18, /* [RFC7724] */
 };
 
 typedef enum {
