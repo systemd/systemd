@@ -250,4 +250,6 @@ int usleep_safe(usec_t usec);
 
 int time_change_fd(void);
 
+int validate_tm(const struct tm *t);
+
 DECLARE_STRING_TABLE_LOOKUP(timestamp_style, TimestampStyle);
