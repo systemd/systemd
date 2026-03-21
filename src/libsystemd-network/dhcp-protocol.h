@@ -8,7 +8,7 @@
 #include <netinet/ip.h>
 #include <netinet/udp.h>
 
-#include "sd-dhcp-protocol.h"
+#include "sd-dhcp-protocol.h"  /* IWYU pragma: export */
 
 #include "sd-forward.h"
 #include "sparse-endian.h"
@@ -73,12 +73,16 @@ enum {
         DHCP_PORT_CLIENT                        = 68,
 };
 
-enum {
+typedef enum {
         BOOTREQUEST                             = 1,
         BOOTREPLY                               = 2,
-};
+        _BOOTP_MESSAGE_TYPE_MAX,
+        _BOOTP_MESSAGE_TYPE_INVALID             = -EINVAL,
+} BOOTPMessageType;
 
-enum {
+DECLARE_STRING_TABLE_LOOKUP(bootp_message_type, BOOTPMessageType);
+
+typedef enum {
         DHCP_DISCOVER                           = 1,  /* [RFC2132] */
         DHCP_OFFER                              = 2,  /* [RFC2132] */
         DHCP_REQUEST                            = 3,  /* [RFC2132] */
@@ -97,7 +101,11 @@ enum {
         DHCP_ACTIVELEASEQUERY                   = 16, /* [RFC7724] */
         DHCP_LEASEQUERYSTATUS                   = 17, /* [RFC7724] */
         DHCP_TLS                                = 18, /* [RFC7724] */
-};
+        _DHCP_MESSAGE_TYPE_MAX,
+        _DHCP_MESSAGE_TYPE_INVALID              = -EINVAL,
+} DHCPMessageType;
+
+DECLARE_STRING_TABLE_LOOKUP(dhcp_message_type, DHCPMessageType);
 
 typedef enum {
         DHCP_OVERLOAD_NONE                      = 0,
