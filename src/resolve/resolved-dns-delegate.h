@@ -2,6 +2,7 @@
 #pragma once
 
 #include "list.h"
+#include "resolve-util.h"
 #include "resolved-forward.h"
 
 #define DELEGATE_SEARCH_DOMAINS_MAX 1024
@@ -20,6 +21,8 @@ typedef struct DnsDelegate {
 
         LIST_HEAD(DnsSearchDomain, search_domains);
         unsigned n_search_domains;
+
+        DnsServerPolicy dns_server_policy;
 
         int default_route;
 
