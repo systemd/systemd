@@ -1598,22 +1598,42 @@ int transfer_acquire_instance(Transfer *t, Instance *i, InstanceMetadata *f, Tra
 }
 
 int transfer_process_partial_and_pending_instance(Transfer *t, Instance *i) {
-        InstanceMetadata f;
-        Instance *existing;
-        int r;
+    InstanceMetadata f;
+    Instance *existing;
+    int r;
 
-        assert(t);
-        assert(i);
+    assert(t);
+    assert(i);
 
-        log_debug("transfer_process_partial_and_pending_instance %s", i->path);
+    log_debug("transfer_process_partial_and_pending_instance %s", i->path);
 
-        /* Does this instance already exist in the target but isn’t pending? */
-        existing = resource_find_instance(&t->target, i->metadata.version);
-        if (existing && !existing->is_pending) {
-                log_info("Resource '%s' instance is already in the target but is not pending.", i->path);
-                return 0;
-        }
+    /* Does this instance already exist in the target but isn’t pending? */
+    existing = resource_find_instance(&t->target, i->metadata.version);
+    if (existing && !existing->is_pending) {
+        log_debug("Instance '%s' already present in target and not pending, skipping.", i->path);
+        return 0;
+    }
 
+    /* All we need to do is compute the temporary paths. We don’t need to do any of the other work in
+     * transfer_acquire_instance(). */
+    r = transfer_compute_temporary_paths(t, i, &f);
+    if (r < 0)
+        return r;
+
+    /* This is the analogue of find_suitable_partition(), but since finding the suitable partition has
+     * already happened in the acquire phase, the target should already have that information and it
+     * should already have been claimed with the pending partition type UUID. */
+    if (t->target.type == RESOURCE_PARTITION) {
+        assert(i->resource == &t->target);
+        assert(i->is_pending);
+
+        r = partition_info_copy(&t->partition_info, &i->partition_info);
+        if (r < 0)
+            return r;
+    }
+
+    return 0;
+}
         /* All we need to do is compute the temporary paths. We don’t need to do any of the other work in
          * transfer_acquire_instance(). */
         r = transfer_compute_temporary_paths(t, i, &f);

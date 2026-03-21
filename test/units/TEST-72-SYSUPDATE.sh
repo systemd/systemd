@@ -118,6 +118,8 @@ update_now() {
         if $have_updatectl; then
             systemctl start systemd-sysupdated
             updatectl update
+            # Ensure idempotency: running again should not fail
+            updatectl update
         else
             # Gracefully fall back to sysupdate
             "$SYSUPDATE" --verify=no update
