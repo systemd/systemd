@@ -212,8 +212,24 @@ int vl_method_describe_manager(sd_varlink *link, sd_json_variant *parameters, sd
         return sd_varlink_reply(link, v);
 }
 
-int vl_method_reload_manager(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+static void varlink_log_caller(sd_varlink *link, Manager *manager, const char *method) {
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        int r;
+
+        assert(link);
+        assert(manager);
+        assert(method);
+
+        /* We need at least the pidref, otherwise there's nothing to log about. */
+        r = varlink_get_peer_pidref(link, &pidref);
+        if (r < 0)
+                /* We use log_notice here just as manager_log_caller would */
+                log_notice_errno(r, "Failed to get peer pidref when trying to log caller for %s, ignoring: %m", method);
+        else
+                manager_log_caller(manager, &pidref, method);
+}
+
+int vl_method_reload_manager(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
         int r;
 
@@ -237,12 +253,7 @@ int vl_method_reload_manager(sd_varlink *link, sd_json_variant *parameters, sd_v
         if (r <= 0)
                 return r;
 
-        /* We need at least the pidref, otherwise there's nothing to log about. */
-        r = varlink_get_peer_pidref(link, &pidref);
-        if (r < 0)
-                log_debug_errno(r, "Failed to get peer pidref, ignoring: %m");
-        else
-                manager_log_caller(manager, &pidref, "Reload");
+        varlink_log_caller(link, manager, "Reload");
 
         /* Check the rate limit after the authorization succeeds, to avoid denial-of-service issues. */
         if (!ratelimit_below(&manager->reload_reexec_ratelimit)) {
@@ -263,7 +274,6 @@ int vl_method_reload_manager(sd_varlink *link, sd_json_variant *parameters, sd_v
 }
 
 int vl_method_reexecute_manager(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         Manager *manager = ASSERT_PTR(userdata);
         int r;
 
@@ -287,12 +297,7 @@ int vl_method_reexecute_manager(sd_varlink *link, sd_json_variant *parameters, s
         if (r <= 0)
                 return r;
 
-        /* We need at least the pidref, otherwise there's nothing to log about. */
-        r = varlink_get_peer_pidref(link, &pidref);
-        if (r < 0)
-                log_debug_errno(r, "Failed to get peer pidref, ignoring: %m");
-        else
-                manager_log_caller(manager, &pidref, "Reexecute");
+        varlink_log_caller(link, manager, "Reexecute");
 
         /* Check the rate limit after the authorization succeeds, to avoid denial-of-service issues. */
         if (!ratelimit_below(&manager->reload_reexec_ratelimit)) {
@@ -402,7 +407,6 @@ int vl_method_enqueue_marked_jobs_manager(sd_varlink *link, sd_json_variant *par
 
 static int manager_do_set_objective(sd_varlink *link, sd_json_variant *parameters, ManagerObjective objective, const char *selinux_permission, bool can_do_root) {
         Manager *m = ASSERT_PTR(sd_varlink_get_userdata(link));
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         _cleanup_free_ char *rt = NULL;
         const char *root = NULL;
         int r;
@@ -447,12 +451,7 @@ static int manager_do_set_objective(sd_varlink *link, sd_json_variant *parameter
                         return r;
         }
 
-        /* We need at least the pidref, otherwise there's nothing to log about. */
-        r = varlink_get_peer_pidref(link, &pidref);
-        if (r < 0)
-                log_debug_errno(r, "Failed to get peer pidref, ignoring: %m");
-        else
-                manager_log_caller(m, &pidref, manager_objective_to_string(objective));
+        varlink_log_caller(link, m, manager_objective_to_string(objective));
 
         if (can_do_root)
                 free_and_replace(m->switch_root, rt);
