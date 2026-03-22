@@ -62,6 +62,9 @@ static int process_vsock_string(const char *host, const char *port) {
         if (r < 0)
                 return log_error_errno(r, "Failed to parse vsock cid: %s", host);
 
+        if (cid == VMADDR_CID_ANY)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot use VMADDR_CID_ANY to connect to a remote host.");
+
         return process_vsock_cid(cid, port);
 }
 
