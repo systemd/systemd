@@ -13,6 +13,7 @@
 #include "sd-forward.h"
 #include "network-common.h"
 #include "sparse-endian.h"
+#include "tlv-util.h"
 
 typedef enum DHCPRawOption {
         DHCP_RAW_OPTION_DATA_UINT8,
@@ -53,8 +54,8 @@ typedef struct sd_dhcp_server {
         char *boot_server_name;
         char *boot_filename;
 
-        OrderedSet *extra_options;
-        OrderedSet *vendor_options;
+        TLV *extra_options;
+        TLV *vendor_options;
 
         bool emit_router;
         struct in_addr router_address;
@@ -98,6 +99,9 @@ typedef struct DHCPRequest {
         bool rapid_commit;
         triple_timestamp timestamp;
 } DHCPRequest;
+
+int dhcp_server_set_extra_options(sd_dhcp_server *server, TLV *options);
+int dhcp_server_set_vendor_options(sd_dhcp_server *server, TLV *options);
 
 int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
                                size_t length, const triple_timestamp *timestamp);
