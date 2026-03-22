@@ -193,6 +193,15 @@ static SD_VARLINK_DEFINE_METHOD_FULL(
                 SD_VARLINK_FIELD_COMMENT("Job enqueue error message (on failure)"),
                 SD_VARLINK_DEFINE_OUTPUT(errorMessage, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
+static SD_VARLINK_DEFINE_METHOD(PowerOff);
+static SD_VARLINK_DEFINE_METHOD(Reboot);
+static SD_VARLINK_DEFINE_METHOD(Halt);
+static SD_VARLINK_DEFINE_METHOD(KExec);
+static SD_VARLINK_DEFINE_METHOD(
+                SoftReboot,
+                SD_VARLINK_FIELD_COMMENT("New root directory for the soft reboot"),
+                SD_VARLINK_DEFINE_INPUT(root, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
+
 static SD_VARLINK_DEFINE_ERROR(RateLimitReached);
 
 SD_VARLINK_DEFINE_INTERFACE(
@@ -205,6 +214,16 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_Reload,
                 SD_VARLINK_SYMBOL_COMMENT("Enqueue all marked jobs"),
                 &vl_method_EnqueueMarkedJobs,
+                SD_VARLINK_SYMBOL_COMMENT("Power off the system"),
+                &vl_method_PowerOff,
+                SD_VARLINK_SYMBOL_COMMENT("Reboot the system"),
+                &vl_method_Reboot,
+                SD_VARLINK_SYMBOL_COMMENT("Halt the system"),
+                &vl_method_Halt,
+                SD_VARLINK_SYMBOL_COMMENT("Reboot the system via kexec"),
+                &vl_method_KExec,
+                SD_VARLINK_SYMBOL_COMMENT("Soft-reboot the userspace"),
+                &vl_method_SoftReboot,
                 &vl_error_RateLimitReached,
                 &vl_type_ManagerContext,
                 &vl_type_ManagerRuntime,
