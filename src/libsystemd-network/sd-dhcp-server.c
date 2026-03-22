@@ -16,11 +16,11 @@
 #include "dns-domain.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "hashmap.h"
 #include "in-addr-util.h"
 #include "iovec-util.h"
 #include "memory-util.h"
 #include "network-common.h"
-#include "ordered-set.h"
 #include "path-util.h"
 #include "siphash24.h"
 #include "socket-util.h"
@@ -138,8 +138,8 @@ static sd_dhcp_server *dhcp_server_free(sd_dhcp_server *server) {
         server->static_leases_by_address = hashmap_free(server->static_leases_by_address);
         server->static_leases_by_client_id = hashmap_free(server->static_leases_by_client_id);
 
-        ordered_set_free(server->extra_options);
-        ordered_set_free(server->vendor_options);
+        hashmap_free(server->extra_options);
+        hashmap_free(server->vendor_options);
 
         free(server->agent_circuit_id);
         free(server->agent_remote_id);
@@ -616,7 +616,6 @@ static int server_send_offer_or_ack(
         };
 
         _cleanup_free_ DHCPPacket *packet = NULL;
-        sd_dhcp_option *j;
         be32_t lease_time;
         size_t offset;
         int r;
@@ -716,18 +715,25 @@ static int server_send_offer_or_ack(
                         return r;
         }
 
-        ORDERED_SET_FOREACH(j, server->extra_options) {
-                r = dhcp_option_append(&packet->dhcp, req->max_optlen, &offset, 0,
-                                       j->option, j->length, j->data);
+        sd_dhcp_option *o;
+        HASHMAP_FOREACH(o, server->extra_options)
+                LIST_FOREACH(option, j, o) {
+                        r = dhcp_option_append(&packet->dhcp, req->max_optlen, &offset, 0,
+                                               j->option, j->length, j->data);
+                        if (r < 0)
+                                return r;
+                }
+
+        if (!hashmap_isempty(server->vendor_options)) {
+                _cleanup_(iovec_done) struct iovec iov = {};
+                r = dhcp_options_build(server->vendor_options, &iov);
                 if (r < 0)
                         return r;
-        }
 
-        if (!ordered_set_isempty(server->vendor_options)) {
                 r = dhcp_option_append(
                                 &packet->dhcp, req->max_optlen, &offset, 0,
                                 SD_DHCP_OPTION_VENDOR_SPECIFIC,
-                                /* optlen= */ 0, server->vendor_options);
+                                iov.iov_len, iov.iov_base);
                 if (r < 0)
                         return r;
         }
@@ -1609,33 +1615,28 @@ int sd_dhcp_server_set_router(sd_dhcp_server *server, const struct in_addr *rout
         return 0;
 }
 
-int sd_dhcp_server_add_option(sd_dhcp_server *server, sd_dhcp_option *v) {
+static int dhcp_server_set_options(sd_dhcp_server *server, Hashmap *options, Hashmap **dest) {
         int r;
 
-        assert_return(server, -EINVAL);
-        assert_return(v, -EINVAL);
+        assert(server);
+        assert(dest);
 
-        r = ordered_set_ensure_put(&server->extra_options, &dhcp_option_hash_ops, v);
+        _cleanup_hashmap_free_ Hashmap *copy = NULL;
+        r = dhcp_options_append_many(&copy, options);
         if (r < 0)
                 return r;
 
-        sd_dhcp_option_ref(v);
-        return 0;
+        return hashmap_free_and_replace(*dest, copy);
 }
 
-int sd_dhcp_server_add_vendor_option(sd_dhcp_server *server, sd_dhcp_option *v) {
-        int r;
+int dhcp_server_set_extra_options(sd_dhcp_server *server, Hashmap *options) {
+        assert(server);
+        return dhcp_server_set_options(server, options, &server->extra_options);
+}
 
-        assert_return(server, -EINVAL);
-        assert_return(v, -EINVAL);
-
-        r = ordered_set_ensure_put(&server->vendor_options, &dhcp_option_hash_ops, v);
-        if (r < 0)
-                return r;
-
-        sd_dhcp_option_ref(v);
-
-        return 1;
+int dhcp_server_set_vendor_options(sd_dhcp_server *server, Hashmap *options) {
+        assert(server);
+        return dhcp_server_set_options(server, options, &server->vendor_options);
 }
 
 int sd_dhcp_server_set_callback(sd_dhcp_server *server, sd_dhcp_server_callback_t cb, void *userdata) {
