@@ -103,10 +103,10 @@ possible.
 2. 60578…60705 → UIDs for dynamic greeter users are allocated from this range.
    In multiseat scenarios, multiple greeter sessions may be running at once.
    However, systemd only permits one graphical session at a time per user
-   ([documentation](/DESKTOP_ENVIRONMENTS)). Thus, multiseat-enabled display
+   ([documentation](https://systemd.io/DESKTOP_ENVIRONMENTS)). Thus, multiseat-enabled display
    managers (like GDM) must run each greeter session under a unique user. To
    make use of this UID range, the display manager should implement the
-   [userdb Varlink API](/USER_GROUP_API) and dynamically allocate users whenever
+   [userdb Varlink API](https://systemd.io/USER_GROUP_API) and dynamically allocate users whenever
    they are needed by the display manager. Display managers may also use these
    UIDs for other purposes where dynamic users may be helpful (i.e. guest user
    sessions or kiosk sessions)
