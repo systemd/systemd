@@ -48,6 +48,13 @@ struct DHCPMessage {
 
 typedef struct DHCPMessage DHCPMessage;
 
+struct sd_dhcp_message {
+        unsigned n_ref;
+
+        DHCPMessageHeader header;
+        Hashmap *options;
+};
+
 struct DHCPPacket {
         struct iphdr ip;
         struct udphdr udp;
