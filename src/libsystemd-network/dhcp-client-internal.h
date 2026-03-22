@@ -8,6 +8,7 @@
 #include "network-common.h"
 #include "sd-forward.h"
 #include "socket-util.h"
+#include "tlv-util.h"
 
 typedef enum DHCPState {
         DHCP_STATE_STOPPED,
@@ -65,8 +66,8 @@ struct sd_dhcp_client {
         uint64_t discover_attempt;
         uint64_t request_attempt;
         uint64_t max_discover_attempts;
-        OrderedHashmap *extra_options;
-        OrderedHashmap *vendor_options;
+        TLV *extra_options;
+        TLV *vendor_options;
         sd_event_source *timeout_t1;
         sd_event_source *timeout_t2;
         sd_event_source *timeout_expire;
@@ -89,6 +90,9 @@ int dhcp_client_set_state_callback(
                 sd_dhcp_client_callback_t cb,
                 void *userdata);
 int dhcp_client_get_state(sd_dhcp_client *client);
+
+int dhcp_client_set_extra_options(sd_dhcp_client *client, TLV *options);
+int dhcp_client_set_vendor_options(sd_dhcp_client *client, TLV *options);
 
 int client_receive_message_raw(
                 sd_event_source *s,
