@@ -258,7 +258,7 @@ int ethtool_get_link_info(
 }
 
 int ethtool_get_permanent_hw_addr(int *ethtool_fd, const char *ifname, struct hw_addr_data *ret) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         union {
                 struct ethtool_perm_addr addr;
                 uint8_t buf[offsetof(struct ethtool_perm_addr, data) + HW_ADDR_MAX_SIZE];

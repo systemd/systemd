@@ -221,7 +221,7 @@ int is_device_node(const char *path) {
 }
 
 int dir_is_empty_at(int dir_fd, const char *path, bool ignore_hidden_or_backup) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         struct dirent *buf;
         size_t m;
 
@@ -409,7 +409,7 @@ static int xfstatfs(int fd, struct statfs *ret) {
 }
 
 int xstatfsat(int dir_fd, const char *path, struct statfs *ret) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         assert(dir_fd >= 0 || IN_SET(dir_fd, AT_FDCWD, XAT_FDROOT));
         assert(ret);
@@ -444,7 +444,7 @@ int fd_is_read_only_fs(int fd) {
 }
 
 int path_is_read_only_fs(const char *path) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         assert(path);
 
@@ -471,7 +471,7 @@ int inode_same_at(int fda, const char *filea, int fdb, const char *fileb, int fl
         if (fda >= 0 && fda == fdb && isempty(filea) && isempty(fileb) && FLAGS_SET(flags, AT_SYMLINK_NOFOLLOW))
                 return true;
 
-        _cleanup_close_ int pin_a = -EBADF, pin_b = -EBADF;
+        _cleanup_(closep) int pin_a = -EBADF, pin_b = -EBADF;
         if (!FLAGS_SET(flags, AT_NO_AUTOMOUNT)) {
                 /* Let's try to use the name_to_handle_at() AT_HANDLE_FID API to identify identical
                  * inodes. We have to issue multiple calls on the same file for that (first, to acquire the

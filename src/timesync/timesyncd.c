@@ -71,7 +71,7 @@ static int advance_tstamp(int fd, usec_t epoch) {
 
 static int load_clock_timestamp(void) {
         usec_t epoch = TIME_EPOCH * USEC_PER_SEC, ct;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         /* Let's try to make sure that the clock is always monotonically increasing, by saving the clock

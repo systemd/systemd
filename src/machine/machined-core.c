@@ -227,8 +227,8 @@ int machine_get_addresses(Machine *machine, struct local_address **ret_addresses
 
         case MACHINE_CONTAINER: {
                 _cleanup_(pidref_done) PidRef child = PIDREF_NULL;
-                _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
-                _cleanup_close_ int netns_fd = -EBADF;
+                _cleanup_(close_pairp) int pair[2] = EBADF_PAIR;
+                _cleanup_(closep) int netns_fd = -EBADF;
                 int r;
 
                 r = pidref_in_same_namespace(/* pid1= */ NULL, &machine->leader, NAMESPACE_NET);
@@ -327,7 +327,7 @@ int machine_get_addresses(Machine *machine, struct local_address **ret_addresses
 #define EXIT_NOT_FOUND 2
 
 int machine_get_os_release(Machine *machine, char ***ret_os_release) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         int r;
 
         assert(machine);
@@ -343,10 +343,10 @@ int machine_get_os_release(Machine *machine, char ***ret_os_release) {
                 break;
 
         case MACHINE_CONTAINER: {
-                _cleanup_close_ int mntns_fd = -EBADF, root_fd = -EBADF, pidns_fd = -EBADF;
+                _cleanup_(closep) int mntns_fd = -EBADF, root_fd = -EBADF, pidns_fd = -EBADF;
                 _cleanup_(pidref_done) PidRef child = PIDREF_NULL;
-                _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
-                _cleanup_fclose_ FILE *f = NULL;
+                _cleanup_(close_pairp) int pair[2] = EBADF_PAIR;
+                _cleanup_(fclosep) FILE *f = NULL;
 
                 r = pidref_namespace_open(&machine->leader,
                                           &pidns_fd,
@@ -372,7 +372,7 @@ int machine_get_os_release(Machine *machine, char ***ret_os_release) {
                 if (r < 0)
                         return log_debug_errno(r, "Failed to fork(): %m");
                 if (r == 0) {
-                        _cleanup_close_ int fd = -EBADF;
+                        _cleanup_(closep) int fd = -EBADF;
 
                         pair[0] = safe_close(pair[0]);
 

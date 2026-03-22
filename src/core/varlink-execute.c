@@ -183,7 +183,7 @@ static int extension_images_build_json(sd_json_variant **ret, const char *name, 
 
 static int capability_set_build_json(sd_json_variant **ret, const char *name, void *userdata) {
         uint64_t capability_set = PTR_TO_INT64(userdata);
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         int r;
 
         assert(ret);
@@ -203,7 +203,7 @@ static int capability_set_build_json(sd_json_variant **ret, const char *name, vo
 
 static int secure_bits_build_json(sd_json_variant **ret, const char *name, void *userdata) {
         int secure_bits = PTR_TO_INT(userdata);
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         int r;
 
         assert(ret);
@@ -403,7 +403,7 @@ static int temporary_filesystems_build_json(sd_json_variant **ret, const char *n
 }
 
 static int address_families_build_json(sd_json_variant **ret, const char *name, void *userdata) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         ExecContext *c = ASSERT_PTR(userdata);
 
         assert(ret);
@@ -426,7 +426,7 @@ static int address_families_build_json(sd_json_variant **ret, const char *name, 
 
 static int restrict_filesystems_build_json(sd_json_variant **ret, const char *name, void *userdata) {
         ExecContext *c = ASSERT_PTR(userdata);
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
 
         assert(ret);
         assert(name);
@@ -447,7 +447,7 @@ static int restrict_filesystems_build_json(sd_json_variant **ret, const char *na
 }
 
 static int namespace_flags_build_json(sd_json_variant **ret, const char *name, void *userdata) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         unsigned long namespaces = PTR_TO_ULONG(userdata);
         int r;
 
@@ -516,7 +516,7 @@ static int private_bpf_delegate_attachments_build_json(sd_json_variant **ret, co
 
 static int syscall_filter_build_json(sd_json_variant **ret, const char *name, void *userdata) {
         ExecContext *c = ASSERT_PTR(userdata);
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
 
         assert(ret);
         assert(name);
@@ -552,7 +552,7 @@ static int syscall_error_number_build_json(sd_json_variant **ret, const char *na
 
 static int syscall_archs_build_json(sd_json_variant **ret, const char *name, void *userdata) {
         ExecContext *c = ASSERT_PTR(userdata);
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
 
         assert(ret);
         assert(name);
@@ -571,7 +571,7 @@ static int syscall_archs_build_json(sd_json_variant **ret, const char *name, voi
 
 static int syscall_log_build_json(sd_json_variant **ret, const char *name, void *userdata) {
         ExecContext *c = ASSERT_PTR(userdata);
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
 
         assert(ret);
         assert(name);

@@ -563,7 +563,7 @@ static int bus_append_socket_filter(sd_bus_message *m, const char *field, const 
 
 static int bus_append_exec_command(sd_bus_message *m, const char *field, const char *eq) {
         bool explicit_path = false, done = false, ambient_hack = false;
-        _cleanup_strv_free_ char **cmdline = NULL, **ex_opts = NULL;
+        _cleanup_(strv_freep) char **cmdline = NULL, **ex_opts = NULL;
         _cleanup_free_ char *_path = NULL;
         ExecCommandFlags flags = 0;
         int r;
@@ -1716,7 +1716,7 @@ static int bus_append_root_hash_signature(sd_bus_message *m, const char *field, 
 }
 
 static int bus_append_root_image_options(sd_bus_message *m, const char *field, const char *eq) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         const char *p = eq;
         int r;
 
@@ -1972,7 +1972,7 @@ static int bus_append_extension_images(sd_bus_message *m, const char *field, con
 }
 
 static int bus_append_directory(sd_bus_message *m, const char *field, const char *eq) {
-        _cleanup_strv_free_ char **symlinks = NULL, **symlinks_ro = NULL, **sources = NULL, **sources_ro = NULL;
+        _cleanup_(strv_freep) char **symlinks = NULL, **symlinks_ro = NULL, **sources = NULL, **sources_ro = NULL;
         const char *p = eq;
         int r;
 

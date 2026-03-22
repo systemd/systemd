@@ -102,7 +102,7 @@ int manager_install_sysctl_monitor(Manager *manager) {
         _cleanup_(sysctl_monitor_bpf_freep) struct sysctl_monitor_bpf *obj = NULL;
         _cleanup_(bpf_link_freep) struct bpf_link *sysctl_link = NULL;
         _cleanup_(bpf_ring_buffer_freep) struct ring_buffer *sysctl_buffer = NULL;
-        _cleanup_close_ int cgroup_fd = -EBADF, root_cgroup_fd = -EBADF;
+        _cleanup_(closep) int cgroup_fd = -EBADF, root_cgroup_fd = -EBADF;
         _cleanup_free_ char *cgroup = NULL;
         int idx = 0, r, fd;
 

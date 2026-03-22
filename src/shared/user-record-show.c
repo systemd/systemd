@@ -80,7 +80,7 @@ static void show_tmpfs_limit(const char *tmpfs, const TmpfsLimit *limit, uint32_
 }
 
 void user_record_show(UserRecord *hr, bool show_full_group_info) {
-        _cleanup_strv_free_ char **langs = NULL;
+        _cleanup_(strv_freep) char **langs = NULL;
         const char *hd, *ip, *shell;
         UserStorage storage;
         usec_t t;

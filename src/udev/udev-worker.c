@@ -84,7 +84,7 @@ irrelevant:
 }
 
 static int worker_lock_whole_disk(UdevWorker *worker, sd_device *dev, int *ret_fd) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         sd_device *dev_whole_disk;
         const char *whole_disk;
         int r;
@@ -174,7 +174,7 @@ static int worker_mark_block_device_read_only(sd_device *dev) {
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get device node: %m");
 
-        _cleanup_close_ int fd = sd_device_open(dev, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        _cleanup_(closep) int fd = sd_device_open(dev, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (fd < 0) {
                 bool ignore = ERRNO_IS_DEVICE_ABSENT_OR_EMPTY(fd);
                 log_device_full_errno(dev, ignore ? LOG_DEBUG : LOG_WARNING, fd,
@@ -204,7 +204,7 @@ static int worker_process_device(UdevWorker *worker, sd_device *dev) {
          * Instead of processing the event, we requeue the event and will try again after a delay.
          *
          * The user-facing side of this: https://systemd.io/BLOCK_DEVICE_LOCKING */
-        _cleanup_close_ int fd_lock = -EBADF;
+        _cleanup_(closep) int fd_lock = -EBADF;
         r = worker_lock_whole_disk(worker, dev, &fd_lock);
         if (r == -EAGAIN)
                 return 0;

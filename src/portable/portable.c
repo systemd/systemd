@@ -167,7 +167,7 @@ static int send_one_fd_iov_with_data_fd(
                 size_t iovlen,
                 int fd) {
 
-        _cleanup_close_ int data_fd = -EBADF;
+        _cleanup_(closep) int data_fd = -EBADF;
 
         assert(iov || iovlen == 0);
         assert(socket_fd >= 0);
@@ -204,7 +204,7 @@ static int receive_portable_metadata(
 
         for (;;) {
                 _cleanup_(portable_metadata_unrefp) PortableMetadata *add = NULL;
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
                 /* We use NAME_MAX space for the SELinux label here. The kernel currently enforces no limit,
                  * but according to suggestions from the SELinux people this will change and it will probably
                  * be identical to NAME_MAX. For now we use that, but this should be updated one day when the
@@ -275,10 +275,10 @@ static int extract_now(
                 PortableMetadata **ret_os_release,
                 Hashmap **ret_unit_files) {
 
-        _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
+        _cleanup_(hashmap_freep) Hashmap *unit_files = NULL;
         _cleanup_(portable_metadata_unrefp) PortableMetadata *os_release = NULL;
         _cleanup_(lookup_paths_done) LookupPaths paths = {};
-        _cleanup_close_ int os_release_fd = -EBADF;
+        _cleanup_(closep) int os_release_fd = -EBADF;
         _cleanup_free_ char *os_release_path = NULL;
         const char *os_release_id;
         int r;
@@ -356,7 +356,7 @@ static int extract_now(
 
         STRV_FOREACH(i, paths.search_path) {
                 _cleanup_free_ char *relative = NULL, *resolved = NULL;
-                _cleanup_closedir_ DIR *d = NULL;
+                _cleanup_(closedirp) DIR *d = NULL;
 
                 r = chase_and_opendirat(rfd, *i, CHASE_AT_RESOLVE_IN_ROOT, &relative, &d);
                 if (r < 0) {
@@ -370,8 +370,8 @@ static int extract_now(
 
                 FOREACH_DIRENT(de, d, return log_debug_errno(errno, "Failed to read directory: %m")) {
                         _cleanup_(portable_metadata_unrefp) PortableMetadata *m = NULL;
-                        _cleanup_freecon_ char *con = NULL;
-                        _cleanup_close_ int fd = -EBADF;
+                        _cleanup_(freeconp) char *con = NULL;
+                        _cleanup_(closep) int fd = -EBADF;
                         struct stat st;
 
                         if (!unit_name_is_valid(de->d_name, UNIT_NAME_ANY))
@@ -462,14 +462,14 @@ static int portable_extract_by_path(
                 ImagePolicy **ret_pinned_image_policy,
                 sd_bus_error *error) {
 
-        _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
+        _cleanup_(hashmap_freep) Hashmap *unit_files = NULL;
         _cleanup_(portable_metadata_unrefp) PortableMetadata* os_release = NULL;
         _cleanup_(image_policy_freep) ImagePolicy *pinned_image_policy = NULL;
         int r;
 
         assert(path);
 
-        _cleanup_close_ int rfd = open(path, O_PATH|O_CLOEXEC);
+        _cleanup_(closep) int rfd = open(path, O_PATH|O_CLOEXEC);
         if (rfd < 0)
                 return log_debug_errno(errno, "Failed to open '%s': %m", path);
 
@@ -484,14 +484,14 @@ static int portable_extract_by_path(
                         return log_debug_errno(r, "Failed to extract image name from path '%s': %m", path);
 
                 if (scope == RUNTIME_SCOPE_USER && uid_is_foreign(st.st_uid)) {
-                        _cleanup_close_ int userns_fd = nsresource_allocate_userns(
+                        _cleanup_(closep) int userns_fd = nsresource_allocate_userns(
                                         /* vl= */ NULL,
                                         /* name= */ NULL,
                                         NSRESOURCE_UIDS_64K);
                         if (userns_fd < 0)
                                 return log_debug_errno(userns_fd, "Failed to allocate user namespace: %m");
 
-                        _cleanup_close_ int mfd = -EBADF;
+                        _cleanup_(closep) int mfd = -EBADF;
                         r = mountfsd_mount_directory_fd(
                                         /* vl= */ NULL,
                                         rfd,
@@ -501,11 +501,11 @@ static int portable_extract_by_path(
                         if (r < 0)
                                 return r;
 
-                        _cleanup_close_pair_ int seq[2] = EBADF_PAIR;
+                        _cleanup_(close_pairp) int seq[2] = EBADF_PAIR;
                         if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, seq) < 0)
                                 return log_debug_errno(errno, "Failed to allocated SOCK_SEQPACKET socket: %m");
 
-                        _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR;
+                        _cleanup_(close_pairp) int errno_pipe_fd[2] = EBADF_PAIR;
                         if (pipe2(errno_pipe_fd, O_CLOEXEC|O_NONBLOCK) < 0)
                                 return log_debug_errno(errno, "Failed to create pipe: %m");
 
@@ -570,9 +570,9 @@ static int portable_extract_by_path(
         } else {
                 _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
                 _cleanup_(rmdir_and_freep) char *tmpdir = NULL;
-                _cleanup_close_pair_ int seq[2] = EBADF_PAIR, errno_pipe_fd[2] = EBADF_PAIR;
+                _cleanup_(close_pairp) int seq[2] = EBADF_PAIR, errno_pipe_fd[2] = EBADF_PAIR;
                 _cleanup_(pidref_done_sigkill_wait) PidRef child = PIDREF_NULL;
-                _cleanup_close_ int userns_fd = -EBADF;
+                _cleanup_(closep) int userns_fd = -EBADF;
                 DissectImageFlags flags =
                         DISSECT_IMAGE_READ_ONLY |
                         DISSECT_IMAGE_GENERIC_ROOT |
@@ -723,7 +723,7 @@ static int portable_extract_by_path(
                                 report_errno_and_exit(errno_pipe_fd[1], r);
                         }
 
-                        _cleanup_close_ int mfd = open(tmpdir, O_DIRECTORY|O_CLOEXEC);
+                        _cleanup_(closep) int mfd = open(tmpdir, O_DIRECTORY|O_CLOEXEC);
                         if (mfd < 0) {
                                 r = log_debug_errno(errno, "Failed to open '%s': %m", tmpdir);
                                 report_errno_and_exit(errno_pipe_fd[1], r);
@@ -803,10 +803,10 @@ static int extract_image_and_extensions(
         _cleanup_free_ char *id = NULL, *id_like = NULL, *version_id = NULL, *sysext_level = NULL, *confext_level = NULL;
         _cleanup_(image_policy_freep) ImagePolicy *pinned_root_image_policy = NULL, *pinned_ext_image_policy = NULL;
         _cleanup_(portable_metadata_unrefp) PortableMetadata *os_release = NULL;
-        _cleanup_ordered_hashmap_free_ OrderedHashmap *extension_images = NULL, *extension_releases = NULL;
+        _cleanup_(ordered_hashmap_freep) OrderedHashmap *extension_images = NULL, *extension_releases = NULL;
         _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
-        _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
-        _cleanup_strv_free_ char **valid_prefixes = NULL;
+        _cleanup_(hashmap_freep) Hashmap *unit_files = NULL;
+        _cleanup_(strv_freep) char **valid_prefixes = NULL;
         _cleanup_(image_unrefp) Image *image = NULL;
         Image *ext;
         int r;
@@ -953,8 +953,8 @@ static int extract_image_and_extensions(
         ORDERED_HASHMAP_FOREACH(ext, extension_images) {
                 _cleanup_(portable_metadata_unrefp) PortableMetadata *extension_release_meta = NULL;
                 _cleanup_(image_policy_freep) ImagePolicy *policy = NULL;
-                _cleanup_hashmap_free_ Hashmap *extra_unit_files = NULL;
-                _cleanup_strv_free_ char **extension_release = NULL;
+                _cleanup_(hashmap_freep) Hashmap *extra_unit_files = NULL;
+                _cleanup_(strv_freep) char **extension_release = NULL;
                 const char *e;
 
                 r = portable_extract_by_path(
@@ -1057,9 +1057,9 @@ int portable_extract(
                 sd_bus_error *error) {
 
         _cleanup_(portable_metadata_unrefp) PortableMetadata *os_release = NULL;
-        _cleanup_ordered_hashmap_free_ OrderedHashmap *extension_images = NULL, *extension_releases = NULL;
-        _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
-        _cleanup_strv_free_ char **valid_prefixes = NULL;
+        _cleanup_(ordered_hashmap_freep) OrderedHashmap *extension_images = NULL, *extension_releases = NULL;
+        _cleanup_(hashmap_freep) Hashmap *unit_files = NULL;
+        _cleanup_(strv_freep) char **valid_prefixes = NULL;
         _cleanup_(image_unrefp) Image *image = NULL;
         int r;
 
@@ -1363,7 +1363,7 @@ static int append_release_log_fields(
                  [IMAGE_SYSEXT] = { "SYSEXT_IMAGE_ID", "SYSEXT_ID", NULL },
                  [IMAGE_CONFEXT] = { "CONFEXT_IMAGE_ID", "CONFEXT_ID", NULL },
         };
-        _cleanup_strv_free_ char **fields = NULL;
+        _cleanup_(strv_freep) char **fields = NULL;
         const char *id = NULL, *version = NULL;
         int r;
 
@@ -1740,7 +1740,7 @@ static int attach_unit_file(
         } else {
                 LinkTmpfileFlags link_flags = LINK_TMPFILE_SYNC;
                 _cleanup_(unlink_and_freep) char *tmp = NULL;
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
 
                 if (flags & PORTABLE_FORCE_ATTACH)
                         link_flags |= LINK_TMPFILE_REPLACE;
@@ -1830,14 +1830,14 @@ static int install_image(
 
         if (flags & PORTABLE_MIXED_COPY_LINK) {
                 if (scope == RUNTIME_SCOPE_USER) {
-                        _cleanup_close_ int userns_fd = nsresource_allocate_userns(
+                        _cleanup_(closep) int userns_fd = nsresource_allocate_userns(
                                         /* vl= */ NULL,
                                         /* name= */ NULL,
                                         NSRESOURCE_UIDS_64K);
                         if (userns_fd < 0)
                                 return log_debug_errno(userns_fd, "Failed to allocate user namespace: %m");
 
-                        _cleanup_close_ int fd = open(image_path, O_DIRECTORY|O_CLOEXEC);
+                        _cleanup_(closep) int fd = open(image_path, O_DIRECTORY|O_CLOEXEC);
                         if (fd < 0)
                                 return log_debug_errno(errno, "Failed to open '%s': %m", image_path);
 
@@ -1850,7 +1850,7 @@ static int install_image(
                         if (r < 0)
                                 return r;
 
-                        _cleanup_close_ int tree_fd = -EBADF;
+                        _cleanup_(closep) int tree_fd = -EBADF;
                         if (uid_is_foreign(st.st_uid)) {
                                 r = mountfsd_mount_directory_fd(
                                                 mountfsd_link,
@@ -1863,12 +1863,12 @@ static int install_image(
                         } else
                                 tree_fd = TAKE_FD(fd);
 
-                        _cleanup_close_ int directory_fd = -EBADF;
+                        _cleanup_(closep) int directory_fd = -EBADF;
                         r = mountfsd_make_directory(mountfsd_link, target, MODE_INVALID, /* flags= */ 0, &directory_fd);
                         if (r < 0)
                                 return r;
 
-                        _cleanup_close_ int copy_fd = -EBADF;
+                        _cleanup_(closep) int copy_fd = -EBADF;
                         r = mountfsd_mount_directory_fd(mountfsd_link, directory_fd, userns_fd, DISSECT_IMAGE_FOREIGN_UID, &copy_fd);
                         if (r < 0)
                                 return r;
@@ -1957,7 +1957,7 @@ static void log_portable_verb(
                 PortableFlags flags) {
 
         _cleanup_free_ char *root_base_name = NULL, *extensions_joined = NULL;
-        _cleanup_strv_free_ char **extension_base_names = NULL;
+        _cleanup_(strv_freep) char **extension_base_names = NULL;
         Image *ext;
         int r;
 
@@ -2036,11 +2036,11 @@ int portable_attach(
                 sd_bus_error *error) {
 
         _cleanup_(image_policy_freep) ImagePolicy *pinned_root_image_policy = NULL, *pinned_ext_image_policy = NULL;
-        _cleanup_ordered_hashmap_free_ OrderedHashmap *extension_images = NULL, *extension_releases = NULL;
+        _cleanup_(ordered_hashmap_freep) OrderedHashmap *extension_images = NULL, *extension_releases = NULL;
         _cleanup_(portable_metadata_unrefp) PortableMetadata *os_release = NULL;
-        _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
+        _cleanup_(hashmap_freep) Hashmap *unit_files = NULL;
         _cleanup_(lookup_paths_done) LookupPaths paths = {};
-        _cleanup_strv_free_ char **valid_prefixes = NULL;
+        _cleanup_(strv_freep) char **valid_prefixes = NULL;
         _cleanup_(image_unrefp) Image *image = NULL;
         PortableMetadata *item;
         int r;
@@ -2163,7 +2163,7 @@ int portable_attach(
 }
 
 static bool marker_matches_images(const char *marker, const char *name_or_path, char **extension_image_paths, bool match_all) {
-        _cleanup_strv_free_ char **root_and_extensions = NULL;
+        _cleanup_(strv_freep) char **root_and_extensions = NULL;
         int r;
 
         assert(marker);
@@ -2239,8 +2239,8 @@ static int test_chroot_dropin(
                 char **ret_marker) {
 
         _cleanup_free_ char *line = NULL, *marker = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(fclosep) FILE *f = NULL;
+        _cleanup_(closep) int fd = -EBADF;
         const char *p, *e, *k;
         int r;
 
@@ -2303,9 +2303,9 @@ int portable_detach(
                 sd_bus_error *error) {
 
         _cleanup_(lookup_paths_done) LookupPaths paths = {};
-        _cleanup_set_free_ Set *unit_files = NULL, *markers = NULL;
+        _cleanup_(set_freep) Set *unit_files = NULL, *markers = NULL;
         _cleanup_free_ char *extensions = NULL;
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
         const char *where, *item;
         int r, ret = 0;
 
@@ -2491,8 +2491,8 @@ static int portable_get_state_internal(
 
         _cleanup_(lookup_paths_done) LookupPaths paths = {};
         bool found_enabled = false, found_running = false;
-        _cleanup_set_free_ Set *unit_files = NULL;
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(set_freep) Set *unit_files = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
         const char *where;
         int r;
 
@@ -2600,7 +2600,7 @@ int portable_get_state(
 }
 
 int portable_get_profiles(RuntimeScope scope, char ***ret) {
-        _cleanup_strv_free_ char **dirs = NULL;
+        _cleanup_(strv_freep) char **dirs = NULL;
         int r;
 
         assert(ret);

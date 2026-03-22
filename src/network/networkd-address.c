@@ -2436,7 +2436,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
         address_detach);
 
 int network_drop_invalid_addresses(Network *network) {
-        _cleanup_set_free_ Set *addresses = NULL, *duplicated_addresses = NULL;
+        _cleanup_(set_freep) Set *addresses = NULL, *duplicated_addresses = NULL;
         Address *address;
         int r;
 

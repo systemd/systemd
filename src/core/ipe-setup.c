@@ -20,7 +20,7 @@
 
 int ipe_setup(void) {
 #if ENABLE_IPE
-        _cleanup_strv_free_ char **policies = NULL;
+        _cleanup_(strv_freep) char **policies = NULL;
         int r;
 
         /* Very quick smoke tests first: this is in the citical, sequential boot path, and in most cases it
@@ -43,7 +43,7 @@ int ipe_setup(void) {
 
         STRV_FOREACH(policy, policies) {
                 _cleanup_free_ char *policy_name = NULL, *file_name = NULL, *output_path = NULL, *activate_path = NULL;
-                _cleanup_close_ int input = -EBADF, output = -EBADF;
+                _cleanup_(closep) int input = -EBADF, output = -EBADF;
                 const char *suffix;
 
                 r = path_extract_filename(*policy, &file_name);

@@ -62,7 +62,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 static int add_dissected_swap_cryptsetup(void) {
 
 #if HAVE_LIBCRYPTSETUP
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r;
 
         /* Write out cryptsetup unit for the "auto" swap device (/dev/disk/by-designator/swap-luks), so that

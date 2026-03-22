@@ -31,7 +31,7 @@ static int get_acl(int fd, const char *name, acl_type_t type, acl_t *ret) {
         assert(ret);
 
         if (name) {
-                _cleanup_close_ int child_fd = -EBADF;
+                _cleanup_(closep) int child_fd = -EBADF;
 
                 child_fd = openat(fd, name, O_PATH|O_CLOEXEC|O_NOFOLLOW);
                 if (child_fd < 0)
@@ -56,7 +56,7 @@ static int set_acl(int fd, const char *name, acl_type_t type, acl_t acl) {
         assert(acl);
 
         if (name) {
-                _cleanup_close_ int child_fd = -EBADF;
+                _cleanup_(closep) int child_fd = -EBADF;
 
                 child_fd = openat(fd, name, O_PATH|O_CLOEXEC|O_NOFOLLOW);
                 if (child_fd < 0)
@@ -296,7 +296,7 @@ static int is_fs_fully_userns_compatible(const struct statfs *sfs) {
 }
 
 static int recurse_fd(int fd, const struct stat *st, uid_t shift, bool is_toplevel) {
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
         bool changed = false;
         struct statfs sfs;
         int r;
@@ -385,7 +385,7 @@ read_only:
 }
 
 int path_patch_uid(const char *path, uid_t shift, uid_t range) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         struct stat st;
         int r;
 

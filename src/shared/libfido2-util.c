@@ -919,7 +919,7 @@ int fido2_generate_hmac_hash(
                 AskPasswordFlags askpw_flags = ASK_PASSWORD_ACCEPT_CACHED;
 
                 for (;;) {
-                        _cleanup_strv_free_erase_ char **pin = NULL;
+                        _cleanup_(strv_free_erasep) char **pin = NULL;
                         AskPasswordRequest req = {
                                 .tty_fd = -EBADF,
                                 .message = "Please enter security token PIN:",

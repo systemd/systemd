@@ -63,8 +63,6 @@ static inline void freeconp(char **p) {
 }
 #endif
 
-#define _cleanup_freecon_ _cleanup_(freeconp)
-
 /* This accepts 0 error, like _zerook(). */
 #define log_selinux_enforcing_errno(error, ...)                         \
         ({                                                              \

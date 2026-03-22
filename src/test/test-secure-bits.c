@@ -16,14 +16,14 @@ static const char * const string_bits[] = {
 
 TEST(secure_bits_basic) {
         _cleanup_free_ char *joined = NULL, *str = NULL, *joined_ssv = NULL;
-        _cleanup_strv_free_ char **ssv = NULL;
+        _cleanup_(strv_freep) char **ssv = NULL;
         int r;
 
         /* Check if converting each bit from string and back to string yields
          * the same value */
         STRV_FOREACH(bit, string_bits) {
                 _cleanup_free_ char *s = NULL;
-                _cleanup_strv_free_ char **sv = NULL;
+                _cleanup_(strv_freep) char **sv = NULL;
 
                 r = secure_bits_from_string(*bit);
                 assert_se(r > 0);

@@ -161,7 +161,7 @@ int expose_port_execute(sd_netlink *rtnl, sd_netlink *nfnl, ExposePort *l, int a
 }
 
 int expose_port_send_rtnl(int send_fd) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         assert(send_fd >= 0);

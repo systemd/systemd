@@ -188,7 +188,7 @@ static int parse_path_many(
                 char ***s,
                 const char *p) {
 
-        _cleanup_strv_free_ char **l = NULL, **f = NULL;
+        _cleanup_(strv_freep) char **l = NULL, **f = NULL;
         int r;
 
         l = strv_split(p, NULL);
@@ -539,7 +539,7 @@ int boot_loader_read_conf(BootConfig *config, FILE *file, const char *path) {
 
 static int boot_loader_read_conf_path(BootConfig *config, const char *root, const char *path) {
         _cleanup_free_ char *full = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r;
 
         assert(config);
@@ -651,7 +651,7 @@ static int boot_entries_find_type1(
 
         _cleanup_free_ DirectoryEntries *dentries = NULL;
         _cleanup_free_ char *full = NULL;
-        _cleanup_close_ int dir_fd = -EBADF;
+        _cleanup_(closep) int dir_fd = -EBADF;
         int r;
 
         assert(config);
@@ -670,7 +670,7 @@ static int boot_entries_find_type1(
 
         FOREACH_ARRAY(i, dentries->entries, dentries->n_entries) {
                 const struct dirent *de = *i;
-                _cleanup_fclose_ FILE *f = NULL;
+                _cleanup_(fclosep) FILE *f = NULL;
 
                 if (!dirent_is_file(de))
                         continue;
@@ -1104,7 +1104,7 @@ static int boot_entries_find_unified_addons(
                 const char *root,
                 BootEntryAddons *ret_addons) {
 
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
         _cleanup_free_ char *full = NULL;
         _cleanup_(boot_entry_addons_done) BootEntryAddons addons = {};
         int r;
@@ -1120,7 +1120,7 @@ static int boot_entries_find_unified_addons(
 
         FOREACH_DIRENT(de, d, return log_error_errno(errno, "Failed to read %s: %m", full)) {
                 _cleanup_free_ char *j = NULL, *cmdline = NULL, *location = NULL;
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
 
                 if (!dirent_is_file(de))
                         continue;
@@ -1170,7 +1170,7 @@ static int boot_entries_find_unified_global_addons(
                 BootEntryAddons *ret_addons) {
 
         int r;
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
 
         assert(ret_addons);
 
@@ -1207,7 +1207,7 @@ static int boot_entries_find_unified(
                 BootEntrySource source,
                 const char *dir) {
 
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
         _cleanup_free_ char *full = NULL;
         int r;
 
@@ -1227,7 +1227,7 @@ static int boot_entries_find_unified(
                 if (!endswith_no_case(de->d_name, ".efi"))
                         continue;
 
-                _cleanup_close_ int fd = openat(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOFOLLOW|O_NOCTTY);
+                _cleanup_(closep) int fd = openat(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOFOLLOW|O_NOCTTY);
                 if (fd < 0) {
                         log_warning_errno(errno, "Failed to open %s/%s, ignoring: %m", full, de->d_name);
                         continue;
@@ -1727,7 +1727,7 @@ static void print_addon(
 
 static int indent_embedded_newlines(char *cmdline, char **ret_cmdline) {
         _cleanup_free_ char *t = NULL;
-        _cleanup_strv_free_ char **ts = NULL;
+        _cleanup_(strv_freep) char **ts = NULL;
 
         assert(ret_cmdline);
 

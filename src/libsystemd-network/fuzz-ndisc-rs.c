@@ -57,9 +57,9 @@ static void test_with_sd_radv(const uint8_t *data, size_t size) {
 }
 
 static void test_with_icmp6_packet(const uint8_t *data, size_t size) {
-        _cleanup_close_pair_ int fd_pair[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int fd_pair[2] = EBADF_PAIR;
         _cleanup_(icmp6_packet_unrefp) ICMP6Packet *packet = NULL;
-        _cleanup_set_free_ Set *options = NULL;
+        _cleanup_(set_freep) Set *options = NULL;
 
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, fd_pair) >= 0);
         assert_se(write(fd_pair[1], data, size) == (ssize_t) size);

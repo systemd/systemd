@@ -23,7 +23,7 @@ int clock_is_localtime(const char *adjtime_path) {
          *   0
          *   UTC
          */
-        _cleanup_fclose_ FILE *f = fopen(adjtime_path, "re");
+        _cleanup_(fclosep) FILE *f = fopen(adjtime_path, "re");
         if (!f) {
                 if (errno != ENOENT)
                         return -errno;

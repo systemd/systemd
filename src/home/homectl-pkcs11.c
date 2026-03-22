@@ -14,7 +14,7 @@
 
 int identity_add_token_pin(sd_json_variant **v, const char *pin) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL, *l = NULL;
-        _cleanup_strv_free_erase_ char **pins = NULL;
+        _cleanup_(strv_free_erasep) char **pins = NULL;
         int r;
 
         assert(v);
@@ -63,7 +63,7 @@ int identity_add_token_pin(sd_json_variant **v, const char *pin) {
 
 static int add_pkcs11_token_uri(sd_json_variant **v, const char *uri) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         int r;
 
         assert(v);

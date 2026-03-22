@@ -145,7 +145,7 @@ TEST(pidref_gethostname_full) {
         ASSERT_NOT_NULL(original = gethostname_malloc());
         ASSERT_NOT_NULL(original_short = gethostname_short_malloc());
 
-        _cleanup_close_pair_ int fds[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int fds[2] = EBADF_PAIR;
         ASSERT_OK_ERRNO(pipe2(fds, O_CLOEXEC));
 
         _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;

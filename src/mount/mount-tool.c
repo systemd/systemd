@@ -844,7 +844,7 @@ static int start_transient_automount(sd_bus *bus) {
 static int find_mount_points_by_source(const char *what, char ***ret) {
         _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
         _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         size_t n = 0;
         int r;
 
@@ -1017,7 +1017,7 @@ static int stop_mounts(sd_bus *bus, const char *where) {
 }
 
 static int umount_by_device(sd_bus *bus, sd_device *dev) {
-        _cleanup_strv_free_ char **list = NULL;
+        _cleanup_(strv_freep) char **list = NULL;
         const char *v;
         int r, ret = 0;
 
@@ -1104,7 +1104,7 @@ static int action_umount(sd_bus *bus, int argc, char **argv) {
                 if (!u)
                         return log_oom();
 
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
                 r = chase(u, /* root= */ NULL, CHASE_TRIGGER_AUTOFS, &p, &fd);
                 if (r < 0) {
                         RET_GATHER(ret, log_error_errno(r, "Failed to chase path '%s': %m", u));
@@ -1240,7 +1240,7 @@ static int acquire_mount_where(sd_device *d) {
 }
 
 static int acquire_mount_where_for_loop_dev(sd_device *dev) {
-        _cleanup_strv_free_ char **list = NULL;
+        _cleanup_(strv_freep) char **list = NULL;
         const char *node;
         int r;
 

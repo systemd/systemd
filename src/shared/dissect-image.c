@@ -82,7 +82,7 @@
 #define N_DEVICE_NODE_LIST_ATTEMPTS 10
 
 static int allowed_fstypes(char ***ret_strv) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         const char *e;
 
         assert(ret_strv);
@@ -106,7 +106,7 @@ static int allowed_fstypes(char ***ret_strv) {
 }
 
 int dissect_fstype_ok(const char *fstype) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         int r;
 
         /* When we automatically mount file systems, be a bit conservative by default what we are willing to
@@ -216,7 +216,7 @@ int probe_sector_size_prefer_ioctl(int fd, uint32_t *ret) {
 
 #if HAVE_BLKID
 static int probe_blkid_filter(blkid_probe p) {
-        _cleanup_strv_free_ char **fstypes = NULL;
+        _cleanup_(strv_freep) char **fstypes = NULL;
         int r;
 
         assert(p);
@@ -254,7 +254,7 @@ int probe_filesystem_full(
 #if HAVE_BLKID
         _cleanup_(blkid_free_probep) blkid_probe b = NULL;
         _cleanup_free_ char *path_by_fd = NULL;
-        _cleanup_close_ int fd_close = -EBADF;
+        _cleanup_(closep) int fd_close = -EBADF;
         const char *fstype;
         int r;
 
@@ -866,7 +866,7 @@ static int open_partition(
                 const LoopDevice *loop) {
 
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         dev_t devnum;
         int r;
 
@@ -1154,7 +1154,7 @@ static int dissect_image(
                 if (STRPTR_IN_SET(usage, "filesystem", "crypto")) {
                         _cleanup_free_ char *t = NULL;
                         const char *fstype = NULL;
-                        _cleanup_close_ int mount_node_fd = -EBADF;
+                        _cleanup_(closep) int mount_node_fd = -EBADF;
                         sd_id128_t uuid = SD_ID128_NULL;
                         PartitionPolicyFlags found_flags;
 
@@ -1525,7 +1525,7 @@ static int dissect_image(
 
                         if (type.designator != _PARTITION_DESIGNATOR_INVALID) {
                                 _cleanup_free_ char *t = NULL, *o = NULL, *l = NULL, *n = NULL;
-                                _cleanup_close_ int mount_node_fd = -EBADF;
+                                _cleanup_(closep) int mount_node_fd = -EBADF;
                                 const char *options = NULL;
 
                                 r = image_policy_may_use(policy, type.designator);
@@ -1637,7 +1637,7 @@ static int dissect_image(
                                 break;
 
                         case 0xEA: { /* Boot Loader Spec extended $BOOT partition */
-                                _cleanup_close_ int mount_node_fd = -EBADF;
+                                _cleanup_(closep) int mount_node_fd = -EBADF;
                                 _cleanup_free_ char *o = NULL, *n = NULL;
                                 sd_id128_t id = SD_ID128_NULL;
                                 const char *options = NULL;
@@ -1752,7 +1752,7 @@ static int dissect_image(
                                 /* Policy says: ignore; remember that we did */
                                 m->partitions[PARTITION_ROOT].ignored = true;
                         else {
-                                _cleanup_close_ int mount_node_fd = -EBADF;
+                                _cleanup_(closep) int mount_node_fd = -EBADF;
                                 _cleanup_free_ char *o = NULL, *n = NULL;
                                 const char *options;
 
@@ -1918,7 +1918,7 @@ int dissected_image_new_from_existing_verity(
 #if HAVE_BLKID
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
         _cleanup_free_ char *node = NULL, *root_hash_encoded = NULL, *root_fstype_string = NULL;
-        _cleanup_close_ int mount_node_fd = -EBADF;
+        _cleanup_(closep) int mount_node_fd = -EBADF;
         PartitionPolicyFlags found_flags;
         bool encrypted = false;
         int r;
@@ -2004,7 +2004,7 @@ int dissect_image_file(
 
 #if HAVE_BLKID
         _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         struct stat st;
         int r;
 
@@ -2232,7 +2232,7 @@ static int run_fsck(int node_fd, const char *fstype) {
 }
 
 static int fs_grow(const char *node_path, int mount_fd, const char *mount_path) {
-        _cleanup_close_ int _mount_fd = -EBADF, node_fd = -EBADF;
+        _cleanup_(closep) int _mount_fd = -EBADF, node_fd = -EBADF;
         uint64_t size, newsize;
         const char *id;
         int r;
@@ -2591,7 +2591,7 @@ int dissected_image_mount(
                 int userns_fd,
                 DissectImageFlags flags) {
 
-        _cleanup_close_ int my_userns_fd = -EBADF;
+        _cleanup_(closep) int my_userns_fd = -EBADF;
         int r;
 
         assert(m);
@@ -2941,7 +2941,7 @@ static int decrypt_partition(
 
         _cleanup_free_ char *node = NULL, *name = NULL;
         _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         assert(di);
@@ -3093,7 +3093,7 @@ static int validate_signature_userspace(const VeritySettings *verity, const char
 
 #if HAVE_OPENSSL
         _cleanup_(sk_X509_free_allp) STACK_OF(X509) *sk = NULL;
-        _cleanup_strv_free_ char **certs = NULL;
+        _cleanup_(strv_freep) char **certs = NULL;
         _cleanup_(PKCS7_freep) PKCS7 *p7 = NULL;
         _cleanup_free_ char *s = NULL;
         _cleanup_(BIO_freep) BIO *bio = NULL; /* 'bio' must be freed first, 's' second, hence keep this order
@@ -3132,7 +3132,7 @@ static int validate_signature_userspace(const VeritySettings *verity, const char
 
         STRV_FOREACH(i, certs) {
                 _cleanup_(X509_freep) X509 *c = NULL;
-                _cleanup_fclose_ FILE *f = NULL;
+                _cleanup_(fclosep) FILE *f = NULL;
 
                 f = fopen(*i, "re");
                 if (!f) {
@@ -3300,7 +3300,7 @@ static int verity_partition(
 
         _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_free_ char *node = NULL, *name = NULL;
-        _cleanup_close_ int mount_node_fd = -EBADF;
+        _cleanup_(closep) int mount_node_fd = -EBADF;
         int r;
 
         assert(di);
@@ -3369,7 +3369,7 @@ static int verity_partition(
         for (unsigned i = 0; i < N_DEVICE_NODE_LIST_ATTEMPTS; i++) {
                 _cleanup_(dm_deferred_remove_cleanp) char *restore_deferred_remove = NULL;
                 _cleanup_(sym_crypt_freep) struct crypt_device *existing_cd = NULL;
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
 
                 /* First, check if the device already exists. */
                 fd = open(node, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
@@ -3585,7 +3585,7 @@ int dissected_image_decrypt_interactively(
                 const ImagePolicy *image_policy,
                 DissectImageFlags flags) {
 
-        _cleanup_strv_free_erase_ char **z = NULL;
+        _cleanup_(strv_free_erasep) char **z = NULL;
         int n = 3, r;
 
         if (passphrase)
@@ -4179,9 +4179,9 @@ int dissected_image_acquire_metadata(
                 [META_HAS_INIT_SYSTEM]   = "has-init-system\0",      /* ditto */
         };
 
-        _cleanup_strv_free_ char **machine_info = NULL, **os_release = NULL, **initrd_release = NULL, **sysext_release = NULL, **confext_release = NULL;
+        _cleanup_(strv_freep) char **machine_info = NULL, **os_release = NULL, **initrd_release = NULL, **sysext_release = NULL, **confext_release = NULL;
         _cleanup_free_ char *hostname = NULL, *t = NULL;
-        _cleanup_close_pair_ int error_pipe[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int error_pipe[2] = EBADF_PAIR;
         _cleanup_(pidref_done_sigkill_wait) PidRef child = PIDREF_NULL;
         sd_id128_t machine_id = SD_ID128_NULL;
         unsigned n_meta_initialized = 0;
@@ -4245,7 +4245,7 @@ int dissected_image_acquire_metadata(
                 }
 
                 for (unsigned k = 0; k < _META_MAX; k++) {
-                        _cleanup_close_ int fd = -ENOENT;
+                        _cleanup_(closep) int fd = -ENOENT;
 
                         assert(paths[k]);
 
@@ -4345,7 +4345,7 @@ int dissected_image_acquire_metadata(
         error_pipe[1] = safe_close(error_pipe[1]);
 
         for (unsigned k = 0; k < _META_MAX; k++) {
-                _cleanup_fclose_ FILE *f = NULL;
+                _cleanup_(fclosep) FILE *f = NULL;
 
                 assert(paths[k]);
 
@@ -4778,7 +4778,7 @@ int mount_image_privately_interactively(
         }
 
         if (ret_dir_fd) {
-                _cleanup_close_ int dir_fd = -EBADF;
+                _cleanup_(closep) int dir_fd = -EBADF;
 
                 dir_fd = open("/run/systemd/mount-rootfs", O_CLOEXEC|O_DIRECTORY);
                 if (dir_fd < 0)
@@ -4818,7 +4818,7 @@ int verity_dissect_and_mount(
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
         _cleanup_(verity_settings_done) VeritySettings local_verity = VERITY_SETTINGS_DEFAULT;
-        _cleanup_close_ int userns_fd = -EBADF;
+        _cleanup_(closep) int userns_fd = -EBADF;
         DissectImageFlags dissect_image_flags;
         bool relax_extension_release_check;
         int r;
@@ -4967,7 +4967,7 @@ int verity_dissect_and_mount(
          * then a simple match on the ID will be performed. Also if an extension class was specified,
          * check that it matches or return ENOCSI (which looks like error-no-class if one squints enough). */
         if ((extension_release_data && extension_release_data->os_release_id) || required_class >= 0) {
-                _cleanup_strv_free_ char **extension_release = NULL;
+                _cleanup_(strv_freep) char **extension_release = NULL;
                 ImageClass class = IMAGE_SYSEXT;
 
                 r = load_extension_release_pairs(dest, required_class >= 0 ? required_class : IMAGE_SYSEXT, dissected_image->image_name, relax_extension_release_check, &extension_release);
@@ -5136,7 +5136,7 @@ int mountfsd_mount_image_fd(
         };
 
         _cleanup_(dissected_image_unrefp) DissectedImage *di = NULL;
-        _cleanup_close_ int verity_data_fd = -EBADF;
+        _cleanup_(closep) int verity_data_fd = -EBADF;
         _cleanup_free_ char *ps = NULL;
         const char *error_id;
         int r;
@@ -5153,7 +5153,7 @@ int mountfsd_mount_image_fd(
                 vl = _vl;
         }
 
-        _cleanup_close_ int reopened_fd = -EBADF;
+        _cleanup_(closep) int reopened_fd = -EBADF;
 
         image_fd = fd_reopen_condition(image_fd, O_CLOEXEC|O_NOCTTY|O_NONBLOCK|(FLAGS_SET(flags, DISSECT_IMAGE_MOUNT_READ_ONLY) ? O_RDONLY : O_RDWR), O_PATH, &reopened_fd);
         if (image_fd < 0)
@@ -5246,7 +5246,7 @@ int mountfsd_mount_image_fd(
 
         sd_json_variant *i;
         JSON_VARIANT_ARRAY_FOREACH(i, p.partitions) {
-                _cleanup_close_ int fsmount_fd = -EBADF;
+                _cleanup_(closep) int fsmount_fd = -EBADF;
 
                 _cleanup_(partition_fields_done) PartitionFields pp = {
                         .designator = _PARTITION_DESIGNATOR_INVALID,
@@ -5335,7 +5335,7 @@ int mountfsd_mount_image(
         assert(path);
         assert(ret);
 
-        _cleanup_close_ int image_fd = open(path, O_RDONLY|O_CLOEXEC);
+        _cleanup_(closep) int image_fd = open(path, O_RDONLY|O_CLOEXEC);
         if (image_fd < 0)
                 return log_debug_errno(errno, "Failed to open '%s': %m", path);
 
@@ -5414,7 +5414,7 @@ int mountfsd_mount_directory_fd(
         if (r < 0)
                 return log_debug_errno(r, "Failed to parse MountImage() reply: %m");
 
-        _cleanup_close_ int fsmount_fd = sd_varlink_take_fd(vl, fsmount_fd_idx);
+        _cleanup_(closep) int fsmount_fd = sd_varlink_take_fd(vl, fsmount_fd_idx);
         if (fsmount_fd < 0)
                 return log_debug_errno(fsmount_fd, "Failed to take mount fd from Varlink connection: %m");
 
@@ -5432,7 +5432,7 @@ int mountfsd_mount_directory(
         assert(path);
         assert(ret_mount_fd);
 
-        _cleanup_close_ int directory_fd = open(path, O_DIRECTORY|O_RDONLY|O_CLOEXEC|O_PATH);
+        _cleanup_(closep) int directory_fd = open(path, O_DIRECTORY|O_RDONLY|O_CLOEXEC|O_PATH);
         if (directory_fd < 0)
                 return log_debug_errno(errno, "Failed to open '%s': %m", path);
 
@@ -5489,7 +5489,7 @@ int mountfsd_make_directory_fd(
         if (r < 0)
                 return log_debug_errno(r, "Failed to parse MountImage() reply: %m");
 
-        _cleanup_close_ int directory_fd = sd_varlink_take_fd(vl, directory_fd_idx);
+        _cleanup_(closep) int directory_fd = sd_varlink_take_fd(vl, directory_fd_idx);
         if (directory_fd < 0)
                 return log_debug_errno(directory_fd, "Failed to take directory fd from Varlink connection: %m");
 
@@ -5517,7 +5517,7 @@ int mountfsd_make_directory(
         if (r < 0)
                 return log_debug_errno(r, "Failed to extract directory name from '%s': %m", path);
 
-        _cleanup_close_ int fd = open(parent, O_DIRECTORY|O_CLOEXEC);
+        _cleanup_(closep) int fd = open(parent, O_DIRECTORY|O_CLOEXEC);
         if (fd < 0)
                 return log_debug_errno(r, "Failed to open '%s': %m", parent);
 
@@ -5579,7 +5579,7 @@ int remove_tree_foreign(const char *path, int userns_fd) {
         assert(path);
         assert(userns_fd >= 0);
 
-        _cleanup_close_ int tree_fd = -EBADF;
+        _cleanup_(closep) int tree_fd = -EBADF;
         r = mountfsd_mount_directory(
                         /* vl= */ NULL,
                         path,
@@ -5611,7 +5611,7 @@ int remove_tree_foreign(const char *path, int userns_fd) {
                         _exit(EXIT_FAILURE);
                 }
 
-                _cleanup_close_ int dfd = fd_reopen(tree_fd, O_DIRECTORY|O_CLOEXEC);
+                _cleanup_(closep) int dfd = fd_reopen(tree_fd, O_DIRECTORY|O_CLOEXEC);
                 if (dfd < 0) {
                         log_debug_errno(r, "Failed to reopen tree fd: %m");
                         _exit(EXIT_FAILURE);

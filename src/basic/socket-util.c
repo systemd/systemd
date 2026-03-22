@@ -1610,7 +1610,7 @@ static int connect_unix_inode(int fd, int inode_fd) {
 }
 
 int connect_unix_path(int fd, int dir_fd, const char *path) {
-        _cleanup_close_ int inode_fd = -EBADF;
+        _cleanup_(closep) int inode_fd = -EBADF;
 
         assert(fd >= 0);
         assert(dir_fd == AT_FDCWD || dir_fd >= 0);
@@ -1780,7 +1780,7 @@ int socket_address_parse_vsock(SocketAddress *ret_address, const char *s) {
 }
 
 int vsock_get_local_cid(unsigned *ret) {
-        _cleanup_close_ int vsock_fd = -EBADF;
+        _cleanup_(closep) int vsock_fd = -EBADF;
 
         vsock_fd = open("/dev/vsock", O_RDONLY|O_CLOEXEC);
         if (vsock_fd < 0)

@@ -426,7 +426,7 @@ static int transfer_on_log(sd_event_source *s, int fd, uint32_t revents, void *u
 }
 
 static int transfer_start(Transfer *t) {
-        _cleanup_close_pair_ int pipefd[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int pipefd[2] = EBADF_PAIR;
         int r;
 
         assert(t);
@@ -1381,7 +1381,7 @@ static int method_list_images(sd_bus_message *msg, void *userdata, sd_bus_error 
              class < 0 ? (c < _IMAGE_CLASS_MAX) : (c == class);
              c++) {
 
-                _cleanup_hashmap_free_ Hashmap *images = NULL;
+                _cleanup_(hashmap_freep) Hashmap *images = NULL;
 
                 r = image_discover(m->runtime_scope, c, /* root= */ NULL, &images);
                 if (r < 0) {
@@ -1482,7 +1482,7 @@ static int transfer_node_enumerator(
                 char ***nodes,
                 sd_bus_error *error) {
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         Manager *m = userdata;
         Transfer *t;
         unsigned k = 0;

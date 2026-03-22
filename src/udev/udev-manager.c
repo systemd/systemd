@@ -1158,7 +1158,7 @@ static int on_worker_notify(sd_event_source *s, int fd, uint32_t revents, void *
         assert(fd >= 0);
 
         _cleanup_(pidref_done) PidRef sender = PIDREF_NULL;
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         r = notify_recv_strv(fd, &l, /* ret_ucred= */ NULL, &sender);
         if (r == -EAGAIN)
                 return 0;
@@ -1429,7 +1429,7 @@ static int manager_setup_event(Manager *manager) {
 }
 
 static int manager_listen_fds(Manager *manager, int *ret_varlink_fd) {
-        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_(strv_freep) char **names = NULL;
         int varlink_fd = -EBADF;
         int r;
 
@@ -1469,7 +1469,7 @@ static int manager_listen_fds(Manager *manager, int *ret_varlink_fd) {
 }
 
 int manager_main(Manager *manager) {
-        _cleanup_close_ int varlink_fd = -EBADF;
+        _cleanup_(closep) int varlink_fd = -EBADF;
         int r;
 
         assert(manager);

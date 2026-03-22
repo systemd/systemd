@@ -4,7 +4,7 @@
 #include "tests.h"
 
 int main(int argc, const char *argv[]) {
-        _cleanup_bitmap_free_ Bitmap *b = NULL, *b2 = NULL;
+        _cleanup_(bitmap_freep) Bitmap *b = NULL, *b2 = NULL;
         unsigned n = UINT_MAX, i = 0;
 
         test_setup_logging(LOG_DEBUG);

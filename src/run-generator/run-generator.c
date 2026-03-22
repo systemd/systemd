@@ -55,7 +55,7 @@ static int parse(const char *key, const char *value, void *data) {
 }
 
 static int generate(void) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         const char *p;
         int r;
 

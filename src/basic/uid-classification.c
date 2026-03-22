@@ -38,7 +38,7 @@ static int parse_alloc_uid(const char *path, const char *name, const char *t, ui
 
 int read_login_defs(UGIDAllocationRange *ret_defs, const char *path, const char *root) {
 #if ENABLE_COMPAT_MUTABLE_UID_BOUNDARIES
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         UGIDAllocationRange defs;
         int r;
 

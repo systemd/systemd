@@ -122,7 +122,7 @@ int exec_context_apply_tty_size(
 }
 
 void exec_context_tty_reset(const ExecContext *context, const ExecParameters *parameters, sd_id128_t invocation_id) {
-        _cleanup_close_ int _fd = -EBADF, lock_fd = -EBADF;
+        _cleanup_(closep) int _fd = -EBADF, lock_fd = -EBADF;
         int fd, r;
 
         assert(context);
@@ -469,8 +469,8 @@ int exec_spawn(
                 PidRef *ret) {
 
         _cleanup_free_ char *subcgroup_path = NULL, *max_log_levels = NULL;
-        _cleanup_fdset_free_ FDSet *fdset = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fdset_freep) FDSet *fdset = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r;
 
         assert(unit);
@@ -892,14 +892,14 @@ const char* exec_context_fdname(const ExecContext *c, int fd_index) {
 }
 
 static int exec_context_load_environment(const Unit *unit, const ExecContext *c, char ***ret) {
-        _cleanup_strv_free_ char **v = NULL;
+        _cleanup_(strv_freep) char **v = NULL;
         int r;
 
         assert(c);
         assert(ret);
 
         STRV_FOREACH(i, c->environment_files) {
-                _cleanup_strv_free_ char **paths = NULL;
+                _cleanup_(strv_freep) char **paths = NULL;
                 bool ignore = false;
                 char *fn = *i;
 
@@ -926,7 +926,7 @@ static int exec_context_load_environment(const Unit *unit, const ExecContext *c,
                 assert(!strv_isempty(paths));
 
                 STRV_FOREACH(path, paths) {
-                        _cleanup_strv_free_ char **p = NULL;
+                        _cleanup_(strv_freep) char **p = NULL;
 
                         r = load_env_file(NULL, *path, &p);
                         if (r < 0) {
@@ -1680,7 +1680,7 @@ void exec_context_free_log_extra_fields(ExecContext *c) {
 }
 
 void exec_context_revert_tty(ExecContext *c, sd_id128_t invocation_id) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         const char *path;
         struct stat st;
         int r;
@@ -1728,7 +1728,7 @@ int exec_context_get_clean_directories(
                 ExecCleanMask mask,
                 char ***ret) {
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         int r;
 
         assert(c);
@@ -1905,7 +1905,7 @@ bool exec_context_get_set_login_environment(const ExecContext *c) {
 }
 
 char** exec_context_get_syscall_filter(const ExecContext *c) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
 
         assert(c);
 
@@ -1950,7 +1950,7 @@ char** exec_context_get_syscall_filter(const ExecContext *c) {
 }
 
 char** exec_context_get_syscall_archs(const ExecContext *c) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
 
         assert(c);
 
@@ -1974,7 +1974,7 @@ char** exec_context_get_syscall_archs(const ExecContext *c) {
 }
 
 char** exec_context_get_syscall_log(const ExecContext *c) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
 
         assert(c);
 
@@ -2001,7 +2001,7 @@ char** exec_context_get_syscall_log(const ExecContext *c) {
 }
 
 char** exec_context_get_address_families(const ExecContext *c) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         void *af;
 
         assert(c);
@@ -2417,7 +2417,7 @@ static int exec_shared_runtime_make(
                 ExecSharedRuntime **ret) {
 
         _cleanup_(namespace_cleanup_tmpdirp) char *tmp_dir = NULL, *var_tmp_dir = NULL;
-        _cleanup_close_pair_ int userns_storage_socket[2] = EBADF_PAIR, netns_storage_socket[2] = EBADF_PAIR, ipcns_storage_socket[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int userns_storage_socket[2] = EBADF_PAIR, netns_storage_socket[2] = EBADF_PAIR, ipcns_storage_socket[2] = EBADF_PAIR;
         int r;
 
         assert(m);
@@ -2812,7 +2812,7 @@ int exec_runtime_make(
                 ExecSharedRuntime *shared,
                 DynamicCreds *creds,
                 ExecRuntime **ret) {
-        _cleanup_close_pair_ int ephemeral_storage_socket[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int ephemeral_storage_socket[2] = EBADF_PAIR;
         _cleanup_free_ char *ephemeral = NULL;
         _cleanup_(exec_runtime_freep) ExecRuntime *rt = NULL;
         int r;
@@ -2970,7 +2970,7 @@ static ExecDirectoryItem *exec_directory_find(ExecDirectory *d, const char *path
 }
 
 int exec_directory_add(ExecDirectory *d, const char *path, const char *symlink, ExecDirectoryFlags flags) {
-        _cleanup_strv_free_ char **s = NULL;
+        _cleanup_(strv_freep) char **s = NULL;
         _cleanup_free_ char *p = NULL;
         ExecDirectoryItem *existing;
         int r;

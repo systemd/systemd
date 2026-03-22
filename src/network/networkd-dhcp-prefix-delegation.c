@@ -481,7 +481,7 @@ static int dhcp_pd_request_address(
         if (!link->network->dhcp_pd_assign)
                 return 0;
 
-        _cleanup_hashmap_free_ Hashmap *tokens_by_address = NULL;
+        _cleanup_(hashmap_freep) Hashmap *tokens_by_address = NULL;
         r = dhcp_pd_generate_addresses(link, prefix, &tokens_by_address);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to generate addresses for acquired DHCP delegated prefix: %m");

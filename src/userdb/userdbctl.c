@@ -1049,7 +1049,7 @@ static int verb_display_memberships(int argc, char *argv[], uintptr_t _data, voi
 
 static int verb_display_services(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(table_unrefp) Table *t = NULL;
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
         int r;
 
         if (arg_from_file)
@@ -1073,7 +1073,7 @@ static int verb_display_services(int argc, char *argv[], uintptr_t _data, void *
 
         FOREACH_DIRENT(de, d, return -errno) {
                 _cleanup_free_ char *j = NULL, *no = NULL;
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
 
                 j = path_join("/run/systemd/userdb/", de->d_name);
                 if (!j)
@@ -1209,7 +1209,7 @@ static int write_membership(int dir_fd, const char *dir, const char *user, const
         if (!membership)
                 return log_oom();
 
-        _cleanup_close_ int fd = openat(dir_fd, membership, O_WRONLY|O_CREAT|O_CLOEXEC, 0644);
+        _cleanup_(closep) int fd = openat(dir_fd, membership, O_WRONLY|O_CREAT|O_CLOEXEC, 0644);
         if (fd < 0)
                 return log_error_errno(errno, "Failed to create %s/%s: %m", dir, membership);
 
@@ -1500,7 +1500,7 @@ static int load_credential_one(
 static int verb_load_credentials(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
-        _cleanup_close_ int credential_dir_fd = open_credentials_dir();
+        _cleanup_(closep) int credential_dir_fd = open_credentials_dir();
         if (IN_SET(credential_dir_fd, -ENXIO, -ENOENT)) {
                 /* Credential env var not set, or dir doesn't exist. */
                 log_debug("No credentials found.");
@@ -1514,7 +1514,7 @@ static int verb_load_credentials(int argc, char *argv[], uintptr_t _data, void *
         if (r < 0)
                 return log_error_errno(r, "Failed to enumerate credentials: %m");
 
-        _cleanup_close_ int userdb_persist_dir_fd = -EBADF, userdb_transient_dir_fd = -EBADF;
+        _cleanup_(closep) int userdb_persist_dir_fd = -EBADF, userdb_transient_dir_fd = -EBADF;
 
         FOREACH_ARRAY(i, des->entries, des->n_entries) {
                 struct dirent *de = *i;

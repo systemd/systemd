@@ -174,7 +174,7 @@ static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_crash_action, crash_ac
 
 static int manager_find_user_config_paths(char ***ret_files, char ***ret_dirs) {
         _cleanup_free_ char *base = NULL;
-        _cleanup_strv_free_ char **files = NULL, **dirs = NULL;
+        _cleanup_(strv_freep) char **files = NULL, **dirs = NULL;
         int r;
 
         r = xdg_user_config_dir("/systemd", &base);
@@ -244,7 +244,7 @@ static int console_setup(void) {
         if (getpid_cached() != 1)
                 return 0;
 
-        _cleanup_close_ int tty_fd = -EBADF;
+        _cleanup_(closep) int tty_fd = -EBADF;
 
         tty_fd = open_terminal("/dev/console", O_RDWR|O_NOCTTY|O_CLOEXEC);
         if (tty_fd < 0)
@@ -829,7 +829,7 @@ static int parse_config_file(void) {
                                 CONFIG_PARSE_WARN,
                                 /* userdata= */ NULL);
         else {
-                _cleanup_strv_free_ char **files = NULL, **dirs = NULL;
+                _cleanup_(strv_freep) char **files = NULL, **dirs = NULL;
                 int r;
 
                 assert(arg_runtime_scope == RUNTIME_SCOPE_USER);
@@ -1218,8 +1218,8 @@ static int prepare_reexecute(
                 FDSet **ret_fds,
                 bool switching_root) {
 
-        _cleanup_fdset_free_ FDSet *fds = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fdset_freep) FDSet *fds = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r;
 
         assert(m);
@@ -1536,7 +1536,7 @@ static int write_boot_or_shutdown_osc(const char *type) {
         if (getenv_terminal_is_dumb())
                 return 0;
 
-        _cleanup_close_ int fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC);
+        _cleanup_(closep) int fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC);
         if (fd < 0)
                 return log_debug_errno(fd, "Failed to open /dev/console to print %s OSC, ignoring: %m", type);
 
@@ -1651,7 +1651,7 @@ static int become_shutdown(int objective, int retval) {
         char timeout[STRLEN("--timeout=") + DECIMAL_STR_MAX(usec_t) + STRLEN("us")],
              exit_code[STRLEN("--exit-code=") + DECIMAL_STR_MAX(uint8_t)];
 
-        _cleanup_strv_free_ char **env_block = NULL;
+        _cleanup_(strv_freep) char **env_block = NULL;
         _cleanup_free_ char *max_log_levels = NULL;
         usec_t watchdog_timer = 0;
         int r;
@@ -1990,7 +1990,7 @@ static void reduce_vt(ManagerObjective objective) {
         if (r < 0)
                 log_debug_errno(r, "Failed to switch to VT TTY 1, ignoring: %m");
 
-        _cleanup_close_ int tty0_fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
+        _cleanup_(closep) int tty0_fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
         if (tty0_fd < 0)
                 return (void) log_debug_errno(tty0_fd, "Failed to open '/dev/tty0', ignoring: %m");
 
@@ -3491,7 +3491,7 @@ finish:
          * PID 1. To make this a bit more helpful, let's try to open /dev/console,
          * and if we succeed redirect LSan's report there. */
         if (getpid_cached() == 1) {
-                _cleanup_close_ int tty_fd = -EBADF;
+                _cleanup_(closep) int tty_fd = -EBADF;
 
                 tty_fd = open_terminal("/dev/console", O_WRONLY|O_NOCTTY|O_CLOEXEC);
                 if (tty_fd >= 0)

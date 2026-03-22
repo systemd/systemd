@@ -242,7 +242,7 @@ int bus_match_run(
                 BusMatchNode *node,
                 sd_bus_message *m) {
 
-        _cleanup_strv_free_ char **test_strv = NULL;
+        _cleanup_(strv_freep) char **test_strv = NULL;
         const char *test_str = NULL;
         uint8_t test_u8 = 0;
         int r;

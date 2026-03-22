@@ -271,7 +271,7 @@ static int socket_from_display(const char *display) {
         char *c;
         union sockaddr_union sa;
         socklen_t sa_len;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         assert(display);
@@ -319,7 +319,7 @@ static int socket_from_display(const char *display) {
 
 static int get_seat_from_display(const char *display, const char **seat, uint32_t *vtnr) {
         _cleanup_free_ char *sys_path = NULL, *tty = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         struct ucred ucred;
         int v, r;
         dev_t display_ctty;
@@ -657,7 +657,7 @@ static int apply_user_record_settings(
                 bool debug,
                 uint64_t default_capability_bounding_set,
                 uint64_t default_capability_ambient_set) {
-        _cleanup_strv_free_ char **langs = NULL;
+        _cleanup_(strv_freep) char **langs = NULL;
         int r;
 
         assert(pamh);
@@ -840,7 +840,7 @@ static int create_session_message(
                 sd_bus_message **ret) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        _cleanup_close_ int pidfd = -EBADF;
+        _cleanup_(closep) int pidfd = -EBADF;
         int r;
 
         assert(bus);
@@ -1278,7 +1278,7 @@ static int register_session(
                  * be restarted (known long-standing issue), we must still be prepared to receive a fifo fd
                  * from a running logind older than v258. */
                 if (sd_is_fifo(session_fd, NULL) > 0) {
-                        _cleanup_close_ int fd = fcntl(session_fd, F_DUPFD_CLOEXEC, 3);
+                        _cleanup_(closep) int fd = fcntl(session_fd, F_DUPFD_CLOEXEC, 3);
                         if (fd < 0)
                                 return pam_syslog_errno(pamh, LOG_ERR, errno, "Failed to dup session fd: %m");
 
@@ -1402,7 +1402,7 @@ static int mkdir_chown_open_directory(
         assert(mode != MODE_INVALID);
 
         for (unsigned attempt = 0;; attempt++) {
-                _cleanup_close_ int fd = openat(parent_fd, name, O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
+                _cleanup_(closep) int fd = openat(parent_fd, name, O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW);
                 if (fd >= 0)
                         return TAKE_FD(fd);
                 if (errno != ENOENT)
@@ -1458,15 +1458,15 @@ static int make_area_runtime_directory(
         /* Let's be careful with creating these directories, the runtime directory is owned by the user after all,
          * and they might play symlink games with us. */
 
-        _cleanup_close_ int fd = open(runtime_directory, O_CLOEXEC|O_PATH|O_DIRECTORY);
+        _cleanup_(closep) int fd = open(runtime_directory, O_CLOEXEC|O_PATH|O_DIRECTORY);
         if (fd < 0)
                 return pam_syslog_errno(pamh, LOG_ERR, errno, "Unable to open runtime directory '%s': %m", runtime_directory);
 
-        _cleanup_close_ int fd_areas = mkdir_chown_open_directory(fd, "Areas", ur->uid, user_record_gid(ur), 0755);
+        _cleanup_(closep) int fd_areas = mkdir_chown_open_directory(fd, "Areas", ur->uid, user_record_gid(ur), 0755);
         if (fd_areas < 0)
                 return pam_syslog_errno(pamh, LOG_ERR, fd_areas, "Unable to create 'Areas' directory below '%s': %m", runtime_directory);
 
-        _cleanup_close_ int fd_area = mkdir_chown_open_directory(fd_areas, area, ur->uid, user_record_gid(ur), 0755);
+        _cleanup_(closep) int fd_area = mkdir_chown_open_directory(fd_areas, area, ur->uid, user_record_gid(ur), 0755);
         if (fd_area < 0)
                 return pam_syslog_errno(pamh, LOG_ERR, fd_area, "Unable to create '%s' directory below '%s/Areas': %m", area, runtime_directory);
 
@@ -1573,7 +1573,7 @@ static int setup_environment(
                 if (!j)
                         return pam_log_oom(pamh);
 
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
                 r = chase(j, /* root= */ NULL, CHASE_MUST_BE_DIRECTORY, &ha, &fd);
                 if (r < 0) {
                         /* Log the precise error */
@@ -1647,7 +1647,7 @@ static int open_osc_context(pam_handle_t *pamh, const char *session_type, UserRe
         /* Keep a reference to the TTY we are operating on, so that we can issue the OSC close sequence also
          * if the TTY is already closed. We use an O_PATH reference here, rather than a properly opened fd,
          * so that we don't delay tty hang-up. */
-        _cleanup_close_ int tty_opath_fd = fd_reopen(STDOUT_FILENO, O_PATH|O_CLOEXEC);
+        _cleanup_(closep) int tty_opath_fd = fd_reopen(STDOUT_FILENO, O_PATH|O_CLOEXEC);
         if (tty_opath_fd < 0)
                 pam_debug_syslog_errno(pamh, debug, tty_opath_fd, "Failed to pin TTY, ignoring: %m");
         else
@@ -1714,7 +1714,7 @@ static int close_osc_context(pam_handle_t *pamh, bool debug) {
                 return PAM_SUCCESS;
 
         /* Now open the original TTY again, so that we can write on it */
-        _cleanup_close_ int fd = fd_reopen(tty_opath_fd, O_WRONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        _cleanup_(closep) int fd = fd_reopen(tty_opath_fd, O_WRONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (fd < 0) {
                 pam_debug_syslog_errno(pamh, debug, fd, "Failed to reopen TTY, ignoring: %m");
                 return PAM_SUCCESS;

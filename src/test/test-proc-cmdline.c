@@ -29,7 +29,7 @@ TEST(proc_cmdline_parse) {
 
 TEST(proc_cmdline_override) {
         _cleanup_free_ char *line = NULL, *value = NULL;
-        _cleanup_strv_free_ char **args = NULL;
+        _cleanup_(strv_freep) char **args = NULL;
 
         assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=foo_bar=quux wuff-piep=tuet zumm some_arg_with_space='foo bar' and_one_more=\"zzz aaa\"") == 0);
 
@@ -232,7 +232,7 @@ TEST(proc_cmdline_key_startswith) {
 
 #define test_proc_cmdline_filter_pid1_args_one(nulstr, expected)        \
         ({                                                              \
-                _cleanup_strv_free_ char **a = NULL, **b = NULL;        \
+                _cleanup_(strv_freep) char **a = NULL, **b = NULL;        \
                 const char s[] = (nulstr);                              \
                                                                         \
                 /* This emulates pid_get_cmdline_strv(). */         \

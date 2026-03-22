@@ -45,7 +45,7 @@ void manager_forward_console(
         char tbuf[STRLEN("[] ") + DECIMAL_STR_MAX(ts.tv_sec) + DECIMAL_STR_MAX(ts.tv_nsec)-3 + 1];
         char header_pid[STRLEN("[]: ") + DECIMAL_STR_MAX(pid_t)];
         _cleanup_free_ char *ident_buf = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         const char *tty, *color_on = "", *color_off = "";
         int n = 0;
 

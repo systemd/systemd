@@ -6,7 +6,7 @@
 #include "tests.h"
 
 int main(int argc, char *argv[]) {
-        _cleanup_strv_free_ char **maps = NULL;
+        _cleanup_(strv_freep) char **maps = NULL;
         int r;
 
         log_show_color(true);

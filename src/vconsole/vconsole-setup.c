@@ -462,7 +462,7 @@ static void setup_remaining_vcs(int src_fd, unsigned src_idx, bool utf8) {
 
         for (unsigned i = 1; i <= 63; i++) {
                 char ttyname[sizeof("/dev/tty63")];
-                _cleanup_close_ int fd_d = -EBADF;
+                _cleanup_(closep) int fd_d = -EBADF;
 
                 if (i == src_idx || verify_vc_allocation(i) < 0)
                         continue;
@@ -523,7 +523,7 @@ static int find_source_vc(char **ret_path, unsigned *ret_idx) {
          * otherwise -ENOENT when there is no allocated VC. */
 
         for (unsigned i = 1; i <= 63; i++) {
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
                 _cleanup_free_ char *path = NULL;
 
                 /* We save the first error but we give less importance for the case where we previously fail
@@ -575,7 +575,7 @@ static int find_source_vc(char **ret_path, unsigned *ret_idx) {
 }
 
 static int verify_source_vc(char **ret_path, const char *src_vc) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         char *path;
         int r;
 
@@ -615,7 +615,7 @@ static int verify_source_vc(char **ret_path, const char *src_vc) {
 static int run(int argc, char **argv) {
         _cleanup_(context_done) Context c = {};
         _cleanup_free_ char *vc = NULL;
-        _cleanup_close_ int fd = -EBADF, lock_fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF, lock_fd = -EBADF;
         bool utf8;
         unsigned idx = 0;
 

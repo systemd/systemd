@@ -128,7 +128,7 @@ int event_reset_time_relative(
 
 int event_add_time_change(sd_event *e, sd_event_source **ret, sd_event_io_handler_t callback, void *userdata) {
         _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         assert(e);
@@ -185,7 +185,7 @@ int event_add_child_pidref(
         if (pid->fd < 0)
                 return sd_event_add_child(e, ret, pid->pid, options, callback, userdata);
 
-        _cleanup_close_ int copy_fd = fcntl(pid->fd, F_DUPFD_CLOEXEC, 3);
+        _cleanup_(closep) int copy_fd = fcntl(pid->fd, F_DUPFD_CLOEXEC, 3);
         if (copy_fd < 0)
                 return -errno;
 

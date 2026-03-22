@@ -139,7 +139,7 @@ static int oci_console_size(const char *name, sd_json_variant *v, sd_json_dispat
 }
 
 static int oci_args(const char *name, sd_json_variant *v, sd_json_dispatch_flags_t flags, void *userdata) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         char ***value = ASSERT_PTR(userdata);
         int r;
 

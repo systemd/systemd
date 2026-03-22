@@ -127,7 +127,7 @@ static int radv_send_router_on_stop(sd_radv *ra) {
                 .nd_ra_type = ND_ROUTER_ADVERT,
         };
 
-        _cleanup_set_free_ Set *options = NULL;
+        _cleanup_(set_freep) Set *options = NULL;
         struct ether_addr mac_addr;
         usec_t time_now;
         int r;
@@ -323,7 +323,7 @@ static int radv_setup_recv_event(sd_radv *ra) {
         assert(ra->event);
         assert(ra->ifindex > 0);
 
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         fd = icmp6_bind(ra->ifindex, /* is_router= */ true);
         if (fd < 0)
                 return fd;

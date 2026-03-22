@@ -1528,7 +1528,7 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
         if (lifetime_preferred_usec > lifetime_valid_usec)
                 return 0;
 
-        _cleanup_hashmap_free_ Hashmap *tokens_by_address = NULL;
+        _cleanup_(hashmap_freep) Hashmap *tokens_by_address = NULL;
         r = ndisc_generate_addresses(link, &prefix, prefixlen, &tokens_by_address);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to generate SLAAC addresses: %m");

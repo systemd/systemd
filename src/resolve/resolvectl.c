@@ -140,7 +140,7 @@ static int acquire_bus(sd_bus **ret) {
 
 int ifname_mangle_full(const char *s, bool drop_protocol_specifier) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        _cleanup_strv_free_ char **found = NULL;
+        _cleanup_(strv_freep) char **found = NULL;
         int r;
 
         assert(s);
@@ -1514,7 +1514,7 @@ static int status_json_filter_fields(sd_json_variant **configuration, StatusMode
 }
 
 static int status_json_filter_links(sd_json_variant **configuration, char **links) {
-        _cleanup_set_free_ Set *links_by_index = NULL;
+        _cleanup_(set_freep) Set *links_by_index = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         sd_json_variant *w;
         int r;
@@ -1616,7 +1616,7 @@ static int format_dns_servers(DNSConfiguration *configuration, OrderedSet *serve
 
         assert(ret);
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         DNSServer *s;
         ORDERED_SET_FOREACH(s, servers) {
                 _cleanup_free_ char *str = NULL;
@@ -1639,7 +1639,7 @@ static int format_search_domains(DNSConfiguration *configuration, OrderedSet *do
 
         assert(ret);
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         SearchDomain *d;
         ORDERED_SET_FOREACH(d, domains) {
                 if (!(configuration->ifindex > 0 || configuration->delegate) && d->ifindex > 0)
@@ -1664,7 +1664,7 @@ static int format_search_domains(DNSConfiguration *configuration, OrderedSet *do
 }
 
 static int format_protocol_status(DNSConfiguration *configuration, char ***ret) {
-        _cleanup_strv_free_ char **s = NULL;
+        _cleanup_(strv_freep) char **s = NULL;
         int r;
 
         assert(configuration);
@@ -1749,7 +1749,7 @@ static int print_configuration(DNSConfiguration *configuration, StatusMode mode,
 
         bool global = !(configuration->ifindex > 0 || configuration->delegate);
         if (mode == STATUS_DNS) {
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_(strv_freep) char **l = NULL;
                 r = format_dns_servers(configuration, configuration->dns_servers, &l);
                 if (r < 0)
                         return r;
@@ -1757,7 +1757,7 @@ static int print_configuration(DNSConfiguration *configuration, StatusMode mode,
                 return status_print_strv(configuration, l);
 
         } else if (mode == STATUS_DOMAIN) {
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_(strv_freep) char **l = NULL;
                 r = format_search_domains(configuration, configuration->search_domains, &l);
                 if (r < 0)
                         return r;
@@ -1820,7 +1820,7 @@ static int print_configuration(DNSConfiguration *configuration, StatusMode mode,
         }
 
         if (!configuration->delegate) {
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_(strv_freep) char **l = NULL;
                 r = format_protocol_status(configuration, &l);
                 if (r < 0)
                         return r;
@@ -1853,7 +1853,7 @@ static int print_configuration(DNSConfiguration *configuration, StatusMode mode,
                         return table_log_add_error(r);
         }
 
-        _cleanup_strv_free_ char **dns_servers = NULL;
+        _cleanup_(strv_freep) char **dns_servers = NULL;
         r = format_dns_servers(configuration, configuration->dns_servers, &dns_servers);
         if (r < 0)
                 return r;
@@ -1863,7 +1863,7 @@ static int print_configuration(DNSConfiguration *configuration, StatusMode mode,
                 return r;
 
         if (global) {
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_(strv_freep) char **l = NULL;
                 r = format_dns_servers(configuration, configuration->fallback_dns_servers, &l);
                 if (r < 0)
                         return r;
@@ -1873,7 +1873,7 @@ static int print_configuration(DNSConfiguration *configuration, StatusMode mode,
                         return r;
         }
 
-        _cleanup_strv_free_ char **search_domains = NULL;
+        _cleanup_(strv_freep) char **search_domains = NULL;
         r = format_search_domains(configuration, configuration->search_domains, &search_domains);
         if (r < 0)
                 return r;
@@ -1922,7 +1922,7 @@ static int status_full(StatusMode mode, char **links) {
         }
 
         _cleanup_(dns_configuration_freep) DNSConfiguration *global_config = NULL;
-        _cleanup_ordered_set_free_ OrderedSet *link_configs = NULL, *delegate_configs = NULL;
+        _cleanup_(ordered_set_freep) OrderedSet *link_configs = NULL, *delegate_configs = NULL;
         sd_json_variant *w;
         JSON_VARIANT_ARRAY_FOREACH(w, v) {
                 _cleanup_(dns_configuration_freep) DNSConfiguration *c = NULL;

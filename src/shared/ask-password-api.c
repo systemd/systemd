@@ -102,7 +102,7 @@ static int touch_ask_password_directory(AskPasswordFlags flags) {
         if (r <= 0)
                 return r;
 
-        _cleanup_close_ int fd = open_mkdir(p, O_CLOEXEC, 0755);
+        _cleanup_(closep) int fd = open_mkdir(p, O_CLOEXEC, 0755);
         if (fd < 0)
                 return fd;
 
@@ -166,7 +166,7 @@ static key_serial_t keyring_cache_type(void) {
 }
 
 static int add_to_keyring(const char *keyname, AskPasswordFlags flags, char **passwords) {
-        _cleanup_strv_free_erase_ char **l = NULL;
+        _cleanup_(strv_free_erasep) char **l = NULL;
         _cleanup_(erase_and_freep) char *p = NULL;
         key_serial_t serial;
         size_t n;
@@ -249,7 +249,7 @@ static int ask_password_keyring(const AskPasswordRequest *req, AskPasswordFlags 
         if (r < 0)
                 return log_debug_errno(r, "Failed to look up key %s in keyring: %m", req->keyring);
 
-        _cleanup_strv_free_erase_ char **l = NULL;
+        _cleanup_(strv_free_erasep) char **l = NULL;
         r = retrieve_key(serial, &l);
         if (r < 0)
                 return r;
@@ -299,7 +299,7 @@ int ask_password_plymouth(
                 AskPasswordFlags flags,
                 char ***ret) {
 
-        _cleanup_close_ int fd = -EBADF, inotify_fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF, inotify_fd = -EBADF;
         _cleanup_free_ char *packet = NULL;
         ssize_t k;
         int r, n;
@@ -432,7 +432,7 @@ int ask_password_plymouth(
                         return -ENOENT;
 
                 } else if (IN_SET(buffer[0], 2, 9)) {
-                        _cleanup_strv_free_erase_ char **l = NULL;
+                        _cleanup_(strv_free_erasep) char **l = NULL;
                         uint32_t size;
 
                         /* One or more answers */
@@ -473,10 +473,10 @@ int ask_password_tty(
                 char ***ret) {
 
         bool reset_tty = false, dirty = false, use_color = false, press_tab_visible = false;
-        _cleanup_close_ int cttyfd = -EBADF, inotify_fd = -EBADF;
+        _cleanup_(closep) int cttyfd = -EBADF, inotify_fd = -EBADF;
         struct termios old_termios, new_termios;
         char passphrase[LINE_MAX + 1] = {}, *x;
-        _cleanup_strv_free_erase_ char **l = NULL;
+        _cleanup_(strv_free_erasep) char **l = NULL;
         size_t p = 0, codepoint = 0;
         int r;
 
@@ -517,7 +517,7 @@ int ask_password_tty(
                 if (r < 0)
                         return r;
                 if (r > 0) {
-                        _cleanup_close_ int watch_fd = open_mkdir(watch_path, O_CLOEXEC|O_RDONLY, 0755);
+                        _cleanup_(closep) int watch_fd = open_mkdir(watch_path, O_CLOEXEC|O_RDONLY, 0755);
                         if (watch_fd < 0)
                                 return watch_fd;
 
@@ -792,7 +792,7 @@ static int create_socket(const char *askpwdir, char **ret) {
         _cleanup_free_ char *path = NULL;
         union sockaddr_union sa;
         socklen_t sa_len;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         assert(askpwdir);
@@ -829,7 +829,7 @@ int ask_password_agent(
                 AskPasswordFlags flags,
                 char ***ret) {
 
-        _cleanup_close_ int socket_fd = -EBADF, signal_fd = -EBADF, inotify_fd = -EBADF, dfd = -EBADF;
+        _cleanup_(closep) int socket_fd = -EBADF, signal_fd = -EBADF, inotify_fd = -EBADF, dfd = -EBADF;
         _cleanup_(unlink_and_freep) char *socket_name = NULL;
         int r;
 
@@ -881,7 +881,7 @@ int ask_password_agent(
         saved_ssp = &oldmask;
 
         _cleanup_free_ char *fname = NULL, *final = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
 
         if (asprintf(&final, "ask.%" PRIu64, random_u64()) < 0)
                 return -ENOMEM;
@@ -965,7 +965,7 @@ int ask_password_agent(
 
         assert(n_pollfd <= _POLL_MAX);
 
-        _cleanup_strv_free_erase_ char **l = NULL;
+        _cleanup_(strv_free_erasep) char **l = NULL;
 
         for (;;) {
                 usec_t timeout;
@@ -1077,7 +1077,7 @@ int ask_password_agent(
 
 static int ask_password_credential(const AskPasswordRequest *req, AskPasswordFlags flags, char ***ret) {
         _cleanup_(erase_and_freep) char *buffer = NULL;
-        _cleanup_strv_free_erase_ char **l = NULL;
+        _cleanup_(strv_free_erasep) char **l = NULL;
         size_t size;
         int r;
 

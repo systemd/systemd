@@ -616,7 +616,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
 }
 
 int network_load(Manager *manager, OrderedHashmap **ret) {
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_(strv_freep) char **files = NULL;
         OrderedHashmap *networks = NULL;
         int r;
 
@@ -657,7 +657,7 @@ static bool network_netdev_equal(Network *a, Network *b) {
 }
 
 int network_reload(Manager *manager) {
-        _cleanup_ordered_hashmap_free_ OrderedHashmap *new_networks = NULL;
+        _cleanup_(ordered_hashmap_freep) OrderedHashmap *new_networks = NULL;
         Network *n, *old;
         int r;
 

@@ -299,7 +299,7 @@ int action_list_namespaces(void) {
 
         FOREACH_STRING(dir, "/var/log/journal", "/run/log/journal") {
                 _cleanup_free_ char *path = NULL;
-                _cleanup_closedir_ DIR *dirp = NULL;
+                _cleanup_(closedirp) DIR *dirp = NULL;
 
                 path = path_join(arg_root, dir);
                 if (!path)

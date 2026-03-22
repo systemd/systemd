@@ -16,7 +16,7 @@
 #include "strv.h"
 
 static int load_available_kernel_filesystems(Set **ret) {
-        _cleanup_set_free_ Set *filesystems = NULL;
+        _cleanup_(set_freep) Set *filesystems = NULL;
         _cleanup_free_ char *t = NULL;
         int r;
 
@@ -137,7 +137,7 @@ int verb_filesystems(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         dump_filesystem_set(set);
                 }
         else {
-                _cleanup_set_free_ Set *kernel = NULL, *known = NULL;
+                _cleanup_(set_freep) Set *kernel = NULL, *known = NULL;
                 int k;
 
                 NULSTR_FOREACH(fs, filesystem_sets[FILESYSTEM_SET_KNOWN].value)

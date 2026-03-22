@@ -51,7 +51,7 @@ static void lease_info_done(LeaseInfo *p) {
 }
 
 static int dump_dhcp_leases(Table *table, const char *prefix, const LinkInfo *link) {
-        _cleanup_strv_free_ char **buf = NULL;
+        _cleanup_(strv_freep) char **buf = NULL;
         int r;
 
         assert(table);
@@ -234,7 +234,7 @@ static int link_status_one(
                 sd_varlink *vl,
                 const LinkInfo *info) {
 
-        _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **sip = NULL, **search_domains = NULL,
+        _cleanup_(strv_freep) char **dns = NULL, **ntp = NULL, **sip = NULL, **search_domains = NULL,
                 **route_domains = NULL, **link_dropins = NULL, **network_dropins = NULL, **netdev_dropins = NULL;
         _cleanup_free_ char *t = NULL, *network = NULL, *netdev = NULL, *iaid = NULL, *duid = NULL, *captive_portal = NULL,
                 *setup_state = NULL, *operational_state = NULL, *online_state = NULL, *activation_policy = NULL;

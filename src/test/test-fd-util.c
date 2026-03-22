@@ -55,7 +55,7 @@ TEST(fd_validate) {
         assert_se(fd_validate(-EINVAL) == -EBADF);
         assert_se(fd_validate(-EBADF) == -EBADF);
 
-        _cleanup_close_ int b = -EBADF;
+        _cleanup_(closep) int b = -EBADF;
         assert_se((b = open("/dev/null", O_RDONLY|O_CLOEXEC)) >= 0);
 
         assert_se(fd_validate(b) == 0);
@@ -65,8 +65,8 @@ TEST(fd_validate) {
 }
 
 TEST(same_fd) {
-        _cleanup_close_pair_ int p[2];
-        _cleanup_close_ int a, b, c, d, e;
+        _cleanup_(close_pairp) int p[2];
+        _cleanup_(closep) int a, b, c, d, e;
 
         assert_se(pipe2(p, O_CLOEXEC) >= 0);
         assert_se((a = fcntl(p[0], F_DUPFD, 3)) >= 0);
@@ -115,7 +115,7 @@ TEST(same_fd) {
 }
 
 TEST(open_serialization_fd) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         fd = open_serialization_fd("test");
         assert_se(fd >= 0);
@@ -126,7 +126,7 @@ TEST(open_serialization_fd) {
 }
 
 TEST(open_serialization_file) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r;
 
         r = open_serialization_file("test", &f);
@@ -365,7 +365,7 @@ TEST(format_proc_fd_path) {
 }
 
 TEST(fd_reopen) {
-        _cleanup_close_ int fd1 = -EBADF, fd2 = -EBADF;
+        _cleanup_(closep) int fd1 = -EBADF, fd2 = -EBADF;
         struct stat st1, st2;
         int fl;
 
@@ -477,7 +477,7 @@ TEST(fd_reopen) {
 }
 
 TEST(fd_reopen_condition) {
-        _cleanup_close_ int fd1 = -EBADF, fd3 = -EBADF;
+        _cleanup_(closep) int fd1 = -EBADF, fd3 = -EBADF;
         int fd2, fl;
 
         /* Open without O_PATH */
@@ -524,7 +524,7 @@ TEST(fd_reopen_condition) {
 }
 
 TEST(take_fd) {
-        _cleanup_close_ int fd1 = -EBADF, fd2 = -EBADF;
+        _cleanup_(closep) int fd1 = -EBADF, fd2 = -EBADF;
         int array[2] = EBADF_PAIR, i = 0;
 
         assert_se(fd1 == -EBADF);
@@ -563,7 +563,7 @@ TEST(take_fd) {
 }
 
 TEST(dir_fd_is_root) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         assert_se(dir_fd_is_root_or_cwd(AT_FDCWD) > 0);
@@ -625,7 +625,7 @@ static void test_path_is_root_at_one(bool expected) {
         ASSERT_OK_ZERO(path_is_root("/.././usr"));
         ASSERT_OK_ZERO(path_is_root("/../../usr"));
 
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         ASSERT_OK_ERRNO(fd = open("/", O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW));
 
         ASSERT_OK_POSITIVE(path_is_root_at(fd, NULL));
@@ -739,7 +739,7 @@ TEST(path_is_root_at) {
 }
 
 TEST(fds_inode_and_mount_same) {
-        _cleanup_close_ int fd1 = -EBADF, fd2 = -EBADF, fd3 = -EBADF, fd4 = -EBADF;
+        _cleanup_(closep) int fd1 = -EBADF, fd2 = -EBADF, fd3 = -EBADF, fd4 = -EBADF;
 
         fd1 = open("/sys", O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW);
         fd2 = open("/proc", O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW);
@@ -755,7 +755,7 @@ TEST(fds_inode_and_mount_same) {
 
 TEST(fd_get_path) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
-        _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
+        _cleanup_(closep) int tfd = -EBADF, fd = -EBADF;
         _cleanup_free_ char *p = NULL, *q = NULL, *saved_cwd = NULL;
 
         tfd = mkdtemp_open(NULL, O_PATH, &t);
@@ -871,7 +871,7 @@ TEST(fd_get_path) {
 
 TEST(fd_vet_accmode) {
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-fd-accmode.XXXXXX";
-        _cleanup_close_ int fd_rw = -EBADF, fd_ro = -EBADF, fd_wo = -EBADF, fd_opath = -EBADF;
+        _cleanup_(closep) int fd_rw = -EBADF, fd_ro = -EBADF, fd_wo = -EBADF, fd_opath = -EBADF;
 
         ASSERT_OK(fd_rw = mkostemp_safe(name));
         ASSERT_OK_ZERO(fd_vet_accmode(fd_rw, O_RDONLY));
@@ -896,7 +896,7 @@ TEST(fd_vet_accmode) {
 
 TEST(fd_is_writable) {
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-fd-writable.XXXXXX";
-        _cleanup_close_ int fd_ro = -EBADF, fd_wo = -EBADF, fd_rw = -EBADF, fd_path = -EBADF;
+        _cleanup_(closep) int fd_ro = -EBADF, fd_wo = -EBADF, fd_rw = -EBADF, fd_path = -EBADF;
 
         ASSERT_OK(fd_rw = mkostemp_safe(name));
         ASSERT_OK_POSITIVE(fd_is_writable(fd_rw));

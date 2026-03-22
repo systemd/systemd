@@ -535,7 +535,7 @@ static int parse_one_option(const char *option) {
         } else if ((val = startswith(option, "tpm2-measure-bank="))) {
 
 #if HAVE_OPENSSL
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_(strv_freep) char **l = NULL;
 
                 l = strv_split(val, ":");
                 if (!l)
@@ -917,7 +917,7 @@ static int get_password(
                 char ***ret) {
 
         _cleanup_free_ char *friendly = NULL, *text = NULL, *disk_path = NULL, *id = NULL;
-        _cleanup_strv_free_erase_ char **passwords = NULL;
+        _cleanup_(strv_free_erasep) char **passwords = NULL;
         AskPasswordFlags flags = arg_ask_password_flags;
         int r;
 
@@ -962,7 +962,7 @@ static int get_password(
                 return log_error_errno(r, "Failed to query password: %m");
 
         if (arg_verify) {
-                _cleanup_strv_free_erase_ char **passwords2 = NULL;
+                _cleanup_(strv_free_erasep) char **passwords2 = NULL;
 
                 assert(strv_length(passwords) == 1);
 
@@ -1044,7 +1044,7 @@ static int measure_volume_key(
         if (r < 0)
                 return r;
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         if (strv_isempty(arg_tpm2_measure_banks)) {
                 r = tpm2_get_good_pcr_banks_strv(c, UINT32_C(1) << arg_tpm2_measure_pcr, &l);
                 if (r < 0)
@@ -1518,7 +1518,7 @@ static bool use_token_plugins(void) {
 #if HAVE_LIBCRYPTSETUP_PLUGINS
 static int acquire_pins_from_env_variable(char ***ret_pins) {
         _cleanup_(erase_and_freep) char *envpin = NULL;
-        _cleanup_strv_free_erase_ char **pins = NULL;
+        _cleanup_(strv_free_erasep) char **pins = NULL;
         int r;
 
         assert(ret_pins);
@@ -1551,7 +1551,7 @@ static int crypt_activate_by_token_pin_ask_password(
 
 #if HAVE_LIBCRYPTSETUP_PLUGINS
         AskPasswordFlags flags = arg_ask_password_flags;
-        _cleanup_strv_free_erase_ char **pins = NULL;
+        _cleanup_(strv_free_erasep) char **pins = NULL;
         int r;
 
         r = crypt_activate_by_token_pin(cd, name, type, CRYPT_ANY_TOKEN, /* pin= */ NULL, /* pin_size= */ 0, userdata, activation_flags);
@@ -2716,7 +2716,7 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
 
         bool use_cached_passphrase = true, try_discover_key = !key_file;
         const char *discovered_key_fn = strjoina(volume, ".key");
-        _cleanup_strv_free_erase_ char **passwords = NULL;
+        _cleanup_(strv_free_erasep) char **passwords = NULL;
         for (tries = 0; arg_tries == 0 || tries < arg_tries; tries++) {
                 _cleanup_(iovec_done_erase) struct iovec discovered_key_data = {};
                 const struct iovec *key_data = NULL;

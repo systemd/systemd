@@ -289,7 +289,7 @@ TEST(environment_gathering) {
         int r;
 
         char **tmp = NULL; /* this is only used in the forked process, no cleanup here */
-        _cleanup_strv_free_ char **env = NULL;
+        _cleanup_(strv_freep) char **env = NULL;
 
         void* const args[] = { &tmp, &tmp, &env };
 
@@ -436,7 +436,7 @@ TEST(exec_command_flags_from_strv) {
 }
 
 TEST(exec_command_flags_to_strv) {
-        _cleanup_strv_free_ char **opts = NULL;
+        _cleanup_(strv_freep) char **opts = NULL;
 
         ASSERT_OK(exec_command_flags_to_strv(EXEC_COMMAND_NO_ENV_EXPAND|EXEC_COMMAND_IGNORE_FAILURE, &opts));
         assert_se(strv_equal(opts, STRV_MAKE("ignore-failure", "no-env-expand")));

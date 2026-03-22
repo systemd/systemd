@@ -791,7 +791,7 @@ static int print_user_status_info(sd_bus *bus, const char *path) {
                 return table_log_add_error(r);
 
         if (!strv_isempty(i.sessions)) {
-                _cleanup_strv_free_ char **sessions = TAKE_PTR(i.sessions);
+                _cleanup_(strv_freep) char **sessions = TAKE_PTR(i.sessions);
 
                 r = mark_session(sessions, i.display);
                 if (r < 0)
@@ -872,7 +872,7 @@ static int print_seat_status_info(sd_bus *bus, const char *path) {
         table_set_ersatz_string(table, TABLE_ERSATZ_NA);
 
         if (!strv_isempty(i.sessions)) {
-                _cleanup_strv_free_ char **sessions = TAKE_PTR(i.sessions);
+                _cleanup_(strv_freep) char **sessions = TAKE_PTR(i.sessions);
 
                 r = mark_session(sessions, i.active_session);
                 if (r < 0)

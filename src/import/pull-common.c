@@ -44,7 +44,7 @@ int pull_find_old_etags(
         if (!escaped_url)
                 return -ENOMEM;
 
-        _cleanup_closedir_ DIR *d = opendir(image_root);
+        _cleanup_(closedirp) DIR *d = opendir(image_root);
         if (!d) {
                 if (errno == ENOENT) {
                         *etags = NULL;
@@ -54,7 +54,7 @@ int pull_find_old_etags(
                 return -errno;
         }
 
-        _cleanup_strv_free_ char **ans = NULL;
+        _cleanup_(strv_freep) char **ans = NULL;
 
         FOREACH_DIRENT_ALL(de, d, return -errno) {
                 _cleanup_free_ char *u = NULL;
@@ -402,7 +402,7 @@ static int verify_gpg(
                 const struct iovec *payload,
                 const struct iovec *signature) {
 
-        _cleanup_close_pair_ int gpg_pipe[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int gpg_pipe[2] = EBADF_PAIR;
         _cleanup_(rm_rf_physical_and_freep) char *gpg_home = NULL;
         char sig_file_path[] = "/tmp/sigXXXXXX";
         _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
@@ -416,7 +416,7 @@ static int verify_gpg(
                 return log_error_errno(errno, "Failed to create pipe for gpg: %m");
 
         if (iovec_is_set(signature)) {
-                _cleanup_close_ int sig_file = -EBADF;
+                _cleanup_(closep) int sig_file = -EBADF;
 
                 sig_file = mkostemp(sig_file_path, O_RDWR);
                 if (sig_file < 0)

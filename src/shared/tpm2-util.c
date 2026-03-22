@@ -3080,7 +3080,7 @@ int tpm2_get_good_pcr_banks_strv(
 
 #if HAVE_OPENSSL
         _cleanup_free_ TPMI_ALG_HASH *algs = NULL;
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         int n_algs;
 
         assert(c);
@@ -6514,7 +6514,7 @@ int tpm2_unseal_data(
 int tpm2_list_devices(bool legend, bool quiet) {
 #if HAVE_TPM2
         _cleanup_(table_unrefp) Table *t = NULL;
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
         int r;
 
         r = dlopen_tpm2();
@@ -6590,7 +6590,7 @@ int tpm2_list_devices(bool legend, bool quiet) {
 
 int tpm2_find_device_auto(char **ret) {
 #if HAVE_TPM2
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
         int r;
 
         r = dlopen_tpm2();
@@ -6689,7 +6689,7 @@ const char* tpm2_firmware_log_path(void) {
 
 #if HAVE_OPENSSL
 static int tpm2_userspace_log_open(void) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         const char *e;
         int r;
 
@@ -6866,7 +6866,7 @@ int tpm2_pcr_extend_bytes(
                 const char *description) {
 
 #if HAVE_OPENSSL
-        _cleanup_close_ int log_fd = -EBADF;
+        _cleanup_(closep) int log_fd = -EBADF;
         TPML_DIGEST_VALUES values = {};
         TSS2_RC rc;
 
@@ -6974,7 +6974,7 @@ static int nvpcr_data_load(const char *name, NvPCRData *ret) {
         const char *fname = strjoina(name, ".nvpcr");
 
         _cleanup_free_ char *path = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         r = search_and_fopen_nulstr(fname, "re", /* root= */ NULL, CONF_PATHS_NULSTR("nvpcr"), &f, &path);
         if (r < 0)
                 return r;
@@ -7035,7 +7035,7 @@ int tpm2_nvpcr_extend_bytes(
                 const char *description) {
 
 #if HAVE_OPENSSL
-        _cleanup_close_ int log_fd = -EBADF;
+        _cleanup_(closep) int log_fd = -EBADF;
         int r;
 
         assert(c);
@@ -7145,7 +7145,7 @@ static int tpm2_nvpcr_write_anchor_secret(
 
         /* Writes the encrypted credential of the anchor secret to directory 'dir' and file 'fname' */
 
-        _cleanup_close_ int dfd = -EBADF;
+        _cleanup_(closep) int dfd = -EBADF;
         r = chase(dir, /* root= */ NULL, CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY, /* ret_path= */ NULL, &dfd);
         if (r < 0)
                 return log_error_errno(r, "Failed to create '%s' directory: %m", dir);
@@ -7274,7 +7274,7 @@ static int tpm2_nvpcr_acquire_anchor_secret_from_credential(struct iovec *ret_cr
         /* Define early, so that it is definitely initialized, even if we take "goto not_found" branch below. */
         _cleanup_free_ DirectoryEntries *de = NULL;
 
-        _cleanup_close_ int dfd = open(dp, O_CLOEXEC|O_DIRECTORY);
+        _cleanup_(closep) int dfd = open(dp, O_CLOEXEC|O_DIRECTORY);
         if (dfd < 0) {
                 if (errno == ENOENT) {
                         log_debug("No encrypted system credentials passed.");
@@ -7341,7 +7341,7 @@ not_found:
 
 int tpm2_nvpcr_acquire_anchor_secret(struct iovec *ret, bool sync_secondary) {
 #if HAVE_OPENSSL
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         /* Acquires the anchor secret. We store it in a credential. The primary location (and primary truth)
@@ -7351,7 +7351,7 @@ int tpm2_nvpcr_acquire_anchor_secret(struct iovec *ret, bool sync_secondary) {
          * boot, potentially. And one in the ESP/XBOOTLDR which will make it available in the initrd
          * already via system credentials. */
 
-        _cleanup_close_ int dfd = open_mkdir("/run/systemd/nvpcr", O_CLOEXEC, 0755);
+        _cleanup_(closep) int dfd = open_mkdir("/run/systemd/nvpcr", O_CLOEXEC, 0755);
         if (dfd < 0)
                 return log_error_errno(dfd, "Failed to open directory '/run/systemd/nvpcr': %m");
 
@@ -7562,9 +7562,9 @@ int tpm2_nvpcr_initialize(
                 return r;
 
         /* Open + lock the log file *before* we check for the *.anchor flag file. */
-        _cleanup_close_ int log_fd = tpm2_userspace_log_open();
+        _cleanup_(closep) int log_fd = tpm2_userspace_log_open();
 
-        _cleanup_close_ int dfd = open_mkdir("/run/systemd/nvpcr", O_CLOEXEC, 0755);
+        _cleanup_(closep) int dfd = open_mkdir("/run/systemd/nvpcr", O_CLOEXEC, 0755);
         if (dfd < 0)
                 return log_debug_errno(dfd, "Failed to open directory '/run/systemd/nvpcr': %m");
 
@@ -7673,7 +7673,7 @@ int tpm2_nvpcr_initialize(
          * (i.e. initrds) in a more sensible fashion, clearly separated from on-the-fly generated ones. Note
          * that we only do all this measurement stuff if we are booted as UKI, and hence when PCR 11 is
          * available, but PCR 9 is not predictable. */
-        _cleanup_strv_free_ char **banks = NULL;
+        _cleanup_(strv_freep) char **banks = NULL;
         r = tpm2_get_good_pcr_banks_strv(c, UINT32_C(1) << TPM2_PCR_KERNEL_INITRD, &banks);
         if (r < 0)
                 return log_error_errno(r, "Could not verify PCR banks: %m");
@@ -8310,7 +8310,7 @@ int tpm2_pcrlock_policy_load(
                 Tpm2PCRLockPolicy *ret_policy) {
 
         _cleanup_free_ char *discovered_path = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r;
 
         r = tpm2_pcrlock_search_file(path, &f, &discovered_path);
@@ -8388,7 +8388,7 @@ int tpm2_pcrlock_policy_from_credentials(
                 const struct iovec *nv,
                 Tpm2PCRLockPolicy *ret) {
 
-        _cleanup_close_ int dfd = -EBADF;
+        _cleanup_(closep) int dfd = -EBADF;
         int r;
 
         /* During boot we'll not have access to the pcrlock.json file in /var/. In order to support
@@ -9339,9 +9339,9 @@ int tpm2_parse_pcr_argument_to_mask(const char *arg, uint32_t *mask) {
 }
 
 int tpm2_load_pcr_signature(const char *path, sd_json_variant **ret) {
-        _cleanup_strv_free_ char **search = NULL;
+        _cleanup_(strv_freep) char **search = NULL;
         _cleanup_free_ char *discovered_path = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r;
 
         /* Tries to load a JSON PCR signature file. Takes an absolute path, a simple file name or NULL. In
@@ -9376,7 +9376,7 @@ int tpm2_load_pcr_signature(const char *path, sd_json_variant **ret) {
 
 int tpm2_load_pcr_public_key(const char *path, void **ret_pubkey, size_t *ret_pubkey_size) {
         _cleanup_free_ char *discovered_path = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r;
 
         /* Tries to load a PCR public key file. Takes an absolute path, a simple file name or NULL. In the

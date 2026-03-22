@@ -236,7 +236,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int determine_banks(Tpm2Context *c, unsigned target_pcr_nr) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         int r;
 
         assert(c);

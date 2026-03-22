@@ -29,7 +29,7 @@ static int copy_one_blob(
                 uid_t uid,
                 Hashmap *manifest) {
         _cleanup_(unlink_and_freep) char *dest_tmpname = NULL;
-        _cleanup_close_ int dest = -EBADF;
+        _cleanup_(closep) int dest = -EBADF;
         uint8_t hash[SHA256_DIGEST_SIZE], *known_hash;
         off_t initial, size;
         int r;
@@ -143,7 +143,7 @@ static int replace_blob_at(
                 mode_t mode,
                 uid_t uid) {
         _cleanup_free_ char *fn = NULL;
-        _cleanup_close_ int src_dfd = -EBADF, dest_dfd = -EBADF;
+        _cleanup_(closep) int src_dfd = -EBADF, dest_dfd = -EBADF;
         _cleanup_free_ DirectoryEntries *de = NULL;
         uint64_t total_size = 0;
         int r;
@@ -176,7 +176,7 @@ static int replace_blob_at(
         }
         for (size_t i = 0; i < de->n_entries; i++) {
                 const char *name = de->entries[i]->d_name;
-                _cleanup_close_ int src_fd = -EBADF;
+                _cleanup_(closep) int src_fd = -EBADF;
 
                 src_fd = openat(src_dfd, name, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
                 if (src_fd < 0) {
@@ -210,7 +210,7 @@ fail:
 }
 
 int home_reconcile_blob_dirs(UserRecord *h, int root_fd, int reconciled) {
-        _cleanup_close_ int sys_base_dfd = -EBADF;
+        _cleanup_(closep) int sys_base_dfd = -EBADF;
         int r;
 
         assert(h);
@@ -246,7 +246,7 @@ int home_reconcile_blob_dirs(UserRecord *h, int root_fd, int reconciled) {
 
 int home_apply_new_blob_dir(UserRecord *h, Hashmap *blobs) {
         _cleanup_free_ char *fn = NULL;
-        _cleanup_close_ int base_dfd = -EBADF, dfd = -EBADF;
+        _cleanup_(closep) int base_dfd = -EBADF, dfd = -EBADF;
         uint64_t total_size = 0;
         const char *filename;
         const void *v;

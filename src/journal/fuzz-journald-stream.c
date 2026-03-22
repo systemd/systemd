@@ -12,7 +12,7 @@
 #include "journald-stream.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
-        _cleanup_close_pair_ int stream_fds[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int stream_fds[2] = EBADF_PAIR;
         _cleanup_(manager_freep) Manager *m = NULL;
         StdoutStream *stream;
         int v, fd0;

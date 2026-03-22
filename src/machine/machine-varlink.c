@@ -513,7 +513,7 @@ int vl_method_open(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
         };
 
         Manager *manager = ASSERT_PTR(userdata);
-        _cleanup_close_ int ptmx_fd = -EBADF;
+        _cleanup_(closep) int ptmx_fd = -EBADF;
         _cleanup_(machine_open_paramaters_done) MachineOpenParameters p = {
                 .pidref = PIDREF_NULL,
                 .mode = _MACHINE_OPEN_MODE_INVALID,
@@ -521,7 +521,7 @@ int vl_method_open(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_free_ char *ptmx_name = NULL, *command_line = NULL;
         const char *user = NULL, *path = NULL; /* gcc complains about uninitialized variables */
-        _cleanup_strv_free_ char **args = NULL;
+        _cleanup_(strv_freep) char **args = NULL;
         Machine *machine;
         int r, ptmx_fd_idx;
 
@@ -573,7 +573,7 @@ int vl_method_open(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
                                 return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
                 }
 
-                _cleanup_strv_free_ char **polkit_details = NULL;
+                _cleanup_(strv_freep) char **polkit_details = NULL;
 
                 polkit_details = machine_open_polkit_details(p.mode, machine->name, user, path, command_line);
                 r = varlink_verify_polkit_async_full(
@@ -998,7 +998,7 @@ int vl_method_copy_internal(sd_varlink *link, sd_json_variant *parameters, sd_va
 
 int vl_method_open_root_directory_internal(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         Machine *machine = ASSERT_PTR(userdata);
         Manager *manager = ASSERT_PTR(machine->manager);
         int r;

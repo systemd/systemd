@@ -124,7 +124,7 @@ int fstatat_harder(int dfd,
 }
 
 static int openat_harder(int dfd, const char *path, int open_flags, RemoveFlags remove_flags, mode_t *ret_old_mode) {
-        _cleanup_close_ int pfd = -EBADF, fd = -EBADF;
+        _cleanup_(closep) int pfd = -EBADF, fd = -EBADF;
         bool chmod_done = false;
         mode_t old_mode;
         int r;
@@ -306,7 +306,7 @@ static int rm_rf_children_impl(
          * The passed fd is closed in all cases, including on failure. */
 
         for (;;) {  /* This loop corresponds to the directory nesting level. */
-                _cleanup_closedir_ DIR *d = NULL;
+                _cleanup_(closedirp) DIR *d = NULL;
 
                 if (n_todo > 0) {
                         /* We know that we are in recursion here, because n_todo is set.

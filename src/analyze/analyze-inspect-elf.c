@@ -20,7 +20,7 @@ static int analyze_elf(char **filenames, sd_json_format_flags_t json_flags) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *package_metadata = NULL;
                 _cleanup_(table_unrefp) Table *t = NULL;
                 _cleanup_free_ char *abspath = NULL, *stacktrace = NULL;
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
                 bool coredump = false;
 
                 fd = chase_and_open(*filename, arg_root, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC, &abspath);

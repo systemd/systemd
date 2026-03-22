@@ -19,8 +19,8 @@
 
 int ima_setup(void) {
 #if ENABLE_IMA
-        _cleanup_fclose_ FILE *input = NULL;
-        _cleanup_close_ int imafd = -EBADF;
+        _cleanup_(fclosep) FILE *input = NULL;
+        _cleanup_(closep) int imafd = -EBADF;
         unsigned lineno = 0;
         int r;
 

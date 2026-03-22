@@ -127,7 +127,7 @@ static Operation* operation_new(
 static int ensure_targets(sd_bus *bus, char **argv, char ***ret_targets) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_strv_free_ char **targets = NULL;
+        _cleanup_(strv_freep) char **targets = NULL;
         int r;
 
         assert(bus);
@@ -219,8 +219,8 @@ static int parse_targets(
                 size_t *ret_n,
                 char ***ret_bus_paths,
                 char ***ret_versions) {
-        _cleanup_strv_free_ char **bus_paths = NULL;
-        _cleanup_strv_free_ char **versions = NULL;
+        _cleanup_(strv_freep) char **bus_paths = NULL;
+        _cleanup_(strv_freep) char **versions = NULL;
         size_t n = 0;
         int r;
 
@@ -283,7 +283,7 @@ static int log_bus_error(int r, const sd_bus_error *error, const char *target, c
 static int list_targets(sd_bus *bus) {
         _cleanup_(table_unrefp) Table *table = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_strv_free_ char **targets = NULL, **target_paths = NULL;
+        _cleanup_(strv_freep) char **targets = NULL, **target_paths = NULL;
         size_t n;
         int r;
 
@@ -454,7 +454,7 @@ static int list_versions(sd_bus *bus, const char *target_path) {
         _cleanup_(table_unrefp) Table *table = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_strv_free_ char **versions = NULL;
+        _cleanup_(strv_freep) char **versions = NULL;
         unsigned remaining = 0;
         int r;
 
@@ -756,7 +756,7 @@ static int verb_check(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
         _cleanup_(table_unrefp) Table *table = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        _cleanup_strv_free_ char **targets = NULL, **target_paths = NULL;
+        _cleanup_(strv_freep) char **targets = NULL, **target_paths = NULL;
         size_t n;
         unsigned remaining = 0;
         int r;
@@ -1189,8 +1189,8 @@ static int update_acquire_started(sd_bus_message *reply, void *userdata, sd_bus_
 static int do_update(sd_bus *bus, char **targets) {
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_(sd_event_source_unrefp) sd_event_source *render_exit = NULL;
-        _cleanup_ordered_hashmap_free_ OrderedHashmap *map = NULL;
-        _cleanup_strv_free_ char **versions = NULL, **target_paths = NULL;
+        _cleanup_(ordered_hashmap_freep) OrderedHashmap *map = NULL;
+        _cleanup_(strv_freep) char **versions = NULL, **target_paths = NULL;
         size_t n;
         unsigned remaining = 0;
         void *p;
@@ -1285,7 +1285,7 @@ static int do_update(sd_bus *bus, char **targets) {
 
 static int verb_update(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
-        _cleanup_strv_free_ char **targets = NULL;
+        _cleanup_(strv_freep) char **targets = NULL;
         bool did_anything = false;
         int r;
 
@@ -1338,7 +1338,7 @@ static int do_vacuum(sd_bus *bus, const char *target, const char *path) {
 
 static int verb_vacuum(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
-        _cleanup_strv_free_ char **targets = NULL, **target_paths = NULL;
+        _cleanup_(strv_freep) char **targets = NULL, **target_paths = NULL;
         size_t n;
         int r;
 
@@ -1427,7 +1427,7 @@ static int describe_feature(sd_bus *bus, const char *feature, Feature *ret) {
 static int list_features(sd_bus *bus) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_strv_free_ char **features = NULL;
+        _cleanup_(strv_freep) char **features = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
         int r;
 

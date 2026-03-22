@@ -22,7 +22,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 
 static int save_timestamp(const char *dir, struct timespec *ts) {
         _cleanup_free_ char *message = NULL, *dirpath = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         /*

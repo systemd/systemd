@@ -168,7 +168,7 @@ DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(image_hash_ops, char, string_hash_func, st
                                       Image, image_unref);
 
 static char** image_settings_path(Image *image, RuntimeScope scope) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         _cleanup_free_ char *fn = NULL;
         size_t i = 0;
         int r;
@@ -366,7 +366,7 @@ static int extract_image_basename(
 }
 
 static int image_update_quota(Image *i, int fd) {
-        _cleanup_close_ int fd_close = -EBADF;
+        _cleanup_(closep) int fd_close = -EBADF;
         int r;
 
         assert(i);
@@ -431,7 +431,7 @@ static int image_make(
          * This function returns -ENOENT if we can't find the image after all, and -EMEDIUMTYPE if it's not a file we
          * recognize. */
 
-        _cleanup_close_ int _fd = -EBADF;
+        _cleanup_(closep) int _fd = -EBADF;
         if (fd < 0) {
                 /* If we didn't get an fd passed in, then let's pin it via O_PATH now */
                 _fd = open(path, O_PATH|O_CLOEXEC);
@@ -679,7 +679,7 @@ static int image_make(
                         pretty = pretty_buffer;
                 }
 
-                _cleanup_close_ int block_fd = fd_reopen(fd, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
+                _cleanup_(closep) int block_fd = fd_reopen(fd, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY);
                 if (block_fd < 0)
                         log_debug_errno(errno, "Failed to open block device '%s', ignoring: %m", path);
                 else {
@@ -740,7 +740,7 @@ static int pick_image_search_path(
         }
 
         if (scope < 0) {
-                _cleanup_strv_free_ char **a = NULL, **b = NULL;
+                _cleanup_(strv_freep) char **a = NULL, **b = NULL;
 
                 r = pick_image_search_path(RUNTIME_SCOPE_USER, class, root, &a);
                 if (r < 0)
@@ -776,7 +776,7 @@ static int pick_image_search_path(
                 if (!ns)
                         break;
 
-                _cleanup_strv_free_ char **search = strv_split_nulstr(ns);
+                _cleanup_(strv_freep) char **search = strv_split_nulstr(ns);
                 if (!search)
                         return -ENOMEM;
 
@@ -794,7 +794,7 @@ static int pick_image_search_path(
                         SD_PATH_USER_LIBRARY_PRIVATE,
                 };
 
-                _cleanup_strv_free_ char **search = NULL;
+                _cleanup_(strv_freep) char **search = NULL;
                 FOREACH_ELEMENT(d, dirs) {
                         _cleanup_free_ char *p = NULL;
 
@@ -822,7 +822,7 @@ static int pick_image_search_path(
 }
 
 static char** make_possible_filenames(ImageClass class, const char *image_name) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
 
         assert(image_name);
 
@@ -869,24 +869,24 @@ int image_find(RuntimeScope scope,
         if (!image_name_is_valid(name))
                 return -ENOENT;
 
-        _cleanup_strv_free_ char **names = make_possible_filenames(class, name);
+        _cleanup_(strv_freep) char **names = make_possible_filenames(class, name);
         if (!names)
                 return -ENOMEM;
 
-        _cleanup_close_ int rfd = XAT_FDROOT; /* We only expect absolute paths */
+        _cleanup_(closep) int rfd = XAT_FDROOT; /* We only expect absolute paths */
         if (root) {
                 rfd = open(root, O_CLOEXEC|O_DIRECTORY|O_PATH);
                 if (rfd < 0)
                         return log_debug_errno(errno, "Failed to open root directory '%s': %m", root);
         }
 
-        _cleanup_strv_free_ char **search = NULL;
+        _cleanup_(strv_freep) char **search = NULL;
         r = pick_image_search_path(scope, class, root, &search);
         if (r < 0)
                 return r;
 
         STRV_FOREACH(s, search) {
-                _cleanup_closedir_ DIR *d = NULL;
+                _cleanup_(closedirp) DIR *d = NULL;
                 _cleanup_free_ char *search_path = NULL;
 
                 r = chase_and_opendirat(rfd, *s, CHASE_AT_RESOLVE_IN_ROOT, &search_path, &d);
@@ -898,7 +898,7 @@ int image_find(RuntimeScope scope,
                 STRV_FOREACH(n, names) {
                         const char *fname = *n;
                         _cleanup_free_ char *fname_path = NULL, *chased_path = NULL, *resolved_file = NULL;
-                        _cleanup_close_ int fd = -EBADF;
+                        _cleanup_(closep) int fd = -EBADF;
 
                         fname_path = path_join(search_path, fname);
                         if (!fname_path)
@@ -1079,20 +1079,20 @@ int image_discover(
         assert(class < _IMAGE_CLASS_MAX);
         assert(images);
 
-        _cleanup_close_ int rfd = XAT_FDROOT;  /* We only expect absolute paths */
+        _cleanup_(closep) int rfd = XAT_FDROOT;  /* We only expect absolute paths */
         if (root) {
                 rfd = open(root, O_CLOEXEC|O_DIRECTORY|O_PATH);
                 if (rfd < 0)
                         return log_debug_errno(errno, "Failed to open root directory '%s': %m", root);
         }
 
-        _cleanup_strv_free_ char **search = NULL;
+        _cleanup_(strv_freep) char **search = NULL;
         r = pick_image_search_path(scope, class, root, &search);
         if (r < 0)
                 return r;
 
         STRV_FOREACH(s, search) {
-                _cleanup_closedir_ DIR *d = NULL;
+                _cleanup_(closedirp) DIR *d = NULL;
                 _cleanup_free_ char *search_path = NULL;
 
                 r = chase_and_opendirat(rfd, *s, CHASE_AT_RESOLVE_IN_ROOT, &search_path, &d);
@@ -1105,7 +1105,7 @@ int image_discover(
                         _cleanup_free_ char *pretty = NULL, *fname_path = NULL, *chased_path = NULL, *resolved_file = NULL;
                         _cleanup_(image_unrefp) Image *image = NULL;
                         const char *fname = de->d_name;
-                        _cleanup_close_ int fd = -EBADF;
+                        _cleanup_(closep) int fd = -EBADF;
 
                         if (dot_or_dot_dot(fname))
                                 continue;
@@ -1296,7 +1296,7 @@ static int unpriv_remove_cb(
                 /* This is owned by the foreign UID range, and a dir, let's remove it via mountfsd userns
                  * shenanigans. */
 
-                _cleanup_close_ int tree_fd = -EBADF;
+                _cleanup_(closep) int tree_fd = -EBADF;
                 r = mountfsd_mount_directory_fd(
                                 /* vl= */ NULL,
                                 inode_fd,
@@ -1329,7 +1329,7 @@ static int unpriv_remove_cb(
                                 _exit(EXIT_FAILURE);
                         }
 
-                        _cleanup_close_ int dfd = fd_reopen(tree_fd, O_DIRECTORY|O_CLOEXEC);
+                        _cleanup_(closep) int dfd = fd_reopen(tree_fd, O_DIRECTORY|O_CLOEXEC);
                         if (dfd < 0) {
                                 log_error_errno(r, "Failed to reopen tree fd: %m");
                                 _exit(EXIT_FAILURE);
@@ -1365,7 +1365,7 @@ static int unprivileged_remove(Image *i) {
          * the foreign UID range. We deal with this by recursively descending down the tree, and removing
          * foreign-owned ranges via userns shenanigans, and the rest just like that. */
 
-        _cleanup_close_ int userns_fd = nsresource_allocate_userns(
+        _cleanup_(closep) int userns_fd = nsresource_allocate_userns(
                         /* vl= */ NULL,
                         /* name= */ NULL,
                         /* size= */ NSRESOURCE_UIDS_64K);
@@ -1388,7 +1388,7 @@ static int unprivileged_remove(Image *i) {
 
 int image_remove(Image *i, RuntimeScope scope) {
         _cleanup_(release_lock_file) LockFile global_lock = LOCK_FILE_INIT, local_lock = LOCK_FILE_INIT;
-        _cleanup_strv_free_ char **settings = NULL;
+        _cleanup_(strv_freep) char **settings = NULL;
         int r;
 
         assert(i);
@@ -1494,7 +1494,7 @@ static int rename_auxiliary_file(const char *path, const char *new_name, const c
 int image_rename(Image *i, const char *new_name, RuntimeScope scope) {
         _cleanup_(release_lock_file) LockFile global_lock = LOCK_FILE_INIT, local_lock = LOCK_FILE_INIT, name_lock = LOCK_FILE_INIT;
         _cleanup_free_ char *new_path = NULL, *nn = NULL;
-        _cleanup_strv_free_ char **settings = NULL;
+        _cleanup_(strv_freep) char **settings = NULL;
         unsigned file_attr = 0;
         int r;
 
@@ -1680,7 +1680,7 @@ static int unprivileged_clone(Image *i, const char *new_path) {
         assert(i);
         assert(new_path);
 
-        _cleanup_close_ int userns_fd = nsresource_allocate_userns(
+        _cleanup_(closep) int userns_fd = nsresource_allocate_userns(
                         /* vl= */ NULL,
                         /* name= */ NULL,
                         /* size= */ NSRESOURCE_UIDS_64K);
@@ -1693,7 +1693,7 @@ static int unprivileged_clone(Image *i, const char *new_path) {
                 return r;
 
         /* Map original image */
-        _cleanup_close_ int tree_fd = -EBADF;
+        _cleanup_(closep) int tree_fd = -EBADF;
         r = mountfsd_mount_directory(
                         link,
                         i->path,
@@ -1704,7 +1704,7 @@ static int unprivileged_clone(Image *i, const char *new_path) {
                 return r;
 
         /* Make new image */
-        _cleanup_close_ int new_fd = -EBADF;
+        _cleanup_(closep) int new_fd = -EBADF;
         r = mountfsd_make_directory(
                         link,
                         new_path,
@@ -1715,7 +1715,7 @@ static int unprivileged_clone(Image *i, const char *new_path) {
                 return 0;
 
         /* Mount new image */
-        _cleanup_close_ int target_fd = -EBADF;
+        _cleanup_(closep) int target_fd = -EBADF;
         r = mountfsd_mount_directory_fd(
                         link,
                         new_fd,
@@ -1733,7 +1733,7 @@ static int unprivileged_clone(Image *i, const char *new_path) {
 
 int image_clone(Image *i, const char *new_name, bool read_only, RuntimeScope scope) {
         _cleanup_(release_lock_file) LockFile name_lock = LOCK_FILE_INIT;
-        _cleanup_strv_free_ char **settings = NULL;
+        _cleanup_(strv_freep) char **settings = NULL;
         int r;
 
         assert(i);
@@ -1888,7 +1888,7 @@ int image_read_only(Image *i, bool b, RuntimeScope scope) {
         }
 
         case IMAGE_BLOCK: {
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
                 struct stat st;
                 int state = b;
 
@@ -1923,11 +1923,11 @@ static int make_lock_dir(RuntimeScope scope) {
         if (r < 0)
                 return r;
 
-        _cleanup_close_ int pfd = open_mkdir_at(AT_FDCWD, p, O_CLOEXEC, 0755);
+        _cleanup_(closep) int pfd = open_mkdir_at(AT_FDCWD, p, O_CLOEXEC, 0755);
         if (pfd < 0)
                 return pfd;
 
-        _cleanup_close_ int nfd = open_mkdir_at(pfd, "nspawn", O_CLOEXEC, 0755);
+        _cleanup_(closep) int nfd = open_mkdir_at(pfd, "nspawn", O_CLOEXEC, 0755);
         if (nfd < 0)
                 return nfd;
 
@@ -2118,7 +2118,7 @@ int image_get_pool_usage(RuntimeScope scope, ImageClass class, uint64_t *ret) {
         if (r < 0)
                 return r;
 
-        _cleanup_close_ int fd = open(pool, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+        _cleanup_(closep) int fd = open(pool, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
         if (fd < 0)
                 return -errno;
 
@@ -2143,7 +2143,7 @@ int image_get_pool_limit(RuntimeScope scope, ImageClass class, uint64_t *ret) {
         if (r < 0)
                 return r;
 
-        _cleanup_close_ int fd = open(pool, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+        _cleanup_(closep) int fd = open(pool, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
         if (fd < 0)
                 return -errno;
 
@@ -2223,7 +2223,7 @@ int image_read_metadata(Image *i, const char *root, const ImagePolicy *image_pol
 
         case IMAGE_SUBVOLUME:
         case IMAGE_DIRECTORY: {
-                _cleanup_strv_free_ char **machine_info = NULL, **os_release = NULL, **sysext_release = NULL, **confext_release = NULL;
+                _cleanup_(strv_freep) char **machine_info = NULL, **os_release = NULL, **sysext_release = NULL, **confext_release = NULL;
                 _cleanup_free_ char *hostname = NULL, *path = NULL;
                 sd_id128_t machine_id = SD_ID128_NULL;
 
@@ -2423,7 +2423,7 @@ bool image_in_search_path(
         assert(class < _IMAGE_CLASS_MAX);
         assert(image);
 
-        _cleanup_strv_free_ char **search = NULL;
+        _cleanup_(strv_freep) char **search = NULL;
         r = pick_image_search_path(scope, class, root, &search);
         if (r < 0)
                 return r;

@@ -58,7 +58,7 @@ static int acquire_machine_id_from_credential(sd_id128_t *ret_machine_id) {
 }
 
 static int acquire_machine_id(const char *root, bool machine_id_from_firmware, sd_id128_t *ret) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         assert(ret);
@@ -132,16 +132,16 @@ static int acquire_machine_id(const char *root, bool machine_id_from_firmware, s
 int machine_id_setup(const char *root, sd_id128_t machine_id, MachineIdSetupFlags flags, sd_id128_t *ret) {
         _cleanup_free_ char *etc_machine_id = NULL, *run_machine_id = NULL;
         bool writable, write_run_machine_id = true;
-        _cleanup_close_ int fd = -EBADF, run_fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF, run_fd = -EBADF;
         bool unlink_run_machine_id = false;
         int r;
 
         WITH_UMASK(0000) {
-                _cleanup_close_ int inode_fd = -EBADF;
+                _cleanup_(closep) int inode_fd = -EBADF;
 
                 r = chase("/etc/machine-id", root, CHASE_PREFIX_ROOT|CHASE_MUST_BE_REGULAR, &etc_machine_id, &inode_fd);
                 if (r == -ENOENT) {
-                        _cleanup_close_ int etc_fd = -EBADF;
+                        _cleanup_(closep) int etc_fd = -EBADF;
                         _cleanup_free_ char *etc = NULL;
 
                         r = chase("/etc/", root, CHASE_PREFIX_ROOT|CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY, &etc, &etc_fd);
@@ -318,7 +318,7 @@ int machine_id_commit(const char *root) {
          * in a mount namespace, a new file is created at the right place. Afterwards the mount is also removed in the
          * original mount namespace, thus revealing the file that was just created. */
 
-        _cleanup_close_ int etc_fd = -EBADF;
+        _cleanup_(closep) int etc_fd = -EBADF;
         _cleanup_free_ char *etc = NULL;
         r = chase("/etc/", root, CHASE_PREFIX_ROOT|CHASE_MUST_BE_DIRECTORY, &etc, &etc_fd);
         if (r < 0)
@@ -338,7 +338,7 @@ int machine_id_commit(const char *root) {
 
         /* Read existing machine-id */
 
-        _cleanup_close_ int fd = xopenat_full(etc_fd, "machine-id", O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, XO_REGULAR, MODE_INVALID);
+        _cleanup_(closep) int fd = xopenat_full(etc_fd, "machine-id", O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, XO_REGULAR, MODE_INVALID);
         if (fd < 0)
                 return log_error_errno(fd, "Cannot open %s: %m", etc_machine_id);
 
@@ -357,7 +357,7 @@ int machine_id_commit(const char *root) {
                 return log_error_errno(r, "We didn't find a valid machine ID in %s: %m", etc_machine_id);
 
         /* Store current mount namespace */
-        _cleanup_close_ int initial_mntns_fd = namespace_open_by_type(NAMESPACE_MOUNT);
+        _cleanup_(closep) int initial_mntns_fd = namespace_open_by_type(NAMESPACE_MOUNT);
         if (initial_mntns_fd < 0)
                 return log_error_errno(initial_mntns_fd, "Can't fetch current mount namespace: %m");
 
@@ -367,7 +367,7 @@ int machine_id_commit(const char *root) {
                 return log_error_errno(r, "Failed to set up new mount namespace: %m");
 
         /* Open /etc/ again after we transitioned into our own private mount namespace */
-        _cleanup_close_ int etc_fd_again = -EBADF;
+        _cleanup_(closep) int etc_fd_again = -EBADF;
         r = chase("/etc/", root, CHASE_PREFIX_ROOT|CHASE_MUST_BE_DIRECTORY, /* ret_path= */ NULL, &etc_fd_again);
         if (r < 0)
                 return log_error_errno(r, "Failed to open %s: %m", "/etc/");

@@ -132,7 +132,7 @@ static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
 }
 
 static char *normalize_phase(const char *s) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
 
         /* Let's normalize phase expressions. We split the series of colon-separated words up, then remove
          * all empty ones, and glue them back together again. In other words we remove duplicate ":", as well
@@ -508,7 +508,7 @@ static int measure_kernel(PcrState *pcr_states, size_t n) {
 
         for (UnifiedSection c = 0; c < _UNIFIED_SECTION_MAX; c++) {
                 _cleanup_(evp_md_ctx_free_all) EVP_MD_CTX **mdctx = NULL;
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
                 uint64_t m = 0;
 
                 if (!arg_sections[c])
@@ -588,7 +588,7 @@ static int measure_kernel(PcrState *pcr_states, size_t n) {
 }
 
 static int measure_phase(PcrState *pcr_states, size_t n, const char *phase) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         int r;
 
         assert(pcr_states);
@@ -871,7 +871,7 @@ static int build_policy_digest(bool sign) {
         }
 
         if (arg_public_key) {
-                _cleanup_fclose_ FILE *pubkeyf = NULL;
+                _cleanup_(fclosep) FILE *pubkeyf = NULL;
 
                 pubkeyf = fopen(arg_public_key, "re");
                 if (!pubkeyf)

@@ -228,7 +228,7 @@ int block_device_new_from_fd(int fd, BlockDeviceLookupFlags flags, sd_device **r
 }
 
 int block_device_new_from_path(const char *path, BlockDeviceLookupFlags flags, sd_device **ret) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         assert(path);
         assert(ret);
@@ -311,7 +311,7 @@ int get_block_device_fd(int fd, dev_t *ret) {
 }
 
 int get_block_device(const char *path, dev_t *ret) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         assert(path);
         assert(ret);
@@ -361,7 +361,7 @@ int get_block_device_harder_fd(int fd, dev_t *ret) {
 }
 
 int get_block_device_harder(const char *path, dev_t *ret) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         assert(path);
         assert(ret);
@@ -374,7 +374,7 @@ int get_block_device_harder(const char *path, dev_t *ret) {
 }
 
 int lock_whole_block_device(dev_t devt, int open_flags, int operation) {
-        _cleanup_close_ int lock_fd = -EBADF;
+        _cleanup_(closep) int lock_fd = -EBADF;
         dev_t whole_devt;
         int r;
 
@@ -519,7 +519,7 @@ int blockdev_partscan_enabled_fd(int fd) {
 
 static int blockdev_is_encrypted(const char *sysfs_path, unsigned depth_left) {
         _cleanup_free_ char *p = NULL, *uuids = NULL;
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
         int r, found_encrypted = false;
 
         assert(sysfs_path);
@@ -633,7 +633,7 @@ int fd_get_whole_disk(int fd, bool backing, dev_t *ret) {
 }
 
 int path_get_whole_disk(const char *path, bool backing, dev_t *ret) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         fd = open(path, O_CLOEXEC|O_PATH);
         if (fd < 0)
@@ -776,7 +776,7 @@ int partition_enumerator_new(sd_device *dev, sd_device_enumerator **ret) {
 int block_device_remove_all_partitions(sd_device *dev, int fd) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         _cleanup_(sd_device_unrefp) sd_device *dev_unref = NULL;
-        _cleanup_close_ int fd_close = -EBADF;
+        _cleanup_(closep) int fd_close = -EBADF;
         bool has_partitions = false;
         int r, k = 0;
 

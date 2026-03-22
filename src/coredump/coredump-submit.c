@@ -246,7 +246,7 @@ static int save_external_coredump(
 
         _cleanup_(unlink_and_freep) char *tmp = NULL;
         _cleanup_free_ char *fn = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         uint64_t process_limit, max_size;
         bool truncated, storage_on_tmpfs;
         struct stat st;
@@ -359,7 +359,7 @@ static int save_external_coredump(
         if (config->compress) {
                 _cleanup_(unlink_and_freep) char *tmp_compressed = NULL;
                 _cleanup_free_ char *fn_compressed = NULL;
-                _cleanup_close_ int fd_compressed = -EBADF;
+                _cleanup_(closep) int fd_compressed = -EBADF;
                 uint64_t uncompressed_size = 0;
 
                 if (lseek(fd, 0, SEEK_SET) < 0)
@@ -469,8 +469,8 @@ static int maybe_remove_external_coredump(
 
 static int acquire_pid_mount_tree_fd(const CoredumpConfig *config, CoredumpContext *context) {
 #if HAVE_DWFL_SET_SYSROOT
-        _cleanup_close_ int mntns_fd = -EBADF, root_fd = -EBADF, fd = -EBADF;
-        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
+        _cleanup_(closep) int mntns_fd = -EBADF, root_fd = -EBADF, fd = -EBADF;
+        _cleanup_(close_pairp) int pair[2] = EBADF_PAIR;
         int r;
 
         assert(config);
@@ -632,7 +632,7 @@ static int allocate_journal_field(int fd, size_t size, char **ret, size_t *ret_s
 
 int coredump_submit(const CoredumpConfig *config, CoredumpContext *context) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *json_metadata = NULL;
-        _cleanup_close_ int coredump_fd = -EBADF, coredump_node_fd = -EBADF;
+        _cleanup_(closep) int coredump_fd = -EBADF, coredump_node_fd = -EBADF;
         _cleanup_free_ char *filename = NULL, *coredump_data = NULL, *stacktrace = NULL;
         const char *module_name, *root = NULL;
         uint64_t coredump_size = UINT64_MAX, coredump_compressed_size = UINT64_MAX;

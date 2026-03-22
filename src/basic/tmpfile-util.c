@@ -17,8 +17,8 @@
 #include "umask-util.h"
 
 static int fopen_temporary_internal(int dir_fd, const char *path, FILE **ret_file) {
-        _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(fclosep) FILE *f = NULL;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
@@ -98,7 +98,7 @@ int mkostemp_safe(char *pattern) {
 }
 
 int fmkostemp_safe(char *pattern, const char *mode, FILE **ret_f) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         FILE *f;
 
         fd = mkostemp_safe(pattern);
@@ -312,8 +312,8 @@ int open_tmpfile_linkable_at(int dir_fd, const char *target, int flags, char **r
 
 int fopen_tmpfile_linkable_at(int dir_fd, const char *target, int flags, char **ret_path, FILE **ret_file) {
         _cleanup_free_ char *path = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(fclosep) FILE *f = NULL;
+        _cleanup_(closep) int fd = -EBADF;
 
         assert(target);
         assert(ret_file);

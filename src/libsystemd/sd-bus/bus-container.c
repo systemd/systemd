@@ -68,7 +68,7 @@ int container_get_leader(RuntimeScope scope, const char *machine, pid_t *ret) {
 }
 
 static int bus_container_connect_namespace(sd_bus *b, int pidnsfd, int mntnsfd, int usernsfd, int rootfd) {
-        _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int errno_pipe_fd[2] = EBADF_PAIR;
         int r;
 
         if (pipe2(errno_pipe_fd, O_CLOEXEC) < 0)
@@ -96,7 +96,7 @@ static int bus_container_connect_namespace(sd_bus *b, int pidnsfd, int mntnsfd, 
 }
 
 int bus_container_connect_socket(sd_bus *b) {
-        _cleanup_close_ int pidnsfd = -EBADF, mntnsfd = -EBADF, usernsfd = -EBADF, rootfd = -EBADF;
+        _cleanup_(closep) int pidnsfd = -EBADF, mntnsfd = -EBADF, usernsfd = -EBADF, rootfd = -EBADF;
         int r;
 
         assert(b);

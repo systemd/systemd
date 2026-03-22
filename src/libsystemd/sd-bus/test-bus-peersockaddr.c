@@ -40,7 +40,7 @@ static bool gid_list_same(const gid_t *a, size_t n, const gid_t *b, size_t m) {
 
 static void* server(void *p) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_close_ int listen_fd = PTR_TO_INT(p), fd = -EBADF;
+        _cleanup_(closep) int listen_fd = PTR_TO_INT(p), fd = -EBADF;
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *c = NULL;
         _cleanup_free_ char *our_comm = NULL;
         sd_id128_t id;
@@ -137,7 +137,7 @@ static void* client(void *p) {
 
 TEST(description) {
         _cleanup_free_ char *a = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         union sockaddr_union sa = {
                 .un.sun_family = AF_UNIX,
         };

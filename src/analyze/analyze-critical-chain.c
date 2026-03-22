@@ -82,7 +82,7 @@ static bool times_in_range(const UnitTimes *times, const BootTimes *boot) {
 }
 
 static int list_dependencies_one(sd_bus *bus, const char *name, unsigned level, char ***units, unsigned branches) {
-        _cleanup_strv_free_ char **deps = NULL;
+        _cleanup_(strv_freep) char **deps = NULL;
         int r;
         usec_t service_longest = 0;
         int to_print = 0;
@@ -150,7 +150,7 @@ static int list_dependencies_one(sd_bus *bus, const char *name, unsigned level, 
 }
 
 static int list_dependencies(sd_bus *bus, const char *name) {
-        _cleanup_strv_free_ char **units = NULL;
+        _cleanup_(strv_freep) char **units = NULL;
         UnitTimes *times;
         int r;
         const char *id;

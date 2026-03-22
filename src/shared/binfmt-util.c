@@ -12,7 +12,7 @@
 #include "stat-util.h"
 
 int binfmt_mounted_and_writable(void) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         fd = RET_NERRNO(open("/proc/sys/fs/binfmt_misc", O_CLOEXEC | O_DIRECTORY | O_PATH));

@@ -16,8 +16,8 @@ DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(uid_gid_hash_ops, char, string_hash_
 
 static int open_passwd_file(const char *root, const char *fname, FILE **ret_file) {
         _cleanup_free_ char *p = NULL;
-        _cleanup_close_ int fd = -EBADF;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(closep) int fd = -EBADF;
+        _cleanup_(fclosep) FILE *f = NULL;
 
         fd = chase_and_open(fname, root, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC, &p);
         if (fd < 0)
@@ -41,7 +41,7 @@ static int open_passwd_file(const char *root, const char *fname, FILE **ret_file
 }
 
 static int populate_uid_cache(const char *root, Hashmap **ret) {
-        _cleanup_hashmap_free_ Hashmap *cache = NULL;
+        _cleanup_(hashmap_freep) Hashmap *cache = NULL;
         int r;
 
         cache = hashmap_new(&uid_gid_hash_ops);
@@ -52,7 +52,7 @@ static int populate_uid_cache(const char *root, Hashmap **ret) {
          * could be made configurable, but I don't see the point right now. */
 
         FOREACH_STRING(fname, "/etc/passwd", "/usr/lib/passwd") {
-                _cleanup_fclose_ FILE *f = NULL;
+                _cleanup_(fclosep) FILE *f = NULL;
 
                 r = open_passwd_file(root, fname, &f);
                 if (r == -ENOENT)
@@ -82,7 +82,7 @@ static int populate_uid_cache(const char *root, Hashmap **ret) {
 }
 
 static int populate_gid_cache(const char *root, Hashmap **ret) {
-        _cleanup_hashmap_free_ Hashmap *cache = NULL;
+        _cleanup_(hashmap_freep) Hashmap *cache = NULL;
         int r;
 
         cache = hashmap_new(&uid_gid_hash_ops);
@@ -90,7 +90,7 @@ static int populate_gid_cache(const char *root, Hashmap **ret) {
                 return -ENOMEM;
 
         FOREACH_STRING(fname, "/etc/group", "/usr/lib/group") {
-                _cleanup_fclose_ FILE *f = NULL;
+                _cleanup_(fclosep) FILE *f = NULL;
 
                 r = open_passwd_file(root, fname, &f);
                 if (r == -ENOENT)

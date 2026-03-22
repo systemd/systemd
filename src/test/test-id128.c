@@ -26,7 +26,7 @@ TEST(id128) {
         sd_id128_t id, id2;
         char t[SD_ID128_STRING_MAX], q[SD_ID128_UUID_STRING_MAX];
         _cleanup_free_ char *b = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         ASSERT_OK(sd_id128_randomize(&id));
         printf("random: %s\n", sd_id128_to_string(id, t));
@@ -266,7 +266,7 @@ TEST(benchmark_sd_id128_get_machine_app_specific) {
 
 TEST(id128_at) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
-        _cleanup_close_ int tfd = -EBADF;
+        _cleanup_(closep) int tfd = -EBADF;
         _cleanup_free_ char *p = NULL;
         sd_id128_t id, i;
 
@@ -347,7 +347,7 @@ TEST(id128_at) {
 
 TEST(ID128_REFUSE_NULL) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
-        _cleanup_close_ int tfd = -EBADF;
+        _cleanup_(closep) int tfd = -EBADF;
         sd_id128_t id;
 
         tfd = mkdtemp_open(NULL, O_PATH, &t);

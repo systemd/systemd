@@ -94,8 +94,8 @@ int clean_pool_read_next_entry(FILE *file, char **ret_name, uint64_t *ret_usage)
 }
 
 int image_clean_pool_operation(Manager *manager, ImageCleanPoolMode mode, Operation **ret_operation) {
-        _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR;
-        _cleanup_close_ int result_fd = -EBADF;
+        _cleanup_(close_pairp) int errno_pipe_fd[2] = EBADF_PAIR;
+        _cleanup_(closep) int result_fd = -EBADF;
         _cleanup_(pidref_done_sigkill_wait) PidRef child = PIDREF_NULL;
         int r;
 
@@ -119,7 +119,7 @@ int image_clean_pool_operation(Manager *manager, ImageCleanPoolMode mode, Operat
         if (r == 0) {
                 errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
 
-                _cleanup_hashmap_free_ Hashmap *images = NULL;
+                _cleanup_(hashmap_freep) Hashmap *images = NULL;
                 r = image_discover(manager->runtime_scope, IMAGE_MACHINE, /* root= */ NULL, &images);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to discover images: %m");

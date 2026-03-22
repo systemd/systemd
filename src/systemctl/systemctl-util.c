@@ -278,7 +278,7 @@ int expand_unit_names(
                 char ***ret,
                 bool *ret_expanded) {
 
-        _cleanup_strv_free_ char **mangled = NULL, **globs = NULL;
+        _cleanup_(strv_freep) char **mangled = NULL, **globs = NULL;
         int r;
 
         assert(bus);
@@ -324,7 +324,7 @@ int expand_unit_names(
 
 int get_active_triggering_units(sd_bus *bus, const char *unit, bool ignore_masked, char ***ret) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_strv_free_ char **triggered_by = NULL, **active = NULL;
+        _cleanup_(strv_freep) char **triggered_by = NULL, **active = NULL;
         _cleanup_free_ char *name = NULL, *dbus_path = NULL;
         int r;
 
@@ -387,7 +387,7 @@ skip:
 }
 
 void warn_triggering_units(sd_bus *bus, const char *unit, const char *operation, bool ignore_masked) {
-        _cleanup_strv_free_ char **triggered_by = NULL;
+        _cleanup_(strv_freep) char **triggered_by = NULL;
         _cleanup_free_ char *joined = NULL;
         int r;
 
@@ -500,7 +500,7 @@ int unit_find_paths(
                 char **ret_fragment_path,
                 char ***ret_dropin_paths) {
 
-        _cleanup_strv_free_ char **dropins = NULL;
+        _cleanup_(strv_freep) char **dropins = NULL;
         _cleanup_free_ char *path = NULL;
         int r;
 
@@ -584,7 +584,7 @@ int unit_find_paths(
                 }
 
                 const char *_path;
-                _cleanup_set_free_ Set *names = NULL;
+                _cleanup_(set_freep) Set *names = NULL;
                 r = unit_file_find_fragment(*cached_id_map, *cached_name_map, unit_name, &_path, &names);
                 if (r < 0)
                         return log_error_errno(r, "Failed to find fragment for '%s': %m", unit_name);
@@ -747,7 +747,7 @@ int unit_exists(LookupPaths *lp, const char *unit) {
 }
 
 int append_unit_dependencies(sd_bus *bus, char **names, char ***ret) {
-        _cleanup_strv_free_ char **with_deps = NULL;
+        _cleanup_(strv_freep) char **with_deps = NULL;
 
         assert(bus);
         assert(ret);
@@ -770,7 +770,7 @@ int append_unit_dependencies(sd_bus *bus, char **names, char ***ret) {
 }
 
 int maybe_extend_with_unit_dependencies(sd_bus *bus, char ***list) {
-        _cleanup_strv_free_ char **list_with_deps = NULL;
+        _cleanup_(strv_freep) char **list_with_deps = NULL;
         int r;
 
         assert(bus);
@@ -787,7 +787,7 @@ int maybe_extend_with_unit_dependencies(sd_bus *bus, char ***list) {
 }
 
 int unit_get_dependencies(sd_bus *bus, const char *name, char ***ret) {
-        _cleanup_strv_free_ char **deps = NULL;
+        _cleanup_(strv_freep) char **deps = NULL;
 
         static const struct bus_properties_map map[_DEPENDENCY_MAX][7] = {
                 [DEPENDENCY_FORWARD] = {
@@ -941,7 +941,7 @@ UnitFileFlags unit_file_flags_from_args(void) {
 }
 
 int mangle_names(const char *operation, char * const *original_names, char ***ret) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         int r;
 
         assert(operation);

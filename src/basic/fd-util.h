@@ -103,12 +103,6 @@ static inline void fclosep(FILE **f) {
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(FILE*, pclose, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(DIR*, closedir, NULL);
 
-#define _cleanup_close_ _cleanup_(closep)
-#define _cleanup_fclose_ _cleanup_(fclosep)
-#define _cleanup_pclose_ _cleanup_(pclosep)
-#define _cleanup_closedir_ _cleanup_(closedirp)
-#define _cleanup_close_pair_ _cleanup_(close_pairp)
-
 int fd_nonblock(int fd, bool nonblock);
 int stdio_disable_nonblock(void);
 

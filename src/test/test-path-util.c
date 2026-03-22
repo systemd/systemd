@@ -370,7 +370,7 @@ TEST(path_equal_root) {
 TEST(find_executable_full) {
         char *p, *bp;
         _cleanup_free_ char *test_file_name = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         char fn[] = "/tmp/test-XXXXXX";
 
         assert_se(find_executable_full("sh", NULL, NULL, true, &p, NULL) == 0);
@@ -463,7 +463,7 @@ TEST(find_executable) {
 
 static void test_find_executable_exec_one(const char *path) {
         _cleanup_free_ char *t = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         r = find_executable_full(path, NULL, NULL, false, &t, &fd);
@@ -690,8 +690,8 @@ TEST(path_make_relative_parent) {
 
 TEST(path_strv_resolve) {
         char tmp_dir[] = "/tmp/test-path-util-XXXXXX";
-        _cleanup_strv_free_ char **search_dirs = NULL;
-        _cleanup_strv_free_ char **absolute_dirs = NULL;
+        _cleanup_(strv_freep) char **search_dirs = NULL;
+        _cleanup_(strv_freep) char **absolute_dirs = NULL;
 
         ASSERT_NOT_NULL(mkdtemp(tmp_dir));
 

@@ -80,7 +80,7 @@ static int pidref_namespace_open_by_type_internal(const PidRef *pidref, Namespac
         if (need_verify) /* The caller shall call pidref_verify() later */
                 *need_verify = true;
 
-        _cleanup_close_ int nsfd = -EBADF;
+        _cleanup_(closep) int nsfd = -EBADF;
         const char *p;
 
         p = pid_namespace_path(pidref->pid, type);
@@ -139,7 +139,7 @@ int pidref_namespace_open(
                 int *ret_userns_fd,
                 int *ret_root_fd) {
 
-        _cleanup_close_ int pidns_fd = -EBADF, mntns_fd = -EBADF, netns_fd = -EBADF,
+        _cleanup_(closep) int pidns_fd = -EBADF, mntns_fd = -EBADF, netns_fd = -EBADF,
                 userns_fd = -EBADF, root_fd = -EBADF;
         bool need_verify = false;
         int r;
@@ -366,7 +366,7 @@ int is_our_namespace(int fd, NamespaceType type) {
         if (r == 0) /* Not a namespace or not of the right type? */
                 return -EUCLEAN;
 
-        _cleanup_close_ int our_ns = namespace_open_by_type(type);
+        _cleanup_(closep) int our_ns = namespace_open_by_type(type);
         if (our_ns < 0)
                 return our_ns;
 
@@ -437,7 +437,7 @@ int namespace_is_init(NamespaceType type) {
 }
 
 int pidref_in_same_namespace(PidRef *pid1, PidRef *pid2, NamespaceType type) {
-        _cleanup_close_ int ns1 = -EBADF, ns2 = -EBADF;
+        _cleanup_(closep) int ns1 = -EBADF, ns2 = -EBADF;
 
         /* Accepts NULL to indicate our own process */
 
@@ -704,7 +704,7 @@ int userns_acquire_self_root(void) {
 }
 
 int userns_enter_and_pin(int userns_fd, PidRef *ret) {
-        _cleanup_close_pair_ int pfd[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int pfd[2] = EBADF_PAIR;
         _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
         ssize_t n;
         char x;
@@ -808,7 +808,7 @@ int process_is_owned_by_uid(const PidRef *pidref, uid_t uid) {
         if (process_uid == uid)
                 return true;
 
-        _cleanup_close_ int userns_fd = -EBADF;
+        _cleanup_(closep) int userns_fd = -EBADF;
         userns_fd = pidref_namespace_open_by_type(pidref, NAMESPACE_USER);
         if (userns_fd == -ENOPKG) /* If userns is not supported, then they don't matter for ownership */
                 return false;
@@ -836,7 +836,7 @@ int process_is_owned_by_uid(const PidRef *pidref, uid_t uid) {
                         return log_debug_errno(SYNTHETIC_ERRNO(ELOOP), "Giving up while tracing parents of user namespaces after %u steps.", iteration);
 
                 /* Go up the tree */
-                _cleanup_close_ int parent_fd = ioctl(userns_fd, NS_GET_USERNS);
+                _cleanup_(closep) int parent_fd = ioctl(userns_fd, NS_GET_USERNS);
                 if (parent_fd < 0) {
                         if (errno == EPERM) /* EPERM means we left our own userns */
                                 return false;
@@ -849,7 +849,7 @@ int process_is_owned_by_uid(const PidRef *pidref, uid_t uid) {
 }
 
 int is_idmapping_supported(const char *path) {
-        _cleanup_close_ int mount_fd = -EBADF, userns_fd = -EBADF, dir_fd = -EBADF;
+        _cleanup_(closep) int mount_fd = -EBADF, userns_fd = -EBADF, dir_fd = -EBADF;
         int r;
 
         assert(path);

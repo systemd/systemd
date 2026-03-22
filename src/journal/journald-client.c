@@ -21,8 +21,8 @@ static void client_set_filtering_patterns(ClientContext *c, Set *allow_list, Set
 }
 
 static int client_parse_log_filter_nulstr(const char *nulstr, size_t len, Set **ret) {
-        _cleanup_set_free_ Set *s = NULL;
-        _cleanup_strv_free_ char **patterns_strv = NULL;
+        _cleanup_(set_freep) Set *s = NULL;
+        _cleanup_(strv_freep) char **patterns_strv = NULL;
         int r;
 
         assert(nulstr);
@@ -86,14 +86,14 @@ int client_context_read_log_filter_patterns(ClientContext *c, const char *cgroup
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
                                        "Missing delimiter in cgroup user.journald_log_filter_patterns attribute.");
 
-        _cleanup_set_free_ Set *allow_list = NULL;
+        _cleanup_(set_freep) Set *allow_list = NULL;
         r = client_parse_log_filter_nulstr(xattr, deny_list_xattr - xattr, &allow_list);
         if (r < 0)
                 return r;
 
         /* Use 'deny_list_xattr + 1' to skip '0xff'. */
         ++deny_list_xattr;
-        _cleanup_set_free_ Set *deny_list = NULL;
+        _cleanup_(set_freep) Set *deny_list = NULL;
         r = client_parse_log_filter_nulstr(deny_list_xattr, xattr_end - deny_list_xattr, &deny_list);
         if (r < 0)
                 return r;

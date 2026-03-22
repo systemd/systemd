@@ -131,7 +131,7 @@ static int add_syscall_filters(
                  */
         };
 
-        _cleanup_strv_free_ char **added = NULL;
+        _cleanup_(strv_freep) char **added = NULL;
         int r;
 
         FOREACH_ELEMENT(i, allow_list) {

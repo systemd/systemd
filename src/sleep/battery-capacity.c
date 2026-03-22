@@ -98,7 +98,7 @@ static bool battery_discharge_rate_is_valid(int battery_discharge_rate) {
 /* Battery percentage discharge rate per hour is read from specific file. It is stored along with system
  * and battery identifier hash to maintain the integrity of discharge rate value */
 static int get_battery_discharge_rate(sd_device *dev, int *ret) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         uint64_t current_hash_id;
         const char *p;
         int r;
@@ -183,7 +183,7 @@ static int put_battery_discharge_rate(int estimated_battery_discharge_rate, uint
 /* Store current capacity of each battery before suspension and timestamp */
 int fetch_batteries_capacity_by_name(Hashmap **ret) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        _cleanup_hashmap_free_ Hashmap *batteries_capacity_by_name = NULL;
+        _cleanup_(hashmap_freep) Hashmap *batteries_capacity_by_name = NULL;
         int r;
 
         assert(ret);

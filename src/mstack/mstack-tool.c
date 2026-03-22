@@ -380,7 +380,7 @@ static int umount_mstack(void) {
         assert(arg_where);
 
         _cleanup_free_ char *canonical = NULL;
-        _cleanup_close_ int fd = chase_and_open(arg_where, /* root= */ NULL, /* chase_flags= */ 0, O_DIRECTORY, &canonical);
+        _cleanup_(closep) int fd = chase_and_open(arg_where, /* root= */ NULL, /* chase_flags= */ 0, O_DIRECTORY, &canonical);
         if (fd == -ENOTDIR)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOTDIR), "'%s' is not a directory", arg_where);
         if (fd < 0)

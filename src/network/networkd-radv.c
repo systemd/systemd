@@ -244,7 +244,7 @@ int link_request_radv_addresses(Link *link) {
                 if (p->prefix.prefixlen > 64)
                         continue;
 
-                _cleanup_hashmap_free_ Hashmap *tokens_by_address = NULL;
+                _cleanup_(hashmap_freep) Hashmap *tokens_by_address = NULL;
                 r = radv_generate_addresses(link, p->tokens, &p->prefix.address, p->prefix.prefixlen, &tokens_by_address);
                 if (r < 0)
                         return r;

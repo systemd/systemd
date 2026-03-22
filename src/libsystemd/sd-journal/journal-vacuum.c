@@ -96,7 +96,7 @@ static void patch_realtime(
 }
 
 static int journal_file_empty(int dir_fd, const char *name) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         struct stat st;
         le64_t n_entries;
         ssize_t n;
@@ -136,7 +136,7 @@ int journal_directory_vacuum(
 
         uint64_t sum = 0, freed = 0, n_active_files = 0;
         size_t n_list = 0, i;
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
         vacuum_info *list = NULL;
         usec_t retention_limit = 0;
         int r;

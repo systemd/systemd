@@ -37,7 +37,7 @@ int varlink_server_serialize(sd_varlink_server *s, const char *name, FILE *f, FD
 
 int varlink_server_deserialize_one(sd_varlink_server *s, const char *value, FDSet *fds) {
         _cleanup_free_ char *address = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         const char *v;
         int r;
 

@@ -90,7 +90,7 @@ static int netdev_take_tuntap_fd(Manager *m, const char *ifname) {
 }
 
 static int netdev_push_tuntap_fd(NetDev *netdev, int fd) {
-        _unused_ _cleanup_close_ int fd_old = -EBADF;
+        _unused_ _cleanup_(closep) int fd_old = -EBADF;
         int r;
 
         assert(netdev->manager);
@@ -134,7 +134,7 @@ void manager_clear_unmanaged_tuntap_fds(Manager *m) {
 }
 
 static int netdev_create_tuntap(NetDev *netdev) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         struct ifreq ifr = {};
         TunTap *t = TUNTAP(netdev);
         int r;

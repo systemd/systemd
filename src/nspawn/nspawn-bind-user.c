@@ -85,7 +85,7 @@ static int write_membership(const char *root, const char *user, const char *grou
         if (!p)
                 return log_oom();
 
-        _cleanup_close_ int fd = chase_and_open(
+        _cleanup_(closep) int fd = chase_and_open(
                         p,
                         root,
                         CHASE_PREFIX_ROOT|CHASE_NO_AUTOFS,
