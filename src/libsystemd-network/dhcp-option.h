@@ -53,3 +53,10 @@ int dhcp_option_parse(
 
 int dhcp_option_parse_string(const uint8_t *option, size_t len, char **ret);
 int dhcp_option_parse_hostname(const uint8_t *option, size_t len, char **ret);
+
+int dhcp_options_append(Hashmap **options, uint8_t code, size_t length, const void *data);
+int dhcp_options_append_many(Hashmap **options, Hashmap *src);
+int dhcp_options_parse(Hashmap **options, const uint8_t *buf, size_t len);
+int dhcp_options_parse_iovec(Hashmap **options, const struct iovec *iovec);
+size_t dhcp_options_size(Hashmap *options);
+int dhcp_options_build(Hashmap *options, struct iovec *ret);
