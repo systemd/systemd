@@ -49,6 +49,13 @@ struct DHCPMessage {
 typedef struct DHCPMessage DHCPMessage;
 assert_cc(sizeof(DHCPMessageHeader) == offsetof(DHCPMessage, options));
 
+struct sd_dhcp_message {
+        unsigned n_ref;
+
+        DHCPMessageHeader header;
+        Hashmap *options;
+};
+
 struct DHCPPacket {
         struct iphdr ip;
         struct udphdr udp;
