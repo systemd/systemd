@@ -76,8 +76,6 @@ int sd_dhcp_server_set_sip(sd_dhcp_server *server, const struct in_addr sip[], s
 int sd_dhcp_server_set_pop3(sd_dhcp_server *server, const struct in_addr pop3[], size_t n);
 int sd_dhcp_server_set_smtp(sd_dhcp_server *server, const struct in_addr smtp[], size_t n);
 
-int sd_dhcp_server_add_option(sd_dhcp_server *server, sd_dhcp_option *v);
-int sd_dhcp_server_add_vendor_option(sd_dhcp_server *server, sd_dhcp_option *v);
 int sd_dhcp_server_set_static_lease(
                 sd_dhcp_server *server,
                 const struct in_addr *address,
