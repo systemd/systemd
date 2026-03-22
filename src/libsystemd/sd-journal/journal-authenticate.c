@@ -358,7 +358,7 @@ int journal_file_hmac_put_header(JournalFile *f) {
 }
 
 int journal_file_fss_load(JournalFile *f) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         _cleanup_free_ char *path = NULL;
         _cleanup_(fssheader_freep) FSSHeader *header = NULL;
         struct stat st;

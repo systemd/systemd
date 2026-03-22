@@ -311,7 +311,7 @@ _public_ int sd_bus_creds_get_pid(sd_bus_creds *c, pid_t *ret) {
 }
 
 _public_ int sd_bus_creds_get_pidfd_dup(sd_bus_creds *c, int *ret) {
-        _cleanup_close_ int copy = -EBADF;
+        _cleanup_(closep) int copy = -EBADF;
 
         assert_return(c, -EINVAL);
         assert_return(ret, -EINVAL);
@@ -860,7 +860,7 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, PidRef *pidref, pid_t tid
                        SD_BUS_CREDS_EFFECTIVE_CAPS | SD_BUS_CREDS_INHERITABLE_CAPS |
                        SD_BUS_CREDS_PERMITTED_CAPS | SD_BUS_CREDS_BOUNDING_CAPS)) {
 
-                _cleanup_fclose_ FILE *f = NULL;
+                _cleanup_(fclosep) FILE *f = NULL;
                 const char *p;
 
                 p = procfs_file_alloca(pidref->pid, "status");

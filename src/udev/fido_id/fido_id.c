@@ -59,7 +59,7 @@ static int parse_argv(int argc, char *argv[]) {
 static int run(int argc, char **argv) {
         _cleanup_(sd_device_unrefp) struct sd_device *device = NULL;
         _cleanup_free_ char *desc_path = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         struct sd_device *hid_device;
         const char *sys_path;
         uint8_t desc[HID_MAX_DESCRIPTOR_SIZE];

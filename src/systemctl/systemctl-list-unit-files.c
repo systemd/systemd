@@ -175,7 +175,7 @@ static int output_unit_file_list(const UnitFileList *units, unsigned c) {
 
 int verb_list_unit_files(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_hashmap_free_ Hashmap *h = NULL;
+        _cleanup_(hashmap_freep) Hashmap *h = NULL;
         _cleanup_free_ UnitFileList *units = NULL;
         unsigned c = 0;
         int r;
@@ -222,7 +222,7 @@ int verb_list_unit_files(int argc, char *argv[], uintptr_t _data, void *userdata
                         return bus_log_create_error(r);
 
                 if (arg_with_dependencies) {
-                        _cleanup_strv_free_ char **names_with_deps = NULL;
+                        _cleanup_(strv_freep) char **names_with_deps = NULL;
 
                         r = append_unit_dependencies(bus, strv_skip(argv, 1), &names_with_deps);
                         if (r < 0)

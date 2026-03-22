@@ -10,7 +10,7 @@
 
 static int builtin_net_driver_set_driver(UdevEvent *event, int argc, char **argv) {
         sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
-        _cleanup_close_ int ethtool_fd = -EBADF;
+        _cleanup_(closep) int ethtool_fd = -EBADF;
         _cleanup_free_ char *driver = NULL;
         const char *ifname;
         int r;

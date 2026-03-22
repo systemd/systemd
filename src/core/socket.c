@@ -929,7 +929,7 @@ static int instance_from_socket(
 
                 r = getpeercred(fd, &ucred);
                 if (r >= 0) {
-                        _cleanup_close_ int pidfd = getpeerpidfd(fd);
+                        _cleanup_(closep) int pidfd = getpeerpidfd(fd);
                         uint64_t pidfd_id;
 
                         if (pidfd >= 0 && pidfd_get_inode_id(pidfd, &pidfd_id) >= 0)
@@ -1196,7 +1196,7 @@ static int fifo_address_create(
                 mode_t directory_mode,
                 mode_t socket_mode) {
 
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         mode_t old_mask;
         struct stat st;
         int r;
@@ -1252,7 +1252,7 @@ fail:
 }
 
 static int special_address_create(const char *path, bool writable) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         struct stat st;
 
         assert(path);
@@ -1272,7 +1272,7 @@ static int special_address_create(const char *path, bool writable) {
 }
 
 static int usbffs_address_create_at(int dfd, const char *name) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         struct stat st;
 
         assert(dfd >= 0);
@@ -1298,7 +1298,7 @@ static int mq_address_create(
                 long maxmsg,
                 long msgsize) {
 
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         struct stat st;
         mode_t old_mask;
         struct mq_attr _attr, *attr = NULL;
@@ -1594,8 +1594,8 @@ static int socket_address_listen_in_cgroup(
         }
 
         _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
-        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(close_pairp) int pair[2] = EBADF_PAIR;
+        _cleanup_(closep) int fd = -EBADF;
 
         if (socketpair(AF_UNIX, SOCK_SEQPACKET|SOCK_CLOEXEC, 0, pair) < 0)
                 return log_unit_error_errno(UNIT(s), errno, "Failed to create communication channel: %m");
@@ -1657,7 +1657,7 @@ static int socket_address_listen_in_cgroup(
 
 static int socket_open_fds(Socket *orig_s) {
         _cleanup_(socket_close_fdsp) Socket *s = orig_s;
-        _cleanup_freecon_ char *label = NULL;
+        _cleanup_(freeconp) char *label = NULL;
         bool know_label = false;
         int r;
 
@@ -1742,7 +1742,7 @@ static int socket_open_fds(Socket *orig_s) {
                         break;
 
                 case SOCKET_USB_FUNCTION: {
-                        _cleanup_close_ int dfd = -EBADF;
+                        _cleanup_(closep) int dfd = -EBADF;
 
                         dfd = open(p->path, O_DIRECTORY|O_CLOEXEC);
                         if (dfd < 0)
@@ -1986,7 +1986,7 @@ static int socket_spawn(Socket *s, ExecCommand *c, PidRef *ret_pid) {
 
         /* Note that ExecStartPre= command doesn't inherit any FDs. It runs before we open listen FDs. */
         if (s->pass_fds_to_exec) {
-                _cleanup_strv_free_ char **fd_names = NULL;
+                _cleanup_(strv_freep) char **fd_names = NULL;
                 _cleanup_free_ int *fds = NULL;
                 int n_fds;
 
@@ -2434,7 +2434,7 @@ static void socket_enter_deferred(Socket *s) {
 static void socket_enter_running(Socket *s, int cfd_in) {
         /* Note that this call takes possession of the connection fd passed. It either has to assign it
          * somewhere or close it. */
-        _cleanup_close_ int cfd = cfd_in;
+        _cleanup_(closep) int cfd = cfd_in;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
@@ -3109,7 +3109,7 @@ static int socket_accept_do(Socket *s, int fd) {
 
 static int socket_accept_in_cgroup(Socket *s, SocketPort *p, int fd) {
         _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
-        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int pair[2] = EBADF_PAIR;
         int cfd, r;
 
         assert(s);
@@ -3559,7 +3559,7 @@ static PidRef* socket_control_pid(Unit *u) {
 
 static int socket_clean(Unit *u, ExecCleanMask mask) {
         Socket *s = ASSERT_PTR(SOCKET(u));
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         int r;
 
         assert(mask != 0);

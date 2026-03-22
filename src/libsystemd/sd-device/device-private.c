@@ -715,7 +715,7 @@ int device_cleanup_tags(sd_device *device, sd_device *original) {
 
         assert(device);
 
-        _cleanup_set_free_ Set *saved = TAKE_PTR(device->all_tags);
+        _cleanup_(set_freep) Set *saved = TAKE_PTR(device->all_tags);
         device->current_tags = set_free(device->current_tags);
         device->property_tags_outdated = true;
         device->tags_generation++;
@@ -855,7 +855,7 @@ int device_has_db(sd_device *device) {
 
 int device_update_db(sd_device *device) {
         _cleanup_(unlink_and_freep) char *path = NULL, *path_tmp = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r;
 
         assert(device);

@@ -41,7 +41,7 @@
 
 int umount_recursive_full(const char *prefix, int flags, char **keep) {
 #if HAVE_LIBMOUNT
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int n = 0, r;
 
         /* Try to umount everything recursively below a directory. Also, take care of stacked mounts, and
@@ -208,8 +208,8 @@ int bind_remount_recursive_with_mountinfo(
         }
 
 #if HAVE_LIBMOUNT
-        _cleanup_fclose_ FILE *proc_self_mountinfo_opened = NULL;
-        _cleanup_set_free_ Set *done = NULL;
+        _cleanup_(fclosep) FILE *proc_self_mountinfo_opened = NULL;
+        _cleanup_(set_freep) Set *done = NULL;
         unsigned n_tries = 0;
         int r;
 
@@ -238,7 +238,7 @@ int bind_remount_recursive_with_mountinfo(
         for (;;) {
                 _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
                 _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
-                _cleanup_hashmap_free_ Hashmap *todo = NULL;
+                _cleanup_(hashmap_freep) Hashmap *todo = NULL;
                 bool top_autofs = false;
 
                 if (n_tries++ >= 32) /* Let's not retry this loop forever */
@@ -498,7 +498,7 @@ int bind_remount_one_with_mountinfo(
 }
 
 int bind_remount_one(const char *path, unsigned long new_flags, unsigned long flags_mask) {
-        _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
+        _cleanup_(fclosep) FILE *proc_self_mountinfo = NULL;
 
         proc_self_mountinfo = fopen("/proc/self/mountinfo", "re");
         if (!proc_self_mountinfo)
@@ -539,7 +539,7 @@ static int mount_switch_root_move(int fd_newroot, const char *path) {
 }
 
 int mount_switch_root_full(const char *path, unsigned long mount_propagation_flag, bool force_ms_move) {
-        _cleanup_close_ int fd_newroot = -EBADF;
+        _cleanup_(closep) int fd_newroot = -EBADF;
         int r, is_current_root;
 
         assert(path);
@@ -818,7 +818,7 @@ int umountat_detach_verbose(
 
         log_debug("Unmounting '%s'...", strna(joined));
 
-        _cleanup_close_ int inode_fd = -EBADF;
+        _cleanup_(closep) int inode_fd = -EBADF;
         int mnt_fd;
         if (isempty(where))
                 mnt_fd = fd;
@@ -962,7 +962,7 @@ static int mount_in_namespace_legacy(
                 const MountOptions *options,
                 const ImagePolicy *image_policy) {
 
-        _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int errno_pipe_fd[2] = EBADF_PAIR;
         char mount_slave[] = "/tmp/propagate.XXXXXX", *mount_tmp, *mount_outside, *p;
         bool mount_slave_created = false, mount_slave_mounted = false,
                 mount_tmp_created = false, mount_tmp_mounted = false,
@@ -1105,7 +1105,7 @@ static int mount_in_namespace_legacy(
 
                 errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
 
-                _cleanup_close_ int dest_fd = -EBADF;
+                _cleanup_(closep) int dest_fd = -EBADF;
                 _cleanup_free_ char *dest_fn = NULL;
                 r = chase(dest, /* root= */ NULL, CHASE_PARENT|CHASE_EXTRACT_FILENAME|((flags & MOUNT_IN_NAMESPACE_MAKE_FILE_OR_DIRECTORY) ? CHASE_MKDIR_0755 : 0), &dest_fn, &dest_fd);
                 if (r < 0)
@@ -1186,7 +1186,7 @@ static int mount_in_namespace(
                 const MountOptions *options,
                 const ImagePolicy *image_policy) {
 
-        _cleanup_close_ int mntns_fd = -EBADF, root_fd = -EBADF, pidns_fd = -EBADF, chased_src_fd = -EBADF;
+        _cleanup_(closep) int mntns_fd = -EBADF, root_fd = -EBADF, pidns_fd = -EBADF, chased_src_fd = -EBADF;
         _cleanup_free_ char *chased_src_path = NULL;
         struct stat st;
         int r;
@@ -1237,8 +1237,8 @@ static int mount_in_namespace(
                                 image_policy);
 
         _cleanup_(dissected_image_unrefp) DissectedImage *img = NULL;
-        _cleanup_close_ int new_mount_fd = -EBADF;
-        _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR;
+        _cleanup_(closep) int new_mount_fd = -EBADF;
+        _cleanup_(close_pairp) int errno_pipe_fd[2] = EBADF_PAIR;
         _cleanup_(pidref_done) PidRef child = PIDREF_NULL;
 
         if (flags & MOUNT_IN_NAMESPACE_IS_IMAGE) {
@@ -1295,7 +1295,7 @@ static int mount_in_namespace(
         if (r == 0) {
                 errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
 
-                _cleanup_close_ int dest_fd = -EBADF;
+                _cleanup_(closep) int dest_fd = -EBADF;
                 _cleanup_free_ char *dest_fn = NULL;
                 r = chase(dest, /* root= */ NULL, CHASE_PARENT|CHASE_EXTRACT_FILENAME|((flags & MOUNT_IN_NAMESPACE_MAKE_FILE_OR_DIRECTORY) ? CHASE_MKDIR_0755 : 0), &dest_fn, &dest_fd);
                 if (r < 0)
@@ -1442,12 +1442,12 @@ int mount_fd_clone(int mount_fd, bool recursive, int *replacement_fd) {
                  * need to put a replacement fd in replacement_fd as the original fd is still usable. */
                 return r;
 
-        _cleanup_close_pair_ int transfer_fds[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int transfer_fds[2] = EBADF_PAIR;
         r = socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, transfer_fds);
         if (r < 0)
                 return log_debug_errno(errno, "Failed to create socket pair: %m");
 
-        _cleanup_close_pair_ int errno_pipe_fds[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int errno_pipe_fds[2] = EBADF_PAIR;
         if (pipe2(errno_pipe_fds, O_CLOEXEC|O_NONBLOCK) < 0)
                 return log_debug_errno(errno, "Failed to open pipe: %m");
 
@@ -1483,7 +1483,7 @@ int mount_fd_clone(int mount_fd, bool recursive, int *replacement_fd) {
 
                 for (int i = 0; i < 1 + !!replacement_fd; i++) {
                         /* And now clone the attached mount that is now ours. */
-                        _cleanup_close_ int cloned_fd = open_tree(mount_fd, "", flags);
+                        _cleanup_(closep) int cloned_fd = open_tree(mount_fd, "", flags);
                         if (cloned_fd < 0) {
                                 log_debug_errno(errno, "Failed to clone mount file descriptor: %m");
                                 report_errno_and_exit(errno_pipe_fds[1], -errno);
@@ -1501,7 +1501,7 @@ int mount_fd_clone(int mount_fd, bool recursive, int *replacement_fd) {
         transfer_fds[1] = safe_close(transfer_fds[1]);
 
         /* Accept the new cloned mount */
-        _cleanup_close_ int fd1 = receive_one_fd(transfer_fds[0], 0);
+        _cleanup_(closep) int fd1 = receive_one_fd(transfer_fds[0], 0);
         if (fd1 < 0)
                 return fd1;
 
@@ -1522,7 +1522,7 @@ int make_userns(uid_t uid_shift,
                 uid_t dest_owner,
                 RemountIdmapping idmapping) {
 
-        _cleanup_close_ int userns_fd = -EBADF;
+        _cleanup_(closep) int userns_fd = -EBADF;
         _cleanup_free_ char *line = NULL;
         uid_t source_base = 0;
 
@@ -1599,7 +1599,7 @@ int make_userns(uid_t uid_shift,
 }
 
 int open_tree_attr_with_fallback(int dir_fd, const char *path, unsigned flags, struct mount_attr *attr) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
         assert(attr);
@@ -1639,7 +1639,7 @@ int open_tree_try_drop_idmap(int dir_fd, const char *path, unsigned flags) {
                 flags |= AT_EMPTY_PATH;
         }
 
-        _cleanup_close_ int fd = open_tree_attr_with_fallback(
+        _cleanup_(closep) int fd = open_tree_attr_with_fallback(
                         dir_fd,
                         path,
                         flags,
@@ -1732,7 +1732,7 @@ int remount_idmap(
                 uid_t dest_owner,
                 RemountIdmapping idmapping) {
 
-        _cleanup_close_ int userns_fd = -EBADF;
+        _cleanup_(closep) int userns_fd = -EBADF;
 
         userns_fd = make_userns(uid_shift, uid_range, source_owner, dest_owner, idmapping);
         if (userns_fd < 0)
@@ -1798,7 +1798,7 @@ int get_sub_mounts(const char *prefix, SubMount **ret_mounts, size_t *ret_n_moun
                 return log_debug_errno(r, "Failed to parse /proc/self/mountinfo: %m");
 
         for (;;) {
-                _cleanup_close_ int mount_fd = -EBADF;
+                _cleanup_(closep) int mount_fd = -EBADF;
                 _cleanup_free_ char *p = NULL;
                 struct libmnt_fs *fs;
                 const char *path;
@@ -1951,7 +1951,7 @@ unsigned long credentials_fs_mount_flags(bool ro) {
 }
 
 int fsmount_credentials_fs(int *ret_fsfd) {
-        _cleanup_close_ int fs_fd = -EBADF;
+        _cleanup_(closep) int fs_fd = -EBADF;
         char size_str[DECIMAL_STR_MAX(uint64_t)];
 
         /* Mounts a file system we can place credentials in, i.e. with tight access modes right from the
@@ -2000,7 +2000,7 @@ int fsmount_credentials_fs(int *ret_fsfd) {
 }
 
 int mount_credentials_fs(const char *path) {
-        _cleanup_close_ int mfd = -EBADF;
+        _cleanup_(closep) int mfd = -EBADF;
 
         assert(path);
 
@@ -2019,7 +2019,7 @@ int make_fsmount(
                 const char *options,
                 int userns_fd) {
 
-        _cleanup_close_ int fs_fd = -EBADF, mnt_fd = -EBADF;
+        _cleanup_(closep) int fs_fd = -EBADF, mnt_fd = -EBADF;
         _cleanup_free_ char *o = NULL;
         unsigned long f;
         int r;
@@ -2202,7 +2202,7 @@ int path_get_mount_info_at(
 }
 
 int path_is_network_fs_harder_at(int dir_fd, const char *path) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);

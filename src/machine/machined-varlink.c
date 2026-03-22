@@ -428,7 +428,7 @@ static int json_build_local_addresses(const struct local_address *addresses, siz
 
 static int list_machine_one_and_maybe_read_metadata(sd_varlink *link, Machine *m, AcquireMetadata am) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *addr_array = NULL;
-        _cleanup_strv_free_ char **os_release = NULL;
+        _cleanup_(strv_freep) char **os_release = NULL;
         uid_t shift = UID_INVALID;
         int r;
 
@@ -703,7 +703,7 @@ static int vl_method_list_images(sd_varlink *link, sd_json_variant *parameters, 
         if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
                 return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
 
-        _cleanup_hashmap_free_ Hashmap *images = NULL;
+        _cleanup_(hashmap_freep) Hashmap *images = NULL;
         r = image_discover(m->runtime_scope, IMAGE_MACHINE, /* root= */ NULL, &images);
         if (r < 0)
                 return log_debug_errno(r, "Failed to discover images: %m");

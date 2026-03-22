@@ -848,7 +848,7 @@ int dhcp6_option_parse_domainname(const uint8_t *optval, size_t optlen, char **r
 }
 
 int dhcp6_option_parse_domainname_list(const uint8_t *optval, size_t optlen, char ***ret) {
-        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_(strv_freep) char **names = NULL;
         int r;
 
         assert(optval || optlen == 0);

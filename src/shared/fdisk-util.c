@@ -20,7 +20,7 @@ int fdisk_new_context_at(
                 struct fdisk_context **ret) {
 
         _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);

@@ -78,8 +78,8 @@ static void exec_fuzz_one(FILE *f, FDSet *fdset) {
 }
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
-        _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_fdset_free_ FDSet *fdset = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
+        _cleanup_(fdset_freep) FDSet *fdset = NULL;
 
         if (outside_size_range(size, 0, 128 * 1024))
                 return 0;

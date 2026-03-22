@@ -254,7 +254,7 @@ static int markers_build_json(sd_json_variant **ret, const char *name, void *use
 static int activation_details_build_json(sd_json_variant **ret, const char *name, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         const ActivationDetails *activation_details = userdata;
-        _cleanup_strv_free_ char **pairs = NULL;
+        _cleanup_(strv_freep) char **pairs = NULL;
         int r;
 
         assert(ret);

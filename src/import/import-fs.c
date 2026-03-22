@@ -112,7 +112,7 @@ static int verb_import_fs(int argc, char *argv[], uintptr_t _data, void *userdat
         _cleanup_(progress_info_free) ProgressInfo progress = { .bps = UINT64_MAX };
         _cleanup_free_ char *l = NULL, *final_path = NULL;
         const char *path = NULL, *local = NULL, *dest = NULL;
-        _cleanup_close_ int open_fd = -EBADF;
+        _cleanup_(closep) int open_fd = -EBADF;
         int r, fd;
 
         if (argc >= 2)

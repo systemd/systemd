@@ -32,7 +32,7 @@ static bool match_uid_gid(uid_t subject_uid, gid_t subject_gid, uid_t delete_uid
 }
 
 static int clean_sysvipc_shm(uid_t delete_uid, gid_t delete_gid, bool rm) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         bool first = true;
         int ret = 0, r;
 
@@ -96,7 +96,7 @@ static int clean_sysvipc_shm(uid_t delete_uid, gid_t delete_gid, bool rm) {
 }
 
 static int clean_sysvipc_sem(uid_t delete_uid, gid_t delete_gid, bool rm) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         bool first = true;
         int ret = 0, r;
 
@@ -155,7 +155,7 @@ static int clean_sysvipc_sem(uid_t delete_uid, gid_t delete_gid, bool rm) {
 }
 
 static int clean_sysvipc_msg(uid_t delete_uid, gid_t delete_gid, bool rm) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         bool first = true;
         int ret = 0, r;
 
@@ -235,7 +235,7 @@ static int clean_posix_shm_internal(const char *dirname, DIR *dir, uid_t uid, gi
                 }
 
                 if (S_ISDIR(st.st_mode)) {
-                        _cleanup_closedir_ DIR *kid = NULL;
+                        _cleanup_(closedirp) DIR *kid = NULL;
 
                         kid = xopendirat(dirfd(dir), de->d_name, O_NOFOLLOW|O_NOATIME);
                         if (!kid) {
@@ -295,7 +295,7 @@ fail:
 }
 
 static int clean_posix_shm(uid_t uid, gid_t gid, bool rm) {
-        _cleanup_closedir_ DIR *dir = NULL;
+        _cleanup_(closedirp) DIR *dir = NULL;
 
         dir = opendir("/dev/shm");
         if (!dir) {
@@ -309,7 +309,7 @@ static int clean_posix_shm(uid_t uid, gid_t gid, bool rm) {
 }
 
 static int clean_posix_mq(uid_t uid, gid_t gid, bool rm) {
-        _cleanup_closedir_ DIR *dir = NULL;
+        _cleanup_(closedirp) DIR *dir = NULL;
         int ret = 0;
 
         dir = opendir("/dev/mqueue");

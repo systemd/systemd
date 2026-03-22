@@ -186,7 +186,7 @@ static int pin_choice(
                 PickFlags flags,
                 PickResult *ret) {
 
-        _cleanup_close_ int inode_fd = TAKE_FD(_inode_fd);
+        _cleanup_(closep) int inode_fd = TAKE_FD(_inode_fd);
         _cleanup_free_ char *resolved_path = NULL;
         int r;
 
@@ -318,7 +318,7 @@ static int make_choice(
                 PickFlags flags,
                 PickResult *ret) {
 
-        _cleanup_close_ int inode_fd = TAKE_FD(_inode_fd);
+        _cleanup_(closep) int inode_fd = TAKE_FD(_inode_fd);
         int r;
 
         assert(toplevel_fd >= 0 || IN_SET(toplevel_fd, AT_FDCWD, XAT_FDROOT));
@@ -343,7 +343,7 @@ static int make_choice(
                 if (!p)
                         return log_oom_debug();
 
-                _cleanup_close_ int object_fd = -EBADF;
+                _cleanup_(closep) int object_fd = -EBADF;
                 r = chaseat(toplevel_fd, p, CHASE_AT_RESOLVE_IN_ROOT, &object_path, &object_fd);
                 if (r == -ENOENT) {
                         *ret = PICK_RESULT_NULL;
@@ -370,7 +370,7 @@ static int make_choice(
         /* Underspecified, so we do our enumeration dance */
 
         /* Convert O_PATH to a regular directory fd */
-        _cleanup_close_ int dir_fd = fd_reopen(inode_fd, O_DIRECTORY|O_RDONLY|O_CLOEXEC);
+        _cleanup_(closep) int dir_fd = fd_reopen(inode_fd, O_DIRECTORY|O_RDONLY|O_CLOEXEC);
         if (dir_fd < 0)
                 return log_debug_errno(dir_fd, "Failed to reopen '%s/%s' as directory: %m",
                                        empty_to_root(toplevel_path), skip_leading_slash(inode_path));

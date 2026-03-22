@@ -708,7 +708,7 @@ static int enumerator_scan_dir_and_add_devices(
                 const char *subdir1,
                 const char *subdir2) {
 
-        _cleanup_closedir_ DIR *dir = NULL;
+        _cleanup_(closedirp) DIR *dir = NULL;
         char *path;
         int k, r = 0;
 
@@ -781,7 +781,7 @@ static int enumerator_scan_dir(
                 const char *subdir,
                 const char *subsystem) {
 
-        _cleanup_closedir_ DIR *dir = NULL;
+        _cleanup_(closedirp) DIR *dir = NULL;
         char *path;
         int r = 0;
 
@@ -813,7 +813,7 @@ static int enumerator_scan_dir(
 }
 
 static int enumerator_scan_devices_tag(sd_device_enumerator *enumerator, const char *tag) {
-        _cleanup_closedir_ DIR *dir = NULL;
+        _cleanup_(closedirp) DIR *dir = NULL;
         char *path;
         int r = 0;
 
@@ -901,7 +901,7 @@ static int parent_add_child(sd_device_enumerator *enumerator, const char *path, 
 }
 
 static int parent_crawl_children(sd_device_enumerator *enumerator, const char *path, Set **stack) {
-        _cleanup_closedir_ DIR *dir = NULL;
+        _cleanup_(closedirp) DIR *dir = NULL;
         int r = 0;
 
         assert(enumerator);
@@ -947,7 +947,7 @@ static int parent_crawl_children(sd_device_enumerator *enumerator, const char *p
 }
 
 static int enumerator_scan_devices_children(sd_device_enumerator *enumerator) {
-        _cleanup_set_free_ Set *stack = NULL;
+        _cleanup_(set_freep) Set *stack = NULL;
         const char *path;
         int r = 0, k;
 

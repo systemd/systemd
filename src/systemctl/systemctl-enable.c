@@ -82,7 +82,7 @@ static int normalize_names(char **names) {
 
 int verb_enable(int argc, char *argv[], uintptr_t data, void *userdata) {
         const char *verb = ASSERT_PTR(argv[0]);
-        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_(strv_freep) char **names = NULL;
         int carries_install_info = -1;
         bool ignore_carries_install_info = arg_quiet || arg_no_warn;
         sd_bus *bus = NULL;
@@ -318,7 +318,7 @@ int verb_enable(int argc, char *argv[], uintptr_t data, void *userdata) {
         }
 
         if (arg_now) {
-                _cleanup_strv_free_ char **new_args = NULL;
+                _cleanup_(strv_freep) char **new_args = NULL;
                 const char *start_verb;
                 bool accept_path, prohibit_templates, dead_ok = false;
 

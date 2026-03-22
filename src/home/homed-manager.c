@@ -486,7 +486,7 @@ unlink_this_file:
 }
 
 static int manager_enumerate_records(Manager *m) {
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
 
         assert(m);
 
@@ -541,7 +541,7 @@ static int search_quota(uid_t uid, const char *exclude_quota_path) {
                 struct dqblk req;
                 struct stat st;
 
-                _cleanup_close_ int fd = open(where, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+                _cleanup_(closep) int fd = open(where, O_RDONLY|O_CLOEXEC|O_DIRECTORY);
                 if (fd < 0) {
                         log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_ERR, errno,
                                        "Failed to open '%s', ignoring: %m", where);
@@ -918,7 +918,7 @@ static int manager_assess_image(
 
         if (S_ISDIR(st.st_mode)) {
                 _cleanup_free_ char *n = NULL, *user_name = NULL, *realm = NULL;
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
                 UserStorage storage;
 
                 if (!directory_suffix)
@@ -995,7 +995,7 @@ int manager_adopt_home(Manager *m, const char *path) {
 }
 
 int manager_enumerate_images(Manager *m) {
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
 
         assert(m);
 
@@ -1127,7 +1127,7 @@ static int on_notify_socket(sd_event_source *s, int fd, uint32_t revents, void *
 
         _cleanup_(fdset_free_asyncp) FDSet *passed_fds = NULL;
         _cleanup_(pidref_done) PidRef sender = PIDREF_NULL;
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         r = notify_recv_with_fds_strv(fd, &l, /* ret_ucred= */ NULL, &sender, &passed_fds);
         if (r == -EAGAIN)
                 return 0;
@@ -1310,7 +1310,7 @@ static int manager_enumerate_devices(Manager *m) {
 }
 
 static int manager_load_key_pair(Manager *m) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         struct stat st;
         int r;
 
@@ -1349,7 +1349,7 @@ static int manager_load_key_pair(Manager *m) {
 static int manager_generate_key_pair(Manager *m) {
         _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = NULL;
         _cleanup_(unlink_and_freep) char *temp_public = NULL, *temp_private = NULL;
-        _cleanup_fclose_ FILE *fpublic = NULL, *fprivate = NULL;
+        _cleanup_(fclosep) FILE *fpublic = NULL, *fprivate = NULL;
         int r;
 
         if (m->private_key) {
@@ -1463,7 +1463,7 @@ DEFINE_HASH_OPS_FULL(public_key_hash_ops, char, string_hash_func, string_compare
 
 static int manager_load_public_key_one(Manager *m, const char *path) {
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         _cleanup_free_ char *fn = NULL;
         struct stat st;
         int r;
@@ -1510,7 +1510,7 @@ static int manager_load_public_key_one(Manager *m, const char *path) {
 }
 
 static int manager_load_public_keys(Manager *m) {
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_(strv_freep) char **files = NULL;
         int r;
 
         assert(m);
@@ -1659,7 +1659,7 @@ int manager_gc_images(Manager *m) {
 }
 
 static int manager_gc_blob(Manager *m) {
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
         int r;
 
         assert(m);

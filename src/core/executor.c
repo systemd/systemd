@@ -138,7 +138,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_DESERIALIZE: {
-                        _cleanup_close_ int fd = -EBADF;
+                        _cleanup_(closep) int fd = -EBADF;
                         FILE *f;
 
                         fd = parse_fd(optarg);
@@ -177,7 +177,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_fdset_free_ FDSet *fdset = NULL;
+        _cleanup_(fdset_freep) FDSet *fdset = NULL;
         _cleanup_(cgroup_context_done) CGroupContext cgroup_context = {};
         _cleanup_(exec_context_done) ExecContext context = {};
         _cleanup_(exec_command_done) ExecCommand command = {};

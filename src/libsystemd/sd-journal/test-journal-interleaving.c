@@ -233,7 +233,7 @@ static void mkdtemp_chdir_chattr(const char *template, char **ret) {
 }
 
 static void test_cursor(sd_journal *j) {
-        _cleanup_strv_free_ char **cursors = NULL;
+        _cleanup_(strv_freep) char **cursors = NULL;
         int r;
 
         ASSERT_OK(sd_journal_seek_head(j));

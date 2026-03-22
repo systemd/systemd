@@ -214,7 +214,7 @@ TEST(getpeercred_getpeergroups) {
 
 TEST(passfd_read) {
         static const char file_contents[] = "test contents for passfd";
-        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int pair[2] = EBADF_PAIR;
         int r;
 
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) >= 0);
@@ -228,7 +228,7 @@ TEST(passfd_read) {
                 char tmpfile[] = "/tmp/test-socket-util-passfd-read-XXXXXX";
                 assert_se(write_tmpfile(tmpfile, file_contents) == 0);
 
-                _cleanup_close_ int tmpfd = open(tmpfile, O_RDONLY);
+                _cleanup_(closep) int tmpfd = open(tmpfile, O_RDONLY);
                 assert_se(tmpfd >= 0);
                 assert_se(unlink(tmpfile) == 0);
 
@@ -239,7 +239,7 @@ TEST(passfd_read) {
         /* Parent */
         char buf[64];
         struct iovec iov = IOVEC_MAKE(buf, sizeof(buf)-1);
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         pair[1] = safe_close(pair[1]);
 
@@ -253,7 +253,7 @@ TEST(passfd_read) {
 }
 
 TEST(passfd_contents_read) {
-        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int pair[2] = EBADF_PAIR;
         static const char file_contents[] = "test contents in the file";
         static const char wire_contents[] = "test contents on the wire";
         int r;
@@ -271,7 +271,7 @@ TEST(passfd_contents_read) {
 
                 assert_se(write_tmpfile(tmpfile, file_contents) == 0);
 
-                _cleanup_close_ int tmpfd = open(tmpfile, O_RDONLY);
+                _cleanup_(closep) int tmpfd = open(tmpfile, O_RDONLY);
                 assert_se(tmpfd >= 0);
                 assert_se(unlink(tmpfile) == 0);
 
@@ -282,7 +282,7 @@ TEST(passfd_contents_read) {
         /* Parent */
         char buf[64];
         struct iovec iov = IOVEC_MAKE(buf, sizeof(buf)-1);
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         ssize_t k;
 
         pair[1] = safe_close(pair[1]);
@@ -300,7 +300,7 @@ TEST(passfd_contents_read) {
 }
 
 TEST(receive_nopassfd) {
-        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int pair[2] = EBADF_PAIR;
         static const char wire_contents[] = "no fd passed here";
         int r;
 
@@ -337,7 +337,7 @@ TEST(receive_nopassfd) {
 }
 
 TEST(send_nodata_nofd) {
-        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int pair[2] = EBADF_PAIR;
         int r;
 
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) >= 0);
@@ -369,7 +369,7 @@ TEST(send_nodata_nofd) {
 }
 
 TEST(send_emptydata) {
-        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int pair[2] = EBADF_PAIR;
         int r;
 
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) >= 0);
@@ -402,7 +402,7 @@ TEST(send_emptydata) {
 }
 
 TEST(flush_accept) {
-        _cleanup_close_ int listen_stream, listen_dgram, listen_seqpacket, connect_stream, connect_dgram, connect_seqpacket;
+        _cleanup_(closep) int listen_stream, listen_dgram, listen_seqpacket, connect_stream, connect_dgram, connect_seqpacket;
         static const union sockaddr_union sa = { .un.sun_family = AF_UNIX };
         union sockaddr_union lsa;
         socklen_t l;
@@ -472,7 +472,7 @@ TEST(sockaddr_un_set_path) {
         _cleanup_(unlink_and_freep) char *sh = NULL;
         _cleanup_free_ char *j = NULL;
         union sockaddr_union sa;
-        _cleanup_close_ int fd1, fd2, fd3;
+        _cleanup_(closep) int fd1, fd2, fd3;
 
         assert_se(mkdtemp_malloc("/tmp/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaXXXXXX", &t) >= 0);
         assert_se(strlen(t) > SUN_PATH_LEN);
@@ -510,7 +510,7 @@ TEST(sockaddr_un_set_path) {
 }
 
 TEST(getpeerpidref) {
-        _cleanup_close_pair_ int fd[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int fd[2] = EBADF_PAIR;
 
         ASSERT_OK(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, fd));
 

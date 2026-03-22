@@ -161,7 +161,7 @@ static int validate_fields_read(int fd, ValidateFields *ret) {
         assert(fd >= 0);
         assert(ret);
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         r = getxattr_at_strv(fd, /* path= */ NULL, "user.validatefs.gpt_type_uuid", AT_EMPTY_PATH, &l);
         if (r < 0) {
                 if (r != -ENODATA && !ERRNO_IS_NOT_SUPPORTED(r))
@@ -309,7 +309,7 @@ static int validate_gpt_metadata_one(sd_device *d, const char *path, const Valid
         if (r < 0)
                 return log_error_errno(r, "Cannot validate GPT constraints, refusing.");
 
-        _cleanup_close_ int block_fd = sd_device_open(d, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+        _cleanup_(closep) int block_fd = sd_device_open(d, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
         if (block_fd < 0)
                 return log_error_errno(block_fd, "Failed to open block device backing '%s': %m", path);
 
@@ -422,7 +422,7 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         _cleanup_free_ char *resolved = NULL;
-        _cleanup_close_ int target_fd = chase_and_open(arg_target, arg_root, CHASE_MUST_BE_DIRECTORY, O_DIRECTORY|O_CLOEXEC, &resolved);
+        _cleanup_(closep) int target_fd = chase_and_open(arg_target, arg_root, CHASE_MUST_BE_DIRECTORY, O_DIRECTORY|O_CLOEXEC, &resolved);
         if (target_fd < 0)
                 return log_error_errno(target_fd, "Failed to open directory '%s': %m", arg_target);
 

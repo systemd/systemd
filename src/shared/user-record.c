@@ -514,7 +514,7 @@ static int json_dispatch_locale(const char *name, sd_json_variant *variant, sd_j
 }
 
 static int json_dispatch_locales(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        _cleanup_strv_free_ char **n = NULL;
+        _cleanup_(strv_freep) char **n = NULL;
         char ***l = userdata;
         const char *locale;
         sd_json_variant *e;
@@ -592,7 +592,7 @@ static int json_dispatch_weight(const char *name, sd_json_variant *variant, sd_j
 
 int json_dispatch_user_group_list(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         char ***list = ASSERT_PTR(userdata);
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         int r;
 
         if (!sd_json_variant_is_array(variant))
@@ -658,7 +658,7 @@ static int dispatch_pkcs11_uri(const char *name, sd_json_variant *variant, sd_js
 }
 
 static int dispatch_pkcs11_uri_array(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        _cleanup_strv_free_ char **z = NULL;
+        _cleanup_(strv_freep) char **z = NULL;
         char ***l = userdata;
         sd_json_variant *e;
         int r;
@@ -1065,7 +1065,7 @@ static int dispatch_binding(const char *name, sd_json_variant *variant, sd_json_
 }
 
 static int dispatch_blob_manifest(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        _cleanup_hashmap_free_ Hashmap *manifest = NULL;
+        _cleanup_(hashmap_freep) Hashmap *manifest = NULL;
         Hashmap **ret = ASSERT_PTR(userdata);
         sd_json_variant *value;
         const char *key;
@@ -2200,7 +2200,7 @@ uint64_t user_record_capability_ambient_set(UserRecord *h) {
 }
 
 int user_record_languages(UserRecord *h, char ***ret) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         int r;
 
         assert(h);

@@ -25,7 +25,7 @@ int acquire_luks2_key(
         _cleanup_free_ char *rp_id = NULL;
         _cleanup_(erase_and_freep) void *decrypted_key = NULL;
         _cleanup_(erase_and_freep) char *base64_encoded = NULL;
-        _cleanup_strv_free_erase_ char **pins = NULL;
+        _cleanup_(strv_free_erasep) char **pins = NULL;
         ssize_t base64_encoded_size;
 
         assert(ret_keyslot_passphrase);

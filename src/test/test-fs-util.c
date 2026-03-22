@@ -63,7 +63,7 @@ TEST(readlink_and_make_absolute) {
 }
 
 TEST(get_files_in_directory) {
-        _cleanup_strv_free_ char **l = NULL, **t = NULL;
+        _cleanup_(strv_freep) char **l = NULL, **t = NULL;
 
         assert_se(get_files_in_directory(arg_test_dir ?: "/tmp", &l) >= 0);
         assert_se(get_files_in_directory(".", &t) >= 0);
@@ -139,7 +139,7 @@ TEST(dot_or_dot_dot) {
 
 TEST(access_fd) {
         _cleanup_(rmdir_and_freep) char *p = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         const char *a;
 
         a = strjoina(arg_test_dir ?: "/tmp", "/access-fd.XXXXXX");
@@ -264,7 +264,7 @@ TEST(touch_file) {
 
 TEST(unlinkat_deallocate) {
         _cleanup_free_ char *p = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         struct stat st;
 
         assert_se(tempfn_random_child(arg_test_dir, "unlink-deallocation", &p) >= 0);
@@ -289,7 +289,7 @@ TEST(unlinkat_deallocate) {
 }
 
 TEST(fsync_directory_of_file) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         fd = open_tmpfile_unlinkable(arg_test_dir, O_RDWR);
         assert_se(fd >= 0);
@@ -406,7 +406,7 @@ TEST(chmod_and_chown) {
 }
 
 static void create_binary_file(const char *p, const void *data, size_t l) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         fd = open(p, O_CREAT|O_WRONLY|O_EXCL|O_CLOEXEC, 0600);
         assert_se(fd >= 0);
@@ -546,7 +546,7 @@ TEST(parse_cifs_service) {
 }
 
 TEST(open_mkdir_at) {
-        _cleanup_close_ int fd = -EBADF, subdir_fd = -EBADF, subsubdir_fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF, subdir_fd = -EBADF, subsubdir_fd = -EBADF;
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         struct stat sta, stb;
 
@@ -606,7 +606,7 @@ TEST(open_mkdir_at) {
 
 TEST(openat_report_new) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
-        _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
+        _cleanup_(closep) int tfd = -EBADF, fd = -EBADF;
         bool b;
 
         ASSERT_OK(tfd = mkdtemp_open(NULL, 0, &t));
@@ -684,7 +684,7 @@ TEST(openat_report_new) {
 
 TEST(xopenat_full) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
-        _cleanup_close_ int tfd = -EBADF, fd = -EBADF, fd2 = -EBADF;
+        _cleanup_(closep) int tfd = -EBADF, fd = -EBADF, fd2 = -EBADF;
 
         assert_se((tfd = mkdtemp_open(NULL, 0, &t)) >= 0);
 
@@ -714,7 +714,7 @@ TEST(xopenat_full) {
 
 TEST(xopenat_regular) {
 
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         assert_se(xopenat_full(AT_FDCWD, "/dev/null", O_RDWR|O_CLOEXEC, XO_REGULAR, 0) == -EBADFD);
         assert_se(xopenat_full(AT_FDCWD, "/proc", O_RDONLY|O_CLOEXEC, XO_REGULAR, 0) == -EISDIR);
@@ -742,7 +742,7 @@ TEST(xopenat_regular) {
 
 TEST(xopenat_lock_full) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
-        _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
+        _cleanup_(closep) int tfd = -EBADF, fd = -EBADF;
         siginfo_t si;
         int r;
 
@@ -791,29 +791,29 @@ TEST(xopenat_lock_full) {
 
 TEST(linkat_replace) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
-        _cleanup_close_ int tfd = -EBADF;
+        _cleanup_(closep) int tfd = -EBADF;
 
         assert_se((tfd = mkdtemp_open(NULL, 0, &t)) >= 0);
 
-        _cleanup_close_ int fd1 = openat(tfd, "foo", O_CREAT|O_RDWR|O_CLOEXEC, 0600);
+        _cleanup_(closep) int fd1 = openat(tfd, "foo", O_CREAT|O_RDWR|O_CLOEXEC, 0600);
         assert_se(fd1 >= 0);
 
         assert_se(linkat_replace(tfd, "foo", tfd, "bar") >= 0);
         assert_se(linkat_replace(tfd, "foo", tfd, "bar") >= 0);
 
-        _cleanup_close_ int fd1_check = openat(tfd, "bar", O_RDWR|O_CLOEXEC);
+        _cleanup_(closep) int fd1_check = openat(tfd, "bar", O_RDWR|O_CLOEXEC);
         assert_se(fd1_check >= 0);
 
         assert_se(inode_same_at(fd1, NULL, fd1_check, NULL, AT_EMPTY_PATH) > 0);
 
-        _cleanup_close_ int fd2 = openat(tfd, "baz", O_CREAT|O_RDWR|O_CLOEXEC, 0600);
+        _cleanup_(closep) int fd2 = openat(tfd, "baz", O_CREAT|O_RDWR|O_CLOEXEC, 0600);
         assert_se(fd2 >= 0);
 
         assert_se(inode_same_at(fd1, NULL, fd2, NULL, AT_EMPTY_PATH) == 0);
 
         assert_se(linkat_replace(tfd, "foo", tfd, "baz") >= 0);
 
-        _cleanup_close_ int fd2_check = openat(tfd, "baz", O_RDWR|O_CLOEXEC);
+        _cleanup_(closep) int fd2_check = openat(tfd, "baz", O_RDWR|O_CLOEXEC);
 
         assert_se(inode_same_at(fd2, NULL, fd2_check, NULL, AT_EMPTY_PATH) == 0);
         assert_se(inode_same_at(fd1, NULL, fd2_check, NULL, AT_EMPTY_PATH) > 0);
@@ -821,7 +821,7 @@ TEST(linkat_replace) {
 
 TEST(readlinkat_malloc) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
-        _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
+        _cleanup_(closep) int tfd = -EBADF, fd = -EBADF;
         _cleanup_free_ char *p = NULL, *q = NULL;
         const char *expect = "hgoehogefoobar";
 
@@ -859,7 +859,7 @@ TEST(xat_fdroot) {
         ASSERT_OK(fd_get_path(XAT_FDROOT, &p));
         ASSERT_STREQ(p, "/");
 
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         fd = fd_reopen(XAT_FDROOT, O_CLOEXEC);
         ASSERT_OK(fd);
 

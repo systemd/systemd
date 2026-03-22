@@ -898,7 +898,7 @@ static Context* context_new(
                 bool dry_run,
                 sd_id128_t seed) {
 
-        _cleanup_strv_free_ char **d = NULL;
+        _cleanup_(strv_freep) char **d = NULL;
         if (!strv_isempty(definitions)) {
                 d = strv_copy(definitions);
                 if (!d)
@@ -3096,7 +3096,7 @@ static int find_verity_sibling(Context *context, Partition *p, VerityMode mode, 
 }
 
 static int context_open_and_lock_backing_fd(const char *node, int operation, int *backing_fd) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         assert(node);
         assert(backing_fd);
@@ -3207,7 +3207,7 @@ static int verify_regular_or_block(int fd) {
 }
 
 static int context_copy_from_one(Context *context, const char *src) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
         _cleanup_(fdisk_unref_tablep) struct fdisk_table *t = NULL;
         Partition *last = NULL;
@@ -3407,7 +3407,7 @@ static int supplement_find_target(const Context *context, const Partition *suppl
 }
 
 static int context_read_definitions(Context *context) {
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_(strv_freep) char **files = NULL;
         Partition *last = LIST_FIND_TAIL(partitions, context->partitions);
         const char *const *dirs;
         int r;
@@ -4907,7 +4907,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(PartitionTarget*, partition_target_free);
 
 static int prepare_temporary_file(Context *context, PartitionTarget *t, uint64_t size) {
         _cleanup_(unlink_and_freep) char *temp = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         const char *vt;
         unsigned attrs = 0;
         int r;
@@ -5121,7 +5121,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
 #if HAVE_TPM2
         _cleanup_(erase_and_freep) char *base64_encoded = NULL;
 #endif
-        _cleanup_fclose_ FILE *h = NULL;
+        _cleanup_(fclosep) FILE *h = NULL;
         _cleanup_free_ char *hp = NULL, *vol = NULL, *dm_name = NULL;
         const char *passphrase = NULL;
         const size_t volume_key_size = dmcrypt_proper_key_size(p);
@@ -5533,7 +5533,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                         return log_error_errno(r, "Failed to encrypt %s: %m", node);
         } else {
                 _cleanup_free_ DecryptedPartitionTarget *t = NULL;
-                _cleanup_close_ int dev_fd = -1;
+                _cleanup_(closep) int dev_fd = -1;
 
                 r = sym_crypt_activate_by_volume_key(
                                 cd,
@@ -6079,7 +6079,7 @@ static int make_copy_files_denylist(
                 const char *target,
                 Hashmap **ret) {
 
-        _cleanup_hashmap_free_ Hashmap *denylist = NULL;
+        _cleanup_(hashmap_freep) Hashmap *denylist = NULL;
         _cleanup_free_ char **override_exclude_src = NULL, **override_exclude_tgt = NULL;
         int r;
 
@@ -6219,7 +6219,7 @@ static int add_subvolume_path(const char *path, BtrfsSubvolFlags flags, Hashmap 
 }
 
 static int make_subvolumes_hashmap(const Partition *p, Hashmap **ret) {
-        _cleanup_hashmap_free_ Hashmap *hashmap = NULL;
+        _cleanup_(hashmap_freep) Hashmap *hashmap = NULL;
         Subvolume *subvolume;
         int r;
 
@@ -6262,7 +6262,7 @@ static int make_subvolumes_by_source_inode_hashmap(
                 const char *target,
                 Hashmap **ret) {
 
-        _cleanup_hashmap_free_ Hashmap *hashmap = NULL;
+        _cleanup_(hashmap_freep) Hashmap *hashmap = NULL;
         Subvolume *subvolume;
         int r;
 
@@ -6303,7 +6303,7 @@ static int make_subvolumes_by_source_inode_hashmap(
 }
 
 static int file_is_denylisted(const char *source, Hashmap *denylist) {
-        _cleanup_close_ int pfd = -EBADF;
+        _cleanup_(closep) int pfd = -EBADF;
         struct stat st, rst;
         int r;
 
@@ -6331,7 +6331,7 @@ static int file_is_denylisted(const char *source, Hashmap *denylist) {
                 if (stat_inode_same(&st, &rst))
                         break;
 
-                _cleanup_close_ int new_pfd = openat(pfd, "..", O_DIRECTORY|O_RDONLY);
+                _cleanup_(closep) int new_pfd = openat(pfd, "..", O_DIRECTORY|O_RDONLY);
                 if (new_pfd < 0)
                         return log_error_errno(errno, "Failed to open parent directory: %m");
 
@@ -6342,7 +6342,7 @@ static int file_is_denylisted(const char *source, Hashmap *denylist) {
 }
 
 static int do_copy_files(Context *context, Partition *p, const char *root) {
-        _cleanup_hashmap_free_ Hashmap *subvolumes = NULL;
+        _cleanup_(hashmap_freep) Hashmap *subvolumes = NULL;
         int r;
 
         assert(p);
@@ -6368,7 +6368,7 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
          * that it is initialized. We use the first source directory targeting "/" as the metadata source for
          * the root directory. */
         FOREACH_ARRAY(line, copy_files, n_copy_files) {
-                _cleanup_close_ int rfd = -EBADF, sfd = -EBADF;
+                _cleanup_(closep) int rfd = -EBADF, sfd = -EBADF;
 
                 if (!path_equal(line->target, "/"))
                         continue;
@@ -6391,9 +6391,9 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
         }
 
         FOREACH_ARRAY(line, copy_files, n_copy_files) {
-                _cleanup_hashmap_free_ Hashmap *denylist = NULL;
-                _cleanup_hashmap_free_ Hashmap *subvolumes_by_source_inode = NULL;
-                _cleanup_close_ int sfd = -EBADF, pfd = -EBADF, tfd = -EBADF;
+                _cleanup_(hashmap_freep) Hashmap *denylist = NULL;
+                _cleanup_(hashmap_freep) Hashmap *subvolumes_by_source_inode = NULL;
+                _cleanup_(closep) int sfd = -EBADF, pfd = -EBADF, tfd = -EBADF;
                 usec_t ts = parse_source_date_epoch();
 
                 r = make_copy_files_denylist(context, p, line->source, line->target, &denylist);
@@ -6517,7 +6517,7 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
 }
 
 static int do_make_directories(Partition *p, const char *root) {
-        _cleanup_hashmap_free_ Hashmap *subvolumes = NULL;
+        _cleanup_(hashmap_freep) Hashmap *subvolumes = NULL;
         _cleanup_free_ char **override_dirs = NULL;
         int r;
 
@@ -6550,7 +6550,7 @@ static int do_make_symlinks(Partition *p, const char *root) {
         assert(root);
 
         STRV_FOREACH_PAIR(path, target, p->make_symlinks) {
-                _cleanup_close_ int parent_fd = -EBADF;
+                _cleanup_(closep) int parent_fd = -EBADF;
                 _cleanup_free_ char *f = NULL;
 
                 r = chase(*path, root, CHASE_PREFIX_ROOT|CHASE_PARENT|CHASE_EXTRACT_FILENAME, &f, &parent_fd);
@@ -6616,7 +6616,7 @@ static int partition_acquire_sibling_labels(const Partition *p, char ***ret) {
         assert(p);
         assert(ret);
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         if (p->new_label) {
                 l = strv_new(p->new_label);
                 if (!l)
@@ -6643,7 +6643,7 @@ static int partition_acquire_sibling_uuids(const Partition *p, char ***ret) {
         assert(p);
         assert(ret);
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         l = strv_new(SD_ID128_TO_UUID_STRING(p->type.uuid));
         if (!l)
                 return log_oom();
@@ -6678,11 +6678,11 @@ static int do_make_validatefs_xattrs(const Partition *p, const char *root) {
         if (!partition_add_validatefs(p))
                 return 0;
 
-        _cleanup_close_ int fd = open(root, O_DIRECTORY|O_CLOEXEC);
+        _cleanup_(closep) int fd = open(root, O_DIRECTORY|O_CLOEXEC);
         if (fd < 0)
                 return log_error_errno(errno, "Failed to open root inode '%s': %m", root);
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         r = partition_acquire_sibling_labels(p, &l);
         if (r < 0)
                 return r;
@@ -6880,7 +6880,7 @@ static int append_btrfs_inode_flags(char ***l, OrderedHashmap *subvolumes) {
 }
 
 static int finalize_extra_mkfs_options(const Partition *p, const char *root, char ***ret) {
-        _cleanup_strv_free_ char **sv = NULL;
+        _cleanup_(strv_freep) char **sv = NULL;
         int r;
 
         assert(p);
@@ -6926,7 +6926,7 @@ static int context_mkfs(Context *context) {
         LIST_FOREACH(partitions, p, context->partitions) {
                 _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
                 _cleanup_(partition_target_freep) PartitionTarget *t = NULL;
-                _cleanup_strv_free_ char **extra_mkfs_options = NULL;
+                _cleanup_(strv_freep) char **extra_mkfs_options = NULL;
 
                 if (p->dropped)
                         continue;
@@ -7581,7 +7581,7 @@ static int context_split(Context *context) {
                 return r;
 
         LIST_FOREACH(partitions, p, context->partitions) {
-                _cleanup_close_ int fdt = -EBADF;
+                _cleanup_(closep) int fdt = -EBADF;
 
                 if (p->dropped)
                         continue;
@@ -7802,7 +7802,7 @@ static int resolve_copy_blocks_auto_candidate(
 
 #if HAVE_BLKID
         _cleanup_(blkid_free_probep) blkid_probe b = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         _cleanup_free_ char *p = NULL;
         const char *pttype;
         sd_id128_t pt_parsed, u;
@@ -8033,7 +8033,7 @@ static int resolve_copy_blocks_auto(
 
         const char *try1 = NULL, *try2 = NULL;
         char p[SYS_BLOCK_PATH_MAX("/slaves")];
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
         sd_id128_t found_uuid = SD_ID128_NULL;
         dev_t devno, found = 0;
         int r;
@@ -8195,7 +8195,7 @@ static int context_open_copy_block_paths(
                 return 0;
 
         LIST_FOREACH(partitions, p, context->partitions) {
-                _cleanup_close_ int source_fd = -EBADF;
+                _cleanup_(closep) int source_fd = -EBADF;
                 _cleanup_free_ char *opened = NULL;
                 sd_id128_t uuid = SD_ID128_NULL;
                 uint64_t size;
@@ -8397,7 +8397,7 @@ static int make_by_uuid_symlink_path(const Partition *p, char **ret) {
 
 static int context_fstab(Context *context) {
         _cleanup_(unlink_and_freep) char *t = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         _cleanup_free_ char *path = NULL, *c = NULL;
         int r;
 
@@ -8529,7 +8529,7 @@ static bool need_crypttab(Context *context) {
 
 static int context_crypttab(Context *context, bool late) {
         _cleanup_(unlink_and_freep) char *t = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         _cleanup_free_ char *path = NULL;
         int r;
 
@@ -8652,8 +8652,8 @@ static int context_minimize(Context *context) {
                 _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
                 _cleanup_(unlink_and_freep) char *temp = NULL;
                 _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
-                _cleanup_strv_free_ char **extra_mkfs_options = NULL;
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(strv_freep) char **extra_mkfs_options = NULL;
+                _cleanup_(closep) int fd = -EBADF;
                 _cleanup_free_ char *hint = NULL;
                 sd_id128_t fs_uuid;
                 struct stat st;
@@ -8871,7 +8871,7 @@ static int context_minimize(Context *context) {
         LIST_FOREACH(partitions, p, context->partitions) {
                 _cleanup_(unlink_and_freep) char *temp = NULL;
                 _cleanup_free_ char *hint = NULL;
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
                 struct stat st;
                 Partition *dp;
 
@@ -9931,7 +9931,7 @@ static int acquire_root_devno(
 
         _cleanup_free_ char *found_path = NULL, *node = NULL;
         dev_t devno, fd_devno = MODE_INVALID;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         struct stat st;
         int r;
 
@@ -10014,7 +10014,7 @@ static int find_root(Context *context) {
 
         if (arg_node) {
                 if (context->empty == EMPTY_CREATE) {
-                        _cleanup_close_ int fd = -EBADF;
+                        _cleanup_(closep) int fd = -EBADF;
                         _cleanup_free_ char *s = NULL;
 
                         s = strdup(arg_node);
@@ -10115,7 +10115,7 @@ static int resize_backing_fd(
                 LoopDevice *loop_device,
                 uint64_t sector_size) {
 
-        _cleanup_close_ int writable_fd = -EBADF;
+        _cleanup_(closep) int writable_fd = -EBADF;
         uint64_t current_size;
         struct stat st;
         int r;

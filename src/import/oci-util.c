@@ -206,7 +206,7 @@ int oci_ref_normalize(char **protocol, char **registry, char **image, char **tag
         if (!fn)
                 return -ENOMEM;
 
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         _cleanup_free_ char *path = NULL;
         r = search_and_fopen_nulstr(fn, "re", /* root= */ NULL, CONF_PATHS_NULSTR("systemd/oci-registry"), &f, &path);
         if (r == -ENOENT)

@@ -41,7 +41,7 @@ _noreturn_ static void pager_fallback(void) {
 }
 
 static int no_quit_on_interrupt(int exe_name_fd, const char *less_opts) {
-        _cleanup_fclose_ FILE *file = NULL;
+        _cleanup_(fclosep) FILE *file = NULL;
         _cleanup_free_ char *line = NULL;
         int r;
 
@@ -94,8 +94,8 @@ static bool running_with_escalated_privileges(void) {
 }
 
 void pager_open(PagerFlags flags) {
-        _cleanup_close_pair_ int fd[2] = EBADF_PAIR, exe_name_pipe[2] = EBADF_PAIR;
-        _cleanup_strv_free_ char **pager_args = NULL;
+        _cleanup_(close_pairp) int fd[2] = EBADF_PAIR, exe_name_pipe[2] = EBADF_PAIR;
+        _cleanup_(strv_freep) char **pager_args = NULL;
         _cleanup_free_ char *l = NULL;
         const char *pager, *less_opts;
         int r;

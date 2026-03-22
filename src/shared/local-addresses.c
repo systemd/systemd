@@ -613,7 +613,7 @@ int local_outbounds(
                 return n_addresses;
 
         FOREACH_ARRAY(i, gateways, n_gateways) {
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
                 union sockaddr_union sa;
                 socklen_t salen;
 

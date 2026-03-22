@@ -411,7 +411,7 @@ static int bus_kill_context_find(sd_bus *bus, const char *path, const char *inte
 }
 
 static int bus_unit_enumerate(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *reterr_error) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         Manager *m = userdata;
         unsigned k = 0;
         Unit *u;
@@ -618,7 +618,7 @@ static int bus_setup_disconnected_match(Manager *m, sd_bus *bus) {
 
 static int bus_on_connection(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_close_ int nfd = -EBADF;
+        _cleanup_(closep) int nfd = -EBADF;
         Manager *m = ASSERT_PTR(userdata);
         sd_id128_t id;
         int r;
@@ -893,7 +893,7 @@ int bus_init_system(Manager *m) {
 }
 
 int bus_init_private(Manager *m) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         union sockaddr_union sa;
         socklen_t sa_len;
         sd_event_source *s;
@@ -976,7 +976,7 @@ static void destroy_bus(Manager *m, sd_bus **bus) {
 
         /* Get rid of tracked clients on this bus */
         if (m->subscribed && sd_bus_track_get_bus(m->subscribed) == *bus) {
-                _cleanup_strv_free_ char **subscribed = NULL;
+                _cleanup_(strv_freep) char **subscribed = NULL;
                 int r;
 
                 r = bus_track_to_strv(m->subscribed, &subscribed);

@@ -275,7 +275,7 @@ int bpf_program_load_from_bpf_fs(BPFProgram *p, const char *path) {
 
 int bpf_program_cgroup_attach(BPFProgram *p, int type, const char *path, uint32_t flags) {
         _cleanup_free_ char *copy = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         union bpf_attr attr;
         int r;
 
@@ -336,7 +336,7 @@ int bpf_program_cgroup_attach(BPFProgram *p, int type, const char *path, uint32_
 }
 
 int bpf_program_cgroup_detach(BPFProgram *p) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         assert(p);
 
@@ -503,7 +503,7 @@ int bpf_program_serialize_attachment_set(FILE *f, FDSet *fds, const char *key, S
 int bpf_program_deserialize_attachment(const char *v, FDSet *fds, BPFProgram **bpfp) {
         _cleanup_free_ char *sfd = NULL, *sat = NULL, *unescaped = NULL;
         _cleanup_(bpf_program_freep) BPFProgram *p = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         ssize_t l;
         int ifd, at, r;
 

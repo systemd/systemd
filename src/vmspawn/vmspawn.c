@@ -643,7 +643,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_FIRMWARE:
                         if (streq(optarg, "list")) {
-                                _cleanup_strv_free_ char **l = NULL;
+                                _cleanup_(strv_freep) char **l = NULL;
 
                                 r = list_ovmf_config(&l);
                                 if (r < 0)
@@ -845,7 +845,7 @@ static int open_vsock(void) {
                 .vm.svm_port = VMADDR_PORT_ANY,
         };
 
-        _cleanup_close_ int vsock_fd = socket(AF_VSOCK, SOCK_STREAM|SOCK_CLOEXEC, 0);
+        _cleanup_(closep) int vsock_fd = socket(AF_VSOCK, SOCK_STREAM|SOCK_CLOEXEC, 0);
         if (vsock_fd < 0)
                 return log_error_errno(errno, "Failed to open AF_VSOCK socket: %m");
 
@@ -893,7 +893,7 @@ static int read_vsock_notify(NotifyConnectionData *d, int fd) {
         assert(d->full < sizeof(d->buffer));
         d->buffer[d->full] = 0;
 
-        _cleanup_strv_free_ char **tags = strv_split(d->buffer, "\n\r");
+        _cleanup_(strv_freep) char **tags = strv_split(d->buffer, "\n\r");
         if (!tags)
                 return log_oom();
 
@@ -955,7 +955,7 @@ static int vmspawn_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
 }
 
 static int vmspawn_dispatch_vsock_connections(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
-        _cleanup_close_ int conn_fd = -EBADF;
+        _cleanup_(closep) int conn_fd = -EBADF;
         sd_event *event;
         int r;
 
@@ -1332,7 +1332,7 @@ static int start_tpm(
 
         /* Try passing --profile-name default-v2 first, in order to support RSA4096 pcrsig keys, which was
          * added in 0.11. */
-        _cleanup_strv_free_ char **argv = strv_new(
+        _cleanup_(strv_freep) char **argv = strv_new(
                         swtpm_setup,
                         "--tpm-state", state_dir,
                         "--tpm2",
@@ -1421,7 +1421,7 @@ static int start_systemd_journal_remote(
         if (r < 0)
                 return log_error_errno(r, "Failed to find systemd-journal-remote binary: %m");
 
-        _cleanup_strv_free_ char **argv = strv_new(
+        _cleanup_(strv_freep) char **argv = strv_new(
                         sd_socket_activate,
                         "--listen", listen_address,
                         sd_journal_remote,
@@ -1538,7 +1538,7 @@ static int start_virtiofsd(
         if (r < 0)
                 return r;
 
-        _cleanup_close_ int sock = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
+        _cleanup_(closep) int sock = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
         if (sock < 0)
                 return log_error_errno(errno, "Failed to create unix socket: %m");
 
@@ -1553,7 +1553,7 @@ static int start_virtiofsd(
                 return log_oom();
 
         /* QEMU doesn't support submounts so don't announce them */
-        _cleanup_strv_free_ char **argv = strv_new(
+        _cleanup_(strv_freep) char **argv = strv_new(
                         virtiofsd,
                         "--shared-dir", source_uid == FOREIGN_UID_MIN ? "/run/systemd/mount-rootfs" : directory,
                         "--xattr",
@@ -1563,7 +1563,7 @@ static int start_virtiofsd(
         if (!argv)
                 return log_oom();
 
-        _cleanup_close_ int userns_fd = -EBADF, mapped_fd = -EBADF;
+        _cleanup_(closep) int userns_fd = -EBADF, mapped_fd = -EBADF;
 
         if (source_uid == FOREIGN_UID_MIN) {
                 assert(target_uid == 0);
@@ -1573,7 +1573,7 @@ static int start_virtiofsd(
                 if (userns_fd < 0)
                         return log_error_errno(userns_fd, "Failed to allocate user namespace for virtiofsd: %m");
 
-                _cleanup_close_ int directory_fd = open(directory, O_DIRECTORY|O_CLOEXEC|O_PATH);
+                _cleanup_(closep) int directory_fd = open(directory, O_DIRECTORY|O_CLOEXEC|O_PATH);
                 if (directory_fd < 0)
                         return log_error_errno(directory_fd, "Failed to open '%s': %m", directory);
 
@@ -1783,7 +1783,7 @@ static int discover_boot_entry(const char *root, char **ret_linux, char ***ret_i
         log_debug("Discovered boot entry %s (%s)", boot_entry->id, boot_entry_type_description_to_string(boot_entry->type));
 
         _cleanup_free_ char *linux_kernel = NULL;
-        _cleanup_strv_free_ char **initrds = NULL;
+        _cleanup_(strv_freep) char **initrds = NULL;
         if (boot_entry->type == BOOT_ENTRY_TYPE2) { /* UKI */
                 linux_kernel = path_join(boot_entry->root, boot_entry->kernel);
                 if (!linux_kernel)
@@ -1813,7 +1813,7 @@ static int discover_boot_entry(const char *root, char **ret_linux, char ***ret_i
 
 static int merge_initrds(char **ret) {
         _cleanup_(rm_rf_physical_and_freep) char *merged_initrd = NULL;
-        _cleanup_close_ int ofd = -EBADF;
+        _cleanup_(closep) int ofd = -EBADF;
         int r;
 
         assert(ret);
@@ -1827,7 +1827,7 @@ static int merge_initrds(char **ret) {
                 return log_error_errno(errno, "Failed to create regular file %s: %m", merged_initrd);
 
         STRV_FOREACH(i, arg_initrds) {
-                _cleanup_close_ int ifd = -EBADF;
+                _cleanup_(closep) int ifd = -EBADF;
                 off_t off, to_seek;
 
                 off = lseek(ofd, 0, SEEK_CUR);
@@ -1855,7 +1855,7 @@ static int merge_initrds(char **ret) {
 
 static int generate_ssh_keypair(const char *key_path, const char *key_type) {
         _cleanup_free_ char *ssh_keygen = NULL;
-        _cleanup_strv_free_ char **cmdline = NULL;
+        _cleanup_(strv_freep) char **cmdline = NULL;
         int r;
 
         assert(key_path);
@@ -1913,7 +1913,7 @@ static int grow_image(const char *path, uint64_t size) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Specified file size too large, refusing.");
         size *= 4096;
 
-        _cleanup_close_ int fd = xopenat_full(AT_FDCWD, path, O_RDWR|O_CLOEXEC, XO_REGULAR, /* mode= */ 0);
+        _cleanup_(closep) int fd = xopenat_full(AT_FDCWD, path, O_RDWR|O_CLOEXEC, XO_REGULAR, /* mode= */ 0);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to open image file '%s': %m", path);
 
@@ -1955,8 +1955,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         _cleanup_(rm_rf_physical_and_freep) char *ssh_private_key_path = NULL, *ssh_public_key_path = NULL;
         _cleanup_(rm_rf_subvolume_and_freep) char *snapshot_directory = NULL;
         _cleanup_(release_lock_file) LockFile tree_global_lock = LOCK_FILE_INIT, tree_local_lock = LOCK_FILE_INIT;
-        _cleanup_close_ int notify_sock_fd = -EBADF;
-        _cleanup_strv_free_ char **cmdline = NULL;
+        _cleanup_(closep) int notify_sock_fd = -EBADF;
+        _cleanup_(strv_freep) char **cmdline = NULL;
         _cleanup_free_ int *pass_fds = NULL;
         sd_event_source **children = NULL;
         size_t n_children = 0, n_pass_fds = 0;
@@ -2134,7 +2134,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 log_debug("Using runtime directory: %s", runtime_dir);
         }
 
-        _cleanup_close_ int delegate_userns_fd = -EBADF, tap_fd = -EBADF;
+        _cleanup_(closep) int delegate_userns_fd = -EBADF, tap_fd = -EBADF;
         if (arg_network_stack == NETWORK_STACK_TAP) {
                 if (have_effective_cap(CAP_NET_ADMIN) <= 0) {
                         delegate_userns_fd = userns_acquire_self_root();
@@ -2253,7 +2253,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (r < 0)
                 return log_oom();
 
-        _cleanup_close_ int child_vsock_fd = -EBADF;
+        _cleanup_(closep) int child_vsock_fd = -EBADF;
         unsigned child_cid = arg_vsock_cid;
         if (use_vsock) {
                 int device_fd = vhost_device_fd;
@@ -2294,7 +2294,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (r < 0)
                 return log_oom();
 
-        _cleanup_close_ int master = -EBADF;
+        _cleanup_(closep) int master = -EBADF;
         PTYForwardFlags ptyfwd_flags = 0;
         switch (arg_console_mode) {
 
@@ -2371,7 +2371,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (ovmf_config->supports_sb) {
                 const char *ovmf_vars_from = ovmf_config->vars;
                 _cleanup_free_ char *escaped_ovmf_vars_to = NULL;
-                _cleanup_close_ int source_fd = -EBADF, target_fd = -EBADF;
+                _cleanup_(closep) int source_fd = -EBADF, target_fd = -EBADF;
 
                 r = tempfn_random_child(NULL, "vmspawn-", &ovmf_vars_to);
                 if (r < 0)
@@ -3224,7 +3224,7 @@ static int verify_arguments(void) {
 
 static int run(int argc, char *argv[]) {
         int r, kvm_device_fd = -EBADF, vhost_device_fd = -EBADF;
-        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_(strv_freep) char **names = NULL;
 
         log_setup();
 

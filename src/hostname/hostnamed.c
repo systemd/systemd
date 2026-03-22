@@ -863,7 +863,7 @@ static int context_write_data_machine_info(Context *c) {
                 [PROP_DEPLOYMENT] = "DEPLOYMENT",
                 [PROP_LOCATION] = "LOCATION",
         };
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         int r;
 
         assert(c);
@@ -1715,7 +1715,7 @@ static int build_describe_response(Context *c, bool privileged, sd_json_variant 
         _cleanup_free_ char *hn = NULL, *dhn = NULL, *in = NULL,
                 *chassis = NULL, *vendor = NULL, *model = NULL, *serial = NULL, *firmware_version = NULL,
                 *firmware_vendor = NULL, *chassis_asset_tag = NULL, *sku = NULL, *hardware_version = NULL;
-        _cleanup_strv_free_ char **os_release_pairs = NULL, **machine_info_pairs = NULL;
+        _cleanup_(strv_freep) char **os_release_pairs = NULL, **machine_info_pairs = NULL;
         usec_t firmware_date = USEC_INFINITY, eol = USEC_INFINITY;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         sd_id128_t machine_id, boot_id, product_uuid = SD_ID128_NULL;

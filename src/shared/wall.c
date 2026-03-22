@@ -23,7 +23,7 @@
 #define TIMEOUT_USEC (50 * USEC_PER_MSEC)
 
 static int write_to_terminal(const char *tty, const char *message) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         assert(tty);
         assert(message);
@@ -100,7 +100,7 @@ static int wall_logind(
         void *userdata) {
 
 #if ENABLE_LOGIND
-        _cleanup_strv_free_ char **sessions = NULL;
+        _cleanup_(strv_freep) char **sessions = NULL;
         int r;
 
         assert(message);

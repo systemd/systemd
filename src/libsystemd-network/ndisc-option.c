@@ -915,7 +915,7 @@ int ndisc_option_add_dnssl_internal(
                         return -EINVAL;
         }
 
-        _cleanup_strv_free_ char **copy = strv_copy(domains);
+        _cleanup_(strv_freep) char **copy = strv_copy(domains);
         if (!copy)
                 return -ENOMEM;
 
@@ -946,7 +946,7 @@ static int ndisc_option_parse_dnssl(Set **options, size_t offset, size_t len, co
 
         usec_t lifetime = unaligned_be32_sec_to_usec(opt + 4, /* max_as_infinity= */ true);
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         _cleanup_free_ char *e = NULL;
         size_t n = 0;
         for (size_t c, pos = 8; pos < len; pos += c) {
@@ -1426,7 +1426,7 @@ static int ndisc_option_build_encrypted_dns(const sd_ndisc_option *option, usec_
         if (!buf)
                 return -ENOMEM;
 
-        _cleanup_strv_free_ char **alpns = NULL;
+        _cleanup_(strv_freep) char **alpns = NULL;
         const sd_dns_resolver *res = option->encrypted_dns.resolver;
         be32_t lifetime = usec_to_be32_sec(MIN(option->encrypted_dns.lifetime,
                                                usec_sub_unsigned(option->encrypted_dns.valid_until, timestamp)));
@@ -1578,7 +1578,7 @@ static int ndisc_header_size(uint8_t icmp6_type) {
 }
 
 int ndisc_parse_options(ICMP6Packet *packet, Set **ret_options) {
-        _cleanup_set_free_ Set *options = NULL;
+        _cleanup_(set_freep) Set *options = NULL;
         int r;
 
         assert(packet);

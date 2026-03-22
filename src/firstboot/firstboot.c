@@ -158,7 +158,7 @@ static void print_welcome(int rfd, sd_varlink **mute_console_link) {
 }
 
 static int should_configure(int dir_fd, const char *filename) {
-        _cleanup_fclose_ FILE *passwd = NULL, *shadow = NULL;
+        _cleanup_(fclosep) FILE *passwd = NULL, *shadow = NULL;
         int r;
 
         assert(dir_fd >= 0);
@@ -237,7 +237,7 @@ static int locale_is_ok(const char *name, void *userdata) {
 }
 
 static int prompt_locale(int rfd, sd_varlink **mute_console_link) {
-        _cleanup_strv_free_ char **locales = NULL;
+        _cleanup_(strv_freep) char **locales = NULL;
         bool acquired_from_creds = false;
         int r;
 
@@ -331,7 +331,7 @@ static int prompt_locale(int rfd, sd_varlink **mute_console_link) {
 }
 
 static int process_locale(int rfd, sd_varlink **mute_console_link) {
-        _cleanup_close_ int pfd = -EBADF;
+        _cleanup_(closep) int pfd = -EBADF;
         _cleanup_free_ char *f = NULL;
         char* locales[3];
         unsigned i = 0;
@@ -404,7 +404,7 @@ static int keymap_is_ok(const char* name, void *userdata) {
 }
 
 static int prompt_keymap(int rfd, sd_varlink **mute_console_link) {
-        _cleanup_strv_free_ char **kmaps = NULL;
+        _cleanup_(strv_freep) char **kmaps = NULL;
         int r;
 
         assert(rfd >= 0);
@@ -467,9 +467,9 @@ static int prompt_keymap(int rfd, sd_varlink **mute_console_link) {
 }
 
 static int process_keymap(int rfd, sd_varlink **mute_console_link) {
-        _cleanup_close_ int pfd = -EBADF;
+        _cleanup_(closep) int pfd = -EBADF;
         _cleanup_free_ char *f = NULL;
-        _cleanup_strv_free_ char **keymap = NULL;
+        _cleanup_(strv_freep) char **keymap = NULL;
         int r;
 
         assert(rfd >= 0);
@@ -536,7 +536,7 @@ static int timezone_is_ok(const char *name, void *userdata) {
 }
 
 static int prompt_timezone(int rfd, sd_varlink **mute_console_link) {
-        _cleanup_strv_free_ char **zones = NULL;
+        _cleanup_(strv_freep) char **zones = NULL;
         int r;
 
         assert(rfd >= 0);
@@ -583,7 +583,7 @@ static int prompt_timezone(int rfd, sd_varlink **mute_console_link) {
 }
 
 static int process_timezone(int rfd, sd_varlink **mute_console_link) {
-        _cleanup_close_ int pfd = -EBADF;
+        _cleanup_(closep) int pfd = -EBADF;
         _cleanup_free_ char *f = NULL, *relpath = NULL;
         const char *e;
         int r;
@@ -697,7 +697,7 @@ static int prompt_hostname(int rfd, sd_varlink **mute_console_link) {
 }
 
 static int process_hostname(int rfd, sd_varlink **mute_console_link) {
-        _cleanup_close_ int pfd = -EBADF;
+        _cleanup_(closep) int pfd = -EBADF;
         _cleanup_free_ char *f = NULL;
         int r;
 
@@ -732,7 +732,7 @@ static int process_hostname(int rfd, sd_varlink **mute_console_link) {
 }
 
 static int process_machine_id(int rfd) {
-        _cleanup_close_ int pfd = -EBADF;
+        _cleanup_(closep) int pfd = -EBADF;
         _cleanup_free_ char *f = NULL;
         int r;
 
@@ -789,7 +789,7 @@ static int prompt_root_password(int rfd, sd_varlink **mute_console_link) {
         suggest_passwords();
 
         for (;;) {
-                _cleanup_strv_free_erase_ char **a = NULL, **b = NULL;
+                _cleanup_(strv_free_erasep) char **a = NULL, **b = NULL;
                 _cleanup_free_ char *error = NULL;
 
                 AskPasswordRequest req = {
@@ -900,7 +900,7 @@ static int prompt_root_shell(int rfd, sd_varlink **mute_console_link) {
 }
 
 static int write_root_passwd(int rfd, int etc_fd, const char *password, const char *shell) {
-        _cleanup_fclose_ FILE *original = NULL, *passwd = NULL;
+        _cleanup_(fclosep) FILE *original = NULL, *passwd = NULL;
         _cleanup_(unlink_and_freep) char *passwd_tmp = NULL;
         int r;
         bool found = false;
@@ -971,7 +971,7 @@ static int write_root_passwd(int rfd, int etc_fd, const char *password, const ch
 }
 
 static int write_root_shadow(int etc_fd, const char *hashed_password) {
-        _cleanup_fclose_ FILE *original = NULL, *shadow = NULL;
+        _cleanup_(fclosep) FILE *original = NULL, *shadow = NULL;
         _cleanup_(unlink_and_freep) char *shadow_tmp = NULL;
         int r;
         bool found = false;
@@ -1044,7 +1044,7 @@ static int write_root_shadow(int etc_fd, const char *hashed_password) {
 }
 
 static int process_root_account(int rfd, sd_varlink **mute_console_link) {
-        _cleanup_close_ int pfd = -EBADF;
+        _cleanup_(closep) int pfd = -EBADF;
         _cleanup_(release_lock_file) LockFile lock = LOCK_FILE_INIT;
         _cleanup_(erase_and_freep) char *_hashed_password = NULL;
         const char *password, *hashed_password;
@@ -1163,7 +1163,7 @@ static int process_root_account(int rfd, sd_varlink **mute_console_link) {
 }
 
 static int process_kernel_cmdline(int rfd) {
-        _cleanup_close_ int pfd = -EBADF;
+        _cleanup_(closep) int pfd = -EBADF;
         _cleanup_free_ char *f = NULL;
         int r;
 
@@ -1196,7 +1196,7 @@ static int process_kernel_cmdline(int rfd) {
 }
 
 static int reset_one(int rfd, const char *path) {
-        _cleanup_close_ int pfd = -EBADF;
+        _cleanup_(closep) int pfd = -EBADF;
         _cleanup_free_ char *f = NULL;
 
         assert(rfd >= 0);
@@ -1688,7 +1688,7 @@ static int run(int argc, char *argv[]) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
-        _cleanup_close_ int rfd = -EBADF;
+        _cleanup_(closep) int rfd = -EBADF;
         int r;
 
         r = parse_argv(argc, argv);

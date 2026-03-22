@@ -525,7 +525,7 @@ int manager_serialize_config(Manager *manager) {
 
         assert(manager);
 
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         r = open_serialization_file("systemd-udevd", &f);
         if (r < 0)
                 return log_warning_errno(r, "Failed to open new serialization file: %m");
@@ -575,7 +575,7 @@ int manager_deserialize_config(Manager *manager, int *fd) {
 
         /* This may invalidate passed file descriptor even on failure. */
 
-        _cleanup_fclose_ FILE *f = take_fdopen(fd, "r");
+        _cleanup_(fclosep) FILE *f = take_fdopen(fd, "r");
         if (!f)
                 return log_warning_errno(errno, "Failed to open serialization fd: %m");
 

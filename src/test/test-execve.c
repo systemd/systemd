@@ -26,7 +26,7 @@ static int run(int argc, char **argv) {
 
         char **args = strv_skip(argv, 1) ?: STRV_MAKE("/bin/true");
 
-        _cleanup_close_ int fd = open(args[0], O_RDONLY | O_CLOEXEC);
+        _cleanup_(closep) int fd = open(args[0], O_RDONLY | O_CLOEXEC);
         if (fd < 0)
                 return log_error_errno(errno, "open(%s) failed: %m", args[0]);
 

@@ -30,5 +30,3 @@ bool bitmap_equal(const Bitmap *a, const Bitmap *b) _pure_;
         _BITMAP_FOREACH(n, b, UNIQ_T(i, UNIQ))
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Bitmap*, bitmap_free);
-
-#define _cleanup_bitmap_free_ _cleanup_(bitmap_freep)

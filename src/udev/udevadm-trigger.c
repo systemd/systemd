@@ -538,7 +538,7 @@ int verb_trigger_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *m = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        _cleanup_set_free_ Set *settle_ids = NULL;
+        _cleanup_(set_freep) Set *settle_ids = NULL;
         int r;
 
         if (running_in_chroot() > 0) {

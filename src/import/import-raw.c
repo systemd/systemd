@@ -164,7 +164,7 @@ static void raw_import_report_progress(RawImport *i) {
 }
 
 static int raw_import_maybe_convert_qcow2(RawImport *i) {
-        _cleanup_close_ int converted_fd = -EBADF;
+        _cleanup_(closep) int converted_fd = -EBADF;
         _cleanup_(unlink_and_freep) char *t = NULL;
         _cleanup_free_ char *f = NULL;
         int r;

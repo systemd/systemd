@@ -14,7 +14,7 @@ static int run(int argc, char *argv[]) {
         if (argc != 2)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected single parameter, the device node to open.");
 
-        _cleanup_close_ int fd = open(argv[1], O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        _cleanup_(closep) int fd = open(argv[1], O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (fd < 0)
                 return log_error_errno(errno, "Failed to open '%s': %m", argv[1]);
 

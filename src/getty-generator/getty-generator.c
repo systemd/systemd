@@ -75,7 +75,7 @@ static int add_container_getty(const char *tty_or_path) {
 }
 
 static int verify_tty(const char *path) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         assert(path);
 
@@ -149,7 +149,7 @@ static int add_credential_gettys(void) {
                 if (r == 0)
                         continue;
 
-                _cleanup_fclose_ FILE *f = NULL;
+                _cleanup_(fclosep) FILE *f = NULL;
                 f = fmemopen_unlocked(b, sz, "r");
                 if (!f)
                         return log_oom();
@@ -311,7 +311,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
 
         /* Automatically add in a serial getty on all active kernel consoles */
         if (FLAGS_SET(arg_getty_sources, GETTY_SOURCE_CONSOLE)) {
-                _cleanup_strv_free_ char **consoles = NULL;
+                _cleanup_(strv_freep) char **consoles = NULL;
                 r = get_kernel_consoles(&consoles);
                 if (r < 0)
                         log_warning_errno(r, "Failed to get active kernel consoles, ignoring: %m");

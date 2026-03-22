@@ -56,7 +56,7 @@ int userns_restrict_install(
 
 #if HAVE_VMLINUX_H
         _cleanup_(userns_restrict_bpf_freep) struct userns_restrict_bpf *obj = NULL;
-        _cleanup_close_ int dummy_mnt_id_hash_fd = -EBADF;
+        _cleanup_(closep) int dummy_mnt_id_hash_fd = -EBADF;
         int r;
 
         r = lsm_supported("bpf");
@@ -198,7 +198,7 @@ int userns_restrict_put_by_inode(
                 size_t n_mount_fds) {
 
 #if HAVE_VMLINUX_H
-        _cleanup_close_ int inner_map_fd = -EBADF;
+        _cleanup_(closep) int inner_map_fd = -EBADF;
         _cleanup_free_ int *mnt_ids = NULL;
         uint64_t ino = userns_inode;
         int r, outer_map_fd;

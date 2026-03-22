@@ -130,7 +130,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_close_ int outfd = -EBADF, errfd = -EBADF, saved_stderr = -EBADF;
+        _cleanup_(closep) int outfd = -EBADF, errfd = -EBADF, saved_stderr = -EBADF;
         int r;
 
         log_setup();

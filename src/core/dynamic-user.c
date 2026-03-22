@@ -83,7 +83,7 @@ static int dynamic_user_add(Manager *m, const char *name, int storage_socket[sta
 }
 
 static int dynamic_user_acquire(Manager *m, const char *name, DynamicUser** ret) {
-        _cleanup_close_pair_ int storage_socket[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int storage_socket[2] = EBADF_PAIR;
         DynamicUser *d;
         int r;
 
@@ -181,7 +181,7 @@ static int pick_uid(char **suggested_paths, const char *name, uid_t *ret_uid) {
 
         for (;;) {
                 char lock_path[STRLEN("/run/systemd/dynamic-uid/") + DECIMAL_STR_MAX(uid_t) + 1];
-                _cleanup_close_ int lock_fd = -EBADF;
+                _cleanup_(closep) int lock_fd = -EBADF;
                 uid_t candidate;
                 ssize_t l;
 
@@ -336,8 +336,8 @@ static int dynamic_user_realize(
                 uid_t *ret_uid, gid_t *ret_gid,
                 bool is_user) {
 
-        _cleanup_close_ int uid_lock_fd = -EBADF;
-        _cleanup_close_ int etc_passwd_lock_fd = -EBADF;
+        _cleanup_(closep) int uid_lock_fd = -EBADF;
+        _cleanup_(closep) int etc_passwd_lock_fd = -EBADF;
         uid_t num = UID_INVALID; /* a uid if is_user, and a gid otherwise */
         gid_t gid = GID_INVALID; /* a gid if is_user, ignored otherwise */
         int r;
@@ -464,7 +464,7 @@ static int dynamic_user_realize(
 }
 
 int dynamic_user_current(DynamicUser *d, uid_t *ret) {
-        _cleanup_close_ int lock_fd = -EBADF;
+        _cleanup_(closep) int lock_fd = -EBADF;
         uid_t uid;
         int r;
 
@@ -508,7 +508,7 @@ static DynamicUser* dynamic_user_unref(DynamicUser *d) {
 }
 
 static int dynamic_user_close(DynamicUser *d) {
-        _cleanup_close_ int lock_fd = -EBADF;
+        _cleanup_(closep) int lock_fd = -EBADF;
         uid_t uid;
         int r;
 
@@ -593,7 +593,7 @@ int dynamic_user_serialize(Manager *m, FILE *f, FDSet *fds) {
 
 void dynamic_user_deserialize_one(Manager *m, const char *value, FDSet *fds, DynamicUser **ret) {
         _cleanup_free_ char *name = NULL, *s0 = NULL, *s1 = NULL;
-        _cleanup_close_ int fd0 = -EBADF, fd1 = -EBADF;
+        _cleanup_(closep) int fd0 = -EBADF, fd1 = -EBADF;
         int r;
 
         assert(value);

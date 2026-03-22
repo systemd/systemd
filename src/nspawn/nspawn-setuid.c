@@ -80,8 +80,8 @@ int change_uid_gid(const char *user, bool chown_stdio, char **ret_home) {
         char *x, *u, *g, *h;
         _cleanup_free_ gid_t *gids = NULL;
         _cleanup_free_ char *home = NULL, *line = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(fclosep) FILE *f = NULL;
+        _cleanup_(closep) int fd = -EBADF;
         unsigned n_gids = 0;
         uid_t uid;
         gid_t gid;

@@ -13,7 +13,7 @@
 
 TEST(path_pick) {
         _cleanup_(rm_rf_physical_and_freep) char *p = NULL;
-        _cleanup_close_ int dfd = -EBADF, sub_dfd = -EBADF;
+        _cleanup_(closep) int dfd = -EBADF, sub_dfd = -EBADF;
 
         dfd = ASSERT_OK(mkdtemp_open(NULL, O_DIRECTORY|O_CLOEXEC, &p));
         sub_dfd = ASSERT_OK(open_mkdir_at(dfd, "foo.v", O_CLOEXEC, 0777));
@@ -188,8 +188,8 @@ TEST(path_uses_vpick) {
 TEST(pick_filter_image_any) {
         _cleanup_(rm_rf_physical_and_freep) char *p = NULL;
 
-        _cleanup_close_ int dfd = ASSERT_OK(mkdtemp_open(NULL, O_DIRECTORY|O_CLOEXEC, &p));
-        _cleanup_close_ int sub_dfd = ASSERT_OK(open_mkdir_at(dfd, "test.v", O_CLOEXEC, 0777));
+        _cleanup_(closep) int dfd = ASSERT_OK(mkdtemp_open(NULL, O_DIRECTORY|O_CLOEXEC, &p));
+        _cleanup_(closep) int sub_dfd = ASSERT_OK(open_mkdir_at(dfd, "test.v", O_CLOEXEC, 0777));
 
         /* Create .raw files (should match with pick_filter_image_raw and pick_filter_image_any) */
         ASSERT_OK(write_string_file_at(sub_dfd, "test_1.raw", "version 1 raw", WRITE_STRING_FILE_CREATE));
@@ -279,8 +279,8 @@ TEST(pick_filter_image_any) {
 TEST(path_pick_resolve) {
         _cleanup_(rm_rf_physical_and_freep) char *p = NULL;
 
-        _cleanup_close_ int dfd = ASSERT_OK(mkdtemp_open(NULL, O_DIRECTORY|O_CLOEXEC, &p));
-        _cleanup_close_ int sub_dfd = ASSERT_OK(open_mkdir_at(dfd, "resolve.v", O_CLOEXEC, 0777));
+        _cleanup_(closep) int dfd = ASSERT_OK(mkdtemp_open(NULL, O_DIRECTORY|O_CLOEXEC, &p));
+        _cleanup_(closep) int sub_dfd = ASSERT_OK(open_mkdir_at(dfd, "resolve.v", O_CLOEXEC, 0777));
 
         /* Create a target directory and file for symlinks */
         ASSERT_OK(mkdirat(dfd, "target_dir", 0755));

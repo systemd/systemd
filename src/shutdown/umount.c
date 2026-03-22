@@ -186,7 +186,7 @@ static void log_umount_blockers(const char *mnt) {
         _cleanup_free_ char *blockers = NULL;
         int r;
 
-        _cleanup_closedir_ DIR *dir = opendir("/proc");
+        _cleanup_(closedirp) DIR *dir = opendir("/proc");
         if (!dir)
                 return (void) log_warning_errno(errno, "Failed to open %s: %m", "/proc/");
 
@@ -202,7 +202,7 @@ static void log_umount_blockers(const char *mnt) {
                 if (!fdp)
                         return (void) log_oom();
 
-                _cleanup_closedir_ DIR *fd_dir = xopendirat(dirfd(dir), fdp, 0);
+                _cleanup_(closedirp) DIR *fd_dir = xopendirat(dirfd(dir), fdp, 0);
                 if (!fd_dir) {
                         if (errno != ENOENT) /* process gone by now? */
                                 log_debug_errno(errno, "Failed to open /proc/%s/, ignoring: %m",fdp);
@@ -249,7 +249,7 @@ static void log_umount_blockers(const char *mnt) {
 }
 
 static int remount_with_timeout(MountPoint *m, bool last_try) {
-        _cleanup_close_pair_ int pfd[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int pfd[2] = EBADF_PAIR;
         _cleanup_(pidref_done_sigkill_nowait) PidRef pidref = PIDREF_NULL;
         int r;
 
@@ -311,7 +311,7 @@ static int remount_with_timeout(MountPoint *m, bool last_try) {
 }
 
 static int umount_with_timeout(MountPoint *m, bool last_try) {
-        _cleanup_close_pair_ int pfd[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int pfd[2] = EBADF_PAIR;
         _cleanup_(pidref_done_sigkill_nowait) PidRef pidref = PIDREF_NULL;
         int r;
 

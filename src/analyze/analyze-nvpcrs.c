@@ -73,7 +73,7 @@ int verb_nvpcrs(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 (void) table_hide_column_from_display(table, (size_t) 2);
 
         if (strv_isempty(strv_skip(argv, 1))) {
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_(strv_freep) char **l = NULL;
                 r = conf_files_list_nulstr(
                                 &l,
                                 ".nvpcr",

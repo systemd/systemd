@@ -52,7 +52,7 @@ static int property_get_auto_login(
                 return r;
 
         HASHMAP_FOREACH(h, m->homes_by_uid) {
-                _cleanup_strv_free_ char **seats = NULL;
+                _cleanup_(strv_freep) char **seats = NULL;
                 _cleanup_free_ char *home_path = NULL;
 
                 r = home_auto_login(h, &seats);
@@ -577,7 +577,7 @@ static int method_unregister_home(sd_bus_message *message, void *userdata, sd_bu
 
 static int method_create_home(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
-        _cleanup_hashmap_free_ Hashmap *blobs = NULL;
+        _cleanup_(hashmap_freep) Hashmap *blobs = NULL;
         uint64_t flags = 0;
         Manager *m = ASSERT_PTR(userdata);
         Home *h;
@@ -656,7 +656,7 @@ static int method_authenticate_home(sd_bus_message *message, void *userdata, sd_
 
 static int method_update_home(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
-        _cleanup_hashmap_free_ Hashmap *blobs = NULL;
+        _cleanup_(hashmap_freep) Hashmap *blobs = NULL;
         uint64_t flags = 0;
         Manager *m = ASSERT_PTR(userdata);
         Home *h;

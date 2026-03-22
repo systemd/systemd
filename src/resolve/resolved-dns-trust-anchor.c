@@ -430,7 +430,7 @@ static int dns_trust_anchor_load_files(
                 const char *suffix,
                 int (*loader)(DnsTrustAnchor *d, const char *path, unsigned n, const char *line)) {
 
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_(strv_freep) char **files = NULL;
         int r;
 
         assert(d);
@@ -442,7 +442,7 @@ static int dns_trust_anchor_load_files(
                 return log_error_errno(r, "Failed to enumerate %s trust anchor files: %m", suffix);
 
         STRV_FOREACH(f, files) {
-                _cleanup_fclose_ FILE *g = NULL;
+                _cleanup_(fclosep) FILE *g = NULL;
                 unsigned n = 0;
 
                 g = fopen(*f, "re");

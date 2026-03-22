@@ -213,7 +213,7 @@ static int connect_logger_as(
                 uid_t uid,
                 gid_t gid) {
 
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         assert(context);
@@ -269,7 +269,7 @@ static int open_terminal_as(const char *path, int flags, int nfd) {
 }
 
 static int acquire_path(const char *path, int flags, mode_t mode) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         assert(path);
@@ -363,7 +363,7 @@ static int setup_input(
         case EXEC_INPUT_TTY:
         case EXEC_INPUT_TTY_FORCE:
         case EXEC_INPUT_TTY_FAIL: {
-                _cleanup_close_ int tty_fd = -EBADF;
+                _cleanup_(closep) int tty_fd = -EBADF;
                 _cleanup_free_ char *resolved = NULL;
                 const char *tty_path;
 
@@ -679,7 +679,7 @@ static int setup_confirm_stdio(
                 int *ret_saved_stdin,
                 int *ret_saved_stdout) {
 
-        _cleanup_close_ int fd = -EBADF, saved_stdin = -EBADF, saved_stdout = -EBADF;
+        _cleanup_(closep) int fd = -EBADF, saved_stdin = -EBADF, saved_stdout = -EBADF;
         int r;
 
         assert(context);
@@ -698,7 +698,7 @@ static int setup_confirm_stdio(
         if (fd < 0)
                 return fd;
 
-        _cleanup_close_ int lock_fd = lock_dev_console();
+        _cleanup_(closep) int lock_fd = lock_dev_console();
         if (lock_fd < 0)
                 log_debug_errno(lock_fd, "Failed to lock /dev/console, ignoring: %m");
 
@@ -738,7 +738,7 @@ static void write_confirm_error_fd(int err, int fd, const char *unit_id) {
 }
 
 static void write_confirm_error(int err, const char *vc, const char *unit_id) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         assert(vc);
 
@@ -1157,7 +1157,7 @@ static int ask_password_conv(
                                 .until = usec_add(now(CLOCK_MONOTONIC), 15 * USEC_PER_SEC),
                         };
 
-                        _cleanup_strv_free_erase_ char **acquired = NULL;
+                        _cleanup_(strv_free_erasep) char **acquired = NULL;
                         r = ask_password_auto(
                                         &req,
                                         ASK_PASSWORD_ACCEPT_CACHED|
@@ -1341,7 +1341,7 @@ static int setup_pam(
         };
 
         _cleanup_(barrier_destroy) Barrier barrier = BARRIER_NULL;
-        _cleanup_strv_free_ char **e = NULL;
+        _cleanup_(strv_freep) char **e = NULL;
         _cleanup_free_ char *tty = NULL;
         pam_handle_t *pamh = NULL;
         sigset_t old_ss;
@@ -2038,7 +2038,7 @@ static int build_environment(
                 bool needs_sandboxing,
                 char ***ret) {
 
-        _cleanup_strv_free_ char **e = NULL;
+        _cleanup_(strv_freep) char **e = NULL;
         size_t n = 0;
         pid_t exec_pid;
         int r;
@@ -2263,7 +2263,7 @@ static int build_environment(
 }
 
 static int build_pass_environment(const ExecContext *c, char ***ret) {
-        _cleanup_strv_free_ char **pass_env = NULL;
+        _cleanup_(strv_freep) char **pass_env = NULL;
         size_t n_env = 0;
 
         assert(c);
@@ -2295,7 +2295,7 @@ static int bpffs_helper(const ExecContext *c, int socket_fd) {
         assert(c);
         assert(socket_fd >= 0);
 
-        _cleanup_close_ int fs_fd = receive_one_fd(socket_fd, /* flags= */ 0);
+        _cleanup_(closep) int fs_fd = receive_one_fd(socket_fd, /* flags= */ 0);
         if (fs_fd < 0)
                 return log_debug_errno(fs_fd, "Failed to receive file descriptor from parent: %m");
 
@@ -2328,7 +2328,7 @@ static int bpffs_prepare(
                 int *ret_sock_fd,
                 int *ret_errno_pipe) {
 
-        _cleanup_close_pair_ int socket_fds[2] = EBADF_PAIR, errno_pipe[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int socket_fds[2] = EBADF_PAIR, errno_pipe[2] = EBADF_PAIR;
         int r;
 
         assert(ret_sock_fd);
@@ -2408,8 +2408,8 @@ static int setup_private_users(
                 bool allow_setgroups) {
 
         _cleanup_free_ char *uid_map = NULL, *gid_map = NULL;
-        _cleanup_close_pair_ int errno_pipe[2] = EBADF_PAIR;
-        _cleanup_close_ int unshare_ready_fd = -EBADF;
+        _cleanup_(close_pairp) int errno_pipe[2] = EBADF_PAIR;
+        _cleanup_(closep) int unshare_ready_fd = -EBADF;
         _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
         uint64_t c = 1;
         ssize_t n;
@@ -2439,7 +2439,7 @@ static int setup_private_users(
                 if (uid_is_valid(*uid) || uid_is_valid(*gid))
                         return log_debug_errno(SYNTHETIC_ERRNO(EPERM), "When allocating dynamic user namespace range, target UID/GID must be root, refusing.");
 
-                _cleanup_close_ int userns_fd = nsresource_allocate_userns(
+                _cleanup_(closep) int userns_fd = nsresource_allocate_userns(
                                 nsresource_link,
                                 /* name= */ NULL,
                                 NSRESOURCE_UIDS_64K);
@@ -2599,7 +2599,7 @@ static int setup_private_users(
 }
 
 static int can_mount_proc(void) {
-        _cleanup_close_pair_ int errno_pipe[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int errno_pipe[2] = EBADF_PAIR;
         _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
         ssize_t n;
         int r;
@@ -2665,7 +2665,7 @@ static int can_mount_proc(void) {
 
 static int setup_private_pids(const ExecContext *c, ExecParameters *p) {
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
-        _cleanup_close_pair_ int errno_pipe[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int errno_pipe[2] = EBADF_PAIR;
         ssize_t n;
         int r, q;
 
@@ -2764,7 +2764,7 @@ static int set_exec_storage_quota(int fd, uint32_t proj_id, const QuotaLimit *ql
                  * hard limits are disabled */
                 block_limit = inode_limit = 1;
         else if (ql->quota_absolute == UINT64_MAX) {
-                _cleanup_close_ int fd_parent = -EBADF;
+                _cleanup_(closep) int fd_parent = -EBADF;
 
                 /* Use target_dir's parent when setting quotas. If a FD for target_dir has been previously
                  * used for quotactl_fd(SET) and is passed again for fstatvfs(), the total number of blocks is not
@@ -2846,7 +2846,7 @@ static int apply_exec_quotas(
                 uint32_t *exec_dt_proj_id, /* in/out */
                 bool *already_enforced) {  /* in/out */
 
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int r, quota_supported = 0;
 
         assert(target_dir);
@@ -3352,7 +3352,7 @@ static int compile_bind_mounts(
                 size_t *ret_n_bind_mounts,
                 char ***ret_empty_directories) {
 
-        _cleanup_strv_free_ char **empty_directories = NULL;
+        _cleanup_(strv_freep) char **empty_directories = NULL;
         BindMount *bind_mounts = NULL;
         size_t n, h = 0;
         int r;
@@ -3474,7 +3474,7 @@ static int compile_symlinks(
                 bool setup_os_release_symlink,
                 char ***ret_symlinks) {
 
-        _cleanup_strv_free_ char **symlinks = NULL;
+        _cleanup_(strv_freep) char **symlinks = NULL;
         int r;
 
         assert(context);
@@ -3580,7 +3580,7 @@ static int setup_ephemeral(
                 PinnedResource *rootfs,  /* both input and output! modified if ephemeral logic enabled */
                 char **reterr_path) {
 
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         _cleanup_free_ char *new_root = NULL;
         int r;
 
@@ -3726,7 +3726,7 @@ static int pin_rootfs(
         }
 
         if (context->root_directory_as_fd) {
-                _cleanup_close_ int fd = fcntl(params->root_directory_fd, F_DUPFD_CLOEXEC, 3);
+                _cleanup_(closep) int fd = fcntl(params->root_directory_fd, F_DUPFD_CLOEXEC, 3);
                 if (fd < 0)
                         return log_debug_errno(errno, "Failed to duplicate root directory fd: %m");
 
@@ -3761,7 +3761,7 @@ static int pin_rootfs(
                 /* path_pick() returns us an O_PATH fd, let's turn this into a fully opened file, because
                  * mountfsd will want this later, and it wants a fully opened fd, so that security checks
                  * have been passed */
-                _cleanup_close_ int reopened_fd = -EBADF;
+                _cleanup_(closep) int reopened_fd = -EBADF;
                 reopened_fd = fd_reopen(result.fd, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|O_RDWR);
                 if (ERRNO_IS_NEG_FS_WRITE_REFUSED(reopened_fd))
                         reopened_fd = fd_reopen(result.fd, O_CLOEXEC|O_NONBLOCK|O_NOCTTY|O_RDONLY);
@@ -3866,7 +3866,7 @@ static int apply_mount_namespace(
                 char **reterr_path) {
 
         _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
-        _cleanup_strv_free_ char **empty_directories = NULL, **symlinks = NULL,
+        _cleanup_(strv_freep) char **empty_directories = NULL, **symlinks = NULL,
                         **read_write_paths_cleanup = NULL;
         _cleanup_free_ char *creds_path = NULL, *incoming_dir = NULL, *propagate_dir = NULL,
                 *private_namespace_dir = NULL, *host_os_release_stage = NULL;
@@ -4126,7 +4126,7 @@ static int apply_working_directory(
         if (params->flags & EXEC_APPLY_CHROOT)
                 r = RET_NERRNO(chdir(wd));
         else {
-                _cleanup_close_ int dfd = -EBADF;
+                _cleanup_(closep) int dfd = -EBADF;
 
                 r = chase(wd,
                           runtime->ephemeral_copy ?: context->root_directory,
@@ -4373,7 +4373,7 @@ static int acquire_home(const ExecContext *c, const char **home, char **ret_buf)
 }
 
 static int compile_suggested_paths(const ExecContext *c, const ExecParameters *p, char ***ret) {
-        _cleanup_strv_free_ char ** list = NULL;
+        _cleanup_(strv_freep) char ** list = NULL;
         int r;
 
         assert(c);
@@ -4482,7 +4482,7 @@ static int connect_unix_harder(const OpenFile *of, int ofd) {
         sa_len = r;
 
         FOREACH_ELEMENT(i, socket_types) {
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
 
                 fd = socket(AF_UNIX, *i|SOCK_CLOEXEC, 0);
                 if (fd < 0)
@@ -4499,7 +4499,7 @@ static int connect_unix_harder(const OpenFile *of, int ofd) {
 }
 
 static int get_open_file_fd(const OpenFile *of) {
-        _cleanup_close_ int fd = -EBADF, ofd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF, ofd = -EBADF;
         struct stat st;
 
         assert(of);
@@ -4541,7 +4541,7 @@ static int collect_open_file_fds(ExecParameters *p) {
         assert(p);
 
         LIST_FOREACH(open_files, of, p->open_files) {
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
 
                 fd = get_open_file_fd(of);
                 if (fd < 0) {
@@ -5020,7 +5020,7 @@ static void prepare_terminal(
                 const ExecContext *context,
                 ExecParameters *p) {
 
-        _cleanup_close_ int lock_fd = -EBADF;
+        _cleanup_(closep) int lock_fd = -EBADF;
 
         /* This is the "constructive" reset, i.e. is about preparing things for our invocation rather than
          * cleaning up things from older invocations. */
@@ -5154,7 +5154,7 @@ int exec_invoke(
                 const CGroupContext *cgroup_context,
                 int *exit_status) {
 
-        _cleanup_strv_free_ char **our_env = NULL, **pass_env = NULL, **joined_exec_search_path = NULL, **accum_env = NULL;
+        _cleanup_(strv_freep) char **our_env = NULL, **pass_env = NULL, **joined_exec_search_path = NULL, **accum_env = NULL;
         int r;
         const char *username = NULL, *groupname = NULL;
         _cleanup_free_ char *home_buffer = NULL, *memory_pressure_path = NULL, *own_user = NULL;
@@ -5188,7 +5188,7 @@ int exec_invoke(
         _cleanup_free_ gid_t *gids = NULL, *gids_after_pam = NULL;
         int ngids = 0, ngids_after_pam = 0;
         int named_iofds[3] = EBADF_TRIPLET;
-        _cleanup_close_ int socket_fd = -EBADF, bpffs_socket_fd = -EBADF, bpffs_errno_pipe = -EBADF;
+        _cleanup_(closep) int socket_fd = -EBADF, bpffs_socket_fd = -EBADF, bpffs_errno_pipe = -EBADF;
         _cleanup_(pidref_done_sigkill_wait) PidRef bpffs_pidref = PIDREF_NULL;
 
         assert(command);
@@ -5356,7 +5356,7 @@ int exec_invoke(
         if (exec_context_get_effective_private_users(context, params) == PRIVATE_USERS_MANAGED)
                 log_debug("Running with a managed user namespace, not initializing UIDs/GIDs.");
         else if (context->dynamic_user && runtime->dynamic_creds) {
-                _cleanup_strv_free_ char **suggested_paths = NULL;
+                _cleanup_(strv_freep) char **suggested_paths = NULL;
 
                 /* On top of that, make sure we bypass our own NSS module nss-systemd comprehensively for any NSS
                  * checks, if DynamicUser=1 is used, as we shouldn't create a feedback loop with ourselves here. */
@@ -6197,7 +6197,7 @@ int exec_invoke(
         }
 
         _cleanup_free_ char *executable = NULL;
-        _cleanup_close_ int executable_fd = -EBADF;
+        _cleanup_(closep) int executable_fd = -EBADF;
         r = find_executable_full(path, /* root= */ NULL, context->exec_search_path, false, &executable, &executable_fd);
         if (r < 0) {
                 *exit_status = EXIT_EXEC;
@@ -6616,11 +6616,11 @@ int exec_invoke(
                 strv_free_and_replace(accum_env, ee);
         }
 
-        _cleanup_strv_free_ char **replaced_argv = NULL, **argv_via_shell = NULL;
+        _cleanup_(strv_freep) char **replaced_argv = NULL, **argv_via_shell = NULL;
         char **final_argv = FLAGS_SET(command->flags, EXEC_COMMAND_VIA_SHELL) ? strv_skip(command->argv, 1) : command->argv;
 
         if (final_argv && !FLAGS_SET(command->flags, EXEC_COMMAND_NO_ENV_EXPAND)) {
-                _cleanup_strv_free_ char **unset_variables = NULL, **bad_variables = NULL;
+                _cleanup_(strv_freep) char **unset_variables = NULL, **bad_variables = NULL;
 
                 r = replace_env_argv(final_argv, accum_env, &replaced_argv, &unset_variables, &bad_variables);
                 if (r < 0) {

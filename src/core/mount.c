@@ -1062,7 +1062,7 @@ fail:
 }
 
 static int mount_apply_graceful_options(Mount *m, const MountParameters *p, char **opts) {
-        _cleanup_strv_free_ char **graceful = NULL;
+        _cleanup_(strv_freep) char **graceful = NULL;
         _cleanup_free_ char *filtered = NULL;
         int r;
 
@@ -1161,7 +1161,7 @@ static int mount_set_mount_command(Mount *m, ExecCommand *c, const MountParamete
 }
 
 static void mount_enter_mounting(Mount *m) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         _cleanup_free_ char *fn = NULL;
         int r;
 
@@ -1205,7 +1205,7 @@ static void mount_enter_mounting(Mount *m) {
 
         /* If we are asked to create an OverlayFS, create the upper/work directories if they are missing */
         if (streq_ptr(p->fstype, "overlay")) {
-                _cleanup_strv_free_ char **dirs = NULL;
+                _cleanup_(strv_freep) char **dirs = NULL;
 
                 r = fstab_filter_options(
                                 p->options,
@@ -1931,7 +1931,7 @@ static int mount_setup_unit(
 static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
         _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
         _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
-        _cleanup_set_free_ Set *devices = NULL;
+        _cleanup_(set_freep) Set *devices = NULL;
         int r;
 
         assert(m);
@@ -2212,7 +2212,7 @@ static int mount_process_proc_self_mountinfo(Manager *m) {
 
         manager_dispatch_load_queue(m);
 
-        _cleanup_set_free_ Set *around = NULL, *gone = NULL;
+        _cleanup_(set_freep) Set *around = NULL, *gone = NULL;
 
         LIST_FOREACH(units_by_type, u, m->units_by_type[UNIT_MOUNT]) {
                 Mount *mount = MOUNT(u);
@@ -2336,7 +2336,7 @@ static PidRef* mount_control_pid(Unit *u) {
 }
 
 static int mount_clean(Unit *u, ExecCleanMask mask) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         Mount *m = MOUNT(u);
         int r;
 

@@ -272,7 +272,7 @@ static void manager_print_jobs_in_progress(Manager *m) {
 }
 
 static int have_ask_password(void) {
-        _cleanup_closedir_ DIR *dir = NULL;
+        _cleanup_(closedirp) DIR *dir = NULL;
 
         dir = opendir("/run/systemd/ask-password");
         if (!dir) {
@@ -325,7 +325,7 @@ static int manager_check_ask_password(Manager *m) {
                 return 0;
 
         if (!m->ask_password_event_source) {
-                _cleanup_close_ int inotify_fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
+                _cleanup_(closep) int inotify_fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
                 if (inotify_fd < 0)
                         return log_error_errno(errno, "Failed to create inotify object: %m");
 
@@ -489,7 +489,7 @@ static int manager_setup_timezone_change(Manager *m) {
 }
 
 static int manager_enable_special_signals(Manager *m) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         assert(m);
 
@@ -1052,7 +1052,7 @@ static int manager_setup_notify(Manager *m) {
                 return 0;
 
         if (m->notify_fd < 0) {
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
                 union sockaddr_union sa;
                 socklen_t sa_len;
 
@@ -2762,7 +2762,7 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
                 return 0;
         }
 
-        _cleanup_strv_free_ char **tags = NULL;
+        _cleanup_(strv_freep) char **tags = NULL;
         r = notify_recv_with_fds_strv(m->notify_fd, &tags, &ucred, &pidref, &fds);
         if (r == -EAGAIN)
                 return 0;
@@ -3592,8 +3592,8 @@ int manager_override_watchdog_pretimeout_governor(Manager *m, const char *govern
 
 int manager_reload(Manager *m) {
         _unused_ _cleanup_(manager_reloading_stopp) Manager *reloading = NULL;
-        _cleanup_fdset_free_ FDSet *fds = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fdset_freep) FDSet *fds = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r;
 
         assert(m);
@@ -3950,7 +3950,7 @@ static bool generator_path_any(char * const *paths) {
 }
 
 static int manager_run_environment_generators(Manager *m) {
-        _cleanup_strv_free_ char **paths = NULL;
+        _cleanup_(strv_freep) char **paths = NULL;
         int r;
 
         assert(m);
@@ -3986,7 +3986,7 @@ static int manager_run_environment_generators(Manager *m) {
 }
 
 static int build_generator_environment(Manager *m, char ***ret) {
-        _cleanup_strv_free_ char **nl = NULL;
+        _cleanup_(strv_freep) char **nl = NULL;
         Virtualization v;
         ConfidentialVirtualization cv;
         int r;
@@ -4061,7 +4061,7 @@ static int build_generator_environment(Manager *m, char ***ret) {
 }
 
 static int manager_execute_generators(Manager *m, char * const *paths, bool remount_ro) {
-        _cleanup_strv_free_ char **ge = NULL;
+        _cleanup_(strv_freep) char **ge = NULL;
         int r;
 
         assert(m);
@@ -4103,7 +4103,7 @@ static int manager_execute_generators(Manager *m, char * const *paths, bool remo
 
 static int manager_run_generators(Manager *m) {
         ForkFlags flags = FORK_RESET_SIGNALS | FORK_WAIT | FORK_NEW_MOUNTNS | FORK_MOUNTNS_SLAVE;
-        _cleanup_strv_free_ char **paths = NULL;
+        _cleanup_(strv_freep) char **paths = NULL;
         int r;
 
         assert(m);
@@ -4929,7 +4929,7 @@ static int manager_dispatch_handoff_timestamp_fd(sd_event_source *source, int fd
 static int manager_dispatch_pidref_transport_fd(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
         _cleanup_(pidref_done) PidRef child_pidref = PIDREF_NULL, parent_pidref = PIDREF_NULL;
-        _cleanup_close_ int child_pidfd = -EBADF, parent_pidfd = -EBADF;
+        _cleanup_(closep) int child_pidfd = -EBADF, parent_pidfd = -EBADF;
         struct ucred *ucred = NULL;
         CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred)) + CMSG_SPACE(sizeof(int)) * 2) control;
         pid_t child_pid = 0; /* silence false-positive warning by coverity */

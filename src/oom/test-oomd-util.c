@@ -66,7 +66,7 @@ static int fork_and_sleep(unsigned sleep_min, PidRef *ret) {
 
 static int setup_local_oomd_bus(sd_bus **ret_server, sd_bus **ret_client) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *server = NULL, *client = NULL;
-        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int pair[2] = EBADF_PAIR;
         int r;
 
         assert(ret_server);
@@ -268,7 +268,7 @@ TEST(oomd_cgroup_kill_signal_reason) {
 }
 
 TEST(oomd_cgroup_context_acquire_and_insert) {
-        _cleanup_hashmap_free_ Hashmap *h1 = NULL, *h2 = NULL;
+        _cleanup_(hashmap_freep) Hashmap *h1 = NULL, *h2 = NULL;
         _cleanup_(oomd_cgroup_context_unrefp) OomdCGroupContext *ctx = NULL;
         OomdCGroupContext *c1, *c2;
         CGroupMask mask;
@@ -323,7 +323,7 @@ TEST(oomd_cgroup_context_acquire_and_insert) {
 }
 
 TEST(oomd_update_cgroup_contexts_between_hashmaps) {
-        _cleanup_hashmap_free_ Hashmap *h_old = NULL, *h_new = NULL;
+        _cleanup_(hashmap_freep) Hashmap *h_old = NULL, *h_new = NULL;
         OomdCGroupContext *c_old, *c_new;
         char **paths = STRV_MAKE("/0.slice",
                                  "/1.slice");
@@ -379,7 +379,7 @@ TEST(oomd_update_cgroup_contexts_between_hashmaps) {
 
 TEST(oomd_system_context_acquire) {
         _cleanup_(unlink_tempfilep) char path[] = "/tmp/oomdgetsysctxtestXXXXXX";
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         OomdSystemContext ctx;
 
         ASSERT_OK(fd = mkostemp_safe(path));
@@ -416,8 +416,8 @@ TEST(oomd_system_context_acquire) {
 }
 
 TEST(oomd_pressure_above) {
-        _cleanup_hashmap_free_ Hashmap *h1 = NULL, *h2 = NULL;
-        _cleanup_set_free_ Set *t1 = NULL, *t2 = NULL, *t3 = NULL;
+        _cleanup_(hashmap_freep) Hashmap *h1 = NULL, *h2 = NULL;
+        _cleanup_(set_freep) Set *t1 = NULL, *t2 = NULL, *t3 = NULL;
         OomdCGroupContext ctx[2] = {}, *c;
         loadavg_t threshold;
 
@@ -496,7 +496,7 @@ TEST(oomd_mem_and_swap_free_below) {
 }
 
 TEST(oomd_sort_cgroups) {
-        _cleanup_hashmap_free_ Hashmap *h = NULL;
+        _cleanup_(hashmap_freep) Hashmap *h = NULL;
         _cleanup_free_ OomdCGroupContext **sorted_cgroups = NULL;
         char **paths = STRV_MAKE("/herp.slice",
                                  "/herp.slice/derp.scope",

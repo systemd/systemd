@@ -341,7 +341,7 @@ int bpf_devices_allow_list_major(
                  * the entry directly. */
                 return allow_list_device_pattern(prog, path, type, major, /* minor= */ UINT_MAX, permissions);
 
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         bool good = false, any = false;
 
         f = fopen("/proc/devices", "re");

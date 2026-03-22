@@ -20,7 +20,7 @@ static int json_dispatch_config(const char *name, sd_json_variant *variant, sd_j
         if (!s)
                 return -EINVAL;
 
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         assert_se(f = data_to_file((const uint8_t*) s, strlen(s)));
 
         (void) boot_loader_read_conf(config, f, "memstream");
@@ -53,7 +53,7 @@ static int json_dispatch_entries(const char *name, sd_json_variant *variant, sd_
                 if (raw)
                         len = cunescape(raw, UNESCAPE_RELAX | UNESCAPE_ACCEPT_NUL, &data);
                 if (len >= 0) {
-                        _cleanup_fclose_ FILE *f = NULL;
+                        _cleanup_(fclosep) FILE *f = NULL;
                         assert_se(f = data_to_file((const uint8_t*) data, len));
 
                         assert_se(boot_config_load_type1(config, f, "/", BOOT_ENTRY_ESP, "/entries", id) != -ENOMEM);
@@ -65,7 +65,7 @@ static int json_dispatch_entries(const char *name, sd_json_variant *variant, sd_
 
 static int json_dispatch_loader(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         BootConfig *config = ASSERT_PTR(userdata);
-        _cleanup_strv_free_ char **entries = NULL;
+        _cleanup_(strv_freep) char **entries = NULL;
         int r;
 
         r = sd_json_dispatch_strv(name, variant, flags, &entries);
@@ -108,7 +108,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         (void) boot_config_select_special_entries(&config, /* skip_efivars= */ false);
 
-        _cleanup_close_ int orig_stdout_fd = -EBADF;
+        _cleanup_(closep) int orig_stdout_fd = -EBADF;
         if (getenv_bool("SYSTEMD_FUZZ_OUTPUT") <= 0) {
                 orig_stdout_fd = fcntl(fileno(stdout), F_DUPFD_CLOEXEC, 3);
                 if (orig_stdout_fd < 0)

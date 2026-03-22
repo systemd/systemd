@@ -1192,7 +1192,7 @@ static int service_is_suitable_main_pid(Service *s, PidRef *pid, int prio) {
 
 static int service_load_pid_file(Service *s, bool may_warn) {
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         _cleanup_free_ char *k = NULL;
         bool questionable_pid_file = false;
         int r, prio = may_warn ? LOG_INFO : LOG_DEBUG;
@@ -1488,7 +1488,7 @@ static int service_collect_fds(
                 size_t *n_socket_fds,
                 size_t *n_stashed_fds) {
 
-        _cleanup_strv_free_ char **rfd_names = NULL;
+        _cleanup_(strv_freep) char **rfd_names = NULL;
         _cleanup_free_ int *rfds = NULL;
         size_t rn_socket_fds = 0;
         int r;
@@ -1624,7 +1624,7 @@ static int service_allocate_exec_fd(
                 sd_event_source **ret_event_source,
                 int *ret_exec_fd) {
 
-        _cleanup_close_pair_ int p[] = EBADF_PAIR;
+        _cleanup_(close_pairp) int p[] = EBADF_PAIR;
         int r;
 
         assert(s);
@@ -1752,7 +1752,7 @@ static int service_spawn_internal(
 
         _cleanup_(exec_params_shallow_clear) ExecParameters exec_params = EXEC_PARAMETERS_INIT(flags);
         _cleanup_(sd_event_source_unrefp) sd_event_source *exec_fd_source = NULL;
-        _cleanup_strv_free_ char **final_env = NULL, **our_env = NULL;
+        _cleanup_(strv_freep) char **final_env = NULL, **our_env = NULL;
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         size_t n_env = 0;
         int r;
@@ -3510,7 +3510,7 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
         (void) serialize_usec(f, "reload-begin-usec", s->reload_begin_usec);
 
         if (s->refreshed_mask > 0) {
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_(strv_freep) char **l = NULL;
                 _cleanup_free_ char *t = NULL;
 
                 r = service_refresh_on_reload_to_strv(s->refreshed_mask, &l);
@@ -3536,7 +3536,7 @@ int service_deserialize_exec_command(
         ExecCommand *command = NULL;
         ServiceExecCommand id = _SERVICE_EXEC_COMMAND_INVALID;
         _cleanup_free_ char *path = NULL;
-        _cleanup_strv_free_ char **argv = NULL;
+        _cleanup_(strv_freep) char **argv = NULL;
         unsigned idx = 0, i;
         bool control, found = false, last = false;
         int r;
@@ -3729,7 +3729,7 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
 
         } else if (streq(key, "fd-store-fd")) {
                 _cleanup_free_ char *fdv = NULL, *fdn = NULL, *fdp = NULL;
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
                 int do_poll;
 
                 r = extract_many_words(&value, " ", EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE, &fdv, &fdn, &fdp);
@@ -3757,7 +3757,7 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 }
         } else if (streq(key, "extra-fd")) {
                 _cleanup_free_ char *fdv = NULL, *fdn = NULL;
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
 
                 r = extract_many_words(&value, " ", EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE, &fdv, &fdn);
                 if (r != 2) {
@@ -3867,7 +3867,7 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                         s->exec_context.root_directory_as_fd = true;
 
         } else if (streq(key, "exec-fd")) {
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
 
                 fd = deserialize_fd(fds, value);
                 if (fd >= 0) {
@@ -5586,7 +5586,7 @@ static const char* service_status_text(Unit *u) {
 
 static int service_clean(Unit *u, ExecCleanMask mask) {
         Service *s = ASSERT_PTR(SERVICE(u));
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         bool may_clean_fdstore = false;
         int r;
 
@@ -6097,7 +6097,7 @@ int service_refresh_on_reload_from_string_many(const char *s, ServiceRefreshOnRe
 }
 
 int service_refresh_on_reload_to_strv(ServiceRefreshOnReload flags, char ***ret) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         int r;
 
         assert(flags >= 0);

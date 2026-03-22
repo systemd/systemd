@@ -629,7 +629,7 @@ static int parse_core(
         };
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *package_metadata = NULL, *dlopen_metadata = NULL;
-        _cleanup_set_free_ Set *modules = NULL;
+        _cleanup_(set_freep) Set *modules = NULL;
         _cleanup_(stack_context_done) StackContext c = {
                 .package_metadata = &package_metadata,
                 .dlopen_metadata = ret_dlopen_metadata ? &dlopen_metadata : NULL,
@@ -702,7 +702,7 @@ static int parse_elf(
                 sd_json_variant **ret_package_metadata,
                 sd_json_variant **ret_dlopen_metadata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *package_metadata = NULL, *dlopen_metadata = NULL, *elf_metadata = NULL;
-        _cleanup_set_free_ Set *modules = NULL;
+        _cleanup_(set_freep) Set *modules = NULL;
         _cleanup_(stack_context_done) StackContext c = {
                 .package_metadata = &package_metadata,
                 .dlopen_metadata = ret_dlopen_metadata ? &dlopen_metadata : NULL,
@@ -814,7 +814,7 @@ int parse_elf_object(
                 sd_json_variant **ret_package_metadata,
                 sd_json_variant **ret_dlopen_metadata) {
 #if HAVE_ELFUTILS
-        _cleanup_close_pair_ int error_pipe[2] = EBADF_PAIR,
+        _cleanup_(close_pairp) int error_pipe[2] = EBADF_PAIR,
                                  return_pipe[2] = EBADF_PAIR,
                                  package_metadata_pipe[2] = EBADF_PAIR,
                                  dlopen_metadata_pipe[2] = EBADF_PAIR;
@@ -926,7 +926,7 @@ int parse_elf_object(
                 }
 
                 if (package_metadata) {
-                        _cleanup_fclose_ FILE *json_out = NULL;
+                        _cleanup_(fclosep) FILE *json_out = NULL;
 
                         /* Bump the space for the returned string. We don't know how much space we'll need in
                          * advance, so we'll just try to write as much as possible and maybe fail later. */
@@ -942,7 +942,7 @@ int parse_elf_object(
                 }
 
                 if (dlopen_metadata) {
-                        _cleanup_fclose_ FILE *json_out = NULL;
+                        _cleanup_(fclosep) FILE *json_out = NULL;
 
                         /* Bump the space for the returned string. We don't know how much space we'll need in
                          * advance, so we'll just try to write as much as possible and maybe fail later. */
@@ -966,7 +966,7 @@ int parse_elf_object(
         dlopen_metadata_pipe[1] = safe_close(dlopen_metadata_pipe[1]);
 
         if (ret) {
-                _cleanup_fclose_ FILE *in = NULL;
+                _cleanup_(fclosep) FILE *in = NULL;
 
                 in = take_fdopen(&return_pipe[0], "r");
                 if (!in)
@@ -978,7 +978,7 @@ int parse_elf_object(
         }
 
         if (ret_package_metadata) {
-                _cleanup_fclose_ FILE *json_in = NULL;
+                _cleanup_(fclosep) FILE *json_in = NULL;
 
                 json_in = take_fdopen(&package_metadata_pipe[0], "r");
                 if (!json_in)
@@ -990,7 +990,7 @@ int parse_elf_object(
         }
 
         if (ret_dlopen_metadata) {
-                _cleanup_fclose_ FILE *json_in = NULL;
+                _cleanup_(fclosep) FILE *json_in = NULL;
 
                 json_in = take_fdopen(&dlopen_metadata_pipe[0], "r");
                 if (!json_in)

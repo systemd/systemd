@@ -288,7 +288,7 @@ int config_parse(
                 struct stat *ret_stat) {
 
         _cleanup_free_ char *section = NULL, *continuation = NULL;
-        _cleanup_fclose_ FILE *ours = NULL;
+        _cleanup_(fclosep) FILE *ours = NULL;
         unsigned line = 0, section_line = 0;
         bool section_ignored = false, bom_seen = false;
         struct stat st;
@@ -491,9 +491,9 @@ static int config_parse_many_files(
                 void *userdata,
                 Hashmap **ret_stats_by_path) {
 
-        _cleanup_hashmap_free_ Hashmap *stats_by_path = NULL;
-        _cleanup_ordered_hashmap_free_ OrderedHashmap *dropins = NULL;
-        _cleanup_set_free_ Set *inodes = NULL;
+        _cleanup_(hashmap_freep) Hashmap *stats_by_path = NULL;
+        _cleanup_(ordered_hashmap_freep) OrderedHashmap *dropins = NULL;
+        _cleanup_(set_freep) Set *inodes = NULL;
         struct stat st;
         int r, level = FLAGS_SET(flags, CONFIG_PARSE_WARN) ? LOG_WARNING : LOG_DEBUG;
 
@@ -505,7 +505,7 @@ static int config_parse_many_files(
 
         /* Pin and stat() all dropins */
         STRV_FOREACH(fn, files) {
-                _cleanup_fclose_ FILE *f = NULL;
+                _cleanup_(fclosep) FILE *f = NULL;
                 r = chase_and_fopenat_unlocked(root_fd, *fn, CHASE_AT_RESOLVE_IN_ROOT|CHASE_MUST_BE_REGULAR, "re", /* ret_path= */ NULL, &f);
                 if (r == -ENOENT)
                         continue;
@@ -540,7 +540,7 @@ static int config_parse_many_files(
 
         /* First process the first found main config file. */
         STRV_FOREACH(fn, conf_files) {
-                _cleanup_fclose_ FILE *f = NULL;
+                _cleanup_(fclosep) FILE *f = NULL;
                 r = chase_and_fopenat_unlocked(root_fd, *fn, CHASE_AT_RESOLVE_IN_ROOT|CHASE_MUST_BE_REGULAR, "re", /* ret_path= */ NULL, &f);
                 if (r == -ENOENT)
                         continue;
@@ -634,14 +634,14 @@ int config_parse_many_full(
                 Hashmap **ret_stats_by_path,
                 char ***ret_dropin_files) {
 
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_(strv_freep) char **files = NULL;
         int r;
 
         assert(conf_file_dirs);
         assert(dropin_dirname);
         assert(table);
 
-        _cleanup_close_ int opened_root_fd = -EBADF;
+        _cleanup_(closep) int opened_root_fd = -EBADF;
         r = normalize_root_fd(root, &root_fd, &opened_root_fd);
         if (r < 0)
                 return r;
@@ -690,7 +690,7 @@ int config_parse_standard_file_with_dropins_full(
                 char ***ret_dropin_files) {
 
         const char* const *conf_file_dirs = (const char* const*) CONF_PATHS_STRV("");
-        _cleanup_strv_free_ char **conf_files = NULL;
+        _cleanup_(strv_freep) char **conf_files = NULL;
         int r, level = FLAGS_SET(flags, CONFIG_PARSE_WARN) ? LOG_WARNING : LOG_DEBUG;
 
         /* Build the list of main config files */
@@ -725,7 +725,7 @@ static int dropins_get_stats_by_path(
                 const char* const* conf_file_dirs,
                 Hashmap **stats_by_path) {
 
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_(strv_freep) char **files = NULL;
         _cleanup_free_ char *dropin_dirname = NULL;
         int r;
 
@@ -778,8 +778,8 @@ int config_get_stats_by_path(
                 bool check_dropins,
                 Hashmap **ret) {
 
-        _cleanup_hashmap_free_ Hashmap *stats_by_path = NULL;
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_(hashmap_freep) Hashmap *stats_by_path = NULL;
+        _cleanup_(strv_freep) char **files = NULL;
         int r;
 
         assert(suffix);
@@ -1402,7 +1402,7 @@ int config_parse_strv(
                 return 1;
         }
 
-        _cleanup_strv_free_ char **strv = NULL;
+        _cleanup_(strv_freep) char **strv = NULL;
         for (const char *p = rvalue;;) {
                 char *word;
 
@@ -1625,7 +1625,7 @@ int config_parse_ifnames(
                 void *data,
                 void *userdata) {
 
-        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_(strv_freep) char **names = NULL;
         char ***s = ASSERT_PTR(data);
         int r;
 

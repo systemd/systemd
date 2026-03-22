@@ -54,7 +54,7 @@ static int bind_network_interface_install_impl(Unit *u, CGroupRuntime *crt) {
         _cleanup_(bind_iface_bpf_freep) struct bind_iface_bpf *obj = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_free_ char *cgroup_path = NULL;
-        _cleanup_close_ int cgroup_fd = -EBADF;
+        _cleanup_(closep) int cgroup_fd = -EBADF;
         int r, ifindex;
 
         assert(u);

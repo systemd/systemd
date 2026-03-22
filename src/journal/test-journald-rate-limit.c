@@ -6,7 +6,7 @@
 #include "time-util.h"
 
 TEST(journal_ratelimit_test) {
-        _cleanup_ordered_hashmap_free_ OrderedHashmap *rl = NULL;
+        _cleanup_(ordered_hashmap_freep) OrderedHashmap *rl = NULL;
         int r;
 
         for (unsigned i = 0; i < 20; i++) {

@@ -1311,7 +1311,7 @@ int dns_server_dump_state_to_json(DnsServer *server, sd_json_variant **ret) {
 }
 
 int dns_server_is_accessible(DnsServer *s) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         union sockaddr_union sa;
         int r;
 

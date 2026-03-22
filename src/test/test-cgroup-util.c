@@ -236,7 +236,7 @@ static inline bool hidden_cgroup(const char *p) {
 }
 
 TEST(proc, .sd_booted = true) {
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
         int r;
 
         ASSERT_OK(proc_dir_open(&d));
@@ -485,7 +485,7 @@ TEST(bfq_weight_conversion) {
 
 TEST(cgroupid) {
         _cleanup_free_ char *p = NULL, *p2 = NULL;
-        _cleanup_close_ int fd = -EBADF, fd2 = -EBADF;
+        _cleanup_(closep) int fd = -EBADF, fd2 = -EBADF;
         uint64_t id, id2;
 
         if (cg_is_available() <= 0)

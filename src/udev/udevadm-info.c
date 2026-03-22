@@ -634,7 +634,7 @@ static void cleanup_dir(DIR *dir, mode_t mask, int depth) {
                 if ((stats.st_mode & mask) != 0)
                         continue;
                 if (S_ISDIR(stats.st_mode)) {
-                        _cleanup_closedir_ DIR *subdir = NULL;
+                        _cleanup_(closedirp) DIR *subdir = NULL;
 
                         subdir = xopendirat(dirfd(dir), dent->d_name, O_NOFOLLOW);
                         if (!subdir)
@@ -683,7 +683,7 @@ static void cleanup_dirs_after_db_cleanup(DIR *dir, DIR *datadir) {
                 if (fstatat(dirfd(dir), dent->d_name, &stats, AT_SYMLINK_NOFOLLOW) < 0)
                         continue;
                 if (S_ISDIR(stats.st_mode)) {
-                        _cleanup_closedir_ DIR *subdir = NULL;
+                        _cleanup_(closedirp) DIR *subdir = NULL;
 
                         subdir = xopendirat(dirfd(dir), dent->d_name, O_NOFOLLOW);
                         if (!subdir)
@@ -698,7 +698,7 @@ static void cleanup_dirs_after_db_cleanup(DIR *dir, DIR *datadir) {
 }
 
 static int cleanup_db(void) {
-        _cleanup_closedir_ DIR *dir1 = NULL, *dir2 = NULL, *dir3 = NULL, *dir4 = NULL;
+        _cleanup_(closedirp) DIR *dir1 = NULL, *dir2 = NULL, *dir3 = NULL, *dir4 = NULL;
 
         dir1 = opendir("/run/udev/data");
         if (dir1)

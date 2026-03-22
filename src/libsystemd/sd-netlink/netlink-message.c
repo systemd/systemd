@@ -1030,7 +1030,7 @@ int sd_netlink_message_has_flag(sd_netlink_message *m, uint16_t attr_type) {
 }
 
 int sd_netlink_message_read_strv(sd_netlink_message *m, uint16_t container_type, uint16_t attr_type, char ***ret) {
-        _cleanup_strv_free_ char **s = NULL;
+        _cleanup_(strv_freep) char **s = NULL;
         const NLAPolicySet *policy_set;
         const NLAPolicy *policy;
         struct rtattr *rta;

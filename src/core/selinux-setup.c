@@ -42,7 +42,7 @@ int mac_selinux_setup(bool *loaded_policy) {
          * Note: getcon_raw() can return 0, and still give us a NULL pointer if /proc/self/attr/current is
          * empty. SELinux guarantees this won't happen, but that file isn't specific to SELinux, and may be
          * provided by some other arbitrary LSM with different semantics. */
-        _cleanup_freecon_ char *con = NULL;
+        _cleanup_(freeconp) char *con = NULL;
         if (sym_getcon_raw(&con) < 0)
                 log_debug_errno(errno, "getcon_raw() failed, assuming SELinux is not initialized: %m");
         else if (con) {
@@ -60,7 +60,7 @@ int mac_selinux_setup(bool *loaded_policy) {
                 mac_selinux_retest();
 
                 /* Transition to the new context */
-                _cleanup_freecon_ char *label = NULL;
+                _cleanup_(freeconp) char *label = NULL;
                 r = mac_selinux_get_create_label_from_exe(SYSTEMD_BINARY_PATH, &label);
                 if (r < 0) {
                         log_open();

@@ -52,7 +52,7 @@ TEST(partscan_enabled) {
         assert_se(sd_device_enumerator_add_match_subsystem(e, "block", /* match= */ true) >= 0);
 
         FOREACH_DEVICE(e, dev) {
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
                 const char *name;
 
                 r = sd_device_get_devname(dev, &name);

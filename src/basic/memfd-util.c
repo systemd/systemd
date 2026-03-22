@@ -124,7 +124,7 @@ int memfd_set_size(int fd, uint64_t sz) {
 }
 
 int memfd_new_and_seal(const char *name, const void *data, size_t sz) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         assert(data || sz == 0);

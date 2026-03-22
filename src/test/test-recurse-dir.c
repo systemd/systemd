@@ -120,10 +120,10 @@ static int recurse_dir_callback(
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_strv_free_ char **list_recurse_dir = NULL;
+        _cleanup_(strv_freep) char **list_recurse_dir = NULL;
         const char *p;
         usec_t t1, t2, t3, t4;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         log_show_color(true);
         test_setup_logging(LOG_INFO);

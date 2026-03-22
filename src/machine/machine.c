@@ -181,7 +181,7 @@ int machine_save(Machine *m) {
                 return log_error_errno(r, "Failed to create '%s': %m", m->manager->state_dir);
 
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         r = fopen_tmpfile_linkable(m->state_file, O_WRONLY|O_CLOEXEC, &temp_path, &f);
         if (r < 0)
                 return log_error_errno(r, "Failed to create state file '%s': %m", m->state_file);
@@ -944,7 +944,7 @@ int machine_start_shell(
                 char **args,
                 char **env,
                 sd_bus_error *error) {
-        _cleanup_close_ int pty_fd = -EBADF;
+        _cleanup_(closep) int pty_fd = -EBADF;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *tm = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *allocated_bus = NULL;
         const char *p, *utmp_id, *unit, *description;
@@ -1102,7 +1102,7 @@ int machine_start_shell(
 }
 
 char** machine_default_shell_args(const char *user) {
-        _cleanup_strv_free_ char **args = NULL;
+        _cleanup_(strv_freep) char **args = NULL;
         int r;
 
         assert(user);
@@ -1140,9 +1140,9 @@ int machine_copy_from_to_operation(
                 CopyFlags copy_flags,
                 Operation **ret) {
 
-        _cleanup_close_ int host_fd = -EBADF, target_mntns_fd = -EBADF, source_mntns_fd = -EBADF;
+        _cleanup_(closep) int host_fd = -EBADF, target_mntns_fd = -EBADF, source_mntns_fd = -EBADF;
         _cleanup_(pidref_done_sigkill_wait) PidRef child = PIDREF_NULL;
-        _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int errno_pipe_fd[2] = EBADF_PAIR;
         _cleanup_free_ char *host_basename = NULL, *container_basename = NULL;
         uid_t uid_shift;
         int r;
@@ -1195,7 +1195,7 @@ int machine_copy_from_to_operation(
         if (r == 0) {
                 errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
 
-                _cleanup_close_ int container_fd = -EBADF;
+                _cleanup_(closep) int container_fd = -EBADF;
                 container_fd = open_parent(container_path, O_CLOEXEC, 0);
                 if (container_fd < 0) {
                         log_debug_errno(container_fd, "Failed to open container directory: %m");
@@ -1288,7 +1288,7 @@ int machine_get_uid_shift(Machine *m, uid_t *ret) {
         char p[STRLEN("/proc//uid_map") + DECIMAL_STR_MAX(pid_t) + 1];
         uid_t uid_base, uid_shift, uid_range;
         gid_t gid_base, gid_shift, gid_range;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r;
 
         assert(m);
@@ -1384,7 +1384,7 @@ static int machine_owns_uid_internal(
                 uid_t uid,
                 uid_t *ret_internal_uid) {
 
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         const char *p;
         int r;
 
@@ -1457,7 +1457,7 @@ static int machine_translate_uid_internal(
                 uid_t uid,
                 uid_t *ret_host_uid) {
 
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         const char *p;
         int r;
 
@@ -1529,9 +1529,9 @@ int machine_open_root_directory(Machine *machine) {
         }
 
         case MACHINE_CONTAINER: {
-                _cleanup_close_ int mntns_fd = -EBADF, root_fd = -EBADF;
+                _cleanup_(closep) int mntns_fd = -EBADF, root_fd = -EBADF;
                 _cleanup_(pidref_done) PidRef child = PIDREF_NULL;
-                _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR, fd_pass_socket[2] = EBADF_PAIR;
+                _cleanup_(close_pairp) int errno_pipe_fd[2] = EBADF_PAIR, fd_pass_socket[2] = EBADF_PAIR;
 
                 r = pidref_namespace_open(&machine->leader,
                                           /* ret_pidns_fd= */ NULL,
@@ -1561,7 +1561,7 @@ int machine_open_root_directory(Machine *machine) {
                 if (r < 0)
                         return log_debug_errno(r, "Failed to fork into mount namespace of machine '%s': %m", machine->name);
                 if (r == 0) {
-                        _cleanup_close_ int dfd = -EBADF;
+                        _cleanup_(closep) int dfd = -EBADF;
 
                         errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
                         fd_pass_socket[0] = safe_close(fd_pass_socket[0]);

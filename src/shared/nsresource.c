@@ -76,7 +76,7 @@ int nsresource_connect(sd_varlink **ret) {
 }
 
 int nsresource_allocate_userns_full(sd_varlink *vl, const char *name, uint64_t size, uint64_t delegate_container_ranges) {
-        _cleanup_close_ int userns_fd = -EBADF;
+        _cleanup_(closep) int userns_fd = -EBADF;
         _cleanup_free_ char *_name = NULL;
         const char *error_id;
         int r, userns_fd_idx;
@@ -133,7 +133,7 @@ int nsresource_allocate_userns_full(sd_varlink *vl, const char *name, uint64_t s
 }
 
 int nsresource_register_userns(sd_varlink *vl, const char *name, int userns_fd) {
-        _cleanup_close_ int _userns_fd = -EBADF;
+        _cleanup_(closep) int _userns_fd = -EBADF;
         _cleanup_free_ char *_name = NULL;
         const char *error_id;
         int r, userns_fd_idx;
@@ -189,7 +189,7 @@ int nsresource_register_userns(sd_varlink *vl, const char *name, int userns_fd) 
 }
 
 int nsresource_add_mount(sd_varlink *vl, int userns_fd, int mount_fd) {
-        _cleanup_close_ int _userns_fd = -EBADF;
+        _cleanup_(closep) int _userns_fd = -EBADF;
         int r, userns_fd_idx, mount_fd_idx;
         const char *error_id;
 
@@ -241,7 +241,7 @@ int nsresource_add_mount(sd_varlink *vl, int userns_fd, int mount_fd) {
 }
 
 int nsresource_add_cgroup(sd_varlink *vl, int userns_fd, int cgroup_fd) {
-        _cleanup_close_ int _userns_fd = -EBADF;
+        _cleanup_(closep) int _userns_fd = -EBADF;
         int r, userns_fd_idx, cgroup_fd_idx;
         const char *error_id;
 
@@ -313,7 +313,7 @@ int nsresource_add_netif_veth(
                 char **ret_host_ifname,
                 char **ret_namespace_ifname) {
 
-        _cleanup_close_ int _userns_fd = -EBADF, _netns_fd = -EBADF;
+        _cleanup_(closep) int _userns_fd = -EBADF, _netns_fd = -EBADF;
         int r, userns_fd_idx, netns_fd_idx;
         const char *error_id;
 
@@ -392,7 +392,7 @@ int nsresource_add_netif_tap(
                 int userns_fd,
                 char **ret_host_ifname) {
 
-        _cleanup_close_ int _userns_fd = -EBADF;
+        _cleanup_(closep) int _userns_fd = -EBADF;
         int r, userns_fd_idx;
         const char *error_id;
 
@@ -444,7 +444,7 @@ int nsresource_add_netif_tap(
         if (r < 0)
                 return r;
 
-        _cleanup_close_ int tap_fd = sd_varlink_take_fd(vl, p.interface_fd_index);
+        _cleanup_(closep) int tap_fd = sd_varlink_take_fd(vl, p.interface_fd_index);
         if (tap_fd < 0)
                 return tap_fd;
 

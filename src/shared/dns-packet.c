@@ -2446,7 +2446,7 @@ static int dns_packet_extract_question(DnsPacket *p, DnsQuestion **ret_question)
                 if (!question)
                         return -ENOMEM;
 
-                _cleanup_set_free_ Set *keys = NULL; /* references to keys are kept by Question */
+                _cleanup_(set_freep) Set *keys = NULL; /* references to keys are kept by Question */
 
                 keys = set_new(&dns_resource_key_hash_ops);
                 if (!keys)

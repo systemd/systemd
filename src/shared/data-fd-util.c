@@ -17,7 +17,7 @@
 #define DATA_FD_TMP_LIMIT (1U * U64_MB)
 
 int copy_data_fd(int fd) {
-        _cleanup_close_ int copy_fd = -EBADF, tmp_fd = -EBADF;
+        _cleanup_(closep) int copy_fd = -EBADF, tmp_fd = -EBADF;
         const char *td;
         struct stat st;
         int r;
@@ -137,7 +137,7 @@ finish:
 }
 
 int memfd_clone_fd(int fd, const char *name, int mode) {
-        _cleanup_close_ int mfd = -EBADF;
+        _cleanup_(closep) int mfd = -EBADF;
         struct stat st;
         bool ro, exec;
         int r;

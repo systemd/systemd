@@ -966,7 +966,7 @@ static void strv_pair_print(char **l, const char *prefix) {
 }
 
 static int get_extension_scopes(DissectedImage *m, ImageClass class, char ***ret_scopes) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         const char *e, *field_name;
         char **release_data;
 
@@ -1106,7 +1106,7 @@ static int action_dissect(
 
                 for (ImageClass c = _IMAGE_CLASS_EXTENSION_FIRST; c <= _IMAGE_CLASS_EXTENSION_LAST; c++) {
                         const char *string_class = image_class_to_string(c);
-                        _cleanup_strv_free_ char **extension_scopes = NULL;
+                        _cleanup_(strv_freep) char **extension_scopes = NULL;
 
                         r = get_extension_scopes(m, c, &extension_scopes);
                         if (r < 0)
@@ -1122,7 +1122,7 @@ static int action_dissect(
 
                 putc('\n', stdout);
         } else {
-                _cleanup_strv_free_ char **sysext_scopes = NULL, **confext_scopes = NULL;
+                _cleanup_(strv_freep) char **sysext_scopes = NULL, **confext_scopes = NULL;
 
                 r = get_extension_scopes(m, IMAGE_SYSEXT, &sysext_scopes);
                 if (r < 0)
@@ -1306,7 +1306,7 @@ static int list_print_item(
 }
 
 static int get_file_sha256(int inode_fd, uint8_t ret[static SHA256_DIGEST_SIZE]) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         /* convert O_PATH fd into a regular one */
         fd = fd_reopen(inode_fd, O_RDONLY|O_CLOEXEC);
@@ -1522,7 +1522,7 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
         switch (arg_action) {
 
         case ACTION_COPY_FROM: {
-                _cleanup_close_ int source_fd = -EBADF, target_fd = -EBADF;
+                _cleanup_(closep) int source_fd = -EBADF, target_fd = -EBADF;
 
                 source_fd = chase_and_open(arg_source, root, CHASE_PREFIX_ROOT|CHASE_WARN, O_RDONLY|O_CLOEXEC|O_NOCTTY, NULL);
                 if (source_fd < 0)
@@ -1575,7 +1575,7 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
         }
 
         case ACTION_COPY_TO: {
-                _cleanup_close_ int source_fd = -EBADF, target_fd = -EBADF, dfd = -EBADF;
+                _cleanup_(closep) int source_fd = -EBADF, target_fd = -EBADF, dfd = -EBADF;
                 _cleanup_free_ char *dn = NULL, *bn = NULL;
                 bool is_dir;
 
@@ -1670,7 +1670,7 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
 
         case ACTION_LIST:
         case ACTION_MTREE: {
-                _cleanup_close_ int dfd = -EBADF;
+                _cleanup_(closep) int dfd = -EBADF;
 
                 dfd = open(root, O_DIRECTORY|O_CLOEXEC|O_RDONLY);
                 if (dfd < 0)
@@ -1691,14 +1691,14 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
 
         case ACTION_MAKE_ARCHIVE: {
 #if HAVE_LIBARCHIVE
-                _cleanup_close_ int dfd = -EBADF;
+                _cleanup_(closep) int dfd = -EBADF;
 
                 dfd = open(root, O_DIRECTORY|O_CLOEXEC|O_RDONLY);
                 if (dfd < 0)
                         return log_error_errno(errno, "Failed to open mount directory: %m");
 
                 _cleanup_(unlink_and_freep) char *tar = NULL;
-                _cleanup_close_ int tmp_fd = -EBADF;
+                _cleanup_(closep) int tmp_fd = -EBADF;
                 int output_fd;
                 if (arg_target) {
                         tmp_fd = open_tmpfile_linkable(arg_target, O_WRONLY|O_CLOEXEC, &tar);
@@ -1744,7 +1744,7 @@ static int action_list_or_mtree_or_copy_or_make_archive(DissectedImage *m, LoopD
 }
 
 static int action_umount(const char *path) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         _cleanup_free_ char *canonical = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
@@ -1764,7 +1764,7 @@ static int action_umount(const char *path) {
 
         r = block_device_new_from_fd(fd, BLOCK_DEVICE_LOOKUP_WHOLE_DISK | BLOCK_DEVICE_LOOKUP_BACKING, &dev);
         if (r < 0) {
-                _cleanup_close_ int usr_fd = -EBADF;
+                _cleanup_(closep) int usr_fd = -EBADF;
 
                 /* The command `systemd-dissect --mount` expects that the image at least has the root or /usr
                  * partition. If it does not have the root partition, then we mount the /usr partition on a
@@ -1911,7 +1911,7 @@ static int action_with(DissectedImage *m, LoopDevice *d) {
 }
 
 static int action_discover(void) {
-        _cleanup_hashmap_free_ Hashmap *images = NULL;
+        _cleanup_(hashmap_freep) Hashmap *images = NULL;
         int r;
 
         for (ImageClass cl = 0; cl < _IMAGE_CLASS_MAX; cl++) {
@@ -1981,7 +1981,7 @@ static int action_attach(DissectedImage *m, LoopDevice *d) {
 
 static int action_detach(const char *path) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         struct stat st;
         int r;
 
@@ -2090,7 +2090,7 @@ static int action_validate(void) {
 static int run(int argc, char *argv[]) {
         _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
-        _cleanup_close_ int userns_fd = -EBADF;
+        _cleanup_(closep) int userns_fd = -EBADF;
         int r;
 
         log_setup();

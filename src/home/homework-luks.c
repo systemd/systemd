@@ -120,7 +120,7 @@ int run_mark_dirty(int fd, bool b) {
 }
 
 int run_mark_dirty_by_path(const char *path, bool b) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         assert(path);
 
@@ -192,7 +192,7 @@ static int probe_file_system_by_fd(
 }
 
 static int probe_file_system_by_path(const char *path, char **ret_fstype, sd_id128_t *ret_uuid) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
         if (fd < 0)
@@ -217,7 +217,7 @@ static int block_get_size_by_fd(int fd, uint64_t *ret) {
 }
 
 static int block_get_size_by_path(const char *path, uint64_t *ret) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
         if (fd < 0)
@@ -1183,7 +1183,7 @@ int run_fallocate(int backing_fd, const struct stat *st) {
 }
 
 int run_fallocate_by_path(const char *backing_path) {
-        _cleanup_close_ int backing_fd = -EBADF;
+        _cleanup_(closep) int backing_fd = -EBADF;
 
         backing_fd = open(backing_path, O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
         if (backing_fd < 0)
@@ -1235,7 +1235,7 @@ static int open_image_file(
                 const char *force_image_path,
                 struct stat *ret_stat) {
 
-        _cleanup_close_ int image_fd = -EBADF;
+        _cleanup_(closep) int image_fd = -EBADF;
         struct stat st;
         const char *ip;
         int r;
@@ -2031,7 +2031,7 @@ static bool supported_fs_size(const char *fstype, uint64_t host_size) {
 }
 
 static int wait_for_devlink(const char *path) {
-        _cleanup_close_ int inotify_fd = -EBADF;
+        _cleanup_(closep) int inotify_fd = -EBADF;
         usec_t until;
         int r;
 
@@ -2193,12 +2193,12 @@ int home_create_luks(
                 host_size = 0, partition_offset = 0, partition_size = 0; /* Unnecessary initialization to appease gcc */
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL;
         sd_id128_t partition_uuid, fs_uuid, luks_uuid, disk_uuid;
-        _cleanup_close_ int mount_fd = -EBADF;
+        _cleanup_(closep) int mount_fd = -EBADF;
         const char *fstype, *ip;
         struct statfs sfs;
         struct stat st;
         int r;
-        _cleanup_strv_free_ char **extra_mkfs_options = NULL;
+        _cleanup_(strv_freep) char **extra_mkfs_options = NULL;
 
         assert(h);
         assert(h->storage < 0 || h->storage == USER_LUKS);
@@ -3221,7 +3221,7 @@ int home_resize_luks(
         _cleanup_(user_record_unrefp) UserRecord *header_home = NULL, *embedded_home = NULL, *new_home = NULL;
         _cleanup_(fdisk_unref_tablep) struct fdisk_table *table = NULL;
         struct fdisk_partition *partition = NULL;
-        _cleanup_close_ int opened_image_fd = -EBADF;
+        _cleanup_(closep) int opened_image_fd = -EBADF;
         _cleanup_free_ char *whole_disk = NULL;
         int r, resize_type, image_fd = -EBADF, reconciled = USER_RECONCILE_IDENTICAL;
         sd_id128_t disk_uuid;

@@ -1300,7 +1300,7 @@ static int message_push_fd(sd_bus_message *m, int fd) {
 }
 
 int message_append_basic(sd_bus_message *m, char type, const void *p, const void **stored) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         BusMessageContainer *c;
         ssize_t align, sz;
         uint32_t u32;
@@ -2191,7 +2191,7 @@ _public_ int sd_bus_message_append_array_memfd(
                 uint64_t offset,
                 uint64_t size) {
 
-        _cleanup_close_ int copy_fd = -EBADF;
+        _cleanup_(closep) int copy_fd = -EBADF;
         BusMessageBodyPart *part;
         ssize_t align, sz;
         uint64_t real_size;
@@ -2267,7 +2267,7 @@ _public_ int sd_bus_message_append_string_memfd(
                 uint64_t offset,
                 uint64_t size) {
 
-        _cleanup_close_ int copy_fd = -EBADF;
+        _cleanup_(closep) int copy_fd = -EBADF;
         BusMessageBodyPart *part;
         BusMessageContainer *c;
         uint64_t real_size;
@@ -4358,7 +4358,7 @@ _public_ int sd_bus_message_read_strv_extend(sd_bus_message *m, char ***l) {
 }
 
 _public_ int sd_bus_message_read_strv(sd_bus_message *m, char ***ret) {
-        _cleanup_strv_free_ char **strv = NULL;
+        _cleanup_(strv_freep) char **strv = NULL;
         int r;
 
         assert_return(m, -EINVAL);
@@ -4716,7 +4716,7 @@ _public_ int sd_bus_message_sensitive(sd_bus_message *m) {
 }
 
 char** bus_message_make_log_fields(sd_bus_message *m) {
-        _cleanup_strv_free_ char **strv = NULL;
+        _cleanup_(strv_freep) char **strv = NULL;
 
         assert(m);
 

@@ -71,7 +71,7 @@ static bool file_is_our_own(const struct stat *st) {
 }
 
 int manager_read_resolv_conf(Manager *m) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         struct stat st;
         unsigned n = 0;
         int r;
@@ -325,9 +325,9 @@ static int write_stub_resolv_conf_contents(FILE *f, OrderedSet *dns, OrderedSet 
 }
 
 int manager_write_resolv_conf(Manager *m) {
-        _cleanup_ordered_set_free_ OrderedSet *dns = NULL, *domains = NULL;
+        _cleanup_(ordered_set_freep) OrderedSet *dns = NULL, *domains = NULL;
         _cleanup_(unlink_and_freep) char *temp_path_uplink = NULL, *temp_path_stub = NULL;
-        _cleanup_fclose_ FILE *f_uplink = NULL, *f_stub = NULL;
+        _cleanup_(fclosep) FILE *f_uplink = NULL, *f_stub = NULL;
         int r;
 
         assert(m);

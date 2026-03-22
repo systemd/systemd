@@ -17,8 +17,8 @@
 #if HAVE_SECCOMP
 
 static int load_kernel_syscalls(Set **ret) {
-        _cleanup_set_free_ Set *syscalls = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(set_freep) Set *syscalls = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r;
 
         /* Let's read the available system calls from the list of available tracing events. Slightly dirty,
@@ -131,7 +131,7 @@ int verb_syscall_filters(int argc, char *argv[], uintptr_t _data, void *userdata
                         dump_syscall_filter(set);
                 }
         else {
-                _cleanup_set_free_ Set *kernel = NULL, *known = NULL;
+                _cleanup_(set_freep) Set *kernel = NULL, *known = NULL;
                 int k = 0;  /* explicit initialization to appease gcc */
 
                 r = syscall_set_add(&known, syscall_filter_sets + SYSCALL_FILTER_SET_KNOWN);

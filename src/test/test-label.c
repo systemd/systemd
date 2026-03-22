@@ -72,7 +72,7 @@ static int get_dir_fd(const char *dir_path, mode_t mode) {
 static int labelling_op(int dir_fd, const char *text, const char *path, mode_t mode) {
         /* Write some content into the file */
         ssize_t count;
-        _cleanup_close_ int write_fd = -EBADF;
+        _cleanup_(closep) int write_fd = -EBADF;
         int r;
 
         assert(text);
@@ -106,7 +106,7 @@ TEST(label_ops_set) {
 }
 
 TEST(label_ops_pre) {
-        _cleanup_close_ int fd;
+        _cleanup_(closep) int fd;
         static const LabelOps test_label_ops = {
                 .pre = pre_labelling_func,
                 .post = NULL,
@@ -123,7 +123,7 @@ TEST(label_ops_pre) {
 }
 
 TEST(label_ops_post) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         const char *text1, *text2;
         static const LabelOps test_label_ops = {
                 .pre = NULL,

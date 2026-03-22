@@ -680,7 +680,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'A': {
-                        _cleanup_strv_free_ char **l = NULL;
+                        _cleanup_(strv_freep) char **l = NULL;
                         r = strv_split_full(&l, optarg, WHITESPACE, EXTRACT_UNQUOTE);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse debugger arguments '%s': %m", optarg);

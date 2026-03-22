@@ -829,7 +829,7 @@ static int netdev_l2tp_tunnel_verify(NetDev *netdev, const char *filename) {
                                                 "%s: L2TP tunnel without tunnel IDs configured. Ignoring",
                                                 filename);
 
-        _cleanup_set_free_ Set *names = NULL;
+        _cleanup_(set_freep) Set *names = NULL;
         ORDERED_HASHMAP_FOREACH(session, t->sessions_by_section)
                 if (l2tp_session_verify(session, &names) < 0)
                         l2tp_session_free(session);

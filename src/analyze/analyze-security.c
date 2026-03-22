@@ -2237,7 +2237,7 @@ static int property_read_ip_filters(
                 void *userdata) {
 
         SecurityInfo *info = userdata;
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         int r;
 
         assert(bus);
@@ -2810,7 +2810,7 @@ static int analyze_security(sd_bus *bus,
         if (strv_isempty(units)) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-                _cleanup_strv_free_ char **list = NULL;
+                _cleanup_(strv_freep) char **list = NULL;
                 size_t n = 0;
 
                 r = bus_call_method(
@@ -2924,7 +2924,7 @@ int verb_security(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse '%s' at %u:%u: %m", arg_security_policy, line, column);
         } else {
-                _cleanup_fclose_ FILE *f = NULL;
+                _cleanup_(fclosep) FILE *f = NULL;
                 _cleanup_free_ char *pp = NULL;
 
                 r = search_and_fopen_nulstr("systemd-analyze-security.policy", "re", /* root= */ NULL, CONF_PATHS_NULSTR("systemd"), &f, &pp);

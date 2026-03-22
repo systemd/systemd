@@ -58,7 +58,7 @@ int boot_config_count_known_files(
                 const char* root,
                 Hashmap **ret_known_files) {
 
-        _cleanup_hashmap_free_ Hashmap *known_files = NULL;
+        _cleanup_(hashmap_freep) Hashmap *known_files = NULL;
         int r;
 
         assert(config);
@@ -154,7 +154,7 @@ static int boot_config_find_in(const BootConfig *config, const char *root, const
 }
 
 static int unlink_entry(const BootConfig *config, const char *root, const char *id) {
-        _cleanup_hashmap_free_ Hashmap *known_files = NULL;
+        _cleanup_(hashmap_freep) Hashmap *known_files = NULL;
         const BootEntry *e = NULL;
         int r;
 

@@ -214,7 +214,7 @@ static int manager_connect_udev(Manager *m) {
 }
 
 static int manager_listen_fds(Manager *m, int *ret_rtnl_fd, int *ret_varlink_fd, int *ret_varlink_metrics_fd, int *ret_resolve_hook_fd) {
-        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_(strv_freep) char **names = NULL;
         int n, rtnl_fd = -EBADF, varlink_fd = -EBADF, varlink_metrics_fd = -EBADF, resolve_hook_fd = -EBADF;
 
         assert(m);
@@ -364,7 +364,7 @@ static int manager_setup_rtnl_filter(Manager *manager) {
 }
 
 static int manager_connect_rtnl(Manager *m, int fd) {
-        _unused_ _cleanup_close_ int fd_close = fd;
+        _unused_ _cleanup_(closep) int fd_close = fd;
         int r;
 
         assert(m);
@@ -565,7 +565,7 @@ static int manager_set_keep_configuration(Manager *m) {
 }
 
 int manager_setup(Manager *m) {
-        _cleanup_close_ int rtnl_fd = -EBADF, varlink_fd = -EBADF, varlink_metrics_fd = -EBADF, resolve_hook_fd = -EBADF;
+        _cleanup_(closep) int rtnl_fd = -EBADF, varlink_fd = -EBADF, varlink_metrics_fd = -EBADF, resolve_hook_fd = -EBADF;
         int r;
 
         assert(m);
@@ -652,7 +652,7 @@ int manager_setup(Manager *m) {
 }
 
 static int persistent_storage_open(void) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         r = getenv_bool("SYSTEMD_NETWORK_PERSISTENT_STORAGE_READY");

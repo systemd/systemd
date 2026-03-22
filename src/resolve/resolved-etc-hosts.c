@@ -335,7 +335,7 @@ int etc_hosts_parse(EtcHosts *hosts, FILE *f) {
 }
 
 static int manager_etc_hosts_read(Manager *m) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         struct stat st;
         usec_t ts;
         int r;

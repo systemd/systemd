@@ -161,7 +161,7 @@ static int set_trackpoint_sensitivity(sd_device *dev, const char *value) {
 static int builtin_keyboard(UdevEvent *event, int argc, char *argv[]) {
         sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         unsigned release[1024], release_count = 0;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         const char *node;
         int has_abs = -1, r;
 

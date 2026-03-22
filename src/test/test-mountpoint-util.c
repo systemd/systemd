@@ -52,8 +52,8 @@ TEST(mount_propagation_flag) {
 }
 
 TEST(mnt_id) {
-        _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_hashmap_free_ Hashmap *h = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
+        _cleanup_(hashmap_freep) Hashmap *h = NULL;
         char *p;
         void *k;
         int r;
@@ -277,7 +277,7 @@ TEST(path_is_mount_point) {
 TEST(is_mount_point_at) {
         _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
         _cleanup_free_ char *pwd = NULL, *tmpdir_basename = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         fd = open("/", O_RDONLY|O_CLOEXEC|O_DIRECTORY|O_NOCTTY);
@@ -333,7 +333,7 @@ TEST(is_mount_point_at) {
                 return;
 
         /* Symlinks can be mount points with new mount API */
-        _cleanup_close_ int mfd = -EBADF, rfd = -EBADF;
+        _cleanup_(closep) int mfd = -EBADF, rfd = -EBADF;
         _cleanup_free_ char *t = NULL;
         struct stat st;
 
@@ -401,7 +401,7 @@ TEST(fstype_can_fmask_dmask) {
 }
 
 TEST(path_get_mnt_id_at_null) {
-        _cleanup_close_ int root_fd = -EBADF, run_fd = -EBADF;
+        _cleanup_(closep) int root_fd = -EBADF, run_fd = -EBADF;
         int id1, id2;
 
         assert_se(path_get_mnt_id_at(AT_FDCWD, "/run/", &id1) >= 0);

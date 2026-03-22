@@ -87,7 +87,7 @@ static int show_cgroup_one_by_path(
                 OutputFlags flags) {
 
         _cleanup_free_ pid_t *pids = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         size_t n = 0;
         char *fn;
         int r;
@@ -137,7 +137,7 @@ static int show_cgroup_name(
 
         uint64_t cgroupid = UINT64_MAX;
         _cleanup_free_ char *b = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         bool delegate;
         int r;
 
@@ -224,7 +224,7 @@ int show_cgroup_by_path(
                 OutputFlags flags) {
 
         _cleanup_free_ char *p1 = NULL, *last = NULL, *p2 = NULL;
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
         bool shown_pids = false;
         char *gn = NULL;
         int r;

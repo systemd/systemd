@@ -20,7 +20,7 @@
 
 static int parse_interfaces(sd_netlink **rtnl, char *argv[], OrderedSet **ret) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *our_rtnl = NULL;
-        _cleanup_ordered_set_free_ OrderedSet *indexes = NULL;
+        _cleanup_(ordered_set_freep) OrderedSet *indexes = NULL;
         int r;
 
         assert(ret);
@@ -47,7 +47,7 @@ int verb_link_delete(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r, ret = 0;
 
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        _cleanup_ordered_set_free_ OrderedSet *indexes = NULL;
+        _cleanup_(ordered_set_freep) OrderedSet *indexes = NULL;
         r = parse_interfaces(&rtnl, argv, &indexes);
         if (r < 0)
                 return r;
@@ -98,7 +98,7 @@ int verb_link_varlink_simple_method(int argc, char *argv[], uintptr_t _data, voi
                 }
         assert(a);
 
-        _cleanup_ordered_set_free_ OrderedSet *indexes = NULL;
+        _cleanup_(ordered_set_freep) OrderedSet *indexes = NULL;
         r = parse_interfaces(/* rtnl= */ NULL, argv, &indexes);
         if (r < 0)
                 return r;
@@ -141,7 +141,7 @@ int verb_persistent_storage(int argc, char *argv[], uintptr_t _data, void *userd
                 return r;
 
         if (ready) {
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
 
                 fd = open("/var/lib/systemd/network/", O_CLOEXEC | O_DIRECTORY);
                 if (fd < 0)

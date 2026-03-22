@@ -168,7 +168,7 @@ _unused_ static void test_compress_stream(const char *compression,
                                           decompress_stream_t decompress,
                                           const char *srcfile) {
 
-        _cleanup_close_ int src = -EBADF, dst = -EBADF, dst2 = -EBADF;
+        _cleanup_(closep) int src = -EBADF, dst = -EBADF, dst2 = -EBADF;
         _cleanup_(unlink_tempfilep) char
                 pattern[] = "/tmp/systemd-test.compressed.XXXXXX",
                 pattern2[] = "/tmp/systemd-test.compressed.XXXXXX";

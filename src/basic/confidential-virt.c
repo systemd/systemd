@@ -47,7 +47,7 @@ static uint32_t cpuid_leaf(uint32_t eax, char ret_sig[static 13], bool swapped) 
 static uint64_t msr(uint64_t index) {
         uint64_t ret;
         ssize_t rv;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         fd = open(MSR_DEVICE, O_RDONLY|O_CLOEXEC);
         if (fd < 0) {
