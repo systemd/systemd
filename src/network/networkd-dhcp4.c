@@ -1477,7 +1477,6 @@ static bool link_dhcp4_ipv6_only_mode(Link *link) {
 }
 
 static int dhcp4_configure(Link *link) {
-        sd_dhcp_option *send_option;
         void *request_options;
         int r;
 
@@ -1619,21 +1618,13 @@ static int dhcp4_configure(Link *link) {
                                 return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set request flag for '%u': %m", option);
                 }
 
-                ORDERED_HASHMAP_FOREACH(send_option, link->network->dhcp_client_send_options) {
-                        r = sd_dhcp_client_add_option(link->dhcp_client, send_option);
-                        if (r == -EEXIST)
-                                continue;
-                        if (r < 0)
-                                return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set send option: %m");
-                }
+                r = dhcp_client_set_extra_options(link->dhcp_client, &link->network->dhcp_extra_options);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set extra options: %m");
 
-                ORDERED_HASHMAP_FOREACH(send_option, link->network->dhcp_client_send_vendor_options) {
-                        r = sd_dhcp_client_add_vendor_option(link->dhcp_client, send_option);
-                        if (r == -EEXIST)
-                                continue;
-                        if (r < 0)
-                                return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set send option: %m");
-                }
+                r = dhcp_client_set_vendor_options(link->dhcp_client, &link->network->dhcp_vendor_options);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set vendor options: %m");
 
                 r = dhcp4_set_hostname(link);
                 if (r < 0)

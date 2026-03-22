@@ -293,8 +293,8 @@ DHCPv4.DenyList,                                 config_parse_in_addr_prefixes, 
 DHCPv4.AllowList,                                config_parse_in_addr_prefixes,                  AF_INET,                                offsetof(Network, dhcp_allow_listed_ip)
 DHCPv4.IPServiceType,                            config_parse_dhcp_ip_service_type,              0,                                      offsetof(Network, dhcp_ip_service_type)
 DHCPv4.SocketPriority,                           config_parse_dhcp_socket_priority,              0,                                      0
-DHCPv4.SendOption,                               config_parse_dhcp_send_option,                  AF_INET,                                offsetof(Network, dhcp_client_send_options)
-DHCPv4.SendVendorOption,                         config_parse_dhcp_send_option,                  0,                                      offsetof(Network, dhcp_client_send_vendor_options)
+DHCPv4.SendOption,                               config_parse_dhcp_option_tlv,                   0,                                      offsetof(Network, dhcp_extra_options)
+DHCPv4.SendVendorOption,                         config_parse_dhcp_option_tlv,                   0,                                      offsetof(Network, dhcp_vendor_options)
 DHCPv4.RouteMTUBytes,                            config_parse_mtu,                               AF_INET,                                offsetof(Network, dhcp_route_mtu)
 DHCPv4.InitialCongestionWindow,                  config_parse_tcp_window,                        0,                                      offsetof(Network, dhcp_initial_congestion_window)
 DHCPv4.InitialAdvertisedReceiveWindow,           config_parse_tcp_window,                        0,                                      offsetof(Network, dhcp_advertised_receive_window)
@@ -320,11 +320,11 @@ DHCPv6.Hostname,                                 config_parse_hostname,         
 DHCPv6.RequestOptions,                           config_parse_dhcp_request_options,              AF_INET6,                               0
 DHCPv6.UserClass,                                config_parse_dhcp_user_or_vendor_class,         AF_INET6,                               offsetof(Network, dhcp6_user_class)
 DHCPv6.VendorClass,                              config_parse_dhcp_user_or_vendor_class,         AF_INET6,                               offsetof(Network, dhcp6_vendor_class)
-DHCPv6.SendVendorOption,                         config_parse_dhcp_send_option,                  AF_INET6,                               offsetof(Network, dhcp6_client_send_vendor_options)
+DHCPv6.SendVendorOption,                         config_parse_dhcp6_send_option,                 0,                                      offsetof(Network, dhcp6_client_send_vendor_options)
 DHCPv6.PrefixDelegationHint,                     config_parse_dhcp6_pd_prefix_hint,              0,                                      0
 DHCPv6.UnassignedSubnetPolicy,                   config_parse_dhcp_pd_prefix_route_type,         0,                                      offsetof(Network, dhcp6_pd_prefix_route_type)
 DHCPv6.WithoutRA,                                config_parse_dhcp6_client_start_mode,           0,                                      offsetof(Network, dhcp6_client_start_mode)
-DHCPv6.SendOption,                               config_parse_dhcp_send_option,                  AF_INET6,                               offsetof(Network, dhcp6_client_send_options)
+DHCPv6.SendOption,                               config_parse_dhcp6_send_option,                 0,                                      offsetof(Network, dhcp6_client_send_options)
 DHCPv6.IAID,                                     config_parse_iaid,                              AF_INET6,                               0
 DHCPv6.DUIDType,                                 config_parse_duid_type,                         0,                                      offsetof(Network, dhcp6_duid)
 DHCPv6.DUIDRawData,                              config_parse_duid_rawdata,                      0,                                      offsetof(Network, dhcp6_duid)
@@ -387,8 +387,8 @@ DHCPServer.EmitDomain,                           config_parse_bool,             
 DHCPServer.Domain,                               config_parse_dns_name,                          0,                                      offsetof(Network, dhcp_server_domain)
 DHCPServer.PoolOffset,                           config_parse_uint32,                            0,                                      offsetof(Network, dhcp_server_pool_offset)
 DHCPServer.PoolSize,                             config_parse_uint32,                            0,                                      offsetof(Network, dhcp_server_pool_size)
-DHCPServer.SendVendorOption,                     config_parse_dhcp_send_option,                  0,                                      offsetof(Network, dhcp_server_send_vendor_options)
-DHCPServer.SendOption,                           config_parse_dhcp_send_option,                  0,                                      offsetof(Network, dhcp_server_send_options)
+DHCPServer.SendOption,                           config_parse_dhcp_option_tlv,                   0,                                      offsetof(Network, dhcp_server_extra_options)
+DHCPServer.SendVendorOption,                     config_parse_dhcp_option_tlv,                   0,                                      offsetof(Network, dhcp_server_vendor_options)
 DHCPServer.BindToInterface,                      config_parse_bool,                              0,                                      offsetof(Network, dhcp_server_bind_to_interface)
 DHCPServer.BootServerAddress,                    config_parse_in_addr_non_null,                  AF_INET,                                offsetof(Network, dhcp_server_boot_server_address)
 DHCPServer.BootServerName,                       config_parse_dns_name,                          0,                                      offsetof(Network, dhcp_server_boot_server_name)
