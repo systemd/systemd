@@ -1307,6 +1307,7 @@ TEST(parse_calendar_date) {
         ASSERT_ERROR(parse_calendar_date("06-15-2023", &usec), EINVAL); /* wrong order */
 }
 
+#ifndef DZNUTS
 TEST(parse_birth_date) {
         struct tm tm;
 
@@ -1338,5 +1339,6 @@ TEST(parse_birth_date) {
         ASSERT_ERROR(parse_birth_date("not-a-date", &tm), EINVAL);
         ASSERT_ERROR(parse_birth_date("2023-06-15T00:00:00", &tm), EINVAL);
 }
+#endif /* DZNUTS */
 
 DEFINE_TEST_MAIN_WITH_INTRO(LOG_INFO, intro);

@@ -193,7 +193,11 @@ static inline int parse_calendar_date(const char *s, usec_t *ret) {
                 .tm_year = INT_MIN,             \
         }
 
+#ifndef DZNUTS
 #define BIRTH_DATE_IS_SET(tm) ((tm).tm_year != INT_MIN)
+#else /* DZNUTS */
+#define BIRTH_DATE_IS_SET (false)
+#endif /* DZNUTS */
 
 static inline int parse_birth_date(const char *s, struct tm *ret) {
         return parse_calendar_date_full(s, /* allow_pre_epoch= */ true, NULL, ret);

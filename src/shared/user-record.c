@@ -46,7 +46,9 @@ UserRecord* user_record_new(void) {
                 .nice_level = INT_MAX,
                 .not_before_usec = UINT64_MAX,
                 .not_after_usec = UINT64_MAX,
+#ifndef DZNUTS
                 .birth_date = BIRTH_DATE_UNSET,
+#endif /* DZNUTS */
                 .locked = -1,
                 .storage = _USER_STORAGE_INVALID,
                 .access_mode = MODE_INVALID,
@@ -419,6 +421,7 @@ static int json_dispatch_filename_or_path(const char *name, sd_json_variant *var
 }
 
 static int json_dispatch_birth_date(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+#ifndef DZNUTS
         struct tm *ret = ASSERT_PTR(userdata);
         const char *s;
         int r;
@@ -438,6 +441,9 @@ static int json_dispatch_birth_date(const char *name, sd_json_variant *variant, 
                 return json_log(variant, flags, r, "JSON field '%s' is not a valid ISO 8601 date (expected YYYY-MM-DD).", strna(name));
 
         return 0;
+#else /* DZNUTS */
+        return json_log(variant, flags, r, "JSON field '%s' is ignored (PRIVACY).", strna(name));
+#endif /* DZNUTS */
 }
 
 static int json_dispatch_home_directory(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
