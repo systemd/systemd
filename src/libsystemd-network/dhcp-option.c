@@ -9,10 +9,10 @@
 #include "dhcp-option.h"
 #include "dhcp-server-internal.h"
 #include "dns-domain.h"
+#include "hashmap.h"
 #include "hostname-util.h"
 #include "iovec-util.h"
 #include "memory-util.h"
-#include "ordered-set.h"
 #include "string-util.h"
 #include "strv.h"
 #include "utf8.h"
@@ -110,33 +110,6 @@ static int option_append(uint8_t options[], size_t size, size_t *offset,
                 *offset += 3 + optlen;
 
                 break;
-        case SD_DHCP_OPTION_VENDOR_SPECIFIC: {
-                /* When called with raw data (optlen > 0), e.g. from SendOption=, append as a plain TLV.
-                 * The structured handling below expects optval to be an OrderedSet*. */
-                if (optlen > 0)
-                        return dhcp_option_append_tlv(options, size, offset, code, optlen, optval);
-
-                OrderedSet *s = (OrderedSet *) optval;
-                struct sd_dhcp_option *p;
-                size_t l = 0;
-
-                ORDERED_SET_FOREACH(p, s)
-                        l += p->length + 2;
-
-                if (*offset + l + 2 > size)
-                        return -ENOBUFS;
-
-                options[*offset] = code;
-                options[*offset + 1] = l;
-                *offset += 2;
-
-                ORDERED_SET_FOREACH(p, s) {
-                        r = dhcp_option_append_tlv(options, size, offset, p->option, p->length, p->data);
-                        if (r < 0)
-                                return r;
-                }
-                break;
-        }
         case SD_DHCP_OPTION_RELAY_AGENT_INFORMATION: {
                 /* When called with raw data (optlen > 0), e.g. from SendOption=, append as a plain TLV.
                  * The structured handling below expects optval to be an sd_dhcp_server*. */
