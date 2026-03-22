@@ -898,7 +898,7 @@ static Context* context_new(
                 bool dry_run,
                 sd_id128_t seed) {
 
-        _cleanup_strv_free_ char **d = NULL;
+        _cleanup_(strv_freep) char **d = NULL;
         if (!strv_isempty(definitions)) {
                 d = strv_copy(definitions);
                 if (!d)
@@ -3407,7 +3407,7 @@ static int supplement_find_target(const Context *context, const Partition *suppl
 }
 
 static int context_read_definitions(Context *context) {
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_(strv_freep) char **files = NULL;
         Partition *last = LIST_FIND_TAIL(partitions, context->partitions);
         const char *const *dirs;
         int r;
@@ -6616,7 +6616,7 @@ static int partition_acquire_sibling_labels(const Partition *p, char ***ret) {
         assert(p);
         assert(ret);
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         if (p->new_label) {
                 l = strv_new(p->new_label);
                 if (!l)
@@ -6643,7 +6643,7 @@ static int partition_acquire_sibling_uuids(const Partition *p, char ***ret) {
         assert(p);
         assert(ret);
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         l = strv_new(SD_ID128_TO_UUID_STRING(p->type.uuid));
         if (!l)
                 return log_oom();
@@ -6682,7 +6682,7 @@ static int do_make_validatefs_xattrs(const Partition *p, const char *root) {
         if (fd < 0)
                 return log_error_errno(errno, "Failed to open root inode '%s': %m", root);
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         r = partition_acquire_sibling_labels(p, &l);
         if (r < 0)
                 return r;
@@ -6880,7 +6880,7 @@ static int append_btrfs_inode_flags(char ***l, OrderedHashmap *subvolumes) {
 }
 
 static int finalize_extra_mkfs_options(const Partition *p, const char *root, char ***ret) {
-        _cleanup_strv_free_ char **sv = NULL;
+        _cleanup_(strv_freep) char **sv = NULL;
         int r;
 
         assert(p);
@@ -6926,7 +6926,7 @@ static int context_mkfs(Context *context) {
         LIST_FOREACH(partitions, p, context->partitions) {
                 _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
                 _cleanup_(partition_target_freep) PartitionTarget *t = NULL;
-                _cleanup_strv_free_ char **extra_mkfs_options = NULL;
+                _cleanup_(strv_freep) char **extra_mkfs_options = NULL;
 
                 if (p->dropped)
                         continue;
@@ -8652,7 +8652,7 @@ static int context_minimize(Context *context) {
                 _cleanup_(rm_rf_physical_and_freep) char *root = NULL;
                 _cleanup_(unlink_and_freep) char *temp = NULL;
                 _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
-                _cleanup_strv_free_ char **extra_mkfs_options = NULL;
+                _cleanup_(strv_freep) char **extra_mkfs_options = NULL;
                 _cleanup_close_ int fd = -EBADF;
                 _cleanup_free_ char *hint = NULL;
                 sd_id128_t fs_uuid;

@@ -1846,7 +1846,7 @@ int bus_cgroup_set_property(
 
         if (streq(name, "RestrictNetworkInterfaces")) {
                 int is_allow_list;
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_(strv_freep) char **l = NULL;
 
                 r = sd_bus_message_enter_container(message, 'r', "bas");
                 if (r < 0)

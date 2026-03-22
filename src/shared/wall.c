@@ -100,7 +100,7 @@ static int wall_logind(
         void *userdata) {
 
 #if ENABLE_LOGIND
-        _cleanup_strv_free_ char **sessions = NULL;
+        _cleanup_(strv_freep) char **sessions = NULL;
         int r;
 
         assert(message);

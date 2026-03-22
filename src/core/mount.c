@@ -1062,7 +1062,7 @@ fail:
 }
 
 static int mount_apply_graceful_options(Mount *m, const MountParameters *p, char **opts) {
-        _cleanup_strv_free_ char **graceful = NULL;
+        _cleanup_(strv_freep) char **graceful = NULL;
         _cleanup_free_ char *filtered = NULL;
         int r;
 
@@ -1205,7 +1205,7 @@ static void mount_enter_mounting(Mount *m) {
 
         /* If we are asked to create an OverlayFS, create the upper/work directories if they are missing */
         if (streq_ptr(p->fstype, "overlay")) {
-                _cleanup_strv_free_ char **dirs = NULL;
+                _cleanup_(strv_freep) char **dirs = NULL;
 
                 r = fstab_filter_options(
                                 p->options,
@@ -2336,7 +2336,7 @@ static PidRef* mount_control_pid(Unit *u) {
 }
 
 static int mount_clean(Unit *u, ExecCleanMask mask) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         Mount *m = MOUNT(u);
         int r;
 

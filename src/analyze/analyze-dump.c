@@ -93,7 +93,7 @@ static int dump_patterns_fd(sd_bus *bus, char **patterns) {
 }
 
 static int mangle_patterns(char **args, char ***ret) {
-        _cleanup_strv_free_ char **mangled = NULL;
+        _cleanup_(strv_freep) char **mangled = NULL;
         int r;
 
         STRV_FOREACH(arg, args) {
@@ -114,7 +114,7 @@ static int mangle_patterns(char **args, char ***ret) {
 
 int verb_dump(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_strv_free_ char **patterns = NULL;
+        _cleanup_(strv_freep) char **patterns = NULL;
         int r;
 
         r = acquire_bus(&bus, NULL);

@@ -72,7 +72,7 @@ int verb_unit_shell(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to retrieve FDs of namespaces of %s: %m", unit);
 
-        _cleanup_strv_free_ char **args = NULL;
+        _cleanup_(strv_freep) char **args = NULL;
         if (argc > 2) {
                 args = strv_copy(strv_skip(argv, 2));
                 if (!args)

@@ -4358,7 +4358,7 @@ _public_ int sd_bus_message_read_strv_extend(sd_bus_message *m, char ***l) {
 }
 
 _public_ int sd_bus_message_read_strv(sd_bus_message *m, char ***ret) {
-        _cleanup_strv_free_ char **strv = NULL;
+        _cleanup_(strv_freep) char **strv = NULL;
         int r;
 
         assert_return(m, -EINVAL);
@@ -4716,7 +4716,7 @@ _public_ int sd_bus_message_sensitive(sd_bus_message *m) {
 }
 
 char** bus_message_make_log_fields(sd_bus_message *m) {
-        _cleanup_strv_free_ char **strv = NULL;
+        _cleanup_(strv_freep) char **strv = NULL;
 
         assert(m);
 

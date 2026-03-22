@@ -455,7 +455,7 @@ static int setup_nvpcr(void) {
         _cleanup_(setup_nvpcr_context_done) SetupNvPCRContext c = {};
         int r;
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         r = conf_files_list_nulstr(
                         &l,
                         ".nvpcr",

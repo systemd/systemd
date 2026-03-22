@@ -3434,7 +3434,7 @@ static int inner_child(
                 NULL
         };
         const char *exec_target;
-        _cleanup_strv_free_ char **env_use = NULL;
+        _cleanup_(strv_freep) char **env_use = NULL;
         int r, which_failed;
 
         /* This is the "inner" child process, i.e. the one forked off by the "outer" child process, which is the one
@@ -3993,7 +3993,7 @@ static int outer_child(
                 int netns_fd,
                 const char *unix_export_path) {
 
-        _cleanup_strv_free_ char **os_release_pairs = NULL;
+        _cleanup_(strv_freep) char **os_release_pairs = NULL;
         bool idmap = false;
         ssize_t l;
         int r;
@@ -4240,7 +4240,7 @@ static int outer_child(
         if (!IN_SET(arg_userns_mode, USER_NAMESPACE_NO, USER_NAMESPACE_MANAGED) &&
             IN_SET(arg_userns_ownership, USER_NAMESPACE_OWNERSHIP_MAP, USER_NAMESPACE_OWNERSHIP_FOREIGN, USER_NAMESPACE_OWNERSHIP_AUTO) &&
             chown_uid != 0) {
-                _cleanup_strv_free_ char **dirs = NULL;
+                _cleanup_(strv_freep) char **dirs = NULL;
                 RemountIdmapping mapping;
 
                 switch (arg_userns_ownership) {
@@ -4681,7 +4681,7 @@ static int nspawn_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t r
         assert(userdata);
 
         _cleanup_(pidref_done) PidRef sender_pid = PIDREF_NULL;
-        _cleanup_strv_free_ char **tags = NULL;
+        _cleanup_(strv_freep) char **tags = NULL;
         r = notify_recv_strv(fd, &tags, /* ret_ucred= */ NULL, &sender_pid);
         if (r == -EAGAIN)
                 return 0;

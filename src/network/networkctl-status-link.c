@@ -41,7 +41,7 @@
 #include "udev-util.h"
 
 static int dump_dhcp_leases(Table *table, const char *prefix, sd_bus *bus, const LinkInfo *link) {
-        _cleanup_strv_free_ char **buf = NULL;
+        _cleanup_(strv_freep) char **buf = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
@@ -265,7 +265,7 @@ static int link_status_one(
                 sd_varlink *vl,
                 const LinkInfo *info) {
 
-        _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **sip = NULL, **search_domains = NULL,
+        _cleanup_(strv_freep) char **dns = NULL, **ntp = NULL, **sip = NULL, **search_domains = NULL,
                 **route_domains = NULL, **link_dropins = NULL, **network_dropins = NULL, **netdev_dropins = NULL;
         _cleanup_free_ char *t = NULL, *network = NULL, *netdev = NULL, *iaid = NULL, *duid = NULL, *captive_portal = NULL,
                 *setup_state = NULL, *operational_state = NULL, *online_state = NULL, *activation_policy = NULL;

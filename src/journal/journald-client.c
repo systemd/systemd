@@ -22,7 +22,7 @@ static void client_set_filtering_patterns(ClientContext *c, Set *allow_list, Set
 
 static int client_parse_log_filter_nulstr(const char *nulstr, size_t len, Set **ret) {
         _cleanup_set_free_ Set *s = NULL;
-        _cleanup_strv_free_ char **patterns_strv = NULL;
+        _cleanup_(strv_freep) char **patterns_strv = NULL;
         int r;
 
         assert(nulstr);

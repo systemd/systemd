@@ -48,7 +48,7 @@ int verb_dlopen_metadata(int argc, char *argv[], uintptr_t _data, void *userdata
 
         sd_json_variant *z;
         JSON_VARIANT_ARRAY_FOREACH(z, dlopen_metadata) {
-                _cleanup_strv_free_ char **sonames = NULL;
+                _cleanup_(strv_freep) char **sonames = NULL;
 
                 r = sd_json_variant_strv(sd_json_variant_by_key(z, "soname"), &sonames);
                 if (r < 0)

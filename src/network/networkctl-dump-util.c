@@ -176,7 +176,7 @@ static int get_gateway_description(
 
 int dump_gateways(sd_netlink *rtnl, sd_hwdb *hwdb, Table *table, int ifindex) {
         _cleanup_free_ struct local_address *local_addrs = NULL;
-        _cleanup_strv_free_ char **buf = NULL;
+        _cleanup_(strv_freep) char **buf = NULL;
         int r, n;
 
         assert(rtnl);
@@ -215,7 +215,7 @@ int dump_addresses(
                 int ifindex) {
 
         _cleanup_free_ struct local_address *local_addrs = NULL;
-        _cleanup_strv_free_ char **buf = NULL;
+        _cleanup_(strv_freep) char **buf = NULL;
         struct in_addr dhcp4_address = {};
         int r, n;
 

@@ -86,7 +86,7 @@ static int property_get_profiles(
                 void *userdata,
                 sd_bus_error *error) {
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         Manager *m = ASSERT_PTR(userdata);
         int r;
 
@@ -215,7 +215,7 @@ static int method_get_image_metadata(sd_bus_message *message, void *userdata, sd
 }
 
 static int method_get_image_state(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_strv_free_ char **extension_images = NULL;
+        _cleanup_(strv_freep) char **extension_images = NULL;
         Manager *m = ASSERT_PTR(userdata);
         const char *name_or_path;
         PortableState state;
@@ -264,7 +264,7 @@ static int method_attach_image(sd_bus_message *message, void *userdata, sd_bus_e
 }
 
 static int method_detach_image(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_strv_free_ char **extension_images = NULL;
+        _cleanup_(strv_freep) char **extension_images = NULL;
         PortableChange *changes = NULL;
         PortableFlags flags = 0;
         Manager *m = ASSERT_PTR(userdata);

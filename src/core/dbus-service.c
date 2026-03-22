@@ -111,7 +111,7 @@ static int property_get_refresh_on_reload(
                 sd_bus_error *reterr_error) {
 
         Service *s = ASSERT_PTR(userdata);
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         int r;
 
         assert(bus);

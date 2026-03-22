@@ -311,7 +311,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
 
         /* Automatically add in a serial getty on all active kernel consoles */
         if (FLAGS_SET(arg_getty_sources, GETTY_SOURCE_CONSOLE)) {
-                _cleanup_strv_free_ char **consoles = NULL;
+                _cleanup_(strv_freep) char **consoles = NULL;
                 r = get_kernel_consoles(&consoles);
                 if (r < 0)
                         log_warning_errno(r, "Failed to get active kernel consoles, ignoring: %m");

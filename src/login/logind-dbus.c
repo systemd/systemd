@@ -395,7 +395,7 @@ static int property_get_sleep_operations(
                 sd_bus_error *error) {
 
         Manager *m = ASSERT_PTR(userdata);
-        _cleanup_strv_free_ char **actions = NULL;
+        _cleanup_(strv_freep) char **actions = NULL;
         int r;
 
         assert(bus);

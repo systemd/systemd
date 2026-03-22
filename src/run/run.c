@@ -1171,7 +1171,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
         arg_expand_environment = false;
         arg_send_sighup = true;
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         if (argc > optind) {
                 l = strv_copy(argv + optind);
                 if (!l)
@@ -1629,7 +1629,7 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
                         return bus_log_create_error(r);
 
                 if (use_ex_prop) {
-                        _cleanup_strv_free_ char **opts = NULL;
+                        _cleanup_(strv_freep) char **opts = NULL;
 
                         r = exec_command_flags_to_strv(
                                         (arg_expand_environment ? 0 : EXEC_COMMAND_NO_ENV_EXPAND)|
@@ -2668,7 +2668,7 @@ static int start_transient_service(sd_bus *bus) {
 static int start_transient_scope(sd_bus *bus) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
-        _cleanup_strv_free_ char **env = NULL, **user_env = NULL;
+        _cleanup_(strv_freep) char **env = NULL, **user_env = NULL;
         _cleanup_free_ char *scope = NULL;
         const char *object = NULL;
         sd_id128_t invocation_id;
@@ -2841,7 +2841,7 @@ static int start_transient_scope(sd_bus *bus) {
         }
 
         if (arg_expand_environment) {
-                _cleanup_strv_free_ char **expanded_cmdline = NULL, **unset_variables = NULL, **bad_variables = NULL;
+                _cleanup_(strv_freep) char **expanded_cmdline = NULL, **unset_variables = NULL, **bad_variables = NULL;
 
                 r = replace_env_argv(arg_cmdline, env, &expanded_cmdline, &unset_variables, &bad_variables);
                 if (r < 0)
@@ -3101,7 +3101,7 @@ static int run(int argc, char* argv[]) {
                 } else if (startswith(arg_cmdline[0], "-")) {
                         /* Drop the login shell marker from the command line when generating the description,
                          * in order to minimize user confusion. */
-                        _cleanup_strv_free_ char **l = strv_copy(arg_cmdline);
+                        _cleanup_(strv_freep) char **l = strv_copy(arg_cmdline);
                         if (!l)
                                 return log_oom();
 

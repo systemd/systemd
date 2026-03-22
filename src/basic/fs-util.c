@@ -550,7 +550,7 @@ int mkfifoat_atomic(int dir_fd, const char *path, mode_t mode) {
 }
 
 int get_files_in_directory(const char *path, char ***ret_list) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         _cleanup_closedir_ DIR *d = NULL;
         size_t n = 0;
 

@@ -465,7 +465,7 @@ typedef struct GetInterfaceDescriptionData {
 
 static int verb_introspect(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
-        _cleanup_strv_free_ char **auto_interfaces = NULL;
+        _cleanup_(strv_freep) char **auto_interfaces = NULL;
         char **interfaces;
         const char *url;
         bool list_methods;
@@ -512,7 +512,7 @@ static int verb_introspect(int argc, char *argv[], uintptr_t _data, void *userda
         if (!list_methods && strv_length(interfaces) > 1)
                 arg_json_format_flags |= SD_JSON_FORMAT_SEQ;
 
-        _cleanup_strv_free_ char **methods = NULL;
+        _cleanup_(strv_freep) char **methods = NULL;
 
         STRV_FOREACH(i, interfaces) {
                 sd_json_variant *reply = NULL;

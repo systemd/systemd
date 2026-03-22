@@ -16,7 +16,7 @@
 #include "systemctl-util.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
-        _cleanup_strv_free_ char **argv = NULL;
+        _cleanup_(strv_freep) char **argv = NULL;
         _cleanup_close_ int orig_stdout_fd = -EBADF;
         int r;
 

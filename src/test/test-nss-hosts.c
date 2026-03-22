@@ -402,7 +402,7 @@ static int parse_argv(int argc, char **argv,
                       char ***the_names,
                       struct local_address **the_addresses, int *n_addresses) {
 
-        _cleanup_strv_free_ char **modules = NULL, **names = NULL;
+        _cleanup_(strv_freep) char **modules = NULL, **names = NULL;
         _cleanup_free_ struct local_address *addrs = NULL;
         const char *p;
         int r, n = 0;
@@ -470,7 +470,7 @@ static int parse_argv(int argc, char **argv,
 
 static int run(int argc, char **argv) {
         _cleanup_free_ char *dir = NULL;
-        _cleanup_strv_free_ char **modules = NULL, **names = NULL;
+        _cleanup_(strv_freep) char **modules = NULL, **names = NULL;
         _cleanup_free_ struct local_address *addresses = NULL;
         int n_addresses = 0;
         int r;

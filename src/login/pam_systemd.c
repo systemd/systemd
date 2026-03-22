@@ -657,7 +657,7 @@ static int apply_user_record_settings(
                 bool debug,
                 uint64_t default_capability_bounding_set,
                 uint64_t default_capability_ambient_set) {
-        _cleanup_strv_free_ char **langs = NULL;
+        _cleanup_(strv_freep) char **langs = NULL;
         int r;
 
         assert(pamh);

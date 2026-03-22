@@ -87,7 +87,7 @@ int dispatch_verb(int argc, char *argv[], const Verb verbs[], void *userdata) {
 
         verb = verbs_find_verb(name, verbs);
         if (!verb) {
-                _cleanup_strv_free_ char **verb_strv = NULL;
+                _cleanup_(strv_freep) char **verb_strv = NULL;
 
                 for (size_t i = 0; verbs[i].dispatch; i++) {
                         r = strv_extend(&verb_strv, verbs[i].verb);

@@ -422,7 +422,7 @@ int parse_extension_release_sentinel(
 }
 
 int load_os_release_pairs_with_prefix(const char *root, const char *prefix, char ***ret) {
-        _cleanup_strv_free_ char **os_release_pairs = NULL, **os_release_pairs_prefixed = NULL;
+        _cleanup_(strv_freep) char **os_release_pairs = NULL, **os_release_pairs_prefixed = NULL;
         int r;
 
         r = load_os_release_pairs(root, &os_release_pairs);

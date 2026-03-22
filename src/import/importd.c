@@ -1482,7 +1482,7 @@ static int transfer_node_enumerator(
                 char ***nodes,
                 sd_bus_error *error) {
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         Manager *m = userdata;
         Transfer *t;
         unsigned k = 0;

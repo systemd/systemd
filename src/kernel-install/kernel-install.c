@@ -381,7 +381,7 @@ static int context_set_kernel(Context *c, const char *s) {
 }
 
 static int context_set_path_strv(Context *c, char* const* strv, const char *source, const char *name, char ***dest) {
-        _cleanup_strv_free_ char **w = NULL;
+        _cleanup_(strv_freep) char **w = NULL;
         int r;
 
         assert(c);
@@ -421,7 +421,7 @@ static int context_set_path_strv(Context *c, char* const* strv, const char *sour
 }
 
 static int context_set_plugins(Context *c, const char *s, const char *source) {
-        _cleanup_strv_free_ char **v = NULL;
+        _cleanup_(strv_freep) char **v = NULL;
         int r;
 
         assert(c);
@@ -950,7 +950,7 @@ static int context_remove_entry_dir(Context *c) {
 }
 
 static int context_build_arguments(Context *c) {
-        _cleanup_strv_free_ char **a = NULL;
+        _cleanup_(strv_freep) char **a = NULL;
         const char *verb;
         int r;
 
@@ -1012,7 +1012,7 @@ static int context_build_arguments(Context *c) {
 }
 
 static int context_build_environment(Context *c) {
-        _cleanup_strv_free_ char **e = NULL;
+        _cleanup_(strv_freep) char **e = NULL;
         int r;
 
         assert(c);

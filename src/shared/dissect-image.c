@@ -82,7 +82,7 @@
 #define N_DEVICE_NODE_LIST_ATTEMPTS 10
 
 static int allowed_fstypes(char ***ret_strv) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         const char *e;
 
         assert(ret_strv);
@@ -106,7 +106,7 @@ static int allowed_fstypes(char ***ret_strv) {
 }
 
 int dissect_fstype_ok(const char *fstype) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         int r;
 
         /* When we automatically mount file systems, be a bit conservative by default what we are willing to
@@ -216,7 +216,7 @@ int probe_sector_size_prefer_ioctl(int fd, uint32_t *ret) {
 
 #if HAVE_BLKID
 static int probe_blkid_filter(blkid_probe p) {
-        _cleanup_strv_free_ char **fstypes = NULL;
+        _cleanup_(strv_freep) char **fstypes = NULL;
         int r;
 
         assert(p);
@@ -3093,7 +3093,7 @@ static int validate_signature_userspace(const VeritySettings *verity, const char
 
 #if HAVE_OPENSSL
         _cleanup_(sk_X509_free_allp) STACK_OF(X509) *sk = NULL;
-        _cleanup_strv_free_ char **certs = NULL;
+        _cleanup_(strv_freep) char **certs = NULL;
         _cleanup_(PKCS7_freep) PKCS7 *p7 = NULL;
         _cleanup_free_ char *s = NULL;
         _cleanup_(BIO_freep) BIO *bio = NULL; /* 'bio' must be freed first, 's' second, hence keep this order
@@ -3585,7 +3585,7 @@ int dissected_image_decrypt_interactively(
                 const ImagePolicy *image_policy,
                 DissectImageFlags flags) {
 
-        _cleanup_strv_free_erase_ char **z = NULL;
+        _cleanup_(strv_free_erasep) char **z = NULL;
         int n = 3, r;
 
         if (passphrase)
@@ -4179,7 +4179,7 @@ int dissected_image_acquire_metadata(
                 [META_HAS_INIT_SYSTEM]   = "has-init-system\0",      /* ditto */
         };
 
-        _cleanup_strv_free_ char **machine_info = NULL, **os_release = NULL, **initrd_release = NULL, **sysext_release = NULL, **confext_release = NULL;
+        _cleanup_(strv_freep) char **machine_info = NULL, **os_release = NULL, **initrd_release = NULL, **sysext_release = NULL, **confext_release = NULL;
         _cleanup_free_ char *hostname = NULL, *t = NULL;
         _cleanup_close_pair_ int error_pipe[2] = EBADF_PAIR;
         _cleanup_(pidref_done_sigkill_wait) PidRef child = PIDREF_NULL;
@@ -4967,7 +4967,7 @@ int verity_dissect_and_mount(
          * then a simple match on the ID will be performed. Also if an extension class was specified,
          * check that it matches or return ENOCSI (which looks like error-no-class if one squints enough). */
         if ((extension_release_data && extension_release_data->os_release_id) || required_class >= 0) {
-                _cleanup_strv_free_ char **extension_release = NULL;
+                _cleanup_(strv_freep) char **extension_release = NULL;
                 ImageClass class = IMAGE_SYSEXT;
 
                 r = load_extension_release_pairs(dest, required_class >= 0 ? required_class : IMAGE_SYSEXT, dissected_image->image_name, relax_extension_release_check, &extension_release);

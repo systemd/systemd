@@ -1400,7 +1400,7 @@ finish:
                 journal_file_post_change(m->system_journal);
 
         /* Save parent directories of runtime journals before closing runtime journals. */
-        _cleanup_strv_free_ char **dirs = NULL;
+        _cleanup_(strv_freep) char **dirs = NULL;
         (void) journal_get_directories(j, &dirs);
 
         /* First, close all runtime journals opened in the above. */

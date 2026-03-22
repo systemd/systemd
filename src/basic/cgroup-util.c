@@ -1362,7 +1362,7 @@ int cg_slice_to_path(const char *unit, char **ret) {
 
 int cg_is_threaded(const char *path) {
         _cleanup_free_ char *fs = NULL, *contents = NULL;
-        _cleanup_strv_free_ char **v = NULL;
+        _cleanup_(strv_freep) char **v = NULL;
         int r;
 
         r = cg_get_path(path, "cgroup.type", &fs);

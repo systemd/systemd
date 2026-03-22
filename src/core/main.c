@@ -174,7 +174,7 @@ static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_crash_action, crash_ac
 
 static int manager_find_user_config_paths(char ***ret_files, char ***ret_dirs) {
         _cleanup_free_ char *base = NULL;
-        _cleanup_strv_free_ char **files = NULL, **dirs = NULL;
+        _cleanup_(strv_freep) char **files = NULL, **dirs = NULL;
         int r;
 
         r = xdg_user_config_dir("/systemd", &base);
@@ -829,7 +829,7 @@ static int parse_config_file(void) {
                                 CONFIG_PARSE_WARN,
                                 /* userdata= */ NULL);
         else {
-                _cleanup_strv_free_ char **files = NULL, **dirs = NULL;
+                _cleanup_(strv_freep) char **files = NULL, **dirs = NULL;
                 int r;
 
                 assert(arg_runtime_scope == RUNTIME_SCOPE_USER);
@@ -1651,7 +1651,7 @@ static int become_shutdown(int objective, int retval) {
         char timeout[STRLEN("--timeout=") + DECIMAL_STR_MAX(usec_t) + STRLEN("us")],
              exit_code[STRLEN("--exit-code=") + DECIMAL_STR_MAX(uint8_t)];
 
-        _cleanup_strv_free_ char **env_block = NULL;
+        _cleanup_(strv_freep) char **env_block = NULL;
         _cleanup_free_ char *max_log_levels = NULL;
         usec_t watchdog_timer = 0;
         int r;

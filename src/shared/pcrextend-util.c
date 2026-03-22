@@ -66,7 +66,7 @@ static int device_get_file_system_word(
 
         assert(r == _BLKID_SAFEPROBE_FOUND);
 
-        _cleanup_strv_free_ char **l = strv_new(prefix);
+        _cleanup_(strv_freep) char **l = strv_new(prefix);
         if (!l)
                 return -ENOMEM;
 

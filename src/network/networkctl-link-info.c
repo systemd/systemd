@@ -163,7 +163,7 @@ static int decode_link(
                 char * const *patterns,
                 bool matched_patterns[]) {
 
-        _cleanup_strv_free_ char **altnames = NULL;
+        _cleanup_(strv_freep) char **altnames = NULL;
         const char *name, *qdisc;
         int ifindex, r;
         uint16_t type;

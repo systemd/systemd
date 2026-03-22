@@ -581,7 +581,7 @@ static int uid_get_array(uid_t uid, const char *variable, char ***ret_array) {
         if (r < 0)
                 return r;
 
-        _cleanup_strv_free_ char **a = strv_split(s, NULL);
+        _cleanup_(strv_freep) char **a = strv_split(s, NULL);
         if (!a)
                 return -ENOMEM;
 
@@ -691,7 +691,7 @@ _public_ int sd_session_get_extra_device_access(const char *session, char ***ret
         if (r < 0)
                 return r;
 
-        _cleanup_strv_free_ char **ids = NULL;
+        _cleanup_(strv_freep) char **ids = NULL;
         size_t n_ids = 0;
         if (!isempty(s)) {
                 ids = strv_split(s, /* separators= */ NULL);
@@ -892,7 +892,7 @@ _public_ int sd_seat_get_sessions(
                 unsigned *ret_n_uids) {
 
         _cleanup_free_ char *fname = NULL, *session_line = NULL, *uid_line = NULL;
-        _cleanup_strv_free_ char **sessions = NULL;
+        _cleanup_(strv_freep) char **sessions = NULL;
         _cleanup_free_ uid_t *uids = NULL;
         unsigned n_sessions = 0;
         int r;
@@ -1053,7 +1053,7 @@ _public_ int sd_get_uids(uid_t **ret_users) {
 }
 
 _public_ int sd_get_machine_names(char ***ret_machines) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         char **a, **b;
         int r;
 
@@ -1141,7 +1141,7 @@ _public_ int sd_machine_get_ifindices(const char *machine, int **ret_ifindices) 
                 return 0;
         }
 
-        _cleanup_strv_free_ char **tt = strv_split(netif_line, NULL);
+        _cleanup_(strv_freep) char **tt = strv_split(netif_line, NULL);
         if (!tt)
                 return -ENOMEM;
 

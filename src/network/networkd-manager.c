@@ -214,7 +214,7 @@ static int manager_connect_udev(Manager *m) {
 }
 
 static int manager_listen_fds(Manager *m, int *ret_rtnl_fd, int *ret_varlink_fd, int *ret_varlink_metrics_fd, int *ret_resolve_hook_fd) {
-        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_(strv_freep) char **names = NULL;
         int n, rtnl_fd = -EBADF, varlink_fd = -EBADF, varlink_metrics_fd = -EBADF, resolve_hook_fd = -EBADF;
 
         assert(m);

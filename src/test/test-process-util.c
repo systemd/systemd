@@ -119,7 +119,7 @@ TEST(pid_get_comm) {
 
 static void test_pid_get_cmdline_one(pid_t pid) {
         _cleanup_free_ char *c = NULL, *d = NULL, *e = NULL, *f = NULL, *g = NULL, *h = NULL, *joined = NULL;
-        _cleanup_strv_free_ char **strv_a = NULL, **strv_b = NULL;
+        _cleanup_(strv_freep) char **strv_a = NULL, **strv_b = NULL;
         int r;
 
         r = pid_get_cmdline(pid, SIZE_MAX, 0, &c);
@@ -262,7 +262,7 @@ TEST(pid_get_cmdline_harder) {
         char path[] = "/tmp/test-cmdlineXXXXXX";
         _cleanup_close_ int fd = -EBADF;
         _cleanup_free_ char *line = NULL;
-        _cleanup_strv_free_ char **args = NULL;
+        _cleanup_(strv_freep) char **args = NULL;
         int r;
 
         if (geteuid() != 0) {
@@ -1092,7 +1092,7 @@ TEST(pidfd_get_inode_id_self_cached) {
 }
 
 TEST(getenv_for_pid) {
-        _cleanup_strv_free_ char **copy_env = NULL;
+        _cleanup_(strv_freep) char **copy_env = NULL;
         pid_t pid = getpid_cached();
         int r;
 

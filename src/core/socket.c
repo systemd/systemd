@@ -1986,7 +1986,7 @@ static int socket_spawn(Socket *s, ExecCommand *c, PidRef *ret_pid) {
 
         /* Note that ExecStartPre= command doesn't inherit any FDs. It runs before we open listen FDs. */
         if (s->pass_fds_to_exec) {
-                _cleanup_strv_free_ char **fd_names = NULL;
+                _cleanup_(strv_freep) char **fd_names = NULL;
                 _cleanup_free_ int *fds = NULL;
                 int n_fds;
 
@@ -3559,7 +3559,7 @@ static PidRef* socket_control_pid(Unit *u) {
 
 static int socket_clean(Unit *u, ExecCleanMask mask) {
         Socket *s = ASSERT_PTR(SOCKET(u));
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         int r;
 
         assert(mask != 0);

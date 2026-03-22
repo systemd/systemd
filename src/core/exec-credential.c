@@ -357,7 +357,7 @@ static int credential_search_path(
                 CredentialSearchPath path,
                 char ***ret) {
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         int r;
 
         assert(context);
@@ -373,7 +373,7 @@ static int credential_search_path(
                 if (r < 0)
                         return r;
 
-                _cleanup_strv_free_ char **add = NULL;
+                _cleanup_(strv_freep) char **add = NULL;
                 r = credential_store_path_encrypted(context->scope, &add);
                 if (r < 0)
                         return r;
@@ -388,7 +388,7 @@ static int credential_search_path(
                 if (r < 0)
                         return r;
 
-                _cleanup_strv_free_ char **add = NULL;
+                _cleanup_(strv_freep) char **add = NULL;
                 r = credential_store_path(context->scope, &add);
                 if (r < 0)
                         return r;
@@ -550,7 +550,7 @@ static int load_credential_glob(
         assert(search_path);
 
         STRV_FOREACH(d, search_path) {
-                _cleanup_strv_free_ char **paths = NULL;
+                _cleanup_(strv_freep) char **paths = NULL;
                 _cleanup_free_ char *j = NULL;
 
                 j = path_join(*d, ic->glob);
@@ -622,7 +622,7 @@ static int load_credential(
                 const char *path) {
 
         ReadFullFileFlags flags = READ_FULL_FILE_SECURE|READ_FULL_FILE_FAIL_WHEN_LARGER;
-        _cleanup_strv_free_ char **search_path = NULL;
+        _cleanup_(strv_freep) char **search_path = NULL;
         _cleanup_free_ char *bindname = NULL;
         const char *source = NULL;
         bool missing_ok;

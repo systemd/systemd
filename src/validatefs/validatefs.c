@@ -161,7 +161,7 @@ static int validate_fields_read(int fd, ValidateFields *ret) {
         assert(fd >= 0);
         assert(ret);
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         r = getxattr_at_strv(fd, /* path= */ NULL, "user.validatefs.gpt_type_uuid", AT_EMPTY_PATH, &l);
         if (r < 0) {
                 if (r != -ENODATA && !ERRNO_IS_NOT_SUPPORTED(r))

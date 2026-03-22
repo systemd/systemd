@@ -45,7 +45,7 @@ static int property_get_servers(
 }
 
 static int method_set_runtime_servers(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_strv_free_ char **msg_names = NULL;
+        _cleanup_(strv_freep) char **msg_names = NULL;
         Manager *m = ASSERT_PTR(userdata);
         int r;
 

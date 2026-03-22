@@ -634,7 +634,7 @@ int config_parse_many_full(
                 Hashmap **ret_stats_by_path,
                 char ***ret_dropin_files) {
 
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_(strv_freep) char **files = NULL;
         int r;
 
         assert(conf_file_dirs);
@@ -690,7 +690,7 @@ int config_parse_standard_file_with_dropins_full(
                 char ***ret_dropin_files) {
 
         const char* const *conf_file_dirs = (const char* const*) CONF_PATHS_STRV("");
-        _cleanup_strv_free_ char **conf_files = NULL;
+        _cleanup_(strv_freep) char **conf_files = NULL;
         int r, level = FLAGS_SET(flags, CONFIG_PARSE_WARN) ? LOG_WARNING : LOG_DEBUG;
 
         /* Build the list of main config files */
@@ -725,7 +725,7 @@ static int dropins_get_stats_by_path(
                 const char* const* conf_file_dirs,
                 Hashmap **stats_by_path) {
 
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_(strv_freep) char **files = NULL;
         _cleanup_free_ char *dropin_dirname = NULL;
         int r;
 
@@ -779,7 +779,7 @@ int config_get_stats_by_path(
                 Hashmap **ret) {
 
         _cleanup_hashmap_free_ Hashmap *stats_by_path = NULL;
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_(strv_freep) char **files = NULL;
         int r;
 
         assert(suffix);
@@ -1402,7 +1402,7 @@ int config_parse_strv(
                 return 1;
         }
 
-        _cleanup_strv_free_ char **strv = NULL;
+        _cleanup_(strv_freep) char **strv = NULL;
         for (const char *p = rvalue;;) {
                 char *word;
 
@@ -1625,7 +1625,7 @@ int config_parse_ifnames(
                 void *data,
                 void *userdata) {
 
-        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_(strv_freep) char **names = NULL;
         char ***s = ASSERT_PTR(data);
         int r;
 

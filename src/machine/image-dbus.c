@@ -424,7 +424,7 @@ static int image_node_enumerator(sd_bus *bus, const char *path, void *userdata, 
         if (r < 0)
                 return r;
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         Image *image;
         HASHMAP_FOREACH(image, images) {
                 char *p;

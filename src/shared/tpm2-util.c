@@ -3080,7 +3080,7 @@ int tpm2_get_good_pcr_banks_strv(
 
 #if HAVE_OPENSSL
         _cleanup_free_ TPMI_ALG_HASH *algs = NULL;
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         int n_algs;
 
         assert(c);
@@ -7673,7 +7673,7 @@ int tpm2_nvpcr_initialize(
          * (i.e. initrds) in a more sensible fashion, clearly separated from on-the-fly generated ones. Note
          * that we only do all this measurement stuff if we are booted as UKI, and hence when PCR 11 is
          * available, but PCR 9 is not predictable. */
-        _cleanup_strv_free_ char **banks = NULL;
+        _cleanup_(strv_freep) char **banks = NULL;
         r = tpm2_get_good_pcr_banks_strv(c, UINT32_C(1) << TPM2_PCR_KERNEL_INITRD, &banks);
         if (r < 0)
                 return log_error_errno(r, "Could not verify PCR banks: %m");
@@ -9339,7 +9339,7 @@ int tpm2_parse_pcr_argument_to_mask(const char *arg, uint32_t *mask) {
 }
 
 int tpm2_load_pcr_signature(const char *path, sd_json_variant **ret) {
-        _cleanup_strv_free_ char **search = NULL;
+        _cleanup_(strv_freep) char **search = NULL;
         _cleanup_free_ char *discovered_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;

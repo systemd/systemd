@@ -806,7 +806,7 @@ static int extract_image_and_extensions(
         _cleanup_ordered_hashmap_free_ OrderedHashmap *extension_images = NULL, *extension_releases = NULL;
         _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
         _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
-        _cleanup_strv_free_ char **valid_prefixes = NULL;
+        _cleanup_(strv_freep) char **valid_prefixes = NULL;
         _cleanup_(image_unrefp) Image *image = NULL;
         Image *ext;
         int r;
@@ -954,7 +954,7 @@ static int extract_image_and_extensions(
                 _cleanup_(portable_metadata_unrefp) PortableMetadata *extension_release_meta = NULL;
                 _cleanup_(image_policy_freep) ImagePolicy *policy = NULL;
                 _cleanup_hashmap_free_ Hashmap *extra_unit_files = NULL;
-                _cleanup_strv_free_ char **extension_release = NULL;
+                _cleanup_(strv_freep) char **extension_release = NULL;
                 const char *e;
 
                 r = portable_extract_by_path(
@@ -1059,7 +1059,7 @@ int portable_extract(
         _cleanup_(portable_metadata_unrefp) PortableMetadata *os_release = NULL;
         _cleanup_ordered_hashmap_free_ OrderedHashmap *extension_images = NULL, *extension_releases = NULL;
         _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
-        _cleanup_strv_free_ char **valid_prefixes = NULL;
+        _cleanup_(strv_freep) char **valid_prefixes = NULL;
         _cleanup_(image_unrefp) Image *image = NULL;
         int r;
 
@@ -1363,7 +1363,7 @@ static int append_release_log_fields(
                  [IMAGE_SYSEXT] = { "SYSEXT_IMAGE_ID", "SYSEXT_ID", NULL },
                  [IMAGE_CONFEXT] = { "CONFEXT_IMAGE_ID", "CONFEXT_ID", NULL },
         };
-        _cleanup_strv_free_ char **fields = NULL;
+        _cleanup_(strv_freep) char **fields = NULL;
         const char *id = NULL, *version = NULL;
         int r;
 
@@ -1957,7 +1957,7 @@ static void log_portable_verb(
                 PortableFlags flags) {
 
         _cleanup_free_ char *root_base_name = NULL, *extensions_joined = NULL;
-        _cleanup_strv_free_ char **extension_base_names = NULL;
+        _cleanup_(strv_freep) char **extension_base_names = NULL;
         Image *ext;
         int r;
 
@@ -2040,7 +2040,7 @@ int portable_attach(
         _cleanup_(portable_metadata_unrefp) PortableMetadata *os_release = NULL;
         _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
         _cleanup_(lookup_paths_done) LookupPaths paths = {};
-        _cleanup_strv_free_ char **valid_prefixes = NULL;
+        _cleanup_(strv_freep) char **valid_prefixes = NULL;
         _cleanup_(image_unrefp) Image *image = NULL;
         PortableMetadata *item;
         int r;
@@ -2163,7 +2163,7 @@ int portable_attach(
 }
 
 static bool marker_matches_images(const char *marker, const char *name_or_path, char **extension_image_paths, bool match_all) {
-        _cleanup_strv_free_ char **root_and_extensions = NULL;
+        _cleanup_(strv_freep) char **root_and_extensions = NULL;
         int r;
 
         assert(marker);
@@ -2600,7 +2600,7 @@ int portable_get_state(
 }
 
 int portable_get_profiles(RuntimeScope scope, char ***ret) {
-        _cleanup_strv_free_ char **dirs = NULL;
+        _cleanup_(strv_freep) char **dirs = NULL;
         int r;
 
         assert(ret);

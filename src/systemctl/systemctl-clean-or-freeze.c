@@ -15,7 +15,7 @@
 
 int verb_clean_or_freeze(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(bus_wait_for_units_freep) BusWaitForUnits *w = NULL;
-        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_(strv_freep) char **names = NULL;
         int r, ret = EXIT_SUCCESS;
         const char *method;
         sd_bus *bus;

@@ -290,7 +290,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'A': {
-                        _cleanup_strv_free_ char **l = NULL;
+                        _cleanup_(strv_freep) char **l = NULL;
                         r = strv_split_full(&l, optarg, WHITESPACE, EXTRACT_UNQUOTE);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse debugger arguments '%s': %m", optarg);
@@ -1188,7 +1188,7 @@ static int verb_run_debug(int argc, char *argv[], uintptr_t _data, void *userdat
 
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         _cleanup_free_ char *exe = NULL, *path = NULL;
-        _cleanup_strv_free_ char **debugger_call = NULL;
+        _cleanup_(strv_freep) char **debugger_call = NULL;
         bool unlink_path = false;
         const char *data, *fork_name;
         size_t len;

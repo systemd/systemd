@@ -29,7 +29,7 @@ static void test_event_spawn_core(bool with_pidfd, const char *cmd, char *result
 }
 
 static void test_event_spawn_cat(bool with_pidfd, size_t buf_size) {
-        _cleanup_strv_free_ char **lines = NULL;
+        _cleanup_(strv_freep) char **lines = NULL;
         _cleanup_free_ char *cmd = NULL;
         char result_buf[BUF_SIZE];
 
@@ -51,7 +51,7 @@ static void test_event_spawn_cat(bool with_pidfd, size_t buf_size) {
 }
 
 static void test_event_spawn_self(const char *self, const char *arg, bool with_pidfd) {
-        _cleanup_strv_free_ char **lines = NULL;
+        _cleanup_(strv_freep) char **lines = NULL;
         _cleanup_free_ char *cmd = NULL;
         char result_buf[BUF_SIZE];
 

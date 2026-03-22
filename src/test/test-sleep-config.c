@@ -35,7 +35,7 @@ TEST(parse_sleep_config) {
 }
 
 TEST(sleep_supported) {
-        _cleanup_strv_free_ char
+        _cleanup_(strv_freep) char
                 **standby = strv_new("standby"),
                 **mem = strv_new("mem"),
                 **disk = strv_new("disk"),

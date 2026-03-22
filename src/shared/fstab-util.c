@@ -208,7 +208,7 @@ int fstab_filter_options(
                 char ***ret_values,
                 char **ret_filtered) {
 
-        _cleanup_strv_free_ char **values = NULL;
+        _cleanup_(strv_freep) char **values = NULL;
         _cleanup_free_ char *value = NULL, *filtered = NULL;
         const char *namefound = NULL;
         int r;
@@ -230,7 +230,7 @@ int fstab_filter_options(
          * Returns negative on error, true if any matching options were found, false otherwise. */
 
         if (ret_value || ret_values || ret_filtered) {
-                _cleanup_strv_free_ char **opts_split = NULL;
+                _cleanup_(strv_freep) char **opts_split = NULL;
                 _cleanup_free_ char **filtered_strv = NULL; /* strings are owned by 'opts_split' */
 
                 /* For backwards compatibility, we need to pass-through escape characters.

@@ -351,7 +351,7 @@ static int vl_method_ask(sd_varlink *link, sd_json_variant *parameters, sd_varli
                 SET_FLAG(arg_flags, ASK_PASSWORD_SILENT, p.echo_mode == ECHO_OFF);
         }
 
-        _cleanup_strv_free_erase_ char **l = NULL;
+        _cleanup_(strv_free_erasep) char **l = NULL;
         r = ask_password_auto(&req, arg_flags, &l);
         if (r == -EUNATCH)
                 return sd_varlink_error(link, "io.systemd.AskPassword.NoPasswordAvailable", NULL);
@@ -399,7 +399,7 @@ static int vl_server(void) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_strv_free_erase_ char **l = NULL;
+        _cleanup_(strv_free_erasep) char **l = NULL;
         usec_t timeout;
         int r;
 

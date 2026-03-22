@@ -80,7 +80,7 @@ int journal_add_unit_matches(
                 uid_t uid,
                 char * const *user_units) {
 
-        _cleanup_strv_free_ char **patterns = NULL;
+        _cleanup_(strv_freep) char **patterns = NULL;
         bool added = false;
         int r;
 

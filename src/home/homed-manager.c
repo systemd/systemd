@@ -1127,7 +1127,7 @@ static int on_notify_socket(sd_event_source *s, int fd, uint32_t revents, void *
 
         _cleanup_(fdset_free_asyncp) FDSet *passed_fds = NULL;
         _cleanup_(pidref_done) PidRef sender = PIDREF_NULL;
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         r = notify_recv_with_fds_strv(fd, &l, /* ret_ucred= */ NULL, &sender, &passed_fds);
         if (r == -EAGAIN)
                 return 0;
@@ -1510,7 +1510,7 @@ static int manager_load_public_key_one(Manager *m, const char *path) {
 }
 
 static int manager_load_public_keys(Manager *m) {
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_(strv_freep) char **files = NULL;
         int r;
 
         assert(m);

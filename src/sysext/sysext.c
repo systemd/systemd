@@ -300,7 +300,7 @@ static int need_reload(
 
         STRV_FOREACH(p, hierarchies) {
                 _cleanup_free_ char *f = NULL, *buf = NULL, *resolved = NULL;
-                _cleanup_strv_free_ char **mounted_extensions = NULL;
+                _cleanup_(strv_freep) char **mounted_extensions = NULL;
 
                 r = chase(*p, arg_root, CHASE_PREFIX_ROOT, &resolved, NULL);
                 if (r == -ENOENT) {
@@ -331,7 +331,7 @@ static int need_reload(
                         return log_oom();
 
                 STRV_FOREACH(extension, mounted_extensions) {
-                        _cleanup_strv_free_ char **extension_release = NULL;
+                        _cleanup_(strv_freep) char **extension_release = NULL;
                         const char *extension_reload_manager = NULL;
                         int b;
 
@@ -612,7 +612,7 @@ static int verb_unmerge(int argc, char *argv[], uintptr_t _data, void *userdata)
 }
 
 static int parse_image_class_parameter(sd_varlink *link, const char *value, ImageClass *image_class, char ***hierarchies) {
-        _cleanup_strv_free_ char **h = NULL;
+        _cleanup_(strv_freep) char **h = NULL;
         ImageClass c;
         int r;
 
@@ -655,7 +655,7 @@ static int vl_method_unmerge(sd_varlink *link, sd_json_variant *parameters, sd_v
                 .no_reload = -1,
         };
         Hashmap **polkit_registry = ASSERT_PTR(userdata);
-        _cleanup_strv_free_ char **hierarchies = NULL;
+        _cleanup_(strv_freep) char **hierarchies = NULL;
         ImageClass image_class = arg_image_class;
         bool no_reload;
         int r;
@@ -702,7 +702,7 @@ static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) 
 
         STRV_FOREACH(p, arg_hierarchies) {
                 _cleanup_free_ char *resolved = NULL, *f = NULL, *buf = NULL;
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_(strv_freep) char **l = NULL;
                 struct stat st;
 
                 r = chase(*p, arg_root, CHASE_PREFIX_ROOT, &resolved, NULL);
@@ -1126,7 +1126,7 @@ static int overlayfs_paths_new(const char *hierarchy, const char *workspace_path
 }
 
 static int determine_used_extensions(const char *hierarchy, char **paths, char ***ret_used_paths, size_t *ret_extensions_used) {
-        _cleanup_strv_free_ char **used_paths = NULL;
+        _cleanup_(strv_freep) char **used_paths = NULL;
         size_t n = 0;
         int r;
 
@@ -1733,7 +1733,7 @@ static int merge_hierarchy(
                 const char *workspace_path) {
 
         _cleanup_(overlayfs_paths_freep) OverlayFSPaths *op = NULL;
-        _cleanup_strv_free_ char **used_paths = NULL;
+        _cleanup_(strv_freep) char **used_paths = NULL;
         size_t extensions_used = 0;
         int r;
 
@@ -1834,7 +1834,7 @@ static int merge_subprocess(
                         *host_os_release_version_id = NULL, *host_os_release_api_level = NULL,
                         *filename = NULL, *old_origin_content = NULL,
                         *extensions_origin_content = NULL, *root_resolved = NULL;
-        _cleanup_strv_free_ char **extensions = NULL, **extensions_v = NULL, **paths = NULL;
+        _cleanup_(strv_freep) char **extensions = NULL, **extensions_v = NULL, **paths = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *extensions_origin_entries = NULL,
                         *extensions_origin_json = NULL, *mutable_dir_entries = NULL;
         size_t n_extensions = 0;
@@ -2540,7 +2540,7 @@ static int vl_method_merge(sd_varlink *link, sd_json_variant *parameters, sd_var
                 .always_refresh = -1,
                 .noexec = -1,
         };
-        _cleanup_strv_free_ char **hierarchies = NULL;
+        _cleanup_(strv_freep) char **hierarchies = NULL;
         ImageClass image_class = arg_image_class;
         bool force, no_reload, always_refresh;
         int r, noexec;
@@ -2663,7 +2663,7 @@ static int vl_method_refresh(sd_varlink *link, sd_json_variant *parameters, sd_v
                 .noexec = -1,
         };
         Hashmap **polkit_registry = ASSERT_PTR(userdata);
-        _cleanup_strv_free_ char **hierarchies = NULL;
+        _cleanup_(strv_freep) char **hierarchies = NULL;
         ImageClass image_class = arg_image_class;
         bool force, no_reload, always_refresh;
         int r, noexec;

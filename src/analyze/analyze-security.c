@@ -2237,7 +2237,7 @@ static int property_read_ip_filters(
                 void *userdata) {
 
         SecurityInfo *info = userdata;
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         int r;
 
         assert(bus);
@@ -2810,7 +2810,7 @@ static int analyze_security(sd_bus *bus,
         if (strv_isempty(units)) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-                _cleanup_strv_free_ char **list = NULL;
+                _cleanup_(strv_freep) char **list = NULL;
                 size_t n = 0;
 
                 r = bus_call_method(

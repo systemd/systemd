@@ -475,7 +475,7 @@ static int manager_make_listen_socket(Manager *m) {
 }
 
 static int manager_scan_listen_fds(Manager *m, Set **fdstore_inodes) {
-        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_(strv_freep) char **names = NULL;
         int n, r;
 
         assert(m);

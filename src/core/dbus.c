@@ -411,7 +411,7 @@ static int bus_kill_context_find(sd_bus *bus, const char *path, const char *inte
 }
 
 static int bus_unit_enumerate(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *reterr_error) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         Manager *m = userdata;
         unsigned k = 0;
         Unit *u;
@@ -976,7 +976,7 @@ static void destroy_bus(Manager *m, sd_bus **bus) {
 
         /* Get rid of tracked clients on this bus */
         if (m->subscribed && sd_bus_track_get_bus(m->subscribed) == *bus) {
-                _cleanup_strv_free_ char **subscribed = NULL;
+                _cleanup_(strv_freep) char **subscribed = NULL;
                 int r;
 
                 r = bus_track_to_strv(m->subscribed, &subscribed);

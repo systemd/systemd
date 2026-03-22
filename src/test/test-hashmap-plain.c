@@ -94,7 +94,7 @@ TEST(hashmap_copy) {
 
 TEST(hashmap_get_strv) {
         _cleanup_hashmap_free_ Hashmap *m = NULL;
-        _cleanup_strv_free_ char **strv = NULL;
+        _cleanup_(strv_freep) char **strv = NULL;
         char *val1, *val2, *val3, *val4;
 
         val1 = strdup("val1");

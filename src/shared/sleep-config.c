@@ -64,7 +64,7 @@ static int config_parse_sleep_mode(
                 void *userdata) {
 
         char ***sv = ASSERT_PTR(data);
-        _cleanup_strv_free_ char **modes = NULL;
+        _cleanup_(strv_freep) char **modes = NULL;
         int r;
 
         assert(filename);

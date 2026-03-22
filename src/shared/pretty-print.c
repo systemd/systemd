@@ -432,7 +432,7 @@ static int guess_type(const char **name, char ***ret_prefixes, bool *ret_is_coll
 }
 
 int conf_files_cat(const char *root, const char *name, CatFlags flags) {
-        _cleanup_strv_free_ char **dirs = NULL;
+        _cleanup_(strv_freep) char **dirs = NULL;
         char **prefixes = NULL; /* explicit initialization to appease gcc */
         bool is_collection;
         const char *extension;

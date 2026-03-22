@@ -2396,7 +2396,7 @@ static int bus_unit_set_transient_property(
                 return bus_set_transient_conditions(u, name, &u->asserts, false, message, flags, reterr_error);
 
         if (streq(name, "Documentation")) {
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_(strv_freep) char **l = NULL;
 
                 r = sd_bus_message_read_strv(message, &l);
                 if (r < 0)
@@ -2463,7 +2463,7 @@ static int bus_unit_set_transient_property(
         }
 
         if (STR_IN_SET(name, "RequiresMountsFor", "WantsMountsFor")) {
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_(strv_freep) char **l = NULL;
 
                 r = sd_bus_message_read_strv(message, &l);
                 if (r < 0)

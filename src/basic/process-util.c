@@ -246,7 +246,7 @@ int pid_get_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags, ch
 
                 assert(!(flags & PROCESS_CMDLINE_USE_LOCALE));
 
-                _cleanup_strv_free_ char **args = NULL;
+                _cleanup_(strv_freep) char **args = NULL;
 
                 /* Drop trailing NULs, otherwise strv_parse_nulstr() adds additional empty strings at the end.
                  * See also issue #21186. */
@@ -325,7 +325,7 @@ int pid_get_cmdline_strv(pid_t pid, ProcessCmdlineFlags flags, char ***ret) {
 }
 
 int pidref_get_cmdline_strv(const PidRef *pid, ProcessCmdlineFlags flags, char ***ret) {
-        _cleanup_strv_free_ char **args = NULL;
+        _cleanup_(strv_freep) char **args = NULL;
         int r;
 
         if (!pidref_is_set(pid))

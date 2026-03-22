@@ -1694,7 +1694,7 @@ error:
 }
 
 int journal_get_directories(sd_journal *j, char ***ret) {
-        _cleanup_strv_free_ char **paths = NULL;
+        _cleanup_(strv_freep) char **paths = NULL;
         JournalFile *f;
         const char *p;
         size_t n = SIZE_MAX;

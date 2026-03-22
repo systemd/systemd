@@ -220,7 +220,7 @@ static int property_get_environment(
                 void *userdata,
                 sd_bus_error *reterr_error) {
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         Manager *m = ASSERT_PTR(userdata);
         int r;
 
@@ -960,7 +960,7 @@ static int method_list_units_by_names(sd_bus_message *message, void *userdata, s
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         Manager *m = ASSERT_PTR(userdata);
         int r;
-        _cleanup_strv_free_ char **units = NULL;
+        _cleanup_(strv_freep) char **units = NULL;
 
         assert(message);
 
@@ -1301,7 +1301,7 @@ static int method_list_units(sd_bus_message *message, void *userdata, sd_bus_err
 }
 
 static int method_list_units_filtered(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        _cleanup_strv_free_ char **states = NULL;
+        _cleanup_(strv_freep) char **states = NULL;
         int r;
 
         r = sd_bus_message_read_strv(message, &states);
@@ -1312,8 +1312,8 @@ static int method_list_units_filtered(sd_bus_message *message, void *userdata, s
 }
 
 static int method_list_units_by_patterns(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        _cleanup_strv_free_ char **states = NULL;
-        _cleanup_strv_free_ char **patterns = NULL;
+        _cleanup_(strv_freep) char **states = NULL;
+        _cleanup_(strv_freep) char **patterns = NULL;
         int r;
 
         r = sd_bus_message_read_strv(message, &states);
@@ -1518,7 +1518,7 @@ static int dump_units_matching_patterns(
                 void *userdata,
                 sd_bus_error *reterr_error,
                 int (*reply)(sd_bus_message *, char *)) {
-        _cleanup_strv_free_ char **patterns = NULL;
+        _cleanup_(strv_freep) char **patterns = NULL;
         int r;
 
         r = sd_bus_message_read_strv(message, &patterns);
@@ -1878,7 +1878,7 @@ static int method_switch_root(sd_bus_message *message, void *userdata, sd_bus_er
 }
 
 static int method_set_environment(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        _cleanup_strv_free_ char **plus = NULL;
+        _cleanup_(strv_freep) char **plus = NULL;
         Manager *m = ASSERT_PTR(userdata);
         int r;
 
@@ -1908,7 +1908,7 @@ static int method_set_environment(sd_bus_message *message, void *userdata, sd_bu
 }
 
 static int method_unset_environment(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        _cleanup_strv_free_ char **minus = NULL;
+        _cleanup_(strv_freep) char **minus = NULL;
         Manager *m = ASSERT_PTR(userdata);
         int r;
 
@@ -1940,7 +1940,7 @@ static int method_unset_environment(sd_bus_message *message, void *userdata, sd_
 }
 
 static int method_unset_and_set_environment(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        _cleanup_strv_free_ char **minus = NULL, **plus = NULL;
+        _cleanup_(strv_freep) char **minus = NULL, **plus = NULL;
         Manager *m = ASSERT_PTR(userdata);
         int r;
 
@@ -2223,8 +2223,8 @@ static int method_list_unit_files(sd_bus_message *message, void *userdata, sd_bu
 }
 
 static int method_list_unit_files_by_patterns(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        _cleanup_strv_free_ char **states = NULL;
-        _cleanup_strv_free_ char **patterns = NULL;
+        _cleanup_(strv_freep) char **states = NULL;
+        _cleanup_(strv_freep) char **patterns = NULL;
         int r;
 
         r = sd_bus_message_read_strv(message, &states);
@@ -2416,7 +2416,7 @@ static int method_enable_unit_files_generic(
                 bool carries_install_info,
                 sd_bus_error *reterr_error) {
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         InstallChange *changes = NULL;
         size_t n_changes = 0;
         UnitFileFlags flags;
@@ -2491,7 +2491,7 @@ static int method_mask_unit_files(sd_bus_message *message, void *userdata, sd_bu
 
 static int method_preset_unit_files_with_mode(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         InstallChange *changes = NULL;
         size_t n_changes = 0;
         Manager *m = ASSERT_PTR(userdata);
@@ -2541,7 +2541,7 @@ static int method_disable_unit_files_generic(
                 bool carries_install_info,
                 sd_bus_error *reterr_error) {
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         InstallChange *changes = NULL;
         UnitFileFlags flags;
         size_t n_changes = 0;
@@ -2605,7 +2605,7 @@ static int method_unmask_unit_files(sd_bus_message *message, void *userdata, sd_
 }
 
 static int method_revert_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         InstallChange *changes = NULL;
         size_t n_changes = 0;
         Manager *m = ASSERT_PTR(userdata);
@@ -2706,7 +2706,7 @@ static int method_preset_all_unit_files(sd_bus_message *message, void *userdata,
 }
 
 static int method_add_dependency_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         Manager *m = ASSERT_PTR(userdata);
         InstallChange *changes = NULL;
         size_t n_changes = 0;

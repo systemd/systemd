@@ -256,7 +256,7 @@ int get_locales(char ***ret) {
                         free(set_remove(locales, locale));
         }
 
-        _cleanup_strv_free_ char **l = set_to_strv(&locales);
+        _cleanup_(strv_freep) char **l = set_to_strv(&locales);
         if (!l)
                 return -ENOMEM;
 

@@ -284,7 +284,7 @@ enum nss_status userdb_getgrnam(
                 int *errnop) {
 
         _cleanup_(group_record_unrefp) GroupRecord *g = NULL;
-        _cleanup_strv_free_ char **members = NULL;
+        _cleanup_(strv_freep) char **members = NULL;
         int r;
 
         assert(gr);
@@ -350,7 +350,7 @@ enum nss_status userdb_getgrgid(
                 int *errnop) {
 
         _cleanup_(group_record_unrefp) GroupRecord *g = NULL;
-        _cleanup_strv_free_ char **members = NULL;
+        _cleanup_(strv_freep) char **members = NULL;
         bool from_nss;
         int r;
 

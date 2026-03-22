@@ -230,7 +230,7 @@ static int run(int argc, char *argv[]) {
                         RET_GATHER(r, apply_file(argv[i], false));
 
         } else {
-                _cleanup_strv_free_ char **files = NULL;
+                _cleanup_(strv_freep) char **files = NULL;
 
                 r = conf_files_list_strv(&files, ".conf", /* root= */ NULL, CONF_FILES_WARN, (const char**) CONF_PATHS_STRV("binfmt.d"));
                 if (r < 0)

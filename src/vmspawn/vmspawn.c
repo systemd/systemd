@@ -643,7 +643,7 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_FIRMWARE:
                         if (streq(optarg, "list")) {
-                                _cleanup_strv_free_ char **l = NULL;
+                                _cleanup_(strv_freep) char **l = NULL;
 
                                 r = list_ovmf_config(&l);
                                 if (r < 0)
@@ -893,7 +893,7 @@ static int read_vsock_notify(NotifyConnectionData *d, int fd) {
         assert(d->full < sizeof(d->buffer));
         d->buffer[d->full] = 0;
 
-        _cleanup_strv_free_ char **tags = strv_split(d->buffer, "\n\r");
+        _cleanup_(strv_freep) char **tags = strv_split(d->buffer, "\n\r");
         if (!tags)
                 return log_oom();
 
@@ -1332,7 +1332,7 @@ static int start_tpm(
 
         /* Try passing --profile-name default-v2 first, in order to support RSA4096 pcrsig keys, which was
          * added in 0.11. */
-        _cleanup_strv_free_ char **argv = strv_new(
+        _cleanup_(strv_freep) char **argv = strv_new(
                         swtpm_setup,
                         "--tpm-state", state_dir,
                         "--tpm2",
@@ -1421,7 +1421,7 @@ static int start_systemd_journal_remote(
         if (r < 0)
                 return log_error_errno(r, "Failed to find systemd-journal-remote binary: %m");
 
-        _cleanup_strv_free_ char **argv = strv_new(
+        _cleanup_(strv_freep) char **argv = strv_new(
                         sd_socket_activate,
                         "--listen", listen_address,
                         sd_journal_remote,
@@ -1553,7 +1553,7 @@ static int start_virtiofsd(
                 return log_oom();
 
         /* QEMU doesn't support submounts so don't announce them */
-        _cleanup_strv_free_ char **argv = strv_new(
+        _cleanup_(strv_freep) char **argv = strv_new(
                         virtiofsd,
                         "--shared-dir", source_uid == FOREIGN_UID_MIN ? "/run/systemd/mount-rootfs" : directory,
                         "--xattr",
@@ -1783,7 +1783,7 @@ static int discover_boot_entry(const char *root, char **ret_linux, char ***ret_i
         log_debug("Discovered boot entry %s (%s)", boot_entry->id, boot_entry_type_description_to_string(boot_entry->type));
 
         _cleanup_free_ char *linux_kernel = NULL;
-        _cleanup_strv_free_ char **initrds = NULL;
+        _cleanup_(strv_freep) char **initrds = NULL;
         if (boot_entry->type == BOOT_ENTRY_TYPE2) { /* UKI */
                 linux_kernel = path_join(boot_entry->root, boot_entry->kernel);
                 if (!linux_kernel)
@@ -1855,7 +1855,7 @@ static int merge_initrds(char **ret) {
 
 static int generate_ssh_keypair(const char *key_path, const char *key_type) {
         _cleanup_free_ char *ssh_keygen = NULL;
-        _cleanup_strv_free_ char **cmdline = NULL;
+        _cleanup_(strv_freep) char **cmdline = NULL;
         int r;
 
         assert(key_path);
@@ -1956,7 +1956,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         _cleanup_(rm_rf_subvolume_and_freep) char *snapshot_directory = NULL;
         _cleanup_(release_lock_file) LockFile tree_global_lock = LOCK_FILE_INIT, tree_local_lock = LOCK_FILE_INIT;
         _cleanup_close_ int notify_sock_fd = -EBADF;
-        _cleanup_strv_free_ char **cmdline = NULL;
+        _cleanup_(strv_freep) char **cmdline = NULL;
         _cleanup_free_ int *pass_fds = NULL;
         sd_event_source **children = NULL;
         size_t n_children = 0, n_pass_fds = 0;
@@ -3224,7 +3224,7 @@ static int verify_arguments(void) {
 
 static int run(int argc, char *argv[]) {
         int r, kvm_device_fd = -EBADF, vhost_device_fd = -EBADF;
-        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_(strv_freep) char **names = NULL;
 
         log_setup();
 

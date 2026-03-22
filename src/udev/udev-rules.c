@@ -1820,7 +1820,7 @@ UdevRules* udev_rules_new(ResolveNameTiming resolve_name_timing) {
 
 int udev_rules_load(UdevRules **ret_rules, ResolveNameTiming resolve_name_timing, char * const *extra) {
         _cleanup_(udev_rules_freep) UdevRules *rules = NULL;
-        _cleanup_strv_free_ char **directories = NULL;
+        _cleanup_(strv_freep) char **directories = NULL;
         int r;
 
         rules = udev_rules_new(resolve_name_timing);
@@ -2457,7 +2457,7 @@ static int udev_rule_apply_token_to_event(
                 assert_not_reached();
         }
         case TK_M_IMPORT_PROGRAM: {
-                _cleanup_strv_free_ char **lines = NULL;
+                _cleanup_(strv_freep) char **lines = NULL;
                 char buf[UDEV_LINE_SIZE], result[UDEV_LINE_SIZE];
                 bool truncated;
 
@@ -3291,7 +3291,7 @@ int udev_rules_apply_to_event(UdevRules *rules, UdevEvent *event) {
 }
 
 static int udev_rule_line_apply_static_dev_perms(UdevRuleLine *rule_line) {
-        _cleanup_strv_free_ char **tags = NULL;
+        _cleanup_(strv_freep) char **tags = NULL;
         uid_t uid = UID_INVALID;
         gid_t gid = GID_INVALID;
         mode_t mode = MODE_INVALID;

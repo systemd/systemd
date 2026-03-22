@@ -176,7 +176,7 @@ int verb_import_environment(int argc, char *argv[], uintptr_t _data, void *userd
         if (argc < 2) {
                 log_warning("Calling import-environment without a list of variable names is deprecated.");
 
-                _cleanup_strv_free_ char **copy = strv_copy(environ);
+                _cleanup_(strv_freep) char **copy = strv_copy(environ);
                 if (!copy)
                         return log_oom();
 

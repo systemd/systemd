@@ -179,7 +179,7 @@ int blockdev_list(BlockDevListFlags flags, BlockDevice **ret_devices, size_t *re
                         }
                 }
 
-                _cleanup_strv_free_ char **list = NULL;
+                _cleanup_(strv_freep) char **list = NULL;
                 if (FLAGS_SET(flags, BLOCKDEV_LIST_SHOW_SYMLINKS)) {
                         FOREACH_DEVICE_DEVLINK(dev, sl)
                                 if (strv_extend(&list, sl) < 0)

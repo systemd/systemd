@@ -677,7 +677,7 @@ static int job_node_enumerator(
                 char ***nodes,
                 sd_bus_error *error) {
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         Manager *m = ASSERT_PTR(userdata);
         Job *j;
         unsigned k = 0;
@@ -798,7 +798,7 @@ static int sysupdate_run_simple(sd_json_variant **ret, Target *t, ...) {
                 /* Child */
                 va_list ap;
                 char *arg;
-                _cleanup_strv_free_ char **args = NULL;
+                _cleanup_(strv_freep) char **args = NULL;
 
                 if (strv_extend(&args, "systemd-sysupdate") < 0) {
                         log_oom();
@@ -873,7 +873,7 @@ static int target_method_list_finish(
                 sd_bus_error *error) {
 
         sd_json_variant *v;
-        _cleanup_strv_free_ char **versions = NULL;
+        _cleanup_(strv_freep) char **versions = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         int r;
 
@@ -1360,7 +1360,7 @@ static int target_get_appstream(Target *t, char ***ret) {
 static int target_method_get_appstream(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
         Target *t = ASSERT_PTR(userdata);
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_strv_free_ char **appstream_urls = NULL;
+        _cleanup_(strv_freep) char **appstream_urls = NULL;
         int r;
 
         r = target_get_appstream(t, &appstream_urls);
@@ -1380,7 +1380,7 @@ static int target_method_get_appstream(sd_bus_message *msg, void *userdata, sd_b
 
 static int target_method_list_features(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
-        _cleanup_strv_free_ char **features = NULL;
+        _cleanup_(strv_freep) char **features = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         Target *t = ASSERT_PTR(userdata);
         sd_json_variant *v;
@@ -1541,7 +1541,7 @@ static int target_method_set_feature_enabled(sd_bus_message *msg, void *userdata
 
 static int target_list_components(Target *t, char ***ret_components, bool *ret_have_default) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
-        _cleanup_strv_free_ char **components = NULL;
+        _cleanup_(strv_freep) char **components = NULL;
         sd_json_variant *v;
         bool have_default;
         int r;
@@ -1628,7 +1628,7 @@ static int target_node_enumerator(
                 char ***nodes,
                 sd_bus_error *error) {
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         Manager *m = ASSERT_PTR(userdata);
         Target *t;
         unsigned k = 0;
@@ -1895,7 +1895,7 @@ static int manager_enumerate_image_class(Manager *m, TargetClass class) {
 }
 
 static int manager_enumerate_components(Manager *m) {
-        _cleanup_strv_free_ char **components = NULL;
+        _cleanup_(strv_freep) char **components = NULL;
         bool have_default;
         int r;
 
@@ -2047,7 +2047,7 @@ static int method_list_jobs(sd_bus_message *msg, void *userdata, sd_bus_error *e
 }
 
 static int method_list_appstream(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
-        _cleanup_strv_free_ char **urls = NULL;
+        _cleanup_(strv_freep) char **urls = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         Manager *m = ASSERT_PTR(userdata);
         Target *t;

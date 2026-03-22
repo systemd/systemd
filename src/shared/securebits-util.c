@@ -28,7 +28,7 @@ static inline const char* secure_bit_to_string(int i) {
 }
 
 int secure_bits_to_string_alloc(int i, char **ret) {
-        _cleanup_strv_free_ char **sv = NULL;
+        _cleanup_(strv_freep) char **sv = NULL;
         _cleanup_free_ char *joined = NULL;
         int r;
 
@@ -47,7 +47,7 @@ int secure_bits_to_string_alloc(int i, char **ret) {
 }
 
 int secure_bits_to_strv(int i, char ***ret) {
-        _cleanup_strv_free_ char **sv = NULL;
+        _cleanup_(strv_freep) char **sv = NULL;
         static const int bits[] = {
                 SECURE_KEEP_CAPS,
                 SECURE_KEEP_CAPS_LOCKED,

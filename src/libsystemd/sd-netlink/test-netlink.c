@@ -497,7 +497,7 @@ TEST(message_array) {
 TEST(message_strv) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
-        _cleanup_strv_free_ char **names_in = NULL, **names_out;
+        _cleanup_(strv_freep) char **names_in = NULL, **names_out;
         const char *p;
 
         ASSERT_OK(sd_netlink_open(&rtnl));
@@ -621,7 +621,7 @@ TEST(rtnl_set_link_name) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL, *reply = NULL;
         _cleanup_(remove_dummy_interfacep) int ifindex = 0;
-        _cleanup_strv_free_ char **alternative_names = NULL;
+        _cleanup_(strv_freep) char **alternative_names = NULL;
         int r;
 
         if (geteuid() != 0)

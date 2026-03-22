@@ -230,7 +230,7 @@ static int enumerate_dir_d(
 
         _cleanup_free_ char *unit = NULL;
         _cleanup_free_ char *path = NULL;
-        _cleanup_strv_free_ char **list = NULL;
+        _cleanup_(strv_freep) char **list = NULL;
         char *c;
         int r;
 
@@ -303,7 +303,7 @@ static int enumerate_dir(
                 const char *path, bool dropins) {
 
         _cleanup_closedir_ DIR *d = NULL;
-        _cleanup_strv_free_ char **files = NULL, **dirs = NULL;
+        _cleanup_(strv_freep) char **files = NULL, **dirs = NULL;
         size_t n_files = 0, n_dirs = 0;
         int r;
 

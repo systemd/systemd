@@ -1042,7 +1042,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_OUTPUT_FIELDS: {
-                        _cleanup_strv_free_ char **v = NULL;
+                        _cleanup_(strv_freep) char **v = NULL;
 
                         v = strv_split(optarg, ",");
                         if (!v)
@@ -1152,7 +1152,7 @@ static int parse_argv(int argc, char *argv[]) {
 static int run(int argc, char *argv[]) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
-        _cleanup_strv_free_ char **args = NULL;
+        _cleanup_(strv_freep) char **args = NULL;
         int r;
 
         setlocale(LC_ALL, "");

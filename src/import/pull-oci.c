@@ -1031,7 +1031,7 @@ static int oci_pull_save_nspawn_settings(OciPull *i) {
                         return r;
         }
 
-        _cleanup_strv_free_ char **cmdline = strv_copy(config_data.entrypoint);
+        _cleanup_(strv_freep) char **cmdline = strv_copy(config_data.entrypoint);
         if (!cmdline)
                 return log_oom();
         if (strv_extend_strv(&cmdline, config_data.cmd, /* filter_duplicates= */ false) < 0)
@@ -1414,7 +1414,7 @@ static int oci_pull_process_authentication_challenge(OciPull *i, const char *cha
 
         e += strspn(e, WHITESPACE);
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         r = strv_split_full(&l, e, ",", EXTRACT_KEEP_QUOTE);
         if (r < 0)
                 return log_error_errno(r, "Failed to split bearer token parameters: %m");

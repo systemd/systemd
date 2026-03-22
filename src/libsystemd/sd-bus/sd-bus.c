@@ -305,7 +305,7 @@ _public_ int sd_bus_set_fd(sd_bus *bus, int input_fd, int output_fd) {
 }
 
 _public_ int sd_bus_set_exec(sd_bus *bus, const char *path, char *const *argv) {
-        _cleanup_strv_free_ char **a = NULL;
+        _cleanup_(strv_freep) char **a = NULL;
         int r;
 
         assert_return(bus, -EINVAL);
@@ -4031,7 +4031,7 @@ _public_ int sd_bus_path_decode(const char *path, const char *prefix, char **ret
 }
 
 _public_ int sd_bus_path_encode_many(char **ret, const char *path_template, ...) {
-        _cleanup_strv_free_ char **labels = NULL;
+        _cleanup_(strv_freep) char **labels = NULL;
         char *path, *path_pos, **label_pos;
         const char *sep, *template_pos;
         size_t path_length;
@@ -4094,7 +4094,7 @@ _public_ int sd_bus_path_encode_many(char **ret, const char *path_template, ...)
 }
 
 _public_ int sd_bus_path_decode_many(const char *path, const char *path_template, ...) {
-        _cleanup_strv_free_ char **labels = NULL;
+        _cleanup_(strv_freep) char **labels = NULL;
         const char *template_pos, *path_pos;
         char **label_pos;
         va_list list;

@@ -388,7 +388,7 @@ TEST(set_fnmatch) {
 
 TEST(set_to_strv) {
         _cleanup_set_free_ Set *set = NULL;
-        _cleanup_strv_free_ char **a = NULL;
+        _cleanup_(strv_freep) char **a = NULL;
         _cleanup_free_ char **b = NULL;
         char **v = STRV_MAKE("aaa", "bbb", "ccc");
 
