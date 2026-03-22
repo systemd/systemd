@@ -397,6 +397,8 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp_use_gateway = -1,
                 .dhcp_send_hostname = true,
                 .dhcp_send_release = true,
+                .dhcp_extra_options = TLV_INIT(TLV_DHCP4),
+                .dhcp_vendor_options = TLV_INIT(TLV_DHCP4_SUBOPTION),
                 .dhcp_route_metric = DHCP_ROUTE_METRIC,
                 .dhcp_use_rapid_commit = -1,
                 .dhcp_client_identifier = _DHCP_CLIENT_ID_INVALID,
@@ -436,6 +438,8 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp_server_emit_router = true,
                 .dhcp_server_emit_timezone = true,
                 .dhcp_server_rapid_commit = true,
+                .dhcp_server_extra_options = TLV_INIT(TLV_DHCP4),
+                .dhcp_server_vendor_options = TLV_INIT(TLV_DHCP4_SUBOPTION),
                 .dhcp_server_persist_leases = _DHCP_SERVER_PERSIST_LEASES_INVALID,
 
                 .router_lifetime_usec = RADV_DEFAULT_ROUTER_LIFETIME_USEC,
@@ -771,8 +775,8 @@ static Network *network_free(Network *network) {
         free(network->dhcp_server_uplink_name);
         for (sd_dhcp_lease_server_type_t t = 0; t < _SD_DHCP_LEASE_SERVER_TYPE_MAX; t++)
                 free(network->dhcp_server_emit[t].addresses);
-        ordered_hashmap_free(network->dhcp_server_send_options);
-        ordered_hashmap_free(network->dhcp_server_send_vendor_options);
+        tlv_done(&network->dhcp_server_extra_options);
+        tlv_done(&network->dhcp_server_vendor_options);
         free(network->dhcp_server_local_lease_domain);
 
         /* DHCP client */
@@ -784,8 +788,8 @@ static Network *network_free(Network *network) {
         set_free(network->dhcp_allow_listed_ip);
         strv_free(network->dhcp_user_class);
         set_free(network->dhcp_request_options);
-        ordered_hashmap_free(network->dhcp_client_send_options);
-        ordered_hashmap_free(network->dhcp_client_send_vendor_options);
+        tlv_done(&network->dhcp_extra_options);
+        tlv_done(&network->dhcp_vendor_options);
         free(network->dhcp_netlabel);
         nft_set_context_clear(&network->dhcp_nft_set_context);
 
