@@ -503,39 +503,29 @@ int sd_dhcp_client_set_max_attempts(sd_dhcp_client *client, uint64_t max_attempt
         return 0;
 }
 
-int sd_dhcp_client_add_option(sd_dhcp_client *client, sd_dhcp_option *v) {
+static int dhcp_client_set_options(sd_dhcp_client *client, Hashmap *options, Hashmap **dest) {
         int r;
 
-        assert_return(client, -EINVAL);
-        assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
-        assert_return(v, -EINVAL);
+        assert(client);
+        assert(!sd_dhcp_client_is_running(client));
+        assert(dest);
 
-        r = ordered_hashmap_ensure_put(&client->extra_options, &dhcp_option_hash_ops, UINT_TO_PTR(v->option), v);
+        _cleanup_hashmap_free_ Hashmap *copy = NULL;
+        r = dhcp_options_append_many(&copy, options);
         if (r < 0)
                 return r;
 
-        sd_dhcp_option_ref(v);
-        return 0;
+        return hashmap_free_and_replace(*dest, copy);
 }
 
-int sd_dhcp_client_add_vendor_option(sd_dhcp_client *client, sd_dhcp_option *v) {
-        int r;
+int dhcp_client_set_extra_options(sd_dhcp_client *client, Hashmap *options) {
+        assert(client);
+        return dhcp_client_set_options(client, options, &client->extra_options);
+}
 
-        assert_return(client, -EINVAL);
-        assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
-        assert_return(v, -EINVAL);
-
-        r = ordered_hashmap_ensure_allocated(&client->vendor_options, &dhcp_option_hash_ops);
-        if (r < 0)
-                return -ENOMEM;
-
-        r = ordered_hashmap_put(client->vendor_options, v, v);
-        if (r < 0)
-                return r;
-
-        sd_dhcp_option_ref(v);
-
-        return 1;
+int dhcp_client_set_vendor_options(sd_dhcp_client *client, Hashmap *options) {
+        assert(client);
+        return dhcp_client_set_options(client, options, &client->vendor_options);
 }
 
 int sd_dhcp_client_get_lease(sd_dhcp_client *client, sd_dhcp_lease **ret) {
@@ -914,7 +904,6 @@ static int client_append_fqdn_option(
 }
 
 static int client_append_common_discover_request_options(sd_dhcp_client *client, DHCPPacket *packet, size_t *optoffset, size_t optlen) {
-        sd_dhcp_option *j;
         int r;
 
         assert(client);
@@ -964,18 +953,25 @@ static int client_append_common_discover_request_options(sd_dhcp_client *client,
                         return r;
         }
 
-        ORDERED_HASHMAP_FOREACH(j, client->extra_options) {
-                r = dhcp_option_append(&packet->dhcp, optlen, optoffset, 0,
-                                       j->option, j->length, j->data);
+        sd_dhcp_option *o;
+        HASHMAP_FOREACH(o, client->extra_options)
+                LIST_FOREACH(option, j, o) {
+                        r = dhcp_option_append(&packet->dhcp, optlen, optoffset, 0,
+                                               j->option, j->length, j->data);
+                        if (r < 0)
+                                return r;
+                }
+
+        if (!hashmap_isempty(client->vendor_options)) {
+                _cleanup_(iovec_done) struct iovec iov = {};
+                r = dhcp_options_build(client->vendor_options, &iov);
                 if (r < 0)
                         return r;
-        }
 
-        if (!ordered_hashmap_isempty(client->vendor_options)) {
                 r = dhcp_option_append(
                                 &packet->dhcp, optlen, optoffset, 0,
                                 SD_DHCP_OPTION_VENDOR_SPECIFIC,
-                                /* optlen= */ 0, client->vendor_options);
+                                iov.iov_len, iov.iov_base);
                 if (r < 0)
                         return r;
         }
@@ -2302,8 +2298,8 @@ static sd_dhcp_client* dhcp_client_free(sd_dhcp_client *client) {
         free(client->vendor_class_identifier);
         free(client->mudurl);
         client->user_class = strv_free(client->user_class);
-        ordered_hashmap_free(client->extra_options);
-        ordered_hashmap_free(client->vendor_options);
+        hashmap_free(client->extra_options);
+        hashmap_free(client->vendor_options);
         free(client->ifname);
         return mfree(client);
 }
