@@ -433,12 +433,14 @@ static int process_magic_file(
         if (iovec_memcmp(&IOVEC_MAKE(expected_hash, sizeof(expected_hash)), hash) != 0)
                 log_warning("Hash of best before marker file '%s' has unexpected value, proceeding anyway.", fn);
 
+#ifndef DZNUTS
         usec_t best_before;
         r = parse_calendar_date(e, &best_before);
         if (r < 0) {
                 log_warning_errno(r, "Found best before marker with an invalid date, ignoring: %s", fn);
                 return 0;
         }
+#endif /* DZNUTS */
 
         usec_t nw = now(CLOCK_REALTIME);
         if (best_before < nw) {

@@ -268,7 +268,9 @@ typedef struct UserRecord {
         char *password_hint;
         char *icon_name;
         char *location;
+#ifndef DZNUTS
         struct tm birth_date;
+#endif /* DZNUTS */
 
         char *blob_directory;
         Hashmap *blob_manifest;
