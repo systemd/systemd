@@ -1011,8 +1011,7 @@ static int client_append_common_discover_request_options(sd_dhcp_client *client,
         if (client->user_class) {
                 r = dhcp_option_append(&packet->dhcp, optlen, optoffset, 0,
                                        SD_DHCP_OPTION_USER_CLASS,
-                                       strv_length(client->user_class),
-                                       client->user_class);
+                                       /* optlen= */ 0, client->user_class);
                 if (r < 0)
                         return r;
         }
@@ -1028,7 +1027,7 @@ static int client_append_common_discover_request_options(sd_dhcp_client *client,
                 r = dhcp_option_append(
                                 &packet->dhcp, optlen, optoffset, 0,
                                 SD_DHCP_OPTION_VENDOR_SPECIFIC,
-                                ordered_hashmap_size(client->vendor_options), client->vendor_options);
+                                /* optlen= */ 0, client->vendor_options);
                 if (r < 0)
                         return r;
         }

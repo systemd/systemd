@@ -719,7 +719,7 @@ static int server_send_offer_or_ack(
                 r = dhcp_option_append(
                                 &packet->dhcp, req->max_optlen, &offset, 0,
                                 SD_DHCP_OPTION_VENDOR_SPECIFIC,
-                                ordered_set_size(server->vendor_options), server->vendor_options);
+                                /* optlen= */ 0, server->vendor_options);
                 if (r < 0)
                         return r;
         }
