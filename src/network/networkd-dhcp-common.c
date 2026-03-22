@@ -708,13 +708,12 @@ int config_parse_dhcp_send_option(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(sd_dhcp_option_unrefp) sd_dhcp_option *opt4 = NULL;
         _cleanup_(sd_dhcp6_option_unrefp) sd_dhcp6_option *opt6 = NULL;
-        _unused_ _cleanup_(sd_dhcp_option_unrefp) sd_dhcp_option *old4 = NULL;
         _unused_ _cleanup_(sd_dhcp6_option_unrefp) sd_dhcp6_option *old6 = NULL;
         uint32_t uint32_data, enterprise_identifier = 0;
         _cleanup_free_ char *word = NULL, *q = NULL;
-        OrderedHashmap **options = ASSERT_PTR(data);
+        OrderedHashmap **dhcp6_options = ASSERT_PTR(data);
+        Hashmap **dhcp4_options = ASSERT_PTR(data);
         uint16_t u16, uint16_data;
         union in_addr_union addr;
         DHCPOptionDataType type;
@@ -729,7 +728,10 @@ int config_parse_dhcp_send_option(
         assert(rvalue);
 
         if (isempty(rvalue)) {
-                *options = ordered_hashmap_free(*options);
+                if (ltype == AF_INET6)
+                        *dhcp6_options = ordered_hashmap_free(*dhcp6_options);
+                else
+                        *dhcp4_options = hashmap_free(*dhcp4_options);
                 return 0;
         }
 
@@ -895,13 +897,13 @@ int config_parse_dhcp_send_option(
                         return 0;
                 }
 
-                r = ordered_hashmap_ensure_allocated(options, &dhcp6_option_hash_ops);
+                r = ordered_hashmap_ensure_allocated(dhcp6_options, &dhcp6_option_hash_ops);
                 if (r < 0)
                         return log_oom();
 
                 /* Overwrite existing option */
-                old6 = ordered_hashmap_get(*options, UINT_TO_PTR(u16));
-                r = ordered_hashmap_replace(*options, UINT_TO_PTR(u16), opt6);
+                old6 = ordered_hashmap_get(*dhcp6_options, UINT_TO_PTR(u16));
+                r = ordered_hashmap_replace(*dhcp6_options, UINT_TO_PTR(u16), opt6);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to store DHCP option '%s', ignoring assignment: %m", rvalue);
@@ -909,26 +911,12 @@ int config_parse_dhcp_send_option(
                 }
                 TAKE_PTR(opt6);
         } else {
-                r = sd_dhcp_option_new(u8, udata, sz, &opt4);
+                r = dhcp_options_append(dhcp4_options, u8, sz, udata);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to store DHCP option '%s', ignoring assignment: %m", rvalue);
+                                   "Failed to add DHCP option '%s', ignoring assignment: %m", rvalue);
                         return 0;
                 }
-
-                r = ordered_hashmap_ensure_allocated(options, &dhcp_option_hash_ops);
-                if (r < 0)
-                        return log_oom();
-
-                /* Overwrite existing option */
-                old4 = ordered_hashmap_get(*options, UINT_TO_PTR(u8));
-                r = ordered_hashmap_replace(*options, UINT_TO_PTR(u8), opt4);
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to store DHCP option '%s', ignoring assignment: %m", rvalue);
-                        return 0;
-                }
-                TAKE_PTR(opt4);
         }
         return 0;
 }
