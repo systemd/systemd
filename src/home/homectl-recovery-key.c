@@ -45,7 +45,7 @@ static int add_privileged(sd_json_variant **v, const char *hashed) {
 }
 
 static int add_public(sd_json_variant **v) {
-        _cleanup_strv_free_ char **types = NULL;
+        _cleanup_(strv_freep) char **types = NULL;
         int r;
 
         assert(v);
@@ -67,7 +67,7 @@ static int add_public(sd_json_variant **v) {
 
 static int add_secret(sd_json_variant **v, const char *password) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL, *l = NULL;
-        _cleanup_strv_free_erase_ char **passwords = NULL;
+        _cleanup_(strv_free_erasep) char **passwords = NULL;
         int r;
 
         assert(v);

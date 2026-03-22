@@ -65,7 +65,7 @@ static int json_dispatch_entries(const char *name, sd_json_variant *variant, sd_
 
 static int json_dispatch_loader(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         BootConfig *config = ASSERT_PTR(userdata);
-        _cleanup_strv_free_ char **entries = NULL;
+        _cleanup_(strv_freep) char **entries = NULL;
         int r;
 
         r = sd_json_dispatch_strv(name, variant, flags, &entries);

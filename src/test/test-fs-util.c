@@ -63,7 +63,7 @@ TEST(readlink_and_make_absolute) {
 }
 
 TEST(get_files_in_directory) {
-        _cleanup_strv_free_ char **l = NULL, **t = NULL;
+        _cleanup_(strv_freep) char **l = NULL, **t = NULL;
 
         assert_se(get_files_in_directory(arg_test_dir ?: "/tmp", &l) >= 0);
         assert_se(get_files_in_directory(".", &t) >= 0);

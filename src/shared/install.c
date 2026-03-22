@@ -1540,7 +1540,7 @@ static int unit_file_search(
                 SearchFlags flags) {
 
         const char *dropin_dir_name = NULL, *dropin_template_dir_name = NULL;
-        _cleanup_strv_free_ char **dirs = NULL, **files = NULL;
+        _cleanup_(strv_freep) char **dirs = NULL, **files = NULL;
         _cleanup_free_ char *template = NULL;
         bool found_unit = false;
         int r, result;
@@ -2396,7 +2396,7 @@ int unit_file_unmask(
 
         _cleanup_(lookup_paths_done) LookupPaths lp = {};
         _cleanup_set_free_ Set *remove_symlinks_to = NULL;
-        _cleanup_strv_free_ char **todo = NULL;
+        _cleanup_(strv_freep) char **todo = NULL;
         const char *config_path;
         size_t n_todo = 0;
         int r, q;
@@ -2613,7 +2613,7 @@ int unit_file_revert(
 
         _cleanup_set_free_ Set *remove_symlinks_to = NULL;
         _cleanup_(lookup_paths_done) LookupPaths lp = {};
-        _cleanup_strv_free_ char **todo = NULL;
+        _cleanup_(strv_freep) char **todo = NULL;
         size_t n_todo = 0;
         int r, q;
 
@@ -2716,7 +2716,7 @@ int unit_file_revert(
 
         r = 0;
         STRV_FOREACH(i, todo) {
-                _cleanup_strv_free_ char **fs = NULL;
+                _cleanup_(strv_freep) char **fs = NULL;
                 const char *rp;
 
                 (void) get_files_in_directory(*i, &fs);
@@ -2971,7 +2971,7 @@ static int normalize_linked_files(
          * but operates on real unit names. For each argument we look up the actual path
          * where the unit is found. This way linked units can be re-enabled successfully. */
 
-        _cleanup_strv_free_ char **files = NULL, **names = NULL;
+        _cleanup_(strv_freep) char **files = NULL, **names = NULL;
         int r;
 
         STRV_FOREACH(a, names_or_paths) {
@@ -3027,7 +3027,7 @@ int unit_file_reenable(
                 size_t *n_changes) {
 
         _cleanup_(lookup_paths_done) LookupPaths lp = {};
-        _cleanup_strv_free_ char **names = NULL, **files = NULL;
+        _cleanup_(strv_freep) char **names = NULL, **files = NULL;
         int r;
 
         assert(scope >= 0);
@@ -3280,7 +3280,7 @@ int unit_file_exists_full(
 }
 
 static int split_pattern_into_name_and_instances(const char *pattern, char **out_unit_name, char ***out_instances) {
-        _cleanup_strv_free_ char **instances = NULL;
+        _cleanup_(strv_freep) char **instances = NULL;
         _cleanup_free_ char *unit_name = NULL;
         int r;
 
@@ -3351,7 +3351,7 @@ static int presets_find_config(RuntimeScope scope, const char *root_dir, char **
 
 static int read_presets(RuntimeScope scope, const char *root_dir, UnitFilePresets *presets) {
         _cleanup_(unit_file_presets_done) UnitFilePresets ps = {};
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_(strv_freep) char **files = NULL;
         int r;
 
         assert(scope >= 0);
@@ -3475,7 +3475,7 @@ static int pattern_match_multiple_instances(
 
         /* Compose a list of specified instances when unit name is a template  */
         if (unit_name_is_valid(unit_name, UNIT_NAME_TEMPLATE)) {
-                _cleanup_strv_free_ char **out_strv = NULL;
+                _cleanup_(strv_freep) char **out_strv = NULL;
 
                 STRV_FOREACH(iter, rule.instances) {
                         _cleanup_free_ char *name = NULL;
@@ -3622,7 +3622,7 @@ static int preset_prepare_one(
                 size_t *n_changes) {
 
         _cleanup_(install_context_done) InstallContext tmp = { .scope = scope };
-        _cleanup_strv_free_ char **instance_name_list = NULL;
+        _cleanup_(strv_freep) char **instance_name_list = NULL;
         InstallInfo *info;
         int r;
 

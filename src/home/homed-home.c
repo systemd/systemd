@@ -107,7 +107,7 @@ static int suitable_home_record(UserRecord *hr) {
 int home_new(Manager *m, UserRecord *hr, const char *sysfs, Home **ret) {
         _cleanup_(home_freep) Home *home = NULL;
         _cleanup_free_ char *nm = NULL, *ns = NULL, *blob = NULL;
-        _cleanup_strv_free_ char **aliases = NULL;
+        _cleanup_(strv_freep) char **aliases = NULL;
         int r;
 
         assert(m);
@@ -3253,7 +3253,7 @@ int home_auto_login(Home *h, char ***ret_seats) {
         }
 
         if (seat || seat2) {
-                _cleanup_strv_free_ char **list = NULL;
+                _cleanup_(strv_freep) char **list = NULL;
                 size_t i = 0;
 
                 list = new(char*, 3);

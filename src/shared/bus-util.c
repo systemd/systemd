@@ -710,7 +710,7 @@ int bus_track_add_name_many(sd_bus_track *t, char * const *l) {
 }
 
 int bus_track_to_strv(sd_bus_track *t, char ***ret) {
-        _cleanup_strv_free_ char **subscribed = NULL;
+        _cleanup_(strv_freep) char **subscribed = NULL;
         int r;
 
         assert(ret);

@@ -31,7 +31,7 @@
 #include "watchdog.h"
 
 static int manager_environment_build_json(sd_json_variant **ret, const char *name, void *userdata) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         Manager *m = ASSERT_PTR(userdata);
         int r;
 
@@ -143,7 +143,7 @@ static int transactions_with_cycle_build_json(sd_json_variant **ret, const char 
 static int manager_runtime_build_json(sd_json_variant **ret, const char *name, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
         dual_timestamp watchdog_last_ping;
-        _cleanup_strv_free_ char **taints = NULL;
+        _cleanup_(strv_freep) char **taints = NULL;
 
         taints = taint_strv();
         if (!taints)

@@ -99,7 +99,7 @@ static int vl_method_set_environment(sd_varlink *link, sd_json_variant *paramete
 
         assert(link);
 
-        _cleanup_strv_free_ char **v = NULL;
+        _cleanup_(strv_freep) char **v = NULL;
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &v);
         if (r != 0)
                 return r;

@@ -429,7 +429,7 @@ _public_ int sd_path_lookup(uint64_t type, const char *suffix, char **ret) {
                 return r;
 
         /* Fall back to sd_path_lookup_strv */
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
 
         r = sd_path_lookup_strv(type, suffix, &l);
         if (r < 0)
@@ -451,7 +451,7 @@ static int search_from_environment(
                 bool env_search_sufficient,
                 const char *first, ...) {
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         const char *e;
         char *h = NULL;
         int r;
@@ -644,7 +644,7 @@ static int get_search(uint64_t type, char ***ret) {
                 const char *suffix =
                         type == SD_PATH_SYSTEM_SEARCH_CREDENTIAL_STORE_ENCRYPTED ? "credstore.encrypted" : "credstore";
 
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_(strv_freep) char **l = NULL;
                 FOREACH_STRING(d, CONF_PATHS("")) {
                         char *j = path_join(d, suffix);
                         if (!j)
@@ -670,7 +670,7 @@ static int get_search(uint64_t type, char ***ret) {
                         SD_PATH_USER_LIBRARY_PRIVATE,
                 };
 
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_(strv_freep) char **l = NULL;
                 FOREACH_ELEMENT(d, dirs) {
                         _cleanup_free_ char *p = NULL;
                         r = sd_path_lookup(*d, suffix, &p);
@@ -692,7 +692,7 @@ static int get_search(uint64_t type, char ***ret) {
 }
 
 _public_ int sd_path_lookup_strv(uint64_t type, const char *suffix, char ***ret) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         int r;
 
         assert_return(ret, -EINVAL);

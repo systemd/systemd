@@ -1461,7 +1461,7 @@ static PidRef* swap_control_pid(Unit *u) {
 
 static int swap_clean(Unit *u, ExecCleanMask mask) {
         Swap *s = ASSERT_PTR(SWAP(u));
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         int r;
 
         assert(mask != 0);

@@ -745,7 +745,7 @@ static int vl_method_mount_image(
                 TAKE_FD(pp->fsmount_fd);
 
                 const char *m = partition_mountpoint_to_string(d);
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_(strv_freep) char **l = NULL;
                 if (!isempty(m)) {
                         l = strv_split_nulstr(m);
                         if (!l)

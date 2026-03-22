@@ -28,7 +28,7 @@ int proc_cmdline_filter_pid1_args(char **argv, char ***ret) {
         };
         static const char *short_options = SYSTEMD_GETOPT_SHORT_OPTIONS;
 
-        _cleanup_strv_free_ char **filtered = NULL;
+        _cleanup_(strv_freep) char **filtered = NULL;
         int state, r;
 
         assert(argv);
@@ -135,7 +135,7 @@ static int proc_cmdline_strv_internal(char ***ret, bool filter_pid1_args) {
                 return strv_split_full(ret, e, NULL, EXTRACT_UNQUOTE|EXTRACT_RELAX|EXTRACT_RETAIN_ESCAPE);
 
         if (detect_container() > 0) {
-                _cleanup_strv_free_ char **args = NULL;
+                _cleanup_(strv_freep) char **args = NULL;
 
                 r = pid_get_cmdline_strv(1, /* flags= */ 0, &args);
                 if (r < 0)
@@ -207,7 +207,7 @@ static int proc_cmdline_parse_strv(char **args, proc_cmdline_parse_t parse_item,
 }
 
 int proc_cmdline_parse(proc_cmdline_parse_t parse_item, void *data, ProcCmdlineFlags flags) {
-        _cleanup_strv_free_ char **args = NULL;
+        _cleanup_(strv_freep) char **args = NULL;
         int r;
 
         assert(parse_item);
@@ -301,7 +301,7 @@ static int cmdline_get_key(char **args, const char *key, ProcCmdlineFlags flags,
 }
 
 int proc_cmdline_get_key(const char *key, ProcCmdlineFlags flags, char **ret_value) {
-        _cleanup_strv_free_ char **args = NULL;
+        _cleanup_(strv_freep) char **args = NULL;
         int r;
 
         /* Looks for a specific key on the kernel command line. Supports three modes:
@@ -393,7 +393,7 @@ static int cmdline_get_key_ap(ProcCmdlineFlags flags, char* const* args, va_list
 }
 
 int proc_cmdline_get_key_many_internal(ProcCmdlineFlags flags, ...) {
-        _cleanup_strv_free_ char **args = NULL;
+        _cleanup_(strv_freep) char **args = NULL;
         int r;
         va_list ap;
 

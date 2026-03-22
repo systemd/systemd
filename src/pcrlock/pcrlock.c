@@ -1770,7 +1770,7 @@ static int event_log_add_component_file(EventLog *el, EventLogComponent *compone
 
 static int event_log_add_component_dir(EventLog *el, const char *path, char **base_search) {
         _cleanup_free_ char *fname = NULL, *id = NULL;
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_(strv_freep) char **files = NULL;
         EventLogComponent *component;
         const char *e;
         int r;
@@ -1793,7 +1793,7 @@ static int event_log_add_component_dir(EventLog *el, const char *path, char **ba
         if (r < 0)
                 return r;
 
-        _cleanup_strv_free_ char **search = NULL;
+        _cleanup_(strv_freep) char **search = NULL;
 
         STRV_FOREACH(b, base_search) {
                 _cleanup_free_ char *q = NULL;
@@ -1823,7 +1823,7 @@ static int event_log_add_component_dir(EventLog *el, const char *path, char **ba
 }
 
 static int event_log_load_components(EventLog *el) {
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_(strv_freep) char **files = NULL;
         char **dirs;
         int r;
 
@@ -4614,7 +4614,7 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to acquire PIN from environment: %m");
                 if (r == 0) {
-                        _cleanup_strv_free_erase_ char **l = NULL;
+                        _cleanup_(strv_free_erasep) char **l = NULL;
 
                         AskPasswordRequest req = {
                                 .tty_fd = -EBADF,

@@ -59,7 +59,7 @@ int sd_network_get_online_state(char **ret) {
 }
 
 static int network_get_strv(const char *key, char ***ret) {
-        _cleanup_strv_free_ char **a = NULL;
+        _cleanup_(strv_freep) char **a = NULL;
         _cleanup_free_ char *s = NULL;
         int r;
 
@@ -130,7 +130,7 @@ static int network_link_get_boolean(int ifindex, const char *key) {
 }
 
 static int network_link_get_strv(int ifindex, const char *key, char ***ret) {
-        _cleanup_strv_free_ char **a = NULL;
+        _cleanup_(strv_freep) char **a = NULL;
         _cleanup_free_ char *s = NULL;
         int r;
 

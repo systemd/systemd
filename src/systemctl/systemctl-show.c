@@ -88,7 +88,7 @@ static void exec_status_info_free(ExecStatusInfo *i) {
 }
 
 static int exec_status_info_deserialize(sd_bus_message *m, ExecStatusInfo *i, bool is_ex_prop) {
-        _cleanup_strv_free_ char **ex_opts = NULL;
+        _cleanup_(strv_freep) char **ex_opts = NULL;
         uint64_t start_timestamp, exit_timestamp, start_timestamp_monotonic, exit_timestamp_monotonic;
         const char *path;
         uint32_t pid;
@@ -1265,7 +1265,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                         return 1;
 
                 } else if (STR_IN_SET(name, "SystemCallFilter", "SystemCallLog", "RestrictAddressFamilies", "RestrictNetworkInterfaces", "RestrictFileSystems")) {
-                        _cleanup_strv_free_ char **l = NULL;
+                        _cleanup_(strv_freep) char **l = NULL;
                         int allow_list;
 
                         r = sd_bus_message_enter_container(m, 'r', "bas");
@@ -1517,7 +1517,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 return bus_log_parse_error(r);
 
                         while ((r = exec_status_info_deserialize(m, &info, is_ex_prop)) > 0) {
-                                _cleanup_strv_free_ char **optv = NULL;
+                                _cleanup_(strv_freep) char **optv = NULL;
                                 _cleanup_free_ char *tt = NULL, *o = NULL;
 
                                 tt = strv_join(info.argv, " ");
@@ -2122,7 +2122,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
 
                         return 1;
                 } else if (streq(name, "ExtraFileDescriptorNames")) {
-                        _cleanup_strv_free_ char **extra_fd_names = NULL;
+                        _cleanup_(strv_freep) char **extra_fd_names = NULL;
                         _cleanup_free_ char *joined = NULL;
 
                         r = sd_bus_message_read_strv(m, &extra_fd_names);
@@ -2562,7 +2562,7 @@ int verb_show(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 }
 
                 if (!strv_isempty(patterns)) {
-                        _cleanup_strv_free_ char **names = NULL;
+                        _cleanup_(strv_freep) char **names = NULL;
 
                         r = expand_unit_names(bus, patterns, NULL, &names, NULL);
                         if (r < 0)

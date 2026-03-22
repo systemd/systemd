@@ -156,7 +156,7 @@ static const HandleAction sleep_actions[] = {
 };
 
 int handle_action_get_enabled_sleep_actions(HandleActionSleepMask mask, char ***ret) {
-        _cleanup_strv_free_ char **actions = NULL;
+        _cleanup_(strv_freep) char **actions = NULL;
         int r;
 
         assert(ret);
@@ -456,7 +456,7 @@ int config_parse_handle_action_sleep(
                 void *userdata) {
 
         HandleActionSleepMask *mask = ASSERT_PTR(data);
-        _cleanup_strv_free_ char **actions = NULL;
+        _cleanup_(strv_freep) char **actions = NULL;
 
         assert(filename);
         assert(lvalue);

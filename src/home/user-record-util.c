@@ -796,7 +796,7 @@ int user_record_update_last_changed(UserRecord *h, bool with_password) {
 
 int user_record_make_hashed_password(UserRecord *h, char **secret, bool extend) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *priv = NULL;
-        _cleanup_strv_free_ char **np = NULL;
+        _cleanup_(strv_freep) char **np = NULL;
         int r;
 
         assert(h);
@@ -852,7 +852,7 @@ int user_record_make_hashed_password(UserRecord *h, char **secret, bool extend) 
 
 int user_record_set_password(UserRecord *h, char **password, bool prepend) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
-        _cleanup_strv_free_erase_ char **e = NULL;
+        _cleanup_(strv_free_erasep) char **e = NULL;
         int r;
 
         assert(h);
@@ -914,7 +914,7 @@ int user_record_set_password(UserRecord *h, char **password, bool prepend) {
 
 int user_record_set_token_pin(UserRecord *h, char **pin, bool prepend) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
-        _cleanup_strv_free_erase_ char **e = NULL;
+        _cleanup_(strv_free_erasep) char **e = NULL;
         int r;
 
         assert(h);

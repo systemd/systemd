@@ -1898,7 +1898,7 @@ static int verb_enable_machine(int argc, char *argv[], uintptr_t data, void *use
                 return r;
 
         if (arg_now) {
-                _cleanup_strv_free_ char **new_args = NULL;
+                _cleanup_(strv_freep) char **new_args = NULL;
 
                 new_args = strv_new(enable ? "start" : "poweroff");
                 if (!new_args)
@@ -2007,7 +2007,7 @@ static int chainload_importctl(int argc, char *argv[]) {
         if (!arg_quiet)
                 log_notice("The 'machinectl %1$s' command has been replaced by 'importctl -m %1$s'. Redirecting invocation.", argv[optind]);
 
-        _cleanup_strv_free_ char **c =
+        _cleanup_(strv_freep) char **c =
                 strv_new("importctl", "--class=machine");
         if (!c)
                 return log_oom();

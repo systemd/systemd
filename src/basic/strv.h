@@ -18,11 +18,9 @@ char* strv_find_first_field(char * const *needles, char * const *haystack) _pure
 
 char** strv_free(char **l);
 DEFINE_TRIVIAL_CLEANUP_FUNC(char**, strv_free);
-#define _cleanup_strv_free_ _cleanup_(strv_freep)
 
 char** strv_free_erase(char **l);
 DEFINE_TRIVIAL_CLEANUP_FUNC(char**, strv_free_erase);
-#define _cleanup_strv_free_erase_ _cleanup_(strv_free_erasep)
 
 void strv_free_many(char ***strvs, size_t n) _nonnull_if_nonzero_(1, 2);
 

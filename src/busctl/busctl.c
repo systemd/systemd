@@ -176,7 +176,7 @@ static void notify_bus_error(const sd_bus_error *error) {
 }
 
 static int verb_list_bus_names(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_strv_free_ char **acquired = NULL, **activatable = NULL;
+        _cleanup_(strv_freep) char **acquired = NULL, **activatable = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_hashmap_free_ Hashmap *names = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
@@ -566,7 +566,7 @@ static int verb_tree(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         RET_GATHER(r, tree_one(bus, *arg));
                 }
         else {
-                _cleanup_strv_free_ char **names = NULL;
+                _cleanup_(strv_freep) char **names = NULL;
 
                 r = sd_bus_list_names(bus, &names, NULL);
                 if (r < 0)

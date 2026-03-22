@@ -837,7 +837,7 @@ int device_read_uevent_file(sd_device *device) {
         if (r < 0)
                 return log_device_debug_errno(device, r, "sd-device: Failed to read uevent file: %m");
 
-        _cleanup_strv_free_ char **v = NULL;
+        _cleanup_(strv_freep) char **v = NULL;
         r = strv_split_newlines_full(&v, uevent, EXTRACT_RETAIN_ESCAPE);
         if (r < 0)
                 return log_device_debug_errno(device, r, "sd-device: Failed to parse uevent file: %m");

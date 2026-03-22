@@ -116,7 +116,7 @@ TEST(serialize_strv) {
 
         rewind(f);
 
-        _cleanup_strv_free_ char **strv2 = NULL;
+        _cleanup_(strv_freep) char **strv2 = NULL;
         for (;;) {
                 _cleanup_free_ char *line = NULL;
                 int r;
@@ -135,7 +135,7 @@ TEST(serialize_strv) {
 }
 
 TEST(deserialize_environment) {
-        _cleanup_strv_free_ char **env;
+        _cleanup_(strv_freep) char **env;
 
         assert_se(env = strv_new("A=1"));
 
@@ -149,7 +149,7 @@ TEST(deserialize_environment) {
 }
 
 TEST(serialize_environment) {
-        _cleanup_strv_free_ char **env = NULL, **env2 = NULL;
+        _cleanup_(strv_freep) char **env = NULL, **env2 = NULL;
         _cleanup_(unlink_tempfilep) char fn[] = "/tmp/test-env-util.XXXXXXX";
         _cleanup_fclose_ FILE *f = NULL;
         int r;

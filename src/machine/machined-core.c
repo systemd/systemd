@@ -327,7 +327,7 @@ int machine_get_addresses(Machine *machine, struct local_address **ret_addresses
 #define EXIT_NOT_FOUND 2
 
 int machine_get_os_release(Machine *machine, char ***ret_os_release) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         int r;
 
         assert(machine);

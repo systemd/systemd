@@ -956,7 +956,7 @@ int config_parse_exec(
 
                 ignore = FLAGS_SET(flags, EXEC_COMMAND_IGNORE_FAILURE);
 
-                _cleanup_strv_free_ char **args = NULL;
+                _cleanup_(strv_freep) char **args = NULL;
                 _cleanup_free_ char *path = NULL;
 
                 if (FLAGS_SET(flags, EXEC_COMMAND_VIA_SHELL)) {
@@ -1640,7 +1640,7 @@ int config_parse_root_image_options(
                 void *userdata) {
 
         _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         ExecContext *c = ASSERT_PTR(data);
         const Unit *u = userdata;
         int r;
@@ -2773,7 +2773,7 @@ int config_parse_pass_environ(
                 return 0;
         }
 
-        _cleanup_strv_free_ char **n = NULL;
+        _cleanup_(strv_freep) char **n = NULL;
 
         for (const char *p = rvalue;;) {
                 _cleanup_free_ char *word = NULL, *k = NULL;
@@ -2842,7 +2842,7 @@ int config_parse_unset_environ(
                 return 0;
         }
 
-        _cleanup_strv_free_ char **n = NULL;
+        _cleanup_(strv_freep) char **n = NULL;
 
         for (const char *p = rvalue;;) {
                 _cleanup_free_ char *word = NULL, *k = NULL;

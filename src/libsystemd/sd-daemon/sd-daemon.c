@@ -109,7 +109,7 @@ finish:
 }
 
 _public_ int sd_listen_fds_with_names(int unset_environment, char ***ret_names) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         bool have_names;
         int n_names = 0, n_fds;
         const char *e;

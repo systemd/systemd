@@ -58,7 +58,7 @@ static int pwqc_allocate_context(passwdqc_params_t **ret) {
 int suggest_passwords(void) {
 
         _cleanup_(passwdqc_params_freep) passwdqc_params_t *params = NULL;
-        _cleanup_strv_free_erase_ char **suggestions = NULL;
+        _cleanup_(strv_free_erasep) char **suggestions = NULL;
         _cleanup_(erase_and_freep) char *joined = NULL;
         int r;
 

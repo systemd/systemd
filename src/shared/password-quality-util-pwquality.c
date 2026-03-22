@@ -93,7 +93,7 @@ static int pwq_allocate_context(pwquality_settings_t **ret) {
 
 int suggest_passwords(void) {
         _cleanup_(pwquality_free_settingsp) pwquality_settings_t *pwq = NULL;
-        _cleanup_strv_free_erase_ char **suggestions = NULL;
+        _cleanup_(strv_free_erasep) char **suggestions = NULL;
         _cleanup_(erase_and_freep) char *joined = NULL;
         char buf[PWQ_MAX_ERROR_MESSAGE_LEN];
         int r;

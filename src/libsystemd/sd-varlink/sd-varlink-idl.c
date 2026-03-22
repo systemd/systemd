@@ -54,7 +54,7 @@ static int varlink_idl_format_comment(
                 return 0;
         }
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         r = strv_split_full(&l, text, NEWLINE, EXTRACT_RELAX);
         if (r < 0)
                 return log_error_errno(r, "Failed to split comment string: %m");
@@ -64,7 +64,7 @@ static int varlink_idl_format_comment(
         if (max_width < 10)
                 max_width = 10;
 
-        _cleanup_strv_free_ char **broken = NULL;
+        _cleanup_(strv_freep) char **broken = NULL;
         r = strv_rebreak_lines(l, max_width, &broken);
         if (r < 0)
                 return log_error_errno(r, "Failed to rebreak lines in comment: %m");

@@ -467,7 +467,7 @@ int manager_save(Manager *m) {
 
         temp_path = mfree(temp_path);
 
-        _cleanup_strv_free_ char **p = NULL;
+        _cleanup_(strv_freep) char **p = NULL;
 
         if (m->operational_state != operstate) {
                 m->operational_state = operstate;
@@ -630,7 +630,7 @@ static void serialize_resolvers(
 
         if (lease && conditional) {
                 sd_dns_resolver *resolvers;
-                _cleanup_strv_free_ char **names = NULL;
+                _cleanup_(strv_freep) char **names = NULL;
                 int r;
 
                 r = sd_dhcp_lease_get_dnr(lease, &resolvers);
@@ -648,7 +648,7 @@ static void serialize_resolvers(
 
         if (lease6 && conditional6) {
                 sd_dns_resolver *resolvers;
-                _cleanup_strv_free_ char **names = NULL;
+                _cleanup_(strv_freep) char **names = NULL;
                 int r;
 
                 r = sd_dhcp6_lease_get_dnr(lease6, &resolvers);

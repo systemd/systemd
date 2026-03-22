@@ -2198,7 +2198,7 @@ int home_create_luks(
         struct statfs sfs;
         struct stat st;
         int r;
-        _cleanup_strv_free_ char **extra_mkfs_options = NULL;
+        _cleanup_(strv_freep) char **extra_mkfs_options = NULL;
 
         assert(h);
         assert(h->storage < 0 || h->storage == USER_LUKS);

@@ -697,7 +697,7 @@ static int find_libraries(const char *exec, char ***ret) {
         _cleanup_(sd_event_source_unrefp) sd_event_source *stdout_source = NULL;
         _cleanup_(sd_event_source_unrefp) sd_event_source *stderr_source = NULL;
         _cleanup_close_pair_ int outpipe[2] = EBADF_PAIR, errpipe[2] = EBADF_PAIR;
-        _cleanup_strv_free_ char **libraries = NULL;
+        _cleanup_(strv_freep) char **libraries = NULL;
         _cleanup_free_ char *result = NULL;
         int r;
 
@@ -737,7 +737,7 @@ static int find_libraries(const char *exec, char ***ret) {
 
         ASSERT_OK(sd_event_loop(e));
 
-        _cleanup_strv_free_ char **v = NULL;
+        _cleanup_(strv_freep) char **v = NULL;
         ASSERT_OK(strv_split_newlines_full(&v, result, 0));
 
         STRV_FOREACH(q, v) {
@@ -783,7 +783,7 @@ static int find_libraries(const char *exec, char ***ret) {
 static void test_exec_mount_apivfs(Manager *m) {
 #if !HAS_FEATURE_ADDRESS_SANITIZER
         _cleanup_free_ char *fullpath_touch = NULL, *fullpath_test = NULL, *data = NULL;
-        _cleanup_strv_free_ char **libraries = NULL, **libraries_test = NULL;
+        _cleanup_(strv_freep) char **libraries = NULL, **libraries_test = NULL;
         int r;
 
         ASSERT_NOT_NULL(user_runtime_unit_dir);
@@ -1541,7 +1541,7 @@ static int prepare_ns(const char *process_name) {
 }
 
 TEST(run_tests_root) {
-        _cleanup_strv_free_ char **filters = NULL;
+        _cleanup_(strv_freep) char **filters = NULL;
 
         if (!have_namespaces())
                 return (void) log_tests_skipped("unshare() is disabled");
@@ -1565,7 +1565,7 @@ TEST(run_tests_without_unshare) {
         }
 
 #if HAVE_SECCOMP
-        _cleanup_strv_free_ char **filters = NULL;
+        _cleanup_(strv_freep) char **filters = NULL;
         int r;
 
         /* The following tests are for 1beab8b0d0ff2d7d1436b52d4a0c3d56dc908962. */
@@ -1596,7 +1596,7 @@ TEST(run_tests_without_unshare) {
 }
 
 TEST(run_tests_unprivileged) {
-        _cleanup_strv_free_ char **filters = NULL;
+        _cleanup_(strv_freep) char **filters = NULL;
 
         if (!have_namespaces())
                 return (void) log_tests_skipped("unshare() is disabled");

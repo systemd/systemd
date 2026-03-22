@@ -237,7 +237,7 @@ static int locale_is_ok(const char *name, void *userdata) {
 }
 
 static int prompt_locale(int rfd, sd_varlink **mute_console_link) {
-        _cleanup_strv_free_ char **locales = NULL;
+        _cleanup_(strv_freep) char **locales = NULL;
         bool acquired_from_creds = false;
         int r;
 
@@ -404,7 +404,7 @@ static int keymap_is_ok(const char* name, void *userdata) {
 }
 
 static int prompt_keymap(int rfd, sd_varlink **mute_console_link) {
-        _cleanup_strv_free_ char **kmaps = NULL;
+        _cleanup_(strv_freep) char **kmaps = NULL;
         int r;
 
         assert(rfd >= 0);
@@ -469,7 +469,7 @@ static int prompt_keymap(int rfd, sd_varlink **mute_console_link) {
 static int process_keymap(int rfd, sd_varlink **mute_console_link) {
         _cleanup_close_ int pfd = -EBADF;
         _cleanup_free_ char *f = NULL;
-        _cleanup_strv_free_ char **keymap = NULL;
+        _cleanup_(strv_freep) char **keymap = NULL;
         int r;
 
         assert(rfd >= 0);
@@ -536,7 +536,7 @@ static int timezone_is_ok(const char *name, void *userdata) {
 }
 
 static int prompt_timezone(int rfd, sd_varlink **mute_console_link) {
-        _cleanup_strv_free_ char **zones = NULL;
+        _cleanup_(strv_freep) char **zones = NULL;
         int r;
 
         assert(rfd >= 0);
@@ -789,7 +789,7 @@ static int prompt_root_password(int rfd, sd_varlink **mute_console_link) {
         suggest_passwords();
 
         for (;;) {
-                _cleanup_strv_free_erase_ char **a = NULL, **b = NULL;
+                _cleanup_(strv_free_erasep) char **a = NULL, **b = NULL;
                 _cleanup_free_ char *error = NULL;
 
                 AskPasswordRequest req = {

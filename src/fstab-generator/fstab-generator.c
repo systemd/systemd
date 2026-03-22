@@ -331,7 +331,7 @@ static int write_dependency(
                 const char *filter,
                 const char* const *unit_settings) {
 
-        _cleanup_strv_free_ char **unit_names = NULL;
+        _cleanup_(strv_freep) char **unit_names = NULL;
         _cleanup_free_ char *units = NULL;
         int r;
 
@@ -389,7 +389,7 @@ static int write_mounts_for(
                 const char *filter,
                 const char *unit_setting) {
 
-        _cleanup_strv_free_ char **paths = NULL, **paths_escaped = NULL;
+        _cleanup_(strv_freep) char **paths = NULL, **paths_escaped = NULL;
         int r;
 
         assert(f);
@@ -493,7 +493,7 @@ static int add_mount(
 
         _cleanup_free_ char *name = NULL, *automount_name = NULL, *filtered = NULL, *where_escaped = NULL,
                 *opts_root_filtered = NULL;
-        _cleanup_strv_free_ char **wanted_by = NULL, **required_by = NULL;
+        _cleanup_(strv_freep) char **wanted_by = NULL, **required_by = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 

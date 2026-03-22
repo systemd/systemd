@@ -1937,7 +1937,7 @@ static int apply_one_mount(
                 _cleanup_free_ char *host_os_release_id = NULL, *host_os_release_id_like = NULL,
                                 *host_os_release_version_id = NULL, *host_os_release_level = NULL,
                                 *extension_name = NULL;
-                _cleanup_strv_free_ char **extension_release = NULL;
+                _cleanup_(strv_freep) char **extension_release = NULL;
                 ImageClass class = IMAGE_SYSEXT;
 
                 r = path_extract_filename(mount_entry_source(m), &extension_name);
@@ -2567,7 +2567,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
 
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
-        _cleanup_strv_free_ char **hierarchies = NULL;
+        _cleanup_(strv_freep) char **hierarchies = NULL;
         _cleanup_(mount_list_done) MountList ml = {};
         _cleanup_close_ int userns_fd = -EBADF;
         bool require_prefix = false;
@@ -3818,7 +3818,7 @@ static int handle_mount_from_grandchild(
 
         _cleanup_free_ char *layers = NULL, *options = NULL, *hierarchy_path_moved_mount = NULL;
         _cleanup_close_ int hierarchy_path_fd = -EBADF, overlay_fs_fd = -EBADF;
-        _cleanup_strv_free_ char **new_layers = NULL;
+        _cleanup_(strv_freep) char **new_layers = NULL;
         int r;
 
         assert(m);
@@ -3934,7 +3934,7 @@ static int refresh_apply_and_prune(const NamespaceParameters *p, MountList *ml) 
                                         if (m->mode != MOUNT_OVERLAY)
                                                 continue;
 
-                                        _cleanup_strv_free_ char **pruned = NULL;
+                                        _cleanup_(strv_freep) char **pruned = NULL;
 
                                         STRV_FOREACH(ol, m->overlay_layers)
                                                 if (!path_startswith(*ol, mount_entry_path(f))) {
@@ -3968,7 +3968,7 @@ int refresh_extensions_in_namespace(
         const char *overlay_prefix = "/run/systemd/mount-rootfs";
         _cleanup_(mount_list_done) MountList ml = {};
         _cleanup_free_ char *extension_dir = NULL;
-        _cleanup_strv_free_ char **hierarchies = NULL;
+        _cleanup_(strv_freep) char **hierarchies = NULL;
         int r;
 
         assert(pidref_is_set(target));

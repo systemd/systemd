@@ -892,14 +892,14 @@ const char* exec_context_fdname(const ExecContext *c, int fd_index) {
 }
 
 static int exec_context_load_environment(const Unit *unit, const ExecContext *c, char ***ret) {
-        _cleanup_strv_free_ char **v = NULL;
+        _cleanup_(strv_freep) char **v = NULL;
         int r;
 
         assert(c);
         assert(ret);
 
         STRV_FOREACH(i, c->environment_files) {
-                _cleanup_strv_free_ char **paths = NULL;
+                _cleanup_(strv_freep) char **paths = NULL;
                 bool ignore = false;
                 char *fn = *i;
 
@@ -926,7 +926,7 @@ static int exec_context_load_environment(const Unit *unit, const ExecContext *c,
                 assert(!strv_isempty(paths));
 
                 STRV_FOREACH(path, paths) {
-                        _cleanup_strv_free_ char **p = NULL;
+                        _cleanup_(strv_freep) char **p = NULL;
 
                         r = load_env_file(NULL, *path, &p);
                         if (r < 0) {
@@ -1728,7 +1728,7 @@ int exec_context_get_clean_directories(
                 ExecCleanMask mask,
                 char ***ret) {
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         int r;
 
         assert(c);
@@ -1905,7 +1905,7 @@ bool exec_context_get_set_login_environment(const ExecContext *c) {
 }
 
 char** exec_context_get_syscall_filter(const ExecContext *c) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
 
         assert(c);
 
@@ -1950,7 +1950,7 @@ char** exec_context_get_syscall_filter(const ExecContext *c) {
 }
 
 char** exec_context_get_syscall_archs(const ExecContext *c) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
 
         assert(c);
 
@@ -1974,7 +1974,7 @@ char** exec_context_get_syscall_archs(const ExecContext *c) {
 }
 
 char** exec_context_get_syscall_log(const ExecContext *c) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
 
         assert(c);
 
@@ -2001,7 +2001,7 @@ char** exec_context_get_syscall_log(const ExecContext *c) {
 }
 
 char** exec_context_get_address_families(const ExecContext *c) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         void *af;
 
         assert(c);
@@ -2970,7 +2970,7 @@ static ExecDirectoryItem *exec_directory_find(ExecDirectory *d, const char *path
 }
 
 int exec_directory_add(ExecDirectory *d, const char *path, const char *symlink, ExecDirectoryFlags flags) {
-        _cleanup_strv_free_ char **s = NULL;
+        _cleanup_(strv_freep) char **s = NULL;
         _cleanup_free_ char *p = NULL;
         ExecDirectoryItem *existing;
         int r;

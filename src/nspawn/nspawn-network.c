@@ -445,7 +445,7 @@ int resolve_network_interface_names(char **iface_pairs) {
 
         STRV_FOREACH_PAIR(from, to, iface_pairs) {
                 _cleanup_free_ char *name = NULL;
-                _cleanup_strv_free_ char **altnames = NULL;
+                _cleanup_(strv_freep) char **altnames = NULL;
 
                 r = rtnl_resolve_ifname_full(&rtnl, _RESOLVE_IFNAME_ALL, *from, &name, &altnames);
                 if (r < 0)

@@ -252,7 +252,7 @@ int x11_read_data(Context *c, sd_bus_message *m) {
                         continue;
 
                 if (in_section && first_word(line, "Option")) {
-                        _cleanup_strv_free_ char **a = NULL;
+                        _cleanup_(strv_freep) char **a = NULL;
 
                         r = strv_split_full(&a, line, WHITESPACE, EXTRACT_UNQUOTE);
                         if (r < 0)
@@ -275,7 +275,7 @@ int x11_read_data(Context *c, sd_bus_message *m) {
                         }
 
                 } else if (!in_section && first_word(line, "Section")) {
-                        _cleanup_strv_free_ char **a = NULL;
+                        _cleanup_(strv_freep) char **a = NULL;
 
                         r = strv_split_full(&a, line, WHITESPACE, EXTRACT_UNQUOTE);
                         if (r < 0)
@@ -295,7 +295,7 @@ int x11_read_data(Context *c, sd_bus_message *m) {
 }
 
 int vconsole_write_data(Context *c) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         const X11Context *xc;
         int r;
 

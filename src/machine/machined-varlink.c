@@ -428,7 +428,7 @@ static int json_build_local_addresses(const struct local_address *addresses, siz
 
 static int list_machine_one_and_maybe_read_metadata(sd_varlink *link, Machine *m, AcquireMetadata am) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *addr_array = NULL;
-        _cleanup_strv_free_ char **os_release = NULL;
+        _cleanup_(strv_freep) char **os_release = NULL;
         uid_t shift = UID_INVALID;
         int r;
 

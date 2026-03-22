@@ -489,7 +489,7 @@ static int action_fork(char *const *_command) {
         assert(!strv_isempty(_command));
 
         /* Make a copy, since pidref_safe_fork_full() will change argv[] further down. */
-        _cleanup_strv_free_ char **command = strv_copy(_command);
+        _cleanup_(strv_freep) char **command = strv_copy(_command);
         if (!command)
                 return log_oom();
 
@@ -574,7 +574,7 @@ static int action_fork(char *const *_command) {
 static int run(int argc, char* argv[]) {
         _cleanup_free_ char *status = NULL, *main_pid = NULL, *main_pidfd_id = NULL, *msg = NULL,
                        *monotonic_usec = NULL, *fdn = NULL;
-        _cleanup_strv_free_ char **final_env = NULL;
+        _cleanup_(strv_freep) char **final_env = NULL;
         const char *our_env[10];
         size_t i = 0;
         int r;

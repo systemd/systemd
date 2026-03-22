@@ -175,8 +175,6 @@ char16_t **strv_free(char16_t **l);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(char16_t**, strv_free);
 
-#define _cleanup_strv_free_ _cleanup_(strv_freep)
-
 EFI_STATUS open_directory(EFI_FILE *root_dir, const char16_t *path, EFI_FILE **ret);
 
 /* Conversion between EFI_PHYSICAL_ADDRESS and pointers is not obvious. The former is always 64-bit, even on

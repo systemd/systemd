@@ -233,7 +233,7 @@ static int process_one_password_file(const char *filename, FILE *f) {
         }
         case ACTION_QUERY:
         case ACTION_WATCH: {
-                _cleanup_strv_free_erase_ char **passwords = NULL;
+                _cleanup_(strv_free_erasep) char **passwords = NULL;
                 AskPasswordFlags flags = 0;
 
                 if (access(socket_name, W_OK) < 0) {
@@ -659,7 +659,7 @@ static void terminate_agents(Set *pids) {
 }
 
 static int ask_on_consoles(char *argv[]) {
-        _cleanup_strv_free_ char **consoles = NULL, **arguments = NULL;
+        _cleanup_(strv_freep) char **consoles = NULL, **arguments = NULL;
         _cleanup_set_free_ Set *pids = NULL;
         int r;
 

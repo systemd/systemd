@@ -739,7 +739,7 @@ enum nss_status _nss_systemd_getgrent_r(
                 int *errnop) {
 
         _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
-        _cleanup_strv_free_ char **members = NULL;
+        _cleanup_(strv_freep) char **members = NULL;
         int r;
 
         PROTECT_ERRNO;

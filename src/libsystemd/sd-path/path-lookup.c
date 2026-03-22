@@ -13,7 +13,7 @@
 #include "tmpfile-util.h"
 
 int user_search_dirs(const char *suffix, char ***ret_config_dirs, char ***ret_data_dirs) {
-        _cleanup_strv_free_ char **config_dirs = NULL, **data_dirs = NULL;
+        _cleanup_(strv_freep) char **config_dirs = NULL, **data_dirs = NULL;
         int r;
 
         assert(ret_config_dirs);
@@ -361,7 +361,7 @@ static char** user_unit_search_dirs(
                 const char *persistent_control,
                 const char *runtime_control) {
 
-        _cleanup_strv_free_ char **paths = NULL, **config_dirs = NULL, **data_dirs = NULL;
+        _cleanup_(strv_freep) char **paths = NULL, **config_dirs = NULL, **data_dirs = NULL;
 
         /* The returned strv might contain duplicates, and we expect caller to filter them. */
 
@@ -431,7 +431,7 @@ int lookup_paths_init(
                 *transient = NULL,
                 *persistent_control = NULL, *runtime_control = NULL,
                 *persistent_attached = NULL, *runtime_attached = NULL;
-        _cleanup_strv_free_ char **paths = NULL;
+        _cleanup_(strv_freep) char **paths = NULL;
         int r;
 
         assert(lp);
@@ -500,7 +500,7 @@ int lookup_paths_init(
         if (!paths || r > 0) {
                 /* Let's figure something out. */
 
-                _cleanup_strv_free_ char **add = NULL;
+                _cleanup_(strv_freep) char **add = NULL;
 
                 /* For the user units we include share/ in the search paths in order to comply with
                  * the XDG basedir spec. For the system stuff we avoid such nonsense. OTOH we include (/usr/)lib/
@@ -739,7 +739,7 @@ char** generator_binary_paths_internal(RuntimeScope scope, bool env_generator) {
                 }
         };
 
-        _cleanup_strv_free_ char **paths = NULL;
+        _cleanup_(strv_freep) char **paths = NULL;
         int r;
 
         assert(IN_SET(scope, RUNTIME_SCOPE_SYSTEM, RUNTIME_SCOPE_USER));

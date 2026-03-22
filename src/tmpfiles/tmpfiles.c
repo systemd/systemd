@@ -349,7 +349,7 @@ static int log_unresolvable_specifier(const char *filename, unsigned line) {
                  __VA_ARGS__)
 
 static int user_config_paths(char ***ret) {
-        _cleanup_strv_free_ char **config_dirs = NULL, **data_dirs = NULL;
+        _cleanup_(strv_freep) char **config_dirs = NULL, **data_dirs = NULL;
         _cleanup_free_ char *runtime_config = NULL;
         int r;
 
@@ -2549,7 +2549,7 @@ finish:
 }
 
 static int glob_item(Context *c, Item *i, action_t action) {
-        _cleanup_strv_free_ char **paths = NULL;
+        _cleanup_(strv_freep) char **paths = NULL;
         int r;
 
         assert(c);
@@ -2575,7 +2575,7 @@ static int glob_item_recursively(
                 Item *i,
                 fdaction_t action) {
 
-        _cleanup_strv_free_ char **paths = NULL;
+        _cleanup_(strv_freep) char **paths = NULL;
         int r;
 
         assert(c);
@@ -4094,7 +4094,7 @@ static int parse_line(
 }
 
 static int cat_config(char **config_dirs, char **args) {
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_(strv_freep) char **files = NULL;
         int r;
 
         r = conf_files_list_with_replacement(arg_root, config_dirs, arg_replace, &files, NULL);
@@ -4462,7 +4462,7 @@ static int read_config_files(
                 char **args,
                 bool *invalid_config) {
 
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_(strv_freep) char **files = NULL;
         _cleanup_free_ char *p = NULL;
         int r;
 
@@ -4551,7 +4551,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(item_array_hash_ops, char, string_
 static int run(int argc, char *argv[]) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
-        _cleanup_strv_free_ char **config_dirs = NULL;
+        _cleanup_(strv_freep) char **config_dirs = NULL;
         _cleanup_(context_done) Context c = {};
         bool invalid_config = false;
         ItemArray *a;

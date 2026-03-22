@@ -371,7 +371,7 @@ static int putgrent_with_members(
 
         a = ordered_hashmap_get(c->members, gr->gr_name);
         if (a) {
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_(strv_freep) char **l = NULL;
                 bool added = false;
 
                 l = strv_copy(gr->gr_mem);
@@ -419,7 +419,7 @@ static int putsgent_with_members(
 
         a = ordered_hashmap_get(c->members, sg->sg_namp);
         if (a) {
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_(strv_freep) char **l = NULL;
                 bool added = false;
 
                 l = strv_copy(sg->sg_mem);
@@ -2034,7 +2034,7 @@ static int read_config_file(Context *c, const char *fn, bool ignore_enoent) {
 }
 
 static int cat_config(void) {
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_(strv_freep) char **files = NULL;
         int r;
 
         r = conf_files_list_with_replacement(arg_root, CONF_PATHS_STRV("sysusers.d"), arg_replace, &files, NULL);
@@ -2221,7 +2221,7 @@ static int parse_arguments(Context *c, char **args) {
 }
 
 static int read_config_files(Context *c, char **args) {
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_(strv_freep) char **files = NULL;
         _cleanup_free_ char *p = NULL;
         int r;
 

@@ -105,7 +105,7 @@ int bus_image_common_get_metadata(
 
         _cleanup_ordered_hashmap_free_ OrderedHashmap *extension_releases = NULL;
         _cleanup_(portable_metadata_unrefp) PortableMetadata *os_release = NULL;
-        _cleanup_strv_free_ char **matches = NULL, **extension_images = NULL;
+        _cleanup_(strv_freep) char **matches = NULL, **extension_images = NULL;
         _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ PortableMetadata **sorted = NULL;
@@ -262,7 +262,7 @@ static int bus_image_method_get_state(
                 void *userdata,
                 sd_bus_error *error) {
 
-        _cleanup_strv_free_ char **extension_images = NULL;
+        _cleanup_(strv_freep) char **extension_images = NULL;
         Image *image = ASSERT_PTR(userdata);
         Manager *m = ASSERT_PTR(image->userdata);
         PortableState state;
@@ -309,7 +309,7 @@ int bus_image_common_attach(
                 Image *image,
                 sd_bus_error *error) {
 
-        _cleanup_strv_free_ char **matches = NULL, **extension_images = NULL;
+        _cleanup_(strv_freep) char **matches = NULL, **extension_images = NULL;
         PortableChange *changes = NULL;
         PortableFlags flags = 0;
         const char *profile, *copy_mode;
@@ -413,7 +413,7 @@ static int bus_image_method_detach(
                 void *userdata,
                 sd_bus_error *error) {
 
-        _cleanup_strv_free_ char **extension_images = NULL;
+        _cleanup_(strv_freep) char **extension_images = NULL;
         PortableChange *changes = NULL;
         Image *image = ASSERT_PTR(userdata);
         Manager *m = ASSERT_PTR(image->userdata);
@@ -644,7 +644,7 @@ int bus_image_common_reattach(
 
         PortableChange *changes_detached = NULL, *changes_attached = NULL, *changes_gone = NULL;
         size_t n_changes_detached = 0, n_changes_attached = 0, n_changes_gone = 0;
-        _cleanup_strv_free_ char **matches = NULL, **extension_images = NULL;
+        _cleanup_(strv_freep) char **matches = NULL, **extension_images = NULL;
         PortableFlags flags = PORTABLE_REATTACH;
         const char *profile, *copy_mode;
         int r;
@@ -1148,7 +1148,7 @@ not_found:
 
 int bus_image_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
         _cleanup_hashmap_free_ Hashmap *images = NULL;
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         Manager *m = userdata;
         size_t n = 0;
         Image *image;

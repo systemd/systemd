@@ -160,7 +160,7 @@ TEST(client_basic) {
 
 TEST(parse_domain) {
         _cleanup_free_ char *domain = NULL;
-        _cleanup_strv_free_ char **list = NULL;
+        _cleanup_(strv_freep) char **list = NULL;
         uint8_t *data;
 
         data = (uint8_t []) { 7, 'e', 'x', 'a', 'm', 'p', 'l', 'e', 3, 'c', 'o', 'm', 0 };

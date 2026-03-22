@@ -282,7 +282,7 @@ TEST(login) {
         }
 
         {
-                _cleanup_strv_free_ char **machines = NULL;
+                _cleanup_(strv_freep) char **machines = NULL;
                 _cleanup_free_ char *buf = NULL;
 
                 r = sd_get_machine_names(&machines);

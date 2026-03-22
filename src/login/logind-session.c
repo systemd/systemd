@@ -286,7 +286,7 @@ static int trigger_xaccess(char * const *extra_devices) {
         if (strv_isempty(extra_devices))
                 return 0;
 
-        _cleanup_strv_free_ char **tags = NULL;
+        _cleanup_(strv_freep) char **tags = NULL;
         r = strv_extend_strv_biconcat(&tags, "xaccess-", (const char * const *)extra_devices, /* suffix= */ NULL);
         if (r < 0)
                 return r;

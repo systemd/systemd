@@ -1099,7 +1099,7 @@ int netdev_load_one(Manager *manager, const char *filename, NetDev **ret) {
 }
 
 int netdev_load(Manager *manager) {
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_(strv_freep) char **files = NULL;
         int r;
 
         assert(manager);
@@ -1128,7 +1128,7 @@ int netdev_load(Manager *manager) {
 
 int netdev_reload(Manager *manager) {
         _cleanup_hashmap_free_ Hashmap *new_netdevs = NULL;
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_(strv_freep) char **files = NULL;
         int r;
 
         assert(manager);

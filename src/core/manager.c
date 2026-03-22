@@ -2762,7 +2762,7 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
                 return 0;
         }
 
-        _cleanup_strv_free_ char **tags = NULL;
+        _cleanup_(strv_freep) char **tags = NULL;
         r = notify_recv_with_fds_strv(m->notify_fd, &tags, &ucred, &pidref, &fds);
         if (r == -EAGAIN)
                 return 0;
@@ -3950,7 +3950,7 @@ static bool generator_path_any(char * const *paths) {
 }
 
 static int manager_run_environment_generators(Manager *m) {
-        _cleanup_strv_free_ char **paths = NULL;
+        _cleanup_(strv_freep) char **paths = NULL;
         int r;
 
         assert(m);
@@ -3986,7 +3986,7 @@ static int manager_run_environment_generators(Manager *m) {
 }
 
 static int build_generator_environment(Manager *m, char ***ret) {
-        _cleanup_strv_free_ char **nl = NULL;
+        _cleanup_(strv_freep) char **nl = NULL;
         Virtualization v;
         ConfidentialVirtualization cv;
         int r;
@@ -4061,7 +4061,7 @@ static int build_generator_environment(Manager *m, char ***ret) {
 }
 
 static int manager_execute_generators(Manager *m, char * const *paths, bool remount_ro) {
-        _cleanup_strv_free_ char **ge = NULL;
+        _cleanup_(strv_freep) char **ge = NULL;
         int r;
 
         assert(m);
@@ -4103,7 +4103,7 @@ static int manager_execute_generators(Manager *m, char * const *paths, bool remo
 
 static int manager_run_generators(Manager *m) {
         ForkFlags flags = FORK_RESET_SIGNALS | FORK_WAIT | FORK_NEW_MOUNTNS | FORK_MOUNTNS_SLAVE;
-        _cleanup_strv_free_ char **paths = NULL;
+        _cleanup_(strv_freep) char **paths = NULL;
         int r;
 
         assert(m);

@@ -30,7 +30,7 @@ static int on_recv(sd_event_source *s, int fd, uint32_t revents, void *userdata)
 
         _cleanup_(fdset_free_asyncp) FDSet *fds = NULL;
         _cleanup_(pidref_done) PidRef sender = PIDREF_NULL;
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         struct ucred ucred;
         ASSERT_OK(notify_recv_with_fds_strv(fd, &l, &ucred, &sender, &fds));
 

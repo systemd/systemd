@@ -126,7 +126,7 @@ static int link_update_name(Link *l, sd_netlink_message *m) {
 }
 
 static int link_update_altnames(Link *l, sd_netlink_message *m) {
-        _cleanup_strv_free_ char **altnames = NULL;
+        _cleanup_(strv_freep) char **altnames = NULL;
         int r;
 
         assert(l);

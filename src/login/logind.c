@@ -362,7 +362,7 @@ static int manager_enumerate_users(Manager *m) {
 }
 
 static int parse_fdname(const char *fdname, char **ret_session_id, dev_t *ret_devno) {
-        _cleanup_strv_free_ char **parts = NULL;
+        _cleanup_(strv_freep) char **parts = NULL;
         _cleanup_free_ char *id = NULL;
         int r;
 
@@ -574,7 +574,7 @@ static int manager_enumerate_sessions(Manager *m) {
 }
 
 static int manager_enumerate_fds(Manager *m, int *ret_varlink_fd) {
-        _cleanup_strv_free_ char **fdnames = NULL;
+        _cleanup_(strv_freep) char **fdnames = NULL;
         int varlink_fd = -EBADF, n, r = 0;
 
         assert(m);

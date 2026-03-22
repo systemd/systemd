@@ -1102,7 +1102,7 @@ int machine_start_shell(
 }
 
 char** machine_default_shell_args(const char *user) {
-        _cleanup_strv_free_ char **args = NULL;
+        _cleanup_(strv_freep) char **args = NULL;
         int r;
 
         assert(user);

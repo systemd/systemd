@@ -318,7 +318,7 @@ TEST(introspect_on_path) {
         static const XMLIntrospectOps ops = {
                 .on_path = on_path,
         };
-        _cleanup_strv_free_ char **expected = NULL;
+        _cleanup_(strv_freep) char **expected = NULL;
         _cleanup_set_free_ Set *paths = NULL;
         _cleanup_free_ char **l = NULL;
 

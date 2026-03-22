@@ -74,7 +74,7 @@ int edit_files_add(
                 char * const *comment_paths) {
 
         _cleanup_free_ char *new_path = NULL, *new_original_path = NULL;
-        _cleanup_strv_free_ char **new_comment_paths = NULL;
+        _cleanup_(strv_freep) char **new_comment_paths = NULL;
 
         assert(context);
         assert(path);
@@ -240,7 +240,7 @@ static int create_edit_temp_file(EditFile *e, const char *contents, size_t conte
 }
 
 static int run_editor_child(const EditFileContext *context) {
-        _cleanup_strv_free_ char **args = NULL, **editor = NULL;
+        _cleanup_(strv_freep) char **args = NULL, **editor = NULL;
         int r;
 
         assert(context);

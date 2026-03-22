@@ -13,7 +13,7 @@
 #include "time-util.h"
 
 int main(int argc, char *argv[]) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         int r, n, i;
         usec_t duration = USEC_PER_SEC / 10;
 

@@ -3922,7 +3922,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         l = va_arg(ap, char **);
 
                         if (current->n_suppress == 0) {
-                                _cleanup_strv_free_ char **el = NULL;
+                                _cleanup_(strv_freep) char **el = NULL;
 
                                 r = strv_env_get_merged(l, &el);
                                 if (r < 0)
@@ -4600,7 +4600,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         l = va_arg(ap, char **);
 
                         if (!strv_isempty(l) && current->n_suppress == 0) {
-                                _cleanup_strv_free_ char **el = NULL;
+                                _cleanup_(strv_freep) char **el = NULL;
 
                                 if (command == _JSON_BUILD_PAIR_STRV_ENV_PAIR_NON_EMPTY) {
                                         r = strv_env_get_merged(l, &el);
@@ -5636,7 +5636,7 @@ _public_ int sd_json_dispatch_const_string(const char *name, sd_json_variant *va
 }
 
 _public_ int sd_json_dispatch_strv(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         char ***s = userdata;
         sd_json_variant *e;
         int r;

@@ -469,7 +469,7 @@ static int netdev_append_json(NetDev *netdev, sd_json_variant **v) {
 }
 
 static int device_append_json(sd_device *device, sd_json_variant **v) {
-        _cleanup_strv_free_ char **link_dropins = NULL;
+        _cleanup_(strv_freep) char **link_dropins = NULL;
         const char *link = NULL, *path = NULL, *vendor = NULL, *model = NULL, *joined;
         int r;
 
@@ -613,7 +613,7 @@ static int dns_append_json(Link *link, sd_json_variant **v) {
 
 static int dnr_append_json_one(Link *link, const struct sd_dns_resolver *res, NetworkConfigSource s, const union in_addr_union *p, sd_json_variant **array) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *addrs_array = NULL;
-        _cleanup_strv_free_ char **transports = NULL;
+        _cleanup_(strv_freep) char **transports = NULL;
         int r;
 
         assert(link);

@@ -2333,7 +2333,7 @@ _public_ int sd_bus_emit_properties_changed(
                 const char *interface,
                 const char *name, ...)  {
 
-        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_(strv_freep) char **names = NULL;
 
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
@@ -2939,7 +2939,7 @@ _public_ int sd_bus_emit_interfaces_added_strv(sd_bus *bus, const char *path, ch
 }
 
 _public_ int sd_bus_emit_interfaces_added(sd_bus *bus, const char *path, const char *interface, ...) {
-        _cleanup_strv_free_ char **interfaces = NULL;
+        _cleanup_(strv_freep) char **interfaces = NULL;
 
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
@@ -3000,7 +3000,7 @@ _public_ int sd_bus_emit_interfaces_removed_strv(sd_bus *bus, const char *path, 
 }
 
 _public_ int sd_bus_emit_interfaces_removed(sd_bus *bus, const char *path, const char *interface, ...) {
-        _cleanup_strv_free_ char **interfaces = NULL;
+        _cleanup_(strv_freep) char **interfaces = NULL;
 
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);

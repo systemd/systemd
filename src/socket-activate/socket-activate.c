@@ -144,7 +144,7 @@ static int open_sockets(int *ret_epoll_fd) {
 }
 
 static int exec_process(char * const *argv, int start_fd, size_t n_fds) {
-        _cleanup_strv_free_ char **envp = NULL;
+        _cleanup_(strv_freep) char **envp = NULL;
         int r;
 
         assert(!strv_isempty(argv));
@@ -423,7 +423,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_FDNAME: {
-                        _cleanup_strv_free_ char **names = NULL;
+                        _cleanup_(strv_freep) char **names = NULL;
 
                         names = strv_split(optarg, ":");
                         if (!names)
@@ -483,7 +483,7 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int run(int argc, char **argv) {
         _cleanup_close_ int epoll_fd = -EBADF;
-        _cleanup_strv_free_ char **exec_argv = NULL;
+        _cleanup_(strv_freep) char **exec_argv = NULL;
         int r, n;
 
         log_setup();

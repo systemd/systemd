@@ -966,7 +966,7 @@ static void strv_pair_print(char **l, const char *prefix) {
 }
 
 static int get_extension_scopes(DissectedImage *m, ImageClass class, char ***ret_scopes) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         const char *e, *field_name;
         char **release_data;
 
@@ -1106,7 +1106,7 @@ static int action_dissect(
 
                 for (ImageClass c = _IMAGE_CLASS_EXTENSION_FIRST; c <= _IMAGE_CLASS_EXTENSION_LAST; c++) {
                         const char *string_class = image_class_to_string(c);
-                        _cleanup_strv_free_ char **extension_scopes = NULL;
+                        _cleanup_(strv_freep) char **extension_scopes = NULL;
 
                         r = get_extension_scopes(m, c, &extension_scopes);
                         if (r < 0)
@@ -1122,7 +1122,7 @@ static int action_dissect(
 
                 putc('\n', stdout);
         } else {
-                _cleanup_strv_free_ char **sysext_scopes = NULL, **confext_scopes = NULL;
+                _cleanup_(strv_freep) char **sysext_scopes = NULL, **confext_scopes = NULL;
 
                 r = get_extension_scopes(m, IMAGE_SYSEXT, &sysext_scopes);
                 if (r < 0)

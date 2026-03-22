@@ -85,7 +85,7 @@ static int keymap_recurse_dir_callback(
 
 int get_keymaps(char ***ret) {
         _cleanup_set_free_ Set *keymaps = NULL;
-        _cleanup_strv_free_ char **keymap_dirs = NULL;
+        _cleanup_(strv_freep) char **keymap_dirs = NULL;
         int r;
 
         r = keymap_directories(&keymap_dirs);
@@ -115,7 +115,7 @@ int get_keymaps(char ***ret) {
                         log_debug_errno(r, "Failed to read keymap list from %s, ignoring: %m", *dir);
         }
 
-        _cleanup_strv_free_ char **l = set_to_strv(&keymaps);
+        _cleanup_(strv_freep) char **l = set_to_strv(&keymaps);
         if (!l)
                 return -ENOMEM;
 
@@ -148,7 +148,7 @@ bool keymap_is_valid(const char *name) {
 }
 
 int keymap_exists(const char *name) {
-        _cleanup_strv_free_ char **keymap_dirs = NULL;
+        _cleanup_(strv_freep) char **keymap_dirs = NULL;
         int r;
 
         if (!keymap_is_valid(name))

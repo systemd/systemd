@@ -127,7 +127,7 @@ static int find_unit_directory(const char *p, char **ret) {
 }
 
 int verify_set_unit_path(char **filenames) {
-        _cleanup_strv_free_ char **ans = NULL;
+        _cleanup_(strv_freep) char **ans = NULL;
         _cleanup_free_ char *joined = NULL;
         const char *old;
         int r;

@@ -338,7 +338,7 @@ int link_load_one(LinkConfigContext *ctx, const char *filename) {
 }
 
 int link_config_load(LinkConfigContext *ctx) {
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_(strv_freep) char **files = NULL;
         int r;
 
         assert(ctx);
@@ -812,7 +812,7 @@ no_rename:
 }
 
 static int link_generate_alternative_names(Link *link) {
-        _cleanup_strv_free_ char **altnames = NULL;
+        _cleanup_(strv_freep) char **altnames = NULL;
         LinkConfig *config = ASSERT_PTR(ASSERT_PTR(link)->config);
         sd_device *device = ASSERT_PTR(ASSERT_PTR(link->event)->dev);
         int r;

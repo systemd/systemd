@@ -1138,7 +1138,7 @@ static int user_record_compile_effective_passwords(
                 PasswordCache *cache,
                 char ***ret_effective_passwords) {
 
-        _cleanup_strv_free_erase_ char **effective = NULL;
+        _cleanup_(strv_free_erasep) char **effective = NULL;
         int r;
 
         assert(h);
@@ -1357,7 +1357,7 @@ static int determine_default_storage(UserStorage *ret) {
 }
 
 static int home_create(UserRecord *h, Hashmap *blobs, UserRecord **ret_home) {
-        _cleanup_strv_free_erase_ char **effective_passwords = NULL;
+        _cleanup_(strv_free_erasep) char **effective_passwords = NULL;
         _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL;
         _cleanup_(password_cache_free) PasswordCache cache = {};
@@ -1763,7 +1763,7 @@ static int home_resize(UserRecord *h, UserRecord **ret) {
 
 static int home_passwd(UserRecord *h, UserRecord **ret_home) {
         _cleanup_(user_record_unrefp) UserRecord *header_home = NULL, *embedded_home = NULL, *new_home = NULL;
-        _cleanup_strv_free_erase_ char **effective_passwords = NULL;
+        _cleanup_(strv_free_erasep) char **effective_passwords = NULL;
         _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         _cleanup_(password_cache_free) PasswordCache cache = {};
         HomeSetupFlags flags = 0;

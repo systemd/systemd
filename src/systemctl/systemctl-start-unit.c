@@ -210,7 +210,7 @@ static int enqueue_marked_jobs(
         if (r < 0)
                 return log_error_errno(r, "Failed to start jobs: %s", bus_error_message(&error, r));
 
-        _cleanup_strv_free_ char **paths = NULL;
+        _cleanup_(strv_freep) char **paths = NULL;
         r = sd_bus_message_read_strv(reply, &paths);
         if (r < 0)
                 return bus_log_parse_error(r);
@@ -293,8 +293,8 @@ int verb_start(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(bus_wait_for_units_freep) BusWaitForUnits *wu = NULL;
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
         const char *method, *job_type, *mode, *one_name, *suffix = NULL;
-        _cleanup_free_ char **stopped_units = NULL; /* Do not use _cleanup_strv_free_ */
-        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_free_ char **stopped_units = NULL; /* Do not use _cleanup_(strv_freep) */
+        _cleanup_(strv_freep) char **names = NULL;
         bool is_enqueue_marked_jobs = false;
         int r, ret = EXIT_SUCCESS;
         sd_bus *bus;

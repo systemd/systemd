@@ -337,7 +337,7 @@ int bus_property_get_activation_details(
                 sd_bus_error *reterr_error) {
 
         ActivationDetails **details = ASSERT_PTR(userdata);
-        _cleanup_strv_free_ char **pairs = NULL;
+        _cleanup_(strv_freep) char **pairs = NULL;
         int r;
 
         assert(reply);

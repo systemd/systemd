@@ -406,7 +406,7 @@ static int relabel_tree(const char *path) {
 }
 
 static int relabel_extra(void) {
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_(strv_freep) char **files = NULL;
         int r, c = 0;
 
         /* Support for relabelling additional files or directories after loading the policy. For this, code in the

@@ -188,7 +188,7 @@ static int parse_path_many(
                 char ***s,
                 const char *p) {
 
-        _cleanup_strv_free_ char **l = NULL, **f = NULL;
+        _cleanup_(strv_freep) char **l = NULL, **f = NULL;
         int r;
 
         l = strv_split(p, NULL);
@@ -1727,7 +1727,7 @@ static void print_addon(
 
 static int indent_embedded_newlines(char *cmdline, char **ret_cmdline) {
         _cleanup_free_ char *t = NULL;
-        _cleanup_strv_free_ char **ts = NULL;
+        _cleanup_(strv_freep) char **ts = NULL;
 
         assert(ret_cmdline);
 

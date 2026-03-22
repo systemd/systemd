@@ -159,7 +159,7 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        _cleanup_strv_free_ char **l = strv_copy(argv + optind);
+        _cleanup_(strv_freep) char **l = strv_copy(argv + optind);
         if (!l)
                 return log_oom();
 

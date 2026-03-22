@@ -181,7 +181,7 @@ static int context_parse_ntp_services_from_environment(Context *c) {
 }
 
 static int context_parse_ntp_services_from_disk(Context *c) {
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_(strv_freep) char **files = NULL;
         int r;
 
         r = conf_files_list_strv(&files, ".list", /* root= */ NULL,
@@ -1049,7 +1049,7 @@ static int method_set_ntp(sd_bus_message *m, void *userdata, sd_bus_error *error
 
 static int method_list_timezones(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_strv_free_ char **zones = NULL;
+        _cleanup_(strv_freep) char **zones = NULL;
         int r;
 
         assert(m);

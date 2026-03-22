@@ -107,7 +107,7 @@ static int on_spawn_io(sd_event_source *s, int fd, uint32_t revents, void *userd
 
         /* Log output only if we watch stderr. */
         if (l > 0 && spawn->fd_stderr >= 0) {
-                _cleanup_strv_free_ char **v = NULL;
+                _cleanup_(strv_freep) char **v = NULL;
 
                 r = strv_split_newlines_full(&v, p, EXTRACT_RETAIN_ESCAPE);
                 if (r < 0)
@@ -274,7 +274,7 @@ int udev_event_spawn(
                         return log_device_error_errno(event->dev, errno,
                                                       "Failed to create pipe for command '%s': %m", cmd);
 
-        _cleanup_strv_free_ char **argv = NULL;
+        _cleanup_(strv_freep) char **argv = NULL;
         r = strv_split_full(&argv, cmd, NULL, EXTRACT_UNQUOTE | EXTRACT_RELAX | EXTRACT_RETAIN_ESCAPE);
         if (r < 0)
                 return log_device_error_errno(event->dev, r, "Failed to split command: %m");

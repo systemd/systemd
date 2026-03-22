@@ -85,7 +85,7 @@ static int add_string_field(
 }
 
 char** device_make_log_fields(sd_device *device) {
-        _cleanup_strv_free_ char **strv = NULL;
+        _cleanup_(strv_freep) char **strv = NULL;
         dev_t devnum;
         int ifindex;
         sd_device_action_t action;

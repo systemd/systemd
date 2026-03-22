@@ -465,7 +465,7 @@ static int import_file(struct trie *trie, int fd, const char *filename, uint16_t
                 HW_DATA,
         } state = HW_NONE;
         _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_strv_free_ char **match_list = NULL;
+        _cleanup_(strv_freep) char **match_list = NULL;
         uint32_t line_number = 0;
         int r;
 

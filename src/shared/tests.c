@@ -46,7 +46,7 @@ char* setup_fake_runtime_dir(void) {
 static void load_testdata_env(void) {
         static bool called = false;
         _cleanup_free_ char *s = NULL, *d = NULL, *envpath = NULL;
-        _cleanup_strv_free_ char **pairs = NULL;
+        _cleanup_(strv_freep) char **pairs = NULL;
         int r;
 
         if (called)
@@ -375,7 +375,7 @@ const char* ci_environment(void) {
 }
 
 int run_test_table(const TestFunc *start, const TestFunc *end) {
-        _cleanup_strv_free_ char **tests = NULL;
+        _cleanup_(strv_freep) char **tests = NULL;
         int r = EXIT_SUCCESS;
         bool ran = false;
         const char *e;

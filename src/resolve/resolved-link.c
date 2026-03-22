@@ -290,7 +290,7 @@ static int link_update_dns_server_one(Link *l, const char *str) {
 }
 
 static int link_update_dns_servers(Link *l) {
-        _cleanup_strv_free_ char **nameservers = NULL;
+        _cleanup_(strv_freep) char **nameservers = NULL;
         int r;
 
         assert(l);
@@ -470,7 +470,7 @@ static int link_update_dnssec_mode(Link *l) {
 }
 
 static int link_update_dnssec_negative_trust_anchors(Link *l) {
-        _cleanup_strv_free_ char **ntas = NULL;
+        _cleanup_(strv_freep) char **ntas = NULL;
         _cleanup_set_free_ Set *ns = NULL;
         int r;
 
@@ -515,7 +515,7 @@ static int link_update_search_domain_one(Link *l, const char *name, bool route_o
 }
 
 static int link_update_search_domains(Link *l) {
-        _cleanup_strv_free_ char **sdomains = NULL, **rdomains = NULL;
+        _cleanup_(strv_freep) char **sdomains = NULL, **rdomains = NULL;
         int r, q;
 
         assert(l);

@@ -1141,7 +1141,7 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
 
 /* Parses compressed domain names. */
 int dhcp_lease_parse_search_domains(const uint8_t *option, size_t len, char ***domains) {
-        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_(strv_freep) char **names = NULL;
         size_t pos = 0, cnt = 0;
         int r;
 
@@ -1664,7 +1664,7 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
         }
 
         if (domains) {
-                _cleanup_strv_free_ char **a = NULL;
+                _cleanup_(strv_freep) char **a = NULL;
                 a = strv_split(domains, " ");
                 if (!a)
                         return -ENOMEM;
