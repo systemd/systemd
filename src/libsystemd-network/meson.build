@@ -3,6 +3,7 @@
 libsystemd_network_sources = files(
         'arp-util.c',
         'dhcp-client-send.c',
+        'dhcp-message.c',
         'dhcp-network.c',
         'dhcp-option.c',
         'dhcp-packet.c',
@@ -76,6 +77,9 @@ executables += [
         },
         network_test_template + {
                 'sources' : files('test-dhcp-client.c'),
+        },
+        network_test_template + {
+                'sources' : files('test-dhcp-message.c'),
         },
         network_test_template + {
                 'sources' : files('test-dhcp-option.c'),
