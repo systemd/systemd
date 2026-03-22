@@ -16,6 +16,8 @@
 #include "strv.h"
 #include "utf8.h"
 
+#define DHCP_MAX_OPTIONS 4096u
+
 /* Append type-length value structure to the options buffer */
 static int dhcp_option_append_tlv(uint8_t options[], size_t size, size_t *offset, uint8_t code, size_t optlen, const void *optval) {
         assert(options);
@@ -132,34 +134,6 @@ static int option_append(uint8_t options[], size_t size, size_t *offset,
                         if (r < 0)
                                 return r;
                 }
-                break;
-        }
-        case SD_DHCP_OPTION_RELAY_AGENT_INFORMATION: {
-                /* When called with raw data (optlen > 0), e.g. from SendOption=, append as a plain TLV.
-                 * The structured handling below expects optval to be an sd_dhcp_server*. */
-                if (optlen > 0)
-                        return dhcp_option_append_tlv(options, size, offset, code, optlen, optval);
-
-                sd_dhcp_server *server = (sd_dhcp_server *) optval;
-                size_t current_offset = *offset + 2;
-
-                if (server->agent_circuit_id) {
-                        r = dhcp_option_append_tlv(options, size, &current_offset, SD_DHCP_RELAY_AGENT_CIRCUIT_ID,
-                                                   strlen(server->agent_circuit_id), server->agent_circuit_id);
-                        if (r < 0)
-                                return r;
-                }
-                if (server->agent_remote_id) {
-                        r = dhcp_option_append_tlv(options, size, &current_offset, SD_DHCP_RELAY_AGENT_REMOTE_ID,
-                                                   strlen(server->agent_remote_id), server->agent_remote_id);
-                        if (r < 0)
-                                return r;
-                }
-
-                options[*offset] = code;
-                options[*offset + 1] = current_offset - *offset - 2;
-                assert(current_offset - *offset - 2 <= UINT8_MAX);
-                *offset = current_offset;
                 break;
         }
         default:
@@ -463,23 +437,31 @@ int dhcp_option_parse_hostname(const uint8_t *option, size_t len, char **ret) {
         return 0;
 }
 
-static sd_dhcp_option* dhcp_option_free(sd_dhcp_option *i) {
-        if (!i)
+static sd_dhcp_option* dhcp_option_free(sd_dhcp_option *o) {
+        if (!o)
                 return NULL;
 
-        free(i->data);
-        return mfree(i);
+        if (!o->option_prev)
+                /* If this is the head one, remove all subsequent options. */
+                LIST_CLEAR(option, o->option_next, sd_dhcp_option_unref);
+        else
+                /* Otherwise, remove this option from the list. */
+                LIST_REMOVE(option, o->option_prev, o);
+
+        return mfree(o);
 }
 
 int sd_dhcp_option_new(uint8_t option, const void *data, size_t length, sd_dhcp_option **ret) {
         assert_return(ret, -EINVAL);
         assert_return(length == 0 || data, -EINVAL);
 
-        _cleanup_free_ void *q = memdup(data, length);
-        if (!q)
-                return -ENOMEM;
+        if (IN_SET(option, SD_DHCP_OPTION_PAD, SD_DHCP_OPTION_END))
+                return -EINVAL;
 
-        sd_dhcp_option *p = new(sd_dhcp_option, 1);
+        if (length > UINT8_MAX)
+                return -EINVAL;
+
+        sd_dhcp_option *p = malloc(MAX(sizeof(sd_dhcp_option), offsetof(sd_dhcp_option, data) + length));
         if (!p)
                 return -ENOMEM;
 
@@ -487,8 +469,9 @@ int sd_dhcp_option_new(uint8_t option, const void *data, size_t length, sd_dhcp_
                 .n_ref = 1,
                 .option = option,
                 .length = length,
-                .data = TAKE_PTR(q),
         };
+
+        memcpy_safe(p->data, data, length);
 
         *ret = TAKE_PTR(p);
         return 0;
@@ -502,3 +485,146 @@ DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 trivial_compare_func,
                 sd_dhcp_option,
                 sd_dhcp_option_unref);
+
+static int dhcp_options_append_impl(Hashmap **options, uint8_t code, uint8_t length, const void *data) {
+        int r;
+
+        assert(options);
+
+        if (IN_SET(code, SD_DHCP_OPTION_PAD, SD_DHCP_OPTION_END))
+                return -EINVAL;
+
+        _cleanup_(sd_dhcp_option_unrefp) sd_dhcp_option *o = NULL;
+        r = sd_dhcp_option_new(code, data, length, &o);
+        if (r < 0)
+                return r;
+
+        sd_dhcp_option *e = hashmap_get(*options, UINT_TO_PTR(o->option));
+        if (e) {
+                LIST_APPEND(option, e->option_next, TAKE_PTR(o));
+                return 0;
+        }
+
+        r = hashmap_ensure_put(options, &dhcp_option_hash_ops, UINT_TO_PTR(o->option), o);
+        if (r < 0)
+                return r;
+
+        TAKE_PTR(o);
+        return 0;
+}
+
+int dhcp_options_append(Hashmap **options, uint8_t code, size_t length, const void *data) {
+        int r;
+
+        assert(options);
+        assert(data || length == 0);
+
+        /* Safety check. Assume not so many options. */
+        if (hashmap_size(*options) + DIV_ROUND_UP(length, UINT8_MAX) >= DHCP_MAX_OPTIONS)
+                return -E2BIG;
+
+        const uint8_t *p = data;
+        while (length > UINT8_MAX) {
+                /* If the data is too long, then split it into small pieces. See RFC 3396. */
+                r = dhcp_options_append_impl(options, code, UINT8_MAX, p);
+                if (r < 0)
+                        return r;
+
+                p += UINT8_MAX;
+                length -= UINT8_MAX;
+        }
+
+        return dhcp_options_append_impl(options, code, length, p);
+}
+
+int dhcp_options_append_many(Hashmap **options, Hashmap *src) {
+        int r;
+
+        assert(options);
+
+        sd_dhcp_option *o;
+        HASHMAP_FOREACH(o, src)
+                LIST_FOREACH(option, i, o) {
+                        r = dhcp_options_append(options, i->option, i->length, i->data);
+                        if (r < 0)
+                                return r;
+                }
+
+        return 0;
+}
+
+int dhcp_options_extract(Hashmap **options, const uint8_t *buf, size_t len) {
+        int r;
+
+        assert(options);
+        assert(buf || len == 0);
+
+        for (;;) {
+                /* option code */
+                if (len <= 0)
+                        break;
+                uint8_t c = *buf++;
+                len--;
+
+                /* PAD and END do not have the length field. */
+                if (c == SD_DHCP_OPTION_PAD)
+                        continue;
+                if (c == SD_DHCP_OPTION_END)
+                        break;
+
+                if (len <= 0)
+                        return -EBADMSG;
+
+                /* option length */
+                uint8_t l = *buf++;
+                len--;
+                if (l > len)
+                        return -EBADMSG;
+
+                r = dhcp_options_append(options, c, l, buf);
+                if (r < 0)
+                        return r;
+
+                buf += l;
+                len -= l;
+        }
+
+        return 0;
+}
+
+size_t dhcp_options_size(Hashmap *options) {
+        sd_dhcp_option *o;
+        size_t sz = 1; /* 1 is for SD_DHCP_OPTION_END */
+        HASHMAP_FOREACH(o, options)
+                LIST_FOREACH(option, i, o)
+                        sz += 2 + i->length;
+
+        return sz;
+}
+
+int dhcp_options_build(Hashmap *options, struct iovec *iov) {
+        int r;
+
+        assert(iov);
+
+        size_t sz = dhcp_options_size(options);
+        if (sz > iov->iov_len)
+                return -ENOBUFS;
+
+        /* Sort options by their option code, for reproducibility. */
+        _cleanup_free_ sd_dhcp_option **sorted = NULL;
+        size_t n;
+        r = hashmap_dump_sorted(options, (void***) &sorted, &n);
+        if (r < 0)
+                return r;
+
+        uint8_t *p = iov->iov_base;
+        FOREACH_ARRAY(o, sorted, n)
+                LIST_FOREACH(option, i, *o)
+                        p = mempcpy(p, i->tlv, 2 + i->length);
+
+        *p++ = SD_DHCP_OPTION_END;
+        memzero(p, LESS_BY(iov->iov_len, sz));
+
+        return 0;
+}

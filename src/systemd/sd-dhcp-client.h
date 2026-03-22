@@ -150,9 +150,6 @@ int sd_dhcp_client_set_bootp(
                 int bootp);
 int sd_dhcp_client_set_send_release(sd_dhcp_client *client, int enable);
 
-int sd_dhcp_client_add_option(sd_dhcp_client *client, sd_dhcp_option *v);
-int sd_dhcp_client_add_vendor_option(sd_dhcp_client *client, sd_dhcp_option *v);
-
 int sd_dhcp_client_is_running(sd_dhcp_client *client);
 int sd_dhcp_client_stop(sd_dhcp_client *client);
 int sd_dhcp_client_start(sd_dhcp_client *client);
@@ -172,7 +169,7 @@ int sd_dhcp_client_attach_event(
                 sd_event *event,
                 int64_t priority);
 int sd_dhcp_client_detach_event(sd_dhcp_client *client);
-sd_event *sd_dhcp_client_get_event(sd_dhcp_client *client);
+sd_event* sd_dhcp_client_get_event(sd_dhcp_client *client);
 int sd_dhcp_client_attach_device(sd_dhcp_client *client, sd_device *dev);
 
 _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_dhcp_client, sd_dhcp_client_unref);
