@@ -47,7 +47,7 @@ const char* _bus_error_message(const sd_bus_error *e, int error, char buf[static
         static const sd_bus_error_map * const CONCATENATE(errors ## _copy_, __COUNTER__) = errors;
 
 /* We use something exotic as end marker, to ensure people build the
- * maps using the macsd-ros. */
+ * maps using the macros. */
 #define BUS_ERROR_MAP_END_MARKER -'x'
 
 BUS_ERROR_MAP_ELF_USE(bus_standard_errors);
