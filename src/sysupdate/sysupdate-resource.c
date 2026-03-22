@@ -157,7 +157,7 @@ static int resource_load_from_directory_recursive(
 
                 r = pattern_match_many(rr->patterns, rel_joined_for_matching, &extracted_fields);
                 if (r == PATTERN_MATCH_RETRY) {
-                        _cleanup_closedir_ DIR *subdir = NULL;
+                        _cleanup_(closedirp) DIR *subdir = NULL;
 
                         subdir = xopendirat(dirfd(d), rel_joined, 0);
                         if (!subdir)
@@ -202,7 +202,7 @@ static int resource_load_from_directory_recursive(
 static int resource_load_from_directory(
                 Resource *rr,
                 mode_t m) {
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
 
         assert(rr);
         assert(IN_SET(rr->type, RESOURCE_TAR, RESOURCE_REGULAR_FILE, RESOURCE_DIRECTORY, RESOURCE_SUBVOLUME));
@@ -323,8 +323,8 @@ static int download_manifest(
                 size_t *ret_size) {
 
         _cleanup_free_ char *buffer = NULL, *suffixed_url = NULL;
-        _cleanup_close_pair_ int pfd[2] = EBADF_PAIR;
-        _cleanup_fclose_ FILE *manifest = NULL;
+        _cleanup_(close_pairp) int pfd[2] = EBADF_PAIR;
+        _cleanup_(fclosep) FILE *manifest = NULL;
         size_t size = 0;
         int r;
 
@@ -694,7 +694,7 @@ static int get_sysext_overlay_block(const char *p, dev_t *ret) {
         if (!j)
                 return log_oom_debug();
 
-        _cleanup_close_ int fd = open(j, O_RDONLY|O_DIRECTORY);
+        _cleanup_(closep) int fd = open(j, O_RDONLY|O_DIRECTORY);
         if (fd < 0)
                 return log_debug_errno(errno, "Failed to open '%s': %m", j);
 
@@ -782,7 +782,7 @@ int resource_resolve_path(
                         d = orig_root_stats.st_rdev;
 
         } else if (rr->type == RESOURCE_PARTITION) {
-                _cleanup_close_ int fd = -EBADF, real_fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF, real_fd = -EBADF;
                 _cleanup_free_ char *resolved = NULL;
                 struct stat st;
 

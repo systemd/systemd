@@ -225,7 +225,7 @@ static int verify_trusted_image_fd_by_path(int fd) {
 
         for (ImageClass c = 0; c < _IMAGE_CLASS_MAX; c++)
                 NULSTR_FOREACH(s, image_search_path[c]) {
-                        _cleanup_close_ int dir_fd = -EBADF, inode_fd = -EBADF;
+                        _cleanup_(closep) int dir_fd = -EBADF, inode_fd = -EBADF;
                         _cleanup_free_ char *q = NULL;
                         struct stat stb;
                         const char *e;
@@ -399,7 +399,7 @@ static int vl_method_mount_image(
         _cleanup_(dissected_image_unrefp) DissectedImage *di = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *aj = NULL;
-        _cleanup_close_ int image_fd = -EBADF, userns_fd = -EBADF, verity_data_fd = -EBADF;
+        _cleanup_(closep) int image_fd = -EBADF, userns_fd = -EBADF, verity_data_fd = -EBADF;
         _cleanup_(image_policy_freep) ImagePolicy *use_policy = NULL;
         Hashmap **polkit_registry = ASSERT_PTR(userdata);
         _cleanup_free_ char *ps = NULL;
@@ -745,7 +745,7 @@ static int vl_method_mount_image(
                 TAKE_FD(pp->fsmount_fd);
 
                 const char *m = partition_mountpoint_to_string(d);
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_(strv_freep) char **l = NULL;
                 if (!isempty(m)) {
                         l = strv_split_nulstr(m);
                         if (!l)
@@ -901,7 +901,7 @@ static DirectoryOwnership validate_directory_fd(
          * foreign UID set, but in that case the parent directory must be owned by the client's UID, or some
          * directory iteratively up the chain */
 
-        _cleanup_close_ int parent_fd = -EBADF;
+        _cleanup_(closep) int parent_fd = -EBADF;
         unsigned n_level;
         for (n_level = 0; n_level < 16; n_level++) {
                 /* Do not go above bind mounts */
@@ -926,7 +926,7 @@ static DirectoryOwnership validate_directory_fd(
                 }
 
                 /* Go one level up */
-                _cleanup_close_ int new_parent_fd = openat(fd, "..", O_DIRECTORY|O_PATH|O_CLOEXEC);
+                _cleanup_(closep) int new_parent_fd = openat(fd, "..", O_DIRECTORY|O_PATH|O_CLOEXEC);
                 if (new_parent_fd < 0)
                         return log_debug_errno(errno, "Failed to open parent directory of directory file descriptor: %m");
 
@@ -980,7 +980,7 @@ static DirectoryOwnership validate_directory_fd(
 static int open_tree_try_drop_idmap_harder(sd_varlink *link, int directory_fd, const char *directory_path) {
         int r;
 
-        _cleanup_close_ int mount_fd = open_tree_try_drop_idmap(
+        _cleanup_(closep) int mount_fd = open_tree_try_drop_idmap(
                         directory_fd,
                         "",
                         OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_SYMLINK_NOFOLLOW|AT_EMPTY_PATH);
@@ -994,7 +994,7 @@ static int open_tree_try_drop_idmap_harder(sd_varlink *link, int directory_fd, c
         if (r < 0)
                 return r;
 
-        _cleanup_close_ int mntns_fd = pidref_namespace_open_by_type(&pidref, NAMESPACE_MOUNT);
+        _cleanup_(closep) int mntns_fd = pidref_namespace_open_by_type(&pidref, NAMESPACE_MOUNT);
         if (mntns_fd < 0)
                 return log_debug_errno(mntns_fd, "Failed to open mount namespace of peer: %m");
 
@@ -1008,7 +1008,7 @@ static int open_tree_try_drop_idmap_harder(sd_varlink *link, int directory_fd, c
          * from a different mount namespace, so we need to fork off a child process that joins the peer's
          * mount namespace and calls open_tree() there. */
 
-        _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR, mount_fd_socket[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int errno_pipe_fd[2] = EBADF_PAIR, mount_fd_socket[2] = EBADF_PAIR;
 
         if (pipe2(errno_pipe_fd, O_CLOEXEC) < 0)
                 return log_debug_errno(errno, "Failed to create pipe: %m");
@@ -1091,7 +1091,7 @@ static int vl_method_mount_directory(
                 .userns_fd_idx = UINT_MAX,
                 .read_only = -1,
         };
-        _cleanup_close_ int directory_fd = -EBADF, userns_fd = -EBADF;
+        _cleanup_(closep) int directory_fd = -EBADF, userns_fd = -EBADF;
         Hashmap **polkit_registry = ASSERT_PTR(userdata);
         int r;
 
@@ -1184,7 +1184,7 @@ static int vl_method_mount_directory(
         if (r < 0)
                 return r;
 
-        _cleanup_close_ int mount_fd = open_tree_try_drop_idmap_harder(link, directory_fd, directory_path);
+        _cleanup_(closep) int mount_fd = open_tree_try_drop_idmap_harder(link, directory_fd, directory_path);
         if (mount_fd < 0)
                 return mount_fd;
 
@@ -1288,7 +1288,7 @@ static int vl_method_mount_directory(
                 if (r < 0)
                         return r;
 
-                _cleanup_close_ int idmap_userns_fd = userns_acquire(new_uid_map, new_uid_map, /* setgroups_deny= */ true);
+                _cleanup_(closep) int idmap_userns_fd = userns_acquire(new_uid_map, new_uid_map, /* setgroups_deny= */ true);
                 if (idmap_userns_fd < 0)
                         return log_debug_errno(idmap_userns_fd, "Failed to acquire user namespace for id mapping: %m");
 
@@ -1357,7 +1357,7 @@ static int vl_method_make_directory(
         if (p.parent_fd_idx == UINT_MAX)
                 return sd_varlink_error_invalid_parameter_name(link, "parentFileDescriptor");
 
-        _cleanup_close_ int parent_fd = sd_varlink_peek_dup_fd(link, p.parent_fd_idx);
+        _cleanup_(closep) int parent_fd = sd_varlink_peek_dup_fd(link, p.parent_fd_idx);
         if (parent_fd < 0)
                 return log_debug_errno(parent_fd, "Failed to peek parent directory fd from client: %m");
 
@@ -1415,7 +1415,7 @@ static int vl_method_make_directory(
         if (r < 0)
                 return r;
 
-        _cleanup_close_ int fd = open_mkdir_at(parent_fd, t, O_CLOEXEC, p.mode);
+        _cleanup_(closep) int fd = open_mkdir_at(parent_fd, t, O_CLOEXEC, p.mode);
         if (fd < 0)
                 return fd;
 
@@ -1451,7 +1451,7 @@ fail:
 }
 
 static int process_connection(sd_varlink_server *server, int _fd) {
-        _cleanup_close_ int fd = TAKE_FD(_fd); /* always take possession */
+        _cleanup_(closep) int fd = TAKE_FD(_fd); /* always take possession */
         _cleanup_(sd_varlink_close_unrefp) sd_varlink *vl = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         int r;
@@ -1485,7 +1485,7 @@ static int process_connection(sd_varlink_server *server, int _fd) {
 static int run(int argc, char *argv[]) {
         usec_t start_time, listen_idle_usec, last_busy_usec = USEC_INFINITY;
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *server = NULL;
-        _cleanup_hashmap_free_ Hashmap *polkit_registry = NULL;
+        _cleanup_(hashmap_freep) Hashmap *polkit_registry = NULL;
         _cleanup_(pidref_done) PidRef parent = PIDREF_NULL;
         unsigned n_iterations = 0;
         int m, listen_fd, r;
@@ -1541,7 +1541,7 @@ static int run(int argc, char *argv[]) {
         start_time = now(CLOCK_MONOTONIC);
 
         for (;;) {
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
                 usec_t n;
 
                 /* Exit the worker in regular intervals, to flush out all memory use */

@@ -311,7 +311,7 @@ int tmpfs_mount_parse(CustomMount **l, size_t *n, const char *s) {
 
 int overlay_mount_parse(CustomMount **l, size_t *n, const char *s, bool read_only) {
         _cleanup_free_ char *upper = NULL, *destination = NULL;
-        _cleanup_strv_free_ char **lower = NULL;
+        _cleanup_(strv_freep) char **lower = NULL;
         CustomMount *m;
         int r, k;
 
@@ -838,7 +838,7 @@ static int mount_bind(const char *dest, CustomMount *m, uid_t uid_shift, uid_t u
          * caller's userns *without* any mount idmapping in place. To get that uid, we clone the
          * mount source tree and clear any existing idmapping and temporarily mount that tree over
          * the mount source before we stat the mount source to figure out the source uid. */
-        _cleanup_close_ int fd_clone =
+        _cleanup_(closep) int fd_clone =
                 idmapping == REMOUNT_IDMAPPING_NONE ?
                 RET_NERRNO(open_tree(
                         AT_FDCWD,
@@ -942,7 +942,7 @@ static int mount_tmpfs(const char *dest, CustomMount *m, uid_t uid_shift, const 
 }
 
 static char *joined_and_escaped_lower_dirs(char **lower) {
-        _cleanup_strv_free_ char **sv = NULL;
+        _cleanup_(strv_freep) char **sv = NULL;
 
         sv = strv_copy(lower);
         if (!sv)
@@ -1493,7 +1493,7 @@ static int do_wipe_fully_visible_api_fs(void) {
 }
 
 int wipe_fully_visible_api_fs(int mntns_fd) {
-        _cleanup_close_ int orig_mntns_fd = -EBADF;
+        _cleanup_(closep) int orig_mntns_fd = -EBADF;
         int r;
 
         log_debug("Wiping fully visible API FS");

@@ -26,7 +26,7 @@ bool is_path(const char *p) {
 }
 
 int path_split_and_make_absolute(const char *p, char ***ret) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         int r;
 
         assert(p);
@@ -655,7 +655,7 @@ char* path_extend_internal(char **x, ...) {
 }
 
 int open_and_check_executable(const char *name, const char *root, char **ret_path, int *ret_fd) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         _cleanup_free_ char *resolved = NULL;
         int r;
 

@@ -161,7 +161,7 @@ int manager_llmnr_ipv4_udp_fd(Manager *m) {
                 .in.sin_family = AF_INET,
                 .in.sin_port = htobe16(LLMNR_PORT),
         };
-        _cleanup_close_ int s = -EBADF;
+        _cleanup_(closep) int s = -EBADF;
         int r;
 
         assert(m);
@@ -231,7 +231,7 @@ int manager_llmnr_ipv6_udp_fd(Manager *m) {
                 .in6.sin6_family = AF_INET6,
                 .in6.sin6_port = htobe16(LLMNR_PORT),
         };
-        _cleanup_close_ int s = -EBADF;
+        _cleanup_(closep) int s = -EBADF;
         int r;
 
         assert(m);
@@ -364,7 +364,7 @@ int manager_llmnr_ipv4_tcp_fd(Manager *m) {
                 .in.sin_family = AF_INET,
                 .in.sin_port = htobe16(LLMNR_PORT),
         };
-        _cleanup_close_ int s = -EBADF;
+        _cleanup_(closep) int s = -EBADF;
         int r;
 
         assert(m);
@@ -430,7 +430,7 @@ int manager_llmnr_ipv6_tcp_fd(Manager *m) {
                 .in6.sin6_family = AF_INET6,
                 .in6.sin6_port = htobe16(LLMNR_PORT),
         };
-        _cleanup_close_ int s = -EBADF;
+        _cleanup_(closep) int s = -EBADF;
         int r;
 
         assert(m);

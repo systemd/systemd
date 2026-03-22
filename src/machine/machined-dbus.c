@@ -822,7 +822,7 @@ static int method_list_images(sd_bus_message *message, void *userdata, sd_bus_er
 
         assert(message);
 
-        _cleanup_hashmap_free_ Hashmap *images = NULL;
+        _cleanup_(hashmap_freep) Hashmap *images = NULL;
         r = image_discover(m->runtime_scope, IMAGE_MACHINE, NULL, &images);
         if (r < 0)
                 return r;
@@ -949,7 +949,7 @@ static int method_get_image_os_release(sd_bus_message *message, void *userdata, 
 
 static int clean_pool_done(Operation *operation, int child_error, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_fclose_ FILE *file = NULL;
+        _cleanup_(fclosep) FILE *file = NULL;
         int r;
 
         assert(operation);

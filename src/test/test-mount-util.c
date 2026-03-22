@@ -198,7 +198,7 @@ TEST(bind_remount_one) {
 
         r = ASSERT_OK(pidref_safe_fork("(remount-one-with-mountinfo)", FORK_COMMON_FLAGS, NULL));
         if (r == 0) { /* child */
-                _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
+                _cleanup_(fclosep) FILE *proc_self_mountinfo = NULL;
 
                 assert_se(fopen_unlocked("/proc/self/mountinfo", "re", &proc_self_mountinfo) >= 0);
 
@@ -339,7 +339,7 @@ TEST(umount_recursive) {
                 if (r == 0) { /* child */
                         _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
                         _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
-                        _cleanup_fclose_ FILE *f = NULL;
+                        _cleanup_(fclosep) FILE *f = NULL;
                         _cleanup_free_ char *k = NULL;
 
                         /* Open /p/s/m file before we unmount everything (which might include /proc/) */
@@ -394,7 +394,7 @@ TEST(fd_make_mount_point) {
 
         r = ASSERT_OK(pidref_safe_fork("(make-mount-point)", FORK_COMMON_FLAGS, NULL));
         if (r == 0) {
-                _cleanup_close_ int fd = -EBADF, fd2 = -EBADF;
+                _cleanup_(closep) int fd = -EBADF, fd2 = -EBADF;
 
                 fd = open(s, O_PATH|O_CLOEXEC);
                 assert_se(fd >= 0);
@@ -491,7 +491,7 @@ TEST(bind_mount_submounts) {
 }
 
 TEST(path_is_network_fs_harder) {
-        _cleanup_close_ int dir_fd = -EBADF;
+        _cleanup_(closep) int dir_fd = -EBADF;
         int r;
 
         ASSERT_OK(dir_fd = open("/", O_PATH | O_CLOEXEC));
@@ -530,7 +530,7 @@ TEST(umountat) {
         CHECK_PRIV;
 
         _cleanup_(rm_rf_physical_and_freep) char *p = NULL;
-        _cleanup_close_ int dfd = mkdtemp_open(NULL, O_CLOEXEC, &p);
+        _cleanup_(closep) int dfd = mkdtemp_open(NULL, O_CLOEXEC, &p);
         ASSERT_OK(dfd);
 
         ASSERT_OK(mkdirat(dfd, "foo", 0777));
@@ -544,7 +544,7 @@ TEST(umountat) {
 
 TEST(mount_fd_clone) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
-        _cleanup_close_pair_ int fds[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int fds[2] = EBADF_PAIR;
         int r;
 
         CHECK_PRIV;
@@ -569,7 +569,7 @@ TEST(mount_fd_clone) {
                 ASSERT_OK(touch(marker));
 
                 /* Clone the mount as a detached mount fd. */
-                _cleanup_close_ int mount_fd = ASSERT_OK_ERRNO(open_tree(AT_FDCWD, t, OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC));
+                _cleanup_(closep) int mount_fd = ASSERT_OK_ERRNO(open_tree(AT_FDCWD, t, OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC));
 
                 /* Send the mount fd to the parent. */
                 ASSERT_OK(send_one_fd(fds[1], mount_fd, 0));
@@ -580,10 +580,10 @@ TEST(mount_fd_clone) {
         fds[1] = safe_close(fds[1]);
 
         /* Parent: Receive the mount fd, clone it with mount_fd_clone(), and verify we can attach it. */
-        _cleanup_close_ int foreign_mount_fd = ASSERT_OK(receive_one_fd(fds[0], 0));
-        _cleanup_close_ int first_clone = ASSERT_OK(
+        _cleanup_(closep) int foreign_mount_fd = ASSERT_OK(receive_one_fd(fds[0], 0));
+        _cleanup_(closep) int first_clone = ASSERT_OK(
                         mount_fd_clone(foreign_mount_fd, /* recursive= */ true, &foreign_mount_fd));
-        _cleanup_close_ _unused_ int second_clone = ASSERT_OK(
+        _cleanup_(closep) _unused_ int second_clone = ASSERT_OK(
                         mount_fd_clone(foreign_mount_fd, /* recursive= */ true, /* replacement_fd= */ NULL));
         _cleanup_free_ char *target = ASSERT_NOT_NULL(path_join(t, "target"));
         ASSERT_OK_ERRNO(mkdir(target, 0755));

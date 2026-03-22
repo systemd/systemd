@@ -44,7 +44,7 @@ static int extract_subvolume_name(const char *path, char **ret) {
 int btrfs_subvol_make(int dir_fd, const char *path) {
         struct btrfs_ioctl_vol_args args = {};
         _cleanup_free_ char *subvolume = NULL, *parent = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);

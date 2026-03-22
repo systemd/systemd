@@ -104,7 +104,7 @@ void _reset_log_level(int *saved_log_level);
 */
 
 #define _LOG_CONTEXT_CONSUME_STR(s, c, strv) \
-        _unused_ _cleanup_strv_free_ strv = strv_new(s);                                                \
+        _unused_ _cleanup_(strv_freep) strv = strv_new(s);                                                \
         if (!strv)                                                                                      \
                 free(s);                                                                                \
         _unused_ _cleanup_(log_context_unrefp) LogContext *c = log_context_new_strv_consume(TAKE_PTR(strv))

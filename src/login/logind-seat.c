@@ -106,7 +106,7 @@ int seat_save(Seat *s) {
                 return log_error_errno(r, "Failed to create /run/systemd/seats/: %m");
 
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         r = fopen_tmpfile_linkable(s->state_file, O_WRONLY|O_CLOEXEC, &temp_path, &f);
         if (r < 0)
                 return log_error_errno(r, "Failed to create state file '%s': %m", s->state_file);
@@ -169,7 +169,7 @@ int seat_load(Seat *s) {
 
 static int vt_allocate(unsigned vtnr) {
         char p[sizeof("/dev/tty") + DECIMAL_STR_MAX(unsigned)];
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         assert(vtnr >= 1);
 
@@ -331,7 +331,7 @@ static int seat_trigger_devices(Seat *s) {
 static int static_node_acl(Seat *s) {
 #if HAVE_ACL
         int r, ret = 0;
-        _cleanup_set_free_ Set *uids = NULL;
+        _cleanup_(set_freep) Set *uids = NULL;
 
         assert(s);
 
@@ -341,7 +341,7 @@ static int static_node_acl(Seat *s) {
                         return log_oom();
         }
 
-        _cleanup_closedir_ DIR *dir = opendir("/run/udev/static_node-tags/uaccess/");
+        _cleanup_(closedirp) DIR *dir = opendir("/run/udev/static_node-tags/uaccess/");
         if (!dir) {
                 if (errno == ENOENT)
                         return 0;
@@ -350,7 +350,7 @@ static int static_node_acl(Seat *s) {
         }
 
         FOREACH_DIRENT(de, dir, return -errno) {
-                _cleanup_close_ int fd = RET_NERRNO(openat(dirfd(dir), de->d_name, O_CLOEXEC|O_PATH));
+                _cleanup_(closep) int fd = RET_NERRNO(openat(dirfd(dir), de->d_name, O_CLOEXEC|O_PATH));
                 if (ERRNO_IS_NEG_DEVICE_ABSENT_OR_EMPTY(fd))
                         continue;
                 if (fd < 0) {

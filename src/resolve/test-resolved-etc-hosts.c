@@ -16,7 +16,7 @@
 #include "tmpfile-util.h"
 
 TEST(parse_etc_hosts_system) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
 
         f = fopen("/etc/hosts", "re");
         if (!f) {
@@ -45,7 +45,7 @@ TEST(parse_etc_hosts) {
                 t[] = "/tmp/test-resolved-etc-hosts.XXXXXX";
 
         int fd;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
 
         fd = mkostemp_safe(t);
         assert_se(fd >= 0);
@@ -139,7 +139,7 @@ TEST(parse_etc_hosts) {
 
 static void test_parse_file_one(const char *fname) {
         _cleanup_(etc_hosts_clear) EtcHosts hosts = {};
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
 
         log_info("/* %s(\"%s\") */", __func__, fname);
 

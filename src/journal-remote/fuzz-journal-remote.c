@@ -19,7 +19,7 @@
 #include "tmpfile-util.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
-        _cleanup_close_ int fdin_close = -EBADF, fdout = -EBADF;
+        _cleanup_(closep) int fdin_close = -EBADF, fdout = -EBADF;
         _cleanup_(rm_rf_physical_and_freep) char *tmp = NULL;
         _cleanup_(unlink_and_freep) char *name = NULL;
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
@@ -67,7 +67,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
                 return r;
         }
 
-        _cleanup_fclose_ FILE *dev_null = NULL;
+        _cleanup_(fclosep) FILE *dev_null = NULL;
         if (getenv_bool("SYSTEMD_FUZZ_OUTPUT") <= 0) {
                 dev_null = fopen("/dev/null", "we");
                 if (!dev_null)

@@ -5,7 +5,7 @@
 #include "tests.h"
 
 TEST(make_salt) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
 
         for (int i = 0; i < 10; i++) {
                 _cleanup_free_ char *t;

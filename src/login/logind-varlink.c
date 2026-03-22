@@ -338,7 +338,7 @@ static int vl_method_release_session(sd_varlink *link, sd_json_variant *paramete
 
 int manager_varlink_init(Manager *m, int fd) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
-        _unused_ _cleanup_close_ int fd_close = fd;
+        _unused_ _cleanup_(closep) int fd_close = fd;
         int r;
 
         assert(m);

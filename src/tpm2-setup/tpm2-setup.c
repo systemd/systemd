@@ -332,7 +332,7 @@ static int setup_srk(void) {
 
         /* Write out public key (note that we only do that as a help to the user, we don't make use of this ever */
         _cleanup_(unlink_and_freep) char *t = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         r = fopen_tmpfile_linkable(pem_path, O_WRONLY|O_CLOEXEC, &t, &f);
         if (r < 0)
                 return log_error_errno(r, "Failed to open SRK public key file '%s' for writing: %m", pem_path);
@@ -455,7 +455,7 @@ static int setup_nvpcr(void) {
         _cleanup_(setup_nvpcr_context_done) SetupNvPCRContext c = {};
         int r;
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         r = conf_files_list_nulstr(
                         &l,
                         ".nvpcr",

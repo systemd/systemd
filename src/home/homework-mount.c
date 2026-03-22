@@ -186,7 +186,7 @@ static int append_identity_range(char **text, uid_t start, uid_t next_start, uid
 
 static int make_home_userns(uid_t stored_uid, uid_t exposed_uid) {
         _cleanup_free_ char *text = NULL;
-        _cleanup_close_ int userns_fd = -EBADF;
+        _cleanup_(closep) int userns_fd = -EBADF;
         int r;
 
         assert(uid_is_valid(stored_uid));
@@ -243,7 +243,7 @@ static int make_home_userns(uid_t stored_uid, uid_t exposed_uid) {
 }
 
 int home_shift_uid(int dir_fd, const char *target, uid_t stored_uid, uid_t exposed_uid, int *ret_mount_fd) {
-        _cleanup_close_ int mount_fd = -EBADF, userns_fd = -EBADF;
+        _cleanup_(closep) int mount_fd = -EBADF, userns_fd = -EBADF;
         int r;
 
         assert(dir_fd >= 0);

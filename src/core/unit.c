@@ -1071,7 +1071,7 @@ static void unit_merge_dependencies(Unit *u, Unit *other) {
         }
 
         for (;;) {
-                _cleanup_hashmap_free_ Hashmap *other_deps = NULL;
+                _cleanup_(hashmap_freep) Hashmap *other_deps = NULL;
                 UnitDependencyInfo di_back;
                 Unit *back;
 
@@ -1794,7 +1794,7 @@ static int log_unit_internal(void *userdata, int level, int error, const char *f
 }
 
 static bool unit_test_condition(Unit *u) {
-        _cleanup_strv_free_ char **env = NULL;
+        _cleanup_(strv_freep) char **env = NULL;
         int r;
 
         assert(u);
@@ -1818,7 +1818,7 @@ static bool unit_test_condition(Unit *u) {
 }
 
 static bool unit_test_assert(Unit *u) {
-        _cleanup_strv_free_ char **env = NULL;
+        _cleanup_(strv_freep) char **env = NULL;
         int r;
 
         assert(u);
@@ -3056,7 +3056,7 @@ static Hashmap *unit_get_dependency_hashmap_per_type(Unit *u, UnitDependency d) 
 
         deps = hashmap_get(u->dependencies, UNIT_DEPENDENCY_TO_PTR(d));
         if (!deps) {
-                _cleanup_hashmap_free_ Hashmap *h = NULL;
+                _cleanup_(hashmap_freep) Hashmap *h = NULL;
 
                 h = hashmap_new(NULL);
                 if (!h)
@@ -3874,7 +3874,7 @@ bool unit_need_daemon_reload(Unit *u) {
                 return true;
 
         if (u->load_state == UNIT_LOADED) {
-                _cleanup_strv_free_ char **dropins = NULL;
+                _cleanup_(strv_freep) char **dropins = NULL;
 
                 (void) unit_find_dropin_paths(u, /* use_unit_path_cache= */ false, &dropins);
 
@@ -4138,7 +4138,7 @@ int unit_kill(
         if (IN_SET(whom, KILL_ALL, KILL_ALL_FAIL, KILL_CGROUP, KILL_CGROUP_FAIL) && code == SI_USER) {
                 CGroupRuntime *crt = unit_get_cgroup_runtime(u);
                 if (crt && crt->cgroup_path) {
-                        _cleanup_set_free_ Set *pid_set = NULL;
+                        _cleanup_(set_freep) Set *pid_set = NULL;
                         _cleanup_free_ char *joined = NULL;
                         const char *p;
 
@@ -4808,7 +4808,7 @@ int unit_write_setting(Unit *u, UnitWriteFlags flags, const char *name, const ch
         if (r < 0)
                 return r;
 
-        _cleanup_strv_free_ char **dropins = NULL;
+        _cleanup_(strv_freep) char **dropins = NULL;
         r = unit_find_dropin_paths(u, /* use_unit_path_cache= */ true, &dropins);
         if (r < 0)
                 return r;
@@ -5019,7 +5019,7 @@ int unit_kill_context(Unit *u, KillOperation k) {
         CGroupRuntime *crt = unit_get_cgroup_runtime(u);
         if (crt && crt->cgroup_path &&
             (c->kill_mode == KILL_CONTROL_GROUP || (c->kill_mode == KILL_MIXED && k == KILL_KILL))) {
-                _cleanup_set_free_ Set *pid_set = NULL;
+                _cleanup_(set_freep) Set *pid_set = NULL;
 
                 /* Exclude the main/control pids from being killed via the cgroup */
                 r = unit_pid_set(u, &pid_set);
@@ -5147,7 +5147,7 @@ int unit_add_mounts_for(Unit *u, const char *path, UnitDependencyMask mask, Unit
 int unit_setup_exec_runtime(Unit *u) {
         _cleanup_(exec_shared_runtime_unrefp) ExecSharedRuntime *esr = NULL;
         _cleanup_(dynamic_creds_unrefp) DynamicCreds *dcreds = NULL;
-        _cleanup_set_free_ Set *units = NULL;
+        _cleanup_(set_freep) Set *units = NULL;
         ExecRuntime **rt;
         ExecContext *ec;
         size_t offset;
@@ -5852,7 +5852,7 @@ static int unit_export_log_extra_fields(Unit *u, const ExecContext *c) {
         const char *p = strjoina("/run/systemd/units/log-extra-fields:", u->id);
         char *pattern = strjoina(p, ".XXXXXX");
 
-        _cleanup_close_ int fd = mkostemp_safe(pattern);
+        _cleanup_(closep) int fd = mkostemp_safe(pattern);
         if (fd < 0)
                 return log_unit_debug_errno(u, fd, "Failed to create extra fields file %s: %m", p);
 
@@ -6701,7 +6701,7 @@ int unit_get_dependency_array(const Unit *u, UnitDependencyAtom atom, Unit ***re
 }
 
 int unit_get_transitive_dependency_set(Unit *u, UnitDependencyAtom atom, Set **ret) {
-        _cleanup_set_free_ Set *units = NULL, *queue = NULL;
+        _cleanup_(set_freep) Set *units = NULL, *queue = NULL;
         Unit *other;
         int r;
 
@@ -6802,7 +6802,7 @@ static uint64_t unit_get_cpu_weight(Unit *u) {
 
 int unit_get_exec_quota_stats(Unit *u, ExecContext *c, ExecDirectoryType dt, uint64_t *ret_usage, uint64_t *ret_limit) {
         int r;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         _cleanup_free_ char *p = NULL, *pp = NULL;
 
         assert(u);

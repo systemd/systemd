@@ -280,7 +280,7 @@ static int context_add_connection(Context *context, int fd) {
 
         assert(context);
 
-        _cleanup_close_ int nfd = accept4(fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC);
+        _cleanup_(closep) int nfd = accept4(fd, NULL, NULL, SOCK_NONBLOCK|SOCK_CLOEXEC);
         if (nfd < 0) {
                 if (!ERRNO_IS_ACCEPT_AGAIN(errno))
                         log_warning_errno(errno, "Failed to accept() socket, ignoring: %m");

@@ -770,7 +770,7 @@ char* session_bus_path(Session *s) {
 }
 
 static int session_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         sd_bus_message *message;
         Manager *m = userdata;
         Session *session;
@@ -922,7 +922,7 @@ int session_send_create_reply_bus(Session *s, const sd_bus_error *error) {
         /* Prior to v258, logind tracked sessions by installing a fifo in client and subscribe to its EOF.
          * Now we can fully rely on pidfd for this, but still need to return *something* to the client.
          * Allocate something lightweight and isolated as placeholder. */
-        _cleanup_close_ int fd = eventfd(0, EFD_CLOEXEC);
+        _cleanup_(closep) int fd = eventfd(0, EFD_CLOEXEC);
         if (fd < 0)
                 return -errno;
 

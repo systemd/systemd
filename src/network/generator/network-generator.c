@@ -1189,7 +1189,7 @@ static int parse_cmdline_ifname(Context *context, const char *key, const char *v
 }
 
 static int parse_cmdline_ifname_policy(Context *context, const char *key, const char *value) {
-        _cleanup_strv_free_ char **policies = NULL, **alt_policies = NULL;
+        _cleanup_(strv_freep) char **policies = NULL, **alt_policies = NULL;
         struct hw_addr_data mac = HW_ADDR_NULL;
         Link *link;
         int r;

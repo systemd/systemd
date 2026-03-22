@@ -408,7 +408,7 @@ static int make_credential_host_secret(
                 struct iovec *ret) {
 
         _cleanup_free_ char *t = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         assert(dfd >= 0);
@@ -464,7 +464,7 @@ static int make_credential_host_secret(
 
 int get_credential_host_secret(CredentialSecretFlags flags, struct iovec *ret) {
         _cleanup_free_ char *_dirname = NULL, *_filename = NULL;
-        _cleanup_close_ int dfd = -EBADF;
+        _cleanup_(closep) int dfd = -EBADF;
         sd_id128_t machine_id;
         const char *dirname, *filename;
         int r;
@@ -514,7 +514,7 @@ int get_credential_host_secret(CredentialSecretFlags flags, struct iovec *ret) {
 
         for (unsigned attempt = 0;; attempt++) {
                 _cleanup_(erase_and_freep) struct credential_host_secret_format *f = NULL;
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
                 size_t l = 0;
                 ssize_t n = 0;
                 struct stat st;
@@ -1771,7 +1771,7 @@ static int pick_up_credential_one(
 }
 
 int pick_up_credentials(const PickUpCredential *table, size_t n_table_entry) {
-        _cleanup_close_ int credential_dir_fd = -EBADF;
+        _cleanup_(closep) int credential_dir_fd = -EBADF;
         int r, ret = 0;
 
         assert(table);

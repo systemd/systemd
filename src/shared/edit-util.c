@@ -74,7 +74,7 @@ int edit_files_add(
                 char * const *comment_paths) {
 
         _cleanup_free_ char *new_path = NULL, *new_original_path = NULL;
-        _cleanup_strv_free_ char **new_comment_paths = NULL;
+        _cleanup_(strv_freep) char **new_comment_paths = NULL;
 
         assert(context);
         assert(path);
@@ -196,7 +196,7 @@ static int populate_edit_temp_file(EditFile *e, FILE *f, const char *filename) {
 
 static int create_edit_temp_file(EditFile *e, const char *contents, size_t contents_size) {
         _cleanup_(unlink_and_freep) char *temp = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r;
 
         assert(e);
@@ -240,7 +240,7 @@ static int create_edit_temp_file(EditFile *e, const char *contents, size_t conte
 }
 
 static int run_editor_child(const EditFileContext *context) {
-        _cleanup_strv_free_ char **args = NULL, **editor = NULL;
+        _cleanup_(strv_freep) char **args = NULL, **editor = NULL;
         int r;
 
         assert(context);
@@ -455,7 +455,7 @@ static int edit_file_install_one_stdin(EditFile *e, const char *contents, size_t
         if (r < 0)
                 return r;
 
-        _cleanup_close_ int tfd = open(e->temp, O_PATH|O_CLOEXEC);
+        _cleanup_(closep) int tfd = open(e->temp, O_PATH|O_CLOEXEC);
         if (tfd < 0)
                 return log_error_errno(errno, "Failed to pin temporary file '%s': %m", e->temp);
 
@@ -494,7 +494,7 @@ int do_edit_files_and_install(EditFileContext *context) {
                         return r;
         }
 
-        _cleanup_close_ int stdin_data_fd = -EBADF;
+        _cleanup_(closep) int stdin_data_fd = -EBADF;
 
         FOREACH_ARRAY(editfile, context->files, context->n_files) {
                 if (context->read_from_stdin) {

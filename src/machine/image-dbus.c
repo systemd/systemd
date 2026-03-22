@@ -29,7 +29,7 @@ int bus_image_method_remove(
                 void *userdata,
                 sd_bus_error *error) {
 
-        _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int errno_pipe_fd[2] = EBADF_PAIR;
         Image *image = ASSERT_PTR(userdata);
         Manager *m = image->userdata;
         _cleanup_(pidref_done_sigkill_wait) PidRef child = PIDREF_NULL;
@@ -135,7 +135,7 @@ int bus_image_method_clone(
                 void *userdata,
                 sd_bus_error *error) {
 
-        _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int errno_pipe_fd[2] = EBADF_PAIR;
         Image *image = ASSERT_PTR(userdata);
         Manager *m = ASSERT_PTR(image->userdata);
         const char *new_name;
@@ -419,12 +419,12 @@ static int image_node_enumerator(sd_bus *bus, const char *path, void *userdata, 
         assert(path);
         assert(nodes);
 
-        _cleanup_hashmap_free_ Hashmap *images = NULL;
+        _cleanup_(hashmap_freep) Hashmap *images = NULL;
         r = image_discover(m->runtime_scope, IMAGE_MACHINE, NULL, &images);
         if (r < 0)
                 return r;
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         Image *image;
         HASHMAP_FOREACH(image, images) {
                 char *p;

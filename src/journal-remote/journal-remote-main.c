@@ -173,7 +173,7 @@ static int spawn_curl(const char *url) {
 
 static int spawn_getter(const char *getter) {
         int r;
-        _cleanup_strv_free_ char **words = NULL;
+        _cleanup_(strv_freep) char **words = NULL;
 
         assert(getter);
         r = strv_split_full(&words, getter, WHITESPACE, EXTRACT_UNQUOTE);

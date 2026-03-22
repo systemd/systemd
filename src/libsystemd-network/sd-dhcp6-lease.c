@@ -416,7 +416,7 @@ int sd_dhcp6_lease_get_dns(sd_dhcp6_lease *lease, const struct in6_addr **ret) {
 }
 
 int dhcp6_lease_add_domains(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen) {
-        _cleanup_strv_free_ char **domains = NULL;
+        _cleanup_(strv_freep) char **domains = NULL;
         int r;
 
         assert(lease);
@@ -652,7 +652,7 @@ int sd_dhcp6_lease_get_sip_addrs(sd_dhcp6_lease *lease, const struct in6_addr **
 }
 
 int dhcp6_lease_add_sip_domains(sd_dhcp6_lease *lease, const uint8_t *optval, size_t optlen) {
-        _cleanup_strv_free_ char **domains = NULL;
+        _cleanup_(strv_freep) char **domains = NULL;
         int r;
 
         assert(lease);

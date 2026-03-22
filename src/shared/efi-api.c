@@ -478,7 +478,7 @@ int efi_set_boot_order(const uint16_t *order, size_t n) {
 
 int efi_get_boot_options(uint16_t **ret_options) {
 #if ENABLE_EFI
-        _cleanup_closedir_ DIR *dir = NULL;
+        _cleanup_(closedirp) DIR *dir = NULL;
         _cleanup_free_ uint16_t *list = NULL;
         int count = 0;
 

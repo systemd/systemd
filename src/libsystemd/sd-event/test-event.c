@@ -629,7 +629,7 @@ static int ratelimit_expired(sd_event_source *s, void *userdata) {
 }
 
 TEST(ratelimit) {
-        _cleanup_close_pair_ int p[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int p[2] = EBADF_PAIR;
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
         uint64_t interval;
@@ -744,7 +744,7 @@ TEST(inotify_self_destroy) {
         _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         char path[] = "/tmp/inotifyXXXXXX";
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         /* Tests that destroying an inotify event source from its own handler is safe */
 
@@ -865,7 +865,7 @@ TEST(fork) {
 TEST(sd_event_source_set_io_fd) {
         _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
-        _cleanup_close_pair_ int pfd_a[2] = EBADF_PAIR, pfd_b[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int pfd_a[2] = EBADF_PAIR, pfd_b[2] = EBADF_PAIR;
 
         ASSERT_OK(sd_event_default(&e));
 
@@ -893,7 +893,7 @@ TEST(leave_ratelimit) {
         bool expect_ratelimit = false, manually_left_ratelimit = false;
         _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
-        _cleanup_close_pair_ int pfd[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int pfd[2] = EBADF_PAIR;
         unsigned c = 0;
         int r;
 
@@ -1040,7 +1040,7 @@ TEST(child_pidfd_wnowait) {
                 /* Child process - exit with a specific code */
                 _exit(42);
 
-        _cleanup_close_ int pidfd = -EBADF;
+        _cleanup_(closep) int pidfd = -EBADF;
         ASSERT_OK_ERRNO(pidfd = pidfd_open(pid, 0));
 
         /* Add a child source with WNOWAIT flag */

@@ -460,7 +460,7 @@ static int routing_policy_rule_attach(Manager *m, RoutingPolicyRule *rule) {
 }
 
 static int routing_policy_rule_acquire_priority(Manager *manager, RoutingPolicyRule *rule) {
-        _cleanup_set_free_ Set *priorities = NULL;
+        _cleanup_(set_freep) Set *priorities = NULL;
         RoutingPolicyRule *tmp;
         uint32_t priority;
         Network *network;

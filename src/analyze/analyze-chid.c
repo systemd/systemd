@@ -153,7 +153,7 @@ static int smbios_fields_acquire(char16_t *fields[static _CHID_SMBIOS_FIELDS_MAX
 
         int r;
 
-        _cleanup_close_ int smbios_fd = open("/sys/class/dmi/id", O_RDONLY|O_DIRECTORY|O_CLOEXEC);
+        _cleanup_(closep) int smbios_fd = open("/sys/class/dmi/id", O_RDONLY|O_DIRECTORY|O_CLOEXEC);
         if (smbios_fd < 0)
                 return log_error_errno(errno, "Failed to open SMBIOS sysfs object: %m");
 
@@ -282,7 +282,7 @@ static int edid_parse(sd_device *drm_dev, char16_t **ret_panel) {
 
 static int edid_search(char16_t **ret_panel) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        _cleanup_strv_free_ char **drm_paths = NULL;
+        _cleanup_(strv_freep) char **drm_paths = NULL;
         _cleanup_free_ char16_t *unique_panel = NULL;
         size_t n = 0;
         int r;

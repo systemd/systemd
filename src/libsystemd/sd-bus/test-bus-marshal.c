@@ -112,7 +112,7 @@ static ino_t get_inode(int fd) {
 static void test_bus_fds_truncated(void) {
         _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        _cleanup_close_ int memfd0 = -EBADF, memfd1 = -EBADF;
+        _cleanup_(closep) int memfd0 = -EBADF, memfd1 = -EBADF;
         _cleanup_free_ void *blob = NULL;
         _cleanup_free_ int *fds = NULL;
         ino_t ino0, ino1;

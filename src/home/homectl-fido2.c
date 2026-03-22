@@ -21,7 +21,7 @@ static int add_fido2_credential_id(
                 size_t cid_size) {
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         _cleanup_free_ char *escaped = NULL;
         ssize_t escaped_size;
         int r;

@@ -212,7 +212,7 @@ int base_filesystem_create_fd(int fd, const char *root, uid_t uid, gid_t gid) {
 }
 
 int base_filesystem_create(const char *root, uid_t uid, gid_t gid) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         fd = open(ASSERT_PTR(root), O_DIRECTORY|O_CLOEXEC);
         if (fd < 0)

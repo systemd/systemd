@@ -40,7 +40,7 @@ int userns_registry_open_fd(void) {
 }
 
 int userns_registry_lock(int dir_fd) {
-        _cleanup_close_ int registry_fd = -EBADF, lock_fd = -EBADF;
+        _cleanup_(closep) int registry_fd = -EBADF, lock_fd = -EBADF;
 
         if (dir_fd < 0) {
                 registry_fd = userns_registry_open_fd();
@@ -261,7 +261,7 @@ static int userns_registry_load(int dir_fd, const char *fn, UserNamespaceInfo **
 
         _cleanup_(userns_info_freep) UserNamespaceInfo *userns_info = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        _cleanup_close_ int registry_fd = -EBADF;
+        _cleanup_(closep) int registry_fd = -EBADF;
         int r;
 
         if (dir_fd < 0) {
@@ -395,7 +395,7 @@ int userns_registry_inode_exists(int dir_fd, uint64_t inode) {
 
 int userns_registry_load_by_start_uid(int dir_fd, uid_t start, UserNamespaceInfo **ret) {
         _cleanup_(userns_info_freep) UserNamespaceInfo *userns_info = NULL;
-        _cleanup_close_ int registry_fd = -EBADF;
+        _cleanup_(closep) int registry_fd = -EBADF;
         _cleanup_free_ char *fn = NULL;
         int r;
 
@@ -428,7 +428,7 @@ int userns_registry_load_by_start_uid(int dir_fd, uid_t start, UserNamespaceInfo
 
 int userns_registry_load_by_start_gid(int dir_fd, gid_t start, UserNamespaceInfo **ret) {
         _cleanup_(userns_info_freep) UserNamespaceInfo *userns_info = NULL;
-        _cleanup_close_ int registry_fd = -EBADF;
+        _cleanup_(closep) int registry_fd = -EBADF;
         _cleanup_free_ char *fn = NULL;
         int r;
 
@@ -461,7 +461,7 @@ int userns_registry_load_by_start_gid(int dir_fd, gid_t start, UserNamespaceInfo
 
 int userns_registry_load_by_userns_inode(int dir_fd, uint64_t inode, UserNamespaceInfo **ret) {
         _cleanup_(userns_info_freep) UserNamespaceInfo *userns_info = NULL;
-        _cleanup_close_ int registry_fd = -EBADF;
+        _cleanup_(closep) int registry_fd = -EBADF;
         _cleanup_free_ char *fn = NULL;
         int r;
 
@@ -494,7 +494,7 @@ int userns_registry_load_by_userns_inode(int dir_fd, uint64_t inode, UserNamespa
 
 int userns_registry_load_by_name(int dir_fd, const char *name, UserNamespaceInfo **ret) {
         _cleanup_(userns_info_freep) UserNamespaceInfo *userns_info = NULL;
-        _cleanup_close_ int registry_fd = -EBADF;
+        _cleanup_(closep) int registry_fd = -EBADF;
         _cleanup_free_ char *fn = NULL;
         int r;
 
@@ -529,7 +529,7 @@ int userns_registry_load_by_name(int dir_fd, const char *name, UserNamespaceInfo
 }
 
 int userns_registry_store(int dir_fd, UserNamespaceInfo *info) {
-        _cleanup_close_ int registry_fd = -EBADF;
+        _cleanup_(closep) int registry_fd = -EBADF;
         int r;
 
         assert(info);
@@ -764,7 +764,7 @@ fail:
 }
 
 int userns_registry_remove(int dir_fd, UserNamespaceInfo *info) {
-        _cleanup_close_ int registry_fd = -EBADF;
+        _cleanup_(closep) int registry_fd = -EBADF;
         int ret = 0, r;
 
         assert(info);
@@ -936,7 +936,7 @@ int userns_info_add_cgroup(UserNamespaceInfo *userns, uint64_t cgroup_id) {
 }
 
 static int userns_destroy_cgroup(uint64_t cgroup_id) {
-        _cleanup_close_ int cgroup_fd = -EBADF, parent_fd = -EBADF;
+        _cleanup_(closep) int cgroup_fd = -EBADF, parent_fd = -EBADF;
         int r;
 
         cgroup_fd = cg_cgroupid_open(/* cgroupfs_fd= */ -EBADF, cgroup_id);
@@ -1082,7 +1082,7 @@ bool userns_name_is_valid(const char *name) {
 }
 
 int userns_registry_per_uid(int dir_fd, uid_t owner) {
-        _cleanup_close_ int registry_fd = -EBADF;
+        _cleanup_(closep) int registry_fd = -EBADF;
         int n = 0, r;
 
         if (dir_fd < 0) {
@@ -1175,7 +1175,7 @@ static int userns_registry_load_delegation(int dir_fd, const char *filename, Del
         };
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        _cleanup_close_ int registry_fd = -EBADF;
+        _cleanup_(closep) int registry_fd = -EBADF;
         int r;
 
         if (dir_fd < 0) {

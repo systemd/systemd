@@ -176,7 +176,7 @@ static int read_definitions(
 }
 
 static int context_read_definitions(Context *c, const char* node, bool requires_enabled_transfers) {
-        _cleanup_strv_free_ char **dirs = NULL;
+        _cleanup_(strv_freep) char **dirs = NULL;
         int r;
 
         assert(c);
@@ -593,7 +593,7 @@ static int context_show_version(Context *c, const char *version) {
                 have_read_only = false, have_growfs = false, have_sha256 = false;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
         _cleanup_(table_unrefp) Table *t = NULL;
-        _cleanup_strv_free_ char **changelog_urls = NULL;
+        _cleanup_(strv_freep) char **changelog_urls = NULL;
         UpdateSet *us;
         int r;
 
@@ -1281,7 +1281,7 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
         _cleanup_(context_freep) Context* context = NULL;
-        _cleanup_strv_free_ char **appstream_urls = NULL;
+        _cleanup_(strv_freep) char **appstream_urls = NULL;
         const char *version;
         int r;
 
@@ -1302,7 +1302,7 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 return context_show_table(context);
         else {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
-                _cleanup_strv_free_ char **versions = NULL;
+                _cleanup_(strv_freep) char **versions = NULL;
                 const char *current = NULL;
                 bool current_is_pending = false;
 
@@ -1366,7 +1366,7 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
                 return r;
 
         if (feature_id) {
-                _cleanup_strv_free_ char **transfers = NULL;
+                _cleanup_(strv_freep) char **transfers = NULL;
 
                 f = hashmap_get(context->features, feature_id);
                 if (!f)
@@ -1459,7 +1459,7 @@ static int verb_features(int argc, char *argv[], uintptr_t _data, void *userdata
                 return table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
         } else {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
-                _cleanup_strv_free_ char **features = NULL;
+                _cleanup_(strv_freep) char **features = NULL;
 
                 HASHMAP_FOREACH(f, context->features) {
                         r = strv_extend(&features, f->id);
@@ -1705,7 +1705,7 @@ static int component_name_valid(const char *c) {
 static int verb_components(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
-        _cleanup_set_free_ Set *names = NULL;
+        _cleanup_(set_freep) Set *names = NULL;
         bool has_default_component = false;
         int r;
 

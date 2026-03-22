@@ -240,7 +240,7 @@ int bus_machine_method_get_ssh_info(sd_bus_message *message, void *userdata, sd_
 }
 
 int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         Machine *m = ASSERT_PTR(userdata);
         int r;
 
@@ -260,7 +260,7 @@ int bus_machine_method_get_os_release(sd_bus_message *message, void *userdata, s
 int bus_machine_method_open_pty(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ char *pty_name = NULL;
-        _cleanup_close_ int master = -EBADF;
+        _cleanup_(closep) int master = -EBADF;
         Machine *m = ASSERT_PTR(userdata);
         int r;
 
@@ -304,7 +304,7 @@ int bus_machine_method_open_pty(sd_bus_message *message, void *userdata, sd_bus_
 int bus_machine_method_open_login(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ char *pty_name = NULL;
-        _cleanup_close_ int master = -EBADF;
+        _cleanup_(closep) int master = -EBADF;
         Machine *m = ASSERT_PTR(userdata);
         int r;
 
@@ -353,8 +353,8 @@ int bus_machine_method_open_login(sd_bus_message *message, void *userdata, sd_bu
 int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_free_ char *pty_name = NULL;
-        _cleanup_close_ int master = -EBADF;
-        _cleanup_strv_free_ char **env = NULL, **args_wire = NULL, **args = NULL;
+        _cleanup_(closep) int master = -EBADF;
+        _cleanup_(strv_freep) char **env = NULL, **args_wire = NULL, **args = NULL;
         Machine *m = ASSERT_PTR(userdata);
         const char *user, *path;
         int r;
@@ -615,7 +615,7 @@ int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_erro
 }
 
 int bus_machine_method_open_root_directory(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         Machine *m = ASSERT_PTR(userdata);
         int r;
 
@@ -739,7 +739,7 @@ char* machine_bus_path(Machine *m) {
 }
 
 static int machine_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         Machine *machine = NULL;
         Manager *m = userdata;
         int r;

@@ -242,7 +242,7 @@ static void test_sd_device_one(sd_device *d) {
                         ASSERT_STREQ(syspath, val);
                         ASSERT_NULL(dev = sd_device_unref(dev));
 
-                        _cleanup_close_ int fd = -EBADF;
+                        _cleanup_(closep) int fd = -EBADF;
                         fd = sd_device_open(d, O_CLOEXEC| O_NONBLOCK | (is_block ? O_RDONLY : O_NOCTTY | O_PATH));
                         ASSERT_TRUE(fd >= 0 || ERRNO_IS_NEG_PRIVILEGE(fd));
                 }
@@ -388,7 +388,7 @@ static void test_sd_device_enumerator_filter_subsystem_one(
 
 static bool test_sd_device_enumerator_filter_subsystem_trial(void) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        _cleanup_hashmap_free_ Hashmap *subsystems = NULL;
+        _cleanup_(hashmap_freep) Hashmap *subsystems = NULL;
         unsigned n_new_dev = 0, n_removed_dev = 0;
         Hashmap *h;
         char *s;

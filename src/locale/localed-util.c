@@ -142,7 +142,7 @@ int locale_read_data(Context *c, sd_bus_message *m) {
 }
 
 int vconsole_read_data(Context *c, sd_bus_message *m) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         struct stat st;
         int r;
 
@@ -199,8 +199,8 @@ int vconsole_read_data(Context *c, sd_bus_message *m) {
 }
 
 int x11_read_data(Context *c, sd_bus_message *m) {
-        _cleanup_close_ int fd = -EBADF;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(closep) int fd = -EBADF;
+        _cleanup_(fclosep) FILE *f = NULL;
         bool in_section = false;
         struct stat st;
         int r;
@@ -252,7 +252,7 @@ int x11_read_data(Context *c, sd_bus_message *m) {
                         continue;
 
                 if (in_section && first_word(line, "Option")) {
-                        _cleanup_strv_free_ char **a = NULL;
+                        _cleanup_(strv_freep) char **a = NULL;
 
                         r = strv_split_full(&a, line, WHITESPACE, EXTRACT_UNQUOTE);
                         if (r < 0)
@@ -275,7 +275,7 @@ int x11_read_data(Context *c, sd_bus_message *m) {
                         }
 
                 } else if (!in_section && first_word(line, "Section")) {
-                        _cleanup_strv_free_ char **a = NULL;
+                        _cleanup_(strv_freep) char **a = NULL;
 
                         r = strv_split_full(&a, line, WHITESPACE, EXTRACT_UNQUOTE);
                         if (r < 0)
@@ -295,7 +295,7 @@ int x11_read_data(Context *c, sd_bus_message *m) {
 }
 
 int vconsole_write_data(Context *c) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         const X11Context *xc;
         int r;
 
@@ -330,7 +330,7 @@ int vconsole_write_data(Context *c) {
 }
 
 int x11_write_data(Context *c) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
         const X11Context *xc;
         int r;
@@ -417,7 +417,7 @@ static int locale_gen_locale_supported(const char *locale_entry) {
          * the distributor has not provided us with a SUPPORTED file to check
          * locale for validity. */
 
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r;
 
         assert(locale_entry);
@@ -452,7 +452,7 @@ static int locale_gen_locale_supported(const char *locale_entry) {
 
 int locale_gen_enable_locale(const char *locale) {
 #if HAVE_LOCALEGEN
-        _cleanup_fclose_ FILE *fr = NULL, *fw = NULL;
+        _cleanup_(fclosep) FILE *fr = NULL, *fw = NULL;
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
         _cleanup_free_ char *locale_entry = NULL;
         bool locale_enabled = false, first_line = false;

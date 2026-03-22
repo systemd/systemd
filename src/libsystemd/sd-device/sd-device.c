@@ -165,7 +165,7 @@ int device_set_syspath(sd_device *device, const char *_syspath, bool verify) {
         assert(_syspath);
 
         if (verify) {
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
 
                 /* The input path maybe a symlink located outside of /sys. Let's try to chase the symlink at first.
                  * The primary use case is that e.g. /proc/device-tree is a symlink to /sys/firmware/devicetree/base.
@@ -837,7 +837,7 @@ int device_read_uevent_file(sd_device *device) {
         if (r < 0)
                 return log_device_debug_errno(device, r, "sd-device: Failed to read uevent file: %m");
 
-        _cleanup_strv_free_ char **v = NULL;
+        _cleanup_(strv_freep) char **v = NULL;
         r = strv_split_newlines_full(&v, uevent, EXTRACT_RETAIN_ESCAPE);
         if (r < 0)
                 return log_device_debug_errno(device, r, "sd-device: Failed to parse uevent file: %m");
@@ -987,7 +987,7 @@ DEFINE_PRIVATE_HASH_OPS_FULL(
         sd_device, sd_device_unref);
 
 static int device_enumerate_children_internal(sd_device *device, const char *subdir, Set **stack, Hashmap **children) {
-        _cleanup_closedir_ DIR *dir = NULL;
+        _cleanup_(closedirp) DIR *dir = NULL;
         int r;
 
         assert(device);
@@ -1044,8 +1044,8 @@ static int device_enumerate_children_internal(sd_device *device, const char *sub
 }
 
 static int device_enumerate_children(sd_device *device) {
-        _cleanup_hashmap_free_ Hashmap *children = NULL;
-        _cleanup_set_free_ Set *stack = NULL;
+        _cleanup_(hashmap_freep) Hashmap *children = NULL;
+        _cleanup_(set_freep) Set *stack = NULL;
         int r;
 
         assert(device);
@@ -2134,7 +2134,7 @@ _public_ const char* sd_device_get_property_next(sd_device *device, const char *
 }
 
 static int device_sysattrs_read_all_internal(sd_device *device, const char *subdir, Set **stack) {
-        _cleanup_closedir_ DIR *dir = NULL;
+        _cleanup_(closedirp) DIR *dir = NULL;
         int r;
 
         assert(device);
@@ -2204,7 +2204,7 @@ static int device_sysattrs_read_all_internal(sd_device *device, const char *subd
 }
 
 static int device_sysattrs_read_all(sd_device *device) {
-        _cleanup_set_free_ Set *stack = NULL;
+        _cleanup_(set_freep) Set *stack = NULL;
         int r;
 
         assert(device);
@@ -2512,7 +2512,7 @@ int device_chase(sd_device *device, const char *path, ChaseFlags flags, char **r
         }
 
         _cleanup_free_ char *resolved = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         r = chase(path, /* root= */ NULL, CHASE_NO_AUTOFS | flags, &resolved, ret_fd ? &fd : NULL);
         if (r < 0)
                 return r;
@@ -2536,7 +2536,7 @@ int device_chase(sd_device *device, const char *path, ChaseFlags flags, char **r
 
 _public_ int sd_device_get_sysattr_value_with_size(sd_device *device, const char *sysattr, const char **ret_value, size_t *ret_size) {
         _cleanup_free_ char *resolved = NULL, *value = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         size_t size = 0;
         int r;
 
@@ -2750,7 +2750,7 @@ _public_ int sd_device_set_sysattr_value(sd_device *device, const char *sysattr,
                 return device_remove_cached_sysattr_value(device, sysattr);
 
         _cleanup_free_ char *resolved = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         r = device_chase(device, sysattr, CHASE_PREFIX_ROOT, &resolved, &fd);
         if (r < 0) {
                 /* On failure, clear cache entry, hopefully, 'sysattr' is normalized. */
@@ -2842,7 +2842,7 @@ _public_ int sd_device_trigger_with_uuid(
 }
 
 _public_ int sd_device_open(sd_device *device, int flags) {
-        _cleanup_close_ int fd = -EBADF, fd2 = -EBADF;
+        _cleanup_(closep) int fd = -EBADF, fd2 = -EBADF;
         const char *devname;
         uint64_t q, diskseq = 0;
         struct stat st;
@@ -2918,7 +2918,7 @@ _public_ int sd_device_open(sd_device *device, int flags) {
 }
 
 int device_opendir(sd_device *device, const char *subdir, DIR **ret) {
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
         _cleanup_free_ char *path = NULL;
         const char *syspath;
         int r;

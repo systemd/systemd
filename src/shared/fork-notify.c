@@ -50,7 +50,7 @@ static int on_child_notify(sd_event_source *s, int fd, uint32_t revents, void *u
         assert(s);
         assert(fd >= 0);
 
-        _cleanup_strv_free_ char **msg = NULL;
+        _cleanup_(strv_freep) char **msg = NULL;
         _cleanup_(pidref_done) PidRef sender = PIDREF_NULL;
         r = notify_recv_strv(fd, &msg, /* ret_ucred= */ NULL, &sender);
         if (r == -EAGAIN)
@@ -212,7 +212,7 @@ int journal_fork(RuntimeScope scope, char * const* units, PidRef *ret_pidref) {
         if (strv_isempty(units))
                 return 0;
 
-        _cleanup_strv_free_ char **argv = strv_new(
+        _cleanup_(strv_freep) char **argv = strv_new(
                         "journalctl",
                         "-q",
                         "--follow",

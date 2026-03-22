@@ -111,7 +111,7 @@ static bool vacuum_necessary(int fd, uint64_t sum, uint64_t keep_free, uint64_t 
 }
 
 int coredump_vacuum(int exclude_fd, uint64_t keep_free, uint64_t max_use) {
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
         struct stat exclude_st;
         int r;
 
@@ -138,7 +138,7 @@ int coredump_vacuum(int exclude_fd, uint64_t keep_free, uint64_t max_use) {
         }
 
         for (;;) {
-                _cleanup_hashmap_free_ Hashmap *h = NULL;
+                _cleanup_(hashmap_freep) Hashmap *h = NULL;
                 VacuumCandidate *worst = NULL;
                 uint64_t sum = 0;
 

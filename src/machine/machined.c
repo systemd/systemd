@@ -178,7 +178,7 @@ static int manager_add_host_machine(Manager *m) {
 }
 
 static int manager_enumerate_machines(Manager *m) {
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
         int r;
 
         assert(m);

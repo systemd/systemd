@@ -650,7 +650,7 @@ TEST(restrict_archs) {
 
         r = ASSERT_OK(pidref_safe_fork("(restrict-archs)", FORK_LOG|FORK_WAIT, NULL));
         if (r == 0) {
-                _cleanup_set_free_ Set *s = NULL;
+                _cleanup_(set_freep) Set *s = NULL;
 
                 assert_se(access("/", F_OK) >= 0);
 
@@ -677,7 +677,7 @@ TEST(load_syscall_filter_set_raw) {
 
         r = ASSERT_OK(pidref_safe_fork("(load-filter)", FORK_LOG|FORK_WAIT, NULL));
         if (r == 0) {
-                _cleanup_hashmap_free_ Hashmap *s = NULL;
+                _cleanup_(hashmap_freep) Hashmap *s = NULL;
 
                 assert_se(access("/", F_OK) >= 0);
                 assert_se(poll(NULL, 0, 0) == 0);
@@ -779,8 +779,8 @@ TEST(native_syscalls_filtered) {
 
         r = ASSERT_OK(pidref_safe_fork("(native-syscalls)", FORK_LOG|FORK_WAIT, NULL));
         if (r == 0) {
-                _cleanup_set_free_ Set *arch_s = NULL;
-                _cleanup_hashmap_free_ Hashmap *s = NULL;
+                _cleanup_(set_freep) Set *arch_s = NULL;
+                _cleanup_(hashmap_freep) Hashmap *s = NULL;
 
                 /* Passing "native" or an empty set is equivalent, just do both here. */
                 assert_se(arch_s = set_new(NULL));
@@ -1092,7 +1092,7 @@ TEST(restrict_suid_sgid) {
 
 static void test_seccomp_suppress_sync_child(void) {
         _cleanup_(unlink_and_freep) char *path = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         ASSERT_OK(tempfn_random("/tmp/seccomp_suppress_sync", NULL, &path));
         ASSERT_OK_ERRNO(fd = open(path, O_RDWR | O_CREAT | O_SYNC | O_CLOEXEC, 0666));

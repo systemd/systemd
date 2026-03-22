@@ -265,7 +265,7 @@ EFI_STATUS linux_exec(
                 return log_error_status(err, "Cannot read sections: %m");
 
         /* Do we need to ensure under 4gb address on x86? */
-        _cleanup_pages_ Pages loaded_kernel_pages = xmalloc_pages(
+        _cleanup_(free_pages) Pages loaded_kernel_pages = xmalloc_pages(
                         AllocateAnyPages, EfiLoaderCode, EFI_SIZE_TO_PAGES(kernel_size_in_memory), 0);
 
         uint8_t* loaded_kernel = PHYSICAL_ADDRESS_TO_POINTER(loaded_kernel_pages.addr);

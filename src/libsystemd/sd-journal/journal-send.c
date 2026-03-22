@@ -212,7 +212,7 @@ _public_ int sd_journal_send(const char *format, ...) {
 _public_ int sd_journal_sendv(const struct iovec *iov, int n) {
         PROTECT_ERRNO;
         int fd, r;
-        _cleanup_close_ int buffer_fd = -EBADF;
+        _cleanup_(closep) int buffer_fd = -EBADF;
         struct iovec *w;
         uint64_t *l;
         int i, j = 0;
@@ -380,7 +380,7 @@ _public_ int sd_journal_stream_fd_with_namespace(
                 int priority,
                 int level_prefix) {
 
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         const char *path;
         int r;
 

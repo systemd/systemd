@@ -184,7 +184,7 @@ int open_os_release_at(int rfd, char **ret_path, int *ret_fd) {
 }
 
 int open_os_release(const char *root, char **ret_path, int *ret_fd) {
-        _cleanup_close_ int rfd = XAT_FDROOT, fd = -EBADF;
+        _cleanup_(closep) int rfd = XAT_FDROOT, fd = -EBADF;
         _cleanup_free_ char *p = NULL;
         int r;
 
@@ -219,8 +219,8 @@ int open_extension_release_at(
                 int *ret_fd) {
 
         _cleanup_free_ char *dir_path = NULL, *path_found = NULL;
-        _cleanup_close_ int fd_found = -EBADF;
-        _cleanup_closedir_ DIR *dir = NULL;
+        _cleanup_(closep) int fd_found = -EBADF;
+        _cleanup_(closedirp) DIR *dir = NULL;
         bool found = false;
         const char *p;
         int r;
@@ -254,7 +254,7 @@ int open_extension_release_at(
                 return log_debug_errno(r, "Cannot open %s, ignoring: %m", p);
 
         FOREACH_DIRENT(de, dir, return -errno) {
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
                 const char *image_name;
 
                 if (!IN_SET(de->d_type, DT_REG, DT_UNKNOWN))
@@ -332,7 +332,7 @@ int open_extension_release(
                 char **ret_path,
                 int *ret_fd) {
 
-        _cleanup_close_ int rfd = XAT_FDROOT, fd = -EBADF;
+        _cleanup_(closep) int rfd = XAT_FDROOT, fd = -EBADF;
         _cleanup_free_ char *p = NULL;
         int r;
 
@@ -366,7 +366,7 @@ static int parse_extension_release_atv(
                 bool relax_extension_release_check,
                 va_list ap) {
 
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         _cleanup_free_ char *p = NULL;
         int r;
 
@@ -404,7 +404,7 @@ int parse_extension_release_sentinel(
                 const char *extension,
                 ...) {
 
-        _cleanup_close_ int rfd = XAT_FDROOT;
+        _cleanup_(closep) int rfd = XAT_FDROOT;
         va_list ap;
         int r;
 
@@ -422,7 +422,7 @@ int parse_extension_release_sentinel(
 }
 
 int load_os_release_pairs_with_prefix(const char *root, const char *prefix, char ***ret) {
-        _cleanup_strv_free_ char **os_release_pairs = NULL, **os_release_pairs_prefixed = NULL;
+        _cleanup_(strv_freep) char **os_release_pairs = NULL, **os_release_pairs_prefixed = NULL;
         int r;
 
         r = load_os_release_pairs(root, &os_release_pairs);
@@ -451,7 +451,7 @@ int load_os_release_pairs_with_prefix(const char *root, const char *prefix, char
 }
 
 int load_extension_release_pairs(const char *root, ImageClass image_class, const char *extension, bool relax_extension_release_check, char ***ret) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         _cleanup_free_ char *p = NULL;
         int r;
 

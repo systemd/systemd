@@ -249,7 +249,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (!GREEDY_REALLOC(arg_push_fds.fds, arg_push_fds.n_fds + 1))
                                 return log_oom();
 
-                        _cleanup_close_ int add_fd = -EBADF;
+                        _cleanup_(closep) int add_fd = -EBADF;
                         if (STARTSWITH_SET(optarg, "/", "./")) {
                                 /* We usually expect a numeric fd spec, but as an extension let's treat this
                                  * as a path to open in read-only mode in case this is clearly an absolute or
@@ -310,7 +310,7 @@ static int varlink_connect_auto(sd_varlink **ret, const char *where) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
 
         if (STARTSWITH_SET(where, "/", "./")) { /* If the string starts with a slash or dot slash we use it as a file system path */
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
                 struct stat st;
 
                 fd = open(where, O_PATH|O_CLOEXEC);
@@ -465,7 +465,7 @@ typedef struct GetInterfaceDescriptionData {
 
 static int verb_introspect(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
-        _cleanup_strv_free_ char **auto_interfaces = NULL;
+        _cleanup_(strv_freep) char **auto_interfaces = NULL;
         char **interfaces;
         const char *url;
         bool list_methods;
@@ -512,7 +512,7 @@ static int verb_introspect(int argc, char *argv[], uintptr_t _data, void *userda
         if (!list_methods && strv_length(interfaces) > 1)
                 arg_json_format_flags |= SD_JSON_FORMAT_SEQ;
 
-        _cleanup_strv_free_ char **methods = NULL;
+        _cleanup_(strv_freep) char **methods = NULL;
 
         STRV_FOREACH(i, interfaces) {
                 sd_json_variant *reply = NULL;
@@ -838,7 +838,7 @@ static int verb_call(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to format reply: %m");
 
-                        _cleanup_close_ int mfd = memfd_new_and_seal_string("varlink-reply", formatted);
+                        _cleanup_(closep) int mfd = memfd_new_and_seal_string("varlink-reply", formatted);
                         if (mfd < 0)
                                 return log_error_errno(mfd, "Failed to allocate memfd for reply: %m");
 
@@ -1011,7 +1011,7 @@ static int verb_list_registry(int argc, char *argv[], uintptr_t _data, void *use
 
         (void) table_set_sort(table, (size_t) 0);
 
-        _cleanup_close_ int regfd = open(reg_path, O_DIRECTORY|O_CLOEXEC);
+        _cleanup_(closep) int regfd = open(reg_path, O_DIRECTORY|O_CLOEXEC);
         if (regfd < 0)  {
                 if (errno != ENOENT)
                         return log_error_errno(errno, "Failed to open '%s': %m", reg_path);

@@ -1205,7 +1205,7 @@ int journal_entry_to_json(
         usec_t realtime, monotonic;
         uint64_t seqnum;
         const char *corrupted_what = NULL;
-        _cleanup_hashmap_free_ Hashmap *h = NULL;
+        _cleanup_(hashmap_freep) Hashmap *h = NULL;
         _cleanup_free_ sd_json_variant **array = NULL;
         size_t n = 0;
         int r;
@@ -2026,7 +2026,7 @@ int discover_next_id(
                 bool advance_older,
                 LogId *ret) {
 
-        _cleanup_set_free_ Set *broken_ids = NULL;
+        _cleanup_(set_freep) Set *broken_ids = NULL;
         int r;
 
         assert(j);

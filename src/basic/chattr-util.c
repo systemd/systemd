@@ -22,7 +22,7 @@ int chattr_full(
               unsigned *ret_final,
               ChattrApplyFlags flags) {
 
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         unsigned old_attr, new_attr;
         int set_flags_errno = 0;
         struct stat st;
@@ -143,7 +143,7 @@ int read_attr_fd(int fd, unsigned *ret) {
         if (!inode_type_can_chattr(st.st_mode))
                 return -ENOTTY;
 
-        _cleanup_close_ int fd_close = -EBADF;
+        _cleanup_(closep) int fd_close = -EBADF;
         fd = fd_reopen_condition(fd, O_RDONLY|O_CLOEXEC|O_NOCTTY, O_PATH, &fd_close); /* drop O_PATH if it is set */
         if (fd < 0)
                 return fd;
@@ -152,7 +152,7 @@ int read_attr_fd(int fd, unsigned *ret) {
 }
 
 int read_attr_at(int dir_fd, const char *path, unsigned *ret) {
-        _cleanup_close_ int fd_close = -EBADF;
+        _cleanup_(closep) int fd_close = -EBADF;
         int fd;
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
@@ -173,7 +173,7 @@ int read_attr_at(int dir_fd, const char *path, unsigned *ret) {
 
 int read_fs_xattr_fd(int fd, uint32_t *ret_xflags, uint32_t *ret_projid) {
         struct fsxattr attrs;
-        _cleanup_close_ int fd_reopened = -EBADF;
+        _cleanup_(closep) int fd_reopened = -EBADF;
 
         assert(fd >= 0);
 
@@ -195,7 +195,7 @@ int read_fs_xattr_fd(int fd, uint32_t *ret_xflags, uint32_t *ret_projid) {
 
 int set_proj_id(int fd, uint32_t proj_id) {
         struct fsxattr attrs;
-        _cleanup_close_ int fd_reopened = -EBADF;
+        _cleanup_(closep) int fd_reopened = -EBADF;
 
         assert(fd >= 0);
 

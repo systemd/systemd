@@ -300,7 +300,7 @@ static int need_reload(
 
         STRV_FOREACH(p, hierarchies) {
                 _cleanup_free_ char *f = NULL, *buf = NULL, *resolved = NULL;
-                _cleanup_strv_free_ char **mounted_extensions = NULL;
+                _cleanup_(strv_freep) char **mounted_extensions = NULL;
 
                 r = chase(*p, arg_root, CHASE_PREFIX_ROOT, &resolved, NULL);
                 if (r == -ENOENT) {
@@ -331,7 +331,7 @@ static int need_reload(
                         return log_oom();
 
                 STRV_FOREACH(extension, mounted_extensions) {
-                        _cleanup_strv_free_ char **extension_release = NULL;
+                        _cleanup_(strv_freep) char **extension_release = NULL;
                         const char *extension_reload_manager = NULL;
                         int b;
 
@@ -389,7 +389,7 @@ static int move_submounts(const char *src, const char *dst) {
                         return log_oom();
 
                 _cleanup_free_ char *fn = NULL;
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
                 r = chase(t, /* root= */ NULL, CHASE_PARENT|CHASE_EXTRACT_FILENAME|CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755, &fn, &fd);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create and pin parent directory of %s: %m", t);
@@ -398,7 +398,7 @@ static int move_submounts(const char *src, const char *dst) {
                 if (r < 0 && r != -EEXIST)
                         return log_error_errno(r, "Failed to create mountpoint %s: %m", t);
 
-                _cleanup_close_ int child_fd = openat(fd, fn, O_PATH|O_CLOEXEC);
+                _cleanup_(closep) int child_fd = openat(fd, fn, O_PATH|O_CLOEXEC);
                 if (child_fd < 0)
                         return log_error_errno(errno, "Failed to pin mountpoint %s: %m", t);
 
@@ -612,7 +612,7 @@ static int verb_unmerge(int argc, char *argv[], uintptr_t _data, void *userdata)
 }
 
 static int parse_image_class_parameter(sd_varlink *link, const char *value, ImageClass *image_class, char ***hierarchies) {
-        _cleanup_strv_free_ char **h = NULL;
+        _cleanup_(strv_freep) char **h = NULL;
         ImageClass c;
         int r;
 
@@ -655,7 +655,7 @@ static int vl_method_unmerge(sd_varlink *link, sd_json_variant *parameters, sd_v
                 .no_reload = -1,
         };
         Hashmap **polkit_registry = ASSERT_PTR(userdata);
-        _cleanup_strv_free_ char **hierarchies = NULL;
+        _cleanup_(strv_freep) char **hierarchies = NULL;
         ImageClass image_class = arg_image_class;
         bool no_reload;
         int r;
@@ -702,7 +702,7 @@ static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) 
 
         STRV_FOREACH(p, arg_hierarchies) {
                 _cleanup_free_ char *resolved = NULL, *f = NULL, *buf = NULL;
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_(strv_freep) char **l = NULL;
                 struct stat st;
 
                 r = chase(*p, arg_root, CHASE_PREFIX_ROOT, &resolved, NULL);
@@ -1050,7 +1050,7 @@ static int resolve_mutable_directory(
         }
 
         if (IN_SET(arg_mutable, MUTABLE_YES, MUTABLE_EPHEMERAL, MUTABLE_EPHEMERAL_IMPORT)) {
-                _cleanup_close_ int path_fd = -EBADF, chmod_fd = -EBADF;
+                _cleanup_(closep) int path_fd = -EBADF, chmod_fd = -EBADF;
 
                 /* This also creates, e.g., /var/lib/extensions.mutable/usr if needed and all parent
                  * directories plus it also works when the last part is a symlink to the real /usr but we
@@ -1126,7 +1126,7 @@ static int overlayfs_paths_new(const char *hierarchy, const char *workspace_path
 }
 
 static int determine_used_extensions(const char *hierarchy, char **paths, char ***ret_used_paths, size_t *ret_extensions_used) {
-        _cleanup_strv_free_ char **used_paths = NULL;
+        _cleanup_(strv_freep) char **used_paths = NULL;
         size_t n = 0;
         int r;
 
@@ -1430,7 +1430,7 @@ static int mount_overlayfs_with_op(
         if (r < 0)
                 return log_error_errno(r, "Failed to make directory '%s': %m", meta_path);
 
-        _cleanup_close_ int atfd = open(meta_path, O_DIRECTORY|O_CLOEXEC);
+        _cleanup_(closep) int atfd = open(meta_path, O_DIRECTORY|O_CLOEXEC);
         if (atfd < 0)
                 return log_error_errno(errno, "Failed to open directory '%s': %m", meta_path);
 
@@ -1443,7 +1443,7 @@ static int mount_overlayfs_with_op(
                 if (r < 0)
                         return log_error_errno(r, "Failed to make directory '%s': %m", op->work_dir);
 
-                _cleanup_close_ int dfd = open(op->work_dir, O_DIRECTORY|O_CLOEXEC);
+                _cleanup_(closep) int dfd = open(op->work_dir, O_DIRECTORY|O_CLOEXEC);
                 if (dfd < 0)
                         return log_error_errno(errno, "Failed to open directory '%s': %m", op->work_dir);
 
@@ -1653,7 +1653,7 @@ static int store_info_in_meta(
         if (r < 0)
                 return log_error_errno(r, "Failed to create directory '%s': %m", f);
 
-        _cleanup_close_ int atfd = open(f, O_DIRECTORY|O_CLOEXEC);
+        _cleanup_(closep) int atfd = open(f, O_DIRECTORY|O_CLOEXEC);
         if (atfd < 0)
                 return log_error_errno(errno, "Failed to open directory '%s': %m", f);
 
@@ -1733,7 +1733,7 @@ static int merge_hierarchy(
                 const char *workspace_path) {
 
         _cleanup_(overlayfs_paths_freep) OverlayFSPaths *op = NULL;
-        _cleanup_strv_free_ char **used_paths = NULL;
+        _cleanup_(strv_freep) char **used_paths = NULL;
         size_t extensions_used = 0;
         int r;
 
@@ -1834,7 +1834,7 @@ static int merge_subprocess(
                         *host_os_release_version_id = NULL, *host_os_release_api_level = NULL,
                         *filename = NULL, *old_origin_content = NULL,
                         *extensions_origin_content = NULL, *root_resolved = NULL;
-        _cleanup_strv_free_ char **extensions = NULL, **extensions_v = NULL, **paths = NULL;
+        _cleanup_(strv_freep) char **extensions = NULL, **extensions_v = NULL, **paths = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *extensions_origin_entries = NULL,
                         *extensions_origin_json = NULL, *mutable_dir_entries = NULL;
         size_t n_extensions = 0;
@@ -2418,7 +2418,7 @@ static int merge(ImageClass image_class,
 }
 
 static int image_discover_and_read_metadata(ImageClass image_class, Hashmap **ret_images) {
-        _cleanup_hashmap_free_ Hashmap *images = NULL;
+        _cleanup_(hashmap_freep) Hashmap *images = NULL;
         Image *img;
         int r;
 
@@ -2475,7 +2475,7 @@ static int look_for_merged_hierarchies(
 }
 
 static int verb_merge(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_hashmap_free_ Hashmap *images = NULL;
+        _cleanup_(hashmap_freep) Hashmap *images = NULL;
         const char *which;
         int r;
 
@@ -2533,14 +2533,14 @@ static int parse_merge_parameters(sd_varlink *link, sd_json_variant *parameters,
 
 static int vl_method_merge(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         Hashmap **polkit_registry = ASSERT_PTR(userdata);
-        _cleanup_hashmap_free_ Hashmap *images = NULL;
+        _cleanup_(hashmap_freep) Hashmap *images = NULL;
         MethodMergeParameters p = {
                 .force = -1,
                 .no_reload = -1,
                 .always_refresh = -1,
                 .noexec = -1,
         };
-        _cleanup_strv_free_ char **hierarchies = NULL;
+        _cleanup_(strv_freep) char **hierarchies = NULL;
         ImageClass image_class = arg_image_class;
         bool force, no_reload, always_refresh;
         int r, noexec;
@@ -2602,7 +2602,7 @@ static int refresh(
                 bool always_refresh,
                 int noexec) {
 
-        _cleanup_hashmap_free_ Hashmap *images = NULL;
+        _cleanup_(hashmap_freep) Hashmap *images = NULL;
         int r;
 
         r = image_discover_and_read_metadata(image_class, &images);
@@ -2663,7 +2663,7 @@ static int vl_method_refresh(sd_varlink *link, sd_json_variant *parameters, sd_v
                 .noexec = -1,
         };
         Hashmap **polkit_registry = ASSERT_PTR(userdata);
-        _cleanup_strv_free_ char **hierarchies = NULL;
+        _cleanup_(strv_freep) char **hierarchies = NULL;
         ImageClass image_class = arg_image_class;
         bool force, no_reload, always_refresh;
         int r, noexec;
@@ -2704,7 +2704,7 @@ static int vl_method_refresh(sd_varlink *link, sd_json_variant *parameters, sd_v
 }
 
 static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_hashmap_free_ Hashmap *images = NULL;
+        _cleanup_(hashmap_freep) Hashmap *images = NULL;
         _cleanup_(table_unrefp) Table *t = NULL;
         Image *img;
         int r;
@@ -2770,7 +2770,7 @@ static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varl
         if (r <= 0)
                 return r;
 
-        _cleanup_hashmap_free_ Hashmap *images = NULL;
+        _cleanup_(hashmap_freep) Hashmap *images = NULL;
         r = image_discover(RUNTIME_SCOPE_SYSTEM, image_class, arg_root, &images);
         if (r < 0)
                 return r;
@@ -3045,7 +3045,7 @@ static int run(int argc, char *argv[]) {
 
         if (arg_varlink) {
                 _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
-                _cleanup_hashmap_free_ Hashmap *polkit_registry = NULL;
+                _cleanup_(hashmap_freep) Hashmap *polkit_registry = NULL;
 
                 /* Invocation as Varlink service */
 

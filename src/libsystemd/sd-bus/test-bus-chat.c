@@ -223,7 +223,7 @@ static void* client1(void *p) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *hello;
         int r;
-        _cleanup_close_pair_ int pp[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int pp[2] = EBADF_PAIR;
         char x;
 
         r = sd_bus_open_user(&bus);
@@ -549,7 +549,7 @@ TEST(ctrunc) {
 
         /* Create a series of memfds, appending each to the message */
         for (int i = 0; i < n_fds_to_send; i++) {
-                _cleanup_close_ int memfd = memfd_create_wrapper("ctrunc-test", 0);
+                _cleanup_(closep) int memfd = memfd_create_wrapper("ctrunc-test", 0);
                 ASSERT_OK(memfd);
                 memfd_st_ino[i] = get_inode(memfd);
                 ASSERT_OK(sd_bus_message_append(sent, "h", memfd));

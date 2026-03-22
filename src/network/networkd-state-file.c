@@ -359,7 +359,7 @@ static int link_put_domains(Link *link, bool is_route, OrderedSet **s) {
 }
 
 int manager_save(Manager *m) {
-        _cleanup_ordered_set_free_ OrderedSet *dns = NULL, *ntp = NULL, *sip = NULL, *search_domains = NULL, *route_domains = NULL;
+        _cleanup_(ordered_set_freep) OrderedSet *dns = NULL, *ntp = NULL, *sip = NULL, *search_domains = NULL, *route_domains = NULL;
         const char *operstate_str, *carrier_state_str, *address_state_str, *ipv4_address_state_str, *ipv6_address_state_str, *online_state_str;
         LinkOperationalState operstate = LINK_OPERSTATE_OFF;
         LinkCarrierState carrier_state = LINK_CARRIER_STATE_OFF;
@@ -430,7 +430,7 @@ int manager_save(Manager *m) {
         ipv6_address_state_str = ASSERT_PTR(link_address_state_to_string(ipv6_address_state));
 
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
 
         r = fopen_temporary(m->state_file, &f, &temp_path);
         if (r < 0)
@@ -467,7 +467,7 @@ int manager_save(Manager *m) {
 
         temp_path = mfree(temp_path);
 
-        _cleanup_strv_free_ char **p = NULL;
+        _cleanup_(strv_freep) char **p = NULL;
 
         if (m->operational_state != operstate) {
                 m->operational_state = operstate;
@@ -630,7 +630,7 @@ static void serialize_resolvers(
 
         if (lease && conditional) {
                 sd_dns_resolver *resolvers;
-                _cleanup_strv_free_ char **names = NULL;
+                _cleanup_(strv_freep) char **names = NULL;
                 int r;
 
                 r = sd_dhcp_lease_get_dnr(lease, &resolvers);
@@ -648,7 +648,7 @@ static void serialize_resolvers(
 
         if (lease6 && conditional6) {
                 sd_dns_resolver *resolvers;
-                _cleanup_strv_free_ char **names = NULL;
+                _cleanup_(strv_freep) char **names = NULL;
                 int r;
 
                 r = sd_dhcp6_lease_get_dnr(lease6, &resolvers);
@@ -733,7 +733,7 @@ static int serialize_config_files(FILE *f, const char *prefix, const char *main_
 static int link_save(Link *link) {
         const char *admin_state, *oper_state, *carrier_state, *address_state, *ipv4_address_state, *ipv6_address_state;
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r;
 
         assert(link);

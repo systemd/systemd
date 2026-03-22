@@ -319,7 +319,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int send_icmp6(int fd, const struct icmp6_hdr *hdr) {
-        _cleanup_set_free_ Set *options = NULL;
+        _cleanup_(set_freep) Set *options = NULL;
         int r;
 
         assert(fd >= 0);
@@ -416,7 +416,7 @@ static int send_redirect(int fd) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         log_setup();

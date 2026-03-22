@@ -1035,7 +1035,7 @@ int transaction_add_job_and_dependencies(
         if (!is_new || FLAGS_SET(flags, TRANSACTION_IGNORE_REQUIREMENTS) || type == JOB_NOP)
                 return 0;
 
-        _cleanup_set_free_ Set *following = NULL;
+        _cleanup_(set_freep) Set *following = NULL;
         Unit *dep;
 
         /* If we are following some other unit, make sure we add all dependencies of everybody following. */

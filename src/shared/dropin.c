@@ -247,7 +247,7 @@ int unit_file_find_dropin_paths(
                 const Set *aliases,
                 char ***ret) {
 
-        _cleanup_strv_free_ char **dirs = NULL;
+        _cleanup_(strv_freep) char **dirs = NULL;
         const char *n;
         int r;
 

@@ -53,7 +53,7 @@ TEST(glob_exists) {
 TEST(safe_glob) {
         char template[] = "/tmp/test-glob-util.XXXXXXX";
         const char *fn, *fn2, *fname;
-        _cleanup_strv_free_ char **v = NULL;
+        _cleanup_(strv_freep) char **v = NULL;
 
         ASSERT_NOT_NULL(mkdtemp(template));
 

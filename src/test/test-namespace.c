@@ -93,7 +93,7 @@ TEST(tmpdir) {
 }
 
 static void test_shareable_ns(unsigned long nsflag) {
-        _cleanup_close_pair_ int s[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int s[2] = EBADF_PAIR;
         bool permission_denied = false;
         _cleanup_(pidref_done) PidRef pidref1 = PIDREF_NULL, pidref2 = PIDREF_NULL, pidref3 = PIDREF_NULL;
         int r, n = 0;
@@ -171,7 +171,7 @@ TEST(ipcns) {
 }
 
 TEST(fd_is_namespace) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         ASSERT_OK_ZERO(fd_is_namespace(STDIN_FILENO, NAMESPACE_NET));
         ASSERT_OK_ZERO(fd_is_namespace(STDOUT_FILENO, NAMESPACE_NET));
@@ -223,7 +223,7 @@ TEST(protect_kernel_logs) {
         r = ASSERT_OK(pidref_safe_fork("(protect)", FORK_WAIT|FORK_LOG|FORK_DEATHSIG_SIGKILL, /* ret= */ NULL));
 
         if (r == 0) {
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
 
                 ASSERT_OK_ERRNO(fd = open("/dev/kmsg", O_RDONLY | O_CLOEXEC));
 
@@ -259,7 +259,7 @@ TEST(namespace_is_init) {
 }
 
 TEST(userns_get_base_uid) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         fd = userns_acquire("0 1 1", "0 2 1", /* setgroups_deny= */ true);
         if (ERRNO_IS_NEG_NOT_SUPPORTED(fd))
@@ -300,7 +300,7 @@ TEST(process_is_owned_by_uid) {
                 return (void) log_tests_skipped("UID 1 not included in userns UID delegation, skipping test");
 
         /* Test a child that runs as uid 1 */
-        _cleanup_close_pair_ int p[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int p[2] = EBADF_PAIR;
         ASSERT_OK_ERRNO(pipe2(p, O_CLOEXEC));
 
         r = pidref_safe_fork("(child)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL, &pid);
@@ -331,7 +331,7 @@ TEST(process_is_owned_by_uid) {
         /* Test a child that runs in a userns as uid 1, but the userns is owned by us */
         ASSERT_OK_ERRNO(pipe2(p, O_CLOEXEC));
 
-        _cleanup_close_pair_ int pp[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int pp[2] = EBADF_PAIR;
         ASSERT_OK_ERRNO(pipe2(pp, O_CLOEXEC));
 
         r = pidref_safe_fork("(child)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_NEW_USERNS, &pid);
@@ -430,7 +430,7 @@ TEST(namespace_get_leader) {
 
 TEST(detach_mount_namespace_harder) {
         _cleanup_(pidref_done_sigkill_wait) PidRef pid = PIDREF_NULL;
-        _cleanup_close_pair_ int p[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int p[2] = EBADF_PAIR;
         char x = 0;
         int r;
 

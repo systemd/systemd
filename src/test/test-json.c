@@ -419,7 +419,7 @@ TEST(build) {
         ASSERT_OK(sd_json_variant_format(z, /* flags= */ 0, &f2));
         ASSERT_STREQ(f1, f2);
 
-        _cleanup_set_free_ Set *ss = NULL;
+        _cleanup_(set_freep) Set *ss = NULL;
         assert_se(set_ensure_put(&ss, &string_hash_ops_free, ASSERT_PTR(strdup("pief"))) >= 0);
         assert_se(set_ensure_put(&ss, &string_hash_ops_free, ASSERT_PTR(strdup("xxxx"))) >= 0);
         assert_se(set_ensure_put(&ss, &string_hash_ops_free, ASSERT_PTR(strdup("kawumm"))) >= 0);
@@ -433,7 +433,7 @@ TEST(build) {
 
         assert_se(sd_json_variant_equal(ssv, ssv2));
 
-        _cleanup_ordered_set_free_ OrderedSet *oss = NULL;
+        _cleanup_(ordered_set_freep) OrderedSet *oss = NULL;
         assert_se(ordered_set_ensure_put(&oss, &string_hash_ops_free, ASSERT_PTR(strdup("pief"))) >= 0);
         assert_se(ordered_set_ensure_put(&oss, &string_hash_ops_free, ASSERT_PTR(strdup("xxxx"))) >= 0);
         assert_se(ordered_set_ensure_put(&oss, &string_hash_ops_free, ASSERT_PTR(strdup("kawumm"))) >= 0);
@@ -463,7 +463,7 @@ TEST(json_buildo) {
 }
 
 TEST(json_parse_file_empty) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
         assert_se(fopen_unlocked("/dev/null", "re", &f) >= 0);
@@ -472,7 +472,7 @@ TEST(json_parse_file_empty) {
 }
 
 TEST(json_parse_file_invalid) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
         assert_se(f = fmemopen_unlocked((void*) "kookoo", 6, "r"));
@@ -497,7 +497,7 @@ TEST(source) {
                 "false, 7.5, {} ]\n"
                 "}\n";
 
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
 
         printf("--- original begin ---\n"
@@ -1357,7 +1357,7 @@ TEST(devnum) {
 TEST(fd_info) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         /* directories */
         ASSERT_OK(json_variant_new_fd_info(&v, AT_FDCWD));

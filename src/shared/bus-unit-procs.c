@@ -258,7 +258,7 @@ static int dump_extra_processes(
                 OutputFlags flags) {
 
         _cleanup_free_ pid_t *pids = NULL;
-        _cleanup_hashmap_free_ Hashmap *names = NULL;
+        _cleanup_(hashmap_freep) Hashmap *names = NULL;
         struct CGroupInfo *cg;
         size_t n = 0, k;
         int width, r;

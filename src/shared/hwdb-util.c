@@ -361,7 +361,7 @@ static int trie_store(struct trie *trie, const char *filename, bool compat) {
                 .strings_off = sizeof(struct trie_header_f),
         };
         _cleanup_(unlink_and_freep) char *filename_tmp = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int64_t pos, root_off, size;
         int r;
 
@@ -464,8 +464,8 @@ static int import_file(struct trie *trie, int fd, const char *filename, uint16_t
                 HW_MATCH,
                 HW_DATA,
         } state = HW_NONE;
-        _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_strv_free_ char **match_list = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
+        _cleanup_(strv_freep) char **match_list = NULL;
         uint32_t line_number = 0;
         int r;
 

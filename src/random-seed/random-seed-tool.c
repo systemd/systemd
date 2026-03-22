@@ -371,7 +371,7 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int run(int argc, char *argv[]) {
         _cleanup_free_ struct sha256_ctx *hash_state = NULL;
-        _cleanup_close_ int seed_fd = -EBADF, random_fd = -EBADF;
+        _cleanup_(closep) int seed_fd = -EBADF, random_fd = -EBADF;
         bool read_seed_file, write_seed_file, synchronous;
         size_t seed_size;
         int r;

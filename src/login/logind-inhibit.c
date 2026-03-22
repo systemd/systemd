@@ -100,7 +100,7 @@ static int inhibitor_save(Inhibitor *i) {
                 return log_error_errno(r, "Failed to create /run/systemd/inhibit/: %m");
 
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         r = fopen_tmpfile_linkable(i->state_file, O_WRONLY|O_CLOEXEC, &temp_path, &f);
         if (r < 0)
                 return log_error_errno(r, "Failed to create state file '%s': %m", i->state_file);
@@ -268,7 +268,7 @@ int inhibitor_load(Inhibitor *i) {
         }
 
         if (i->fifo_path) {
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
 
                 /* Let's reopen the FIFO on both sides, and close the writing side right away */
                 fd = inhibitor_create_fifo(i);

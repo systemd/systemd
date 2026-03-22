@@ -118,7 +118,7 @@ TEST(uid_range) {
 TEST(load_userns) {
         _cleanup_(uid_range_freep) UIDRange *p = NULL;
         _cleanup_(unlink_and_freep) char *fn = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r;
 
         r = uid_range_load_userns(NULL, UID_RANGE_USERNS_INSIDE, &p);

@@ -81,7 +81,7 @@ int make_inaccessible_nodes(
                 /* NB: S_IFLNK is not listed here, as there is no such thing as an inaccessible symlink */
         };
 
-        _cleanup_close_ int parent_fd = -EBADF, inaccessible_fd = -EBADF;
+        _cleanup_(closep) int parent_fd = -EBADF, inaccessible_fd = -EBADF;
         int r;
 
         if (!parent_dir)

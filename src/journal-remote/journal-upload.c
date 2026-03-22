@@ -115,7 +115,7 @@ static size_t output_callback(char *buf,
 
 static int check_cursor_updating(Uploader *u) {
         _cleanup_free_ char *temp_path = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r;
 
         if (!u->state_file)
@@ -137,7 +137,7 @@ static int check_cursor_updating(Uploader *u) {
 
 static int update_cursor_state(Uploader *u) {
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r;
 
         if (!u->state_file || !u->last_cursor)

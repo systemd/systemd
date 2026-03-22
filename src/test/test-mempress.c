@@ -35,7 +35,7 @@ struct fake_pressure_context {
 
 static void *fake_pressure_thread(void *p) {
         _cleanup_free_ struct fake_pressure_context *c = ASSERT_PTR(p);
-        _cleanup_close_ int cfd = -EBADF;
+        _cleanup_(closep) int cfd = -EBADF;
 
         usleep_safe(150);
 
@@ -75,7 +75,7 @@ TEST(fake_pressure) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         _cleanup_free_ char *j = NULL, *k = NULL;
         _cleanup_(rm_rf_physical_and_freep) char *tmp = NULL;
-        _cleanup_close_ int fifo_fd = -EBADF, socket_fd = -EBADF;
+        _cleanup_(closep) int fifo_fd = -EBADF, socket_fd = -EBADF;
         union sockaddr_union sa;
         pthread_t th;
         int value = 7;
@@ -195,7 +195,7 @@ TEST(real_pressure) {
         _cleanup_(sd_event_source_unrefp) sd_event_source *es = NULL, *cs = NULL;
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_close_pair_ int pipe_fd[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int pipe_fd[2] = EBADF_PAIR;
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         _cleanup_free_ char *scope = NULL;
         const char *object;

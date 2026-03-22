@@ -107,7 +107,7 @@ static int add_locales_from_archive(Set *locales) {
         if (!locale_archive_file)
                 return -ENOMEM;
 
-        _cleanup_close_ int fd = open(locale_archive_file, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+        _cleanup_(closep) int fd = open(locale_archive_file, O_RDONLY|O_NOCTTY|O_CLOEXEC);
         if (fd < 0)
                 return errno == ENOENT ? 0 : -errno;
 
@@ -170,7 +170,7 @@ finish:
 }
 
 static int add_locales_from_libdir(Set *locales) {
-        _cleanup_closedir_ DIR *dir = NULL;
+        _cleanup_(closedirp) DIR *dir = NULL;
         int r;
 
         assert(locales);
@@ -204,7 +204,7 @@ static int add_locales_for_musl(Set *locales) {
 
         assert(locales);
 
-        _cleanup_closedir_ DIR *dir = opendir(get_locale_dir());
+        _cleanup_(closedirp) DIR *dir = opendir(get_locale_dir());
         if (!dir)
                 return errno == ENOENT ? 0 : -errno;
 
@@ -226,7 +226,7 @@ static int add_locales_for_musl(Set *locales) {
 #endif
 
 int get_locales(char ***ret) {
-        _cleanup_set_free_ Set *locales = NULL;
+        _cleanup_(set_freep) Set *locales = NULL;
         int r;
 
         locales = set_new(&string_hash_ops_free);
@@ -256,7 +256,7 @@ int get_locales(char ***ret) {
                         free(set_remove(locales, locale));
         }
 
-        _cleanup_strv_free_ char **l = set_to_strv(&locales);
+        _cleanup_(strv_freep) char **l = set_to_strv(&locales);
         if (!l)
                 return -ENOMEM;
 

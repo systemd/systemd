@@ -18,7 +18,7 @@
 static PidRef agent_pidref = PIDREF_NULL;
 
 int polkit_agent_open(void) {
-        _cleanup_close_pair_ int pipe_fd[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int pipe_fd[2] = EBADF_PAIR;
         char notify_fd[DECIMAL_STR_MAX(int) + 1];
         int r;
 

@@ -130,7 +130,7 @@ int serialize_dnr(FILE *f, const sd_dns_resolver *dnr, size_t n_dnr, bool *with_
                 with_leading_space = &_space;
 
         int n = 0;
-        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_(strv_freep) char **names = NULL;
         r = dns_resolvers_to_dot_strv(dnr, n_dnr, &names);
         if (r < 0)
                 return r;

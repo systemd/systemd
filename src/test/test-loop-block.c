@@ -155,9 +155,9 @@ static int run(int argc, char *argv[]) {
         sd_id128_t id;
 #endif
         _cleanup_free_ char *p = NULL, *cmd = NULL;
-        _cleanup_pclose_ FILE *sfdisk = NULL;
+        _cleanup_(pclosep) FILE *sfdisk = NULL;
         _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         test_setup_logging(LOG_DEBUG);

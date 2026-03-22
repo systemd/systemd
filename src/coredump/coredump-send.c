@@ -19,7 +19,7 @@
 #include "socket-util.h"
 
 int coredump_send(CoredumpContext *context) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         assert(context);
@@ -247,9 +247,9 @@ int coredump_send_to_container(CoredumpContext *context) {
         if (r <= 0)
                 return r;
 
-        _cleanup_close_ int pidnsfd = -EBADF, mntnsfd = -EBADF, netnsfd = -EBADF, usernsfd = -EBADF, rootfd = -EBADF;
+        _cleanup_(closep) int pidnsfd = -EBADF, mntnsfd = -EBADF, netnsfd = -EBADF, usernsfd = -EBADF, rootfd = -EBADF;
         _cleanup_(pidref_done) PidRef child = PIDREF_NULL;
-        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int pair[2] = EBADF_PAIR;
         struct ucred ucred = {
                 .pid = context->pidref.pid,
                 .uid = context->uid,

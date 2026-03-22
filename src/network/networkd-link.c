@@ -2007,7 +2007,7 @@ void link_update_operstate(Link *link, bool also_update_master) {
         LinkCarrierState carrier_state;
         LinkAddressState ipv4_address_state, ipv6_address_state, address_state;
         LinkOnlineState online_state;
-        _cleanup_strv_free_ char **p = NULL;
+        _cleanup_(strv_freep) char **p = NULL;
         bool changed = false;
 
         assert(link);
@@ -2519,7 +2519,7 @@ static int link_update_mtu(Link *link, sd_netlink_message *message) {
 }
 
 static int link_update_alternative_names(Link *link, sd_netlink_message *message) {
-        _cleanup_strv_free_ char **altnames = NULL;
+        _cleanup_(strv_freep) char **altnames = NULL;
         int r;
 
         assert(link);

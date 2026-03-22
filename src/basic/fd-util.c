@@ -1050,7 +1050,7 @@ int path_is_root_at(int dir_fd, const char *path) {
         if (IN_SET(dir_fd, XAT_FDROOT, AT_FDCWD) && is_literal_root(path))
                 return true;
 
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         if (!isempty(path)) {
                 fd = xopenat(dir_fd, path, O_PATH|O_DIRECTORY|O_CLOEXEC);
                 if (fd == -ENOTDIR)

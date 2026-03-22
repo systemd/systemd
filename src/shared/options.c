@@ -53,7 +53,7 @@ static int partial_match_error(
         assert(n_partial_matches >= 2);
 
         /* Find options that match the prefix */
-        _cleanup_strv_free_ char **s = NULL;
+        _cleanup_(strv_freep) char **s = NULL;
         for (const Option* option = options; option < options_end; option++)
                 if (!option_is_metadata(option) &&
                     option->long_code &&
@@ -308,7 +308,7 @@ int _option_parser_get_help_table(
                 if (r < 0)
                         return table_log_add_error(r);
 
-                _cleanup_strv_free_ char **t = strv_split(opt->help, /* separators= */ NULL);
+                _cleanup_(strv_freep) char **t = strv_split(opt->help, /* separators= */ NULL);
                 if (!t)
                         return log_oom();
 

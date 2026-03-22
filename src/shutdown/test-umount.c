@@ -10,7 +10,7 @@
 
 static void test_mount_points_list_one(const char *fname) {
         _cleanup_(mount_points_list_free) LIST_HEAD(MountPoint, mp_list_head);
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
 
         log_info("/* %s(\"%s\") */", __func__, fname ?: "/proc/self/mountinfo");
 

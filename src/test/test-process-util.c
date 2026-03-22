@@ -119,7 +119,7 @@ TEST(pid_get_comm) {
 
 static void test_pid_get_cmdline_one(pid_t pid) {
         _cleanup_free_ char *c = NULL, *d = NULL, *e = NULL, *f = NULL, *g = NULL, *h = NULL, *joined = NULL;
-        _cleanup_strv_free_ char **strv_a = NULL, **strv_b = NULL;
+        _cleanup_(strv_freep) char **strv_a = NULL, **strv_b = NULL;
         int r;
 
         r = pid_get_cmdline(pid, SIZE_MAX, 0, &c);
@@ -154,7 +154,7 @@ static void test_pid_get_cmdline_one(pid_t pid) {
 }
 
 TEST(pid_get_cmdline) {
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
         int r;
 
         ASSERT_OK(proc_dir_open(&d));
@@ -260,9 +260,9 @@ TEST(personality) {
 
 TEST(pid_get_cmdline_harder) {
         char path[] = "/tmp/test-cmdlineXXXXXX";
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         _cleanup_free_ char *line = NULL;
-        _cleanup_strv_free_ char **args = NULL;
+        _cleanup_(strv_freep) char **args = NULL;
         int r;
 
         if (geteuid() != 0) {
@@ -916,7 +916,7 @@ TEST(get_process_threads) {
         ASSERT_OK(r);
 
         if (r == 0) {
-                _cleanup_close_pair_ int pfd[2] = EBADF_PAIR, ppfd[2] = EBADF_PAIR;
+                _cleanup_(close_pairp) int pfd[2] = EBADF_PAIR, ppfd[2] = EBADF_PAIR;
                 pthread_t t, tt;
                 char x;
 
@@ -1054,7 +1054,7 @@ TEST(pidref_from_same_root_fs) {
         ASSERT_OK(pidref_safe_fork("(child1)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_REOPEN_LOG|FORK_FREEZE, &child1));
         ASSERT_OK_POSITIVE(pidref_from_same_root_fs(&self, &child1));
 
-        _cleanup_close_ int efd = eventfd(0, EFD_CLOEXEC);
+        _cleanup_(closep) int efd = eventfd(0, EFD_CLOEXEC);
         ASSERT_OK_ERRNO(efd);
 
         _cleanup_(pidref_done_sigkill_wait) PidRef child2 = PIDREF_NULL;
@@ -1092,7 +1092,7 @@ TEST(pidfd_get_inode_id_self_cached) {
 }
 
 TEST(getenv_for_pid) {
-        _cleanup_strv_free_ char **copy_env = NULL;
+        _cleanup_(strv_freep) char **copy_env = NULL;
         pid_t pid = getpid_cached();
         int r;
 

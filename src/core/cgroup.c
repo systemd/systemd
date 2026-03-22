@@ -2812,7 +2812,7 @@ void unit_prune_cgroup(Unit *u) {
 
 int unit_search_main_pid(Unit *u, PidRef *ret) {
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r;
 
         assert(u);
@@ -3724,7 +3724,7 @@ static int unit_get_io_accounting_raw(
 
         uint64_t acc[_CGROUP_IO_ACCOUNTING_METRIC_MAX] = {};
         _cleanup_free_ char *path = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r;
 
         assert(u);
@@ -4431,7 +4431,7 @@ int cgroup_runtime_deserialize_one(Unit *u, const char *key, const char *value, 
          * the cgroup restrictions would otherwise be lifted. */
 
         if (STR_IN_SET(key, "ipv4-socket-bind-bpf-link-fd", "ipv6-socket-bind-bpf-link-fd")) {
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
 
                 fd = deserialize_fd(fds, value);
                 if (fd >= 0) {
@@ -4444,7 +4444,7 @@ int cgroup_runtime_deserialize_one(Unit *u, const char *key, const char *value, 
         }
 
         if (streq(key, "restrict-ifaces-bpf-fd")) {
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
 
                 fd = deserialize_fd(fds, value);
                 if (fd >= 0) {
@@ -4457,7 +4457,7 @@ int cgroup_runtime_deserialize_one(Unit *u, const char *key, const char *value, 
         }
 
         if (streq(key, "bind-iface-bpf-fd")) {
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
 
                 fd = deserialize_fd(fds, value);
                 if (fd >= 0) {

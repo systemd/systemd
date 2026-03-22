@@ -16,7 +16,7 @@
 #include "strv.h"
 
 static int environment_dirs(char ***ret) {
-        _cleanup_strv_free_ char **dirs = NULL;
+        _cleanup_(strv_freep) char **dirs = NULL;
         _cleanup_free_ char *c = NULL;
         int r;
 
@@ -45,7 +45,7 @@ static int environment_dirs(char ***ret) {
 }
 
 static int load_and_print(void) {
-        _cleanup_strv_free_ char **dirs = NULL, **files = NULL, **env = NULL;
+        _cleanup_(strv_freep) char **dirs = NULL, **files = NULL, **env = NULL;
         int r;
 
         r = environment_dirs(&dirs);

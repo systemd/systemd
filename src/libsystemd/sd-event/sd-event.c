@@ -1304,7 +1304,7 @@ static int event_setup_timer_fd(
         if (_likely_(d->fd >= 0))
                 return 0;
 
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         fd = timerfd_create(clock, TFD_NONBLOCK|TFD_CLOEXEC);
         if (fd < 0)
@@ -1925,7 +1925,7 @@ _public_ int sd_event_add_memory_pressure(
 
         _cleanup_free_ char *w = NULL;
         _cleanup_(source_freep) sd_event_source *s = NULL;
-        _cleanup_close_ int path_fd = -EBADF, fd = -EBADF;
+        _cleanup_(closep) int path_fd = -EBADF, fd = -EBADF;
         _cleanup_free_ void *write_buffer = NULL;
         const char *watch, *watch_fallback = NULL, *env;
         size_t write_buffer_size = 0;
@@ -2137,7 +2137,7 @@ static void event_free_inotify_data(sd_event *e, InotifyData *d) {
 }
 
 static int event_make_inotify_data(sd_event *e, int64_t priority, InotifyData **ret) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         InotifyData *d;
         int r;
 
@@ -2423,7 +2423,7 @@ static int event_add_inotify_fd_internal(
                 sd_event_inotify_handler_t callback,
                 void *userdata) {
 
-        _cleanup_close_ int donated_fd = donate ? fd : -EBADF;
+        _cleanup_(closep) int donated_fd = donate ? fd : -EBADF;
         _cleanup_(source_freep) sd_event_source *s = NULL;
         InotifyData *inotify_data = NULL;
         InodeData *inode_data = NULL;

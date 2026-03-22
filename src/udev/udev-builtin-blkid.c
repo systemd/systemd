@@ -427,7 +427,7 @@ static int builtin_blkid(UdevEvent *event, int argc, char *argv[]) {
         _cleanup_(blkid_free_probep) blkid_probe pr = NULL;
         _cleanup_free_ char *backing_fname = NULL;
         bool noraid = false, is_gpt = false;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         ino_t backing_inode = 0;
         dev_t backing_devno = 0;
         int64_t offset = 0;

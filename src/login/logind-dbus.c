@@ -395,7 +395,7 @@ static int property_get_sleep_operations(
                 sd_bus_error *error) {
 
         Manager *m = ASSERT_PTR(userdata);
-        _cleanup_strv_free_ char **actions = NULL;
+        _cleanup_(strv_freep) char **actions = NULL;
         int r;
 
         assert(bus);
@@ -1762,7 +1762,7 @@ static int attach_device(Manager *m, const char *seat, const char *sysfs, sd_bus
 }
 
 static int flush_devices(Manager *m) {
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
 
         assert(m);
 
@@ -2593,7 +2593,7 @@ static void reset_scheduled_shutdown(Manager *m) {
 
 static int update_schedule_file(Manager *m) {
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r;
 
         assert(m);
@@ -2718,7 +2718,7 @@ fail:
 }
 
 void manager_load_scheduled_shutdown(Manager *m) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         _cleanup_free_ char *usec = NULL,
                *warn_wall = NULL,
                *mode = NULL,
@@ -3784,7 +3784,7 @@ static int method_inhibit(sd_bus_message *message, void *userdata, sd_bus_error 
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         const char *who, *why, *what, *mode;
         _cleanup_free_ char *id = NULL;
-        _cleanup_close_ int fifo_fd = -EBADF;
+        _cleanup_(closep) int fifo_fd = -EBADF;
         Manager *m = ASSERT_PTR(userdata);
         InhibitMode mm;
         InhibitWhat w;

@@ -180,7 +180,7 @@ static int lock_device(
                 dev_t devno,
                 usec_t deadline) {
 
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         struct stat st;
         int r;
 
@@ -229,7 +229,7 @@ static int lock_device(
 }
 
 int verb_lock_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_fdset_free_ FDSet *fds = NULL;
+        _cleanup_(fdset_freep) FDSet *fds = NULL;
         _cleanup_free_ dev_t *devnos = NULL;
         size_t n_devnos = 0;
         usec_t deadline;
@@ -272,7 +272,7 @@ int verb_lock_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 if (arg_print)
                         printf("%s\n", node);
                 else {
-                        _cleanup_close_ int fd = -EBADF;
+                        _cleanup_(closep) int fd = -EBADF;
 
                         fd = lock_device(node, devnos[i], deadline);
                         if (fd < 0)

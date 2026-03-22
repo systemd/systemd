@@ -15,7 +15,7 @@
 
 int read_resource_pressure(const char *path, PressureType type, ResourcePressure *ret) {
         _cleanup_free_ char *line = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         unsigned field_filled = 0;
         ResourcePressure rp = {};
         const char *t, *cline;

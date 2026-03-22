@@ -53,9 +53,9 @@ static void test_cleanup(void) {
 }
 
 static void test_misc(const char* fname) {
-        _cleanup_freecon_ char *label = NULL, *label2 = NULL, *label3 = NULL, *label4 = NULL;
+        _cleanup_(freeconp) char *label = NULL, *label2 = NULL, *label3 = NULL, *label4 = NULL;
         int r;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         log_info("============ %s ==========", __func__);
 

@@ -94,7 +94,7 @@ static int manager_determine_path_usage(
                 uint64_t *ret_used,
                 uint64_t *ret_free) {
 
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
         struct statvfs ss;
 
         assert(m);
@@ -605,7 +605,7 @@ static void manager_vacuum_deferred_closes(Manager *m) {
 }
 
 static int manager_archive_offline_user_journals(Manager *m) {
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
         int r;
 
         assert(m);
@@ -621,7 +621,7 @@ static int manager_archive_offline_user_journals(Manager *m) {
 
         for (;;) {
                 _cleanup_free_ char *full = NULL;
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
                 struct dirent *de;
                 JournalFile *f;
                 uid_t uid;
@@ -1400,7 +1400,7 @@ finish:
                 journal_file_post_change(m->system_journal);
 
         /* Save parent directories of runtime journals before closing runtime journals. */
-        _cleanup_strv_free_ char **dirs = NULL;
+        _cleanup_(strv_freep) char **dirs = NULL;
         (void) journal_get_directories(j, &dirs);
 
         /* First, close all runtime journals opened in the above. */
@@ -2071,7 +2071,7 @@ int manager_map_seqnum_file(
                 void **ret) {
 
         _cleanup_free_ char *fn = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         uint64_t *p;
         int r;
 
@@ -2333,7 +2333,7 @@ int manager_new(Manager **ret) {
 
 int manager_init(Manager *m) {
         const char *native_socket, *syslog_socket, *stdout_socket, *varlink_socket, *e;
-        _cleanup_fdset_free_ FDSet *fds = NULL;
+        _cleanup_(fdset_freep) FDSet *fds = NULL;
         int n, r, varlink_fd = -EBADF;
         bool no_sockets;
 

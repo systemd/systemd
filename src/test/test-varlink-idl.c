@@ -425,7 +425,7 @@ static void* server_thread(void *userdata) {
 }
 
 TEST(validate_method_call) {
-        _cleanup_close_pair_ int fd[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int fd[2] = EBADF_PAIR;
         _cleanup_(sd_varlink_unrefp) sd_varlink *v = NULL;
         pthread_t t;
 

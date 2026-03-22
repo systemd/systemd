@@ -835,7 +835,7 @@ static int modem_map_bearers(
                 void *userdata) {
 
         Modem *modem = ASSERT_PTR(userdata);
-        _cleanup_strv_free_ char **paths = NULL;
+        _cleanup_(strv_freep) char **paths = NULL;
         int r;
 
         r = sd_bus_message_read_strv(m, &paths);
@@ -1222,7 +1222,7 @@ int manager_match_mm_signals(Manager *manager) {
 
 static int list_names_handler(sd_bus_message *message, void *userdata, sd_bus_error *ret_error) {
         Manager *manager = ASSERT_PTR(userdata);
-        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_(strv_freep) char **names = NULL;
         int r;
 
         assert(manager);

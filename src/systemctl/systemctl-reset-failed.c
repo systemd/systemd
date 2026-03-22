@@ -11,7 +11,7 @@
 #include "systemctl-util.h"
 
 int verb_reset_failed(int argc, char *argv[], uintptr_t data, void *userdata) {
-        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_(strv_freep) char **names = NULL;
         sd_bus *bus;
         int r, q;
 

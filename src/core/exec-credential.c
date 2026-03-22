@@ -357,7 +357,7 @@ static int credential_search_path(
                 CredentialSearchPath path,
                 char ***ret) {
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         int r;
 
         assert(context);
@@ -373,7 +373,7 @@ static int credential_search_path(
                 if (r < 0)
                         return r;
 
-                _cleanup_strv_free_ char **add = NULL;
+                _cleanup_(strv_freep) char **add = NULL;
                 r = credential_store_path_encrypted(context->scope, &add);
                 if (r < 0)
                         return r;
@@ -388,7 +388,7 @@ static int credential_search_path(
                 if (r < 0)
                         return r;
 
-                _cleanup_strv_free_ char **add = NULL;
+                _cleanup_(strv_freep) char **add = NULL;
                 r = credential_store_path(context->scope, &add);
                 if (r < 0)
                         return r;
@@ -416,7 +416,7 @@ static int write_credential(
                 gid_t gid,
                 bool ownership_ok) {
 
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         assert(dfd >= 0);
@@ -550,7 +550,7 @@ static int load_credential_glob(
         assert(search_path);
 
         STRV_FOREACH(d, search_path) {
-                _cleanup_strv_free_ char **paths = NULL;
+                _cleanup_(strv_freep) char **paths = NULL;
                 _cleanup_free_ char *j = NULL;
 
                 j = path_join(*d, ic->glob);
@@ -622,7 +622,7 @@ static int load_credential(
                 const char *path) {
 
         ReadFullFileFlags flags = READ_FULL_FILE_SECURE|READ_FULL_FILE_FAIL_WHEN_LARGER;
-        _cleanup_strv_free_ char **search_path = NULL;
+        _cleanup_(strv_freep) char **search_path = NULL;
         _cleanup_free_ char *bindname = NULL;
         const char *source = NULL;
         bool missing_ok;
@@ -823,7 +823,7 @@ static int acquire_credentials(
         /* First, load credentials off disk (or acquire via AF_UNIX socket) */
         ExecLoadCredential *lc;
         HASHMAP_FOREACH(lc, context->exec_context->load_credentials) {
-                _cleanup_close_ int sub_fd = -EBADF;
+                _cleanup_(closep) int sub_fd = -EBADF;
 
                 args.encrypted = lc->encrypted;
 
@@ -951,7 +951,7 @@ static int setup_credentials_plain_dir(
 
         _cleanup_free_ char *t = NULL, *workspace = NULL;
         _cleanup_(rm_rf_safep) const char *workspace_rm = NULL;
-        _cleanup_close_ int dfd = -EBADF;
+        _cleanup_(closep) int dfd = -EBADF;
         int r;
 
         assert(context);
@@ -988,7 +988,7 @@ static int setup_credentials_plain_dir(
         if (r >= 0)
                 workspace_rm = NULL;
         if (IN_SET(r, -ENOTEMPTY, -EEXIST)) {
-                _cleanup_close_ int old_dfd = open(cred_dir, O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+                _cleanup_(closep) int old_dfd = open(cred_dir, O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
                 if (old_dfd < 0)
                         return log_debug_errno(errno, "Failed to open credentials dir '%s': %m", cred_dir);
 
@@ -1014,7 +1014,7 @@ static int setup_credentials_internal(
                 bool may_reuse,
                 const char *cred_dir) {
 
-        _cleanup_close_ int fs_fd = -EBADF, mfd = -EBADF, dfd = -EBADF;
+        _cleanup_(closep) int fs_fd = -EBADF, mfd = -EBADF, dfd = -EBADF;
         bool dir_mounted;
         int r;
 
@@ -1190,7 +1190,7 @@ static int refresh_credentials_in_namespace_child(int cfd, const char *cred_dir)
         if (n < 0)
                 return log_error_errno(errno, "Failed to write to socket: %m");
 
-        _cleanup_close_ int mfd = receive_one_fd(cfd, /* flags = */ 0);
+        _cleanup_(closep) int mfd = receive_one_fd(cfd, /* flags = */ 0);
         if (mfd < 0)
                 return log_error_errno(mfd, "Failed to receive credentials tree fd from socket: %m");
 
@@ -1226,13 +1226,13 @@ int unit_refresh_credentials(Unit *u) {
                 return log_error_errno(errno, "Failed to check if credentials dir '%s' exists: %m", cred_dir);
         }
 
-        _cleanup_close_pair_ int tunnel_fds[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int tunnel_fds[2] = EBADF_PAIR;
         _cleanup_(pidref_done) PidRef child = PIDREF_NULL;
-        _cleanup_close_ int userns_fd = -EBADF;
+        _cleanup_(closep) int userns_fd = -EBADF;
 
         PidRef *main_pid = unit_main_pid(u);
         if (pidref_is_set(main_pid)) {
-                _cleanup_close_ int mntns_fd = -EBADF, root_fd = -EBADF, pidns_fd = -EBADF;
+                _cleanup_(closep) int mntns_fd = -EBADF, root_fd = -EBADF, pidns_fd = -EBADF;
 
                 r = pidref_namespace_open(main_pid,
                                           &pidns_fd,
@@ -1326,7 +1326,7 @@ int unit_refresh_credentials(Unit *u) {
                         return log_error_errno(errno, "Failed to unshare mount namespace: %m");
         }
 
-        _cleanup_close_ int tfd = open_tree(AT_FDCWD, cred_dir, OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_SYMLINK_NOFOLLOW);
+        _cleanup_(closep) int tfd = open_tree(AT_FDCWD, cred_dir, OPEN_TREE_CLONE|OPEN_TREE_CLOEXEC|AT_SYMLINK_NOFOLLOW);
         if (tfd < 0)
                 return log_error_errno(errno, "Failed to clone mount tree at '%s': %m", cred_dir);
 

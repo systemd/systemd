@@ -116,7 +116,7 @@ static int mstack_load_one(MStack *mstack, const char *dir, int dir_fd, const ch
         assert(dir_fd >= 0);
         assert(fname);
 
-        _cleanup_close_ int what_fd = openat(dir_fd, fname, O_PATH|O_CLOEXEC);
+        _cleanup_(closep) int what_fd = openat(dir_fd, fname, O_PATH|O_CLOEXEC);
         if (what_fd < 0)
                 return log_debug_errno(errno, "Failed to open %s/%s: %m", dir, fname);
 
@@ -392,7 +392,7 @@ static int mstack_normalize(MStack *mstack) {
 
                         if (has_root) {
                                 /* If there's a root dir, let's only bind mount the /usr/ subdir */
-                                _cleanup_close_ int usr_fd = openat(m->what_fd, "usr", O_CLOEXEC|O_PATH|O_NOFOLLOW|O_DIRECTORY);
+                                _cleanup_(closep) int usr_fd = openat(m->what_fd, "usr", O_CLOEXEC|O_PATH|O_NOFOLLOW|O_DIRECTORY);
                                 if (usr_fd < 0)
                                         return log_debug_errno(errno, "Failed to open /usr/ subdir: %m");
 
@@ -443,7 +443,7 @@ static int mstack_normalize(MStack *mstack) {
 }
 
 static int mstack_load_now(MStack *mstack, const char *dir, int dir_fd, MStackFlags flags) {
-        _cleanup_close_ int _dir_fd = -EBADF;
+        _cleanup_(closep) int _dir_fd = -EBADF;
         int r;
 
         assert(mstack);
@@ -747,11 +747,11 @@ static int mstack_make_overlayfs(
 
         bool writable = mstack_has_writable_layers(mstack, flags);
 
-        _cleanup_close_ int sb_fd = fsopen("overlay", FSOPEN_CLOEXEC);
+        _cleanup_(closep) int sb_fd = fsopen("overlay", FSOPEN_CLOEXEC);
         if (sb_fd < 0)
                 return log_debug_errno(errno, "Failed to create overlayfs: %m");
 
-        _cleanup_close_pair_ int errno_pipe_fds[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int errno_pipe_fds[2] = EBADF_PAIR;
         if (pipe2(errno_pipe_fds, O_CLOEXEC) < 0)
                 return log_debug_errno(errno, "Failed to open pipe: %m");
 
@@ -782,7 +782,7 @@ static int mstack_make_overlayfs(
 
                         /* overlayfs refuses to work with layers on mounts not owned by our userns, hence create a
                          * clone that is owned by our userns */
-                        _cleanup_close_ int cloned_fd = mount_fd_clone(ASSERT_FD(mount_get_fd(m)), /* recursive= */ false, /* replacement_fd= */ NULL);
+                        _cleanup_(closep) int cloned_fd = mount_fd_clone(ASSERT_FD(mount_get_fd(m)), /* recursive= */ false, /* replacement_fd= */ NULL);
                         if (cloned_fd < 0)
                                 report_errno_and_exit(errno_pipe_fds[1], cloned_fd);
 
@@ -795,7 +795,7 @@ static int mstack_make_overlayfs(
                                 report_errno_and_exit(errno_pipe_fds[1], -errno);
 
                         /* Open the layer immediately after attaching */
-                        _cleanup_close_ int temp_fd = open(temp_mount_dir, O_PATH|O_CLOEXEC);
+                        _cleanup_(closep) int temp_fd = open(temp_mount_dir, O_PATH|O_CLOEXEC);
                         if (temp_fd < 0)
                                 report_errno_and_exit(errno_pipe_fds[1], -errno);
 
@@ -804,7 +804,7 @@ static int mstack_make_overlayfs(
                         case MSTACK_RW: {
                                 if (mount_is_ro(m, flags)) {
                                         /* If invoked in read-only mode we'll not create the data dir, but use it if it exists */
-                                        _cleanup_close_ int data_fd = openat(temp_fd, "data", O_CLOEXEC|O_NOFOLLOW|O_DIRECTORY);
+                                        _cleanup_(closep) int data_fd = openat(temp_fd, "data", O_CLOEXEC|O_NOFOLLOW|O_DIRECTORY);
                                         if (data_fd < 0) {
                                                 if (errno == ENOENT) /* If the 'data' dir doesn't exist, just skip
                                                                       * over it, it apparently was never created, but
@@ -823,7 +823,7 @@ static int mstack_make_overlayfs(
                                         }
                                 } else {
                                         /* If invoked in writable mode, let's create the data dir if it is missing */
-                                        _cleanup_close_ int data_fd = open_mkdir_at(temp_fd, "data", O_CLOEXEC|O_NOFOLLOW, 0755);
+                                        _cleanup_(closep) int data_fd = open_mkdir_at(temp_fd, "data", O_CLOEXEC|O_NOFOLLOW, 0755);
                                         if (data_fd < 0) {
                                                 log_debug_errno(data_fd, "Failed to open 'data' directory below 'rw' layer: %m");
                                                 report_errno_and_exit(errno_pipe_fds[1], data_fd);
@@ -836,7 +836,7 @@ static int mstack_make_overlayfs(
                                         }
 
                                         /* Similar, create the work directory */
-                                        _cleanup_close_ int work_fd = open_mkdir_at(temp_fd, "work", O_CLOEXEC|O_NOFOLLOW, 0755);
+                                        _cleanup_(closep) int work_fd = open_mkdir_at(temp_fd, "work", O_CLOEXEC|O_NOFOLLOW, 0755);
                                         if (work_fd < 0) {
                                                 log_debug_errno(work_fd, "Failed to open 'work' directory below 'rw' layer: %m");
                                                 report_errno_and_exit(errno_pipe_fds[1], work_fd);
@@ -905,7 +905,7 @@ static int mstack_make_overlayfs(
                 report_errno_and_exit(errno_pipe_fds[1], 0);
         }
 
-        _cleanup_close_ int overlayfs_mnt_fd = fsmount(sb_fd, FSMOUNT_CLOEXEC, 0);
+        _cleanup_(closep) int overlayfs_mnt_fd = fsmount(sb_fd, FSMOUNT_CLOEXEC, 0);
         if (overlayfs_mnt_fd < 0)
                 return log_debug_errno(errno, "Failed to create mount fd: %m");
 
@@ -930,7 +930,7 @@ int mstack_make_mounts(
         assert(mstack);
         assert(temp_mount_dir);
 
-        _cleanup_close_ int overlayfs_mnt_fd = -EBADF;
+        _cleanup_(closep) int overlayfs_mnt_fd = -EBADF;
         r = mstack_make_overlayfs(mstack, temp_mount_dir, flags, &overlayfs_mnt_fd);
         if (r < 0)
                 return r;
@@ -948,7 +948,7 @@ int mstack_make_mounts(
                 log_debug("Acquired mstack root bind mount.");
 
         } else if (mstack->has_tmpfs_root) {
-                _cleanup_close_ int sb_fd = fsopen("tmpfs", FSOPEN_CLOEXEC);
+                _cleanup_(closep) int sb_fd = fsopen("tmpfs", FSOPEN_CLOEXEC);
                 if (sb_fd < 0)
                         return log_debug_errno(errno, "Failed to create tmpfs: %m");
 
@@ -1003,7 +1003,7 @@ int mstack_bind_mounts(
 
         assert(mstack);
 
-        _cleanup_close_ int _where_fd = -EBADF;
+        _cleanup_(closep) int _where_fd = -EBADF;
         if (where_fd == AT_FDCWD) {
                 _where_fd = open(".", O_CLOEXEC|O_PATH|O_DIRECTORY);
                 if (_where_fd < 0)
@@ -1027,12 +1027,12 @@ int mstack_bind_mounts(
 
         log_debug("Attached mstack root mount to '%s'.", where);
 
-        _cleanup_close_ int root_fd = open(where, O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW);
+        _cleanup_(closep) int root_fd = open(where, O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW);
         if (root_fd < 0)
                 return log_debug_errno(errno, "Failed to mount root mount '%s': %m", where);
 
         if (mstack->usr_mount_fd >= 0) {
-                _cleanup_close_ int subdir_fd = -EBADF;
+                _cleanup_(closep) int subdir_fd = -EBADF;
                 r = chaseat(root_fd, "usr", CHASE_AT_RESOLVE_IN_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY, /* ret_path= */ NULL, &subdir_fd);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to open mount point inode '%s': %m", where);
@@ -1051,7 +1051,7 @@ int mstack_bind_mounts(
 
                 assert(m->mount_fd >= 0);
 
-                _cleanup_close_ int subdir_fd = -EBADF;
+                _cleanup_(closep) int subdir_fd = -EBADF;
                 r = chaseat(root_fd, m->where, CHASE_AT_RESOLVE_IN_ROOT|CHASE_PROHIBIT_SYMLINKS|CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY, /* ret_path= */ NULL, &subdir_fd);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to open mount point inode '%s': %m", m->where);

@@ -354,7 +354,7 @@ int dhcp_server_save_leases(sd_dhcp_server *server) {
                 return r;
 
         _cleanup_free_ char *temp_path = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
 
         r = fopen_temporary_at(server->lease_dir_fd, server->lease_file, &f, &temp_path);
         if (r < 0)

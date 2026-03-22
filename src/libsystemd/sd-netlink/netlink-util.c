@@ -21,7 +21,7 @@ static int parse_newlink_message(
                   char **ret_name,
                   char ***ret_altnames) {
 
-        _cleanup_strv_free_ char **altnames = NULL;
+        _cleanup_(strv_freep) char **altnames = NULL;
         int r, ifindex;
 
         assert(message);
@@ -199,7 +199,7 @@ int rtnl_rename_link(sd_netlink **rtnl, const char *orig_name, const char *new_n
 }
 
 int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name, char* const *alternative_names) {
-        _cleanup_strv_free_ char **original_altnames = NULL, **new_altnames = NULL;
+        _cleanup_(strv_freep) char **original_altnames = NULL, **new_altnames = NULL;
         bool altname_deleted = false;
         int r;
 
@@ -497,7 +497,7 @@ int rtnl_get_link_info_full(
         _cleanup_(sd_netlink_unrefp) sd_netlink *our_rtnl = NULL;
         struct hw_addr_data addr = HW_ADDR_NULL, perm_addr = HW_ADDR_NULL;
         _cleanup_free_ char *name = NULL, *kind = NULL;
-        _cleanup_strv_free_ char **altnames = NULL;
+        _cleanup_(strv_freep) char **altnames = NULL;
         unsigned short iftype;
         unsigned flags;
         int r;
@@ -664,7 +664,7 @@ static int socket_open(int family) {
 }
 
 int netlink_open_family(sd_netlink **ret, int family) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         fd = socket_open(family);

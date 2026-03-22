@@ -25,7 +25,7 @@ int unit_find_dropin_paths(Unit *u, bool use_unit_path_cache, char ***paths) {
 }
 
 static int process_deps(Unit *u, UnitDependency dependency, const char *dir_suffix) {
-        _cleanup_strv_free_ char **paths = NULL;
+        _cleanup_(strv_freep) char **paths = NULL;
         int r;
 
         r = unit_file_find_dropin_paths(NULL,
@@ -107,7 +107,7 @@ static int process_deps(Unit *u, UnitDependency dependency, const char *dir_suff
 }
 
 int unit_load_dropin(Unit *u) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         int r;
 
         assert(u);

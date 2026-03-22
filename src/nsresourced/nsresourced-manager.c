@@ -342,7 +342,7 @@ static void manager_release_userns_fds(Manager *m, uint64_t inode) {
 
 static void manager_release_userns_by_inode(Manager *m, uint64_t inode) {
         _cleanup_(userns_info_freep) UserNamespaceInfo *userns_info = NULL;
-        _cleanup_close_ int lock_fd = -EBADF;
+        _cleanup_(closep) int lock_fd = -EBADF;
         int r;
 
         assert(m);
@@ -475,7 +475,7 @@ static int manager_make_listen_socket(Manager *m) {
 }
 
 static int manager_scan_listen_fds(Manager *m, Set **fdstore_inodes) {
-        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_(strv_freep) char **names = NULL;
         int n, r;
 
         assert(m);
@@ -486,7 +486,7 @@ static int manager_scan_listen_fds(Manager *m, Set **fdstore_inodes) {
                 return log_error_errno(n, "Failed to determine number of passed file descriptors: %m");
 
         for (int i = 0; i < n; i++) {
-                _cleanup_close_ int fd = SD_LISTEN_FDS_START + i; /* Take possession */
+                _cleanup_(closep) int fd = SD_LISTEN_FDS_START + i; /* Take possession */
                 const char *e;
 
                 /* If this is a BPF allowlist related fd, just close it, but remember which start UIDs this covers */
@@ -609,7 +609,7 @@ static int manager_setup_bpf(Manager *m) {
 #endif
 
 int manager_startup(Manager *m) {
-        _cleanup_set_free_ Set *fdstore_inodes = NULL, *registry_inodes = NULL;
+        _cleanup_(set_freep) Set *fdstore_inodes = NULL, *registry_inodes = NULL;
         void *p;
         int r;
 
