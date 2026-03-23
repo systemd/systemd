@@ -5,6 +5,9 @@
 
 #include "sd-forward.h"
 
+#define PROTECT_EVENT(e)                                                \
+        _unused_ _cleanup_(sd_event_unrefp) sd_event *_ref = sd_event_ref(e);
+
 extern const struct hash_ops event_source_hash_ops;
 
 int event_reset_time(

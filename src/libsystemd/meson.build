@@ -192,6 +192,7 @@ simple_tests += files(
         'sd-bus/test-bus-vtable.c',
         'sd-device/test-device-util.c',
         'sd-device/test-sd-device-monitor.c',
+        'sd-event/test-event-future.c',
         'sd-future/test-fiber.c',
         'sd-future/test-fiber-io.c',
         'sd-future/test-fiber-ops.c',
