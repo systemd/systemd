@@ -56,7 +56,7 @@ _systemd_vmspawn() {
     elif __contains_word "$prev" ${OPTS[SSH_KEY]}; then
         comps='dsa ecdsa ecdsa-sk ed25519 ed25519-sk rsa'
     elif __contains_word "$prev" ${OPTS[CONSOLE]}; then
-        comps='interactive native gui'
+        comps='interactive native gui read-only headless'
     elif __contains_word "$prev" ${OPTS[IMAGE_FORMAT]}; then
         comps='raw qcow2'
     elif __contains_word "$prev" ${OPTS[ARG]}; then

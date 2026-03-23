@@ -260,7 +260,7 @@ static int help(void) {
                "     --pass-ssh-key=BOOL   Create an SSH key to access the VM\n"
                "     --ssh-key-type=TYPE   Choose what type of SSH key to pass\n"
                "\n%3$sInput/Output:%4$s\n"
-               "     --console=MODE        Console mode (interactive, native, gui)\n"
+               "     --console=MODE        Console mode (interactive, native, gui, read-only, headless)\n"
                "     --background=COLOR    Set ANSI color for background\n"
                "\n%3$sCredentials:%4$s\n"
                "     --set-credential=ID:VALUE\n"
@@ -2365,6 +2365,13 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                 "-mon", "console");
                 break;
 
+        case CONSOLE_HEADLESS:
+                r = strv_extend_many(
+                                &cmdline,
+                                "-nographic",
+                                "-nodefaults");
+                break;
+
         default:
                 assert_not_reached();
         }
@@ -2641,7 +2648,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_oom();
         }
 
-        if (arg_console_mode != CONSOLE_GUI) {
+        if (!IN_SET(arg_console_mode, CONSOLE_GUI, CONSOLE_HEADLESS)) {
                 r = strv_prepend(&arg_kernel_cmdline_extra, "console=hvc0");
                 if (r < 0)
                         return log_oom();
