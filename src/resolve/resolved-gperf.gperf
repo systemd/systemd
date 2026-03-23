@@ -34,5 +34,6 @@ Resolve.ReadEtcHosts,              config_parse_bool,                    0,     
 Resolve.ResolveUnicastSingleLabel, config_parse_bool,                    0,                   offsetof(Manager, resolve_unicast_single_label)
 Resolve.DNSStubListenerExtra,      config_parse_dns_stub_listener_extra, 0,                   offsetof(Manager, dns_extra_stub_listeners)
 Resolve.CacheFromLocalhost,        config_parse_bool,                    0,                   offsetof(Manager, cache_from_localhost)
+Resolve.CacheSize,                 config_parse_dns_cache_max,           0,                   0
 Resolve.StaleRetentionSec,         config_parse_sec,                     0,                   offsetof(Manager, stale_retention_usec)
 Resolve.RefuseRecordTypes,         config_parse_record_types,            0,                   offsetof(Manager, refuse_record_types)
