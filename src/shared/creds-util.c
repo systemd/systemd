@@ -840,6 +840,8 @@ int encrypt_credential_and_warn(
         /* Only one of these two flags may be set at the same time */
         assert(!FLAGS_SET(flags, CREDENTIAL_ALLOW_NULL) || !FLAGS_SET(flags, CREDENTIAL_REFUSE_NULL));
 
+        CLEANUP_ERASE(md);
+
         if (!CRED_KEY_IS_VALID(with_key) && !CRED_KEY_IS_AUTO(with_key))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid key type: " SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(with_key));
 
@@ -1203,6 +1205,8 @@ int decrypt_credential_and_warn(
 
         /* Only one of these two flags may be set at the same time */
         assert(!FLAGS_SET(flags, CREDENTIAL_ALLOW_NULL) || !FLAGS_SET(flags, CREDENTIAL_REFUSE_NULL));
+
+        CLEANUP_ERASE(md);
 
         /* Relevant error codes:
          *
