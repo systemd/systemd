@@ -7,7 +7,7 @@
 #include "iovec-wrapper.h"
 #include "string-util.h"
 
-struct iovec_wrapper *iovw_new(void) {
+struct iovec_wrapper* iovw_new(void) {
         return new0(struct iovec_wrapper, 1);
 }
 
@@ -27,7 +27,7 @@ void iovw_done_free(struct iovec_wrapper *iovw) {
         iovw_done(iovw);
 }
 
-struct iovec_wrapper *iovw_free_free(struct iovec_wrapper *iovw) {
+struct iovec_wrapper* iovw_free_free(struct iovec_wrapper *iovw) {
         if (!iovw)
                 return NULL;
 
@@ -35,7 +35,7 @@ struct iovec_wrapper *iovw_free_free(struct iovec_wrapper *iovw) {
         return mfree(iovw);
 }
 
-struct iovec_wrapper *iovw_free(struct iovec_wrapper *iovw) {
+struct iovec_wrapper* iovw_free(struct iovec_wrapper *iovw) {
         if (!iovw)
                 return NULL;
 
