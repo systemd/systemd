@@ -636,7 +636,52 @@ int config_parse_iaid(
         return 0;
 }
 
-int config_parse_dhcp_user_or_vendor_class(
+int config_parse_dhcp4_user_class(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        struct iovec_wrapper *iovw = ASSERT_PTR(data);
+        int r;
+
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                iovw_done_free(iovw);
+                return 0;
+        }
+
+        for (const char *p = rvalue;;) {
+                _cleanup_free_ char *w = NULL;
+
+                r = extract_first_word(&p, &w, NULL, EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
+                if (r < 0)
+                        return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
+                if (r == 0)
+                        return 0;
+
+                size_t len = strlen(w);
+                if (len > UINT8_MAX || len == 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "The length of the %s entry '%s' is not in the range 1…255, ignoring.", lvalue, w);
+                        continue;
+                }
+
+                r = iovw_consume(iovw, TAKE_PTR(w), len);
+                if (r < 0)
+                        return log_oom();
+        }
+}
+
+int config_parse_dhcp6_user_or_vendor_class(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -653,7 +698,6 @@ int config_parse_dhcp_user_or_vendor_class(
 
         assert(lvalue);
         assert(rvalue);
-        assert(IN_SET(ltype, AF_INET, AF_INET6));
 
         if (isempty(rvalue)) {
                 *l = strv_free(*l);
@@ -662,32 +706,18 @@ int config_parse_dhcp_user_or_vendor_class(
 
         for (const char *p = rvalue;;) {
                 _cleanup_free_ char *w = NULL;
-                size_t len;
 
                 r = extract_first_word(&p, &w, NULL, EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
-                if (r == -ENOMEM)
-                        return log_oom();
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to split user classes option, ignoring: %s", rvalue);
-                        return 0;
-                }
+                if (r < 0)
+                        return log_syntax_parse_error(unit, filename, line, r, lvalue, rvalue);
                 if (r == 0)
                         return 0;
 
-                len = strlen(w);
-                if (ltype == AF_INET) {
-                        if (len > UINT8_MAX || len == 0) {
-                                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                           "%s length is not in the range 1…255, ignoring.", w);
-                                continue;
-                        }
-                } else {
-                        if (len > UINT16_MAX || len == 0) {
-                                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                                           "%s length is not in the range 1…65535, ignoring.", w);
-                                continue;
-                        }
+                size_t len = strlen(w);
+                if (len > UINT16_MAX || len == 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "The length of the %s entry '%s' is not in the range 1…65535, ignoring.", lvalue, w);
+                        continue;
                 }
 
                 r = strv_consume(l, TAKE_PTR(w));
