@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -16,10 +15,12 @@
 #include "exit-status.h"
 #include "fd-util.h"
 #include "fdset.h"
+#include "format-table.h"
 #include "format-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "notify-recv.h"
+#include "options.h"
 #include "parse-util.h"
 #include "pidref.h"
 #include "pretty-print.h"
@@ -57,40 +58,28 @@ STATIC_DESTRUCTOR_REGISTER(arg_fdname, freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *options = NULL;
         int r;
 
         r = terminal_urlify_man("systemd-notify", "1", &link);
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] [VARIABLE=VALUE...]\n"
-               "%s [OPTIONS...] --exec [VARIABLE=VALUE...] ; -- CMDLINE...\n"
-               "%s [OPTIONS...] --fork -- CMDLINE...\n"
-               "\n%sNotify the init system about service status updates.%s\n\n"
-               "  -h --help            Show this help\n"
-               "     --version         Show package version\n"
-               "     --ready           Inform the service manager about service start-up/reload\n"
-               "                       completion\n"
-               "     --reloading       Inform the service manager about configuration reloading\n"
-               "     --stopping        Inform the service manager about service shutdown\n"
-               "     --pid[=PID]       Set main PID of daemon\n"
-               "     --uid=USER        Set user to send from\n"
-               "     --status=TEXT     Set status text\n"
-               "     --booted          Check if the system was booted up with systemd\n"
-               "     --no-block        Do not wait until operation finished\n"
-               "     --exec            Execute command line separated by ';' once done\n"
-               "     --fd=FD           Pass specified file descriptor with along with message\n"
-               "     --fdname=NAME     Name to assign to passed file descriptor(s)\n"
-               "     --fork            Receive notifications from child rather than sending them\n"
-               "  -q --quiet           Do not show PID of child when forking\n"
-               "\nSee the %s for details.\n",
-               program_invocation_short_name,
-               program_invocation_short_name,
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
+        printf("%1$s [OPTIONS...] [VARIABLE=VALUE...]\n"
+               "%1$s [OPTIONS...] --exec [VARIABLE=VALUE...] ; -- CMDLINE...\n"
+               "%1$s [OPTIONS...] --fork -- CMDLINE...\n"
+               "\n%2$sNotify the init system about service status updates.%3$s\n\n",
                program_invocation_short_name,
                ansi_highlight(),
-               ansi_normal(),
-               link);
+               ansi_normal());
 
+        table_print(options, stdout);
+
+        printf("\nSee the %s for details.\n", link);
         return 0;
 }
 
@@ -161,123 +150,87 @@ from_self:
         return pidref_set_self(ret);
 }
 
-static int parse_argv(int argc, char *argv[]) {
-
-        enum {
-                ARG_READY = 0x100,
-                ARG_RELOADING,
-                ARG_STOPPING,
-                ARG_VERSION,
-                ARG_PID,
-                ARG_STATUS,
-                ARG_BOOTED,
-                ARG_UID,
-                ARG_NO_BLOCK,
-                ARG_EXEC,
-                ARG_FD,
-                ARG_FDNAME,
-                ARG_FORK,
-        };
-
-        static const struct option options[] = {
-                { "help",      no_argument,       NULL, 'h'           },
-                { "version",   no_argument,       NULL, ARG_VERSION   },
-                { "ready",     no_argument,       NULL, ARG_READY     },
-                { "reloading", no_argument,       NULL, ARG_RELOADING },
-                { "stopping",  no_argument,       NULL, ARG_STOPPING  },
-                { "pid",       optional_argument, NULL, ARG_PID       },
-                { "status",    required_argument, NULL, ARG_STATUS    },
-                { "booted",    no_argument,       NULL, ARG_BOOTED    },
-                { "uid",       required_argument, NULL, ARG_UID       },
-                { "no-block",  no_argument,       NULL, ARG_NO_BLOCK  },
-                { "exec",      no_argument,       NULL, ARG_EXEC      },
-                { "fd",        required_argument, NULL, ARG_FD        },
-                { "fdname",    required_argument, NULL, ARG_FDNAME    },
-                { "fork",      no_argument,       NULL, ARG_FORK      },
-                { "quiet",     no_argument,       NULL, 'q'           },
-                {}
-        };
-
+static int parse_argv(int argc, char *argv[], char ***ret_args) {
         _cleanup_fdset_free_ FDSet *passed = NULL;
         bool do_exec = false;
-        int c, r;
+        int r;
 
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hq", options, NULL)) >= 0) {
+        OptionParser state = {};
+        const char *arg;
 
+        FOREACH_OPTION(&state, c, argc, argv, &arg, /* on_error= */ return c)
                 switch (c) {
 
-                case 'h':
+                OPTION_COMMON_HELP:
                         return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case ARG_READY:
+                OPTION_LONG("ready", NULL,
+                            "Inform the service manager about service start-up/reload completion"):
                         arg_ready = true;
                         break;
 
-                case ARG_RELOADING:
+                OPTION_LONG("reloading", NULL,
+                            "Inform the service manager about configuration reloading"):
                         arg_reloading = true;
                         break;
 
-                case ARG_STOPPING:
+                OPTION_LONG("stopping", NULL,
+                            "Inform the service manager about service shutdown"):
                         arg_stopping = true;
                         break;
 
-                case ARG_PID:
+                OPTION_FULL(OPTION_OPTIONAL_ARG, /* sc= */ 0, "pid", "PID",
+                            "Set main PID of daemon"):
                         pidref_done(&arg_pid);
 
-                        if (isempty(optarg) || streq(optarg, "auto"))
+                        if (isempty(arg) || streq(arg, "auto"))
                                 r = pidref_parent_if_applicable(&arg_pid);
-                        else if (streq(optarg, "parent"))
+                        else if (streq(arg, "parent"))
                                 r = pidref_set_parent(&arg_pid);
-                        else if (streq(optarg, "self"))
+                        else if (streq(arg, "self"))
                                 r = pidref_set_self(&arg_pid);
                         else
-                                r = pidref_set_pidstr(&arg_pid, optarg);
+                                r = pidref_set_pidstr(&arg_pid, arg);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to refer to --pid='%s': %m", optarg);
-
+                                return log_error_errno(r, "Failed to refer to --pid='%s': %m", arg);
                         break;
 
-                case ARG_STATUS:
-                        arg_status = optarg;
+                OPTION_LONG("uid", "USER", "Set user to send from"):
+                        r = get_user_creds(&arg, &arg_uid, &arg_gid, NULL, NULL, 0);
+                        if (r == -ESRCH) /* If the user doesn't exist, then accept it anyway as numeric */
+                                r = parse_uid(arg, &arg_uid);
+                        if (r < 0)
+                                return log_error_errno(r, "Can't resolve user %s: %m", arg);
                         break;
 
-                case ARG_BOOTED:
+                OPTION_LONG("status", "TEXT", "Set status text"):
+                        arg_status = arg;
+                        break;
+
+                OPTION_LONG("booted", NULL, "Check if the system was booted up with systemd"):
                         arg_action = ACTION_BOOTED;
                         break;
 
-                case ARG_UID: {
-                        const char *u = optarg;
-
-                        r = get_user_creds(&u, &arg_uid, &arg_gid, NULL, NULL, 0);
-                        if (r == -ESRCH) /* If the user doesn't exist, then accept it anyway as numeric */
-                                r = parse_uid(u, &arg_uid);
-                        if (r < 0)
-                                return log_error_errno(r, "Can't resolve user %s: %m", optarg);
-
-                        break;
-                }
-
-                case ARG_NO_BLOCK:
+                OPTION_LONG("no-block", NULL, "Do not wait until operation finished"):
                         arg_no_block = true;
                         break;
 
-                case ARG_EXEC:
+                OPTION_LONG("exec", NULL, "Execute command line separated by ';' once done"):
                         do_exec = true;
                         break;
 
-                case ARG_FD: {
+                OPTION_LONG("fd", "FD", "Pass specified file descriptor along with the message"): {
                         _cleanup_close_ int owned_fd = -EBADF;
-                        int fdnr;
 
-                        fdnr = parse_fd(optarg);
+                        int fdnr = parse_fd(arg);
                         if (fdnr < 0)
-                                return log_error_errno(fdnr, "Failed to parse file descriptor: %s", optarg);
+                                return log_error_errno(fdnr, "Failed to parse file descriptor: %s", arg);
 
                         if (!passed) {
                                 /* Take possession of all passed fds */
@@ -310,32 +263,27 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                case ARG_FDNAME:
-                        if (!fdname_is_valid(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "File descriptor name invalid: %s", optarg);
+                OPTION_LONG("fdname", "NAME", "Name to assign to passed file descriptors"):
+                        if (!fdname_is_valid(arg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "File descriptor name invalid: %s", arg);
 
-                        if (free_and_strdup(&arg_fdname, optarg) < 0)
+                        if (free_and_strdup(&arg_fdname, arg) < 0)
                                 return log_oom();
 
                         break;
 
-                case ARG_FORK:
+                OPTION_LONG("fork", NULL, "Receive notifications from child rather than sending them"):
                         arg_action = ACTION_FORK;
                         break;
 
-                case 'q':
+                OPTION('q', "quiet", NULL, "Do not show PID of child when forking"):
                         arg_quiet = true;
                         break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
-        }
 
         bool have_env = arg_ready || arg_stopping || arg_reloading || arg_status || pidref_is_set(&arg_pid) || !fdset_isempty(arg_fds);
+
+        char **args = option_parser_get_args(&state, argc, argv);
 
         switch (arg_action) {
 
@@ -348,22 +296,22 @@ static int parse_argv(int argc, char *argv[]) {
                 if (do_exec) {
                         int i;
 
-                        for (i = optind; i < argc; i++)
-                                if (streq(argv[i], ";"))
+                        for (i = 0; args[i]; i++)
+                                if (streq(args[i], ";"))
                                         break;
 
-                        if (i >= argc)
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "If --exec is used argument list must contain ';' separator, refusing.");
-                        if (i+1 == argc)
+                        if (!args[i])
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "If --exec is used, argument list must contain ';' separator, refusing.");
+                        if (!args[i + 1])
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Empty command line specified after ';' separator, refusing.");
 
-                        arg_exec = strv_copy_n(argv + i + 1, argc - i - 1);
+                        arg_exec = strv_copy(args + i + 1);
                         if (!arg_exec)
                                 return log_oom();
 
-                        n_arg_env = i - optind;
+                        n_arg_env = i;
                 } else
-                        n_arg_env = argc - optind;
+                        n_arg_env = strv_length(args);
 
                 have_env = have_env || n_arg_env > 0;
                 if (!have_env) {
@@ -376,7 +324,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 if (n_arg_env > 0) {
-                        arg_env = strv_copy_n(argv + optind, n_arg_env);
+                        arg_env = strv_copy_n(args, n_arg_env);
                         if (!arg_env)
                                 return log_oom();
                 }
@@ -388,13 +336,13 @@ static int parse_argv(int argc, char *argv[]) {
         }
 
         case ACTION_BOOTED:
-                if (argc > optind)
+                if (!strv_isempty(args))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--booted takes no parameters, refusing.");
 
                 break;
 
         case ACTION_FORK:
-                if (optind >= argc)
+                if (strv_isempty(args))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--fork requires a command to be specified, refusing.");
 
                 break;
@@ -404,7 +352,10 @@ static int parse_argv(int argc, char *argv[]) {
         }
 
         if (have_env && arg_action != ACTION_NOTIFY)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--ready, --reloading, --stopping, --pid=, --status=, --fd= may not be combined with --fork or --booted, refusing.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--ready, --reloading, --stopping, --pid=, --status=, --fd= may not be combined with --fork or --booted, refusing.");
+
+        *ret_args = args;
 
         return 1;
 }
@@ -577,16 +528,18 @@ static int run(int argc, char* argv[]) {
         _cleanup_strv_free_ char **final_env = NULL;
         const char *our_env[10];
         size_t i = 0;
+        char **args = NULL;  /* unnecessary initialization to appease gcc */
         int r;
 
         log_setup();
 
-        r = parse_argv(argc, argv);
+        r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
+        assert(args);
 
         if (arg_action == ACTION_FORK)
-                return action_fork(argv + optind);
+                return action_fork(args);
 
         if (arg_action == ACTION_BOOTED) {
                 r = sd_booted();
@@ -652,6 +605,7 @@ static int run(int argc, char* argv[]) {
         }
 
         our_env[i++] = NULL;
+        assert(i <= ELEMENTSOF(our_env));
 
         final_env = strv_env_merge((char**) our_env, arg_env);
         if (!final_env)

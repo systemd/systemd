@@ -2139,6 +2139,75 @@ static const char* table_data_rgap_underline(const TableData *d) {
         return NULL;
 }
 
+int table_data_requested_width(Table *table, size_t column, size_t *ret) {
+        size_t width = 0;
+        int r;
+
+        assert(table);
+        assert(ret);
+
+        for (size_t row = 0; row < table_get_rows(table); row++) {
+                TableCell *cell = table_get_cell(table, row, column);
+                if (!cell)
+                        continue;
+
+                TableData *data = table_get_data(table, cell);
+                if (!data)
+                        continue;
+
+                size_t w;
+
+                r = table_data_requested_width_height(
+                                table, data, SIZE_MAX, &w, /* ret_height= */ NULL, /* have_soft= */ NULL);
+                if (r < 0)
+                        return r;
+
+                width = MAX(width, w);
+        }
+
+        *ret = width;
+        return 0;
+}
+
+int table_set_column_width(Table *t, size_t column, size_t width) {
+        int r = 0;
+
+        assert(t);
+
+        for (size_t row = 0; row < table_get_rows(t); row++) {
+                TableCell *cell = table_get_cell(t, row, column);
+                if (!cell)
+                        continue;
+
+                RET_GATHER(r, table_set_minimum_width(t, cell, width));
+        }
+
+        return r;
+}
+
+int table_sync_column_width(Table *a, size_t column_a, Table *b, size_t column_b) {
+        size_t w1, w2;
+        int r;
+
+        assert(a);
+        assert(b);
+
+        /* Make both tables have specified columns of same width */
+
+        r = table_data_requested_width(a, column_a, &w1);
+        if (r < 0)
+                return log_error_errno(r, "Failed to query table column width: %m");
+
+        r = table_data_requested_width(b, column_b, &w2);
+        if (r < 0)
+                return log_error_errno(r, "Failed to query table column width: %m");
+
+        r = 0;
+        RET_GATHER(r, table_set_column_width(a, column_a, MAX(w1, w2)));
+        RET_GATHER(r, table_set_column_width(b, column_b, MAX(w1, w2)));
+        return r;
+}
+
 int table_print(Table *t, FILE *f) {
         size_t n_rows, *minimum_width, *maximum_width, display_columns, *requested_width,
                 table_minimum_width, table_maximum_width, table_requested_width, table_effective_width,
