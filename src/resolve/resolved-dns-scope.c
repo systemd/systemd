@@ -75,6 +75,7 @@ int dns_scope_new(
                 .protocol = protocol,
                 .family = family,
                 .resend_timeout = MULTICAST_RESEND_TIMEOUT_MIN_USEC,
+                .cache.cache_max = m->cache_max,
 
                 /* Enforce ratelimiting for the multicast protocols */
                 .ratelimit = { MULTICAST_RATELIMIT_INTERVAL_USEC, MULTICAST_RATELIMIT_BURST },

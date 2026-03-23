@@ -21,7 +21,9 @@
 #include "tmpfile-util.h"
 
 static DnsCache new_cache(void) {
-        return (DnsCache) {};
+        return (DnsCache) {
+                .cache_max = DEFAULT_CACHE_MAX,
+        };
 }
 
 typedef struct PutArgs {
@@ -508,6 +510,77 @@ TEST(dns_a_to_cname_success_escaped_name_returns_error) {
         answer_add_cname(&put_args, key, "example.com", 3600, DNS_ANSWER_CACHEABLE);
 
         ASSERT_ERROR(cache_put(&cache, &put_args), EINVAL);
+        ASSERT_TRUE(dns_cache_is_empty(&cache));
+}
+
+TEST(dns_cache_size_honored) {
+        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
+        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
+
+        cache.cache_max = 4;
+
+        put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "one.example.com");
+        ASSERT_NOT_NULL(put_args.key);
+        put_args.rcode = DNS_RCODE_SUCCESS;
+        answer_add_a(&put_args, put_args.key, 0xc0a80101, 3600, DNS_ANSWER_CACHEABLE);
+        ASSERT_OK(cache_put(&cache, &put_args));
+
+        dns_resource_key_unref(put_args.key);
+        dns_answer_unref(put_args.answer);
+        put_args.answer = dns_answer_new(1);
+        ASSERT_NOT_NULL(put_args.answer);
+
+        put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "two.example.com");
+        ASSERT_NOT_NULL(put_args.key);
+        answer_add_a(&put_args, put_args.key, 0xc0a80102, 3600, DNS_ANSWER_CACHEABLE);
+        ASSERT_OK(cache_put(&cache, &put_args));
+
+        dns_resource_key_unref(put_args.key);
+        dns_answer_unref(put_args.answer);
+        put_args.answer = dns_answer_new(1);
+        ASSERT_NOT_NULL(put_args.answer);
+
+        put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "three.example.com");
+        ASSERT_NOT_NULL(put_args.key);
+        answer_add_a(&put_args, put_args.key, 0xc0a80103, 3600, DNS_ANSWER_CACHEABLE);
+        ASSERT_OK(cache_put(&cache, &put_args));
+
+        dns_resource_key_unref(put_args.key);
+        dns_answer_unref(put_args.answer);
+        put_args.answer = dns_answer_new(1);
+        ASSERT_NOT_NULL(put_args.answer);
+
+        put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "four.example.com");
+        ASSERT_NOT_NULL(put_args.key);
+        answer_add_a(&put_args, put_args.key, 0xc0a80104, 3600, DNS_ANSWER_CACHEABLE);
+        ASSERT_OK(cache_put(&cache, &put_args));
+
+        dns_resource_key_unref(put_args.key);
+        dns_answer_unref(put_args.answer);
+        put_args.answer = dns_answer_new(1);
+        ASSERT_NOT_NULL(put_args.answer);
+
+        put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "five.example.com");
+        ASSERT_NOT_NULL(put_args.key);
+        answer_add_a(&put_args, put_args.key, 0xc0a80105, 3600, DNS_ANSWER_CACHEABLE);
+        ASSERT_OK(cache_put(&cache, &put_args));
+
+        /* Inserted 5 entries with cache_max=4, eviction must have occurred */
+        ASSERT_EQ(dns_cache_size(&cache), 2u);
+}
+
+TEST(dns_cache_size_zero_evicts_all) {
+        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
+        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
+
+        cache.cache_max = 0;
+
+        put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
+        ASSERT_NOT_NULL(put_args.key);
+        put_args.rcode = DNS_RCODE_SUCCESS;
+        answer_add_a(&put_args, put_args.key, 0xc0a8017f, 3600, DNS_ANSWER_CACHEABLE);
+        ASSERT_OK(cache_put(&cache, &put_args));
+
         ASSERT_TRUE(dns_cache_is_empty(&cache));
 }
 

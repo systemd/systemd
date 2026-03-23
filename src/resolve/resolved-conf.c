@@ -8,6 +8,7 @@
 #include "ordered-set.h"
 #include "proc-cmdline.h"
 #include "resolved-conf.h"
+#include "resolved-dns-cache.h"
 #include "resolved-dns-search-domain.h"
 #include "resolved-dns-server.h"
 #include "resolved-dns-stub.h"
@@ -302,6 +303,26 @@ int manager_parse_config_file(Manager *m) {
         }
 #endif
         return 0;
+}
+
+int config_parse_dns_cache_max(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Manager *m = ASSERT_PTR(userdata);
+
+        return config_parse_unsigned_bounded(
+                        unit, filename, line, section, section_line, lvalue, rvalue,
+                        0, DEFAULT_CACHE_MAX * 4, true,
+                        &m->cache_max);
 }
 
 int config_parse_record_types(
