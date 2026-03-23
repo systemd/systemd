@@ -1690,6 +1690,7 @@ static int method_soft_reboot(sd_bus_message *message, void *userdata, sd_bus_er
                 return sd_bus_error_set(reterr_error, SD_BUS_ERROR_NOT_SUPPORTED,
                                         "Soft reboot is only supported by system manager.");
 
+        /* Keep the checks in sync with varlink-manager.c:vl_method_soft_reboot_manager() */
         r = mac_selinux_access_check(message, "reboot", reterr_error);
         if (r < 0)
                 return r;

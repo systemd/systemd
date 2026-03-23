@@ -1232,6 +1232,8 @@ static EFI_STATUS run(EFI_HANDLE image) {
         unsigned profile = 0;
         EFI_STATUS err;
 
+        log_set_max_level_from_smbios();
+
         err = BS->HandleProtocol(image, MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL), (void **) &loaded_image);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error getting a LoadedImageProtocol handle: %m");

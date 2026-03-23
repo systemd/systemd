@@ -11,7 +11,7 @@
 
 #include_next <sys/syscall.h>   /* IWYU pragma: export */
 
-#ifdef ARCH_MIPS
+#ifdef __mips__
 #include <asm/sgidefs.h>
 #endif
 

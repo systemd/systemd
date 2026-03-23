@@ -181,6 +181,7 @@ shared_sources = files(
         'smack-util.c',
         'smbios11.c',
         'snapshot-util.c',
+        'socket-forward.c',
         'socket-label.c',
         'socket-netlink.c',
         'specifier.c',

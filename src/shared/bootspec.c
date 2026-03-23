@@ -711,7 +711,6 @@ static int boot_entry_load_unified(
         _cleanup_free_ char *fname = NULL, *os_pretty_name = NULL, *os_image_id = NULL, *os_name = NULL, *os_id = NULL,
                 *os_image_version = NULL, *os_version = NULL, *os_version_id = NULL, *os_build_id = NULL;
         const char *k, *good_name, *good_version, *good_sort_key;
-        _cleanup_fclose_ FILE *f = NULL;
         int r;
 
         assert(root);
@@ -723,11 +722,8 @@ static int boot_entry_load_unified(
         if (!k)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Path is not below root: %s", path);
 
-        f = fmemopen_unlocked((void*) osrelease_text, strlen(osrelease_text), "r");
-        if (!f)
-                return log_oom();
-
-        r = parse_env_file(f, "os-release",
+        r = parse_env_data(osrelease_text, /* size= */ SIZE_MAX,
+                           ".osrel",
                            "PRETTY_NAME", &os_pretty_name,
                            "IMAGE_ID", &os_image_id,
                            "NAME", &os_name,
@@ -755,14 +751,9 @@ static int boot_entry_load_unified(
 
         _cleanup_free_ char *profile_id = NULL, *profile_title = NULL;
         if (profile_text) {
-                fclose(f);
-
-                f = fmemopen_unlocked((void*) profile_text, strlen(profile_text), "r");
-                if (!f)
-                        return log_oom();
-
-                r = parse_env_file(
-                                f, "profile",
+                r = parse_env_data(
+                                profile_text, /* size= */ SIZE_MAX,
+                                ".profile",
                                 "ID", &profile_id,
                                 "TITLE", &profile_title);
                 if (r < 0)
