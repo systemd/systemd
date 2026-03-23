@@ -8,9 +8,9 @@ struct iovec_wrapper {
         size_t count;
 };
 
-struct iovec_wrapper *iovw_new(void);
-struct iovec_wrapper *iovw_free(struct iovec_wrapper *iovw);
-struct iovec_wrapper *iovw_free_free(struct iovec_wrapper *iovw);
+struct iovec_wrapper* iovw_new(void);
+struct iovec_wrapper* iovw_free(struct iovec_wrapper *iovw);
+struct iovec_wrapper* iovw_free_free(struct iovec_wrapper *iovw);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct iovec_wrapper*, iovw_free_free);
 
