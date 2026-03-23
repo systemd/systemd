@@ -1,32 +1,34 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
-#include <malloc.h>
-#include <string.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
-#include <sys/un.h>
 #include <syslog.h>
 
 #if HAVE_SELINUX
+#include <malloc.h>
+#include <string.h>
+#include <sys/un.h>
+
 #include <selinux/avc.h>
 #include <selinux/context.h>
 #include <selinux/label.h>
 #include <selinux/selinux.h>
-#endif
 
 #include "sd-dlopen.h"
 
 #include "alloc-util.h"
-#include "errno-util.h"
 #include "fd-util.h"
 #include "label.h"
-#include "label-util.h"
 #include "log.h"
 #include "path-util.h"
-#include "selinux-util.h"
 #include "string-util.h"
 #include "time-util.h"
+#endif
+
+#include "errno-util.h"
+#include "label-util.h"
+#include "selinux-util.h"
 
 #if HAVE_SELINUX
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(context_t, sym_context_free, context_freep, NULL);
