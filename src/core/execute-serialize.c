@@ -3113,9 +3113,11 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         if (!GREEDY_REALLOC(c->log_extra_fields, c->n_log_extra_fields + 1))
                                 return log_oom_debug();
 
-                        c->log_extra_fields[c->n_log_extra_fields++].iov_base = strdup(val);
-                        if (!c->log_extra_fields[c->n_log_extra_fields-1].iov_base)
+                        char *field = strdup(val);
+                        if (!field)
                                 return log_oom_debug();
+
+                        c->log_extra_fields[c->n_log_extra_fields++] = IOVEC_MAKE_STRING(field);
                 } else if ((val = startswith(l, "exec-context-log-namespace="))) {
                         r = free_and_strdup(&c->log_namespace, val);
                         if (r < 0)
