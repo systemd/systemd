@@ -7,6 +7,7 @@
 #include "bridge.h"
 #include "firewall-util.h"
 #include "ipoib.h"
+#include "iovec-wrapper.h"
 #include "net-condition.h"
 #include "network-util.h"
 #include "networkd-bridge-vlan.h"
@@ -124,7 +125,7 @@ typedef struct Network {
         bool dhcp_iaid_set;
         char *dhcp_vendor_class_identifier;
         char *dhcp_mudurl;
-        char **dhcp_user_class;
+        struct iovec_wrapper dhcp_user_class;
         char *dhcp_hostname;
         char *dhcp_label;
         uint64_t dhcp_max_attempts;

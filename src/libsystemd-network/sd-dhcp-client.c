@@ -27,7 +27,6 @@
 #include "sort-util.h"
 #include "string-table.h"
 #include "string-util.h"
-#include "strv.h"
 #include "time-util.h"
 #include "web-util.h"
 
@@ -434,28 +433,30 @@ int sd_dhcp_client_set_mud_url(
         return free_and_strdup(&client->mudurl, mudurl);
 }
 
-int sd_dhcp_client_set_user_class(
-                sd_dhcp_client *client,
-                char * const *user_class) {
-
-        char **s = NULL;
+int dhcp_client_set_user_class(sd_dhcp_client *client, const struct iovec_wrapper *user_class) {
+        int r;
 
         assert_return(client, -EINVAL);
         assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
-        assert_return(!strv_isempty(user_class), -EINVAL);
 
-        STRV_FOREACH(p, user_class) {
-                size_t n = strlen(*p);
-
-                if (n > 255 || n == 0)
-                        return -EINVAL;
+        if (iovw_isempty(user_class)) {
+                iovw_done_free(&client->user_class);
+                return 0;
         }
 
-        s = strv_copy(user_class);
-        if (!s)
-                return -ENOMEM;
+        _cleanup_(iovw_done_free) struct iovec_wrapper iovw = {};
+        FOREACH_ARRAY(iovec, user_class->iovec, user_class->count) {
+                if (iovec->iov_len == 0 || iovec->iov_len > UINT8_MAX)
+                        return -EINVAL;
 
-        return strv_free_and_replace(client->user_class, s);
+                r = iovw_extend_iov(&iovw, iovec);
+                if (r < 0)
+                        return r;
+        }
+
+        iovw_done_free(&client->user_class);
+        client->user_class = TAKE_STRUCT(iovw);
+        return 0;
 }
 
 int sd_dhcp_client_set_client_port(
@@ -933,12 +934,26 @@ static int client_append_common_discover_request_options(sd_dhcp_client *client,
                         return r;
         }
 
-        if (client->user_class) {
-                r = dhcp_option_append(&packet->dhcp, optlen, optoffset, 0,
-                                       SD_DHCP_OPTION_USER_CLASS,
-                                       /* optlen= */ 0, client->user_class);
-                if (r < 0)
-                        return r;
+        if (!iovw_isempty(&client->user_class)) {
+                size_t sz = iovw_size(&client->user_class) + client->user_class.count;
+                if (sz <= UINT8_MAX) {
+                        _cleanup_free_ uint8_t *buf = new(uint8_t, sz);
+                        if (!buf)
+                                return -ENOMEM;
+
+                        uint8_t *p = buf;
+                        FOREACH_ARRAY(iovec, client->user_class.iovec, client->user_class.count) {
+                                assert(iovec->iov_len > 0 && iovec->iov_len <= UINT8_MAX);
+                                *p++ = iovec->iov_len;
+                                p = mempcpy(p, iovec->iov_base, iovec->iov_len);
+                        }
+
+                        r = dhcp_option_append(&packet->dhcp, optlen, optoffset, 0,
+                                               SD_DHCP_OPTION_USER_CLASS,
+                                               sz, buf);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         if (client->extra_options) {
@@ -2297,7 +2312,7 @@ static sd_dhcp_client* dhcp_client_free(sd_dhcp_client *client) {
         free(client->hostname);
         free(client->vendor_class_identifier);
         free(client->mudurl);
-        client->user_class = strv_free(client->user_class);
+        iovw_done_free(&client->user_class);
         tlv_unref(client->extra_options);
         tlv_unref(client->vendor_options);
         free(client->ifname);
