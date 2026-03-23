@@ -823,6 +823,8 @@ int encrypt_credential_and_warn(
         assert(iovec_is_valid(input));
         assert(ret);
 
+        CLEANUP_ERASE(md);
+
         if (!sd_id128_in_set(with_key,
                              _CRED_AUTO,
                              _CRED_AUTO_INITRD,
@@ -1211,6 +1213,8 @@ int decrypt_credential_and_warn(
 
         assert(iovec_is_valid(input));
         assert(ret);
+
+        CLEANUP_ERASE(md);
 
         h = (struct encrypted_credential_header*) input->iov_base;
 
