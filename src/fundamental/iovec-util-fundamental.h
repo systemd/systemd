@@ -23,6 +23,22 @@ struct iovec {
                 .iov_len = (len),                                       \
         }
 
+static inline struct iovec* iovec_shift(const struct iovec *iovec, size_t shift, struct iovec *ret) {
+        assert(iovec);
+        assert(ret);
+
+        *ret = IOVEC_MAKE(iovec->iov_len > shift ? (uint8_t*) iovec->iov_base + shift : NULL,
+                          LESS_BY(iovec->iov_len, shift));
+        return ret;
+}
+
+#define IOVEC_SHIFT(iov, shift)                         \
+        *iovec_shift(iov, shift, &(struct iovec){})
+
+static inline struct iovec* iovec_inc(struct iovec *iovec, size_t shift) {
+        return iovec_shift(iovec, shift, iovec);
+}
+
 static inline void iovec_done(struct iovec *iovec) {
         /* A _cleanup_() helper that frees the iov_base in the iovec */
         assert(iovec);
