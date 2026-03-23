@@ -129,9 +129,6 @@ int sd_dhcp_client_set_vendor_class_identifier(
 int sd_dhcp_client_set_mud_url(
                 sd_dhcp_client *client,
                 const char *mudurl);
-int sd_dhcp_client_set_user_class(
-                sd_dhcp_client *client,
-                char * const *user_class);
 int sd_dhcp_client_get_lease(
                 sd_dhcp_client *client,
                 sd_dhcp_lease **ret);
