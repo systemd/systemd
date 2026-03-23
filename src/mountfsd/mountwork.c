@@ -521,7 +521,7 @@ static int vl_method_mount_image(
 
         r = loop_device_make(
                         image_fd,
-                        p.read_only == 0 ? O_RDONLY : O_RDWR,
+                        p.read_only > 0 ? O_RDONLY : O_RDWR,
                         0,
                         UINT64_MAX,
                         UINT32_MAX,
@@ -532,7 +532,7 @@ static int vl_method_mount_image(
                 return r;
 
         DissectImageFlags dissect_flags =
-                (p.read_only == 0 ? DISSECT_IMAGE_READ_ONLY : 0) |
+                (p.read_only > 0 ? DISSECT_IMAGE_READ_ONLY : 0) |
                 (p.growfs != 0 ? DISSECT_IMAGE_GROWFS : 0) |
                 DISSECT_IMAGE_DISCARD_ANY |
                 DISSECT_IMAGE_FSCK |
