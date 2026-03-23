@@ -1643,11 +1643,9 @@ static int dhcp4_configure(Link *link) {
                                 return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set MUD URL: %m");
                 }
 
-                if (link->network->dhcp_user_class) {
-                        r = sd_dhcp_client_set_user_class(link->dhcp_client, link->network->dhcp_user_class);
-                        if (r < 0)
-                                return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set user class: %m");
-                }
+                r = dhcp_client_set_user_class(link->dhcp_client, &link->network->dhcp_user_class);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set user class: %m");
         }
 
         if (link->network->dhcp_client_port > 0) {
