@@ -161,7 +161,7 @@ static int decode_link(
                 char * const *patterns,
                 bool matched_patterns[]) {
 
-        _cleanup_strv_free_ char **altnames = NULL;
+        _cleanup_(strv_freep) char **altnames = NULL;
         const char *name, *qdisc;
         int ifindex, r;
         uint16_t type;
@@ -356,7 +356,7 @@ int acquire_link_info(sd_varlink *vl, sd_netlink *rtnl, char * const *patterns, 
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         _cleanup_(link_info_array_freep) LinkInfo *links = NULL;
         _cleanup_free_ bool *matched_patterns = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         size_t c = 0;
         int r;
 

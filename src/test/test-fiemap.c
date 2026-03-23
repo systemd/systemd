@@ -13,7 +13,7 @@
 
 static int test_fiemap_one(const char *path) {
         _cleanup_free_ struct fiemap *fiemap = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         log_info("/* %s */", __func__);

@@ -281,7 +281,7 @@ static int reflink_snapshot(int fd, const char *path) {
 }
 
 int raw_export_start(RawExport *e, const char *path, int fd, ImportCompressType compress) {
-        _cleanup_close_ int sfd = -EBADF, tfd = -EBADF;
+        _cleanup_(closep) int sfd = -EBADF, tfd = -EBADF;
         int r;
 
         assert(e);

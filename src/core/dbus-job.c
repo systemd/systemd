@@ -161,7 +161,7 @@ static int bus_job_find(sd_bus *bus, const char *path, const char *interface, vo
 }
 
 static int bus_job_enumerate(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *reterr_error) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         Manager *m = userdata;
         unsigned k = 0;
         Job *j;
@@ -338,7 +338,7 @@ static int bus_job_allocate_bus_track(Job *j) {
 }
 
 int bus_job_coldplug_bus_track(Job *j) {
-        _cleanup_strv_free_ char **deserialized_clients = NULL;
+        _cleanup_(strv_freep) char **deserialized_clients = NULL;
         int r;
 
         assert(j);

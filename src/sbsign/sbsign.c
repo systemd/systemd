@@ -527,7 +527,7 @@ static int verb_sign(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 signed_attributes_signature = IOVEC_MAKE(TAKE_PTR(content), contentsz);
         }
 
-        _cleanup_close_ int srcfd = open(argv[1], O_RDONLY|O_CLOEXEC);
+        _cleanup_(closep) int srcfd = open(argv[1], O_RDONLY|O_CLOEXEC);
         if (srcfd < 0)
                 return log_error_errno(errno, "Failed to open %s: %m", argv[1]);
 
@@ -540,7 +540,7 @@ static int verb_sign(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 return log_error_errno(r, "%s is not a regular file: %m", argv[1]);
 
         _cleanup_(unlink_and_freep) char *tmp = NULL;
-        _cleanup_close_ int dstfd = open_tmpfile_linkable(arg_output, O_RDWR|O_CLOEXEC, &tmp);
+        _cleanup_(closep) int dstfd = open_tmpfile_linkable(arg_output, O_RDWR|O_CLOEXEC, &tmp);
         if (dstfd < 0)
                 return log_error_errno(dstfd, "Failed to open temporary file: %m");
 

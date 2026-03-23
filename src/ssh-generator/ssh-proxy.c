@@ -35,7 +35,7 @@ static int process_vsock_cid(unsigned cid, const char *port) {
         if (r < 0)
                 return log_error_errno(r, "Failed to parse vsock port: %s", port);
 
-        _cleanup_close_ int fd = socket(AF_VSOCK, SOCK_STREAM|SOCK_CLOEXEC, 0);
+        _cleanup_(closep) int fd = socket(AF_VSOCK, SOCK_STREAM|SOCK_CLOEXEC, 0);
         if (fd < 0)
                 return log_error_errno(errno, "Failed to allocate AF_VSOCK socket: %m");
 
@@ -83,7 +83,7 @@ static int process_unix(const char *path) {
                 path = prefixed;
         }
 
-        _cleanup_close_ int fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
+        _cleanup_(closep) int fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
         if (fd < 0)
                 return log_error_errno(errno, "Failed to allocate AF_UNIX socket: %m");
 
@@ -234,7 +234,7 @@ static int process_vsock_mux(const char *path, const char *port) {
                 path = prefixed;
         }
 
-        _cleanup_close_ int fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
+        _cleanup_(closep) int fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
         if (fd < 0)
                 return log_error_errno(errno, "Failed to allocate AF_UNIX socket: %m");
 

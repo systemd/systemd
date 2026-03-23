@@ -203,7 +203,7 @@ static int dns_delegate_load(Manager *m, const char *path) {
 }
 
 int manager_load_delegates(Manager *m) {
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_(strv_freep) char **files = NULL;
         int r;
 
         assert(m);

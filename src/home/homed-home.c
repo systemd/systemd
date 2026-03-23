@@ -107,7 +107,7 @@ static int suitable_home_record(UserRecord *hr) {
 int home_new(Manager *m, UserRecord *hr, const char *sysfs, Home **ret) {
         _cleanup_(home_freep) Home *home = NULL;
         _cleanup_free_ char *nm = NULL, *ns = NULL, *blob = NULL;
-        _cleanup_strv_free_ char **aliases = NULL;
+        _cleanup_(strv_freep) char **aliases = NULL;
         int r;
 
         assert(m);
@@ -554,9 +554,9 @@ static void home_set_state(Home *h, HomeState state) {
 
 static int home_parse_worker_stdout(int _fd, UserRecord **ret) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        _cleanup_close_ int fd = _fd; /* take possession, even on failure */
+        _cleanup_(closep) int fd = _fd; /* take possession, even on failure */
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         struct stat st;
         int r;
 
@@ -1232,7 +1232,7 @@ static int home_start_work(
                 uint64_t flags) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *fdmap = NULL;
         _cleanup_(erase_and_freep) char *formatted = NULL;
-        _cleanup_close_ int stdin_fd = -EBADF, stdout_fd = -EBADF;
+        _cleanup_(closep) int stdin_fd = -EBADF, stdout_fd = -EBADF;
         _cleanup_free_ int *blob_fds = NULL;
         int r;
 
@@ -2175,7 +2175,7 @@ HomeState home_get_state(Home *h) {
 }
 
 void home_process_notify(Home *h, char **l, int fd) {
-        _cleanup_close_ int taken_fd = TAKE_FD(fd);
+        _cleanup_(closep) int taken_fd = TAKE_FD(fd);
         const char *e;
         int error;
         int r;
@@ -2424,7 +2424,7 @@ static int home_get_disk_status_directory(
         uint64_t disk_size = UINT64_MAX, disk_usage = UINT64_MAX, disk_free = UINT64_MAX,
                 disk_ceiling = UINT64_MAX, disk_floor = UINT64_MAX;
         mode_t access_mode = MODE_INVALID;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         statfs_f_type_t fstype = 0;
         struct statfs sfs;
         struct dqblk req;
@@ -2768,7 +2768,7 @@ static int on_home_ref_eof(sd_event_source *s, int fd, uint32_t revents, void *u
 }
 
 int home_create_fifo(Home *h, bool please_suspend) {
-        _cleanup_close_ int ret_fd = -EBADF;
+        _cleanup_(closep) int ret_fd = -EBADF;
         sd_event_source **ss;
         const char *fn, *suffix;
         int r;
@@ -2786,7 +2786,7 @@ int home_create_fifo(Home *h, bool please_suspend) {
         fn = strjoina("/run/systemd/home/", h->user_name, suffix);
 
         if (!*ss) {
-                _cleanup_close_ int ref_fd = -EBADF;
+                _cleanup_(closep) int ref_fd = -EBADF;
 
                 (void) mkdir("/run/systemd/home/", 0755);
                 if (mkfifo(fn, 0600) < 0 && errno != EEXIST)
@@ -3253,7 +3253,7 @@ int home_auto_login(Home *h, char ***ret_seats) {
         }
 
         if (seat || seat2) {
-                _cleanup_strv_free_ char **list = NULL;
+                _cleanup_(strv_freep) char **list = NULL;
                 size_t i = 0;
 
                 list = new(char*, 3);

@@ -26,7 +26,7 @@ static int graph_one_property(
                 char **from_patterns,
                 char **to_patterns) {
 
-        _cleanup_strv_free_ char **units = NULL;
+        _cleanup_(strv_freep) char **units = NULL;
         bool match_patterns;
         int r;
 
@@ -105,7 +105,7 @@ static int graph_one(
 }
 
 static int expand_patterns(sd_bus *bus, char **patterns, char ***ret) {
-        _cleanup_strv_free_ char **expanded_patterns = NULL;
+        _cleanup_(strv_freep) char **expanded_patterns = NULL;
         int r;
 
         assert(bus);
@@ -150,9 +150,9 @@ int verb_dot(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_strv_free_ char **expanded_patterns = NULL;
-        _cleanup_strv_free_ char **expanded_from_patterns = NULL;
-        _cleanup_strv_free_ char **expanded_to_patterns = NULL;
+        _cleanup_(strv_freep) char **expanded_patterns = NULL;
+        _cleanup_(strv_freep) char **expanded_from_patterns = NULL;
+        _cleanup_(strv_freep) char **expanded_to_patterns = NULL;
         UnitInfo u;
         int r;
 

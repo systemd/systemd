@@ -434,7 +434,7 @@ const char* in_addr_full_to_string(struct in_addr_full *a) {
 int netns_get_nsid(int netnsfd, uint32_t *ret) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        _cleanup_close_ int _netns_fd = -EBADF;
+        _cleanup_(closep) int _netns_fd = -EBADF;
         int r;
 
         if (netnsfd < 0) {

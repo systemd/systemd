@@ -21,7 +21,7 @@
 #include "time-util.h"
 
 int make_lock_file_at(int dir_fd, const char *p, int operation, LockFile *ret) {
-        _cleanup_close_ int fd = -EBADF, dfd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF, dfd = -EBADF;
         _cleanup_free_ char *t = NULL;
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);

@@ -83,8 +83,8 @@ bool coredump_context_is_journald(CoredumpContext *context) {
  */
 static int compose_open_fds(pid_t pid, char **ret) {
         _cleanup_(memstream_done) MemStream m = {};
-        _cleanup_closedir_ DIR *proc_fd_dir = NULL;
-        _cleanup_close_ int proc_fdinfo_fd = -EBADF;
+        _cleanup_(closedirp) DIR *proc_fd_dir = NULL;
+        _cleanup_(closep) int proc_fdinfo_fd = -EBADF;
         const char *fddelim = "", *path;
         FILE *stream;
         int r;
@@ -106,9 +106,9 @@ static int compose_open_fds(pid_t pid, char **ret) {
                 return -ENOMEM;
 
         FOREACH_DIRENT(de, proc_fd_dir, return -errno) {
-                _cleanup_fclose_ FILE *fdinfo = NULL;
+                _cleanup_(fclosep) FILE *fdinfo = NULL;
                 _cleanup_free_ char *fdname = NULL;
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
 
                 r = readlinkat_malloc(dirfd(proc_fd_dir), de->d_name, &fdname);
                 if (r < 0)

@@ -227,7 +227,7 @@ static int get_child_nodes(
                 OrderedSet **ret,
                 sd_bus_error *reterr_error) {
 
-        _cleanup_ordered_set_free_ OrderedSet *s = NULL;
+        _cleanup_(ordered_set_freep) OrderedSet *s = NULL;
         int r;
 
         assert(bus);
@@ -930,7 +930,7 @@ int introspect_path(
                 char **ret,
                 sd_bus_error *reterr_error) {
 
-        _cleanup_ordered_set_free_ OrderedSet *s = NULL;
+        _cleanup_(ordered_set_freep) OrderedSet *s = NULL;
         _cleanup_(introspect_done) BusIntrospect intro = {};
         bool empty;
         int r;
@@ -1233,7 +1233,7 @@ static int process_get_managed_objects(
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_ordered_set_free_ OrderedSet *s = NULL;
+        _cleanup_(ordered_set_freep) OrderedSet *s = NULL;
         char *path;
         int r;
 
@@ -2333,7 +2333,7 @@ _public_ int sd_bus_emit_properties_changed(
                 const char *interface,
                 const char *name, ...)  {
 
-        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_(strv_freep) char **names = NULL;
 
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
@@ -2450,7 +2450,7 @@ static int object_added_append_all_prefix(
 }
 
 static int object_added_append_all(sd_bus *bus, sd_bus_message *m, const char *path, bool path_has_object_manager) {
-        _cleanup_ordered_set_free_ OrderedSet *s = NULL;
+        _cleanup_(ordered_set_freep) OrderedSet *s = NULL;
         _cleanup_free_ char *prefix = NULL;
         size_t pl;
         int r;
@@ -2642,7 +2642,7 @@ static int object_removed_append_all_prefix(
 }
 
 static int object_removed_append_all(sd_bus *bus, sd_bus_message *m, const char *path, bool path_has_object_manager) {
-        _cleanup_ordered_set_free_ OrderedSet *s = NULL;
+        _cleanup_(ordered_set_freep) OrderedSet *s = NULL;
         _cleanup_free_ char *prefix = NULL;
         size_t pl;
         int r;
@@ -2939,7 +2939,7 @@ _public_ int sd_bus_emit_interfaces_added_strv(sd_bus *bus, const char *path, ch
 }
 
 _public_ int sd_bus_emit_interfaces_added(sd_bus *bus, const char *path, const char *interface, ...) {
-        _cleanup_strv_free_ char **interfaces = NULL;
+        _cleanup_(strv_freep) char **interfaces = NULL;
 
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
@@ -3000,7 +3000,7 @@ _public_ int sd_bus_emit_interfaces_removed_strv(sd_bus *bus, const char *path, 
 }
 
 _public_ int sd_bus_emit_interfaces_removed(sd_bus *bus, const char *path, const char *interface, ...) {
-        _cleanup_strv_free_ char **interfaces = NULL;
+        _cleanup_(strv_freep) char **interfaces = NULL;
 
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);

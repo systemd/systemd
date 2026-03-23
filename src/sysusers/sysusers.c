@@ -218,7 +218,7 @@ static void log_audit_accounts(Context *c, ItemType what) {
 
 static int load_user_database(Context *c) {
         _cleanup_free_ char *passwd_path = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         struct passwd *pw;
         int r;
 
@@ -261,7 +261,7 @@ static int load_user_database(Context *c) {
 
 static int load_group_database(Context *c) {
         _cleanup_free_ char *group_path = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         struct group *gr;
         int r;
 
@@ -303,8 +303,8 @@ static int load_group_database(Context *c) {
 
 static int make_backup(const char *target, const char *x) {
         _cleanup_(unlink_and_freep) char *dst_tmp = NULL;
-        _cleanup_fclose_ FILE *dst = NULL;
-        _cleanup_close_ int src = -EBADF;
+        _cleanup_(fclosep) FILE *dst = NULL;
+        _cleanup_(closep) int src = -EBADF;
         const char *backup;
         struct stat st;
         int r;
@@ -371,7 +371,7 @@ static int putgrent_with_members(
 
         a = ordered_hashmap_get(c->members, gr->gr_name);
         if (a) {
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_(strv_freep) char **l = NULL;
                 bool added = false;
 
                 l = strv_copy(gr->gr_mem);
@@ -419,7 +419,7 @@ static int putsgent_with_members(
 
         a = ordered_hashmap_get(c->members, sg->sg_namp);
         if (a) {
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_(strv_freep) char **l = NULL;
                 bool added = false;
 
                 l = strv_copy(sg->sg_mem);
@@ -472,7 +472,7 @@ static int write_temporary_passwd(
                 FILE **ret_tmpfile,
                 char **ret_tmpfile_path) {
 
-        _cleanup_fclose_ FILE *original = NULL, *passwd = NULL;
+        _cleanup_(fclosep) FILE *original = NULL, *passwd = NULL;
         _cleanup_(unlink_and_freep) char *passwd_tmp = NULL;
         struct passwd *pw = NULL;
         Item *i;
@@ -602,7 +602,7 @@ static int write_temporary_shadow(
                 FILE **ret_tmpfile,
                 char **ret_tmpfile_path) {
 
-        _cleanup_fclose_ FILE *original = NULL, *shadow = NULL;
+        _cleanup_(fclosep) FILE *original = NULL, *shadow = NULL;
         _cleanup_(unlink_and_freep) char *shadow_tmp = NULL;
         struct spwd *sp = NULL;
         long lstchg;
@@ -737,7 +737,7 @@ static int write_temporary_group(
                 FILE **ret_tmpfile,
                 char **ret_tmpfile_path) {
 
-        _cleanup_fclose_ FILE *original = NULL, *group = NULL;
+        _cleanup_(fclosep) FILE *original = NULL, *group = NULL;
         _cleanup_(unlink_and_freep) char *group_tmp = NULL;
         bool group_changed = false;
         struct group *gr = NULL;
@@ -855,7 +855,7 @@ static int write_temporary_gshadow(
                 char **ret_tmpfile_path) {
 
 #if ENABLE_GSHADOW
-        _cleanup_fclose_ FILE *original = NULL, *gshadow = NULL;
+        _cleanup_(fclosep) FILE *original = NULL, *gshadow = NULL;
         _cleanup_(unlink_and_freep) char *gshadow_tmp = NULL;
         bool group_changed = false;
         Item *i;
@@ -941,7 +941,7 @@ done:
 }
 
 static int write_files(Context *c) {
-        _cleanup_fclose_ FILE *passwd = NULL, *group = NULL, *shadow = NULL, *gshadow = NULL;
+        _cleanup_(fclosep) FILE *passwd = NULL, *group = NULL, *shadow = NULL, *gshadow = NULL;
         _cleanup_(unlink_and_freep) char *passwd_tmp = NULL, *group_tmp = NULL, *shadow_tmp = NULL, *gshadow_tmp = NULL;
         int r;
 
@@ -2034,7 +2034,7 @@ static int read_config_file(Context *c, const char *fn, bool ignore_enoent) {
 }
 
 static int cat_config(void) {
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_(strv_freep) char **files = NULL;
         int r;
 
         r = conf_files_list_with_replacement(arg_root, CONF_PATHS_STRV("sysusers.d"), arg_replace, &files, NULL);
@@ -2221,7 +2221,7 @@ static int parse_arguments(Context *c, char **args) {
 }
 
 static int read_config_files(Context *c, char **args) {
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_(strv_freep) char **files = NULL;
         _cleanup_free_ char *p = NULL;
         int r;
 
@@ -2272,7 +2272,7 @@ static int read_credential_lines(Context *c) {
 static int run(int argc, char *argv[]) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
-        _cleanup_close_ int lock = -EBADF;
+        _cleanup_(closep) int lock = -EBADF;
         _cleanup_(context_done) Context c = {
                 .audit_fd = -EBADF,
                 .search_uid = UID_INVALID,

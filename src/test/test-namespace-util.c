@@ -21,7 +21,7 @@ TEST(namespace_enter) {
 
         ASSERT_OK(r);
 
-        _cleanup_close_ int mntns_fd = -EBADF, userns_fd = -EBADF, root_fd = -EBADF;
+        _cleanup_(closep) int mntns_fd = -EBADF, userns_fd = -EBADF, root_fd = -EBADF;
         ASSERT_OK(pidref_namespace_open(&pidref, NULL, &mntns_fd, NULL, &userns_fd, &root_fd));
 
         r = ASSERT_OK(pidref_safe_fork(

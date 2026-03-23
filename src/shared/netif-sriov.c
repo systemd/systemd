@@ -381,7 +381,7 @@ static int sr_iov_section_verify(uint32_t num_vfs, SRIOV *sr_iov) {
 }
 
 int sr_iov_drop_invalid_sections(uint32_t num_vfs, OrderedHashmap *sr_iov_by_section) {
-        _cleanup_set_free_ Set *set = NULL;
+        _cleanup_(set_freep) Set *set = NULL;
         SRIOV *sr_iov;
         int r;
 

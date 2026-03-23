@@ -15,7 +15,7 @@
 
 static int run(int argc, char *argv[]) {
         _cleanup_free_ char *device = NULL, *fstype = NULL, *detected = NULL, *label = NULL;
-        _cleanup_close_ int lock_fd = -EBADF;
+        _cleanup_(closep) int lock_fd = -EBADF;
         sd_id128_t uuid;
         struct stat st;
         int r;

@@ -315,7 +315,7 @@ int pkcs11_token_login(
                 return log_oom();
 
         for (unsigned tries = 0; tries < 3; tries++) {
-                _cleanup_strv_free_erase_ char **passwords = NULL;
+                _cleanup_(strv_free_erasep) char **passwords = NULL;
                 _cleanup_(erase_and_freep) char *envpin = NULL;
 
                 r = getenv_steal_erase("PIN", &envpin);

@@ -676,7 +676,7 @@ static int remove_marked_symlinks_fd(
                 InstallChange **changes,
                 size_t *n_changes) {
 
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
         int r, ret = 0;
 
         assert(remove_symlinks_to);
@@ -696,7 +696,7 @@ static int remove_marked_symlinks_fd(
 
         FOREACH_DIRENT(de, d, return -errno)
                 if (de->d_type == DT_DIR) {
-                        _cleanup_close_ int nfd = -EBADF;
+                        _cleanup_(closep) int nfd = -EBADF;
                         _cleanup_free_ char *p = NULL;
 
                         nfd = RET_NERRNO(openat(fd, de->d_name, O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW));
@@ -804,7 +804,7 @@ static int remove_marked_symlinks(
                 InstallChange **changes,
                 size_t *n_changes) {
 
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         bool restart;
         int r = 0;
 
@@ -964,7 +964,7 @@ static int find_symlinks(
                 const char *config_path,
                 bool *same_name_link) {
 
-        _cleanup_closedir_ DIR *config_dir = NULL;
+        _cleanup_(closedirp) DIR *config_dir = NULL;
         int r;
 
         assert(i);
@@ -981,7 +981,7 @@ static int find_symlinks(
         FOREACH_DIRENT(de, config_dir, return -errno) {
                 const char *suffix;
                 _cleanup_free_ const char *path = NULL;
-                _cleanup_closedir_ DIR *d = NULL;
+                _cleanup_(closedirp) DIR *d = NULL;
 
                 if (de->d_type != DT_DIR)
                         continue;
@@ -1399,8 +1399,8 @@ static int unit_file_load(
         };
 
         UnitType type;
-        _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(fclosep) FILE *f = NULL;
+        _cleanup_(closep) int fd = -EBADF;
         struct stat st;
         int r;
 
@@ -1540,7 +1540,7 @@ static int unit_file_search(
                 SearchFlags flags) {
 
         const char *dropin_dir_name = NULL, *dropin_template_dir_name = NULL;
-        _cleanup_strv_free_ char **dirs = NULL, **files = NULL;
+        _cleanup_(strv_freep) char **dirs = NULL, **files = NULL;
         _cleanup_free_ char *template = NULL;
         bool found_unit = false;
         int r, result;
@@ -2395,8 +2395,8 @@ int unit_file_unmask(
                 size_t *n_changes) {
 
         _cleanup_(lookup_paths_done) LookupPaths lp = {};
-        _cleanup_set_free_ Set *remove_symlinks_to = NULL;
-        _cleanup_strv_free_ char **todo = NULL;
+        _cleanup_(set_freep) Set *remove_symlinks_to = NULL;
+        _cleanup_(strv_freep) char **todo = NULL;
         const char *config_path;
         size_t n_todo = 0;
         int r, q;
@@ -2505,7 +2505,7 @@ int unit_file_link(
                 size_t *n_changes) {
 
         _cleanup_(lookup_paths_done) LookupPaths lp = {};
-        _cleanup_ordered_hashmap_free_ OrderedHashmap *todo = NULL;
+        _cleanup_(ordered_hashmap_freep) OrderedHashmap *todo = NULL;
         const char *config_path;
         int r;
 
@@ -2611,9 +2611,9 @@ int unit_file_revert(
                 InstallChange **changes,
                 size_t *n_changes) {
 
-        _cleanup_set_free_ Set *remove_symlinks_to = NULL;
+        _cleanup_(set_freep) Set *remove_symlinks_to = NULL;
         _cleanup_(lookup_paths_done) LookupPaths lp = {};
-        _cleanup_strv_free_ char **todo = NULL;
+        _cleanup_(strv_freep) char **todo = NULL;
         size_t n_todo = 0;
         int r, q;
 
@@ -2716,7 +2716,7 @@ int unit_file_revert(
 
         r = 0;
         STRV_FOREACH(i, todo) {
-                _cleanup_strv_free_ char **fs = NULL;
+                _cleanup_(strv_freep) char **fs = NULL;
                 const char *rp;
 
                 (void) get_files_in_directory(*i, &fs);
@@ -2924,7 +2924,7 @@ static int do_unit_file_disable(
                 has_install_info = has_install_info || install_info_has_rules(info) || install_info_has_also(info);
         }
 
-        _cleanup_set_free_ Set *remove_symlinks_to = NULL;
+        _cleanup_(set_freep) Set *remove_symlinks_to = NULL;
         r = install_context_mark_for_removal(&ctx, lp, &remove_symlinks_to, config_path, changes, n_changes);
         if (r >= 0)
                 r = remove_marked_symlinks(remove_symlinks_to, config_path, lp, flags & UNIT_FILE_DRY_RUN, changes, n_changes);
@@ -2971,7 +2971,7 @@ static int normalize_linked_files(
          * but operates on real unit names. For each argument we look up the actual path
          * where the unit is found. This way linked units can be re-enabled successfully. */
 
-        _cleanup_strv_free_ char **files = NULL, **names = NULL;
+        _cleanup_(strv_freep) char **files = NULL, **names = NULL;
         int r;
 
         STRV_FOREACH(a, names_or_paths) {
@@ -3027,7 +3027,7 @@ int unit_file_reenable(
                 size_t *n_changes) {
 
         _cleanup_(lookup_paths_done) LookupPaths lp = {};
-        _cleanup_strv_free_ char **names = NULL, **files = NULL;
+        _cleanup_(strv_freep) char **names = NULL, **files = NULL;
         int r;
 
         assert(scope >= 0);
@@ -3280,7 +3280,7 @@ int unit_file_exists_full(
 }
 
 static int split_pattern_into_name_and_instances(const char *pattern, char **out_unit_name, char ***out_instances) {
-        _cleanup_strv_free_ char **instances = NULL;
+        _cleanup_(strv_freep) char **instances = NULL;
         _cleanup_free_ char *unit_name = NULL;
         int r;
 
@@ -3351,7 +3351,7 @@ static int presets_find_config(RuntimeScope scope, const char *root_dir, char **
 
 static int read_presets(RuntimeScope scope, const char *root_dir, UnitFilePresets *presets) {
         _cleanup_(unit_file_presets_done) UnitFilePresets ps = {};
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_(strv_freep) char **files = NULL;
         int r;
 
         assert(scope >= 0);
@@ -3363,7 +3363,7 @@ static int read_presets(RuntimeScope scope, const char *root_dir, UnitFilePreset
                 return r;
 
         STRV_FOREACH(p, files) {
-                _cleanup_fclose_ FILE *f = NULL;
+                _cleanup_(fclosep) FILE *f = NULL;
                 int n = 0;
 
                 f = fopen(*p, "re");
@@ -3475,7 +3475,7 @@ static int pattern_match_multiple_instances(
 
         /* Compose a list of specified instances when unit name is a template  */
         if (unit_name_is_valid(unit_name, UNIT_NAME_TEMPLATE)) {
-                _cleanup_strv_free_ char **out_strv = NULL;
+                _cleanup_(strv_freep) char **out_strv = NULL;
 
                 STRV_FOREACH(iter, rule.instances) {
                         _cleanup_free_ char *name = NULL;
@@ -3582,7 +3582,7 @@ static int execute_preset(
         assert(config_path);
 
         if (mode != UNIT_FILE_PRESET_ENABLE_ONLY) {
-                _cleanup_set_free_ Set *remove_symlinks_to = NULL;
+                _cleanup_(set_freep) Set *remove_symlinks_to = NULL;
 
                 r = install_context_mark_for_removal(minus, lp, &remove_symlinks_to, config_path, changes, n_changes);
                 if (r < 0)
@@ -3622,7 +3622,7 @@ static int preset_prepare_one(
                 size_t *n_changes) {
 
         _cleanup_(install_context_done) InstallContext tmp = { .scope = scope };
-        _cleanup_strv_free_ char **instance_name_list = NULL;
+        _cleanup_(strv_freep) char **instance_name_list = NULL;
         InstallInfo *info;
         int r;
 
@@ -3736,7 +3736,7 @@ int unit_file_preset_all(
                 return r;
 
         STRV_FOREACH(i, lp.search_path) {
-                _cleanup_closedir_ DIR *d = NULL;
+                _cleanup_(closedirp) DIR *d = NULL;
 
                 d = opendir(*i);
                 if (!d) {
@@ -3786,7 +3786,7 @@ int unit_file_get_list(
                 Hashmap **ret) {
 
         _cleanup_(lookup_paths_done) LookupPaths lp = {};
-        _cleanup_hashmap_free_ Hashmap *h = NULL;
+        _cleanup_(hashmap_freep) Hashmap *h = NULL;
         int r;
 
         assert(scope >= 0);
@@ -3798,7 +3798,7 @@ int unit_file_get_list(
                 return r;
 
         STRV_FOREACH(dirname, lp.search_path) {
-                _cleanup_closedir_ DIR *d = NULL;
+                _cleanup_(closedirp) DIR *d = NULL;
 
                 d = opendir(*dirname);
                 if (!d) {

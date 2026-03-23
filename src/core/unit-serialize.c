@@ -450,7 +450,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         char *t;
         const char *prefix2;
         Unit *following;
-        _cleanup_set_free_ Set *following_set = NULL;
+        _cleanup_(set_freep) Set *following_set = NULL;
         CGroupMask m;
         int r;
 

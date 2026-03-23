@@ -72,7 +72,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
 int module_load_and_warn(struct kmod_ctx *ctx, const char *module, bool verbose) {
         _cleanup_(kmod_module_unref_listp) struct kmod_list *modlist = NULL;
-        _cleanup_strv_free_ char **denylist = NULL;
+        _cleanup_(strv_freep) char **denylist = NULL;
         bool denylist_parsed = false;
         struct kmod_list *itr;
         int r;

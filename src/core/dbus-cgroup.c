@@ -1565,7 +1565,7 @@ int bus_cgroup_set_property(
                 return 1;
 
         } else if (STR_IN_SET(name, "IPAddressAllow", "IPAddressDeny")) {
-                _cleanup_set_free_ Set *new_prefixes = NULL;
+                _cleanup_(set_freep) Set *new_prefixes = NULL;
                 size_t n = 0;
 
                 r = sd_bus_message_enter_container(message, 'a', "(iayu)");
@@ -1846,7 +1846,7 @@ int bus_cgroup_set_property(
 
         if (streq(name, "RestrictNetworkInterfaces")) {
                 int is_allow_list;
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_(strv_freep) char **l = NULL;
 
                 r = sd_bus_message_enter_container(message, 'r', "bas");
                 if (r < 0)

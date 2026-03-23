@@ -497,7 +497,7 @@ TEST(message_array) {
 TEST(message_strv) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
-        _cleanup_strv_free_ char **names_in = NULL, **names_out;
+        _cleanup_(strv_freep) char **names_in = NULL, **names_out;
         const char *p;
 
         ASSERT_OK(sd_netlink_open(&rtnl));
@@ -621,7 +621,7 @@ TEST(rtnl_set_link_name) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL, *reply = NULL;
         _cleanup_(remove_dummy_interfacep) int ifindex = 0;
-        _cleanup_strv_free_ char **alternative_names = NULL;
+        _cleanup_(strv_freep) char **alternative_names = NULL;
         int r;
 
         if (geteuid() != 0)
@@ -709,7 +709,7 @@ TEST(sock_diag_unix) {
 
         ASSERT_OK(sd_sock_diag_socket_open(&nl));
 
-        _cleanup_close_ int unix_fd = ASSERT_FD(socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0));
+        _cleanup_(closep) int unix_fd = ASSERT_FD(socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0));
         ASSERT_OK(socket_autobind(unix_fd, /* ret_name= */ NULL));
         ASSERT_OK_ERRNO(listen(unix_fd, 123));
 

@@ -110,7 +110,7 @@ int getxattr_at_malloc(
                 char **ret,
                 size_t *ret_size) {
 
-        _cleanup_close_ int opened_fd = -EBADF;
+        _cleanup_(closep) int opened_fd = -EBADF;
         bool by_procfs;
         int r;
 
@@ -196,7 +196,7 @@ int getxattr_at_strv(int fd, const char *path, const char *name, int at_flags, c
         if (r < 0)
                 return r;
 
-        _cleanup_strv_free_ char **l = strv_parse_nulstr(nulstr, nulstr_size);
+        _cleanup_(strv_freep) char **l = strv_parse_nulstr(nulstr, nulstr_size);
         if (!l)
                 return -ENOMEM;
 
@@ -237,7 +237,7 @@ static int listxattr_pinned_internal(
 }
 
 int listxattr_at_malloc(int fd, const char *path, int at_flags, char **ret) {
-        _cleanup_close_ int opened_fd = -EBADF;
+        _cleanup_(closep) int opened_fd = -EBADF;
         bool by_procfs;
         int r;
 
@@ -319,7 +319,7 @@ int xsetxattr_full(
                 have_xattrat = false;
         }
 
-        _cleanup_close_ int opened_fd = -EBADF;
+        _cleanup_(closep) int opened_fd = -EBADF;
         bool by_procfs;
 
         r = normalize_and_maybe_pin_inode(&fd, &path, &at_flags, &opened_fd, &by_procfs);
@@ -370,7 +370,7 @@ int xremovexattr(int fd, const char *path, int at_flags, const char *name) {
                 have_xattrat = false;
         }
 
-        _cleanup_close_ int tfd = -EBADF;
+        _cleanup_(closep) int tfd = -EBADF;
         bool by_procfs;
 
         r = normalize_and_maybe_pin_inode(&fd, &path, &at_flags, &tfd, &by_procfs);

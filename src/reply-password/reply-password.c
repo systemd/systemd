@@ -27,7 +27,7 @@ static int send_on_socket(int fd, const char *socket_name, const void *packet, s
 
 static int run(int argc, char *argv[]) {
         _cleanup_(erase_and_freep) char *packet = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         size_t length = 0;
         int r;
 

@@ -39,7 +39,7 @@ int switch_root(const char *new_root,
                 { "/run/host",        MS_BIND|MS_REC,  0 /* skip! */  }, /* Host supplied hierarchy should also survive */
         };
 
-        _cleanup_close_ int old_root_fd = -EBADF, new_root_fd = -EBADF;
+        _cleanup_(closep) int old_root_fd = -EBADF, new_root_fd = -EBADF;
         _cleanup_free_ char *resolved_old_root_after = NULL;
         int r, istmp;
 

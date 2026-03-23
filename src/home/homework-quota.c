@@ -20,7 +20,7 @@ int home_update_quota_btrfs(UserRecord *h, int fd, const char *path) {
         assert(h);
         assert(path);
 
-        _cleanup_close_ int _fd = -EBADF;
+        _cleanup_(closep) int _fd = -EBADF;
         if (fd < 0) {
                 _fd = open(path, O_CLOEXEC|O_RDONLY);
                 if (_fd < 0)
@@ -56,7 +56,7 @@ int home_update_quota_classic(UserRecord *h, int fd, const char *path) {
         assert(uid_is_valid(h->uid));
         assert(path);
 
-        _cleanup_close_ int _fd = -EBADF;
+        _cleanup_(closep) int _fd = -EBADF;
         if (fd < 0) {
                 _fd = open(path, O_CLOEXEC|O_RDONLY);
                 if (_fd < 0)
@@ -110,7 +110,7 @@ int home_update_quota_auto(UserRecord *h, int fd, const char *path) {
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Home record lacks image path.");
         }
 
-        _cleanup_close_ int _fd = -EBADF;
+        _cleanup_(closep) int _fd = -EBADF;
         if (fd < 0) {
                 _fd = open(path, O_CLOEXEC|O_RDONLY);
                 if (_fd < 0)

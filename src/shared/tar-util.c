@@ -236,7 +236,7 @@ static int archive_unpack_regular(
         assert(path);
 
         _cleanup_free_ char *tmp = NULL;
-        _cleanup_close_ int fd = open_tmpfile_linkable_at(parent_fd, filename, O_CLOEXEC|O_WRONLY, &tmp);
+        _cleanup_(closep) int fd = open_tmpfile_linkable_at(parent_fd, filename, O_CLOEXEC|O_WRONLY, &tmp);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to create regular file '%s': %m", path);
 
@@ -323,7 +323,7 @@ static int archive_unpack_whiteout(
         assert(path);
 
         _cleanup_free_ char *tmp = NULL;
-        _cleanup_close_ int fd = open_tmpfile_linkable_at(parent_fd, filename, O_CLOEXEC|O_WRONLY, &tmp);
+        _cleanup_(closep) int fd = open_tmpfile_linkable_at(parent_fd, filename, O_CLOEXEC|O_WRONLY, &tmp);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to create whiteout file for '%s': %m", path);
 
@@ -382,7 +382,7 @@ static int archive_unpack_directory(
          * they are more of a "shared" concept, and we try to reuse existing inodes. Note that we create the
          * dir inode in mode 0700, so that we can fully access it (but others cannot). We'll adjust the modes
          * right before closing the inode. */
-        _cleanup_close_ int fd = open_mkdir_at(parent_fd, filename, O_CLOEXEC, 0700);
+        _cleanup_(closep) int fd = open_mkdir_at(parent_fd, filename, O_CLOEXEC, 0700);
         if (fd < 0)
                 return log_error_errno(fd, "Failed to create directory '%s': %m", path);
 
@@ -426,7 +426,7 @@ static int archive_unpack_symlink(
         if (r < 0)
                 return log_error_errno(r, "Failed to create symlink '%s' → '%s': %m", path, target);
 
-        _cleanup_close_ int fd = openat(parent_fd, filename, O_CLOEXEC|O_PATH|O_NOFOLLOW);
+        _cleanup_(closep) int fd = openat(parent_fd, filename, O_CLOEXEC|O_PATH|O_NOFOLLOW);
         if (fd < 0)
                 return log_error_errno(errno, "Failed to open symlink '%s' we just created: %m", path);
 
@@ -463,7 +463,7 @@ static int archive_unpack_special_inode(
         if (r < 0)
                 return log_error_errno(r, "Failed to create special node '%s': %m", path);
 
-        _cleanup_close_ int fd = openat(parent_fd, filename, O_CLOEXEC|O_PATH|O_NOFOLLOW);
+        _cleanup_(closep) int fd = openat(parent_fd, filename, O_CLOEXEC|O_PATH|O_NOFOLLOW);
         if (fd < 0)
                 return log_error_errno(errno, "Failed to open special node '%s' we just created: %m", path);
 
@@ -900,7 +900,7 @@ int tar_x(int input_fd, int tree_fd, TarFlags flags) {
                         if (!GREEDY_REALLOC(open_inodes, n_open_inodes+1))
                                 return log_oom();
 
-                        _cleanup_close_ int fd = -EBADF;
+                        _cleanup_(closep) int fd = -EBADF;
                         mode_t filetype = MODE_INVALID;
                         mode_t mode = MODE_INVALID;
                         uid_t uid = UID_INVALID;
@@ -933,7 +933,7 @@ int tar_x(int input_fd, int tree_fd, TarFlags flags) {
                                                                 SYNTHETIC_ERRNO(EBADMSG),
                                                                 "Invalid hardlink path name '%s' in entry, refusing.", target);
 
-                                        _cleanup_close_ int target_fd = -EBADF;
+                                        _cleanup_(closep) int target_fd = -EBADF;
                                         r = chaseat(tree_fd, target,
                                                     CHASE_PROHIBIT_SYMLINKS|CHASE_AT_RESOLVE_IN_ROOT|CHASE_NOFOLLOW,
                                                     /* ret_path= */ NULL, &target_fd);
@@ -963,7 +963,7 @@ int tar_x(int input_fd, int tree_fd, TarFlags flags) {
                                                  * parent. Yes, glibc/kernel report this as ENOENT. Kinda
                                                  * annoying. */
 
-                                                _cleanup_close_ int target_parent_fd = -EBADF;
+                                                _cleanup_(closep) int target_parent_fd = -EBADF;
                                                 _cleanup_free_ char *target_filename = NULL;
                                                 r = chaseat(tree_fd, target,
                                                             CHASE_PROHIBIT_SYMLINKS|CHASE_AT_RESOLVE_IN_ROOT|CHASE_PARENT|CHASE_EXTRACT_FILENAME|CHASE_NOFOLLOW,
@@ -1104,7 +1104,7 @@ static int make_tmpfs(void) {
          * automatically once we are done. Moreover, since this is a new superblock owned by us, we do not
          * need to set up any uid mapping shenanigans */
 
-        _cleanup_close_ int superblock_fd = fsopen("tmpfs", FSOPEN_CLOEXEC);
+        _cleanup_(closep) int superblock_fd = fsopen("tmpfs", FSOPEN_CLOEXEC);
         if (superblock_fd < 0)
                 return log_debug_errno(errno, "Failed to allocate tmpfs superblock: %m");
 
@@ -1114,7 +1114,7 @@ static int make_tmpfs(void) {
         if (fsconfig(superblock_fd, FSCONFIG_CMD_CREATE, /* key= */ NULL, /* value= */ NULL, /* aux= */ 0) < 0)
                 return log_debug_errno(errno, "Failed to finalize superblock: %m");
 
-        _cleanup_close_ int mount_fd = fsmount(superblock_fd, FSMOUNT_CLOEXEC, MS_NODEV|MS_NOEXEC|MS_NOSUID);
+        _cleanup_(closep) int mount_fd = fsmount(superblock_fd, FSMOUNT_CLOEXEC, MS_NODEV|MS_NOEXEC|MS_NOSUID);
         if (mount_fd < 0)
                 return log_debug_errno(errno, "Failed to turn tmpfs superblock into mount: %m");
 
@@ -1544,7 +1544,7 @@ static int archive_item(
                 sym_archive_entry_xattr_add_entry(entry, xa, buf, size);
         }
 
-        _cleanup_close_ int data_fd = -EBADF;
+        _cleanup_(closep) int data_fd = -EBADF;
         if (S_ISREG(sx->stx_mode)) {
                 /* Convert the O_PATH fd into a proper fd */
                 data_fd = fd_reopen(inode_fd, O_RDONLY|O_CLOEXEC);

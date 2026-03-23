@@ -114,7 +114,7 @@ static int apply_file(FILE *f, const char *filename, OrderedSet **module_set) {
 }
 
 static int apply_file_from_path(const char *path, OrderedSet **module_set) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         _cleanup_free_ char *pp = NULL;
         int r;
 
@@ -128,7 +128,7 @@ static int apply_file_from_path(const char *path, OrderedSet **module_set) {
 }
 
 static int apply_conf_file(ConfFile *c, OrderedSet **module_set) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
 
         f = fopen(FORMAT_PROC_FD_PATH(c->fd), "re");
         if (!f) {
@@ -388,8 +388,8 @@ static int run(int argc, char *argv[]) {
          * variable and the modules reordered at will by the user that is debugging it.
          * In that case, the probing order would be the same in which the modules
          * appear inside the modules-load.d files (this wouldn't be true with a Set). */
-        _cleanup_ordered_set_free_ OrderedSet *module_set = NULL;
-        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
+        _cleanup_(ordered_set_freep) OrderedSet *module_set = NULL;
+        _cleanup_(close_pairp) int pair[2] = EBADF_PAIR;
         _cleanup_free_ pthread_t *threads = NULL;
         size_t n_threads = 0;
         char *module;

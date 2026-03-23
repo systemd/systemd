@@ -37,7 +37,7 @@ static void test_chase_extract_filename_one(const char *path, const char *root, 
 
 TEST(chase) {
         _cleanup_free_ char *result = NULL, *pwd = NULL;
-        _cleanup_close_ int pfd = -EBADF;
+        _cleanup_(closep) int pfd = -EBADF;
         char *temp;
         const char *top, *p, *pslash, *q, *qslash;
         struct stat st;
@@ -349,7 +349,7 @@ TEST(chase) {
 
         r = chase(p, NULL, 0, NULL, &pfd);
         if (r != -ENOENT && sd_id128_get_machine(NULL) >= 0) {
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
                 sd_id128_t a, b;
 
                 ASSERT_OK(pfd);
@@ -465,10 +465,10 @@ TEST(chase) {
 
 TEST(chaseat) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
-        _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
+        _cleanup_(closep) int tfd = -EBADF, fd = -EBADF;
         _cleanup_free_ char *result = NULL;
-        _cleanup_closedir_ DIR *dir = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(closedirp) DIR *dir = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         struct stat st;
         const char *p;
 
@@ -500,12 +500,12 @@ TEST(chaseat) {
         fd = safe_close(fd);
 
         /* Same but with XAT_FDROOT */
-        _cleanup_close_ int found_fd1 = -EBADF;
+        _cleanup_(closep) int found_fd1 = -EBADF;
         ASSERT_OK(chaseat(XAT_FDROOT, p, 0, &result, &found_fd1));
         ASSERT_STREQ(result, "/usr");
         result = mfree(result);
 
-        _cleanup_close_ int found_fd2 = -EBADF;
+        _cleanup_(closep) int found_fd2 = -EBADF;
         ASSERT_OK(chaseat(XAT_FDROOT, p, CHASE_AT_RESOLVE_IN_ROOT, &result, &found_fd2));
         ASSERT_STREQ(result, "/usr");
         result = mfree(result);
@@ -513,12 +513,12 @@ TEST(chaseat) {
 
         /* Do the same XAT_FDROOT tests again, this time without querying the path, so that the open_tree()
          * shortcut can work */
-        _cleanup_close_ int found_fd3 = -EBADF;
+        _cleanup_(closep) int found_fd3 = -EBADF;
         ASSERT_OK(chaseat(XAT_FDROOT, p, 0, NULL, &found_fd3));
         assert(fd_inode_same(found_fd1, found_fd3) > 0);
         assert(fd_inode_same(found_fd2, found_fd3) > 0);
 
-        _cleanup_close_ int found_fd4 = -EBADF;
+        _cleanup_(closep) int found_fd4 = -EBADF;
         ASSERT_OK(chaseat(XAT_FDROOT, p, CHASE_AT_RESOLVE_IN_ROOT, NULL, &found_fd4));
         assert(fd_inode_same(found_fd1, found_fd4) > 0);
         assert(fd_inode_same(found_fd2, found_fd4) > 0);
@@ -764,7 +764,7 @@ TEST(chaseat_prefix_root) {
 
 TEST(trailing_dot_dot) {
         _cleanup_free_ char *path = NULL, *fdpath = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         ASSERT_OK(chase("/usr/..", NULL, CHASE_PARENT, &path, &fd));
         assert_se(path_equal(path, "/"));
@@ -793,12 +793,12 @@ TEST(use_chase_as_mkdir_p) {
         _cleanup_free_ char *p = NULL;
         ASSERT_OK_ERRNO(asprintf(&p, "/tmp/chasemkdir%" PRIu64 "/a/b/c", random_u64()));
 
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         ASSERT_OK(chase(p, NULL, CHASE_PREFIX_ROOT|CHASE_MKDIR_0755, NULL, &fd));
 
         ASSERT_OK_EQ(inode_same_at(AT_FDCWD, p, fd, NULL, AT_EMPTY_PATH), 1);
 
-        _cleanup_close_ int fd2 = -EBADF;
+        _cleanup_(closep) int fd2 = -EBADF;
         ASSERT_OK(chase(p, p, CHASE_PREFIX_ROOT|CHASE_MKDIR_0755, NULL, &fd2));
 
         _cleanup_free_ char *pp = ASSERT_PTR(path_join(p, p));

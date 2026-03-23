@@ -18,7 +18,7 @@
 
 TEST_RET(add_acls_for_user) {
         _cleanup_(unlink_tempfilep) char fn[] = "/tmp/test-empty.XXXXXX";
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         char *cmd;
         uid_t uid;
         int r;
@@ -75,7 +75,7 @@ TEST_RET(add_acls_for_user) {
 
 TEST_RET(fd_acl_make_read_only) {
         _cleanup_(unlink_tempfilep) char fn[] = "/tmp/test-empty.XXXXXX";
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         const char *cmd;
         struct stat st;
         int r;

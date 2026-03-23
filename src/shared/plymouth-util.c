@@ -12,7 +12,7 @@ int plymouth_connect(int flags) {
                 .un.sun_family = AF_UNIX,
                 .un.sun_path = "\0/org/freedesktop/plymouthd",
         };
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|flags, 0);
         if (fd < 0)
@@ -25,7 +25,7 @@ int plymouth_connect(int flags) {
 }
 
 int plymouth_send_raw(const void *raw, size_t size, int flags) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         fd = plymouth_connect(flags);
         if (fd < 0)

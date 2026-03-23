@@ -74,7 +74,7 @@ static int do_remount(const char *path, bool force_rw, Hashmap **pids) {
 static int remount_by_fstab(Hashmap **ret_pids) {
         _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
         _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
-        _cleanup_hashmap_free_ Hashmap *pids = NULL;
+        _cleanup_(hashmap_freep) Hashmap *pids = NULL;
         bool has_root = false;
         int r;
 
@@ -119,7 +119,7 @@ static int remount_by_fstab(Hashmap **ret_pids) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_hashmap_free_ Hashmap *pids = NULL;
+        _cleanup_(hashmap_freep) Hashmap *pids = NULL;
         int r;
 
         log_setup();

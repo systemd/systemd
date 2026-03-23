@@ -59,7 +59,7 @@ static const sd_json_dispatch_field lldp_neighbor_dispatch_table[] = {
 };
 
 int dump_lldp_neighbors(sd_varlink *vl, Table *table, int ifindex) {
-        _cleanup_strv_free_ char **buf = NULL;
+        _cleanup_(strv_freep) char **buf = NULL;
         sd_json_variant *reply;
         int r;
 

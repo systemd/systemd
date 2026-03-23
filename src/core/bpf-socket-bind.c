@@ -164,7 +164,7 @@ static int socket_bind_install_impl(Unit *u) {
         _cleanup_(bpf_link_freep) struct bpf_link *ipv4 = NULL, *ipv6 = NULL;
         _cleanup_(socket_bind_bpf_freep) struct socket_bind_bpf *obj = NULL;
         _cleanup_free_ char *cgroup_path = NULL;
-        _cleanup_close_ int cgroup_fd = -EBADF;
+        _cleanup_(closep) int cgroup_fd = -EBADF;
         CGroupContext *cc;
         CGroupRuntime *crt;
         int r;

@@ -30,7 +30,7 @@ static int get_completions(
                 return 0;
         }
 
-        _cleanup_strv_free_ char **copy = strv_copy(userdata);
+        _cleanup_(strv_freep) char **copy = strv_copy(userdata);
         if (!copy)
                 return -ENOMEM;
 
@@ -56,7 +56,7 @@ int prompt_loop(
                 PromptFlags flags,
                 char **ret) {
 
-        _cleanup_strv_free_ char **refreshed_menu = NULL, **refreshed_accepted = NULL;
+        _cleanup_(strv_freep) char **refreshed_menu = NULL, **refreshed_accepted = NULL;
         int r;
 
         assert(text);
@@ -128,7 +128,7 @@ int prompt_loop(
                         putchar('\n');
 
                         if (refresh) {
-                                _cleanup_strv_free_ char **rm = NULL, **ra = NULL;
+                                _cleanup_(strv_freep) char **rm = NULL, **ra = NULL;
 
                                 /* If a refresh method is provided, then use it now to refresh the menu
                                  * before redisplaying it. */

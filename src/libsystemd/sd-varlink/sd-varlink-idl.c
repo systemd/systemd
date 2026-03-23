@@ -54,7 +54,7 @@ static int varlink_idl_format_comment(
                 return 0;
         }
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         r = strv_split_full(&l, text, NEWLINE, EXTRACT_RELAX);
         if (r < 0)
                 return log_error_errno(r, "Failed to split comment string: %m");
@@ -64,7 +64,7 @@ static int varlink_idl_format_comment(
         if (max_width < 10)
                 max_width = 10;
 
-        _cleanup_strv_free_ char **broken = NULL;
+        _cleanup_(strv_freep) char **broken = NULL;
         r = strv_rebreak_lines(l, max_width, &broken);
         if (r < 0)
                 return log_error_errno(r, "Failed to rebreak lines in comment: %m");
@@ -1620,7 +1620,7 @@ static int varlink_idl_symbol_consistent(
                 const sd_varlink_symbol *symbol,
                 int level) {
 
-        _cleanup_set_free_ Set *input_set = NULL, *output_set = NULL;
+        _cleanup_(set_freep) Set *input_set = NULL, *output_set = NULL;
         const char *symbol_name;
         int r;
 
@@ -1667,7 +1667,7 @@ static int varlink_idl_symbol_consistent(
 }
 
 int varlink_idl_consistent(const sd_varlink_interface *interface, int level) {
-        _cleanup_set_free_ Set *name_set = NULL;
+        _cleanup_(set_freep) Set *name_set = NULL;
         int r;
 
         assert(interface);

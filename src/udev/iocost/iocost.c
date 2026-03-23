@@ -183,7 +183,7 @@ static int query_named_solution(
 
 static int apply_solution_for_path(const char *path, const char *name) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
-        _cleanup_strv_free_ char **solutions = NULL;
+        _cleanup_(strv_freep) char **solutions = NULL;
         _cleanup_free_ char *qos = NULL, *model = NULL;
         const char *qos_params, *model_params;
         dev_t devnum;
@@ -239,7 +239,7 @@ static int apply_solution_for_path(const char *path, const char *name) {
 
 static int query_solutions_for_path(const char *path) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
-        _cleanup_strv_free_ char **solutions = NULL;
+        _cleanup_(strv_freep) char **solutions = NULL;
         const char *selected_solution, *model_name;
         int r;
 

@@ -154,7 +154,7 @@ void siphash24_compress_resolver(const sd_dns_resolver *res, struct siphash *sta
 }
 
 int dns_resolver_transports_to_strv(sd_dns_alpn_flags transports, char ***ret) {
-        _cleanup_strv_free_ char **ans = NULL;
+        _cleanup_(strv_freep) char **ans = NULL;
 
         assert(ret);
 
@@ -342,7 +342,7 @@ int dns_resolvers_to_dot_strv(const sd_dns_resolver *resolvers, size_t n_resolve
         assert(ret_names);
         int r;
 
-        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_(strv_freep) char **names = NULL;
         size_t len = 0;
 
         struct in_addr_full **addrs = NULL;

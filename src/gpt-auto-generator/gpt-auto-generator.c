@@ -76,7 +76,7 @@ static int add_cryptsetup(
 
 #if HAVE_LIBCRYPTSETUP
         _cleanup_free_ char *e = NULL, *n = NULL, *d = NULL, *options = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r;
 
         assert(id);
@@ -219,7 +219,7 @@ static int add_veritysetup(
         if (r < 0)
                 return log_error_errno(r, "Failed to generate unit name: %m");
 
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         r = generator_open_unit_file(arg_dest_late, /* source= */ NULL, n, &f);
         if (r < 0)
                 return r;
@@ -310,7 +310,7 @@ static int add_mount(
                 const char *post) {
 
         _cleanup_free_ char *unit = NULL, *crypto_what = NULL, *opts_filtered = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r;
 
         /* Note that we don't apply specifier escaping on the input strings here, since we know they are not configured
@@ -499,7 +499,7 @@ static int add_partition_mount(
 static int add_partition_swap(DissectedPartition *p) {
         const char *what;
         _cleanup_free_ char *name = NULL, *crypto_what = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r;
 
         assert(p);
@@ -568,7 +568,7 @@ static int add_automount(
                 usec_t timeout) {
 
         _cleanup_free_ char *unit = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r;
 
         assert(id);

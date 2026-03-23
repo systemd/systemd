@@ -185,7 +185,7 @@ int terminal_urlify_man(const char *page, const char *section, char **ret) {
 }
 
 static int cat_file(const ConfFile *c, bool *newline, CatFlags flags) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         _cleanup_free_ char *urlified = NULL, *section = NULL, *old_section = NULL;
         int r;
 
@@ -432,7 +432,7 @@ static int guess_type(const char **name, char ***ret_prefixes, bool *ret_is_coll
 }
 
 int conf_files_cat(const char *root, const char *name, CatFlags flags) {
-        _cleanup_strv_free_ char **dirs = NULL;
+        _cleanup_(strv_freep) char **dirs = NULL;
         char **prefixes = NULL; /* explicit initialization to appease gcc */
         bool is_collection;
         const char *extension;

@@ -22,7 +22,7 @@ static void dump_changes(InstallChange *c, unsigned n) {
 }
 
 int main(int argc, char* argv[]) {
-        _cleanup_hashmap_free_ Hashmap *h = NULL;
+        _cleanup_(hashmap_freep) Hashmap *h = NULL;
         UnitFileList *p;
         int r;
         const char *const files[] = { "avahi-daemon.service", NULL };

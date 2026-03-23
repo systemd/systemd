@@ -360,7 +360,7 @@ _public_ int sd_bus_release_name_async(
 
 _public_ int sd_bus_list_names(sd_bus *bus, char ***ret_acquired, char ***ret_activatable) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_strv_free_ char **x = NULL, **y = NULL;
+        _cleanup_(strv_freep) char **x = NULL, **y = NULL;
         int r;
 
         assert_return(bus, -EINVAL);

@@ -332,7 +332,7 @@ static int verb_list_timezones(int argc, char *argv[], uintptr_t _data, void *us
         sd_bus *bus = userdata;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         int r;
-        _cleanup_strv_free_ char **zones = NULL;
+        _cleanup_(strv_freep) char **zones = NULL;
 
         r = bus_call_method(bus, bus_timedate, "ListTimezones", &error, &reply, NULL);
         if (r < 0)

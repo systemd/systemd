@@ -111,7 +111,7 @@ static int property_get_refresh_on_reload(
                 sd_bus_error *reterr_error) {
 
         Service *s = ASSERT_PTR(userdata);
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         int r;
 
         assert(bus);
@@ -819,7 +819,7 @@ static int bus_service_set_transient_property(
                         if (!fdname_dup)
                                 return -ENOMEM;
 
-                        _cleanup_close_ int fd_dup = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+                        _cleanup_(closep) int fd_dup = fcntl(fd, F_DUPFD_CLOEXEC, 3);
                         if (fd_dup < 0)
                                 return -errno;
 

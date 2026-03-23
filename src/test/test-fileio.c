@@ -25,7 +25,7 @@
 
 TEST(script_get_shebang_interpreter) {
         _cleanup_(unlink_tempfilep) char t[] = "/tmp/test-fileio-XXXXXX";
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         _cleanup_free_ char *command = NULL;
 
         ASSERT_OK(fmkostemp_safe(t, "w", &f));
@@ -68,7 +68,7 @@ TEST(get_proc_field) {
 TEST(read_one_line_file) {
         _cleanup_(unlink_tempfilep) char fn[] = "/tmp/test-fileio-1lf-XXXXXX";
         int fd;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         _cleanup_free_ char *buf, *buf2, *buf3, *buf4, *buf5;
 
         ASSERT_OK(fd = mkostemp_safe(fn));
@@ -101,7 +101,7 @@ TEST(read_one_line_file) {
 
 TEST(write_string_stream) {
         _cleanup_(unlink_tempfilep) char fn[] = "/tmp/test-write_string_stream-XXXXXX";
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int fd;
 
         ASSERT_OK(fd = mkostemp_safe(fn));
@@ -131,7 +131,7 @@ TEST(write_string_stream) {
 TEST(write_string_file) {
         _cleanup_(unlink_tempfilep) char fn[] = "/tmp/test-write_string_file-XXXXXX";
         char buf[64] = {};
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         ASSERT_OK(fd = mkostemp_safe(fn));
 
@@ -143,7 +143,7 @@ TEST(write_string_file) {
 
 TEST(write_string_file_no_create) {
         _cleanup_(unlink_tempfilep) char fn[] = "/tmp/test-write_string_file_no_create-XXXXXX";
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         char buf[64] = {};
 
         ASSERT_ERROR(write_string_file("/a/file/which/does/not/exists/i/guess", "boohoo", 0), ENOENT);
@@ -184,9 +184,9 @@ TEST(search_and_fopen) {
                 NULL
         };
         char name[] = "/tmp/test-search_and_fopen.XXXXXX";
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         _cleanup_free_ char *p = NULL, *bn = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         ASSERT_OK(fd = mkostemp_safe(name));
         fd = safe_close(fd);
@@ -236,9 +236,9 @@ TEST(search_and_fopen_nulstr) {
                 "/tmp\0";
 
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-search_and_fopen.XXXXXX";
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         _cleanup_free_ char *p = NULL, *bn = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         ASSERT_OK(fd = mkostemp_safe(name));
         fd = safe_close(fd);
@@ -268,7 +268,7 @@ static const char chars[] =
 DISABLE_WARNING_TYPE_LIMITS;
 
 TEST(safe_fgetc) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         char c;
 
         ASSERT_NOT_NULL(f = fmemopen_unlocked((void*) chars, sizeof(chars), "r"));
@@ -375,7 +375,7 @@ static void test_read_line_one_file(FILE *f) {
 }
 
 TEST(read_line_one_file_1) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
 
         ASSERT_NOT_NULL(f = fmemopen_unlocked((void*) buffer, sizeof(buffer), "r"));
         test_read_line_one_file(f);
@@ -384,7 +384,7 @@ TEST(read_line_one_file_1) {
 TEST(reaad_line_one_file_2) {
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-fileio.XXXXXX";
         int fd;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
 
         ASSERT_OK(fd = mkostemp_safe(name));
         ASSERT_OK_EQ_ERRNO(write(fd, buffer, sizeof(buffer)), (ssize_t) sizeof(buffer));
@@ -396,7 +396,7 @@ TEST(reaad_line_one_file_2) {
 }
 
 TEST(read_line_one_file_3) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         _cleanup_free_ char *line = NULL;
         int r;
 
@@ -434,7 +434,7 @@ TEST(read_line_one_file_4) {
         };
 
         FOREACH_ELEMENT(ending, eof_endings) {
-                _cleanup_fclose_ FILE *f = NULL;
+                _cleanup_(fclosep) FILE *f = NULL;
                 _cleanup_free_ char *s = NULL;
 
                 ASSERT_NOT_NULL(f = fmemopen_unlocked((void*) ending->string, ending->length, "r"));
@@ -454,7 +454,7 @@ TEST(read_nul_string) {
                 "final string\n is empty\0"
                 "\0";
 
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         _cleanup_free_ char *s = NULL;
 
         ASSERT_NOT_NULL(f = fmemopen_unlocked((void*) test, sizeof(test)-1, "r"));
@@ -489,7 +489,7 @@ TEST(read_nul_string) {
 
 TEST(read_full_file_socket) {
         _cleanup_(rm_rf_physical_and_freep) char *z = NULL;
-        _cleanup_close_ int listener = -EBADF;
+        _cleanup_(closep) int listener = -EBADF;
         _cleanup_free_ char *data = NULL, *clientname = NULL;
         union sockaddr_union sa;
         const char *j, *jj;
@@ -519,7 +519,7 @@ TEST(read_full_file_socket) {
         if (r == 0) {
                 union sockaddr_union peer = {};
                 socklen_t peerlen = sizeof(peer);
-                _cleanup_close_ int rfd = -EBADF;
+                _cleanup_(closep) int rfd = -EBADF;
                 /* child */
 
                 ASSERT_OK(rfd = accept4(listener, NULL, NULL, SOCK_CLOEXEC));
@@ -547,7 +547,7 @@ TEST(read_full_file_socket) {
 }
 
 TEST(read_full_file_full) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         _cleanup_(unlink_and_freep) char *fn = NULL;
         _cleanup_free_ char *rbuf = NULL;
         size_t rbuf_size;
@@ -651,8 +651,8 @@ TEST(read_virtual_file) {
 
 TEST(fdopen_independent) {
 #define TEST_TEXT "this is some random test text we are going to write to a memfd"
-        _cleanup_close_ int fd = -EBADF;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(closep) int fd = -EBADF;
+        _cleanup_(fclosep) FILE *f = NULL;
         char buf[STRLEN(TEST_TEXT) + 1];
         int r;
 

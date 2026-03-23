@@ -220,7 +220,7 @@ static int add_swap(
                 MountPointFlags flags) {
 
         _cleanup_free_ char *name = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r;
 
         assert(what);
@@ -331,7 +331,7 @@ static int write_dependency(
                 const char *filter,
                 const char* const *unit_settings) {
 
-        _cleanup_strv_free_ char **unit_names = NULL;
+        _cleanup_(strv_freep) char **unit_names = NULL;
         _cleanup_free_ char *units = NULL;
         int r;
 
@@ -389,7 +389,7 @@ static int write_mounts_for(
                 const char *filter,
                 const char *unit_setting) {
 
-        _cleanup_strv_free_ char **paths = NULL, **paths_escaped = NULL;
+        _cleanup_(strv_freep) char **paths = NULL, **paths_escaped = NULL;
         int r;
 
         assert(f);
@@ -493,8 +493,8 @@ static int add_mount(
 
         _cleanup_free_ char *name = NULL, *automount_name = NULL, *filtered = NULL, *where_escaped = NULL,
                 *opts_root_filtered = NULL;
-        _cleanup_strv_free_ char **wanted_by = NULL, **required_by = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(strv_freep) char **wanted_by = NULL, **required_by = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r;
 
         assert(what);
@@ -1434,7 +1434,7 @@ static int add_mounts_from_creds(bool prefix_sysroot) {
         if (r <= 0)
                 return r;
 
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         f = fmemopen_unlocked(b, bs, "r");
         if (!f)
                 return log_oom();

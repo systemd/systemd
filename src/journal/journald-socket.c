@@ -16,7 +16,7 @@
 #include "time-util.h"
 
 static int manager_open_forward_socket(Manager *m) {
-        _cleanup_close_ int socket_fd = -EBADF;
+        _cleanup_(closep) int socket_fd = -EBADF;
         const SocketAddress *addr;
         int family;
 

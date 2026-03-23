@@ -699,7 +699,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
         neighbor_detach);
 
 int network_drop_invalid_neighbors(Network *network) {
-        _cleanup_set_free_ Set *neighbors = NULL, *duplicated_neighbors = NULL;
+        _cleanup_(set_freep) Set *neighbors = NULL, *duplicated_neighbors = NULL;
         Neighbor *neighbor;
         int r;
 

@@ -276,7 +276,7 @@ int cg_set_access_recursive(
                 uid_t uid,
                 gid_t gid) {
 
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         _cleanup_free_ char *fs = NULL;
         int r;
 
@@ -321,7 +321,7 @@ int cg_migrate(
                 const char *to,
                 CGroupFlags flags) {
 
-        _cleanup_set_free_ Set *s = NULL;
+        _cleanup_(set_freep) Set *s = NULL;
         bool done;
         int r, ret = 0;
 
@@ -329,7 +329,7 @@ int cg_migrate(
         assert(to);
 
         do {
-                _cleanup_fclose_ FILE *f = NULL;
+                _cleanup_(fclosep) FILE *f = NULL;
                 pid_t pid;
 
                 done = true;
@@ -382,7 +382,7 @@ int cg_enable(
                 const char *p,
                 CGroupMask *ret_result_mask) {
 
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         _cleanup_free_ char *fs = NULL;
         CGroupController c;
         CGroupMask ret = 0;

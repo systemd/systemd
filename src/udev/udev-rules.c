@@ -1680,7 +1680,7 @@ static void udev_check_rule_line(UdevRuleLine *line) {
 int udev_rules_parse_file(UdevRules *rules, const ConfFile *c, bool extra_checks, UdevRuleFile **ret) {
         _cleanup_(udev_rule_file_freep) UdevRuleFile *rule_file = NULL;
         _cleanup_free_ char *name = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r;
 
         assert(rules);
@@ -1820,7 +1820,7 @@ UdevRules* udev_rules_new(ResolveNameTiming resolve_name_timing) {
 
 int udev_rules_load(UdevRules **ret_rules, ResolveNameTiming resolve_name_timing, char * const *extra) {
         _cleanup_(udev_rules_freep) UdevRules *rules = NULL;
-        _cleanup_strv_free_ char **directories = NULL;
+        _cleanup_(strv_freep) char **directories = NULL;
         int r;
 
         rules = udev_rules_new(resolve_name_timing);
@@ -1860,7 +1860,7 @@ int udev_rules_load(UdevRules **ret_rules, ResolveNameTiming resolve_name_timing
 }
 
 bool udev_rules_should_reload(UdevRules *rules) {
-        _cleanup_hashmap_free_ Hashmap *stats_by_path = NULL;
+        _cleanup_(hashmap_freep) Hashmap *stats_by_path = NULL;
         int r;
 
         if (!rules)
@@ -2129,7 +2129,7 @@ static int get_property_from_string(char *line, char **ret_key, char **ret_value
 }
 
 static int attr_subst_subdir(char attr[static UDEV_PATH_SIZE]) {
-        _cleanup_closedir_ DIR *dir = NULL;
+        _cleanup_(closedirp) DIR *dir = NULL;
         char buf[UDEV_PATH_SIZE], *p;
         const char *tail;
         size_t len, size;
@@ -2409,7 +2409,7 @@ static int udev_rule_apply_token_to_event(
                 return log_event_result(event, token, token->op == OP_MATCH);
         }
         case TK_M_IMPORT_FILE: {
-                _cleanup_fclose_ FILE *f = NULL;
+                _cleanup_(fclosep) FILE *f = NULL;
                 char buf[UDEV_PATH_SIZE];
 
                 if (!apply_format_value(event, token, buf, sizeof(buf), "file name to be imported"))
@@ -2457,7 +2457,7 @@ static int udev_rule_apply_token_to_event(
                 assert_not_reached();
         }
         case TK_M_IMPORT_PROGRAM: {
-                _cleanup_strv_free_ char **lines = NULL;
+                _cleanup_(strv_freep) char **lines = NULL;
                 char buf[UDEV_LINE_SIZE], result[UDEV_LINE_SIZE];
                 bool truncated;
 
@@ -3042,7 +3042,7 @@ static int udev_rule_apply_token_to_event(
 
                 /* Then, make the path relative again. This also checks if the path being inside of the sysfs. */
                 _cleanup_free_ char *resolved = NULL;
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
                 r = device_chase(dev, buf, /* flags= */ 0, &resolved, &fd);
                 if (r < 0) {
                         log_event_error_errno(event, token, r, "Could not chase sysfs attribute \"%s\", ignoring: %m", buf);
@@ -3291,7 +3291,7 @@ int udev_rules_apply_to_event(UdevRules *rules, UdevEvent *event) {
 }
 
 static int udev_rule_line_apply_static_dev_perms(UdevRuleLine *rule_line) {
-        _cleanup_strv_free_ char **tags = NULL;
+        _cleanup_(strv_freep) char **tags = NULL;
         uid_t uid = UID_INVALID;
         gid_t gid = GID_INVALID;
         mode_t mode = MODE_INVALID;

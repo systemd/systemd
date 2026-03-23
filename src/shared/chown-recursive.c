@@ -46,7 +46,7 @@ static int chown_recursive_internal(
                 gid_t gid,
                 mode_t mask) {
 
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
         bool changed = false;
         int r;
 
@@ -60,7 +60,7 @@ static int chown_recursive_internal(
         }
 
         FOREACH_DIRENT_ALL(de, d, return -errno) {
-                _cleanup_close_ int path_fd = -EBADF;
+                _cleanup_(closep) int path_fd = -EBADF;
                 struct stat fst;
 
                 if (dot_or_dot_dot(de->d_name))
@@ -111,7 +111,7 @@ int path_chown_recursive(
                 mode_t mask,
                 int flags) {
 
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         struct stat st;
 
         assert((flags & ~AT_SYMLINK_FOLLOW) == 0);

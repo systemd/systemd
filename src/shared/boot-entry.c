@@ -19,7 +19,7 @@ bool boot_entry_token_valid(const char *p) {
 
 static int entry_token_load_one(int rfd, const char *dir, BootEntryTokenType *type, char **token) {
         _cleanup_free_ char *buf = NULL, *p = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r;
 
         assert(rfd >= 0 || IN_SET(rfd, AT_FDCWD, XAT_FDROOT));
@@ -231,7 +231,7 @@ int boot_entry_token_ensure(
         if (*token)
                 return 0; /* Already set. */
 
-        _cleanup_close_ int rfd = XAT_FDROOT;
+        _cleanup_(closep) int rfd = XAT_FDROOT;
         if (!empty_or_root(root)) {
                 rfd = open(root, O_CLOEXEC | O_DIRECTORY | O_PATH);
                 if (rfd < 0)

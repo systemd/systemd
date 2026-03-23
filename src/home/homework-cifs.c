@@ -75,7 +75,7 @@ int home_setup_cifs(
                 return r;
 
         STRV_FOREACH(pw, h->password) {
-                _cleanup_close_ int passwd_fd = -EBADF;
+                _cleanup_(closep) int passwd_fd = -EBADF;
                 int exit_status;
 
                 passwd_fd = memfd_new_and_seal_string("cifspw", *pw);

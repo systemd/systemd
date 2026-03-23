@@ -114,7 +114,7 @@ static int get_pin(char **ret_pin_str, TPM2Flags *ret_flags) {
                 flags |= TPM2_FLAGS_USE_PIN;
         else {
                 for (size_t i = 5;; i--) {
-                        _cleanup_strv_free_erase_ char **pin = NULL, **pin2 = NULL;
+                        _cleanup_(strv_free_erasep) char **pin = NULL, **pin2 = NULL;
 
                         if (i <= 0)
                                 return log_error_errno(

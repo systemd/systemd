@@ -194,7 +194,7 @@ static int process_memory(Group *g) {
 }
 
 static int process_io(Group *g, unsigned iteration) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         _cleanup_free_ char *p = NULL;
         uint64_t wr = 0, rd = 0;
         nsec_t timestamp;
@@ -364,7 +364,7 @@ static int process(
         }
 
         if (IN_SET(arg_count, COUNT_ALL_PROCESSES, COUNT_USERSPACE_PROCESSES)) {
-                _cleanup_fclose_ FILE *f = NULL;
+                _cleanup_(fclosep) FILE *f = NULL;
                 pid_t pid;
 
                 r = cg_enumerate_processes(path, &f);
@@ -441,7 +441,7 @@ static int refresh(
                 unsigned depth,
                 Group **ret) {
 
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
         Group *ours;
         int r;
 
@@ -894,7 +894,7 @@ static const char* counting_what(void) {
 }
 
 static int loop(const char *root) {
-        _cleanup_hashmap_free_ Hashmap *a = NULL, *b = NULL;
+        _cleanup_(hashmap_freep) Hashmap *a = NULL, *b = NULL;
         unsigned iteration = 0;
         usec_t last_refresh = 0;
         bool immediate_refresh = false;

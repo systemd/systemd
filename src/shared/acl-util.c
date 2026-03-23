@@ -85,7 +85,7 @@ int dlopen_libacl(void) {
 }
 
 int devnode_acl(int fd, const Set *uids) {
-        _cleanup_set_free_ Set *found = NULL;
+        _cleanup_(set_freep) Set *found = NULL;
         bool changed = false;
         int r;
 
@@ -328,7 +328,7 @@ int add_base_acls_if_needed(acl_t *acl_p, const char *path) {
 }
 
 int acl_search_groups(const char *path, char ***ret_groups) {
-        _cleanup_strv_free_ char **g = NULL;
+        _cleanup_(strv_freep) char **g = NULL;
         _cleanup_(acl_freep) acl_t acl = NULL;
         bool ret = false;
         acl_entry_t entry;
@@ -400,7 +400,7 @@ int parse_acl(
                 acl_t *ret_acl_default,
                 bool want_mask) {
 
-        _cleanup_strv_free_ char **a = NULL, **e = NULL, **d = NULL, **split = NULL;
+        _cleanup_(strv_freep) char **a = NULL, **e = NULL, **d = NULL, **split = NULL;
         _cleanup_(acl_freep) acl_t a_acl = NULL, e_acl = NULL, d_acl = NULL;
         int r;
 
@@ -418,7 +418,7 @@ int parse_acl(
                 return r;
 
         STRV_FOREACH(entry, split) {
-                _cleanup_strv_free_ char **entry_split = NULL;
+                _cleanup_(strv_freep) char **entry_split = NULL;
                 _cleanup_free_ char *entry_join = NULL;
                 int n;
 

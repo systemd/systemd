@@ -63,7 +63,7 @@ static int verb_export_tar(int argc, char *argv[], uintptr_t _data, void *userda
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_(image_unrefp) Image *image = NULL;
         const char *path = NULL, *local = NULL;
-        _cleanup_close_ int open_fd = -EBADF;
+        _cleanup_(closep) int open_fd = -EBADF;
         int r, fd;
 
         local = argv[1];
@@ -144,7 +144,7 @@ static int verb_export_raw(int argc, char *argv[], uintptr_t _data, void *userda
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_(image_unrefp) Image *image = NULL;
         const char *path = NULL, *local = NULL;
-        _cleanup_close_ int open_fd = -EBADF;
+        _cleanup_(closep) int open_fd = -EBADF;
         int r, fd;
 
         local = argv[1];

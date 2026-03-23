@@ -13,7 +13,7 @@ static void test_read_login_defs_one(const char *path) {
         log_info("/* %s(\"%s\") */", __func__, path ?: "<custom>");
 
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-user-record.XXXXXX";
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         if (!path) {
                 assert_se(fmkostemp_safe(name, "r+", &f) == 0);
                 fprintf(f,

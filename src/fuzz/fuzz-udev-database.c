@@ -9,7 +9,7 @@
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         _cleanup_(unlink_tempfilep) char filename[] = "/tmp/fuzz-udev-database.XXXXXX";
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
 
         fuzz_setup_logging();
 

@@ -278,7 +278,7 @@ int is_mount_point_at(int dir_fd, const char *path, int flags) {
 
 /* flags can be AT_SYMLINK_FOLLOW or 0 */
 int path_is_mount_point_full(const char *path, const char *root, int flags) {
-        _cleanup_close_ int dir_fd = -EBADF;
+        _cleanup_(closep) int dir_fd = -EBADF;
         int r;
 
         assert(path);
@@ -486,7 +486,7 @@ bool fstype_can_uid_gid(const char *fstype) {
 }
 
 int dev_is_devtmpfs(void) {
-        _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
+        _cleanup_(fclosep) FILE *proc_self_mountinfo = NULL;
         int mount_id, r;
         char *e;
 
@@ -559,7 +559,7 @@ int mount_nofollow(
                 unsigned long mountflags,
                 const void *data) {
 
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         assert(target);
 
@@ -630,7 +630,7 @@ bool mount_new_api_supported(void) {
 }
 
 int mount_option_supported(const char *fstype, const char *key, const char *value) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         /* Checks if the specified file system supports a mount option. Returns > 0 if it supports it, == 0 if

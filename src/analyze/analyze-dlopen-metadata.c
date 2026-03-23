@@ -16,7 +16,7 @@ int verb_dlopen_metadata(int argc, char *argv[], uintptr_t _data, void *userdata
         int r;
 
         _cleanup_free_ char *abspath = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         fd = chase_and_open(argv[1], arg_root, CHASE_PREFIX_ROOT, O_RDONLY|O_CLOEXEC, &abspath);
         if (fd < 0)
                 return log_error_errno(fd, "Could not open \"%s\": %m", argv[1]);
@@ -48,7 +48,7 @@ int verb_dlopen_metadata(int argc, char *argv[], uintptr_t _data, void *userdata
 
         sd_json_variant *z;
         JSON_VARIANT_ARRAY_FOREACH(z, dlopen_metadata) {
-                _cleanup_strv_free_ char **sonames = NULL;
+                _cleanup_(strv_freep) char **sonames = NULL;
 
                 r = sd_json_variant_strv(sd_json_variant_by_key(z, "soname"), &sonames);
                 if (r < 0)

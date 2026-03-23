@@ -286,7 +286,7 @@ static int tar_pull_make_local_copy(TarPull *p) {
                          * already downloaded the image before, and are just making a copy of the original
                          * download, we need to open ->tree_fd now */
                         if (p->tree_fd < 0) {
-                                _cleanup_close_ int directory_fd = open(p->final_path, O_DIRECTORY|O_CLOEXEC);
+                                _cleanup_(closep) int directory_fd = open(p->final_path, O_DIRECTORY|O_CLOEXEC);
                                 if (directory_fd < 0)
                                         return log_error_errno(errno, "Failed to open '%s': %m", p->final_path);
 
@@ -310,7 +310,7 @@ static int tar_pull_make_local_copy(TarPull *p) {
                                         return log_error_errno(r, "Failed to mount directory via mountfsd: %m");
                         }
 
-                        _cleanup_close_ int directory_fd = -EBADF;
+                        _cleanup_(closep) int directory_fd = -EBADF;
                         r = mountfsd_make_directory(
                                         mountfsd_link,
                                         t,
@@ -320,7 +320,7 @@ static int tar_pull_make_local_copy(TarPull *p) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to make directory via mountfsd: %m");
 
-                        _cleanup_close_ int copy_fd = -EBADF;
+                        _cleanup_(closep) int copy_fd = -EBADF;
                         r = mountfsd_mount_directory_fd(
                                         mountfsd_link,
                                         directory_fd,
@@ -637,7 +637,7 @@ static int tar_pull_job_on_open_disk_tar(PullJob *j) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to connect to mountfsd: %m");
 
-                _cleanup_close_ int directory_fd = -EBADF;
+                _cleanup_(closep) int directory_fd = -EBADF;
                 r = mountfsd_make_directory(
                                 mountfsd_link,
                                 where,

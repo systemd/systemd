@@ -17,7 +17,7 @@
 int icmp6_bind(int ifindex, bool is_router) {
         struct icmp6_filter filter = {};
         struct ipv6_mreq mreq;
-        _cleanup_close_ int s = -EBADF;
+        _cleanup_(closep) int s = -EBADF;
         int r;
 
         assert(ifindex > 0);

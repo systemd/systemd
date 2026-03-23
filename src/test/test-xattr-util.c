@@ -20,7 +20,7 @@
 TEST(getxattr_at_malloc) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_free_ char *value = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         const char *x;
         int r;
 
@@ -63,7 +63,7 @@ TEST(getxattr_at_malloc) {
 
 TEST(getcrtime) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         usec_t usec, k;
         int r;
 
@@ -100,7 +100,7 @@ static void verify_xattr(int dfd, const char *expected) {
 
 static void xattr_symlink_test_one(int fd, const char *path) {
         _cleanup_free_ char *value = NULL, *list = NULL;
-        _cleanup_strv_free_ char **list_split = NULL;
+        _cleanup_(strv_freep) char **list_split = NULL;
         int r;
 
         ASSERT_ERROR(xsetxattr_full(fd, path, 0, "trusted.bar", "bogus", SIZE_MAX, XATTR_CREATE), EEXIST);
@@ -127,7 +127,7 @@ static void xattr_symlink_test_one(int fd, const char *path) {
 
 TEST(xsetxattr) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
-        _cleanup_close_ int dfd = -EBADF, fd = -EBADF;
+        _cleanup_(closep) int dfd = -EBADF, fd = -EBADF;
         const char *x;
         int r;
 

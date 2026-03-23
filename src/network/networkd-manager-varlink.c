@@ -221,7 +221,7 @@ static int vl_method_set_persistent_storage(sd_varlink *vlink, sd_json_variant *
                 return r;
 
         if (ready) {
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
 
                 fd = sd_varlink_take_fd(vlink, 0);
                 if (fd < 0)
@@ -270,7 +270,7 @@ static int vl_method_reload(sd_varlink *vlink, sd_json_variant *parameters, sd_v
 
 int manager_varlink_init(Manager *m, int fd) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
-        _unused_ _cleanup_close_ int fd_close = fd; /* take possession */
+        _unused_ _cleanup_(closep) int fd_close = fd; /* take possession */
         int r;
 
         assert(m);

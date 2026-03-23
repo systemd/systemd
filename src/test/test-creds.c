@@ -16,7 +16,7 @@
 TEST(read_credential_strings) {
         _cleanup_free_ char *x = NULL, *y = NULL, *saved = NULL, *p = NULL;
         _cleanup_(rm_rf_physical_and_freep) char *tmp = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
 
         const char *e = getenv("CREDENTIALS_DIRECTORY");
         if (e)

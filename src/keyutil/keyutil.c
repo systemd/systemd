@@ -409,7 +409,7 @@ static int verb_pkcs7(int argc, char *argv[], uintptr_t _data, void *userdata) {
         /* Add PKCS1 signature to PKCS7_SIGNER_INFO */
         ASN1_STRING_set0(signer_info->enc_digest, TAKE_PTR(pkcs1), pkcs1_len);
 
-        _cleanup_fclose_ FILE *output = NULL;
+        _cleanup_(fclosep) FILE *output = NULL;
         _cleanup_(unlink_and_freep) char *tmp = NULL;
         r = fopen_tmpfile_linkable(arg_output, O_WRONLY|O_CLOEXEC, &tmp, &output);
         if (r < 0)

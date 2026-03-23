@@ -93,7 +93,7 @@ static int dm_list_get(DeviceMapper **head) {
 }
 
 static int delete_dm(DeviceMapper *m) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         assert(m);
         assert(major(m->devnum) != 0);

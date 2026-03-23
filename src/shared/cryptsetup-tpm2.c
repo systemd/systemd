@@ -21,7 +21,7 @@ static int get_pin(
                 AskPasswordFlags askpw_flags,
                 char **ret_pin_str) {
         _cleanup_(erase_and_freep) char *pin_str = NULL;
-        _cleanup_strv_free_erase_ char **pin = NULL;
+        _cleanup_(strv_free_erasep) char **pin = NULL;
         int r;
 
         assert(ret_pin_str);

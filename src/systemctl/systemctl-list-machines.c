@@ -104,7 +104,7 @@ static int get_machine_list(
                 char **patterns) {
 
         struct machine_info *machine_infos = NULL;
-        _cleanup_strv_free_ char **m = NULL;
+        _cleanup_(strv_freep) char **m = NULL;
         _cleanup_free_ char *hn = NULL;
         int c = 0, r;
 

@@ -100,7 +100,7 @@ static int loopback_list_get(LoopbackDevice **head) {
 }
 
 static int delete_loopback(const char *device) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         struct loop_info64 info;
 
         assert(device);

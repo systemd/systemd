@@ -1835,7 +1835,7 @@ void manager_reset_server_features(Manager *m) {
 }
 
 void manager_cleanup_saved_user(Manager *m) {
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
 
         assert(m);
 
@@ -2152,7 +2152,7 @@ static int dns_configuration_json_append(
 }
 
 static int global_dns_configuration_json_append(Manager *m, sd_json_variant **configuration) {
-        _cleanup_set_free_ Set *scopes = NULL;
+        _cleanup_(set_freep) Set *scopes = NULL;
         int r;
 
         assert(m);
@@ -2183,7 +2183,7 @@ static int global_dns_configuration_json_append(Manager *m, sd_json_variant **co
 }
 
 static int link_dns_configuration_json_append(Link *l, sd_json_variant **configuration) {
-        _cleanup_set_free_ Set *scopes = NULL;
+        _cleanup_(set_freep) Set *scopes = NULL;
         int r;
 
         assert(l);
@@ -2240,7 +2240,7 @@ static int link_dns_configuration_json_append(Link *l, sd_json_variant **configu
 }
 
 static int delegate_dns_configuration_json_append(DnsDelegate *d, sd_json_variant **configuration) {
-        _cleanup_set_free_ Set *scopes = NULL;
+        _cleanup_(set_freep) Set *scopes = NULL;
         int r;
 
         assert(d);

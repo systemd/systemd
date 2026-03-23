@@ -445,7 +445,7 @@ int resolve_network_interface_names(char **iface_pairs) {
 
         STRV_FOREACH_PAIR(from, to, iface_pairs) {
                 _cleanup_free_ char *name = NULL;
-                _cleanup_strv_free_ char **altnames = NULL;
+                _cleanup_(strv_freep) char **altnames = NULL;
 
                 r = rtnl_resolve_ifname_full(&rtnl, _RESOLVE_IFNAME_ALL, *from, &name, &altnames);
                 if (r < 0)
@@ -467,7 +467,7 @@ int resolve_network_interface_names(char **iface_pairs) {
 }
 
 static int netns_child_begin(int netns_fd, int *ret_original_netns_fd) {
-        _cleanup_close_ int original_netns_fd = -EBADF;
+        _cleanup_(closep) int original_netns_fd = -EBADF;
         int r;
 
         assert(netns_fd >= 0);
@@ -680,7 +680,7 @@ static int move_network_interface_one(sd_netlink **rtnl, int netns_fd, sd_device
 
 int move_network_interfaces(int netns_fd, char **iface_pairs) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL, *genl = NULL;
-        _cleanup_close_ int temp_netns_fd = -EBADF;
+        _cleanup_(closep) int temp_netns_fd = -EBADF;
         int r;
 
         assert(netns_fd >= 0);
@@ -710,7 +710,7 @@ int move_network_interfaces(int netns_fd, char **iface_pairs) {
 }
 
 int move_back_network_interfaces(int child_netns_fd, char **interface_pairs) {
-        _cleanup_close_ int parent_netns_fd = -EBADF;
+        _cleanup_(closep) int parent_netns_fd = -EBADF;
         int r;
 
         assert(child_netns_fd >= 0);
@@ -846,7 +846,7 @@ static int remove_macvlan_impl(char **interface_pairs) {
 }
 
 int remove_macvlan(int child_netns_fd, char **interface_pairs) {
-        _cleanup_close_ int parent_netns_fd = -EBADF;
+        _cleanup_(closep) int parent_netns_fd = -EBADF;
         int r;
 
         /* In some cases the kernel might pin the macvlan links on the container even after the namespace

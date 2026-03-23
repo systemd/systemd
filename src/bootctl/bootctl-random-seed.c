@@ -112,7 +112,7 @@ static int set_system_token(void) {
 }
 
 int install_random_seed(const char *esp) {
-        _cleanup_close_ int esp_fd = -EBADF, loader_dir_fd = -EBADF, fd = -EBADF;
+        _cleanup_(closep) int esp_fd = -EBADF, loader_dir_fd = -EBADF, fd = -EBADF;
         _cleanup_free_ char *tmp = NULL;
         uint8_t buffer[RANDOM_EFI_SEED_SIZE];
         struct sha256_ctx hash_state;

@@ -956,7 +956,7 @@ int config_parse_exec(
 
                 ignore = FLAGS_SET(flags, EXEC_COMMAND_IGNORE_FAILURE);
 
-                _cleanup_strv_free_ char **args = NULL;
+                _cleanup_(strv_freep) char **args = NULL;
                 _cleanup_free_ char *path = NULL;
 
                 if (FLAGS_SET(flags, EXEC_COMMAND_VIA_SHELL)) {
@@ -1640,7 +1640,7 @@ int config_parse_root_image_options(
                 void *userdata) {
 
         _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         ExecContext *c = ASSERT_PTR(data);
         const Unit *u = userdata;
         int r;
@@ -2773,7 +2773,7 @@ int config_parse_pass_environ(
                 return 0;
         }
 
-        _cleanup_strv_free_ char **n = NULL;
+        _cleanup_(strv_freep) char **n = NULL;
 
         for (const char *p = rvalue;;) {
                 _cleanup_free_ char *word = NULL, *k = NULL;
@@ -2842,7 +2842,7 @@ int config_parse_unset_environ(
                 return 0;
         }
 
-        _cleanup_strv_free_ char **n = NULL;
+        _cleanup_(strv_freep) char **n = NULL;
 
         for (const char *p = rvalue;;) {
                 _cleanup_free_ char *word = NULL, *k = NULL;
@@ -6114,7 +6114,7 @@ int unit_load_fragment(Unit *u) {
                 return log_error_errno(r, "Failed to rebuild name map: %m");
 
         const char *fragment;
-        _cleanup_set_free_ Set *names = NULL;
+        _cleanup_(set_freep) Set *names = NULL;
         r = unit_file_find_fragment(u->manager->unit_id_map,
                                     u->manager->unit_name_map,
                                     u->id,
@@ -6125,7 +6125,7 @@ int unit_load_fragment(Unit *u) {
 
         if (fragment) {
                 /* Open the file, check if this is a mask, otherwise read. */
-                _cleanup_fclose_ FILE *f = NULL;
+                _cleanup_(fclosep) FILE *f = NULL;
                 struct stat st;
 
                 /* Try to open the file name. A symlink is OK, for example for linked files or masks. We
@@ -6151,7 +6151,7 @@ int unit_load_fragment(Unit *u) {
                 } else {
 #if HAVE_SELINUX
                         if (mac_selinux_use()) {
-                                _cleanup_freecon_ char *selcon = NULL;
+                                _cleanup_(freeconp) char *selcon = NULL;
 
                                 /* Cache the SELinux context of the unit file here. We'll make use of when checking access permissions to loaded units */
                                 r = sym_fgetfilecon_raw(fileno(f), &selcon);

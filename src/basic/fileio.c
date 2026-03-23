@@ -221,7 +221,7 @@ static int write_string_file_atomic_at(
                 WriteStringFileFlags flags,
                 const struct timespec *ts) {
 
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         _cleanup_free_ char *p = NULL;
         int r;
 
@@ -285,8 +285,8 @@ int write_string_file_full(
                 const char *label_fn) {
 
         bool made_file = false;
-        _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(fclosep) FILE *f = NULL;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         assert(dir_fd == AT_FDCWD || dir_fd >= 0);
@@ -417,7 +417,7 @@ int write_base64_file_at(
 }
 
 int read_one_line_file_at(int dir_fd, const char *filename, char **ret) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r;
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
@@ -432,7 +432,7 @@ int read_one_line_file_at(int dir_fd, const char *filename, char **ret) {
 }
 
 int verify_file_at(int dir_fd, const char *fn, const char *blob, bool accept_extra_nl) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         _cleanup_free_ char *buf = NULL;
         size_t l, k;
         int r;
@@ -500,7 +500,7 @@ int read_virtual_file_at(
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
         assert(max_size <= READ_VIRTUAL_BYTES_MAX || max_size == SIZE_MAX);
 
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         if (isempty(filename))
                 fd = fd_reopen(ASSERT_FD(dir_fd), O_RDONLY | O_NOCTTY | O_CLOEXEC);
         else
@@ -833,7 +833,7 @@ int read_full_file_full(
                 char **ret_contents,
                 size_t *ret_size) {
 
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         XfopenFlags xflags = XFOPEN_UNLOCKED;
         int r;
 
@@ -851,7 +851,7 @@ int read_full_file_full(
 }
 
 int script_get_shebang_interpreter(const char *path, char **ret) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r;
 
         assert(path);
@@ -896,7 +896,7 @@ int script_get_shebang_interpreter(const char *path, char **ret) {
 }
 
 int get_proc_field(const char *path, const char *key, char **ret) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r;
 
         /* Retrieve one field from a file like /proc/self/status. "key" matches the beginning of the line
@@ -938,7 +938,7 @@ int get_proc_field(const char *path, const char *key, char **ret) {
 }
 
 DIR* xopendirat(int dir_fd, const char *path, int flags) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
         assert(!(flags & (O_CREAT|O_TMPFILE)));
@@ -1017,7 +1017,7 @@ static int xfopenat_regular(int dir_fd, const char *path, const char *mode, int 
         if (dir_fd == AT_FDCWD && path && open_flags == 0)
                 f = fopen(path, mode);
         else {
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
                 int mode_flags;
 
                 mode_flags = fopen_mode_to_flags(mode);
@@ -1047,7 +1047,7 @@ static int xfopenat_regular(int dir_fd, const char *path, const char *mode, int 
 }
 
 static int xfopenat_unix_socket(int dir_fd, const char *path, const char *bind_name, FILE **ret) {
-        _cleanup_close_ int sk = -EBADF;
+        _cleanup_(closep) int sk = -EBADF;
         FILE *f;
         int r;
 
@@ -1121,8 +1121,8 @@ int xfopenat_full(
 }
 
 int fdopen_independent(int fd, const char *mode, FILE **ret) {
-        _cleanup_close_ int copy_fd = -EBADF;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(closep) int copy_fd = -EBADF;
+        _cleanup_(fclosep) FILE *f = NULL;
         int mode_flags;
 
         assert(fd >= 0);
@@ -1164,7 +1164,7 @@ static int search_and_open_internal(
         assert(path);
 
         if (path_is_absolute(path)) {
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
 
                 if (ret_fd)
                         /* We only specify 0777 here to appease static analyzers, it's never used since we
@@ -1191,7 +1191,7 @@ static int search_and_open_internal(
                 return -ENOMEM;
 
         STRV_FOREACH(i, search) {
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
                 _cleanup_free_ char *p = NULL;
 
                 p = path_join(root, *i, path);
@@ -1227,7 +1227,7 @@ int search_and_open(
                 int *ret_fd,
                 char **ret_path) {
 
-        _cleanup_strv_free_ char **copy = NULL;
+        _cleanup_(strv_freep) char **copy = NULL;
 
         assert(path);
 
@@ -1247,7 +1247,7 @@ static int search_and_fopen_internal(
                 char **ret_path) {
 
         _cleanup_free_ char *found_path = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         assert(path);
@@ -1285,7 +1285,7 @@ int search_and_fopen(
                 FILE **ret_file,
                 char **ret_path) {
 
-        _cleanup_strv_free_ char **copy = NULL;
+        _cleanup_(strv_freep) char **copy = NULL;
 
         assert(path);
         assert(mode || !ret_file);
@@ -1305,7 +1305,7 @@ int search_and_fopen_nulstr(
                 FILE **ret_file,
                 char **ret_path) {
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
 
         assert(path);
         assert(mode || !ret_file);
@@ -1679,7 +1679,7 @@ int write_data_file_atomic_at(
         if (r < 0)
                 return r;
 
-        _cleanup_close_ int mfd = -EBADF;
+        _cleanup_(closep) int mfd = -EBADF;
         if (dn) {
                 /* If there's a directory component, readjust our position */
                 r = chaseat(dir_fd,
@@ -1694,7 +1694,7 @@ int write_data_file_atomic_at(
         }
 
         _cleanup_free_ char *t = NULL;
-        _cleanup_close_ int fd = open_tmpfile_linkable_at(dir_fd, fn, O_WRONLY|O_CLOEXEC, &t);
+        _cleanup_(closep) int fd = open_tmpfile_linkable_at(dir_fd, fn, O_WRONLY|O_CLOEXEC, &t);
         if (fd < 0)
                 return fd;
 

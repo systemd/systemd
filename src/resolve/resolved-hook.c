@@ -384,7 +384,7 @@ static int manager_hook_discover(Manager *m) {
          * in (and where root ownership hence makes sense). Hence we do not nest the directories, but put
          * them side by side, so that they can have different ownership. */
         static const char dp[] = "/run/systemd/resolve.hook";
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
         int r;
 
         assert(m);

@@ -204,7 +204,7 @@ static int apply_tmpfs_quota(
                 uint64_t limit,
                 uint32_t scale) {
 
-        _cleanup_set_free_ Set *processed = NULL;
+        _cleanup_(set_freep) Set *processed = NULL;
         int r;
 
         assert(uid_is_valid(uid));
@@ -215,7 +215,7 @@ static int apply_tmpfs_quota(
                         continue;
                 }
 
-                _cleanup_close_ int fd = open(*p, O_DIRECTORY|O_CLOEXEC);
+                _cleanup_(closep) int fd = open(*p, O_DIRECTORY|O_CLOEXEC);
                 if (fd < 0) {
                         log_warning_errno(errno, "Failed to open '%s' in order to set quota, ignoring: %m", *p);
                         continue;

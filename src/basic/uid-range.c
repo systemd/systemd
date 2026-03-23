@@ -233,7 +233,7 @@ bool uid_range_is_empty(const UIDRange *range) {
 
 int uid_range_load_userns_full(const char *path, UIDRangeUsernsMode mode, bool coalesce, UIDRange **ret) {
         _cleanup_(uid_range_freep) UIDRange *range = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r;
 
         /* If 'path' is NULL loads the UID range of the userns namespace we run. Otherwise load the data from
@@ -580,7 +580,7 @@ int uid_map_search_root(pid_t pid, UIDRangeUsernsMode mode, uid_t *ret) {
         assert(IN_SET(mode, UID_RANGE_USERNS_OUTSIDE, GID_RANGE_USERNS_OUTSIDE));
 
         const char *p = procfs_file_alloca(pid, mode == UID_RANGE_USERNS_OUTSIDE ? "uid_map" : "gid_map");
-        _cleanup_fclose_ FILE *f = fopen(p, "re");
+        _cleanup_(fclosep) FILE *f = fopen(p, "re");
         if (!f) {
                 if (errno != ENOENT)
                         return -errno;

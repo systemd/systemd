@@ -13,7 +13,7 @@
 #include "time-util.h"
 
 int main(int argc, char *argv[]) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         int r, n, i;
         usec_t duration = USEC_PER_SEC / 10;
 
@@ -59,7 +59,7 @@ int main(int argc, char *argv[]) {
                   "STOPPING=1");
         usleep_safe(duration);
 
-        _cleanup_close_ int fd = eventfd(0, EFD_CLOEXEC);
+        _cleanup_(closep) int fd = eventfd(0, EFD_CLOEXEC);
         ASSERT_OK_ERRNO(fd);
 
         r = sd_pidfd_get_inode_id(fd, NULL);
