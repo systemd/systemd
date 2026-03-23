@@ -646,8 +646,10 @@ static int dnssec_rrset_verify_sig(
                 if (!ctx)
                         return -ENOMEM;
 
+                /* If the signature algorithm is supported by systemd-resolved but disabled by host policy,
+                 * also return -EOPNOTSUPP. */
                 if (EVP_DigestInit_ex(ctx, md_algorithm, NULL) <= 0)
-                        return -EIO;
+                        return -EOPNOTSUPP;
 
                 if (EVP_DigestUpdate(ctx, sig_data, sig_size) <= 0)
                         return -EIO;
@@ -912,15 +914,20 @@ int dnssec_verify_rrset_search(
                 DNS_ANSWER_FOREACH_FLAGS(dnskey, flags, validated_dnskeys) {
                         DnssecResult one_result;
 
-                        if ((flags & DNS_ANSWER_AUTHENTICATED) == 0)
-                                continue;
-
                         /* Is this a DNSKEY RR that matches they key of our RRSIG? */
                         r = dnssec_rrsig_match_dnskey(rrsig, dnskey, false);
                         if (r < 0)
                                 return r;
                         if (r == 0)
                                 continue;
+
+                        if ((flags & DNS_ANSWER_AUTHENTICATED) == 0) {
+                                /* An unauthenticated DNSKEY in validated_dnskeys is a key we are not able to
+                                 * authenticate, but might still be valid. Record this as an unsupported
+                                 * algorithm so we can still at least report an insecure answer. */
+                                found_unsupported_algorithm = true;
+                                continue;
+                        }
 
                         /* Take the time here, if it isn't set yet, so
                          * that we do all validations with the same
@@ -1092,8 +1099,10 @@ int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds,
         if (!ctx)
                 return -ENOMEM;
 
+        /* If the digest is supported by systemd-resolved but disabled by host policy, also return -EOPNOTSUPP
+         */
         if (EVP_DigestInit_ex(ctx, md_algorithm, NULL) <= 0)
-                return -EIO;
+                return -EOPNOTSUPP;
 
         if (EVP_DigestUpdate(ctx, wire_format, encoded_length) <= 0)
                 return -EIO;
@@ -1121,6 +1130,7 @@ int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds,
 int dnssec_verify_dnskey_by_ds_search(DnsResourceRecord *dnskey, DnsAnswer *validated_ds) {
         DnsResourceRecord *ds;
         DnsAnswerFlags flags;
+        bool found_unsupported_algorithm = false;
         int r;
 
         assert(dnskey);
@@ -1145,13 +1155,20 @@ int dnssec_verify_dnskey_by_ds_search(DnsResourceRecord *dnskey, DnsAnswer *vali
                         continue;
 
                 r = dnssec_verify_dnskey_by_ds(dnskey, ds, false);
-                if (IN_SET(r, -EKEYREJECTED, -EOPNOTSUPP))
-                        continue; /* The DNSKEY is revoked or otherwise invalid, or we don't support the digest algorithm */
+                if (r == -EKEYREJECTED)
+                        continue; /* The DNSKEY is revoked or otherwise invalid. */
+                if (r == -EOPNOTSUPP) {
+                        found_unsupported_algorithm = true;
+                        continue;
+                }
                 if (r < 0)
                         return r;
                 if (r > 0)
                         return 1;
         }
+
+        if (found_unsupported_algorithm)
+                return -EOPNOTSUPP;
 
         return 0;
 }
@@ -1201,7 +1218,7 @@ int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret) {
                 return -ENOMEM;
 
         if (EVP_DigestInit_ex(ctx, algorithm, NULL) <= 0)
-                return -EIO;
+                return -EOPNOTSUPP;
 
         r = dns_name_to_wire_format(name, wire_format, sizeof(wire_format), true);
         if (r < 0)
@@ -1218,7 +1235,7 @@ int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret) {
 
         for (unsigned k = 0; k < nsec3->nsec3.iterations; k++) {
                 if (EVP_DigestInit_ex(ctx, algorithm, NULL) <= 0)
-                        return -EIO;
+                        return -EOPNOTSUPP;
                 if (EVP_DigestUpdate(ctx, result, hash_size) <= 0)
                         return -EIO;
                 if (EVP_DigestUpdate(ctx, nsec3->nsec3.salt, nsec3->nsec3.salt_size) <= 0)
