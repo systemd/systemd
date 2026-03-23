@@ -12,7 +12,7 @@
 #include <sys/shm.h>
 #include <sys/stat.h>
 
-#ifdef ARCH_MIPS
+#ifdef __mips__
 #include <asm/sgidefs.h>
 #endif
 

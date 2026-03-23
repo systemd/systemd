@@ -119,6 +119,7 @@ static int userns_owns_mount(struct user_namespace *userns, struct vfsmount *v) 
 static int validate_mount(struct vfsmount *v, int ret) {
         struct user_namespace *task_userns;
         unsigned task_userns_inode;
+        const struct cred *cred;
         struct task_struct *task;
         void *mnt_id_map;
         struct mount *m;
@@ -129,7 +130,10 @@ static int validate_mount(struct vfsmount *v, int ret) {
 
         /* Get user namespace from task */
         task = (struct task_struct*) bpf_get_current_task_btf();
-        task_userns = task->cred->user_ns;
+        cred = task->cred;
+        if (!cred)
+                return -EPERM;
+        task_userns = cred->user_ns;
 
         /* fsuid/fsgid are the UID/GID in the initial user namespace, before any idmapped mounts have been
          * applied. There is no way (yet) to figure out what the UID/GID that will be written to disk will be
@@ -138,7 +142,7 @@ static int validate_mount(struct vfsmount *v, int ret) {
          * translate the transient UID range to something else. For other UIDs/GIDs, there's no need to do
          * these checks as we don't insist on idmapped mounts or such for UIDs/GIDs outside the transient
          * ranges. */
-        if (!uid_is_transient(task->cred->fsuid.val) && !uid_is_transient((uid_t) task->cred->fsgid.val))
+        if (!uid_is_transient(cred->fsuid.val) && !uid_is_transient((uid_t) cred->fsgid.val))
                 return 0;
 
         r = userns_owns_mount(task_userns, v);
@@ -170,6 +174,7 @@ SEC("lsm/path_chown")
 int BPF_PROG(userns_restrict_path_chown, struct path *path, unsigned long long uid, unsigned long long gid, int ret) {
         struct user_namespace *task_userns;
         unsigned task_userns_inode;
+        const struct cred *cred;
         struct task_struct *task;
         struct vfsmount *v;
         void *mnt_id_map;
@@ -180,7 +185,10 @@ int BPF_PROG(userns_restrict_path_chown, struct path *path, unsigned long long u
 
         /* Get user namespace from task */
         task = (struct task_struct*) bpf_get_current_task_btf();
-        task_userns = task->cred->user_ns;
+        cred = task->cred;
+        if (!cred)
+                return -EPERM;
+        task_userns = cred->user_ns;
         v = path->mnt;
 
         r = userns_owns_mount(task_userns, v);

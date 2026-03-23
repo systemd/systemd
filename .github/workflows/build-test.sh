@@ -12,7 +12,7 @@ success() { echo >&2 -e "\033[32;1m$1\033[0m"; }
 ARGS=(
     "--optimization=0 -Dopenssl=disabled -Dtpm=true -Dtpm2=enabled"
     "--optimization=s -Dutmp=false -Dc_args='-DOPENSSL_NO_UI_CONSOLE=1'"
-    "--optimization=2 -Dc_args=-Wmaybe-uninitialized -Ddns-over-tls=openssl"
+    "--optimization=2 -Ddns-over-tls=openssl"
     "--optimization=3 -Db_lto=true -Ddns-over-tls=false"
     "--optimization=3 -Db_lto=false -Dtpm2=disabled -Dlibfido2=disabled -Dp11kit=disabled -Defi=false -Dbootloader=disabled"
     "--optimization=3 -Dfexecve=true -Dstandalone-binaries=true -Dstatic-libsystemd=true -Dstatic-libudev=true"
@@ -108,6 +108,11 @@ elif [[ "$COMPILER" == gcc ]]; then
     CFLAGS=""
     CXXFLAGS=""
 
+    # -Wmaybe-uninitialized works badly in old gcc versions
+    if [[ "$COMPILER_VERSION" -lt 14 ]]; then
+        CFLAGS="$CFLAGS -Wno-maybe-uninitialized"
+    fi
+
     if ! apt-get -y install --dry-run "gcc-$COMPILER_VERSION" >/dev/null; then
         # Latest gcc stack deb packages provided by
         # https://launchpad.net/~ubuntu-toolchain-r/+archive/ubuntu/test
@@ -161,11 +166,6 @@ ninja --version
 
 for args in "${ARGS[@]}"; do
     SECONDS=0
-
-    if [[ "$COMPILER" == clang && "$args" =~ Wmaybe-uninitialized ]]; then
-        # -Wmaybe-uninitialized is not implemented in clang
-        continue
-    fi
 
     info "Checking build with $args"
     # shellcheck disable=SC2086
