@@ -6,6 +6,7 @@
 #include "alloc-util.h"
 #include "errno-util.h"
 #include "event-future.h"
+#include "event-util.h"
 #include "fd-util.h"
 
 typedef struct IoFuture {
@@ -233,4 +234,75 @@ int future_new_time(sd_event *e, clockid_t clock, uint64_t usec, uint64_t accura
 
 int future_new_time_relative(sd_event *e, clockid_t clock, uint64_t usec, uint64_t accuracy, int result, sd_future **ret) {
         return future_new_time_internal(sd_event_add_time_relative, e, clock, usec, accuracy, result, ret);
+}
+
+int event_run_suspend(sd_event *e, uint64_t timeout) {
+        sd_event *outer = sd_fiber_get_event();
+        int r;
+
+        assert(e);
+        assert(sd_fiber_is_running());
+        assert(outer);
+        assert(e != outer);
+
+        /* Make sure that none of the preparation callbacks ends up freeing the event source under our feet */
+        PROTECT_EVENT(e);
+
+        r = sd_event_prepare(e);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                r = sd_event_wait(e, 0);
+                if (r < 0)
+                        return r;
+        }
+        if (r > 0) {
+                r = sd_event_dispatch(e);
+                if (r < 0)
+                        return r;
+
+                return 1;
+        }
+
+        if (timeout == 0)
+                return 0;
+
+        int fd = sd_event_get_fd(e);
+        if (fd < 0)
+                return fd;
+
+        _cleanup_(sd_future_cancel_wait_unrefp) sd_future *io = NULL;
+        r = future_new_io(outer, fd, EPOLLIN, &io);
+        if (r < 0)
+                return r;
+
+        _cleanup_(sd_future_cancel_wait_unrefp) sd_future *timer = NULL;
+        if (timeout != USEC_INFINITY) {
+                r = future_new_time_relative(
+                                outer,
+                                CLOCK_MONOTONIC,
+                                timeout,
+                                /* accuracy= */ 1,
+                                /* result= */ 0,
+                                &timer);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_fiber_suspend();
+        if (r < 0)
+                return r;
+
+        r = sd_event_prepare(e);
+        if (r == 0)
+                r = sd_event_wait(e, 0);
+        if (r > 0) {
+                r = sd_event_dispatch(e);
+                if (r < 0)
+                        return r;
+
+                return 1;
+        }
+
+        return r;
 }
