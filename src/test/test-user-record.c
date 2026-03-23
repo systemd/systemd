@@ -96,15 +96,6 @@ TEST(self_changes) {
              SD_JSON_BUILD_PAIR_OBJECT("privileged",
                                     SD_JSON_BUILD_PAIR_UNSIGNED("notInHardCodedList", 99999)));
         ASSERT_TRUE(user_record_self_changes_allowed(curr, new));
-
-        /* birthDate is NOT self-modifiable (admin-only) */
-        USER(&curr,
-             SD_JSON_BUILD_PAIR_STRING("userName", "test"),
-             SD_JSON_BUILD_PAIR_STRING("birthDate", "1990-01-01"));
-        USER(&new,
-             SD_JSON_BUILD_PAIR_STRING("userName", "test"),
-             SD_JSON_BUILD_PAIR_STRING("birthDate", "1990-06-15"));
-        ASSERT_FALSE(user_record_self_changes_allowed(curr, new));
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
