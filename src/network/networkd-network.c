@@ -786,7 +786,7 @@ static Network *network_free(Network *network) {
         free(network->dhcp_label);
         set_free(network->dhcp_deny_listed_ip);
         set_free(network->dhcp_allow_listed_ip);
-        strv_free(network->dhcp_user_class);
+        iovw_done_free(&network->dhcp_user_class);
         set_free(network->dhcp_request_options);
         tlv_done(&network->dhcp_extra_options);
         tlv_done(&network->dhcp_vendor_options);
