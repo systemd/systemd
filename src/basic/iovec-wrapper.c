@@ -144,6 +144,38 @@ int iovw_extend_iov(struct iovec_wrapper *iovw, const struct iovec *iov) {
         return iovw_extend(iovw, iov->iov_base, iov->iov_len);
 }
 
+int iovw_extend_iovw(struct iovec_wrapper *iovw, const struct iovec_wrapper *source) {
+        size_t original_count;
+        int r;
+
+        assert(iovw);
+
+        /* This duplicates the source and merges it into the iovw. */
+
+        if (iovw_isempty(source))
+                return 0;
+
+        if (iovw->count + source->count > IOV_MAX)
+                return -E2BIG;
+
+        original_count = iovw->count;
+
+        FOREACH_ARRAY(iovec, source->iovec, source->count) {
+                r = iovw_extend_iov(iovw, iovec);
+                if (r < 0)
+                        goto rollback;
+        }
+
+        return 0;
+
+rollback:
+        for (size_t i = original_count; i < iovw->count; i++)
+                iovec_done(iovw->iovec + i);
+
+        iovw->count = original_count;
+        return r;
+}
+
 int iovw_put_string_field_full(struct iovec_wrapper *iovw, bool replace, const char *field, const char *value) {
         _cleanup_free_ char *x = NULL;
         int r;
@@ -205,35 +237,6 @@ size_t iovw_size(const struct iovec_wrapper *iovw) {
                 return 0;
 
         return iovec_total_size(iovw->iovec, iovw->count);
-}
-
-int iovw_append(struct iovec_wrapper *target, const struct iovec_wrapper *source) {
-        size_t original_count;
-        int r;
-
-        assert(target);
-
-        /* This duplicates the source and merges it into the target. */
-
-        if (iovw_isempty(source))
-                return 0;
-
-        original_count = target->count;
-
-        FOREACH_ARRAY(iovec, source->iovec, source->count) {
-                r = iovw_extend_iov(target, iovec);
-                if (r < 0)
-                        goto rollback;
-        }
-
-        return 0;
-
-rollback:
-        for (size_t i = original_count; i < target->count; i++)
-                iovec_done(target->iovec + i);
-
-        target->count = original_count;
-        return r;
 }
 
 int iovw_concat(const struct iovec_wrapper *iovw, struct iovec *ret) {
