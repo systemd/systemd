@@ -25,6 +25,7 @@ typedef struct Manager {
         DnssecMode dnssec_mode;
         DnsOverTlsMode dns_over_tls_mode;
         DnsCacheMode enable_cache;
+        unsigned cache_size;
         bool cache_from_localhost;
         DnsStubListenerMode dns_stub_listener_mode;
         usec_t stale_retention_usec;

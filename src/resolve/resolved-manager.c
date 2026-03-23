@@ -639,6 +639,7 @@ static void manager_set_defaults(Manager *m) {
         m->read_etc_hosts = true;
         m->resolve_unicast_single_label = false;
         m->cache_from_localhost = false;
+        m->cache_size = 4096;
         m->stale_retention_usec = 0;
         m->refuse_record_types = set_free(m->refuse_record_types);
         m->resolv_conf_stat = (struct stat) {};

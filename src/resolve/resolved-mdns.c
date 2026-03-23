@@ -499,7 +499,8 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
                                 /* nsec_ttl= */ UINT32_MAX,
                                 p->family,
                                 &p->sender,
-                                scope->manager->stale_retention_usec);
+                                scope->manager->stale_retention_usec,
+                                scope->manager->cache_size);
 
                 for (bool match = true; match;) {
                         match = false;

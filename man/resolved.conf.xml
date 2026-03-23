@@ -302,6 +302,24 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>CacheSize=</varname></term>
+        <listitem><para>Takes an unsigned integer. Configures the maximum number of DNS resource record
+        entries that may be stored in each per-scope cache. Defaults to 4096. This setting is only read when
+        <varname>Cache=</varname> is set to <literal>yes</literal> or <literal>no-negative</literal>.
+        If <varname>Cache=no</varname>, caching is fully disabled regardless of this value.</para>
+
+        <para>This limit applies independently to each DNS scope (unicast, LLMNR, mDNS). Increasing this
+        value may improve cache hit rates on busy resolvers at the cost of increased memory usage. Decreasing
+        it may be useful in memory-constrained environments.</para>
+
+        <para>Note that caching is turned off by default for host-local DNS servers.
+        See <varname>CacheFromLocalhost=</varname> for details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v260"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>DNSStubListener=</varname></term>
         <listitem><para>Takes a boolean argument or one of <literal>udp</literal> and
         <literal>tcp</literal>. If <literal>udp</literal>, a DNS stub resolver will listen for UDP requests
