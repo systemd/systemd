@@ -27,6 +27,7 @@ typedef enum ConsoleMode {
         CONSOLE_READ_ONLY,      /* ptyfwd, but in read-only mode */
         CONSOLE_NATIVE,         /* qemu's native TTY handling */
         CONSOLE_GUI,            /* qemu's graphical UI */
+        CONSOLE_HEADLESS,       /* no console */
         _CONSOLE_MODE_MAX,
         _CONSOLE_MODE_INVALID = -EINVAL,
 } ConsoleMode;

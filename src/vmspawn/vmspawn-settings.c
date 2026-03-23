@@ -24,6 +24,7 @@ static const char *const console_mode_table[_CONSOLE_MODE_MAX] = {
         [CONSOLE_READ_ONLY]   = "read-only",
         [CONSOLE_NATIVE]      = "native",
         [CONSOLE_GUI]         = "gui",
+        [CONSOLE_HEADLESS]    = "headless",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(console_mode, ConsoleMode);

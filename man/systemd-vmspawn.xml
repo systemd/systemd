@@ -641,11 +641,13 @@
 
           <listitem><para>Configures how to set up the console of the VM. Takes one of
           <literal>interactive</literal>, <literal>read-only</literal>, <literal>native</literal>,
-          <literal>gui</literal>. Defaults to <literal>interactive</literal>. <literal>interactive</literal>
-          provides an interactive terminal interface to the VM. <literal>read-only</literal> is similar, but
-          is strictly read-only, i.e. does not accept any input from the user. <literal>native</literal> also
-          provides a TTY-based interface, but uses qemu native implementation (which means the qemu monitor
-          is available). <literal>gui</literal> shows the qemu graphical UI.</para>
+          <literal>gui</literal>, <literal>headless</literal>. Defaults to <literal>interactive</literal>.
+          <literal>interactive</literal> provides an interactive terminal interface to the VM.
+          <literal>read-only</literal> is similar, but is strictly read-only, i.e. does not accept any input
+          from the user. <literal>native</literal> also provides a TTY-based interface, but uses qemu native
+          implementation (which means the qemu monitor is available). <literal>gui</literal> shows the qemu
+          graphical UI. <literal>headless</literal> runs the VM without any console, which is useful for
+          automated or scripted usage.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/></listitem>
         </varlistentry>
