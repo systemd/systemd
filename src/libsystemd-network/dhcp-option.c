@@ -12,7 +12,6 @@
 #include "hostname-util.h"
 #include "memory-util.h"
 #include "string-util.h"
-#include "strv.h"
 #include "utf8.h"
 
 /* Append type-length value structure to the options buffer */
@@ -57,43 +56,6 @@ static int option_append(uint8_t options[], size_t size, size_t *offset,
                 *offset += 1;
                 break;
 
-        case SD_DHCP_OPTION_USER_CLASS: {
-                /* When called with raw data (optlen > 0), e.g. from SendOption=, append as a plain TLV.
-                 * The structured handling below expects optval to be a strv. */
-                if (optlen > 0)
-                        return dhcp_option_append_tlv(options, size, offset, code, optlen, optval);
-
-                size_t total = 0;
-
-                if (strv_isempty((char **) optval))
-                        return -EINVAL;
-
-                STRV_FOREACH(s, (const char* const*) optval) {
-                        size_t len = strlen(*s);
-
-                        if (len > 255 || len == 0)
-                                return -EINVAL;
-
-                        total += 1 + len;
-                }
-
-                if (*offset + 2 + total > size)
-                        return -ENOBUFS;
-
-                options[*offset] = code;
-                options[*offset + 1] = total;
-                *offset += 2;
-
-                STRV_FOREACH(s, (const char* const*) optval) {
-                        size_t len = strlen(*s);
-
-                        options[*offset] = len;
-                        memcpy(&options[*offset + 1], *s, len);
-                        *offset += 1 + len;
-                }
-
-                break;
-        }
         case SD_DHCP_OPTION_SIP_SERVER:
                 if (*offset + 3 + optlen > size)
                         return -ENOBUFS;
