@@ -5,6 +5,7 @@
 
 #include "dhcp-client-id-internal.h"
 #include "ether-addr-util.h"
+#include "iovec-wrapper.h"
 #include "network-common.h"
 #include "sd-forward.h"
 #include "socket-util.h"
@@ -55,7 +56,7 @@ struct sd_dhcp_client {
         char *hostname;
         char *vendor_class_identifier;
         char *mudurl;
-        char **user_class;
+        struct iovec_wrapper user_class;
         uint32_t mtu;
         usec_t fallback_lease_lifetime;
         uint32_t xid;
@@ -93,6 +94,7 @@ int dhcp_client_get_state(sd_dhcp_client *client);
 
 int dhcp_client_set_extra_options(sd_dhcp_client *client, TLV *options);
 int dhcp_client_set_vendor_options(sd_dhcp_client *client, TLV *options);
+int dhcp_client_set_user_class(sd_dhcp_client *client, const struct iovec_wrapper *user_class);
 
 int client_receive_message_raw(
                 sd_event_source *s,
