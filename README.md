@@ -1,3 +1,5 @@
+# BOYCOTT THE FUCKING AGE VERIFICATION! KEEP GNU/LINUX FREE, SECURE AND PRIVATE! STAND UP AGAINST THE FUCKING DIGITAL AUTHORITARIANISM!
+
 ![Systemd](http://brand.systemd.io/assets/page-logo.png)
 
 System and Service Manager
