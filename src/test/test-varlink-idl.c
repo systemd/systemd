@@ -24,6 +24,7 @@
 #include "varlink-io.systemd.FactoryReset.h"
 #include "varlink-io.systemd.Hostname.h"
 #include "varlink-io.systemd.Import.h"
+#include "varlink-io.systemd.InstanceMetadata.h"
 #include "varlink-io.systemd.Journal.h"
 #include "varlink-io.systemd.JournalAccess.h"
 #include "varlink-io.systemd.Login.h"
@@ -190,6 +191,7 @@ TEST(parse_format) {
                 &vl_interface_io_systemd_FactoryReset,
                 &vl_interface_io_systemd_Hostname,
                 &vl_interface_io_systemd_Import,
+                &vl_interface_io_systemd_InstanceMetadata,
                 &vl_interface_io_systemd_Journal,
                 &vl_interface_io_systemd_JournalAccess,
                 &vl_interface_io_systemd_Login,
