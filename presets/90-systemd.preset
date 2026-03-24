@@ -48,6 +48,7 @@ enable reboot.target
 disable rescue.target
 
 disable proc-sys-fs-binfmt_misc.mount
+disable sys-kernel-debug.mount
 
 disable syslog.socket
 
