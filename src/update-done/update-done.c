@@ -1,16 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
 #include <sys/stat.h>
 
 #include "alloc-util.h"
+#include "build.h"
 #include "chase.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-table.h"
 #include "label-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "options.h"
 #include "parse-argument.h"
 #include "pretty-print.h"
 #include "string-util.h"
@@ -61,65 +63,56 @@ static int save_timestamp(const char *dir, struct timespec *ts) {
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *options = NULL;
         int r;
 
         r = terminal_urlify_man("systemd-update-done", "8", &link);
         if (r < 0)
                 return log_oom();
 
-        printf("%1$s [OPTIONS...]\n\n"
-               "%5$sMark /etc/ and /var/ as fully updated.%6$s\n"
-               "\n%3$sOptions:%4$s\n"
-               "  -h --help              Show this help\n"
-               "     --root=PATH         Operate on root directory PATH\n"
-               "\nSee the %2$s for details.\n",
-               program_invocation_short_name,
-               link,
-               ansi_underline(),
-               ansi_normal(),
-               ansi_highlight(),
-               ansi_normal());
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
 
+        printf("%s [OPTIONS...]\n"
+               "\n%sMark /etc/ and /var/ as fully updated.%s\n"
+               "\n%sOptions:%s\n",
+               program_invocation_short_name,
+               ansi_highlight(),
+               ansi_normal(),
+               ansi_underline(),
+               ansi_normal());
+        table_print(options, stdout);
+
+        printf("\nSee the %s for details.\n", link);
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_ROOT = 0x100,
-        };
-
-        static const struct option options[] = {
-                { "help",     no_argument,       NULL, 'h'          },
-                { "root",     required_argument, NULL, ARG_ROOT     },
-                {},
-        };
-
-        int r, c;
+        int r;
 
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
+        OptionParser state = {};
+        const char *arg;
 
+        FOREACH_OPTION(&state, c, argc, argv, &arg, /* on_error= */ return c)
                 switch (c) {
-
-                case 'h':
+                OPTION_COMMON_HELP:
                         return help();
 
-                case ARG_ROOT:
-                        r = parse_path_argument(optarg, /* suppress_root= */ true, &arg_root);
+                OPTION_COMMON_VERSION:
+                        return version();
+
+                OPTION_LONG("root", "PATH", "Operate on root directory PATH"):
+                        r = parse_path_argument(arg, /* suppress_root= */ true, &arg_root);
                         if (r < 0)
                                 return r;
                         break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
 
-        if (optind < argc)
+        if (option_parser_get_n_args(&state, argc, argv) > 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program takes no arguments.");
 
         return 1;
