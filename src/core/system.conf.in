@@ -40,6 +40,7 @@
 #CapabilityBoundingSet=
 #NoNewPrivileges=no
 #ProtectSystem=auto
+#TrustedExec=no
 #SystemCallArchitectures=
 #TimerSlackNSec=
 #StatusUnitFormat={{STATUS_UNIT_FORMAT_DEFAULT_STR}}
