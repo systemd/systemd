@@ -11,7 +11,9 @@
 #include "build.h"
 #include "bus-util.h"
 #include "chase.h"
+#include "copy.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
@@ -30,6 +32,7 @@
 #include "process-util.h"
 #include "recurse-dir.h"
 #include "runtime-scope.h"
+#include "socket-forward.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -52,6 +55,7 @@ static bool arg_quiet = false;
 static char **arg_graceful = NULL;
 static usec_t arg_timeout = 0;
 static bool arg_exec = false;
+static bool arg_upgrade = false;
 static PushFds arg_push_fds = {};
 static bool arg_ask_password = true;
 static bool arg_legend = true;
@@ -111,6 +115,8 @@ static int help(void) {
                "     --graceful=ERROR    Treat specified Varlink error as success\n"
                "     --timeout=SECS      Maximum time to wait for method call completion\n"
                "  -E                     Short for --more --timeout=infinity\n"
+               "     --upgrade           Request protocol upgrade (connection becomes raw\n"
+               "                         bidirectional pipe on stdin/stdout after reply)\n"
                "     --push-fd=FD        Pass the specified fd along with method call\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
@@ -139,6 +145,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_GRACEFUL,
                 ARG_TIMEOUT,
                 ARG_EXEC,
+                ARG_UPGRADE,
                 ARG_PUSH_FD,
                 ARG_NO_ASK_PASSWORD,
                 ARG_USER,
@@ -157,6 +164,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "graceful",        required_argument, NULL, ARG_GRACEFUL        },
                 { "timeout",         required_argument, NULL, ARG_TIMEOUT         },
                 { "exec",            no_argument,       NULL, ARG_EXEC            },
+                { "upgrade",         no_argument,       NULL, ARG_UPGRADE         },
                 { "push-fd",         required_argument, NULL, ARG_PUSH_FD         },
                 { "no-ask-password", no_argument,       NULL, ARG_NO_ASK_PASSWORD },
                 { "user",            no_argument,       NULL, ARG_USER            },
@@ -243,6 +251,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_EXEC:
                         arg_exec = true;
+                        break;
+
+                case ARG_UPGRADE:
+                        arg_upgrade = true;
                         break;
 
                 case ARG_PUSH_FD: {
@@ -634,11 +646,244 @@ static int reply_callback(
         return r;
 }
 
+static int upgrade_forward_done(SocketForward *sf, int error, void *userdata) {
+        sd_event *event = ASSERT_PTR(userdata);
+
+        return sd_event_exit(event, error < 0 ? error : 0);
+}
+
+_noreturn_ static void exec_with_listen_fds(char **exec_cmdline, int *fds, size_t n_fds) {
+        int r;
+
+        _cleanup_free_ char *j = strv_join(exec_cmdline, " ");
+        if (!j) {
+                log_oom();
+                _exit(EXIT_FAILURE);
+        }
+
+        log_close();
+        log_set_open_when_needed(true);
+
+        r = close_all_fds(fds, n_fds);
+        if (r < 0) {
+                log_error_errno(r, "Failed to close all remaining file descriptors: %m");
+                _exit(EXIT_FAILURE);
+        }
+
+        r = pack_fds(fds, n_fds);
+        if (r < 0) {
+                log_error_errno(r, "Failed to rearrange file descriptors: %m");
+                _exit(EXIT_FAILURE);
+        }
+
+        r = fd_cloexec_many(fds, n_fds, false);
+        if (r < 0) {
+                log_error_errno(r, "Failed to disable O_CLOEXEC for file descriptors: %m");
+                _exit(EXIT_FAILURE);
+        }
+
+        if (n_fds > 0) {
+                r = setenvf("LISTEN_FDS", /* overwrite= */ true, "%zu", n_fds);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to set $LISTEN_FDS environment variable: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                r = setenvf("LISTEN_PID", /* overwrite= */ true, PID_FMT, getpid_cached());
+                if (r < 0) {
+                        log_error_errno(r, "Failed to set $LISTEN_PID environment variable: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                uint64_t pidfdid;
+                if (pidfd_get_inode_id_self_cached(&pidfdid) >= 0) {
+                        r = setenvf("LISTEN_PIDFDID", /* overwrite= */ true, "%" PRIu64, pidfdid);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to set $LISTEN_PIDFDID environment variable: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+                }
+        } else {
+                (void) unsetenv("LISTEN_FDS");
+                (void) unsetenv("LISTEN_PID");
+                (void) unsetenv("LISTEN_PIDFDID");
+        }
+        (void) unsetenv("LISTEN_FDNAMES");
+
+        log_debug("Executing: %s", j);
+
+        execvp(exec_cmdline[0], exec_cmdline);
+        log_error_errno(errno, "Failed to execute '%s': %m", j);
+        _exit(EXIT_FAILURE);
+}
+
+static int varlink_call_and_upgrade(const char *url, const char *method, sd_json_variant *parameters, char **exec_cmdline) {
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_(socket_forward_freep) SocketForward *sf = NULL;
+        _cleanup_close_ int input_fd = -EBADF, output_fd = -EBADF;
+        int r;
+
+        r = varlink_connect_auto(&vl, url);
+        if (r < 0)
+                return r;
+
+        r = sd_varlink_call_and_upgrade(
+                        vl,
+                        method,
+                        parameters,
+                        /* ret_parameters= */ NULL,
+                        /* ret_error_id= */ NULL,
+                        &input_fd,
+                        &output_fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to upgrade connection via %s(): %m", method);
+
+        if (!strv_isempty(exec_cmdline)) {
+                /* --exec mode: place the upgraded connection on stdin/stdout so that the child
+                 * process can just read/write naturally. For bidirectional sockets we use the
+                 * same fd for both; for pipe pairs we set up stdin and stdout separately. */
+                (void) sd_notify(/* unset_environment= */ false, "READY=1");
+
+                log_close();
+                log_set_open_when_needed(true);
+
+                bool bidirectional = input_fd == output_fd;
+                int keep_fds[] = { TAKE_FD(input_fd), TAKE_FD(output_fd) };
+                size_t n_keep = bidirectional ? 1 : 2;
+
+                r = close_all_fds(keep_fds, n_keep);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to close remaining file descriptors: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                r = move_fd(keep_fds[0], STDIN_FILENO, /* cloexec= */ false);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to move upgraded connection to stdin: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                if (bidirectional) {
+                        if (dup2(STDIN_FILENO, STDOUT_FILENO) < 0) {
+                                log_error_errno(errno, "Failed to duplicate upgraded connection to stdout: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+                } else {
+                        r = move_fd(keep_fds[1], STDOUT_FILENO, /* cloexec= */ false);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to move upgraded connection to stdout: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+                }
+
+                /* We exec and never return here */
+                exec_with_listen_fds(exec_cmdline, /* fds= */ NULL, /* n_fds= */ 0);
+        }
+
+        /* No --exec: bidirectional proxy between stdin/stdout and the upgraded socket */
+
+        /* Use a clean event loop just for the forwarding to avoid any interference. */
+        r = sd_event_new(&event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate event loop: %m");
+
+        r = fd_nonblock(input_fd, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set upgraded input fd to non-blocking: %m");
+
+        if (input_fd != output_fd) {
+                r = fd_nonblock(output_fd, true);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set upgraded output fd to non-blocking: %m");
+        }
+
+        /* If stdin is a regular file (e.g. `< payload.json`), epoll will reject it with EPERM.
+         * Work around this by forking a child that streams the file into a pipe. The read end
+         * of the pipe is pollable and gets passed to the socket forwarder, giving us true
+         * bidirectional streaming even for multi-gigabyte files. */
+        _cleanup_close_ int stdin_fd = -EBADF;
+        struct stat st;
+
+        if (fstat(STDIN_FILENO, &st) < 0)
+                return log_error_errno(errno, "Failed to stat stdin: %m");
+
+        if (S_ISREG(st.st_mode)) {
+                _cleanup_close_pair_ int pipefd[2] = EBADF_PAIR;
+
+                r = pipe2(pipefd, O_CLOEXEC);
+                if (r < 0)
+                        return log_error_errno(errno, "Failed to create pipe: %m");
+
+                r = pidref_safe_fork_full(
+                                "(stdin-copy)",
+                                /* stdio_fds= */ NULL,
+                                (int[]) { STDIN_FILENO, pipefd[1] }, 2,
+                                FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG,
+                                /* ret_pid= */ NULL);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        /* Child: stream stdin into the pipe write end, then exit.
+                         * Closing the write end signals EOF to the parent's forwarder. */
+                        r = copy_bytes(STDIN_FILENO, pipefd[1], UINT64_MAX, /* copy_flags= */ 0);
+
+                        pipefd[1] = safe_close(pipefd[1]);
+                        _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
+                }
+
+                /* Parent: use the pipe read end as stdin */
+                pipefd[1] = safe_close(pipefd[1]);
+
+                stdin_fd = TAKE_FD(pipefd[0]);
+        } else {
+                stdin_fd = fcntl(STDIN_FILENO, F_DUPFD_CLOEXEC, 3);
+                if (stdin_fd < 0)
+                        return log_error_errno(errno, "Failed to dup stdin: %m");
+        }
+
+        r = fd_nonblock(stdin_fd, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set stdin to non-blocking: %m");
+
+        r = fd_nonblock(STDOUT_FILENO, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set stdout to non-blocking: %m");
+
+        _cleanup_close_ int stdout_fd = fcntl(STDOUT_FILENO, F_DUPFD_CLOEXEC, 3);
+        if (stdout_fd < 0)
+                return log_error_errno(errno, "Failed to dup stdout: %m");
+
+        /* socket_forward_new_pair() requires 4 distinct fds. For regular varlink sockets
+         * input_fd == output_fd (bidirectional), so we dup to get separate read/write fds.
+         * For ssh-exec transports they are already distinct (stdin/stdout pipe pair). */
+        if (input_fd == output_fd) {
+                output_fd = fcntl(input_fd, F_DUPFD_CLOEXEC, 3);
+                if (output_fd < 0)
+                        return log_error_errno(errno, "Failed to dup upgraded connection fd: %m");
+        }
+
+        r = socket_forward_new_pair(
+                        event,
+                        TAKE_FD(stdin_fd), TAKE_FD(stdout_fd),
+                        TAKE_FD(input_fd), TAKE_FD(output_fd),
+                        upgrade_forward_done, event,
+                        &sf);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set up socket forwarding: %m");
+
+        r = sd_event_loop(event);
+        if (r < 0)
+                return log_error_errno(r, "Event loop failed: %m");
+
+        return 0;
+}
+
 static int verb_call(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *jp = NULL;
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         const char *url, *method, *parameter, *source;
-        char **cmdline;
+        char **exec_cmdline;
         int r;
 
         assert(argc >= 3);
@@ -651,12 +896,31 @@ static int verb_call(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (arg_exec && (arg_collect || (arg_method_flags & (SD_VARLINK_METHOD_ONEWAY|SD_VARLINK_METHOD_MORE))) != 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--exec and --collect/--more/--oneway may not be combined.");
 
+        if (arg_upgrade) {
+                if (arg_collect || arg_method_flags != 0 || arg_push_fds.n_fds > 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--upgrade may not be combined with --collect/--more/--oneway/--push-fd.");
+        }
+
         (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
         url = argv[1];
         method = argv[2];
         parameter = argc > 3 && !streq(argv[3], "-") ? argv[3] : NULL;
-        cmdline = strv_skip(argv, 4);
+        exec_cmdline = strv_skip(argv, 4);
+
+        if (!varlink_idl_qualified_symbol_name_is_valid(method))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a valid qualified method name: '%s' (Expected valid Varlink interface name, followed by a dot, followed by a valid Varlink symbol name.)", method);
+
+        if (arg_upgrade) {
+                /* For --upgrade, parse parameters from argv only (stdin is used for the upgraded connection) */
+                if (parameter) {
+                        r = sd_json_parse(parameter, /* flags= */ 0, &jp, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse parameters: %m");
+                }
+
+                return varlink_call_and_upgrade(url, method, jp, exec_cmdline);
+        }
 
         /* No JSON mode explicitly configured? Then default to the same as -j (except if --exec is used, in
          * which case generate shortest possible JSON since we are going to pass it to a program rather than
@@ -673,9 +937,6 @@ static int verb_call(int argc, char *argv[], uintptr_t _data, void *userdata) {
         /* For pipeable text tools it's kinda customary to finish output off in a newline character, and not
          * leave incomplete lines hanging around. */
         arg_json_format_flags |= SD_JSON_FORMAT_NEWLINE;
-
-        if (!varlink_idl_qualified_symbol_name_is_valid(method))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a valid qualified method name: '%s' (Expected valid Varlink interface name, followed by a dot, followed by a valid Varlink symbol name.)", method);
 
         unsigned line = 0, column = 0;
         if (parameter) {
@@ -842,10 +1103,6 @@ static int verb_call(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         if (mfd < 0)
                                 return log_error_errno(mfd, "Failed to allocate memfd for reply: %m");
 
-                        _cleanup_free_ char *j = strv_join(cmdline, " ");
-                        if (!j)
-                                return log_oom();
-
                         int *fd_array = NULL, n = 0;
                         size_t m = 0;
                         CLEANUP_ARRAY(fd_array, m, close_many_and_free);
@@ -872,66 +1129,13 @@ static int verb_call(int argc, char *argv[], uintptr_t _data, void *userdata) {
                          * lives in our process their fds. Hence we will now no longer bubble up any
                          * errors. */
 
-                        log_close();
-                        log_set_open_when_needed(true);
-
                         r = move_fd(mfd, STDIN_FILENO, /* cloexec= */ false);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to move reply to STDIN_FILENO: %m");
                                 _exit(EXIT_FAILURE);
                         }
 
-                        r = close_all_fds(fd_array, m);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to close all remaining file descriptors: %m");
-                                _exit(EXIT_FAILURE);
-                        }
-
-                        r = pack_fds(fd_array, m);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to rearrange file descriptors: %m");
-                                _exit(EXIT_FAILURE);
-                        }
-
-                        r = fd_cloexec_many(fd_array, m, false);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to disable O_CLOEXEC for file descriptors: %m");
-                                _exit(EXIT_FAILURE);
-                        }
-
-                        if (m > 0) {
-                                r = setenvf("LISTEN_FDS", /* overwrite= */ true, "%zu", m);
-                                if (r < 0) {
-                                        log_error_errno(r, "Failed to set $LISTEN_FDS environment variable: %m");
-                                        _exit(EXIT_FAILURE);
-                                }
-
-                                r = setenvf("LISTEN_PID", /* overwrite= */ true, PID_FMT, getpid_cached());
-                                if (r < 0) {
-                                        log_error_errno(r, "Failed to set $LISTEN_PID environment variable: %m");
-                                        _exit(EXIT_FAILURE);
-                                }
-
-                                uint64_t pidfdid;
-                                if (pidfd_get_inode_id_self_cached(&pidfdid) >= 0) {
-                                        r = setenvf("LISTEN_PIDFDID", /* overwrite= */ true, "%" PRIu64, pidfdid);
-                                        if (r < 0) {
-                                                log_error_errno(r, "Failed to set $LISTEN_PIDFDID environment variable: %m");
-                                                _exit(EXIT_FAILURE);
-                                        }
-                                }
-                        } else {
-                                (void) unsetenv("LISTEN_FDS");
-                                (void) unsetenv("LISTEN_PID");
-                                (void) unsetenv("LISTEN_PIDFDID");
-                        }
-                        (void) unsetenv("LISTEN_FDNAMES");
-
-                        log_debug("Executing: %s", j);
-
-                        execvp(cmdline[0], cmdline);
-                        log_error_errno(errno, "Failed to execute '%s': %m", j);
-                        _exit(EXIT_FAILURE);
+                        exec_with_listen_fds(exec_cmdline, fd_array, m);
                 }
 
                 if (arg_quiet)
