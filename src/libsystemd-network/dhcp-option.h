@@ -59,3 +59,6 @@ int dhcp_options_append_many(Hashmap **options, Hashmap *src);
 int dhcp_options_parse(Hashmap **options, const struct iovec *iov);
 size_t dhcp_options_size(Hashmap *options);
 int dhcp_options_build(Hashmap *options, struct iovec *ret);
+
+int dhcp_options_build_json(Hashmap *options, sd_json_variant **ret);
+int dhcp_options_parse_json(sd_json_variant *v, Hashmap **ret);
