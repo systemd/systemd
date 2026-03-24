@@ -68,8 +68,15 @@ int _verbs_get_help_table(const Verb verbs[], const Verb verbs_end[], Table **re
 #define verbs_get_help_table(ret) \
         _verbs_get_help_table(ALIGN_PTR(__start_SYSTEMD_VERBS), __stop_SYSTEMD_VERBS, ret)
 
-#define VERB_COMMON_HELP(impl)                                          \
-        VERB(verb_help, "help", NULL, VERB_ANY, VERB_ANY, 0, "Show this help"); \
+#define _VERB_COMMON_HELP_IMPL(impl)                                    \
         static int verb_help(int argc, char **argv, uintptr_t data, void *userdata) { \
                 return impl();                                          \
         }
+
+#define VERB_COMMON_HELP(impl)                                          \
+        VERB(verb_help, "help", NULL, VERB_ANY, VERB_ANY, 0, "Show this help"); \
+        _VERB_COMMON_HELP_IMPL(impl)
+
+#define VERB_COMMON_HELP_HIDDEN(impl)                                   \
+        VERB(verb_help, "help", NULL, VERB_ANY, VERB_ANY, 0, NULL);     \
+        _VERB_COMMON_HELP_IMPL(impl)
