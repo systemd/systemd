@@ -53,6 +53,10 @@ typedef struct Option {
         OPTION_LONG("no-pager", NULL, "Do not start a pager")
 #define OPTION_COMMON_NO_LEGEND \
         OPTION_LONG("no-legend", NULL, "Do not show headers and footers")
+#define OPTION_COMMON_CAT_CONFIG \
+        OPTION_LONG("cat-config", NULL, "Show configuration files")
+#define OPTION_COMMON_TLDR \
+        OPTION_LONG("tldr", NULL, "Show non-comment parts of configuration")
 #define OPTION_COMMON_JSON \
         OPTION_LONG("json", "FORMAT", "Generate JSON output (pretty, short, or off)")
 
