@@ -2215,6 +2215,12 @@ int dns_resource_key_from_json(sd_json_variant *v, DnsResourceKey **ret) {
         if (r < 0)
                 return r;
 
+        r = dns_name_is_valid(p.name);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EBADMSG;
+
         key = dns_resource_key_new(p.class, p.type, p.name);
         if (!key)
                 return -ENOMEM;
@@ -2302,7 +2308,6 @@ int dns_resource_record_to_json(DnsResourceRecord *rr, sd_json_variant **ret) {
         int r;
 
         assert(rr);
-        assert(ret);
 
         r = dns_resource_key_to_json(rr->key, &k);
         if (r < 0)
@@ -2508,9 +2513,101 @@ int dns_resource_record_to_json(DnsResourceRecord *rr, sd_json_variant **ret) {
 
         default:
                 /* Can't provide broken-down format */
-                *ret = NULL;
+                if (ret)
+                        *ret = NULL;
                 return 0;
         }
+}
+
+int dns_resource_record_from_json(sd_json_variant *v, DnsResourceRecord **ret) {
+        int r;
+
+        assert(v);
+
+        sd_json_variant *k = sd_json_variant_by_key(v, "key");
+        if (!k)
+                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Resource record entry lacks key field, refusing.");
+
+        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        r = dns_resource_key_from_json(k, &key);
+        if (r < 0)
+                return r;
+
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        rr = dns_resource_record_new(key);
+        if (!rr)
+                return log_oom_debug();
+
+        /* Note, for now we only support the most common subset of RRs for decoding here. Please send patches for more. */
+        switch (key->type) {
+
+        case DNS_TYPE_PTR:
+        case DNS_TYPE_NS:
+        case DNS_TYPE_CNAME:
+        case DNS_TYPE_DNAME: {
+                _cleanup_free_ char *name = NULL;
+
+                static const struct sd_json_dispatch_field table[] = {
+                        { "name", SD_JSON_VARIANT_STRING, sd_json_dispatch_string, 0, SD_JSON_MANDATORY },
+                        { "key",  SD_JSON_VARIANT_OBJECT, NULL,                    0, SD_JSON_MANDATORY },
+                        {}
+                };
+
+                r = sd_json_dispatch(v, table, /* flags= */ 0, &name);
+                if (r < 0)
+                        return r;
+
+                r = dns_name_is_valid(name);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return -EBADMSG;
+
+                rr->ptr.name = TAKE_PTR(name);
+                break;
+        }
+
+        case DNS_TYPE_A: {
+                struct in_addr addr = {};
+
+                static const struct sd_json_dispatch_field table[] = {
+                        { "address", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_in_addr, 0, SD_JSON_MANDATORY },
+                        { "key",     SD_JSON_VARIANT_OBJECT,        NULL,                  0, SD_JSON_MANDATORY },
+                        {}
+                };
+
+                r = sd_json_dispatch(v, table, /* flags= */ 0, &addr);
+                if (r < 0)
+                        return r;
+
+                rr->a.in_addr = addr;
+                break;
+        }
+
+        case DNS_TYPE_AAAA: {
+                struct in6_addr addr = {};
+
+                static const struct sd_json_dispatch_field table[] = {
+                        { "address", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_in6_addr, 0, SD_JSON_MANDATORY },
+                        { "key",     SD_JSON_VARIANT_OBJECT,        NULL,                   0, SD_JSON_MANDATORY },
+                        {}
+                };
+
+                r = sd_json_dispatch(v, table, /* flags= */ 0, &addr);
+                if (r < 0)
+                        return r;
+
+                rr->aaaa.in6_addr = addr;
+                break;
+        }
+
+        default:
+                return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Decoding DNS type %s is currently not supported.", dns_type_to_string(key->type));
+        }
+
+        if (ret)
+                *ret = TAKE_PTR(rr);
+        return 0;
 }
 
 static const char* const dnssec_algorithm_table[_DNSSEC_ALGORITHM_MAX_DEFINED] = {
