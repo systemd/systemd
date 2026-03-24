@@ -13,6 +13,8 @@
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-util.h"
+#include "cgroup-setup.h"
+#include "cgroup.h"
 #include "chase.h"
 #include "dbus-service.h"
 #include "dbus-unit.h"
@@ -3174,8 +3176,18 @@ static int service_start(Unit *u) {
         exec_status_reset(&s->main_exec_status);
 
         CGroupRuntime *crt = unit_get_cgroup_runtime(u);
-        if (crt)
+        if (crt) {
+                /* For delegated units, the previous payload may have enabled controllers (e.g. "pids") in
+                 * cgroup.subtree_control. These persist after the service stops and turn the cgroup into an
+                 * "internal node", causing clone3(CLONE_INTO_CGROUP) to fail with EBUSY. Clear them now,
+                 * right before the new start, so that resource control is preserved for lingering processes
+                 * as long as possible. Ignore errors — if sub-cgroups still have live processes the write
+                 * will fail, but so will the upcoming spawn. */
+                if (crt->cgroup_path && unit_cgroup_delegate(u))
+                        (void) cg_enable(u->manager->cgroup_supported, /* mask= */ 0, crt->cgroup_path, /* ret_result_mask= */ NULL);
+
                 crt->reset_accounting = true;
+        }
 
         service_enter_condition(s);
         return 1;
