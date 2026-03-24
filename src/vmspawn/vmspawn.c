@@ -3043,9 +3043,9 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 #ifdef __x86_64__
                 arg_confidential_computing == COCO_SEV_SNP ? "EPYC-v4" :
                 arg_confidential_computing == COCO_TDX     ? "host"    :
-                                                             "max,hv_relaxed,hv-vapic,hv-time";
+                use_kvm ? "host,hv_relaxed,hv-vapic,hv-time" : "max";
 #else
-                "max";
+                use_kvm ? "host" : "max";
 #endif
         r = strv_extend_many(&cmdline, "-cpu", cpu_model);
         if (r < 0)
