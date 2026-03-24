@@ -10,6 +10,13 @@ static const char *const image_format_table[_IMAGE_FORMAT_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(image_format, ImageFormat);
 
+static const char *const disk_type_table[_DISK_TYPE_MAX] = {
+        [DISK_TYPE_VIRTIO_BLK]  = "virtio-blk",
+        [DISK_TYPE_VIRTIO_SCSI] = "virtio-scsi",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(disk_type, DiskType);
+
 void extra_drive_context_done(ExtraDriveContext *ctx) {
         assert(ctx);
 
