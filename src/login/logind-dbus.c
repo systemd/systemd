@@ -2310,6 +2310,13 @@ static int method_do_shutdown_or_sleep(
         if (r != 0)
                 return r;
 
+        {
+                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+
+                (void) bus_query_sender_pidref(message, &pidref);
+                log_shutdown_caller(&pidref, handle_action_to_string(a->handle));
+        }
+
         if (m->delayed_action)
                 return sd_bus_error_setf(error, BUS_ERROR_OPERATION_IN_PROGRESS,
                                          "Action %s already in progress, refusing requested %s operation.",

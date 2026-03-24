@@ -7,6 +7,8 @@
 
 int manager_have_multiple_sessions(Manager *m, uid_t uid);
 
+void log_shutdown_caller(const PidRef *caller, const char *method);
+
 /* manager_verify_shutdown_creds() takes *either* a "message" or "link" depending on if it is used
  * to validate a D-Bus or Varlink shutdown request. When varlink is used the sd_bus_error *error
  * must be NULL */
