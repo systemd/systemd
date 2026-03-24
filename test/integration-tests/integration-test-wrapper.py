@@ -586,6 +586,7 @@ def main() -> None:
         '--directory', os.fspath(args.mkosi_dir),
         '--machine', name,
         '--ephemeral=yes',
+        '--console=native',
         *(['--forward-journal', journal_file] if journal_file else []),
         *(
             [

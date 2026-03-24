@@ -2950,10 +2950,10 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
          * baseline that covers all SNP-capable processors (Milan and later). */
         const char *cpu_model =
 #ifdef __x86_64__
-                arg_confidential_computing == COCO_AMD_SEV_SNP ? "EPYC-v4"
-                                                             : "max,hv_relaxed,hv-vapic,hv-time";
+                arg_confidential_computing == COCO_AMD_SEV_SNP ? "EPYC-v4" :
+                use_kvm ? "host" : "max";
 #else
-                "max";
+                use_kvm ? "host" : "max";
 #endif
         r = strv_extend_many(&cmdline, "-cpu", cpu_model);
         if (r < 0)
