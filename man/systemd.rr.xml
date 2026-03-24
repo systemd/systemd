@@ -1,0 +1,95 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd.rr"
+          xmlns:xi="http://www.w3.org/2001/XInclude"
+          conditional='ENABLE_RESOLVE'>
+
+  <refentryinfo>
+    <title>systemd.rr</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd.rr</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd.rr</refname>
+    <refpurpose>Local static DNS resource record definitions</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><simplelist>
+      <member><filename>/etc/systemd/resolve/static.d/*.rr</filename></member>
+      <member><filename>/run/systemd/resolve/static.d/*.rr</filename></member>
+      <member><filename>/usr/local/lib/systemd/resolve/static.d/*.rr</filename></member>
+      <member><filename>/usr/lib/systemd/resolve/static.d/*.rr</filename></member>
+    </simplelist></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>*.rr</filename> files may be used to define resource record sets ("RRsets") that shall be
+    resolvable locally, similar in style to address records defined by <filename>/etc/hosts</filename> (see
+    <citerefentry><refentrytitle>hosts</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+    details). These files are read by
+    <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+    and are used to synthesize local responses to local queries matching the defined resource record set.</para>
+
+    <para>These drop-in files are in JSON format. Each file may either contain a single top-level DNS RR
+    object, or an array of one or more DNS RR objects. Each RR object has at least a <literal>key</literal>
+    subobject consisting of a <literal>name</literal> string field and a <literal>type</literal> integer
+    field (which contains the RR type in numeric form). Depending on the chosen type the RR object also has
+    the following fields:</para>
+
+    <itemizedlist>
+      <listitem><para>For A/AAAA RRs, the RR object should have an <literal>address</literal> field set to
+      either an IP address formatted as string, or an array consisting of 4 or 16 8-bit unsigned integers for
+      the IP address.</para></listitem>
+
+      <listitem><para>For PTR/NS/CNAME/DNAME RRs, the RR object should have a <literal>name</literal> field
+      set to the name the record shall point to.</para></listitem>
+    </itemizedlist>
+
+    <para>This JSON serialization of DNS RRs matches the one returned by <command>resolvectl</command>.</para>
+
+    <para>Currently no other RR types are supported.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+    <example>
+      <title>Simple A Record</title>
+      <para>To make local address lookups for <literal>foobar.example.com</literal> resolve to the
+      192.168.100.1 IPv4 address, create
+      <filename>/run/systemd/resolve/static.d/foobar_example_com.rr</filename>:
+
+      <programlisting>
+{
+        "key" : {
+                "type" : 1,
+                "name" : "foobar.example.com"
+        },
+        "address" : [ 192, 168, 100, 1 ]
+}</programlisting></para>
+
+    </example>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>resolved.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>hosts</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>resolvectl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>

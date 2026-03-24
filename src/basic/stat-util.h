@@ -122,9 +122,16 @@ int xstatfsat(int dir_fd, const char *path, struct statfs *ret);
 usec_t statx_timestamp_load(const struct statx_timestamp *ts) _pure_;
 nsec_t statx_timestamp_load_nsec(const struct statx_timestamp *ts) _pure_;
 
+/* This compares inode number, backing device and inode type, but not modification info */
 void inode_hash_func(const struct stat *q, struct siphash *state);
 int inode_compare_func(const struct stat *a, const struct stat *b);
 extern const struct hash_ops inode_hash_ops;
+
+/* This is a more thorough version of the above, and also checks the mtimes, the size, and the rdev. It does
+ * not check "external" attributes such as access mode or ownership. */
+void inode_unmodified_hash_func(const struct stat *q, struct siphash *state);
+int inode_unmodified_compare_func(const struct stat *a, const struct stat *b);
+extern const struct hash_ops inode_unmodified_hash_ops;
 
 DECLARE_STRING_TABLE_LOOKUP(inode_type, mode_t);
 
