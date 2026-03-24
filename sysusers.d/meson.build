@@ -15,7 +15,8 @@ in_files = [['basic.conf',            true],
             ['systemd-journal.conf',  true],
             ['systemd-network.conf',  conf.get('ENABLE_NETWORKD') == 1],
             ['systemd-resolve.conf',  conf.get('ENABLE_RESOLVE') == 1],
-            ['systemd-timesync.conf', conf.get('ENABLE_TIMESYNCD') == 1]]
+            ['systemd-timesync.conf', conf.get('ENABLE_TIMESYNCD') == 1],
+            ['systemd-imds.conf',     conf.get('ENABLE_IMDS') == 1]]
 
 foreach tuple : in_files
         file = tuple[0]
