@@ -21,6 +21,7 @@
 #include "audit-fd.h"
 #include "boot-timestamps.h"
 #include "bpf-restrict-fs.h"
+#include "bpf-trusted-exec.h"
 #include "build-path.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
@@ -1763,6 +1764,7 @@ Manager* manager_free(Manager *m) {
 
 #if BPF_FRAMEWORK
         bpf_restrict_fs_destroy(m->restrict_fs);
+        bpf_trusted_exec_destroy(m->trusted_exec);
 #endif
 
         safe_close(m->executor_fd);
@@ -2116,6 +2118,15 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds, const char *roo
                         /* Let's wait for the UnitNew/JobNew messages being sent, before we notify that the
                          * reload is finished */
                         m->send_reloading_done = true;
+        }
+
+        /* Set up TrustedExec= BPF LSM after deserialization (so we can detect deserialized link FDs)
+         * and before clearing switching_root (so we can close the initramfs trust window). This must
+         * run after set_manager_settings() has set m->trusted_exec_enabled. */
+        if (MANAGER_IS_SYSTEM(m) && m->trusted_exec_enabled) {
+                r = bpf_trusted_exec_setup(m);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to setup TrustedExec= BPF LSM: %m");
         }
 
         manager_ready(m);
