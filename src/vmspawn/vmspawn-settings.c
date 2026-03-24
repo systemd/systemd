@@ -13,6 +13,7 @@ DEFINE_STRING_TABLE_LOOKUP(image_format, ImageFormat);
 static const char *const disk_type_table[_DISK_TYPE_MAX] = {
         [DISK_TYPE_VIRTIO_BLK]  = "virtio-blk",
         [DISK_TYPE_VIRTIO_SCSI] = "virtio-scsi",
+        [DISK_TYPE_NVME]        = "nvme",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(disk_type, DiskType);

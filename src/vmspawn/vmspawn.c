@@ -209,7 +209,7 @@ static int help(void) {
                "  -i --image=FILE|DEVICE   Root file system disk image or device for the VM\n"
                "     --image-format=FORMAT Specify disk image format (raw, qcow2; default: raw)\n"
                "     --image-disk-type=TYPE\n"
-               "                           Specify disk type (virtio-blk, virtio-scsi)\n"
+               "                           Specify disk type (virtio-blk, virtio-scsi, nvme)\n"
                "\n%3$sHost Configuration:%4$s\n"
                "     --cpus=CPUS           Configure number of CPUs in guest\n"
                "     --ram=BYTES           Configure guest's RAM size\n"
@@ -251,8 +251,9 @@ static int help(void) {
                "     --bind-ro=SOURCE[:TARGET]\n"
                "                           Mount a file or directory, but read-only\n"
                "     --extra-drive=[FORMAT:][DISKTYPE:]PATH\n"
-               "                           Adds an additional disk to the virtual machine\n"
-               "                           (FORMAT: raw, qcow2; DISKTYPE: virtio-blk, virtio-scsi)\n"
+               "                           Adds an additional disk to the VM\n"
+               "                           FORMAT: raw, qcow2\n"
+               "                           DISKTYPE: virtio-blk, virtio-scsi, nvme\n"
                "     --bind-user=NAME       Bind user from host to virtual machine\n"
                "     --bind-user-shell=BOOL|PATH\n"
                "                            Configure the shell to use for --bind-user= users\n"
@@ -1994,7 +1995,7 @@ static int make_sidecar_path(const char *suffix, char **ret) {
         return 0;
 }
 
-/* Device serial numbers have length limits (e.g. 30 for SCSI).
+/* Device serial numbers have length limits (e.g. 20 for NVMe, 30 for SCSI).
  * If the filename fits, use it directly; otherwise hash it with SHA-256 and
  * take the first max_len hex characters. max_len must be even and <= 64.
  * The filename should already be QEMU-escaped (commas doubled) so that the
@@ -2596,6 +2597,15 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                 return log_oom();
                         break;
                 }
+                case DISK_TYPE_NVME: {
+                        _cleanup_free_ char *serial = NULL;
+                        r = disk_serial(escaped_image_fn, 20, &serial);
+                        if (r < 0)
+                                return log_oom();
+                        if (strv_extendf(&cmdline, "nvme,drive=vmspawn,bootindex=1,serial=%s", serial) < 0)
+                                return log_oom();
+                        break;
+                }
                 default:
                         assert_not_reached();
                 }
@@ -2737,6 +2747,15 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         if (r < 0)
                                 return log_oom();
                         if (strv_extendf(&cmdline, "scsi-hd,bus=vmspawn_scsi.0,drive=vmspawn_extra_%zu,serial=%s", i++, serial) < 0)
+                                return log_oom();
+                        break;
+                }
+                case DISK_TYPE_NVME: {
+                        _cleanup_free_ char *serial = NULL;
+                        r = disk_serial(escaped_drive_fn, 20, &serial);
+                        if (r < 0)
+                                return log_oom();
+                        if (strv_extendf(&cmdline, "nvme,drive=vmspawn_extra_%zu,serial=%s", i++, serial) < 0)
                                 return log_oom();
                         break;
                 }
