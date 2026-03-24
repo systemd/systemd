@@ -275,12 +275,20 @@
         <listitem><para>When used with <command>call</command>: request a protocol upgrade. The method call
         is sent with the <constant>upgrade</constant> flag set. The service is expected to send a single
         reply confirming the upgrade. After the reply, the Varlink protocol is no longer in effect on
-        the connection. Instead, <command>varlinkctl</command> acts as a bidirectional proxy: data read
-        from standard input is forwarded to the upgraded connection, and data received from the connection
-        is written to standard output.</para>
+        the connection.</para>
+
+        <para>If <option>--exec</option> is not specified, <command>varlinkctl</command> acts as a
+        bidirectional proxy: data read from standard input is forwarded to the upgraded connection, and data
+        received from the connection is written to standard output.</para>
+
+        <para>If <option>--exec</option> is specified, the upgraded connection socket is placed on both
+        standard input and standard output of the invoked process. This is similar to the regular
+        <option>--exec</option> behavior (without <option>--upgrade</option>), which places the method call
+        reply on standard input. The invoked process can thus simply read from and write to
+        stdin/stdout to communicate over the upgraded protocol.</para>
 
         <para>This option may not be combined with <option>--more</option>, <option>--oneway</option>,
-        <option>--collect</option>, or <option>--exec</option>.</para>
+        <option>--collect</option> or <option>--push-fd</option>.</para>
 
         <xi:include href="version-info.xml" xpointer="v261"/></listitem>
       </varlistentry>
