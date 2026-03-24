@@ -520,6 +520,17 @@ int exec_spawn(
         } else
                 cgtarget = params->cgroup_path;
 
+        /* For delegated units with a delegate_subgroup, a previous run of the service may have enabled
+         * domain controllers (e.g. "pids") in the service cgroup's cgroup.subtree_control via a cgroup
+         * namespace root write. When the process exits the sub-cgroup stays and the stale controllers
+         * remain. On restart, clone3(CLONE_INTO_CGROUP) targeting the service cgroup then fails with
+         * EBUSY because the cgroup would become an "internal" node with a domain controller enabled.
+         * Proactively clear all controllers from subtree_control before spawning the main process.
+         * Only do this for the main process spawn (not control process spawns), because control processes
+         * are already placed into a fresh subcgroup. */
+        if (cgtarget && FLAGS_SET(params->flags, EXEC_CGROUP_DELEGATE) && !exec_params_needs_control_subcgroup(params))
+                (void) cg_enable(unit->manager->cgroup_supported, /* mask= */ 0, cgtarget, /* ret_result_mask= */ NULL);
+
         /* In order to avoid copy-on-write traps and OOM-kills when pid1's memory.current is above the
          * child's memory.max, serialize all the state needed to start the unit, and pass it to the
          * systemd-executor binary. clone() with CLONE_VM + CLONE_VFORK will pause the parent until the exec
