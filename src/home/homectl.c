@@ -3678,7 +3678,6 @@ static int parse_language_field(char ***languages, const char *arg) {
 }
 
 static int parse_group_field(
-                sd_json_variant *source_identity,
                 sd_json_variant **identity,
                 const char *field,
                 const char *arg) {
@@ -3704,7 +3703,7 @@ static int parse_group_field(
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid group name %s.", word);
 
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *mo =
-                        sd_json_variant_ref(sd_json_variant_by_key(source_identity, field));
+                        sd_json_variant_ref(sd_json_variant_by_key(*identity, field));
 
                 r = sd_json_variant_strv(mo, &list);
                 if (r < 0)
@@ -4363,7 +4362,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_ALIAS:
-                        r = parse_group_field(arg_identity_extra, &arg_identity_extra, "aliases", optarg);
+                        r = parse_group_field(&arg_identity_extra, "aliases", optarg);
                         if (r < 0)
                                 return r;
                         break;
@@ -4656,9 +4655,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 case 'G':
-                        r = parse_group_field(arg_identity_extra,
-                                              match_identity ?: &arg_identity_extra,
-                                              "memberOf", optarg);
+                        r = parse_group_field(match_identity ?: &arg_identity_extra, "memberOf", optarg);
                         if (r < 0)
                                 return r;
                         break;
