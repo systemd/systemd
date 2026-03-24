@@ -91,7 +91,7 @@ static int load_static_record_file(const ConfFile *cf, Hashmap **records, Set **
         if (!st_copy)
                 return log_oom();
 
-        if (set_ensure_consume(stats, &inode_hash_ops, TAKE_PTR(st_copy)) < 0)
+        if (set_ensure_consume(stats, &inode_unmodified_hash_ops, TAKE_PTR(st_copy)) < 0)
                 return log_oom();
 
         _cleanup_fclose_ FILE *f = NULL;
