@@ -2,6 +2,7 @@
 #pragma once
 
 #include "shared-forward.h"
+#include "strv.h"
 
 typedef enum OptionFlags {
         OPTION_OPTIONAL_ARG  = 1U << 0,  /* Same as optional_argument in getopt */
@@ -89,7 +90,11 @@ int option_parse(
 #define FOREACH_OPTION(parser, opt, argc, argv, ret_a, on_error) \
         FOREACH_OPTION_FULL(parser, opt, argc, argv, /* ret_o= */ NULL, ret_a, on_error)
 
-char** option_parser_get_args(OptionParser *state, int argc, char *argv[]);
+char** option_parser_get_args(const OptionParser *state, int argc, char *argv[]);
+static inline size_t option_parser_get_n_args(const OptionParser *state, int argc, char *argv[]) {
+        return strv_length(option_parser_get_args(state, argc, argv));
+}
+
 int _option_parser_get_help_table(
                 const Option options[],
                 const Option options_end[],

@@ -240,7 +240,7 @@ int option_parse(
         return option->id;
 }
 
-char** option_parser_get_args(OptionParser *state, int argc, char *argv[]) {
+char** option_parser_get_args(const OptionParser *state, int argc, char *argv[]) {
         /* Returns positional args as a strv.
          * If "--" was found, it has been removed. */
 
