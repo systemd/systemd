@@ -2079,6 +2079,18 @@ int posix_spawn_wrapper(
         if (ERRNO_IS_NOT_SUPPORTED(r) && FLAGS_SET(flags, POSIX_SPAWN_SETCGROUP) && cg_is_threaded(cgroup) > 0)
                 return -EUCLEAN; /* clone3() could also return EOPNOTSUPP if the target cgroup is in threaded mode,
                                     turn that into something recognizable */
+        if (r == -EBUSY && FLAGS_SET(flags, POSIX_SPAWN_SETCGROUP)) {
+                /* clone3(CLONE_INTO_CGROUP) failed because the target cgroup has domain controllers enabled
+                 * in cgroup.subtree_control, violating the no-internal-processes rule. This is a transient
+                 * per-cgroup condition (stale state from a delegated container's previous run), unlike the
+                 * permanent EOPNOTSUPP/privilege cases. Do NOT permanently disable CLONE_INTO_CGROUP;
+                 * fall back for this spawn only and let the caller move the child via cg_attach(). */
+                flags &= ~POSIX_SPAWN_SETCGROUP;
+                r = posix_spawnattr_setflags(&attr, flags);
+                if (r != 0)
+                        return -r;
+                r = pidfd_spawn(&pidfd, path, NULL, &attr, argv, envp);
+        }
         if ((ERRNO_IS_NOT_SUPPORTED(r) || ERRNO_IS_PRIVILEGE(r)) &&
             FLAGS_SET(flags, POSIX_SPAWN_SETCGROUP)) {
                 /* Compiled on a newer host, or seccomp&friends blocking clone3()? Fallback, but
