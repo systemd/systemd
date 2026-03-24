@@ -275,9 +275,6 @@ jobs:
               The `commit` field MUST be the SHA of the commit being reviewed. Only
               comment on changes in that commit — not preceding commits.
 
-              Do NOT escape characters in `body`. Write plain markdown — no backslash
-              escaping of `!` or other characters.
-
               `line` should be a line number from the NEW side of the diff **that appears
               inside a diff hunk**. GitHub rejects lines outside the diff context. If you
               cannot determine a valid diff line, omit `line`.
@@ -350,6 +347,12 @@ jobs:
               If any errors prevented you from doing your job fully (tools that were
               not available, git commands that failed, etc.), append a `### Errors`
               section to the summary listing each failed action and the error message.
+
+              ## Output formatting
+
+              Do NOT escape characters in `body` or `summary`. Write plain markdown — no
+              backslash escaping of `!` or other characters. In particular, HTML comments
+              like `<!-- ... -->` must be written verbatim, never as `<\!-- ... -->`.
 
               ## CRITICAL: Write review result to file
 
