@@ -21,6 +21,7 @@
 #include "resolved-etc-hosts.h"
 #include "resolved-hook.h"
 #include "resolved-manager.h"
+#include "resolved-static-records.h"
 #include "resolved-timeouts.h"
 #include "set.h"
 #include "string-util.h"
@@ -910,6 +911,33 @@ static int dns_query_try_etc_hosts(DnsQuery *q) {
         return 1;
 }
 
+static int dns_query_try_static_records(DnsQuery *q) {
+        int r;
+
+        assert(q);
+
+        if (FLAGS_SET(q->flags, SD_RESOLVED_NO_SYNTHESIZE))
+                return 0;
+
+        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        r = manager_static_records_lookup(
+                        q->manager,
+                        q->question_bypass ? q->question_bypass->question : q->question_utf8,
+                        &answer);
+        if (r <= 0)
+                return r;
+
+        dns_query_reset_answer(q);
+
+        q->answer = TAKE_PTR(answer);
+        q->answer_rcode = DNS_RCODE_SUCCESS;
+        q->answer_protocol = dns_synthesize_protocol(q->flags);
+        q->answer_family = dns_synthesize_family(q->flags);
+        q->answer_query_flags = SD_RESOLVED_AUTHENTICATED|SD_RESOLVED_CONFIDENTIAL|SD_RESOLVED_SYNTHETIC;
+
+        return 1;
+}
+
 static int dns_query_go_scopes(DnsQuery *q) {
         int r;
 
@@ -1037,6 +1065,14 @@ int dns_query_go(DnsQuery *q) {
         if (q->hook_query ||
             q->state != DNS_TRANSACTION_NULL)
                 return 0;
+
+        r = dns_query_try_static_records(q);
+        if (r < 0)
+                return r;
+        if (r > 0) {
+                dns_query_complete(q, DNS_TRANSACTION_SUCCESS);
+                return 1;
+        }
 
         r = dns_query_try_etc_hosts(q);
         if (r < 0)
