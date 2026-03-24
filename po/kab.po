@@ -9,7 +9,7 @@ msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-03-06 03:46+0900\n"
-"PO-Revision-Date: 2026-03-19 20:58+0000\n"
+"PO-Revision-Date: 2026-03-24 19:58+0000\n"
 "Last-Translator: Massii Aqvayli <massiin@proton.me>\n"
 "Language-Team: Kabyle <https://translate.fedoraproject.org/projects/systemd/"
 "main/kab/>\n"
@@ -172,15 +172,15 @@ msgstr "Awal n uɛeddi: "
 #: src/home/pam_systemd_home.c:349
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
-msgstr ""
+msgstr "Awal n uɛeddi d armeɣtu neɣ ur yekfa ara i usesteb n useqdac %s."
 
 #: src/home/pam_systemd_home.c:350
 msgid "Sorry, try again: "
-msgstr ""
+msgstr "Suref-aɣ, ɛreḍ tikkelt nniḍen: "
 
 #: src/home/pam_systemd_home.c:372
 msgid "Recovery key: "
-msgstr ""
+msgstr "Tasarut n tririt: "
 
 #: src/home/pam_systemd_home.c:374
 #, c-format
@@ -188,15 +188,17 @@ msgid ""
 "Password/recovery key incorrect or not sufficient for authentication of user "
 "%s."
 msgstr ""
+"Awal n uɛeddi/tasarut n tririt d armeɣtu neɣ ur yekfa ara i usesteb n "
+"useqdac %s."
 
 #: src/home/pam_systemd_home.c:375
 msgid "Sorry, reenter recovery key: "
-msgstr ""
+msgstr "Suref-aɣ, sekcem tikelt nniḍen tasarutt n tririt: "
 
 #: src/home/pam_systemd_home.c:395
 #, c-format
 msgid "Security token of user %s not inserted."
-msgstr ""
+msgstr "Tasarutt n tɣellist n useqdac %s ur tettwasekcem ara."
 
 #: src/home/pam_systemd_home.c:396 src/home/pam_systemd_home.c:399
 msgid "Try again with password: "
@@ -208,70 +210,82 @@ msgid ""
 "Password incorrect or not sufficient, and configured security token of user "
 "%s not inserted."
 msgstr ""
+"Awal n uɛeddi d armeɣtu neɣ ur yekfa ara, u tasarut n tasarutt n tɣellist n "
+"useqdac %s ur tettwasekcam ara."
 
 #: src/home/pam_systemd_home.c:418
 msgid "Security token PIN: "
-msgstr ""
+msgstr "PIN n tsarut n tɣellist: "
 
 #: src/home/pam_systemd_home.c:435
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
-msgstr ""
+msgstr "Ma ulac aɣilif, sesteb s useqdec n tsarut n tɣellist n useqdac %s."
 
 #: src/home/pam_systemd_home.c:446
 #, c-format
 msgid "Please confirm presence on security token of user %s."
-msgstr ""
+msgstr "Ma ulac aɣilif, sentem tilin-ik·im ɣef tsarut n tɣellist useqdac %s."
 
 #: src/home/pam_systemd_home.c:457
 #, c-format
 msgid "Please verify user on security token of user %s."
-msgstr ""
+msgstr "Ma ulac aɣilif, sentem aseqdac ɣef tsarutt n tɣellist n useqdac %s."
 
 #: src/home/pam_systemd_home.c:466
 msgid ""
 "Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
 "insertion might suffice.)"
 msgstr ""
+"Tangalt PIN n tsarut n tɣellist tettusekkeṛ, ttxil-k·m kkes-as asekkeṛ deg "
+"tazwara. (Amatar: Tukksa akked walus n taguri yezmer ad d-yekfu.)"
 
 #: src/home/pam_systemd_home.c:474
 #, c-format
 msgid "Security token PIN incorrect for user %s."
-msgstr ""
+msgstr "Tangalt PIN n tsarutt n tɣellist mačči d tameɣtut i useqdac %s."
 
 #: src/home/pam_systemd_home.c:475 src/home/pam_systemd_home.c:494
 #: src/home/pam_systemd_home.c:513
 msgid "Sorry, retry security token PIN: "
-msgstr ""
+msgstr "Suref-aɣ, sekcem tikelt nniḍen tangalt PIN n tsarut n tɣellist: "
 
 #: src/home/pam_systemd_home.c:493
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
 msgstr ""
+"Tangalt PIN n tsarut n tɣellist n useqdac %s d tarmeɣtut (kra n yineɛruḍen "
+"kan i d-yegran!)"
 
 #: src/home/pam_systemd_home.c:512
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
 msgstr ""
+"Tangalt PIN n tsarut n tɣellist n useqdac %s d tarmeɣtut (yiwen kan n uɛraḍ "
+"i d-yeqqimen!)"
 
 #: src/home/pam_systemd_home.c:679
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
 msgstr ""
+"Akaram agejdan n useqdac %s ur yermid ara akka tura, ttxil-k·m qqen s wudem "
+"adigan deg tazwara."
 
 #: src/home/pam_systemd_home.c:681
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr ""
+"Akaram agejdan n useqdac %s isekkeṛ akka tura, ttxil-k·m kkes asekkeṛ s "
+"wudem adigan deg tazwara."
 
 #: src/home/pam_systemd_home.c:715
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
-msgstr ""
+msgstr "Ddeqs n uɛraḍ n tuqqna ur neddi ara i useqdac %s, yugi."
 
 #: src/home/pam_systemd_home.c:1012
 msgid "User record is blocked, prohibiting access."
-msgstr ""
+msgstr "Yewḥel usekles n useqdac, yegdel anekcum."
 
 #: src/home/pam_systemd_home.c:1016
 msgid "User record is not valid yet, prohibiting access."
