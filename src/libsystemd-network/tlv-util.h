@@ -80,3 +80,6 @@ int tlv_append_tlv(TLV *tlv, const TLV *source);
 int tlv_parse(TLV *tlv, const struct iovec *iov);
 size_t tlv_size(const TLV *tlv);
 int tlv_build(const TLV *tlv, struct iovec *ret);
+
+int tlv_build_json(const TLV *tlv, sd_json_variant **ret);
+int tlv_parse_json(TLV *tlv, sd_json_variant *v);

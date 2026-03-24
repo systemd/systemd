@@ -90,3 +90,6 @@ int dhcp_message_parse(
                 sd_dhcp_message **ret);
 
 int dhcp_message_build(sd_dhcp_message *message, struct iovec_wrapper *ret);
+
+int dhcp_message_build_json(sd_dhcp_message *message, sd_json_variant **ret);
+int dhcp_message_parse_json(sd_json_variant *v, sd_dhcp_message **ret);
