@@ -38,6 +38,7 @@ _systemd_vmspawn() {
         [CONSOLE]='--console'
         [ARG]='--cpus --ram --vsock-cid -M --machine --uuid --private-users --background --set-credential --load-credential'
         [IMAGE_FORMAT]='--image-format'
+        [IMAGE_DISK_TYPE]='--image-disk-type'
     )
 
     _init_completion || return
@@ -59,6 +60,8 @@ _systemd_vmspawn() {
         comps='interactive native gui'
     elif __contains_word "$prev" ${OPTS[IMAGE_FORMAT]}; then
         comps='raw qcow2'
+    elif __contains_word "$prev" ${OPTS[IMAGE_DISK_TYPE]}; then
+        comps='virtio-blk virtio-scsi nvme'
     elif __contains_word "$prev" ${OPTS[ARG]}; then
         comps=''
     else
