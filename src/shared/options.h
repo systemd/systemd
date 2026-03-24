@@ -7,6 +7,7 @@ typedef enum OptionFlags {
         OPTION_OPTIONAL_ARG  = 1U << 0,  /* Same as optional_argument in getopt */
         OPTION_STOPS_PARSING = 1U << 1,  /* This option acts like "--" */
         OPTION_GROUP_MARKER  = 1U << 2,  /* Fake option entry to separate groups */
+        OPTION_HELP_ENTRY    = 1U << 3,  /* Fake option entry to insert an additional help line */
 } OptionFlags;
 
 typedef struct Option {
@@ -43,7 +44,9 @@ typedef struct Option {
 #define OPTION_FULL(fl, sc, lc, mv, h) _OPTION(__COUNTER__, fl, sc, lc, mv, h)
 #define OPTION(sc, lc, mv, h) OPTION_FULL(/* fl= */ 0, sc, lc, mv, h)
 #define OPTION_LONG(lc, mv, h) OPTION(/* sc= */ 0, lc, mv, h)
+#define OPTION_LONG_FLAGS(fl, lc, mv, h) OPTION_FULL(fl, /* sc= */ 0, lc, mv, h)
 #define OPTION_SHORT(sc, mv, h) OPTION(sc, /* lc= */ NULL, mv, h)
+#define OPTION_SHORT_FLAGS(fl, sc, mv, h) OPTION_FULL(fl, sc, /* lc= */ NULL, mv, h)
 
 #define OPTION_COMMON_HELP \
         OPTION('h', "help", NULL, "Show this help")
@@ -53,6 +56,10 @@ typedef struct Option {
         OPTION_LONG("no-pager", NULL, "Do not start a pager")
 #define OPTION_COMMON_NO_LEGEND \
         OPTION_LONG("no-legend", NULL, "Do not show headers and footers")
+#define OPTION_COMMON_CAT_CONFIG \
+        OPTION_LONG("cat-config", NULL, "Show configuration files")
+#define OPTION_COMMON_TLDR \
+        OPTION_LONG("tldr", NULL, "Show non-comment parts of configuration")
 #define OPTION_COMMON_JSON \
         OPTION_LONG("json", "FORMAT", "Generate JSON output (pretty, short, or off)")
 
