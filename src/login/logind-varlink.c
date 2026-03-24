@@ -385,6 +385,13 @@ static int manager_do_shutdown_action(sd_varlink *link, sd_json_variant *paramet
         if (r != 0)
                 return r;
 
+        {
+                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+
+                (void) varlink_get_peer_pidref(link, &pidref);
+                log_shutdown_caller(&pidref, handle_action_to_string(action));
+        }
+
         if (m->delayed_action)
                 return sd_varlink_error(link, "io.systemd.Shutdown.AlreadyInProgress", /* parameters= */ NULL);
 

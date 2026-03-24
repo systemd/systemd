@@ -8,8 +8,11 @@
 
 #include "bus-common-errors.h"
 #include "bus-polkit.h"
+#include "cgroup-util.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
+#include "log.h"
 #include "login-util.h"
 #include "logind.h"
 #include "logind-dbus.h"
@@ -17,6 +20,8 @@
 #include "logind-session.h"
 #include "logind-shutdown.h"
 #include "logind-user.h"
+#include "pidref.h"
+#include "process-util.h"
 #include "user-record.h"
 
 int manager_have_multiple_sessions(
@@ -35,6 +40,24 @@ int manager_have_multiple_sessions(
                         return true;
 
         return false;
+}
+
+void log_shutdown_caller(const PidRef *caller, const char *method) {
+        _cleanup_free_ char *comm = NULL, *unit = NULL;
+
+        assert(method);
+
+        if (!pidref_is_set(caller)) {
+                return log_notice("%s requested from unknown client PID.", method);
+        }
+
+        (void) pidref_get_comm(caller, &comm);
+        (void) cg_pidref_get_unit(caller, &unit);
+
+        log_notice("%s requested from client PID " PID_FMT "%s%s%s%s%s%s.",
+                   method, caller->pid,
+                   comm ? " ('" : "", strempty(comm), comm ? "')" : "",
+                   unit ? " (unit " : "", strempty(unit), unit ? ")" : "");
 }
 
 int manager_verify_shutdown_creds(
