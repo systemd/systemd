@@ -36,6 +36,7 @@ jobs:
         (github.event.action == 'labeled' && github.event.label.name == 'claude-review' && github.event.sender.login != 'github-actions[bot]' ||
          github.event.action != 'labeled' && contains(github.event.pull_request.labels.*.name, 'claude-review') ||
          github.event.action == 'opened' &&
+         github.event.pull_request.base.ref == 'main' &&
          contains(fromJSON('["MEMBER","OWNER","COLLABORATOR"]'), github.event.pull_request.author_association) &&
          github.event.pull_request.user.login != 'YHNdnzj')) ||
        (github.event_name == 'issue_comment' &&
