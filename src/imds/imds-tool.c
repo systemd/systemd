@@ -27,6 +27,7 @@
 #include "log.h"
 #include "main-func.h"
 #include "parse-argument.h"
+#include "pcrextend-util.h"
 #include "pretty-print.h"
 #include "string-util.h"
 #include "strv.h"
@@ -821,6 +822,9 @@ static int action_import(sd_varlink *link) {
                 (void) remove_userdata("/run/systemd/imds/userdata");
                 return ret;
         }
+
+        /* Measure the userdata before we use it */
+        (void) pcrextend_imds_userdata_now(&data);
 
         /* Keep a pristine copy of the userdata we actually applied. (Note that this data is typically also
          * kept as cached item on systemd-imdsd, but that one is possibly subject to cache invalidation,
