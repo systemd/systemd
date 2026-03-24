@@ -2,6 +2,8 @@
 
 #include <net/if_arp.h>
 
+#include "sd-json.h"
+
 #include "alloc-util.h"
 #include "dhcp-message.h"
 #include "dhcp-option.h"
@@ -297,6 +299,17 @@ TEST(dhcp_message) {
         _cleanup_(iovw_done_free) struct iovec_wrapper iovw2 = {};
         ASSERT_OK(dhcp_message_build(m2, &iovw2));
         ASSERT_TRUE(iovw_equal(&iovw, &iovw2));
+
+        /* json */
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        ASSERT_OK(dhcp_message_build_json(m, &v));
+
+        _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *m3 = NULL;
+        ASSERT_OK(dhcp_message_parse_json(v, &m3));
+
+        _cleanup_(iovw_done_free) struct iovec_wrapper iovw3 = {};
+        ASSERT_OK(dhcp_message_build(m3, &iovw3));
+        ASSERT_TRUE(iovw_equal(&iovw, &iovw3));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
