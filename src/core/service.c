@@ -13,6 +13,7 @@
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-util.h"
+#include "cgroup.h"
 #include "chase.h"
 #include "dbus-service.h"
 #include "dbus-unit.h"
@@ -3174,8 +3175,10 @@ static int service_start(Unit *u) {
         exec_status_reset(&s->main_exec_status);
 
         CGroupRuntime *crt = unit_get_cgroup_runtime(u);
-        if (crt)
+        if (crt) {
+                unit_cgroup_disable_all_controllers(u);
                 crt->reset_accounting = true;
+        }
 
         service_enter_condition(s);
         return 1;
@@ -5640,6 +5643,7 @@ static int service_clean(Unit *u, ExecCleanMask mask) {
                 goto fail;
         }
 
+        unit_cgroup_disable_all_controllers(u);
         r = unit_fork_and_watch_rm_rf(u, l, &s->control_pid);
         if (r < 0) {
                 log_unit_warning_errno(u, r, "Failed to spawn cleaning task: %m");
