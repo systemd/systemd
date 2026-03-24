@@ -597,6 +597,11 @@ def main() -> None:
         ),
         '--credential', f'systemd.unit-dropin.{args.unit}={shlex.quote(dropin)}',
         '--runtime-network=none',
+        # In CI there's no terminal attached to drain the console, so systemd-vmspawn forwards it through a
+        # PTY on which QEMU does blocking writes. Under heavy console output (e.g. shell trace logging) the
+        # PTY buffer fills up and the guest's vCPU stalls, freezing the VM. The journal is forwarded over
+        # VSOCK regardless, so just disable the console entirely when running non-interactively.
+        *(['--console=headless'] if not sys.stdin.isatty() else []),
         *([f'--qemu-args=-rtc base={rtc}'] if rtc else []),
         *args.mkosi_args,
         '--firmware', firmware,
