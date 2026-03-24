@@ -36,6 +36,7 @@ foreach item : [
         ['_systemd',                  ''],
         ['_systemd-analyze',          ''],
         ['_systemd-delta',            ''],
+        ['_systemd-hwdb',             'ENABLE_HWDB'],
         ['_systemd-id128',            ''],
         ['_systemd-inhibit',          'ENABLE_LOGIND'],
         ['_systemd-nspawn',           ''],
