@@ -12,6 +12,7 @@
 #include "hashmap.h"
 #include "hostname-util.h"
 #include "iovec-util.h"
+#include "json-util.h"
 #include "memory-util.h"
 #include "string-util.h"
 #include "utf8.h"
@@ -588,5 +589,73 @@ int dhcp_options_build(Hashmap *options, struct iovec *ret) {
         *p++ = SD_DHCP_OPTION_END;
 
         *ret = IOVEC_MAKE(buf, sz);
+        return 0;
+}
+
+int dhcp_options_build_json(Hashmap *options, sd_json_variant **ret) {
+        int r;
+
+        assert(ret);
+
+        /* Sort options by their option code, for reproducibility. */
+        _cleanup_free_ sd_dhcp_option **sorted = NULL;
+        size_t n;
+        r = hashmap_dump_sorted(options, (void***) &sorted, &n);
+        if (r < 0)
+                return r;
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        FOREACH_ARRAY(o, sorted, n)
+                LIST_FOREACH(option, i, *o) {
+                        r = sd_json_variant_append_arraybo(
+                                        &v,
+                                        SD_JSON_BUILD_PAIR_UNSIGNED("option", i->option),
+                                        JSON_BUILD_PAIR_HEX_NON_EMPTY("data", i->data, i->length));
+                        if (r < 0)
+                                return r;
+                }
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+typedef struct OptionParam {
+        uint8_t option;
+        struct iovec data;
+} OptionParam;
+
+static void option_param_done(OptionParam *p) {
+        iovec_done(&p->data);
+}
+
+int dhcp_options_parse_json(sd_json_variant *v, Hashmap **ret) {
+        int r;
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "option",  _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint8,    offsetof(OptionParam, option), SD_JSON_MANDATORY },
+                { "data",    SD_JSON_VARIANT_STRING,        json_dispatch_unhex_iovec, offsetof(OptionParam, data),   0                 },
+                {},
+        };
+
+        assert(v);
+        assert(ret);
+
+        _cleanup_hashmap_free_ Hashmap *options = NULL;
+        sd_json_variant *e;
+        JSON_VARIANT_ARRAY_FOREACH(e, v) {
+                _cleanup_(option_param_done) OptionParam p = {};
+                r = sd_json_dispatch(e, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &p);
+                if (r < 0)
+                        return r;
+
+                if (!iovec_is_valid(&p.data) || p.data.iov_len > UINT8_MAX)
+                        return -EINVAL;
+
+                r = dhcp_options_append(&options, p.option, p.data.iov_len, p.data.iov_base);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(options);
         return 0;
 }
