@@ -127,6 +127,12 @@ void inode_hash_func(const struct stat *q, struct siphash *state);
 int inode_compare_func(const struct stat *a, const struct stat *b);
 extern const struct hash_ops inode_hash_ops;
 
+/* This is a more thorough version of the above, and also checks the mtimes, the size, and the rdev. It does
+ * not check "external" attributes such as access mode or ownership. */
+void inode_unmodified_hash_func(const struct stat *q, struct siphash *state);
+int inode_unmodified_compare_func(const struct stat *a, const struct stat *b);
+extern const struct hash_ops inode_unmodified_hash_ops;
+
 DECLARE_STRING_TABLE_LOOKUP(inode_type, mode_t);
 
 /* Macros that check whether the stat/statx structures have been initialized already. For "struct stat" we
