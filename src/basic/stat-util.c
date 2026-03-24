@@ -709,6 +709,10 @@ nsec_t statx_timestamp_load_nsec(const struct statx_timestamp *ts) {
 void inode_hash_func(const struct stat *q, struct siphash *state) {
         siphash24_compress_typesafe(q->st_dev, state);
         siphash24_compress_typesafe(q->st_ino, state);
+
+        /* Also include inode type, to mirror stat_inode_same() */
+        mode_t type = q->st_mode & S_IFMT;
+        siphash24_compress_typesafe(type, state);
 }
 
 int inode_compare_func(const struct stat *a, const struct stat *b) {
@@ -718,7 +722,11 @@ int inode_compare_func(const struct stat *a, const struct stat *b) {
         if (r != 0)
                 return r;
 
-        return CMP(a->st_ino, b->st_ino);
+        r = CMP(a->st_ino, b->st_ino);
+        if (r != 0)
+                return r;
+
+        return CMP(a->st_mode & S_IFMT, b->st_mode & S_IFMT);
 }
 
 DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(inode_hash_ops, struct stat, inode_hash_func, inode_compare_func, free);
