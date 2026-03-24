@@ -65,6 +65,7 @@
 #include "ptyfwd.h"
 #include "random-util.h"
 #include "rm-rf.h"
+#include "sha256.h"
 #include "signal-util.h"
 #include "snapshot-util.h"
 #include "socket-util.h"
@@ -143,6 +144,7 @@ static char *arg_background = NULL;
 static bool arg_pass_ssh_key = true;
 static char *arg_ssh_key_type = NULL;
 static bool arg_discard_disk = true;
+static DiskType arg_image_disk_type = DISK_TYPE_VIRTIO_BLK;
 static struct ether_addr arg_network_provided_mac = {};
 static char **arg_smbios11 = NULL;
 static uint64_t arg_grow_image = 0;
@@ -206,6 +208,8 @@ static int help(void) {
                "  -x --ephemeral           Run VM with snapshot of the disk or directory\n"
                "  -i --image=FILE|DEVICE   Root file system disk image or device for the VM\n"
                "     --image-format=FORMAT Specify disk image format (raw, qcow2; default: raw)\n"
+               "     --image-disk-type=TYPE\n"
+               "                           Specify disk type (virtio-blk, virtio-scsi)\n"
                "\n%3$sHost Configuration:%4$s\n"
                "     --cpus=CPUS           Configure number of CPUs in guest\n"
                "     --ram=BYTES           Configure guest's RAM size\n"
@@ -246,9 +250,9 @@ static int help(void) {
                "                           Mount a file or directory from the host into the VM\n"
                "     --bind-ro=SOURCE[:TARGET]\n"
                "                           Mount a file or directory, but read-only\n"
-               "     --extra-drive=[FORMAT:]PATH\n"
+               "     --extra-drive=[FORMAT:][DISKTYPE:]PATH\n"
                "                           Adds an additional disk to the virtual machine\n"
-               "                           (FORMAT: raw, qcow2; default: raw)\n"
+               "                           (FORMAT: raw, qcow2; DISKTYPE: virtio-blk, virtio-scsi)\n"
                "     --bind-user=NAME       Bind user from host to virtual machine\n"
                "     --bind-user-shell=BOOL|PATH\n"
                "                            Configure the shell to use for --bind-user= users\n"
@@ -335,6 +339,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SYSTEM,
                 ARG_USER,
                 ARG_IMAGE_FORMAT,
+                ARG_IMAGE_DISK_TYPE,
         };
 
         static const struct option options[] = {
@@ -344,6 +349,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "no-pager",          no_argument,       NULL, ARG_NO_PAGER          },
                 { "image",             required_argument, NULL, 'i'                   },
                 { "image-format",      required_argument, NULL, ARG_IMAGE_FORMAT      },
+                { "image-disk-type",   required_argument, NULL, ARG_IMAGE_DISK_TYPE   },
                 { "ephemeral",         no_argument,       NULL, 'x'                   },
                 { "directory",         required_argument, NULL, 'D'                   },
                 { "machine",           required_argument, NULL, 'M'                   },
@@ -432,6 +438,13 @@ static int parse_argv(int argc, char *argv[]) {
                         if (arg_image_format < 0)
                                 return log_error_errno(arg_image_format,
                                                        "Invalid image format: %s", optarg);
+                        break;
+
+                case ARG_IMAGE_DISK_TYPE:
+                        arg_image_disk_type = disk_type_from_string(optarg);
+                        if (arg_image_disk_type < 0)
+                                return log_error_errno(arg_image_disk_type,
+                                                       "Invalid image disk type: %s", optarg);
                         break;
 
                 case 'M':
@@ -570,21 +583,36 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_EXTRA_DRIVE: {
                         ImageFormat format = IMAGE_FORMAT_RAW;
+                        DiskType extra_disk_type = _DISK_TYPE_INVALID;
                         const char *dp = optarg;
 
-                        const char *colon = strchr(dp, ':');
-                        if (colon) {
-                                _cleanup_free_ char *fs = strndup(optarg, colon - optarg);
-                                if (!fs)
+                        /* Parse optional colon-separated prefixes. The format and disk type
+                         * value sets don't overlap, so they can appear in any order. */
+                        for (;;) {
+                                const char *colon = strchr(dp, ':');
+                                if (!colon)
+                                        break;
+
+                                _cleanup_free_ char *prefix = strndup(dp, colon - dp);
+                                if (!prefix)
                                         return log_oom();
 
-                                ImageFormat f = image_format_from_string(fs);
-                                if (f < 0)
-                                        log_debug_errno(f, "Cannot parse '%s' as an image format, assuming it is a part of path, ignoring.", fs);
-                                else {
+                                ImageFormat f = image_format_from_string(prefix);
+                                if (f >= 0) {
                                         format = f;
                                         dp = colon + 1;
+                                        continue;
                                 }
+
+                                DiskType dt = disk_type_from_string(prefix);
+                                if (dt >= 0) {
+                                        extra_disk_type = dt;
+                                        dp = colon + 1;
+                                        continue;
+                                }
+
+                                /* Not a recognized prefix, treat the rest as the path */
+                                break;
                         }
 
                         _cleanup_free_ char *drive_path = NULL;
@@ -598,6 +626,7 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_extra_drives.drives[arg_extra_drives.n_drives++] = (ExtraDrive) {
                                 .path = TAKE_PTR(drive_path),
                                 .format = format,
+                                .disk_type = extra_disk_type,
                         };
 
                         break;
@@ -1965,6 +1994,31 @@ static int make_sidecar_path(const char *suffix, char **ret) {
         return 0;
 }
 
+/* Device serial numbers have length limits (e.g. 30 for SCSI).
+ * If the filename fits, use it directly; otherwise hash it with SHA-256 and
+ * take the first max_len hex characters. max_len must be even and <= 64.
+ * The filename should already be QEMU-escaped (commas doubled) so that the
+ * result can be embedded directly in a -device argument. */
+static int disk_serial(const char *filename, size_t max_len, char **ret) {
+        assert(filename);
+        assert(ret);
+        assert(max_len % 2 == 0);
+        assert(max_len <= SHA256_DIGEST_SIZE * 2);
+
+        if (strlen(filename) <= max_len)
+                return strdup_to(ret, filename);
+
+        uint8_t hash[SHA256_DIGEST_SIZE];
+        sha256_direct(filename, strlen(filename), hash);
+
+        _cleanup_free_ char *serial = hexmem(hash, max_len / 2);
+        if (!serial)
+                return -ENOMEM;
+
+        *ret = TAKE_PTR(serial);
+        return 0;
+}
+
 static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         _cleanup_(ovmf_config_freep) OvmfConfig *ovmf_config = NULL;
         _cleanup_free_ char *qemu_binary = NULL, *mem = NULL, *kernel = NULL;
@@ -2476,6 +2530,22 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 }
         }
 
+        bool need_scsi_controller =
+                arg_image_disk_type == DISK_TYPE_VIRTIO_SCSI && arg_image;
+        if (!need_scsi_controller)
+                FOREACH_ARRAY(drive, arg_extra_drives.drives, arg_extra_drives.n_drives) {
+                        DiskType dt = drive->disk_type >= 0 ? drive->disk_type : arg_image_disk_type;
+                        if (dt == DISK_TYPE_VIRTIO_SCSI) {
+                                need_scsi_controller = true;
+                                break;
+                        }
+                }
+
+        if (need_scsi_controller) {
+                if (strv_extend_many(&cmdline, "-device", "virtio-scsi-pci,id=vmspawn_scsi") < 0)
+                        return log_oom();
+        }
+
         if (arg_image) {
                 assert(!arg_directory);
 
@@ -2510,8 +2580,22 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (strv_extend(&cmdline, "-device") < 0)
                         return log_oom();
 
-                if (strv_extend_joined(&cmdline, "virtio-blk-pci,drive=vmspawn,bootindex=1,serial=", escaped_image_fn) < 0)
-                        return log_oom();
+                switch (arg_image_disk_type) {
+                case DISK_TYPE_VIRTIO_BLK:
+                        if (strv_extend_joined(&cmdline, "virtio-blk-pci,drive=vmspawn,bootindex=1,serial=", escaped_image_fn) < 0)
+                                return log_oom();
+                        break;
+                case DISK_TYPE_VIRTIO_SCSI: {
+                        _cleanup_free_ char *serial = NULL;
+                        if (disk_serial(escaped_image_fn, 30, &serial) < 0)
+                                return log_oom();
+                        if (strv_extend_joined(&cmdline, "scsi-hd,bus=vmspawn_scsi.0,drive=vmspawn,bootindex=1,serial=", serial) < 0)
+                                return log_oom();
+                        break;
+                }
+                default:
+                        assert_not_reached();
+                }
 
                 r = grow_image(arg_image, arg_grow_image);
                 if (r < 0)
@@ -2637,8 +2721,25 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (strv_extend(&cmdline, "-device") < 0)
                         return log_oom();
 
-                if (strv_extendf(&cmdline, "virtio-blk-pci,drive=vmspawn_extra_%zu,serial=%s", i++, escaped_drive_fn) < 0)
-                        return log_oom();
+                DiskType dt = drive->disk_type >= 0 ? drive->disk_type : arg_image_disk_type;
+
+                switch (dt) {
+                case DISK_TYPE_VIRTIO_BLK:
+                        if (strv_extendf(&cmdline, "virtio-blk-pci,drive=vmspawn_extra_%zu,serial=%s", i++, escaped_drive_fn) < 0)
+                                return log_oom();
+                        break;
+                case DISK_TYPE_VIRTIO_SCSI: {
+                        _cleanup_free_ char *serial = NULL;
+                        r = disk_serial(escaped_drive_fn, 30, &serial);
+                        if (r < 0)
+                                return log_oom();
+                        if (strv_extendf(&cmdline, "scsi-hd,bus=vmspawn_scsi.0,drive=vmspawn_extra_%zu,serial=%s", i++, serial) < 0)
+                                return log_oom();
+                        break;
+                }
+                default:
+                        assert_not_reached();
+                }
         }
 
         if (arg_console_mode != CONSOLE_GUI) {
