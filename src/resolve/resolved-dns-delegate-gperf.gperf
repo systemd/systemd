@@ -5,6 +5,7 @@ _Pragma("GCC diagnostic ignored \"-Wzero-as-null-pointer-constant\"")
 #endif
 #include <stddef.h>
 #include "conf-parser.h"
+#include "resolve-util.h"
 #include "resolved-dns-delegate.h"
 %}
 struct ConfigPerfItem;
@@ -18,7 +19,8 @@ struct ConfigPerfItem;
 %struct-type
 %includes
 %%
-Delegate.DNS,          config_parse_delegate_dns_servers, 0, 0
-Delegate.Domains,      config_parse_delegate_domains,     0, 0
-Delegate.DefaultRoute, config_parse_tristate,             0, offsetof(DnsDelegate, default_route)
-Delegate.FirewallMark, config_parse_unsigned,             0, offsetof(DnsDelegate, fwmark)
+Delegate.DNS,             config_parse_delegate_dns_servers, 0, 0
+Delegate.Domains,         config_parse_delegate_domains,     0, 0
+Delegate.DefaultRoute,    config_parse_tristate,             0, offsetof(DnsDelegate, default_route)
+Delegate.DNSServerPolicy, config_parse_dns_server_policy,    0, offsetof(DnsDelegate, dns_server_policy)
+Delegate.FirewallMark,    config_parse_unsigned,             0, offsetof(DnsDelegate, fwmark)

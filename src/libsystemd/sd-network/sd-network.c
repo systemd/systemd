@@ -251,6 +251,10 @@ int sd_network_link_get_dns_over_tls(int ifindex, char **ret) {
         return network_link_get_string(ifindex, "DNS_OVER_TLS", ret);
 }
 
+int sd_network_link_get_dns_server_policy(int ifindex, char **ret) {
+        return network_link_get_string(ifindex, "DNS_SERVER_POLICY", ret);
+}
+
 int sd_network_link_get_dnssec(int ifindex, char **ret) {
         return network_link_get_string(ifindex, "DNSSEC", ret);
 }
