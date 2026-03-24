@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "iovec-util.h"
+#include "memory-util.h"
 #include "tests.h"
 
 TEST(iovec_memcmp) {
@@ -65,6 +66,13 @@ TEST(iovec_append) {
         assert_se(iovec_append(&iov, &IOVEC_MAKE_STRING("")) == &iov);
 
         assert_se(iovec_memcmp(&iov, &IOVEC_MAKE_STRING("waldoquuxp")) == 0);
+}
+
+TEST(iovec_make_byte) {
+        struct iovec x = IOVEC_MAKE_BYTE('x');
+
+        ASSERT_EQ(x.iov_len, 1U);
+        ASSERT_EQ(memcmp_nn(x.iov_base, x.iov_len, "x", 1), 0);
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
