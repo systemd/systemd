@@ -60,6 +60,12 @@ typedef struct Option {
         OPTION_LONG("cat-config", NULL, "Show configuration files")
 #define OPTION_COMMON_TLDR \
         OPTION_LONG("tldr", NULL, "Show non-comment parts of configuration")
+#define OPTION_COMMON_NO_ASK_PASSWORD \
+        OPTION_LONG("no-ask-password", NULL, "Do not prompt for password")
+#define OPTION_COMMON_HOST \
+        OPTION('H', "host", "[USER@]HOST", "Operate on remote host")
+#define OPTION_COMMON_MACHINE \
+        OPTION('M', "machine", "CONTAINER", "Operate on local container")
 #define OPTION_COMMON_JSON \
         OPTION_LONG("json", "FORMAT", "Generate JSON output (pretty, short, or off)")
 
