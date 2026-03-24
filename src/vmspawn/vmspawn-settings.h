@@ -13,6 +13,7 @@ typedef enum ImageFormat {
 typedef enum DiskType {
         DISK_TYPE_VIRTIO_BLK,
         DISK_TYPE_VIRTIO_SCSI,
+        DISK_TYPE_NVME,
         _DISK_TYPE_MAX,
         _DISK_TYPE_INVALID = -EINVAL,
 } DiskType;

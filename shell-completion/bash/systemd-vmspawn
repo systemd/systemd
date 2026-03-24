@@ -61,7 +61,7 @@ _systemd_vmspawn() {
     elif __contains_word "$prev" ${OPTS[IMAGE_FORMAT]}; then
         comps='raw qcow2'
     elif __contains_word "$prev" ${OPTS[IMAGE_DISK_TYPE]}; then
-        comps='virtio-blk virtio-scsi'
+        comps='virtio-blk virtio-scsi nvme'
     elif __contains_word "$prev" ${OPTS[ARG]}; then
         comps=''
     else
