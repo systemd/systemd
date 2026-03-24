@@ -402,7 +402,7 @@ static int parse_argv(int argc, char **argv,
                       char ***the_names,
                       struct local_address **the_addresses, int *n_addresses) {
 
-        _cleanup_strv_free_ char **modules = NULL, **names = NULL;
+        _cleanup_(strv_freep) char **modules = NULL, **names = NULL;
         _cleanup_free_ struct local_address *addrs = NULL;
         const char *p;
         int r, n = 0;
@@ -470,7 +470,7 @@ static int parse_argv(int argc, char **argv,
 
 static int run(int argc, char **argv) {
         _cleanup_free_ char *dir = NULL;
-        _cleanup_strv_free_ char **modules = NULL, **names = NULL;
+        _cleanup_(strv_freep) char **modules = NULL, **names = NULL;
         _cleanup_free_ struct local_address *addresses = NULL;
         int n_addresses = 0;
         int r;
@@ -492,7 +492,7 @@ static int run(int argc, char **argv) {
 
                 r = ASSERT_OK(pidref_safe_fork("(with-seccomp)", FORK_LOG|FORK_WAIT, /* ret= */ NULL));
                 if (r == 0) {
-                        _cleanup_hashmap_free_ Hashmap *filter = NULL;
+                        _cleanup_(hashmap_freep) Hashmap *filter = NULL;
                         ASSERT_NOT_NULL(filter = hashmap_new(NULL));
                         FOREACH_STRING(s, "uname", "olduname", "oldolduname", "sigprocmask", "rt_sigprocmask", "osf_sigprocmask")
                                 ASSERT_OK(seccomp_filter_set_add_by_name(filter, /* add= */ true, s));

@@ -15,7 +15,7 @@
 
 TEST(clock_is_localtime) {
         _cleanup_(unlink_tempfilep) char adjtime[] = "/tmp/test-adjtime.XXXXXX";
-        _cleanup_fclose_ FILE* f = NULL;
+        _cleanup_(fclosep) FILE* f = NULL;
 
         static const struct scenario {
                 const char* contents;

@@ -127,7 +127,7 @@ int inspect_kernel(
         _cleanup_free_ IMAGE_DOS_HEADER *dos_header = NULL;
         KernelImageType t = KERNEL_IMAGE_TYPE_UNKNOWN;
         _cleanup_free_ PeHeader *pe_header = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         assert(dir_fd >= 0 || IN_SET(dir_fd, AT_FDCWD, XAT_FDROOT));

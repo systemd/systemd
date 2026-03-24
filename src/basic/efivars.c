@@ -45,7 +45,7 @@ int efi_get_variable(
                 begin = now(CLOCK_MONOTONIC);
         }
 
-        _cleanup_close_ int fd = open(p, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+        _cleanup_(closep) int fd = open(p, O_RDONLY|O_NOCTTY|O_CLOEXEC);
         if (fd < 0)
                 return log_debug_errno(errno, "open(\"%s\") failed: %m", p);
 
@@ -227,7 +227,7 @@ int efi_set_variable(const char *variable, const void *value, size_t size) {
                 uint32_t attr;
                 char buf[];
         } _packed_ *buf = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         bool saved_flags_valid = false;
         unsigned saved_flags;
         int r;

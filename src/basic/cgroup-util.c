@@ -60,7 +60,7 @@ int cg_path_open(const char *path) {
 }
 
 int cg_cgroupid_open(int cgroupfs_fd, uint64_t id) {
-        _cleanup_close_ int fsfd = -EBADF;
+        _cleanup_(closep) int fsfd = -EBADF;
 
         if (cgroupfs_fd < 0) {
                 fsfd = open("/sys/fs/cgroup", O_CLOEXEC|O_DIRECTORY);
@@ -84,7 +84,7 @@ int cg_cgroupid_open(int cgroupfs_fd, uint64_t id) {
 }
 
 int cg_path_from_cgroupid(int cgroupfs_fd, uint64_t id, char **ret) {
-        _cleanup_close_ int cgfd = -EBADF;
+        _cleanup_(closep) int cgfd = -EBADF;
         int r;
 
         cgfd = cg_cgroupid_open(cgroupfs_fd, id);
@@ -253,7 +253,7 @@ int cg_kill(
                 cg_kill_log_func_t log_kill,
                 void *userdata) {
 
-        _cleanup_set_free_ Set *allocated_set = NULL;
+        _cleanup_(set_freep) Set *allocated_set = NULL;
         int r, ret = 0;
 
         assert(path);
@@ -277,7 +277,7 @@ int cg_kill(
 
         bool done;
         do {
-                _cleanup_fclose_ FILE *f = NULL;
+                _cleanup_(fclosep) FILE *f = NULL;
                 int ret_log_kill;
 
                 done = true;
@@ -358,8 +358,8 @@ int cg_kill_recursive(
                 cg_kill_log_func_t log_kill,
                 void *userdata) {
 
-        _cleanup_set_free_ Set *allocated_set = NULL;
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(set_freep) Set *allocated_set = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
         int r, ret;
 
         assert(path);
@@ -503,7 +503,7 @@ int cg_remove_xattr(const char *path, const char *name) {
 }
 
 int cg_pid_get_path(pid_t pid, char **ret_path) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         const char *fs;
         int r;
 
@@ -1362,7 +1362,7 @@ int cg_slice_to_path(const char *unit, char **ret) {
 
 int cg_is_threaded(const char *path) {
         _cleanup_free_ char *fs = NULL, *contents = NULL;
-        _cleanup_strv_free_ char **v = NULL;
+        _cleanup_(strv_freep) char **v = NULL;
         int r;
 
         r = cg_get_path(path, "cgroup.type", &fs);

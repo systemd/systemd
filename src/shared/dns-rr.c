@@ -813,7 +813,7 @@ static int format_timestamp_dns(char *buf, size_t l, time_t sec) {
 }
 
 static char *format_types(Bitmap *types) {
-        _cleanup_strv_free_ char **strv = NULL;
+        _cleanup_(strv_freep) char **strv = NULL;
         _cleanup_free_ char *str = NULL;
         unsigned type;
         int r;
@@ -876,7 +876,7 @@ static char *format_svc_param_value(DnsSvcParam *i) {
         switch (i->key) {
         case DNS_SVC_PARAM_KEY_ALPN: {
                 size_t offset = 0;
-                _cleanup_strv_free_ char **values_strv = NULL;
+                _cleanup_(strv_freep) char **values_strv = NULL;
                 while (offset < i->length) {
                         size_t sz = i->value[offset++];
 
@@ -903,7 +903,7 @@ static char *format_svc_param_value(DnsSvcParam *i) {
         }
         case DNS_SVC_PARAM_KEY_IPV4HINT: {
                 const struct in_addr *addrs = i->value_in_addr;
-                _cleanup_strv_free_ char **values_strv = NULL;
+                _cleanup_(strv_freep) char **values_strv = NULL;
                 for (size_t n = 0; n < i->length / sizeof (struct in_addr); n++) {
                         char *addr;
                         if (in_addr_to_string(AF_INET, (const union in_addr_union*) &addrs[n], &addr) < 0)
@@ -915,7 +915,7 @@ static char *format_svc_param_value(DnsSvcParam *i) {
         }
         case DNS_SVC_PARAM_KEY_IPV6HINT: {
                 const struct in6_addr *addrs = i->value_in6_addr;
-                _cleanup_strv_free_ char **values_strv = NULL;
+                _cleanup_(strv_freep) char **values_strv = NULL;
                 for (size_t n = 0; n < i->length / sizeof (struct in6_addr); n++) {
                         char *addr;
                         if (in_addr_to_string(AF_INET6, (const union in_addr_union*) &addrs[n], &addr) < 0)
@@ -954,7 +954,7 @@ static char *format_svc_param(DnsSvcParam *i) {
 }
 
 static char *format_svc_params(DnsSvcParam *first) {
-        _cleanup_strv_free_ char **params = NULL;
+        _cleanup_(strv_freep) char **params = NULL;
 
         LIST_FOREACH(params, i, first) {
                 char *param = format_svc_param(i);

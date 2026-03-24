@@ -21,7 +21,7 @@ static int check_etc_passwd_collisions(
                 const char *name,
                 uid_t uid) {
 
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r;
 
         assert(name || uid_is_valid(uid));
@@ -56,7 +56,7 @@ static int check_etc_group_collisions(
                 const char *name,
                 gid_t gid) {
 
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r;
 
         assert(name || gid_is_valid(gid));

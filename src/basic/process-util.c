@@ -246,7 +246,7 @@ int pid_get_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags, ch
 
                 assert(!(flags & PROCESS_CMDLINE_USE_LOCALE));
 
-                _cleanup_strv_free_ char **args = NULL;
+                _cleanup_(strv_freep) char **args = NULL;
 
                 /* Drop trailing NULs, otherwise strv_parse_nulstr() adds additional empty strings at the end.
                  * See also issue #21186. */
@@ -325,7 +325,7 @@ int pid_get_cmdline_strv(pid_t pid, ProcessCmdlineFlags flags, char ***ret) {
 }
 
 int pidref_get_cmdline_strv(const PidRef *pid, ProcessCmdlineFlags flags, char ***ret) {
-        _cleanup_strv_free_ char **args = NULL;
+        _cleanup_(strv_freep) char **args = NULL;
         int r;
 
         if (!pidref_is_set(pid))
@@ -542,7 +542,7 @@ int get_process_root(pid_t pid, char **ret) {
 #define ENVIRONMENT_BLOCK_MAX (5U*1024U*1024U)
 
 int get_process_environ(pid_t pid, char **ret) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         _cleanup_free_ char *outcome = NULL;
         size_t sz = 0;
         const char *p;
@@ -873,7 +873,7 @@ int kill_and_sigcont(pid_t pid, int sig) {
 }
 
 int getenv_for_pid(pid_t pid, const char *field, char **ret) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         const char *path;
         size_t sum = 0;
         int r;
@@ -1364,7 +1364,7 @@ int pidref_safe_fork_full(
         sigset_t saved_ss, ss;
         _unused_ _cleanup_(block_signals_reset) sigset_t *saved_ssp = NULL;
         bool block_signals = false, block_all = false, intermediary = false;
-        _cleanup_close_pair_ int pidref_transport_fds[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int pidref_transport_fds[2] = EBADF_PAIR;
         int prio, r;
 
         assert(!FLAGS_SET(flags, FORK_WAIT|FORK_FREEZE));
@@ -1735,7 +1735,7 @@ int namespace_fork_full(
                 PidRef *ret) {
 
         _cleanup_(pidref_done_sigkill_wait) PidRef pidref_outer = PIDREF_NULL;
-        _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int errno_pipe_fd[2] = EBADF_PAIR;
         int r, prio = FLAGS_SET(flags, FORK_LOG) ? LOG_ERR : LOG_DEBUG;
 
         /* This is much like safe_fork(), but forks twice, and joins the specified namespaces in the middle
@@ -2044,7 +2044,7 @@ int posix_spawn_wrapper(
 
 #if HAVE_PIDFD_SPAWN
         static bool have_clone_into_cgroup = true; /* kernel 5.7+ */
-        _cleanup_close_ int cgroup_fd = -EBADF;
+        _cleanup_(closep) int cgroup_fd = -EBADF;
 
         if (cgroup && have_clone_into_cgroup) {
                 _cleanup_free_ char *resolved_cgroup = NULL;
@@ -2073,7 +2073,7 @@ int posix_spawn_wrapper(
                 return -r;
 
 #if HAVE_PIDFD_SPAWN
-        _cleanup_close_ int pidfd = -EBADF;
+        _cleanup_(closep) int pidfd = -EBADF;
 
         r = pidfd_spawn(&pidfd, path, NULL, &attr, argv, envp);
         if (ERRNO_IS_NOT_SUPPORTED(r) && FLAGS_SET(flags, POSIX_SPAWN_SETCGROUP) && cg_is_threaded(cgroup) > 0)

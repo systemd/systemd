@@ -64,7 +64,7 @@ static int apply_rule(const char *filename, unsigned line, const char *rule) {
 }
 
 static int apply_file(const char *filename, bool ignore_enoent) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         _cleanup_free_ char *pp = NULL;
         int r;
 
@@ -230,7 +230,7 @@ static int run(int argc, char *argv[]) {
                         RET_GATHER(r, apply_file(argv[i], false));
 
         } else {
-                _cleanup_strv_free_ char **files = NULL;
+                _cleanup_(strv_freep) char **files = NULL;
 
                 r = conf_files_list_strv(&files, ".conf", /* root= */ NULL, CONF_FILES_WARN, (const char**) CONF_PATHS_STRV("binfmt.d"));
                 if (r < 0)

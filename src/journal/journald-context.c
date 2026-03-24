@@ -392,7 +392,7 @@ static int client_context_read_extra_fields(
         _cleanup_free_ struct iovec *iovec = NULL;
         size_t size = 0, n_iovec = 0, left;
         _cleanup_free_ void *data = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         struct stat st;
         const char *p;
         uint8_t *q;

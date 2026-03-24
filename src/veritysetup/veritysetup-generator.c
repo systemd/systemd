@@ -49,7 +49,7 @@ static int create_special_device(
                 const char *options) {
 
         _cleanup_free_ char *u = NULL, *v = NULL, *d = NULL, *e = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r;
 
         /* Creates a systemd-veritysetup@.service instance for the special kernel cmdline specified root + usr devices. */
@@ -305,7 +305,7 @@ static int create_veritytab_device(
 
         _cleanup_free_ char *n = NULL, *dd = NULL, *du = NULL, *hd = NULL, *hu = NULL, *e = NULL,
                             *du_escaped = NULL, *hu_escaped = NULL, *name_escaped = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         const char *dmname;
         bool noauto, nofail, netdev, need_loop = false;
         int r;
@@ -428,7 +428,7 @@ static int create_veritytab_device(
 }
 
 static int add_veritytab_devices(void) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         unsigned veritytab_line = 0;
         int r;
 

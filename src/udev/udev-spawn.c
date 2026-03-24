@@ -107,7 +107,7 @@ static int on_spawn_io(sd_event_source *s, int fd, uint32_t revents, void *userd
 
         /* Log output only if we watch stderr. */
         if (l > 0 && spawn->fd_stderr >= 0) {
-                _cleanup_strv_free_ char **v = NULL;
+                _cleanup_(strv_freep) char **v = NULL;
 
                 r = strv_split_newlines_full(&v, p, EXTRACT_RETAIN_ESCAPE);
                 if (r < 0)
@@ -262,19 +262,19 @@ int udev_event_spawn(
                                                 FORMAT_TIMESPAN(age_usec, 1), FORMAT_TIMESPAN(timeout_usec, 1), cmd);
 
         /* pipes from child to parent */
-        _cleanup_close_pair_ int outpipe[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int outpipe[2] = EBADF_PAIR;
         if (result || log_get_max_level() >= LOG_INFO)
                 if (pipe2(outpipe, O_NONBLOCK|O_CLOEXEC) != 0)
                         return log_device_error_errno(event->dev, errno,
                                                       "Failed to create pipe for command '%s': %m", cmd);
 
-        _cleanup_close_pair_ int errpipe[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int errpipe[2] = EBADF_PAIR;
         if (log_get_max_level() >= LOG_INFO)
                 if (pipe2(errpipe, O_NONBLOCK|O_CLOEXEC) != 0)
                         return log_device_error_errno(event->dev, errno,
                                                       "Failed to create pipe for command '%s': %m", cmd);
 
-        _cleanup_strv_free_ char **argv = NULL;
+        _cleanup_(strv_freep) char **argv = NULL;
         r = strv_split_full(&argv, cmd, NULL, EXTRACT_UNQUOTE | EXTRACT_RELAX | EXTRACT_RETAIN_ESCAPE);
         if (r < 0)
                 return log_device_error_errno(event->dev, r, "Failed to split command: %m");
@@ -295,7 +295,7 @@ int udev_event_spawn(
         }
 
         char *found;
-        _cleanup_close_ int fd_executable = r = pin_callout_binary(argv[0], &found);
+        _cleanup_(closep) int fd_executable = r = pin_callout_binary(argv[0], &found);
         if (r < 0)
                 return log_device_error_errno(event->dev, r, "Failed to find and pin callout binary \"%s\": %m", argv[0]);
 

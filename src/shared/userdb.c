@@ -512,8 +512,8 @@ static int userdb_start_query(
                 sd_json_variant *query,
                 UserDBFlags flags) {
 
-        _cleanup_strv_free_ char **except = NULL, **only = NULL;
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(strv_freep) char **except = NULL, **only = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
         const char *e;
         int r, ret = 0;
 
@@ -801,7 +801,7 @@ nomatch:
 
 static int query_append_common(sd_json_variant **query, const UserDBMatch *match) {
         int r;
-        _cleanup_strv_free_ char **dispositions = NULL;
+        _cleanup_(strv_freep) char **dispositions = NULL;
 
         assert(query);
 
@@ -1946,7 +1946,7 @@ int membershipdb_iterator_get(
 
 int membershipdb_by_group_strv(const char *name, UserDBFlags flags, char ***ret) {
         _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
-        _cleanup_strv_free_ char **members = NULL;
+        _cleanup_(strv_freep) char **members = NULL;
         int r;
 
         assert(name);

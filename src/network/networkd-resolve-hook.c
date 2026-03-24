@@ -207,7 +207,7 @@ static void on_resolve_hook_disconnect(sd_varlink_server *server, sd_varlink *li
 
 int manager_varlink_init_resolve_hook(Manager *m, int fd) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
-        _unused_ _cleanup_close_ int fd_close = fd; /* take possession */
+        _unused_ _cleanup_(closep) int fd_close = fd; /* take possession */
         int r;
 
         assert(m);

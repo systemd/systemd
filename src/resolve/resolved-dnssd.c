@@ -217,7 +217,7 @@ int dnssd_render_instance_name(Manager *m, DnssdRegisteredService *s, char **ret
 }
 
 int dnssd_load(Manager *manager) {
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_(strv_freep) char **files = NULL;
         int r;
 
         assert(manager);

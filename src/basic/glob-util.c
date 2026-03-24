@@ -56,7 +56,7 @@ static int filter_glob_result(char * const *result, const char *path, char ***re
         if (r < 0 && r != -ENOENT)
                 return r;
 
-        _cleanup_strv_free_ char **filtered = NULL;
+        _cleanup_(strv_freep) char **filtered = NULL;
         size_t n_filtered = 0;
         STRV_FOREACH(p, result) {
                 if (!safe_glob_verify(*p, prefix))
@@ -120,7 +120,7 @@ int safe_glob_full(const char *path, int flags, opendir_t opendir_func, char ***
 }
 
 int glob_first(const char *path, char **ret) {
-        _cleanup_strv_free_ char **v = NULL;
+        _cleanup_(strv_freep) char **v = NULL;
         int r;
 
         assert(path);

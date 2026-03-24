@@ -140,8 +140,8 @@ static int display_emergency_message_fullscreen(const char *message) {
         int r, free_vt = 0, original_vt = 0;
         unsigned qr_code_start_row = 1, qr_code_start_column = 1;
         char ttybuf[STRLEN("/dev/tty") + DECIMAL_STR_MAX(int) + 1];
-        _cleanup_close_ int fd = -EBADF;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(closep) int fd = -EBADF;
+        _cleanup_(fclosep) FILE *f = NULL;
         char read_character_buffer = '\0';
         struct winsize w = {
                 .ws_col = 80,

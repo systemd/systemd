@@ -74,7 +74,7 @@ int verb_unit_gdb(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (!STR_IN_SET(arg_debugger, "gdb", "lldb"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "The debugger must be either 'gdb' or 'lldb'.");
 
-        _cleanup_strv_free_ char **debugger_call = NULL;
+        _cleanup_(strv_freep) char **debugger_call = NULL;
         r = strv_extend(&debugger_call, arg_debugger);
         if (r < 0)
                 return log_oom();

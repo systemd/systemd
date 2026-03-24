@@ -11,7 +11,7 @@
 
 static int bus_method_dump_by_fd(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_free_ char *dump = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         Manager *m = ASSERT_PTR(userdata);
         int r;
 

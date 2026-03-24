@@ -224,7 +224,7 @@ static int read_next_mapping(
         assert(ret);
 
         for (;;) {
-                _cleanup_strv_free_ char **b = NULL;
+                _cleanup_(strv_freep) char **b = NULL;
                 _cleanup_free_ char *line = NULL;
                 size_t length;
                 int r;
@@ -260,7 +260,7 @@ static int read_next_mapping(
 }
 
 int vconsole_convert_to_x11(const VCContext *vc, X11VerifyCallback verify, X11Context *ret) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         const char *map;
         X11Context xc;
         int r;
@@ -279,7 +279,7 @@ int vconsole_convert_to_x11(const VCContext *vc, X11VerifyCallback verify, X11Co
                 return -errno;
 
         for (unsigned n = 0;;) {
-                _cleanup_strv_free_ char **a = NULL;
+                _cleanup_(strv_freep) char **a = NULL;
 
                 r = read_next_mapping(map, 5, UINT_MAX, f, &n, &a);
                 if (r < 0)
@@ -347,7 +347,7 @@ int vconsole_convert_to_x11(const VCContext *vc, X11VerifyCallback verify, X11Co
 
 int find_converted_keymap(const X11Context *xc, char **ret) {
         _cleanup_free_ char *n = NULL, *p = NULL, *pz = NULL;
-        _cleanup_strv_free_ char **keymap_dirs = NULL;
+        _cleanup_(strv_freep) char **keymap_dirs = NULL;
         int r;
 
         assert(xc);
@@ -371,7 +371,7 @@ int find_converted_keymap(const X11Context *xc, char **ret) {
                 return r;
 
         STRV_FOREACH(dir, keymap_dirs) {
-                _cleanup_close_ int dir_fd = -EBADF;
+                _cleanup_(closep) int dir_fd = -EBADF;
                 bool uncompressed;
 
                 dir_fd = open(*dir, O_CLOEXEC | O_DIRECTORY | O_PATH);
@@ -395,7 +395,7 @@ int find_converted_keymap(const X11Context *xc, char **ret) {
 
 int find_legacy_keymap(const X11Context *xc, char **ret) {
         const char *map;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         _cleanup_free_ char *new_keymap = NULL;
         unsigned best_matching = 0;
         int r;
@@ -409,7 +409,7 @@ int find_legacy_keymap(const X11Context *xc, char **ret) {
                 return -errno;
 
         for (unsigned n = 0;;) {
-                _cleanup_strv_free_ char **a = NULL;
+                _cleanup_(strv_freep) char **a = NULL;
                 unsigned matching = 0;
 
                 r = read_next_mapping(map, 5, UINT_MAX, f, &n, &a);
@@ -424,7 +424,7 @@ int find_legacy_keymap(const X11Context *xc, char **ret) {
                         matching = 10;
                 else {
                         /* see if we get an exact match with the order reversed */
-                        _cleanup_strv_free_ char **b = NULL;
+                        _cleanup_(strv_freep) char **b = NULL;
                         _cleanup_free_ char *c = NULL;
                         r = strv_split_full(&b, a[1], ",", 0);
                         if (r < 0)
@@ -551,7 +551,7 @@ int x11_convert_to_vconsole(const X11Context *xc, VCContext *ret) {
 
 int find_language_fallback(const char *lang, char **ret) {
         const char *map;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         unsigned n = 0;
         int r;
 
@@ -564,7 +564,7 @@ int find_language_fallback(const char *lang, char **ret) {
                 return -errno;
 
         for (;;) {
-                _cleanup_strv_free_ char **a = NULL;
+                _cleanup_(strv_freep) char **a = NULL;
 
                 r = read_next_mapping(map, 2, 2, f, &n, &a);
                 if (r <= 0)

@@ -1579,7 +1579,7 @@ static int add_any_file(
                 int fd,
                 const char *path) {
 
-        _cleanup_close_ int our_fd = -EBADF;
+        _cleanup_(closep) int our_fd = -EBADF;
         _cleanup_free_ char *resolved_path = NULL;
         JournalFile *f;
         struct stat st;
@@ -1694,7 +1694,7 @@ error:
 }
 
 int journal_get_directories(sd_journal *j, char ***ret) {
-        _cleanup_strv_free_ char **paths = NULL;
+        _cleanup_(strv_freep) char **paths = NULL;
         JournalFile *f;
         const char *p;
         size_t n = SIZE_MAX;
@@ -2070,7 +2070,7 @@ static int add_directory(
                 const char *dirname) {
 
         _cleanup_free_ char *path = NULL;
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
         Directory *m;
         int r, k;
 
@@ -2135,7 +2135,7 @@ fail:
 
 static int add_root_directory(sd_journal *j, const char *p, bool missing_ok) {
 
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
         Directory *m;
         int r, k;
 
@@ -2165,7 +2165,7 @@ static int add_root_directory(sd_journal *j, const char *p, bool missing_ok) {
                         goto fail;
                 }
         } else {
-                _cleanup_close_ int dfd = -EBADF;
+                _cleanup_(closep) int dfd = -EBADF;
 
                 /* If there's no path specified, then we use the top-level fd itself. We duplicate the fd here, since
                  * opendir() will take possession of the fd, and close it, which we don't want. */

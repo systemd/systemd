@@ -392,7 +392,7 @@ int manager_open_dev_kmsg(Manager *m) {
 
         mode_t mode = O_CLOEXEC|O_NONBLOCK|O_NOCTTY|(m->config.read_kmsg ? O_RDWR : O_WRONLY);
 
-        _cleanup_close_ int fd = open("/dev/kmsg", mode);
+        _cleanup_(closep) int fd = open("/dev/kmsg", mode);
         if (fd < 0) {
                 log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING,
                                errno, "Failed to open /dev/kmsg for %s access, ignoring: %m", accmode_to_string(mode));

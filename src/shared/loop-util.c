@@ -54,7 +54,7 @@ static int loop_is_bound(int fd) {
 }
 
 static int open_lock_fd(int primary_fd, int operation) {
-        _cleanup_close_ int lock_fd = -EBADF;
+        _cleanup_(closep) int lock_fd = -EBADF;
 
         assert(IN_SET(operation & ~LOCK_NB, LOCK_SH, LOCK_EX));
 
@@ -230,7 +230,7 @@ static int loop_configure(
 
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         _cleanup_(cleanup_clear_loop_close) int loop_with_fd = -EBADF; /* This must be declared before lock_fd. */
-        _cleanup_close_ int fd = -EBADF, lock_fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF, lock_fd = -EBADF;
         _cleanup_free_ char *node = NULL;
         uint64_t diskseq = 0;
         dev_t devno;
@@ -260,7 +260,7 @@ static int loop_configure(
          * block devices to reprobe them, hence by having a separate fd we will later close() we can ensure
          * we trigger udev after everything is done. If we'd lock our own fd instead and keep it open for a
          * long time udev would possibly never run on it again, even though the fd is unlocked, simply
-         * because we never close() it. It also has the nice benefit we can use the _cleanup_close_ logic to
+         * because we never close() it. It also has the nice benefit we can use the _cleanup_(closep) logic to
          * automatically release the lock, after we are done. */
         lock_fd = open_lock_fd(fd, LOCK_EX);
         if (lock_fd < 0)
@@ -425,7 +425,7 @@ static int loop_device_make_internal(
                 LoopDevice **ret) {
 
         _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
-        _cleanup_close_ int reopened_fd = -EBADF, control = -EBADF;
+        _cleanup_(closep) int reopened_fd = -EBADF, control = -EBADF;
         _cleanup_free_ char *backing_file = NULL;
         struct loop_config config;
         int r, f_flags;
@@ -510,7 +510,7 @@ static int loop_device_make_internal(
                          * the underlying block device. */
                         r = blockdev_get_sector_size(fd, &sector_size);
                 else {
-                        _cleanup_close_ int non_direct_io_fd = -EBADF;
+                        _cleanup_(closep) int non_direct_io_fd = -EBADF;
                         int probe_fd;
 
                         assert(S_ISREG(st.st_mode));
@@ -697,7 +697,7 @@ int loop_device_make_by_path_at(
                 LoopDevice **ret) {
 
         int r, basic_flags, direct_flags, rdwr_flags;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         bool direct = false;
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
@@ -767,7 +767,7 @@ int loop_device_make_by_path_memory(
                 int lock_op,
                 LoopDevice **ret) {
 
-        _cleanup_close_ int fd = -EBADF, mfd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF, mfd = -EBADF;
         _cleanup_free_ char *fn = NULL;
         struct stat st;
         int r;
@@ -802,7 +802,7 @@ int loop_device_make_by_path_memory(
 }
 
 static LoopDevice* loop_device_free(LoopDevice *d) {
-        _cleanup_close_ int control = -EBADF;
+        _cleanup_(closep) int control = -EBADF;
         int r;
 
         if (!d)
@@ -904,7 +904,7 @@ int loop_device_open(
                 int lock_op,
                 LoopDevice **ret) {
 
-        _cleanup_close_ int fd = -EBADF, lock_fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF, lock_fd = -EBADF;
         _cleanup_free_ char *node = NULL, *backing_file = NULL;
         dev_t devnum, backing_devno = 0;
         struct loop_info64 info;
@@ -1039,7 +1039,7 @@ static int resize_partition(int partition_fd, uint64_t offset, uint64_t size) {
         char sysfs[STRLEN("/sys/dev/block/:/partition") + 2*DECIMAL_STR_MAX(dev_t) + 1];
         _cleanup_free_ char *buffer = NULL;
         uint64_t current_offset, current_size, partno;
-        _cleanup_close_ int whole_fd = -EBADF;
+        _cleanup_(closep) int whole_fd = -EBADF;
         struct stat st;
         dev_t devno;
         int r;

@@ -13,7 +13,7 @@
 TEST(delegatetap) {
         int r;
 
-        _cleanup_close_ int userns_fd = userns_acquire_self_root();
+        _cleanup_(closep) int userns_fd = userns_acquire_self_root();
         if (ERRNO_IS_NEG_PRIVILEGE(userns_fd) || ERRNO_IS_NEG_NOT_SUPPORTED(userns_fd))
                 return (void) log_tests_skipped_errno(userns_fd, "User namespaces not available");
         ASSERT_OK(userns_fd);
@@ -29,7 +29,7 @@ TEST(delegatetap) {
         ASSERT_OK(r);
 
         _cleanup_free_ char *ifname = NULL;
-        _cleanup_close_ int tap_fd = nsresource_add_netif_tap(link, userns_fd, &ifname);
+        _cleanup_(closep) int tap_fd = nsresource_add_netif_tap(link, userns_fd, &ifname);
         if (ERRNO_IS_NEG_NOT_SUPPORTED(tap_fd))
                 return (void) log_tests_skipped_errno(tap_fd, "tap device support not available");
         ASSERT_OK(tap_fd);

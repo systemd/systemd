@@ -164,7 +164,7 @@ static int extract_prefix(const char *path, char **ret) {
 }
 
 static int determine_matches(const char *image, char **l, bool allow_any, char ***ret) {
-        _cleanup_strv_free_ char **k = NULL;
+        _cleanup_(strv_freep) char **k = NULL;
         int r;
 
         /* Determine the matches to apply. If the list is empty we derive the match from the image name. If the list
@@ -289,7 +289,7 @@ static int get_image_metadata(sd_bus *bus, const char *image, char **matches, sd
 static int verb_inspect_image(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_strv_free_ char **matches = NULL;
+        _cleanup_(strv_freep) char **matches = NULL;
         _cleanup_free_ char *image = NULL;
         bool nl = false, header = false;
         const char *path;
@@ -549,7 +549,7 @@ static int print_changes(sd_bus_message *m) {
 static int maybe_enable_disable(sd_bus *bus, const char *path, bool enable) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_(strv_freep) char **names = NULL;
         const uint64_t flags = UNIT_FILE_PORTABLE | (arg_runtime ? UNIT_FILE_RUNTIME : 0);
         int r;
 
@@ -799,7 +799,7 @@ static int maybe_clean_units(sd_bus *bus, char **units) {
 static int maybe_stop_disable_clean(sd_bus *bus, char *image, char *argv[]) {
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *wait = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_strv_free_ char **matches = NULL, **units = NULL;
+        _cleanup_(strv_freep) char **matches = NULL, **units = NULL;
         int r;
 
         if (!arg_enable && !arg_now && !arg_clean)
@@ -881,7 +881,7 @@ static int attach_reattach_image(int argc, char *argv[], const char *method) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_strv_free_ char **matches = NULL;
+        _cleanup_(strv_freep) char **matches = NULL;
         _cleanup_free_ char *image = NULL;
         int r;
 
@@ -1227,7 +1227,7 @@ static int verb_is_image_attached(int argc, char *argv[], uintptr_t _data, void 
 static int dump_profiles(void) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         int r;
 
         r = acquire_bus(&bus);

@@ -39,7 +39,7 @@ static int device_get_file_system_word(
         if (r < 0)
                 return r;
 
-        _cleanup_close_ int block_fd = sd_device_open(d, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+        _cleanup_(closep) int block_fd = sd_device_open(d, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
         if (block_fd < 0)
                 return block_fd;
 
@@ -66,7 +66,7 @@ static int device_get_file_system_word(
 
         assert(r == _BLKID_SAFEPROBE_FOUND);
 
-        _cleanup_strv_free_ char **l = strv_new(prefix);
+        _cleanup_(strv_freep) char **l = strv_new(prefix);
         if (!l)
                 return -ENOMEM;
 
@@ -100,7 +100,7 @@ static int device_get_file_system_word(
 int pcrextend_file_system_word(const char *path, char **ret_word, char **ret_normalized_path) {
         _cleanup_free_ char *normalized_path = NULL, *normalized_escaped = NULL, *prefix = NULL, *word = NULL;
         _cleanup_(sd_device_unrefp) sd_device *d = NULL;
-        _cleanup_close_ int dfd = -EBADF;
+        _cleanup_(closep) int dfd = -EBADF;
         int r;
 
         assert(path);

@@ -41,7 +41,7 @@ int status_vprintf(const char *status, ShowStatusFlags flags, const char *format
         static int dumb = -1;
 
         _cleanup_free_ char *s = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         struct iovec iovec[7] = {};
         int n = 0;
 

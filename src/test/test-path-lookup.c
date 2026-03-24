@@ -71,10 +71,10 @@ TEST(user_and_global_paths) {
 
 static void test_generator_binary_paths_one(RuntimeScope scope) {
         _cleanup_(rm_rf_physical_and_freep) char *tmp = NULL;
-        _cleanup_strv_free_ char **gp_without_env = NULL;
-        _cleanup_strv_free_ char **env_gp_without_env = NULL;
-        _cleanup_strv_free_ char **gp_with_env = NULL;
-        _cleanup_strv_free_ char **env_gp_with_env = NULL;
+        _cleanup_(strv_freep) char **gp_without_env = NULL;
+        _cleanup_(strv_freep) char **env_gp_without_env = NULL;
+        _cleanup_(strv_freep) char **gp_with_env = NULL;
+        _cleanup_(strv_freep) char **env_gp_with_env = NULL;
         char *systemd_generator_path = NULL;
         char *systemd_env_generator_path = NULL;
 

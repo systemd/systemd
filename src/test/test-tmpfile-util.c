@@ -23,7 +23,7 @@ TEST(writing_tmpfile) {
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-systemd_writing_tmpfile.XXXXXX";
         _cleanup_free_ char *contents = NULL;
         size_t size;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         struct iovec iov[] = {
                 IOVEC_MAKE_STRING("abc\n"),
@@ -306,7 +306,7 @@ TEST(tempfn_random_child) {
 
 TEST(link_tmpfile) {
         _cleanup_free_ char *cmd = NULL, *cmd2 = NULL, *ans = NULL, *ans2 = NULL, *d = NULL, *tmp = NULL, *line = NULL;
-        _cleanup_close_ int fd = -EBADF, fd2 = -EBADF;
+        _cleanup_(closep) int fd = -EBADF, fd2 = -EBADF;
         const char *p = saved_argv[1] ?: "/tmp";
         char *pattern;
 

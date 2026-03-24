@@ -9,7 +9,7 @@
 #include "string-util.h"
 
 int dm_deferred_remove_cancel(const char *name) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         struct combined {
                 struct dm_ioctl dm_ioctl;

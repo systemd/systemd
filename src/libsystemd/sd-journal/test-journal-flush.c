@@ -23,8 +23,8 @@
 #include "tmpfile-util.h"
 
 static int open_archive_file(sd_journal **ret) {
-        _cleanup_closedir_ DIR *d = NULL;
-        _cleanup_close_ int newest_fd = -EBADF;
+        _cleanup_(closedirp) DIR *d = NULL;
+        _cleanup_(closep) int newest_fd = -EBADF;
         unsigned long long newest_realtime = 0;
         bool newest_is_system = false;
         sd_id128_t machine_id;

@@ -159,7 +159,7 @@ static int dump_event_json(UdevEvent *event, sd_json_format_flags_t flags, FILE 
                                 return r;
                 }
 
-                _cleanup_strv_free_ char **links = NULL;
+                _cleanup_(strv_freep) char **links = NULL;
                 FOREACH_DEVICE_DEVLINK(dev, devlink) {
                         r = strv_extend(&links, devlink);
                         if (r < 0)
@@ -257,7 +257,7 @@ static int dump_event_json(UdevEvent *event, sd_json_format_flags_t flags, FILE 
         if (r < 0)
                 return r;
 
-        _cleanup_strv_free_ char **tags = NULL;
+        _cleanup_(strv_freep) char **tags = NULL;
         FOREACH_DEVICE_TAG(dev, tag) {
                 r = strv_extend(&tags, tag);
                 if (r < 0)

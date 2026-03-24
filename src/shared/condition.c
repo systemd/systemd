@@ -110,7 +110,7 @@ Condition* condition_free_list_type(Condition *head, ConditionType type) {
 }
 
 static int condition_test_kernel_command_line(Condition *c, char **env) {
-        _cleanup_strv_free_ char **args = NULL;
+        _cleanup_(strv_freep) char **args = NULL;
         int r;
 
         assert(c);
@@ -511,7 +511,7 @@ static int condition_test_architecture(Condition *c, char **env) {
 static int condition_test_firmware_devicetree_compatible(const char *dtcarg) {
         int r;
         _cleanup_free_ char *dtcompat = NULL;
-        _cleanup_strv_free_ char **dtcompatlist = NULL;
+        _cleanup_(strv_freep) char **dtcompatlist = NULL;
         size_t size;
 
         r = read_full_virtual_file(DTCOMPAT_FILE, &dtcompat, &size);
@@ -1201,7 +1201,7 @@ static int condition_test_kernel_module_loaded(Condition *c, char **env) {
         if (!p)
                 return log_oom_debug();
 
-        _cleanup_close_ int dir_fd = open(p, O_PATH|O_DIRECTORY|O_CLOEXEC);
+        _cleanup_(closep) int dir_fd = open(p, O_PATH|O_DIRECTORY|O_CLOEXEC);
         if (dir_fd < 0) {
                 if (errno == ENOENT) {
                         log_debug_errno(errno, "'%s/' does not exist, kernel module '%s' not loaded.", p, normalized);

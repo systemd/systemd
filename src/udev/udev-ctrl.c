@@ -42,7 +42,7 @@ struct UdevCtrl {
 };
 
 int udev_ctrl_new_from_fd(UdevCtrl **ret, int fd) {
-        _cleanup_close_ int sock = -EBADF;
+        _cleanup_(closep) int sock = -EBADF;
         UdevCtrl *uctrl;
         int r;
 
@@ -226,7 +226,7 @@ static int udev_ctrl_connection_event_handler(sd_event_source *s, int fd, uint32
 
 static int udev_ctrl_event_handler(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         UdevCtrl *uctrl = ASSERT_PTR(userdata);
-        _cleanup_close_ int sock = -EBADF;
+        _cleanup_(closep) int sock = -EBADF;
         struct ucred ucred;
         int r;
 

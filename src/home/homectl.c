@@ -265,7 +265,7 @@ static int acquire_existing_password(
                 bool emphasize_current_password,
                 AskPasswordFlags flags) {
 
-        _cleanup_strv_free_erase_ char **password = NULL;
+        _cleanup_(strv_free_erasep) char **password = NULL;
         _cleanup_(erase_and_freep) char *envpw = NULL;
         _cleanup_free_ char *question = NULL;
         int r;
@@ -329,7 +329,7 @@ static int acquire_recovery_key(
                 UserRecord *hr,
                 AskPasswordFlags flags) {
 
-        _cleanup_strv_free_erase_ char **recovery_key = NULL;
+        _cleanup_(strv_free_erasep) char **recovery_key = NULL;
         _cleanup_(erase_and_freep) char *envpw = NULL;
         _cleanup_free_ char *question = NULL;
         int r;
@@ -390,7 +390,7 @@ static int acquire_token_pin(
                 UserRecord *hr,
                 AskPasswordFlags flags) {
 
-        _cleanup_strv_free_erase_ char **pin = NULL;
+        _cleanup_(strv_free_erasep) char **pin = NULL;
         _cleanup_(erase_and_freep) char *envpin = NULL;
         _cleanup_free_ char *question = NULL;
         int r;
@@ -1258,7 +1258,7 @@ static int acquire_new_password(
                 (void) suggest_passwords();
 
         for (;;) {
-                _cleanup_strv_free_erase_ char **first = NULL, **second = NULL;
+                _cleanup_(strv_free_erasep) char **first = NULL, **second = NULL;
                 _cleanup_free_ char *question = NULL;
 
                 if (--i == 0)
@@ -1324,8 +1324,8 @@ static int acquire_new_password(
 
 static int acquire_merged_blob_dir(UserRecord *hr, bool existing, Hashmap **ret) {
         _cleanup_free_ char *sys_blob_path = NULL;
-        _cleanup_hashmap_free_ Hashmap *blobs = NULL;
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(hashmap_freep) Hashmap *blobs = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
         const char *src_blob_path, *filename;
         void *fd_ptr;
         int r;
@@ -1334,7 +1334,7 @@ static int acquire_merged_blob_dir(UserRecord *hr, bool existing, Hashmap **ret)
 
         HASHMAP_FOREACH_KEY(fd_ptr, filename, arg_blob_files) {
                 _cleanup_free_ char *filename_dup = NULL;
-                _cleanup_close_ int fd_dup = -EBADF;
+                _cleanup_(closep) int fd_dup = -EBADF;
 
                 filename_dup = strdup(filename);
                 if (!filename_dup)
@@ -1380,7 +1380,7 @@ static int acquire_merged_blob_dir(UserRecord *hr, bool existing, Hashmap **ret)
 
         FOREACH_DIRENT_ALL(de, d, return log_error_errno(errno, "Failed to read %s: %m", src_blob_path)) {
                 _cleanup_free_ char *name = NULL;
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
 
                 if (dot_or_dot_dot(de->d_name))
                         continue;
@@ -1447,7 +1447,7 @@ static int bus_message_append_blobs(sd_bus_message *m, Hashmap *blobs) {
 static int create_home_common(sd_json_variant *input, bool show_enforce_password_policy_hint) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
-        _cleanup_hashmap_free_ Hashmap *blobs = NULL;
+        _cleanup_(hashmap_freep) Hashmap *blobs = NULL;
         int r;
 
         r = acquire_new_home_record(input, &hr);
@@ -1917,7 +1917,7 @@ static int verb_update_home(int argc, char *argv[], uintptr_t _data, void *userd
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL, *secret = NULL;
         _cleanup_free_ char *buffer = NULL;
-        _cleanup_hashmap_free_ Hashmap *blobs = NULL;
+        _cleanup_(hashmap_freep) Hashmap *blobs = NULL;
         const char *username;
         uint64_t flags = 0;
         int r;
@@ -2353,8 +2353,8 @@ static int verb_with_home(int argc, char *argv[], uintptr_t _data, void *userdat
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(user_record_unrefp) UserRecord *secret = NULL;
-        _cleanup_close_ int acquired_fd = -EBADF;
-        _cleanup_strv_free_ char **cmdline  = NULL;
+        _cleanup_(closep) int acquired_fd = -EBADF;
+        _cleanup_(strv_freep) char **cmdline  = NULL;
         const char *home;
         int r, ret;
 
@@ -2542,7 +2542,7 @@ static int verb_rebalance(int argc, char *argv[], uintptr_t _data, void *userdat
 static int create_or_register_from_credentials(void) {
         int r;
 
-        _cleanup_close_ int fd = open_credentials_dir();
+        _cleanup_(closep) int fd = open_credentials_dir();
         if (IN_SET(fd, -ENXIO, -ENOENT)) /* Credential env var not set, or dir doesn't exist. */
                 return 0;
         if (fd < 0)
@@ -2645,7 +2645,7 @@ static int has_regular_user(void) {
 
 static int acquire_group_list(char ***ret) {
         _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
-        _cleanup_strv_free_ char **groups = NULL;
+        _cleanup_(strv_freep) char **groups = NULL;
         UserDBMatch match = USERDB_MATCH_NULL;
         int r;
 
@@ -2707,7 +2707,7 @@ static int group_completion_callback(const char *key, char ***ret_list, void *us
                         log_debug_errno(r, "Failed to enumerate available groups, ignoring: %m");
         }
 
-        _cleanup_strv_free_ char **l = strv_copy(*available);
+        _cleanup_(strv_freep) char **l = strv_copy(*available);
         if (!l)
                 return -ENOMEM;
 
@@ -2732,7 +2732,7 @@ static int prompt_groups(const char *username, char ***ret_groups) {
 
         putchar('\n');
 
-        _cleanup_strv_free_ char **available = NULL, **groups = NULL;
+        _cleanup_(strv_freep) char **available = NULL, **groups = NULL;
         for (;;) {
                 strv_sort_uniq(groups);
 
@@ -2958,7 +2958,7 @@ static int create_interactively(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to set enforcePasswordPolicy field: %m");
 
-        _cleanup_strv_free_ char **groups = NULL;
+        _cleanup_(strv_freep) char **groups = NULL;
         r = prompt_groups(username, &groups);
         if (r < 0)
                 return r;
@@ -3072,7 +3072,7 @@ static int _drop_from_identity(char **fields) {
 
 static int parse_ssh_authorized_keys(sd_json_variant **identity, const char *field, const char *arg) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        _cleanup_strv_free_ char **l = NULL, **add = NULL;
+        _cleanup_(strv_freep) char **l = NULL, **add = NULL;
         int r;
 
         assert(identity);
@@ -3084,7 +3084,7 @@ static int parse_ssh_authorized_keys(sd_json_variant **identity, const char *fie
         if (arg[0] == '@') {
                 /* If prefixed with '@', read from a file */
 
-                _cleanup_fclose_ FILE *f = fopen(arg + 1, "re");
+                _cleanup_(fclosep) FILE *f = fopen(arg + 1, "re");
                 if (!f)
                         return log_error_errno(errno, "Failed to open '%s': %m", arg + 1);
 
@@ -3622,7 +3622,7 @@ static int parse_weight_field(sd_json_variant **identity, const char *field, con
 }
 
 static int parse_environment_field(sd_json_variant **identity, const char *field, const char *arg) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *ne = NULL;
         int r;
 
@@ -3705,7 +3705,7 @@ static int parse_group_field(
 
         for (const char *p = arg;;) {
                 _cleanup_free_ char *word = NULL;
-                _cleanup_strv_free_ char **list = NULL;
+                _cleanup_(strv_freep) char **list = NULL;
 
                 r = extract_first_word(&p, &word, ",", /* flags= */ 0);
                 if (r < 0)
@@ -3746,7 +3746,7 @@ static int parse_capability_set_field(
                 const char *field,
                 const char *arg) {
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         int r;
 
         assert(identity);
@@ -4101,7 +4101,7 @@ static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        _cleanup_strv_free_ char **arg_languages = NULL;
+        _cleanup_(strv_freep) char **arg_languages = NULL;
 
         enum {
                 ARG_VERSION = 0x100,
@@ -4862,7 +4862,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'b':
                 case ARG_AVATAR:
                 case ARG_LOGIN_BACKGROUND: {
-                        _cleanup_close_ int fd = -EBADF;
+                        _cleanup_(closep) int fd = -EBADF;
                         _cleanup_free_ char *path = NULL, *filename = NULL;
 
                         if (c == 'b') {
@@ -5109,7 +5109,7 @@ static bool is_fallback_shell(const char *p) {
 static int fallback_shell(int argc, char *argv[]) {
         _cleanup_(user_record_unrefp) UserRecord *secret = NULL, *hr = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         _cleanup_free_ char *argv0 = NULL;
         const char *json, *hd, *shell;
         int r, incomplete;
@@ -5456,7 +5456,7 @@ static int verb_add_signing_key(int argc, char *argv[], uintptr_t _data, void *u
                                 }
                         }
 
-                        _cleanup_fclose_ FILE *f = fopen(*k, "re");
+                        _cleanup_(fclosep) FILE *f = fopen(*k, "re");
                         if (!f) {
                                 RET_GATHER(ret, log_error_errno(errno, "Failed to open '%s': %m", *k));
                                 continue;
@@ -5472,7 +5472,7 @@ static int verb_add_signing_key(int argc, char *argv[], uintptr_t _data, void *u
 static int add_signing_keys_from_credentials(void) {
         int r;
 
-        _cleanup_close_ int fd = open_credentials_dir();
+        _cleanup_(closep) int fd = open_credentials_dir();
         if (IN_SET(fd, -ENXIO, -ENOENT)) /* Credential env var not set, or dir doesn't exist. */
                 return 0;
         if (fd < 0)
@@ -5503,7 +5503,7 @@ static int add_signing_keys_from_credentials(void) {
                                 return r;
                 }
 
-                _cleanup_fclose_ FILE *f = NULL;
+                _cleanup_(fclosep) FILE *f = NULL;
                 r = xfopenat(fd, de->d_name, "re", O_NOFOLLOW, &f);
                 if (r < 0) {
                         RET_GATHER(ret, log_error_errno(r, "Failed to open credential '%s': %m", de->d_name));

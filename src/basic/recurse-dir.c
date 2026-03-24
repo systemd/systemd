@@ -132,7 +132,7 @@ int readdir_all(int dir_fd, RecurseDirFlags flags, DirectoryEntries **ret) {
 }
 
 int readdir_all_at(int fd, const char *path, RecurseDirFlags flags, DirectoryEntries **ret) {
-        _cleanup_close_ int dir_fd = -EBADF;
+        _cleanup_(closep) int dir_fd = -EBADF;
 
         assert(fd >= 0 || fd == AT_FDCWD);
 
@@ -193,7 +193,7 @@ int recurse_dir(
 
         FOREACH_ARRAY(entry, de->entries, de->n_entries) {
                 struct dirent *i = *entry;
-                _cleanup_close_ int inode_fd = -EBADF, subdir_fd = -EBADF;
+                _cleanup_(closep) int inode_fd = -EBADF, subdir_fd = -EBADF;
                 _cleanup_free_ char *joined = NULL;
                 struct statx sx;
                 bool sx_valid = false;
@@ -507,7 +507,7 @@ int recurse_dir_at(
                 recurse_dir_func_t func,
                 void *userdata) {
 
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         assert(atfd >= 0 || atfd == AT_FDCWD);
         assert(func);

@@ -10,7 +10,7 @@
 #include "hwclock-util.h"
 
 int hwclock_get(struct tm *tm /* input + output! */) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         assert(tm);
 
@@ -31,7 +31,7 @@ int hwclock_get(struct tm *tm /* input + output! */) {
 }
 
 int hwclock_set(const struct tm *tm) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         assert(tm);
 

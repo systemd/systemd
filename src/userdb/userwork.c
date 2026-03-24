@@ -441,7 +441,7 @@ static int vl_method_get_memberships(sd_varlink *link, sd_json_variant *paramete
 }
 
 static int process_connection(sd_varlink_server *server, int _fd) {
-        _cleanup_close_ int fd = TAKE_FD(_fd); /* always take possession */
+        _cleanup_(closep) int fd = TAKE_FD(_fd); /* always take possession */
         _cleanup_(sd_varlink_close_unrefp) sd_varlink *vl = NULL;
         int r;
 
@@ -533,7 +533,7 @@ static int run(int argc, char *argv[]) {
         start_time = now(CLOCK_MONOTONIC);
 
         for (;;) {
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
                 usec_t n;
 
                 /* Exit the worker in regular intervals, to flush out all memory use */

@@ -533,7 +533,7 @@ int pidref_get_capability(const PidRef *pidref, CapabilityQuintet *ret) {
                 return -EREMOTE;
 
         const char *path = procfs_file_alloca(pidref->pid, "status");
-        _cleanup_fclose_ FILE *f = fopen(path, "re");
+        _cleanup_(fclosep) FILE *f = fopen(path, "re");
         if (!f) {
                 if (errno == ENOENT && proc_mounted() == 0)
                         return -ENOSYS;

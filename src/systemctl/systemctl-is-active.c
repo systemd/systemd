@@ -15,7 +15,7 @@
 #include "unit-def.h"
 
 static int check_unit_generic(int code, const UnitActiveState good_states[], size_t nb_states, char **args) {
-        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_(strv_freep) char **names = NULL;
         UnitActiveState active_state;
         sd_bus *bus;
         bool not_found = true, ok = false;

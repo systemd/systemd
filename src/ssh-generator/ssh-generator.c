@@ -96,7 +96,7 @@ static int make_sshd_template_unit(
                                 found_sshd_template_service);
 
         if (!*generated_sshd_template_unit) {
-                _cleanup_fclose_ FILE *f = NULL;
+                _cleanup_(fclosep) FILE *f = NULL;
 
                 /* We use a generic name for the unit, since we'll use it for both AF_UNIX and AF_VSOCK  */
                 r = generator_open_unit_file_full(
@@ -147,7 +147,7 @@ static int write_socket_unit(
         assert(listen_stream);
         assert(comment);
 
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         r = generator_open_unit_file(
                         dest,
                         /* source= */ NULL,
@@ -402,7 +402,7 @@ static int parse_credentials(void) {
         if (r <= 0)
                 return r;
 
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         f = fmemopen_unlocked(b, sz, "r");
         if (!f)
                 return log_oom();

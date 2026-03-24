@@ -31,7 +31,7 @@ static int ifindex_str_compare_func(char * const *a, char * const *b) {
 }
 
 static int get_netifs(char **ret) {
-        _cleanup_strv_free_ char **netifs = NULL;
+        _cleanup_(strv_freep) char **netifs = NULL;
         _cleanup_free_ char *joined = NULL;
         int r;
 
@@ -57,7 +57,7 @@ static int get_netifs(char **ret) {
 
 int system_status(sd_netlink *rtnl, sd_hwdb *hwdb) {
         _cleanup_free_ char *operational_state = NULL, *online_state = NULL, *netifs_joined = NULL;
-        _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **search_domains = NULL, **route_domains = NULL;
+        _cleanup_(strv_freep) char **dns = NULL, **ntp = NULL, **search_domains = NULL, **route_domains = NULL;
         const char *on_color_operational, *off_color_operational, *on_color_online;
         _cleanup_(table_unrefp) Table *table = NULL;
         int r;

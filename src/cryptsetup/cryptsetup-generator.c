@@ -111,7 +111,7 @@ static int generate_device_mount(
                 char **mount) {
 
         _cleanup_free_ char *u = NULL, *where = NULL, *name_escaped = NULL, *device_unit = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r;
         usec_t timeout_us;
 
@@ -188,7 +188,7 @@ static int generate_device_umount(const char *name,
                                   const char *device_mount,
                                   const char *type_prefix, /* "keydev" or "headerdev" */
                                   char **ret_umount_unit) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         _cleanup_free_ char *u = NULL, *name_escaped = NULL, *mount = NULL;
         int r;
 
@@ -310,7 +310,7 @@ static int create_disk(
                 *keydev_mount = NULL, *keyfile_timeout_value = NULL,
                 *filtered = NULL, *u_escaped = NULL, *name_escaped = NULL, *header_path = NULL, *key_file_buffer = NULL,
                 *tmp_fstype = NULL, *filtered_header = NULL, *headerdev_mount = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         const char *dmname;
         bool noauto, nofail, swap, netdev;
         int r, detached_header, keyfile_can_timeout, tmp;
@@ -841,7 +841,7 @@ static int add_crypttab_device(const char *name, const char *device, const char 
 }
 
 static int add_crypttab_devices(void) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         unsigned crypttab_line = 0;
         int r, ret = 0;
 

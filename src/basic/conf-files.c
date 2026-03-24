@@ -53,7 +53,7 @@ static int prepare_dirs(
                 char ***ret_dirs) {
 
         _cleanup_free_ char *root_abs = NULL;
-        _cleanup_strv_free_ char **dirs_abs = NULL;
+        _cleanup_(strv_freep) char **dirs_abs = NULL;
         int r;
 
         assert(ret_root);
@@ -72,7 +72,7 @@ static int prepare_dirs(
                         return log_oom_full(log_level);
         }
 
-        _cleanup_close_ int rfd = XAT_FDROOT;
+        _cleanup_(closep) int rfd = XAT_FDROOT;
         if (root) {
                 /* When a non-trivial root is specified, we will prefix the result later. Hence, it is not
                  * necessary to modify each config directories here. but needs to normalize the root directory. */
@@ -156,7 +156,7 @@ static int conf_file_chase_and_verify(
                 struct stat *ret_stat) {
 
         _cleanup_free_ char *resolved_path = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         struct stat st = {};
         int r;
 
@@ -347,7 +347,7 @@ int conf_file_new(const char *path, const char *root, ConfFilesFlags flags, Conf
         assert(ret);
 
         _cleanup_free_ char *root_abs = NULL;
-        _cleanup_close_ int rfd = -EBADF;
+        _cleanup_(closep) int rfd = -EBADF;
         r = prepare_dirs(root, flags, /* dirs= */ NULL, &root_abs, &rfd, /* ret_dirs= */ NULL);
         if (r < 0)
                 return r;
@@ -433,7 +433,7 @@ static int files_add(
                         return log_oom_full(log_level);
 
                 _cleanup_free_ char *resolved_path = NULL;
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
                 struct stat st;
                 r = conf_file_chase_and_verify(
                                 root,
@@ -518,7 +518,7 @@ static int copy_and_sort_files_from_hashmap(
                 ConfFilesFlags flags,
                 char ***ret) {
 
-        _cleanup_strv_free_ char **results = NULL;
+        _cleanup_(strv_freep) char **results = NULL;
         _cleanup_free_ ConfFile **files = NULL;
         size_t n_files = 0, n_results = 0;
         int r;
@@ -621,8 +621,8 @@ static int conf_files_list_impl(
                 Hashmap **ret,
                 const ConfFile **ret_inserted) {
 
-        _cleanup_hashmap_free_ Hashmap *fh = NULL;
-        _cleanup_set_free_ Set *masked = NULL;
+        _cleanup_(hashmap_freep) Hashmap *fh = NULL;
+        _cleanup_(set_freep) Set *masked = NULL;
         _cleanup_(conf_file_freep) ConfFile *c = NULL;
         const ConfFile *inserted = NULL;
         int r;
@@ -639,7 +639,7 @@ static int conf_files_list_impl(
         }
 
         STRV_FOREACH(p, dirs) {
-                _cleanup_closedir_ DIR *dir = NULL;
+                _cleanup_(closedirp) DIR *dir = NULL;
                 _cleanup_free_ char *path = NULL;
 
                 r = chase_and_opendirat(rfd, *p, CHASE_AT_RESOLVE_IN_ROOT, &path, &dir);
@@ -681,10 +681,10 @@ int conf_files_list_strv(
                 ConfFilesFlags flags,
                 const char * const *dirs) {
 
-        _cleanup_hashmap_free_ Hashmap *fh = NULL;
-        _cleanup_close_ int rfd = -EBADF;
+        _cleanup_(hashmap_freep) Hashmap *fh = NULL;
+        _cleanup_(closep) int rfd = -EBADF;
         _cleanup_free_ char *root_abs = NULL;
-        _cleanup_strv_free_ char **dirs_abs = NULL;
+        _cleanup_(strv_freep) char **dirs_abs = NULL;
         int r;
 
         assert(ret);
@@ -709,10 +709,10 @@ int conf_files_list_strv_full(
                 ConfFile ***ret_files,
                 size_t *ret_n_files) {
 
-        _cleanup_hashmap_free_ Hashmap *fh = NULL;
-        _cleanup_close_ int rfd = -EBADF;
+        _cleanup_(hashmap_freep) Hashmap *fh = NULL;
+        _cleanup_(closep) int rfd = -EBADF;
         _cleanup_free_ char *root_abs = NULL;
-        _cleanup_strv_free_ char **dirs_abs = NULL;
+        _cleanup_(strv_freep) char **dirs_abs = NULL;
         int r;
 
         assert(ret_files);
@@ -737,7 +737,7 @@ int conf_files_list_strv_at(
                 ConfFilesFlags flags,
                 const char * const *dirs) {
 
-        _cleanup_hashmap_free_ Hashmap *fh = NULL;
+        _cleanup_(hashmap_freep) Hashmap *fh = NULL;
         _cleanup_free_ char *root = NULL;
         int r;
 
@@ -762,7 +762,7 @@ int conf_files_list_strv_at_full(
                 ConfFile ***ret_files,
                 size_t *ret_n_files) {
 
-        _cleanup_hashmap_free_ Hashmap *fh = NULL;
+        _cleanup_(hashmap_freep) Hashmap *fh = NULL;
         _cleanup_free_ char *root = NULL;
         int r;
 
@@ -797,7 +797,7 @@ int conf_files_list_at_full(const char *suffix, int rfd, ConfFilesFlags flags, c
 }
 
 int conf_files_list_nulstr(char ***ret, const char *suffix, const char *root, ConfFilesFlags flags, const char *dirs) {
-        _cleanup_strv_free_ char **d = NULL;
+        _cleanup_(strv_freep) char **d = NULL;
 
         assert(ret);
 
@@ -809,7 +809,7 @@ int conf_files_list_nulstr(char ***ret, const char *suffix, const char *root, Co
 }
 
 int conf_files_list_nulstr_full(const char *suffix, const char *root, ConfFilesFlags flags, const char *dirs, ConfFile ***ret_files, size_t *ret_n_files) {
-        _cleanup_strv_free_ char **d = NULL;
+        _cleanup_(strv_freep) char **d = NULL;
 
         assert(ret_files);
         assert(ret_n_files);
@@ -822,7 +822,7 @@ int conf_files_list_nulstr_full(const char *suffix, const char *root, ConfFilesF
 }
 
 int conf_files_list_nulstr_at(char ***ret, const char *suffix, int rfd, ConfFilesFlags flags, const char *dirs) {
-        _cleanup_strv_free_ char **d = NULL;
+        _cleanup_(strv_freep) char **d = NULL;
 
         assert(ret);
 
@@ -834,7 +834,7 @@ int conf_files_list_nulstr_at(char ***ret, const char *suffix, int rfd, ConfFile
 }
 
 int conf_files_list_nulstr_at_full(const char *suffix, int rfd, ConfFilesFlags flags, const char *dirs, ConfFile ***ret_files, size_t *ret_n_files) {
-        _cleanup_strv_free_ char **d = NULL;
+        _cleanup_(strv_freep) char **d = NULL;
 
         assert(ret_files);
         assert(ret_n_files);
@@ -853,12 +853,12 @@ int conf_files_list_with_replacement(
                 char ***ret_files,
                 char **ret_inserted) {
 
-        _cleanup_hashmap_free_ Hashmap *fh = NULL;
+        _cleanup_(hashmap_freep) Hashmap *fh = NULL;
         _cleanup_free_ char *inserted = NULL;
         ConfFilesFlags flags = CONF_FILES_REGULAR | CONF_FILES_FILTER_MASKED_BY_SYMLINK | CONF_FILES_WARN;
-        _cleanup_close_ int rfd = -EBADF;
+        _cleanup_(closep) int rfd = -EBADF;
         _cleanup_free_ char *root_abs = NULL;
-        _cleanup_strv_free_ char **dirs_abs = NULL;
+        _cleanup_(strv_freep) char **dirs_abs = NULL;
         const ConfFile *c = NULL;
         int r;
 
@@ -898,7 +898,7 @@ int conf_files_list_dropins(
                 ConfFilesFlags flags,
                 const char * const *dirs) {
 
-        _cleanup_strv_free_ char **dropin_dirs = NULL;
+        _cleanup_(strv_freep) char **dropin_dirs = NULL;
         const char *suffix;
         int r;
 
@@ -933,7 +933,7 @@ int conf_file_read(
                 bool ignore_enoent,
                 bool *invalid_config) {
 
-        _cleanup_fclose_ FILE *_f = NULL;
+        _cleanup_(fclosep) FILE *_f = NULL;
         _cleanup_free_ char *_fn = NULL;
         unsigned v = 0;
         FILE *f;

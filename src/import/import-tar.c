@@ -262,7 +262,7 @@ static int tar_import_fork_tar(TarImport *i) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to connect to mountfsd: %m");
 
-                _cleanup_close_ int directory_fd = -EBADF;
+                _cleanup_(closep) int directory_fd = -EBADF;
                 r = mountfsd_make_directory(
                                 mountfsd_link,
                                 d,

@@ -120,7 +120,7 @@ static void test_dns_resource_record_get_cname_target(void) {
 }
 
 int main(int argc, char **argv) {
-        _cleanup_strv_free_ char **v = NULL;
+        _cleanup_(strv_freep) char **v = NULL;
         char **fnames;
 
         test_setup_logging(LOG_DEBUG);

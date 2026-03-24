@@ -41,7 +41,7 @@ int namespace_flags_from_string(const char *name, unsigned long *ret) {
 }
 
 int namespace_flags_to_string(unsigned long flags, char **ret) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         _cleanup_free_ char *s = NULL;
         int r;
 
@@ -60,7 +60,7 @@ int namespace_flags_to_string(unsigned long flags, char **ret) {
 }
 
 int namespace_flags_to_strv(unsigned long flags, char ***ret) {
-        _cleanup_strv_free_ char **s = NULL;
+        _cleanup_(strv_freep) char **s = NULL;
         unsigned i;
         int r;
 

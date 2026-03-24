@@ -81,7 +81,7 @@ static int send_passwords(const char *socket_name, char **passwords) {
         STRV_FOREACH(p, passwords)
                 d = stpcpy(d, *p) + 1;
 
-        _cleanup_close_ int socket_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0);
+        _cleanup_(closep) int socket_fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0);
         if (socket_fd < 0)
                 return log_debug_errno(errno, "socket(): %m");
 
@@ -117,7 +117,7 @@ static bool wall_tty_match(const char *path, bool is_local, void *userdata) {
                 return true;
         }
 
-        _cleanup_close_ int fd = open(p, O_WRONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        _cleanup_(closep) int fd = open(p, O_WRONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (fd < 0) {
                 log_debug_errno(errno, "Failed to open the wall pipe for TTY '%s', not restricting wall: %m", path);
                 return 1;
@@ -233,7 +233,7 @@ static int process_one_password_file(const char *filename, FILE *f) {
         }
         case ACTION_QUERY:
         case ACTION_WATCH: {
-                _cleanup_strv_free_erase_ char **passwords = NULL;
+                _cleanup_(strv_free_erasep) char **passwords = NULL;
                 AskPasswordFlags flags = 0;
 
                 if (access(socket_name, W_OK) < 0) {
@@ -311,7 +311,7 @@ static int wall_tty_block(void) {
 }
 
 static int process_password_files(const char *path) {
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
         int ret = 0, r;
 
         assert(path);
@@ -337,7 +337,7 @@ static int process_password_files(const char *path) {
                 if (!p)
                         return log_oom();
 
-                _cleanup_fclose_ FILE *f = NULL;
+                _cleanup_(fclosep) FILE *f = NULL;
                 r = xfopenat(dirfd(d), de->d_name, "re", O_NOFOLLOW, &f);
                 if (r < 0) {
                         log_warning_errno(r, "Failed to open '%s', ignoring: %m", p);
@@ -358,8 +358,8 @@ static int process_and_watch_password_files(bool watch) {
         };
 
         _cleanup_free_ char *user_ask_password_directory = NULL;
-        _unused_ _cleanup_close_ int tty_block_fd = -EBADF;
-        _cleanup_close_ int notify = -EBADF, signal_fd = -EBADF;
+        _unused_ _cleanup_(closep) int tty_block_fd = -EBADF;
+        _cleanup_(closep) int notify = -EBADF, signal_fd = -EBADF;
         struct pollfd pollfd[_FD_MAX];
         sigset_t mask;
         int r;
@@ -659,8 +659,8 @@ static void terminate_agents(Set *pids) {
 }
 
 static int ask_on_consoles(char *argv[]) {
-        _cleanup_strv_free_ char **consoles = NULL, **arguments = NULL;
-        _cleanup_set_free_ Set *pids = NULL;
+        _cleanup_(strv_freep) char **consoles = NULL, **arguments = NULL;
+        _cleanup_(set_freep) Set *pids = NULL;
         int r;
 
         assert(!arg_device);

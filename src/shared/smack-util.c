@@ -172,7 +172,7 @@ int mac_smack_fix_full(
                 LabelFixFlags flags) {
 
 #if ENABLE_SMACK
-        _cleanup_close_ int opened_fd = -EBADF;
+        _cleanup_(closep) int opened_fd = -EBADF;
         _cleanup_free_ char *p = NULL;
         int r, inode_fd;
 

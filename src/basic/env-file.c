@@ -370,7 +370,7 @@ int parse_env_filev(
 }
 
 int parse_env_file_fdv(int fd, const char *fname, va_list ap) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         va_list aq;
         int r;
 
@@ -431,7 +431,7 @@ int parse_env_datav(
         if (size == SIZE_MAX)
                 size = strlen_ptr(data);
 
-        _cleanup_fclose_ FILE *f = fmemopen_unlocked((void*) data, size, "r");
+        _cleanup_(fclosep) FILE *f = fmemopen_unlocked((void*) data, size, "r");
         if (!f)
                 return -ENOMEM;
 
@@ -482,7 +482,7 @@ static int load_env_file_push(
 }
 
 int load_env_file(FILE *f, const char *fname, char ***ret) {
-        _cleanup_strv_free_ char **m = NULL;
+        _cleanup_(strv_freep) char **m = NULL;
         int r;
 
         assert(f || fname);
@@ -530,7 +530,7 @@ static int load_env_file_push_pairs(
 }
 
 int load_env_file_pairs(FILE *f, const char *fname, char ***ret) {
-        _cleanup_strv_free_ char **m = NULL;
+        _cleanup_(strv_freep) char **m = NULL;
         int r;
 
         assert(f || fname);
@@ -545,7 +545,7 @@ int load_env_file_pairs(FILE *f, const char *fname, char ***ret) {
 }
 
 int load_env_file_pairs_fd(int fd, const char *fname, char ***ret) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r;
 
         assert(fd >= 0);
@@ -666,7 +666,7 @@ static void write_env_var(FILE *f, const char *v) {
 }
 
 int write_env_file(int dir_fd, const char *fname, char **headers, char **l, WriteEnvFileFlags flags) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         _cleanup_free_ char *p = NULL;
         int r;
 

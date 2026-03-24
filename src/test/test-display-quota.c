@@ -14,7 +14,7 @@
 static int show_quota(uid_t uid, const char *path) {
         int r;
 
-        _cleanup_close_ int fd = open(path, O_DIRECTORY|O_CLOEXEC);
+        _cleanup_(closep) int fd = open(path, O_DIRECTORY|O_CLOEXEC);
         if (fd < 0)
                 return log_error_errno(errno, "Failed to open '%s': %m", path);
 

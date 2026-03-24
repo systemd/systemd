@@ -82,7 +82,7 @@ int _dispatch_verb_with_args(char **args, const Verb verbs[], const Verb verbs_e
 
         const Verb *verb = verbs_find_verb(name, verbs, verbs_end);
         if (!verb) {
-                _cleanup_strv_free_ char **verb_strv = NULL;
+                _cleanup_(strv_freep) char **verb_strv = NULL;
 
                 for (verb = verbs; verb < verbs_end; verb++) {
                         r = strv_extend(&verb_strv, verb->verb);

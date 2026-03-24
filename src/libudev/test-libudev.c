@@ -169,7 +169,7 @@ static int enumerate_print_list(struct udev_enumerate *enumerate) {
 
 static void test_monitor(struct udev *udev) {
         _cleanup_(udev_monitor_unrefp) struct udev_monitor *udev_monitor = NULL;
-        _cleanup_close_ int fd_ep = -EBADF;
+        _cleanup_(closep) int fd_ep = -EBADF;
         int fd_udev;
         struct epoll_event ep_udev = {
                 .events = EPOLLIN,

@@ -286,7 +286,7 @@ static int trigger_xaccess(char * const *extra_devices) {
         if (strv_isempty(extra_devices))
                 return 0;
 
-        _cleanup_strv_free_ char **tags = NULL;
+        _cleanup_(strv_freep) char **tags = NULL;
         r = strv_extend_strv_biconcat(&tags, "xaccess-", (const char * const *)extra_devices, /* suffix= */ NULL);
         if (r < 0)
                 return r;
@@ -349,7 +349,7 @@ int session_save(Session *s) {
                 return log_error_errno(r, "Failed to create /run/systemd/sessions/: %m");
 
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         r = fopen_tmpfile_linkable(s->state_file, O_WRONLY|O_CLOEXEC, &temp_path, &f);
         if (r < 0)
                 return log_error_errno(r, "Failed to create state file '%s': %m", s->state_file);
@@ -1406,7 +1406,7 @@ int session_kill(Session *s, KillWhom whom, int signo, sd_bus_error *error) {
 }
 
 static int session_open_vt(Session *s, bool reopen) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         char path[sizeof("/dev/tty") + DECIMAL_STR_MAX(s->vtnr)];
 
         assert(s);

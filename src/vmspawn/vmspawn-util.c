@@ -82,7 +82,7 @@ int qemu_check_kvm_support(void) {
 }
 
 int qemu_check_vsock_support(void) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         /* Just using access() will just check if the device node exists, but not whether a
          * device driver is behind it (this is a common case since systemd-tmpfiles creates
          * the device node on boot, typically).
@@ -212,7 +212,7 @@ static int get_firmware_search_dirs(char ***ret) {
         if (r < 0)
                 return r;
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         l = strv_new(user_firmware_dir, "/etc/qemu/firmware", "/usr/share/qemu/firmware");
         if (!l)
                 return log_oom_debug();
@@ -222,7 +222,7 @@ static int get_firmware_search_dirs(char ***ret) {
 }
 
 int list_ovmf_config(char ***ret) {
-        _cleanup_strv_free_ char **search_dirs = NULL;
+        _cleanup_(strv_freep) char **search_dirs = NULL;
         int r;
 
         assert(ret);
@@ -320,7 +320,7 @@ int load_ovmf_config(const char *path, OvmfConfig **ret) {
 
 int find_ovmf_config(int search_sb, OvmfConfig **ret) {
         _cleanup_(ovmf_config_freep) OvmfConfig *config = NULL;
-        _cleanup_strv_free_ char **conf_files = NULL;
+        _cleanup_(strv_freep) char **conf_files = NULL;
         const char* native_arch_qemu;
         int r;
 

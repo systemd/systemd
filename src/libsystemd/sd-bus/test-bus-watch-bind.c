@@ -46,7 +46,7 @@ static const sd_bus_vtable vtable[] = {
 
 static void* thread_server(void *p) {
         _cleanup_free_ char *suffixed = NULL, *suffixed_basename = NULL, *suffixed2 = NULL, *d = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         union sockaddr_union u;
         const char *path = p;
         int r;

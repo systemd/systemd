@@ -240,7 +240,7 @@ static int xdg_config_parse_strv(
         }
 
         size_t n = 0;
-        _cleanup_strv_free_ char **sv = NULL;
+        _cleanup_(strv_freep) char **sv = NULL;
 
         if (!GREEDY_REALLOC0(sv, 1))
                 return log_oom();
@@ -366,7 +366,7 @@ int xdg_autostart_format_exec_start(
                 const char *exec,
                 char **ret_exec_start) {
 
-        _cleanup_strv_free_ char **exec_split = NULL;
+        _cleanup_(strv_freep) char **exec_split = NULL;
         char *res;
         size_t n, i;
         bool first_arg;
@@ -517,8 +517,8 @@ int xdg_autostart_service_generate_unit(
                 const char *dest) {
 
         _cleanup_free_ char *path_escaped = NULL, *exec_start = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_strv_free_ char **only_show_in = NULL, **not_show_in = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
+        _cleanup_(strv_freep) char **only_show_in = NULL, **not_show_in = NULL;
         int r;
 
         assert(service);

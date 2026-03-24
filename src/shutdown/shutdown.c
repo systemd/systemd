@@ -186,7 +186,7 @@ static int switch_root_initramfs(void) {
  * the sync is not making progress.
  */
 static int sync_making_progress(unsigned long long *prev_dirty) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         unsigned long long val = 0;
         int r;
 

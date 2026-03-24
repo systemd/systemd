@@ -135,7 +135,7 @@ static int sd_drmdropmaster(int fd) {
 }
 
 static int session_device_open(SessionDevice *sd, bool active) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         assert(sd);

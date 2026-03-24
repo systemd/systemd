@@ -24,7 +24,7 @@ static const char *arg_root = NULL;
 
 static int network_save(Network *network, const char *dest_dir) {
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         _cleanup_free_ char *p = NULL;
         int r;
 
@@ -58,7 +58,7 @@ static int network_save(Network *network, const char *dest_dir) {
 
 static int netdev_save(NetDev *netdev, const char *dest_dir) {
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         _cleanup_free_ char *p = NULL;
         int r;
 
@@ -89,7 +89,7 @@ static int netdev_save(NetDev *netdev, const char *dest_dir) {
 
 static int link_save(Link *link, const char *dest_dir) {
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         _cleanup_free_ char *p = NULL;
         int r;
 

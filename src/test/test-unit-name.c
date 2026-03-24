@@ -290,7 +290,7 @@ TEST_RET(unit_printf, .sd_booted = true) {
                 *user, *group, *uid, *gid, *home, *shell,
                 *tmp_dir, *var_tmp_dir;
         _cleanup_(manager_freep) Manager *m = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         Unit *u;
         int r;
 

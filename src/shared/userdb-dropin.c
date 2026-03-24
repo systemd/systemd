@@ -109,7 +109,7 @@ static int load_user(
 
 int dropin_user_record_by_name(const char *name, const char *path, UserDBFlags flags, UserRecord **ret) {
         _cleanup_free_ char *found_path = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r;
 
         assert(name);
@@ -139,7 +139,7 @@ int dropin_user_record_by_name(const char *name, const char *path, UserDBFlags f
 
 int dropin_user_record_by_uid(uid_t uid, const char *path, UserDBFlags flags, UserRecord **ret) {
         _cleanup_free_ char *found_path = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r;
 
         assert(uid_is_valid(uid));
@@ -253,7 +253,7 @@ static int load_group(
 
 int dropin_group_record_by_name(const char *name, const char *path, UserDBFlags flags, GroupRecord **ret) {
         _cleanup_free_ char *found_path = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r;
 
         assert(name);
@@ -283,7 +283,7 @@ int dropin_group_record_by_name(const char *name, const char *path, UserDBFlags 
 
 int dropin_group_record_by_gid(gid_t gid, const char *path, UserDBFlags flags, GroupRecord **ret) {
         _cleanup_free_ char *found_path = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r;
 
         assert(gid_is_valid(gid));

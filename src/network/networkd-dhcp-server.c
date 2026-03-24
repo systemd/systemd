@@ -491,7 +491,7 @@ static int dhcp4_server_parse_dns_server_string_and_warn(
 
 static int dhcp4_server_set_dns_from_resolve_conf(Link *link) {
         _cleanup_free_ struct in_addr *addresses = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         size_t n_addresses = 0;
         int r;
 

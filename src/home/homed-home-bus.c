@@ -499,7 +499,7 @@ int bus_home_method_update(
                 sd_bus_error *error) {
 
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
-        _cleanup_hashmap_free_ Hashmap *blobs = NULL;
+        _cleanup_(hashmap_freep) Hashmap *blobs = NULL;
         uint64_t flags = 0;
         Home *h = ASSERT_PTR(userdata);
         int r;
@@ -675,7 +675,7 @@ int bus_home_method_acquire(
 
         _cleanup_(user_record_unrefp) UserRecord *secret = NULL;
         _cleanup_(operation_unrefp) Operation *o = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int r, please_suspend;
         Home *h = ASSERT_PTR(userdata);
 
@@ -713,7 +713,7 @@ int bus_home_method_ref(
                 void *userdata,
                 sd_bus_error *error) {
 
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         Home *h = ASSERT_PTR(userdata);
         int please_suspend, r;
         bool unrestricted;
@@ -826,7 +826,7 @@ static int bus_home_node_enumerator(
                 char ***nodes,
                 sd_bus_error *error) {
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         Manager *m = userdata;
         size_t k = 0;
         Home *h;

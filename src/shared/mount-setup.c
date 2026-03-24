@@ -406,7 +406,7 @@ static int relabel_tree(const char *path) {
 }
 
 static int relabel_extra(void) {
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_(strv_freep) char **files = NULL;
         int r, c = 0;
 
         /* Support for relabelling additional files or directories after loading the policy. For this, code in the
@@ -424,7 +424,7 @@ static int relabel_extra(void) {
                 return log_error_errno(r, "Failed to enumerate /run/systemd/relabel-extra.d/, ignoring: %m");
 
         STRV_FOREACH(file, files) {
-                _cleanup_fclose_ FILE *f = NULL;
+                _cleanup_(fclosep) FILE *f = NULL;
 
                 f = fopen(*file, "re");
                 if (!f) {

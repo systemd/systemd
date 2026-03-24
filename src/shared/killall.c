@@ -27,7 +27,7 @@ static int argv_has_at(const PidRef *pid) {
         assert(!pidref_is_remote(pid));
 
         const char *p = procfs_file_alloca(pid->pid, "cmdline");
-        _cleanup_fclose_ FILE *f = fopen(p, "re");
+        _cleanup_(fclosep) FILE *f = fopen(p, "re");
         if (!f)
                 return log_debug_errno(errno, "Failed to open %s, ignoring: %m", p);
 
@@ -224,7 +224,7 @@ static int wait_for_children(Set *pids, sigset_t *mask, usec_t timeout) {
 }
 
 static int killall(int sig, Set *pids, bool send_sighup) {
-        _cleanup_closedir_ DIR *dir = NULL;
+        _cleanup_(closedirp) DIR *dir = NULL;
         int n_killed = 0, r;
 
         /* Send the specified signal to all remaining processes, if not excluded by ignore_proc().
@@ -285,7 +285,7 @@ static int killall(int sig, Set *pids, bool send_sighup) {
 int broadcast_signal(int sig, bool wait_for_exit, bool send_sighup, usec_t timeout) {
         int n_children_left;
         sigset_t mask, oldmask;
-        _cleanup_set_free_ Set *pids = NULL;
+        _cleanup_(set_freep) Set *pids = NULL;
 
         /* Send the specified signal to all remaining processes, if not excluded by ignore_proc().
          * Return:

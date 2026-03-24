@@ -96,7 +96,7 @@ bool use_audit(void) {
         if (dlopen_libaudit() < 0)
                 return (cached_use = false);
 
-        _cleanup_close_ int fd = socket(AF_NETLINK, SOCK_RAW|SOCK_CLOEXEC|SOCK_NONBLOCK, NETLINK_AUDIT);
+        _cleanup_(closep) int fd = socket(AF_NETLINK, SOCK_RAW|SOCK_CLOEXEC|SOCK_NONBLOCK, NETLINK_AUDIT);
         if (fd < 0) {
                 cached_use = !ERRNO_IS_PRIVILEGE(errno) && !ERRNO_IS_NOT_SUPPORTED(errno);
                 if (cached_use)

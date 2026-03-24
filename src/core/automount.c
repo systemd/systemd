@@ -448,7 +448,7 @@ static int autofs_send_ready(int dev_autofs_fd, int ioctl_fd, uint32_t token, in
 }
 
 static int automount_send_ready(Automount *a, Set *tokens, int status) {
-        _cleanup_close_ int ioctl_fd = -EBADF;
+        _cleanup_(closep) int ioctl_fd = -EBADF;
         unsigned token;
         int r;
 
@@ -542,8 +542,8 @@ static void automount_trigger_notify(Unit *u, Unit *other) {
 }
 
 static void automount_enter_waiting(Automount *a) {
-        _cleanup_close_pair_ int pipe_fd[2] = EBADF_PAIR;
-        _cleanup_close_ int ioctl_fd = -EBADF;
+        _cleanup_(close_pairp) int pipe_fd[2] = EBADF_PAIR;
+        _cleanup_(closep) int ioctl_fd = -EBADF;
         char name[STRLEN("systemd-") + DECIMAL_STR_MAX(pid_t) + 1];
         _cleanup_free_ char *options = NULL;
         bool mounted = false;
@@ -683,7 +683,7 @@ static int asynchronous_expire(int dev_autofs_fd, int ioctl_fd) {
 
 static int automount_dispatch_expire(sd_event_source *source, usec_t usec, void *userdata) {
         Automount *a = ASSERT_PTR(AUTOMOUNT(userdata));
-        _cleanup_close_ int ioctl_fd = -EBADF;
+        _cleanup_(closep) int ioctl_fd = -EBADF;
         int r;
 
         assert(source == a->expire_event_source);

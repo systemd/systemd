@@ -402,7 +402,7 @@ static int dns_scope_socket(
                 uint16_t port,
                 union sockaddr_union *ret_socket_address) {
 
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         union sockaddr_union sa;
         socklen_t salen;
         int r, ifindex;
@@ -1534,7 +1534,7 @@ static int on_announcement_timeout(sd_event_source *s, usec_t usec, void *userda
 int dns_scope_announce(DnsScope *scope, bool goodbye) {
         _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
-        _cleanup_set_free_ Set *types = NULL;
+        _cleanup_(set_freep) Set *types = NULL;
         DnsZoneItem *z;
         unsigned size = 0;
         char *service_type;

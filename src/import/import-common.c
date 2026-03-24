@@ -39,7 +39,7 @@ int import_fork_tar_x(int tree_fd, int userns_fd, PidRef *ret_pid) {
                 (userns_fd >= 0 ? TAR_SQUASH_UIDS_ABOVE_64K : 0) |
                 (mac_selinux_use() ? TAR_SELINUX : 0);
 
-        _cleanup_close_pair_ int pipefd[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int pipefd[2] = EBADF_PAIR;
         if (pipe2(pipefd, O_CLOEXEC) < 0)
                 return log_error_errno(errno, "Failed to create pipe for tar: %m");
 
@@ -106,7 +106,7 @@ int import_fork_tar_c(int tree_fd, int userns_fd, PidRef *ret_pid) {
                 (userns_fd >= 0 ? TAR_SQUASH_UIDS_ABOVE_64K : 0) |
                 (mac_selinux_use() ? TAR_SELINUX : 0);
 
-        _cleanup_close_pair_ int pipefd[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int pipefd[2] = EBADF_PAIR;
         if (pipe2(pipefd, O_CLOEXEC) < 0)
                 return log_error_errno(errno, "Failed to create pipe for tar: %m");
 
@@ -154,7 +154,7 @@ int import_fork_tar_c(int tree_fd, int userns_fd, PidRef *ret_pid) {
 
 int import_mangle_os_tree_fd(int tree_fd, int userns_fd, ImportFlags flags) {
         _cleanup_free_ char *child = NULL, *t = NULL, *joined = NULL;
-        _cleanup_closedir_ DIR *d = NULL, *cd = NULL;
+        _cleanup_(closedirp) DIR *d = NULL, *cd = NULL;
         struct dirent *dent;
         struct stat st;
         int r;
@@ -208,7 +208,7 @@ int import_mangle_os_tree_fd(int tree_fd, int userns_fd, ImportFlags flags) {
         } else if (errno != 0)
                 return log_error_errno(errno, "Failed to iterate through directory '%s': %m", path);
 
-        _cleanup_close_ int child_fd = openat(dirfd(d), child, O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW|O_NONBLOCK);
+        _cleanup_(closep) int child_fd = openat(dirfd(d), child, O_CLOEXEC|O_DIRECTORY|O_NOFOLLOW|O_NONBLOCK);
         if (child_fd < 0) {
                 if (IN_SET(errno, ENOTDIR, ELOOP)) {
                         log_debug_errno(errno, "Child '%s' of directory '%s' is not a directory, leaving things as they are.", child, path);
@@ -284,7 +284,7 @@ int import_mangle_os_tree_fd(int tree_fd, int userns_fd, ImportFlags flags) {
 int import_mangle_os_tree(const char *path, int userns_fd, ImportFlags flags) {
         assert(path);
 
-        _cleanup_close_ int fd = open(path, O_DIRECTORY|O_CLOEXEC|O_PATH);
+        _cleanup_(closep) int fd = open(path, O_DIRECTORY|O_CLOEXEC|O_PATH);
         if (fd < 0)
                 return log_error_errno(errno, "Failed to open '%s': %m", path);
 

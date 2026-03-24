@@ -262,7 +262,7 @@ static int catalog_entry_lang(
 }
 
 int catalog_import_file(OrderedHashmap **h, int fd, const char *path) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         _cleanup_free_ char *payload = NULL;
         size_t payload_size = 0;
         unsigned n = 0;
@@ -395,7 +395,7 @@ static int64_t write_catalog(
                 size_t n_items) {
 
         _cleanup_(unlink_and_freep) char *p = NULL;
-        _cleanup_fclose_ FILE *w = NULL;
+        _cleanup_(fclosep) FILE *w = NULL;
         int r;
 
         assert(database);
@@ -459,7 +459,7 @@ int catalog_update(const char *database, const char *root, const char* const *di
         if (r < 0)
                 return log_error_errno(r, "Failed to get catalog files: %m");
 
-        _cleanup_ordered_hashmap_free_ OrderedHashmap *h = NULL;
+        _cleanup_(ordered_hashmap_freep) OrderedHashmap *h = NULL;
         FOREACH_ARRAY(i, files, n_files) {
                 ConfFile *c = *i;
 
@@ -520,7 +520,7 @@ static int open_mmap(const char *database, int *ret_fd, struct stat *ret_st, voi
         assert(ret_st);
         assert(ret_map);
 
-        _cleanup_close_ int fd = open(database, O_RDONLY|O_CLOEXEC);
+        _cleanup_(closep) int fd = open(database, O_RDONLY|O_CLOEXEC);
         if (fd < 0)
                 return -errno;
 
@@ -614,7 +614,7 @@ int catalog_get(const char *database, sd_id128_t id, char **ret_text) {
         assert(database);
         assert(ret_text);
 
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         struct stat st;
         void *p;
         r = open_mmap(database, &fd, &st, &p);
@@ -675,7 +675,7 @@ int catalog_list(FILE *f, const char *database, bool oneline) {
 
         assert(database);
 
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         struct stat st;
         void *p;
         r = open_mmap(database, &fd, &st, &p);

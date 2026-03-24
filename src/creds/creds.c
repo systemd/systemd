@@ -212,7 +212,7 @@ static int is_tmpfs_with_noswap(dev_t devno) {
 }
 
 static int add_credentials_to_table(Table *t, bool encrypted) {
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
         const char *prefix;
         int r;
 
@@ -227,7 +227,7 @@ static int add_credentials_to_table(Table *t, bool encrypted) {
         for (;;) {
                 _cleanup_free_ char *j = NULL;
                 const char *secure, *secure_color = NULL;
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
                 struct dirent *de;
                 struct stat st;
 
@@ -483,7 +483,7 @@ static int verb_cat(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
                 /* Look both in regular and in encrypted credentials */
                 for (encrypted = 0; encrypted < 2; encrypted++) {
-                        _cleanup_closedir_ DIR *d = NULL;
+                        _cleanup_(closedirp) DIR *d = NULL;
 
                         r = open_credential_directory(encrypted, &d, NULL);
                         if (r < 0)
@@ -662,7 +662,7 @@ static int verb_encrypt(int argc, char *argv[], uintptr_t _data, void *userdata)
 static int verb_decrypt(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(iovec_done_erase) struct iovec input = {}, plaintext = {};
         _cleanup_free_ char *fname = NULL;
-        _cleanup_fclose_ FILE *output_file = NULL;
+        _cleanup_(fclosep) FILE *output_file = NULL;
         const char *input_path, *output_path, *name;
         usec_t timestamp;
         FILE *f;
@@ -1523,7 +1523,7 @@ static int vl_method_decrypt(sd_varlink *link, sd_json_variant *parameters, sd_v
 
 static int vl_server(void) {
         _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
-        _cleanup_hashmap_free_ Hashmap *polkit_registry = NULL;
+        _cleanup_(hashmap_freep) Hashmap *polkit_registry = NULL;
         int r;
 
         /* Invocation as Varlink service */

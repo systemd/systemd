@@ -301,7 +301,7 @@ int bus_connect_user_systemd(sd_bus **ret) {
 }
 
 static int pin_capsule_socket(const char *capsule, const char *suffix, uid_t *ret_uid, gid_t *ret_gid) {
-        _cleanup_close_ int inode_fd = -EBADF;
+        _cleanup_(closep) int inode_fd = -EBADF;
         _cleanup_free_ char *p = NULL;
         struct stat st;
         int r;
@@ -330,7 +330,7 @@ static int pin_capsule_socket(const char *capsule, const char *suffix, uid_t *re
 }
 
 static int bus_set_address_capsule(sd_bus *bus, const char *capsule, const char *suffix, int *ret_pin_fd) {
-        _cleanup_close_ int inode_fd = -EBADF;
+        _cleanup_(closep) int inode_fd = -EBADF;
         _cleanup_free_ char *pp = NULL;
         uid_t uid;
         gid_t gid;
@@ -371,7 +371,7 @@ int bus_set_address_capsule_bus(sd_bus *bus, const char *capsule, int *ret_pin_f
 
 int bus_connect_capsule_systemd(const char *capsule, sd_bus **ret) {
         _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_close_ int inode_fd = -EBADF;
+        _cleanup_(closep) int inode_fd = -EBADF;
         int r;
 
         assert(capsule);
@@ -395,7 +395,7 @@ int bus_connect_capsule_systemd(const char *capsule, sd_bus **ret) {
 
 int bus_connect_capsule_bus(const char *capsule, sd_bus **ret) {
         _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_close_ int inode_fd = -EBADF;
+        _cleanup_(closep) int inode_fd = -EBADF;
         int r;
 
         assert(capsule);
@@ -710,7 +710,7 @@ int bus_track_add_name_many(sd_bus_track *t, char * const *l) {
 }
 
 int bus_track_to_strv(sd_bus_track *t, char ***ret) {
-        _cleanup_strv_free_ char **subscribed = NULL;
+        _cleanup_(strv_freep) char **subscribed = NULL;
         int r;
 
         assert(ret);
@@ -816,7 +816,7 @@ int bus_reply_pair_array(sd_bus_message *m, char * const *l) {
 static int method_dump_memory_state_by_fd(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
         _cleanup_(memstream_done) MemStream m = {};
         _cleanup_free_ char *dump = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         size_t dump_size;
         FILE *f;
         int r;

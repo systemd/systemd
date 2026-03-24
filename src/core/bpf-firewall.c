@@ -416,7 +416,7 @@ static int bpf_firewall_prepare_access_maps(
                 int *ret_ipv6_map_fd,
                 bool *ret_has_any) {
 
-        _cleanup_close_ int ipv4_map_fd = -EBADF, ipv6_map_fd = -EBADF;
+        _cleanup_(closep) int ipv4_map_fd = -EBADF, ipv6_map_fd = -EBADF;
         size_t n_ipv4 = 0, n_ipv6 = 0;
         int r;
 

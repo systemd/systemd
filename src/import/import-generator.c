@@ -271,7 +271,7 @@ static int parse_credentials(void) {
         if (r <= 0)
                 return r;
 
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         f = fmemopen_unlocked(b, sz, "r");
         if (!f)
                 return log_oom();
@@ -331,7 +331,7 @@ static int transfer_generate(const Transfer *t) {
         if (r < 0)
                 return log_error_errno(r, "Failed to build import unit name from '%s': %m", local_path);
 
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         r = generator_open_unit_file(arg_dest, /* source= */ NULL, service, &f);
         if (r < 0)
                 return r;

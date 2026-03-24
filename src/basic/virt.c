@@ -108,7 +108,7 @@ static Virtualization detect_vm_device_tree(void) {
                     access("/proc/device-tree/chosen/qemu,graphic-width", F_OK) != 0)
                         return VIRTUALIZATION_POWERVM;
 
-                _cleanup_closedir_ DIR *dir = opendir("/proc/device-tree");
+                _cleanup_(closedirp) DIR *dir = opendir("/proc/device-tree");
                 if (!dir) {
                         if (errno == ENOENT) {
                                 log_debug_errno(errno, "/proc/device-tree/ does not exist");
@@ -385,7 +385,7 @@ static Virtualization detect_vm_hypervisor(void) {
 }
 
 static Virtualization detect_vm_uml(void) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r;
 
         /* Detect User-Mode Linux by reading /proc/cpuinfo */

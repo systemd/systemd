@@ -1838,13 +1838,13 @@ int userns_mkdir(const char *root, const char *path, mode_t mode, uid_t uid, gid
 
         assert(path);
 
-        _cleanup_close_ int parent_fd = -EBADF;
+        _cleanup_(closep) int parent_fd = -EBADF;
         _cleanup_free_ char *dname = NULL;
         r = chase(path, root, CHASE_PARENT|CHASE_PREFIX_ROOT|CHASE_EXTRACT_FILENAME, &dname, &parent_fd);
         if (r < 0)
                 return r;
 
-        _cleanup_close_ int dir_fd = open_mkdir_at(parent_fd, dname, O_EXCL|O_CLOEXEC, mode);
+        _cleanup_(closep) int dir_fd = open_mkdir_at(parent_fd, dname, O_EXCL|O_CLOEXEC, mode);
         if (dir_fd == -EEXIST)
                 return 0;
         if (dir_fd < 0)
@@ -2189,7 +2189,7 @@ static int copy_devnode_one(const char *dest, const char *node, bool check) {
                 /* If 'check' is true, create /dev/fuse only when it is accessible. The check is necessary,
                  * as some custom service units that invoke systemd-nspawn may enable DevicePolicy= without
                  * DeviceAllow= for the device node. */
-                _cleanup_close_ int fd = open(from, O_CLOEXEC|O_RDWR);
+                _cleanup_(closep) int fd = open(from, O_CLOEXEC|O_RDWR);
                 if (fd < 0) {
                         log_debug_errno(errno,
                                         "Failed to open %s, skipping creation of the device node in the container, ignoring: %m",
@@ -2383,7 +2383,7 @@ static int setup_pts(const char *dest, uid_t chown_uid) {
 }
 
 static int setup_stdio_as_dev_console(void) {
-        _cleanup_close_ int terminal = -EBADF;
+        _cleanup_(closep) int terminal = -EBADF;
         int r;
 
         /* We open the TTY in O_NOCTTY mode, so that we do not become controller yet. We'll do that later
@@ -2494,7 +2494,7 @@ static int setup_credentials(const char *root) {
 
         FOREACH_ARRAY(cred, arg_credentials.credentials, arg_credentials.n_credentials) {
                 _cleanup_free_ char *j = NULL;
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
 
                 j = path_join(q, cred->id);
                 if (!j)
@@ -2534,7 +2534,7 @@ static int setup_credentials(const char *root) {
 static int setup_kmsg(int fd_inner_socket) {
         _cleanup_(unlink_and_freep) char *from = NULL;
         _cleanup_free_ char *fifo = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         assert(fd_inner_socket >= 0);
@@ -3434,7 +3434,7 @@ static int inner_child(
                 NULL
         };
         const char *exec_target;
-        _cleanup_strv_free_ char **env_use = NULL;
+        _cleanup_(strv_freep) char **env_use = NULL;
         int r, which_failed;
 
         /* This is the "inner" child process, i.e. the one forked off by the "outer" child process, which is the one
@@ -3482,7 +3482,7 @@ static int inner_child(
                 return r;
 
         if (!arg_network_namespace_path && arg_private_network) {
-                _cleanup_close_ int netns_fd = -EBADF;
+                _cleanup_(closep) int netns_fd = -EBADF;
 
                 if (arg_userns_mode != USER_NAMESPACE_MANAGED)
                         if (unshare(CLONE_NEWNET) < 0)
@@ -3554,7 +3554,7 @@ static int inner_child(
         }
 
         if (arg_console_mode != CONSOLE_PIPE) {
-                _cleanup_close_ int master = -EBADF;
+                _cleanup_(closep) int master = -EBADF;
                 _cleanup_free_ char *console = NULL;
 
                 /* Allocate a pty and make it available as /dev/console. */
@@ -3810,7 +3810,7 @@ static int inner_child(
 }
 
 static int setup_notify_child(const void *directory) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         _cleanup_free_ char *j = NULL;
         union sockaddr_union sa = {
                 .un.sun_family = AF_UNIX,
@@ -3993,7 +3993,7 @@ static int outer_child(
                 int netns_fd,
                 const char *unix_export_path) {
 
-        _cleanup_strv_free_ char **os_release_pairs = NULL;
+        _cleanup_(strv_freep) char **os_release_pairs = NULL;
         bool idmap = false;
         ssize_t l;
         int r;
@@ -4126,7 +4126,7 @@ static int outer_child(
         }
 
         if (arg_userns_mode != USER_NAMESPACE_NO) {
-                _cleanup_close_ int mntns_fd = -EBADF;
+                _cleanup_(closep) int mntns_fd = -EBADF;
 
                 mntns_fd = namespace_open_by_type(NAMESPACE_MOUNT);
                 if (mntns_fd < 0)
@@ -4240,7 +4240,7 @@ static int outer_child(
         if (!IN_SET(arg_userns_mode, USER_NAMESPACE_NO, USER_NAMESPACE_MANAGED) &&
             IN_SET(arg_userns_ownership, USER_NAMESPACE_OWNERSHIP_MAP, USER_NAMESPACE_OWNERSHIP_FOREIGN, USER_NAMESPACE_OWNERSHIP_AUTO) &&
             chown_uid != 0) {
-                _cleanup_strv_free_ char **dirs = NULL;
+                _cleanup_(strv_freep) char **dirs = NULL;
                 RemountIdmapping mapping;
 
                 switch (arg_userns_ownership) {
@@ -4464,7 +4464,7 @@ static int outer_child(
          * visible. Hence there we do it the other way round: we first allocate a new set of namespaces
          * (and fork for it) for which we then mount sysfs/procfs, and only then switch root. */
 
-        _cleanup_close_ int notify_fd = -EBADF;
+        _cleanup_(closep) int notify_fd = -EBADF;
         if (arg_userns_mode != USER_NAMESPACE_MANAGED) {
                 /* Mark everything as shared so our mounts get propagated down. This is required to make new
                  * bind mounts available in systemd services inside the container that create a new mount
@@ -4681,7 +4681,7 @@ static int nspawn_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t r
         assert(userdata);
 
         _cleanup_(pidref_done) PidRef sender_pid = PIDREF_NULL;
-        _cleanup_strv_free_ char **tags = NULL;
+        _cleanup_(strv_freep) char **tags = NULL;
         r = notify_recv_strv(fd, &tags, /* ret_ucred= */ NULL, &sender_pid);
         if (r == -EAGAIN)
                 return 0;
@@ -5120,7 +5120,7 @@ static int merge_settings(Settings *settings, const char *path) {
 
 static int load_settings(void) {
         _cleanup_(settings_freep) Settings *settings = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         _cleanup_free_ char *p = NULL;
         int r;
 
@@ -5252,12 +5252,12 @@ static int run_container(
                 int *ret) {
 
         _cleanup_(release_lock_file) LockFile uid_shift_lock = LOCK_FILE_INIT;
-        _cleanup_close_ int etc_passwd_lock = -EBADF;
-        _cleanup_close_pair_ int
+        _cleanup_(closep) int etc_passwd_lock = -EBADF;
+        _cleanup_(close_pairp) int
                 fd_inner_socket_pair[2] = EBADF_PAIR,
                 fd_outer_socket_pair[2] = EBADF_PAIR;
 
-        _cleanup_close_ int notify_socket = -EBADF, mntns_fd = -EBADF, fd_kmsg_fifo = -EBADF;
+        _cleanup_(closep) int notify_socket = -EBADF, mntns_fd = -EBADF, fd_kmsg_fifo = -EBADF;
         _cleanup_(barrier_destroy) Barrier barrier = BARRIER_NULL;
         _cleanup_(sd_event_source_unrefp) sd_event_source *notify_event_source = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *unix_export_host_dir = NULL;
@@ -5270,7 +5270,7 @@ static int run_container(
         int ifi = 0, r;
         ssize_t l;
         sigset_t mask_chld;
-        _cleanup_close_ int child_netns_fd = -EBADF;
+        _cleanup_(closep) int child_netns_fd = -EBADF;
 
         assert_se(sigemptyset(&mask_chld) == 0);
         assert_se(sigaddset(&mask_chld, SIGCHLD) == 0);
@@ -5824,7 +5824,7 @@ static int run_container(
         }
 
         if (arg_console_mode != CONSOLE_PIPE) {
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
                 PTYForwardFlags flags = 0;
 
                 /* Retrieve the master pty allocated by inner child */
@@ -6019,7 +6019,7 @@ static int initialize_rlimits(void) {
 }
 
 static int cant_be_in_netns(void) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         struct ucred ucred;
         int r;
 
@@ -6098,8 +6098,8 @@ static int do_cleanup(void) {
 
 static int run(int argc, char *argv[]) {
         bool remove_image = false, veth_created = false;
-        _cleanup_close_ int master = -EBADF, userns_fd = -EBADF, mount_fd = -EBADF;
-        _cleanup_fdset_free_ FDSet *fds = NULL;
+        _cleanup_(closep) int master = -EBADF, userns_fd = -EBADF, mount_fd = -EBADF;
+        _cleanup_(fdset_freep) FDSet *fds = NULL;
         int r, ret = EXIT_SUCCESS;
         char veth_name[IFNAMSIZ] = "";
         struct ExposeArgs expose_args = {};

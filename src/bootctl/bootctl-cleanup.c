@@ -51,9 +51,9 @@ static int cleanup_orphaned_files(
                 const BootConfig *config,
                 const char *root) {
 
-        _cleanup_hashmap_free_ Hashmap *known_files = NULL;
+        _cleanup_(hashmap_freep) Hashmap *known_files = NULL;
         _cleanup_free_ char *full = NULL, *p = NULL;
-        _cleanup_close_ int dir_fd = -EBADF;
+        _cleanup_(closep) int dir_fd = -EBADF;
         int r;
 
         assert(config);

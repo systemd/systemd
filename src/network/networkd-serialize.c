@@ -73,7 +73,7 @@ int manager_serialize(Manager *manager) {
         if (r < 0)
                 return r;
 
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         fd = memfd_new_and_seal_string("serialization", dump);
         if (fd < 0)
                 return fd;
@@ -436,13 +436,13 @@ int manager_deserialize(Manager *manager) {
 
         assert(manager);
 
-        _cleanup_close_ int fd = TAKE_FD(manager->serialization_fd);
+        _cleanup_(closep) int fd = TAKE_FD(manager->serialization_fd);
         if (fd < 0)
                 return 0;
 
         log_debug("Deserializing...");
 
-        _cleanup_fclose_ FILE *f = take_fdopen(&fd, "r");
+        _cleanup_(fclosep) FILE *f = take_fdopen(&fd, "r");
         if (!f)
                 return log_debug_errno(errno, "Failed to fdopen() serialization file descriptor: %m");
 

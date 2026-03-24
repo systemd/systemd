@@ -48,8 +48,8 @@ static int fdopen_unlocked_at(int dfd, const char *dir, const char *name, int *s
 }
 
 static int write_access2_rules(const char *srcdir) {
-        _cleanup_close_ int load2_fd = -EBADF, change_fd = -EBADF;
-        _cleanup_closedir_ DIR *dir = NULL;
+        _cleanup_(closep) int load2_fd = -EBADF, change_fd = -EBADF;
+        _cleanup_(closedirp) DIR *dir = NULL;
         int dfd, r;
 
         load2_fd = r = RET_NERRNO(open("/sys/fs/smackfs/load2", O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY));
@@ -79,7 +79,7 @@ static int write_access2_rules(const char *srcdir) {
 
         r = 0;
         FOREACH_DIRENT(entry, dir, return 0) {
-                _cleanup_fclose_ FILE *policy = NULL;
+                _cleanup_(fclosep) FILE *policy = NULL;
 
                 if (!dirent_is_file(entry))
                         continue;
@@ -123,8 +123,8 @@ static int write_access2_rules(const char *srcdir) {
 }
 
 static int write_cipso2_rules(const char *srcdir) {
-        _cleanup_close_ int cipso2_fd = -EBADF;
-        _cleanup_closedir_ DIR *dir = NULL;
+        _cleanup_(closep) int cipso2_fd = -EBADF;
+        _cleanup_(closedirp) DIR *dir = NULL;
         int dfd, r;
 
         cipso2_fd = r = RET_NERRNO(open("/sys/fs/smackfs/cipso2", O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY));
@@ -147,7 +147,7 @@ static int write_cipso2_rules(const char *srcdir) {
 
         r = 0;
         FOREACH_DIRENT(entry, dir, return 0) {
-                _cleanup_fclose_ FILE *policy = NULL;
+                _cleanup_(fclosep) FILE *policy = NULL;
 
                 if (!dirent_is_file(entry))
                         continue;
@@ -185,8 +185,8 @@ static int write_cipso2_rules(const char *srcdir) {
 }
 
 static int write_netlabel_rules(const char *srcdir) {
-        _cleanup_fclose_ FILE *dst = NULL;
-        _cleanup_closedir_ DIR *dir = NULL;
+        _cleanup_(fclosep) FILE *dst = NULL;
+        _cleanup_(closedirp) DIR *dir = NULL;
         int dfd, r;
 
         dst = fopen("/sys/fs/smackfs/netlabel", "we");
@@ -209,7 +209,7 @@ static int write_netlabel_rules(const char *srcdir) {
 
         r = 0;
         FOREACH_DIRENT(entry, dir, return 0) {
-                _cleanup_fclose_ FILE *policy = NULL;
+                _cleanup_(fclosep) FILE *policy = NULL;
 
                 if (fdopen_unlocked_at(dfd, srcdir, entry->d_name, &r, &policy) < 0)
                         continue;
@@ -244,9 +244,9 @@ static int write_netlabel_rules(const char *srcdir) {
 }
 
 static int write_onlycap_list(void) {
-        _cleanup_close_ int onlycap_fd = -EBADF;
+        _cleanup_(closep) int onlycap_fd = -EBADF;
         _cleanup_free_ char *list = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         size_t len = 0;
         int r;
 

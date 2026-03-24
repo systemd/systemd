@@ -148,7 +148,7 @@ static int generator_add_ordering(
                 const char *instance) {
 
         _cleanup_free_ char *instantiated = NULL, *p = NULL, *fn = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         const char *to;
         int r;
 
@@ -205,7 +205,7 @@ static int write_fsck_sysroot_service(
                 const char *extra_after) {
 
         _cleanup_free_ char *device = NULL, *escaped = NULL, *escaped2 = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r;
 
         assert(unit);
@@ -544,7 +544,7 @@ int generator_hook_up_mkswap(
                 const char *what) {
 
         _cleanup_free_ char *node = NULL, *unit = NULL, *escaped = NULL, *where_unit = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r;
 
         assert(dir);
@@ -612,7 +612,7 @@ int generator_hook_up_mkfs(
                 const char *type) {
 
         _cleanup_free_ char *node = NULL, *unit = NULL, *escaped = NULL, *where_unit = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         const char *fsck_unit;
         int r;
 

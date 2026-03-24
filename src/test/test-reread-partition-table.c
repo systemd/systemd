@@ -23,7 +23,7 @@ static void sfdisk(const char *sfdisk_path, LoopDevice *loop, const char *defini
         assert(loop);
         assert(definition);
 
-        _cleanup_close_ int memfd = memfd_new_and_seal("sfdisk", definition, SIZE_MAX);
+        _cleanup_(closep) int memfd = memfd_new_and_seal("sfdisk", definition, SIZE_MAX);
         ASSERT_OK(memfd);
 
         r = pidref_safe_fork_full(
@@ -58,7 +58,7 @@ TEST(rereadpt) {
                 return (void) log_tests_skipped("sfdisk not found");
         ASSERT_OK(r);
 
-        _cleanup_close_ int fd = open_tmpfile_unlinkable("/var/tmp", O_RDWR);
+        _cleanup_(closep) int fd = open_tmpfile_unlinkable("/var/tmp", O_RDWR);
         ASSERT_FD(fd);
 
         ASSERT_OK_ERRNO(ftruncate(fd, 100 * 1024 * 1024));
@@ -97,7 +97,7 @@ TEST(rereadpt) {
 
         ASSERT_OK_ZERO_ERRNO(access(p, F_OK));
 
-        _cleanup_close_ int pfd = -EBADF;
+        _cleanup_(closep) int pfd = -EBADF;
         ASSERT_OK_ERRNO(pfd = open(p, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY));
         uint64_t size;
         ASSERT_OK(blockdev_get_device_size(pfd, &size));

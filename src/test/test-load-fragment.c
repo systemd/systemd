@@ -41,7 +41,7 @@ _unused_ static ConfigPerfItemLookup unused_lookup = load_fragment_gperf_lookup;
 
 TEST_RET(unit_file_get_list) {
         int r;
-        _cleanup_hashmap_free_ Hashmap *h = NULL;
+        _cleanup_(hashmap_freep) Hashmap *h = NULL;
         UnitFileList *p;
 
         r = unit_file_get_list(RUNTIME_SCOPE_SYSTEM, NULL, NULL, NULL, &h);
@@ -742,7 +742,7 @@ TEST(config_parse_pass_environ) {
                  void *data,
                  void *userdata) */
 
-        _cleanup_strv_free_ char **passenv = NULL;
+        _cleanup_(strv_freep) char **passenv = NULL;
 
         ASSERT_OK(config_parse_pass_environ(NULL, "fake", 1, "section", 1,
                                             "PassEnvironment", 0, "A B",
@@ -778,7 +778,7 @@ TEST(config_parse_unit_env_file) {
 
         _cleanup_(manager_freep) Manager *m = NULL;
         Unit *u;
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_(strv_freep) char **files = NULL;
         int r;
 
         r = manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_MINIMAL, &m);
@@ -1036,7 +1036,7 @@ TEST(config_parse_open_file) {
 
 TEST(config_parse_service_refresh_on_reload) {
         ServiceRefreshOnReload flags;
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         int r;
 
         r = service_refresh_on_reload_from_string_many("extensions", &flags);

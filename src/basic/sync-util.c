@@ -14,7 +14,7 @@
 #include "sync-util.h"
 
 int fsync_directory_of_file(int fd) {
-        _cleanup_close_ int dfd = -EBADF;
+        _cleanup_(closep) int dfd = -EBADF;
         struct stat st;
         int r;
 
@@ -87,7 +87,7 @@ int fsync_full(int fd) {
 }
 
 int fsync_path_at(int at_fd, const char *path) {
-        _cleanup_close_ int opened_fd = -EBADF;
+        _cleanup_(closep) int opened_fd = -EBADF;
         int fd;
 
         if (isempty(path)) {
@@ -111,7 +111,7 @@ int fsync_path_at(int at_fd, const char *path) {
 }
 
 int fsync_parent_at(int at_fd, const char *path) {
-        _cleanup_close_ int opened_fd = -EBADF;
+        _cleanup_(closep) int opened_fd = -EBADF;
 
         if (isempty(path)) {
                 if (at_fd != AT_FDCWD)
@@ -132,7 +132,7 @@ int fsync_parent_at(int at_fd, const char *path) {
 }
 
 int fsync_path_and_parent_at(int at_fd, const char *path) {
-        _cleanup_close_ int opened_fd = -EBADF;
+        _cleanup_(closep) int opened_fd = -EBADF;
 
         if (isempty(path)) {
                 if (at_fd != AT_FDCWD)
@@ -148,7 +148,7 @@ int fsync_path_and_parent_at(int at_fd, const char *path) {
 }
 
 int syncfs_path(int at_fd, const char *path) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         if (isempty(path)) {
                 if (at_fd != AT_FDCWD)

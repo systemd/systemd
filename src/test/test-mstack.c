@@ -19,12 +19,12 @@
 static bool overlayfs_set_fd_lowerdir_plus_supported(void) {
         int r;
 
-        _cleanup_close_ int sb_fd = fsopen("overlay", FSOPEN_CLOEXEC);
+        _cleanup_(closep) int sb_fd = fsopen("overlay", FSOPEN_CLOEXEC);
         if (sb_fd < 0 && (ERRNO_IS_NOT_SUPPORTED(errno) || errno == ENODEV))
                 return false;
         ASSERT_OK_ERRNO(sb_fd);
 
-        _cleanup_close_ int layer_fd = open("/", O_DIRECTORY|O_CLOEXEC);
+        _cleanup_(closep) int layer_fd = open("/", O_DIRECTORY|O_CLOEXEC);
         ASSERT_OK_ERRNO(layer_fd);
 
         r = RET_NERRNO(fsconfig(sb_fd, FSCONFIG_SET_FD, "lowerdir+", /* value= */ NULL, layer_fd));
@@ -37,7 +37,7 @@ static bool overlayfs_set_fd_lowerdir_plus_supported(void) {
 
 TEST(mstack) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
-        _cleanup_close_ int tfd = -EBADF;
+        _cleanup_(closep) int tfd = -EBADF;
         int r;
 
         tfd = mkdtemp_open("/tmp/mstack-what-XXXXXX", O_PATH, &t);
@@ -104,10 +104,10 @@ TEST(mstack) {
                         _cleanup_(rmdir_and_freep) char *w = NULL;
                         ASSERT_OK(mkdtemp_malloc("/tmp/mstack-where-XXXXXX", &w));
 
-                        _cleanup_close_ int rfd = -EBADF;
+                        _cleanup_(closep) int rfd = -EBADF;
                         ASSERT_OK(mstack_bind_mounts(mstack, w, /* where_fd= */ -EBADF, flags, &rfd));
 
-                        _cleanup_close_ int ofd = open(w, O_PATH|O_CLOEXEC);
+                        _cleanup_(closep) int ofd = open(w, O_PATH|O_CLOEXEC);
                         ASSERT_OK_ERRNO(ofd);
 
                         ASSERT_OK_ERRNO(faccessat(ofd, "check1", F_OK, AT_SYMLINK_NOFOLLOW));

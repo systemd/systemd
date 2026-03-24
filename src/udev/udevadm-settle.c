@@ -88,7 +88,7 @@ static int parse_argv(int argc, char *argv[]) {
 
 static int emit_deprecation_warning(void) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_strv_free_ char **a = NULL;
+        _cleanup_(strv_freep) char **a = NULL;
         _cleanup_free_ char *unit = NULL;
         int r;
 
@@ -105,7 +105,7 @@ static int emit_deprecation_warning(void) {
         if (r < 0)
                 log_debug_errno(r, "Failed to open connection to systemd, skipping dependency queries: %m");
         else {
-                _cleanup_strv_free_ char **b = NULL;
+                _cleanup_(strv_freep) char **b = NULL;
                 _cleanup_free_ char *unit_path = NULL;
 
                 unit_path = unit_dbus_path_from_name("systemd-udev-settle.service");

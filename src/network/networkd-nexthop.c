@@ -1040,7 +1040,7 @@ void link_forget_nexthops(Link *link) {
 }
 
 static int nexthop_update_group(NextHop *nexthop, sd_netlink_message *message) {
-        _cleanup_hashmap_free_ Hashmap *h = NULL;
+        _cleanup_(hashmap_freep) Hashmap *h = NULL;
         _cleanup_free_ struct nexthop_grp *group = NULL;
         size_t size = 0, n_group;
         int r;
@@ -1292,8 +1292,8 @@ static int nexthop_section_verify(NextHop *nh) {
 }
 
 int network_drop_invalid_nexthops(Network *network) {
-        _cleanup_hashmap_free_ Hashmap *nexthops = NULL;
-        _cleanup_set_free_ Set *duplicated_nexthops = NULL;
+        _cleanup_(hashmap_freep) Hashmap *nexthops = NULL;
+        _cleanup_(set_freep) Set *duplicated_nexthops = NULL;
         NextHop *nh;
         int r;
 

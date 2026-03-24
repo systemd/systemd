@@ -86,7 +86,7 @@ static OomdCGroupContext *oomd_cgroup_context_free(OomdCGroupContext *ctx) {
 DEFINE_TRIVIAL_REF_UNREF_FUNC(OomdCGroupContext, oomd_cgroup_context, oomd_cgroup_context_free);
 
 int oomd_pressure_above(Hashmap *h, Set **ret) {
-        _cleanup_set_free_ Set *targets = NULL;
+        _cleanup_(set_freep) Set *targets = NULL;
         OomdCGroupContext *ctx;
         char *key;
         int r;
@@ -247,7 +247,7 @@ int oomd_sort_cgroup_contexts(Hashmap *h, oomd_compare_t compare_func, const cha
 }
 
 int oomd_cgroup_kill(Manager *m, OomdCGroupContext *ctx, bool recurse, const char *reason) {
-        _cleanup_set_free_ Set *pids_killed = NULL;
+        _cleanup_(set_freep) Set *pids_killed = NULL;
         int r;
 
         assert(ctx);
@@ -427,7 +427,7 @@ static int send_prekill_message(
  * or PrekillHookTimeoutSec= is not set. In that case, the actual killing is done immediately by
  * the callback set up by the cleanup handler in oomd_cgroup_kill_mark(). */
 static int oomd_prekill_hook(Manager *m, OomdKillState *ks) {
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
         int r;
 
         assert(m);
@@ -692,7 +692,7 @@ int oomd_cgroup_context_acquire(const char *path, OomdCGroupContext **ret) {
 }
 
 int oomd_system_context_acquire(const char *proc_meminfo_path, OomdSystemContext *ret) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         unsigned field_filled = 0;
         OomdSystemContext ctx = {};
         uint64_t mem_available, swap_free;

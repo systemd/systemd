@@ -285,7 +285,7 @@ int tar_export_start(
                 ImportCompressType compress,
                 ImportFlags flags) {
 
-        _cleanup_close_ int sfd = -EBADF;
+        _cleanup_(closep) int sfd = -EBADF;
         int r;
 
         assert(e);
@@ -358,11 +358,11 @@ int tar_export_start(
                 if (r < 0)
                         return r;
 
-                _cleanup_close_ int directory_fd = open(p, O_DIRECTORY|O_CLOEXEC|O_PATH);
+                _cleanup_(closep) int directory_fd = open(p, O_DIRECTORY|O_CLOEXEC|O_PATH);
                 if (directory_fd < 0)
                         return log_error_errno(r, "Failed to open '%s': %m", p);
 
-                _cleanup_close_ int mapped_fd = -EBADF;
+                _cleanup_(closep) int mapped_fd = -EBADF;
                 r = mountfsd_mount_directory_fd(
                                 /* vl= */ NULL,
                                 directory_fd,

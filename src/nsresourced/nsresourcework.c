@@ -626,7 +626,7 @@ static int allocate_now(
         if (r < 0)
                 return log_debug_errno(r, "Failed to read userns UID range: %m");
 
-        _cleanup_close_ int lock_fd = -EBADF;
+        _cleanup_(closep) int lock_fd = -EBADF;
         lock_fd = userns_registry_lock(registry_dir_fd);
         if (lock_fd < 0)
                 return log_debug_errno(lock_fd, "Failed to open nsresource registry lock file: %m");
@@ -721,7 +721,7 @@ static int write_userns(
                 bool map_foreign) {
 
         _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
-        _cleanup_close_ int efd = -EBADF;
+        _cleanup_(closep) int efd = -EBADF;
         uint64_t u;
         int r;
 
@@ -1193,7 +1193,7 @@ static int vl_method_allocate_user_range(sd_varlink *link, sd_json_variant *para
                 {}
         };
 
-        _cleanup_close_ int userns_fd = -EBADF, registry_dir_fd = -EBADF, lock_fd = -EBADF;
+        _cleanup_(closep) int userns_fd = -EBADF, registry_dir_fd = -EBADF, lock_fd = -EBADF;
         _cleanup_free_ char *userns_name = NULL;
         Context *c = ASSERT_PTR(userdata);
         uid_t peer_uid;
@@ -1247,7 +1247,7 @@ static int vl_method_allocate_user_range(sd_varlink *link, sd_json_variant *para
         if (fstat(userns_fd, &userns_st) < 0)
                 return log_debug_errno(errno, "Failed to fstat() user namespace fd: %m");
 
-        _cleanup_close_ int parent_userns_fd = ioctl(userns_fd, NS_GET_PARENT);
+        _cleanup_(closep) int parent_userns_fd = ioctl(userns_fd, NS_GET_PARENT);
         if (parent_userns_fd < 0)
                 return log_debug_errno(errno, "Failed to get parent user namespace: %m");
 
@@ -1478,7 +1478,7 @@ static int vl_method_register_user_namespace(sd_varlink *link, sd_json_variant *
                 {}
         };
 
-        _cleanup_close_ int userns_fd = -EBADF, registry_dir_fd = -EBADF;
+        _cleanup_(closep) int userns_fd = -EBADF, registry_dir_fd = -EBADF;
         _cleanup_free_ char *userns_name = NULL;
         Context *c = ASSERT_PTR(userdata);
         uid_t peer_uid;
@@ -1548,7 +1548,7 @@ static int vl_method_register_user_namespace(sd_varlink *link, sd_json_variant *
         if (registry_dir_fd < 0)
                 return registry_dir_fd;
 
-        _cleanup_close_ int lock_fd = -EBADF;
+        _cleanup_(closep) int lock_fd = -EBADF;
         lock_fd = userns_registry_lock(registry_dir_fd);
         if (lock_fd < 0)
                 return log_debug_errno(lock_fd, "Failed to open nsresource registry lock file: %m");
@@ -1620,7 +1620,7 @@ static int vl_method_add_mount_to_user_namespace(sd_varlink *link, sd_json_varia
                 {}
         };
 
-        _cleanup_close_ int userns_fd = -EBADF, mount_fd = -EBADF, registry_dir_fd = -EBADF;
+        _cleanup_(closep) int userns_fd = -EBADF, mount_fd = -EBADF, registry_dir_fd = -EBADF;
         Context *c = ASSERT_PTR(userdata);
         AddMountParameters p = {
                 .userns_fd_idx = UINT_MAX,
@@ -1687,7 +1687,7 @@ static int vl_method_add_mount_to_user_namespace(sd_varlink *link, sd_json_varia
         if (registry_dir_fd < 0)
                 return registry_dir_fd;
 
-        _cleanup_close_ int lock_fd = -EBADF;
+        _cleanup_(closep) int lock_fd = -EBADF;
         lock_fd = userns_registry_lock(registry_dir_fd);
         if (lock_fd < 0)
                 return log_debug_errno(lock_fd, "Failed to open nsresource registry lock file: %m");
@@ -1780,7 +1780,7 @@ static int vl_method_add_cgroup_to_user_namespace(sd_varlink *link, sd_json_vari
                 {}
         };
 
-        _cleanup_close_ int userns_fd = -EBADF, cgroup_fd = -EBADF, registry_dir_fd = -EBADF;
+        _cleanup_(closep) int userns_fd = -EBADF, cgroup_fd = -EBADF, registry_dir_fd = -EBADF;
         AddCGroupParameters p = {
                 .userns_fd_idx = UINT_MAX,
                 .cgroup_fd_idx = UINT_MAX,
@@ -1840,7 +1840,7 @@ static int vl_method_add_cgroup_to_user_namespace(sd_varlink *link, sd_json_vari
         if (registry_dir_fd < 0)
                 return registry_dir_fd;
 
-        _cleanup_close_ int lock_fd = -EBADF;
+        _cleanup_(closep) int lock_fd = -EBADF;
         lock_fd = userns_registry_lock(registry_dir_fd);
         if (lock_fd < 0)
                 return lock_fd;
@@ -2057,7 +2057,7 @@ static int create_tap(
         assert(strlen(ifname_host) < sizeof(ifr.ifr_name));
         strcpy(ifr.ifr_name, ifname_host);
 
-        _cleanup_close_ int fd = open("/dev/net/tun", O_RDWR|O_CLOEXEC);
+        _cleanup_(closep) int fd = open("/dev/net/tun", O_RDWR|O_CLOEXEC);
         if (fd < 0) {
                 if (errno == ENOENT) /* Turn ENOENT → EOPNOTSUPP */
                         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Network tap device node /dev/net/tun not found, cannot create network interface.");
@@ -2106,7 +2106,7 @@ static int validate_netns(sd_varlink *link, int userns_fd, int netns_fd) {
                 return sd_varlink_error_invalid_parameter_name(link, "networkNamespaceFileDescriptor");
 
         /* Check if the netns actually belongs to the userns */
-        _cleanup_close_ int owner_userns_fd = -EBADF;
+        _cleanup_(closep) int owner_userns_fd = -EBADF;
         owner_userns_fd = ioctl(netns_fd, NS_GET_USERNS);
         if (owner_userns_fd < 0)
                 return -errno;
@@ -2152,7 +2152,7 @@ static int vl_method_add_netif_to_user_namespace(sd_varlink *link, sd_json_varia
                 {}
         };
 
-        _cleanup_close_ int userns_fd = -EBADF, netns_fd = -EBADF, registry_dir_fd = -EBADF;
+        _cleanup_(closep) int userns_fd = -EBADF, netns_fd = -EBADF, registry_dir_fd = -EBADF;
         Context *c = ASSERT_PTR(userdata);
         AddNetworkParameters p = {
                 .userns_fd_idx = UINT_MAX,
@@ -2233,7 +2233,7 @@ static int vl_method_add_netif_to_user_namespace(sd_varlink *link, sd_json_varia
         if (registry_dir_fd < 0)
                 return registry_dir_fd;
 
-        _cleanup_close_ int lock_fd = userns_registry_lock(registry_dir_fd);
+        _cleanup_(closep) int lock_fd = userns_registry_lock(registry_dir_fd);
         if (lock_fd < 0)
                 return log_debug_errno(lock_fd, "Failed to open nsresource registry lock file: %m");
 
@@ -2316,7 +2316,7 @@ static int vl_method_add_netif_to_user_namespace(sd_varlink *link, sd_json_varia
                  * indication that the calling user has some control over the UID they want to assign the tap
                  * device to. */
 
-                _cleanup_close_ int tap_fd = create_tap(userns_fd, ifname_host, STRV_MAKE(altifname_host), &ether_addr_host);
+                _cleanup_(closep) int tap_fd = create_tap(userns_fd, ifname_host, STRV_MAKE(altifname_host), &ether_addr_host);
                 if (tap_fd < 0)
                         return tap_fd;
 
@@ -2338,7 +2338,7 @@ static int vl_method_add_netif_to_user_namespace(sd_varlink *link, sd_json_varia
 }
 
 static int process_connection(sd_varlink_server *server, int _fd) {
-        _cleanup_close_ int fd = TAKE_FD(_fd); /* always take possession */
+        _cleanup_(closep) int fd = TAKE_FD(_fd); /* always take possession */
         _cleanup_(sd_varlink_close_unrefp) sd_varlink *vl = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         int r;
@@ -2447,7 +2447,7 @@ static int run(int argc, char *argv[]) {
         start_time = now(CLOCK_MONOTONIC);
 
         for (;;) {
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
                 usec_t n;
 
                 /* Exit the worker in regular intervals, to flush out all memory use */

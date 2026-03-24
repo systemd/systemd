@@ -65,7 +65,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int run(int argc, char** argv) {
-        _cleanup_close_ int mtd_fd = -EBADF;
+        _cleanup_(closep) int mtd_fd = -EBADF;
         mtd_info_t mtd_info;
         int r;
 

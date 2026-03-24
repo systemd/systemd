@@ -151,7 +151,7 @@ from_self:
 }
 
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
-        _cleanup_fdset_free_ FDSet *passed = NULL;
+        _cleanup_(fdset_freep) FDSet *passed = NULL;
         bool do_exec = false;
         int r;
 
@@ -226,7 +226,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
 
                 OPTION_LONG("fd", "FD", "Pass specified file descriptor along with the message"): {
-                        _cleanup_close_ int owned_fd = -EBADF;
+                        _cleanup_(closep) int owned_fd = -EBADF;
 
                         int fdnr = parse_fd(arg);
                         if (fdnr < 0)
@@ -440,7 +440,7 @@ static int action_fork(char *const *_command) {
         assert(!strv_isempty(_command));
 
         /* Make a copy, since pidref_safe_fork_full() will change argv[] further down. */
-        _cleanup_strv_free_ char **command = strv_copy(_command);
+        _cleanup_(strv_freep) char **command = strv_copy(_command);
         if (!command)
                 return log_oom();
 
@@ -525,7 +525,7 @@ static int action_fork(char *const *_command) {
 static int run(int argc, char* argv[]) {
         _cleanup_free_ char *status = NULL, *main_pid = NULL, *main_pidfd_id = NULL, *msg = NULL,
                        *monotonic_usec = NULL, *fdn = NULL;
-        _cleanup_strv_free_ char **final_env = NULL;
+        _cleanup_(strv_freep) char **final_env = NULL;
         const char *our_env[10];
         size_t i = 0;
         char **args = NULL;  /* unnecessary initialization to appease gcc */

@@ -482,7 +482,7 @@ static int pci_get_hotplug_slot_from_address(
 
 static int pci_get_hotplug_slot(sd_device *dev, uint32_t *ret) {
         _cleanup_(sd_device_unrefp) sd_device *pci = NULL;
-        _cleanup_closedir_ DIR *dir = NULL;
+        _cleanup_(closedirp) DIR *dir = NULL;
         int r;
 
         assert(dev);

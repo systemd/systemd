@@ -123,7 +123,7 @@ static int dns_delegate_node_enumerator(sd_bus *bus, const char *path, void *use
         assert(path);
         assert(nodes);
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         DnsDelegate *d;
         HASHMAP_FOREACH(d, m->delegates) {
                 _cleanup_free_ char *p = NULL;

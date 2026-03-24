@@ -163,7 +163,7 @@ int copy_bytes_full(
                 copy_progress_bytes_t progress,
                 void *userdata) {
 
-        _cleanup_close_ int fdf_opened = -EBADF, fdt_opened = -EBADF;
+        _cleanup_(closep) int fdf_opened = -EBADF, fdt_opened = -EBADF;
         bool try_cfr = true, try_sendfile = true, try_splice = true;
         uint64_t copied_total = 0;
         int r, nonblock_pipe = -1;
@@ -630,7 +630,7 @@ static int hardlink_context_setup(
                 const char *to,
                 CopyFlags copy_flags) {
 
-        _cleanup_close_ int dt_copy = -EBADF;
+        _cleanup_(closep) int dt_copy = -EBADF;
         int r;
 
         assert(c);
@@ -863,7 +863,7 @@ static int copy_fs_verity(int fdf, int *fdt) {
 
         /* Okay. We're doing this now. We need to re-open fdt as read-only because
          * we can't enable fs-verity while writable file descriptors are outstanding. */
-        _cleanup_close_ int reopened_fd = -EBADF;
+        _cleanup_(closep) int reopened_fd = -EBADF;
         r = fd_reopen_condition(*fdt, O_RDONLY|O_CLOEXEC|O_NOCTTY, O_ACCMODE_STRICT|O_PATH, &reopened_fd);
         if (r < 0)
                 return r;
@@ -921,7 +921,7 @@ static int fd_copy_regular(
                 copy_progress_bytes_t progress,
                 void *userdata) {
 
-        _cleanup_close_ int fdf = -EBADF, fdt = -EBADF;
+        _cleanup_(closep) int fdf = -EBADF, fdt = -EBADF;
         int r, q;
 
         assert(st);
@@ -1133,8 +1133,8 @@ static int fd_copy_directory(
                 .parent_fd = -EBADF,
         };
 
-        _cleanup_close_ int fdf = -EBADF, fdt = -EBADF;
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(closep) int fdf = -EBADF, fdt = -EBADF;
+        _cleanup_(closedirp) DIR *d = NULL;
         struct stat dt_st;
         bool exists;
         int r;
@@ -1459,7 +1459,7 @@ int copy_directory_at_full(
                 copy_progress_bytes_t progress_bytes,
                 void *userdata) {
 
-        _cleanup_close_ int fdt = -EBADF;
+        _cleanup_(closep) int fdt = -EBADF;
         struct stat st;
         int r;
 
@@ -1511,7 +1511,7 @@ int copy_file_fd_at_full(
                 copy_progress_bytes_t progress_bytes,
                 void *userdata) {
 
-        _cleanup_close_ int fdf = -EBADF;
+        _cleanup_(closep) int fdf = -EBADF;
         struct stat st;
         int r;
 
@@ -1569,7 +1569,7 @@ int copy_file_at_full(
                 copy_progress_bytes_t progress_bytes,
                 void *userdata) {
 
-        _cleanup_close_ int fdf = -EBADF, fdt = -EBADF;
+        _cleanup_(closep) int fdf = -EBADF, fdt = -EBADF;
         int r;
 
         assert(dir_fdf >= 0 || dir_fdf == AT_FDCWD);
@@ -1665,7 +1665,7 @@ int copy_file_atomic_at_full(
                 void *userdata) {
 
         _cleanup_(unlink_and_freep) char *t = NULL;
-        _cleanup_close_ int fdt = -EBADF;
+        _cleanup_(closep) int fdt = -EBADF;
         int r;
 
         assert(to);

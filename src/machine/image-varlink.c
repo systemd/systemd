@@ -112,7 +112,7 @@ int vl_method_clone_image(sd_varlink *link, sd_json_variant *parameters, sd_varl
         };
 
         Manager *manager = ASSERT_PTR(userdata);
-        _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int errno_pipe_fd[2] = EBADF_PAIR;
         ImageUpdateParameters p = IMAGE_UPDATE_PARAMETERS_NULL;
         Image *image;
         _cleanup_(pidref_done_sigkill_wait) PidRef child = PIDREF_NULL;
@@ -184,7 +184,7 @@ int vl_method_remove_image(sd_varlink *link, sd_json_variant *parameters, sd_var
         };
 
         Manager *manager = ASSERT_PTR(userdata);
-        _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int errno_pipe_fd[2] = EBADF_PAIR;
         const char *image_name;
         Image *image;
         _cleanup_(pidref_done_sigkill_wait) PidRef child = PIDREF_NULL;
@@ -356,7 +356,7 @@ static int clean_pool_done_internal(Operation *operation, FILE *file, int child_
 }
 
 static int clean_pool_done(Operation *operation, int child_error, sd_bus_error *error) {
-        _cleanup_fclose_ FILE *file = NULL;
+        _cleanup_(fclosep) FILE *file = NULL;
         int r;
 
         assert(operation);

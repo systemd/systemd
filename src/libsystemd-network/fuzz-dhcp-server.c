@@ -68,7 +68,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
         struct in_addr address = { .s_addr = htobe32(UINT32_C(10) << 24 | UINT32_C(1))};
         _cleanup_free_ uint8_t *duped = NULL;
-        _cleanup_close_ int dir_fd = -EBADF;
+        _cleanup_(closep) int dir_fd = -EBADF;
 
         if (size < sizeof(DHCPMessage))
                 return 0;

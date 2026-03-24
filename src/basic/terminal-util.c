@@ -72,7 +72,7 @@ bool isatty_safe(int fd) {
 }
 
 int chvt(int vt) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         /* Switch to the specified vt number. If the VT is specified <= 0 switch to the VT the kernel log messages go,
          * if that's configured. */
@@ -338,7 +338,7 @@ int ask_string_full(
                 if (c == '\t') {
                         /* Tab */
 
-                        _cleanup_strv_free_ char **completions = NULL;
+                        _cleanup_(strv_freep) char **completions = NULL;
                         if (get_completions) {
                                 r = get_completions(string, &completions, userdata);
                                 if (r < 0)
@@ -368,7 +368,7 @@ int ask_string_full(
                                  * the one). */
                                 fputc('\n', stdout);
 
-                                _cleanup_strv_free_ char **filtered = strv_filter_prefix(completions, string);
+                                _cleanup_(strv_freep) char **filtered = strv_filter_prefix(completions, string);
                                 if (!filtered) {
                                         r = -ENOMEM;
                                         goto fail;
@@ -592,7 +592,7 @@ int show_menu(char **x,
 }
 
 int open_terminal(const char *name, int mode) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         /*
          * If a TTY is in the process of being closed opening it might cause EIO. This is horribly awful, but
@@ -630,7 +630,7 @@ int acquire_terminal(
                 AcquireTerminalFlags flags,
                 usec_t timeout) {
 
-        _cleanup_close_ int notify = -EBADF, fd = -EBADF;
+        _cleanup_(closep) int notify = -EBADF, fd = -EBADF;
         usec_t ts = USEC_INFINITY;
         int r, wd = -1;
 
@@ -769,7 +769,7 @@ int acquire_terminal(
 }
 
 int release_terminal(void) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         fd = open("/dev/tty", O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
@@ -815,7 +815,7 @@ int terminal_vhangup_fd(int fd) {
 }
 
 int terminal_vhangup(const char *tty) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         assert(tty);
 
@@ -834,7 +834,7 @@ int vt_disallocate(const char *tty_path) {
 
         int ttynr = vtnr_from_tty(tty_path);
         if (ttynr > 0) {
-                _cleanup_close_ int fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
+                _cleanup_(closep) int fd = open_terminal("/dev/tty0", O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
                 if (fd < 0)
                         return fd;
 
@@ -848,7 +848,7 @@ int vt_disallocate(const char *tty_path) {
         /* So this is not a VT (in which case we cannot deallocate it), or we failed to deallocate. Let's at
          * least clear the screen. */
 
-        _cleanup_close_ int fd2 = open_terminal(tty_path, O_WRONLY|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
+        _cleanup_(closep) int fd2 = open_terminal(tty_path, O_WRONLY|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
         if (fd2 < 0)
                 return fd2;
 
@@ -994,7 +994,7 @@ void reset_dev_console_fd(int fd, bool switch_to_text) {
 
         assert(fd >= 0);
 
-        _cleanup_close_ int lock_fd = lock_dev_console();
+        _cleanup_(closep) int lock_fd = lock_dev_console();
         if (lock_fd < 0)
                 log_debug_errno(lock_fd, "Failed to lock /dev/console, ignoring: %m");
 
@@ -1019,7 +1019,7 @@ void reset_dev_console_fd(int fd, bool switch_to_text) {
 }
 
 int lock_dev_console(void) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         /* NB: We do not use O_NOFOLLOW here, because some container managers might place a symlink to some
@@ -1168,7 +1168,7 @@ int resolve_dev_console(char **ret) {
 }
 
 int get_kernel_consoles(char ***ret) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         _cleanup_free_ char *line = NULL;
         int r;
 
@@ -1609,7 +1609,7 @@ int ptsname_malloc(int fd, char **ret) {
 }
 
 int openpt_allocate(int flags, char **ret_peer_path) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         fd = posix_openpt(flags|O_NOCTTY|O_CLOEXEC);
@@ -1661,8 +1661,8 @@ int openpt_allocate_in_namespace(
                 int flags,
                 char **ret_peer_path) {
 
-        _cleanup_close_ int pidnsfd = -EBADF, mntnsfd = -EBADF, usernsfd = -EBADF, rootfd = -EBADF, fd = -EBADF;
-        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
+        _cleanup_(closep) int pidnsfd = -EBADF, mntnsfd = -EBADF, usernsfd = -EBADF, rootfd = -EBADF, fd = -EBADF;
+        _cleanup_(close_pairp) int pair[2] = EBADF_PAIR;
         int r;
 
         r = pidref_namespace_open(pidref, &pidnsfd, &mntnsfd, /* ret_netns_fd= */ NULL, &usernsfd, &rootfd);
@@ -1980,7 +1980,7 @@ int terminal_get_cursor_position(
                 unsigned *ret_row,
                 unsigned *ret_column) {
 
-        _cleanup_close_ int nonblock_input_fd = -EBADF;
+        _cleanup_(closep) int nonblock_input_fd = -EBADF;
         int r;
 
         assert(input_fd >= 0);
@@ -2109,7 +2109,7 @@ int terminal_reset_defensive(int fd, TerminalResetFlags flags) {
 int terminal_reset_defensive_locked(int fd, TerminalResetFlags flags) {
         assert(fd >= 0);
 
-        _cleanup_close_ int lock_fd = lock_dev_console();
+        _cleanup_(closep) int lock_fd = lock_dev_console();
         if (lock_fd < 0)
                 log_debug_errno(lock_fd, "Failed to acquire lock for /dev/console, ignoring: %m");
 
@@ -2291,7 +2291,7 @@ int get_default_background_color(double *ret_red, double *ret_green, double *ret
 
         /* Open a 2nd input fd, in non-blocking mode, so that we won't ever hang in read()
          * should someone else process the POLLIN. Do all subsequent operations on the new fd. */
-        _cleanup_close_ int nonblock_input_fd = r = fd_reopen(STDIN_FILENO, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        _cleanup_(closep) int nonblock_input_fd = r = fd_reopen(STDIN_FILENO, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (r < 0)
                 return r;
 
@@ -2401,7 +2401,7 @@ int terminal_get_size_by_dsr(
 
         /* Open a 2nd input fd, in non-blocking mode, so that we won't ever hang in read()
          * should someone else process the POLLIN. Do all subsequent operations on the new fd. */
-        _cleanup_close_ int nonblock_input_fd = r = fd_reopen(input_fd, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        _cleanup_(closep) int nonblock_input_fd = r = fd_reopen(input_fd, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (r < 0)
                 return r;
 
@@ -2578,7 +2578,7 @@ int terminal_get_size_by_csi18(
 
         /* Open a 2nd input fd, in non-blocking mode, so that we won't ever hang in read()
          * should someone else process the POLLIN. Do all subsequent operations on the new fd. */
-        _cleanup_close_ int nonblock_input_fd = r = fd_reopen(input_fd, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        _cleanup_(closep) int nonblock_input_fd = r = fd_reopen(input_fd, O_RDONLY|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (r < 0)
                 return r;
 
@@ -2842,7 +2842,7 @@ int query_term_for_tty(const char *tty, char **ret_term) {
         /* Try to query the terminal implementation that we're on. This will not work in all
          * cases, which is fine, since this is intended to be used as a fallback. */
 
-        _cleanup_close_ int tty_fd = open_terminal(tty, O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
+        _cleanup_(closep) int tty_fd = open_terminal(tty, O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK);
         if (tty_fd < 0)
                 return log_debug_errno(tty_fd, "Failed to open %s to query terminfo: %m", tty);
 
