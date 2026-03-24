@@ -259,8 +259,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                                 return r;
                         break;
 
-                OPTION_SHORT('j', NULL,
-                             "Equivalent to --json=pretty (on TTY) or --json=short (otherwise)"):
+                OPTION_COMMON_LOWERCASE_J:
                         arg_json_format_flags = SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO;
                         break;
 

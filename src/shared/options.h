@@ -68,6 +68,9 @@ typedef struct Option {
         OPTION('M', "machine", "CONTAINER", "Operate on local container")
 #define OPTION_COMMON_JSON \
         OPTION_LONG("json", "FORMAT", "Generate JSON output (pretty, short, or off)")
+#define OPTION_COMMON_LOWERCASE_J \
+        OPTION_SHORT('j', NULL, \
+                     "Equivalent to --json=pretty (on TTY) or --json=short (otherwise)")
 
 /* This is magically mapped to the beginning and end of the section */
 extern const Option __start_SYSTEMD_OPTIONS[];
