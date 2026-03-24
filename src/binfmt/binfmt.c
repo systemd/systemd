@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
 #include <stdio.h>
 #include <sys/stat.h>
 
@@ -12,8 +11,10 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "format-table.h"
 #include "log.h"
 #include "main-func.h"
+#include "options.h"
 #include "pager.h"
 #include "path-util.h"
 #include "pretty-print.h"
@@ -108,88 +109,69 @@ static int cat_config(char **files) {
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *options = NULL;
         int r;
 
         r = terminal_urlify_man("systemd-binfmt.service", "8", &link);
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] [CONFIGURATION FILE...]\n\n"
-               "Registers binary formats with the kernel.\n\n"
-               "  -h --help             Show this help\n"
-               "     --version          Show package version\n"
-               "     --cat-config       Show configuration files\n"
-               "     --tldr             Show non-comment parts of configuration\n"
-               "     --no-pager         Do not pipe output into a pager\n"
-               "     --unregister       Unregister all existing entries\n"
-               "\nSee the %s for details.\n",
-               program_invocation_short_name,
-               link);
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
 
+        printf("%s [OPTIONS...] [CONFIGURATION FILE...]\n"
+               "\n%sRegisters binary formats with the kernel.%s\n"
+               "\nOptions:\n",
+               program_invocation_short_name,
+               ansi_highlight(),
+               ansi_normal());
+        table_print(options, stdout);
+
+        printf("\nSee the %s for details.\n", link);
         return 0;
 }
 
-static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_CAT_CONFIG,
-                ARG_TLDR,
-                ARG_NO_PAGER,
-                ARG_UNREGISTER,
-        };
-
-        static const struct option options[] = {
-                { "help",       no_argument, NULL, 'h'            },
-                { "version",    no_argument, NULL, ARG_VERSION    },
-                { "cat-config", no_argument, NULL, ARG_CAT_CONFIG },
-                { "tldr",       no_argument, NULL, ARG_TLDR       },
-                { "no-pager",   no_argument, NULL, ARG_NO_PAGER   },
-                { "unregister", no_argument, NULL, ARG_UNREGISTER },
-                {}
-        };
-
-        int c;
+static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
+        OptionParser state = {};
+        const char *arg;
 
+        FOREACH_OPTION(&state, c, argc, argv, &arg, /* on_error= */ return c)
                 switch (c) {
-
-                case 'h':
+                OPTION_COMMON_HELP:
                         return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case ARG_CAT_CONFIG:
+                OPTION_COMMON_CAT_CONFIG:
                         arg_cat_flags = CAT_CONFIG_ON;
                         break;
 
-                case ARG_TLDR:
+                OPTION_COMMON_TLDR:
                         arg_cat_flags = CAT_TLDR;
                         break;
 
-                case ARG_NO_PAGER:
+                OPTION_COMMON_NO_PAGER:
                         arg_pager_flags |= PAGER_DISABLE;
                         break;
 
-                case ARG_UNREGISTER:
+                OPTION_LONG("unregister", NULL, "Unregister all existing entries"):
                         arg_unregister = true;
                         break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
 
-        if ((arg_unregister || arg_cat_flags != CAT_CONFIG_OFF) && argc > optind)
+        char **args = option_parser_get_args(&state, argc, argv);
+
+        if ((arg_unregister || arg_cat_flags != CAT_CONFIG_OFF) && !strv_isempty(args))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Positional arguments are not allowed with --cat-config/--tldr or --unregister.");
 
+        *ret_args = args;
         return 1;
 }
 
@@ -208,7 +190,8 @@ static int binfmt_mounted_and_writable_warn(void) {
 static int run(int argc, char *argv[]) {
         int r;
 
-        r = parse_argv(argc, argv);
+        char **args = NULL;
+        r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 
@@ -221,13 +204,13 @@ static int run(int argc, char *argv[]) {
         if (arg_unregister)
                 return disable_binfmt();
 
-        if (argc > optind) {
+        if (!strv_isempty(args)) {
                 r = binfmt_mounted_and_writable_warn();
                 if (r <= 0)
                         return r;
 
-                for (int i = optind; i < argc; i++)
-                        RET_GATHER(r, apply_file(argv[i], false));
+                STRV_FOREACH(f, args)
+                        RET_GATHER(r, apply_file(*f, false));
 
         } else {
                 _cleanup_strv_free_ char **files = NULL;
