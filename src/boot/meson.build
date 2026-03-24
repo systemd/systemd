@@ -337,6 +337,7 @@ systemd_boot_sources = files(
 )
 
 stub_sources = files(
+        'boot-secret.c',
         'cpio.c',
         'linux.c',
         'splash.c',
