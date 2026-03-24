@@ -74,22 +74,15 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 OPTION_LONG("root", "PATH|auto", "Operate relative to the specified path"):
-                        if (streq(arg, "auto")) {
-                                arg_root = mfree(arg_root);
+                        if (streq(optarg, "auto"))
+                                r = free_and_strdup(&arg_root, in_initrd() ? "/sysroot" : NULL);
+                        else {
+                                if (!path_is_absolute(optarg))
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "--root= argument must be 'auto' or absolute path, got: %s", optarg);
 
-                                if (in_initrd()) {
-                                        arg_root = strdup("/sysroot");
-                                        if (!arg_root)
-                                                return log_oom();
-                                }
-
-                                break;
+                                r = parse_path_argument(optarg, /* suppress_root= */ true, &arg_root);
                         }
-
-                        if (!path_is_absolute(arg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--root= argument must be 'auto' or absolute path, got: %s", arg);
-
-                        r = parse_path_argument(arg, /* suppress_root= */ true, &arg_root);
                         if (r < 0)
                                 return r;
                         break;
@@ -107,8 +100,9 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_oom();
 
         if (arg_root && !path_startswith(arg_target, arg_root))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Specified path '%s' does not start with specified root '%s', refusing.", arg_target, arg_root);
-
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Specified path '%s' does not start with specified root '%s', refusing.",
+                                       arg_target, arg_root);
         return 1;
 }
 
