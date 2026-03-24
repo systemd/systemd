@@ -30,6 +30,7 @@
 #include "process-util.h"
 #include "recurse-dir.h"
 #include "runtime-scope.h"
+#include "socket-forward.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -52,6 +53,7 @@ static bool arg_quiet = false;
 static char **arg_graceful = NULL;
 static usec_t arg_timeout = 0;
 static bool arg_exec = false;
+static bool arg_upgrade = false;
 static PushFds arg_push_fds = {};
 static bool arg_ask_password = true;
 static bool arg_legend = true;
@@ -111,6 +113,8 @@ static int help(void) {
                "     --graceful=ERROR    Treat specified Varlink error as success\n"
                "     --timeout=SECS      Maximum time to wait for method call completion\n"
                "  -E                     Short for --more --timeout=infinity\n"
+               "     --upgrade           Request protocol upgrade (connection becomes raw\n"
+               "                         bidirectional pipe on stdin/stdout after reply)\n"
                "     --push-fd=FD        Pass the specified fd along with method call\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
@@ -139,6 +143,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_GRACEFUL,
                 ARG_TIMEOUT,
                 ARG_EXEC,
+                ARG_UPGRADE,
                 ARG_PUSH_FD,
                 ARG_NO_ASK_PASSWORD,
                 ARG_USER,
@@ -157,6 +162,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "graceful",        required_argument, NULL, ARG_GRACEFUL        },
                 { "timeout",         required_argument, NULL, ARG_TIMEOUT         },
                 { "exec",            no_argument,       NULL, ARG_EXEC            },
+                { "upgrade",         no_argument,       NULL, ARG_UPGRADE         },
                 { "push-fd",         required_argument, NULL, ARG_PUSH_FD         },
                 { "no-ask-password", no_argument,       NULL, ARG_NO_ASK_PASSWORD },
                 { "user",            no_argument,       NULL, ARG_USER            },
@@ -243,6 +249,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_EXEC:
                         arg_exec = true;
+                        break;
+
+                case ARG_UPGRADE:
+                        arg_upgrade = true;
                         break;
 
                 case ARG_PUSH_FD: {
@@ -634,6 +644,75 @@ static int reply_callback(
         return r;
 }
 
+static int upgrade_forward_done(SocketForward *sf, int error, void *userdata) {
+        sd_event *event = ASSERT_PTR(userdata);
+
+        return sd_event_exit(event, error < 0 ? error : 0);
+}
+
+static int varlink_call_and_upgrade(const char *url, const char *method, sd_json_variant *parameters) {
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_(socket_forward_freep) SocketForward *sf = NULL;
+        _cleanup_close_ int input_fd = -EBADF, output_fd = -EBADF;
+        const char *error_id = NULL;
+        int r;
+
+        r = varlink_connect_auto(&vl, url);
+        if (r < 0)
+                return r;
+
+        r = sd_varlink_call_and_upgrade(
+                        vl,
+                        method,
+                        parameters,
+                        /* ret_parameters= */ NULL,
+                        &error_id,
+                        &input_fd,
+                        &output_fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to upgrade connection via %s(): %m", method);
+        if (!isempty(error_id))
+                return log_error_errno(SYNTHETIC_ERRNO(EBADE), "Upgrade via %s() failed with error: %s", method, error_id);
+
+        /* For bidirectional sockets input_fd == output_fd. Dup immediately so that _cleanup_close_
+         * on both variables can never double-close the same fd. Note that on fcntl() failure
+         * output_fd is overwritten with -1, so only input_fd holds the real fd at cleanup time. */
+        if (input_fd == output_fd) {
+                output_fd = fcntl(input_fd, F_DUPFD_CLOEXEC, 3);
+                if (output_fd < 0)
+                        return log_error_errno(errno, "Failed to dup upgraded connection fd: %m");
+        }
+
+        /* Use a clean event loop just for the forwarding to avoid any interference. */
+        r = sd_event_new(&event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate event loop: %m");
+
+        _cleanup_close_ int stdin_fd = fcntl(STDIN_FILENO, F_DUPFD_CLOEXEC, 3);
+        if (stdin_fd < 0)
+                return log_error_errno(errno, "Failed to dup stdin: %m");
+
+        _cleanup_close_ int stdout_fd = fcntl(STDOUT_FILENO, F_DUPFD_CLOEXEC, 3);
+        if (stdout_fd < 0)
+                return log_error_errno(errno, "Failed to dup stdout: %m");
+
+        r = socket_forward_new_pair(
+                        event,
+                        TAKE_FD(stdin_fd), TAKE_FD(stdout_fd),
+                        TAKE_FD(input_fd), TAKE_FD(output_fd),
+                        upgrade_forward_done, event,
+                        &sf);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set up socket forwarding for varlink: %m");
+
+        r = sd_event_loop(event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to run socket forward for varlink: %m");
+
+        return 0;
+}
+
 static int verb_call(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *jp = NULL;
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
@@ -651,12 +730,32 @@ static int verb_call(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (arg_exec && (arg_collect || (arg_method_flags & (SD_VARLINK_METHOD_ONEWAY|SD_VARLINK_METHOD_MORE))) != 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--exec and --collect/--more/--oneway may not be combined.");
 
+        if (arg_upgrade) {
+                /* TODO: support --exec with --upgrade, passing the upgraded socket fd to a child process */
+                if (arg_exec || arg_collect || arg_method_flags != 0 || arg_push_fds.n_fds > 0 || !strv_isempty(arg_graceful))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--upgrade may not be combined with --exec/--collect/--more/--oneway/--push-fd=/--graceful.");
+        }
+
         (void) polkit_agent_open_if_enabled(BUS_TRANSPORT_LOCAL, arg_ask_password);
 
         url = argv[1];
         method = argv[2];
         parameter = argc > 3 && !streq(argv[3], "-") ? argv[3] : NULL;
         cmdline = strv_skip(argv, 4);
+
+        if (!varlink_idl_qualified_symbol_name_is_valid(method))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a valid qualified method name: '%s' (Expected valid Varlink interface name, followed by a dot, followed by a valid Varlink symbol name.)", method);
+
+        if (arg_upgrade) {
+                /* For --upgrade, parse parameters from argv only (stdin is used for the upgraded connection) */
+                if (parameter) {
+                        r = sd_json_parse(parameter, SD_JSON_PARSE_MUST_BE_OBJECT, &jp, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse parameters: %m");
+                }
+
+                return varlink_call_and_upgrade(url, method, jp);
+        }
 
         /* No JSON mode explicitly configured? Then default to the same as -j (except if --exec is used, in
          * which case generate shortest possible JSON since we are going to pass it to a program rather than
@@ -673,9 +772,6 @@ static int verb_call(int argc, char *argv[], uintptr_t _data, void *userdata) {
         /* For pipeable text tools it's kinda customary to finish output off in a newline character, and not
          * leave incomplete lines hanging around. */
         arg_json_format_flags |= SD_JSON_FORMAT_NEWLINE;
-
-        if (!varlink_idl_qualified_symbol_name_is_valid(method))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a valid qualified method name: '%s' (Expected valid Varlink interface name, followed by a dot, followed by a valid Varlink symbol name.)", method);
 
         unsigned line = 0, column = 0;
         if (parameter) {
