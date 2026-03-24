@@ -109,7 +109,7 @@ static int sysctl_write_or_warn(const char *key, const char *value, bool ignore_
 }
 
 static int apply_glob_option_with_prefix(OrderedHashmap *sysctl_options, Option *option, const char *prefix) {
-        _cleanup_strv_free_ char **paths = NULL;
+        _cleanup_(strv_freep) char **paths = NULL;
         _cleanup_free_ char *pattern = NULL;
         int r;
 
@@ -437,7 +437,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_ordered_hashmap_free_ OrderedHashmap *sysctl_options = NULL;
+        _cleanup_(ordered_hashmap_freep) OrderedHashmap *sysctl_options = NULL;
         int r;
 
         r = parse_argv(argc, argv);
@@ -459,7 +459,7 @@ static int run(int argc, char *argv[]) {
                                 RET_GATHER(r, parse_file(&sysctl_options, *arg, false));
                 }
         } else {
-                _cleanup_strv_free_ char **files = NULL;
+                _cleanup_(strv_freep) char **files = NULL;
 
                 r = conf_files_list_strv(&files, ".conf", /* root= */ NULL, CONF_FILES_WARN,
                                          (const char**) CONF_PATHS_STRV("sysctl.d"));

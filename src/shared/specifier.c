@@ -428,7 +428,7 @@ char* specifier_escape(const char *string) {
 }
 
 int specifier_escape_strv(char **l, char ***ret) {
-        _cleanup_strv_free_ char **z = NULL;
+        _cleanup_(strv_freep) char **z = NULL;
         char **p, **q;
 
         assert(ret);

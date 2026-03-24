@@ -371,7 +371,7 @@ int route_adjust_nexthops(Route *route, Link *link) {
         if (!multipath_routes_needs_adjust(route))
                 return false;
 
-        _cleanup_ordered_set_free_ OrderedSet *nexthops = NULL;
+        _cleanup_(ordered_set_freep) OrderedSet *nexthops = NULL;
         for (;;) {
                 _cleanup_(route_nexthop_freep) RouteNextHop *nh = NULL;
 
@@ -672,7 +672,7 @@ int route_nexthops_set_netlink_message(const Route *route, sd_netlink_message *m
 }
 
 static int route_parse_nexthops(Route *route, const struct rtnexthop *rtnh, size_t size) {
-        _cleanup_ordered_set_free_ OrderedSet *nexthops = NULL;
+        _cleanup_(ordered_set_freep) OrderedSet *nexthops = NULL;
         int r;
 
         assert(route);

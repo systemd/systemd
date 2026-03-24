@@ -123,7 +123,7 @@ int fdset_consume(FDSet *s, int fd) {
 }
 
 int fdset_put_dup(FDSet *s, int fd) {
-        _cleanup_close_ int copy = -EBADF;
+        _cleanup_(closep) int copy = -EBADF;
         int r;
 
         assert(s);
@@ -169,7 +169,7 @@ int fdset_new_fill(
                 FDSet **ret) {
 
         _cleanup_(fdset_shallow_freep) FDSet *s = NULL;
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
         int r;
 
         assert(ret);

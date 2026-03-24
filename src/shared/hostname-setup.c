@@ -139,7 +139,7 @@ int read_etc_hostname_stream(FILE *f, bool substitute_wildcards, char **ret) {
 }
 
 int read_etc_hostname(const char *path, bool substitute_wildcards, char **ret) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
 
         assert(ret);
 
@@ -362,16 +362,16 @@ int pidref_gethostname_full(PidRef *pidref, GetHostnameFlags flags, char **ret) 
         if (r > 0)
                 return gethostname_full(flags, ret);
 
-        _cleanup_close_ int utsns_fd = r = pidref_namespace_open_by_type(pidref, NAMESPACE_UTS);
+        _cleanup_(closep) int utsns_fd = r = pidref_namespace_open_by_type(pidref, NAMESPACE_UTS);
         if (r < 0)
                 return r;
 
-        _cleanup_close_pair_ int errno_pipe[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int errno_pipe[2] = EBADF_PAIR;
         r = pipe2(errno_pipe, O_CLOEXEC);
         if (r < 0)
                 return -errno;
 
-        _cleanup_close_pair_ int result_pipe[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int result_pipe[2] = EBADF_PAIR;
         r = pipe2(result_pipe, O_CLOEXEC);
         if (r < 0)
                 return -errno;

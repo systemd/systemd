@@ -151,7 +151,7 @@ static int move_file(PStoreEntry *pe, const char *subdir1, const char *subdir2) 
 static int append_dmesg(PStoreEntry *pe, const char *subdir1, const char *subdir2) {
         /* Append dmesg chunk to end, create if needed */
         _cleanup_free_ char *ofd_path = NULL;
-        _cleanup_close_ int ofd = -EBADF;
+        _cleanup_(closep) int ofd = -EBADF;
         ssize_t wr;
 
         assert(pe);
@@ -266,7 +266,7 @@ static int process_dmesg_files(PStoreList *list) {
 }
 
 static int list_files(PStoreList *list, const char *sourcepath) {
-        _cleanup_closedir_ DIR *dirp = NULL;
+        _cleanup_(closedirp) DIR *dirp = NULL;
         int r;
 
         dirp = opendir(sourcepath);

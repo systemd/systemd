@@ -551,8 +551,8 @@ int home_sync_and_statfs(int root_fd, struct statfs *ret) {
 }
 
 static int read_identity_file(int root_fd, sd_json_variant **ret) {
-        _cleanup_fclose_ FILE *identity_file = NULL;
-        _cleanup_close_ int identity_fd = -EBADF;
+        _cleanup_(fclosep) FILE *identity_file = NULL;
+        _cleanup_(closep) int identity_fd = -EBADF;
         int r;
 
         assert(root_fd >= 0);
@@ -582,8 +582,8 @@ static int read_identity_file(int root_fd, sd_json_variant **ret) {
 
 static int write_identity_file(int root_fd, sd_json_variant *v, uid_t uid) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *normalized = NULL;
-        _cleanup_fclose_ FILE *identity_file = NULL;
-        _cleanup_close_ int identity_fd = -EBADF;
+        _cleanup_(fclosep) FILE *identity_file = NULL;
+        _cleanup_(closep) int identity_fd = -EBADF;
         _cleanup_free_ char *fn = NULL;
         int r;
 
@@ -824,7 +824,7 @@ int home_maybe_shift_uid(
                 HomeSetupFlags flags,
                 HomeSetup *setup) {
 
-        _cleanup_close_ int mount_fd = -EBADF;
+        _cleanup_(closep) int mount_fd = -EBADF;
         struct stat st;
 
         assert(h);
@@ -1068,7 +1068,7 @@ static int home_deactivate(UserRecord *h, bool force) {
 }
 
 static int copy_skel(UserRecord *h, int root_fd, const char *skel) {
-        _cleanup_close_ int skel_fd = -EBADF;
+        _cleanup_(closep) int skel_fd = -EBADF;
         int r;
 
         assert(h);
@@ -1138,7 +1138,7 @@ static int user_record_compile_effective_passwords(
                 PasswordCache *cache,
                 char ***ret_effective_passwords) {
 
-        _cleanup_strv_free_erase_ char **effective = NULL;
+        _cleanup_(strv_free_erasep) char **effective = NULL;
         int r;
 
         assert(h);
@@ -1357,7 +1357,7 @@ static int determine_default_storage(UserStorage *ret) {
 }
 
 static int home_create(UserRecord *h, Hashmap *blobs, UserRecord **ret_home) {
-        _cleanup_strv_free_erase_ char **effective_passwords = NULL;
+        _cleanup_(strv_free_erasep) char **effective_passwords = NULL;
         _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL;
         _cleanup_(password_cache_free) PasswordCache cache = {};
@@ -1763,7 +1763,7 @@ static int home_resize(UserRecord *h, UserRecord **ret) {
 
 static int home_passwd(UserRecord *h, UserRecord **ret_home) {
         _cleanup_(user_record_unrefp) UserRecord *header_home = NULL, *embedded_home = NULL, *new_home = NULL;
-        _cleanup_strv_free_erase_ char **effective_passwords = NULL;
+        _cleanup_(strv_free_erasep) char **effective_passwords = NULL;
         _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         _cleanup_(password_cache_free) PasswordCache cache = {};
         HomeSetupFlags flags = 0;
@@ -1992,8 +1992,8 @@ static int home_unlock(UserRecord *h) {
 static int run(int argc, char *argv[]) {
         _cleanup_(user_record_unrefp) UserRecord *home = NULL, *new_home = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        _cleanup_fclose_ FILE *opened_file = NULL;
-        _cleanup_hashmap_free_ Hashmap *blobs = NULL;
+        _cleanup_(fclosep) FILE *opened_file = NULL;
+        _cleanup_(hashmap_freep) Hashmap *blobs = NULL;
         const char *json_path = NULL, *blob_filename;
         FILE *json_file;
         usec_t start;
@@ -2037,7 +2037,7 @@ static int run(int argc, char *argv[]) {
 
                 JSON_VARIANT_OBJECT_FOREACH(blob_filename, blob_fd_variant, fdmap) {
                         _cleanup_free_ char *filename = NULL;
-                        _cleanup_close_ int fd = -EBADF;
+                        _cleanup_(closep) int fd = -EBADF;
 
                         assert(sd_json_variant_is_integer(blob_fd_variant));
                         assert(sd_json_variant_integer(blob_fd_variant) >= 0);

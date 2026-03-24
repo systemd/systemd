@@ -131,7 +131,7 @@ static void test_parse_auxv_one(
 
 TEST(parse_auxv) {
         _cleanup_free_ char *dir = NULL;
-        _cleanup_close_ int dir_fd = -EBADF;
+        _cleanup_(closep) int dir_fd = -EBADF;
 
         assert_se(get_testdata_dir("auxv", &dir) >= 0);
         dir_fd = open(dir, O_RDONLY | O_CLOEXEC | O_DIRECTORY | O_PATH);

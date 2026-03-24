@@ -9,7 +9,7 @@
 #include "tests.h"
 
 int main(int argc, char *argv[]) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         uint64_t offset;
         int r;
 

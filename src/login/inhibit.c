@@ -67,7 +67,7 @@ static int print_inhibitors(sd_bus *bus) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
-        _cleanup_strv_free_ char **what_filter = NULL;
+        _cleanup_(strv_freep) char **what_filter = NULL;
 
         int r;
 
@@ -326,9 +326,9 @@ static int run(int argc, char *argv[]) {
                 return print_inhibitors(bus);
         else {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_strv_free_ char **arguments = NULL;
+                _cleanup_(strv_freep) char **arguments = NULL;
                 _cleanup_free_ char *w = NULL;
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
 
                 /* Ignore SIGINT and allow the forked process to receive it */
                 (void) ignore_signals(SIGINT);

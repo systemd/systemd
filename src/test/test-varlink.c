@@ -121,7 +121,7 @@ static int method_passfd(sd_varlink *link, sd_json_variant *parameters, sd_varli
         test_fd(yy, "bar", 3);
         test_fd(zz, "quux", 4);
 
-        _cleanup_close_ int vv = -EBADF, ww = -EBADF;
+        _cleanup_(closep) int vv = -EBADF, ww = -EBADF;
         ASSERT_OK(vv = memfd_new_and_seal_string("data", "miau"));
         ASSERT_OK(ww = memfd_new_and_seal_string("data", "wuff"));
 
@@ -342,7 +342,7 @@ TEST(chat) {
         _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
-        _cleanup_close_pair_ int block_fds[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int block_fds[2] = EBADF_PAIR;
         pthread_t t;
         const char *sp;
 
@@ -613,7 +613,7 @@ TEST(sentinel_oneway) {
 }
 
 static int method_with_fd_sentinel(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        _cleanup_close_ int fd1 = -EBADF, fd2 = -EBADF;
+        _cleanup_(closep) int fd1 = -EBADF, fd2 = -EBADF;
 
         ASSERT_TRUE(FLAGS_SET(flags, SD_VARLINK_METHOD_MORE));
 

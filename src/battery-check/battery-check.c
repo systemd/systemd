@@ -113,7 +113,7 @@ static int parse_argv(int argc, char * argv[]) {
 
 static int run(int argc, char *argv[]) {
         _cleanup_free_ char *plymouth_message = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         log_setup();

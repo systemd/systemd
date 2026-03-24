@@ -56,7 +56,7 @@ static void status_info_clear(StatusInfo *info) {
 }
 
 static int print_status_info(StatusInfo *i) {
-        _cleanup_strv_free_ char **kernel_locale = NULL;
+        _cleanup_(strv_freep) char **kernel_locale = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
         TableCell *cell;
         int r;
@@ -212,7 +212,7 @@ static int verb_set_locale(int argc, char *argv[], uintptr_t _data, void *userda
 }
 
 static int verb_list_locales(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         int r;
 
         r = get_locales(&l);
@@ -250,7 +250,7 @@ static int verb_set_vconsole_keymap(int argc, char *argv[], uintptr_t _data, voi
 }
 
 static int verb_list_vconsole_keymaps(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         int r;
 
         r = get_keymaps(&l);
@@ -300,8 +300,8 @@ static const char* xkb_directory(void) {
 }
 
 static int verb_list_x11_keymaps(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_strv_free_ char **list = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
+        _cleanup_(strv_freep) char **list = NULL;
         enum {
                 NONE,
                 MODELS,

@@ -193,7 +193,7 @@ static void swap_entries_done(SwapEntries *entries) {
 }
 
 static int swap_entry_get_resume_config(SwapEntry *swap) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         uint64_t offset_raw;
         struct stat st;
         int r;
@@ -250,7 +250,7 @@ static int swap_entry_get_resume_config(SwapEntry *swap) {
 
 static int read_swap_entries(SwapEntries *ret) {
         _cleanup_(swap_entries_done) SwapEntries entries = {};
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
 
         assert(ret);
 

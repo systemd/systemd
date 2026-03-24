@@ -381,7 +381,7 @@ static int context_set_kernel(Context *c, const char *s) {
 }
 
 static int context_set_path_strv(Context *c, char* const* strv, const char *source, const char *name, char ***dest) {
-        _cleanup_strv_free_ char **w = NULL;
+        _cleanup_(strv_freep) char **w = NULL;
         int r;
 
         assert(c);
@@ -421,7 +421,7 @@ static int context_set_path_strv(Context *c, char* const* strv, const char *sour
 }
 
 static int context_set_plugins(Context *c, const char *s, const char *source) {
-        _cleanup_strv_free_ char **v = NULL;
+        _cleanup_(strv_freep) char **v = NULL;
         int r;
 
         assert(c);
@@ -481,7 +481,7 @@ static int context_load_install_conf(Context *c) {
 }
 
 static int context_load_machine_info(Context *c) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         _cleanup_free_ char *machine_id = NULL, *layout = NULL;
         static const char *path = "/etc/machine-info";
         int r;
@@ -782,7 +782,7 @@ static int context_ensure_layout(Context *c) {
         if (!srel_path)
                 return log_oom();
 
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         r = chase_and_fopenat_unlocked(c->rfd, srel_path, CHASE_AT_RESOLVE_IN_ROOT|CHASE_MUST_BE_REGULAR, "re", /* ret_path= */ NULL, &f);
         if (r < 0) {
                 if (r != -ENOENT)
@@ -893,7 +893,7 @@ static bool context_should_make_entry_dir(Context *c) {
 }
 
 static int context_make_entry_dir(Context *c) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         assert(c);
         assert(c->entry_dir);
@@ -915,7 +915,7 @@ static int context_make_entry_dir(Context *c) {
 
 static int context_remove_entry_dir(Context *c) {
         _cleanup_free_ char *p = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         struct stat st;
         int r;
 
@@ -950,7 +950,7 @@ static int context_remove_entry_dir(Context *c) {
 }
 
 static int context_build_arguments(Context *c) {
-        _cleanup_strv_free_ char **a = NULL;
+        _cleanup_(strv_freep) char **a = NULL;
         const char *verb;
         int r;
 
@@ -1012,7 +1012,7 @@ static int context_build_arguments(Context *c) {
 }
 
 static int context_build_environment(Context *c) {
-        _cleanup_strv_free_ char **e = NULL;
+        _cleanup_(strv_freep) char **e = NULL;
         int r;
 
         assert(c);
@@ -1208,7 +1208,7 @@ static int verb_add(int argc, char *argv[], uintptr_t _data, void *userdata) {
 }
 
 static int verb_add_all(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         size_t n = 0;
         int ret = 0, r;
 
@@ -1447,7 +1447,7 @@ static int verb_inspect(int argc, char *argv[], uintptr_t _data, void *userdata)
 }
 
 static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         _cleanup_(context_done) Context c = CONTEXT_NULL;

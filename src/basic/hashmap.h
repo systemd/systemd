@@ -364,11 +364,6 @@ static inline int ordered_hashmap_dump_keys_sorted(OrderedHashmap *h, void ***re
 DEFINE_TRIVIAL_CLEANUP_FUNC(Hashmap*, hashmap_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(OrderedHashmap*, ordered_hashmap_free);
 
-#define _cleanup_hashmap_free_ _cleanup_(hashmap_freep)
-#define _cleanup_ordered_hashmap_free_ _cleanup_(ordered_hashmap_freep)
-
 DEFINE_TRIVIAL_CLEANUP_FUNC(IteratedCache*, iterated_cache_free);
-
-#define _cleanup_iterated_cache_free_ _cleanup_(iterated_cache_freep)
 
 void hashmap_trim_pools(void);

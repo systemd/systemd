@@ -290,7 +290,7 @@ static sd_device* handle_scsi_default(sd_device *parent, char **path) {
         sd_device *hostdev;
         int host, bus, target, lun;
         const char *name, *base, *pos;
-        _cleanup_closedir_ DIR *dir = NULL;
+        _cleanup_(closedirp) DIR *dir = NULL;
         int basenum = -1;
 
         assert(parent);

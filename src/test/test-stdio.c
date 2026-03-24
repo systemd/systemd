@@ -8,8 +8,8 @@
 
 TEST(read_only) {
         _cleanup_(unlink_tempfilep) char fn[] = "/tmp/test-stdio-read-only-XXXXXX";
-        _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(fclosep) FILE *f = NULL;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         ASSERT_OK(fd = mkostemp_safe(fn));

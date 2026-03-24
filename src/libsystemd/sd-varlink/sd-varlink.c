@@ -211,10 +211,10 @@ _public_ int sd_varlink_connect_address(sd_varlink **ret, const char *address) {
 }
 
 _public_ int sd_varlink_connect_exec(sd_varlink **ret, const char *_command, char **_argv) {
-        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int pair[2] = EBADF_PAIR;
         _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
         _cleanup_free_ char *command = NULL;
-        _cleanup_strv_free_ char **argv = NULL;
+        _cleanup_(strv_freep) char **argv = NULL;
         int r;
 
         assert_return(ret, -EINVAL);
@@ -312,7 +312,7 @@ static int ssh_path(const char **ret) {
 }
 
 static int varlink_connect_ssh_unix(sd_varlink **ret, const char *where) {
-        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int pair[2] = EBADF_PAIR;
         _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
         int r;
 
@@ -385,7 +385,7 @@ static int varlink_connect_ssh_unix(sd_varlink **ret, const char *where) {
 }
 
 static int varlink_connect_ssh_exec(sd_varlink **ret, const char *where) {
-        _cleanup_close_pair_ int input_pipe[2] = EBADF_PAIR, output_pipe[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int input_pipe[2] = EBADF_PAIR, output_pipe[2] = EBADF_PAIR;
         _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
         int r;
 
@@ -408,14 +408,14 @@ static int varlink_connect_ssh_exec(sd_varlink **ret, const char *where) {
         if (!h)
                 return log_oom_debug();
 
-        _cleanup_strv_free_ char **cmdline = NULL;
+        _cleanup_(strv_freep) char **cmdline = NULL;
         r = strv_split_full(&cmdline, e + 1, /* separators= */ NULL, EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
         if (r < 0)
                 return log_debug_errno(r, "Failed to split command line: %m");
         if (strv_isempty(cmdline))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Remote command line is empty, refusing.");
 
-        _cleanup_strv_free_ char **full_cmdline = NULL;
+        _cleanup_(strv_freep) char **full_cmdline = NULL;
         full_cmdline = strv_new("ssh", "-e", "none", "-T", h, "env", "SYSTEMD_VARLINK_LISTEN=-");
         if (!full_cmdline)
                 return log_oom_debug();
@@ -1243,7 +1243,7 @@ static int generic_method_get_info(
                 sd_varlink_method_flags_t flags,
                 void *userdata) {
 
-        _cleanup_strv_free_ char **interfaces = NULL;
+        _cleanup_(strv_freep) char **interfaces = NULL;
         int r;
 
         assert(link);
@@ -3259,7 +3259,7 @@ _public_ int sd_varlink_push_fd(sd_varlink *v, int fd) {
 }
 
 _public_ int sd_varlink_push_dup_fd(sd_varlink *v, int fd) {
-        _cleanup_close_ int dp = -1;
+        _cleanup_(closep) int dp = -1;
         int r;
 
         assert_return(v, -EINVAL);
@@ -3687,7 +3687,7 @@ VarlinkServerSocket* varlink_server_socket_free(VarlinkServerSocket *ss) {
 
 static int connect_callback(sd_event_source *source, int fd, uint32_t revents, void *userdata) {
         VarlinkServerSocket *ss = ASSERT_PTR(userdata);
-        _cleanup_close_ int cfd = -EBADF;
+        _cleanup_(closep) int cfd = -EBADF;
         sd_varlink *v = NULL;
         int r;
 
@@ -3785,7 +3785,7 @@ _public_ int sd_varlink_server_listen_address(sd_varlink_server *s, const char *
         _cleanup_(varlink_server_socket_freep) VarlinkServerSocket *ss = NULL;
         union sockaddr_union sockaddr;
         socklen_t sockaddr_len;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         assert_return(s, -EINVAL);
@@ -3842,7 +3842,7 @@ _public_ int sd_varlink_server_listen_address(sd_varlink_server *s, const char *
 }
 
 _public_ int sd_varlink_server_add_connection_stdio(sd_varlink_server *s, sd_varlink **ret) {
-        _cleanup_close_ int input_fd = -EBADF, output_fd = -EBADF;
+        _cleanup_(closep) int input_fd = -EBADF, output_fd = -EBADF;
         int r;
 
         assert_return(s, -EINVAL);
@@ -3902,7 +3902,7 @@ _public_ int sd_varlink_server_add_connection_stdio(sd_varlink_server *s, sd_var
 }
 
 _public_ int sd_varlink_server_listen_name(sd_varlink_server *s, const char *name) {
-        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_(strv_freep) char **names = NULL;
         int r, m, n = 0;
 
         assert_return(s, -EINVAL);
@@ -4340,7 +4340,7 @@ _public_ int sd_varlink_server_set_description(sd_varlink_server *s, const char 
 }
 
 _public_ int sd_varlink_invocation(sd_varlink_invocation_flags_t flags) {
-        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_(strv_freep) char **names = NULL;
         int r, b;
         socklen_t l = sizeof(b);
 

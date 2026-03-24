@@ -1437,8 +1437,8 @@ int parse_nsec(const char *t, nsec_t *ret) {
 }
 
 static int get_timezones_from_zone1970_tab(char ***ret) {
-        _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_strv_free_ char **zones = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
+        _cleanup_(strv_freep) char **zones = NULL;
         int r;
 
         assert(ret);
@@ -1482,8 +1482,8 @@ static int get_timezones_from_zone1970_tab(char ***ret) {
 }
 
 static int get_timezones_from_tzdata_zi(char ***ret) {
-        _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_strv_free_ char **zones = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
+        _cleanup_(strv_freep) char **zones = NULL;
         int r;
 
         assert(ret);
@@ -1538,7 +1538,7 @@ static int get_timezones_from_tzdata_zi(char ***ret) {
 }
 
 int get_timezones(char ***ret) {
-        _cleanup_strv_free_ char **zones = NULL;
+        _cleanup_(strv_freep) char **zones = NULL;
         int r;
 
         assert(ret);
@@ -1567,7 +1567,7 @@ int get_timezones(char ***ret) {
 int verify_timezone(const char *name, int log_level) {
         bool slash = false;
         const char *p, *t;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         char buf[4];
         int r;
 
@@ -1832,7 +1832,7 @@ int time_change_fd(void) {
                 .it_value.tv_sec = TIME_T_MAX,
         };
 
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         /* Uses TFD_TIMER_CANCEL_ON_SET to get notifications whenever CLOCK_REALTIME makes a jump relative to
          * CLOCK_MONOTONIC. */

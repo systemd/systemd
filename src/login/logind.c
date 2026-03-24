@@ -243,7 +243,7 @@ static int manager_enumerate_buttons(Manager *m) {
 }
 
 static int manager_enumerate_seats(Manager *m) {
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
         int r = 0;
 
         assert(m);
@@ -281,7 +281,7 @@ static int manager_enumerate_seats(Manager *m) {
 }
 
 static int manager_enumerate_linger_users(Manager *m) {
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
         int r = 0;
 
         assert(m);
@@ -316,7 +316,7 @@ static int manager_enumerate_linger_users(Manager *m) {
 }
 
 static int manager_enumerate_users(Manager *m) {
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
         int r;
 
         assert(m);
@@ -362,7 +362,7 @@ static int manager_enumerate_users(Manager *m) {
 }
 
 static int parse_fdname(const char *fdname, char **ret_session_id, dev_t *ret_devno) {
-        _cleanup_strv_free_ char **parts = NULL;
+        _cleanup_(strv_freep) char **parts = NULL;
         _cleanup_free_ char *id = NULL;
         int r;
 
@@ -442,7 +442,7 @@ static int deliver_session_device_fd(Session *s, const char *fdname, int fd, dev
 }
 
 static int deliver_session_leader_fd_consume(Session *s, const char *fdname, int fd_consume) {
-        _cleanup_close_ int fd = ASSERT_FD(fd_consume);
+        _cleanup_(closep) int fd = ASSERT_FD(fd_consume);
         _cleanup_(pidref_done) PidRef leader_fdstore = PIDREF_NULL;
         int r;
 
@@ -536,7 +536,7 @@ fail_close:
 }
 
 static int manager_enumerate_sessions(Manager *m) {
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
         int r = 0;
 
         assert(m);
@@ -574,7 +574,7 @@ static int manager_enumerate_sessions(Manager *m) {
 }
 
 static int manager_enumerate_fds(Manager *m, int *ret_varlink_fd) {
-        _cleanup_strv_free_ char **fdnames = NULL;
+        _cleanup_(strv_freep) char **fdnames = NULL;
         int varlink_fd = -EBADF, n, r = 0;
 
         assert(m);
@@ -603,7 +603,7 @@ static int manager_enumerate_fds(Manager *m, int *ret_varlink_fd) {
 }
 
 static int manager_enumerate_inhibitors(Manager *m) {
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
         int r = 0;
 
         assert(m);
@@ -862,7 +862,7 @@ static int manager_vt_switch(sd_event_source *src, const struct signalfd_siginfo
 
         active = m->seat0->active;
         if (!active || active->vtnr < 1) {
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
                 int r;
 
                 /* We are requested to acknowledge the VT-switch signal by the kernel but
@@ -1203,7 +1203,7 @@ static int manager_dispatch_reload_signal(sd_event_source *s, const struct signa
 }
 
 static int manager_startup(Manager *m) {
-        _cleanup_close_ int varlink_fd = -EBADF;
+        _cleanup_(closep) int varlink_fd = -EBADF;
         int r;
         Seat *seat;
         Session *session;

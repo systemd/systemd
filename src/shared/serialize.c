@@ -364,7 +364,7 @@ int deserialize_read_line(FILE *f, char **ret) {
 }
 
 int deserialize_fd(FDSet *fds, const char *value) {
-        _cleanup_close_ int our_fd = -EBADF;
+        _cleanup_(closep) int our_fd = -EBADF;
         int parsed_fd;
 
         assert(value);
@@ -513,7 +513,7 @@ int deserialize_pidref(FDSet *fds, const char *value, PidRef *ret) {
         e = startswith(value, "@");
         if (e) {
                 _cleanup_free_ char *fdstr = NULL, *pidstr = NULL;
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
 
                 r = extract_many_words(&e, ":", /* flags= */ 0, &fdstr, &pidstr);
                 if (r < 0)
@@ -588,8 +588,8 @@ int open_serialization_fd(const char *ident) {
 }
 
 int open_serialization_file(const char *ident, FILE **ret) {
-        _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_close_ int fd;
+        _cleanup_(fclosep) FILE *f = NULL;
+        _cleanup_(closep) int fd;
 
         assert(ret);
 

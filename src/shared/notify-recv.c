@@ -31,7 +31,7 @@ int notify_socket_prepare_full(
         /* This creates an autobind AF_UNIX socket and adds an IO event source for the socket, which helps
          * prepare the notification socket used to communicate with worker processes. */
 
-        _cleanup_close_ int fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
+        _cleanup_(closep) int fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
         if (fd < 0)
                 return log_debug_errno(errno, "Failed to create notification socket: %m");
 
@@ -133,7 +133,7 @@ int notify_recv_with_fds(
                 return log_error_errno(n, "Failed to receive notification message: %m");
 
         const struct ucred *ucred = NULL;
-        _cleanup_close_ int pidfd = -EBADF;
+        _cleanup_(closep) int pidfd = -EBADF;
         int *fd_array = NULL;
         size_t n_fds = 0;
 

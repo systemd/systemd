@@ -18,7 +18,7 @@ const char* nulstr_get(const char *nulstr, const char *needle) {
 }
 
 char** strv_parse_nulstr_full(const char *s, size_t l, bool drop_trailing_nuls) {
-        _cleanup_strv_free_ char **v = NULL;
+        _cleanup_(strv_freep) char **v = NULL;
         size_t c = 0, i = 0;
 
         /* l is the length of the input data, which will be split at NULs into elements of the resulting
@@ -71,7 +71,7 @@ char** strv_parse_nulstr_full(const char *s, size_t l, bool drop_trailing_nuls) 
 }
 
 char** strv_split_nulstr(const char *s) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
 
         /* This parses a nulstr, without specification of size, and stops at an empty string. This cannot
          * parse nulstrs with embedded empty strings hence, as an empty string is an end marker. Use
@@ -132,7 +132,7 @@ int strv_make_nulstr(char * const *l, char **ret, size_t *ret_size) {
 }
 
 int set_make_nulstr(Set *s, char **ret, size_t *ret_size) {
-        /* Use _cleanup_free_ instead of _cleanup_strv_free_ because we need to clean the strv only, not
+        /* Use _cleanup_free_ instead of _cleanup_(strv_freep) because we need to clean the strv only, not
          * the strings owned by the set. */
         _cleanup_free_ char **strv = NULL;
 

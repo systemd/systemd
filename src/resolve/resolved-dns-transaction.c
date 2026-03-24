@@ -694,7 +694,7 @@ static uint16_t dns_transaction_port(DnsTransaction *t) {
 static int dns_transaction_emit_tcp(DnsTransaction *t) {
         usec_t stream_timeout_usec = DNS_STREAM_DEFAULT_TIMEOUT_USEC;
         _cleanup_(dns_stream_unrefp) DnsStream *s = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         union sockaddr_union sa;
         DnsStreamType type;
         int r;
@@ -1880,7 +1880,7 @@ static int dns_packet_append_zone(DnsPacket *p, DnsTransaction *t, DnsResourceKe
 
 static int mdns_make_dummy_packet(DnsTransaction *t, DnsPacket **ret_packet, Set **ret_keys) {
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
-        _cleanup_set_free_ Set *keys = NULL;
+        _cleanup_(set_freep) Set *keys = NULL;
         bool add_known_answers = false;
         unsigned qdcount;
         usec_t ts;
@@ -1989,7 +1989,7 @@ static int mdns_make_dummy_packet(DnsTransaction *t, DnsPacket **ret_packet, Set
 
 static int dns_transaction_make_packet_mdns(DnsTransaction *t) {
         _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL, *dummy = NULL;
-        _cleanup_set_free_ Set *keys = NULL;
+        _cleanup_(set_freep) Set *keys = NULL;
         bool add_known_answers;
         DnsResourceKey *k;
         unsigned c;

@@ -19,7 +19,7 @@ static void test_libmount_unescaping_one(
 
         _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
         _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
 
         f = fmemopen((char*) string, strlen(string), "r");
         assert_se(f);

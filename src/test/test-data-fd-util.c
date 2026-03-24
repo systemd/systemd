@@ -32,8 +32,8 @@ static void assert_equal_fd(int fd1, int fd2) {
 }
 
 TEST(copy_data_fd) {
-        _cleanup_close_ int fd1 = -EBADF, fd2 = -EBADF;
-        _cleanup_close_pair_ int sfd[2] = EBADF_PAIR;
+        _cleanup_(closep) int fd1 = -EBADF, fd2 = -EBADF;
+        _cleanup_(close_pairp) int sfd[2] = EBADF_PAIR;
         _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
         int r;
 

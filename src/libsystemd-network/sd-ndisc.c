@@ -391,7 +391,7 @@ static int ndisc_send_router_solicitation(sd_ndisc *nd) {
                 .nd_rs_type = ND_ROUTER_SOLICIT,
         };
 
-        _cleanup_set_free_ Set *options = NULL;
+        _cleanup_(set_freep) Set *options = NULL;
         int r;
 
         assert(nd);
@@ -486,7 +486,7 @@ static int ndisc_setup_recv_event(sd_ndisc *nd) {
         assert(nd->event);
         assert(nd->ifindex > 0);
 
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         fd = icmp6_bind(nd->ifindex, /* is_router= */ false);
         if (fd < 0)
                 return fd;

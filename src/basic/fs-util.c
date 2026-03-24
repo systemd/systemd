@@ -184,7 +184,7 @@ int readlink_and_make_absolute(const char *p, char **ret) {
 }
 
 int chmod_and_chown_at(int dir_fd, const char *path, mode_t mode, uid_t uid, gid_t gid) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
 
@@ -277,7 +277,7 @@ int fchmod_and_chown_with_fallback(int fd, const char *path, mode_t mode, uid_t 
 }
 
 int fchmod_umask(int fd, mode_t m) {
-        _cleanup_umask_ mode_t u = umask(0777);
+        _cleanup_(umaskp) mode_t u = umask(0777);
 
         return RET_NERRNO(fchmod(fd, m & (~u)));
 }
@@ -386,7 +386,7 @@ int touch_fd(int fd, usec_t stamp) {
 }
 
 int touch_file(const char *path, bool parents, usec_t stamp, uid_t uid, gid_t gid, mode_t mode) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int ret;
 
         assert(path);
@@ -550,8 +550,8 @@ int mkfifoat_atomic(int dir_fd, const char *path, mode_t mode) {
 }
 
 int get_files_in_directory(const char *path, char ***ret_list) {
-        _cleanup_strv_free_ char **l = NULL;
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
         size_t n = 0;
 
         assert(path);
@@ -711,7 +711,7 @@ char* unlink_and_free(char *p) {
 }
 
 int unlinkat_deallocate(int fd, const char *name, UnlinkDeallocateFlags flags) {
-        _cleanup_close_ int truncate_fd = -EBADF;
+        _cleanup_(closep) int truncate_fd = -EBADF;
         struct stat st;
         off_t l, bs;
 
@@ -853,7 +853,7 @@ int conservative_renameat(
                 int olddirfd, const char *oldpath,
                 int newdirfd, const char *newpath) {
 
-        _cleanup_close_ int old_fd = -EBADF, new_fd = -EBADF;
+        _cleanup_(closep) int old_fd = -EBADF, new_fd = -EBADF;
         struct stat old_stat, new_stat;
 
         /* Renames the old path to the new path, much like renameat() — except if both are regular files and
@@ -1035,7 +1035,7 @@ int parse_cifs_service(
 }
 
 int open_mkdir_at_full(int dirfd, const char *path, int flags, XOpenFlags xopen_flags, mode_t mode) {
-        _cleanup_close_ int fd = -EBADF, parent_fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF, parent_fd = -EBADF;
         _cleanup_free_ char *fname = NULL, *parent = NULL;
         int r;
 
@@ -1131,7 +1131,7 @@ int openat_report_new(int dirfd, const char *pathname, int flags, mode_t mode, b
 }
 
 int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_flags, mode_t mode) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         bool made_dir = false, made_file = false;
         int r;
 
@@ -1173,7 +1173,7 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
                 return fd_reopen(dir_fd, open_flags & ~O_NOFOLLOW);
         }
 
-        _cleanup_close_ int _dir_fd = -EBADF;
+        _cleanup_(closep) int _dir_fd = -EBADF;
         if (dir_fd == XAT_FDROOT) {
                 if (path_is_absolute(path))
                         dir_fd = AT_FDCWD;
@@ -1238,7 +1238,7 @@ int xopenat_full(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_
                         made_file = true;
                 } else {
                         /* Otherwise pin the inode first via O_PATH */
-                        _cleanup_close_ int inode_fd = openat(dir_fd, path, O_PATH|O_CLOEXEC|(open_flags & O_NOFOLLOW));
+                        _cleanup_(closep) int inode_fd = openat(dir_fd, path, O_PATH|O_CLOEXEC|(open_flags & O_NOFOLLOW));
                         if (inode_fd < 0) {
                                 if (errno != ENOENT || !FLAGS_SET(open_flags, O_CREAT)) {
                                         r = -errno;
@@ -1309,7 +1309,7 @@ int xopenat_lock_full(
                 LockType locktype,
                 int operation) {
 
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
@@ -1369,7 +1369,7 @@ int link_fd(int fd, int newdirfd, const char *newpath) {
 }
 
 int linkat_replace(int olddirfd, const char *oldpath, int newdirfd, const char *newpath) {
-        _cleanup_close_ int old_fd = -EBADF;
+        _cleanup_(closep) int old_fd = -EBADF;
         int r;
 
         assert(olddirfd >= 0 || olddirfd == AT_FDCWD);

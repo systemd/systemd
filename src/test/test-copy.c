@@ -81,7 +81,7 @@ TEST(copy_tree_replace_file) {
 
 TEST(copy_tree_replace_dirs) {
         _cleanup_(rm_rf_physical_and_freep) char *srcp = NULL, *dstp = NULL;
-        _cleanup_close_ int src = -EBADF, dst = -EBADF;
+        _cleanup_(closep) int src = -EBADF, dst = -EBADF;
 
         /* Create the random source/destination directories */
         assert_se((src = mkdtemp_open(NULL, 0, &srcp)) >= 0);
@@ -113,7 +113,7 @@ TEST(copy_tree_replace_dirs) {
 TEST(copy_file_fd) {
         _cleanup_(unlink_tempfilep) char in_fn[] = "/tmp/test-copy-file-fd-XXXXXX";
         _cleanup_(unlink_tempfilep) char out_fn[] = "/tmp/test-copy-file-fd-XXXXXX";
-        _cleanup_close_ int in_fd = -EBADF, out_fd = -EBADF;
+        _cleanup_(closep) int in_fd = -EBADF, out_fd = -EBADF;
         const char *text = "boohoo\nfoo\n\tbar\n";
         char buf[64] = {};
 
@@ -132,7 +132,7 @@ TEST(copy_file_fd) {
 }
 
 TEST(copy_tree) {
-        _cleanup_hashmap_free_ Hashmap *denylist = NULL;
+        _cleanup_(hashmap_freep) Hashmap *denylist = NULL;
         _cleanup_free_ char *cp = NULL;
         char original_dir[] = "/tmp/test-copy_tree/";
         char copy_dir[] = "/tmp/test-copy_tree-copy/";
@@ -258,7 +258,7 @@ TEST(copy_tree) {
 
 TEST(copy_tree_at_symlink) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
-        _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
+        _cleanup_(closep) int tfd = -EBADF, fd = -EBADF;
         _cleanup_free_ char *p = NULL, *q = NULL;
         const char *expect = "hgoehogefoobar";
 
@@ -294,8 +294,8 @@ TEST(copy_tree_at_symlink) {
 }
 
 TEST_RET(copy_bytes) {
-        _cleanup_close_pair_ int pipefd[2] = EBADF_PAIR;
-        _cleanup_close_ int infd = -EBADF;
+        _cleanup_(close_pairp) int pipefd[2] = EBADF_PAIR;
+        _cleanup_(closep) int infd = -EBADF;
         int r;
         char buf[1024], buf2[1024];
 
@@ -335,7 +335,7 @@ TEST_RET(copy_bytes) {
 static void test_copy_bytes_regular_file_one(const char *src, bool try_reflink, uint64_t max_bytes) {
         _cleanup_(unlink_tempfilep) char fn2[] = "/tmp/test-copy-file-XXXXXX";
         _cleanup_(unlink_tempfilep) char fn3[] = "/tmp/test-copy-file-XXXXXX";
-        _cleanup_close_ int fd = -EBADF, fd2 = -EBADF, fd3 = -EBADF;
+        _cleanup_(closep) int fd = -EBADF, fd2 = -EBADF, fd3 = -EBADF;
         int r;
         struct stat buf, buf2, buf3;
 
@@ -480,7 +480,7 @@ TEST_RET(copy_holes) {
 
 TEST_RET(copy_holes_with_gaps) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
-        _cleanup_close_ int tfd = -EBADF, fd = -EBADF, fd_copy = -EBADF;
+        _cleanup_(closep) int tfd = -EBADF, fd = -EBADF, fd_copy = -EBADF;
         struct stat st;
         off_t blksz;
         char *buf;
@@ -545,7 +545,7 @@ TEST_RET(copy_holes_with_gaps) {
 
 TEST(copy_lock) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
-        _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
+        _cleanup_(closep) int tfd = -EBADF, fd = -EBADF;
 
         assert_se((tfd = mkdtemp_open(NULL, 0, &t)) >= 0);
         assert_se(mkdirat(tfd, "abc", 0755) >= 0);
@@ -565,7 +565,7 @@ TEST(copy_lock) {
 
 TEST(copy_verify_linked) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
-        _cleanup_close_ int tfd = -EBADF, fd_1 = -EBADF, fd_2 = -EBADF;
+        _cleanup_(closep) int tfd = -EBADF, fd_1 = -EBADF, fd_2 = -EBADF;
 
         tfd = mkdtemp_open(NULL, O_PATH, &t);
         assert_se(tfd >= 0);
@@ -586,7 +586,7 @@ TEST(copy_verify_linked) {
 }
 
 static bool enable_fsverity(int dirfd, const char *name, int algo, const char *salt, size_t salt_size) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         ASSERT_OK_ERRNO(fd = openat(dirfd, name, O_RDONLY | O_CLOEXEC | O_NOCTTY));
 
         struct fsverity_enable_arg enable_arg = {
@@ -613,7 +613,7 @@ static struct fsverity_digest* alloc_fsverity_digest(size_t digest_size) {
 }
 
 static bool measure_fsverity(int dirfd, const char *name, struct fsverity_digest *digest) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         ASSERT_OK_ERRNO(fd = openat(dirfd, name, O_RDONLY | O_CLOEXEC | O_NOCTTY));
         if (ioctl(fd, FS_IOC_MEASURE_VERITY, digest) == 0)
                 return true;
@@ -645,7 +645,7 @@ static void assert_fsverity_eq(int dirfd_a, int dirfd_b, const char *name) {
 TEST_RET(copy_with_verity) {
         _cleanup_(rm_rf_physical_and_freep) char *srcp = NULL, *dstp = NULL, *badsrcp = NULL, *baddstp = NULL;
         const char *files[] = { "disabled", "simple", "bigsha", "salty" };
-        _cleanup_close_ int src = -EBADF, dst = -EBADF, badsrc = -EBADF, baddst = -EBADF;
+        _cleanup_(closep) int src = -EBADF, dst = -EBADF, badsrc = -EBADF, baddst = -EBADF;
 
         /* We're more likely to hit a filesystem with fs-verity enabled on /var/tmp than on /tmp (tmpfs) */
         ASSERT_OK(src = mkdtemp_open("/var/tmp/test-copy_file-src.XXXXXX", 0, &srcp));

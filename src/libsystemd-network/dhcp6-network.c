@@ -19,7 +19,7 @@ int dhcp6_network_bind_udp_socket(int ifindex, const struct in6_addr *local_addr
                 .in6.sin6_port = htobe16(DHCP6_PORT_CLIENT),
                 .in6.sin6_scope_id = ifindex,
         };
-        _cleanup_close_ int s = -EBADF;
+        _cleanup_(closep) int s = -EBADF;
         int r;
 
         assert(ifindex > 0);

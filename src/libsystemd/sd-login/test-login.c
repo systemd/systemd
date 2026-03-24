@@ -39,14 +39,14 @@ static char* format_uids(char **buf, uid_t* uids, int count) {
 #define e(r) (r == 0 ? "OK" : ERRNO_NAME(r))
 
 TEST(login) {
-        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int pair[2] = EBADF_PAIR;
         _cleanup_free_ char *pp = NULL, *qq = NULL,
                 *display_session = NULL, *cgroup = NULL,
                 *display = NULL, *remote_user = NULL, *remote_host = NULL,
                 *type = NULL, *class = NULL, *state = NULL, *state2 = NULL,
                 *seat = NULL, *session = NULL,
                 *unit = NULL, *user_unit = NULL, *slice = NULL;
-        _cleanup_close_ int pidfd = -EBADF;
+        _cleanup_(closep) int pidfd = -EBADF;
         int r;
         uid_t u, u2 = UID_INVALID;
         char *t, **seats = NULL, **sessions = NULL;
@@ -282,7 +282,7 @@ TEST(login) {
         }
 
         {
-                _cleanup_strv_free_ char **machines = NULL;
+                _cleanup_(strv_freep) char **machines = NULL;
                 _cleanup_free_ char *buf = NULL;
 
                 r = sd_get_machine_names(&machines);

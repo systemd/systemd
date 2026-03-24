@@ -9,7 +9,7 @@ TEST(path_hash_set) {
          * and that we don't need to simplify them beforehand. */
 
         /* No freeing of keys, we operate on static strings here… */
-        _cleanup_set_free_ Set *set = NULL;
+        _cleanup_(set_freep) Set *set = NULL;
 
         assert_se(set_isempty(set));
         assert_se(set_ensure_put(&set, &path_hash_ops, "foo") == 1);

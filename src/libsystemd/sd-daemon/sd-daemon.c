@@ -109,7 +109,7 @@ finish:
 }
 
 _public_ int sd_listen_fds_with_names(int unset_environment, char ***ret_names) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         bool have_names;
         int n_names = 0, n_fds;
         const char *e;
@@ -485,7 +485,7 @@ static int pid_notify_with_fds_internal(
                 .msg_iovlen = 1,
                 .msg_name = &address.sockaddr,
         };
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int type, r;
 
         assert_return(state, -EINVAL);
@@ -664,7 +664,7 @@ _public_ int sd_pid_notify_with_fds(
 }
 
 _public_ int sd_pid_notify_barrier(pid_t pid, int unset_environment, uint64_t timeout) {
-        _cleanup_close_pair_ int pipe_fd[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int pipe_fd[2] = EBADF_PAIR;
         int r;
 
         r = RET_NERRNO(pipe2(pipe_fd, O_CLOEXEC));

@@ -349,7 +349,7 @@ static int log_unresolvable_specifier(const char *filename, unsigned line) {
                  __VA_ARGS__)
 
 static int user_config_paths(char ***ret) {
-        _cleanup_strv_free_ char **config_dirs = NULL, **data_dirs = NULL;
+        _cleanup_(strv_freep) char **config_dirs = NULL, **data_dirs = NULL;
         _cleanup_free_ char *runtime_config = NULL;
         int r;
 
@@ -454,8 +454,8 @@ static struct Item* find_glob(OrderedHashmap *h, const char *match) {
 }
 
 static int load_unix_sockets(Context *c) {
-        _cleanup_set_free_ Set *sockets = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(set_freep) Set *sockets = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r;
 
         if (c->unix_sockets)
@@ -559,7 +559,7 @@ static int opendir_and_stat(
                 struct statx *ret_sx,
                 bool *ret_mountpoint) {
 
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
         struct statx sx;
         int r;
 
@@ -733,7 +733,7 @@ static int dir_cleanup(
                 }
 
                 if (S_ISDIR(sx.stx_mode)) {
-                        _cleanup_closedir_ DIR *sub_dir = NULL;
+                        _cleanup_(closedirp) DIR *sub_dir = NULL;
 
                         if (mountpoint &&
                             streq(de->d_name, "lost+found") &&
@@ -796,7 +796,7 @@ static int dir_cleanup(
                                 r = log_warning_errno(errno, "Failed to remove directory \"%s\", ignoring: %m", sub_path);
 
                 } else {
-                        _cleanup_close_ int fd = -EBADF; /* This file descriptor is defined here so that the
+                        _cleanup_(closep) int fd = -EBADF; /* This file descriptor is defined here so that the
                                                           * lock that is taken below is only dropped _after_
                                                           * the unlink operation has finished. */
 
@@ -1096,7 +1096,7 @@ static int path_set_perms(
                 const char *path,
                 CreationMode creation) {
 
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         assert(c);
         assert(i);
@@ -1182,7 +1182,7 @@ static int path_set_xattrs(
                 const char *path,
                 CreationMode creation) {
 
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         assert(c);
         assert(i);
@@ -1475,7 +1475,7 @@ static int path_set_acls(
 
         int r = 0;
 #if HAVE_ACL
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         assert(c);
         assert(item);
@@ -1619,7 +1619,7 @@ static int fd_set_attribute(
                    path);
 
         if (!arg_dry_run) {
-                _cleanup_close_ int procfs_fd = -EBADF;
+                _cleanup_(closep) int procfs_fd = -EBADF;
 
                 procfs_fd = fd_reopen(fd, O_RDONLY|O_CLOEXEC|O_NOATIME);
                 if (procfs_fd < 0)
@@ -1646,7 +1646,7 @@ static int path_set_attribute(
                 const char *path,
                 CreationMode creation) {
 
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         assert(c);
         assert(item);
@@ -1687,7 +1687,7 @@ static int write_argument_data(Item *i, int fd, const char *path) {
 }
 
 static int write_one_file(Context *c, Item *i, const char *path, CreationMode creation) {
-        _cleanup_close_ int fd = -EBADF, dir_fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF, dir_fd = -EBADF;
         _cleanup_free_ char *bn = NULL;
         int r;
 
@@ -1737,7 +1737,7 @@ static int create_file(
                 Item *i,
                 const char *path) {
 
-        _cleanup_close_ int fd = -EBADF, dir_fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF, dir_fd = -EBADF;
         _cleanup_free_ char *bn = NULL;
         struct stat stbuf, *st = NULL;
         CreationMode creation;
@@ -1815,7 +1815,7 @@ static int truncate_file(
                 Item *i,
                 const char *path) {
 
-        _cleanup_close_ int fd = -EBADF, dir_fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF, dir_fd = -EBADF;
         _cleanup_free_ char *bn = NULL;
         struct stat stbuf, *st = NULL;
         CreationMode creation;
@@ -1910,7 +1910,7 @@ static int truncate_file(
 }
 
 static int copy_files(Context *c, Item *i) {
-        _cleanup_close_ int dfd = -EBADF, fd = -EBADF;
+        _cleanup_(closep) int dfd = -EBADF, fd = -EBADF;
         _cleanup_free_ char *bn = NULL;
         struct stat st, a;
         int r;
@@ -1967,7 +1967,7 @@ static int create_directory_or_subvolume(
                 CreationMode *ret_creation) {
 
         _cleanup_free_ char *bn = NULL;
-        _cleanup_close_ int pfd = -EBADF;
+        _cleanup_(closep) int pfd = -EBADF;
         CreationMode creation;
         struct stat st;
         int r, fd;
@@ -2057,7 +2057,7 @@ static int create_directory(
                 Item *i,
                 const char *path) {
 
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         CreationMode creation;
         struct stat st;
 
@@ -2084,7 +2084,7 @@ static int create_subvolume(
                 Item *i,
                 const char *path) {
 
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         CreationMode creation;
         struct stat st;
         int r, q = 0;
@@ -2134,7 +2134,7 @@ static int empty_directory(
                 const char *path,
                 CreationMode creation) {
 
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         struct stat st;
         int r;
 
@@ -2169,7 +2169,7 @@ static int create_device(
                 Item *i,
                 mode_t file_type) {
 
-        _cleanup_close_ int dfd = -EBADF, fd = -EBADF;
+        _cleanup_(closep) int dfd = -EBADF, fd = -EBADF;
         _cleanup_free_ char *bn = NULL;
         CreationMode creation;
         struct stat st;
@@ -2282,7 +2282,7 @@ handle_privilege:
 }
 
 static int create_fifo(Context *c, Item *i) {
-        _cleanup_close_ int pfd = -EBADF, fd = -EBADF;
+        _cleanup_(closep) int pfd = -EBADF, fd = -EBADF;
         _cleanup_free_ char *bn = NULL;
         CreationMode creation;
         struct stat st;
@@ -2375,7 +2375,7 @@ static int create_fifo(Context *c, Item *i) {
 }
 
 static int create_symlink(Context *c, Item *i) {
-        _cleanup_close_ int pfd = -EBADF, fd = -EBADF;
+        _cleanup_(closep) int pfd = -EBADF, fd = -EBADF;
         _cleanup_free_ char *bn = NULL;
         CreationMode creation;
         struct stat st;
@@ -2508,7 +2508,7 @@ static int item_do(
         r = action(c, i, fd, path, &st, creation);
 
         if (S_ISDIR(st.st_mode)) {
-                _cleanup_closedir_ DIR *d = NULL;
+                _cleanup_(closedirp) DIR *d = NULL;
 
                 /* The passed 'fd' was opened with O_PATH. We need to convert it into a 'regular' fd before
                  * reading the directory content. */
@@ -2519,7 +2519,7 @@ static int item_do(
                 }
 
                 FOREACH_DIRENT_ALL(de, d, RET_GATHER(r, -errno); goto finish) {
-                        _cleanup_close_ int de_fd = -EBADF;
+                        _cleanup_(closep) int de_fd = -EBADF;
                         _cleanup_free_ char *de_path = NULL;
 
                         if (dot_or_dot_dot(de->d_name))
@@ -2549,7 +2549,7 @@ finish:
 }
 
 static int glob_item(Context *c, Item *i, action_t action) {
-        _cleanup_strv_free_ char **paths = NULL;
+        _cleanup_(strv_freep) char **paths = NULL;
         int r;
 
         assert(c);
@@ -2575,7 +2575,7 @@ static int glob_item_recursively(
                 Item *i,
                 fdaction_t action) {
 
-        _cleanup_strv_free_ char **paths = NULL;
+        _cleanup_(strv_freep) char **paths = NULL;
         int r;
 
         assert(c);
@@ -2590,7 +2590,7 @@ static int glob_item_recursively(
 
         r = 0;
         STRV_FOREACH(fn, paths) {
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
 
                 /* Make sure we won't trigger/follow file object (such as device nodes, automounts, ...)
                  * pointed out by 'fn' with O_PATH. Note, when O_PATH is used, flags other than
@@ -2670,7 +2670,7 @@ static int rm_if_wrong_type_safe(
         log_action("Would remove", "Removing", "%s %s/%s", parent_name ?: "...", name);
         if (!arg_dry_run) {
                 if ((st.st_mode & S_IFMT) == S_IFDIR) {
-                        _cleanup_close_ int child_fd = -EBADF;
+                        _cleanup_(closep) int child_fd = -EBADF;
 
                         child_fd = openat(parent_fd, name, O_NOCTTY | O_CLOEXEC | O_DIRECTORY);
                         if (child_fd < 0)
@@ -2694,7 +2694,7 @@ static int rm_if_wrong_type_safe(
 
 /* If child_mode is non-zero, rm_if_wrong_type_safe will be executed for the last path component. */
 static int mkdir_parents_rm_if_wrong_type(mode_t child_mode, const char *path) {
-        _cleanup_close_ int parent_fd = -EBADF;
+        _cleanup_(closep) int parent_fd = -EBADF;
         struct stat parent_st;
         size_t path_len;
         int r;
@@ -2722,7 +2722,7 @@ static int mkdir_parents_rm_if_wrong_type(mode_t child_mode, const char *path) {
 
         /* Check every parent directory in the path, except the last component */
         for (const char *e = path;;) {
-                _cleanup_close_ int next_fd = -EBADF;
+                _cleanup_(closep) int next_fd = -EBADF;
                 char t[path_len + 1];
                 const char *s;
 
@@ -2967,7 +2967,7 @@ static int remove_recursive(
                 const char *instance,
                 bool remove_instance) {
 
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
         struct statx sx;
         bool mountpoint;
         int r;
@@ -3117,7 +3117,7 @@ static int clean_item_instance(
 
         usec_t cutoff = n - i->age;
 
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
         struct statx sx;
         bool mountpoint;
         int r;
@@ -4094,7 +4094,7 @@ static int parse_line(
 }
 
 static int cat_config(char **config_dirs, char **args) {
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_(strv_freep) char **files = NULL;
         int r;
 
         r = conf_files_list_with_replacement(arg_root, config_dirs, arg_replace, &files, NULL);
@@ -4462,7 +4462,7 @@ static int read_config_files(
                 char **args,
                 bool *invalid_config) {
 
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_(strv_freep) char **files = NULL;
         _cleanup_free_ char *p = NULL;
         int r;
 
@@ -4551,7 +4551,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(item_array_hash_ops, char, string_
 static int run(int argc, char *argv[]) {
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
-        _cleanup_strv_free_ char **config_dirs = NULL;
+        _cleanup_(strv_freep) char **config_dirs = NULL;
         _cleanup_(context_done) Context c = {};
         bool invalid_config = false;
         ItemArray *a;

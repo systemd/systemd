@@ -472,7 +472,7 @@ static int oci_pull_job_on_open_disk(PullJob *j) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to connect to mountfsd: %m");
 
-                _cleanup_close_ int directory_fd = -EBADF;
+                _cleanup_(closep) int directory_fd = -EBADF;
                 r = mountfsd_make_directory(
                                 mountfsd_link,
                                 st->temp_path,
@@ -1000,7 +1000,7 @@ static int oci_pull_save_nspawn_settings(OciPull *i) {
         if (!j)
                 return log_oom();
 
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         _cleanup_(unlink_and_freep) char *tmpfile = NULL;
         r = fopen_tmpfile_linkable(j, O_WRONLY|O_CLOEXEC, &tmpfile, &f);
         if (r < 0)
@@ -1031,7 +1031,7 @@ static int oci_pull_save_nspawn_settings(OciPull *i) {
                         return r;
         }
 
-        _cleanup_strv_free_ char **cmdline = strv_copy(config_data.entrypoint);
+        _cleanup_(strv_freep) char **cmdline = strv_copy(config_data.entrypoint);
         if (!cmdline)
                 return log_oom();
         if (strv_extend_strv(&cmdline, config_data.cmd, /* filter_duplicates= */ false) < 0)
@@ -1088,7 +1088,7 @@ static int oci_pull_save_oci_config(OciPull *i) {
         if (!j)
                 return log_oom();
 
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         _cleanup_(unlink_and_freep) char *tmpfile = NULL;
         fd = open_tmpfile_linkable(j, O_WRONLY|O_CLOEXEC, &tmpfile);
         if (fd < 0)
@@ -1126,7 +1126,7 @@ static int oci_pull_save_mstack(OciPull *i) {
         if (r < 0)
                 return log_oom();
 
-        _cleanup_close_ int dir_fd = xopenat(AT_FDCWD, _jt, O_DIRECTORY|O_CREAT|O_CLOEXEC);
+        _cleanup_(closep) int dir_fd = xopenat(AT_FDCWD, _jt, O_DIRECTORY|O_CREAT|O_CLOEXEC);
         if (dir_fd < 0)
                 return log_error_errno(dir_fd, "Failed to create '%s': %m", j);
 
@@ -1167,7 +1167,7 @@ static int oci_pull_save_mstack(OciPull *i) {
                         if (r < 0)
                                 return r;
                 } else {
-                        _cleanup_close_ int rw_fd = open_mkdir_at(dir_fd, "rw", O_EXCL|O_CLOEXEC, 0755);
+                        _cleanup_(closep) int rw_fd = open_mkdir_at(dir_fd, "rw", O_EXCL|O_CLOEXEC, 0755);
                         if (rw_fd < 0)
                                 return log_error_errno(rw_fd, "Failed to create 'rw' layer: %m");
                 }
@@ -1414,7 +1414,7 @@ static int oci_pull_process_authentication_challenge(OciPull *i, const char *cha
 
         e += strspn(e, WHITESPACE);
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         r = strv_split_full(&l, e, ",", EXTRACT_KEEP_QUOTE);
         if (r < 0)
                 return log_error_errno(r, "Failed to split bearer token parameters: %m");

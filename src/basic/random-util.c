@@ -88,7 +88,7 @@ void random_bytes(void *p, size_t n) {
                 /* Interrupted by a signal; keep going. */
         }
 
-        _cleanup_close_ int fd = open("/dev/urandom", O_RDONLY|O_CLOEXEC|O_NOCTTY);
+        _cleanup_(closep) int fd = open("/dev/urandom", O_RDONLY|O_CLOEXEC|O_NOCTTY);
         if (fd >= 0 && loop_read_exact(fd, p, n, false) >= 0)
                 return;
 
@@ -162,7 +162,7 @@ size_t random_pool_size(void) {
 }
 
 int random_write_entropy(int fd, const void *seed, size_t size, bool credit) {
-        _cleanup_close_ int opened_fd = -EBADF;
+        _cleanup_(closep) int opened_fd = -EBADF;
         int r;
 
         assert(seed || size == 0);

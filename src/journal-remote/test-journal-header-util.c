@@ -5,7 +5,7 @@
 #include "tests.h"
 
 TEST(header_put) {
-        _cleanup_ordered_hashmap_free_ OrderedHashmap *headers = NULL;
+        _cleanup_(ordered_hashmap_freep) OrderedHashmap *headers = NULL;
 
         ASSERT_OK_POSITIVE(header_put(&headers, "NewName", "Val"));
         ASSERT_OK_POSITIVE(header_put(&headers, "Name", "FirstName"));

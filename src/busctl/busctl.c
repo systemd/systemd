@@ -81,7 +81,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_matches, strv_freep);
 
 static int acquire_bus(bool set_monitor, sd_bus **ret) {
         _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_close_ int pin_fd = -EBADF;
+        _cleanup_(closep) int pin_fd = -EBADF;
         int r;
 
         r = sd_bus_new(&bus);
@@ -176,9 +176,9 @@ static void notify_bus_error(const sd_bus_error *error) {
 }
 
 static int verb_list_bus_names(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_strv_free_ char **acquired = NULL, **activatable = NULL;
+        _cleanup_(strv_freep) char **acquired = NULL, **activatable = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_hashmap_free_ Hashmap *names = NULL;
+        _cleanup_(hashmap_freep) Hashmap *names = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
         char *k;
         void *v;
@@ -491,7 +491,7 @@ static int find_nodes(sd_bus *bus, const char *service, const char *path, Set *p
 }
 
 static int tree_one(sd_bus *bus, const char *service) {
-        _cleanup_set_free_ Set *paths = NULL, *done = NULL, *failed = NULL;
+        _cleanup_(set_freep) Set *paths = NULL, *done = NULL, *failed = NULL;
         _cleanup_free_ char **l = NULL;
         int r;
 
@@ -566,7 +566,7 @@ static int verb_tree(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         RET_GATHER(r, tree_one(bus, *arg));
                 }
         else {
-                _cleanup_strv_free_ char **names = NULL;
+                _cleanup_(strv_freep) char **names = NULL;
 
                 r = sd_bus_list_names(bus, &names, NULL);
                 if (r < 0)
@@ -1005,7 +1005,7 @@ static int verb_introspect(int argc, char *argv[], uintptr_t _data, void *userda
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply_xml = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_set_free_ Set *members = NULL;
+        _cleanup_(set_freep) Set *members = NULL;
         Member *m;
         const char *xml;
         int r;
@@ -1786,7 +1786,7 @@ static int verb_call(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
-        _cleanup_fdset_free_ FDSet *passed_fdset = NULL;
+        _cleanup_(fdset_freep) FDSet *passed_fdset = NULL;
         int r;
 
         r = acquire_bus(false, &bus);
@@ -1852,7 +1852,7 @@ static int verb_call(int argc, char *argv[], uintptr_t _data, void *userdata) {
 static int verb_emit_signal(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        _cleanup_fdset_free_ FDSet *passed_fdset = NULL;
+        _cleanup_(fdset_freep) FDSet *passed_fdset = NULL;
         int r;
 
         r = acquire_bus(false, &bus);
@@ -2004,7 +2004,7 @@ static int verb_set_property(int argc, char *argv[], uintptr_t _data, void *user
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_fdset_free_ FDSet *passed_fdset = NULL;
+        _cleanup_(fdset_freep) FDSet *passed_fdset = NULL;
         char **p;
         int r;
 

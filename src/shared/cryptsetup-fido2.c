@@ -34,7 +34,7 @@ int acquire_fido2_key(
 
 #if HAVE_LIBCRYPTSETUP && HAVE_LIBFIDO2
         _cleanup_(erase_and_freep) char *envpw = NULL;
-        _cleanup_strv_free_erase_ char **pins = NULL;
+        _cleanup_(strv_free_erasep) char **pins = NULL;
         _cleanup_(iovec_done_erase) struct iovec loaded_salt = {};
         bool device_exists = false;
         struct iovec salt;

@@ -230,7 +230,7 @@ static int enumerate_dir_d(
 
         _cleanup_free_ char *unit = NULL;
         _cleanup_free_ char *path = NULL;
-        _cleanup_strv_free_ char **list = NULL;
+        _cleanup_(strv_freep) char **list = NULL;
         char *c;
         int r;
 
@@ -302,8 +302,8 @@ static int enumerate_dir(
                 OrderedHashmap **drops,
                 const char *path, bool dropins) {
 
-        _cleanup_closedir_ DIR *d = NULL;
-        _cleanup_strv_free_ char **files = NULL, **dirs = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
+        _cleanup_(strv_freep) char **files = NULL, **dirs = NULL;
         size_t n_files = 0, n_dirs = 0;
         int r;
 
@@ -378,7 +378,7 @@ static int process_suffix(const char *suffix, const char *onlyprefix) {
 
         bool dropins = nulstr_contains(have_dropins, suffix);
 
-        _cleanup_ordered_hashmap_free_ OrderedHashmap *top = NULL, *bottom = NULL, *drops = NULL;
+        _cleanup_(ordered_hashmap_freep) OrderedHashmap *top = NULL, *bottom = NULL, *drops = NULL;
         NULSTR_FOREACH(p, prefixes) {
                 _cleanup_free_ char *t = NULL;
 

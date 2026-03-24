@@ -969,7 +969,7 @@ Manager* manager_free(Manager *m) {
 }
 
 static bool manager_network_read_link_servers(Manager *m) {
-        _cleanup_strv_free_ char **ntp = NULL;
+        _cleanup_(strv_freep) char **ntp = NULL;
         bool changed = false;
         int r;
 
@@ -1247,7 +1247,7 @@ static int ntp_server_emit_changed_strv(Manager *manager, char **properties) {
 
 static int on_deferred_ntp_server(sd_event_source *s, void *userdata) {
         int r;
-        _cleanup_strv_free_ char **p = NULL;
+        _cleanup_(strv_freep) char **p = NULL;
         Manager *m = ASSERT_PTR(userdata);
 
         m->deferred_ntp_server_event_source = sd_event_source_disable_unref(m->deferred_ntp_server_event_source);

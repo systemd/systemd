@@ -174,7 +174,7 @@ static int access_init(sd_bus_error *reterr_error) {
 }
 
 static int get_our_contexts(const Unit *unit, const char **ret_acon, const char **ret_tclass, char **ret_fcon) {
-        _cleanup_freecon_ char *fcon = NULL;
+        _cleanup_(freeconp) char *fcon = NULL;
 
         assert(ret_acon);
         assert(ret_tclass);
@@ -261,7 +261,7 @@ int mac_selinux_access_check_bus_internal(
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         const char *tclass, *scon, *acon;
         _cleanup_free_ char *cl = NULL;
-        _cleanup_freecon_ char *fcon = NULL;
+        _cleanup_(freeconp) char *fcon = NULL;
         char **cmdline = NULL;
         bool enforce;
         int r = 0;
@@ -333,7 +333,7 @@ int mac_selinux_access_check_varlink_internal(
                 const char *permission,
                 const char *function) {
 
-        _cleanup_freecon_ char *fcon = NULL, *scon = NULL;
+        _cleanup_(freeconp) char *fcon = NULL, *scon = NULL;
         const char *tclass, *acon;
         int r;
 

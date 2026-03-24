@@ -25,7 +25,7 @@ int pidfd_check_pidfs(int pid_fd) {
         if (have_pidfs >= 0)
                 return have_pidfs;
 
-        _cleanup_close_ int our_fd = -EBADF;
+        _cleanup_(closep) int our_fd = -EBADF;
         if (pid_fd < 0) {
                 our_fd = pidfd_open(getpid_cached(), /* flags= */ 0);
                 if (our_fd < 0)
@@ -291,7 +291,7 @@ int pidfd_get_inode_id_self_cached(uint64_t *ret) {
         if (initialized < 0)
                 return initialized;
 
-        _cleanup_close_ int fd = pidfd_open(getpid_cached(), 0);
+        _cleanup_(closep) int fd = pidfd_open(getpid_cached(), 0);
         if (fd < 0)
                 return -errno;
 

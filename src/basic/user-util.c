@@ -195,7 +195,7 @@ const char* default_root_shell_at(int rfd) {
 }
 
 const char* default_root_shell(const char *root) {
-        _cleanup_close_ int rfd = -EBADF;
+        _cleanup_(closep) int rfd = -EBADF;
 
         rfd = open(empty_to_root(root), O_CLOEXEC | O_DIRECTORY | O_PATH);
         if (rfd < 0)
@@ -701,7 +701,7 @@ int take_etc_passwd_lock(const char *root) {
 
         (void) mkdir_parents(path, 0755);
 
-        _cleanup_close_ int fd = open(path, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0600);
+        _cleanup_(closep) int fd = open(path, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0600);
         if (fd < 0)
                 return log_debug_errno(errno, "Cannot open %s: %m", path);
 
@@ -923,7 +923,7 @@ int maybe_setgroups(size_t size, const gid_t *list) {
                 /* The kernel refuses setgroups() if there are no GID mappings in the current
                  * user namespace, so check that beforehand and don't try to setgroups() if
                  * there are no GID mappings. */
-                _cleanup_fclose_ FILE *f = fopen("/proc/self/gid_map", "re");
+                _cleanup_(fclosep) FILE *f = fopen("/proc/self/gid_map", "re");
                 if (!f && errno != ENOENT)
                         return -errno;
                 if (f) {

@@ -20,7 +20,7 @@
 #include "strv.h"
 
 static int chown_cgroup_path(const char *path, uid_t uid_shift) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         assert(path);
 
@@ -98,7 +98,7 @@ int create_subcgroup(
                 return log_error_errno(r, "Failed to create %s subcgroup: %m", payload);
 
         if (userns_mode == USER_NAMESPACE_MANAGED) {
-                _cleanup_close_ int cgroup_fd = -EBADF;
+                _cleanup_(closep) int cgroup_fd = -EBADF;
 
                 cgroup_fd = cg_path_open(payload);
                 if (cgroup_fd < 0)
@@ -143,7 +143,7 @@ int create_subcgroup(
 
 int mount_cgroups(const char *dest, bool accept_existing) {
         _cleanup_free_ char *p = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         r = chase("/sys/fs/cgroup", dest, CHASE_PREFIX_ROOT | CHASE_MKDIR_0755, &p, &fd);

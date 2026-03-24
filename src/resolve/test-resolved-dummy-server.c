@@ -417,7 +417,7 @@ static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *use
 
 static int run(int argc, char *argv[]) {
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         log_setup();

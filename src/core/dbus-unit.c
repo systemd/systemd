@@ -1369,8 +1369,8 @@ static int append_process(sd_bus_message *reply, const char *p, PidRef *pid, Set
 }
 
 static int append_cgroup(sd_bus_message *reply, const char *p, Set *pids) {
-        _cleanup_closedir_ DIR *d = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r;
 
         assert(reply);
@@ -1441,7 +1441,7 @@ static int append_cgroup(sd_bus_message *reply, const char *p, Set *pids) {
 
 int bus_unit_method_get_processes(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_set_free_ Set *pids = NULL;
+        _cleanup_(set_freep) Set *pids = NULL;
         Unit *u = userdata;
         int r;
 
@@ -1561,7 +1561,7 @@ static int property_get_effective_limit(
 int bus_unit_method_attach_processes(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
         Unit *u = ASSERT_PTR(userdata);
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
-        _cleanup_set_free_ Set *pids = NULL;
+        _cleanup_(set_freep) Set *pids = NULL;
         const char *path;
         int r;
 
@@ -1961,7 +1961,7 @@ int bus_unit_queue_job_one(
                 sd_bus_message *reply,
                 sd_bus_error *reterr_error) {
 
-        _cleanup_set_free_ Set *affected = NULL;
+        _cleanup_(set_freep) Set *affected = NULL;
         _cleanup_free_ char *job_path = NULL, *unit_path = NULL;
         Job *j, *a;
         int r;
@@ -2396,7 +2396,7 @@ static int bus_unit_set_transient_property(
                 return bus_set_transient_conditions(u, name, &u->asserts, false, message, flags, reterr_error);
 
         if (streq(name, "Documentation")) {
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_(strv_freep) char **l = NULL;
 
                 r = sd_bus_message_read_strv(message, &l);
                 if (r < 0)
@@ -2463,7 +2463,7 @@ static int bus_unit_set_transient_property(
         }
 
         if (STR_IN_SET(name, "RequiresMountsFor", "WantsMountsFor")) {
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_(strv_freep) char **l = NULL;
 
                 r = sd_bus_message_read_strv(message, &l);
                 if (r < 0)

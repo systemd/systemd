@@ -50,7 +50,7 @@ int socket_address_listen(
                 const char *selinux_label,
                 const char *smack_label) {
 
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         const char *p;
         int r;
 

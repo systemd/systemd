@@ -30,7 +30,7 @@ static int get_unit_list_recursive(
                 Set **ret_replies) {
 
         _cleanup_free_ UnitInfo *unit_infos = NULL;
-        _cleanup_set_free_ Set *replies = NULL;
+        _cleanup_(set_freep) Set *replies = NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         int c, r;
 
@@ -47,7 +47,7 @@ static int get_unit_list_recursive(
                 return log_oom();
 
         if (arg_recursive) {
-                _cleanup_strv_free_ char **machines = NULL;
+                _cleanup_(strv_freep) char **machines = NULL;
 
                 r = sd_get_machine_names(&machines);
                 if (r < 0)
@@ -260,7 +260,7 @@ static int output_units_list(const UnitInfo *unit_infos, size_t c) {
 
 int verb_list_units(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_free_ UnitInfo *unit_infos = NULL;
-        _cleanup_set_free_ Set *replies = NULL;
+        _cleanup_(set_freep) Set *replies = NULL;
         sd_bus *bus;
         int r;
 
@@ -271,7 +271,7 @@ int verb_list_units(int argc, char *argv[], uintptr_t _data, void *userdata) {
         pager_open(arg_pager_flags);
 
         if (arg_with_dependencies) {
-                _cleanup_strv_free_ char **names = NULL;
+                _cleanup_(strv_freep) char **names = NULL;
 
                 r = append_unit_dependencies(bus, strv_skip(argv, 1), &names);
                 if (r < 0)
@@ -369,7 +369,7 @@ static int socket_info_add(
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_strv_free_ char **triggered = NULL;
+        _cleanup_(strv_freep) char **triggered = NULL;
         const char *type, *path;
         int r;
 
@@ -403,7 +403,7 @@ static int socket_info_add(
 
         while ((r = sd_bus_message_read(reply, "(ss)", &type, &path)) > 0) {
                 _cleanup_free_ char *type_dup = NULL, *path_dup = NULL;
-                _cleanup_strv_free_ char **triggered_dup = NULL;
+                _cleanup_(strv_freep) char **triggered_dup = NULL;
 
                 type_dup = strdup(type);
                 if (!type_dup)
@@ -491,8 +491,8 @@ static int output_sockets_list(const SocketInfo *sockets, size_t n_sockets) {
 }
 
 int verb_list_sockets(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_set_free_ Set *replies = NULL;
-        _cleanup_strv_free_ char **sockets_with_suffix = NULL;
+        _cleanup_(set_freep) Set *replies = NULL;
+        _cleanup_(strv_freep) char **sockets_with_suffix = NULL;
         _cleanup_free_ UnitInfo *unit_infos = NULL;
         SocketInfo *sockets = NULL;
         size_t n_sockets = 0;
@@ -729,7 +729,7 @@ static int add_timer_info(
                 TimerInfo **timers,
                 size_t *n_timers) {
 
-        _cleanup_strv_free_ char **triggered = NULL;
+        _cleanup_(strv_freep) char **triggered = NULL;
         dual_timestamp next, last;
         usec_t m;
         int r;
@@ -772,8 +772,8 @@ static int add_timer_info(
 }
 
 int verb_list_timers(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_set_free_ Set *replies = NULL;
-        _cleanup_strv_free_ char **timers_with_suffix = NULL;
+        _cleanup_(set_freep) Set *replies = NULL;
+        _cleanup_(strv_freep) char **timers_with_suffix = NULL;
         _cleanup_free_ UnitInfo *unit_infos = NULL;
         TimerInfo *timers = NULL;
         size_t n_timers = 0;
@@ -971,8 +971,8 @@ static int output_automounts_list(const AutomountInfo *infos, size_t n_infos) {
 }
 
 int verb_list_automounts(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_set_free_ Set *replies = NULL;
-        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_(set_freep) Set *replies = NULL;
+        _cleanup_(strv_freep) char **names = NULL;
         _cleanup_free_ UnitInfo *unit_infos = NULL;
         AutomountInfo *automounts = NULL;
         size_t n_automounts = 0;
@@ -1065,7 +1065,7 @@ static int path_info_add(
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_strv_free_ char **triggered = NULL;
+        _cleanup_(strv_freep) char **triggered = NULL;
         const char *condition, *path;
         int r;
 
@@ -1098,7 +1098,7 @@ static int path_info_add(
 
         while ((r = sd_bus_message_read(reply, "(ss)", &condition, &path)) > 0) {
                 _cleanup_free_ char *condition_dup = NULL, *path_dup = NULL;
-                _cleanup_strv_free_ char **triggered_dup = NULL;
+                _cleanup_(strv_freep) char **triggered_dup = NULL;
 
                 condition_dup = strdup(condition);
                 if (!condition_dup)
@@ -1179,8 +1179,8 @@ static int output_paths_list(const PathInfo *paths, size_t n_paths) {
 }
 
 int verb_list_paths(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_set_free_ Set *replies = NULL;
-        _cleanup_strv_free_ char **units = NULL;
+        _cleanup_(set_freep) Set *replies = NULL;
+        _cleanup_(strv_freep) char **units = NULL;
         _cleanup_free_ UnitInfo *unit_infos = NULL;
         PathInfo *paths = NULL;
         size_t n_paths = 0;

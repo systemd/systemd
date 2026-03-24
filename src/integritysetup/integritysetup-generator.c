@@ -26,7 +26,7 @@ static int create_disk(
                 const char *options) {
 
         _cleanup_free_ char *n = NULL, *dd = NULL, *e = NULL, *name_escaped = NULL, *key_file_escaped = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         char *dmname = NULL;
         bool noauto, nofail, netdev;
         int r;
@@ -128,7 +128,7 @@ static int create_disk(
 }
 
 static int add_integritytab_devices(void) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         unsigned integritytab_line = 0;
         int r;
 

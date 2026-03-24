@@ -64,12 +64,12 @@ static int device_new_from_watch_handle_at(sd_device **ret, int dirfd, int wd) {
 void udev_watch_dump(void) {
         int r;
 
-        _cleanup_closedir_ DIR *dir = opendir("/run/udev/watch/");
+        _cleanup_(closedirp) DIR *dir = opendir("/run/udev/watch/");
         if (!dir)
                 return (void) log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
                                              "Failed to open old watches directory '/run/udev/watch/': %m");
 
-        _cleanup_set_free_ Set *pending_wds = NULL, *verified_wds = NULL;
+        _cleanup_(set_freep) Set *pending_wds = NULL, *verified_wds = NULL;
         FOREACH_DIRENT(de, dir, break) {
                 if (safe_atoi(de->d_name, NULL) >= 0) {
                         /* This should be wd -> ID symlink */
@@ -332,7 +332,7 @@ static int udev_watch_restore(Manager *manager) {
                 return log_warning_errno(errno, "Failed to move watches directory '/run/udev/watch/': %m");
         }
 
-        _cleanup_closedir_ DIR *dir = opendir(old);
+        _cleanup_(closedirp) DIR *dir = opendir(old);
         if (!dir)
                 return log_warning_errno(errno, "Failed to open old watches directory '%s': %m", old);
 
@@ -427,7 +427,7 @@ int manager_start_inotify(Manager *manager) {
 static int udev_watch_clear_by_wd(sd_device *dev, int dirfd, int wd) {
         int r;
 
-        _cleanup_close_ int dirfd_close = -EBADF;
+        _cleanup_(closep) int dirfd_close = -EBADF;
         if (dirfd < 0) {
                 dirfd_close = RET_NERRNO(open("/run/udev/watch/", O_CLOEXEC | O_DIRECTORY | O_NOFOLLOW | O_RDONLY));
                 if (dirfd_close < 0)
@@ -540,7 +540,7 @@ finalize:
 
 int manager_add_watch(Manager *manager, sd_device *dev) {
         char wd_str[DECIMAL_STR_MAX(int)];
-        _cleanup_close_ int dirfd = -EBADF;
+        _cleanup_(closep) int dirfd = -EBADF;
         const char *devnode, *id;
         int wd, r;
 
@@ -601,7 +601,7 @@ on_failure:
 }
 
 int manager_remove_watch(Manager *manager, sd_device *dev) {
-        _cleanup_close_ int dirfd = -EBADF;
+        _cleanup_(closep) int dirfd = -EBADF;
         int wd, r;
 
         assert(manager);

@@ -1163,7 +1163,7 @@ TEST(dns_cache_dump_single_a) {
         ASSERT_EQ(dns_cache_size(&cache), 1u);
 
         _cleanup_(unlink_tempfilep) char p[] = "/tmp/dns-cache-dump-single-a-XXXXXX";
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         fmkostemp_safe(p, "r+", &f);
         dns_cache_dump(&cache, f);
 
@@ -1196,7 +1196,7 @@ TEST(dns_cache_dump_a_with_cname) {
         ASSERT_EQ(dns_cache_size(&cache), 2u);
 
         _cleanup_(unlink_tempfilep) char p[] = "/tmp/dns-cache-dump-a-with-cname-XXXXXX";
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         fmkostemp_safe(p, "r+", &f);
         dns_cache_dump(&cache, f);
 

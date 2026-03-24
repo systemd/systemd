@@ -556,7 +556,7 @@ static int bus_socket_write_auth(sd_bus *b) {
 }
 
 static int bus_process_cmsg(sd_bus *bus, struct msghdr *mh, bool allow_fds) {
-        _cleanup_close_ int pidfd = -EBADF;
+        _cleanup_(closep) int pidfd = -EBADF;
         const int *fds = NULL;
         size_t n_fds = 0;
 
@@ -1023,7 +1023,7 @@ static int bind_description(sd_bus *b, int fd, int family) {
 }
 
 static int connect_as(int fd, const struct sockaddr *sa, socklen_t salen, uid_t uid, gid_t gid) {
-        _cleanup_close_pair_ int pfd[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int pfd[2] = EBADF_PAIR;
         ssize_t n;
         int r;
 

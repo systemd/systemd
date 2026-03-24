@@ -145,7 +145,7 @@ static int chaseat_needs_absolute(int dir_fd, const char *path) {
 
 int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int *ret_fd) {
         _cleanup_free_ char *buffer = NULL, *done = NULL;
-        _cleanup_close_ int fd = -EBADF, root_fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF, root_fd = -EBADF;
         bool exists = true, append_trail_slash = false;
         struct statx root_stx, stx;
         bool need_absolute = false; /* allocate early to avoid compiler warnings around goto */
@@ -239,7 +239,7 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
          *    the mount point is emitted. CHASE_WARN cannot be used in PID 1.
          */
 
-        _cleanup_close_ int _dir_fd = -EBADF;
+        _cleanup_(closep) int _dir_fd = -EBADF;
         r = dir_fd_is_root(dir_fd);
         if (r < 0)
                 return r;
@@ -362,7 +362,7 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
         todo = buffer;
         for (unsigned n_steps = 0;; n_steps++) {
                 _cleanup_free_ char *first = NULL;
-                _cleanup_close_ int child = -EBADF;
+                _cleanup_(closep) int child = -EBADF;
                 struct statx stx_child;
                 const char *e;
 
@@ -384,7 +384,7 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                 /* Two dots? Then chop off the last bit of what we already found out. */
                 if (streq(first, "..")) {
                         _cleanup_free_ char *parent = NULL;
-                        _cleanup_close_ int fd_parent = -EBADF;
+                        _cleanup_(closep) int fd_parent = -EBADF;
                         struct statx stx_parent;
 
                         /* If we already are at the top, then going up will not change anything. This is
@@ -479,7 +479,7 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                          * the child of the returned normalized path, not the parent as requested. To correct
                          * this we have to go *two* levels up. */
                         if (FLAGS_SET(flags, CHASE_PARENT) && isempty(todo)) {
-                                _cleanup_close_ int fd_grandparent = -EBADF;
+                                _cleanup_(closep) int fd_grandparent = -EBADF;
                                 struct statx stx_grandparent;
 
                                 fd_grandparent = openat(fd_parent, "..", O_CLOEXEC|O_NOFOLLOW|O_PATH|O_DIRECTORY);
@@ -742,7 +742,7 @@ chased_one:
 
 int chase(const char *path, const char *root, ChaseFlags flags, char **ret_path, int *ret_fd) {
         _cleanup_free_ char *root_abs = NULL, *absolute = NULL, *p = NULL;
-        _cleanup_close_ int fd = -EBADF, pfd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF, pfd = -EBADF;
         int r;
 
         assert(path);
@@ -925,7 +925,7 @@ int chase_and_open(
                 int open_flags,
                 char **ret_path) {
 
-        _cleanup_close_ int path_fd = -EBADF;
+        _cleanup_(closep) int path_fd = -EBADF;
         _cleanup_free_ char *p = NULL, *fname = NULL;
         int r;
 
@@ -967,7 +967,7 @@ int chase_and_open(
 }
 
 int chase_and_opendir(const char *path, const char *root, ChaseFlags chase_flags, char **ret_path, DIR **ret_dir) {
-        _cleanup_close_ int path_fd = -EBADF;
+        _cleanup_(closep) int path_fd = -EBADF;
         _cleanup_free_ char *p = NULL;
         DIR *d;
         int r;
@@ -1002,7 +1002,7 @@ int chase_and_opendir(const char *path, const char *root, ChaseFlags chase_flags
 }
 
 int chase_and_stat(const char *path, const char *root, ChaseFlags chase_flags, char **ret_path, struct stat *ret_stat) {
-        _cleanup_close_ int path_fd = -EBADF;
+        _cleanup_(closep) int path_fd = -EBADF;
         _cleanup_free_ char *p = NULL;
         int r;
 
@@ -1030,7 +1030,7 @@ int chase_and_stat(const char *path, const char *root, ChaseFlags chase_flags, c
 }
 
 int chase_and_access(const char *path, const char *root, ChaseFlags chase_flags, int access_mode, char **ret_path) {
-        _cleanup_close_ int path_fd = -EBADF;
+        _cleanup_(closep) int path_fd = -EBADF;
         _cleanup_free_ char *p = NULL;
         int r;
 
@@ -1066,7 +1066,7 @@ int chase_and_fopen_unlocked(
                 FILE **ret_file) {
 
         _cleanup_free_ char *final_path = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int mode_flags, r;
 
         assert(path);
@@ -1094,7 +1094,7 @@ int chase_and_fopen_unlocked(
 
 int chase_and_unlink(const char *path, const char *root, ChaseFlags chase_flags, int unlink_flags, char **ret_path) {
         _cleanup_free_ char *p = NULL, *fname = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         assert(path);
@@ -1136,7 +1136,7 @@ int chase_and_openat(
                 int open_flags,
                 char **ret_path) {
 
-        _cleanup_close_ int path_fd = -EBADF;
+        _cleanup_(closep) int path_fd = -EBADF;
         _cleanup_free_ char *p = NULL, *fname = NULL;
         int r;
 
@@ -1181,7 +1181,7 @@ int chase_and_openat(
 }
 
 int chase_and_opendirat(int dir_fd, const char *path, ChaseFlags chase_flags, char **ret_path, DIR **ret_dir) {
-        _cleanup_close_ int path_fd = -EBADF;
+        _cleanup_(closep) int path_fd = -EBADF;
         _cleanup_free_ char *p = NULL;
         DIR *d;
         int r;
@@ -1216,7 +1216,7 @@ int chase_and_opendirat(int dir_fd, const char *path, ChaseFlags chase_flags, ch
 }
 
 int chase_and_statat(int dir_fd, const char *path, ChaseFlags chase_flags, char **ret_path, struct stat *ret_stat) {
-        _cleanup_close_ int path_fd = -EBADF;
+        _cleanup_(closep) int path_fd = -EBADF;
         _cleanup_free_ char *p = NULL;
         int r;
 
@@ -1244,7 +1244,7 @@ int chase_and_statat(int dir_fd, const char *path, ChaseFlags chase_flags, char 
 }
 
 int chase_and_accessat(int dir_fd, const char *path, ChaseFlags chase_flags, int access_mode, char **ret_path) {
-        _cleanup_close_ int path_fd = -EBADF;
+        _cleanup_(closep) int path_fd = -EBADF;
         _cleanup_free_ char *p = NULL;
         int r;
 
@@ -1280,7 +1280,7 @@ int chase_and_fopenat_unlocked(
                 FILE **ret_file) {
 
         _cleanup_free_ char *final_path = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int mode_flags, r;
 
         assert(path);
@@ -1308,7 +1308,7 @@ int chase_and_fopenat_unlocked(
 
 int chase_and_unlinkat(int dir_fd, const char *path, ChaseFlags chase_flags, int unlink_flags, char **ret_path) {
         _cleanup_free_ char *p = NULL, *fname = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         assert(path);

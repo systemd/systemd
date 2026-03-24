@@ -227,7 +227,7 @@ static void raw_pull_report_progress(RawPull *p, RawProgress progress) {
 
 static int raw_pull_maybe_convert_qcow2(RawPull *p) {
         _cleanup_(unlink_and_freep) char *t = NULL;
-        _cleanup_close_ int converted_fd = -EBADF;
+        _cleanup_(closep) int converted_fd = -EBADF;
         _cleanup_free_ char *f = NULL;
         int r;
 
@@ -375,7 +375,7 @@ static int raw_pull_make_local_copy(RawPull *p) {
 
         const char *source;
         if (FLAGS_SET(p->flags, IMPORT_PULL_KEEP_DOWNLOAD)) {
-                _cleanup_close_ int dfd = -EBADF;
+                _cleanup_(closep) int dfd = -EBADF;
                 _cleanup_free_ char *f = NULL;
 
                 r = tempfn_random(path, NULL, &f);

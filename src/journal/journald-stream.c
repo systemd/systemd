@@ -112,7 +112,7 @@ void stdout_stream_terminate(StdoutStream *s) {
 
 static int stdout_stream_save(StdoutStream *s) {
         _cleanup_(unlink_and_freep) char *temp_path = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r;
 
         assert(s);
@@ -679,7 +679,7 @@ int stdout_stream_install(Manager *m, int fd, StdoutStream **ret) {
 }
 
 static int stdout_stream_new(sd_event_source *es, int listen_fd, uint32_t revents, void *userdata) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         Manager *m = ASSERT_PTR(userdata);
         int r;
 
@@ -828,7 +828,7 @@ static int stdout_stream_restore(Manager *m, const char *fname, int fd) {
 }
 
 int manager_restore_streams(Manager *m, FDSet *fds) {
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
         const char *path;
         int r;
 

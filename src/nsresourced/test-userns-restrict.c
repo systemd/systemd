@@ -20,7 +20,7 @@
 #include "userns-restrict.h"
 
 static int make_tmpfs_fsmount(void) {
-        _cleanup_close_ int fsfd = -EBADF, mntfd = -EBADF;
+        _cleanup_(closep) int fsfd = -EBADF, mntfd = -EBADF;
 
         fsfd = ASSERT_OK_ERRNO(fsopen("tmpfs", FSOPEN_CLOEXEC));
         ASSERT_OK_ERRNO(fsconfig(fsfd, FSCONFIG_CMD_CREATE, NULL, NULL, 0));
@@ -47,7 +47,7 @@ static int intro(void) {
 }
 
 TEST(userns_restrict) {
-        _cleanup_close_ int userns_fd = -EBADF, host_fd1 = -EBADF, host_tmpfs = -EBADF, afd = -EBADF, bfd = -EBADF;
+        _cleanup_(closep) int userns_fd = -EBADF, host_fd1 = -EBADF, host_tmpfs = -EBADF, afd = -EBADF, bfd = -EBADF;
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
         int r;
@@ -76,7 +76,7 @@ TEST(userns_restrict) {
 
         r = ASSERT_OK(pidref_safe_fork("(test)", FORK_DEATHSIG_SIGKILL, &pidref));
         if (r == 0) {
-                _cleanup_close_ int private_tmpfs = -EBADF;
+                _cleanup_(closep) int private_tmpfs = -EBADF;
 
                 ASSERT_OK(namespace_enter(-EBADF, -EBADF, -EBADF, userns_fd, -EBADF));
                 ASSERT_OK_ERRNO(unshare(CLONE_NEWNS));
@@ -172,7 +172,7 @@ static void write_child_mappings(PidRef *child, int parent_userns_fd) {
 }
 
 TEST(setgroups_deny) {
-        _cleanup_close_ int deny_userns_fd = -EBADF, allow_userns_fd = -EBADF,
+        _cleanup_(closep) int deny_userns_fd = -EBADF, allow_userns_fd = -EBADF,
                              afd = -EBADF, bfd = -EBADF;
         int r;
 

@@ -400,7 +400,7 @@ static int run(int argc, char *argv[]) {
                 uint16_t wyde[256];
         } identify;
         char model[41], model_enc[256], serial[21], revision[9];
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         uint16_t word;
         int r, peripheral_device_type = -1;
 

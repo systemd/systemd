@@ -296,7 +296,7 @@ TEST(condition_test_firmware_device_tree) {
                 condition_free(condition);
         } else {
                 _cleanup_free_ char *dtcompat = NULL;
-                _cleanup_strv_free_ char **dtcompatlist = NULL;
+                _cleanup_(strv_freep) char **dtcompatlist = NULL;
                 size_t dtcompat_size;
                 int r;
 
@@ -1184,7 +1184,7 @@ TEST(condition_test_environment) {
 }
 
 TEST(condition_test_os_release) {
-        _cleanup_strv_free_ char **os_release_pairs = NULL;
+        _cleanup_(strv_freep) char **os_release_pairs = NULL;
         _cleanup_free_ char *version_id = NULL;
         const char *key_value_pair;
         Condition *condition;

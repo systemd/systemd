@@ -314,7 +314,7 @@ static int generate_addresses(
                 uint8_t prefixlen,
                 Hashmap **ret) {
 
-        _cleanup_hashmap_free_ Hashmap *tokens_by_address = NULL;
+        _cleanup_(hashmap_freep) Hashmap *tokens_by_address = NULL;
         struct in6_addr masked, addr;
         IPv6Token *j;
         int r;

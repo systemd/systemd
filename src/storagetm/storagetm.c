@@ -185,7 +185,7 @@ static int nvme_subsystem_unlink(NvmeSubsystem *s) {
         assert(s);
 
         if (s->nvme_our_subsystem_fd >= 0) {
-                _cleanup_close_ int namespaces_fd = -EBADF;
+                _cleanup_(closep) int namespaces_fd = -EBADF;
 
                 namespaces_fd = openat(s->nvme_our_subsystem_fd, "namespaces", O_CLOEXEC|O_DIRECTORY|O_RDONLY);
                 if (namespaces_fd < 0)
@@ -373,7 +373,7 @@ static int nvme_namespace_write_metadata(int namespace_fd, sd_device *device, co
 
 static int nvme_subsystem_add(const char *node, int consumed_fd, sd_device *device, NvmeSubsystem **ret) {
         _cleanup_(sd_device_unrefp) sd_device *allocated_device = NULL;
-        _cleanup_close_ int fd = consumed_fd; /* always take possession of the fd */
+        _cleanup_(closep) int fd = consumed_fd; /* always take possession of the fd */
         int r;
 
         assert(node);
@@ -417,12 +417,12 @@ static int nvme_subsystem_add(const char *node, int consumed_fd, sd_device *devi
         if (r < 0)
                 return log_error_errno(r, "Failed to lock block device: %m");
 
-        _cleanup_close_ int subsystems_fd = -EBADF;
+        _cleanup_(closep) int subsystems_fd = -EBADF;
         subsystems_fd = RET_NERRNO(open("/sys/kernel/config/nvmet/subsystems", O_DIRECTORY|O_CLOEXEC|O_RDONLY));
         if (subsystems_fd < 0)
                 return log_error_errno(subsystems_fd, "Failed to open %s: %m", "/sys/kernel/config/nvmet/subsystems");
 
-        _cleanup_close_ int subsystem_fd = -EBADF;
+        _cleanup_(closep) int subsystem_fd = -EBADF;
         subsystem_fd = open_mkdir_at(subsystems_fd, j, O_EXCL|O_RDONLY|O_CLOEXEC, 0777);
         if (subsystem_fd < 0)
                 return log_error_errno(subsystem_fd, "Failed to create NVME subsystem '%s': %m", j);
@@ -433,7 +433,7 @@ static int nvme_subsystem_add(const char *node, int consumed_fd, sd_device *devi
 
         (void) nvme_subsystem_write_metadata(subsystem_fd, device);
 
-        _cleanup_close_ int namespace_fd = -EBADF;
+        _cleanup_(closep) int namespace_fd = -EBADF;
         namespace_fd = open_mkdir_at(subsystem_fd, "namespaces/1", O_EXCL|O_RDONLY|O_CLOEXEC, 0777);
         if (namespace_fd < 0)
                 return log_error_errno(namespace_fd, "Failed to create NVME namespace '1': %m");
@@ -497,7 +497,7 @@ static int nvme_port_unlink(NvmePort *p) {
         assert(p);
 
         if (p->nvme_port_fd >= 0) {
-                _cleanup_close_ int subsystems_dir_fd = -EBADF;
+                _cleanup_(closep) int subsystems_dir_fd = -EBADF;
 
                 subsystems_dir_fd = openat(p->nvme_port_fd, "subsystems", O_DIRECTORY|O_RDONLY|O_CLOEXEC);
                 if (subsystems_dir_fd < 0)
@@ -566,7 +566,7 @@ static int nvme_port_add_portnr(
         if (asprintf(&fname, "%" PRIu16, portnr) < 0)
                 return log_oom();
 
-        _cleanup_close_ int port_fd = -EBADF;
+        _cleanup_(closep) int port_fd = -EBADF;
         port_fd = open_mkdir_at(ports_fd, fname, O_EXCL|O_RDONLY|O_CLOEXEC, 0777);
         if (port_fd < 0) {
                 if (port_fd != -EEXIST)
@@ -632,12 +632,12 @@ static int nvme_port_add(const char *name, int ip_family, NvmePort **ret) {
         assert(IN_SET(ip_family, AF_INET, AF_INET6));
         assert(ret);
 
-        _cleanup_close_ int ports_fd = -EBADF;
+        _cleanup_(closep) int ports_fd = -EBADF;
         ports_fd = RET_NERRNO(open("/sys/kernel/config/nvmet/ports", O_DIRECTORY|O_RDONLY|O_CLOEXEC));
         if (ports_fd < 0)
                 return log_error_errno(ports_fd, "Failed to open %s: %m", "/sys/kernel/config/nvmet/ports");
 
-        _cleanup_close_ int port_fd = -EBADF;
+        _cleanup_(closep) int port_fd = -EBADF;
         uint16_t portnr = calculate_start_port(name, ip_family);
         for (unsigned attempt = 0;; attempt++) {
                 r = nvme_port_add_portnr(ports_fd, portnr, ip_family, &port_fd);

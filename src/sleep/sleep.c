@@ -163,7 +163,7 @@ static int write_state(int fd, char * const *states) {
         assert(states);
 
         STRV_FOREACH(state, states) {
-                _cleanup_fclose_ FILE *f = NULL;
+                _cleanup_(fclosep) FILE *f = NULL;
                 int k;
 
                 k = fdopen_independent(fd, "we", &f);
@@ -251,7 +251,7 @@ static int execute(
                 NULL
         };
 
-        _cleanup_close_ int state_fd = -EBADF;
+        _cleanup_(closep) int state_fd = -EBADF;
         int r;
 
         assert(sleep_config);
@@ -405,8 +405,8 @@ static int custom_timer_suspend(const SleepConfig *sleep_config) {
         hibernate_timestamp = usec_add(now(CLOCK_BOOTTIME), sleep_config->hibernate_delay_usec);
 
         while (battery_is_discharging_and_low() == 0) {
-                _cleanup_hashmap_free_ Hashmap *last_capacity = NULL, *current_capacity = NULL;
-                _cleanup_close_ int tfd = -EBADF;
+                _cleanup_(hashmap_freep) Hashmap *last_capacity = NULL, *current_capacity = NULL;
+                _cleanup_(closep) int tfd = -EBADF;
                 struct itimerspec ts = {};
                 usec_t suspend_interval;
                 bool woken_by_timer;
@@ -507,7 +507,7 @@ static int custom_timer_suspend(const SleepConfig *sleep_config) {
 }
 
 static int execute_s2h(const SleepConfig *sleep_config) {
-        _cleanup_close_ int tfd = -EBADF;
+        _cleanup_(closep) int tfd = -EBADF;
         usec_t hibernate_timestamp = 0;
         int r;
 

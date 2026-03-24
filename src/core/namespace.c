@@ -1470,7 +1470,7 @@ static int mount_private_apivfs(
         bool noprivs = false;
 
         /* First, check if we have enough privileges to mount a new instance. */
-        _cleanup_close_ int mount_fd = make_fsmount(
+        _cleanup_(closep) int mount_fd = make_fsmount(
                         LOG_DEBUG,
                         /* what= */ fstype,
                         fstype,
@@ -1773,7 +1773,7 @@ static int mount_bpffs(const MountEntry *m, PidRef *pidref, int socket_fd, int e
         assert(socket_fd >= 0);
         assert(errno_pipe >= 0);
 
-        _cleanup_close_ int fs_fd = fsopen("bpf", FSOPEN_CLOEXEC);
+        _cleanup_(closep) int fs_fd = fsopen("bpf", FSOPEN_CLOEXEC);
         if (fs_fd < 0)
                 return log_debug_errno(errno, "Failed to fsopen: %m");
 
@@ -1797,7 +1797,7 @@ static int mount_bpffs(const MountEntry *m, PidRef *pidref, int socket_fd, int e
 
         pidref_done(pidref);
 
-        _cleanup_close_ int mnt_fd = fsmount(fs_fd, /* flags= */ 0, /* mount_attrs= */ 0);
+        _cleanup_(closep) int mnt_fd = fsmount(fs_fd, /* flags= */ 0, /* mount_attrs= */ 0);
         if (mnt_fd < 0)
                 return log_debug_errno(errno, "Failed to fsmount bpffs: %m");
 
@@ -1937,7 +1937,7 @@ static int apply_one_mount(
                 _cleanup_free_ char *host_os_release_id = NULL, *host_os_release_id_like = NULL,
                                 *host_os_release_version_id = NULL, *host_os_release_level = NULL,
                                 *extension_name = NULL;
-                _cleanup_strv_free_ char **extension_release = NULL;
+                _cleanup_(strv_freep) char **extension_release = NULL;
                 ImageClass class = IMAGE_SYSEXT;
 
                 r = path_extract_filename(mount_entry_source(m), &extension_name);
@@ -2131,7 +2131,7 @@ static int apply_one_mount(
 
         /* Take care of id-mapped mounts */
         if (m->idmapped && uid_is_valid(m->idmap_uid) && gid_is_valid(m->idmap_gid)) {
-                _cleanup_close_ int userns_fd = -EBADF;
+                _cleanup_(closep) int userns_fd = -EBADF;
                 _cleanup_free_ char *uid_map = NULL, *gid_map = NULL;
 
                 log_debug("Setting an id-mapped mount on %s", mount_entry_path(m));
@@ -2386,7 +2386,7 @@ static int apply_mounts(
                 const NamespaceParameters *p,
                 char **reterr_path) {
 
-        _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
+        _cleanup_(fclosep) FILE *proc_self_mountinfo = NULL;
         _cleanup_free_ char **deny_list = NULL;
         int r;
 
@@ -2567,9 +2567,9 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
 
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
-        _cleanup_strv_free_ char **hierarchies = NULL;
+        _cleanup_(strv_freep) char **hierarchies = NULL;
         _cleanup_(mount_list_done) MountList ml = {};
-        _cleanup_close_ int userns_fd = -EBADF;
+        _cleanup_(closep) int userns_fd = -EBADF;
         bool require_prefix = false;
         const char *root;
         DissectImageFlags dissect_image_flags =
@@ -2603,7 +2603,7 @@ int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
                 mstack_flags |= MSTACK_RDONLY;
         }
 
-        _cleanup_close_ int _root_mount_fd = -EBADF;
+        _cleanup_(closep) int _root_mount_fd = -EBADF;
         int root_mount_fd = -EBADF;
         if (pinned_resource_is_set(p->rootfs)) {
                 if (p->rootfs->directory_fd >= 0) {
@@ -3364,7 +3364,7 @@ char* namespace_cleanup_tmpdir(char *p) {
 
 static int make_tmp_prefix(const char *prefix) {
         _cleanup_free_ char *t = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         assert(prefix);
@@ -3478,7 +3478,7 @@ int setup_tmp_dir_one(const char *id, const char *prefix, char **ret_path) {
 }
 
 int setup_shareable_ns(int ns_storage_socket[static 2], unsigned long nsflag) {
-        _cleanup_close_ int ns = -EBADF;
+        _cleanup_(closep) int ns = -EBADF;
         const char *ns_name, *ns_path;
         int r;
 
@@ -3534,7 +3534,7 @@ int setup_shareable_ns(int ns_storage_socket[static 2], unsigned long nsflag) {
 }
 
 int open_shareable_ns_path(int ns_storage_socket[static 2], const char *path, unsigned long nsflag) {
-        _cleanup_close_ int ns = -EBADF;
+        _cleanup_(closep) int ns = -EBADF;
         NamespaceType type;
         int r;
 
@@ -3583,7 +3583,7 @@ int open_shareable_ns_path(int ns_storage_socket[static 2], const char *path, un
 
 static int is_extension_overlay(const char *path, int fd) {
         _cleanup_free_ char *source = NULL;
-        _cleanup_close_ int dfd = -EBADF;
+        _cleanup_(closep) int dfd = -EBADF;
         int r;
 
         assert(path);
@@ -3618,8 +3618,8 @@ static int is_extension_overlay(const char *path, int fd) {
 }
 
 static int unpeel_get_fd(const char *mount_path, int *ret_fd) {
-        _cleanup_close_pair_ int pipe_fds[2] = EBADF_PAIR;
-        _cleanup_close_ int fs_fd = -EBADF;
+        _cleanup_(close_pairp) int pipe_fds[2] = EBADF_PAIR;
+        _cleanup_(closep) int fs_fd = -EBADF;
         int r;
 
         assert(mount_path);
@@ -3634,7 +3634,7 @@ static int unpeel_get_fd(const char *mount_path, int *ret_fd) {
         if (r < 0)
                 return r;
         if (r == 0) {
-                _cleanup_close_ int dir_fd = -EBADF;
+                _cleanup_(closep) int dir_fd = -EBADF;
 
                 pipe_fds[0] = safe_close(pipe_fds[0]);
 
@@ -3705,7 +3705,7 @@ static int unpeel_get_fd(const char *mount_path, int *ret_fd) {
  * This is used by refresh_extensions_in_namespace() to peel back any existing overlays and reapply them.
  */
 static int unpeel_mount_and_setup_overlay(int pair_fd, const char *mount_path) {
-        _cleanup_close_ int dir_unpeeled_fd = -EBADF, overlay_fs_fd = -EBADF, mount_fd = -EBADF;
+        _cleanup_(closep) int dir_unpeeled_fd = -EBADF, overlay_fs_fd = -EBADF, mount_fd = -EBADF;
         int r;
 
         assert(pair_fd >= 0);
@@ -3817,8 +3817,8 @@ static int handle_mount_from_grandchild(
                 int pipe_fd) {
 
         _cleanup_free_ char *layers = NULL, *options = NULL, *hierarchy_path_moved_mount = NULL;
-        _cleanup_close_ int hierarchy_path_fd = -EBADF, overlay_fs_fd = -EBADF;
-        _cleanup_strv_free_ char **new_layers = NULL;
+        _cleanup_(closep) int hierarchy_path_fd = -EBADF, overlay_fs_fd = -EBADF;
+        _cleanup_(strv_freep) char **new_layers = NULL;
         int r;
 
         assert(m);
@@ -3867,7 +3867,7 @@ static int handle_mount_from_grandchild(
                 return log_oom_debug();
 
         STRV_FOREACH(ol, m->overlay_layers) {
-                _cleanup_close_ int tree_fd = -EBADF;
+                _cleanup_(closep) int tree_fd = -EBADF;
 
                 tree_fd = open_tree(-EBADF, *ol, /* flags= */ 0);
                 if (tree_fd < 0)
@@ -3934,7 +3934,7 @@ static int refresh_apply_and_prune(const NamespaceParameters *p, MountList *ml) 
                                         if (m->mode != MOUNT_OVERLAY)
                                                 continue;
 
-                                        _cleanup_strv_free_ char **pruned = NULL;
+                                        _cleanup_(strv_freep) char **pruned = NULL;
 
                                         STRV_FOREACH(ol, m->overlay_layers)
                                                 if (!path_startswith(*ol, mount_entry_path(f))) {
@@ -3964,11 +3964,11 @@ int refresh_extensions_in_namespace(
                 const char *hierarchy_env,
                 const NamespaceParameters *p) {
 
-        _cleanup_close_ int mntns_fd = -EBADF, root_fd = -EBADF, pidns_fd = -EBADF;
+        _cleanup_(closep) int mntns_fd = -EBADF, root_fd = -EBADF, pidns_fd = -EBADF;
         const char *overlay_prefix = "/run/systemd/mount-rootfs";
         _cleanup_(mount_list_done) MountList ml = {};
         _cleanup_free_ char *extension_dir = NULL;
-        _cleanup_strv_free_ char **hierarchies = NULL;
+        _cleanup_(strv_freep) char **hierarchies = NULL;
         int r;
 
         assert(pidref_is_set(target));
@@ -4028,7 +4028,7 @@ int refresh_extensions_in_namespace(
                 return r;
         if (r == 0) {
                 /* Child (host namespace) */
-                _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
+                _cleanup_(close_pairp) int pair[2] = EBADF_PAIR;
                 _cleanup_(pidref_done_sigkill_wait) PidRef grandchild = PIDREF_NULL;
 
                  (void) mkdir_p_label(overlay_prefix, 0555);

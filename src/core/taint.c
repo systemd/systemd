@@ -83,7 +83,7 @@ char** taint_strv(void) {
 }
 
 char* taint_string(void) {
-        _cleanup_strv_free_ char **taints = NULL;
+        _cleanup_(strv_freep) char **taints = NULL;
 
         taints = taint_strv();
         if (!taints)

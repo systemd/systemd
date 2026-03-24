@@ -78,8 +78,8 @@ static EFI_STATUS try_gpt(
                 HARDDRIVE_DEVICE_PATH *ret_hd) {
 
         EFI_PARTITION_ENTRY *entries;
-        _cleanup_pages_ Pages gpt_pages = {};
-        _cleanup_pages_ Pages entries_pages = {};
+        _cleanup_(free_pages) Pages gpt_pages = {};
+        _cleanup_(free_pages) Pages entries_pages = {};
         GptHeader *gpt;
         EFI_STATUS err;
         uint32_t crc32;

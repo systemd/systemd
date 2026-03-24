@@ -102,7 +102,7 @@ static int restrict_ifaces_install_impl(Unit *u, CGroupRuntime *crt) {
         _cleanup_(bpf_link_freep) struct bpf_link *egress_link = NULL, *ingress_link = NULL;
         _cleanup_(restrict_ifaces_bpf_freep) struct restrict_ifaces_bpf *obj = NULL;
         _cleanup_free_ char *cgroup_path = NULL;
-        _cleanup_close_ int cgroup_fd = -EBADF;
+        _cleanup_(closep) int cgroup_fd = -EBADF;
         int r;
 
         assert(u);

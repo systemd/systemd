@@ -8,7 +8,7 @@
 #include "tests.h"
 
 int main(int argc, char *argv[]) {
-        _cleanup_close_ int sfd = -EBADF, dfd = -EBADF;
+        _cleanup_(closep) int sfd = -EBADF, dfd = -EBADF;
         int r;
 
         test_setup_logging(LOG_DEBUG);

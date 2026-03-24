@@ -208,7 +208,7 @@ int convert_meminfo_value_to_uint64_bytes(const char *s, uint64_t *ret) {
 
 int procfs_memory_get(uint64_t *ret_total, uint64_t *ret_used) {
         uint64_t mem_total = UINT64_MAX, mem_available = UINT64_MAX;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r;
 
         f = fopen("/proc/meminfo", "re");

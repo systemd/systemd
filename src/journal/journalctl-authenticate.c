@@ -62,7 +62,7 @@ static int format_key(
 int action_setup_keys(void) {
 #if HAVE_GCRYPT
         _cleanup_(unlink_and_freep) char *tmpfile = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         _cleanup_free_ char *path = NULL;
         size_t mpk_size, seed_size, state_size;
         uint8_t *mpk, *seed, *state;

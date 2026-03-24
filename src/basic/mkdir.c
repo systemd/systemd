@@ -143,7 +143,7 @@ int mkdirat_parents_internal(int dir_fd, const char *path, mode_t mode, uid_t ui
 }
 
 int mkdir_parents_internal(const char *prefix, const char *path, mode_t mode, uid_t uid, gid_t gid, MkdirFlags flags, mkdirat_func_t _mkdirat) {
-        _cleanup_close_ int fd = AT_FDCWD;
+        _cleanup_(closep) int fd = AT_FDCWD;
         const char *p;
 
         assert(path);
@@ -205,7 +205,7 @@ int mkdir_p_safe(const char *prefix, const char *path, mode_t mode, uid_t uid, g
 
 int mkdir_p_root_full(const char *root, const char *p, uid_t uid, gid_t gid, mode_t m, usec_t ts, Hashmap *subvolumes) {
         _cleanup_free_ char *pp = NULL, *bn = NULL;
-        _cleanup_close_ int dfd = -EBADF;
+        _cleanup_(closep) int dfd = -EBADF;
         int r;
 
         assert(p);
@@ -245,7 +245,7 @@ int mkdir_p_root_full(const char *root, const char *p, uid_t uid, gid_t gid, mod
                         flags |= XO_NOCOW;
         }
 
-        _cleanup_close_ int nfd = xopenat_full(
+        _cleanup_(closep) int nfd = xopenat_full(
                                 dfd, bn,
                                 O_DIRECTORY|O_CREAT|O_EXCL|O_NOFOLLOW|O_CLOEXEC,
                                 flags,

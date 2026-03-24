@@ -28,7 +28,7 @@ static bool arg_dry_run = false;
 static int resize_crypt_luks_device(dev_t devno, const char *fstype, dev_t main_devno) {
         _cleanup_free_ char *devpath = NULL, *main_devpath = NULL;
         _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
-        _cleanup_close_ int main_devfd = -EBADF;
+        _cleanup_(closep) int main_devfd = -EBADF;
         uint64_t size;
         int r;
 
@@ -198,7 +198,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_close_ int mountfd = -EBADF, devfd = -EBADF;
+        _cleanup_(closep) int mountfd = -EBADF, devfd = -EBADF;
         _cleanup_free_ char *devpath = NULL;
         uint64_t size, newsize;
         dev_t devno;

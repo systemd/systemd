@@ -145,7 +145,7 @@ int logind_reboot(enum action a) {
 int logind_check_inhibitors(enum action a) {
 #if ENABLE_LOGIND
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_strv_free_ char **sessions = NULL;
+        _cleanup_(strv_freep) char **sessions = NULL;
         const char *what, *who, *why, *mode;
         uint32_t uid, pid;
         sd_bus *bus;
@@ -185,7 +185,7 @@ int logind_check_inhibitors(enum action a) {
 
         while ((r = sd_bus_message_read(reply, "(ssssuu)", &what, &who, &why, &mode, &uid, &pid)) > 0) {
                 _cleanup_free_ char *comm = NULL, *user = NULL;
-                _cleanup_strv_free_ char **sv = NULL;
+                _cleanup_(strv_freep) char **sv = NULL;
 
                 if (!STR_IN_SET(mode, "block", "block-weak"))
                         continue;
@@ -451,7 +451,7 @@ int logind_show_shutdown(void) {
 int help_boot_loader_entry(void) {
 #if ENABLE_LOGIND
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         sd_bus *bus;
         int r;
 

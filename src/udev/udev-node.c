@@ -162,7 +162,7 @@ finalize:
 }
 
 static int stack_directory_find_prioritized_devnode(sd_device *dev, int dirfd, bool add, char **ret) {
-        _cleanup_closedir_ DIR *dir = NULL;
+        _cleanup_(closedirp) DIR *dir = NULL;
         _cleanup_free_ char *devnode = NULL;
         int r, priority;
         const char *id;
@@ -352,7 +352,7 @@ static int stack_directory_open_and_lock(
                 LockFile *ret_lockfile) {
 
         _cleanup_(release_lock_file) LockFile lockfile = LOCK_FILE_INIT;
-        _cleanup_close_ int dirfd = -EBADF;
+        _cleanup_(closep) int dirfd = -EBADF;
         _cleanup_free_ char *name = NULL, *dirpath = NULL, *lockname = NULL;
         int r;
 
@@ -437,7 +437,7 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
          * Hence, the variables must be declared in the reverse order. */
         _cleanup_(release_lock_file) LockFile lockfile = LOCK_FILE_INIT; /* #3 */
         _cleanup_(rmdir_and_freep) char *dirpath = NULL; /* #2 */
-        _cleanup_close_ int dirfd = -EBADF; /* #1 */
+        _cleanup_(closep) int dirfd = -EBADF; /* #1 */
         _cleanup_free_ char *current_id = NULL;
         int r, current_prio;
 
@@ -741,7 +741,7 @@ int udev_node_apply_permissions(
                 OrderedHashmap *seclabel_list) {
 
         const char *devnode;
-        _cleanup_close_ int node_fd = -EBADF;
+        _cleanup_(closep) int node_fd = -EBADF;
         int r;
 
         assert(dev);
@@ -771,7 +771,7 @@ int static_node_apply_permissions(
                 char **tags) {
 
         _cleanup_free_ char *unescaped_filename = NULL;
-        _cleanup_close_ int node_fd = -EBADF;
+        _cleanup_(closep) int node_fd = -EBADF;
         const char *devnode;
         struct stat stats;
         int r;

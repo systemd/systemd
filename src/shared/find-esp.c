@@ -329,7 +329,7 @@ static int verify_esp(
         bool searching = FLAGS_SET(flags, VERIFY_ESP_SEARCHING),
                 unprivileged_mode = FLAGS_SET(flags, VERIFY_ESP_UNPRIVILEGED_MODE);
         _cleanup_free_ char *p = NULL;
-        _cleanup_close_ int pfd = -EBADF;
+        _cleanup_(closep) int pfd = -EBADF;
         dev_t devid = 0;
         int r;
 
@@ -459,7 +459,7 @@ int find_esp_and_warn_at_full(
         path = getenv("SYSTEMD_ESP_PATH");
         if (path) {
                 _cleanup_free_ char *p = NULL;
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
                 struct stat st;
 
                 if (!path_is_valid(path) || !path_is_absolute(path))
@@ -520,7 +520,7 @@ int find_esp_and_warn_full(
                 sd_id128_t *ret_uuid,
                 dev_t *ret_devid) {
 
-        _cleanup_close_ int rfd = -EBADF;
+        _cleanup_(closep) int rfd = -EBADF;
         _cleanup_free_ char *p = NULL;
         uint32_t part;
         uint64_t pstart, psize;
@@ -736,7 +736,7 @@ static int verify_xbootldr(
                 dev_t *ret_devid) {
 
         _cleanup_free_ char *p = NULL;
-        _cleanup_close_ int pfd = -EBADF;
+        _cleanup_(closep) int pfd = -EBADF;
         bool searching = FLAGS_SET(flags, VERIFY_ESP_SEARCHING),
                 unprivileged_mode = FLAGS_SET(flags, VERIFY_ESP_UNPRIVILEGED_MODE);
         dev_t devid = 0;
@@ -815,7 +815,7 @@ int find_xbootldr_and_warn_at_full(
         path = getenv("SYSTEMD_XBOOTLDR_PATH");
         if (path) {
                 _cleanup_free_ char *p = NULL;
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
                 struct stat st;
 
                 if (!path_is_valid(path) || !path_is_absolute(path))
@@ -861,7 +861,7 @@ int find_xbootldr_and_warn_full(
                 sd_id128_t *ret_uuid,
                 dev_t *ret_devid) {
 
-        _cleanup_close_ int rfd = -EBADF;
+        _cleanup_(closep) int rfd = -EBADF;
         _cleanup_free_ char *p = NULL;
         sd_id128_t uuid;
         dev_t devid;

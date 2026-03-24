@@ -69,7 +69,7 @@ int load_volume_key_password(
                 };
 
                 for (;;) {
-                        _cleanup_strv_free_erase_ char **passwords = NULL;
+                        _cleanup_(strv_free_erasep) char **passwords = NULL;
 
                         if (--i == 0)
                                 return log_error_errno(SYNTHETIC_ERRNO(ENOKEY),
@@ -146,7 +146,7 @@ int enroll_password(
                 };
 
                 for (;;) {
-                        _cleanup_strv_free_erase_ char **passwords = NULL, **passwords2 = NULL;
+                        _cleanup_(strv_free_erasep) char **passwords = NULL, **passwords2 = NULL;
                         _cleanup_free_ char *question = NULL;
 
                         if (--i == 0)

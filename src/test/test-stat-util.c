@@ -79,7 +79,7 @@ TEST(null_or_empty_path_with_root) {
 }
 
 TEST(inode_same) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-files_same.XXXXXX";
         _cleanup_(unlink_tempfilep) char name_alias[] = "/tmp/test-files_same.alias";
         int r;
@@ -96,7 +96,7 @@ TEST(inode_same) {
         assert_se(inode_same("/proc", "/proc", 0));
         assert_se(inode_same("/proc", "/proc", AT_SYMLINK_NOFOLLOW));
 
-        _cleanup_close_ int fd1 = open("/dev/null", O_CLOEXEC|O_RDONLY),
+        _cleanup_(closep) int fd1 = open("/dev/null", O_CLOEXEC|O_RDONLY),
                 fd2 = open("/dev/null", O_CLOEXEC|O_RDONLY);
 
         assert_se(fd1 >= 0);
@@ -139,7 +139,7 @@ TEST(inode_same) {
 TEST(is_symlink) {
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-is_symlink.XXXXXX";
         _cleanup_(unlink_tempfilep) char name_link[] = "/tmp/test-is_symlink.link";
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         fd = mkostemp_safe(name);
         assert_se(fd >= 0);
@@ -250,7 +250,7 @@ TEST(inode_type_from_string) {
 }
 
 TEST(anonymous_inode) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
 
         fd = eventfd(0, EFD_CLOEXEC);
         assert_se(fd >= 0);
@@ -266,7 +266,7 @@ TEST(anonymous_inode) {
 
 TEST(fd_verify_linked) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
-        _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
+        _cleanup_(closep) int tfd = -EBADF, fd = -EBADF;
         _cleanup_free_ char *p = NULL;
 
         tfd = mkdtemp_open(NULL, O_PATH, &t);

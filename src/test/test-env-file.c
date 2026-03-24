@@ -63,7 +63,7 @@ TEST(load_env_file_1) {
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-load-env-file.XXXXXX";
         assert_se(write_tmpfile(name, env_file_1) == 0);
 
-        _cleanup_strv_free_ char **data = NULL;
+        _cleanup_(strv_freep) char **data = NULL;
         assert_se(load_env_file(NULL, name, &data) == 0);
         ASSERT_STREQ(data[0], "a=a");
         ASSERT_STREQ(data[1], "b=bc");
@@ -78,7 +78,7 @@ TEST(load_env_file_2) {
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-load-env-file.XXXXXX";
         assert_se(write_tmpfile(name, env_file_2) == 0);
 
-        _cleanup_strv_free_ char **data = NULL;
+        _cleanup_(strv_freep) char **data = NULL;
         assert_se(load_env_file(NULL, name, &data) == 0);
         ASSERT_STREQ(data[0], "a=a");
         ASSERT_NULL(data[1]);
@@ -88,7 +88,7 @@ TEST(load_env_file_3) {
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-load-env-file.XXXXXX";
         assert_se(write_tmpfile(name, env_file_3) == 0);
 
-        _cleanup_strv_free_ char **data = NULL;
+        _cleanup_(strv_freep) char **data = NULL;
         assert_se(load_env_file(NULL, name, &data) == 0);
         ASSERT_STREQ(data[0], "normal1=line111");
         ASSERT_STREQ(data[1], "normal2=line222");
@@ -99,7 +99,7 @@ TEST(load_env_file_4) {
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-load-env-file.XXXXXX";
         assert_se(write_tmpfile(name, env_file_4) == 0);
 
-        _cleanup_strv_free_ char **data = NULL;
+        _cleanup_(strv_freep) char **data = NULL;
         assert_se(load_env_file(NULL, name, &data) == 0);
         ASSERT_STREQ(data[0], "HWMON_MODULES=coretemp f71882fg");
         ASSERT_STREQ(data[1], "MODULE_0=coretemp");
@@ -111,7 +111,7 @@ TEST(load_env_file_5) {
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-load-env-file.XXXXXX";
         assert_se(write_tmpfile(name, env_file_5) == 0);
 
-        _cleanup_strv_free_ char **data = NULL;
+        _cleanup_(strv_freep) char **data = NULL;
         assert_se(load_env_file(NULL, name, &data) == 0);
         ASSERT_STREQ(data[0], "a=");
         ASSERT_STREQ(data[1], "b=");
@@ -122,7 +122,7 @@ TEST(load_env_file_6) {
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-load-env-file.XXXXXX";
         assert_se(write_tmpfile(name, env_file_6) == 0);
 
-        _cleanup_strv_free_ char **data = NULL;
+        _cleanup_(strv_freep) char **data = NULL;
         assert_se(load_env_file(NULL, name, &data) == 0);
         ASSERT_STREQ(data[0], "a= n t x y '");
         ASSERT_STREQ(data[1], "b=$'");
@@ -144,7 +144,7 @@ TEST(load_env_file_invalid_utf8) {
                 _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-load-env-file.XXXXXX";
                 assert_se(write_tmpfile(name, s) == 0);
 
-                _cleanup_strv_free_ char **data = NULL;
+                _cleanup_(strv_freep) char **data = NULL;
                 assert_se(load_env_file(NULL, name, &data) == -EINVAL);
                 assert_se(!data);
         }
@@ -164,9 +164,9 @@ TEST(write_and_load_env_file) {
                        "dollar$dollar",
                        "newline\nnewline") {
                 _cleanup_(unlink_and_freep) char *p = NULL;
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_(strv_freep) char **l = NULL;
                 _cleanup_free_ char *j = NULL, *w = NULL, *cmd = NULL, *from_shell = NULL;
-                _cleanup_pclose_ FILE *f = NULL;
+                _cleanup_(pclosep) FILE *f = NULL;
                 size_t sz;
 
                 assert_se(tempfn_random_child(NULL, NULL, &p) >= 0);
@@ -196,7 +196,7 @@ TEST(parse_env_file) {
         _cleanup_free_ char *one = NULL, *two = NULL, *three = NULL, *four = NULL, *five = NULL,
                         *six = NULL, *seven = NULL, *eight = NULL, *nine = NULL, *ten = NULL,
                         *eleven = NULL, *twelve = NULL, *thirteen = NULL;
-        _cleanup_strv_free_ char **a = NULL, **b = NULL;
+        _cleanup_(strv_freep) char **a = NULL, **b = NULL;
         unsigned k;
 
         ASSERT_OK(fmkostemp_safe(t, "w", &f));
@@ -298,7 +298,7 @@ TEST(parse_env_file) {
         ASSERT_STREQ(thirteen, "\\value");
 
         /* prepare a temporary file to write the environment to */
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         ASSERT_OK(fd = mkostemp_safe(p));
 
         ASSERT_OK(write_env_file(AT_FDCWD, p, /* headers= */ NULL, a, /* flags= */ 0));
@@ -307,7 +307,7 @@ TEST(parse_env_file) {
 
 static void test_one_shell_var(const char *file, const char *variable, const char *value) {
         _cleanup_free_ char *cmd = NULL, *from_shell = NULL;
-        _cleanup_pclose_ FILE *f = NULL;
+        _cleanup_(pclosep) FILE *f = NULL;
         size_t sz;
 
         ASSERT_NOT_NULL(cmd = strjoin(". ", file, " && /bin/echo -n \"$", variable, "\""));
@@ -322,7 +322,7 @@ TEST(parse_multiline_env_file) {
                 t[] = "/tmp/test-fileio-in-XXXXXX",
                 p[] = "/tmp/test-fileio-out-XXXXXX";
         FILE *f;
-        _cleanup_strv_free_ char **a = NULL, **b = NULL;
+        _cleanup_(strv_freep) char **a = NULL, **b = NULL;
 
         ASSERT_OK(fmkostemp_safe(t, "w", &f));
         fputs("one=BAR\\\n"
@@ -354,7 +354,7 @@ TEST(parse_multiline_env_file) {
         ASSERT_STREQ(a[2], "tri=bar     var \tgar ");
         ASSERT_NULL(a[3]);
 
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         ASSERT_OK(fd = mkostemp_safe(p));
 
         ASSERT_OK(write_env_file(AT_FDCWD, p, /* headers= */ NULL, a, /* flags= */ 0));
@@ -363,8 +363,8 @@ TEST(parse_multiline_env_file) {
 
 TEST(merge_env_file) {
         _cleanup_(unlink_tempfilep) char t[] = "/tmp/test-fileio-XXXXXX";
-        _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_strv_free_ char **a = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
+        _cleanup_(strv_freep) char **a = NULL;
 
         ASSERT_OK(fmkostemp_safe(t, "w", &f));
 
@@ -421,8 +421,8 @@ TEST(merge_env_file) {
 
 TEST(merge_env_file_invalid) {
         _cleanup_(unlink_tempfilep) char t[] = "/tmp/test-fileio-XXXXXX";
-        _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_strv_free_ char **a = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
+        _cleanup_(strv_freep) char **a = NULL;
 
         ASSERT_OK(fmkostemp_safe(t, "w", &f));
 
@@ -473,8 +473,8 @@ static void check_file_pairs_one(char **l) {
 
 TEST(load_env_file_pairs) {
         _cleanup_(unlink_tempfilep) char fn[] = "/tmp/test-load_env_file_pairs-XXXXXX";
-        _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         int fd;
 
         ASSERT_OK(fd = mkostemp_safe(fn));

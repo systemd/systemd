@@ -10,8 +10,8 @@
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/fuzz-catalog.XXXXXX";
-        _cleanup_close_ int fd = -EBADF;
-        _cleanup_ordered_hashmap_free_ OrderedHashmap *h = NULL;
+        _cleanup_(closep) int fd = -EBADF;
+        _cleanup_(ordered_hashmap_freep) OrderedHashmap *h = NULL;
 
         fuzz_setup_logging();
 

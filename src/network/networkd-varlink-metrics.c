@@ -155,7 +155,7 @@ static int vl_method_metrics_list(sd_varlink *link, sd_json_variant *parameters,
 }
 
 int manager_varlink_metrics_init(Manager *m, int fd) {
-        _unused_ _cleanup_close_ int fd_close = fd; /* take possession */
+        _unused_ _cleanup_(closep) int fd_close = fd; /* take possession */
         int r;
 
         assert(m);

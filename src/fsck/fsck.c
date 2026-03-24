@@ -174,7 +174,7 @@ static double percent(int pass, unsigned long cur, unsigned long max) {
 }
 
 static int process_progress(int fd, FILE* console) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         usec_t last = 0;
         bool locked = false;
         int clear = 0, r;
@@ -244,7 +244,7 @@ static int process_progress(int fd, FILE* console) {
 }
 
 static int fsck_progress_socket(void) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         fd = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -260,10 +260,10 @@ static int fsck_progress_socket(void) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_close_pair_ int progress_pipe[2] = EBADF_PAIR;
+        _cleanup_(close_pairp) int progress_pipe[2] = EBADF_PAIR;
         _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
         _cleanup_free_ char *dpath = NULL;
-        _cleanup_fclose_ FILE *console = NULL;
+        _cleanup_(fclosep) FILE *console = NULL;
         const char *device, *type;
         bool root_directory;
         struct stat st;

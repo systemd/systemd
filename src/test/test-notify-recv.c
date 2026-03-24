@@ -30,7 +30,7 @@ static int on_recv(sd_event_source *s, int fd, uint32_t revents, void *userdata)
 
         _cleanup_(fdset_free_asyncp) FDSet *fds = NULL;
         _cleanup_(pidref_done) PidRef sender = PIDREF_NULL;
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_(strv_freep) char **l = NULL;
         struct ucred ucred;
         ASSERT_OK(notify_recv_with_fds_strv(fd, &l, &ucred, &sender, &fds));
 
@@ -95,9 +95,9 @@ TEST(notify_socket_prepare) {
                 ASSERT_OK_ERRNO(setenv("NOTIFY_SOCKET", path, /* overwrite= */ true));
                 ASSERT_OK_POSITIVE(sd_notify(/* unset_environment= */ false, "FIRST_MESSAGE=1"));
 
-                _cleanup_close_ int fd1 = open("/tmp", O_RDONLY|O_CLOEXEC|O_DIRECTORY);
+                _cleanup_(closep) int fd1 = open("/tmp", O_RDONLY|O_CLOEXEC|O_DIRECTORY);
                 ASSERT_OK_ERRNO(fd1);
-                _cleanup_close_ int fd2 = open("/dev/null", O_RDONLY|O_CLOEXEC);
+                _cleanup_(closep) int fd2 = open("/dev/null", O_RDONLY|O_CLOEXEC);
                 ASSERT_OK_ERRNO(fd2);
 
                 ASSERT_OK_POSITIVE(

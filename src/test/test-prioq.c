@@ -61,7 +61,7 @@ DEFINE_PRIVATE_HASH_OPS(test_hash_ops, struct test, test_hash, test_compare);
 
 TEST(struct) {
         _cleanup_(prioq_freep) Prioq *q = NULL;
-        _cleanup_set_free_ Set *s = NULL;
+        _cleanup_(set_freep) Set *s = NULL;
         unsigned previous = 0, i;
         struct test *t;
 

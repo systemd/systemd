@@ -204,7 +204,7 @@ finish:
  * 'new_h' is of the form { key: cgroup paths -> value: OomdCGroupContext } */
 static int recursively_get_cgroup_context(Hashmap *new_h, const char *path) {
         _cleanup_free_ char *subpath = NULL;
-        _cleanup_closedir_ DIR *d = NULL;
+        _cleanup_(closedirp) DIR *d = NULL;
         int r;
 
         assert(new_h);
@@ -257,7 +257,7 @@ static int recursively_get_cgroup_context(Hashmap *new_h, const char *path) {
 }
 
 static int update_monitored_cgroup_contexts(Hashmap **monitored_cgroups) {
-        _cleanup_hashmap_free_ Hashmap *new_base = NULL;
+        _cleanup_(hashmap_freep) Hashmap *new_base = NULL;
         OomdCGroupContext *ctx;
         int r;
 
@@ -283,7 +283,7 @@ static int update_monitored_cgroup_contexts(Hashmap **monitored_cgroups) {
 }
 
 static int get_monitored_cgroup_contexts_candidates(Hashmap *monitored_cgroups, Hashmap **ret_candidates) {
-        _cleanup_hashmap_free_ Hashmap *candidates = NULL;
+        _cleanup_(hashmap_freep) Hashmap *candidates = NULL;
         OomdCGroupContext *ctx;
         int r;
 
@@ -308,7 +308,7 @@ static int get_monitored_cgroup_contexts_candidates(Hashmap *monitored_cgroups, 
 }
 
 static int update_monitored_cgroup_contexts_candidates(Hashmap *monitored_cgroups, Hashmap **candidates) {
-        _cleanup_hashmap_free_ Hashmap *new_candidates = NULL;
+        _cleanup_(hashmap_freep) Hashmap *new_candidates = NULL;
         int r;
 
         assert(monitored_cgroups);
@@ -391,7 +391,7 @@ static int monitor_swap_contexts_handler(sd_event_source *s, uint64_t usec, void
         /* Check amount of memory available and swap free so we don't free up swap when memory is still available. */
         if (oomd_mem_available_below(&m->system_context, 10000 - m->swap_used_limit_permyriad) &&
                         oomd_swap_free_below(&m->system_context, 10000 - m->swap_used_limit_permyriad)) {
-                _cleanup_hashmap_free_ Hashmap *candidates = NULL;
+                _cleanup_(hashmap_freep) Hashmap *candidates = NULL;
                 OomdCGroupContext *selected = NULL;
                 uint64_t threshold;
 
@@ -446,7 +446,7 @@ static int monitor_memory_pressure_contexts_handler(sd_event_source *s, uint64_t
         /* Don't want to use stale candidate data. Setting this will clear the candidate hashmap on return unless we
          * update the candidate data (in which case clear_candidates will be NULL). */
         _unused_ _cleanup_(clear_candidate_hashmapp) Manager *clear_candidates = userdata;
-        _cleanup_set_free_ Set *targets = NULL;
+        _cleanup_(set_freep) Set *targets = NULL;
         bool in_post_action_delay = false;
         Manager *m = ASSERT_PTR(userdata);
         usec_t usec_now;

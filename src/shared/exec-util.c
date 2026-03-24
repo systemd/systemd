@@ -98,7 +98,7 @@ static int do_execute(
                 char *envp[],
                 ExecDirFlags flags) {
 
-        _cleanup_hashmap_free_ Hashmap *pids = NULL;
+        _cleanup_(hashmap_freep) Hashmap *pids = NULL;
         bool parallel_execution;
         int r;
 
@@ -125,7 +125,7 @@ static int do_execute(
 
         STRV_FOREACH(path, paths) {
                 _cleanup_free_ char *t = NULL;
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
 
                 t = path_join(root, *path);
                 if (!t)
@@ -248,7 +248,7 @@ int execute_strv(
                 char *envp[],
                 ExecDirFlags flags) {
 
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         assert(name);
@@ -313,7 +313,7 @@ int execute_directories(
                 char *envp[],
                 ExecDirFlags flags) {
 
-        _cleanup_strv_free_ char **paths = NULL;
+        _cleanup_(strv_freep) char **paths = NULL;
         int r;
 
         assert(name);
@@ -338,8 +338,8 @@ int execute_directories(
 
 static int gather_environment_generate(int fd, void *arg) {
         char ***env = ASSERT_PTR(arg);
-        _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_strv_free_ char **new = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
+        _cleanup_(strv_freep) char **new = NULL;
         int r;
 
         /* Read a series of VAR=value assignments from fd, use them to update the list of variables in env.
@@ -379,7 +379,7 @@ static int gather_environment_generate(int fd, void *arg) {
 
 static int gather_environment_collect(int fd, void *arg) {
         char ***env = ASSERT_PTR(arg);
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r;
 
         /* Write out a series of env=cescape(VAR=value) assignments to fd. */
@@ -405,7 +405,7 @@ static int gather_environment_collect(int fd, void *arg) {
 
 static int gather_environment_consume(int fd, void *arg) {
         char ***env = ASSERT_PTR(arg);
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r, ret = 0;
 
         /* Read a series of env=cescape(VAR=value) assignments from fd into env. */
@@ -467,7 +467,7 @@ int exec_command_flags_from_strv(char * const *ex_opts, ExecCommandFlags *ret) {
 }
 
 int exec_command_flags_to_strv(ExecCommandFlags flags, char ***ret) {
-        _cleanup_strv_free_ char **opts = NULL;
+        _cleanup_(strv_freep) char **opts = NULL;
         int r;
 
         assert(flags >= 0);

@@ -11,7 +11,7 @@
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_(udev_rules_freep) UdevRules *rules = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         _cleanup_(unlink_tempfilep) char filename[] = "/tmp/fuzz-udev-rules.XXXXXX";
         int r;
 

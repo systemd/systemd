@@ -239,7 +239,7 @@ static void test_path_changed(Manager *m) {
 }
 
 static void test_path_modified(Manager *m) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         const char *test_path = "/tmp/test-path_modified";
         Unit *unit = NULL;
         Path *path = NULL;

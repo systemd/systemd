@@ -10,7 +10,7 @@
 #include "log.h"
 
 void lock_down_efi_variables(void) {
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         fd = open(EFIVAR_PATH(EFI_LOADER_VARIABLE_STR("LoaderSystemToken")), O_RDONLY|O_CLOEXEC);

@@ -74,7 +74,7 @@ int bus_message_read_home_record(sd_bus_message *m, UserRecordLoadFlags flags, U
 }
 
 int bus_message_read_blobs(sd_bus_message *m, Hashmap **ret, sd_bus_error *error) {
-        _cleanup_hashmap_free_ Hashmap *blobs = NULL;
+        _cleanup_(hashmap_freep) Hashmap *blobs = NULL;
         int r;
 
         assert(m);
@@ -92,7 +92,7 @@ int bus_message_read_blobs(sd_bus_message *m, Hashmap **ret, sd_bus_error *error
 
         for (;;) {
                 _cleanup_free_ char *filename = NULL;
-                _cleanup_close_ int fd = -EBADF;
+                _cleanup_(closep) int fd = -EBADF;
                 const char *_filename = NULL;
                 int _fd;
 

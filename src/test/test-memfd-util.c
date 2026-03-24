@@ -9,7 +9,7 @@
 
 TEST(memfd_get_sealed) {
 #define TEST_TEXT "this is some random test text we are going to write to a memfd"
-        _cleanup_close_ int fd = memfd_new_full("test-memfd-get-sealed", MFD_ALLOW_SEALING);
+        _cleanup_(closep) int fd = memfd_new_full("test-memfd-get-sealed", MFD_ALLOW_SEALING);
         if (fd < 0) {
                 ASSERT_TRUE(ERRNO_IS_NOT_SUPPORTED(fd));
                 return (void) log_tests_skipped_errno(fd, "Failed to create new memfd");

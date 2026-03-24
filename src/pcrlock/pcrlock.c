@@ -1144,7 +1144,7 @@ static int event_log_record_parse_json(EventLogRecord *record, sd_json_variant *
 }
 
 static int event_log_load_userspace(EventLog *el) {
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         _cleanup_free_ char *b = NULL;
         bool beginning = true;
         const char *path;
@@ -1770,7 +1770,7 @@ static int event_log_add_component_file(EventLog *el, EventLogComponent *compone
 
 static int event_log_add_component_dir(EventLog *el, const char *path, char **base_search) {
         _cleanup_free_ char *fname = NULL, *id = NULL;
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_(strv_freep) char **files = NULL;
         EventLogComponent *component;
         const char *e;
         int r;
@@ -1793,7 +1793,7 @@ static int event_log_add_component_dir(EventLog *el, const char *path, char **ba
         if (r < 0)
                 return r;
 
-        _cleanup_strv_free_ char **search = NULL;
+        _cleanup_(strv_freep) char **search = NULL;
 
         STRV_FOREACH(b, base_search) {
                 _cleanup_free_ char *q = NULL;
@@ -1823,7 +1823,7 @@ static int event_log_add_component_dir(EventLog *el, const char *path, char **ba
 }
 
 static int event_log_load_components(EventLog *el) {
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_(strv_freep) char **files = NULL;
         char **dirs;
         int r;
 
@@ -2905,7 +2905,7 @@ static const char *pcrlock_path(const char *default_pcrlock_path) {
 
 static int write_pcrlock(sd_json_variant *array, const char *default_pcrlock_path) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *a = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         const char *p;
         int r;
 
@@ -2964,7 +2964,7 @@ static int unlink_pcrlock(const char *default_pcrlock_path) {
 
 static int verb_lock_raw(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *records = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         int r;
 
         if (arg_pcr_mask == 0)
@@ -3269,7 +3269,7 @@ static int verb_lock_gpt(int argc, char *argv[], uintptr_t _data, void *userdata
         _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         uint8_t h[2 * 4096]; /* space for at least two 4K sectors. GPT header should definitely be in here */
         uint64_t start, n_members, member_size;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         const GptHeader *p;
         size_t found = 0;
         ssize_t n;
@@ -3717,7 +3717,7 @@ static int verb_unlock_file_system(int argc, char *argv[], uintptr_t _data, void
 
 static int verb_lock_pe(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         // FIXME: Maybe also generate a matching EV_EFI_VARIABLE_AUTHORITY records here for each signature that
@@ -3783,7 +3783,7 @@ static int verb_lock_uki(int argc, char *argv[], uintptr_t _data, void *userdata
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL, *pe_digests = NULL;
         _cleanup_(section_hashes_array_done) SectionHashArray section_hashes = {};
         size_t hash_sizes[TPM2_N_HASH_ALGORITHMS];
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_(closep) int fd = -EBADF;
         int r;
 
         if (arg_pcr_mask != 0)
@@ -3917,7 +3917,7 @@ static int verb_unlock_kernel_cmdline(int argc, char *argv[], uintptr_t _data, v
 
 static int verb_lock_kernel_initrd(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *records = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_(fclosep) FILE *f = NULL;
         uint32_t pcr_mask = UINT32_C(1) << TPM2_PCR_KERNEL_INITRD;
         int r;
 
@@ -4614,7 +4614,7 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to acquire PIN from environment: %m");
                 if (r == 0) {
-                        _cleanup_strv_free_erase_ char **l = NULL;
+                        _cleanup_(strv_free_erasep) char **l = NULL;
 
                         AskPasswordRequest req = {
                                 .tty_fd = -EBADF,

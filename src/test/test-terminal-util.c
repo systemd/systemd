@@ -31,7 +31,7 @@ TEST(colors_enabled) {
 }
 
 TEST(read_one_char) {
-        _cleanup_fclose_ FILE *file = NULL;
+        _cleanup_(fclosep) FILE *file = NULL;
         char r;
         bool need_nl;
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-read_one_char.XXXXXX";
@@ -58,7 +58,7 @@ TEST(read_one_char) {
 
 TEST(getttyname_malloc) {
         _cleanup_free_ char *ttyname = NULL;
-        _cleanup_close_ int master = -EBADF;
+        _cleanup_(closep) int master = -EBADF;
 
         assert_se((master = posix_openpt(O_RDWR|O_NOCTTY)) >= 0);
         assert_se(getttyname_malloc(master, &ttyname) >= 0);
@@ -235,7 +235,7 @@ TEST(terminal_get_terminfo_by_dcs) {
         int r;
 
         /* We need a non-blocking read-write fd. */
-        _cleanup_close_ int fd = fd_reopen(STDIN_FILENO, O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
+        _cleanup_(closep) int fd = fd_reopen(STDIN_FILENO, O_RDWR|O_CLOEXEC|O_NONBLOCK|O_NOCTTY);
         if (fd < 0)
                 return (void) log_info_errno(fd, "Cannot reopen stdin in read-write mode: %m");
 
@@ -279,7 +279,7 @@ TEST(query_term_for_tty) {
 }
 
 TEST(terminal_is_pty_fd) {
-        _cleanup_close_ int fd1 = -EBADF, fd2 = -EBADF;
+        _cleanup_(closep) int fd1 = -EBADF, fd2 = -EBADF;
         int r;
 
         fd1 = openpt_allocate(O_RDWR, /* ret_peer_path= */ NULL);
@@ -303,7 +303,7 @@ TEST(terminal_is_pty_fd) {
                 return;
 
         FOREACH_STRING(p, "/dev/ttyS0", "/dev/tty1") {
-                _cleanup_close_ int tfd = -EBADF;
+                _cleanup_(closep) int tfd = -EBADF;
 
                 tfd = open_terminal(p, O_CLOEXEC|O_NOCTTY|O_RDONLY|O_NONBLOCK);
                 if (tfd == -ENOENT)
@@ -374,7 +374,7 @@ TEST(terminal_reset_defensive) {
 }
 
 TEST(pty_open_peer) {
-        _cleanup_close_ int pty_fd = -EBADF, peer_fd = -EBADF;
+        _cleanup_(closep) int pty_fd = -EBADF, peer_fd = -EBADF;
         _cleanup_free_ char *pty_path = NULL;
 
         pty_fd = openpt_allocate(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK, &pty_path);
@@ -394,7 +394,7 @@ TEST(pty_open_peer) {
 }
 
 TEST(terminal_new_session) {
-        _cleanup_close_ int pty_fd = -EBADF, peer_fd = -EBADF;
+        _cleanup_(closep) int pty_fd = -EBADF, peer_fd = -EBADF;
         int r;
 
         ASSERT_OK(pty_fd = openpt_allocate(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK, NULL));

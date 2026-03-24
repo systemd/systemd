@@ -106,7 +106,7 @@ int install_file(int source_atfd, const char *source_name,
                  int target_atfd, const char *target_name,
                  InstallFileFlags flags) {
 
-        _cleanup_close_ int rofd = -EBADF;
+        _cleanup_(closep) int rofd = -EBADF;
         int r;
 
         /* Moves a file or directory tree into place, with some bells and whistles:
@@ -126,7 +126,7 @@ int install_file(int source_atfd, const char *source_name,
          * target_name=NULL and flags=0 this call is a NOP */
 
         if (need_opath(flags)) {
-                _cleanup_close_ int pfd = -EBADF;
+                _cleanup_(closep) int pfd = -EBADF;
                 struct stat st;
 
                 /* Open an O_PATH fd for the source if we need to sync things or mark things read only. */
@@ -141,7 +141,7 @@ int install_file(int source_atfd, const char *source_name,
                 switch (st.st_mode & S_IFMT) {
 
                 case S_IFREG: {
-                        _cleanup_close_ int regfd = -EBADF;
+                        _cleanup_(closep) int regfd = -EBADF;
 
                         regfd = fd_reopen(pfd, O_RDONLY|O_CLOEXEC);
                         if (regfd < 0) {
@@ -174,7 +174,7 @@ int install_file(int source_atfd, const char *source_name,
                 }
 
                 case S_IFDIR: {
-                        _cleanup_close_ int dfd = -EBADF;
+                        _cleanup_(closep) int dfd = -EBADF;
 
                         dfd = fd_reopen(pfd, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
                         if (dfd < 0) {
@@ -230,7 +230,7 @@ int install_file(int source_atfd, const char *source_name,
                 if (flags & INSTALL_REPLACE) {
                         /* First, try a simple renamat(), maybe that's enough */
                         if (renameat(source_atfd, source_name, target_atfd, target_name) < 0) {
-                                _cleanup_close_ int dfd = -EBADF;
+                                _cleanup_(closep) int dfd = -EBADF;
 
                                 if (!IN_SET(errno, EEXIST, ENOTDIR, ENOTEMPTY, EISDIR, EBUSY))
                                         return -errno;

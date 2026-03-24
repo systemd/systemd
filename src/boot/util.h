@@ -75,7 +75,7 @@ typedef struct {
         size_t n_pages;
 } Pages;
 
-static inline void cleanup_pages(Pages *p) {
+static inline void free_pages(Pages *p) {
         if (p->n_pages == 0)
                 return;
 #ifdef EFI_DEBUG
@@ -84,8 +84,6 @@ static inline void cleanup_pages(Pages *p) {
         (void) BS->FreePages(p->addr, p->n_pages);
 #endif
 }
-
-#define _cleanup_pages_ _cleanup_(cleanup_pages)
 
 static inline Pages xmalloc_pages(
                 EFI_ALLOCATE_TYPE type, EFI_MEMORY_TYPE memory_type, size_t n_pages, EFI_PHYSICAL_ADDRESS addr) {
@@ -147,8 +145,6 @@ static inline void file_closep(EFI_FILE **handle) {
         (*handle)->Close(*handle);
 }
 
-#define _cleanup_file_close_ _cleanup_(file_closep)
-
 static inline void unload_imagep(EFI_HANDLE *image) {
         if (*image)
                 (void) BS->UnloadImage(*image);
@@ -174,8 +170,6 @@ bool is_ascii(const char16_t *f);
 char16_t **strv_free(char16_t **l);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(char16_t**, strv_free);
-
-#define _cleanup_strv_free_ _cleanup_(strv_freep)
 
 EFI_STATUS open_directory(EFI_FILE *root_dir, const char16_t *path, EFI_FILE **ret);
 
