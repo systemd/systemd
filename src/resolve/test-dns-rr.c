@@ -7,6 +7,16 @@
 #include "dns-type.h"
 #include "tests.h"
 
+static void test_to_json_from_json(DnsResourceRecord *rr) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+        ASSERT_OK(dns_resource_record_to_json(rr, &j));
+
+        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr2 = NULL;
+        ASSERT_OK(dns_resource_record_from_json(j, &rr2));
+
+        ASSERT_TRUE(dns_resource_record_equal(rr, rr2));
+}
+
 /* ================================================================
  * DNS_RESOURCE_RECORD_RDATA()
  * ================================================================ */
@@ -802,6 +812,8 @@ TEST(dns_resource_record_new_address_ipv4) {
         ASSERT_EQ(rr->key->type, DNS_TYPE_A);
         ASSERT_STREQ(dns_resource_key_name(rr->key), "www.example.com");
         ASSERT_EQ(rr->a.in_addr.s_addr, addr.in.s_addr);
+
+        test_to_json_from_json(rr);
 }
 
 TEST(dns_resource_record_new_address_ipv6) {
@@ -818,6 +830,8 @@ TEST(dns_resource_record_new_address_ipv6) {
         ASSERT_EQ(rr->key->type, DNS_TYPE_AAAA);
         ASSERT_STREQ(dns_resource_key_name(rr->key), "www.example.com");
         ASSERT_EQ(memcmp(&rr->aaaa.in6_addr, &addr.in6, sizeof(struct in6_addr)), 0);
+
+        test_to_json_from_json(rr);
 }
 
 /* ================================================================
@@ -1003,11 +1017,13 @@ TEST(dns_resource_record_equal_cname_copy) {
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_CNAME, "www.example.com");
         ASSERT_NOT_NULL(a);
-        a->cname.name = strdup("example.com");
+        a->cname.name = ASSERT_PTR(strdup("example.com"));
 
         b = dns_resource_record_copy(a);
         ASSERT_NOT_NULL(b);
         ASSERT_TRUE(dns_resource_record_equal(a, b));
+
+        test_to_json_from_json(a);
 }
 
 TEST(dns_resource_record_equal_cname_fail) {
@@ -1220,11 +1236,13 @@ TEST(dns_resource_record_equal_ptr_copy) {
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_PTR, "127.1.168.192.in-addr-arpa");
         ASSERT_NOT_NULL(a);
-        a->ptr.name = strdup("example.com");
+        a->ptr.name = ASSERT_PTR(strdup("example.com"));
 
         b = dns_resource_record_copy(a);
         ASSERT_NOT_NULL(b);
         ASSERT_TRUE(dns_resource_record_equal(a, b));
+
+        test_to_json_from_json(a);
 }
 
 TEST(dns_resource_record_equal_ptr_fail) {
@@ -2459,6 +2477,27 @@ TEST(dns_resource_record_clamp_ttl_copy) {
 
         ASSERT_FALSE(rr == orig);
         ASSERT_EQ(orig->ttl, 3600u);
+}
+
+static void test_from_json(const char *text, int expected) {
+        log_notice("Trying to parse as JSON RR: %s", text);
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+        ASSERT_OK(sd_json_parse(text, /* flags= */ 0, &j, /* reterr_line= */ NULL, /* reterr_column= */ NULL));
+        ASSERT_EQ(dns_resource_record_from_json(j, NULL), expected);
+}
+
+TEST(from_bad_json) {
+        test_from_json("{}", -EBADMSG);
+        test_from_json("{\"key\":{}}", -ENXIO);
+        test_from_json("{\"key\":{\"name\":\"foobar\",\"type\":9}}", -EOPNOTSUPP);
+        test_from_json("{\"key\":{\"name\":\"foobar\"}}", -ENXIO);
+        test_from_json("{\"key\":{\"type\":9}}", -ENXIO);
+        test_from_json("{\"key\":{\"name\":\"foobar\",\"type\":1}}", -ENXIO);
+        test_from_json("{\"key\":{\"name\":\"foobar\",\"type\":1},\"address\":[1,2,3,4]}", 0);
+        test_from_json("{\"key\":{\"name\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"type\":1},\"address\":[1,2,3,4]}", 0);
+        test_from_json("{\"key\":{\"name\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"type\":1},\"address\":[1,2,3,4]}", -EBADMSG);
+        test_from_json("{\"key\":{\"name\":\"a.a\",\"type\":1},\"address\":[1,2,3,4]}", 0);
+        test_from_json("{\"key\":{\"name\":\"a..a\",\"type\":1},\"address\":[1,2,3,4]}", -EBADMSG);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
