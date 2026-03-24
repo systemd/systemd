@@ -3988,6 +3988,29 @@ bool unit_cgroup_delegate(Unit *u) {
         return c->delegate;
 }
 
+void unit_cgroup_disable_all_controllers(Unit *u) {
+        int r;
+
+        assert(u);
+
+        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
+        if (!crt || !crt->cgroup_path)
+                return;
+
+        if (!unit_cgroup_delegate(u))
+                return;
+
+        /* For delegated units, the previous payload may have enabled controllers (e.g. "pids") in
+         * cgroup.subtree_control. These persist after the service stops and turn the cgroup into an
+         * "internal node", causing clone3(CLONE_INTO_CGROUP) to fail with EBUSY. Clear them now, right
+         * before the new start, so that resource control is preserved for lingering processes as long as
+         * possible. Ignore errors — if sub-cgroups still have live processes the write will fail, but so
+         * will the upcoming spawn. */
+        r = cg_enable(u->manager->cgroup_supported, /* mask= */ 0, crt->cgroup_path, &crt->cgroup_enabled_mask);
+        if (r < 0)
+                log_unit_debug_errno(u, r, "Failed to disable controllers on cgroup %s, ignoring: %m", empty_to_root(crt->cgroup_path));
+}
+
 void manager_invalidate_startup_units(Manager *m) {
         Unit *u;
 
