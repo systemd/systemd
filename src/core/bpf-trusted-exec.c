@@ -10,15 +10,15 @@
 #include "lsm-util.h"
 #include "manager.h"
 #include "parse-util.h"
+#include "serialize.h"
 
 #if BPF_FRAMEWORK
 #include "bpf-dlopen.h"
 #include "bpf-link.h"
 #include "bpf/trusted-exec/trusted-exec-skel.h"
 
-/* The .bss map value must cover the entire .bss section. This static assert catches
- * .bss layout changes (e.g. new globals added to the BPF program) at compile time. */
-assert_cc(sizeof(*((struct trusted_exec_bpf *)0)->bss) == sizeof(uint32_t));
+/* Verify that trusted_exec_bss matches the skeleton's .bss layout */
+assert_cc(sizeof(struct trusted_exec_bss) == sizeof(*((struct trusted_exec_bpf *)0)->bss));
 
 static bool dm_verity_require_signatures(void) {
         _cleanup_free_ char *val = NULL;
@@ -103,11 +103,64 @@ bool bpf_trusted_exec_supported(void) {
         return (supported = true);
 }
 
+static bool trusted_exec_have_deserialized_fds(Manager *m) {
+        size_t count = 0;
+
+        assert(m);
+
+        /* Check if we have link FDs deserialized from a previous exec */
+        for (size_t i = 0; i < ELEMENTSOF(m->trusted_exec_link_fds); i++)
+                if (m->trusted_exec_link_fds[i] >= 0)
+                        count++;
+
+        if (count > 0 && count < ELEMENTSOF(m->trusted_exec_link_fds))
+                log_error("bpf-trusted-exec: Only %zu of %zu link FDs deserialized, enforcement may be incomplete.",
+                          count, ELEMENTSOF(m->trusted_exec_link_fds));
+
+        return count > 0;
+}
+
+/* Close the initramfs trust window after switch_root by clearing initramfs_s_dev
+ * in the BPF .bss map. We must read-modify-write the full .bss to preserve guard
+ * globals (protected map/prog/link IDs). */
+static int trusted_exec_clear_initramfs_trust(int bss_map_fd) {
+        struct trusted_exec_bss bss = {};
+        uint32_t key = 0;
+        int r;
+
+        r = dlopen_bpf_full(LOG_ERR);
+        if (r < 0)
+                return log_error_errno(r, "bpf-trusted-exec: Failed to load libbpf for .bss update: %m");
+
+        r = sym_bpf_map_lookup_elem(bss_map_fd, &key, &bss);
+        if (r < 0)
+                return log_error_errno(r, "bpf-trusted-exec: Failed to read .bss map: %m");
+
+        bss.initramfs_s_dev = 0;
+        r = sym_bpf_map_update_elem(bss_map_fd, &key, &bss, /* flags= */ 0);
+        if (r < 0)
+                return log_error_errno(r, "bpf-trusted-exec: Failed to clear initramfs_s_dev via .bss map: %m");
+
+        log_info("bpf-trusted-exec: Cleared initramfs trust window after switch_root.");
+        return 0;
+}
+
 int bpf_trusted_exec_setup(Manager *m) {
         _cleanup_(trusted_exec_bpf_freep) struct trusted_exec_bpf *obj = NULL;
         int r;
 
         assert(m);
+
+        /* If we already have link FDs from a previous exec, the BPF programs are still attached in the
+         * kernel. Just keep holding the FDs — no need to re-create the skeleton. */
+        if (trusted_exec_have_deserialized_fds(m)) {
+                log_info("bpf-trusted-exec: Recovered link FDs from previous exec, programs still attached.");
+
+                if (m->switching_root && m->trusted_exec_bss_map_fd >= 0)
+                        (void) trusted_exec_clear_initramfs_trust(m->trusted_exec_bss_map_fd);
+
+                return 0;
+        }
 
         /* Fresh setup: verify BPF LSM is available */
         if (!bpf_trusted_exec_supported())
@@ -156,6 +209,58 @@ void bpf_trusted_exec_destroy(struct trusted_exec_bpf *prog) {
         trusted_exec_bpf__destroy(prog);
 }
 
+const char* const trusted_exec_link_names[_TRUSTED_EXEC_LINK_MAX] = {
+        [TRUSTED_EXEC_LINK_BDEV_SETINTEGRITY] = "trusted-exec-bdev-setintegrity-link",
+        [TRUSTED_EXEC_LINK_BDEV_FREE]         = "trusted-exec-bdev-free-link",
+        [TRUSTED_EXEC_LINK_BPRM_CHECK]        = "trusted-exec-bprm-check-link",
+        [TRUSTED_EXEC_LINK_MMAP_FILE]         = "trusted-exec-mmap-file-link",
+        [TRUSTED_EXEC_LINK_FILE_MPROTECT]     = "trusted-exec-file-mprotect-link",
+};
+
+int bpf_trusted_exec_serialize(Manager *m, FILE *f, FDSet *fds) {
+        int r;
+
+        assert(m);
+        assert(f);
+        assert(fds);
+
+        /* If we have a live skeleton, serialize from its link objects */
+        if (m->trusted_exec) {
+                struct bpf_link *links[] = {
+                        m->trusted_exec->links.trusted_exec_bdev_setintegrity,
+                        m->trusted_exec->links.trusted_exec_bdev_free,
+                        m->trusted_exec->links.trusted_exec_bprm_check,
+                        m->trusted_exec->links.trusted_exec_mmap_file,
+                        m->trusted_exec->links.trusted_exec_file_mprotect,
+                };
+
+                for (size_t i = 0; i < ELEMENTSOF(links); i++) {
+                        r = bpf_serialize_link(f, fds, trusted_exec_link_names[i], links[i]);
+                        if (r < 0 && r != -ENOENT)
+                                return r;
+                }
+
+                r = serialize_fd(f, fds, "trusted-exec-bss-map", sym_bpf_map__fd(m->trusted_exec->maps.bss));
+                if (r < 0)
+                        return r;
+
+                return 0;
+        }
+
+        /* Otherwise, if we have raw FDs from a previous deserialization, forward those */
+        for (size_t i = 0; i < ELEMENTSOF(m->trusted_exec_link_fds); i++) {
+                r = serialize_fd(f, fds, trusted_exec_link_names[i], m->trusted_exec_link_fds[i]);
+                if (r < 0)
+                        return r;
+        }
+
+        r = serialize_fd(f, fds, "trusted-exec-bss-map", m->trusted_exec_bss_map_fd);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 #else /* ! BPF_FRAMEWORK */
 
 bool bpf_trusted_exec_supported(void) {
@@ -168,6 +273,10 @@ int bpf_trusted_exec_setup(Manager *m) {
 
 void bpf_trusted_exec_destroy(struct trusted_exec_bpf *prog) {
         return;
+}
+
+int bpf_trusted_exec_serialize(Manager *m, FILE *f, FDSet *fds) {
+        return 0;
 }
 
 #endif
