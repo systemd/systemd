@@ -12,6 +12,10 @@ enum {
         TRUSTED_EXEC_LINK_BPRM_CHECK,
         TRUSTED_EXEC_LINK_MMAP_FILE,
         TRUSTED_EXEC_LINK_FILE_MPROTECT,
+        TRUSTED_EXEC_LINK_PTRACE_GUARD,
+        TRUSTED_EXEC_LINK_BPF_MAP_GUARD,
+        TRUSTED_EXEC_LINK_BPF_PROG_GUARD,
+        TRUSTED_EXEC_LINK_BPF_GUARD,
         _TRUSTED_EXEC_LINK_MAX,
 };
 
@@ -36,5 +40,6 @@ extern const char* const trusted_exec_link_names[_TRUSTED_EXEC_LINK_MAX];
 bool bpf_trusted_exec_supported(void);
 int bpf_trusted_exec_setup(Manager *m);
 void bpf_trusted_exec_destroy(struct trusted_exec_bpf *prog);
+int bpf_trusted_exec_populate_guard(struct trusted_exec_bpf *obj);
 
 int bpf_trusted_exec_serialize(Manager *m, FILE *f, FDSet *fds);
