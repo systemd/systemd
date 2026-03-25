@@ -3,6 +3,7 @@
 #include "bcd.h"
 #include "bootspec-fundamental.h"
 #include "console.h"
+#include "cpio.h"
 #include "device-path-util.h"
 #include "devicetree.h"
 #include "drivers.h"
@@ -37,6 +38,9 @@
 #include "util.h"
 #include "version.h"
 #include "vmm.h"
+
+/* Safety margin, refuse larger extra files (this is not load bearing, only a safety net for robustness reasons). */
+#define EXTRA_SIZE_MAX (1024U * 1024U * 1536U)
 
 /* Magic string for recognizing our own binaries */
 #define SD_MAGIC "#### LoaderInfo: systemd-boot " GIT_VERSION " ####"
@@ -2581,7 +2585,9 @@ static EFI_STATUS initrd_prepare(
         assert(ret_initrd_pages);
         assert(ret_initrd_size);
 
-        if (entry->type != LOADER_LINUX || strv_isempty(entry->initrd)) {
+        assert(entry->type == LOADER_LINUX);
+
+        if (strv_isempty(entry->initrd)) {
                 *ret_options = NULL;
                 *ret_initrd_pages = (Pages) {};
                 *ret_initrd_size = 0;
@@ -2682,6 +2688,148 @@ static EFI_STATUS initrd_prepare(
         *ret_options = TAKE_PTR(options);
         *ret_initrd_pages = TAKE_STRUCT(pages);
         *ret_initrd_size = size;
+        return EFI_SUCCESS;
+}
+
+static const CpioTarget* cpio_target_for_extra(const char16_t *filename) {
+        assert(filename);
+
+        if (endswith_no_case(filename, u".cred"))
+                return &cpio_target_credentials;
+        if (endswith_no_case(filename, u".sysext.raw"))
+                return &cpio_target_sysext;
+        if (endswith_no_case(filename, u".confext.raw"))
+                return &cpio_target_confext;
+
+        return NULL;
+}
+
+static EFI_STATUS load_extras(
+                EFI_FILE *root,
+                const BootEntry *entry,
+                Pages *ret_initrd_pages,
+                size_t *ret_initrd_size) {
+
+        EFI_STATUS err;
+
+        assert(root);
+        assert(entry);
+        assert(ret_initrd_pages);
+        assert(ret_initrd_size);
+
+        assert(IN_SET(entry->type, LOADER_UKI, LOADER_UKI_URL));
+
+        _cleanup_(iovec_done) struct iovec previous = {}, extras = {};
+
+        if (strv_isempty(entry->extras))
+                goto nothing;
+
+        uint32_t inode = 1; /* inode counter, so that each item gets a new inode */
+        unsigned n = 0;
+
+        STRV_FOREACH(i, entry->extras) {
+                _cleanup_file_close_ EFI_FILE *handle = NULL;
+                err = root->Open(root, &handle, *i, EFI_FILE_MODE_READ, /* Attributes= */ 0);
+                if (err != EFI_SUCCESS) {
+                        log_warning_status(err, "Failed to open extra file '%ls', ignoring: %m", *i);
+                        continue;
+                }
+
+                _cleanup_free_ EFI_FILE_INFO *info = NULL;
+                err = get_file_info(handle, &info, /* ret_size= */ NULL);
+                if (err != EFI_SUCCESS) {
+                        log_warning_status(err, "Failed to get information about file '%ls', ignoring: %m", *i);
+                        continue;
+                }
+                if (info->FileSize == 0) {
+                        log_warning("Extra file '%ls' is empty, ignoring.", *i);
+                        continue;
+                }
+                if (info->FileSize > EXTRA_SIZE_MAX) {
+                        log_warning("Extra file '%ls' is larger than allowed extra file size, ignoring.", *i);
+                        continue;
+                }
+
+                if (FLAGS_SET(info->Attribute, EFI_FILE_DIRECTORY)) {
+                        log_warning("Extra file '%ls' is a directory, ignoring.", *i);
+                        continue;
+                }
+                if (!is_ascii(info->FileName)) {
+                        log_warning("Extra file name '%ls' is not valid ASCII, ignoring.", *i);
+                        continue;
+                }
+                if (strlen16(info->FileName) > 255) { /* Max filename size on Linux */
+                        log_warning("Filename '%ls' too long, ignoring.", *i);
+                        continue;
+                }
+
+                const CpioTarget *target = cpio_target_for_extra(info->FileName);
+                if (!target) {
+                        log_warning("Unrecognized type of extra file '%ls', ignoring.", info->FileName);
+                        continue;
+                }
+
+                _cleanup_free_ char *content = NULL;
+                size_t contentsize = 0;  /* avoid false maybe-uninitialized warning */
+                err = file_handle_read(handle, /* offset= */ 0, info->FileSize, &content, &contentsize);
+                if (err != EFI_SUCCESS) {
+                        log_warning_status(err, "Failed to read '%ls', ignoring: %m", *i);
+                        continue;
+                }
+
+                /* Generate the leading directory inodes right before adding the first files to the
+                 * archive. Otherwise the cpio archive cannot be unpacked, since the leading dirs won't
+                 * exist. Note that we potentially do redundant work here: a prior iteration might already
+                 * have created the prefix for us, but to simplify this we regenerate it anyway. It's very
+                 * little data, and simplifies the implementation here a lot. */
+                err = pack_cpio_prefix(target, &inode, &extras.iov_base, &extras.iov_len);
+                if (err != EFI_SUCCESS)
+                        return log_error_status(err, "Failed to pack cpio prefix '%s': %m", target->directory);
+
+                err = pack_cpio_one(
+                                info->FileName,
+                                content, contentsize,
+                                target,
+                                &inode,
+                                &extras.iov_base, &extras.iov_len);
+                if (err != EFI_SUCCESS)
+                        return log_error_status(err, "Failed to pack cpio file '%ls': %m", info->FileName);
+
+                n++;
+        }
+
+        if (n == 0) /* Nothing actually loaded */
+                goto nothing;
+
+        err = pack_cpio_trailer(&extras.iov_base, &extras.iov_len);
+        if (err != EFI_SUCCESS)
+                return log_error_status(err, "Failed to pack cpio trailer: %m");
+
+        /* Be nice: pick up any previously registered initrds and prepend them to what we are generating here */
+        err = initrd_read_previous(&previous);
+        if (err == EFI_NOT_FOUND)
+                log_debug_status(err, "No previous initrd installed.");
+        else if (err != EFI_SUCCESS)
+                log_warning_status(err, "Failed to read previously registered initrd, ignoring.");
+        else
+                log_debug("Successfully loaded previously installed initrd (%zu bytes).", previous.iov_len);
+
+        err = combine_initrds(
+                        (const struct iovec[]) {
+                                previous,
+                                extras,
+                        },
+                        /* n_initrds= */ 2,
+                        ret_initrd_pages,
+                        ret_initrd_size);
+        if (err != EFI_SUCCESS)
+                return log_error_status(err, "Failed to combine previous with extra initrd: %m");
+
+        return EFI_SUCCESS;
+
+nothing:
+        *ret_initrd_pages = (Pages) {};
+        *ret_initrd_size = 0;
         return EFI_SUCCESS;
 }
 
@@ -2833,15 +2981,11 @@ static EFI_STATUS call_image_start(
                 return log_error_status(err, "Error loading EFI binary %ls: %m", entry->loader);
         }
 
-        _cleanup_(cleanup_initrd) EFI_HANDLE initrd_handle = NULL;
         _cleanup_free_ char16_t *options_initrd = NULL;
-        _cleanup_pages_ Pages initrd_pages = {};
+        _cleanup_pages_ Pages initrd_pages = {};                        /* Note: please keep order intact: these pages should be released after the initrd handle is released */
+        _cleanup_(cleanup_initrd) EFI_HANDLE initrd_handle = NULL;
         size_t initrd_size = 0;
         if (image_root) {
-                err = initrd_prepare(image_root, entry, &options_initrd, &initrd_pages, &initrd_size);
-                if (err != EFI_SUCCESS)
-                        return log_error_status(err, "Error preparing initrd: %m");
-
                 /* DTBs are loaded by the kernel before ExitBootServices(), and they can be used to map and
                  * assign arbitrary memory ranges, so skip them when secure boot is enabled as the DTB here
                  * is unverified. */
@@ -2851,9 +2995,35 @@ static EFI_STATUS call_image_start(
                                 return log_error_status(err, "Error loading %ls: %m", entry->devicetree);
                 }
 
+                switch (entry->type) {
+
+                case LOADER_LINUX:
+                        /* For traditional Linux we follow 'initrd' links, because that's how things worked in the good old days */
+                        err = initrd_prepare(image_root, entry, &options_initrd, &initrd_pages, &initrd_size);
+                        if (err != EFI_SUCCESS)
+                                return log_error_status(err, "Error preparing initrd: %m");
+
+                        break;
+
+                case LOADER_UKI:
+                case LOADER_UKI_URL:
+                        /* For modern UKIs we'll not bother with 'initrd', but we'll instead support 'extra'
+                         * for loading credentials, sysext and confext. */
+
+                        err = load_extras(image_root, entry, &initrd_pages, &initrd_size);
+                        if (err != EFI_SUCCESS)
+                                return err; /* load_extras() logs on its own */
+                        break;
+
+                default:
+                        ;
+                }
+
                 err = initrd_register(&IOVEC_MAKE(PHYSICAL_ADDRESS_TO_POINTER(initrd_pages.addr), initrd_size), &initrd_handle);
                 if (err != EFI_SUCCESS)
                         return log_error_status(err, "Error registering initrd: %m");
+
+                /* NB: the initrd pages remain in our possession, we will free them if executing the image fails below */
         }
 
         EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
