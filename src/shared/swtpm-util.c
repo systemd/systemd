@@ -138,6 +138,19 @@ int manufacture_swtpm(const char *state_dir, const char *secret) {
         if (r < 0)
                 return log_error_errno(r, "Failed to write swtpm-localca.conf: %m");
 
+        _cleanup_free_ char *localca_options = path_join(state_dir, "swtpm-localca.options");
+        if (!localca_options)
+                return log_oom();
+
+        r = write_string_file(
+                        localca_options,
+                        "--platform-manufacturer systemd\n"
+                        "--platform-version 2.1\n"
+                        "--platform-model swtpm\n",
+                        WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_TRUNCATE|WRITE_STRING_FILE_MKDIR_0755);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write swtpm-localca.options: %m");
+
         _cleanup_free_ char *swtpm_localca = NULL;
         r = find_executable("swtpm_localca", &swtpm_localca);
         if (r < 0)
@@ -152,9 +165,10 @@ int manufacture_swtpm(const char *state_dir, const char *secret) {
                         WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_TRUNCATE|WRITE_STRING_FILE_MKDIR_0755,
                         "create_certs_tool = %1$s\n"
                         "create_certs_tool_config = %2$s\n"
-                        "create_certs_tool_options = /etc/swtpm-localca.options\n",
+                        "create_certs_tool_options = %3$s\n",
                         swtpm_localca,
-                        localca_conf);
+                        localca_conf,
+                        localca_options);
         if (r < 0)
                 return log_error_errno(r, "Failed to write swtpm_setup.conf: %m");
 
