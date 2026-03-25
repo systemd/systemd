@@ -21,7 +21,8 @@ static bool option_arg_required(const Option *opt) {
 
 static bool option_is_metadata(const Option *opt) {
         /* A metadata entry that is not a real option, like the group marker */
-        return FLAGS_SET(ASSERT_PTR(opt)->flags, OPTION_GROUP_MARKER);
+        return  FLAGS_SET(ASSERT_PTR(opt)->flags, OPTION_GROUP_MARKER) ||
+                FLAGS_SET(ASSERT_PTR(opt)->flags, OPTION_HELP_ENTRY);
 }
 
 static void kill_arg(char* argv[], int argc, int index) {
@@ -240,7 +241,7 @@ int option_parse(
         return option->id;
 }
 
-char** option_parser_get_args(OptionParser *state, int argc, char *argv[]) {
+char** option_parser_get_args(const OptionParser *state, int argc, char *argv[]) {
         /* Returns positional args as a strv.
          * If "--" was found, it has been removed. */
 
@@ -273,8 +274,6 @@ int _option_parser_get_help_table(
                 }
                 if (group_marker)
                         break;  /* End of group */
-
-                assert(!option_is_metadata(opt));
 
                 if (!opt->help)
                         /* No help string — we do not show the option */

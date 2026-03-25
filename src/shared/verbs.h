@@ -21,13 +21,15 @@ typedef struct {
 } Verb;
 
 #define VERB_FULL(d, v, a, amin, amax, f, dat, h)                       \
+        DISABLE_WARNING_REDUNDANT_DECLS                                 \
         static int d(int, char**, uintptr_t, void*);                    \
+        REENABLE_WARNING                                                \
         _section_("SYSTEMD_VERBS")                                      \
         _alignptr_                                                      \
         _used_                                                          \
         _retain_                                                        \
         _variable_no_sanitize_address_                                  \
-        static const Verb CONCATENATE(d, _data) = {                     \
+        static const Verb CONCATENATE3(d, _data_, __COUNTER__) = {      \
                 .verb = v,                                              \
                 .min_args = amin,                                       \
                 .max_args = amax,                                       \
@@ -66,8 +68,15 @@ int _verbs_get_help_table(const Verb verbs[], const Verb verbs_end[], Table **re
 #define verbs_get_help_table(ret) \
         _verbs_get_help_table(ALIGN_PTR(__start_SYSTEMD_VERBS), __stop_SYSTEMD_VERBS, ret)
 
-#define VERB_COMMON_HELP(impl)                                          \
-        VERB(verb_help, "help", NULL, VERB_ANY, VERB_ANY, 0, "Show this help"); \
+#define _VERB_COMMON_HELP_IMPL(impl)                                    \
         static int verb_help(int argc, char **argv, uintptr_t data, void *userdata) { \
                 return impl();                                          \
         }
+
+#define VERB_COMMON_HELP(impl)                                          \
+        VERB(verb_help, "help", NULL, VERB_ANY, VERB_ANY, 0, "Show this help"); \
+        _VERB_COMMON_HELP_IMPL(impl)
+
+#define VERB_COMMON_HELP_HIDDEN(impl)                                   \
+        VERB(verb_help, "help", NULL, VERB_ANY, VERB_ANY, 0, NULL);     \
+        _VERB_COMMON_HELP_IMPL(impl)
