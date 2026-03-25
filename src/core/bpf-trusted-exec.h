@@ -12,6 +12,10 @@ enum {
         TRUSTED_EXEC_LINK_BPRM_CHECK,
         TRUSTED_EXEC_LINK_MMAP_FILE,
         TRUSTED_EXEC_LINK_FILE_MPROTECT,
+        TRUSTED_EXEC_LINK_PTRACE_GUARD,
+        TRUSTED_EXEC_LINK_BPF_MAP_GUARD,
+        TRUSTED_EXEC_LINK_BPF_PROG_GUARD,
+        TRUSTED_EXEC_LINK_BPF_GUARD,
         _TRUSTED_EXEC_LINK_MAX,
 };
 
@@ -25,6 +29,10 @@ enum {
  * bpf_map_lookup_elem/bpf_map_update_elem on the serialized .bss map FD. */
 struct trusted_exec_bss {
         uint32_t initramfs_s_dev;
+        uint32_t protected_map_id_verity;
+        uint32_t protected_map_id_bss;
+        uint32_t protected_prog_ids[_TRUSTED_EXEC_LINK_MAX];
+        uint32_t protected_link_ids[_TRUSTED_EXEC_LINK_MAX];
 };
 
 extern const char* const trusted_exec_link_names[_TRUSTED_EXEC_LINK_MAX];
@@ -32,5 +40,6 @@ extern const char* const trusted_exec_link_names[_TRUSTED_EXEC_LINK_MAX];
 bool bpf_trusted_exec_supported(void);
 int bpf_trusted_exec_setup(Manager *m);
 void bpf_trusted_exec_destroy(struct trusted_exec_bpf *prog);
+int bpf_trusted_exec_populate_guard(struct trusted_exec_bpf *obj);
 
 int bpf_trusted_exec_serialize(Manager *m, FILE *f, FDSet *fds);
