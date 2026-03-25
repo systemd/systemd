@@ -35,6 +35,7 @@
 #include "event-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "fork-notify.h"
 #include "format-util.h"
 #include "fs-util.h"
@@ -83,6 +84,7 @@
 #include "user-util.h"
 #include "utf8.h"
 #include "vmspawn-mount.h"
+#include "vmspawn-qemu-config.h"
 #include "vmspawn-register.h"
 #include "vmspawn-scope.h"
 #include "vmspawn-settings.h"
@@ -2032,7 +2034,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         _cleanup_free_ int *pass_fds = NULL;
         sd_event_source **children = NULL;
         size_t n_children = 0, n_pass_fds = 0;
-        const char *accel;
         int r;
 
         CLEANUP_ARRAY(children, n_children, fork_notify_terminate_many);
@@ -2111,16 +2112,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (r < 0)
                 return r;
 
-        _cleanup_free_ char *machine = NULL;
-        const char *shm = arg_directory || arg_runtime_mounts.n_mounts != 0 ? ",memory-backend=mem" : "";
-        const char *hpet = ARCHITECTURE_SUPPORTS_HPET ? ",hpet=off" : "";
-        if (ARCHITECTURE_SUPPORTS_SMM)
-                machine = strjoin("type=" QEMU_MACHINE_TYPE ",smm=", on_off(ovmf_config->supports_sb), shm, hpet);
-        else
-                machine = strjoin("type=" QEMU_MACHINE_TYPE, shm, hpet);
-        if (!machine)
-                return log_oom();
-
         if (arg_linux) {
                 kernel = strdup(arg_linux);
                 if (!kernel)
@@ -2143,45 +2134,10 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (asprintf(&mem, "%" PRIu64 "M", DIV_ROUND_UP(arg_ram, U64_MB)) < 0)
                 return log_oom();
 
-        cmdline = strv_new(
-                qemu_binary,
-                "-machine", machine,
-                "-smp", arg_cpus ?: "1",
-                "-m", mem,
-                "-object", "rng-random,filename=/dev/urandom,id=rng0",
-                "-device", "virtio-rng-pci,rng=rng0,id=rng-device0",
-                "-device", "virtio-balloon,free-page-reporting=on"
-        );
-        if (!cmdline)
-                return log_oom();
-
-        if (!sd_id128_is_null(arg_uuid))
-                if (strv_extend_many(&cmdline, "-uuid", SD_ID128_TO_UUID_STRING(arg_uuid)) < 0)
-                        return log_oom();
-
-        if (ARCHITECTURE_SUPPORTS_VMGENID) {
-                /* Derive a vmgenid automatically from the invocation ID, in a deterministic way. */
-                sd_id128_t vmgenid;
-                r = sd_id128_get_invocation_app_specific(SD_ID128_MAKE(bd,84,6d,e3,e4,7d,4b,6c,a6,85,4a,87,0f,3c,a3,a0), &vmgenid);
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to get invocation ID, making up randomized vmgenid: %m");
-
-                        r = sd_id128_randomize(&vmgenid);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to make up randomized vmgenid: %m");
-                }
-
-                if (strv_extend(&cmdline, "-device") < 0)
-                        return log_oom();
-
-                if (strv_extendf(&cmdline, "vmgenid,guid=" SD_ID128_UUID_FORMAT_STR, SD_ID128_FORMAT_VAL(vmgenid)) < 0)
-                        return log_oom();
-        }
-
-        /* if we are going to be starting any units with state then create our runtime dir */
+        /* Create runtime directory for the QEMU config file and other state */
         _cleanup_free_ char *runtime_dir = NULL;
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir_destroy = NULL;
-        if (arg_tpm != 0 || arg_directory || arg_runtime_mounts.n_mounts != 0 || arg_pass_ssh_key) {
+        {
                 _cleanup_free_ char *subdir = NULL;
 
                 if (asprintf(&subdir, "systemd/vmspawn.%" PRIx64, random_u64()) < 0)
@@ -2205,6 +2161,88 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
                 log_debug("Using runtime directory: %s", runtime_dir);
         }
+
+        /* Build a QEMU config file for -readconfig. Items that can be expressed as QemuOpts sections go
+         * here; things that require cmdline-only switches (e.g. -kernel, -smbios, -nographic, --add-fd)
+         * are added to the cmdline strv below. */
+        _cleanup_fclose_ FILE *config_file = NULL;
+        _cleanup_(unlink_and_freep) char *config_path = NULL;
+        r = fopen_temporary_child(runtime_dir, &config_file, &config_path);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create QEMU config file: %m");
+
+        r = qemu_config_section(config_file, "machine", /* id= */ NULL,
+                                "type", QEMU_MACHINE_TYPE);
+        if (r < 0)
+                return r;
+
+        if (ARCHITECTURE_SUPPORTS_SMM) {
+                r = qemu_config_key(config_file, "smm", on_off(ovmf_config->supports_sb));
+                if (r < 0)
+                        return r;
+        }
+
+        if (arg_directory || arg_runtime_mounts.n_mounts != 0) {
+                r = qemu_config_key(config_file, "memory-backend", "mem");
+                if (r < 0)
+                        return r;
+        }
+
+        if (ARCHITECTURE_SUPPORTS_HPET) {
+                r = qemu_config_key(config_file, "hpet", "off");
+                if (r < 0)
+                        return r;
+        }
+
+        r = qemu_config_section(config_file, "object", "rng0",
+                                "qom-type", "rng-random",
+                                "filename", "/dev/urandom");
+        if (r < 0)
+                return r;
+
+        r = qemu_config_section(config_file, "device", "rng-device0",
+                                "driver", "virtio-rng-pci",
+                                "rng", "rng0");
+        if (r < 0)
+                return r;
+
+        r = qemu_config_section(config_file, "device", "balloon0",
+                                "driver", "virtio-balloon",
+                                "free-page-reporting", "on");
+        if (r < 0)
+                return r;
+
+        if (ARCHITECTURE_SUPPORTS_VMGENID) {
+                sd_id128_t vmgenid;
+                r = sd_id128_get_invocation_app_specific(SD_ID128_MAKE(bd,84,6d,e3,e4,7d,4b,6c,a6,85,4a,87,0f,3c,a3,a0), &vmgenid);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to get invocation ID, making up randomized vmgenid: %m");
+
+                        r = sd_id128_randomize(&vmgenid);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to make up randomized vmgenid: %m");
+                }
+
+                r = qemu_config_section(config_file, "device", "vmgenid0",
+                                        "driver", "vmgenid");
+                if (r < 0)
+                        return r;
+
+                r = qemu_config_keyf(config_file, "guid", SD_ID128_UUID_FORMAT_STR, SD_ID128_FORMAT_VAL(vmgenid));
+                if (r < 0)
+                        return r;
+        }
+
+        /* Start building the cmdline for items that must remain as command line arguments */
+        cmdline = strv_new(qemu_binary,
+                           "-smp", arg_cpus ?: "1",
+                           "-m", mem);
+        if (!cmdline)
+                return log_oom();
+
+        if (!sd_id128_is_null(arg_uuid))
+                if (strv_extend_many(&cmdline, "-uuid", SD_ID128_TO_UUID_STRING(arg_uuid)) < 0)
+                        return log_oom();
 
         _cleanup_close_ int delegate_userns_fd = -EBADF, tap_fd = -EBADF;
         if (arg_network_stack == NETWORK_STACK_TAP) {
@@ -2230,11 +2268,15 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         if (tap_fd < 0)
                                 return log_error_errno(tap_fd, "Failed to allocate network tap device: %m");
 
-                        r = strv_extend(&cmdline, "-nic");
+                        r = strv_extend(&cmdline, "-netdev");
                         if (r < 0)
                                 return log_oom();
 
-                        r = strv_extendf(&cmdline, "tap,fd=%i,model=virtio-net-pci", tap_fd);
+                        r = strv_extendf(&cmdline, "tap,id=net0,fd=%i", tap_fd);
+                        if (r < 0)
+                                return log_oom();
+
+                        r = strv_extend_many(&cmdline, "-device", "virtio-net-pci,netdev=net0");
                         if (r < 0)
                                 return log_oom();
 
@@ -2259,30 +2301,46 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         } else
                                 mac_vm = arg_network_provided_mac;
 
-                        r = strv_extend(&cmdline, "-nic");
+                        r = qemu_config_section(config_file, "netdev", "net0",
+                                                "type", "tap",
+                                                "ifname", tap_name,
+                                                "script", "no",
+                                                "downscript", "no");
                         if (r < 0)
-                                return log_oom();
+                                return r;
 
-                        r = strv_extendf(&cmdline, "tap,ifname=%s,script=no,downscript=no,model=virtio-net-pci,mac=%s", tap_name, ETHER_ADDR_TO_STR(&mac_vm));
+                        r = qemu_config_section(config_file, "device", "nic0",
+                                                "driver", "virtio-net-pci",
+                                                "netdev", "net0",
+                                                "mac", ETHER_ADDR_TO_STR(&mac_vm));
                         if (r < 0)
-                                return log_oom();
+                                return r;
                 }
-        } else if (arg_network_stack == NETWORK_STACK_USER)
-                r = strv_extend_many(&cmdline, "-nic", "user,model=virtio-net-pci");
-        else
+        } else if (arg_network_stack == NETWORK_STACK_USER) {
+                r = qemu_config_section(config_file, "netdev", "net0",
+                                        "type", "user");
+                if (r < 0)
+                        return r;
+
+                r = qemu_config_section(config_file, "device", "nic0",
+                                        "driver", "virtio-net-pci",
+                                        "netdev", "net0");
+                if (r < 0)
+                        return r;
+        } else {
                 r = strv_extend_many(&cmdline, "-nic", "none");
-        if (r < 0)
-                return log_oom();
+                if (r < 0)
+                        return log_oom();
+        }
 
         /* A shared memory backend might increase ram usage so only add one if actually necessary for virtiofsd. */
         if (arg_directory || arg_runtime_mounts.n_mounts != 0) {
-                r = strv_extend(&cmdline, "-object");
+                r = qemu_config_section(config_file, "object", "mem",
+                                        "qom-type", "memory-backend-memfd",
+                                        "size", mem,
+                                        "share", "on");
                 if (r < 0)
-                        return log_oom();
-
-                r = strv_extendf(&cmdline, "memory-backend-memfd,id=mem,size=%s,share=on", mem);
-                if (r < 0)
-                        return log_oom();
+                        return r;
         }
 
         bool use_vsock = arg_vsock > 0 && ARCHITECTURE_SUPPORTS_SMBIOS;
@@ -2300,10 +2358,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         }
 
         if (use_kvm && kvm_device_fd >= 0) {
-                /* /dev/fdset/1 is magic string to tell qemu where to find the fd for /dev/kvm
-                 * we use this so that we can take a fd to /dev/kvm and then give qemu that fd */
-                accel = "kvm,device=/dev/fdset/1";
-
                 r = strv_extend(&cmdline, "--add-fd");
                 if (r < 0)
                         return log_oom();
@@ -2316,14 +2370,18 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_oom();
 
                 pass_fds[n_pass_fds++] = kvm_device_fd;
-        } else if (use_kvm)
-                accel = "kvm";
-        else
-                accel = "tcg";
 
-        r = strv_extend_many(&cmdline, "-accel", accel);
-        if (r < 0)
-                return log_oom();
+                r = qemu_config_section(config_file, "accel", /* id= */ NULL,
+                                        "accel", "kvm",
+                                        "device", "/dev/fdset/1");
+                if (r < 0)
+                        return r;
+        } else {
+                r = qemu_config_section(config_file, "accel", /* id= */ NULL,
+                                        "accel", use_kvm ? "kvm" : "tcg");
+                if (r < 0)
+                        return r;
+        }
 
         _cleanup_close_ int child_vsock_fd = -EBADF;
         unsigned child_cid = arg_vsock_cid;
@@ -2342,13 +2400,18 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to fix CID for the guest VSOCK socket: %m");
 
-                r = strv_extend(&cmdline, "-device");
+                r = qemu_config_section(config_file, "device", "vsock0",
+                                        "driver", "vhost-vsock-pci");
                 if (r < 0)
-                        return log_oom();
+                        return r;
 
-                r = strv_extendf(&cmdline, "vhost-vsock-pci,guest-cid=%u,vhostfd=%d", child_cid, device_fd);
+                r = qemu_config_keyf(config_file, "guest-cid", "%u", child_cid);
                 if (r < 0)
-                        return log_oom();
+                        return r;
+
+                r = qemu_config_keyf(config_file, "vhostfd", "%d", device_fd);
+                if (r < 0)
+                        return r;
 
                 if (!GREEDY_REALLOC(pass_fds, n_pass_fds + 1))
                         return log_oom();
@@ -2356,6 +2419,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 pass_fds[n_pass_fds++] = device_fd;
         }
 
+        /* -cpu stays on cmdline since not all flags are supported in config */
         r = strv_extend_many(&cmdline, "-cpu",
 #ifdef __x86_64__
                              "max,hv_relaxed,hv-vapic,hv-time"
@@ -2382,69 +2446,105 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (master < 0)
                         return log_error_errno(master, "Failed to setup pty: %m");
 
-                if (strv_extend_many(
-                                &cmdline,
-                                "-nographic",
-                                "-nodefaults",
-                                "-device", "virtio-serial-pci,id=vmspawn-virtio-serial-pci",
-                                "-chardev") < 0)
+                r = strv_extend_many(&cmdline, "-nographic", "-nodefaults");
+                if (r < 0)
                         return log_oom();
 
-                if (strv_extend_joined(&cmdline, "serial,id=console,path=", pty_path) < 0)
-                        return log_oom();
+                r = qemu_config_section(config_file, "device", "vmspawn-virtio-serial-pci",
+                                        "driver", "virtio-serial-pci");
+                if (r < 0)
+                        return r;
 
-                r = strv_extend_many(
-                                &cmdline,
-                                "-device", "virtconsole,chardev=console");
+                r = qemu_config_section(config_file, "chardev", "console",
+                                        "backend", "serial",
+                                        "path", pty_path);
+                if (r < 0)
+                        return r;
+
+                r = qemu_config_section(config_file, "device", "virtconsole0",
+                                        "driver", "virtconsole",
+                                        "chardev", "console");
+                if (r < 0)
+                        return r;
+
                 break;
         }
 
         case CONSOLE_GUI:
-                /* Enable support for the qemu guest agent for clipboard sharing, resolution scaling, etc. */
-                r = strv_extend_many(
-                                &cmdline,
-                                "-vga",
-                                "virtio",
-                                "-device", "virtio-serial",
-                                "-chardev", "spicevmc,id=vdagent,debug=0,name=vdagent",
-                                "-device", "virtserialport,chardev=vdagent,name=org.qemu.guest_agent.0");
+                /* -vga is a convenience option, keep on cmdline */
+                r = strv_extend_many(&cmdline, "-vga", "virtio");
+                if (r < 0)
+                        return log_oom();
+
+                r = qemu_config_section(config_file, "device", "virtio-serial0",
+                                        "driver", "virtio-serial");
+                if (r < 0)
+                        return r;
+
+                r = qemu_config_section(config_file, "chardev", "vdagent",
+                                        "backend", "spicevmc",
+                                        "debug", "0",
+                                        "name", "vdagent");
+                if (r < 0)
+                        return r;
+
+                r = qemu_config_section(config_file, "device", "vdagent-port0",
+                                        "driver", "virtserialport",
+                                        "chardev", "vdagent",
+                                        "name", "org.qemu.guest_agent.0");
+                if (r < 0)
+                        return r;
+
                 break;
 
         case CONSOLE_NATIVE:
-                r = strv_extend_many(
-                                &cmdline,
-                                "-nographic",
-                                "-nodefaults",
-                                "-chardev", "stdio,mux=on,id=console,signal=off",
-                                "-device", "virtio-serial-pci,id=vmspawn-virtio-serial-pci",
-                                "-device", "virtconsole,chardev=console",
-                                "-mon", "console");
+                r = strv_extend_many(&cmdline, "-nographic", "-nodefaults");
+                if (r < 0)
+                        return log_oom();
+
+                r = qemu_config_section(config_file, "chardev", "console",
+                                        "backend", "stdio",
+                                        "mux", "on",
+                                        "signal", "off");
+                if (r < 0)
+                        return r;
+
+                r = qemu_config_section(config_file, "device", "vmspawn-virtio-serial-pci",
+                                        "driver", "virtio-serial-pci");
+                if (r < 0)
+                        return r;
+
+                r = qemu_config_section(config_file, "device", "virtconsole0",
+                                        "driver", "virtconsole",
+                                        "chardev", "console");
+                if (r < 0)
+                        return r;
+
+                r = qemu_config_section(config_file, "mon", "mon0",
+                                        "chardev", "console");
+                if (r < 0)
+                        return r;
+
                 break;
 
         case CONSOLE_HEADLESS:
-                r = strv_extend_many(
-                                &cmdline,
-                                "-nographic",
-                                "-nodefaults");
+                r = strv_extend_many(&cmdline, "-nographic", "-nodefaults");
+                if (r < 0)
+                        return log_oom();
+
                 break;
 
         default:
                 assert_not_reached();
         }
-        if (r < 0)
-                return log_oom();
 
-        r = strv_extend(&cmdline, "-drive");
+        r = qemu_config_section(config_file, "drive", "ovmf-code",
+                                "if", "pflash",
+                                "format", ovmf_config_format(ovmf_config),
+                                "readonly", "on",
+                                "file", ovmf_config->path);
         if (r < 0)
-                return log_oom();
-
-        _cleanup_free_ char *escaped_ovmf_config_path = escape_qemu_value(ovmf_config->path);
-        if (!escaped_ovmf_config_path)
-                return log_oom();
-
-        r = strv_extendf(&cmdline, "if=pflash,format=%s,readonly=on,file=%s", ovmf_config_format(ovmf_config), escaped_ovmf_config_path);
-        if (r < 0)
-                return log_oom();
+                return r;
 
         if (arg_efi_nvram_state_mode == STATE_AUTO && !arg_ephemeral) {
                 assert(!arg_efi_nvram_state_path);
@@ -2508,21 +2608,26 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
                 destroy_path = mfree(destroy_path); /* disarm auto-destroy */
 
-                r = strv_extend_many(
-                                &cmdline,
-                                "-global", "ICH9-LPC.disable_s3=1",
-                                "-global", "driver=cfi.pflash01,property=secure,value=on",
-                                "-drive");
+                r = qemu_config_section(config_file, "global", /* id= */ NULL,
+                                        "driver", "ICH9-LPC",
+                                        "property", "disable_s3",
+                                        "value", "1");
                 if (r < 0)
-                        return log_oom();
+                        return r;
 
-                _cleanup_free_ char *escaped_state = escape_qemu_value(state);
-                if (!escaped_state)
-                        return log_oom();
-
-                r = strv_extendf(&cmdline, "file=%s,if=pflash,format=%s", escaped_state, ovmf_config_format(ovmf_config));
+                r = qemu_config_section(config_file, "global", /* id= */ NULL,
+                                        "driver", "cfi.pflash01",
+                                        "property", "secure",
+                                        "value", "on");
                 if (r < 0)
-                        return log_oom();
+                        return r;
+
+                r = qemu_config_section(config_file, "drive", "ovmf-vars",
+                                        "file", state,
+                                        "if", "pflash",
+                                        "format", ovmf_config_format(ovmf_config));
+                if (r < 0)
+                        return r;
         }
 
         if (kernel) {
@@ -2551,8 +2656,10 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 }
 
         if (need_scsi_controller) {
-                if (strv_extend_many(&cmdline, "-device", "virtio-scsi-pci,id=vmspawn_scsi") < 0)
-                        return log_oom();
+                r = qemu_config_section(config_file, "device", "vmspawn_scsi",
+                                        "driver", "virtio-scsi-pci");
+                if (r < 0)
+                        return r;
         }
 
         if (arg_image) {
@@ -2566,52 +2673,58 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                                        arg_image);
                 }
 
-                if (strv_extend(&cmdline, "-drive") < 0)
-                        return log_oom();
-
-                _cleanup_free_ char *escaped_image = escape_qemu_value(arg_image);
-                if (!escaped_image)
-                        return log_oom();
-
-                if (strv_extendf(&cmdline, "if=none,id=vmspawn,file=%s,format=%s,discard=%s,snapshot=%s",
-                                 escaped_image, image_format_to_string(arg_image_format), on_off(arg_discard_disk), on_off(arg_ephemeral)) < 0)
-                        return log_oom();
+                r = qemu_config_section(config_file, "drive", "vmspawn",
+                                        "if", "none",
+                                        "file", arg_image,
+                                        "format", image_format_to_string(arg_image_format),
+                                        "discard", on_off(arg_discard_disk),
+                                        "snapshot", on_off(arg_ephemeral));
+                if (r < 0)
+                        return r;
 
                 _cleanup_free_ char *image_fn = NULL;
                 r = path_extract_filename(arg_image, &image_fn);
                 if (r < 0)
                         return log_error_errno(r, "Failed to extract filename from path '%s': %m", image_fn);
 
-                _cleanup_free_ char *escaped_image_fn = escape_qemu_value(image_fn);
-                if (!escaped_image_fn)
-                        return log_oom();
-
-                if (strv_extend(&cmdline, "-device") < 0)
-                        return log_oom();
+                const char *disk_driver;
+                _cleanup_free_ char *serial = NULL;
 
                 switch (arg_image_disk_type) {
                 case DISK_TYPE_VIRTIO_BLK:
-                        if (strv_extend_joined(&cmdline, "virtio-blk-pci,drive=vmspawn,bootindex=1,serial=", escaped_image_fn) < 0)
+                        disk_driver = "virtio-blk-pci";
+                        serial = strdup(image_fn);
+                        if (!serial)
                                 return log_oom();
                         break;
-                case DISK_TYPE_VIRTIO_SCSI: {
-                        _cleanup_free_ char *serial = NULL;
-                        if (disk_serial(escaped_image_fn, 30, &serial) < 0)
-                                return log_oom();
-                        if (strv_extend_joined(&cmdline, "scsi-hd,bus=vmspawn_scsi.0,drive=vmspawn,bootindex=1,serial=", serial) < 0)
-                                return log_oom();
-                        break;
-                }
-                case DISK_TYPE_NVME: {
-                        _cleanup_free_ char *serial = NULL;
-                        if (disk_serial(escaped_image_fn, 20, &serial) < 0)
-                                return log_oom();
-                        if (strv_extend_joined(&cmdline, "nvme,drive=vmspawn,bootindex=1,serial=", serial) < 0)
+                case DISK_TYPE_VIRTIO_SCSI:
+                        disk_driver = "scsi-hd";
+                        r = disk_serial(image_fn, 30, &serial);
+                        if (r < 0)
                                 return log_oom();
                         break;
-                }
+                case DISK_TYPE_NVME:
+                        disk_driver = "nvme";
+                        r = disk_serial(image_fn, 20, &serial);
+                        if (r < 0)
+                                return log_oom();
+                        break;
                 default:
                         assert_not_reached();
+                }
+
+                r = qemu_config_section(config_file, "device", "vmspawn-disk",
+                                        "driver", disk_driver,
+                                        "drive", "vmspawn",
+                                        "bootindex", "1",
+                                        "serial", serial);
+                if (r < 0)
+                        return r;
+
+                if (arg_image_disk_type == DISK_TYPE_VIRTIO_SCSI) {
+                        r = qemu_config_key(config_file, "bus", "vmspawn_scsi.0");
+                        if (r < 0)
+                                return r;
                 }
 
                 r = grow_image(arg_image, arg_grow_image);
@@ -2678,21 +2791,19 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 pidref_done(&child);
                 children[n_children++] = TAKE_PTR(source);
 
-                _cleanup_free_ char *escaped_listen_address = escape_qemu_value(listen_address);
-                if (!escaped_listen_address)
-                        return log_oom();
+                r = qemu_config_section(config_file, "chardev", "rootdir",
+                                        "backend", "socket",
+                                        "path", listen_address);
+                if (r < 0)
+                        return r;
 
-                if (strv_extend(&cmdline, "-chardev") < 0)
-                        return log_oom();
-
-                if (strv_extendf(&cmdline, "socket,id=rootdir,path=%s", escaped_listen_address) < 0)
-                        return log_oom();
-
-                if (strv_extend_many(
-                                    &cmdline,
-                                    "-device",
-                                    "vhost-user-fs-pci,queue-size=1024,chardev=rootdir,tag=root") < 0)
-                        return log_oom();
+                r = qemu_config_section(config_file, "device", "rootdir",
+                                        "driver", "vhost-user-fs-pci",
+                                        "queue-size", "1024",
+                                        "chardev", "rootdir",
+                                        "tag", "root");
+                if (r < 0)
+                        return r;
 
                 if (strv_extend(&arg_kernel_cmdline_extra, "root=root rootfstype=virtiofs rw") < 0)
                         return log_oom();
@@ -2802,25 +2913,23 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 pidref_done(&child);
                 children[n_children++] = TAKE_PTR(source);
 
-                _cleanup_free_ char *escaped_listen_address = escape_qemu_value(listen_address);
-                if (!escaped_listen_address)
-                        return log_oom();
-
-                if (strv_extend(&cmdline, "-chardev") < 0)
-                        return log_oom();
-
                 _cleanup_free_ char *id = NULL;
                 if (asprintf(&id, "mnt%zu", j) < 0)
                         return log_oom();
 
-                if (strv_extendf(&cmdline, "socket,id=%s,path=%s", id, escaped_listen_address) < 0)
-                        return log_oom();
+                r = qemu_config_section(config_file, "chardev", id,
+                                        "backend", "socket",
+                                        "path", listen_address);
+                if (r < 0)
+                        return r;
 
-                if (strv_extend(&cmdline, "-device") < 0)
-                        return log_oom();
-
-                if (strv_extendf(&cmdline, "vhost-user-fs-pci,queue-size=1024,chardev=%1$s,tag=%1$s", id) < 0)
-                        return log_oom();
+                r = qemu_config_section(config_file, "device", id,
+                                        "driver", "vhost-user-fs-pci",
+                                        "queue-size", "1024",
+                                        "chardev", id,
+                                        "tag", id);
+                if (r < 0)
+                        return r;
 
                 _cleanup_free_ char *clean_target = xescape(m->target, "\":");
                 if (!clean_target)
@@ -2903,25 +3012,33 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         }
 
         if (tpm_socket_address) {
-                _cleanup_free_ char *escaped_tpm_socket_address = escape_qemu_value(tpm_socket_address);
-                if (!escaped_tpm_socket_address)
-                        return log_oom();
-
-                if (strv_extend(&cmdline, "-chardev") < 0)
-                        return log_oom();
-
-                if (strv_extend_joined(&cmdline, "socket,id=chrtpm,path=", tpm_socket_address) < 0)
-                        return log_oom();
-
-                if (strv_extend_many(&cmdline, "-tpmdev", "emulator,id=tpm0,chardev=chrtpm") < 0)
-                        return log_oom();
-
-                if (native_architecture() == ARCHITECTURE_X86_64)
-                        r = strv_extend_many(&cmdline, "-device", "tpm-tis,tpmdev=tpm0");
-                else if (IN_SET(native_architecture(), ARCHITECTURE_ARM64, ARCHITECTURE_ARM64_BE))
-                        r = strv_extend_many(&cmdline, "-device", "tpm-tis-device,tpmdev=tpm0");
+                r = qemu_config_section(config_file, "chardev", "chrtpm",
+                                        "backend", "socket",
+                                        "path", tpm_socket_address);
                 if (r < 0)
-                        return log_oom();
+                        return r;
+
+                r = qemu_config_section(config_file, "tpmdev", "tpm0",
+                                        "type", "emulator",
+                                        "chardev", "chrtpm");
+                if (r < 0)
+                        return r;
+
+                const char *tpm_driver;
+                if (native_architecture() == ARCHITECTURE_X86_64)
+                        tpm_driver = "tpm-tis";
+                else if (IN_SET(native_architecture(), ARCHITECTURE_ARM64, ARCHITECTURE_ARM64_BE))
+                        tpm_driver = "tpm-tis-device";
+                else
+                        tpm_driver = NULL;
+
+                if (tpm_driver) {
+                        r = qemu_config_section(config_file, "device", "tpmdev0",
+                                                "driver", tpm_driver,
+                                                "tpmdev", "tpm0");
+                        if (r < 0)
+                                return r;
+                }
         }
 
         char *initrd = NULL;
@@ -3062,6 +3179,16 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_error_errno(r, "Failed to call getsockname on VSOCK: %m");
         }
 
+        /* Finalize the config file and add -readconfig to the cmdline */
+        r = fflush_and_check(config_file);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write QEMU config file: %m");
+        config_file = safe_fclose(config_file);
+
+        r = strv_extend_many(&cmdline, "-readconfig", config_path);
+        if (r < 0)
+                return log_oom();
+
         const char *e = secure_getenv("SYSTEMD_VMSPAWN_QEMU_EXTRA");
         if (e) {
                 r = strv_split_and_extend_full(&cmdline, e,
@@ -3072,6 +3199,14 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         }
 
         if (DEBUG_LOGGING) {
+                _cleanup_free_ char *config_contents = NULL;
+
+                r = read_full_file(config_path, &config_contents, /* ret_size= */ NULL);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to read back QEMU config file, ignoring: %m");
+                else
+                        log_debug("QEMU config file %s:\n%s", config_path, config_contents);
+
                 _cleanup_free_ char *joined = quote_command_line(cmdline, SHELL_ESCAPE_EMPTY);
                 if (!joined)
                         return log_oom();
