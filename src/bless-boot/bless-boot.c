@@ -50,7 +50,7 @@ static int help(void) {
         if (r < 0)
                 return r;
 
-        (void) table_sync_column_width(options, 0, verbs, 0);
+        (void) table_sync_column_widths(0, options, verbs);
 
         printf("%s [OPTIONS...] COMMAND\n"
                "\n%sMark the boot process as good or bad.%s\n"
