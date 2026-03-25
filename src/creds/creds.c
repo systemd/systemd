@@ -940,15 +940,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_NEWLINE:
-                        if (isempty(optarg) || streq(optarg, "auto"))
-                                arg_newline = -1;
-                        else {
-                                r = parse_boolean_argument("--newline=", optarg, NULL);
-                                if (r < 0)
-                                        return r;
-
-                                arg_newline = r;
-                        }
+                        r = parse_tristate_argument_with_auto("--newline=", optarg, &arg_newline);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case 'p':
