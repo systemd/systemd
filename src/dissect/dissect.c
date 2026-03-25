@@ -207,11 +207,11 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        OptionParser state = {};
+        OptionParser state = { argc, argv };
         const Option *current;
         const char *arg;
 
-        FOREACH_OPTION_FULL(&state, c, argc, argv, &current, &arg, /* on_error= */ return c)
+        FOREACH_OPTION_FULL(&state, c, &current, &arg, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_NO_PAGER:
@@ -495,7 +495,7 @@ static int parse_argv(int argc, char *argv[]) {
                 arg_runtime_scope = system_scope_requested && user_scope_requested ? _RUNTIME_SCOPE_INVALID :
                         system_scope_requested ? RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER;
 
-        char **args = option_parser_get_args(&state, argc, argv);
+        char **args = option_parser_get_args(&state);
 
         switch (arg_action) {
 

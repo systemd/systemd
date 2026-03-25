@@ -158,10 +158,10 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
         assert(argv);
 
-        OptionParser state = {};
+        OptionParser state = { argc, argv };
         const char *arg;
 
-        FOREACH_OPTION(&state, c, argc, argv, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_HELP:
@@ -283,7 +283,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
 
         bool have_env = arg_ready || arg_stopping || arg_reloading || arg_status || pidref_is_set(&arg_pid) || !fdset_isempty(arg_fds);
 
-        char **args = option_parser_get_args(&state, argc, argv);
+        char **args = option_parser_get_args(&state);
 
         switch (arg_action) {
 
