@@ -143,7 +143,6 @@
 
 #define XCONCATENATE(x, y) x ## y
 #define CONCATENATE(x, y) XCONCATENATE(x, y)
-#define CONCATENATE3(x, y, z) CONCATENATE(x, CONCATENATE(y, z))
 
 #define assert_cc(expr) _Static_assert(expr, #expr)
 

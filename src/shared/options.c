@@ -25,14 +25,6 @@ static bool option_is_metadata(const Option *opt) {
                 FLAGS_SET(ASSERT_PTR(opt)->flags, OPTION_HELP_ENTRY);
 }
 
-static void kill_arg(char* argv[], int argc, int index) {
-        assert(index < argc);
-        assert(!argv[argc]);
-
-        /* Eliminate argv[index] */
-        memmove(argv + index, argv + index + 1, (argc - index) * sizeof(char*));
-}
-
 static void shift_arg(char* argv[], int target, int source) {
         assert(argv);
         assert(target <= source);
@@ -77,7 +69,6 @@ int option_parse(
                 const Option options[],
                 const Option options_end[],
                 OptionParser *state,
-                int argc, char *argv[],
                 const Option **ret_option,
                 const char **ret_arg) {
 
@@ -85,13 +76,10 @@ int option_parse(
 
         /* Check and initialize */
         if (state->optind == 0) {
-                if (argc < 1 || strv_isempty(argv))
+                if (state->argc < 1 || strv_isempty(state->argv))
                         return log_error_errno(SYNTHETIC_ERRNO(EUCLEAN), "argv cannot be empty");
 
-                *state = (OptionParser) {
-                        .optind = 1,
-                        .positional_offset = 1,
-                };
+                state->optind = state->positional_offset = 1;
         }
 
         /* Look for the next option */
@@ -104,20 +92,21 @@ int option_parse(
         if (state->short_option_offset == 0) {
                 /* Skip over non-option parameters */
                 for (;;) {
-                        if (state->optind == argc)
+                        if (state->optind == state->argc)
                                 return 0;
 
-                        if (streq(argv[state->optind], "--")) {
-                                /* No more options. Eliminate "--" so that the list of positional args is clean. */
-                                kill_arg(argv, argc, state->optind);
-                                return 0;
+                        if (streq(state->argv[state->optind], "--")) {
+                                /* No more options. Move "--" before positional args so that
+                                 * the list of positional args is clean. */
+                                shift_arg(state->argv, state->positional_offset++, state->optind++);
+                                state->parsing_stopped = true;
                         }
 
                         if (state->parsing_stopped)
                                 return 0;
 
-                        if (argv[state->optind][0] == '-' &&
-                            argv[state->optind][1] != '\0')
+                        if (state->argv[state->optind][0] == '-' &&
+                            state->argv[state->optind][1] != '\0')
                                 /* Looks like we found an option parameter */
                                 break;
 
@@ -126,13 +115,13 @@ int option_parse(
 
                 /* Find matching option entry.
                  * First, figure out if we have a long option or a short option. */
-                assert(argv[state->optind][0] == '-');
+                assert(state->argv[state->optind][0] == '-');
 
-                if (argv[state->optind][1] == '-') {
+                if (state->argv[state->optind][1] == '-') {
                         /* We have a long option. */
-                        char *eq = strchr(argv[state->optind], '=');
+                        char *eq = strchr(state->argv[state->optind], '=');
                         if (eq) {
-                                optname = _optname = strndup(argv[state->optind], eq - argv[state->optind]);
+                                optname = _optname = strndup(state->argv[state->optind], eq - state->argv[state->optind]);
                                 if (!_optname)
                                         return log_oom();
 
@@ -140,7 +129,7 @@ int option_parse(
                                 optval = eq + 1;
                         } else
                                 /* argument (if any) is separate */
-                                optname = argv[state->optind];
+                                optname = state->argv[state->optind];
 
                         const Option *last_partial = NULL;
                         unsigned n_partial_matches = 0;  /* The commandline option matches a defined prefix. */
@@ -179,7 +168,7 @@ int option_parse(
         }
 
         if (state->short_option_offset > 0) {
-                char optchar = argv[state->optind][state->short_option_offset];
+                char optchar = state->argv[state->optind][state->short_option_offset];
 
                 if (asprintf(&_optname, "-%c", optchar) < 0)
                         return log_oom();
@@ -194,7 +183,7 @@ int option_parse(
                         if (option_is_metadata(option) || optchar != option->short_code)
                                 continue;
 
-                        const char *rest = argv[state->optind] + state->short_option_offset + 1;
+                        const char *rest = state->argv[state->optind] + state->short_option_offset + 1;
 
                         if (option_takes_arg(option) && !isempty(rest)) {
                                 /* The rest of this parameter is the value. */
@@ -216,19 +205,19 @@ int option_parse(
                                        "%s: option '%s' doesn't allow an argument",
                                        program_invocation_short_name, optname);
         if (!optval && option_arg_required(option)) {
-                if (!argv[state->optind + 1])
+                if (!state->argv[state->optind + 1])
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "%s: option '%s' requires an argument",
                                                program_invocation_short_name, optname);
-                optval = argv[state->optind + 1];
+                optval = state->argv[state->optind + 1];
                 separate_optval = true;
         }
 
         if (state->short_option_offset == 0) {
                 /* We're done with this option. Adjust the array and position. */
-                shift_arg(argv, state->positional_offset++, state->optind++);
+                shift_arg(state->argv, state->positional_offset++, state->optind++);
                 if (separate_optval)
-                        shift_arg(argv, state->positional_offset++, state->optind++);
+                        shift_arg(state->argv, state->positional_offset++, state->optind++);
         }
 
         if (FLAGS_SET(option->flags, OPTION_STOPS_PARSING))
@@ -241,12 +230,25 @@ int option_parse(
         return option->id;
 }
 
-char** option_parser_get_args(const OptionParser *state, int argc, char *argv[]) {
+char** option_parser_get_args(const OptionParser *state) {
         /* Returns positional args as a strv.
-         * If "--" was found, it has been removed. */
+         * If "--" was found, it has been moved before state->positional_offset.
+         * The array is only valid, i.e. clean without any options, after parsing
+         * has naturally finished. */
 
         assert(state->optind > 0);
-        return argv + state->positional_offset;
+        assert(state->optind == state->argc || state->parsing_stopped);
+        assert(state->positional_offset <= state->argc);
+
+        return state->argv + state->positional_offset;
+}
+
+size_t option_parser_get_n_args(const OptionParser *state) {
+        assert(state->optind > 0);
+        assert(state->optind == state->argc || state->parsing_stopped);
+        assert(state->positional_offset <= state->argc);
+
+        return state->argc - state->positional_offset;
 }
 
 int _option_parser_get_help_table(
@@ -264,7 +266,7 @@ int _option_parser_get_help_table(
 
         bool in_group = group == NULL;  /* Are we currently in the section on the array that forms
                                          * group <group>? The first part is the default group, so
-                                         * the group was not specified, we are in. */
+                                         * if the group was not specified, we are in. */
 
         for (const Option *opt = options; opt < options_end; opt++) {
                 bool group_marker = FLAGS_SET(opt->flags, OPTION_GROUP_MARKER);

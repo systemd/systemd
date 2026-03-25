@@ -58,12 +58,21 @@ bool should_bypass(const char *env_prefix) {
         return true;
 }
 
+static bool verb_is_metadata(const Verb *verb) {
+        /* A metadata entry that is not a real verb, like the group marker */
+        return FLAGS_SET(ASSERT_PTR(verb)->flags, VERB_GROUP_MARKER);
+}
+
 const Verb* verbs_find_verb(const char *name, const Verb verbs[], const Verb verbs_end[]) {
         assert(verbs);
 
-        for (const Verb *verb = verbs; verb < verbs_end; verb++)
+        for (const Verb *verb = verbs; verb < verbs_end; verb++) {
+                if (verb_is_metadata(verb))
+                        continue;
+
                 if (name ? streq(name, verb->verb) : FLAGS_SET(verb->flags, VERB_DEFAULT))
                         return verb;
+        }
 
         /* At the end of the list? */
         return NULL;
@@ -85,6 +94,9 @@ int _dispatch_verb_with_args(char **args, const Verb verbs[], const Verb verbs_e
                 _cleanup_strv_free_ char **verb_strv = NULL;
 
                 for (verb = verbs; verb < verbs_end; verb++) {
+                        if (verb_is_metadata(verb))
+                                continue;
+
                         r = strv_extend(&verb_strv, verb->verb);
                         if (r < 0)
                                 return log_oom();
@@ -142,13 +154,17 @@ int dispatch_verb(int argc, char *argv[], const Verb verbs[], void *userdata) {
         assert(argc >= optind);
 
         size_t n = 0;
-        while (verbs[n].dispatch)
+        while (verbs[n].verb)
                 n++;
 
         return _dispatch_verb_with_args(strv_skip(argv, optind), verbs, verbs + n, userdata);
 }
 
-int _verbs_get_help_table(const Verb verbs[], const Verb verbs_end[], Table **ret) {
+int _verbs_get_help_table(
+                const Verb verbs[],
+                const Verb verbs_end[],
+                const char *group,
+                Table **ret) {
         int r;
 
         assert(ret);
@@ -157,10 +173,23 @@ int _verbs_get_help_table(const Verb verbs[], const Verb verbs_end[], Table **re
         if (!table)
                 return log_oom();
 
+        bool in_group = group == NULL;  /* Are we currently in the section on the array that forms
+                                         * group <group>? The first part is the default group, so
+                                         * if the group was not specified, we are in. */
+
         for (const Verb *verb = verbs; verb < verbs_end; verb++) {
-                assert(verb->dispatch);
+                assert(verb->verb);
+
+                bool group_marker = FLAGS_SET(verb->flags, VERB_GROUP_MARKER);
+                if (!in_group) {
+                        in_group = group_marker && streq(group, verb->verb);
+                        continue;
+                }
+                if (group_marker)
+                        break;  /* End of group */
 
                 if (!verb->help)
+                        /* No help string — we do not show the verb */
                         continue;
 
                 /* We indent the option string by two spaces. We could set the minimum cell width and
