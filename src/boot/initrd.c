@@ -213,3 +213,48 @@ EFI_STATUS initrd_read_previous(struct iovec *ret_initrd) {
 
         return EFI_SUCCESS;
 }
+
+EFI_STATUS combine_initrds(
+                const struct iovec initrds[], size_t n_initrds,
+                Pages *ret_initrd_pages, size_t *ret_initrd_size) {
+
+        size_t n = 0;
+
+        /* Combine initrds by concatenation in memory */
+
+        assert(initrds || n_initrds == 0);
+        assert(ret_initrd_pages);
+        assert(ret_initrd_size);
+
+        FOREACH_ARRAY(i, initrds, n_initrds) {
+                /* some initrds (the ones from UKI sections) need padding, pad all to be safe */
+                size_t initrd_size = ALIGN4(i->iov_len);
+                if (n > SIZE_MAX - initrd_size)
+                        return EFI_OUT_OF_RESOURCES;
+
+                n += initrd_size;
+        }
+
+        _cleanup_pages_ Pages pages = xmalloc_initrd_pages(n);
+        uint8_t *p = PHYSICAL_ADDRESS_TO_POINTER(pages.addr);
+
+        FOREACH_ARRAY(i, initrds, n_initrds) {
+                size_t pad;
+
+                p = mempcpy(p, i->iov_base, i->iov_len);
+
+                pad = ALIGN4(i->iov_len) - i->iov_len;
+                if (pad == 0)
+                        continue;
+
+                memzero(p, pad);
+                p += pad;
+        }
+
+        assert(PHYSICAL_ADDRESS_TO_POINTER(pages.addr + n) == p);
+
+        *ret_initrd_pages = TAKE_STRUCT(pages);
+        *ret_initrd_size = n;
+
+        return EFI_SUCCESS;
+}
