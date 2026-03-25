@@ -726,8 +726,6 @@ static void client_initialize(sd_dhcp_client *client) {
         client->xid = 0;
 
         client->lease = sd_dhcp_lease_unref(client->lease);
-
-        return 0;
 }
 
 static void client_stop(sd_dhcp_client *client, int error) {

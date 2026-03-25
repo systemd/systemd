@@ -21,6 +21,8 @@
 #include "hexdecoct.h"
 #include "hostname-util.h"
 #include "in-addr-util.h"
+#include "iovec-util.h"
+#include "json-util.h"
 #include "network-common.h"
 #include "network-internal.h"
 #include "parse-util.h"
@@ -1276,23 +1278,355 @@ int dhcp_lease_new(sd_dhcp_lease **ret) {
         return 0;
 }
 
-int dhcp_lease_save(sd_dhcp_lease *lease, int dir_fd, const char *lease_file) {
-        _cleanup_(unlink_and_freep) char *temp_path = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
-        struct in_addr address;
+static int lease_routes_append_json(sd_dhcp_route **routes, const char *key, size_t n_routes, sd_json_variant **v){
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+        int r;
+
+        FOREACH_ARRAY(route, routes, n_routes) {
+                r = sd_json_variant_append_arraybo(
+                                &array,
+                                JSON_BUILD_PAIR_IN4_ADDR_WITH_STRING("Destination", &(*route)->dst_addr),
+                                JSON_BUILD_PAIR_IN4_ADDR_WITH_STRING_NON_NULL("Gateway", &(*route)->gw_addr),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("DestinationPrefixLength", (*route)->dst_prefixlen));
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_json_variant_merge_objectbo(v, SD_JSON_BUILD_PAIR_VARIANT(key, array));
+}
+
+static int dhcp_lease_append_json(sd_dhcp_lease *lease, sd_json_variant **ret) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_free_ sd_dhcp_route **routes = NULL;
         const struct in_addr *addresses;
+        struct in_addr address;
         const void *data;
         size_t data_len;
         const char *string;
         uint16_t mtu;
-        _cleanup_free_ sd_dhcp_route **routes = NULL;
         char **search_domains;
         usec_t t;
+        int count;
+        int r;
+
+        r = sd_dhcp_lease_get_address(lease, &address);
+        if (r >= 0) {
+                r = sd_json_variant_merge_objectbo(&v, JSON_BUILD_PAIR_IN4_ADDR_WITH_STRING_NON_NULL("Address", &address));
+                if (r < 0)
+                        log_debug("Failed to add address field to Json lease: %s", strerror(-r));
+        }
+        r = sd_dhcp_lease_get_netmask(lease, &address);
+        if (r >= 0)
+                r = sd_json_variant_merge_objectbo(&v, JSON_BUILD_PAIR_IN4_ADDR_WITH_STRING_NON_NULL("Netmask", &address));
+
+        r = sd_dhcp_lease_get_router(lease, &addresses);
+        if (r > 0) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+                count = r;
+                FOREACH_ARRAY(addr, addresses, count) {
+                        r = sd_json_variant_append_arrayb(&array, JSON_BUILD_IN4_ADDR(addr));
+                        if (r < 0) {
+                                log_debug("Failed to add a router address to lease: %s", strerror(-r));
+                                break;
+                        }
+                }
+                r = sd_json_variant_set_field(&v, "Router", array);
+                if (r < 0)
+                        log_debug("Failed to add router field to Json lease: %s", strerror(-r));
+        }
+
+        r = sd_dhcp_lease_get_server_identifier(lease, &address);
+        if (r >= 0) {
+                r = sd_json_variant_merge_objectbo(&v, JSON_BUILD_PAIR_IN4_ADDR("Server_Address", &address));
+                if (r < 0)
+                        log_debug("Failed to add server_address field to Json lease: %s", strerror(-r));
+        }
+
+        r = sd_dhcp_lease_get_next_server(lease, &address);
+        if (r >= 0) {
+                r = sd_json_variant_merge_objectbo(&v, JSON_BUILD_PAIR_IN4_ADDR("Next_Server", &address));
+                if (r < 0)
+                        log_debug("Failed to add field next_server to Json lease: %s", strerror(-r));
+        }
+
+        r = sd_dhcp_lease_get_broadcast(lease, &address);
+        if (r >= 0) {
+                r = sd_json_variant_merge_objectbo(&v, JSON_BUILD_PAIR_IN4_ADDR("Broadcast", &address));
+                if (r < 0)
+                        log_debug("Failed to add broadcast field to Json lease: %s", strerror(-r));
+        }
+
+        r = sd_dhcp_lease_get_mtu(lease, &mtu);
+        if (r >= 0) {
+                r = sd_json_variant_merge_objectbo(&v, SD_JSON_BUILD_PAIR_UNSIGNED("MTU", mtu));
+                if (r < 0)
+                        log_debug("Failed to add mtu field to Json lease: %s", strerror(-r));
+        }
+
+        r = sd_dhcp_lease_get_t1(lease, &t);
+        if (r >= 0) {
+                r = sd_json_variant_merge_objectbo(&v, SD_JSON_BUILD_PAIR_STRING("T1", FORMAT_TIMESPAN(t, USEC_PER_SEC)));
+                if (r < 0)
+                        log_debug("Failed to add t1 field to Json lease: %s", strerror(-r));
+        }
+
+        r = sd_dhcp_lease_get_t2(lease, &t);
+        if (r >= 0) {
+                r = sd_json_variant_merge_objectbo(&v, SD_JSON_BUILD_PAIR_STRING("T2", FORMAT_TIMESPAN(t, USEC_PER_SEC)));
+                if (r < 0)
+                        log_debug("Failed to add t2 field to Json lease: %s", strerror(-r));
+        }
+
+        r = sd_dhcp_lease_get_lifetime(lease, &t);
+        if (r >= 0) {
+                r = sd_json_variant_merge_objectbo(&v, SD_JSON_BUILD_PAIR_STRING("Lifetime", FORMAT_TIMESPAN(t, USEC_PER_SEC)));
+                if (r < 0)
+                        log_debug("Failed to add lifetime field to Json lease: %s", strerror(-r));
+       }
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *servers = NULL;
+        r = sd_dhcp_lease_get_dns(lease, &addresses);
+        if (r > 0) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+                count = r;
+                FOREACH_ARRAY(addr, addresses, count)
+                      sd_json_variant_append_arrayb(&array, JSON_BUILD_IN4_ADDR(addr));
+                r = sd_json_variant_merge_objectbo(&servers, SD_JSON_BUILD_PAIR_VARIANT("DNS", array));
+                if (r < 0)
+                        log_debug("Failed to add DNS servers field to Json lease: %s", strerror(-r));
+
+        }
+
+        r = sd_dhcp_lease_get_ntp(lease, &addresses);
+        if (r > 0) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+                count = r;
+                FOREACH_ARRAY(addr, addresses, count)
+                        sd_json_variant_append_arrayb(&array, JSON_BUILD_IN4_ADDR(addr));
+                r = sd_json_variant_merge_objectbo(&servers, SD_JSON_BUILD_PAIR_VARIANT("NTP", array));
+                if (r < 0)
+                        log_debug("Failed to add NTP servers field to Json lease: %s", strerror(-r));
+        }
+
+        r = sd_dhcp_lease_get_sip(lease, &addresses);
+        if (r > 0) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+                count = r;
+                FOREACH_ARRAY(addr, addresses, count)
+                        sd_json_variant_append_arrayb(&array, JSON_BUILD_IN4_ADDR(addr));
+                r = sd_json_variant_merge_objectbo(&servers, SD_JSON_BUILD_PAIR_VARIANT("SIP", array));
+                if (r < 0)
+                        log_debug("Failed to add SIP servers field to Json lease: %s", strerror(-r));
+        }
+
+        r = sd_dhcp_lease_get_pop3(lease, &addresses);
+        if (r > 0) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+                count = r;
+                FOREACH_ARRAY(addr, addresses, count)
+                         sd_json_variant_append_arrayb(&array, JSON_BUILD_IN4_ADDR(addr));
+                r = sd_json_variant_merge_objectbo(&servers, SD_JSON_BUILD_PAIR_VARIANT("POP3", array));
+                if (r < 0)
+                        log_debug("Failed to add POP3 servers field to Json lease: %s", strerror(-r));
+        }
+
+        r = sd_dhcp_lease_get_smtp(lease, &addresses);
+        if (r > 0) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+                count = r;
+                FOREACH_ARRAY(addr, addresses, count)
+                        sd_json_variant_append_arrayb(&array, JSON_BUILD_IN4_ADDR(addr));
+                r = sd_json_variant_merge_objectbo(&servers, SD_JSON_BUILD_PAIR_VARIANT("SMTP", array));
+                if (r < 0)
+                        log_debug("Failed to add SMTP servers field to Json lease: %s", strerror(-r));
+        }
+
+        r = sd_dhcp_lease_get_lpr(lease, &addresses);
+        if (r > 0) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+                count = r;
+                FOREACH_ARRAY(addr, addresses, count)
+                        sd_json_variant_append_arrayb(&array, JSON_BUILD_IN4_ADDR(addr));
+                r = sd_json_variant_merge_objectbo(&servers, SD_JSON_BUILD_PAIR_VARIANT("LPR", array));
+                if (r < 0)
+                        log_debug("Failed to add LPR servers field to Json lease: %s", strerror(-r));
+        }
+
+        if(servers) {
+                r = sd_json_variant_merge_objectbo(&v, SD_JSON_BUILD_PAIR_VARIANT("Servers", servers));
+                if (r < 0)
+                        log_debug("Failed to add servers array to Json lease: %s", strerror(-r));
+       }
+
+        sd_dns_resolver *resolvers;
+        r = sd_dhcp_lease_get_dnr(lease, &resolvers);
+        if (r > 0) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+                count = r;
+
+                FOREACH_ARRAY(res, resolvers, count) {
+                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *addrs_array = NULL;
+                        _cleanup_strv_free_ char **transports = NULL;
+
+                        FOREACH_ARRAY(addr, res->addrs, res->n_addrs) {
+                                r = sd_json_variant_append_arrayb(
+                                                &addrs_array,
+                                                JSON_BUILD_IN_ADDR(res->family, addr));
+                                if (r < 0) {
+                                        log_debug("Failed to add a resolver address: %s", strerror(-r));
+                                        break;
+                                }
+                        }
+
+                        r = dns_resolver_transports_to_strv(res->transports, &transports);
+                        if (r < 0) {
+                                log_debug("Failed to add a resolver transport type to Json lease: %s", strerror(-r));
+                                continue;
+                        }
+
+                        r = sd_json_variant_append_arrayb(
+                                        &array,
+                                        SD_JSON_BUILD_OBJECT(
+                                                        SD_JSON_BUILD_PAIR_UNSIGNED("Priority", res->priority),
+                                                        JSON_BUILD_PAIR_VARIANT_NON_NULL("Addresses", addrs_array),
+                                                        JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("Port", res->port),
+                                                        JSON_BUILD_PAIR_STRING_NON_EMPTY("ServerName", res->auth_name),
+                                                        JSON_BUILD_PAIR_STRING_NON_EMPTY("DoHPath", res->dohpath),
+                                                        JSON_BUILD_PAIR_STRV_NON_EMPTY("Transports", transports)));
+                        if (r < 0) {
+                                log_debug("Failed to add resolver to Json Lease: %s", strerror(-r));
+                                continue;
+                        }
+                }
+
+                r = sd_json_variant_merge_objectbo(&v, SD_JSON_BUILD_PAIR_VARIANT("DNR", array));
+                if (r < 0) {
+                         log_debug("Failed to add DNR field to Json lease: %s", strerror(-r));
+                }
+        }
+
+        r = sd_dhcp_lease_get_domainname(lease, &string);
+        if (r >= 0) {
+                r = sd_json_variant_merge_objectbo(&v, SD_JSON_BUILD_PAIR_STRING("Domain_Name", string));
+                if (r < 0)
+                        log_debug("Failed to add Domain_name field to Json lease: %s", strerror(-r));
+        }
+
+        r = sd_dhcp_lease_get_search_domains(lease, &search_domains);
+        if (r > 0) {
+                r = sd_json_variant_merge_objectbo(&v, SD_JSON_BUILD_PAIR_STRV("Domain_Search_List", search_domains));
+                if (r < 0)
+                        log_debug("Failed to add domain_search_list field to Json lease: %s", strerror(-r));
+        }
+
+        r = sd_dhcp_lease_get_hostname(lease, &string);
+        if (r >= 0) {
+                r = sd_json_variant_merge_objectbo(&v, SD_JSON_BUILD_PAIR_STRING("Hostname", string));
+                if (r < 0)
+                        log_debug("Failed to add hostname field to Json lease: %s", strerror(-r));
+        }
+
+        r = sd_dhcp_lease_get_root_path(lease, &string);
+        if (r >= 0) {
+                r = sd_json_variant_merge_objectbo(&v, SD_JSON_BUILD_PAIR_STRING("Root_Path", string));
+                if (r < 0)
+                        log_debug("Failed to add root_path field to Json lease: %s", strerror(-r));
+        }
+
+        r = sd_dhcp_lease_get_static_routes(lease, &routes);
+        if (r > 0) {
+                r = lease_routes_append_json(routes, "Static_Routes", r, &v);
+                if (r < 0)
+                        log_debug("Failed to add static_routes field to Json lease: %s", strerror(-r));
+        }
+        routes = mfree(routes);
+
+        r = sd_dhcp_lease_get_classless_routes(lease, &routes);
+        if (r > 0) {
+                r = lease_routes_append_json(routes, "Classless_Routes", r, &v);
+                if (r < 0)
+                        log_debug("Failed to add classless_routes field to Json lease: %s", strerror(-r));
+        }
+
+        r = sd_dhcp_lease_get_timezone(lease, &string);
+        if (r >= 0) {
+                r = sd_json_variant_merge_objectbo(&v, SD_JSON_BUILD_PAIR_STRING("Timezone", string));
+                if (r < 0)
+                        log_debug("Failed to add timezone field to Json lease: %s", strerror(-r));
+        }
+
+        if (sd_dhcp_client_id_is_set(&lease->client_id)) {
+                r = sd_json_variant_merge_objectbo(&v,
+                                                   SD_JSON_BUILD_PAIR_BYTE_ARRAY("Client_Id", lease->client_id.raw, lease->client_id.size));
+                if (r < 0)
+                        log_debug("Failed to add client_id field to Json lease: %s", strerror(-r));
+        }
+
+        r = sd_dhcp_lease_get_timestamp(lease, CLOCK_REALTIME, &t);
+        if (r >= 0) {
+                r = sd_json_variant_merge_objectbo(&v, SD_JSON_BUILD_PAIR_STRING("Timestamp_realtime", FORMAT_TIMESTAMP_STYLE(t, TIMESTAMP_US)));
+                if (r < 0)
+                        log_debug("Failed to add timestamp_realtime field to Json lease: %s", strerror(-r));
+        }
+
+        r = sd_dhcp_lease_get_vendor_specific(lease, &data, &data_len);
+        if (r >= 0) {
+                r = sd_json_variant_merge_objectbo(&v, SD_JSON_BUILD_PAIR_HEX("Vendor_Specific", data, data_len));
+                if (r < 0)
+                        log_debug("Failed to add vendor_specific field to Json lease: %s", strerror(-r));
+        }
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *private_options_array = NULL;
+        LIST_FOREACH(options, option, lease->private_options) {
+
+                r = sd_json_variant_append_arraybo(
+                                &private_options_array,
+                                SD_JSON_BUILD_PAIR_UNSIGNED("Option", option->tag),
+                                SD_JSON_BUILD_PAIR_HEX("Data", option->data, option->length));
+                if (r < 0) {
+                        log_debug("Failed to add a private option to Json lease: %s", strerror(-r));
+                        continue;
+                }
+        }
+        r = json_variant_set_field_non_null(&v, "Private_Options", private_options_array);
+        if (r < 0)
+                log_debug("Failed to add Private_Options field to Json lease: %s", strerror(-r));
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *requested_options_array = NULL;
+        LIST_FOREACH(options, opt, lease->requested_options_data) {
+                r = sd_json_variant_append_arraybo(
+                                &requested_options_array,
+                                SD_JSON_BUILD_PAIR_UNSIGNED("Option", opt->tag),
+                                SD_JSON_BUILD_PAIR_STRING("Data", opt->data));
+                if (r < 0)
+                        log_debug("Failed to add a requested option to Json lease: %s", strerror(-r));
+        }
+        r = json_variant_set_field_non_null(&v, "Requested_Options", requested_options_array);
+        if (r < 0)
+                log_debug("Failed to add Requested_Options field to Json lease: %s", strerror(-r));
+
+        if (!v)
+                return -ENODATA;
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+int dhcp_lease_save(sd_dhcp_lease *lease, int dir_fd, const char *lease_file) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_(unlink_and_freep) char *temp_path = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
         int r;
 
         assert(lease);
         assert(lease_file);
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
+
+
+        r = dhcp_lease_append_json(lease, &v);
+
+        if (r < 0)
+                return r;
 
         r = fopen_temporary_at(dir_fd, lease_file, &f, &temp_path);
         if (r < 0)
@@ -1300,146 +1634,7 @@ int dhcp_lease_save(sd_dhcp_lease *lease, int dir_fd, const char *lease_file) {
 
         (void) fchmod(fileno(f), 0644);
 
-        fprintf(f,
-                "# This is private data. Do not parse.\n");
-
-        r = sd_dhcp_lease_get_address(lease, &address);
-        if (r >= 0)
-                fprintf(f, "ADDRESS=%s\n", IN4_ADDR_TO_STRING(&address));
-
-        r = sd_dhcp_lease_get_netmask(lease, &address);
-        if (r >= 0)
-                fprintf(f, "NETMASK=%s\n", IN4_ADDR_TO_STRING(&address));
-
-        r = sd_dhcp_lease_get_router(lease, &addresses);
-        if (r > 0) {
-                fputs("ROUTER=", f);
-                serialize_in_addrs(f, addresses, r, NULL, NULL);
-                fputc('\n', f);
-        }
-
-        r = sd_dhcp_lease_get_server_identifier(lease, &address);
-        if (r >= 0)
-                fprintf(f, "SERVER_ADDRESS=%s\n", IN4_ADDR_TO_STRING(&address));
-
-        r = sd_dhcp_lease_get_next_server(lease, &address);
-        if (r >= 0)
-                fprintf(f, "NEXT_SERVER=%s\n", IN4_ADDR_TO_STRING(&address));
-
-        r = sd_dhcp_lease_get_broadcast(lease, &address);
-        if (r >= 0)
-                fprintf(f, "BROADCAST=%s\n", IN4_ADDR_TO_STRING(&address));
-
-        r = sd_dhcp_lease_get_mtu(lease, &mtu);
-        if (r >= 0)
-                fprintf(f, "MTU=%" PRIu16 "\n", mtu);
-
-        r = sd_dhcp_lease_get_t1(lease, &t);
-        if (r >= 0)
-                fprintf(f, "T1=%s\n", FORMAT_TIMESPAN(t, USEC_PER_SEC));
-
-        r = sd_dhcp_lease_get_t2(lease, &t);
-        if (r >= 0)
-                fprintf(f, "T2=%s\n", FORMAT_TIMESPAN(t, USEC_PER_SEC));
-
-        r = sd_dhcp_lease_get_lifetime(lease, &t);
-        if (r >= 0)
-                fprintf(f, "LIFETIME=%s\n", FORMAT_TIMESPAN(t, USEC_PER_SEC));
-
-        r = sd_dhcp_lease_get_dns(lease, &addresses);
-        if (r > 0) {
-                fputs("DNS=", f);
-                serialize_in_addrs(f, addresses, r, NULL, NULL);
-                fputc('\n', f);
-        }
-
-        sd_dns_resolver *resolvers;
-        r = sd_dhcp_lease_get_dnr(lease, &resolvers);
-        if (r > 0) {
-                fputs("DNR=", f);
-                serialize_dnr(f, resolvers, r, NULL);
-                fputc('\n', f);
-        }
-
-        r = sd_dhcp_lease_get_ntp(lease, &addresses);
-        if (r > 0) {
-                fputs("NTP=", f);
-                serialize_in_addrs(f, addresses, r, NULL, NULL);
-                fputc('\n', f);
-        }
-
-        r = sd_dhcp_lease_get_sip(lease, &addresses);
-        if (r > 0) {
-                fputs("SIP=", f);
-                serialize_in_addrs(f, addresses, r, NULL, NULL);
-                fputc('\n', f);
-        }
-
-        r = sd_dhcp_lease_get_domainname(lease, &string);
-        if (r >= 0)
-                fprintf(f, "DOMAINNAME=%s\n", string);
-
-        r = sd_dhcp_lease_get_search_domains(lease, &search_domains);
-        if (r > 0) {
-                fputs("DOMAIN_SEARCH_LIST=", f);
-                fputstrv(f, search_domains, NULL, NULL);
-                fputc('\n', f);
-        }
-
-        r = sd_dhcp_lease_get_hostname(lease, &string);
-        if (r >= 0)
-                fprintf(f, "HOSTNAME=%s\n", string);
-
-        r = sd_dhcp_lease_get_root_path(lease, &string);
-        if (r >= 0)
-                fprintf(f, "ROOT_PATH=%s\n", string);
-
-        r = sd_dhcp_lease_get_static_routes(lease, &routes);
-        if (r > 0)
-                serialize_dhcp_routes(f, "STATIC_ROUTES", routes, r);
-
-        routes = mfree(routes);
-        r = sd_dhcp_lease_get_classless_routes(lease, &routes);
-        if (r > 0)
-                serialize_dhcp_routes(f, "CLASSLESS_ROUTES", routes, r);
-
-        r = sd_dhcp_lease_get_timezone(lease, &string);
-        if (r >= 0)
-                fprintf(f, "TIMEZONE=%s\n", string);
-
-        if (sd_dhcp_client_id_is_set(&lease->client_id)) {
-                _cleanup_free_ char *client_id_hex = NULL;
-
-                client_id_hex = hexmem(lease->client_id.raw, lease->client_id.size);
-                if (!client_id_hex)
-                        return -ENOMEM;
-                fprintf(f, "CLIENTID=%s\n", client_id_hex);
-        }
-
-        r = sd_dhcp_lease_get_timestamp(lease, CLOCK_REALTIME, &t);
-        if (r >= 0)
-                fprintf(f, "TIMESTAMP_REALTIME=%s\n", FORMAT_TIMESTAMP_STYLE(t, TIMESTAMP_US));
-
-        r = sd_dhcp_lease_get_vendor_specific(lease, &data, &data_len);
-        if (r >= 0) {
-                _cleanup_free_ char *option_hex = NULL;
-
-                option_hex = hexmem(data, data_len);
-                if (!option_hex)
-                        return -ENOMEM;
-                fprintf(f, "VENDOR_SPECIFIC=%s\n", option_hex);
-        }
-
-        LIST_FOREACH(options, option, lease->private_options) {
-                char key[STRLEN("OPTION_000")+1];
-
-                xsprintf(key, "OPTION_%" PRIu8, option->tag);
-                r = serialize_dhcp_option(f, key, option->data, option->length);
-                if (r < 0)
-                        return r;
-        }
-
-        r = fflush_and_check(f);
+        r = sd_json_variant_dump(v, SD_JSON_FORMAT_FLUSH | SD_JSON_FORMAT_PRETTY_AUTO, f, /* prefix= */ NULL);
         if (r < 0)
                 return r;
 
@@ -1463,305 +1658,353 @@ static char **private_options_free(char **options) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(char**, private_options_free);
 
+/* Dispatcher for an array of objects, pass in single element dispatcher */
+static int json_dispatch_array_generic(const char *name,
+                                       sd_json_variant *variant,
+                                       sd_json_dispatch_flags_t flags,
+                                       void *userdata,
+                                       size_t element_size,
+                                       int (*dispatch_element)(const char *, sd_json_variant *, sd_json_dispatch_flags_t, void *)) {
+
+        void **array_ptr = ASSERT_PTR(userdata);
+        _cleanup_free_ void *array = NULL;
+        size_t count = 0;
+        int r;
+
+        if (!sd_json_variant_is_array(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array.", strna(name));
+
+        count = sd_json_variant_elements(variant);
+        if (count > SIZE_MAX / element_size)
+                return json_log_oom(variant, flags);
+
+        /* Allocate space for all elements */
+        array = malloc0(count * element_size);
+        if (!array)
+                return json_log_oom(variant, flags);
+
+        /* Iterate through outer array and dispatch each element */
+        sd_json_variant *element;
+        size_t i = 0;
+        JSON_VARIANT_ARRAY_FOREACH(element, variant) {
+                r = dispatch_element(name, element, flags, (uint8_t*)array + (i * element_size));
+                if (r < 0)
+                        return r;
+                i++;
+        }
+
+        free(*array_ptr);
+        *array_ptr = TAKE_PTR(array);
+        return 0;
+}
+
+static int json_dispatch_in_addr_array(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        return json_dispatch_array_generic(name, variant, flags, userdata, sizeof(struct in_addr), json_dispatch_in_addr);
+}
+
+static int json_dispatch_servers_object(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        sd_dhcp_lease *lease = ASSERT_PTR(userdata);
+        int r;
+
+        static const sd_json_dispatch_field servers_dispatch_table[] = {
+                { "DNS",  SD_JSON_VARIANT_ARRAY,  json_dispatch_in_addr_array,  offsetof(sd_dhcp_lease, servers[SD_DHCP_LEASE_DNS].addr),  0 },
+                { "NTP",  SD_JSON_VARIANT_ARRAY,  json_dispatch_in_addr_array,  offsetof(sd_dhcp_lease, servers[SD_DHCP_LEASE_NTP].addr),  0 },
+                { "SIP",  SD_JSON_VARIANT_ARRAY,  json_dispatch_in_addr_array,  offsetof(sd_dhcp_lease, servers[SD_DHCP_LEASE_SIP].addr),  0 },
+                { "POP3", SD_JSON_VARIANT_ARRAY,  json_dispatch_in_addr_array,  offsetof(sd_dhcp_lease, servers[SD_DHCP_LEASE_POP3].addr), 0 },
+                { "SMTP", SD_JSON_VARIANT_ARRAY,  json_dispatch_in_addr_array,  offsetof(sd_dhcp_lease, servers[SD_DHCP_LEASE_SMTP].addr), 0 },
+                { "LPR",  SD_JSON_VARIANT_ARRAY,  json_dispatch_in_addr_array,  offsetof(sd_dhcp_lease, servers[SD_DHCP_LEASE_LPR].addr),  0 },
+                {}
+        };
+
+        r = sd_json_dispatch(variant, servers_dispatch_table, flags, lease);
+
+        if (r < 0)
+                return r;
+
+        const char *field_names[] = {"DNS", "NTP", "SIP", "POP3", "SMTP", "LPR"};
+        for (sd_dhcp_lease_server_type_t i = 0; i < _SD_DHCP_LEASE_SERVER_TYPE_MAX; i++) {
+                if (lease->servers[i].addr) {
+                        sd_json_variant *server_variant = sd_json_variant_by_key(variant, field_names[i]);
+                        if (server_variant)
+                                lease->servers[i].size = sd_json_variant_elements(server_variant);
+                }
+        }
+
+        return 0;
+}
+
+static int json_dispatch_route(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field route_dispatch_table[] = {
+                { "Destination",             SD_JSON_VARIANT_ARRAY,         json_dispatch_in_addr,  offsetof(struct sd_dhcp_route, dst_addr),      SD_JSON_MANDATORY },
+                { "Gateway",                 SD_JSON_VARIANT_ARRAY,         json_dispatch_in_addr,  offsetof(struct sd_dhcp_route, gw_addr),       SD_JSON_MANDATORY },
+                { "DestinationPrefixLength", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint8, offsetof(struct sd_dhcp_route, dst_prefixlen), SD_JSON_MANDATORY },
+                {}
+        };
+
+        return sd_json_dispatch(variant, route_dispatch_table, flags, userdata);
+}
+
+static int json_dispatch_routes_array(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        return json_dispatch_array_generic(name, variant, flags, userdata, sizeof(struct sd_dhcp_route), json_dispatch_route);
+}
+
+static int json_dispatch_lease_realtime(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        sd_dhcp_lease *lease = userdata;
+        usec_t timestamp_usec;
+        triple_timestamp ts = {};
+        const char *saved_realtime;
+        int r;
+
+        if (sd_json_variant_is_null(variant))
+                return 0;
+
+        if (!sd_json_variant_is_string(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
+
+        saved_realtime = sd_json_variant_string(variant);
+
+        r = parse_timestamp(saved_realtime, &timestamp_usec);
+        if (r < 0)
+                return json_log(variant, flags, r, "Failed to parse timestamp '%s': %m", saved_realtime);
+
+        triple_timestamp_from_realtime(&ts, timestamp_usec); /* set timestamp from realtime value */
+        dhcp_lease_set_timestamp(lease, &ts); /* set timestamp onto lease */
+
+        return 0;
+}
+
+static int json_dispatch_vendor_specific(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        sd_dhcp_lease *lease = userdata;
+        _cleanup_(iovec_done) struct iovec iov = {};
+        int r;
+
+        r = json_dispatch_unhex_iovec(name, variant, flags, &iov);
+        if (r < 0)
+                return r;
+
+        free(lease->vendor_specific);
+        lease->vendor_specific = TAKE_PTR(iov.iov_base);
+        lease->vendor_specific_len = iov.iov_len;
+        return 0;
+}
+
+static int json_dispatch_option(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        struct sd_dhcp_raw_option *option = userdata;
+        _cleanup_(iovec_done) struct iovec data_iov = {};
+        int r;
+
+        sd_json_variant *tag = sd_json_variant_by_key(variant, "Option");
+        sd_json_variant *data = sd_json_variant_by_key(variant, "Data");
+        if (!tag || !data)
+                return -EINVAL;
+
+        option->tag = (uint8_t) sd_json_variant_unsigned(tag);
+
+        r = json_dispatch_unhex_iovec("Data", data, flags, &data_iov);
+        if (r < 0)
+                return r;
+
+        /* Set length from iovec */
+        option->length = data_iov.iov_len;
+        option->data = TAKE_PTR(data_iov.iov_base);
+
+        return 0;
+}
+
+static int json_dispatch_private_options(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        sd_dhcp_lease *lease = userdata;
+        sd_json_variant *v;
+        int r;
+
+        if (!sd_json_variant_is_array(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array.", strna(name));
+
+        JSON_VARIANT_ARRAY_FOREACH(v, variant) {
+                _cleanup_free_ struct sd_dhcp_raw_option *option = NULL;
+
+                option = new0(struct sd_dhcp_raw_option, 1);
+                if (!option)
+                        return json_log_oom(variant, flags);
+
+                r = json_dispatch_option(name, v, flags, option);
+                if (r < 0)
+                        return r;
+
+                r = dhcp_lease_insert_private_option(lease, option->tag, option->data, option->length);
+                option->data = mfree(option->data); /* needs free before cleanup_free runs */
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+/* DNR address dispatcher - handles address objects */
+static int json_dispatch_dnr_address(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        return json_dispatch_array_generic(name, variant, flags, userdata, sizeof(union in_addr_union), json_dispatch_in_addr);
+}
+
+/* Transports doesn't have string_to equivalent */
+static int json_dispatch_dnr_transports(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        sd_dns_alpn_flags *transports = userdata;
+        sd_json_variant *item;
+
+        *transports = 0;
+        JSON_VARIANT_ARRAY_FOREACH(item, variant) {
+                const char *s = sd_json_variant_string(item);
+                if (!s)
+                        return -EINVAL;
+                if (streq(s, "h2"))
+                        *transports |= SD_DNS_ALPN_HTTP_2_TLS;
+                else if (streq(s, "h3"))
+                        *transports |= SD_DNS_ALPN_HTTP_3;
+                else if (streq(s, "dot"))
+                        *transports |= SD_DNS_ALPN_DOT;
+                else if (streq(s, "doq"))
+                        *transports |= SD_DNS_ALPN_DOQ;
+        }
+        return 0;
+}
+
+/* DNR resolver dispatcher */
+static int json_dispatch_one_dnr(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        static const sd_json_dispatch_field dnr_dispatch_table[] = {
+                { "Priority",   _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint16,      offsetof(sd_dns_resolver, priority),   0 },
+                { "ServerName", SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,      offsetof(sd_dns_resolver, auth_name),  0 },
+                { "Port",       _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint16,      offsetof(sd_dns_resolver, port),       0 },
+                { "DoHPath",    SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,      offsetof(sd_dns_resolver, dohpath),    0 },
+                { "Transports", SD_JSON_VARIANT_ARRAY,         json_dispatch_dnr_transports, offsetof(sd_dns_resolver, transports), 0 },
+                { "Addresses",  SD_JSON_VARIANT_ARRAY,         json_dispatch_dnr_address,    offsetof(sd_dns_resolver, addrs),      0 },
+                {}
+        };
+
+        sd_dns_resolver *resolver = userdata;
+        int r;
+
+        r = sd_json_dispatch(variant, dnr_dispatch_table, flags, resolver);
+        if (r < 0)
+                return r;
+
+        /*set for DHCP4 */
+        resolver->family = AF_INET;
+
+        return 0;
+}
+
+/* DNR array dispatcher */
+static int json_dispatch_dnr_array(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+        return json_dispatch_array_generic(name, variant, flags, userdata, sizeof(struct sd_dns_resolver), json_dispatch_one_dnr);
+}
+
+static int json_dispatch_timespan(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
+
+        usec_t *usec = userdata;
+        const char *s;
+
+        if (sd_json_variant_is_null(variant))
+                return 0;
+
+        s = sd_json_variant_string(variant);
+        if (!s)
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string", name);
+
+        return parse_sec(s, usec);
+}
+
 int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
         _cleanup_(sd_dhcp_lease_unrefp) sd_dhcp_lease *lease = NULL;
-        _cleanup_free_ char
-                *address = NULL,
-                *router = NULL,
-                *netmask = NULL,
-                *server_address = NULL,
-                *next_server = NULL,
-                *broadcast = NULL,
-                *dns = NULL,
-                *dnr = NULL,
-                *ntp = NULL,
-                *sip = NULL,
-                *pop3 = NULL,
-                *smtp = NULL,
-                *lpr = NULL,
-                *mtu = NULL,
-                *static_routes = NULL,
-                *classless_routes = NULL,
-                *domains = NULL,
-                *client_id_hex = NULL,
-                *vendor_specific_hex = NULL,
-                *lifetime = NULL,
-                *t1 = NULL,
-                *t2 = NULL,
-                *saved_realtime = NULL;
-        _cleanup_(private_options_freep) char **options = NULL;
-
-        int r, i;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        unsigned line = 0, column = 0;
+        int r;
 
         assert(lease_file);
         assert(ret);
+
+        r = sd_json_parse_file(
+                        /* f= */ NULL,
+                        lease_file,
+                        /* flags= */ SD_JSON_PARSE_MUST_BE_OBJECT,
+                        &v,
+                        /* reterr_line= */ &line,
+                        /* ret_column= */ &column);
+        if (r < 0)
+                return r;
 
         r = dhcp_lease_new(&lease);
         if (r < 0)
                 return r;
 
-        options = new0(char*, SD_DHCP_OPTION_PRIVATE_LAST - SD_DHCP_OPTION_PRIVATE_BASE + 1);
-        if (!options)
-                return -ENOMEM;
+        static const sd_json_dispatch_field dispatch_lease_file_table[] = {
+                { "Address",            SD_JSON_VARIANT_ARRAY,         json_dispatch_in_addr,         offsetof(sd_dhcp_lease, address),          SD_JSON_MANDATORY },
+                { "Router",             SD_JSON_VARIANT_ARRAY,         json_dispatch_in_addr_array,   offsetof(sd_dhcp_lease, router),           SD_JSON_MANDATORY },
+                { "Netmask",            SD_JSON_VARIANT_ARRAY,         json_dispatch_in_addr,         offsetof(sd_dhcp_lease, subnet_mask),      SD_JSON_MANDATORY },
+                { "Server_Address",     SD_JSON_VARIANT_ARRAY,         json_dispatch_in_addr,         offsetof(sd_dhcp_lease, server_address),   SD_JSON_MANDATORY },
+                { "Next_Server",        SD_JSON_VARIANT_ARRAY,         json_dispatch_in_addr,         offsetof(sd_dhcp_lease, next_server),      0                 },
+                { "Client_Id",          SD_JSON_VARIANT_ARRAY,         json_dispatch_client_id,       offsetof(sd_dhcp_lease, client_id),        0                 },
+                { "Timezone",           SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,       offsetof(sd_dhcp_lease, timezone),         0                 },
+                { "Lifetime",           SD_JSON_VARIANT_STRING,        json_dispatch_timespan,        offsetof(sd_dhcp_lease, lifetime),         0                 },
+                { "T1",                 SD_JSON_VARIANT_STRING,        json_dispatch_timespan,        offsetof(sd_dhcp_lease, t1),               0                 },
+                { "T2",                 SD_JSON_VARIANT_STRING,        json_dispatch_timespan,        offsetof(sd_dhcp_lease, t2),               0                 },
+                { "Timestamp_realtime", SD_JSON_VARIANT_STRING,        json_dispatch_lease_realtime,  0,                                         0                 },
+                { "Servers",            SD_JSON_VARIANT_OBJECT,        json_dispatch_servers_object,  0,                                         0                 },
+                { "Static_Routes",      SD_JSON_VARIANT_ARRAY,         json_dispatch_routes_array,    offsetof(sd_dhcp_lease, static_routes),    0                 },
+                { "Classless_Routes",   SD_JSON_VARIANT_ARRAY,         json_dispatch_routes_array,    offsetof(sd_dhcp_lease, classless_routes), 0                 },
+                { "Root_Path",          SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,       offsetof(sd_dhcp_lease, root_path),        0                 },
+                { "Broadcast",          SD_JSON_VARIANT_ARRAY,         json_dispatch_in_addr,         offsetof(sd_dhcp_lease, broadcast),        0                 },
+                { "Domain_Name",        SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,       offsetof(sd_dhcp_lease, domainname),       0                 },
+                { "Hostname",           SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,       offsetof(sd_dhcp_lease, hostname),         0                 },
+                { "MTU",                _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint16,       offsetof(sd_dhcp_lease, mtu),              0                 },
+                { "Domain_Search_List", SD_JSON_VARIANT_ARRAY,         sd_json_dispatch_strv,         offsetof(sd_dhcp_lease, search_domains),   0                 },
+                { "DNR",                SD_JSON_VARIANT_ARRAY,         json_dispatch_dnr_array,       offsetof(sd_dhcp_lease, dnr),              0                 },
+                { "Vendor_Specific",    SD_JSON_VARIANT_STRING,        json_dispatch_vendor_specific, 0,                                         0                 },
+                { "Private_Options",    SD_JSON_VARIANT_ARRAY,         json_dispatch_private_options, 0,                                         0                 },
+                {}
+        };
 
-        r = parse_env_file(NULL, lease_file,
-                           "ADDRESS", &address,
-                           "ROUTER", &router,
-                           "NETMASK", &netmask,
-                           "SERVER_ADDRESS", &server_address,
-                           "NEXT_SERVER", &next_server,
-                           "BROADCAST", &broadcast,
-                           "DNS", &dns,
-                           "DNR", &dnr,
-                           "NTP", &ntp,
-                           "SIP", &sip,
-                           "POP3", &pop3,
-                           "SMTP", &smtp,
-                           "LPR", &lpr,
-                           "MTU", &mtu,
-                           "DOMAINNAME", &lease->domainname,
-                           "HOSTNAME", &lease->hostname,
-                           "DOMAIN_SEARCH_LIST", &domains,
-                           "ROOT_PATH", &lease->root_path,
-                           "STATIC_ROUTES", &static_routes,
-                           "CLASSLESS_ROUTES", &classless_routes,
-                           "CLIENTID", &client_id_hex,
-                           "TIMEZONE", &lease->timezone,
-                           "VENDOR_SPECIFIC", &vendor_specific_hex,
-                           "LIFETIME", &lifetime,
-                           "T1", &t1,
-                           "T2", &t2,
-                           "TIMESTAMP_REALTIME", &saved_realtime,
-                           "OPTION_224", &options[0],
-                           "OPTION_225", &options[1],
-                           "OPTION_226", &options[2],
-                           "OPTION_227", &options[3],
-                           "OPTION_228", &options[4],
-                           "OPTION_229", &options[5],
-                           "OPTION_230", &options[6],
-                           "OPTION_231", &options[7],
-                           "OPTION_232", &options[8],
-                           "OPTION_233", &options[9],
-                           "OPTION_234", &options[10],
-                           "OPTION_235", &options[11],
-                           "OPTION_236", &options[12],
-                           "OPTION_237", &options[13],
-                           "OPTION_238", &options[14],
-                           "OPTION_239", &options[15],
-                           "OPTION_240", &options[16],
-                           "OPTION_241", &options[17],
-                           "OPTION_242", &options[18],
-                           "OPTION_243", &options[19],
-                           "OPTION_244", &options[20],
-                           "OPTION_245", &options[21],
-                           "OPTION_246", &options[22],
-                           "OPTION_247", &options[23],
-                           "OPTION_248", &options[24],
-                           "OPTION_249", &options[25],
-                           "OPTION_250", &options[26],
-                           "OPTION_251", &options[27],
-                           "OPTION_252", &options[28],
-                           "OPTION_253", &options[29],
-                           "OPTION_254", &options[30]);
+        r = sd_json_dispatch(v, dispatch_lease_file_table, SD_JSON_ALLOW_EXTENSIONS, lease);
         if (r < 0)
                 return r;
 
-        if (address) {
-                r = inet_pton(AF_INET, address, &lease->address);
-                if (r <= 0)
-                        log_debug("Failed to parse address %s, ignoring.", address);
+        if (lease->router) {
+                sd_json_variant *router_variant = sd_json_variant_by_key(v, "Router");
+                if (router_variant)
+                        lease->router_size = sd_json_variant_elements(router_variant);
         }
 
-        if (router) {
-                r = deserialize_in_addrs(&lease->router, router);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to deserialize router addresses %s, ignoring: %m", router);
-                else
-                        lease->router_size = r;
+        if (lease->subnet_mask) {
+                lease->have_subnet_mask = true;
         }
 
-        if (netmask) {
-                r = inet_pton(AF_INET, netmask, &lease->subnet_mask);
-                if (r <= 0)
-                        log_debug("Failed to parse netmask %s, ignoring.", netmask);
-                else
-                        lease->have_subnet_mask = true;
+        if (lease->broadcast) {
+                lease->have_broadcast = true;
         }
 
-        if (server_address) {
-                r = inet_pton(AF_INET, server_address, &lease->server_address);
-                if (r <= 0)
-                        log_debug("Failed to parse server address %s, ignoring.", server_address);
+        if (lease->static_routes) {
+                sd_json_variant *routes_variant = sd_json_variant_by_key(v, "Static_Routes");
+                if (routes_variant)
+                        lease->n_static_routes = sd_json_variant_elements(routes_variant);
         }
 
-        if (next_server) {
-                r = inet_pton(AF_INET, next_server, &lease->next_server);
-                if (r <= 0)
-                        log_debug("Failed to parse next server %s, ignoring.", next_server);
+        if (lease->classless_routes) {
+                sd_json_variant *routes_variant = sd_json_variant_by_key(v, "Classless_Routes");
+                if (routes_variant)
+                        lease->n_classless_routes = sd_json_variant_elements(routes_variant);
         }
 
-        if (broadcast) {
-                r = inet_pton(AF_INET, broadcast, &lease->broadcast);
-                if (r <= 0)
-                        log_debug("Failed to parse broadcast address %s, ignoring.", broadcast);
-                else
-                        lease->have_broadcast = true;
-        }
+        if (lease->dnr) {
+                sd_json_variant *dnr_variant = sd_json_variant_by_key(v, "DNR");
+                if (dnr_variant)
+                        lease->n_dnr = sd_json_variant_elements(dnr_variant);
 
-        if (dns) {
-                r = deserialize_in_addrs(&lease->servers[SD_DHCP_LEASE_DNS].addr, dns);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to deserialize DNS servers %s, ignoring: %m", dns);
-                else
-                        lease->servers[SD_DHCP_LEASE_DNS].size = r;
-        }
-
-        if (dnr) {
-                r = deserialize_dnr(&lease->dnr, dnr);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to deserialize DNR servers %s, ignoring: %m", dnr);
-                else
-                        lease->n_dnr = r;
-        }
-
-        if (ntp) {
-                r = deserialize_in_addrs(&lease->servers[SD_DHCP_LEASE_NTP].addr, ntp);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to deserialize NTP servers %s, ignoring: %m", ntp);
-                else
-                        lease->servers[SD_DHCP_LEASE_NTP].size = r;
-        }
-
-        if (sip) {
-                r = deserialize_in_addrs(&lease->servers[SD_DHCP_LEASE_SIP].addr, sip);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to deserialize SIP servers %s, ignoring: %m", sip);
-                else
-                        lease->servers[SD_DHCP_LEASE_SIP].size = r;
-        }
-
-        if (pop3) {
-                r = deserialize_in_addrs(&lease->servers[SD_DHCP_LEASE_POP3].addr, pop3);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to deserialize POP3 server %s, ignoring: %m", pop3);
-                else
-                        lease->servers[SD_DHCP_LEASE_POP3].size = r;
-        }
-
-        if (smtp) {
-                r = deserialize_in_addrs(&lease->servers[SD_DHCP_LEASE_SMTP].addr, smtp);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to deserialize SMTP server %s, ignoring: %m", smtp);
-                else
-                        lease->servers[SD_DHCP_LEASE_SMTP].size = r;
-        }
-
-        if (lpr) {
-                r = deserialize_in_addrs(&lease->servers[SD_DHCP_LEASE_LPR].addr, lpr);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to deserialize LPR server %s, ignoring: %m", lpr);
-                else
-                        lease->servers[SD_DHCP_LEASE_LPR].size = r;
-        }
-
-        if (mtu) {
-                r = safe_atou16(mtu, &lease->mtu);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to parse MTU %s, ignoring: %m", mtu);
-        }
-
-        if (domains) {
-                _cleanup_strv_free_ char **a = NULL;
-                a = strv_split(domains, " ");
-                if (!a)
-                        return -ENOMEM;
-
-                if (!strv_isempty(a))
-                        lease->search_domains = TAKE_PTR(a);
-        }
-
-        if (static_routes) {
-                r = deserialize_dhcp_routes(
-                                &lease->static_routes,
-                                &lease->n_static_routes,
-                                static_routes);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to parse DHCP static routes %s, ignoring: %m", static_routes);
-        }
-
-        if (classless_routes) {
-                r = deserialize_dhcp_routes(
-                                &lease->classless_routes,
-                                &lease->n_classless_routes,
-                                classless_routes);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to parse DHCP classless routes %s, ignoring: %m", classless_routes);
-        }
-
-        if (lifetime) {
-                r = parse_sec(lifetime, &lease->lifetime);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to parse lifetime %s, ignoring: %m", lifetime);
-        }
-
-        if (t1) {
-                r = parse_sec(t1, &lease->t1);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to parse T1 %s, ignoring: %m", t1);
-        }
-
-        if (t2) {
-                r = parse_sec(t2, &lease->t2);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to parse T2 %s, ignoring: %m", t2);
-        }
-
-        if (saved_realtime) {
-                usec_t timestamp_usec;
-                triple_timestamp ts = {};
-
-                r = parse_timestamp(saved_realtime, &timestamp_usec);
-                if (r >= 0) {
-                        triple_timestamp_from_realtime(&ts, timestamp_usec); /* set timestamp from realtime value */
-                        dhcp_lease_set_timestamp(lease, &ts); /* set timestamp onto lease */
+                /* Set n_addrs for each resolver */
+                sd_json_variant *resolver;
+                size_t i = 0;
+                JSON_VARIANT_ARRAY_FOREACH(resolver, dnr_variant) {
+                    sd_json_variant *addrs_variant = sd_json_variant_by_key(resolver, "Addresses");
+                    if (addrs_variant)
+                        lease->dnr[i].n_addrs = sd_json_variant_elements(addrs_variant);
+                    i++;
                 }
-        }
-
-        if (client_id_hex) {
-                _cleanup_free_ void *data = NULL;
-                size_t data_size;
-
-                r = unhexmem(client_id_hex, &data, &data_size);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to parse client ID %s, ignoring: %m", client_id_hex);
-
-                r = sd_dhcp_client_id_set_raw(&lease->client_id, data, data_size);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to assign client ID, ignoring: %m");
-        }
-
-        if (vendor_specific_hex) {
-                r = unhexmem(vendor_specific_hex, &lease->vendor_specific, &lease->vendor_specific_len);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to parse vendor specific data %s, ignoring: %m", vendor_specific_hex);
-        }
-
-        for (i = 0; i <= SD_DHCP_OPTION_PRIVATE_LAST - SD_DHCP_OPTION_PRIVATE_BASE; i++) {
-                _cleanup_free_ void *data = NULL;
-                size_t len;
-
-                if (!options[i])
-                        continue;
-
-                r = unhexmem(options[i], &data, &len);
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to parse private DHCP option %s, ignoring: %m", options[i]);
-                        continue;
-                }
-
-                r = dhcp_lease_insert_private_option(lease, SD_DHCP_OPTION_PRIVATE_BASE + i, data, len);
-                if (r < 0)
-                        return r;
         }
 
         *ret = TAKE_PTR(lease);
