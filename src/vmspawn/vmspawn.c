@@ -26,6 +26,8 @@
 #include "bus-locator.h"
 #include "bus-util.h"
 #include "capability-util.h"
+#include "chase.h"
+#include "chattr-util.h"
 #include "common-signal.h"
 #include "copy.h"
 #include "discover-image.h"
@@ -2946,6 +2948,19 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         if (arg_forward_journal) {
                 _cleanup_free_ char *listen_address = NULL;
+
+                ChaseFlags chase_flags = CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY;
+                int open_flags = O_RDONLY|O_CLOEXEC;
+                if (endswith(arg_forward_journal, ".journal"))
+                        chase_flags |= CHASE_PARENT;
+                else
+                        open_flags |= O_CREAT;
+
+                _cleanup_close_ int journal_fd = chase_and_open(arg_forward_journal, /* root= */ NULL, chase_flags, open_flags, /* ret_path= */ NULL);
+                if (journal_fd < 0)
+                        return log_error_errno(journal_fd, "Failed to create journal directory for %s: %m", arg_forward_journal);
+
+                (void) chattr_fd(journal_fd, FS_NOCOW_FL, FS_NOCOW_FL);
 
                 if (!GREEDY_REALLOC(children, n_children + 1))
                         return log_oom();
