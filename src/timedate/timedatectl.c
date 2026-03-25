@@ -995,9 +995,9 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         /* If the user asked for a particular property, show it to them, even if empty. */
                         SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY, true);
 
-                        if (current->short_code == 'p')
-                                break;
-                        _fallthrough_;
+                        if (current->short_code == 'P')
+                                SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_ONLY_VALUE, true);
+                        break;
 
                 OPTION_LONG("value", NULL, "When showing properties, only print the value"):
                         SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_ONLY_VALUE, true);
