@@ -55,7 +55,7 @@ assert_cc(offsetof(struct trusted_exec_bss, protected_map_id_verity) ==
         [TRUSTED_EXEC_LINK_BPF_GUARD]         = (obj)->links.trusted_exec_bpf_guard,           \
 }
 
-static bool dm_verity_require_signatures(void) {
+bool dm_verity_require_signatures(void) {
         _cleanup_free_ char *val = NULL;
         int r;
 
@@ -101,18 +101,6 @@ static int prepare_trusted_exec_bpf(struct trusted_exec_bpf **ret) {
         *ret = TAKE_PTR(obj);
         return 0;
 }
-
-static const char* const trusted_exec_link_names[_TRUSTED_EXEC_LINK_MAX] = {
-        [TRUSTED_EXEC_LINK_BDEV_SETINTEGRITY] = "trusted-exec-bdev-setintegrity-link",
-        [TRUSTED_EXEC_LINK_BDEV_FREE]         = "trusted-exec-bdev-free-link",
-        [TRUSTED_EXEC_LINK_BPRM_CHECK]        = "trusted-exec-bprm-check-link",
-        [TRUSTED_EXEC_LINK_MMAP_FILE]         = "trusted-exec-mmap-file-link",
-        [TRUSTED_EXEC_LINK_FILE_MPROTECT]     = "trusted-exec-file-mprotect-link",
-        [TRUSTED_EXEC_LINK_PTRACE_GUARD]      = "trusted-exec-ptrace-guard-link",
-        [TRUSTED_EXEC_LINK_BPF_MAP_GUARD]     = "trusted-exec-bpf-map-guard-link",
-        [TRUSTED_EXEC_LINK_BPF_PROG_GUARD]    = "trusted-exec-bpf-prog-guard-link",
-        [TRUSTED_EXEC_LINK_BPF_GUARD]         = "trusted-exec-bpf-guard-link",
-};
 
 static int bpf_get_map_id(int fd, uint32_t *ret_id) {
         struct bpf_map_info info = {};
