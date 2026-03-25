@@ -141,7 +141,7 @@ static int help(void) {
                 return r;
 
         /* Make the 1st column same width in both tables */
-        (void) table_sync_column_width(options, 0, commands, 0);
+        (void) table_sync_column_widths(options, 0, commands, 0);
 
         printf("%1$s [OPTIONS...] IMAGE\n"
                "%1$s [OPTIONS...] --mount IMAGE PATH\n"

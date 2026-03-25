@@ -208,7 +208,7 @@ static int help(void) {
                 return r;
 
         /* Make the 1st column same width in both tables */
-        (void) table_sync_column_width(options, 0, verbs, 0);
+        (void) table_sync_column_widths(options, 0, verbs, 0);
 
         printf("%s [OPTIONS...] COMMAND\n\n"
                "%sGenerate and print 128-bit identifiers.%s\n"
