@@ -416,7 +416,7 @@ static int print_newline(FILE *f, const char *data, size_t l) {
                         return 0;
         }
 
-        if (fputc('\n', f) != '\n')
+        if (fputc('\n', f) == EOF)
                 return log_error_errno(errno, "Failed to write trailing newline: %m");
 
         return 1;
