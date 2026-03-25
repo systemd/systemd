@@ -84,6 +84,15 @@
     <citerefentry><refentrytitle>org.freedesktop.LogControl1</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     for information about the D-Bus APIs <filename>systemd-logind</filename> provides.</para>
 
+    <para>In addition to the D-Bus interface, <filename>systemd-logind</filename> also provides a Varlink
+    interface <constant>io.systemd.Shutdown</constant> for shutting down or rebooting the system. It
+    supports <function>PowerOff</function>, <function>Reboot</function>, <function>Halt</function>,
+    <function>KExec</function>, and <function>SoftReboot</function> methods. Each method accepts an
+    optional <varname>skipInhibitors</varname> boolean parameter to bypass active block inhibitors
+    (matching the <constant>SD_LOGIND_SKIP_INHIBITORS</constant> flag of the D-Bus interface). The
+    interface can be queried with
+    <command>varlinkctl introspect /run/systemd/io.systemd.Login io.systemd.Shutdown</command>.</para>
+
     <para>For more information see
     <ulink url="https://systemd.io/INHIBITOR_LOCKS">Inhibitor Locks</ulink>.</para>
 
