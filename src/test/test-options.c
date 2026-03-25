@@ -58,7 +58,7 @@ static void test_option_parse_one(
         ASSERT_TRUE(strv_equal(args, remaining));
         ASSERT_STREQ(argv[0], saved_argv0);
 
-        ASSERT_EQ(option_parser_get_n_args(&state, argc, argv), strv_length(remaining));
+        ASSERT_EQ(option_parser_get_n_args(&state, argc), strv_length(remaining));
 }
 
 static void test_option_invalid_one(

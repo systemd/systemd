@@ -68,7 +68,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-        if (option_parser_get_n_args(&state, argc, argv) > 0)
+        if (option_parser_get_n_args(&state, argc) > 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program takes no arguments.");
 
         return 1;

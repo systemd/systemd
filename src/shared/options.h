@@ -98,9 +98,7 @@ int option_parse(
         FOREACH_OPTION_FULL(parser, opt, argc, argv, /* ret_o= */ NULL, ret_a, on_error)
 
 char** option_parser_get_args(const OptionParser *state, int argc, char *argv[]);
-static inline size_t option_parser_get_n_args(const OptionParser *state, int argc, char *argv[]) {
-        return strv_length(option_parser_get_args(state, argc, argv));
-}
+size_t option_parser_get_n_args(const OptionParser *state, int argc);
 
 int _option_parser_get_help_table(
                 const Option options[],

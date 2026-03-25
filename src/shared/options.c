@@ -25,14 +25,6 @@ static bool option_is_metadata(const Option *opt) {
                 FLAGS_SET(ASSERT_PTR(opt)->flags, OPTION_HELP_ENTRY);
 }
 
-static void kill_arg(char* argv[], int argc, int index) {
-        assert(index < argc);
-        assert(!argv[argc]);
-
-        /* Eliminate argv[index] */
-        memmove(argv + index, argv + index + 1, (argc - index) * sizeof(char*));
-}
-
 static void shift_arg(char* argv[], int target, int source) {
         assert(argv);
         assert(target <= source);
@@ -108,9 +100,10 @@ int option_parse(
                                 return 0;
 
                         if (streq(argv[state->optind], "--")) {
-                                /* No more options. Eliminate "--" so that the list of positional args is clean. */
-                                kill_arg(argv, argc, state->optind);
-                                return 0;
+                                /* No more options. Move "--" before positional args so that
+                                 * the list of positional args is clean. */
+                                shift_arg(argv, state->positional_offset++, state->optind++);
+                                state->parsing_stopped = true;
                         }
 
                         if (state->parsing_stopped)
@@ -243,10 +236,23 @@ int option_parse(
 
 char** option_parser_get_args(const OptionParser *state, int argc, char *argv[]) {
         /* Returns positional args as a strv.
-         * If "--" was found, it has been removed. */
+         * If "--" was found, it has been moved before state->positional_offset.
+         * The array is only valid, i.e. clean without any options, after parsing
+         * has naturally finished. */
 
         assert(state->optind > 0);
+        assert(state->optind == argc || state->parsing_stopped);
+        assert(state->positional_offset <= argc);
+
         return argv + state->positional_offset;
+}
+
+size_t option_parser_get_n_args(const OptionParser *state, int argc) {
+        assert(state->optind > 0);
+        assert(state->optind == argc || state->parsing_stopped);
+        assert(state->positional_offset <= argc);
+
+        return argc - state->positional_offset;
 }
 
 int _option_parser_get_help_table(
