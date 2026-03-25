@@ -43,7 +43,7 @@ assert_cc(offsetof(struct trusted_exec_bss, protected_map_id_verity) ==
         [TRUSTED_EXEC_LINK_BPF_GUARD]         = (obj)->links.trusted_exec_bpf_guard,           \
 }
 
-static bool dm_verity_require_signatures(void) {
+bool dm_verity_require_signatures(void) {
         _cleanup_free_ char *val = NULL;
         int r;
 
@@ -90,7 +90,7 @@ static int prepare_trusted_exec_bpf(struct trusted_exec_bpf **ret) {
         return 0;
 }
 
-static const char* const trusted_exec_link_names[_TRUSTED_EXEC_LINK_MAX] = {
+const char* const trusted_exec_link_names[_TRUSTED_EXEC_LINK_MAX] = {
         [TRUSTED_EXEC_LINK_BDEV_SETINTEGRITY] = "trusted-exec-bdev-setintegrity-link",
         [TRUSTED_EXEC_LINK_BDEV_FREE]         = "trusted-exec-bdev-free-link",
         [TRUSTED_EXEC_LINK_BPRM_CHECK]        = "trusted-exec-bprm-check-link",

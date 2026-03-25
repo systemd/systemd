@@ -37,6 +37,7 @@ struct trusted_exec_bss {
 
 extern const char* const trusted_exec_link_names[_TRUSTED_EXEC_LINK_MAX];
 
+bool dm_verity_require_signatures(void);
 bool bpf_trusted_exec_supported(void);
 int bpf_trusted_exec_setup(Manager *m);
 void bpf_trusted_exec_destroy(struct trusted_exec_bpf *prog);
