@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
-
 #include "sd-device.h"
 
 #include "alloc-util.h"
@@ -12,11 +10,13 @@
 #include "device-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "format-table.h"
 #include "gpt.h"
 #include "initrd-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "mountpoint-util.h"
+#include "options.h"
 #include "parse-argument.h"
 #include "path-util.h"
 #include "pretty-print.h"
@@ -32,93 +32,77 @@ STATIC_DESTRUCTOR_REGISTER(arg_target, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 
 static int help(void) {
+        _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *options = NULL;
         int r;
 
-        _cleanup_free_ char *link = NULL;
         r = terminal_urlify_man("systemd-validatefs@.service", "8", &link);
         if (r < 0)
                 return log_oom();
 
-        printf("%1$s [OPTIONS...] /path/to/mountpoint\n"
-               "\n%3$sCheck file system validation constraints.%4$s\n\n"
-               "  -h --help            Show this help and exit\n"
-               "     --version         Print version string and exit\n"
-               "     --root=PATH|auto  Operate relative to the specified path\n"
-               "\nSee the %2$s for details.\n",
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
+        printf("%s [OPTIONS...] /path/to/mountpoint\n"
+               "\n%sCheck file system validation constraints.%s\n"
+               "\nOptions:\n",
                program_invocation_short_name,
-               link,
                ansi_highlight(),
                ansi_normal());
+        table_print(options, stdout);
 
+        printf("\nSee the %s for details.\n", link);
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_ROOT,
-        };
-
-        int c, r;
-
-        static const struct option options[] = {
-                { "help",     no_argument,       NULL, 'h'         },
-                { "version" , no_argument,       NULL, ARG_VERSION },
-                { "root",     required_argument, NULL, ARG_ROOT    },
-                {}
-        };
+        int r;
 
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "h", options, NULL)) >= 0)
+        OptionParser state = {};
+        const char *arg;
+
+        FOREACH_OPTION(&state, c, argc, argv, &arg, /* on_error= */ return c)
                 switch (c) {
-                case 'h':
+                OPTION_COMMON_HELP:
                         return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case ARG_ROOT:
-                        if (streq(optarg, "auto")) {
-                                arg_root = mfree(arg_root);
+                OPTION_LONG("root", "PATH|auto", "Operate relative to the specified path"):
+                        if (streq(arg, "auto"))
+                                r = free_and_strdup_warn(&arg_root, in_initrd() ? "/sysroot" : NULL);
+                        else {
+                                if (!path_is_absolute(arg))
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                               "--root= argument must be 'auto' or absolute path, got: %s", arg);
 
-                                if (in_initrd()) {
-                                        arg_root = strdup("/sysroot");
-                                        if (!arg_root)
-                                                return log_oom();
-                                }
-
-                                break;
+                                r = parse_path_argument(arg, /* suppress_root= */ true, &arg_root);
                         }
-
-                        if (!path_is_absolute(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--root= argument must be 'auto' or absolute path, got: %s", optarg);
-
-                        r = parse_path_argument(optarg, /* suppress_root= */ true, &arg_root);
                         if (r < 0)
                                 return r;
                         break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
 
-        if (optind + 1 != argc)
+        char **args = option_parser_get_args(&state, argc, argv);
+
+        if (strv_length(args) != 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "%s excepts exactly one argument (the mount point).",
+                                       "%s expects exactly one argument (the mount point).",
                                        program_invocation_short_name);
 
-        arg_target = strdup(argv[optind]);
+        arg_target = strdup(args[0]);
         if (!arg_target)
                 return log_oom();
 
         if (arg_root && !path_startswith(arg_target, arg_root))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Specified path '%s' does not start with specified root '%s', refusing.", arg_target, arg_root);
-
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Specified path '%s' does not start with specified root '%s', refusing.",
+                                       arg_target, arg_root);
         return 1;
 }
 
