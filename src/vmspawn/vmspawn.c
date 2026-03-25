@@ -746,43 +746,49 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_TPM_STATE:
-                        if (path_is_valid(optarg) && (path_is_absolute(optarg) || path_startswith(optarg, "./"))) {
-                                r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_tpm_state_path);
-                                if (r < 0)
-                                        return r;
-
-                                arg_tpm_state_mode = STATE_PATH;
-                                break;
-                        }
-
                         r = isempty(optarg) ? false :
                                 streq(optarg, "auto") ? true :
                                 parse_boolean(optarg);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse --tpm-state= parameter: %s", optarg);
+                        if (r >= 0) {
+                                arg_tpm_state_mode = r ? STATE_AUTO : STATE_OFF;
+                                arg_tpm_state_path = mfree(arg_tpm_state_path);
+                                break;
+                        }
 
-                        arg_tpm_state_mode = r ? STATE_AUTO : STATE_OFF;
-                        arg_tpm_state_path = mfree(arg_tpm_state_path);
+                        if (!path_is_valid(optarg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid path in --tpm-state= parameter: %s", optarg);
+
+                        if (!path_is_absolute(optarg) && !startswith(optarg, "./"))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Path in --tpm-state= parameter must be absolute or start with './': %s", optarg);
+
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_tpm_state_path);
+                        if (r < 0)
+                                return r;
+
+                        arg_tpm_state_mode = STATE_PATH;
                         break;
 
                 case ARG_EFI_NVRAM_STATE:
-                        if (path_is_valid(optarg) && (path_is_absolute(optarg) || path_startswith(optarg, "./"))) {
-                                r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_efi_nvram_state_path);
-                                if (r < 0)
-                                        return r;
-
-                                arg_efi_nvram_state_mode = STATE_PATH;
-                                break;
-                        }
-
                         r = isempty(optarg) ? false :
                                 streq(optarg, "auto") ? true :
                                 parse_boolean(optarg);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse --efi-nvram-state= parameter: %s", optarg);
+                        if (r >= 0) {
+                                arg_efi_nvram_state_mode = r ? STATE_AUTO : STATE_OFF;
+                                arg_efi_nvram_state_path = mfree(arg_efi_nvram_state_path);
+                                break;
+                        }
 
-                        arg_efi_nvram_state_mode = r ? STATE_AUTO : STATE_OFF;
-                        arg_efi_nvram_state_path = mfree(arg_efi_nvram_state_path);
+                        if (!path_is_valid(optarg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid path in --efi-nvram-state= parameter: %s", optarg);
+
+                        if (!path_is_absolute(optarg) && !startswith(optarg, "./"))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Path in --efi-nvram-state= parameter must be absolute or start with './': %s", optarg);
+
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_efi_nvram_state_path);
+                        if (r < 0)
+                                return r;
+
+                        arg_efi_nvram_state_mode = STATE_PATH;
                         break;
 
                 case ARG_NO_ASK_PASSWORD:
