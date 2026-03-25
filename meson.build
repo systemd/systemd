@@ -901,6 +901,7 @@ foreach option : ['adm-gid',
                   'video-gid',
                   'wheel-gid',
                   'systemd-journal-gid',
+                  'systemd-imds-uid',
                   'systemd-network-uid',
                   'systemd-resolve-uid',
                   'systemd-timesync-uid']
@@ -1533,6 +1534,12 @@ endif
 conf.set('DEFAULT_DNSSEC_MODE',
          'DNSSEC_' + default_dnssec.underscorify().to_upper())
 conf.set_quoted('DEFAULT_DNSSEC_MODE_STR', default_dnssec)
+
+have = get_option('imds').require(
+        conf.get('HAVE_LIBCURL') == 1,
+        error_message : 'curl required').allowed()
+conf.set10('ENABLE_IMDS', have)
+conf.set10('IMDS_NETWORK_LOCKED_DEFAULT', get_option('imds-network') == 'locked')
 
 have = get_option('importd').require(
         conf.get('HAVE_LIBCURL') == 1 and
@@ -2370,6 +2377,7 @@ subdir('src/hostname')
 subdir('src/hwdb')
 subdir('src/id128')
 subdir('src/import')
+subdir('src/imds') # Note, we are not alphabetically here, since we want to use a variable from src/import/ here
 subdir('src/integritysetup')
 subdir('src/journal')
 subdir('src/journal-remote')
@@ -3075,7 +3083,8 @@ summary({
         'default user $PATH'                        : default_user_path != '' ? default_user_path : '(same as system services)',
         'systemd service watchdog'                  : service_watchdog == '' ? 'disabled' : service_watchdog,
         'time epoch'                                : f'@time_epoch@ (@alt_time_epoch@)',
-        'TPM2 nvpcr base'                           : run_command(sh, '-c', 'printf 0x%x @0@'.format(get_option('tpm2-nvpcr-base')), check : true).stdout()
+        'TPM2 nvpcr base'                           : run_command(sh, '-c', 'printf 0x%x @0@'.format(get_option('tpm2-nvpcr-base')), check : true).stdout(),
+        'IMDS networking'                           : get_option('imds-network'),
 })
 
 # TODO:
@@ -3140,6 +3149,7 @@ foreach tuple : [
         ['homed'],
         ['hostnamed'],
         ['hwdb'],
+        ['imds'],
         ['importd'],
         ['initrd'],
         ['kernel-install'],

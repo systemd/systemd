@@ -1,0 +1,269 @@
+<?xml version="1.0"?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-imdsd_.service" conditional='ENABLE_IMDS' xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-imdsd@.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-imdsd@.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-imdsd@.service</refname>
+    <refname>systemd-imdsd</refname>
+    <refname>systemd-imdsd.socket</refname>
+    <refname>systemd-imdsd-early-network.service</refname>
+    <refpurpose>Cloud IMDS (Instance Metadata Service) client</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-imdsd@.service</filename></para>
+    <para><filename>systemd-imdsd.socket</filename></para>
+    <para><filename>systemd-imdsd-early-network.service</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-imdsd</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-imdsd@.service</command> is a system service that provides local access to IMDS
+    (Instance Metadata Service; or equivalent) functionality, as provided by many public clouds.</para>
+
+    <para>The service provides a Varlink IPC interface via
+    <filename>/run/systemd/io.systemd.InstanceMetadata</filename> to query IMDS fields.</para>
+
+    <para><filename>systemd-imdsd-early-network.service</filename> is a system service that generates a
+    <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    compatible
+    <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry> file
+    for configuring the early-boot network in order to be able to contact the IMDS endpoint.</para>
+
+    <para>The
+    <citerefentry><refentrytitle>systemd-imds</refentrytitle><manvolnum>1</manvolnum></citerefentry> tool may
+    be used to query information from this service.</para>
+  </refsect1>
+
+  <!-- Note: we do not document the command line switches here for now. The systemd-imdsd binary itself
+       should not be called by users, but only as a service, hence the command line options shouldn't be user
+       visible, but exist mostly as debugging tools. People should always use the client side tool
+       (i.e. systemd-imds; or an equivalent Varlink client) to do actual IMDS operations. -->
+
+  <refsect1>
+    <title>Kernel Command Line Options</title>
+
+    <para>The IMDS endpoint is typically determined automatically via
+    <citerefentry><refentrytitle>hwdb</refentrytitle><manvolnum>7</manvolnum></citerefentry> records, but can
+    also be configured explicitly via the kernel command line, via the following options:</para>
+
+    <variablelist class='kernel-commandline-options'>
+      <varlistentry id='kernel-cmdline-imds-network'>
+        <term><varname>systemd.imds.network=</varname></term>
+        <listitem>
+          <para>Takes one of <literal>off</literal>, <literal>locked</literal>,
+          <literal>unlocked</literal>. Controls whether and how to set up networking for IMDS endpoint
+          access. Unless set to <literal>off</literal> early boot networking is enabled, ensuring that the
+          IMDS endpoint can be reached. If set to <literal>locked</literal> (the default) direct access to
+          the IMDS endpoint by regular unprivileged processes is disabled via a "prohibit" route, so that any
+          access must be done through <filename>systemd-imdsd@.service</filename> or its associated tools. If
+          set to <literal>unlocked</literal> this "prohibit" route is not created, and regular unprivileged
+          processes can directly contact IMDS.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.imds.vendor=</varname></term>
+        <listitem>
+          <para>A short string identifying the cloud vendor.</para>
+
+          <para>Example: <programlisting>systemd.imds.vendor=foobarcloud</programlisting></para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.imds.token_url=</varname></term>
+        <listitem>
+          <para>If a bearer token must be acquired to talk to the IMDS service, this is the URL to acquire it
+          from.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.imds.refresh_header_name=</varname></term>
+        <listitem>
+          <para>Takes a HTTP header field name (excluding the <literal>:</literal>) that declares the header
+          field for passing the TTL value (in seconds) to the HTTP server when acquiring a token. Only
+          applies if <varname>systemd.imds.token_url=</varname> is set too.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.imds.data_url=</varname></term>
+        <listitem>
+          <para>Takes the base URL to acquire the IMDS data from (the IMDS "endpoint"). All data fields are
+          acquired from below this URL. This URL should typically not end in <literal>/</literal>.</para>
+
+          <para>The data URLs are concatenated from this base URL, the IMDS "key" and the suffix configured
+          via <varname>systemd.imds.data_url_suffix=</varname> below. Well-known IMDS "keys" can be
+          configured via the <varname>systemd.imds.key=*</varname> options below.</para>
+
+          <para>Example: <programlisting>systemd.imds.data_url=http://169.254.169.254/metadata</programlisting></para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.imds.data_url_suffix=</varname></term>
+        <listitem>
+          <para>If specified, this field is appended to the end of the data URL (after appending the IMDS
+          "key" to the data base URL), see above.</para>
+
+          <para>Example: <programlisting>systemd.imds.data_url_suffix=?api-version=2025-04-07&amp;format=text</programlisting></para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.imds.token_header_name=</varname></term>
+        <listitem>
+          <para>Takes a HTTP header field name (excluding the <literal>:</literal>) that declares the header
+          field to pass the bearer token acquired from the token URL (see above) in. Only applies if
+          <varname>systemd.imds.token_url=</varname> is set too.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.imds.extra_header=</varname></term>
+        <listitem>
+          <para>Takes a full HTTP header expression (both field name and value, separated by a colon
+          <literal>:</literal>) to pass to the HTTP server when requesting data. May be used multiple times
+          to set multiple headers.</para>
+
+          <para>Example: <programlisting>systemd.imds.extra_header=Metadata:true</programlisting></para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.imds.address_ipv4=</varname></term>
+        <listitem>
+          <para>Configures the IPv4 address the IMDS endpoint is contacted on. This should typically be the
+          IP address also configured via <varname>systemd.imds.data_url=</varname> (if IPv4 is used) and is
+          used to set up IP routing.</para>
+
+          <para>Example: <programlisting>systemd.imds.address_ipv4=169.254.169.254</programlisting></para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.imds.address_ipv6=</varname></term>
+        <listitem>
+          <para>Configures the IPv6 address the IMDS endpoint is contacted on. This should typically be the
+          IP address also configured via <varname>systemd.imds.data_url=</varname> (if IPv6 is used) and is
+          used to set up IP routing.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.imds.key.hostname=</varname></term>
+        <term><varname>systemd.imds.key.region=</varname></term>
+        <term><varname>systemd.imds.key.zone=</varname></term>
+        <term><varname>systemd.imds.key.ipv4_public=</varname></term>
+        <term><varname>systemd.imds.key.ipv6_public=</varname></term>
+        <term><varname>systemd.imds.key.ssh_key=</varname></term>
+        <term><varname>systemd.imds.key.userdata=</varname></term>
+        <term><varname>systemd.imds.key.userdata_base=</varname></term>
+        <term><varname>systemd.imds.key.userdata_base64=</varname></term>
+        <listitem>
+          <para>Configures strings to concatenate to the data base URL (see above) to acquire data for
+          various "well-known" fields. These strings must begin with a <literal>/</literal>. They should
+          return the relevant data in plain text.</para>
+
+          <para>A special case are the three "userdata" keys: the option
+          <varname>systemd.imds.key.userdata_base=</varname> should be used if the IMDS service knows a
+          concept of multiple userdata fields, and a field identifier thus still needs to be appended to the
+          userdata base URL. The option <varname>systemd.imds.key.userdata=</varname> should be used if only
+          a single userdata field is supported. The option <varname>systemd.imds.key.userdata_base64=</varname>
+          should be used in the same case, but only if the userdata field is encoded in Base64.</para>
+
+          <para>Example: <programlisting>systemd.imds.key.hostname=/instance/compute/osProfile/computerName</programlisting></para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Credentials</title>
+
+    <para><filename>systemd-imdsd@.service</filename> supports the service credentials logic as implemented by
+    <varname>ImportCredential=</varname>/<varname>LoadCredential=</varname>/<varname>SetCredential=</varname>
+    (see <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+    details). The following credentials are used when passed in:</para>
+
+    <variablelist class='system-credentials'>
+      <varlistentry>
+        <term><varname>imds.vendor</varname></term>
+        <term><varname>imds.vendor_token</varname></term>
+        <term><varname>imds.refresh_header_name</varname></term>
+        <term><varname>imds.data_url</varname></term>
+        <term><varname>imds.data_url_suffix</varname></term>
+        <term><varname>imds.token_header_name</varname></term>
+        <term><varname>imds.extra_header</varname></term>
+        <term><varname>imds.extra_header2</varname></term>
+        <term><varname>imds.extra_header3</varname></term>
+        <term><varname>imds.extra_header…</varname></term>
+        <term><varname>imds.address_ipv4</varname></term>
+        <term><varname>imds.address_ipv6</varname></term>
+        <term><varname>imds.key_hostname</varname></term>
+        <term><varname>imds.key_region</varname></term>
+        <term><varname>imds.key_zone</varname></term>
+        <term><varname>imds.key_ipv4_public</varname></term>
+        <term><varname>imds.key_ipv6_public</varname></term>
+        <term><varname>imds.key_ssh_key</varname></term>
+        <term><varname>imds.key_userdata</varname></term>
+        <term><varname>imds.key_userdata_base</varname></term>
+        <term><varname>imds.key_userdata_base64</varname></term>
+        <listitem><para>The various IMDS endpoint parameters. The semantics are very close to those configurable
+        via kernel command line, see above for the matching list.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-imds</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-imds-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>
