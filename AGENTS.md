@@ -14,15 +14,16 @@ Always consult these files as needed:
 
 ## Running arbitrary commands
 
-- Always run arbitrary commands with the `mkosi box -- ` wrapper command. This runs in an environment where more tools are available.
+- Never use `mkosi box` to wrap commands. You are either already running inside an mkosi box environment or
+running outside of it — use the tools available in your current environment directly.
 
 ## Build and Test Commands
 
-- Never compile individual files or targets. Always run `mkosi -f box -- meson compile -C build` to build
-the entire project. Meson handles incremental compilation automatically.
+- Never compile individual files. Always run `meson compile -C build <target>` to build the target you're
+working on. Meson handles incremental compilation automatically.
 - Never run `meson compile` followed by `meson test` as separate steps. Always run
-`mkosi -f box -- meson test -C build -v <TEST-NAME>` directly. Meson will automatically rebuild any required
-targets before running tests.
+`meson test -C build -v <TEST-NAME>` directly. Meson will automatically rebuild any required targets before
+running tests.
 - Never invent your own build commands or try to optimize the build process.
 - Never use `head`, `tail`, or pipe (`|`) the output of build or test commands. Always let the full output
 display. This is critical for diagnosing build and test failures.
