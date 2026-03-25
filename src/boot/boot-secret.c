@@ -333,6 +333,9 @@ EFI_STATUS prepare_boot_secret(
 
         /* Prepares the boot secret to pass to the OS */
 
+        if (!loaded_image->DeviceHandle)
+                return EFI_SUCCESS;
+
         _cleanup_file_close_ EFI_FILE *root = NULL;
         err = open_volume(loaded_image->DeviceHandle, &root);
         if (err != EFI_SUCCESS)
