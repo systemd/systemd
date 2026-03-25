@@ -72,7 +72,8 @@ void etc_hosts_clear(EtcHosts *hosts) {
 void manager_etc_hosts_flush(Manager *m) {
         etc_hosts_clear(&m->etc_hosts);
         m->etc_hosts_stat = (struct stat) {};
-        m->etc_hosts_last = USEC_INFINITY;
+        /* NB: We do not reset m->etc_hosts_last here, because manager_etc_hosts_read() calls us and needs it
+         * to stay in effect for the reload suppression to work */
 }
 
 static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {

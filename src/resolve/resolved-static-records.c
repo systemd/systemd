@@ -222,5 +222,4 @@ void manager_static_records_flush(Manager *m) {
 
         m->static_records = hashmap_free(m->static_records);
         m->static_records_stat = set_free(m->static_records_stat);
-        m->static_records_last = USEC_INFINITY;
 }
