@@ -155,6 +155,9 @@ static UserRecord* user_record_free(UserRecord *h) {
         free(h->email_address);
         erase_and_free(h->password_hint);
         free(h->location);
+        free(h->ethnicity);
+        free(h->religion);
+        free(h->political_affiliation);
         free(h->icon_name);
 
         free(h->blob_directory);
@@ -1254,6 +1257,9 @@ static int dispatch_per_machine(const char *name, sd_json_variant *variant, sd_j
                 { "blobManifest",               SD_JSON_VARIANT_OBJECT,        dispatch_blob_manifest,               offsetof(UserRecord, blob_manifest),                 0              },
                 { "iconName",                   SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,              offsetof(UserRecord, icon_name),                     SD_JSON_STRICT },
                 { "location",                   SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,              offsetof(UserRecord, location),                      0              },
+                { "ethnicity",                  SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,              offsetof(UserRecord, ethnicity),                     0              },
+                { "religion",                   SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,              offsetof(UserRecord, religion),                      0              },
+                { "politicalAffiliation",       SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,              offsetof(UserRecord, political_affiliation),         0              },
                 { "shell",                      SD_JSON_VARIANT_STRING,        json_dispatch_filename_or_path,       offsetof(UserRecord, shell),                         0              },
                 { "umask",                      _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_access_mode,            offsetof(UserRecord, umask),                         SD_JSON_STRICT },
                 { "environment",                SD_JSON_VARIANT_ARRAY,         json_dispatch_strv_environment,       offsetof(UserRecord, environment),                   0              },
@@ -1524,6 +1530,9 @@ int user_group_record_mangle(
                        "realName",
                        "location",
                        "emailAddress",
+                       "ethnicity",
+                       "religion",
+                       "politicalAffiliation",
                        "birthDate")
                 sd_json_variant_sensitive(sd_json_variant_by_key(v, key));
 
@@ -1619,6 +1628,9 @@ int user_record_load(UserRecord *h, sd_json_variant *v, UserRecordLoadFlags load
                 { "emailAddress",               SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,              offsetof(UserRecord, email_address),                 SD_JSON_STRICT },
                 { "iconName",                   SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,              offsetof(UserRecord, icon_name),                     SD_JSON_STRICT },
                 { "location",                   SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,              offsetof(UserRecord, location),                      0              },
+                { "ethnicity",                  SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,              offsetof(UserRecord, ethnicity),                     0              },
+                { "religion",                   SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,              offsetof(UserRecord, religion),                      0              },
+                { "politicalAffiliation",       SD_JSON_VARIANT_STRING,        sd_json_dispatch_string,              offsetof(UserRecord, political_affiliation),         0              },
                 { "birthDate",                  SD_JSON_VARIANT_STRING,        json_dispatch_birth_date,             offsetof(UserRecord, birth_date),                    0              },
                 { "disposition",                SD_JSON_VARIANT_STRING,        json_dispatch_user_disposition,       offsetof(UserRecord, disposition),                   0              },
                 { "lastChangeUSec",             _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint64,              offsetof(UserRecord, last_change_usec),              0              },

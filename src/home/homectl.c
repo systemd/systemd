@@ -3957,6 +3957,10 @@ static int help(void) {
                "     --alias=ALIAS             Define alias usernames for this account\n"
                "     --email-address=EMAIL     Email address for user\n"
                "     --location=LOCATION       Set location of user on earth\n"
+               "     --ethnicity=ETHNICITY     Set ethnicity metadata for user\n"
+               "     --religion=RELIGION       Set religion metadata for user\n"
+               "     --political-affiliation=AFFILIATION\n"
+               "                               Set political affiliation metadata\n"
                "     --birth-date=[DATE]       Set user birth date (YYYY-MM-DD)\n"
                "     --icon-name=NAME          Icon name for user\n"
                "  -d --home-dir=PATH           Home directory\n"
@@ -4126,6 +4130,9 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_LOCKED,
                 ARG_SSH_AUTHORIZED_KEYS,
                 ARG_LOCATION,
+                ARG_ETHNICITY,
+                ARG_RELIGION,
+                ARG_POLITICAL_AFFILIATION,
                 ARG_BIRTH_DATE,
                 ARG_ICON_NAME,
                 ARG_PASSWORD_HINT,
@@ -4213,6 +4220,9 @@ static int parse_argv(int argc, char *argv[]) {
                 { "alias",                        required_argument, NULL, ARG_ALIAS                       },
                 { "email-address",                required_argument, NULL, ARG_EMAIL_ADDRESS               },
                 { "location",                     required_argument, NULL, ARG_LOCATION                    },
+                { "ethnicity",                    required_argument, NULL, ARG_ETHNICITY                   },
+                { "religion",                     required_argument, NULL, ARG_RELIGION                    },
+                { "political-affiliation",        required_argument, NULL, ARG_POLITICAL_AFFILIATION      },
                 { "birth-date",                   required_argument, NULL, ARG_BIRTH_DATE                  },
                 { "password-hint",                required_argument, NULL, ARG_PASSWORD_HINT               },
                 { "icon-name",                    required_argument, NULL, ARG_ICON_NAME                   },
@@ -4401,6 +4411,9 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_EMAIL_ADDRESS:
                 case ARG_LOCATION:
+                case ARG_ETHNICITY:
+                case ARG_RELIGION:
+                case ARG_POLITICAL_AFFILIATION:
                 case ARG_ICON_NAME:
                 case ARG_CIFS_USER_NAME:
                 case ARG_CIFS_DOMAIN:
@@ -4411,6 +4424,9 @@ static int parse_argv(int argc, char *argv[]) {
                         const char *field =
                                            c == ARG_EMAIL_ADDRESS ? "emailAddress" :
                                                 c == ARG_LOCATION ? "location" :
+                                               c == ARG_ETHNICITY ? "ethnicity" :
+                                                c == ARG_RELIGION ? "religion" :
+                           c == ARG_POLITICAL_AFFILIATION ? "politicalAffiliation" :
                                                c == ARG_ICON_NAME ? "iconName" :
                                           c == ARG_CIFS_USER_NAME ? "cifsUserName" :
                                              c == ARG_CIFS_DOMAIN ? "cifsDomain" :
