@@ -55,7 +55,7 @@ assert_cc(offsetof(struct trusted_exec_bss, protected_map_id_verity) ==
         [TRUSTED_EXEC_LINK_BPF_GUARD]         = (obj)->links.trusted_exec_bpf_guard,           \
 }
 
-static bool dm_verity_require_signatures(void) {
+bool dm_verity_require_signatures(void) {
         _cleanup_free_ char *val = NULL;
         int r;
 
