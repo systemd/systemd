@@ -398,8 +398,6 @@ static int transcode(
 }
 
 static int print_newline(FILE *f, const char *data, size_t l) {
-        int fd;
-
         assert(f);
         assert(data || l == 0);
 
@@ -411,10 +409,12 @@ static int print_newline(FILE *f, const char *data, size_t l) {
         if (l > 0 && data[l-1] == '\n')
                 return 0;
 
-        /* Don't bother unless this is a tty */
-        fd = fileno(f);
-        if (fd >= 0 && !isatty_safe(fd))
-                return 0;
+        /* If not explicitly requested, don't bother if the output is not a tty */
+        if (arg_newline < 0) {
+                int fd = fileno(f);
+                if (fd >= 0 && !isatty_safe(fd))
+                        return 0;
+        }
 
         if (fputc('\n', f) != '\n')
                 return log_error_errno(errno, "Failed to write trailing newline: %m");
