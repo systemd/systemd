@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
 #include <unistd.h>
 
 #include "sd-varlink.h"
@@ -10,10 +9,12 @@
 #include "build.h"
 #include "bus-polkit.h"
 #include "constants.h"
+#include "format-table.h"
 #include "hashmap.h"
 #include "json-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "options.h"
 #include "parse-argument.h"
 #include "pretty-print.h"
 #include "string-table.h"
@@ -39,124 +40,72 @@ STATIC_DESTRUCTOR_REGISTER(arg_message, freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *options = NULL;
         int r;
 
         r = terminal_urlify_man("systemd-ask-password", "1", &link);
         if (r < 0)
                 return log_oom();
 
-        printf("%1$s [OPTIONS...] MESSAGE\n\n"
-               "%3$sQuery the user for a passphrase, via the TTY or a UI agent.%4$s\n\n"
-               "  -h --help           Show this help\n"
-               "     --icon=NAME      Icon name\n"
-               "     --id=ID          Query identifier (e.g. \"cryptsetup:/dev/sda5\")\n"
-               "     --keyname=NAME   Kernel key name for caching passwords (e.g. \"cryptsetup\")\n"
-               "     --credential=NAME\n"
-               "                      Credential name for ImportCredential=, LoadCredential= or\n"
-               "                      SetCredential= credentials\n"
-               "     --timeout=SEC    Timeout in seconds\n"
-               "     --echo=yes|no|masked\n"
-               "                      Control whether to show password while typing (echo)\n"
-               "  -e --echo           Equivalent to --echo=yes\n"
-               "     --emoji=yes|no|auto\n"
-               "                      Show a lock and key emoji\n"
-               "     --no-tty         Ask question via agent even on TTY\n"
-               "     --accept-cached  Accept cached passwords\n"
-               "     --multiple       List multiple passwords if available\n"
-               "     --no-output      Do not print password to standard output\n"
-               "  -n                  Do not suffix password written to standard output with\n"
-               "                      newline\n"
-               "     --user           Ask only our own user's agents\n"
-               "     --system         Ask agents of the system and of all users\n"
-               "\nSee the %2$s for details.\n",
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
+        printf("%s [OPTIONS...] MESSAGE\n"
+               "\n%sQuery the user for a passphrase, via the TTY or a UI agent.%s\n"
+               "\nOptions:\n",
                program_invocation_short_name,
-               link,
                ansi_highlight(),
                ansi_normal());
+        table_print(options, stdout);
 
+        printf("\nSee the %s for details.\n", link);
         return 0;
 }
 
 static int parse_argv(int argc, char *argv[]) {
 
-        enum {
-                ARG_ICON = 0x100,
-                ARG_TIMEOUT,
-                ARG_EMOJI,
-                ARG_NO_TTY,
-                ARG_ACCEPT_CACHED,
-                ARG_MULTIPLE,
-                ARG_ID,
-                ARG_KEYNAME,
-                ARG_NO_OUTPUT,
-                ARG_VERSION,
-                ARG_CREDENTIAL,
-                ARG_USER,
-                ARG_SYSTEM,
-        };
-
-        static const struct option options[] = {
-                { "help",          no_argument,       NULL, 'h'               },
-                { "version",       no_argument,       NULL, ARG_VERSION       },
-                { "icon",          required_argument, NULL, ARG_ICON          },
-                { "timeout",       required_argument, NULL, ARG_TIMEOUT       },
-                { "echo",          optional_argument, NULL, 'e'               },
-                { "emoji",         required_argument, NULL, ARG_EMOJI         },
-                { "no-tty",        no_argument,       NULL, ARG_NO_TTY        },
-                { "accept-cached", no_argument,       NULL, ARG_ACCEPT_CACHED },
-                { "multiple",      no_argument,       NULL, ARG_MULTIPLE      },
-                { "id",            required_argument, NULL, ARG_ID            },
-                { "keyname",       required_argument, NULL, ARG_KEYNAME       },
-                { "no-output",     no_argument,       NULL, ARG_NO_OUTPUT     },
-                { "credential",    required_argument, NULL, ARG_CREDENTIAL    },
-                { "user",          no_argument,       NULL, ARG_USER          },
-                { "system",        no_argument,       NULL, ARG_SYSTEM        },
-                {}
-        };
-
         const char *emoji = NULL;
-        int c, r;
+        int r;
 
         assert(argc >= 0);
         assert(argv);
 
-        /* Note the asymmetry: the long option --echo= allows an optional argument, the short option does
-         * not. */
+        OptionParser state = {};
+        const char *arg;
 
-        /* Resetting to 0 forces the invocation of an internal initialization routine of getopt_long()
-         * that checks for GNU extensions in optstring ('-' or '+' at the beginning). */
-        optind = 0;
-        while ((c = getopt_long(argc, argv, "+hen", options, NULL)) >= 0)
-
+        FOREACH_OPTION(&state, c, argc, argv, &arg, /* on_error= */ return c)
                 switch (c) {
-
-                case 'h':
+                OPTION_COMMON_HELP:
                         return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case ARG_ICON:
-                        arg_icon = optarg;
+                OPTION_LONG("icon", "NAME", "Icon name"):
+                        arg_icon = arg;
                         break;
 
-                case ARG_TIMEOUT:
-                        r = parse_sec(optarg, &arg_timeout);
+                OPTION_LONG("timeout", "SEC", "Timeout in seconds"):
+                        r = parse_sec(arg, &arg_timeout);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to parse --timeout= parameter: %s", optarg);
-
+                                return log_error_errno(r, "Failed to parse --timeout= parameter: %s", arg);
                         break;
 
-                case 'e':
-                        if (!optarg) {
+                        /* Note the asymmetry: the long option --echo= allows an optional argument,
+                         * the short option does not. */
+                OPTION_LONG_FLAGS(OPTION_OPTIONAL_ARG, "echo", "yes|no|masked",
+                                  "Control whether to show password while typing"): {}
+                OPTION('e', "echo", NULL, "Equivalent to --echo=yes"):
+                        if (!arg) {
                                 /* Short option -e is used, or no argument to long option --echo= */
                                 arg_flags |= ASK_PASSWORD_ECHO;
                                 arg_flags &= ~ASK_PASSWORD_SILENT;
-                        } else if (isempty(optarg) || streq(optarg, "masked"))
+                        } else if (isempty(arg) || streq(arg, "masked"))
                                 /* Empty argument or explicit string "masked" for default behaviour. */
                                 arg_flags &= ~(ASK_PASSWORD_ECHO|ASK_PASSWORD_SILENT);
                         else {
-                                r = parse_boolean_argument("--echo=", optarg, NULL);
+                                r = parse_boolean_argument("--echo=", arg, NULL);
                                 if (r < 0)
                                         return r;
 
@@ -165,55 +114,50 @@ static int parse_argv(int argc, char *argv[]) {
                         }
                         break;
 
-                case ARG_EMOJI:
-                        emoji = optarg;
+                OPTION_LONG("emoji", "yes|no|auto", "Show a lock and key emoji"):
+                        emoji = arg;
                         break;
 
-                case ARG_NO_TTY:
+                OPTION_LONG("no-tty", NULL, "Ask question via agent even on TTY"):
                         arg_flags |= ASK_PASSWORD_NO_TTY;
                         break;
 
-                case ARG_ACCEPT_CACHED:
+                OPTION_LONG("accept-cached", NULL, "Accept cached passwords"):
                         arg_flags |= ASK_PASSWORD_ACCEPT_CACHED;
                         break;
 
-                case ARG_MULTIPLE:
+                OPTION_LONG("multiple", NULL, "List multiple passwords if available"):
                         arg_multiple = true;
                         break;
 
-                case ARG_ID:
-                        arg_id = optarg;
+                OPTION_LONG("id", "ID", "Query identifier (e.g. \"cryptsetup:/dev/sda5\")"):
+                        arg_id = arg;
                         break;
 
-                case ARG_KEYNAME:
-                        arg_key_name = optarg;
+                OPTION_LONG("keyname", "NAME", "Kernel key name for caching passwords"):
+                        arg_key_name = arg;
                         break;
 
-                case ARG_NO_OUTPUT:
+                OPTION_LONG("no-output", NULL, "Do not print password to standard output"):
                         arg_no_output = true;
                         break;
 
-                case ARG_CREDENTIAL:
-                        arg_credential_name = optarg;
+                OPTION_LONG("credential", "NAME",
+                            "Credential name for ImportCredential=, LoadCredential= or SetCredential= credentials"):
+                        arg_credential_name = arg;
                         break;
 
-                case ARG_USER:
+                OPTION_LONG("user", NULL, "Ask only our own user's agents"):
                         arg_flags |= ASK_PASSWORD_USER;
                         break;
 
-                case ARG_SYSTEM:
+                OPTION_LONG("system", NULL, "Ask agents of the system and of all users"):
                         arg_flags &= ~ASK_PASSWORD_USER;
                         break;
 
-                case 'n':
+                OPTION_SHORT('n', NULL, "Do not suffix password written to standard output with newline"):
                         arg_newline = false;
                         break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
 
         if (isempty(emoji) || streq(emoji, "auto"))
@@ -226,8 +170,10 @@ static int parse_argv(int argc, char *argv[]) {
                 SET_FLAG(arg_flags, ASK_PASSWORD_HIDE_EMOJI, !r);
         }
 
-        if (argc > optind) {
-                arg_message = strv_join(argv + optind, " ");
+        char **args = option_parser_get_args(&state, argc, argv);
+
+        if (!strv_isempty(args)) {
+                arg_message = strv_join(args, " ");
                 if (!arg_message)
                         return log_oom();
         } else if (FLAGS_SET(arg_flags, ASK_PASSWORD_ECHO)) {

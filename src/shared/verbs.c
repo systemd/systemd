@@ -160,6 +160,9 @@ int _verbs_get_help_table(const Verb verbs[], const Verb verbs_end[], Table **re
         for (const Verb *verb = verbs; verb < verbs_end; verb++) {
                 assert(verb->dispatch);
 
+                if (!verb->help)
+                        continue;
+
                 /* We indent the option string by two spaces. We could set the minimum cell width and
                  * right-align for a similar result, but that'd be more work. This is only used for
                  * display. */
@@ -170,8 +173,7 @@ int _verbs_get_help_table(const Verb verbs[], const Verb verbs_end[], Table **re
                 if (r < 0)
                         return table_log_add_error(r);
 
-                const char *help = verb->help ?: "FIXME";
-                _cleanup_strv_free_ char **s = strv_split(help, /* separators= */ NULL);
+                _cleanup_strv_free_ char **s = strv_split(verb->help, /* separators= */ NULL);
                 if (!s)
                         return log_oom();
 
