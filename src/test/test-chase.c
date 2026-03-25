@@ -620,6 +620,16 @@ TEST(chaseat) {
 
         assert_se(chaseat(tfd, "i/../p", CHASE_MKDIR_0755|CHASE_NONEXISTENT, NULL, NULL) == -ENOENT);
 
+        /* Test CHASE_MKDIR_0755|CHASE_PARENT — creates intermediate dirs but not the final component */
+
+        ASSERT_OK(chaseat(tfd, "mkp/a/r/e/n/t/file", CHASE_MKDIR_0755|CHASE_PARENT, &result, &fd));
+        ASSERT_OK(faccessat(tfd, "mkp/a/r/e/n/t", F_OK, 0));
+        assert_se(RET_NERRNO(faccessat(tfd, "mkp/a/r/e/n/t/file", F_OK, 0)) == -ENOENT);
+        ASSERT_OK(fd_verify_directory(fd));
+        fd = safe_close(fd);
+        ASSERT_STREQ(result, "mkp/a/r/e/n/t/file");
+        result = mfree(result);
+
         /* Test CHASE_EXTRACT_FILENAME */
 
         ASSERT_OK(chaseat(tfd, "chase/parent", CHASE_AT_RESOLVE_IN_ROOT|CHASE_PARENT|CHASE_NOFOLLOW|CHASE_EXTRACT_FILENAME, &result, &fd));
@@ -663,6 +673,23 @@ TEST(chaseat) {
         ASSERT_STREQ(result, ".");
         fd = safe_close(fd);
         result = mfree(result);
+
+        /* Test chase_and_openat() with CHASE_MKDIR_0755|CHASE_PARENT — opens parent dir */
+
+        fd = chase_and_openat(tfd, "mkopen/p/a/r/file.txt", CHASE_MKDIR_0755|CHASE_PARENT, O_RDONLY|O_CLOEXEC, NULL);
+        ASSERT_OK(fd);
+        ASSERT_OK(fd_verify_directory(fd));
+        ASSERT_OK(faccessat(tfd, "mkopen/p/a/r", F_OK, 0));
+        assert_se(RET_NERRNO(faccessat(tfd, "mkopen/p/a/r/file.txt", F_OK, 0)) == -ENOENT);
+        fd = safe_close(fd);
+
+        /* Test chase_and_openat() with CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY + O_CREAT — creates and opens target dir */
+
+        fd = chase_and_openat(tfd, "mkopen/d/i/r/target", CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY, O_CREAT|O_RDONLY|O_CLOEXEC, NULL);
+        ASSERT_OK(fd);
+        ASSERT_OK(fd_verify_directory(fd));
+        ASSERT_OK(faccessat(tfd, "mkopen/d/i/r/target", F_OK, 0));
+        fd = safe_close(fd);
 
         /* Test chase_and_openatdir() */
 
