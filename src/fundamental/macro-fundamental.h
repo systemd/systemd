@@ -98,22 +98,22 @@
 #define _weak_ __attribute__((__weak__))
 #define _weakref_(x) __attribute__((__weakref__(#x)))
 
+#if HAVE_ATTRIBUTE_ALLOC_SIZE
+#  define _alloc_(...) __attribute__((__alloc_size__(__VA_ARGS__)))
+#else
+#  define _alloc_(...)
+#endif
+
+#if HAVE_ATTRIBUTE_FALLTHROUGH
+#  define _fallthrough_ __attribute__((__fallthrough__))
+#else
+#  define _fallthrough_
+#endif
+
 #if HAVE_ATTRIBUTE_RETAIN
 #  define _retain_ __attribute__((__retain__))
 #else
 #  define _retain_
-#endif
-
-#ifdef __clang__
-#  define _alloc_(...)
-#else
-#  define _alloc_(...) __attribute__((__alloc_size__(__VA_ARGS__)))
-#endif
-
-#if defined(__clang__) && __clang_major__ < 10
-#  define _fallthrough_
-#else
-#  define _fallthrough_ __attribute__((__fallthrough__))
 #endif
 
 #if __GNUC__ >= 15
