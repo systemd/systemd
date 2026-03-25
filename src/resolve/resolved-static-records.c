@@ -29,7 +29,7 @@
  * serializations of DNS RRs. Also note the semantics are different from DNS zone file format, for example
  * regarding delegation (i.e. the RRs defined here have no effect on subdomains), which is probably nicer for
  * one-off mappings of domains to specific resources. Or in other words, this is supposed to be a drop-in
- * based alternative to /etc/hosts, not a one to DNS zone files. (The JSON format is also a lot more
+ * based alternative to /etc/hosts, not one to DNS zone files. (The JSON format is also a lot more
  * extensible to us, for example we could teach it to map certain lookups to specific DNS errors, or extend
  * it so that subdomains always get NXDOMAIN or similar).
  *
