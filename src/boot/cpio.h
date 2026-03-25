@@ -10,6 +10,25 @@ typedef struct CpioTarget {
         uint32_t access_mode;  /* Access mode for the files in the directory */
 } CpioTarget;
 
+EFI_STATUS pack_cpio_prefix(
+                const CpioTarget *target,
+                uint32_t *inode_counter,
+                void **cpio_buffer,
+                size_t *cpio_buffer_size);
+
+EFI_STATUS pack_cpio_trailer(
+                void **cpio_buffer,
+                size_t *cpio_buffer_size);
+
+EFI_STATUS pack_cpio_one(
+                const char16_t *fname,
+                const void *contents,
+                size_t contents_size,
+                const CpioTarget *target,
+                uint32_t *inode_counter,
+                void **cpio_buffer,
+                size_t *cpio_buffer_size);
+
 EFI_STATUS pack_cpio(
                 EFI_LOADED_IMAGE_PROTOCOL *loaded_image,
                 const char16_t *dropin_dir,
