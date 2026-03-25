@@ -21,6 +21,7 @@
     <refname>systemd-pcrphase-sysinit.service</refname>
     <refname>systemd-pcrphase-initrd.service</refname>
     <refname>systemd-pcrmachine.service</refname>
+    <refname>systemd-pcrosseparator.service</refname>
     <refname>systemd-pcrproduct.service</refname>
     <refname>systemd-pcrfs-root.service</refname>
     <refname>systemd-pcrfs@.service</refname>
@@ -34,6 +35,7 @@
     <para><filename>systemd-pcrphase-sysinit.service</filename></para>
     <para><filename>systemd-pcrphase-initrd.service</filename></para>
     <para><filename>systemd-pcrmachine.service</filename></para>
+    <para><filename>systemd-pcrosseparator.service</filename></para>
     <para><filename>systemd-pcrproduct.service</filename></para>
     <para><filename>systemd-pcrfs-root.service</filename></para>
     <para><filename>systemd-pcrfs@.service</filename></para>
@@ -52,6 +54,11 @@
     <para><filename>systemd-pcrmachine.service</filename> is a system service that measures the machine ID
     (see <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>) into
     PCR 15.</para>
+
+    <para><filename>systemd-pcrosseparator.service</filename> is a system service that measures the word
+    <literal>os-separator</literal> into PCRs 0-7, 9, 12-14. This acts as additional separator measurement
+    separating pre-boot (i.e. firmware + bootloader) measurements from OS measurements, and in particular
+    "seals" off the firmware PCRs.</para>
 
     <para><filename>systemd-pcrproduct.service</filename> is a system service that measures the firmware
     product UUID (as provided by one of SMBIOS, Devicetree, …) into a NvPCR named
@@ -168,7 +175,8 @@
 
         <listitem><para>Takes the index of the PCR to extend. If <option>--machine-id</option> or
         <option>--file-system=</option> are specified defaults to 15, otherwise (and unless
-        <option>--product-id</option> is specified) defaults to 11. May not be combined with
+        <option>--product-id</option> is specified) defaults to 11. May be specified multiple times, in order
+        to measure to multiple PCRs at the same time. May not be combined with
         <option>--nvpcr=</option>.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
