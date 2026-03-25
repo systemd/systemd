@@ -26,6 +26,7 @@
 #include "bus-locator.h"
 #include "bus-util.h"
 #include "capability-util.h"
+#include "chattr-util.h"
 #include "common-signal.h"
 #include "copy.h"
 #include "discover-image.h"
@@ -2946,6 +2947,25 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         if (arg_forward_journal) {
                 _cleanup_free_ char *listen_address = NULL;
+
+                if (endswith(arg_forward_journal, ".journal")) {
+                        r = mkdir_parents(arg_forward_journal, 0755);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to create parent directories of %s: %m", arg_forward_journal);
+
+                        _cleanup_free_ char *parent = NULL;
+                        r = path_extract_directory(arg_forward_journal, &parent);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to extract directory from %s: %m", arg_forward_journal);
+
+                        (void) chattr_path(parent, FS_NOCOW_FL, FS_NOCOW_FL);
+                } else {
+                        r = mkdir_p(arg_forward_journal, 0755);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to create directory %s: %m", arg_forward_journal);
+
+                        (void) chattr_path(arg_forward_journal, FS_NOCOW_FL, FS_NOCOW_FL);
+                }
 
                 if (!GREEDY_REALLOC(children, n_children + 1))
                         return log_oom();
