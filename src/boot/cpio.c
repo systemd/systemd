@@ -52,7 +52,7 @@ static char *pad4(char *p, const char *start) {
         return p;
 }
 
-static EFI_STATUS pack_cpio_one(
+EFI_STATUS pack_cpio_one(
                 const char16_t *fname,
                 const void *contents,
                 size_t contents_size,
@@ -224,7 +224,7 @@ static EFI_STATUS pack_cpio_dir(
         return EFI_SUCCESS;
 }
 
-static EFI_STATUS pack_cpio_prefix(
+EFI_STATUS pack_cpio_prefix(
                 const CpioTarget *target,
                 uint32_t *inode_counter,
                 void **cpio_buffer,
@@ -266,7 +266,7 @@ static EFI_STATUS pack_cpio_prefix(
         return pack_cpio_dir(target->directory, target->dir_mode, inode_counter, cpio_buffer, cpio_buffer_size);
 }
 
-static EFI_STATUS pack_cpio_trailer(
+EFI_STATUS pack_cpio_trailer(
                 void **cpio_buffer,
                 size_t *cpio_buffer_size) {
 
