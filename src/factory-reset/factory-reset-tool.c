@@ -354,7 +354,7 @@ static int run(int argc, char *argv[]) {
 
         log_setup();
 
-        char **args;
+        char **args = NULL;
         r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
