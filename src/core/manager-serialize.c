@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "bpf-trusted-exec.h"
 #include "dbus.h"
 #include "dynamic-user.h"
 #include "fd-util.h"
@@ -179,6 +180,12 @@ int manager_serialize(
         if (r < 0)
                 return r;
 
+        if (m->trusted_exec_enabled) {
+                r = bpf_trusted_exec_serialize(m, f, fds);
+                if (r < 0)
+                        return r;
+        }
+
         (void) fputc('\n', f);
 
         HASHMAP_FOREACH_KEY(u, t, m->units) {
@@ -283,6 +290,28 @@ static void manager_deserialize_uid_refs_one(Manager *m, const char *value) {
 
 static void manager_deserialize_gid_refs_one(Manager *m, const char *value) {
         manager_deserialize_uid_refs_one_internal(&m->gid_refs, value);
+}
+
+static void deserialize_trusted_exec(Manager *m, const char *l, FDSet *fds) {
+        const char *val;
+        int fd;
+
+        for (size_t i = 0; i < ELEMENTSOF(trusted_exec_link_names); i++) {
+                val = startswith(l, trusted_exec_link_names[i]);
+                if (val && (val = startswith(val, "="))) {
+                        fd = deserialize_fd(fds, val);
+                        if (fd >= 0)
+                                close_and_replace(m->trusted_exec_link_fds[i], fd);
+                        return;
+                }
+        }
+
+        val = startswith(l, "trusted-exec-bss-map=");
+        if (val) {
+                fd = deserialize_fd(fds, val);
+                if (fd >= 0)
+                        close_and_replace(m->trusted_exec_bss_map_fd, fd);
+        }
 }
 
 int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
@@ -515,7 +544,9 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         else
                                 (void) varlink_server_deserialize_one(m->varlink_server, val, fds);
 
-                } else if ((val = startswith(l, "dump-ratelimit=")))
+                } else if (startswith(l, "trusted-exec-"))
+                        deserialize_trusted_exec(m, l, fds);
+                else if ((val = startswith(l, "dump-ratelimit=")))
                         deserialize_ratelimit(&m->dump_ratelimit, "dump-ratelimit", val);
                 else if ((val = startswith(l, "reload-reexec-ratelimit=")))
                         deserialize_ratelimit(&m->reload_reexec_ratelimit, "reload-reexec-ratelimit", val);
