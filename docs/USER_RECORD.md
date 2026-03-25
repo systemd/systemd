@@ -273,6 +273,12 @@ This must be a string, and should follow the semantics defined in the
 It's probably wise to use a location string processable by geo-location subsystems, but this is not enforced nor required.
 Example: `Berlin, Germany` or `Basement, Room 3a`.
 
+`ethnicity` → A free-form string describing the user's ethnicity.
+
+`religion` → A free-form string describing the user's religion.
+
+`politicalAffiliation` → A free-form string describing the user's political affiliation.
+
 `birthDate` → A string in ISO 8601 calendar date format (`YYYY-MM-DD`) indicating the user's date
 of birth. The earliest representable year is 1900. This field is optional.
 
@@ -805,7 +811,8 @@ These four are the only fields specific to this section. All other fields that
 may be used in this section are identical to the equally named ones in the
 `regular` section (i.e. at the top-level object). Specifically, these are:
 
-`blobDirectory`, `blobManifest`, `iconName`, `location`, `shell`, `umask`,
+`blobDirectory`, `blobManifest`, `iconName`, `location`, `ethnicity`,
+`religion`, `politicalAffiliation`, `shell`, `umask`,
 `environment`, `timeZone`, `preferredLanguage`, `additionalLanguages`,
 `niceLevel`, `resourceLimits`, `locked`, `notBeforeUSec`, `notAfterUSec`,
 `storage`, `diskSize`, `diskSizeRelative`, `skeletonDirectory`, `accessMode`,
