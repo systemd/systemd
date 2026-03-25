@@ -524,12 +524,6 @@ if cc.compiles('''
         add_project_arguments('-Werror=shadow', language : 'c')
 endif
 
-have = cc.compiles(
-        '__attribute__((__retain__)) int x;',
-        args : '-Werror=attributes',
-        name : '__attribute__((__retain__))')
-conf.set10('HAVE_ATTRIBUTE_RETAIN', have)
-
 if cxx_cmd != ''
         add_project_arguments(cxx.get_supported_arguments(basic_disabled_warnings), language : 'cpp')
 endif
@@ -543,6 +537,17 @@ conf.set10('HAVE_WARNING_ZERO_LENGTH_BOUNDS', have)
 # new in GCC 15
 have = cc.has_argument('-Wzero-as-null-pointer-constant')
 conf.set10('HAVE_WARNING_ZERO_AS_NULL_POINTER_CONSTANT', have)
+
+possible_c_attributes = [
+        'alloc_size',
+        'fallthrough',
+        'retain',
+]
+
+foreach attr : possible_c_attributes
+        have = cc.has_function_attribute(attr)
+        conf.set10('HAVE_ATTRIBUTE_' + attr.to_upper(), have)
+endforeach
 
 #####################################################################
 # compilation result tests

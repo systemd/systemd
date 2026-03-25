@@ -80,10 +80,13 @@ endif
 efi_conf = configuration_data()
 
 # import several configs from userspace
-foreach name : ['HAVE_ATTRIBUTE_RETAIN',
-                'HAVE_WARNING_ZERO_AS_NULL_POINTER_CONSTANT',
-                'HAVE_WARNING_ZERO_LENGTH_BOUNDS',
-               ]
+foreach name : ['HAVE_WARNING_ZERO_LENGTH_BOUNDS',
+                'HAVE_WARNING_ZERO_AS_NULL_POINTER_CONSTANT']
+        efi_conf.set(name, conf.get(name))
+endforeach
+
+foreach attr : possible_c_attributes
+        name = 'HAVE_ATTRIBUTE_' + attr.to_upper()
         efi_conf.set(name, conf.get(name))
 endforeach
 
