@@ -2547,7 +2547,7 @@ static EFI_STATUS initrd_prepare(
         assert(ret_initrd_pages);
         assert(ret_initrd_size);
 
-        if (entry->type != LOADER_LINUX || !entry->initrd) {
+        if (entry->type != LOADER_LINUX || strv_isempty(entry->initrd)) {
                 *ret_options = NULL;
                 *ret_initrd_pages = (Pages) {};
                 *ret_initrd_size = 0;
