@@ -266,7 +266,7 @@ int _option_parser_get_help_table(
 
         bool in_group = group == NULL;  /* Are we currently in the section on the array that forms
                                          * group <group>? The first part is the default group, so
-                                         * the group was not specified, we are in. */
+                                         * if the group was not specified, we are in. */
 
         for (const Option *opt = options; opt < options_end; opt++) {
                 bool group_marker = FLAGS_SET(opt->flags, OPTION_GROUP_MARKER);
