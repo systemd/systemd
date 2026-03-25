@@ -94,6 +94,21 @@ static int do_attach(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to pin file_mprotect link: %m");
 
+        r = sym_bpf_link__pin(obj->links.trusted_exec_ptrace_guard,
+                              PIN_PATH_PREFIX "ptrace_guard");
+        if (r < 0)
+                return log_error_errno(r, "Failed to pin ptrace_guard link: %m");
+
+        r = sym_bpf_link__pin(obj->links.trusted_exec_bpf_map_guard,
+                              PIN_PATH_PREFIX "bpf_map_guard");
+        if (r < 0)
+                return log_error_errno(r, "Failed to pin bpf_map_guard link: %m");
+
+        r = sym_bpf_link__pin(obj->links.trusted_exec_bpf_prog_guard,
+                              PIN_PATH_PREFIX "bpf_prog_guard");
+        if (r < 0)
+                return log_error_errno(r, "Failed to pin bpf_prog_guard link: %m");
+
         r = sym_bpf_link__pin(obj->links.trusted_exec_bpf_guard,
                               PIN_PATH_PREFIX "bpf_guard");
         if (r < 0)
@@ -104,12 +119,26 @@ static int do_attach(void) {
         printf("VERITY_MAP_ID=%u\n", (unsigned) obj->bss->protected_map_id_verity);
         printf("BSS_MAP_ID=%u\n", (unsigned) obj->bss->protected_map_id_bss);
 
+        /* Print comma-separated prog and link IDs for guard tests */
+        printf("PROG_IDS=\"");
+        for (int i = 0; i < _TRUSTED_EXEC_LINK_MAX; i++)
+                printf("%s%u", i > 0 ? "," : "", (unsigned) obj->bss->protected_prog_ids[i]);
+        printf("\"\n");
+
+        printf("LINK_IDS=\"");
+        for (int i = 0; i < _TRUSTED_EXEC_LINK_MAX; i++)
+                printf("%s%u", i > 0 ? "," : "", (unsigned) obj->bss->protected_link_ids[i]);
+        printf("\"\n");
+
         /* Detach links from the skeleton so destroying it doesn't unpin them */
         obj->links.trusted_exec_bdev_setintegrity = NULL;
         obj->links.trusted_exec_bdev_free = NULL;
         obj->links.trusted_exec_bprm_check = NULL;
         obj->links.trusted_exec_mmap_file = NULL;
         obj->links.trusted_exec_file_mprotect = NULL;
+        obj->links.trusted_exec_ptrace_guard = NULL;
+        obj->links.trusted_exec_bpf_map_guard = NULL;
+        obj->links.trusted_exec_bpf_prog_guard = NULL;
         obj->links.trusted_exec_bpf_guard = NULL;
 
         return 0;
@@ -150,6 +179,9 @@ static int do_detach(void) {
         detach_pin(PIN_PATH_PREFIX "bprm_check");
         detach_pin(PIN_PATH_PREFIX "mmap_file");
         detach_pin(PIN_PATH_PREFIX "file_mprotect");
+        detach_pin(PIN_PATH_PREFIX "ptrace_guard");
+        detach_pin(PIN_PATH_PREFIX "bpf_map_guard");
+        detach_pin(PIN_PATH_PREFIX "bpf_prog_guard");
         detach_pin(PIN_PATH_PREFIX "bpf_guard");
 
         log_info("All BPF link pins removed");
