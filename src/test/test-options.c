@@ -31,10 +31,10 @@ static void test_option_parse_one(
         for (const Entry *e = entries; e && (e->long_code || e->short_code != 0); e++)
                 n_entries++;
 
-        OptionParser state = {};
+        OptionParser state = { argc, argv };
         const Option *opt;
         const char *arg;
-        for (int c; (c = option_parse(options, options + n_options, &state, argc, argv, &opt, &arg)) != 0; ) {
+        for (int c; (c = option_parse(options, options + n_options, &state, &opt, &arg)) != 0; ) {
                 ASSERT_OK(c);
                 ASSERT_NOT_NULL(opt);
 
@@ -54,11 +54,11 @@ static void test_option_parse_one(
 
         ASSERT_EQ(i, n_entries);
 
-        char **args = option_parser_get_args(&state, argc, argv);
+        char **args = option_parser_get_args(&state);
         ASSERT_TRUE(strv_equal(args, remaining));
         ASSERT_STREQ(argv[0], saved_argv0);
 
-        ASSERT_EQ(option_parser_get_n_args(&state, argc), strv_length(remaining));
+        ASSERT_EQ(option_parser_get_n_args(&state), strv_length(remaining));
 }
 
 static void test_option_invalid_one(
@@ -77,11 +77,11 @@ static void test_option_invalid_one(
         for (const Option *o = options; o->short_code != 0 || o->long_code; o++)
                 n_options++;
 
-        OptionParser state = {};
+        OptionParser state = { argc, argv };
         const Option *opt;
         const char *arg;
 
-        int c = option_parse(options, options + n_options, &state, argc, argv, &opt, &arg);
+        int c = option_parse(options, options + n_options, &state, &opt, &arg);
         ASSERT_ERROR(c, EINVAL);
 }
 
@@ -691,11 +691,11 @@ static void test_macros_parse_one(
         for (const Entry *e = entries; e && (e->long_code || e->short_code != 0); e++)
                 n_entries++;
 
-        OptionParser state = {};
+        OptionParser state = { argc, argv };
         const Option *opt;
         const char *arg;
 
-        FOREACH_OPTION_FULL(&state, c, argc, argv, &opt, &arg, ASSERT_TRUE(false)) {
+        FOREACH_OPTION_FULL(&state, c, &opt, &arg, ASSERT_TRUE(false)) {
                 log_debug("%c %s: %s=%s",
                           opt->short_code != 0 ? opt->short_code : ' ',
                           opt->long_code ?: "",
@@ -751,7 +751,7 @@ static void test_macros_parse_one(
 
         ASSERT_EQ(i, n_entries);
 
-        char **args = option_parser_get_args(&state, argc, argv);
+        char **args = option_parser_get_args(&state);
         ASSERT_TRUE(strv_equal(args, remaining));
         ASSERT_STREQ(argv[0], saved_argv0);
 }
