@@ -655,6 +655,17 @@
 
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>LoaderBootSecret</varname></term>
+
+        <listitem><para>A non-volatile EFI variable only accessible from the pre-boot environment
+        (i.e. access from the OS is not permitted) that contains a per-system secret. It is set automatically
+        by <command>systemd-stub</command> if not present already. A secret derived from the value of this
+        EFI variable is passed to the OS in <filename>/.extra/boot-secret</filename>, see below.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
     </variablelist>
 
     <para>Note that some of the variables above may also be set by the boot loader. The stub will only set
@@ -761,6 +772,33 @@
         sections of the selected profile, if any.</para>
 
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>/.extra/boot-secret</filename></term>
+        <listitem><para>A 32 byte per-system secret which is derived from a 32 byte secret stored in an EFI
+        variable (<varname>LoaderBootSecret</varname>, see above), which itself is only accessible to the
+        pre-boot environment. This may be used for various early-boot cryptographic purposes, and OS file
+        system access to it is restricted to root. The <varname>IMAGE_ID=</varname>/<varname>ID=</varname>
+        data from the <literal>.osrel</literal> is hashed into the secret, to ensure that different images
+        get a distinct secret passed. Moreover, a randomized 32 byte value stored in the ESP in the
+        <literal>/loader/boot-secret-mixin</literal> file is hashed in as well, ensuring that distinct disks will
+        result in different boot secrets.</para>
+
+        <para>Note: this boot secret is ultimately protected only by firmware-enforced access controls on the
+        EFI variable. This is generally a much weaker protection than TPM-based approaches have, and it is
+        hence strongly recommended to use the TPM on systems that possess one. The boot secret is primarily
+        intended to be a lower-security fallback for cases where a TPM is not available.</para>
+
+        <para>Applications should never protect resources directly with this secret, but derive their own
+        secret from it (by hashing it together with some application ID, in HMAC mode for example), in order
+        not to accidentally leak the primary boot secret.</para>
+
+        <para>Note that the boot secret is only available if the pre-boot environment had a suitable RNG
+        source at the current boot or an earlier one. This source can be an initialized on-disk
+        random seed or the EFI RNG support, or both.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
       </varlistentry>
     </variablelist>
 
