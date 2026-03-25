@@ -7,6 +7,7 @@
 #include "alloc-util.h"
 #include "escape.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "json-util.h"
 #include "log.h"
 #include "memfd-util.h"
@@ -120,6 +121,57 @@ int manufacture_swtpm(const char *state_dir, const char *secret) {
                 }
         }
 
+        /* Create custom swtpm config files so that swtpm_localca uses our state directory instead of
+         * the system-wide /var/lib/swtpm-localca/ which may not be writable. */
+        _cleanup_free_ char *localca_conf = path_join(state_dir, "swtpm-localca.conf");
+        if (!localca_conf)
+                return log_oom();
+
+        r = write_string_filef(
+                        localca_conf,
+                        WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_TRUNCATE|WRITE_STRING_FILE_MKDIR_0755,
+                        "statedir = %1$s\n"
+                        "signingkey = %1$s/signing-private-key.pem\n"
+                        "issuercert = %1$s/issuer-certificate.pem\n"
+                        "certserial = %1$s/certserial\n",
+                        state_dir);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write swtpm-localca.conf: %m");
+
+        _cleanup_free_ char *localca_options = path_join(state_dir, "swtpm-localca.options");
+        if (!localca_options)
+                return log_oom();
+
+        r = write_string_file(
+                        localca_options,
+                        "--platform-manufacturer systemd\n"
+                        "--platform-version 2.1\n"
+                        "--platform-model swtpm\n",
+                        WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_TRUNCATE|WRITE_STRING_FILE_MKDIR_0755);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write swtpm-localca.options: %m");
+
+        _cleanup_free_ char *swtpm_localca = NULL;
+        r = find_executable("swtpm_localca", &swtpm_localca);
+        if (r < 0)
+                return log_error_errno(r, "Failed to find 'swtpm_localca' binary: %m");
+
+        _cleanup_free_ char *setup_conf = path_join(state_dir, "swtpm_setup.conf");
+        if (!setup_conf)
+                return log_oom();
+
+        r = write_string_filef(
+                        setup_conf,
+                        WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_TRUNCATE|WRITE_STRING_FILE_MKDIR_0755,
+                        "create_certs_tool = %1$s\n"
+                        "create_certs_tool_config = %2$s\n"
+                        "create_certs_tool_options = %3$s\n",
+                        swtpm_localca,
+                        localca_conf,
+                        localca_options);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write swtpm_setup.conf: %m");
+
         strv_free(args);
         args = strv_new(swtpm_setup,
                         "--tpm-state", state_dir,
@@ -129,7 +181,8 @@ int manufacture_swtpm(const char *state_dir, const char *secret) {
                         "--createek",
                         "--create-ek-cert",
                         "--create-platform-cert",
-                        "--not-overwrite");
+                        "--not-overwrite",
+                        "--config", setup_conf);
         if (!args)
                 return log_oom();
 
