@@ -69,6 +69,10 @@ extern const Option __start_SYSTEMD_OPTIONS[];
 extern const Option __stop_SYSTEMD_OPTIONS[];
 
 typedef struct OptionParser {
+        /* Those two should stay first so that it's possible to initialize the struct as { argc, argv }. */
+        int argc;                 /* The original argc. */
+        char **argv;              /* The argv array, possibly reordered. */
+
         int optind;               /* Position of the parameter being handled.
                                    * 0 → option parsing hasn't been started yet. */
         int short_option_offset;  /* Set when we're parsing an argument with one or more short options.
@@ -82,23 +86,22 @@ int option_parse(
                 const Option options[],
                 const Option options_end[],
                 OptionParser *state,
-                int argc, char *argv[],
                 const Option **ret_option,
                 const char **ret_arg);
 
 /* Iterate over options. */
-#define FOREACH_OPTION_FULL(parser, opt, argc, argv, ret_o, ret_a, on_error) \
-        for (int opt; (opt = option_parse(ALIGN_PTR(__start_SYSTEMD_OPTIONS), __stop_SYSTEMD_OPTIONS, parser, argc, argv, ret_o, ret_a)) != 0; ) \
+#define FOREACH_OPTION_FULL(parser, opt, ret_o, ret_a, on_error) \
+        for (int opt; (opt = option_parse(ALIGN_PTR(__start_SYSTEMD_OPTIONS), __stop_SYSTEMD_OPTIONS, parser, ret_o, ret_a)) != 0; ) \
                 if (opt < 0) {                                                  \
                         on_error;                                               \
                         break;                                                  \
                 } else
 
-#define FOREACH_OPTION(parser, opt, argc, argv, ret_a, on_error) \
-        FOREACH_OPTION_FULL(parser, opt, argc, argv, /* ret_o= */ NULL, ret_a, on_error)
+#define FOREACH_OPTION(parser, opt, ret_a, on_error) \
+        FOREACH_OPTION_FULL(parser, opt, /* ret_o= */ NULL, ret_a, on_error)
 
-char** option_parser_get_args(const OptionParser *state, int argc, char *argv[]);
-size_t option_parser_get_n_args(const OptionParser *state, int argc);
+char** option_parser_get_args(const OptionParser *state);
+size_t option_parser_get_n_args(const OptionParser *state);
 
 int _option_parser_get_help_table(
                 const Option options[],
