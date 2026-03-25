@@ -67,7 +67,7 @@ Priority=202
 Table=22
 
 # The four routing policy rules below intentionally have the same config
-# excepts for their To= addresses. See issue #35874.
+# except for their To= addresses. See issue #35874.
 [RoutingPolicyRule]
 To=192.0.2.0/26
 Table=1001
