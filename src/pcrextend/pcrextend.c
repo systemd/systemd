@@ -29,7 +29,7 @@ static char **arg_banks = NULL;
 static char *arg_file_system = NULL;
 static bool arg_machine_id = false;
 static bool arg_product_id = false;
-static unsigned arg_pcr_index = UINT_MAX;
+static uint32_t arg_pcr_mask = 0;
 static char *arg_nvpcr_name = NULL;
 static bool arg_varlink = false;
 static bool arg_early = false;
@@ -139,11 +139,16 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 case ARG_PCR:
+                        if (isempty(optarg)) {
+                                arg_pcr_mask = 0;
+                                break;
+                        }
+
                         r = tpm2_pcr_index_from_string(optarg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse PCR index: %s", optarg);
 
-                        arg_pcr_index = r;
+                        arg_pcr_mask |= INDEX_TO_MASK(uint32_t, r);
                         break;
 
                 case ARG_NVPCR:
@@ -213,7 +218,7 @@ static int parse_argv(int argc, char *argv[]) {
         if (!!arg_file_system + arg_machine_id + arg_product_id > 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--file-system=, --machine-id, --product-id may not be combined.");
 
-        if (arg_pcr_index != UINT_MAX && arg_nvpcr_name)
+        if (arg_pcr_mask != 0 && arg_nvpcr_name)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--pcr= and --nvpcr= may not be combined.");
 
         r = sd_varlink_invocation(SD_VARLINK_ALLOW_ACCEPT);
@@ -221,11 +226,11 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(r, "Failed to check if invoked in Varlink mode: %m");
         if (r > 0)
                 arg_varlink = true;
-        else if (arg_pcr_index == UINT_MAX && !arg_nvpcr_name) {
-                arg_pcr_index =
-                        (arg_file_system || arg_machine_id) ? TPM2_PCR_SYSTEM_IDENTITY : /* → PCR 15 */
-                                            !arg_product_id ? TPM2_PCR_KERNEL_BOOT :     /* → PCR 11 */
-                                                              UINT_MAX;
+        else if (arg_pcr_mask == 0 && !arg_nvpcr_name) {
+                arg_pcr_mask =
+                        (arg_file_system || arg_machine_id) ? INDEX_TO_MASK(uint32_t, TPM2_PCR_SYSTEM_IDENTITY) : /* → PCR 15 */
+                                           !arg_product_id  ? INDEX_TO_MASK(uint32_t, TPM2_PCR_KERNEL_BOOT) :     /* → PCR 11 */
+                                                              0;
 
                 r = free_and_strdup_warn(&arg_nvpcr_name, arg_product_id ? "hardware" : NULL);
                 if (r < 0)
@@ -235,7 +240,7 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-static int determine_banks(Tpm2Context *c, unsigned target_pcr_nr) {
+static int determine_banks(Tpm2Context *c, uint32_t target_pcr_mask) {
         _cleanup_strv_free_ char **l = NULL;
         int r;
 
@@ -244,7 +249,7 @@ static int determine_banks(Tpm2Context *c, unsigned target_pcr_nr) {
         if (!strv_isempty(arg_banks)) /* Explicitly configured? Then use that */
                 return 0;
 
-        r = tpm2_get_good_pcr_banks_strv(c, UINT32_C(1) << target_pcr_nr, &l);
+        r = tpm2_get_good_pcr_banks_strv(c, target_pcr_mask, &l);
         if (r < 0)
                 return log_error_errno(r, "Could not verify pcr banks: %m");
 
@@ -275,7 +280,7 @@ static int escape_and_truncate_data(const void *data, size_t size, char **ret) {
 }
 
 static int extend_pcr_now(
-                unsigned pcr,
+                uint32_t pcr_mask,
                 const void *data,
                 size_t size,
                 Tpm2UserspaceEventType event) {
@@ -283,11 +288,13 @@ static int extend_pcr_now(
         _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
         int r;
 
+        assert(pcr_mask != 0);
+
         r = tpm2_context_new_or_warn(arg_tpm2_device, &c);
         if (r < 0)
                 return r;
 
-        r = determine_banks(c, pcr);
+        r = determine_banks(c, pcr_mask);
         if (r < 0)
                 return r;
         if (strv_isempty(arg_banks)) /* Still none? */
@@ -302,18 +309,20 @@ static int extend_pcr_now(
         if (escape_and_truncate_data(data, size, &safe) < 0)
                 return log_oom();
 
-        log_debug("Measuring '%s' into PCR index %u, banks %s.", safe, pcr, joined_banks);
+        BIT_FOREACH(pcr, pcr_mask) {
+                log_debug("Measuring '%s' into PCR index %i, banks %s.", safe, pcr, joined_banks);
 
-        r = tpm2_pcr_extend_bytes(c, arg_banks, pcr, &IOVEC_MAKE(data, size), /* secret= */ NULL, event, safe);
-        if (r < 0)
-                return log_error_errno(r, "Could not extend PCR: %m");
+                r = tpm2_pcr_extend_bytes(c, arg_banks, pcr, &IOVEC_MAKE(data, size), /* secret= */ NULL, event, safe);
+                if (r < 0)
+                        return log_error_errno(r, "Could not extend PCR: %m");
 
-        log_struct(LOG_INFO,
-                   LOG_MESSAGE_ID(SD_MESSAGE_TPM_PCR_EXTEND_STR),
-                   LOG_MESSAGE("Extended PCR index %u with '%s' (banks %s).", pcr, safe, joined_banks),
-                   LOG_ITEM("MEASURING=%s", safe),
-                   LOG_ITEM("PCR=%u", pcr),
-                   LOG_ITEM("BANKS=%s", joined_banks));
+                log_struct(LOG_INFO,
+                           LOG_MESSAGE_ID(SD_MESSAGE_TPM_PCR_EXTEND_STR),
+                           LOG_MESSAGE("Extended PCR index %i with '%s' (banks %s).", pcr, safe, joined_banks),
+                           LOG_ITEM("MEASURING=%s", safe),
+                           LOG_ITEM("PCR=%i", pcr),
+                           LOG_ITEM("BANKS=%s", joined_banks));
+        }
 
         return 0;
 }
@@ -435,7 +444,7 @@ static int vl_method_extend(sd_varlink *link, sd_json_variant *parameters, sd_va
                 if (r == -ENOENT)
                         return sd_varlink_error(link, "io.systemd.PCRExtend.NoSuchNvPCR", NULL);
         } else
-                r = extend_pcr_now(p.pcr, extend_iovec->iov_base, extend_iovec->iov_len, p.event_type);
+                r = extend_pcr_now(INDEX_TO_MASK(uint32_t, p.pcr), extend_iovec->iov_base, extend_iovec->iov_len, p.event_type);
         if (r < 0)
                 return r;
 
@@ -531,24 +540,24 @@ static int run(int argc, char *argv[]) {
         if (arg_event_type >= 0)
                 event = arg_event_type;
 
-        if (arg_graceful && !tpm2_is_fully_supported()) {
+        if (arg_graceful && !tpm2_is_mostly_supported()) {
                 log_notice("No complete TPM2 support detected, exiting gracefully.");
                 return EXIT_SUCCESS;
         }
 
-        /* Skip logic if sd-stub is not used, after all PCR 11 might have a very different purpose then. */
-        r = efi_measured_uki(LOG_ERR);
+        /* Skip logic if measured OS functionality is not enabled. */
+        r = efi_measured_os(LOG_ERR);
         if (r < 0)
                 return r;
         if (r == 0) {
-                log_info("Kernel stub did not measure kernel image into PCR %i, skipping userspace measurement, too.", TPM2_PCR_KERNEL_BOOT);
+                log_info("OS measurements not explicitly requested and kernel stub did not measure kernel image into PCR %i, skipping userspace measurement, too.", TPM2_PCR_KERNEL_BOOT);
                 return EXIT_SUCCESS;
         }
 
         if (arg_nvpcr_name)
                 r = extend_nvpcr_now(arg_nvpcr_name, word, strlen(word), event);
         else
-                r = extend_pcr_now(arg_pcr_index, word, strlen(word), event);
+                r = extend_pcr_now(arg_pcr_mask, word, strlen(word), event);
         if (r < 0)
                 return r;
 
