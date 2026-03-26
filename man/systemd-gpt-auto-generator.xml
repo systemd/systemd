@@ -75,6 +75,13 @@
       discovery based on the boot loader reported ESP which is also enabled if no <literal>root=</literal>
       parameter is specified at all. (The latter relies on <command>systemd-udevd.service</command>'s
       <filename>/dev/gpt-auto-root</filename> block device symlink generation).</para></listitem>
+
+      <listitem><para>It will also generate a unit file mounting the EFI System Partition (ESP) to
+      <filename>/sysefi/</filename>, if applicable. Unlike the file systems mentioned above this mount is not
+      activated by default however, but can be pulled in by services requiring ESP access from within the
+      initrd. Note that this mount point is initrd-specific and does not make use of autofs. The ESP is
+      typically mounted at a different place and via autofs once the system transitions out of the
+      initrd.</para></listitem>
     </itemizedlist>
     </para>
 
@@ -179,7 +186,7 @@
             <entry><constant>SD_GPT_ESP</constant></entry>
             <entry><constant>c12a7328-f81f-11d2-ba4b-00a0c93ec93b</constant></entry>
             <entry>EFI System Partition (ESP)</entry>
-            <entry><filename>/efi/</filename> or <filename>/boot/</filename></entry>
+            <entry><filename>/efi/</filename> or <filename>/boot/</filename> once the system transitioned out of the initrd, <filename>/sysefi/</filename> before</entry>
             <entry>The first partition with this type UUID located on the same disk as the root partition is mounted to <filename>/boot/</filename> or <filename>/efi/</filename>, see below.</entry>
           </row>
           <row>
@@ -259,7 +266,9 @@
 
     <para>The ESP is mounted to <filename>/boot/</filename> if that directory exists and is not used for
     XBOOTLDR, and otherwise to <filename>/efi/</filename>. Same as for <filename>/boot/</filename>, an
-    automount unit is used. The mount point will be created if necessary.</para>
+    automount unit is used. The mount point will be created if necessary. These apply once the system
+    transitioned out of the initrd phase. Before that, if components in the initrd require ESP access, it
+    will be mounted to <filename>/sysefi/</filename>.</para>
 
     <para>No configuration is created for mount points that are configured in <citerefentry
     project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry> or when
