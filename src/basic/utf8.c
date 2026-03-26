@@ -101,8 +101,11 @@ int utf8_encoded_to_unichar(const char *str, char32_t *ret_unichar) {
         return len;
 }
 
-bool utf8_is_printable_newline(const char* str, size_t length, bool allow_newline) {
+bool utf8_is_safe_full(const char *str, size_t length, UTF8SafeFlags flags) {
         assert(str);
+
+        if (length == SIZE_MAX)
+                length = strlen(str);
 
         for (const char *p = str; length > 0;) {
                 int encoded_len;
@@ -114,8 +117,9 @@ bool utf8_is_printable_newline(const char* str, size_t length, bool allow_newlin
                 assert(encoded_len > 0 && (size_t) encoded_len <= length);
 
                 if (utf8_encoded_to_unichar(p, &val) < 0 ||
-                    unichar_is_control(val) ||
-                    (!allow_newline && val == '\n'))
+                    (!FLAGS_SET(flags, UTF8_ALLOW_NEWLINE) && val == '\n') ||
+                    (!FLAGS_SET(flags, UTF8_ALLOW_TAB) && val == '\t') ||
+                    unichar_is_control(val))
                         return false;
 
                 length -= encoded_len;
