@@ -115,7 +115,7 @@ udev_storage_tests += udev_storage_test_template + {
 }
 
 cmdline = []
-qemu_args = []
+qemu_args = ['-device', 'virtio-scsi-pci,id=scsi0']
 
 # Add 16 multipath devices, each backed by 4 paths
 foreach ndisk : range(16)
@@ -137,7 +137,7 @@ udev_storage_tests += udev_storage_test_template + {
 }
 
 cmdline = []
-qemu_args = []
+qemu_args = ['-device', 'virtio-scsi-pci,id=scsi0']
 
 foreach i : range(10)
         id = f'drivesimultaneousevents@i@'
