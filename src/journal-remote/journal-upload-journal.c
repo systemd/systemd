@@ -170,7 +170,7 @@ static ssize_t write_entry(char *buf, size_t size, Uploader *u) {
                         if (memory_startswith(u->field_data, u->field_length, "_BOOT_ID="))
                                 continue;
 
-                        if (!utf8_is_printable_newline(u->field_data, u->field_length, false)) {
+                        if (!utf8_is_printable_oneline(u->field_data, u->field_length)) {
                                 u->entry_state = ENTRY_BINARY_FIELD_START;
                                 continue;
                         }
