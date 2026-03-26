@@ -1544,7 +1544,7 @@ have = get_option('imds').require(
         conf.get('HAVE_LIBCURL') == 1,
         error_message : 'curl required').allowed()
 conf.set10('ENABLE_IMDS', have)
-conf.set10('IMDS_NETWORK_LOCKED_DEFAULT', get_option('imds-network') == 'locked')
+conf.set('IMDS_NETWORK_DEFAULT', 'IMDS_NETWORK_@0@'.format(get_option('imds-network')).to_upper())
 
 have = get_option('importd').require(
         conf.get('HAVE_LIBCURL') == 1 and

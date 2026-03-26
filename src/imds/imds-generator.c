@@ -15,8 +15,7 @@
 
 static int arg_enabled = -1;           /* Whether we shall offer local IMDS APIs */
 static bool arg_import = true;         /* Whether we shall import IMDS credentials, SSH keys, … into the local system */
-static ImdsNetworkMode arg_network_mode =
-        IMDS_NETWORK_LOCKED_DEFAULT ? IMDS_NETWORK_LOCKED : IMDS_NETWORK_UNLOCKED;
+static ImdsNetworkMode arg_network_mode = IMDS_NETWORK_DEFAULT;
 
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
         int r;
