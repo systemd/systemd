@@ -410,6 +410,7 @@ static int manager_do_set_objective(sd_varlink *link, sd_json_variant *parameter
 
         assert(link);
         assert(parameters);
+        assert(selinux_permission);
 
         if (!MANAGER_IS_SYSTEM(m))
                 return sd_varlink_error(link, SD_VARLINK_ERROR_METHOD_NOT_IMPLEMENTED, NULL);
