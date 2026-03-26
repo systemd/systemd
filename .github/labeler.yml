@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 # vi: sw=2 ts=2 et:
 
+changed-files-labels-limit: 5
 analyze:
   - changed-files:
     - any-glob-to-any-file: 'src/analyze/*'
