@@ -14,6 +14,7 @@
  * they persist after this process exits.
  */
 
+#include <stdio.h>
 #include <sys/bpf.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
@@ -62,6 +63,11 @@ static int do_attach(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to attach BPF programs: %m");
 
+        /* Populate guard globals so the guard protects our BPF objects */
+        r = bpf_restrict_exec_populate_guard(obj);
+        if (r < 0)
+                return log_error_errno(r, "Failed to populate guard globals: %m");
+
         /* Pin all links so they persist after this process exits */
         r = sym_bpf_link__pin(obj->links.restrict_exec_bdev_setintegrity,
                               PIN_PATH_PREFIX "bdev_setintegrity");
@@ -88,7 +94,15 @@ static int do_attach(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to pin file_mprotect link: %m");
 
+        r = sym_bpf_link__pin(obj->links.restrict_exec_bpf_guard,
+                              PIN_PATH_PREFIX "bpf_guard");
+        if (r < 0)
+                return log_error_errno(r, "Failed to pin bpf_guard link: %m");
+
         log_info("All BPF links pinned to " PIN_PATH_PREFIX "*");
+
+        printf("VERITY_MAP_ID=%u\n", (unsigned) obj->bss->protected_map_id_verity);
+        printf("BSS_MAP_ID=%u\n", (unsigned) obj->bss->protected_map_id_bss);
 
         /* Detach links from the skeleton so destroying it doesn't unpin them */
         obj->links.restrict_exec_bdev_setintegrity = NULL;
@@ -96,6 +110,7 @@ static int do_attach(void) {
         obj->links.restrict_exec_bprm_check = NULL;
         obj->links.restrict_exec_mmap_file = NULL;
         obj->links.restrict_exec_file_mprotect = NULL;
+        obj->links.restrict_exec_bpf_guard = NULL;
 
         return 0;
 }
@@ -135,6 +150,7 @@ static int do_detach(void) {
         detach_pin(PIN_PATH_PREFIX "bprm_check");
         detach_pin(PIN_PATH_PREFIX "mmap_file");
         detach_pin(PIN_PATH_PREFIX "file_mprotect");
+        detach_pin(PIN_PATH_PREFIX "bpf_guard");
 
         log_info("All BPF link pins removed");
         return 0;
