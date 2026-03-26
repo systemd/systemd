@@ -18,8 +18,10 @@
 #include "mountpoint-util.h"
 #include "pcrextend-util.h"
 #include "pkcs7-util.h"
+#include "sha256.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tpm2-pcr.h"
 
 static int device_get_file_system_word(
                 sd_device *d,
@@ -289,5 +291,72 @@ int pcrextend_verity_now(
         return 1;
 #else
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 support disabled, not measuring Verity root hashes and signatures.");
+#endif
+}
+
+#define IMDS_USERDATA_TRUNCATED_MAX 256U
+
+int pcrextend_imds_userdata_word(const struct iovec *data, char **ret) {
+        assert(iovec_is_set(data));
+        assert(ret);
+
+        /* We include both a hash of the complete user data, and a truncated version of the data in the word
+         * we measure. The former protects the actual data, the latter is useful for debugging. */
+
+        _cleanup_free_ char *hash = hexmem(SHA256_DIRECT(data->iov_base, data->iov_len), SHA256_DIGEST_SIZE);
+        if (!hash)
+                return log_oom();
+
+        _cleanup_free_ char *data_encoded = NULL;
+        if (base64mem_full(data->iov_base, MIN(data->iov_len, IMDS_USERDATA_TRUNCATED_MAX), /* line_break= */ SIZE_MAX, &data_encoded) < 0)
+                return log_oom();
+
+        _cleanup_free_ char *word = strjoin("imds-userdata:", hash, ":", data_encoded);
+        if (!word)
+                return log_oom();
+
+        *ret = TAKE_PTR(word);
+        return 0;
+}
+
+int pcrextend_imds_userdata_now(const struct iovec *data) {
+
+#if HAVE_TPM2
+        int r;
+
+        _cleanup_free_ char *word = NULL;
+        r = pcrextend_imds_userdata_word(data, &word);
+        if (r < 0)
+                return r;
+
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.PCRExtend");
+        if (r < 0)
+                return r;
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
+        const char *error_id = NULL;
+        r = sd_varlink_callbo(
+                        vl,
+                        "io.systemd.PCRExtend.Extend",
+                        /* ret_reply= */ NULL,
+                        &error_id,
+                        SD_JSON_BUILD_PAIR_INTEGER("pcr", TPM2_PCR_KERNEL_CONFIG),
+                        SD_JSON_BUILD_PAIR_STRING("text", word),
+                        SD_JSON_BUILD_PAIR_STRING("eventType", "imds_userdata"));
+        if (r < 0)
+                return log_debug_errno(r, "Failed to issue io.systemd.PCRExtend.Extend() varlink call: %m");
+        if (error_id) {
+                r = sd_varlink_error_to_errno(error_id, reply);
+                if (r != -EBADR)
+                        return log_debug_errno(r, "Failed to issue io.systemd.PCRExtend.Extend() varlink call: %m");
+
+                return log_debug_errno(r, "Failed to issue io.systemd.PCRExtend.Extend() varlink call: %s", error_id);
+        }
+
+        log_debug("Measurement of '%s' into PCR 12 completed.", word);
+        return 1;
+#else
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 support disabled, not measuring IMDS userdata.");
 #endif
 }
