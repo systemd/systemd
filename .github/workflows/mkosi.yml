@@ -60,7 +60,6 @@ jobs:
             sanitizers: ""
             llvm: 0
             cflags: "-O2 -D_FORTIFY_SOURCE=3"
-            relabel: no
             vm: 1
             no_qemu: 0
             no_kvm: 0
@@ -71,7 +70,6 @@ jobs:
             sanitizers: ""
             llvm: 0
             cflags: "-Og"
-            relabel: no
             vm: 0
             no_qemu: 0
             no_kvm: 0
@@ -82,7 +80,6 @@ jobs:
             sanitizers: ""
             llvm: 0
             cflags: "-Og"
-            relabel: no
             vm: 0
             no_qemu: 0
             no_kvm: 0
@@ -93,7 +90,6 @@ jobs:
             sanitizers: ""
             llvm: 0
             cflags: "-Og"
-            relabel: no
             vm: 0
             no_qemu: 1
             no_kvm: 1
@@ -104,7 +100,6 @@ jobs:
             sanitizers: ""
             llvm: 0
             cflags: "-Og"
-            relabel: no
             vm: 0
             no_qemu: 0
             no_kvm: 0
@@ -115,7 +110,6 @@ jobs:
             sanitizers: ""
             llvm: 0
             cflags: "-Og"
-            relabel: no
             vm: 0
             no_qemu: 0
             no_kvm: 0
@@ -126,7 +120,6 @@ jobs:
             sanitizers: address,undefined
             llvm: 1
             cflags: "-Og"
-            relabel: yes
             vm: 0
             no_qemu: 0
             no_kvm: 0
@@ -137,7 +130,6 @@ jobs:
             sanitizers: ""
             llvm: 0
             cflags: "-Og"
-            relabel: yes
             vm: 0
             no_qemu: 0
             no_kvm: 0
@@ -148,7 +140,6 @@ jobs:
             sanitizers: ""
             llvm: 0
             cflags: "-Og"
-            relabel: yes
             vm: 0
             no_qemu: 0
             no_kvm: 0
@@ -159,7 +150,6 @@ jobs:
             sanitizers: ""
             llvm: 0
             cflags: "-Og"
-            relabel: yes
             vm: 0
             no_qemu: 0
             no_kvm: 0
@@ -170,7 +160,6 @@ jobs:
             sanitizers: ""
             llvm: 0
             cflags: "-Og"
-            relabel: yes
             vm: 0
             no_qemu: 0
             no_kvm: 0
@@ -232,9 +221,6 @@ jobs:
                   MESON_OPTIONS=--werror
                   LLVM=${{ matrix.llvm }}
                   SYSEXT=1
-
-          [Content]
-          SELinuxRelabel=${{ matrix.relabel }}
 
           [Runtime]
           RAM=4G

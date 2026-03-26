@@ -46,7 +46,7 @@ disable fstrim.timer
 disable raid-check.timer
 disable systemd-tmpfiles-clean.timer
 
-# mkosi relabels the image itself so no need to do it on boot.
+# TEST-06-SELINUX handles relabeling itself at runtime.
 disable selinux-autorelabel-mark.service
 
 enable coverage-forwarder.service
