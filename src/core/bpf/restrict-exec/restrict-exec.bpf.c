@@ -29,8 +29,9 @@
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_tracing.h>
 
-#define PROT_EXEC 0x4
-#define VM_EXEC   0x00000004
+#define PROT_EXEC          0x4
+#define VM_EXEC            0x00000004
+#define PTRACE_MODE_ATTACH 0x02
 
 /* Mirrors enum lsm_integrity_type from include/linux/security.h.
  * Values must match the kernel — verified against v6.x+.
@@ -67,6 +68,23 @@ struct vm_area_struct {
         struct file *vm_file;
 } __attribute__((preserve_access_index));
 
+struct task_struct {
+        int tgid;
+} __attribute__((preserve_access_index));
+
+/* CO-RE types for self-protection guard hooks (kernel-internal, not UAPI) */
+struct bpf_map {
+        __u32 id;
+} __attribute__((preserve_access_index));
+
+struct bpf_prog_aux {
+        __u32 id;
+} __attribute__((preserve_access_index));
+
+struct bpf_prog {
+        struct bpf_prog_aux *aux;
+} __attribute__((preserve_access_index));
+
 /* ---- Maps ---- */
 
 struct {
@@ -82,6 +100,19 @@ struct {
  * clears it (to 0) after switch_root. A value of 0 means "no initramfs trust
  * — the window is closed." */
 volatile __u32 initramfs_s_dev;
+
+/* ---- Self-protection guard globals (set by PID1 after attach) ----
+ *
+ * While all IDs are 0 (the .bss default), the guard is inactive — no real BPF
+ * object has ID 0, so no comparisons match. PID1 populates these after
+ * attaching all programs. */
+volatile __u32 protected_map_id_verity;
+volatile __u32 protected_map_id_bss;
+
+/* Must equal _RESTRICT_EXEC_LINK_MAX in bpf-restrict-exec.h — update when adding programs */
+#define NUM_PROTECTED_OBJS 9 /* 5 enforcement + 4 guard (bpf, bpf_map, bpf_prog, ptrace) */
+volatile __u32 protected_prog_ids[NUM_PROTECTED_OBJS];
+volatile __u32 protected_link_ids[NUM_PROTECTED_OBJS];
 
 /* ---- Integrity tracking hooks ---- */
 
@@ -177,6 +208,109 @@ int BPF_PROG(restrict_exec_file_mprotect, struct vm_area_struct *vma,
                 return -EPERM;
 
         return check_trusted_file(file);
+}
+
+/* ---- PID1 ptrace protection ----
+ *
+ * Blocks PTRACE_MODE_ATTACH access to PID1 from any other process. This
+ * prevents ptrace(PTRACE_ATTACH), /proc/1/mem, process_vm_readv(), and
+ * pidfd_getfd() from extracting sensitive state from PID1's address space.
+ *
+ * PTRACE_MODE_READ is allowed — monitoring tools and systemctl need
+ * /proc/1/status, /proc/1/fd/, /proc/1/ns/ *, etc.
+ *
+ * PID1 accessing itself is allowed. */
+
+SEC("lsm/ptrace_access_check")
+int BPF_PROG(restrict_exec_ptrace_guard, struct task_struct *child,
+             unsigned int mode)
+{
+        /* We only care about PID 1 and its threads (There are none but still.). */
+        if (child->tgid != 1)
+                return 0;
+
+        /* We only care about dangerous operations. */
+        if (!(mode & PTRACE_MODE_ATTACH))
+                return 0;
+
+        /* The kernel always allows access from the same thread-group but let's be explicit here. */
+        if (child == bpf_get_current_task_btf())
+                return 0;
+
+        return -EPERM;
+}
+
+/* ---- Self-protection guard ----
+ *
+ * Three hooks protect our BPF objects from non-PID1 processes:
+ *
+ *   lsm/bpf_map  — fires inside bpf_map_new_fd(), the chokepoint for ALL
+ *                   code paths that produce a map FD (BPF_MAP_GET_FD_BY_ID,
+ *                   BPF_OBJ_GET, BPF_MAP_CREATE). Blocks the primary attack:
+ *                   obtaining an FD to verity_devices to inject fake trusted
+ *                   devices via BPF_MAP_UPDATE_ELEM.
+ *
+ *   lsm/bpf_prog — fires inside bpf_prog_new_fd(), same chokepoint coverage
+ *                   for programs. Defense-in-depth.
+ *
+ *   lsm/bpf      — handles BPF_LINK_GET_FD_BY_ID only. There is no
+ *                   security_bpf_link() hook in the kernel, so link
+ *                   protection uses the command-level bpf() hook. This is
+ *                   sufficient: we don't pin links in production, so
+ *                   BPF_OBJ_GET is not an attack vector for links. */
+
+SEC("lsm/bpf_map")
+int BPF_PROG(restrict_exec_bpf_map_guard, struct bpf_map *map,
+             unsigned int fmode)
+{
+        __u32 id;
+
+        if ((bpf_get_current_pid_tgid() >> 32) == 1)
+                return 0;
+
+        id = map->id;
+        if (id != 0 && (id == protected_map_id_verity ||
+                        id == protected_map_id_bss))
+                return -EPERM;
+
+        return 0;
+}
+
+SEC("lsm/bpf_prog")
+int BPF_PROG(restrict_exec_bpf_prog_guard, struct bpf_prog *prog)
+{
+        __u32 id;
+
+        if ((bpf_get_current_pid_tgid() >> 32) == 1)
+                return 0;
+
+        id = BPF_CORE_READ(prog, aux, id);
+        for (int i = 0; i < NUM_PROTECTED_OBJS; i++)
+                if (id != 0 && id == protected_prog_ids[i])
+                        return -EPERM;
+
+        return 0;
+}
+
+SEC("lsm/bpf")
+int BPF_PROG(restrict_exec_bpf_guard, int cmd, union bpf_attr *attr,
+             unsigned int size)
+{
+        __u32 id;
+
+        if ((bpf_get_current_pid_tgid() >> 32) == 1)
+                return 0;
+
+        if (cmd != BPF_LINK_GET_FD_BY_ID)
+                return 0;
+
+        /* link_id/map_id/prog_id share the same offset in the bpf_attr union */
+        id = attr->link_id;
+        for (int i = 0; i < NUM_PROTECTED_OBJS; i++)
+                if (id != 0 && id == protected_link_ids[i])
+                        return -EPERM;
+
+        return 0;
 }
 
 static const char _license[] SEC("license") = "GPL";
