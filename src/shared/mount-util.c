@@ -1988,10 +1988,19 @@ int fsmount_credentials_fs(int *ret_fsfd) {
         if (fsconfig(fs_fd, FSCONFIG_CMD_CREATE, NULL, NULL, 0) < 0)
                 return -errno;
 
-        int mfd = fsmount(fs_fd, FSMOUNT_CLOEXEC,
-                          ms_flags_to_mount_attr(credentials_fs_mount_flags(/* ro= */ false)));
+        unsigned mount_attrs = ms_flags_to_mount_attr(credentials_fs_mount_flags(/* ro = */ false));
+
+        int mfd = RET_NERRNO(fsmount(fs_fd, FSMOUNT_CLOEXEC, mount_attrs));
+        if (mfd == -EINVAL) {
+                /* MS_NOSYMFOLLOW was added in kernel 5.10, but the new mount API counterpart was missing
+                 * until 5.14 (c.f. https://github.com/torvalds/linux/commit/dd8b477f9a3d8edb136207acb3652e1a34a661b7).
+                 *
+                 * TODO: drop this once our baseline is raised to 5.14 */
+                assert(FLAGS_SET(mount_attrs, MOUNT_ATTR_NOSYMFOLLOW));
+                mfd = RET_NERRNO(fsmount(fs_fd, FSMOUNT_CLOEXEC, mount_attrs & ~MOUNT_ATTR_NOSYMFOLLOW));
+        }
         if (mfd < 0)
-                return -errno;
+                return mfd;
 
         if (ret_fsfd)
                 *ret_fsfd = TAKE_FD(fs_fd);
