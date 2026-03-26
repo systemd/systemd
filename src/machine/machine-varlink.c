@@ -155,7 +155,7 @@ int vl_method_register(sd_varlink *link, sd_json_variant *parameters, sd_varlink
         if (r != 0)
                 return r;
 
-        if (!IN_SET(machine->class, MACHINE_CONTAINER, MACHINE_VM))
+        if (!MACHINE_CLASS_CAN_REGISTER(machine->class))
                 return sd_varlink_error_invalid_parameter_name(link, "class");
 
         if (manager->runtime_scope != RUNTIME_SCOPE_USER) {
@@ -555,14 +555,15 @@ int vl_method_open(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
                 return r;
 
         if (manager->runtime_scope != RUNTIME_SCOPE_USER) {
-                /* Ensure only root can shell into the root namespace, unless it's specifically the host machine,
-                 * which is owned by uid 0 anyway and cannot be self-registered. This is to avoid unprivileged
-                 * users registering a process they own in the root user namespace, and then shelling in as root
+                /* Ensure only root can shell into the root namespace. This is to avoid unprivileged users
+                 * registering a process they own in the root user namespace, and then shelling in as root
                  * or another user. Note that the shell operation is privileged and requires 'auth_admin', so we
-                 * do not need to check the caller's uid, as that will be checked by polkit, and if they machine's
+                 * do not need to check the caller's uid, as that will be checked by polkit, and if the machine's
                  * and the caller's do not match, authorization will be required. It's only the case where the
                  * caller owns the machine that will be shortcut and needs to be checked here. */
-                if (machine->uid != 0 && machine->class != MACHINE_HOST) {
+                if (machine->uid != 0) {
+                        assert(machine->class != MACHINE_HOST);
+
                         r = pidref_in_same_namespace(&PIDREF_MAKE_FROM_PID(1), &machine->leader, NAMESPACE_USER);
                         if (r < 0)
                                 return log_debug_errno(

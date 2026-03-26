@@ -256,6 +256,7 @@ static int machine_add_from_params(
         assert(manager);
         assert(message);
         assert(name);
+        assert(c == _MACHINE_CLASS_INVALID || MACHINE_CLASS_CAN_REGISTER(c));
         assert(ret);
 
         if (leader_pidref->pid == 1)
@@ -433,7 +434,7 @@ static int method_create_or_register_machine(
                 c = _MACHINE_CLASS_INVALID;
         else {
                 c = machine_class_from_string(class);
-                if (c < 0 || !IN_SET(c, MACHINE_CONTAINER, MACHINE_VM))
+                if (c < 0 || !MACHINE_CLASS_CAN_REGISTER(c))
                         return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid machine class parameter");
         }
 
@@ -608,7 +609,7 @@ static int method_create_or_register_machine_ex(
                 c = _MACHINE_CLASS_INVALID;
         else {
                 c = machine_class_from_string(class);
-                if (c < 0 || !IN_SET(c, MACHINE_CONTAINER, MACHINE_VM))
+                if (c < 0 || !MACHINE_CLASS_CAN_REGISTER(c))
                         return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid machine class parameter");
         }
 
