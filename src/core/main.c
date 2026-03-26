@@ -556,6 +556,17 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                         return 0;
                 }
 
+        } else if (proc_cmdline_key_streq(key, "systemd.restrict_exec")) {
+
+                if (value) {
+                        r = restrict_exec_from_string(value);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to parse systemd.restrict_exec= argument '%s', ignoring: %m", value);
+                        else
+                                arg_restrict_exec = r;
+                } else
+                        arg_restrict_exec = RESTRICT_EXEC_STRICT;
+
         } else if (streq(key, "quiet") && !value) {
 
                 if (arg_show_status == _SHOW_STATUS_INVALID)
@@ -787,7 +798,7 @@ static int parse_config_file(void) {
                 { "Manager", "CapabilityBoundingSet",        config_parse_capability_set,        0,                        &arg_capability_bounding_set      },
                 { "Manager", "NoNewPrivileges",              config_parse_bool,                  0,                        &arg_no_new_privs                 },
                 { "Manager", "ProtectSystem",                config_parse_protect_system_pid1,   0,                        &arg_protect_system               },
-                { "Manager", "RestrictExec",                  config_parse_restrict_exec,         0,                        &arg_restrict_exec                },
+                { "Manager", "RestrictExec",                 config_parse_restrict_exec,         0,                        &arg_restrict_exec                },
 #if HAVE_SECCOMP
                 { "Manager", "SystemCallArchitectures",      config_parse_syscall_archs,         0,                        &arg_syscall_archs                },
 #else
