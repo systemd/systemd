@@ -95,7 +95,7 @@ static int smbios_query(void) {
         _cleanup_free_ char *modalias = NULL;
         r = smbios_get_modalias(&modalias);
         if (r == -ENOENT) {
-                log_debug("No DMI device found, assuming IMDS is not available.");
+                log_debug_errno(r, "No DMI device found, assuming IMDS is not available.");
                 return false;
         }
         if (r < 0)
