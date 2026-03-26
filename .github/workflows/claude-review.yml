@@ -486,6 +486,7 @@ jobs:
                   commit_id: c.commit,
                   path: c.path,
                   line: c.line,
+                  subject_type: "line",
                   body: `Claude: **${c.severity}**: ${c.body}`,
                 });
                 posted++;
