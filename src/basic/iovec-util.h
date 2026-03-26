@@ -29,7 +29,7 @@ struct iovec* iovec_make_string(struct iovec *iovec, const char *s);
 
 #define IOVEC_MAKE_BYTE(c)                                      \
         (const struct iovec) {                                  \
-                .iov_base = (char*) ((const char[]) { c }),     \
+                .iov_base = (char*) ((const char[]) { (c) }),   \
                 .iov_len = 1,                                   \
         }
 
