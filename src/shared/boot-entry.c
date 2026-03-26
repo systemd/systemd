@@ -253,6 +253,12 @@ int parse_boot_entry_token_type(const char *s, BootEntryTokenType *type, char **
          * Hence, do not pass in uninitialized pointers.
          */
 
+        if (streq(s, "auto")) {
+                *type = BOOT_ENTRY_TOKEN_AUTO;
+                *token = mfree(*token);
+                return 0;
+        }
+
         if (streq(s, "machine-id")) {
                 *type = BOOT_ENTRY_TOKEN_MACHINE_ID;
                 *token = mfree(*token);
