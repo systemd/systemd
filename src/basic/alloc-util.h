@@ -208,7 +208,12 @@ void* greedy_realloc_append(void **p, size_t *n_p, const void *from, size_t n_fr
 #endif
 
 /* Free every element of the array. */
-void free_many(void **p, size_t n);
+static inline void free_many(void **p, size_t n) {
+        assert(p || n == 0);
+
+        FOREACH_ARRAY(i, p, n)
+                *i = mfree(*i);
+}
 
 /* Typesafe wrapper for char** rather than void**. Unfortunately C won't implicitly cast this. */
 static inline void free_many_charp(char **c, size_t n) {

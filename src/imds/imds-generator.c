@@ -60,7 +60,7 @@ static int smbios_get_modalias(char **ret) {
         assert(ret);
 
         _cleanup_free_ char *modalias = NULL;
-        r = read_virtual_file("/sys/devices/virtual/dmi/id/modalias", SIZE_MAX, &modalias, /* ret_size= */ NULL);
+        r = read_full_virtual_file("/sys/devices/virtual/dmi/id/modalias", &modalias, /* ret_size= */ NULL);
         if (r < 0)
                 return r;
 
@@ -76,7 +76,7 @@ static int smbios_get_modalias(char **ret) {
         else {
                 truncate_nl(cat);
 
-                if (!string_has_cc(cat, /* ok= */ NULL) && !isempty(cat) && !strextend(&modalias, "cat", cat, ":"))
+                if (!isempty(cat) && !string_has_cc(cat, /* ok= */ NULL) && !strextend(&modalias, "cat", cat, ":"))
                         return -ENOMEM;
         }
 
@@ -95,7 +95,7 @@ static int smbios_query(void) {
         _cleanup_free_ char *modalias = NULL;
         r = smbios_get_modalias(&modalias);
         if (r == -ENOENT) {
-                log_debug("No DMI device found, assuming IMDS is not available.");
+                log_debug_errno(r, "No DMI device found, assuming IMDS is not available.");
                 return false;
         }
         if (r < 0)
