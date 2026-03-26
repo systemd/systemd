@@ -21,6 +21,7 @@
 #include "audit-fd.h"
 #include "boot-timestamps.h"
 #include "bpf-restrict-fs.h"
+#include "bpf-restrict-exec.h"
 #include "build-path.h"
 #include "bus-common-errors.h"
 #include "bus-error.h"
@@ -1763,6 +1764,7 @@ Manager* manager_free(Manager *m) {
 
 #if BPF_FRAMEWORK
         bpf_restrict_fs_destroy(m->restrict_fs);
+        bpf_restrict_exec_destroy(m->restrict_exec_bpf);
 #endif
 
         safe_close(m->executor_fd);
@@ -2117,6 +2119,13 @@ int manager_startup(Manager *m, FILE *serialization, FDSet *fds, const char *roo
                          * reload is finished */
                         m->send_reloading_done = true;
         }
+
+        /* Set up RestrictExec= BPF LSM after deserialization (so we can detect deserialized link FDs)
+         * and before clearing switching_root (so we can close the initramfs trust window). This must
+         * run after set_manager_settings() has set m->restrict_exec. */
+        r = bpf_restrict_exec_setup(m);
+        if (r < 0)
+                return r;
 
         manager_ready(m);
 
