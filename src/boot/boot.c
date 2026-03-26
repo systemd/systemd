@@ -61,6 +61,9 @@ typedef enum LoaderType {
         LOADER_SECURE_BOOT_KEYS,
         LOADER_BAD,           /* Marker: this boot loader spec type #1 entry is invalid */
         LOADER_IGNORE,        /* Marker: this boot loader spec type #1 entry does not match local host */
+        LOADER_REBOOT,
+        LOADER_POWEROFF,
+        LOADER_FWSETUP,
         _LOADER_TYPE_MAX,
 } LoaderType;
 
@@ -81,6 +84,9 @@ typedef enum LoaderType {
 
 /* Whether to persistently save the selected entry in an EFI variable, if that's requested. */
 #define LOADER_TYPE_SAVE_ENTRY(t) IN_SET(t, LOADER_AUTO, LOADER_EFI, LOADER_LINUX, LOADER_UKI, LOADER_UKI_URL, LOADER_TYPE2_UKI)
+
+/* Whether this item is implemented fully inside of systemd-boot */
+#define LOADER_TYPE_IS_INTERNAL(t) IN_SET(t, LOADER_SECURE_BOOT_KEYS, LOADER_REBOOT, LOADER_POWEROFF, LOADER_FWSETUP)
 
 typedef enum {
         REBOOT_NO,
@@ -419,7 +425,7 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
                         printf("       options: %ls\n", entry->options);
                 if (entry->profile > 0)
                         printf("       profile: %u\n", entry->profile);
-                printf(" internal call: %ls\n", yes_no(!!entry->call));
+                printf(" internal call: %ls\n", yes_no(LOADER_TYPE_IS_INTERNAL(entry->type)));
 
                 printf("counting boots: %ls\n", yes_no(entry->tries_left >= 0));
                 if (entry->tries_left >= 0) {
@@ -3044,6 +3050,7 @@ static void config_add_system_entries(Config *config) {
         if (config->auto_firmware && FLAGS_SET(get_os_indications_supported(), EFI_OS_INDICATIONS_BOOT_TO_FW_UI)) {
                 BootEntry *entry = xnew(BootEntry, 1);
                 *entry = (BootEntry) {
+                        .type = LOADER_FWSETUP,
                         .id = xstrdup16(u"auto-reboot-to-firmware-setup"),
                         .title = xstrdup16(u"Reboot Into Firmware Interface"),
                         .call = call_reboot_into_firmware,
@@ -3056,6 +3063,7 @@ static void config_add_system_entries(Config *config) {
         if (config->auto_poweroff) {
                 BootEntry *entry = xnew(BootEntry, 1);
                 *entry = (BootEntry) {
+                        .type = LOADER_POWEROFF,
                         .id = xstrdup16(u"auto-poweroff"),
                         .title = xstrdup16(u"Power Off The System"),
                         .call = call_poweroff_system,
@@ -3068,6 +3076,7 @@ static void config_add_system_entries(Config *config) {
         if (config->auto_reboot) {
                 BootEntry *entry = xnew(BootEntry, 1);
                 *entry = (BootEntry) {
+                        .type = LOADER_REBOOT,
                         .id = xstrdup16(u"auto-reboot"),
                         .title = xstrdup16(u"Reboot The System"),
                         .call = call_reboot_system,
