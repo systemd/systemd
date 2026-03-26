@@ -15,7 +15,7 @@ integration_tests += [
                 ],
                 'qemu-args' : [
                         '-drive', 'id=keydev,if=none,format=raw,cache=unsafe,file=@0@'.format(meson.project_build_root() / 'mkosi.output/keydev.raw'),
-                        '-device', 'scsi-hd,drive=keydev,serial=keydev',
+                        '-device', 'virtio-blk-pci,drive=keydev,serial=keydev',
                 ],
                 'mkosi-args' : integration_test_template['mkosi-args'] + [
                         '--runtime-size=11G',
