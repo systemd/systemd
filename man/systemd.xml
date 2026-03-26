@@ -1061,6 +1061,16 @@
 
         <xi:include href="version-info.xml" xpointer="v186"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>systemd.minimum_uptime_sec=</varname></term>
+
+        <listitem><para>Takes a time in seconds. Specifies the minimum uptime of the system before the system
+        shuts down. For more information see the <varname>MinimumUptimeSec=</varname> setting described in
+        <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
     </variablelist>
 
     <para>For other kernel command line parameters understood by
