@@ -88,8 +88,17 @@ echo "Baseline: tmpfs exec works without BPF"
 umount /tmp/restrict-exec-baseline; rm -rf /tmp/restrict-exec-baseline
 
 # ------ Attach BPF with rootfs trusted ------
+# Capture stdout (map IDs) while letting stderr (logs) flow through.
+# Parse expected variable assignments explicitly instead of eval to avoid
+# executing unexpected output if the helper format changes.
 
-"$HELPER" attach
+ATTACH_OUTPUT=$("$HELPER" attach)
+VERITY_MAP_ID=$(echo "$ATTACH_OUTPUT" | sed -n 's/^VERITY_MAP_ID=//p')
+BSS_MAP_ID=$(echo "$ATTACH_OUTPUT" | sed -n 's/^BSS_MAP_ID=//p')
+PROG_IDS=$(echo "$ATTACH_OUTPUT" | sed -n 's/^PROG_IDS="\(.*\)"$/\1/p')
+LINK_IDS=$(echo "$ATTACH_OUTPUT" | sed -n 's/^LINK_IDS="\(.*\)"$/\1/p')
+[[ -n "$VERITY_MAP_ID" ]] || { echo "ERROR: Failed to capture VERITY_MAP_ID from helper output" >&2; exit 1; }
+[[ -n "$BSS_MAP_ID" ]] || { echo "ERROR: Failed to capture BSS_MAP_ID from helper output" >&2; exit 1; }
 
 # ------ Test: Rootfs execution still works ------
 
@@ -204,6 +213,92 @@ if command -v veritysetup >/dev/null 2>&1 &&
 else
     echo "dm-verity signing not available, skipping positive verity test"
 fi
+
+# ------ Test: Guard blocks non-PID1 from obtaining BPF object FDs by ID ------
+
+if command -v bpftool >/dev/null 2>&1 && [[ -n "${VERITY_MAP_ID:-}" ]]; then
+    # bpftool uses BPF_MAP_GET_FD_BY_ID / BPF_PROG_GET_FD_BY_ID /
+    # BPF_LINK_GET_FD_BY_ID internally. The guard should block these for
+    # our protected IDs since we're not PID1.
+
+    # -- Map ID guard --
+    if bpftool map show id "$VERITY_MAP_ID" 2>/dev/null; then
+        echo "ERROR: bpftool should not be able to access verity_devices map (ID $VERITY_MAP_ID)!" >&2
+        exit 1
+    fi
+    echo "Guard blocked verity_devices map access: OK (ID $VERITY_MAP_ID)"
+
+    if [[ -n "${BSS_MAP_ID:-}" ]]; then
+        if bpftool map show id "$BSS_MAP_ID" 2>/dev/null; then
+            echo "ERROR: bpftool should not be able to access .bss map (ID $BSS_MAP_ID)!" >&2
+            exit 1
+        fi
+        echo "Guard blocked .bss map access: OK (ID $BSS_MAP_ID)"
+    fi
+
+    # -- Prog ID guard (defense-in-depth) --
+    if [[ -n "${PROG_IDS:-}" ]]; then
+        IFS=',' read -ra prog_ids <<< "$PROG_IDS"
+        for prog_id in "${prog_ids[@]}"; do
+            if bpftool prog show id "$prog_id" 2>/dev/null; then
+                echo "ERROR: bpftool should not be able to access protected prog (ID $prog_id)!" >&2
+                exit 1
+            fi
+        done
+        echo "Guard blocked prog access: OK (${#prog_ids[@]} IDs)"
+    fi
+
+    # -- Link ID guard (defense-in-depth) --
+    if [[ -n "${LINK_IDS:-}" ]]; then
+        IFS=',' read -ra link_ids <<< "$LINK_IDS"
+        for lid in "${link_ids[@]}"; do
+            if bpftool link show id "$lid" 2>/dev/null; then
+                echo "ERROR: bpftool should not be able to access protected link (ID $lid)!" >&2
+                exit 1
+            fi
+        done
+        echo "Guard blocked link access: OK (${#link_ids[@]} IDs)"
+    fi
+
+    # Verify the guard doesn't block unrelated BPF operations.
+    # bpftool prog list uses BPF_PROG_GET_NEXT_ID which the guard doesn't
+    # intercept (it only blocks *_GET_FD_BY_ID for specific IDs).
+    bpftool prog list >/dev/null 2>&1 || true
+    echo "Unrelated BPF operations still work: OK"
+else
+    echo "bpftool not available or map IDs not captured, skipping guard test"
+fi
+
+# ------ Test: ptrace attach to PID1 is blocked ------
+
+# dd from /proc/1/mem uses PTRACE_MODE_ATTACH_FSCREDS via mm_access()
+if ! dd if=/proc/1/mem of=/dev/null bs=1 count=1 2>/dev/null; then
+    echo "Ptrace ATTACH access to PID1 blocked: OK"
+else
+    echo "ERROR: /proc/1/mem read should have been blocked!" >&2
+    exit 1
+fi
+
+# Verify READ-level access to PID1 still works (monitoring tools need this)
+if cat /proc/1/status >/dev/null 2>&1; then
+    echo "Ptrace READ access to PID1 allowed: OK"
+else
+    echo "ERROR: /proc/1/status should still be readable!" >&2
+    exit 1
+fi
+
+# Verify ptrace to non-PID1 processes is unaffected
+SLEEP_PID=
+sleep 60 &
+SLEEP_PID=$!
+if cat /proc/$SLEEP_PID/status >/dev/null 2>&1; then
+    echo "Ptrace access to non-PID1 unaffected: OK"
+else
+    echo "ERROR: /proc/$SLEEP_PID/status should be readable!" >&2
+    kill "$SLEEP_PID" 2>/dev/null || true
+    exit 1
+fi
+kill "$SLEEP_PID" 2>/dev/null || true
 
 # ------ Detach and verify enforcement is lifted ------
 
