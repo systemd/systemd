@@ -1003,7 +1003,7 @@ static int output_export(
                 if (!r)
                         continue;
 
-                if (utf8_is_printable_newline(data, length, false))
+                if (utf8_is_printable_oneline(data, length))
                         fwrite(data, length, 1, f);
                 else {
                         uint64_t le64;
