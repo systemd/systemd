@@ -664,6 +664,9 @@ static int manager_dispatch_reload_signal(sd_event_source *s, const struct signa
         manager_etc_hosts_flush(m);
         manager_static_records_flush(m);
 
+        m->etc_hosts_last = USEC_INFINITY;
+        m->static_records_last = USEC_INFINITY;
+
         manager_set_defaults(m);
 
         r = dns_trust_anchor_load(&m->trust_anchor);
