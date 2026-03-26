@@ -325,9 +325,13 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
                         secure_boot_mode_to_string(secure));
         printf("                  shim: %ls\n", yes_no(shim_loaded()));
         printf("                   TPM: %ls\n", yes_no(tpm_present()));
-        printf("          console mode: %i/%" PRIi64 " (%zux%zu @%ux%u)\n",
-                        ST->ConOut->Mode->Mode, ST->ConOut->Mode->MaxMode - INT64_C(1),
-                        x_max, y_max, screen_width, screen_height);
+        printf("          console mode: %i/%" PRIi64 " (%zux%zu",
+               ST->ConOut->Mode->Mode, ST->ConOut->Mode->MaxMode - INT64_C(1),
+               x_max, y_max);
+        if (screen_width > 0 && screen_height > 0)
+                printf(" @ %ux%u",
+                       screen_width, screen_height);
+        printf(")\n");
 
         if (!ps_continue())
                 return;
