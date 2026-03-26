@@ -1706,7 +1706,7 @@ int write_data_file_atomic_at(
                         return r;
         }
 
-        r = fchmod_umask(fd, 0644);
+        r = fchmod_umask(fd, FLAGS_SET(flags, WRITE_DATA_FILE_MODE_0400) ? 0400 : 0644);
         if (r < 0)
                 return r;
 
