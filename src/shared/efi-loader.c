@@ -325,10 +325,10 @@ int efi_measured_os(int log_level) {
 
         bool b;
         r = proc_cmdline_get_bool("systemd.tpm2_measured_os", /* flags= */ 0, &b);
+        if (r > 0)
+                return (cached = b);
         if (r < 0)
                 log_debug_errno(r, "Failed to parse systemd.tpm2_measured_os= kernel command line argument, ignoring: %m");
-        else if (r > 0)
-                return (cached = b);
 
         /* If nothing is explicitly configured, just assume that if we booted with a measured UKI we also want a measured OS */
         return (cached = efi_measured_uki(log_level));
