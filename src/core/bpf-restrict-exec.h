@@ -24,6 +24,10 @@ enum {
         RESTRICT_EXEC_LINK_BPRM_CHECK,
         RESTRICT_EXEC_LINK_MMAP_FILE,
         RESTRICT_EXEC_LINK_FILE_MPROTECT,
+        RESTRICT_EXEC_LINK_PTRACE_GUARD,
+        RESTRICT_EXEC_LINK_BPF_MAP_GUARD,
+        RESTRICT_EXEC_LINK_BPF_PROG_GUARD,
+        RESTRICT_EXEC_LINK_BPF_GUARD,
         _RESTRICT_EXEC_LINK_MAX,
 };
 
@@ -37,6 +41,10 @@ enum {
  * bpf_map_lookup_elem/bpf_map_update_elem on the serialized .bss map FD. */
 struct restrict_exec_bss {
         uint32_t initramfs_s_dev; /* kernel dev_t encoding: (major << 20) | minor */
+        uint32_t protected_map_id_verity;
+        uint32_t protected_map_id_bss;
+        uint32_t protected_prog_ids[_RESTRICT_EXEC_LINK_MAX];
+        uint32_t protected_link_ids[_RESTRICT_EXEC_LINK_MAX];
 };
 
 extern const char* const restrict_exec_link_names[_RESTRICT_EXEC_LINK_MAX];
@@ -44,6 +52,7 @@ extern const char* const restrict_exec_link_names[_RESTRICT_EXEC_LINK_MAX];
 bool bpf_restrict_exec_supported(void);
 int bpf_restrict_exec_setup(Manager *m);
 void bpf_restrict_exec_destroy(struct restrict_exec_bpf *prog);
+int bpf_restrict_exec_populate_guard(struct restrict_exec_bpf *obj);
 
 void bpf_restrict_exec_close_initramfs_trust(Manager *m);
 int bpf_restrict_exec_serialize(Manager *m, FILE *f, FDSet *fds);
