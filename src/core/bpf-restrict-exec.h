@@ -48,6 +48,7 @@ struct restrict_exec_bss {
 
 extern const char* const restrict_exec_link_names[_RESTRICT_EXEC_LINK_MAX];
 
+bool dm_verity_require_signatures(void);
 bool bpf_restrict_exec_supported(void);
 int bpf_restrict_exec_setup(Manager *m);
 void bpf_restrict_exec_destroy(struct restrict_exec_bpf *prog);
