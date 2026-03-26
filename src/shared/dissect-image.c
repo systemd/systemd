@@ -2313,7 +2313,7 @@ int partition_pick_mount_options(
 
         case PARTITION_ESP:
         case PARTITION_XBOOTLDR:
-                flags |= MS_NOSUID|MS_NOEXEC|MS_NOSYMFOLLOW;
+                flags |= MS_NOSUID|MS_NOEXEC|ms_nosymfollow_supported();
 
                 /* The ESP might contain a pre-boot random seed. Let's make this unaccessible to regular
                  * userspace. ESP/XBOOTLDR is almost certainly VFAT, hence if we don't know assume it is. */

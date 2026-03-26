@@ -53,13 +53,13 @@ REQUIREMENTS:
                      ≥ 5.8 for LOOP_CONFIGURE, STATX_ATTR_MOUNT_ROOT, and procfs
                                per-instance hidepid=/subset= options
                      ≥ 5.9 for close_range()
-                     ≥ 5.10 for STATX_MNT_ID and MS_NOSYMFOLLOW mount option
+                     ≥ 5.10 for STATX_MNT_ID
 
         ⛔ Kernel versions below 5.10 ("minimum baseline") are not supported at all,
            and are missing required functionality as listed above.
 
         Linux kernel ≥ 5.11 for epoll_pwait2()
-                     ≥ 5.12 for idmapped mount (mount_setattr())
+                     ≥ 5.12 for idmapped mount (mount_setattr()) and MS_NOSYMFOLLOW
                      ≥ 5.14 for cgroup.kill and quotactl_fd()
 
         ⚠️ Kernel versions below 5.14 ("recommended baseline") have significant gaps
