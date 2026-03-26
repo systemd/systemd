@@ -14,10 +14,10 @@ fi
 
 at_exit() {
     set +e
-    systemctl stop fake-imds systemd-imdsd.socket ||:
-    ip link del dummy0 ||:
+    systemctl stop fake-imds systemd-imdsd.socket
+    ip link del dummy0
     rm -f /run/credstore/firstboot.hostname /run/credstore/acredtest /run/systemd/system/systemd-imdsd@.service.d/50-env.conf
-    rmdir /run/systemd/system/systemd-imdsd@.service.d ||:
+    rmdir /run/systemd/system/systemd-imdsd@.service.d
 }
 
 trap at_exit EXIT

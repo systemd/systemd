@@ -71,7 +71,7 @@
           <para>Takes a boolean argument or the special value <literal>auto</literal>, and may be used to
           enable or disable the IMDS logic. Note that this controls only whether the relevant services (as
           listed above) are automatically pulled into the initial transaction, it has no effect if some other
-          unit or the user explicitly activate the relevant units. If this option is not used (or set to
+          unit or the user explicitly activates the relevant units. If this option is not used (or set to
           <literal>auto</literal>) automatic detection of IMDS is used, see above.</para>
 
           <xi:include href="version-info.xml" xpointer="v261"/>
