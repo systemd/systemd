@@ -144,7 +144,7 @@ option('timesyncd', type : 'boolean',
        description : 'install the systemd-timesyncd daemon')
 option('imds', type : 'feature',
        description : 'install the systemd-imds stack')
-option('imds-network', type : 'combo', choices : [ 'locked', 'unlocked' ],
+option('imds-network', type : 'combo', choices : ['unlocked', 'locked'],
        description : 'whether to default to locked/unlocked IMDS network mode')
 option('journal-storage-default', type : 'combo', choices : ['persistent', 'auto', 'volatile', 'none'],
        description : 'default storage mode for journald (main namespace)')
