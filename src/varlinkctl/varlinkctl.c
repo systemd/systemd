@@ -12,6 +12,7 @@
 #include "bus-util.h"
 #include "chase.h"
 #include "env-util.h"
+#include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "format-table.h"
@@ -653,7 +654,7 @@ static int upgrade_forward_done(SocketForward *sf, int error, void *userdata) {
 _noreturn_ static void exec_with_listen_fds(char **exec_cmdline, int *fds, size_t n_fds) {
         int r;
 
-        _cleanup_free_ char *j = strv_join(exec_cmdline, " ");
+        _cleanup_free_ char *j = quote_command_line(exec_cmdline, SHELL_ESCAPE_EMPTY);
         if (!j) {
                 log_oom();
                 _exit(EXIT_FAILURE);
