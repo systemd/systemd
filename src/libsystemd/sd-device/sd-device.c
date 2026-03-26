@@ -95,7 +95,7 @@ static bool property_is_valid(const char *key, const char *value) {
                 return true;
 
         /* refuse invalid UTF8 and control characters */
-        if (!utf8_is_valid(value) || string_has_cc(value, /* ok= */ NULL))
+        if (!utf8_is_safe(value))
                 return false;
 
         return true;
