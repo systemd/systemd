@@ -1381,17 +1381,17 @@ static int append_release_log_fields(
                 return log_debug_errno(r, "Failed to parse '%s': %m", release->name);
 
         /* Find an ID first, in order of preference from more specific to less specific: IMAGE_ID -> ID */
-        id = strv_find_first_field((char *const *)field_ids[type], fields);
-        if (id && string_has_cc(id, /* ok= */ NULL)) {
-                log_debug("os-release file '%s' contains control characters in the ID field, skipping.",
+        id = strv_find_first_field((char* const*) field_ids[type], fields);
+        if (id && !utf8_is_safe(id)) {
+                log_debug("ID field of os-release file '%s' is not UTF-8 clean, ignoring.",
                           release->name);
                 id = NULL;
         }
 
         /* Then the version, same logic, prefer the more specific one */
-        version = strv_find_first_field((char *const *)field_versions[type], fields);
-        if (version && string_has_cc(version, /* ok= */ NULL)) {
-                log_debug("os-release file '%s' contains control characters in the version field, skipping.",
+        version = strv_find_first_field((char* const*) field_versions[type], fields);
+        if (version && !utf8_is_safe(version)) {
+                log_debug("version field of os-release file '%s' is not UTF-8 clean, ignoring.",
                           release->name);
                 version = NULL;
         }
