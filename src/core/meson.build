@@ -6,10 +6,11 @@ libcore_sources = files(
         'bpf-devices.c',
         'bpf-firewall.c',
         'bpf-foreign.c',
+        'bpf-bind-iface.c',
+        'bpf-restrict-exec.c',
         'bpf-restrict-fs.c',
         'bpf-restrict-ifaces.c',
         'bpf-socket-bind.c',
-        'bpf-bind-iface.c',
         'cgroup.c',
         'dbus-automount.c',
         'dbus-cgroup.c',
@@ -77,7 +78,7 @@ libcore_sources = files(
 )
 
 if conf.get('BPF_FRAMEWORK') == 1
-        foreach name : ['socket-bind', 'restrict-fs', 'restrict-ifaces', 'bind-iface']
+        foreach name : ['socket-bind', 'restrict-fs', 'restrict-ifaces', 'bind-iface', 'restrict-exec']
                 libcore_sources += bpf_programs_by_name[name]
         endforeach
 endif
