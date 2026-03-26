@@ -43,13 +43,35 @@ static int do_attach(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to dlopen libbpf: %m");
 
+        /* Try full version first, fall back to compat if the kernel lacks
+         * 1271a40eeafa and rejects the const void * ctx access. */
         obj = restrict_exec_bpf__open();
         if (!obj)
                 return log_error_errno(errno, "Failed to open BPF object: %m");
 
-        r = restrict_exec_bpf__load(obj);
+        r = sym_bpf_program__set_autoload(obj->progs.restrict_exec_bdev_setintegrity_compat, false);
         if (r < 0)
-                return log_error_errno(r, "Failed to load BPF object: %m");
+                return log_error_errno(r, "Failed to disable compat program: %m");
+
+        r = restrict_exec_bpf__load(obj);
+        if (r < 0) {
+                log_debug_errno(r, "Full version failed to load (%m), trying compat variant.");
+                restrict_exec_bpf__destroy(obj);
+
+                obj = restrict_exec_bpf__open();
+                if (!obj)
+                        return log_error_errno(errno, "Failed to reopen BPF object: %m");
+
+                r = sym_bpf_program__set_autoload(obj->progs.restrict_exec_bdev_setintegrity, false);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to disable full program: %m");
+
+                r = restrict_exec_bpf__load(obj);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to load BPF object (compat): %m");
+
+                log_info("Loaded with compat bdev_setintegrity.");
+        }
 
         /* Set initramfs_s_dev to rootfs s_dev so the test script keeps running */
         if (stat("/", &st) < 0)
@@ -68,8 +90,10 @@ static int do_attach(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to populate guard globals: %m");
 
-        /* Pin all links so they persist after this process exits */
-        r = sym_bpf_link__pin(obj->links.restrict_exec_bdev_setintegrity,
+        /* Pin all links so they persist after this process exits.
+         * For bdev_setintegrity, use whichever variant was loaded (full or compat). */
+        r = sym_bpf_link__pin(obj->links.restrict_exec_bdev_setintegrity ?:
+                              obj->links.restrict_exec_bdev_setintegrity_compat,
                               PIN_PATH_PREFIX "bdev_setintegrity");
         if (r < 0)
                 return log_error_errno(r, "Failed to pin bdev_setintegrity link: %m");
@@ -132,6 +156,7 @@ static int do_attach(void) {
 
         /* Detach links from the skeleton so destroying it doesn't unpin them */
         obj->links.restrict_exec_bdev_setintegrity = NULL;
+        obj->links.restrict_exec_bdev_setintegrity_compat = NULL;
         obj->links.restrict_exec_bdev_free = NULL;
         obj->links.restrict_exec_bprm_check = NULL;
         obj->links.restrict_exec_mmap_file = NULL;
