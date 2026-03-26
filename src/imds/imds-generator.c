@@ -153,7 +153,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
                 return 0;
         }
 
-        log_info("IMDS support enabled, pull in IMDS units.");
+        log_info("IMDS support enabled, pulling in IMDS units.");
 
         /* Enable IMDS early networking, so that we can actually reach the IMDS server. */
         if (arg_network_mode != IMDS_NETWORK_OFF) {
