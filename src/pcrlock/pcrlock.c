@@ -900,7 +900,7 @@ static int event_log_load_firmware(EventLog *el) {
 
         r = read_full_file(path, (char**) &buf, &bufsize);
         if (r == -ENOENT) {
-                log_notice("No '%s' file, assuming TPM without firmware support.", path);
+                log_notice_errno(r, "No '%s' file, assuming TPM without firmware support.", path);
                 return 0;
         }
         if (r < 0)
