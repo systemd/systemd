@@ -13,6 +13,7 @@
 #include "manager.h"
 #include "memory-util.h"
 #include "parse-util.h"
+#include "serialize.h"
 #include "string-table.h"
 
 /* DMVERITY_DEVICES_MAX lives in bpf-restrict-exec.h for sharing with tests. */
@@ -139,6 +140,23 @@ bool bpf_restrict_exec_supported(void) {
         return (supported = true);
 }
 
+static bool restrict_exec_have_deserialized_fds(Manager *m) {
+        size_t count = 0;
+
+        assert(m);
+
+        /* Check if we have link FDs deserialized from a previous exec */
+        FOREACH_ELEMENT(fd, m->restrict_exec_link_fds)
+                if (*fd >= 0)
+                        count++;
+
+        if (count > 0 && count < ELEMENTSOF(m->restrict_exec_link_fds))
+                log_error("bpf-restrict-exec: Only %zu of %zu link FDs deserialized, enforcement may be incomplete.",
+                          count, ELEMENTSOF(m->restrict_exec_link_fds));
+
+        return count > 0;
+}
+
 /* Close the initramfs trust window after switch_root by clearing initramfs_s_dev
  * in the BPF .bss map. The .bss is a BPF_F_MMAPABLE array map — mmap it and do
  * a single aligned 4-byte store instead of a full-value read-modify-write via
@@ -165,6 +183,75 @@ static int restrict_exec_clear_initramfs_trust(int bss_map_fd) {
         return 0;
 }
 
+static int bpf_get_map_id(int fd, uint32_t *ret_id) {
+        struct bpf_map_info info = {};
+        uint32_t len = sizeof(info);
+        int r;
+
+        if (fd < 0)
+                return -EBADF;
+
+        assert(ret_id);
+
+        r = sym_bpf_obj_get_info_by_fd(fd, &info, &len);
+        if (r < 0)
+                return r;
+
+        *ret_id = info.id;
+        return 0;
+}
+
+static int bpf_get_link_ids(int fd, uint32_t *ret_link_id, uint32_t *ret_prog_id) {
+        struct bpf_link_info info = {};
+        uint32_t len = sizeof(info);
+        int r;
+
+        if (fd < 0)
+                return -EBADF;
+
+        r = sym_bpf_obj_get_info_by_fd(fd, &info, &len);
+        if (r < 0)
+                return r;
+
+        if (ret_link_id)
+                *ret_link_id = info.id;
+        if (ret_prog_id)
+                *ret_prog_id = info.prog_id;
+
+        return 0;
+}
+
+/* Validate that deserialized FDs actually reference BPF links. A corrupted
+ * serialization file could leave FDs pointing at arbitrary kernel objects. */
+static int restrict_exec_validate_deserialized_fds(Manager *m) {
+        uint32_t id;
+        int r;
+
+        assert(m);
+
+        r = dlopen_bpf_full(LOG_WARNING);
+        if (r < 0)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                       "bpf-restrict-exec: Failed to load libbpf for FD validation, aborting.");
+
+        FOREACH_ELEMENT(fd, m->restrict_exec_link_fds) {
+                r = bpf_get_link_ids(*fd, &id, NULL);
+                if (r < 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "bpf-restrict-exec: Deserialized FD for %s is not a valid BPF link, aborting.",
+                                               restrict_exec_link_names[fd - m->restrict_exec_link_fds]);
+        }
+
+        if (m->restrict_exec_bss_map_fd >= 0) {
+                r = bpf_get_map_id(m->restrict_exec_bss_map_fd, &id);
+                if (r < 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "bpf-restrict-exec: Deserialized FD for .bss map is not a valid BPF map, aborting.");
+        }
+
+        return 0;
+}
+
 int bpf_restrict_exec_setup(Manager *m) {
         _cleanup_(restrict_exec_bpf_freep) struct restrict_exec_bpf *obj = NULL;
         int r;
@@ -173,6 +260,26 @@ int bpf_restrict_exec_setup(Manager *m) {
 
         if (!MANAGER_IS_SYSTEM(m) || m->restrict_exec <= RESTRICT_EXEC_NO)
                 return 0;
+
+        /* If we already have link FDs from a previous exec, the BPF programs are still attached in the
+         * kernel. Just keep holding the FDs — no need to re-create the skeleton. */
+        if (restrict_exec_have_deserialized_fds(m)) {
+                log_info("bpf-restrict-exec: Recovered link FDs from previous exec, programs still attached.");
+
+                r = restrict_exec_validate_deserialized_fds(m);
+                if (r < 0)
+                        return r;
+                if (m->switching_root) {
+                        if (m->restrict_exec_bss_map_fd < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EBADF),
+                                                       "bpf-restrict-exec: Cannot clear initramfs trust after switch_root.");
+                        r = restrict_exec_clear_initramfs_trust(m->restrict_exec_bss_map_fd);
+                        if (r < 0)
+                                return r;
+                }
+
+                return 0;
+        }
 
         /* Fresh setup: verify BPF LSM is available */
         if (!bpf_restrict_exec_supported())
@@ -249,6 +356,29 @@ int bpf_restrict_exec_close_initramfs_trust(Manager *m) {
         return restrict_exec_clear_initramfs_trust(m->restrict_exec_bss_map_fd);
 }
 
+int bpf_restrict_exec_serialize(Manager *m, FILE *f, FDSet *fds) {
+        int r;
+
+        assert(m);
+        assert(f);
+        assert(fds);
+
+        if (!MANAGER_IS_SYSTEM(m) || m->restrict_exec <= RESTRICT_EXEC_NO)
+                return 0;
+
+        FOREACH_ELEMENT(fd, m->restrict_exec_link_fds) {
+                r = serialize_fd(f, fds, restrict_exec_link_names[fd - m->restrict_exec_link_fds], *fd);
+                if (r < 0)
+                        return r;
+        }
+
+        r = serialize_fd(f, fds, "restrict-exec-bss-map", m->restrict_exec_bss_map_fd);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 #else /* ! BPF_FRAMEWORK */
 
 bool bpf_restrict_exec_supported(void) {
@@ -264,6 +394,10 @@ int bpf_restrict_exec_setup(Manager *m) {
 }
 
 int bpf_restrict_exec_close_initramfs_trust(Manager *m) {
+        return 0;
+}
+
+int bpf_restrict_exec_serialize(Manager *m, FILE *f, FDSet *fds) {
         return 0;
 }
 
