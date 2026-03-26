@@ -562,7 +562,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_EFI_BOOT_OPTION_DESCRIPTION:
-                        if (isempty(optarg) || !(string_is_safe(optarg) && utf8_is_valid(optarg))) {
+                        if (isempty(optarg) || !utf8_is_safe(optarg)) {
                                 _cleanup_free_ char *escaped = cescape(optarg);
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Invalid --efi-boot-option-description=: %s", strna(escaped));

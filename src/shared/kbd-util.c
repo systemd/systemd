@@ -135,13 +135,10 @@ bool keymap_is_valid(const char *name) {
         if (strlen(name) >= 128)
                 return false;
 
-        if (!utf8_is_valid(name))
-                return false;
-
         if (!filename_is_valid(name))
                 return false;
 
-        if (!string_is_safe(name))
+        if (!utf8_is_safe(name))
                 return false;
 
         return true;
