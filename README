@@ -60,7 +60,7 @@ REQUIREMENTS:
 
         Linux kernel ≥ 5.11 for epoll_pwait2()
                      ≥ 5.12 for idmapped mount (mount_setattr())
-                     ≥ 5.14 for cgroup.kill and quotactl_fd()
+                     ≥ 5.14 for cgroup.kill, quotactl_fd(), and MOUNT_ATTR_NOSYMFOLLOW
 
         ⚠️ Kernel versions below 5.14 ("recommended baseline") have significant gaps
            in functionality and are not recommended for use with this version
