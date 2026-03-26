@@ -793,6 +793,19 @@
         <xi:include href="version-info.xml" xpointer="v258"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><varname>systemd.imds=</varname></term>
+        <term><varname>systemd.imds.*=</varname></term>
+
+        <listitem><para>Controls various Instance Metadata Service (IMDS) cloud aspects, see
+        <citerefentry><refentrytitle>systemd-imdsd@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        and
+        <citerefentry><refentrytitle>systemd-imds-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        for details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 

@@ -1,0 +1,174 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-imds" conditional='ENABLE_IMDS'
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-imds</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-imds</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-imds</refname>
+    <refname>systemd-imds-import.service</refname>
+    <refpurpose>Cloud IMDS (Instance Metadata Service) tool</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-imds-import.service</filename></para>
+    <cmdsynopsis>
+      <command>systemd-imds</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="opt">KEY</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-imds</command> is a tool for acquiring data from IMDS (Instance Metadata Service),
+    as provided in many cloud environments. It is a client to
+    <citerefentry><refentrytitle>systemd-imdsd@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+    and provides access to IMDS data from shell environments.</para>
+
+    <para>The tool can operate in one of five modes:</para>
+
+    <itemizedlist>
+      <listitem><para>Without positional arguments (and without the <option>--well-known=</option> switch)
+      general IMDS service data and a few well known fields are displayed in human friendly
+      form.</para></listitem>
+
+      <listitem><para>With a positional argument (and without <option>--well-known=</option>) the IMDS data
+      referenced by the specified key is acquired and written to standard output, in unprocessed form. IMDS
+      keys are the part of the IMDS acquisition URL that are suffixed to the base URL. IMDS keys must begin
+      with a slash (<literal>/</literal>). Note that IMDS keys are typically
+      implementation-specific.</para></listitem>
+
+      <listitem><para>With the <option>--well-known=</option> option specified (see below), the indicated
+      well-known field is written to standard output, in unprocessed form. The concept of well-known fields
+      abstracts IMDS implementation differences to some level, exposing a unified interface for IMDS fields
+      that typically exist on many different implementations, but under implementation-specific
+      keys.</para></listitem>
+
+      <listitem><para>With the <option>--userdata</option> option specified (see below) the "userdata"
+      provided via IMDS is written to standard output. Under the hood this is similar to
+      <option>--well-known=userdata-base</option>, <option>--well-known=userdata</option> or
+      <option>--well-known=userdata-base64</option>. Each of the three is tried in turn (in this order), and
+      the first available is returned. For <option>--well-known=userdata-base</option> the
+      <literal>systemd-userdata</literal> userdata item is requested. For
+      <option>--well-known=userdata-base64</option> the returned data is automatically
+      Base64-decoded.</para></listitem>
+
+      <listitem><para>With the <option>--import</option> option specified, various well known and userdata
+      fields are imported into the local credential store, where they are used to configure and parameterize
+      the system. For details see below.</para></listitem>
+    </itemizedlist>
+  </refsect1>
+
+  <refsect1>
+    <title>Options and Commands</title>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--well-known=</option></term>
+        <term><option>-K</option></term>
+
+        <listitem><para>Takes one of <literal>hostname</literal>, <literal>region</literal>,
+        <literal>zone</literal>, <literal>ipv4-public</literal>, <literal>ipv6-public</literal>,
+        <literal>ssh-key</literal>, <literal>userdata</literal>, <literal>userdata-base</literal>,
+        <literal>userdata-base64</literal>. Acquires a specific "well-known" field from IMDS. Many of these
+        fields are commonly supported by various IMDS implementations, but typically some fields are
+        not. Note that if <option>--well-known=userdata-base</option> is used an additional subkey should be
+        specified as positional argument, which encodes the specific userdata item to acquire.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--refresh=</option></term>
+
+        <listitem><para>Takes a time in seconds as argument, and indicates the required "freshness" of the
+        data, in case cached data is used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--cache=</option></term>
+
+        <listitem><para>Takes a boolean. If set to false local caching of IMDS is disabled, and the data is
+        always acquired fresh from the IMDS endpoint.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--userdata</option></term>
+        <term><option>-u</option></term>
+
+        <listitem><para>Acquire this instance's IMDS user data, if available. See above for
+        details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--import</option></term>
+
+        <listitem><para>Acquires IMDS data and writes relevant fields as credentials to
+        <filename>/run/credstore/</filename>. This currently covers:</para>
+
+        <itemizedlist>
+          <listitem><para>If the IMDS user data is a valid JSON object containing a field
+          <varname>systemd.credentials</varname> (with a JSON array as value) it is processed, importing
+          arbitrary credentials listed in the array. Each array item must have a <varname>name</varname>
+          field indicating the credential name. It may have one <varname>text</varname>,
+          <varname>data</varname> or <varname>encrypted</varname> field, containing the credential data. If
+          <varname>text</varname> is used the value shall be a literal string of the credential value. If
+          <varname>data</varname> is used the value may be arbitrary binary data encoded in a Base64
+          string. If <varname>encrypted</varname> is used the value shall be a Base64 encoded encrypted
+          credential. See
+          <citerefentry><refentrytitle>systemd.system-credentials</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+          for information about credentials that may be imported this way.</para></listitem>
+
+          <listitem><para>If the well-known <varname>ssh-key</varname> field is available, its value will be
+          imported into the <varname>ssh.authorized_keys.root</varname> credential.</para></listitem>
+
+          <listitem><para>If the well-known <varname>hostname</varname> field is available, its value will be
+          imported into the <varname>firstboot.hostname</varname> credential.</para></listitem>
+        </itemizedlist>
+
+        <para>This command is invoked by the <filename>systemd-imds-import.service</filename> run at
+        boot.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Exit status</title>
+
+    <para>On success, 0 is returned, a non-zero failure code otherwise.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-imdsd@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-imds-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.system-credentials</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+
+</refentry>
