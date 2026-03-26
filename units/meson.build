@@ -693,6 +693,8 @@ units = [
           'file' : 'systemd-repart@.service',
           'conditions' : ['ENABLE_REPART'],
         },
+        { 'file' : 'systemd-report-cgroup-metrics.socket' },
+        { 'file' : 'systemd-report-cgroup-metrics@.service.in' },
         {
           'file' : 'systemd-resolved.service.in',
           'conditions' : ['ENABLE_RESOLVE'],
