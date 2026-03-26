@@ -14,18 +14,18 @@
 
 #define SOCKET_FORWARD_BUFFER_SIZE (256 * 1024)
 
-/* Half-duplex forwarder: splices data from server_fd to client_fd via a kernel pipe buffer.
+/* Unidirectional forwarder: splices data from read_fd to write_fd via a kernel pipe buffer.
  * Each direction of a full-duplex SocketForward is handled by one of these. */
 typedef struct SimplexForward {
         sd_event *event;
 
-        int server_fd, client_fd;
+        int read_fd, write_fd;
 
-        int server_to_client_buffer[2]; /* a pipe */
+        int buffer[2]; /* a pipe */
 
-        size_t server_to_client_buffer_full, server_to_client_buffer_size;
+        size_t buffer_full, buffer_size;
 
-        sd_event_source *server_event_source, *client_event_source;
+        sd_event_source *read_event_source, *write_event_source;
 
         int (*on_done)(struct SimplexForward *fwd, int error, void *userdata);
         void *userdata;
@@ -35,13 +35,13 @@ static SimplexForward* simplex_forward_free(SimplexForward *fwd) {
         if (!fwd)
                 return NULL;
 
-        sd_event_source_unref(fwd->server_event_source);
-        sd_event_source_unref(fwd->client_event_source);
+        sd_event_source_unref(fwd->read_event_source);
+        sd_event_source_unref(fwd->write_event_source);
 
-        safe_close(fwd->server_fd);
-        safe_close(fwd->client_fd);
+        safe_close(fwd->read_fd);
+        safe_close(fwd->write_fd);
 
-        safe_close_pair(fwd->server_to_client_buffer);
+        safe_close_pair(fwd->buffer);
 
         sd_event_unref(fwd->event);
 
@@ -131,18 +131,18 @@ static int simplex_forward_traffic(SimplexForward *fwd) {
         int r;
 
         r = simplex_forward_shovel(
-                        &fwd->server_fd, fwd->server_to_client_buffer, &fwd->client_fd,
-                        &fwd->server_to_client_buffer_full, &fwd->server_to_client_buffer_size,
-                        &fwd->server_event_source, &fwd->client_event_source);
+                        &fwd->read_fd, fwd->buffer, &fwd->write_fd,
+                        &fwd->buffer_full, &fwd->buffer_size,
+                        &fwd->read_event_source, &fwd->write_event_source);
         if (r < 0)
                 goto quit;
 
-        /* Server closed, and all data written to client? */
-        if (fwd->server_fd < 0 && fwd->server_to_client_buffer_full <= 0)
+        /* Read side closed and all buffered data written? */
+        if (fwd->read_fd < 0 && fwd->buffer_full <= 0)
                 goto quit;
 
         /* Write side closed? */
-        if (fwd->client_fd < 0)
+        if (fwd->write_fd < 0)
                 goto quit;
 
         r = simplex_forward_enable_event_sources(fwd);
@@ -152,8 +152,8 @@ static int simplex_forward_traffic(SimplexForward *fwd) {
         return 1;
 
 quit:
-        fwd->server_event_source = sd_event_source_disable_unref(fwd->server_event_source);
-        fwd->client_event_source = sd_event_source_disable_unref(fwd->client_event_source);
+        fwd->read_event_source = sd_event_source_disable_unref(fwd->read_event_source);
+        fwd->write_event_source = sd_event_source_disable_unref(fwd->write_event_source);
         return fwd->on_done(fwd, r, fwd->userdata);
 }
 
@@ -175,20 +175,20 @@ static int simplex_forward_enable_event_sources(SimplexForward *fwd) {
 
         assert(fwd);
 
-        can_read = fwd->server_to_client_buffer_full < fwd->server_to_client_buffer_size;
-        can_write = fwd->server_to_client_buffer_full > 0;
+        can_read = fwd->buffer_full < fwd->buffer_size;
+        can_write = fwd->buffer_full > 0;
 
         /* Event sources may have been unref'd by the shovel on EOF/disconnect */
-        if (fwd->server_event_source) {
-                r = sd_event_source_set_enabled(fwd->server_event_source, can_read ? SD_EVENT_ONESHOT : SD_EVENT_OFF);
+        if (fwd->read_event_source) {
+                r = sd_event_source_set_enabled(fwd->read_event_source, can_read ? SD_EVENT_ONESHOT : SD_EVENT_OFF);
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to update server event source: %m");
+                        return log_debug_errno(r, "Failed to update read event source: %m");
         }
 
-        if (fwd->client_event_source) {
-                r = sd_event_source_set_enabled(fwd->client_event_source, can_write ? SD_EVENT_ONESHOT : SD_EVENT_OFF);
+        if (fwd->write_event_source) {
+                r = sd_event_source_set_enabled(fwd->write_event_source, can_write ? SD_EVENT_ONESHOT : SD_EVENT_OFF);
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to update client event source: %m");
+                        return log_debug_errno(r, "Failed to update write event source: %m");
         }
 
         return 0;
@@ -214,8 +214,8 @@ static int simplex_forward_create_event_source(
 
 static int simplex_forward_new(
                 sd_event *event,
-                int server_fd,
-                int client_fd,
+                int read_fd,
+                int write_fd,
                 int (*on_done)(SimplexForward *fwd, int error, void *userdata),
                 void *userdata,
                 SimplexForward **ret) {
@@ -224,37 +224,37 @@ static int simplex_forward_new(
         int r;
 
         assert(event);
-        assert(server_fd >= 0);
-        assert(client_fd >= 0);
-        assert(server_fd != client_fd);
+        assert(read_fd >= 0);
+        assert(write_fd >= 0);
+        assert(read_fd != write_fd);
         assert(on_done);
         assert(ret);
 
         fwd = new(SimplexForward, 1);
         if (!fwd) {
-                safe_close(server_fd);
-                safe_close(client_fd);
+                safe_close(read_fd);
+                safe_close(write_fd);
                 return log_oom_debug();
         }
 
         *fwd = (SimplexForward) {
                 .event = sd_event_ref(event),
-                .server_fd = server_fd,
-                .client_fd = client_fd,
-                .server_to_client_buffer = EBADF_PAIR,
+                .read_fd = read_fd,
+                .write_fd = write_fd,
+                .buffer = EBADF_PAIR,
                 .on_done = on_done,
                 .userdata = userdata,
         };
 
-        r = socket_forward_create_pipes(fwd->server_to_client_buffer, &fwd->server_to_client_buffer_size);
+        r = socket_forward_create_pipes(fwd->buffer, &fwd->buffer_size);
         if (r < 0)
                 return r;
 
-        r = simplex_forward_create_event_source(fwd, &fwd->server_event_source, fwd->server_fd, EPOLLIN);
+        r = simplex_forward_create_event_source(fwd, &fwd->read_event_source, fwd->read_fd, EPOLLIN);
         if (r < 0)
                 return r;
 
-        r = simplex_forward_create_event_source(fwd, &fwd->client_event_source, fwd->client_fd, EPOLLOUT);
+        r = simplex_forward_create_event_source(fwd, &fwd->write_event_source, fwd->write_fd, EPOLLOUT);
         if (r < 0)
                 return r;
 
@@ -296,12 +296,12 @@ static int socket_forward_direction_done(SimplexForward *fwd, int error, void *u
          * (which belongs to the other direction's dup'd fd). For pipes/FIFOs,
          * shutdown() fails with ENOTSOCK - close the fd instead, which is the
          * only way to signal EOF on a pipe. */
-        if (fwd->client_fd >= 0 && shutdown(fwd->client_fd, SHUT_WR) < 0) {
+        if (fwd->write_fd >= 0 && shutdown(fwd->write_fd, SHUT_WR) < 0) {
                 if (errno == ENOTSOCK)
-                        fwd->client_fd = safe_close(fwd->client_fd);
+                        fwd->write_fd = safe_close(fwd->write_fd);
                 else
                         log_debug_errno(errno, "Failed to shutdown write side of fd %d: %m, ignoring",
-                                        fwd->client_fd);
+                                        fwd->write_fd);
         }
 
         if (error < 0 && sf->first_error >= 0)
