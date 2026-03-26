@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/mman.h>
 #include <sys/stat.h>
 
 #include "alloc-util.h"
@@ -10,7 +11,9 @@
 #include "log.h"
 #include "lsm-util.h"
 #include "manager.h"
+#include "memory-util.h"
 #include "parse-util.h"
+#include "serialize.h"
 #include "string-table.h"
 
 static const char* const restrict_exec_table[_RESTRICT_EXEC_MAX] = {
@@ -20,14 +23,21 @@ static const char* const restrict_exec_table[_RESTRICT_EXEC_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP_WITH_BOOLEAN(restrict_exec, RestrictExec, RESTRICT_EXEC_STRICT);
 
+const char* const restrict_exec_link_names[_RESTRICT_EXEC_LINK_MAX] = {
+        [RESTRICT_EXEC_LINK_BDEV_SETINTEGRITY] = "restrict-exec-bdev-setintegrity-link",
+        [RESTRICT_EXEC_LINK_BDEV_FREE]         = "restrict-exec-bdev-free-link",
+        [RESTRICT_EXEC_LINK_BPRM_CHECK]        = "restrict-exec-bprm-check-link",
+        [RESTRICT_EXEC_LINK_MMAP_FILE]         = "restrict-exec-mmap-file-link",
+        [RESTRICT_EXEC_LINK_FILE_MPROTECT]     = "restrict-exec-file-mprotect-link",
+};
+
 #if BPF_FRAMEWORK
 #include "bpf-dlopen.h"
 #include "bpf-link.h"
 #include "bpf/restrict-exec/restrict-exec-skel.h"
 
-/* The .bss map value must cover the entire .bss section. This static assert catches
- * .bss layout changes (e.g. new globals added to the BPF program) at compile time. */
-assert_cc(sizeof_field(struct restrict_exec_bpf, bss[0]) == sizeof(uint32_t));
+/* Verify that restrict_exec_bss matches the skeleton's .bss layout */
+assert_cc(sizeof(struct restrict_exec_bss) == sizeof_field(struct restrict_exec_bpf, bss[0]));
 
 static bool dm_verity_require_signatures(void) {
         _cleanup_free_ char *val = NULL;
@@ -46,6 +56,8 @@ static bool dm_verity_require_signatures(void) {
         return parse_boolean(val) > 0;
 }
 
+/* Verify that restrict_exec_bss matches the skeleton's .bss layout */
+assert_cc(sizeof(struct restrict_exec_bss) == sizeof_field(struct restrict_exec_bpf, bss[0]));
 static int get_root_s_dev(uint32_t *ret) {
         struct stat st;
 
@@ -115,6 +127,49 @@ bool bpf_restrict_exec_supported(void) {
         return (supported = true);
 }
 
+static bool restrict_exec_have_deserialized_fds(Manager *m) {
+        size_t count = 0;
+
+        assert(m);
+
+        /* Check if we have link FDs deserialized from a previous exec */
+        FOREACH_ELEMENT(fd, m->restrict_exec_link_fds)
+                if (*fd >= 0)
+                        count++;
+
+        if (count > 0 && count < ELEMENTSOF(m->restrict_exec_link_fds))
+                log_error("bpf-restrict-exec: Only %zu of %zu link FDs deserialized, enforcement may be incomplete.",
+                          count, ELEMENTSOF(m->restrict_exec_link_fds));
+
+        return count > 0;
+}
+
+/* Close the initramfs trust window after switch_root by clearing initramfs_s_dev
+ * in the BPF .bss map. The .bss is a BPF_F_MMAPABLE array map — mmap it and do
+ * a single aligned 4-byte store instead of a full-value read-modify-write via
+ * bpf_map_update_elem, which would needlessly rewrite the guard globals too. */
+static int restrict_exec_clear_initramfs_trust(int bss_map_fd) {
+        void *p;
+
+        assert(bss_map_fd >= 0);
+
+        p = mmap(NULL, page_size(), PROT_READ | PROT_WRITE, MAP_SHARED, bss_map_fd, 0);
+        if (p == MAP_FAILED)
+                return log_error_errno(errno, "bpf-restrict-exec: Failed to mmap .bss map: %m");
+
+        /* initramfs_s_dev is at offset 0 in the .bss layout. Single aligned
+         * 32-bit store is atomic — BPF programs see either the old or new value,
+         * no torn reads possible. Guard globals are untouched. */
+        assert_cc(offsetof(struct restrict_exec_bss, initramfs_s_dev) == 0);
+        *(volatile uint32_t *) p = 0;
+
+        if (munmap(p, page_size()) < 0)
+                return log_error_errno(errno, "bpf-restrict-exec: Failed to munmap .bss map: %m");
+
+        log_info("bpf-restrict-exec: Cleared initramfs trust window after switch_root.");
+        return 0;
+}
+
 int bpf_restrict_exec_setup(Manager *m) {
         _cleanup_(restrict_exec_bpf_freep) struct restrict_exec_bpf *obj = NULL;
         int r;
@@ -123,6 +178,23 @@ int bpf_restrict_exec_setup(Manager *m) {
 
         if (!MANAGER_IS_SYSTEM(m) || m->restrict_exec <= RESTRICT_EXEC_NO)
                 return 0;
+
+        /* If we already have link FDs from a previous exec, the BPF programs are still attached in the
+         * kernel. Just keep holding the FDs — no need to re-create the skeleton. */
+        if (restrict_exec_have_deserialized_fds(m)) {
+                log_info("bpf-restrict-exec: Recovered link FDs from previous exec, programs still attached.");
+
+                if (!in_initrd()) {
+                        if (m->restrict_exec_bss_map_fd < 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EBADF),
+                                                       "bpf-restrict-exec: Cannot clear initramfs trust after switch_root.");
+                        r = restrict_exec_clear_initramfs_trust(m->restrict_exec_bss_map_fd);
+                        if (r < 0)
+                                return r;
+                }
+
+                return 0;
+        }
 
         /* Fresh setup: verify BPF LSM is available */
         if (!bpf_restrict_exec_supported())
@@ -162,8 +234,69 @@ int bpf_restrict_exec_setup(Manager *m) {
 
         log_info("bpf-restrict-exec: LSM BPF programs attached");
 
+        /* Extract owned FDs from the skeleton. These keep the kernel BPF objects
+         * alive after the skeleton is destroyed. Destroying the skeleton unmaps
+         * the .bss page from our address space so no BPF state is reachable via
+         * /proc/1/mem. */
+        struct bpf_link *links[] = {
+                [RESTRICT_EXEC_LINK_BDEV_SETINTEGRITY] = obj->links.restrict_exec_bdev_setintegrity,
+                [RESTRICT_EXEC_LINK_BDEV_FREE]         = obj->links.restrict_exec_bdev_free,
+                [RESTRICT_EXEC_LINK_BPRM_CHECK]        = obj->links.restrict_exec_bprm_check,
+                [RESTRICT_EXEC_LINK_MMAP_FILE]         = obj->links.restrict_exec_mmap_file,
+                [RESTRICT_EXEC_LINK_FILE_MPROTECT]     = obj->links.restrict_exec_file_mprotect,
+        };
+
+        FOREACH_ELEMENT(link, links) {
+                size_t idx = link - links;
+
+                m->restrict_exec_link_fds[idx] = fcntl(sym_bpf_link__fd(*link), F_DUPFD_CLOEXEC, 3);
+                if (m->restrict_exec_link_fds[idx] < 0)
+                        return log_error_errno(errno, "bpf-restrict-exec: Failed to dup link FD for %s: %m",
+                                               restrict_exec_link_names[idx]);
+        }
+
+        m->restrict_exec_bss_map_fd = fcntl(sym_bpf_map__fd(obj->maps.bss), F_DUPFD_CLOEXEC, 3);
+        if (m->restrict_exec_bss_map_fd < 0)
+                return log_error_errno(errno, "bpf-restrict-exec: Failed to dup .bss map FD: %m");
+
         return 0;
 }
+
+int bpf_restrict_exec_close_initramfs_trust(Manager *m) {
+        assert(m);
+
+        /* Clear initramfs_s_dev in the BPF .bss map BEFORE switch_root unmounts
+         * the initramfs. This eliminates the dev_t recycling window: the anonymous
+         * dev_t is still held by the mounted initramfs superblock, so no other
+         * filesystem can recycle it yet. Anonymous dev_t recycling is immediate
+         * and lowest-first, so a stale initramfs_s_dev is a near-certain trust
+         * bypass — fail closed. */
+        if (m->restrict_exec_bss_map_fd < 0)
+                return 0;
+
+        return restrict_exec_clear_initramfs_trust(m->restrict_exec_bss_map_fd);
+}
+
+int bpf_restrict_exec_serialize(Manager *m, FILE *f, FDSet *fds) {
+        int r;
+
+        assert(m);
+        assert(f);
+        assert(fds);
+
+        FOREACH_ELEMENT(fd, m->restrict_exec_link_fds) {
+                r = serialize_fd(f, fds, restrict_exec_link_names[fd - m->restrict_exec_link_fds], *fd);
+                if (r < 0)
+                        return r;
+        }
+
+        r = serialize_fd(f, fds, "restrict-exec-bss-map", m->restrict_exec_bss_map_fd);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 #else /* ! BPF_FRAMEWORK */
 
 bool bpf_restrict_exec_supported(void) {
@@ -176,6 +309,14 @@ int bpf_restrict_exec_setup(Manager *m) {
 
         return log_warning_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                  "bpf-restrict-exec: RestrictExec= requested but BPF framework is not compiled in.");
+}
+
+int bpf_restrict_exec_close_initramfs_trust(Manager *m) {
+        return 0;
+}
+
+int bpf_restrict_exec_serialize(Manager *m, FILE *f, FDSet *fds) {
+        return 0;
 }
 
 #endif

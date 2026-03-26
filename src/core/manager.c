@@ -925,7 +925,12 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
                 .dump_ratelimit = (const RateLimit) { .interval = 10 * USEC_PER_MINUTE, .burst = 10 },
 
                 .executor_fd = -EBADF,
+
+                .restrict_exec_bss_map_fd = -EBADF,
         };
+
+        FOREACH_ELEMENT(fd, m->restrict_exec_link_fds)
+                *fd = -EBADF;
 
         unit_defaults_init(&m->defaults, runtime_scope);
 
@@ -1765,6 +1770,8 @@ Manager* manager_free(Manager *m) {
 #if BPF_FRAMEWORK
         bpf_restrict_fs_destroy(m->restrict_fs);
 #endif
+        close_many(m->restrict_exec_link_fds, ELEMENTSOF(m->restrict_exec_link_fds));
+        safe_close(m->restrict_exec_bss_map_fd);
 
         safe_close(m->executor_fd);
         free(m->executor_path);

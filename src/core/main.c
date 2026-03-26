@@ -1257,6 +1257,17 @@ static int prepare_reexecute(
         m->n_reloading++;
         bus_manager_send_reloading(m, true);
 
+        /* Clear initramfs trust before serialization so the .bss map FD already
+         * reflects initramfs_s_dev=0. This must happen before switch_root unmounts
+         * the initramfs to prevent dev_t recycling from creating a trust gap.
+         * Use in_initrd() rather than switching_root — soft-reboot also sets
+         * switching_root but has no initramfs trust window to close. */
+        if (in_initrd()) {
+                r = bpf_restrict_exec_close_initramfs_trust(m);
+                if (r < 0)
+                        return r;
+        }
+
         r = manager_open_serialization(m, &f);
         if (r < 0)
                 return log_error_errno(r, "Failed to create serialization file: %m");
