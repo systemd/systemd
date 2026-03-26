@@ -2185,26 +2185,35 @@ int table_set_column_width(Table *t, size_t column, size_t width) {
         return r;
 }
 
-int table_sync_column_width(Table *a, size_t column_a, Table *b, size_t column_b) {
-        size_t w1, w2;
-        int r;
+int _table_sync_column_widths(size_t column, Table *a, ...) {
+        size_t max = 0;
+        va_list ap;
+        int r = 0;
 
         assert(a);
-        assert(b);
 
-        /* Make both tables have specified columns of same width */
+        /* Make the specified column have the same width in the tables. */
 
-        r = table_data_requested_width(a, column_a, &w1);
-        if (r < 0)
-                return log_error_errno(r, "Failed to query table column width: %m");
+        va_start(ap, a);
+        for (Table *t = a; t; t = va_arg(ap, Table*)) {
+                size_t w;
 
-        r = table_data_requested_width(b, column_b, &w2);
+                r = table_data_requested_width(t, column, &w);
+                if (r < 0)
+                        break;
+
+                max = MAX(max, w);
+        }
+        va_end(ap);
         if (r < 0)
                 return log_error_errno(r, "Failed to query table column width: %m");
 
         r = 0;
-        RET_GATHER(r, table_set_column_width(a, column_a, MAX(w1, w2)));
-        RET_GATHER(r, table_set_column_width(b, column_b, MAX(w1, w2)));
+        va_start(ap, a);
+        for (Table *t = a; t; t = va_arg(ap, Table*))
+                RET_GATHER(r, table_set_column_width(t, column, max));
+        va_end(ap);
+
         return r;
 }
 
