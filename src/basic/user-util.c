@@ -749,11 +749,7 @@ bool valid_user_group_name(const char *u, ValidUserFlags flags) {
                                                              * whitespace only. */
                         return false;
 
-                if (!utf8_is_valid(u)) /* We want to synthesize JSON from this, hence insist on UTF-8 */
-                        return false;
-
-                if (string_has_cc(u, NULL)) /* CC characters are just dangerous (and \n in particular is the
-                                             * record separator in /etc/passwd), so we can't allow that. */
+                if (!utf8_is_safe(u)) /* We want to synthesize JSON from this, hence insist on UTF-8 */
                         return false;
 
                 if (strpbrk(u, ":/")) /* Colons are the field separator in /etc/passwd, we can't allow
@@ -833,10 +829,7 @@ bool valid_gecos(const char *d) {
         if (!d)
                 return false;
 
-        if (!utf8_is_valid(d))
-                return false;
-
-        if (string_has_cc(d, NULL))
+        if (!utf8_is_safe(d))
                 return false;
 
         /* Colons are used as field separators, and hence not OK */
@@ -884,10 +877,7 @@ bool valid_home(const char *p) {
         if (isempty(p))
                 return false;
 
-        if (!utf8_is_valid(p))
-                return false;
-
-        if (string_has_cc(p, NULL))
+        if (!utf8_is_safe(p))
                 return false;
 
         if (!path_is_absolute(p))
