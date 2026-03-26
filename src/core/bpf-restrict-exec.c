@@ -35,6 +35,23 @@ const char* const restrict_exec_link_names[_RESTRICT_EXEC_LINK_MAX] = {
         [RESTRICT_EXEC_LINK_BPF_GUARD]         = "restrict-exec-bpf-guard-link",
 };
 
+bool dm_verity_require_signatures(void) {
+        _cleanup_free_ char *val = NULL;
+        int r;
+
+        r = read_one_line_file("/sys/module/dm_verity/parameters/require_signatures", &val);
+        if (r == -ENOENT) {
+                log_debug("bpf-restrict-exec: dm-verity module not loaded, require_signatures not available.");
+                return false;
+        }
+        if (r < 0) {
+                log_warning_errno(r, "bpf-restrict-exec: Failed to read dm-verity require_signatures: %m");
+                return false;
+        }
+
+        return parse_boolean(val) > 0;
+}
+
 #if BPF_FRAMEWORK
 #include "bpf-dlopen.h"
 #include "bpf-link.h"
@@ -67,25 +84,6 @@ assert_cc(offsetof(struct restrict_exec_bss, protected_map_id_bss) ==
         [RESTRICT_EXEC_LINK_BPF_GUARD]         = (obj)->links.restrict_exec_bpf_guard,           \
 }
 
-static bool dm_verity_require_signatures(void) {
-        _cleanup_free_ char *val = NULL;
-        int r;
-
-        r = read_one_line_file("/sys/module/dm_verity/parameters/require_signatures", &val);
-        if (r == -ENOENT) {
-                log_debug("bpf-restrict-exec: dm-verity module not loaded, require_signatures not available.");
-                return false;
-        }
-        if (r < 0) {
-                log_warning_errno(r, "bpf-restrict-exec: Failed to read dm-verity require_signatures: %m");
-                return false;
-        }
-
-        return parse_boolean(val) > 0;
-}
-
-/* Verify that restrict_exec_bss matches the skeleton's .bss layout */
-assert_cc(sizeof(struct restrict_exec_bss) == sizeof_field(struct restrict_exec_bpf, bss[0]));
 static int get_root_s_dev(uint32_t *ret) {
         struct stat st;
 
