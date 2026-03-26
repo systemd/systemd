@@ -5130,7 +5130,7 @@ static void service_notify_message(
                          * to process is already limited to NOTIFY_BUFFER_MAX, this limit here should never be hit. */
                         if (strlen(e) > STATUS_TEXT_MAX)
                                 log_unit_warning(u, "Status message overly long (%zu > %u), ignoring.", strlen(e), STATUS_TEXT_MAX);
-                        else if (!utf8_is_valid(e))
+                        else if (!utf8_is_printable_oneline(e))
                                 log_unit_warning(u, "Status message in notification message is not UTF-8 clean, ignoring.");
                         else {
                                 t = strdup(e);
