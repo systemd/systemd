@@ -33,12 +33,14 @@ proc_supports_option() {
 # in that case instead of complicating the test setup even more */
 if [[ -z "${COVERAGE_BUILD_DIR:-}" ]]; then
     if ! systemd-detect-virt -cq && command -v bootctl >/dev/null; then
-        boot_path="$(bootctl --print-boot-path)"
-        esp_path="$(bootctl --print-esp-path)"
+        boot_path="$(bootctl --print-boot-path)" || :
+        esp_path="$(bootctl --print-esp-path)" || :
 
         # If the mount points are handled by automount units, make sure we trigger
         # them before proceeding further
-        ls -l "$boot_path" "$esp_path"
+        if [[ -n "${boot_path:-}" && -n "${esp_path:-}" ]]; then
+            ls -l "$boot_path" "$esp_path"
+        fi
     fi
 
     systemd-run --wait --pipe -p ProtectSystem=yes \
