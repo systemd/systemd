@@ -60,7 +60,7 @@ REQUIREMENTS:
 
         Linux kernel ≥ 5.11 for epoll_pwait2()
                      ≥ 5.12 for idmapped mount (mount_setattr())
-                     ≥ 5.14 for cgroup.kill and quotactl_fd()
+                     ≥ 5.14 for cgroup.kill, quotactl_fd(), and MOUNT_ATTR_NOSYMFOLLOW
 
         ⚠️ Kernel versions below 5.14 ("recommended baseline") have significant gaps
            in functionality and are not recommended for use with this version
@@ -77,7 +77,7 @@ REQUIREMENTS:
                      ≥ 6.10 for fcntl(F_DUPFD_QUERY), unprivileged linkat(AT_EMPTY_PATH),
                                 and block device 'partscan' sysfs attribute
                      ≥ 6.12 for AT_HANDLE_MNT_ID_UNIQUE
-                     ≥ 6.13 for PIDFD_GET_INFO and {set,remove}xattrat() and
+                     ≥ 6.13 for PIDFD_GET_INFO, {set,remove}xattrat(), and
                                 FSCONFIG_SET_FD support for overlayfs layers
                      ≥ 6.16 for coredump pattern '%F' (pidfd) specifier and SO_PASSRIGHTS
 
