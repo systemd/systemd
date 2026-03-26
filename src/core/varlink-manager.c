@@ -431,9 +431,6 @@ static int manager_do_set_objective(sd_varlink *link, sd_json_variant *parameter
         if (r < 0)
                 return r;
 
-        /* dbus uses SD_BUS_VTABLE_CAPABILITY(CAP_SYS_BOOT) in its checking. We cannot do the same
-         * because reading capabilities from /proc is racy (TOCTOU). So we use the stricter check
-         * TODO: figure out a way to check for CAP_SYS_BOOT */
         r = varlink_check_privileged_peer(link);
         if (r < 0)
                 return r;
