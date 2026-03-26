@@ -155,7 +155,7 @@ int vl_method_register(sd_varlink *link, sd_json_variant *parameters, sd_varlink
         if (r != 0)
                 return r;
 
-        if (!IN_SET(machine->class, MACHINE_CONTAINER, MACHINE_VM))
+        if (!MACHINE_CLASS_CAN_REGISTER(machine->class))
                 return sd_varlink_error_invalid_parameter_name(link, "class");
 
         if (manager->runtime_scope != RUNTIME_SCOPE_USER) {
