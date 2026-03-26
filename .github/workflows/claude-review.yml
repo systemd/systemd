@@ -270,15 +270,37 @@ jobs:
               for PR context, and reads the codebase to verify findings.
 
               Each reviewer reviews code quality, style, potential bugs, and security
-              implications. It must return a JSON array of issues:
-              `[{"path": "path/to/file", "line": <number> (optional), "severity": "must-fix|suggestion|nit", "body": "...", "commit": "<sha>"}]`
+              implications. It must return a JSON array of issues matching this schema:
+
+              ```json
+              {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["path", "line", "severity", "body", "commit"],
+                  "properties": {
+                    "path":       { "type": "string", "description": "File path relative to repo root" },
+                    "line":       { "type": "integer", "description": "Diff line number (last line for multi-line)" },
+                    "side":       { "enum": ["LEFT", "RIGHT"], "description": "Diff side: LEFT for deletions, RIGHT for additions/context (default: RIGHT)" },
+                    "start_line": { "type": "integer", "description": "First line of a multi-line comment range" },
+                    "start_side": { "enum": ["LEFT", "RIGHT"], "description": "Diff side for start_line" },
+                    "severity":   { "enum": ["must-fix", "suggestion", "nit"] },
+                    "body":       { "type": "string", "description": "Review comment in markdown" },
+                    "commit":     { "type": "string", "description": "SHA of the commit being reviewed" }
+                  }
+                }
+              }
+              ```
 
               The `commit` field MUST be the SHA of the commit being reviewed. Only
               comment on changes in that commit — not preceding commits.
 
-              `line` should be a line number from the NEW side of the diff **that appears
-              inside a diff hunk**. GitHub rejects lines outside the diff context. If you
-              cannot determine a valid diff line, omit `line`.
+              `line` should be a line number from the diff **that appears inside a
+              diff hunk**. GitHub rejects lines outside the diff context. `side`
+              indicates which side of the diff (`LEFT` for deletions, `RIGHT` for
+              additions or context lines); defaults to `RIGHT` if omitted. For
+              multi-line comments, set `start_line` and `start_side` to the first
+              line of the range and `line`/`side` to the last.
 
               Each reviewer MUST verify findings before returning them:
               - For style/convention claims, check at least 3 existing examples in the
@@ -362,23 +384,15 @@ jobs:
 
               ```json
               {
-                "summary": "...",
-                "comments": [
-                  {
-                    "path": "path/to/file",
-                    "line": 42,
-                    "severity": "must-fix|suggestion|nit",
-                    "body": "review comment in markdown",
-                    "commit": "abc123"
-                  }
-                ],
-                "resolve": [12345]
+                "type": "object",
+                "required": ["summary", "comments"],
+                "properties": {
+                  "summary":  { "type": "string", "description": "Markdown summary for the tracking comment" },
+                  "comments": { "description": "Array of review comments (same schema as the reviewer output above)" },
+                  "resolve":  { "type": "array", "items": { "type": "integer" }, "description": "REST API IDs of review comment threads to resolve" }
+                }
               }
               ```
-
-              - `summary` (required): markdown summary for the tracking comment
-              - `comments` (required): array of review comments; `path` is the file path, `line` is optional
-              - `resolve` (optional): REST API IDs of review comment threads to resolve
 
               Do NOT attempt to post comments or use any MCP tools to modify the PR.
 
@@ -486,6 +500,9 @@ jobs:
                   commit_id: c.commit,
                   path: c.path,
                   line: c.line,
+                  ...(c.side != null && { side: c.side }),
+                  ...(c.start_line != null && { start_line: c.start_line }),
+                  ...(c.start_side != null && { start_side: c.start_side }),
                   body: `Claude: **${c.severity}**: ${c.body}`,
                 });
                 posted++;
