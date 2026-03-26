@@ -575,7 +575,7 @@ ip link | grep wl-renamed1
 EOF
     fi
 
-    timeout 30 systemd-nspawn --directory="$root"
+    timeout --foreground 30 systemd-nspawn --directory="$root"
 
     # And now for stuff that needs to run separately
     #
