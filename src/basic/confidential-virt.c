@@ -37,7 +37,8 @@ static uint32_t cpuid_leaf(uint32_t eax, char ret_sig[static 13], bool swapped) 
         ret_sig[12] = 0; /* \0-terminate the string to make string comparison possible */
 
         /* In some CI tests ret_sig doesn't contain valid UTF8 and prints garbage to the console */
-        log_debug("CPUID sig '%s'", strna(utf8_is_valid(ret_sig)));
+        _cleanup_free_ char *escaped = utf8_escape_non_printable(ret_sig);
+        log_debug("CPUID sig: %s", strnull(escaped));
 
         return eax;
 }
