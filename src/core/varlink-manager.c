@@ -405,8 +405,7 @@ int vl_method_enqueue_marked_jobs_manager(sd_varlink *link, sd_json_variant *par
 
 static int manager_do_set_objective(sd_varlink *link, sd_json_variant *parameters, ManagerObjective objective, const char *selinux_permission, bool can_do_root) {
         Manager *m = ASSERT_PTR(sd_varlink_get_userdata(link));
-        _cleanup_free_ char *rt = NULL;
-        const char *root = NULL;
+        _cleanup_free_ char *root = NULL;
         int r;
 
         assert(link);
@@ -417,7 +416,7 @@ static int manager_do_set_objective(sd_varlink *link, sd_json_variant *parameter
 
         if (can_do_root) {
                 static const sd_json_dispatch_field dispatch_table[] = {
-                        { "root", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, 0, 0 },
+                        { "root", SD_JSON_VARIANT_STRING, json_dispatch_path, 0, 0 },
                         {}
                 };
 
@@ -439,20 +438,14 @@ static int manager_do_set_objective(sd_varlink *link, sd_json_variant *parameter
                 return r;
 
         if (!isempty(root)) {
-                if (!path_is_valid(root))
-                        return sd_varlink_error_invalid_parameter_name(link, "root");
-                if (!path_is_absolute(root))
-                        return sd_varlink_error_invalid_parameter_name(link, "root");
-
-                r = path_simplify_alloc(root, &rt);
-                if (r < 0)
-                        return r;
+                assert(can_do_root);
+                path_simplify(root);
         }
 
         varlink_log_caller(link, m, manager_objective_to_string(objective));
 
         if (can_do_root)
-                free_and_replace(m->switch_root, rt);
+                free_and_replace(m->switch_root, root);
         m->objective = objective;
 
         return sd_varlink_reply(link, NULL);
