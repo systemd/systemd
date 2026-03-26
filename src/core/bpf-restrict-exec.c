@@ -69,7 +69,7 @@ assert_cc(offsetof(struct restrict_exec_bss, protected_map_id_bss) ==
         [RESTRICT_EXEC_LINK_BPF_GUARD]         = (obj)->links.restrict_exec_bpf_guard,           \
 }
 
-static bool dm_verity_require_signatures(void) {
+bool dm_verity_require_signatures(void) {
         _cleanup_free_ char *val = NULL;
         int r;
 
@@ -443,6 +443,10 @@ int bpf_restrict_exec_serialize(Manager *m, FILE *f, FDSet *fds) {
 }
 
 #else /* ! BPF_FRAMEWORK */
+
+bool dm_verity_require_signatures(void) {
+        return false;
+}
 
 bool bpf_restrict_exec_supported(void) {
         return false;
