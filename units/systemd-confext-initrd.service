@@ -8,7 +8,7 @@
 # (at your option) any later version.
 
 [Unit]
-Description=Merge System Configuration Images into /etc/
+Description=Merge System Configuration Images into /etc/ of the initrd
 Documentation=man:systemd-confext-initrd.service(8)
 
 ConditionCapability=CAP_SYS_ADMIN
@@ -19,6 +19,7 @@ ConditionDirectoryNotEmpty=|/usr/lib/confexts
 ConditionDirectoryNotEmpty=|/.extra/confext
 ConditionDirectoryNotEmpty=|/.extra/global_confext
 ConditionPathExists=/etc/initrd-release
+ConditionKernelCommandLine=!rd.systemd.confext=0
 
 DefaultDependencies=no
 Before=local-fs-pre.target cryptsetup-pre.target systemd-tmpfiles-setup.service
