@@ -3,6 +3,7 @@
 
 #include "sd-event.h"
 
+#include "bpf-trusted-exec.h"
 #include "cgroup.h"
 #include "common-signal.h"
 #include "execute.h"
@@ -473,6 +474,20 @@ typedef struct Manager {
 
         /* Reference to RestrictFileSystems= BPF program */
         struct restrict_fs_bpf *restrict_fs;
+
+        /* Reference to TrustedExec= BPF LSM program */
+        bool trusted_exec_enabled;
+        struct trusted_exec_bpf *trusted_exec;
+
+        /* Raw BPF FDs preserved across daemon-reexec. After exec, the skeleton is
+         * gone (destroyed by manager_free before execv), so PID1 only holds these
+         * bare FDs. The kernel reference chain (link FD -> bpf_link -> bpf_prog ->
+         * bpf_map) keeps programs attached and map data alive. PID1 cannot access
+         * map contents or program state through the skeleton API anymore — it just
+         * holds the FDs open to prevent detach, and uses the .bss map FD for
+         * targeted writes (e.g. clearing initramfs_s_dev after switch_root). */
+        int trusted_exec_link_fds[_TRUSTED_EXEC_LINK_MAX];
+        int trusted_exec_bss_map_fd;
 
         /* Allow users to configure a rate limit for Reload()/Reexecute() operations */
         RateLimit reload_reexec_ratelimit;

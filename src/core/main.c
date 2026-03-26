@@ -150,6 +150,7 @@ static char **arg_manager_environment;
 static uint64_t arg_capability_bounding_set;
 static bool arg_no_new_privs;
 static int arg_protect_system;
+static bool arg_trusted_exec;
 static nsec_t arg_timer_slack_nsec;
 static Set* arg_syscall_archs;
 static FILE* arg_serialization;
@@ -762,6 +763,7 @@ static int parse_config_file(void) {
                 { "Manager", "CapabilityBoundingSet",        config_parse_capability_set,        0,                        &arg_capability_bounding_set      },
                 { "Manager", "NoNewPrivileges",              config_parse_bool,                  0,                        &arg_no_new_privs                 },
                 { "Manager", "ProtectSystem",                config_parse_protect_system_pid1,   0,                        &arg_protect_system               },
+                { "Manager", "TrustedExec",                  config_parse_bool,                  0,                        &arg_trusted_exec                 },
 #if HAVE_SECCOMP
                 { "Manager", "SystemCallArchitectures",      config_parse_syscall_archs,         0,                        &arg_syscall_archs                },
 #else
@@ -908,6 +910,7 @@ static void set_manager_settings(Manager *m) {
 
         manager_set_show_status(m, arg_show_status, "command line");
         m->status_unit_format = arg_status_unit_format;
+        m->trusted_exec_enabled = arg_trusted_exec;
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -2812,6 +2815,7 @@ static void reset_arguments(void) {
         arg_capability_bounding_set = CAP_MASK_ALL;
         arg_no_new_privs = false;
         arg_protect_system = -1;
+        arg_trusted_exec = false;
         arg_timer_slack_nsec = NSEC_INFINITY;
 
         arg_syscall_archs = set_free(arg_syscall_archs);
