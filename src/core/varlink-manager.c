@@ -458,22 +458,22 @@ static int manager_do_set_objective(sd_varlink *link, sd_json_variant *parameter
         return sd_varlink_reply(link, NULL);
 }
 
-int vl_method_poweroff_manager(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+int vl_method_poweroff(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         return manager_do_set_objective(link, parameters, MANAGER_POWEROFF, "halt", /* can_do_root= */ false);
 }
 
-int vl_method_reboot_manager(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+int vl_method_reboot(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         return manager_do_set_objective(link, parameters, MANAGER_REBOOT, "reboot", /* can_do_root= */ false);
 }
 
-int vl_method_halt_manager(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+int vl_method_halt(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         return manager_do_set_objective(link, parameters, MANAGER_HALT, "halt", /* can_do_root= */ false);
 }
 
-int vl_method_kexec_manager(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+int vl_method_kexec(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         return manager_do_set_objective(link, parameters, MANAGER_KEXEC, "reboot", /* can_do_root= */ false);
 }
 
-int vl_method_soft_reboot_manager(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+int vl_method_soft_reboot(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         return manager_do_set_objective(link, parameters, MANAGER_SOFT_REBOOT, "reboot", /* can_do_root= */ true);
 }
