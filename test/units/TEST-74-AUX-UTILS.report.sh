@@ -35,3 +35,9 @@ varlinkctl info /run/systemd/report/io.systemd.Network
 varlinkctl list-methods /run/systemd/report/io.systemd.Network
 varlinkctl --more call /run/systemd/report/io.systemd.Network io.systemd.Metrics.List {}
 varlinkctl --more call /run/systemd/report/io.systemd.Network io.systemd.Metrics.Describe {}
+
+# test io.systemd.CGroup Metrics
+varlinkctl info /run/systemd/report/io.systemd.CGroup
+varlinkctl list-methods /run/systemd/report/io.systemd.CGroup
+varlinkctl --more call /run/systemd/report/io.systemd.CGroup io.systemd.Metrics.List {}
+varlinkctl --more call /run/systemd/report/io.systemd.CGroup io.systemd.Metrics.Describe {}
