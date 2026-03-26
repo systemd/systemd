@@ -1543,17 +1543,20 @@ static int method_refuse_snapshot(sd_bus_message *message, void *userdata, sd_bu
 static void log_caller(sd_bus_message *message, Manager *manager, const char *method) {
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        int r;
 
         assert(message);
         assert(manager);
         assert(method);
 
-        if (sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID|SD_BUS_CREDS_PIDFD|SD_BUS_CREDS_AUGMENT, &creds) < 0)
-                return;
-
-        /* We need at least the PID, otherwise there's nothing to log, the rest is optional. */
-        if (bus_creds_get_pidref(creds, &pidref) < 0)
-                return;
+        r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID|SD_BUS_CREDS_PIDFD|SD_BUS_CREDS_AUGMENT, &creds);
+        if (r < 0)
+                log_debug_errno(r, "Failed to get dbus sender creds, ignoring: %m");
+        else {
+                r = bus_creds_get_pidref(creds, &pidref);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to get peer pidref, ignoring: %m");
+        }
 
         manager_log_caller(manager, &pidref, method);
 }
