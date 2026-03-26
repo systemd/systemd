@@ -271,7 +271,7 @@ jobs:
 
               Each reviewer reviews code quality, style, potential bugs, and security
               implications. It must return a JSON array of issues:
-              `[{"file": "path", "line": <number> (optional), "severity": "must-fix|suggestion|nit", "body": "...", "commit": "<sha>"}]`
+              `[{"path": "path/to/file", "line": <number> (optional), "severity": "must-fix|suggestion|nit", "body": "...", "commit": "<sha>"}]`
 
               The `commit` field MUST be the SHA of the commit being reviewed. Only
               comment on changes in that commit — not preceding commits.
@@ -318,13 +318,13 @@ jobs:
                  <!-- claude-pr-review -->
 
                  ### Must fix
-                 - [ ] **short title** — `file:line` — brief explanation
+                 - [ ] **short title** — `path:line` — brief explanation
 
                  ### Suggestions
-                 - [ ] **short title** — `file:line` — brief explanation
+                 - [ ] **short title** — `path:line` — brief explanation
 
                  ### Nits
-                 - [ ] **short title** — `file:line` — brief explanation
+                 - [ ] **short title** — `path:line` — brief explanation
                  ```
 
                  Omit empty sections. Each checkbox item must correspond to an entry in `comments`.
@@ -365,7 +365,7 @@ jobs:
                 "summary": "...",
                 "comments": [
                   {
-                    "file": "path/to/file",
+                    "path": "path/to/file",
                     "line": 42,
                     "severity": "must-fix|suggestion|nit",
                     "body": "review comment in markdown",
@@ -377,7 +377,7 @@ jobs:
               ```
 
               - `summary` (required): markdown summary for the tracking comment
-              - `comments` (required): array of review comments; `line` is optional
+              - `comments` (required): array of review comments; `path` is the file path, `line` is optional
               - `resolve` (optional): REST API IDs of review comment threads to resolve
 
               Do NOT attempt to post comments or use any MCP tools to modify the PR.
@@ -470,21 +470,21 @@ jobs:
              * comments is handled by Claude in the prompt, so we just post whatever
              * it returns. Using individual comments (rather than a review) means
              * re-runs only add new comments instead of creating a whole new review. */
-            const inlineComments = comments.filter((c) => c.line);
+            const inlineComments = comments.filter((c) => c.path && c.line);
             const skipped = comments.length - inlineComments.length;
             if (skipped > 0)
-              console.log(`Skipping ${skipped} file-level comment(s) (no line number).`);
+              console.log(`Skipping ${skipped} comment(s) missing path or line number.`);
 
             let posted = 0;
             for (const c of inlineComments) {
-              console.log(`  Posting comment on ${c.file}:${c.line}`);
+              console.log(`  Posting comment on ${c.path}:${c.line}`);
               try {
                 await github.rest.pulls.createReviewComment({
                   owner,
                   repo,
                   pull_number: prNumber,
                   commit_id: c.commit,
-                  path: c.file,
+                  path: c.path,
                   line: c.line,
                   body: `Claude: **${c.severity}**: ${c.body}`,
                 });
@@ -492,7 +492,7 @@ jobs:
               } catch (e) {
                 /* GitHub rejects comments on lines outside the diff context. Log
                  * and continue — the tracking comment still contains all findings. */
-                console.log(`  Warning: failed to post comment on ${c.file}:${c.line}: ${e.message}`);
+                console.log(`  Warning: failed to post comment on ${c.path}:${c.line}: ${e.message}`);
               }
             }
 
