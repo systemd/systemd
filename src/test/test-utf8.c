@@ -16,6 +16,18 @@ TEST(utf8_is_printable) {
         assert_se(utf8_is_printable("\t", 1));
 }
 
+TEST(utf8_is_safe) {
+        ASSERT_FALSE(utf8_is_safe("\r"));
+        ASSERT_FALSE(utf8_is_safe("\n"));
+        ASSERT_FALSE(utf8_is_safe("\t"));
+        ASSERT_FALSE(utf8_is_safe("\x7f"));
+        ASSERT_FALSE(utf8_is_safe("ascii is valid\tunicode"));
+        ASSERT_TRUE(utf8_is_safe("ascii is valid unicode"));
+        ASSERT_TRUE(utf8_is_safe("ąę"));
+        ASSERT_TRUE(utf8_is_safe("\342\204\242"));
+        ASSERT_FALSE(utf8_is_safe("\341\204"));
+}
+
 TEST(utf8_n_is_valid) {
         assert_se( utf8_is_valid_n("ascii is valid unicode", 21));
         assert_se( utf8_is_valid_n("ascii is valid unicode", 22));
