@@ -1742,6 +1742,12 @@ static void config_load_smbios_entries(
         }
 }
 
+static unsigned boot_entry_profile(const BootEntry *a) {
+        assert(a);
+
+        return a->profile == UINT_MAX ? 0 : a->profile;
+}
+
 static int boot_entry_compare(const BootEntry *a, const BootEntry *b) {
         int r;
 
@@ -1775,6 +1781,10 @@ static int boot_entry_compare(const BootEntry *a, const BootEntry *b) {
                 r = -strverscmp_improved(a->version, b->version);
                 if (r != 0)
                         return r;
+
+                r = CMP(boot_entry_profile(a), boot_entry_profile(b));
+                if (r != 0)
+                        return r;
         }
 
         /* Now order by ID. The version is likely part of the ID, thus note that this will generatelly put
@@ -1789,7 +1799,7 @@ static int boot_entry_compare(const BootEntry *a, const BootEntry *b) {
                 /* Note: the strverscmp_improved() call above checked for us that we are looking at the very
                  * same id, hence at this point we only need to compare profile numbers, since we know they
                  * belong to the same UKI. */
-                r = CMP(a->profile, b->profile);
+                r = CMP(boot_entry_profile(a), boot_entry_profile(b));
                 if (r != 0)
                         return r;
         }

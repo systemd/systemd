@@ -555,6 +555,12 @@ static int boot_loader_read_conf_path(BootConfig *config, const char *root, cons
         return boot_loader_read_conf(config, f, full);
 }
 
+static unsigned boot_entry_profile(const BootEntry *a) {
+        assert(a);
+
+        return a->profile == UINT_MAX ? 0 : a->profile;
+}
+
 static int boot_entry_compare(const BootEntry *a, const BootEntry *b) {
         int r;
 
@@ -583,6 +589,10 @@ static int boot_entry_compare(const BootEntry *a, const BootEntry *b) {
                 r = -strverscmp_improved(a->version, b->version);
                 if (r != 0)
                         return r;
+
+                r = CMP(boot_entry_profile(a), boot_entry_profile(b));
+                if (r != 0)
+                        return r;
         }
 
         r = -strverscmp_improved(a->id_without_profile ?: a->id, b->id_without_profile ?: b->id);
@@ -592,7 +602,7 @@ static int boot_entry_compare(const BootEntry *a, const BootEntry *b) {
         if (a->id_without_profile && b->id_without_profile) {
                 /* The strverscmp_improved() call above already established that we are talking about the
                  * same image here, hence order by profile, if there is one */
-                r = CMP(a->profile, b->profile);
+                r = CMP(boot_entry_profile(a), boot_entry_profile(b));
                 if (r != 0)
                         return r;
         }
