@@ -136,7 +136,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
         if (arg_enabled < 0) {
                 Virtualization v = detect_container();
                 if (v < 0)
-                        log_debug_errno(v, "Container detection failed, ignoring: %m");
+                        return log_error_errno(v, "Container detection failed: %m");
                 if (v > 0) {
                         log_debug("Running in a container, disabling IMDS logic.");
                         arg_enabled = false;
@@ -148,6 +148,7 @@ static int run(const char *dest, const char *dest_early, const char *dest_late) 
                 }
         }
 
+        assert(arg_enabled >= 0);
         if (!arg_enabled) {
                 log_debug("IMDS not enabled, skipping generator.");
                 return 0;
