@@ -124,8 +124,7 @@ static struct in6_addr arg_address_ipv6 = {};
 static char *arg_well_known_key[_IMDS_WELL_KNOWN_MAX] = {};
 
 static void imds_well_known_key_free(typeof(arg_well_known_key) *array) {
-        FOREACH_ARRAY(i, *array, _IMDS_WELL_KNOWN_MAX)
-                free(*i);
+        free_many_charp(*array, _IMDS_WELL_KNOWN_MAX);
 }
 
 STATIC_DESTRUCTOR_REGISTER(arg_ifname, freep);
