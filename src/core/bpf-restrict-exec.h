@@ -47,3 +47,4 @@ bool bpf_restrict_exec_supported(void);
 int bpf_restrict_exec_setup(Manager *m);
 
 int bpf_restrict_exec_close_initramfs_trust(Manager *m);
+int bpf_restrict_exec_serialize(Manager *m, FILE *f, FDSet *fds);
