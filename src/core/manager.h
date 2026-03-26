@@ -474,6 +474,9 @@ typedef struct Manager {
         /* Reference to RestrictFileSystems= BPF program */
         struct restrict_fs_bpf *restrict_fs;
 
+        /* Reference to RestrictExec= BPF LSM program */
+        int restrict_exec;
+
         /* Allow users to configure a rate limit for Reload()/Reexecute() operations */
         RateLimit reload_reexec_ratelimit;
         /* Dump*() are slow, so always rate limit them to 10 per 10 minutes */
