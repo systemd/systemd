@@ -71,10 +71,10 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        OptionParser state = {};
+        OptionParser state = { argc, argv };
         const char *arg;
 
-        FOREACH_OPTION(&state, c, argc, argv, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
                 switch (c) {
                 OPTION_COMMON_HELP:
                         return help();
@@ -170,7 +170,7 @@ static int parse_argv(int argc, char *argv[]) {
                 SET_FLAG(arg_flags, ASK_PASSWORD_HIDE_EMOJI, !r);
         }
 
-        char **args = option_parser_get_args(&state, argc, argv);
+        char **args = option_parser_get_args(&state);
 
         if (!strv_isempty(args)) {
                 arg_message = strv_join(args, " ");

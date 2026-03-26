@@ -50,7 +50,7 @@ static int help(void) {
         if (r < 0)
                 return r;
 
-        (void) table_sync_column_width(options, 0, verbs, 0);
+        (void) table_sync_column_widths(0, options, verbs);
 
         printf("%s [OPTIONS...] COMMAND\n"
                "\n%sMark the boot process as good or bad.%s\n"
@@ -75,10 +75,10 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
         assert(argc >= 0);
         assert(argv);
 
-        OptionParser state = {};
+        OptionParser state = { argc, argv };
         const char *arg;
 
-        FOREACH_OPTION(&state, c, argc, argv, &arg, /* on_error= */ return c)
+        FOREACH_OPTION(&state, c, &arg, /* on_error= */ return c)
                 switch (c) {
                 OPTION_COMMON_HELP:
                         return help();
@@ -93,7 +93,7 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         break;
                 }
 
-        *ret_args = option_parser_get_args(&state, argc, argv);
+        *ret_args = option_parser_get_args(&state);
         return 1;
 }
 
