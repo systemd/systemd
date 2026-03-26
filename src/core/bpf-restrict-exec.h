@@ -15,6 +15,7 @@ typedef enum RestrictExec {
 
 const char* restrict_exec_to_string(RestrictExec i) _const_;
 RestrictExec restrict_exec_from_string(const char *s) _pure_;
+#include "shared-forward.h"
 
 enum {
         RESTRICT_EXEC_LINK_BDEV_SETINTEGRITY,
@@ -31,6 +32,17 @@ enum {
 #define STAT_DEV_TO_KERNEL(dev) \
         ((uint32_t)major(dev) << 20 | (uint32_t)minor(dev))
 
+/* Mirrors the BPF program's .bss section layout for read-modify-write via
+ * bpf_map_lookup_elem/bpf_map_update_elem on the serialized .bss map FD. */
+struct restrict_exec_bss {
+        uint32_t initramfs_s_dev; /* kernel dev_t encoding: (major << 20) | minor */
+};
+
+extern const char* const restrict_exec_link_names[_RESTRICT_EXEC_LINK_MAX];
+
 bool bpf_restrict_exec_supported(void);
 int bpf_restrict_exec_setup(Manager *m);
 void bpf_restrict_exec_destroy(struct restrict_exec_bpf *prog);
+
+void bpf_restrict_exec_close_initramfs_trust(Manager *m);
+int bpf_restrict_exec_serialize(Manager *m, FILE *f, FDSet *fds);
