@@ -36,7 +36,7 @@ jobs:
         persist-credentials: false
 
     - name: Label PR based on policy in labeler.yml
-      uses: actions/labeler@634933edcd8ababfe52f92936142cc22ac488b1b
+      uses: actions/labeler@c5dadc2a45784a4b6adfcd20fea3465da3a5f904
       if: startsWith(github.event_name, 'pull_request') && github.base_ref == 'main' && github.event.action != 'closed'
       with:
         repo-token: "${{ secrets.GITHUB_TOKEN }}"
