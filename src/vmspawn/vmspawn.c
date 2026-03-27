@@ -3077,6 +3077,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_oom();
         }
 
+        _cleanup_free_ char *fstab_extra = NULL;
+
         for (size_t j = 0; j < arg_runtime_mounts.n_mounts; j++) {
                 RuntimeMount *m = arg_runtime_mounts.mounts + j;
                 _cleanup_free_ char *listen_address = NULL;
@@ -3123,13 +3125,31 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (r < 0)
                         return r;
 
-                _cleanup_free_ char *clean_target = xescape(m->target, "\":");
-                if (!clean_target)
+                if (strextendf(&fstab_extra, "%s %s virtiofs %s,x-initrd.mount\n",
+                               id, m->target, m->read_only ? "ro" : "rw") < 0)
                         return log_oom();
+        }
 
-                if (strv_extendf(&arg_kernel_cmdline_extra, "systemd.mount-extra=\"%s:%s:virtiofs:%s\"",
-                                 id, clean_target, m->read_only ? "ro" : "rw") < 0)
-                        return log_oom();
+        if (fstab_extra) {
+                /* If the user already specified a fstab.extra credential, combine it with ours */
+                MachineCredential *existing = machine_credential_find(&arg_credentials, "fstab.extra");
+                if (existing) {
+                        _cleanup_free_ char *combined = NULL;
+
+                        if (existing->size > 0 && existing->data[existing->size - 1] != '\n')
+                                combined = strjoin(existing->data, "\n", fstab_extra);
+                        else
+                                combined = strjoin(existing->data, fstab_extra);
+                        if (!combined)
+                                return log_oom();
+
+                        free_and_replace(existing->data, combined);
+                        existing->size = strlen(existing->data);
+                } else {
+                        r = machine_credential_add(&arg_credentials, "fstab.extra", fstab_extra, SIZE_MAX);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         _cleanup_(rm_rf_physical_and_freep) char *smbios_dir = NULL;
