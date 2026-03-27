@@ -17,9 +17,9 @@ systemd-dissect "$MINIMAL_IMAGE.raw" | grep -q -F -f <(sed 's/"//g' "$OS_RELEASE
 
 systemd-dissect --list "$MINIMAL_IMAGE.raw" | grep -q '^etc/os-release$'
 systemd-dissect --mtree "$MINIMAL_IMAGE.raw" --mtree-hash yes | \
-    grep -qE "^.(/usr|)/bin/cat type=file mode=0755 uid=0 gid=0 size=[0-9]* sha256sum=[a-z0-9]*$"
+    grep -qE "^.(/usr|)/bin/bash type=file mode=0755 uid=0 gid=0 size=[0-9]* sha256sum=[a-z0-9]*$"
 systemd-dissect --mtree "$MINIMAL_IMAGE.raw" --mtree-hash no  | \
-    grep -qE "^.(/usr|)/bin/cat type=file mode=0755 uid=0 gid=0 size=[0-9]*$"
+    grep -qE "^.(/usr|)/bin/bash type=file mode=0755 uid=0 gid=0 size=[0-9]*$"
 
 read -r SHA256SUM1 _ < <(systemd-dissect --copy-from "$MINIMAL_IMAGE.raw" etc/os-release | sha256sum)
 test "$SHA256SUM1" != ""
