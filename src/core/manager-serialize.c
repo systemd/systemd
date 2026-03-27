@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "bpf-restrict-exec.h"
 #include "dbus.h"
 #include "dynamic-user.h"
 #include "fd-util.h"
@@ -179,6 +180,12 @@ int manager_serialize(
         if (r < 0)
                 return r;
 
+        if (m->restrict_exec > RESTRICT_EXEC_NO) {
+                r = bpf_restrict_exec_serialize(m, f, fds);
+                if (r < 0)
+                        return r;
+        }
+
         (void) fputc('\n', f);
 
         HASHMAP_FOREACH_KEY(u, t, m->units) {
@@ -283,6 +290,32 @@ static void manager_deserialize_uid_refs_one(Manager *m, const char *value) {
 
 static void manager_deserialize_gid_refs_one(Manager *m, const char *value) {
         manager_deserialize_uid_refs_one_internal(&m->gid_refs, value);
+}
+
+static void deserialize_restrict_exec(Manager *m, const char *l, FDSet *fds) {
+        const char *val;
+        int fd;
+
+        FOREACH_ELEMENT(name, restrict_exec_link_names) {
+                val = startswith(l, *name);
+                if (!val)
+                        continue;
+                val = startswith(val, "=");
+                if (!val)
+                        continue;
+                fd = deserialize_fd(fds, val);
+                if (fd >= 0)
+                        close_and_replace(m->restrict_exec_link_fds[name - restrict_exec_link_names], fd);
+                return;
+        }
+
+        val = startswith(l, "restrict-exec-bss-map=");
+        if (!val)
+                return;
+
+        fd = deserialize_fd(fds, val);
+        if (fd >= 0)
+                close_and_replace(m->restrict_exec_bss_map_fd, fd);
 }
 
 int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
@@ -515,7 +548,9 @@ int manager_deserialize(Manager *m, FILE *f, FDSet *fds) {
                         else
                                 (void) varlink_server_deserialize_one(m->varlink_server, val, fds);
 
-                } else if ((val = startswith(l, "dump-ratelimit=")))
+                } else if (startswith(l, "restrict-exec-"))
+                        deserialize_restrict_exec(m, l, fds);
+                else if ((val = startswith(l, "dump-ratelimit=")))
                         deserialize_ratelimit(&m->dump_ratelimit, "dump-ratelimit", val);
                 else if ((val = startswith(l, "reload-reexec-ratelimit=")))
                         deserialize_ratelimit(&m->reload_reexec_ratelimit, "reload-reexec-ratelimit", val);
