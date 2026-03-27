@@ -11,6 +11,10 @@ timesyncd_sources = files(
 timesyncd_extract_sources = files(
         'timesyncd-conf.c',
         'timesyncd-manager.c',
+        'timesyncd-ntp-extension.c',
+        'timesyncd-nts-client.c',
+        'timesyncd-ntske-client.c',
+        'timesyncd-ntske-protocol.c',
         'timesyncd-server.c',
 )
 
@@ -36,6 +40,7 @@ executables += [
                 'extract' : timesyncd_extract_sources,
                 'link_with' : timesyncd_link_with,
                 'dependencies' : [
+                        libgnutls,
                         libm,
                         threads,
                 ],
@@ -49,7 +54,7 @@ executables += [
         test_template + {
                 'sources' : files('test-timesync.c'),
                 'objects' : ['systemd-timesyncd'],
-                'dependencies' : libm,
+                'dependencies' : [libgnutls, libm],
         },
 ]
 
