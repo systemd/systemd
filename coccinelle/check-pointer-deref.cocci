@@ -13,6 +13,7 @@
  */
 @@
 identifier fn, param;
+identifier is_set =~ "_is_set$";
 type T;
 position p;
 @@
@@ -25,10 +26,12 @@ fn(..., T *param, ...) {
       when != assert_return(param, ...)
       when != ASSERT_PTR(param)
       when != POINTER_MAY_BE_NULL(param)
-      /* NULL-safe helpers used commonly enough in assert() to warrant inclusion
-       * here. For less common cases, use POINTER_MAY_BE_NULL(param) instead of
-       * extending this list. */
-      when != assert(pidref_is_set(param))
+      /* Any foo_is_set(param) guard implies param != NULL, since all *_is_set()
+       * helpers in systemd return false for NULL input. Note the is_set regex
+       * in identifier. */
+      when != assert(is_set(param))
+      when != assert_return(is_set(param), ...)
+      when != \( is_set(param) \)
       when != \( param == NULL \| param != NULL \| !param \)
 * *param@p
   ...
