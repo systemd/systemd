@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <sys/kexec.h>
 #include <unistd.h>
 
 #include "sd-bus.h"
@@ -8,6 +9,7 @@
 #include "bus-error.h"
 #include "bus-locator.h"
 #include "efivars.h"
+#include "fd-util.h"
 #include "log.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -24,6 +26,7 @@
 
 static int load_kexec_kernel(void) {
         _cleanup_(boot_config_free) BootConfig config = BOOT_CONFIG_NULL;
+        _cleanup_close_ int kernel_fd = -EBADF, initrd_fd = -EBADF;
         _cleanup_free_ char *kernel = NULL, *initrd = NULL, *options = NULL;
         const BootEntry *e;
         int r;
@@ -32,9 +35,6 @@ static int load_kexec_kernel(void) {
                 log_debug("Kexec kernel already loaded.");
                 return 0;
         }
-
-        if (access(KEXEC, X_OK) < 0)
-                return log_error_errno(errno, KEXEC" is not available: %m");
 
         r = boot_config_load_auto(&config, NULL, NULL);
         if (r == -ENOKEY)
@@ -80,33 +80,56 @@ static int load_kexec_kernel(void) {
                 return log_oom();
 
         log_full(arg_quiet ? LOG_DEBUG : LOG_INFO,
-                 "%s "KEXEC" --load \"%s\" --append \"%s\"%s%s%s",
-                 arg_dry_run ? "Would run" : "Running",
+                 "%s kexec_file_load() kernel=\"%s\" cmdline=\"%s\"%s%s%s",
+                 arg_dry_run ? "Would call" : "Calling",
                  kernel,
                  options,
-                 initrd ? " --initrd \"" : NULL, strempty(initrd), initrd ? "\"" : "");
+                 initrd ? " initrd=\"" : "", strempty(initrd), initrd ? "\"" : "");
         if (arg_dry_run)
                 return 0;
 
-        r = pidref_safe_fork(
-                        "(kexec)",
-                        FORK_WAIT|FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG,
-                        /* ret= */ NULL);
+        if (!HAVE_KEXEC_FILE_LOAD_SYSCALL)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                       "kexec_file_load() syscall not available on this architecture.");
+
+        kernel_fd = open(kernel, O_RDONLY|O_CLOEXEC);
+        if (kernel_fd < 0)
+                return log_error_errno(errno, "Failed to open kernel '%s': %m", kernel);
+
+        if (initrd) {
+                initrd_fd = open(initrd, O_RDONLY|O_CLOEXEC);
+                if (initrd_fd < 0)
+                        return log_error_errno(errno, "Failed to open initrd '%s': %m", initrd);
+        }
+
+        unsigned long flags = initrd ? 0 : KEXEC_FILE_NO_INITRAMFS;
+
+#if HAVE_KEXEC_FILE_LOAD_SYSCALL
+        if (kexec_file_load(kernel_fd, initrd_fd, strlen(options) + 1, options, flags) >= 0)
+                return 0;
+
+        if (errno != ENOEXEC)
+                return log_error_errno(errno, "Failed to load kexec kernel: %m");
+
+        /* The kernel didn't recognize the image format. Try decompressing or extracting the kernel
+         * (e.g. compressed Image, ZBOOT PE, or UKI) and loading again. */
+        log_debug_errno(errno, "Kernel rejected image, trying decompression/extraction: %m");
+
+        _cleanup_close_ int extracted_kernel_fd = -EBADF, extracted_initrd_fd = -EBADF;
+        r = kexec_maybe_decompress_kernel(kernel, kernel_fd, &extracted_kernel_fd, &extracted_initrd_fd);
         if (r < 0)
                 return r;
-        if (r == 0) {
-                const char* const args[] = {
-                        KEXEC,
-                        "--load", kernel,
-                        "--append", options,
-                        initrd ? "--initrd" : NULL, initrd,
-                        NULL
-                };
+        if (r == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOEXEC),
+                                       "Kernel did not accept '%s' and it is not in a recognized compressed format.", kernel);
 
-                /* Child */
-                execv(args[0], (char * const *) args);
-                _exit(EXIT_FAILURE);
-        }
+        /* Use the extracted initrd from UKI when no explicit initrd was provided by the boot entry */
+        int final_initrd_fd = initrd_fd >= 0 ? initrd_fd : extracted_initrd_fd;
+        unsigned long final_flags = final_initrd_fd >= 0 ? 0 : KEXEC_FILE_NO_INITRAMFS;
+
+        if (kexec_file_load(extracted_kernel_fd, final_initrd_fd, strlen(options) + 1, options, final_flags) < 0)
+                return log_error_errno(errno, "Failed to load extracted kexec kernel: %m");
+#endif
 
         return 0;
 }
