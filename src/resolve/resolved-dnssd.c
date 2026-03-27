@@ -332,6 +332,8 @@ int dnssd_txt_item_new_from_string(const char *key, const char *value, DnsTxtIte
         size_t length;
         DnsTxtItem *i;
 
+        assert(ret_item);
+
         length = strlen(key);
 
         if (!isempty(value))
@@ -356,6 +358,8 @@ int dnssd_txt_item_new_from_string(const char *key, const char *value, DnsTxtIte
 int dnssd_txt_item_new_from_data(const char *key, const void *data, const size_t size, DnsTxtItem **ret_item) {
         size_t length;
         DnsTxtItem *i;
+
+        assert(ret_item);
 
         length = strlen(key);
 
