@@ -116,6 +116,13 @@ volatile __u32 protected_link_ids[NUM_PROTECTED_OBJS];
 
 /* ---- Integrity tracking hooks ---- */
 
+/* Preferred version: reads both value and size for defense-in-depth.
+ * Requires kernel v6.16+ or the backport of 1271a40eeafa ("bpf: Allow
+ * access to const void pointer arguments in tracing programs").
+ * On older kernels btf_ctx_access() rejects loads from const void *
+ * arguments because it fails to skip the CONST modifier when checking
+ * for void pointers. prepare_restrict_exec_bpf() tries this version
+ * first and falls back to the _compat variant below if loading fails. */
 SEC("lsm/bdev_setintegrity")
 int BPF_PROG(restrict_exec_bdev_setintegrity, struct block_device *bdev,
              enum lsm_integrity_type type, const void *value, __u64 size)
@@ -123,6 +130,24 @@ int BPF_PROG(restrict_exec_bdev_setintegrity, struct block_device *bdev,
         if (type == LSM_INT_DMVERITY_SIG_VALID) {
                 __u32 dev = bdev->bd_dev;
                 __u8 valid = value && size > 0;
+                bpf_map_update_elem(&verity_devices, &dev, &valid, BPF_ANY);
+        }
+
+        return 0;
+}
+
+/* Compatibility version for kernels without 1271a40eeafa: does not
+ * read the const void *value argument (ctx[2]) to avoid the verifier
+ * rejection. Reads size (ctx[3]) directly from the raw context instead.
+ * This is safe because dm-verity guarantees value!=NULL iff size>0. */
+#define BDEV_SETINTEGRITY_SIZE_CTX_IDX 3 /* bdev_setintegrity(bdev, type, value, size) */
+SEC("lsm/bdev_setintegrity")
+int BPF_PROG(restrict_exec_bdev_setintegrity_compat, struct block_device *bdev,
+             enum lsm_integrity_type type)
+{
+        if (type == LSM_INT_DMVERITY_SIG_VALID) {
+                __u32 dev = bdev->bd_dev;
+                __u8 valid = ctx[BDEV_SETINTEGRITY_SIZE_CTX_IDX] > 0;
                 bpf_map_update_elem(&verity_devices, &dev, &valid, BPF_ANY);
         }
 
