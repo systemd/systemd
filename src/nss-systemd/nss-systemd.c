@@ -149,6 +149,7 @@ static enum nss_status copy_synthesized_passwd(
 
         assert(dest);
         assert(src);
+        assert(errnop);
         assert(src->pw_name);
         assert(src->pw_passwd);
         assert(src->pw_gecos);
@@ -191,6 +192,7 @@ static enum nss_status copy_synthesized_spwd(
 
         assert(dest);
         assert(src);
+        assert(errnop);
         assert(src->sp_namp);
         assert(src->sp_pwdp);
 
@@ -223,6 +225,7 @@ static enum nss_status copy_synthesized_group(
 
         assert(dest);
         assert(src);
+        assert(errnop);
         assert(src->gr_name);
         assert(src->gr_passwd);
         assert(src->gr_mem);
@@ -259,6 +262,7 @@ static enum nss_status copy_synthesized_sgrp(
 
         assert(dest);
         assert(src);
+        assert(errnop);
         assert(src->sg_namp);
         assert(src->sg_passwd);
         assert(src->sg_adm);
