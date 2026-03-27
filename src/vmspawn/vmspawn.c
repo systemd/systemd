@@ -1408,6 +1408,11 @@ static int cmdline_add_kernel_cmdline(char ***cmdline, const char *kernel, const
         if (!kcl)
                 return log_oom();
 
+        if (strlen(kcl) >= KERNEL_CMDLINE_SIZE)
+                return log_error_errno(SYNTHETIC_ERRNO(E2BIG),
+                                       "Kernel command line length (%zu) exceeds the kernel's COMMAND_LINE_SIZE (%d).",
+                                       strlen(kcl), KERNEL_CMDLINE_SIZE);
+
         if (kernel && type != KERNEL_IMAGE_TYPE_UKI) {
                 if (strv_extend_many(cmdline, "-append", kcl) < 0)
                         return log_oom();
@@ -1435,6 +1440,93 @@ static int cmdline_add_kernel_cmdline(char ***cmdline, const char *kernel, const
                         if (strv_extend_joined(cmdline, "type=11,path=", p) < 0)
                                 return log_oom();
                 }
+        }
+
+        return 0;
+}
+
+static int cmdline_add_credentials(char ***cmdline, const char *kernel, const char *smbios_dir) {
+        int r;
+
+        assert(cmdline);
+
+        FOREACH_ARRAY(cred, arg_credentials.credentials, arg_credentials.n_credentials) {
+                _cleanup_free_ char *cred_data_b64 = NULL;
+                ssize_t n;
+
+                n = base64mem(cred->data, cred->size, &cred_data_b64);
+                if (n < 0)
+                        return log_oom();
+
+                /* SMBIOS is always available on x86, but on ARM it requires UEFI firmware
+                 * and does not work with direct kernel boot. */
+                if (ARCHITECTURE_SUPPORTS_SMBIOS &&
+                    (IN_SET(native_architecture(), ARCHITECTURE_X86, ARCHITECTURE_X86_64) || !kernel)) {
+                        _cleanup_free_ char *p = path_join(smbios_dir, cred->id);
+                        if (!p)
+                                return log_oom();
+
+                        r = write_string_filef(
+                                        p,
+                                        WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_AVOID_NEWLINE|WRITE_STRING_FILE_MODE_0600,
+                                        "io.systemd.credential.binary:%s=%s", cred->id, cred_data_b64);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to write smbios credential file %s: %m", p);
+
+                        if (strv_extend(cmdline, "-smbios") < 0)
+                                return log_oom();
+
+                        if (strv_extend_joined(cmdline, "type=11,path=", p) < 0)
+                                return log_oom();
+
+                } else if (ARCHITECTURE_SUPPORTS_FW_CFG) {
+                        /* fw_cfg keys are limited to 55 characters */
+                        _cleanup_free_ char *key = strjoin("opt/io.systemd.credentials/", cred->id);
+                        if (!key)
+                                return log_oom();
+
+                        if (strlen(key) <= QEMU_FW_CFG_MAX_KEY_LEN) {
+                                _cleanup_free_ char *p = path_join(smbios_dir, cred->id);
+                                if (!p)
+                                        return log_oom();
+
+                                r = write_data_file_atomic_at(
+                                                AT_FDCWD, p,
+                                                &IOVEC_MAKE(cred->data, cred->size),
+                                                WRITE_DATA_FILE_MODE_0400);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to write fw_cfg credential file %s: %m", p);
+
+                                if (strv_extend(cmdline, "-fw_cfg") < 0)
+                                        return log_oom();
+
+                                if (strv_extendf(cmdline, "name=%s,file=%s", key, p) < 0)
+                                        return log_oom();
+
+                                continue;
+                        }
+
+                        /* Fall through to kernel command line if key is too long */
+                        log_debug("fw_cfg key '%s' exceeds %d character limit, falling back to kernel command line.", key, QEMU_FW_CFG_MAX_KEY_LEN);
+
+                        if (!kernel) {
+                                log_warning("Cannot pass credential '%s' to VM, fw_cfg key exceeds %d character limit and no kernel for direct boot specified.",
+                                            cred->id,
+                                            QEMU_FW_CFG_MAX_KEY_LEN);
+                                continue;
+                        }
+
+                        if (strv_extendf(&arg_kernel_cmdline_extra,
+                                         "systemd.set_credential_binary=%s:%s", cred->id, cred_data_b64) < 0)
+                                return log_oom();
+
+                } else if (kernel) {
+                        if (strv_extendf(&arg_kernel_cmdline_extra,
+                                         "systemd.set_credential_binary=%s:%s", cred->id, cred_data_b64) < 0)
+                                return log_oom();
+                } else
+                        log_warning("Cannot pass credential '%s' to VM, native architecture doesn't support SMBIOS or fw_cfg and no kernel for direct boot specified.",
+                                    cred->id);
         }
 
         return 0;
@@ -3163,10 +3255,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create temporary directory: %m");
 
-        r = cmdline_add_kernel_cmdline(&cmdline, kernel, smbios_dir);
-        if (r < 0)
-                return r;
-
         r = cmdline_add_smbios11(&cmdline, smbios_dir);
         if (r < 0)
                 return r;
@@ -3369,34 +3457,13 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_error_errno(r, "Failed to set credential systemd.unit-dropin.sshd-vsock@.service: %m");
         }
 
-        if (ARCHITECTURE_SUPPORTS_SMBIOS)
-                FOREACH_ARRAY(cred, arg_credentials.credentials, arg_credentials.n_credentials) {
-                        _cleanup_free_ char *p = NULL, *cred_data_b64 = NULL;
-                        ssize_t n;
+        r = cmdline_add_credentials(&cmdline, kernel, smbios_dir);
+        if (r < 0)
+                return r;
 
-                        n = base64mem(cred->data, cred->size, &cred_data_b64);
-                        if (n < 0)
-                                return log_oom();
-
-                        p = path_join(smbios_dir, cred->id);
-                        if (!p)
-                                return log_oom();
-
-                        r = write_string_filef(
-                                        p,
-                                        WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_AVOID_NEWLINE|WRITE_STRING_FILE_MODE_0600,
-                                        "io.systemd.credential.binary:%s=%s", cred->id, cred_data_b64);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to write smbios credential file %s: %m", p);
-
-                        r = strv_extend(&cmdline, "-smbios");
-                        if (r < 0)
-                                return log_oom();
-
-                        r = strv_extend_joined(&cmdline, "type=11,path=", p);
-                        if (r < 0)
-                                return log_oom();
-                }
+        r = cmdline_add_kernel_cmdline(&cmdline, kernel, smbios_dir);
+        if (r < 0)
+                return r;
 
         if (use_vsock) {
                 notify_sock_fd = open_vsock();
