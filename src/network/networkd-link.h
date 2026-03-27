@@ -145,6 +145,7 @@ typedef struct Link {
         bool bearer_configured:1;
 
         sd_dhcp_server *dhcp_server;
+        sd_dhcp6_server *dhcp6_server;
 
         sd_ndisc *ndisc;
         sd_event_source *ndisc_expire;
