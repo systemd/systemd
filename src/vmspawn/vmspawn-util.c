@@ -18,6 +18,7 @@
 #include "path-lookup.h"
 #include "path-util.h"
 #include "random-util.h"
+#include "set.h"
 #include "siphash24.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -318,7 +319,7 @@ int load_ovmf_config(const char *path, OvmfConfig **ret) {
         return ovmf_config_make(fwd, ret);
 }
 
-int find_ovmf_config(int search_sb, OvmfConfig **ret) {
+int find_ovmf_config(Set *features_include, Set *features_exclude, OvmfConfig **ret) {
         _cleanup_(ovmf_config_freep) OvmfConfig *config = NULL;
         _cleanup_strv_free_ char **conf_files = NULL;
         const char* native_arch_qemu;
@@ -351,20 +352,44 @@ int find_ovmf_config(int search_sb, OvmfConfig **ret) {
                         continue;
                 }
 
-                if (strv_contains(fwd->features, "enrolled-keys")) {
-                        log_debug("Skipping %s, firmware has enrolled keys which has been known to cause issues.", *file);
-                        continue;
-                }
-
                 if (!strv_contains(fwd->architectures, native_arch_qemu)) {
                         log_debug("Skipping %s, firmware doesn't support the native architecture.", *file);
                         continue;
                 }
 
-                /* exclude firmware which doesn't match our Secure Boot requirements */
-                if (search_sb >= 0 && !!search_sb != firmware_data_supports_sb(fwd)) {
-                        log_debug("Skipping %s, firmware doesn't fit required Secure Boot configuration.", *file);
-                        continue;
+                /* Skip firmware that doesn't have all required features */
+                if (!set_isempty(features_include)) {
+                        const char *feature;
+                        bool missing = false;
+
+                        SET_FOREACH(feature, features_include)
+                                if (!strv_contains(fwd->features, feature)) {
+                                        missing = true;
+                                        break;
+                                }
+
+                        if (missing) {
+                                log_debug("Skipping %s, firmware doesn't have all required features.", *file);
+                                continue;
+                        }
+                }
+
+                /* Skip firmware that has any excluded features (include wins over exclude) */
+                if (!set_isempty(features_exclude)) {
+                        const char *feature;
+                        bool found = false;
+
+                        SET_FOREACH(feature, features_exclude)
+                                if (strv_contains(fwd->features, feature) &&
+                                    !set_contains(features_include, feature)) {
+                                        found = true;
+                                        break;
+                                }
+
+                        if (found) {
+                                log_debug("Skipping %s, firmware has excluded features.", *file);
+                                continue;
+                        }
                 }
 
                 r = ovmf_config_make(fwd, &config);
