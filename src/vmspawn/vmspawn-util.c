@@ -244,7 +244,7 @@ int list_ovmf_config(char ***ret) {
         return 0;
 }
 
-static int load_firmware_data(const char *path, FirmwareData **ret) {
+static int load_firmware_data(const char *path, FirmwareData **ret, sd_json_variant **ret_json) {
         int r;
 
         assert(path);
@@ -281,6 +281,10 @@ static int load_firmware_data(const char *path, FirmwareData **ret) {
                 return r;
 
         *ret = TAKE_PTR(fwd);
+
+        if (ret_json)
+                *ret_json = TAKE_PTR(json);
+
         return 0;
 }
 
@@ -298,7 +302,7 @@ int list_ovmf_firmware_features(char ***ret) {
         STRV_FOREACH(file, conf_files) {
                 _cleanup_(firmware_data_freep) FirmwareData *fwd = NULL;
 
-                r = load_firmware_data(*file, &fwd);
+                r = load_firmware_data(*file, &fwd, /* ret_json= */ NULL);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to load JSON file '%s', skipping: %m", *file);
                         continue;
@@ -347,14 +351,18 @@ int load_ovmf_config(const char *path, OvmfConfig **ret) {
         assert(path);
         assert(ret);
 
-        r = load_firmware_data(path, &fwd);
+        r = load_firmware_data(path, &fwd, /* ret_json= */ NULL);
         if (r < 0)
                 return r;
 
         return ovmf_config_make(fwd, ret);
 }
 
-int find_ovmf_config(Set *features_include, Set *features_exclude, OvmfConfig **ret) {
+int find_ovmf_config(
+                Set *features_include,
+                Set *features_exclude,
+                OvmfConfig **ret,
+                sd_json_variant **ret_firmware_json) {
         _cleanup_(ovmf_config_freep) OvmfConfig *config = NULL;
         _cleanup_strv_free_ char **conf_files = NULL;
         const char* native_arch_qemu;
@@ -380,8 +388,9 @@ int find_ovmf_config(Set *features_include, Set *features_exclude, OvmfConfig **
 
         STRV_FOREACH(file, conf_files) {
                 _cleanup_(firmware_data_freep) FirmwareData *fwd = NULL;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
 
-                r = load_firmware_data(*file, &fwd);
+                r = load_firmware_data(*file, &fwd, ret_firmware_json ? &json : NULL);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to load JSON file '%s', skipping: %m", *file);
                         continue;
@@ -428,6 +437,10 @@ int find_ovmf_config(Set *features_include, Set *features_exclude, OvmfConfig **
                         return r;
 
                 log_debug("Selected firmware definition %s.", *file);
+
+                if (ret_firmware_json)
+                        *ret_firmware_json = TAKE_PTR(json);
+
                 break;
         }
 

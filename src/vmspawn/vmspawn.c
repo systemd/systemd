@@ -138,6 +138,7 @@ static MachineCredentialContext arg_credentials = {};
 static uid_t arg_uid_shift = UID_INVALID, arg_uid_range = 0x10000U;
 static RuntimeMountContext arg_runtime_mounts = {};
 static char *arg_firmware = NULL;
+static bool arg_firmware_describe = false;
 static Set *arg_firmware_features_include = NULL;
 static Set *arg_firmware_features_exclude = NULL;
 static char *arg_forward_journal = NULL;
@@ -239,7 +240,9 @@ static int help(void) {
                "     --network-user-mode   Use user mode networking\n"
                "     --secure-boot=BOOL|auto\n"
                "                           Enable searching for firmware supporting SecureBoot\n"
-               "     --firmware=PATH|list  Select firmware definition file (or list available)\n"
+               "     --firmware=PATH|list|describe\n"
+               "                           Select firmware definition file (or list/describe\n"
+               "                           available)\n"
                "     --firmware-features=FEATURE[,FEATURE...]|list\n"
                "                           Require/exclude specific firmware features\n"
                "     --discard-disk=BOOL   Control processing of discard requests\n"
@@ -736,6 +739,16 @@ static int parse_argv(int argc, char *argv[]) {
 
                                 return 0;
                         }
+
+                        if (streq(optarg, "describe")) {
+                                /* Handled after argument parsing so that --firmware-features= is
+                                 * taken into account. */
+                                arg_firmware = mfree(arg_firmware);
+                                arg_firmware_describe = true;
+                                break;
+                        }
+
+                        arg_firmware_describe = false;
 
                         if (!isempty(optarg) && !path_is_absolute(optarg) && !startswith(optarg, "./"))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Absolute path or path starting with './' required.");
@@ -2171,7 +2184,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (arg_firmware)
                 r = load_ovmf_config(arg_firmware, &ovmf_config);
         else
-                r = find_ovmf_config(arg_firmware_features_include, arg_firmware_features_exclude, &ovmf_config);
+                r = find_ovmf_config(arg_firmware_features_include, arg_firmware_features_exclude, &ovmf_config, /* ret_firmware_json= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to find OVMF config: %m");
 
@@ -3636,6 +3649,21 @@ static int run(int argc, char *argv[]) {
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
+
+        if (arg_firmware_describe) {
+                _cleanup_(ovmf_config_freep) OvmfConfig *ovmf_config = NULL;
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
+
+                r = find_ovmf_config(arg_firmware_features_include, arg_firmware_features_exclude, &ovmf_config, &json);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to find OVMF config: %m");
+
+                r = sd_json_variant_dump(json, SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_COLOR_AUTO, stdout, /* prefix= */ NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to output JSON: %m");
+
+                return 0;
+        }
 
         r = determine_names();
         if (r < 0)
