@@ -90,7 +90,6 @@ static int on_child_notify(sd_event_source *s, int fd, uint32_t revents, void *u
 int fork_notify(char * const *argv, PidRef *ret_pidref) {
         int r;
 
-        assert(!strv_isempty(argv));
         assert(ret_pidref);
 
         if (!is_main_thread())
@@ -119,7 +118,7 @@ int fork_notify(char * const *argv, PidRef *ret_pidref) {
         if (r < 0)
                 return r;
 
-        if (DEBUG_LOGGING) {
+        if (DEBUG_LOGGING && argv) {
                 _cleanup_free_ char *l = quote_command_line(argv, SHELL_ESCAPE_EMPTY);
                 log_debug("Invoking '%s' as child.", strnull(l));
         }
@@ -139,6 +138,11 @@ int fork_notify(char * const *argv, PidRef *ret_pidref) {
                 if (setenv("NOTIFY_SOCKET", addr_string, /* overwrite= */ true) < 0) {
                         log_debug_errno(errno, "Failed to set $NOTIFY_SOCKET: %m");
                         _exit(EXIT_MEMORY);
+                }
+
+                if (!argv) {
+                        *ret_pidref = TAKE_PIDREF(child);
+                        return 0; /* Let the caller run custom code in the child */
                 }
 
                 r = invoke_callout_binary(argv[0], argv);
@@ -164,7 +168,7 @@ int fork_notify(char * const *argv, PidRef *ret_pidref) {
 
         *ret_pidref = TAKE_PIDREF(child);
 
-        return 0;
+        return 1; /* In the parent */
 }
 
 static void fork_notify_terminate_internal(PidRef *pidref) {
