@@ -5679,6 +5679,13 @@ class NetworkdTCTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'quantum 1500')
         self.assertRegex(output, 'initial_quantum 13000')
         self.assertRegex(output, 'maxrate 1Mbit')
+        self.assertRegex(output, 'low_rate_threshold 12500Kbit')
+        self.assertRegex(output, 'timer_slack 50us')
+        self.assertRegex(output, 'horizon 2s')
+        self.assertRegex(output, 'horizon_drop')
+        self.assertRegex(output, 'offload_horizon 500us')
+        self.assertRegex(output, 'priomap 2 2 2 2 1 1 0 0 0 0 0 0 0 0 0 0')
+        self.assertRegex(output, 'weights 589824 196608 16384')
 
     @expectedFailureIfModuleIsNotAvailable('sch_fq_codel')
     def test_qdisc_fq_codel(self):
