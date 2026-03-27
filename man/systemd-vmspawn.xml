@@ -167,10 +167,12 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>--ram=<replaceable>BYTES</replaceable></option></term>
+          <term><option>--ram=<replaceable>BYTES</replaceable>[:<replaceable>MAXBYTES</replaceable>[:<replaceable>SLOTS</replaceable>]]</option></term>
 
-          <listitem><para>The amount of memory to start the virtual machine with.
-          Defaults to 2G.</para>
+          <listitem><para>The amount of memory to start the virtual machine with. Defaults to 2G.
+          If a maximum size is specified after a colon, memory hotplug is enabled with the given
+          upper limit. The number of hotplug slots can optionally be specified after a second colon
+          and defaults to 1.</para>
 
           <xi:include href="version-info.xml" xpointer="v255"/>
           </listitem>
@@ -183,6 +185,18 @@
           KVM support will be detected automatically. If true, KVM is insisted on. If false, disable KVM.</para>
 
           <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--cxl=<replaceable>BOOL</replaceable></option></term>
+
+          <listitem><para>Controls whether to enable CXL (Compute Express Link) support in the virtual
+          machine. CXL is a high-speed interconnect standard that allows CPUs to access memory attached to
+          devices such as accelerators and memory expanders, enabling flexible memory pooling and expansion
+          beyond what is physically installed on the motherboard. Only supported on x86_64 and aarch64
+          architectures.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/></listitem>
         </varlistentry>
 
         <varlistentry>
