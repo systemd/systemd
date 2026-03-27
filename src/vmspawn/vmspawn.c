@@ -2292,6 +2292,16 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return r;
         }
 
+        r = qemu_config_section(config_file, "smp-opts", /* id= */ NULL,
+                                "cpus", arg_cpus ?: "1");
+        if (r < 0)
+                return r;
+
+        r = qemu_config_section(config_file, "memory", /* id= */ NULL,
+                                "size", mem);
+        if (r < 0)
+                return r;
+
         r = qemu_config_section(config_file, "object", "rng0",
                                 "qom-type", "rng-random",
                                 "filename", "/dev/urandom");
@@ -2333,8 +2343,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         /* Start building the cmdline for items that must remain as command line arguments */
         cmdline = strv_new(qemu_binary,
-                           "-smp", arg_cpus ?: "1",
-                           "-m", mem);
+                           "-no-user-config");
         if (!cmdline)
                 return log_oom();
 
