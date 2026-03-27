@@ -48,7 +48,7 @@ REENABLE_WARNING;
 #if HAVE_OPENSSL
 
 static int rr_compare(DnsResourceRecord * const *a, DnsResourceRecord * const *b) {
-        const DnsResourceRecord *x = *a, *y = *b;
+        const DnsResourceRecord *x = *ASSERT_PTR(a), *y = *ASSERT_PTR(b);
         size_t m;
         int r;
 

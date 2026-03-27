@@ -1464,6 +1464,8 @@ static int manager_next_random_name(const char *old, char **ret_new) {
         uint64_t u, a;
         char *n;
 
+        assert(ret_new);
+
         p = strchr(old, 0);
         assert(p);
 
