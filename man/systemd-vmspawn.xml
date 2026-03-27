@@ -347,7 +347,11 @@
           firmware to boot in the VM. If not specified, a suitable firmware is automatically discovered. If the
           special string <literal>list</literal> is specified lists all discovered firmwares. If the special
           string <literal>describe</literal> is specified, the firmware that would be selected (taking
-          <option>--firmware-features=</option> into account) is printed and the program exits.</para>
+          <option>--firmware-features=</option> into account) is printed and the program exits. If an empty
+          string is specified, no firmware is loaded at all. When <option>--linux=</option> specifies a
+          non-PE kernel image, firmware loading is automatically disabled and an explicit firmware path
+          may not be specified. Conversely, booting a UKI requires UEFI firmware and is incompatible with
+          an empty <option>--firmware=</option>.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/></listitem>
         </varlistentry>
