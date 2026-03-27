@@ -347,6 +347,10 @@ executables += [
                 'dependencies' : libm,
         },
         test_template + {
+                'sources' : files('test-kexec.c'),
+                'link_with' : [libshared],
+        },
+        test_template + {
                 'sources' : files('test-libcrypt-util.c'),
                 'conditions' : ['HAVE_LIBCRYPT'],
                 'timeout' : 120,

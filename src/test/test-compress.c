@@ -349,6 +349,16 @@ int main(int argc, char *argv[]) {
         log_info("/* LZ4 test skipped */");
 #endif
 
+#if HAVE_ZLIB
+        if (dlopen_zlib() >= 0)
+                test_compress_stream("GZIP", "zcat",
+                                     compress_stream_gzip, decompress_stream_gzip, srcfile);
+        else
+                log_info("/* Can't load libz, skipping GZIP test */");
+#else
+        log_info("/* GZIP test skipped */");
+#endif
+
 #if HAVE_ZSTD
         test_compress_decompress("ZSTD", compress_blob_zstd, decompress_blob_zstd,
                                  text, sizeof(text), false);
