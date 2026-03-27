@@ -609,23 +609,9 @@ int main(int argc, char *argv[]) {
         case LINUX_REBOOT_CMD_KEXEC:
 
                 if (!in_container) {
-                        /* We cheat and exec kexec to avoid doing all its work */
                         log_info("Rebooting with kexec.");
 
-                        r = pidref_safe_fork(
-                                        "(sd-kexec)",
-                                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_LOG|FORK_WAIT,
-                                        /* ret= */ NULL);
-                        if (r == 0) {
-                                /* Child */
-
-                                (void) execl(KEXEC, KEXEC, "-e", NULL);
-                                log_debug_errno(errno, "Failed to execute '" KEXEC "' binary, proceeding with reboot(RB_KEXEC): %m");
-
-                                /* execv failed (kexec binary missing?), so try simply reboot(RB_KEXEC) */
-                                (void) reboot(cmd);
-                                _exit(EXIT_FAILURE);
-                        }
+                        (void) kexec();
 
                         /* If we are still running, then the kexec can't have worked, let's fall through */
                 }
