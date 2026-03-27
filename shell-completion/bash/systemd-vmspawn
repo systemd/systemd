@@ -30,9 +30,11 @@ _systemd_vmspawn() {
 
     local -A OPTS=(
         [STANDALONE]='-h --help --version -q --quiet --no-pager -n --network-tap --network-user-mode --user --system -x --ephemeral'
-        [PATH]='-D --directory -i --image --linux --initrd --extra-drive --forward-journal'
-        [BOOL]='--kvm --vsock --tpm --secure-boot --discard-disk --register --pass-ssh-key'
+        [PATH]='-D --directory -i --image --linux --initrd --extra-drive --forward-journal --efi-nvram-template'
+        [BOOL]='--kvm --vsock --tpm --discard-disk --register --pass-ssh-key'
+        [SECURE_BOOT]='--secure-boot'
         [FIRMWARE]='--firmware'
+        [FIRMWARE_FEATURES]='--firmware-features'
         [BIND]='--bind --bind-ro'
         [SSH_KEY]='--ssh-key'
         [CONSOLE]='--console'
@@ -45,12 +47,16 @@ _systemd_vmspawn() {
 
     if __contains_word "$prev" ${OPTS[BOOL]}; then
         comps='yes no'
+    elif __contains_word "$prev" ${OPTS[SECURE_BOOT]}; then
+        comps='yes no auto'
     elif __contains_word "$prev" ${OPTS[PATH]}; then
         compopt -o nospace -o filenames
         comps=$(compgen -f -- "$cur" )
     elif __contains_word "$prev" ${OPTS[FIRMWARE]}; then
         compopt -o nospace -o filenames
-        comps="list $(compgen -f -- "$cur" )"
+        comps="list describe $(compgen -f -- "$cur" )"
+    elif __contains_word "$prev" ${OPTS[FIRMWARE_FEATURES]}; then
+        comps='list'
     elif __contains_word "$prev" ${OPTS[BIND]}; then
         compopt -o nospace -o filenames
         comps=$(compgen -f -- "${cur}" )
