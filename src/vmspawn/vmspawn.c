@@ -75,6 +75,7 @@
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "set.h"
 #include "strv.h"
 #include "swtpm-util.h"
 #include "sync-util.h"
@@ -133,11 +134,13 @@ static char *arg_linux = NULL;
 static char **arg_initrds = NULL;
 static ConsoleMode arg_console_mode = CONSOLE_INTERACTIVE;
 static NetworkStack arg_network_stack = NETWORK_STACK_NONE;
-static int arg_secure_boot = -1;
 static MachineCredentialContext arg_credentials = {};
 static uid_t arg_uid_shift = UID_INVALID, arg_uid_range = 0x10000U;
 static RuntimeMountContext arg_runtime_mounts = {};
 static char *arg_firmware = NULL;
+static char *arg_firmware_variables = NULL;
+static Set *arg_firmware_features_include = NULL;
+static Set *arg_firmware_features_exclude = NULL;
 static char *arg_forward_journal = NULL;
 static bool arg_register = true;
 static bool arg_keep_unit = false;
@@ -172,6 +175,9 @@ STATIC_DESTRUCTOR_REGISTER(arg_slice, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_cpus, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_credentials, machine_credential_context_done);
 STATIC_DESTRUCTOR_REGISTER(arg_firmware, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_firmware_variables, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_firmware_features_include, set_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_firmware_features_exclude, set_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_linux, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_initrds, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_runtime_mounts, runtime_mount_context_done);
@@ -229,8 +235,13 @@ static int help(void) {
                "     --initrd=PATH         Specify the initrd for direct kernel boot\n"
                "  -n --network-tap         Create a TAP device for networking\n"
                "     --network-user-mode   Use user mode networking\n"
-               "     --secure-boot=BOOL    Enable searching for firmware supporting SecureBoot\n"
+               "     --secure-boot=BOOL|auto\n"
+               "                           Enable searching for firmware supporting SecureBoot\n"
                "     --firmware=PATH|list  Select firmware definition file (or list available)\n"
+               "     --firmware-variables=PATH\n"
+               "                           Set the path to the firmware variables file to use\n"
+               "     --firmware-features=FEATURE[,FEATURE...]|list\n"
+               "                           Require/exclude specific firmware features\n"
                "     --discard-disk=BOOL   Control processing of discard requests\n"
                "  -G --grow-image=BYTES    Grow image file to specified size in bytes\n"
                "\n%3$sExecution:%4$s\n"
@@ -304,6 +315,13 @@ static int parse_environment(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
+        int r;
+
+        /* Firmware with enrolled keys has been known to cause issues, skip by default */
+        r = set_put_strdup(&arg_firmware_features_exclude, "enrolled-keys");
+        if (r < 0)
+                return log_oom();
+
         enum {
                 ARG_VERSION = 0x100,
                 ARG_NO_PAGER,
@@ -331,6 +349,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SET_CREDENTIAL,
                 ARG_LOAD_CREDENTIAL,
                 ARG_FIRMWARE,
+                ARG_FIRMWARE_VARIABLES,
+                ARG_FIRMWARE_FEATURES,
                 ARG_DISCARD_DISK,
                 ARG_CONSOLE,
                 ARG_BACKGROUND,
@@ -390,6 +410,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "set-credential",    required_argument, NULL, ARG_SET_CREDENTIAL    },
                 { "load-credential",   required_argument, NULL, ARG_LOAD_CREDENTIAL   },
                 { "firmware",          required_argument, NULL, ARG_FIRMWARE          },
+                { "firmware-variables", required_argument, NULL, ARG_FIRMWARE_VARIABLES },
+                { "firmware-features", required_argument, NULL, ARG_FIRMWARE_FEATURES  },
                 { "discard-disk",      required_argument, NULL, ARG_DISCARD_DISK      },
                 { "background",        required_argument, NULL, ARG_BACKGROUND        },
                 { "smbios11",          required_argument, NULL, 's'                   },
@@ -407,7 +429,7 @@ static int parse_argv(int argc, char *argv[]) {
                 {}
         };
 
-        int c, r;
+        int c;
 
         assert(argc >= 0);
         assert(argv);
@@ -638,11 +660,24 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                case ARG_SECURE_BOOT:
-                        r = parse_tristate_argument_with_auto("--secure-boot=", optarg, &arg_secure_boot);
+                case ARG_SECURE_BOOT: {
+                        int b;
+
+                        r = parse_tristate_argument_with_auto("--secure-boot=", optarg, &b);
                         if (r < 0)
                                 return r;
+
+                        free(set_remove(arg_firmware_features_include, "secure-boot"));
+                        free(set_remove(arg_firmware_features_exclude, "secure-boot"));
+
+                        if (b >= 0) {
+                                r = set_put_strdup(b > 0 ? &arg_firmware_features_include : &arg_firmware_features_exclude, "secure-boot");
+                                if (r < 0)
+                                        return log_oom();
+                        }
+
                         break;
+                }
 
                 case ARG_PRIVATE_USERS:
                         r = parse_userns_uid_range(optarg, &arg_uid_shift, &arg_uid_range);
@@ -710,6 +745,52 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
 
                         break;
+
+                case ARG_FIRMWARE_VARIABLES:
+                        if (!isempty(optarg) && !path_is_absolute(optarg) && !startswith(optarg, "./"))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Absolute path or path starting with './' required.");
+
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_firmware_variables);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
+                case ARG_FIRMWARE_FEATURES: {
+                        if (isempty(optarg)) {
+                                arg_firmware_features_include = set_free(arg_firmware_features_include);
+                                arg_firmware_features_exclude = set_free(arg_firmware_features_exclude);
+                                break;
+                        }
+
+                        if (streq(optarg, "list")) {
+                                _cleanup_strv_free_ char **l = NULL;
+
+                                r = list_ovmf_firmware_features(&l);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to list firmware features: %m");
+
+                                bool nl = false;
+                                fputstrv(stdout, l, "\n", &nl);
+                                if (nl)
+                                        putchar('\n');
+
+                                return 0;
+                        }
+
+                        _cleanup_strv_free_ char **features = strv_split(optarg, ",");
+                        if (!features)
+                                return log_oom();
+
+                        STRV_FOREACH(feature, features) {
+                                const char *e = startswith(*feature, "!");
+                                r = set_put_strdup(e ? &arg_firmware_features_exclude : &arg_firmware_features_include, e ?: *feature);
+                                if (r < 0)
+                                        return log_oom();
+                        }
+
+                        break;
+                }
 
                 case ARG_DISCARD_DISK:
                         r = parse_boolean_argument("--discard-disk=", optarg, &arg_discard_disk);
@@ -2090,19 +2171,15 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (arg_firmware)
                 r = load_ovmf_config(arg_firmware, &ovmf_config);
         else
-                r = find_ovmf_config(arg_secure_boot, &ovmf_config);
+                r = find_ovmf_config(arg_firmware_features_include, arg_firmware_features_exclude, &ovmf_config);
         if (r < 0)
                 return log_error_errno(r, "Failed to find OVMF config: %m");
 
-        if (arg_secure_boot > 0 && !ovmf_config->supports_sb) {
-                assert(arg_firmware);
-
+        if (set_contains(arg_firmware_features_include, "secure-boot") && !ovmf_config->supports_sb)
                 return log_error_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE),
-                                       "Secure Boot requested, but supplied OVMF firmware blob doesn't support it.");
-        }
+                                       "Secure Boot requested, but selected OVMF firmware doesn't support it.");
 
-        if (arg_secure_boot < 0)
-                log_debug("Using OVMF firmware %s Secure Boot support.", ovmf_config->supports_sb ? "with" : "without");
+        log_debug("Using OVMF firmware %s Secure Boot support.", ovmf_config->supports_sb ? "with" : "without");
 
         _cleanup_(machine_bind_user_context_freep) MachineBindUserContext *bind_user_context = NULL;
         r = machine_bind_user_prepare(
@@ -2565,7 +2642,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         }
 
         _cleanup_(unlink_and_freep) char *ovmf_vars = NULL;
-        if (ovmf_config->vars) {
+        if (ovmf_config->vars || arg_firmware_variables) {
+                const char *vars_source = arg_firmware_variables ?: ovmf_config->vars;
                 _cleanup_close_ int target_fd = -EBADF;
                 _cleanup_(unlink_and_freep) char *destroy_path = NULL;
                 bool newly_created;
@@ -2602,13 +2680,13 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 }
 
                 if (newly_created) {
-                        _cleanup_close_ int source_fd = open(ovmf_config->vars, O_RDONLY|O_CLOEXEC);
+                        _cleanup_close_ int source_fd = open(vars_source, O_RDONLY|O_CLOEXEC);
                         if (source_fd < 0)
-                                return log_error_errno(errno, "Failed to open OVMF vars file %s: %m", ovmf_config->vars);
+                                return log_error_errno(errno, "Failed to open OVMF vars file %s: %m", vars_source);
 
                         r = copy_bytes(source_fd, target_fd, UINT64_MAX, COPY_REFLINK);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to copy bytes from %s to %s: %m", ovmf_config->vars, state);
+                                return log_error_errno(r, "Failed to copy bytes from %s to %s: %m", vars_source, state);
 
                         /* This isn't always available so don't raise an error if it fails */
                         (void) copy_times(source_fd, target_fd, 0);
