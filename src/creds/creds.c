@@ -98,6 +98,12 @@ typedef enum CredKeyType {
         CRED_KEY_TYPE_TPM2_HOST,
         CRED_KEY_TYPE_HOST_TPM2_PUBLIC,
         CRED_KEY_TYPE_TPM2_PUBLIC_HOST,
+        CRED_KEY_TYPE_TPM2_SRK,
+        CRED_KEY_TYPE_TPM2_PUBLIC_SRK,
+        CRED_KEY_TYPE_HOST_TPM2_SRK,
+        CRED_KEY_TYPE_TPM2_HOST_SRK,
+        CRED_KEY_TYPE_HOST_TPM2_PUBLIC_SRK,
+        CRED_KEY_TYPE_TPM2_PUBLIC_HOST_SRK,
         CRED_KEY_TYPE_NULL,
         CRED_KEY_TYPE_TPM2_ABSENT,
         _CRED_KEY_TYPE_MAX,
@@ -105,33 +111,45 @@ typedef enum CredKeyType {
 } CredKeyType;
 
 static const char* cred_key_type_table[_CRED_KEY_TYPE_MAX] = {
-        [CRED_KEY_TYPE_AUTO]             = "auto",
-        [CRED_KEY_TYPE_AUTO_INITRD]      = "auto-initrd",
-        [CRED_KEY_TYPE_HOST]             = "host",
-        [CRED_KEY_TYPE_TPM2]             = "tpm2",
-        [CRED_KEY_TYPE_TPM2_PUBLIC]      = "tpm2-with-public-key",
-        [CRED_KEY_TYPE_HOST_TPM2]        = "host+tpm2",
-        [CRED_KEY_TYPE_TPM2_HOST]        = "tpm2+host",
-        [CRED_KEY_TYPE_HOST_TPM2_PUBLIC] = "host+tpm2-with-public-key",
-        [CRED_KEY_TYPE_TPM2_PUBLIC_HOST] = "tpm2-with-public-key+host",
-        [CRED_KEY_TYPE_NULL]             = "null",
-        [CRED_KEY_TYPE_TPM2_ABSENT]      = "tpm2-absent",  /* legacy alias */
+        [CRED_KEY_TYPE_AUTO]                    = "auto",
+        [CRED_KEY_TYPE_AUTO_INITRD]             = "auto-initrd",
+        [CRED_KEY_TYPE_HOST]                    = "host",
+        [CRED_KEY_TYPE_TPM2_SRK]                = "tpm2",
+        [CRED_KEY_TYPE_TPM2_PUBLIC_SRK]         = "tpm2-with-public-key",
+        [CRED_KEY_TYPE_HOST_TPM2_SRK]           = "host+tpm2",
+        [CRED_KEY_TYPE_TPM2_HOST_SRK]           = "tpm2+host",
+        [CRED_KEY_TYPE_HOST_TPM2_PUBLIC_SRK]    = "host+tpm2-with-public-key",
+        [CRED_KEY_TYPE_TPM2_PUBLIC_HOST_SRK]    = "tpm2-with-public-key+host",
+        [CRED_KEY_TYPE_TPM2]                    = "tpm2-no-srk",
+        [CRED_KEY_TYPE_TPM2_PUBLIC]             = "tpm2-no-srk-with-public-key",
+        [CRED_KEY_TYPE_HOST_TPM2]               = "host+tpm2-no-srk",
+        [CRED_KEY_TYPE_TPM2_HOST]               = "tpm2-no-srk+host",
+        [CRED_KEY_TYPE_HOST_TPM2_PUBLIC]        = "host+tpm2-no-srk-with-public-key",
+        [CRED_KEY_TYPE_TPM2_PUBLIC_HOST]        = "tpm2-no-srk-with-public-key+host",
+        [CRED_KEY_TYPE_NULL]                    = "null",
+        [CRED_KEY_TYPE_TPM2_ABSENT]             = "tpm2-absent",  /* legacy alias */
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP(cred_key_type, CredKeyType);
 
 static sd_id128_t cred_key_id[_CRED_KEY_TYPE_MAX] = {
-        [CRED_KEY_TYPE_AUTO]             = _CRED_AUTO,
-        [CRED_KEY_TYPE_AUTO_INITRD]      = _CRED_AUTO_INITRD,
-        [CRED_KEY_TYPE_HOST]             = CRED_AES256_GCM_BY_HOST,
-        [CRED_KEY_TYPE_TPM2]             = CRED_AES256_GCM_BY_TPM2_HMAC,
-        [CRED_KEY_TYPE_TPM2_PUBLIC]      = CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK,
-        [CRED_KEY_TYPE_HOST_TPM2]        = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC,
-        [CRED_KEY_TYPE_TPM2_HOST]        = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC,
-        [CRED_KEY_TYPE_HOST_TPM2_PUBLIC] = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK,
-        [CRED_KEY_TYPE_TPM2_PUBLIC_HOST] = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK,
-        [CRED_KEY_TYPE_NULL]             = CRED_AES256_GCM_BY_NULL,
-        [CRED_KEY_TYPE_TPM2_ABSENT]      = CRED_AES256_GCM_BY_NULL,
+        [CRED_KEY_TYPE_AUTO]                    = _CRED_AUTO,
+        [CRED_KEY_TYPE_AUTO_INITRD]             = _CRED_AUTO_INITRD,
+        [CRED_KEY_TYPE_HOST]                    = CRED_AES256_GCM_BY_HOST,
+        [CRED_KEY_TYPE_TPM2]                    = CRED_AES256_GCM_BY_TPM2_HMAC,
+        [CRED_KEY_TYPE_TPM2_PUBLIC]             = CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK,
+        [CRED_KEY_TYPE_HOST_TPM2]               = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC,
+        [CRED_KEY_TYPE_TPM2_HOST]               = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC,
+        [CRED_KEY_TYPE_HOST_TPM2_PUBLIC]        = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK,
+        [CRED_KEY_TYPE_TPM2_PUBLIC_HOST]        = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK,
+        [CRED_KEY_TYPE_TPM2_SRK]                = CRED_AES256_GCM_BY_TPM2_HMAC_PINNED_SRK,
+        [CRED_KEY_TYPE_TPM2_PUBLIC_SRK]         = CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK_PINNED_SRK,
+        [CRED_KEY_TYPE_HOST_TPM2_SRK]           = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_PINNED_SRK,
+        [CRED_KEY_TYPE_TPM2_HOST_SRK]           = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_PINNED_SRK,
+        [CRED_KEY_TYPE_HOST_TPM2_PUBLIC_SRK]    = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_PINNED_SRK,
+        [CRED_KEY_TYPE_TPM2_PUBLIC_HOST_SRK]    = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_PINNED_SRK,
+        [CRED_KEY_TYPE_NULL]                    = CRED_AES256_GCM_BY_NULL,
+        [CRED_KEY_TYPE_TPM2_ABSENT]             = CRED_AES256_GCM_BY_NULL,
 };
 
 static int open_credential_directory(
@@ -796,7 +814,7 @@ static int help(void) {
                "     --timestamp=TIME     Include specified timestamp in encrypted credential\n"
                "     --not-after=TIME     Include specified invalidation time in encrypted\n"
                "                          credential\n"
-               "     --with-key=host|tpm2|host+tpm2|null|auto|auto-initrd\n"
+               "     --with-key=host|tpm2[-no-srk]|host+tpm2[-no-srk]|null|auto|auto-initrd\n"
                "                          Which keys to encrypt with\n"
                "  -H                      Shortcut for --with-key=host\n"
                "  -T                      Shortcut for --with-key=tpm2\n"
@@ -1104,6 +1122,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_with_key = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED;
                 else if (sd_id128_in_set(arg_with_key, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED))
                         arg_with_key = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED;
+                else if (sd_id128_in_set(arg_with_key, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_PINNED_SRK, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED_PINNED_SRK))
+                        arg_with_key = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED_PINNED_SRK;
+                else if (sd_id128_in_set(arg_with_key, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_PINNED_SRK, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED_PINNED_SRK))
+                        arg_with_key = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED_PINNED_SRK;
                 else
                         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Selected key not available in --uid= scoped mode, refusing.");
         }
