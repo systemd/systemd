@@ -49,6 +49,14 @@ typedef enum ConsoleTransport {
         _CONSOLE_TRANSPORT_INVALID = -EINVAL,
 } ConsoleTransport;
 
+typedef enum Firmware {
+        FIRMWARE_UEFI,  /* load OVMF firmware */
+        FIRMWARE_BIOS,  /* don't load OVMF, let qemu use its built-in BIOS (e.g. SeaBIOS on x86) */
+        FIRMWARE_NONE,  /* no firmware at all, requires --linux= for direct kernel boot */
+        _FIRMWARE_MAX,
+        _FIRMWARE_INVALID = -EINVAL,
+} Firmware;
+
 typedef enum SettingsMask {
         SETTING_START_MODE        = UINT64_C(1) << 0,
         SETTING_MACHINE_ID        = UINT64_C(1) << 6,
@@ -62,4 +70,5 @@ typedef enum SettingsMask {
 DECLARE_STRING_TABLE_LOOKUP(console_mode, ConsoleMode);
 DECLARE_STRING_TABLE_LOOKUP(console_transport, ConsoleTransport);
 DECLARE_STRING_TABLE_LOOKUP(disk_type, DiskType);
+DECLARE_STRING_TABLE_LOOKUP(firmware, Firmware);
 DECLARE_STRING_TABLE_LOOKUP(image_format, ImageFormat);

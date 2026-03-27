@@ -44,3 +44,11 @@ static const char *const console_transport_table[_CONSOLE_TRANSPORT_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(console_transport, ConsoleTransport);
+
+static const char *const firmware_table[_FIRMWARE_MAX] = {
+        [FIRMWARE_UEFI] = "uefi",
+        [FIRMWARE_BIOS] = "bios",
+        [FIRMWARE_NONE] = "none",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(firmware, Firmware);
