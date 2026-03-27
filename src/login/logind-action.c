@@ -222,10 +222,6 @@ static int handle_action_execute(
         assert(m);
         assert(!IN_SET(handle, HANDLE_IGNORE, HANDLE_LOCK, HANDLE_SLEEP));
 
-        if (handle == HANDLE_KEXEC && access(KEXEC, X_OK) < 0)
-                return log_warning_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                         "Requested %s operation not supported, ignoring.", handle_action_to_string(handle));
-
         if (m->delayed_action)
                 return log_debug_errno(SYNTHETIC_ERRNO(EALREADY),
                                        "Action %s already in progress, ignoring requested %s operation.",
