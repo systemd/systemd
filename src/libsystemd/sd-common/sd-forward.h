@@ -85,6 +85,7 @@ typedef struct sd_ndisc sd_ndisc;
 typedef struct sd_radv sd_radv;
 typedef struct sd_dhcp6_client sd_dhcp6_client;
 typedef struct sd_dhcp6_lease sd_dhcp6_lease;
+typedef struct sd_dhcp6_server sd_dhcp6_server;
 typedef struct sd_lldp_tx sd_lldp_tx;
 typedef struct sd_lldp_rx sd_lldp_rx;
 typedef struct sd_lldp_neighbor sd_lldp_neighbor;
