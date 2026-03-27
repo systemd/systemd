@@ -3275,16 +3275,19 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_error_errno(r, "Failed to set credential systemd.unit-dropin.sshd-vsock@.service: %m");
         }
 
-        if (ARCHITECTURE_SUPPORTS_SMBIOS)
-                FOREACH_ARRAY(cred, arg_credentials.credentials, arg_credentials.n_credentials) {
-                        _cleanup_free_ char *p = NULL, *cred_data_b64 = NULL;
-                        ssize_t n;
+        FOREACH_ARRAY(cred, arg_credentials.credentials, arg_credentials.n_credentials) {
+                _cleanup_free_ char *cred_data_b64 = NULL;
+                ssize_t n;
 
-                        n = base64mem(cred->data, cred->size, &cred_data_b64);
-                        if (n < 0)
-                                return log_oom();
+                n = base64mem(cred->data, cred->size, &cred_data_b64);
+                if (n < 0)
+                        return log_oom();
 
-                        p = path_join(smbios_dir, cred->id);
+                /* SMBIOS is always available on x86, but on ARM it requires UEFI firmware
+                 * and does not work with direct kernel boot. */
+                if (ARCHITECTURE_SUPPORTS_SMBIOS &&
+                    (IN_SET(native_architecture(), ARCHITECTURE_X86, ARCHITECTURE_X86_64) || !kernel)) {
+                        _cleanup_free_ char *p = path_join(smbios_dir, cred->id);
                         if (!p)
                                 return log_oom();
 
@@ -3295,14 +3298,54 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to write smbios credential file %s: %m", p);
 
-                        r = strv_extend(&cmdline, "-smbios");
-                        if (r < 0)
+                        if (strv_extend(&cmdline, "-smbios") < 0)
                                 return log_oom();
 
-                        r = strv_extend_joined(&cmdline, "type=11,path=", p);
-                        if (r < 0)
+                        if (strv_extend_joined(&cmdline, "type=11,path=", p) < 0)
                                 return log_oom();
-                }
+
+                } else if (ARCHITECTURE_SUPPORTS_FW_CFG) {
+                        /* fw_cfg keys are limited to 55 characters */
+                        _cleanup_free_ char *key = strjoin("opt/io.systemd.credentials/", cred->id);
+                        if (!key)
+                                return log_oom();
+
+                        if (strlen(key) <= 55) {
+                                _cleanup_free_ char *p = path_join(smbios_dir, cred->id);
+                                if (!p)
+                                        return log_oom();
+
+                                r = write_data_file_atomic_at(
+                                                AT_FDCWD, p,
+                                                &IOVEC_MAKE(cred->data, cred->size),
+                                                WRITE_DATA_FILE_MODE_0400);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to write fw_cfg credential file %s: %m", p);
+
+                                if (strv_extend(&cmdline, "-fw_cfg") < 0)
+                                        return log_oom();
+
+                                if (strv_extendf(&cmdline, "name=%s,file=%s", key, p) < 0)
+                                        return log_oom();
+
+                                continue;
+                        }
+
+                        /* Fall through to kernel command line if key is too long */
+                        log_debug("fw_cfg key '%s' exceeds 55 character limit, falling back to kernel command line.", key);
+
+                        if (strv_extendf(&arg_kernel_cmdline_extra,
+                                         "systemd.set_credential_binary=%s:%s", cred->id, cred_data_b64) < 0)
+                                return log_oom();
+
+                } else if (kernel) {
+                        if (strv_extendf(&arg_kernel_cmdline_extra,
+                                         "systemd.set_credential_binary=%s:%s", cred->id, cred_data_b64) < 0)
+                                return log_oom();
+                } else
+                        log_warning("Cannot pass credential '%s' to VM, native architecture doesn't support SMBIOS or fw_cfg and no kernel for direct boot specified.",
+                                    cred->id);
+        }
 
         if (use_vsock) {
                 notify_sock_fd = open_vsock();
