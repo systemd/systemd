@@ -214,7 +214,7 @@ _systemctl () {
 
     local -A VERBS=(
         [ALL_UNITS]='cat mask'
-        [NONTEMPLATE_UNITS]='is-active is-failed is-enabled status show preset help list-dependencies edit set-property revert'
+        [NONTEMPLATE_UNITS]='is-active is-failed is-enabled status show limits preset help list-dependencies edit set-property revert'
         [ENABLED_UNITS]='disable'
         [DISABLED_UNITS]='enable'
         [REENABLABLE_UNITS]='reenable'
