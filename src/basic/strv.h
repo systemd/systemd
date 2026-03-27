@@ -104,10 +104,6 @@ static inline const char* STRV_IFNOTNULL(const char *x) {
         return x ?: STRV_IGNORE;
 }
 
-static inline bool strv_isempty(char * const *l) {
-        return !l || !*l;
-}
-
 int strv_split_full(char ***t, const char *s, const char *separators, ExtractFlags flags);
 char** strv_split(const char *s, const char *separators);
 
