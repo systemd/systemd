@@ -25,6 +25,7 @@
 #include "parse-argument.h"
 #include "parse-helpers.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "socket-netlink.h"
@@ -829,6 +830,22 @@ static int parse_config(void) {
                 {}
         };
 
+        const char *config_file = secure_getenv("SYSTEMD_JOURNAL_REMOTE_CONFIG_FILE");
+        if (config_file) {
+                if (isempty(config_file) || path_equal(config_file, "/dev/null"))
+                        return 0;
+
+                return config_parse(
+                                /* unit= */ NULL,
+                                config_file,
+                                /* f= */ NULL,
+                                "Remote\0",
+                                config_item_table_lookup, items,
+                                CONFIG_PARSE_WARN,
+                                /* userdata= */ NULL,
+                                /* ret_stat= */ NULL);
+        }
+
         return config_parse_standard_file_with_dropins(
                         "systemd/journal-remote.conf",
                         "Remote\0",
@@ -1003,6 +1020,30 @@ static int parse_argv(int argc, char *argv[]) {
 #else
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option --gnutls-log= is not available.");
 #endif
+                        break;
+
+                OPTION_LONG("max-use", "BYTES", "Maximum disk space to use"):
+                        r = parse_size(arg, 1024, &arg_max_use);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --max-use= value: %s", arg);
+                        break;
+
+                OPTION_LONG("keep-free", "BYTES", "Minimum disk space to keep free"):
+                        r = parse_size(arg, 1024, &arg_keep_free);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --keep-free= value: %s", arg);
+                        break;
+
+                OPTION_LONG("max-file-size", "BYTES", "Maximum size of individual journal files"):
+                        r = parse_size(arg, 1024, &arg_max_size);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --max-file-size= value: %s", arg);
+                        break;
+
+                OPTION_LONG("max-files", "N", "Maximum number of journal files to keep"):
+                        r = safe_atou64(arg, &arg_n_max_files);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --max-files= value: %s", arg);
                         break;
                 }
 

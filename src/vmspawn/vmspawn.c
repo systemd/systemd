@@ -34,6 +34,7 @@
 #include "escape.h"
 #include "ether-addr-util.h"
 #include "event-util.h"
+#include "exit-status.h"
 #include "extract-word.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -159,6 +160,10 @@ static bool arg_firmware_describe = false;
 static Set *arg_firmware_features_include = NULL;
 static Set *arg_firmware_features_exclude = NULL;
 static char *arg_forward_journal = NULL;
+static uint64_t arg_forward_journal_max_use = UINT64_MAX;
+static uint64_t arg_forward_journal_keep_free = UINT64_MAX;
+static uint64_t arg_forward_journal_max_file_size = UINT64_MAX;
+static uint64_t arg_forward_journal_max_files = UINT64_MAX;
 static int arg_register = -1;
 static bool arg_keep_unit = false;
 static sd_id128_t arg_uuid = {};
@@ -844,6 +849,30 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
+                OPTION_LONG("forward-journal-max-use", "BYTES", "Maximum disk space for forwarded journal"):
+                        r = parse_size(arg, 1024, &arg_forward_journal_max_use);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --forward-journal-max-use= value: %s", optarg);
+                        break;
+
+                OPTION_LONG("forward-journal-keep-free", "BYTES", "Minimum disk space to keep free"):
+                        r = parse_size(arg, 1024, &arg_forward_journal_keep_free);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --forward-journal-keep-free= value: %s", optarg);
+                        break;
+
+                OPTION_LONG("forward-journal-max-file-size", "BYTES", "Maximum size of individual journal files"):
+                        r = parse_size(arg, 1024, &arg_forward_journal_max_file_size);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --forward-journal-max-file-size= value: %s", optarg);
+                        break;
+
+                OPTION_LONG("forward-journal-max-files", "N", "Maximum number of journal files to keep"):
+                        r = safe_atou64(arg, &arg_forward_journal_max_files);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --forward-journal-max-files= value: %s", optarg);
+                        break;
+
                 OPTION_LONG("pass-ssh-key", "BOOL", "Create an SSH key to access the VM"):
                         r = parse_boolean_argument("--pass-ssh-key=", arg, &arg_pass_ssh_key);
                         if (r < 0)
@@ -922,6 +951,12 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_ram_slots > 0 && arg_ram_max == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Memory hotplug slots require a maximum RAM size");
+
+        if ((arg_forward_journal_max_use != UINT64_MAX ||
+             arg_forward_journal_keep_free != UINT64_MAX ||
+             arg_forward_journal_max_file_size != UINT64_MAX ||
+             arg_forward_journal_max_files != UINT64_MAX) && !arg_forward_journal)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--forward-journal-max-use=/--forward-journal-keep-free=/--forward-journal-max-file-size=/--forward-journal-max-files= require --forward-journal=.");
 
         if (arg_ephemeral && arg_extra_drives.n_drives > 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot use --ephemeral with --extra-drive=");
@@ -1628,9 +1663,38 @@ static int start_systemd_journal_remote(
         if (!argv)
                 return log_oom();
 
-        r = fork_notify(argv, ret_pidref);
+        if (arg_forward_journal_max_use != UINT64_MAX &&
+            strv_extendf(&argv, "--max-use=%" PRIu64, arg_forward_journal_max_use) < 0)
+                return log_oom();
+
+        if (arg_forward_journal_keep_free != UINT64_MAX &&
+            strv_extendf(&argv, "--keep-free=%" PRIu64, arg_forward_journal_keep_free) < 0)
+                return log_oom();
+
+        if (arg_forward_journal_max_file_size != UINT64_MAX &&
+            strv_extendf(&argv, "--max-file-size=%" PRIu64, arg_forward_journal_max_file_size) < 0)
+                return log_oom();
+
+        if (arg_forward_journal_max_files != UINT64_MAX &&
+            strv_extendf(&argv, "--max-files=%" PRIu64, arg_forward_journal_max_files) < 0)
+                return log_oom();
+
+        r = fork_notify(/* argv= */ NULL, ret_pidref);
         if (r < 0)
                 return r;
+        if (r == 0) {
+                /* In the child */
+                if (setenv("SYSTEMD_JOURNAL_REMOTE_CONFIG_FILE",
+                            "/dev/null",
+                            /* overwrite= */ true) < 0) {
+                        log_debug_errno(errno, "Failed to set $SYSTEMD_JOURNAL_REMOTE_CONFIG_FILE: %m");
+                        _exit(EXIT_MEMORY);
+                }
+
+                r = invoke_callout_binary(argv[0], argv);
+                log_error_errno(r, "Failed to invoke %s: %m", argv[0]);
+                _exit(EXIT_EXEC);
+        }
 
         if (ret_listen_address)
                 *ret_listen_address = TAKE_PTR(listen_address);
