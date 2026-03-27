@@ -236,6 +236,18 @@ typedef struct Network {
         DHCPServerPersistLeases dhcp_server_persist_leases;
         char *dhcp_server_local_lease_domain;
 
+        /* DHCPv6 Server Support */
+        bool dhcp6_server;
+        usec_t dhcp6_server_default_lease_time_usec;
+        usec_t dhcp6_server_max_lease_time_usec;
+        uint64_t dhcp6_server_pool_offset;
+        uint64_t dhcp6_server_pool_size;
+        struct in6_addr *dhcp6_server_dns;
+        size_t n_dhcp6_server_dns;
+        struct in6_addr *dhcp6_server_ntp;
+        size_t n_dhcp6_server_ntp;
+        bool dhcp6_server_rapid_commit;
+
         /* link-local addressing support */
         AddressFamily link_local;
         IPv6LinkLocalAddressGenMode ipv6ll_address_gen_mode;
