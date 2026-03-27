@@ -330,12 +330,19 @@
         <varlistentry>
           <term><option>--firmware=<replaceable>PATH</replaceable></option></term>
 
-          <listitem><para>Takes an absolute path, or a relative path beginning with
-          <filename>./</filename>. Specifies a JSON firmware definition file, which allows selecting the
-          firmware to boot in the VM. If not specified, a suitable firmware is automatically discovered. If the
-          special string <literal>list</literal> is specified lists all discovered firmwares. If the special
-          string <literal>describe</literal> is specified, the firmware that would be selected (taking
-          <option>--firmware-features=</option> into account) is printed and the program exits.</para>
+          <listitem><para>Selects which firmware to use in the VM. Takes one of <literal>auto</literal>,
+          <literal>uefi</literal>, <literal>bios</literal>, <literal>none</literal>, an absolute path, or a
+          relative path beginning with <filename>./</filename>. Defaults to <literal>auto</literal>, which
+          selects UEFI firmware unless <option>--linux=</option> specifies a non-PE kernel image, in which
+          case <literal>none</literal> is selected. <literal>uefi</literal> loads OVMF firmware (use a path
+          to a JSON firmware definition file to select a specific one). <literal>bios</literal> skips OVMF
+          loading and lets QEMU use its built-in BIOS (e.g. SeaBIOS on x86). <literal>none</literal> disables
+          firmware loading entirely and requires <option>--linux=</option> to be specified for direct kernel
+          boot. Booting a UKI requires <literal>uefi</literal>. If the special string <literal>list</literal>
+          is specified, all discovered firmware definition files are listed. If the special string
+          <literal>describe</literal> is specified, the firmware that would be selected (taking
+          <option>--firmware-features=</option> into account) is printed and the program exits. If an empty
+          string is specified, the option is reset to its default.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/></listitem>
         </varlistentry>
@@ -760,6 +767,11 @@
           use C-style escaping (i.e. <literal>\n</literal> to embed a newline, or <literal>\x00</literal> to
           embed a <constant>NUL</constant> byte). Note that the invoking shell might already apply unescaping
           once, hence this might require double escaping!</para>
+
+          <para>Credentials are preferably passed to the VM via SMBIOS Type 11 strings or QEMU fw_cfg files.
+          If neither mechanism is available, credentials are passed on the kernel command line using
+          <varname>systemd.set_credential_binary=</varname> which is not a confidential channel. Do not use
+          this for passing secrets to the VM in that case.</para>
 
           <xi:include href="version-info.xml" xpointer="v255"/></listitem>
         </varlistentry>
