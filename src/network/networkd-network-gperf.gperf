@@ -566,7 +566,14 @@ FairQueueing.MaximumRate,                        config_parse_fq_max_rate,      
 FairQueueing.Buckets,                            config_parse_fq_u32,                            QDISC_KIND_FQ,                          0
 FairQueueing.OrphanMask,                         config_parse_fq_u32,                            QDISC_KIND_FQ,                          0
 FairQueueing.Pacing,                             config_parse_fq_bool,                           QDISC_KIND_FQ,                          0
-FairQueueing.CEThresholdSec,                     config_parse_fq_usec,                           QDISC_KIND_FQ,                          0
+FairQueueing.CEThresholdSec,                     config_parse_fq_sec,                            QDISC_KIND_FQ,                          0
+FairQueueing.LowRateThreshold,                   config_parse_fq_rate,                           QDISC_KIND_FQ,                          0
+FairQueueing.TimerSlackSec,                      config_parse_fq_sec,                            QDISC_KIND_FQ,                          0
+FairQueueing.HorizonSec,                         config_parse_fq_sec,                            QDISC_KIND_FQ,                          0
+FairQueueing.HorizonDrop,                        config_parse_fq_bool,                           QDISC_KIND_FQ,                          0
+FairQueueing.PriorityMap,                        config_parse_fq_priomap,                        QDISC_KIND_FQ,                          0
+FairQueueing.Weights,                            config_parse_fq_weights,                        QDISC_KIND_FQ,                          0
+FairQueueing.OffloadHorizonSec,                  config_parse_fq_sec,                            QDISC_KIND_FQ,                          0
 FairQueueingControlledDelay.Parent,              config_parse_qdisc_parent,                      QDISC_KIND_FQ_CODEL,                    0
 FairQueueingControlledDelay.Handle,              config_parse_qdisc_handle,                      QDISC_KIND_FQ_CODEL,                    0
 FairQueueingControlledDelay.PacketLimit,         config_parse_fq_codel_u32,                      QDISC_KIND_FQ_CODEL,                    0
