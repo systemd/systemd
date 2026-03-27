@@ -77,6 +77,29 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>NetworkTimeSecurity=</varname></term>
+        <listitem><para>Takes a boolean value. When enabled, Network Time Security (NTS) is used for
+        authenticating NTP communication as specified in
+        <ulink url="https://tools.ietf.org/html/rfc8915">RFC 8915</ulink>. NTS uses Transport Layer
+        Security (TLS) and Authenticated Encryption with Associated Data (AEAD) to provide
+        cryptographic security for the client-server mode of the Network Time Protocol (NTP).
+        Defaults to false.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>NetworkTimeSecurityServer=</varname></term>
+        <listitem><para>A space-separated list of NTS-KE (Network Time Security Key Establishment)
+        server host names or IP addresses. These servers are contacted to establish the cryptographic
+        keys and cookies needed for NTS-secured NTP communication. When the empty string is assigned,
+        the list of NTS-KE servers is reset, and all assignments prior to this one will have no effect.
+        This setting is only effective when <varname>NetworkTimeSecurity=</varname> is enabled.</para>
+
+        <xi:include href="version-info.xml" xpointer="v258"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>RootDistanceMaxSec=</varname></term>
         <listitem><para>Maximum acceptable root distance, i.e. the maximum estimated time required for a
         packet to travel to the server we are connected to from the server with the reference clock. If
