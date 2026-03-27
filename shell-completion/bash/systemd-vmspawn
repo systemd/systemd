@@ -54,7 +54,7 @@ _systemd_vmspawn() {
         comps=$(compgen -f -- "$cur" )
     elif __contains_word "$prev" ${OPTS[FIRMWARE]}; then
         compopt -o nospace -o filenames
-        comps="list $(compgen -f -- "$cur" )"
+        comps="list describe $(compgen -f -- "$cur" )"
     elif __contains_word "$prev" ${OPTS[FIRMWARE_FEATURES]}; then
         comps='list'
     elif __contains_word "$prev" ${OPTS[BIND]}; then
