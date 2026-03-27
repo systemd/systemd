@@ -4,6 +4,7 @@ libc_wrapper_sources = files(
         'bpf.c',
         'ioprio.c',
         'kcmp.c',
+        'kexec.c',
         'keyctl.c',
         'mempolicy.c',
         'mount.c',
