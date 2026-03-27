@@ -33,6 +33,8 @@ enum {
         MEDIA_PIWG_FW_FILE_DP            = 0x06,
         MEDIA_PIWG_FW_VOL_DP             = 0x07,
 
+        MSG_UART_DP                      = 0x0e,
+        MSG_VENDOR_DP                    = 0x0a,
         MSG_URI_DP                       = 24,
 };
 
