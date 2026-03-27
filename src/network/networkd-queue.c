@@ -382,6 +382,7 @@ static const char *const request_type_table[_REQUEST_TYPE_MAX] = {
         [REQUEST_TYPE_SET_LINK_BRIDGE]                  = "bridge configurations",
         [REQUEST_TYPE_SET_LINK_BRIDGE_VLAN]             = "bridge VLAN configurations (step 1)",
         [REQUEST_TYPE_DEL_LINK_BRIDGE_VLAN]             = "bridge VLAN configurations (step 2)",
+        [REQUEST_TYPE_SET_LINK_BRIDGE_VLAN_TUNNEL]      = "bridge VLAN tunnel mappings",
         [REQUEST_TYPE_SET_LINK_CAN]                     = "CAN interface configurations",
         [REQUEST_TYPE_SET_LINK_FLAGS]                   = "link flags",
         [REQUEST_TYPE_SET_LINK_GROUP]                   = "interface group",
