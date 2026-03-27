@@ -447,10 +447,10 @@ char* escape_non_printable_full(const char *str, size_t console_width, XEscapeFl
                                                       FLAGS_SET(flags, XESCAPE_FORCE_ELLIPSIS));
 }
 
-char* octescape(const char *s, size_t len) {
+char* octescape_full(const char *s, size_t len, const char *bad) {
         char *buf, *t;
 
-        /* Escapes \ and " chars, in \nnn style escaping. */
+        /* Escapes all chars in bad, in addition to \ and " chars, in \nnn octal style escaping. */
 
         assert(s || len == 0);
 
@@ -467,7 +467,7 @@ char* octescape(const char *s, size_t len) {
         for (size_t i = 0; i < len; i++) {
                 uint8_t u = (uint8_t) s[i];
 
-                if (u < ' ' || u >= 127 || IN_SET(u, '\\', '"')) {
+                if (u < ' ' || u >= 127 || IN_SET(u, '\\', '"') || (bad && strchr(bad, u))) {
                         *(t++) = '\\';
                         *(t++) = '0' + (u >> 6);
                         *(t++) = '0' + ((u >> 3) & 7);
