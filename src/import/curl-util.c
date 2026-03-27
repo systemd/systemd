@@ -359,6 +359,8 @@ int curl_header_strdup(const void *contents, size_t sz, const char *field, char 
         const char *p;
         char *s;
 
+        assert(value);
+
         p = memory_startswith_no_case(contents, sz, field);
         if (!p)
                 return 0;

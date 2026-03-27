@@ -150,6 +150,10 @@ static int normalize_offset(
                 bool *compressed,
                 uint64_t *compressed_size) {
 
+        assert(ret);
+        POINTER_MAY_BE_NULL(compressed);
+        POINTER_MAY_BE_NULL(compressed_size);
+
         uint64_t q;
 
         q = be64toh(p);
