@@ -1700,7 +1700,9 @@ static int start_virtiofsd(
                         "--shared-dir", source_uid == FOREIGN_UID_MIN ? "/run/systemd/mount-rootfs" : directory,
                         "--xattr",
                         "--fd", sockstr,
-                        "--no-announce-submounts");
+                        "--no-announce-submounts",
+                        "--log-level=error",
+                        "--modcaps=-mknod");
         if (!argv)
                 return log_oom();
 
