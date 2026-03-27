@@ -26,5 +26,6 @@ int reboot_with_parameter(RebootFlags flags);
 bool shall_restore_state(void);
 
 bool kexec_loaded(void);
+int kexec(void);
 
 int create_shutdown_run_nologin_or_warn(void);
