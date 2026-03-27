@@ -4923,7 +4923,7 @@ static int tpm2_kdfa(
         if (!hash_alg_name)
                 return -EOPNOTSUPP;
 
-        _cleanup_free_ void *buf = NULL;
+        _cleanup_(erase_and_freep) void *buf = NULL;
         r = kdf_kb_hmac_derive(
                         "COUNTER",
                         hash_alg_name,
@@ -5001,7 +5001,7 @@ static int tpm2_kdfe(
         /* assert we copied exactly the right amount that we allocated */
         assert(end > info && (uintptr_t) end - (uintptr_t) info == info_len);
 
-        _cleanup_free_ void *buf = NULL;
+        _cleanup_(erase_and_freep) void *buf = NULL;
         r = kdf_ss_derive(
                         hash_alg_name,
                         shared_secret,
@@ -5088,7 +5088,7 @@ static int tpm2_calculate_seal_private(
 
         log_debug("Calculating private part of sealed object.");
 
-        _cleanup_free_ void *storage_key = NULL;
+        _cleanup_(erase_and_freep) void *storage_key = NULL;
         size_t storage_key_size;
         r = tpm2_kdfa(parent->publicArea.nameAlg,
                       seed->buffer,
@@ -5108,7 +5108,7 @@ static int tpm2_calculate_seal_private(
 
         size_t bits = (size_t) r * 8;
 
-        _cleanup_free_ void *integrity_key = NULL;
+        _cleanup_(erase_and_freep) void *integrity_key = NULL;
         size_t integrity_key_size;
         r = tpm2_kdfa(parent->publicArea.nameAlg,
                       seed->buffer,
@@ -5123,6 +5123,7 @@ static int tpm2_calculate_seal_private(
                 return log_debug_errno(r, "Could not calculate integrity key KDFa: %m");
 
         TPM2B_AUTH auth = {};
+        CLEANUP_ERASE(auth);
         if (pin) {
                 r = tpm2_auth_value_from_pin(parent->publicArea.nameAlg, pin, &auth);
                 if (r < 0)
@@ -5138,8 +5139,9 @@ static int tpm2_calculate_seal_private(
                         .sensitive.bits = TPM2B_SENSITIVE_DATA_MAKE(secret, secret_size),
                 },
         };
+        CLEANUP_ERASE(sensitive);
 
-        _cleanup_free_ void *marshalled_sensitive = malloc(sizeof(sensitive));
+        _cleanup_(erase_and_freep) void *marshalled_sensitive = malloc(sizeof(sensitive));
         if (!marshalled_sensitive)
                 return log_oom_debug();
 
@@ -5246,7 +5248,7 @@ static int tpm2_calculate_seal_rsa_seed(
 
         size_t seed_size = (size_t) r;
 
-        _cleanup_free_ void *seed = malloc(seed_size);
+        _cleanup_(erase_and_freep) void *seed = malloc(seed_size);
         if (!seed)
                 return log_oom_debug();
 
@@ -5316,7 +5318,7 @@ static int tpm2_calculate_seal_ecc_seed(
         if (r < 0)
                 return r;
 
-        _cleanup_free_ void *shared_secret = NULL;
+        _cleanup_(erase_and_freep) void *shared_secret = NULL;
         size_t shared_secret_size;
         r = ecc_ecdh(pkey, parent_pkey, &shared_secret, &shared_secret_size);
         if (r < 0)
@@ -5357,7 +5359,7 @@ static int tpm2_calculate_seal_ecc_seed(
 
         size_t bits = (size_t) r * 8;
 
-        _cleanup_free_ void *seed = NULL;
+        _cleanup_(erase_and_freep) void *seed = NULL;
         size_t seed_size = 0; /* Explicit initialization to appease gcc */
         r = tpm2_kdfe(parent->publicArea.nameAlg,
                       shared_secret,
@@ -5394,7 +5396,8 @@ static int tpm2_calculate_seal_seed(
 
         log_debug("Calculating encrypted seed for sealed object.");
 
-        _cleanup_free_ void *seed = NULL, *encrypted_seed = NULL;
+        _cleanup_(erase_and_freep) void *seed = NULL;
+        _cleanup_free_ void *encrypted_seed = NULL;
         size_t seed_size = 0, encrypted_seed_size = 0; /* Explicit initialization to appease gcc */
         if (parent->publicArea.type == TPM2_ALG_RSA)
                 r = tpm2_calculate_seal_rsa_seed(parent, &seed, &seed_size, &encrypted_seed, &encrypted_seed_size);
