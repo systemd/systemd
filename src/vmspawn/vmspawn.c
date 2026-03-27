@@ -2532,12 +2532,22 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         PTYForwardFlags ptyfwd_flags = 0;
         switch (arg_console_mode) {
 
-        case CONSOLE_READ_ONLY:
-                ptyfwd_flags |= PTY_FORWARD_READ_ONLY;
+        case CONSOLE_NATIVE:
+                /* Use a PTY instead of chardev stdio to prevent QEMU from setting O_NONBLOCK on
+                 * our stdio file descriptions (see qemu's chardev/char-stdio.c and char-fd.c).
+                 * Use PTY_FORWARD_DUMB_TERMINAL|PTY_FORWARD_TRANSPARENT so the forwarder just
+                 * shovels bytes without any terminal manipulation or escape sequence handling. */
+                ptyfwd_flags |= PTY_FORWARD_DUMB_TERMINAL|PTY_FORWARD_TRANSPARENT;
 
                 _fallthrough_;
 
-        case CONSOLE_INTERACTIVE:  {
+        case CONSOLE_READ_ONLY:
+                if (arg_console_mode == CONSOLE_READ_ONLY)
+                        ptyfwd_flags |= PTY_FORWARD_READ_ONLY;
+
+                _fallthrough_;
+
+        case CONSOLE_INTERACTIVE: {
                 _cleanup_free_ char *pty_path = NULL;
 
                 master = openpt_allocate(O_RDWR|O_NONBLOCK, &pty_path);
@@ -2553,9 +2563,11 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (r < 0)
                         return r;
 
+                /* Enable mux for native console so the QEMU monitor is accessible via Ctrl-a c */
                 r = qemu_config_section(config_file, "chardev", "console",
                                         "backend", "serial",
-                                        "path", pty_path);
+                                        "path", pty_path,
+                                        "mux", on_off(arg_console_mode == CONSOLE_NATIVE));
                 if (r < 0)
                         return r;
 
@@ -2564,6 +2576,13 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                         "chardev", "console");
                 if (r < 0)
                         return r;
+
+                if (arg_console_mode == CONSOLE_NATIVE) {
+                        r = qemu_config_section(config_file, "mon", "mon0",
+                                                "chardev", "console");
+                        if (r < 0)
+                                return r;
+                }
 
                 break;
         }
@@ -2590,36 +2609,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                         "driver", "virtserialport",
                                         "chardev", "vdagent",
                                         "name", "org.qemu.guest_agent.0");
-                if (r < 0)
-                        return r;
-
-                break;
-
-        case CONSOLE_NATIVE:
-                r = strv_extend_many(&cmdline, "-nographic", "-nodefaults");
-                if (r < 0)
-                        return log_oom();
-
-                r = qemu_config_section(config_file, "chardev", "console",
-                                        "backend", "stdio",
-                                        "mux", "on",
-                                        "signal", "off");
-                if (r < 0)
-                        return r;
-
-                r = qemu_config_section(config_file, "device", "vmspawn-virtio-serial-pci",
-                                        "driver", "virtio-serial-pci");
-                if (r < 0)
-                        return r;
-
-                r = qemu_config_section(config_file, "device", "virtconsole0",
-                                        "driver", "virtconsole",
-                                        "chardev", "console");
-                if (r < 0)
-                        return r;
-
-                r = qemu_config_section(config_file, "mon", "mon0",
-                                        "chardev", "console");
                 if (r < 0)
                         return r;
 
@@ -3508,29 +3497,31 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         _cleanup_(osc_context_closep) sd_id128_t osc_context_id = SD_ID128_NULL;
         _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
         if (master >= 0) {
-                if (!terminal_is_dumb()) {
-                        r = osc_context_open_vm(arg_machine, /* ret_seq= */ NULL, &osc_context_id);
-                        if (r < 0)
-                                return r;
-                }
-
                 r = pty_forward_new(event, master, ptyfwd_flags, &forward);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create PTY forwarder: %m");
 
-                if (!arg_background) {
-                        _cleanup_free_ char *bg = NULL;
+                if (!FLAGS_SET(ptyfwd_flags, PTY_FORWARD_DUMB_TERMINAL)) {
+                        if (!terminal_is_dumb()) {
+                                r = osc_context_open_vm(arg_machine, /* ret_seq= */ NULL, &osc_context_id);
+                                if (r < 0)
+                                        return r;
+                        }
 
-                        r = terminal_tint_color(130 /* green */, &bg);
-                        if (r < 0)
-                                log_debug_errno(r, "Failed to determine terminal background color, not tinting.");
-                        else
-                                (void) pty_forward_set_background_color(forward, bg);
-                } else if (!isempty(arg_background))
-                        (void) pty_forward_set_background_color(forward, arg_background);
+                        if (!arg_background) {
+                                _cleanup_free_ char *bg = NULL;
 
-                (void) pty_forward_set_window_title(forward, GLYPH_GREEN_CIRCLE, /* hostname= */ NULL,
-                                                    STRV_MAKE("Virtual Machine", arg_machine));
+                                r = terminal_tint_color(130 /* green */, &bg);
+                                if (r < 0)
+                                        log_debug_errno(r, "Failed to determine terminal background color, not tinting.");
+                                else
+                                        (void) pty_forward_set_background_color(forward, bg);
+                        } else if (!isempty(arg_background))
+                                (void) pty_forward_set_background_color(forward, arg_background);
+
+                        (void) pty_forward_set_window_title(forward, GLYPH_GREEN_CIRCLE, /* hostname= */ NULL,
+                                                            STRV_MAKE("Virtual Machine", arg_machine));
+                }
         }
 
         r = sd_event_loop(event);
