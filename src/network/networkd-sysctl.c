@@ -665,6 +665,7 @@ static int link_set_ipv4_route_localnet(Link *link) {
 static int link_set_ipv4_src_valid_mark(Link *link) {
         assert(link);
         assert(link->manager);
+        assert(link->network);
 
         if (!link_is_configured_for_family(link, AF_INET))
                 return 0;
