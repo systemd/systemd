@@ -139,12 +139,14 @@ bool shall_restore_state(void) {
         return (cached = b);
 }
 
-static int xen_kexec_loaded(void) {
 #if HAVE_XENCTRL
+static int xen_kexec_command(uint64_t cmd) {
         _cleanup_close_ int privcmd_fd = -EBADF, buf_fd = -EBADF;
-        xen_kexec_status_t *buffer;
+        void *buffer;
         size_t size;
         int r;
+
+        assert(IN_SET(cmd, KEXEC_CMD_kexec, KEXEC_CMD_kexec_status));
 
         if (access("/proc/xen", F_OK) < 0) {
                 if (errno == ENOENT)
@@ -153,7 +155,8 @@ static int xen_kexec_loaded(void) {
         }
 
         size = page_size();
-        if (sizeof(xen_kexec_status_t) > size)
+        if ((cmd == KEXEC_CMD_kexec_status && sizeof(xen_kexec_status_t) > size) ||
+            (cmd == KEXEC_CMD_kexec && sizeof(xen_kexec_exec_t) > size))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "page_size is too small for hypercall");
 
         privcmd_fd = open("/dev/xen/privcmd", O_RDWR|O_CLOEXEC);
@@ -168,25 +171,44 @@ static int xen_kexec_loaded(void) {
         if (buffer == MAP_FAILED)
                 return log_debug_errno(errno, "Cannot allocate buffer for hypercall: %m");
 
-        *buffer = (xen_kexec_status_t) {
-                .type = KEXEC_TYPE_DEFAULT,
-        };
+        if (cmd == KEXEC_CMD_kexec_status)
+                *(xen_kexec_status_t *)buffer = (xen_kexec_status_t) {
+                        .type = KEXEC_TYPE_DEFAULT,
+                };
+        else
+                *(xen_kexec_exec_t *)buffer = (xen_kexec_exec_t) {
+                        .type = KEXEC_TYPE_DEFAULT,
+                };
 
         privcmd_hypercall_t call = {
                 .op = __HYPERVISOR_kexec_op,
                 .arg = {
-                        KEXEC_CMD_kexec_status,
+                        cmd,
                         PTR_TO_UINT64(buffer),
                 },
         };
 
         r = RET_NERRNO(ioctl(privcmd_fd, IOCTL_PRIVCMD_HYPERCALL, &call));
         if (r < 0)
-                log_debug_errno(r, "kexec_status failed: %m");
+                log_debug_errno(r, "kexec%s failed: %m", cmd == KEXEC_CMD_kexec_status ? "_status" : "");
 
         munmap(buffer, size);
 
         return r;
+}
+#endif
+
+static int xen_kexec(void) {
+#if HAVE_XENCTRL
+        return xen_kexec_command(KEXEC_CMD_kexec);
+#else
+        return -EOPNOTSUPP;
+#endif
+}
+
+static int xen_kexec_loaded(void) {
+#if HAVE_XENCTRL
+        return xen_kexec_command(KEXEC_CMD_kexec_status);
 #else
         return -EOPNOTSUPP;
 #endif
@@ -208,6 +230,20 @@ bool kexec_loaded(void) {
        }
 
        return s[0] == '1';
+}
+
+int kexec(void) {
+        int r;
+
+        r = xen_kexec();
+        if (r < 0 && r != -EOPNOTSUPP)
+                return log_error_errno(r, "Failed to call xen kexec: %m");
+
+        r = reboot(LINUX_REBOOT_CMD_KEXEC);
+        if (r < 0)
+                return log_error_errno(errno, "Failed to kexec: %m");
+
+        return 0;
 }
 
 int create_shutdown_run_nologin_or_warn(void) {
