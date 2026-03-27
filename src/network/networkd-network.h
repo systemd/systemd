@@ -226,6 +226,8 @@ typedef struct Network {
         usec_t dhcp_server_default_lease_time_usec, dhcp_server_max_lease_time_usec;
         uint32_t dhcp_server_pool_offset;
         uint32_t dhcp_server_pool_size;
+        struct sd_dhcp_route *dhcp_server_classless_static_routes;
+        size_t dhcp_server_n_classless_static_routes;
         OrderedHashmap *dhcp_server_send_options;
         OrderedHashmap *dhcp_server_send_vendor_options;
         struct in_addr dhcp_server_boot_server_address;
