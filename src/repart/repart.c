@@ -2998,10 +2998,20 @@ static int partition_read_definition(
                                   "VerityMatchKey= can only be set if Verity= is not \"%s\".",
                                   verity_mode_to_string(p->verity));
 
-        if (IN_SET(p->verity, VERITY_HASH, VERITY_SIG) && (p->copy_blocks_path || p->copy_blocks_auto || p->format || partition_needs_populate(p)))
-                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "CopyBlocks=/CopyFiles=/Format=/MakeDirectories=/MakeSymlinks= cannot be used with Verity=%s.",
-                                  verity_mode_to_string(p->verity));
+        if (IN_SET(p->verity, VERITY_HASH, VERITY_SIG)) {
+                if (p->format || partition_needs_populate(p))
+                        return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                          "CopyFiles=/Format=/MakeDirectories=/MakeSymlinks= cannot be used with Verity=%s.",
+                                          verity_mode_to_string(p->verity));
+
+                /* Later we check that the same CopyBlocks= type (auto vs path) is used for the entire verity set.
+                 * So we assume that CopyBlocks=auto is going to be correct and just path based blocks might result in
+                 * a broken setup */
+                if (p->copy_blocks_path)
+                        log_syntax(NULL, LOG_DEBUG, path, 1, 0,
+                                   "CopyBlocks= with Verity=%s bypasses dm-verity hash/signature computation; repart cannot verify the resulting setup is correct.",
+                                   verity_mode_to_string(p->verity));
+        }
 
         if (p->verity != VERITY_OFF && p->encrypt != ENCRYPT_OFF)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
@@ -3491,6 +3501,28 @@ static int context_read_definitions(Context *context) {
 
                                 p->siblings[mode] = q;
                         }
+                }
+        }
+
+        LIST_FOREACH(partitions, p, context->partitions) {
+                if (!IN_SET(p->verity, VERITY_HASH, VERITY_SIG))
+                        continue;
+
+                /* We check all verity siblings up until our current type and ensure that if we are using CopyBlocks=
+                 * the previous ones are using the same type of CopyBlocks=. */
+                for (VerityMode mode = VERITY_DATA; mode < p->verity; mode++) {
+                        Partition *q;
+                        assert_se(q = p->siblings[mode]);
+
+                        if (p->copy_blocks_auto && !q->copy_blocks_auto)
+                                return log_syntax(NULL, LOG_ERR, p->definition_path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                                "CopyBlocks=auto set with Verity=%s but Verity=%s partition does not set CopyBlocks=auto.",
+                                                verity_mode_to_string(p->verity), verity_mode_to_string(mode));
+
+                        if (p->copy_blocks_path && !q->copy_blocks_path)
+                                return log_syntax(NULL, LOG_ERR, p->definition_path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                                "CopyBlocks= set with Verity=%s but Verity=%s partition does not set CopyBlocks=.",
+                                                verity_mode_to_string(p->verity), verity_mode_to_string(mode));
                 }
         }
 
@@ -5620,7 +5652,7 @@ static int partition_format_verity_hash(
         if (PARTITION_EXISTS(p)) /* Never format existing partitions */
                 return 0;
 
-        /* Minimized partitions will use the copy blocks logic so skip those here. */
+        /* Either we are minimizing the partition or we were instructed to copy an existing hash block directly. */
         if (p->copy_blocks_fd >= 0)
                 return 0;
 
@@ -5792,6 +5824,10 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
                 return 0;
 
         if (PARTITION_EXISTS(p))
+                return 0;
+
+        /* We were instructed to copy an existing signature block directly */
+        if (p->copy_blocks_fd >= 0)
                 return 0;
 
         assert_se(hp = p->siblings[VERITY_HASH]);
@@ -8882,6 +8918,9 @@ static int context_minimize(Context *context) {
                         continue;
 
                 if (PARTITION_EXISTS(p)) /* Never format existing partitions */
+                        continue;
+
+                if (p->copy_blocks_fd >= 0)
                         continue;
 
                 if (p->minimize == MINIMIZE_OFF)
