@@ -1087,6 +1087,19 @@ DuplicateAddressDetection=none</programlisting></para>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>IPv4SrcValidMark=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When enabled, packets arriving on this interface are not subjected to
+          source validation if the socket they match has the <constant>SO_MARK</constant> set via the
+          <varname>src_valid_mark</varname> sysctl. This is particularly useful for interfaces involved in
+          policy routing where packets may arrive with source addresses not matching the interface's routing
+          table. When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v264"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>IPv4ProxyARP=</varname></term>
         <listitem>
           <para>Takes a boolean. Configures proxy ARP for IPv4. Proxy ARP is the technique in which one
