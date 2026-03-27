@@ -22,6 +22,7 @@ libsystemd_network_sources = files(
         'sd-dhcp-server-lease.c',
         'sd-dhcp-server.c',
         'sd-dhcp6-client.c',
+        'sd-dhcp6-server.c',
         'sd-dhcp6-lease.c',
         'sd-dns-resolver.c',
         'sd-ipv4acd.c',
@@ -81,6 +82,13 @@ executables += [
         },
         network_test_template + {
                 'sources' : files('test-dhcp6-client.c'),
+        },
+        network_test_template + {
+                'sources' : files('test-dhcp6-server.c'),
+        },
+        network_test_template + {
+                'sources' : files('test-dhcp6-server-manual.c'),
+                'type' : 'manual',
         },
         network_test_template + {
                 'sources' : files('test-ipv4ll-manual.c'),
