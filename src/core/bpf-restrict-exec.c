@@ -56,9 +56,13 @@ assert_cc(offsetof(struct restrict_exec_bss, protected_map_id_verity) ==
 assert_cc(offsetof(struct restrict_exec_bss, protected_map_id_bss) ==
           offsetof(typeof_field(struct restrict_exec_bpf, bss[0]), protected_map_id_bss));
 
-/* Build the skeleton links array indexed by the link enum. */
+/* Build the skeleton links array indexed by the link enum.
+ * For BDEV_SETINTEGRITY, use whichever variant was loaded (full or compat).
+ * This compat logic can be removed once the kernel baseline includes
+ * 1271a40eeafa ("bpf: Allow access to const void pointer arguments"). */
 #define RESTRICT_EXEC_LINKS(obj) {                                                              \
-        [RESTRICT_EXEC_LINK_BDEV_SETINTEGRITY] = (obj)->links.restrict_exec_bdev_setintegrity,   \
+        [RESTRICT_EXEC_LINK_BDEV_SETINTEGRITY] = (obj)->links.restrict_exec_bdev_setintegrity ?: \
+                                                 (obj)->links.restrict_exec_bdev_setintegrity_compat, \
         [RESTRICT_EXEC_LINK_BDEV_FREE]         = (obj)->links.restrict_exec_bdev_free,           \
         [RESTRICT_EXEC_LINK_BPRM_CHECK]        = (obj)->links.restrict_exec_bprm_check,         \
         [RESTRICT_EXEC_LINK_MMAP_FILE]         = (obj)->links.restrict_exec_mmap_file,           \
@@ -107,18 +111,50 @@ static int prepare_restrict_exec_bpf(struct restrict_exec_bpf **ret) {
 
         assert(ret);
 
+        /* Try the preferred version first — it reads the const void *value
+         * argument for defense-in-depth. On kernels before v6.16 (missing
+         * 1271a40eeafa) the verifier rejects loads from const void * context
+         * arguments, so we fall back to the _compat variant that only reads
+         * the size argument via raw ctx access. */
         obj = restrict_exec_bpf__open();
         if (!obj)
                 return log_error_errno(errno, "bpf-restrict-exec: Failed to open BPF object: %m");
 
         r = sym_bpf_map__set_max_entries(obj->maps.verity_devices, DMVERITY_DEVICES_MAX);
         if (r < 0)
-                return log_error_errno(errno, "bpf-restrict-exec: Failed to size hash table: %m");
+                return log_error_errno(r, "bpf-restrict-exec: Failed to size hash table: %m");
+
+        r = sym_bpf_program__set_autoload(obj->progs.restrict_exec_bdev_setintegrity_compat, false);
+        if (r < 0)
+                return log_error_errno(r, "bpf-restrict-exec: Failed to disable compat program: %m");
+
+        r = restrict_exec_bpf__load(obj);
+        if (r >= 0) {
+                log_debug("bpf-restrict-exec: Loaded with full const void * access.");
+                *ret = TAKE_PTR(obj);
+                return 0;
+        }
+
+        log_debug_errno(r, "bpf-restrict-exec: Full version failed to load (%m), trying compat variant.");
+        obj = restrict_exec_bpf_free(obj);
+
+        obj = restrict_exec_bpf__open();
+        if (!obj)
+                return log_error_errno(errno, "bpf-restrict-exec: Failed to reopen BPF object: %m");
+
+        r = sym_bpf_map__set_max_entries(obj->maps.verity_devices, DMVERITY_DEVICES_MAX);
+        if (r < 0)
+                return log_error_errno(r, "bpf-restrict-exec: Failed to size hash table: %m");
+
+        r = sym_bpf_program__set_autoload(obj->progs.restrict_exec_bdev_setintegrity, false);
+        if (r < 0)
+                return log_error_errno(r, "bpf-restrict-exec: Failed to disable full program: %m");
 
         r = restrict_exec_bpf__load(obj);
         if (r < 0)
-                return log_error_errno(r, "bpf-restrict-exec: Failed to load BPF object: %m");
+                return log_error_errno(r, "bpf-restrict-exec: Failed to load BPF object (compat): %m");
 
+        log_debug("bpf-restrict-exec: Loaded with compat bdev_setintegrity.");
         *ret = TAKE_PTR(obj);
         return 0;
 }
