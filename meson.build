@@ -2982,7 +2982,6 @@ if spatch.found()
                 'src/import/',
                 'src/journal/',
                 'src/libsystemd/',
-                'src/libsystemd-network/',
                 'src/network/',
                 'src/nspawn/',
                 'src/nss-systemd/',

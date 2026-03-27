@@ -1266,6 +1266,8 @@ int dhcp_lease_insert_private_option(sd_dhcp_lease *lease, uint8_t tag, const vo
 int dhcp_lease_new(sd_dhcp_lease **ret) {
         sd_dhcp_lease *lease;
 
+        assert(ret);
+
         lease = new0(sd_dhcp_lease, 1);
         if (!lease)
                 return -ENOMEM;

@@ -776,6 +776,9 @@ static usec_t client_compute_reacquisition_timeout(usec_t now_usec, usec_t expir
 }
 
 static int cmp_uint8(const uint8_t *a, const uint8_t *b) {
+        assert(a);
+        assert(b);
+
         return CMP(*a, *b);
 }
 

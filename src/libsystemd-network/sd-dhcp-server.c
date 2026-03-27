@@ -1641,6 +1641,7 @@ int sd_dhcp_server_set_callback(sd_dhcp_server *server, sd_dhcp_server_callback_
 
 int sd_dhcp_server_set_relay_target(sd_dhcp_server *server, const struct in_addr *address) {
         assert_return(server, -EINVAL);
+        assert_return(address, -EINVAL);
         assert_return(!sd_dhcp_server_is_running(server), -EBUSY);
 
         if (memcmp(address, &server->relay_target, sizeof(struct in_addr)) == 0)
