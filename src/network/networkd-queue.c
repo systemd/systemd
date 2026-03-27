@@ -366,6 +366,7 @@ static const char *const request_type_table[_REQUEST_TYPE_MAX] = {
         [REQUEST_TYPE_BRIDGE_FDB]                       = "bridge FDB",
         [REQUEST_TYPE_BRIDGE_MDB]                       = "bridge MDB",
         [REQUEST_TYPE_DHCP_SERVER]                      = "DHCP server",
+        [REQUEST_TYPE_DHCP6_SERVER]                     = "DHCPv6 server",
         [REQUEST_TYPE_DHCP4_CLIENT]                     = "DHCPv4 client",
         [REQUEST_TYPE_DHCP6_CLIENT]                     = "DHCPv6 client",
         [REQUEST_TYPE_IPV6_PROXY_NDP]                   = "IPv6 proxy NDP",
