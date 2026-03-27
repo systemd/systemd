@@ -16,6 +16,8 @@
 #include "string-util.h"
 #include "vlan-util.h"
 
+#define BRIDGE_VLAN_TUNNEL_ID_MAX ((1u << 24) - 1)
+
 static bool is_bit_set(unsigned nr, const uint32_t *addr) {
         assert(nr < BRIDGE_VLAN_BITMAP_MAX);
         return addr[nr / 32] & (UINT32_C(1) << (nr % 32));
@@ -231,6 +233,204 @@ static int bridge_vlan_append_del_info(Link *link, sd_netlink_message *m) {
         return 0;
 }
 
+static bool network_has_bridge_vlan_tunnel_ids(Network *network) {
+        assert(network);
+
+        return !memeqzero(network->bridge_vlan_tunnel_bitmap, sizeof(network->bridge_vlan_tunnel_bitmap));
+}
+
+static int bridge_vlan_append_tunnel_info(Link *link, sd_netlink_message *m) {
+        _cleanup_free_ char *str = NULL;
+        uint16_t begin = UINT16_MAX;
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(m);
+
+        if (!network_has_bridge_vlan_tunnel_ids(link->network))
+                return 0;
+
+        for (uint16_t k = 0; k < BRIDGE_VLAN_BITMAP_MAX; k++) {
+                if (!is_bit_set(k, link->network->bridge_vlan_tunnel_bitmap)) {
+                        /* No tunnel mapping for this VID. Finish pending range. */
+                        if (begin != UINT16_MAX) {
+                                if (begin == k - 1) {
+                                        /* Single entry */
+                                        if (DEBUG_LOGGING)
+                                                (void) strextendf_with_separator(&str, ",", "%u=%"PRIu32, begin, link->network->bridge_vlan_tunnel_id[begin]);
+
+                                        r = sd_netlink_message_open_container(m, IFLA_BRIDGE_VLAN_TUNNEL_INFO);
+                                        if (r < 0)
+                                                return r;
+
+                                        r = sd_netlink_message_append_u32(m, IFLA_BRIDGE_VLAN_TUNNEL_ID, link->network->bridge_vlan_tunnel_id[begin]);
+                                        if (r < 0)
+                                                return r;
+
+                                        r = sd_netlink_message_append_u16(m, IFLA_BRIDGE_VLAN_TUNNEL_VID, begin);
+                                        if (r < 0)
+                                                return r;
+
+                                        r = sd_netlink_message_append_u16(m, IFLA_BRIDGE_VLAN_TUNNEL_FLAGS, 0);
+                                        if (r < 0)
+                                                return r;
+
+                                        r = sd_netlink_message_close_container(m);
+                                        if (r < 0)
+                                                return r;
+                                } else {
+                                        /* Range: send begin and end entries */
+                                        uint16_t end = k - 1;
+
+                                        if (DEBUG_LOGGING)
+                                                (void) strextendf_with_separator(&str, ",", "%u-%u=%"PRIu32"-%"PRIu32,
+                                                                                 begin, end,
+                                                                                 link->network->bridge_vlan_tunnel_id[begin],
+                                                                                 link->network->bridge_vlan_tunnel_id[end]);
+
+                                        r = sd_netlink_message_open_container(m, IFLA_BRIDGE_VLAN_TUNNEL_INFO);
+                                        if (r < 0)
+                                                return r;
+
+                                        r = sd_netlink_message_append_u32(m, IFLA_BRIDGE_VLAN_TUNNEL_ID, link->network->bridge_vlan_tunnel_id[begin]);
+                                        if (r < 0)
+                                                return r;
+
+                                        r = sd_netlink_message_append_u16(m, IFLA_BRIDGE_VLAN_TUNNEL_VID, begin);
+                                        if (r < 0)
+                                                return r;
+
+                                        r = sd_netlink_message_append_u16(m, IFLA_BRIDGE_VLAN_TUNNEL_FLAGS, BRIDGE_VLAN_INFO_RANGE_BEGIN);
+                                        if (r < 0)
+                                                return r;
+
+                                        r = sd_netlink_message_close_container(m);
+                                        if (r < 0)
+                                                return r;
+
+                                        r = sd_netlink_message_open_container(m, IFLA_BRIDGE_VLAN_TUNNEL_INFO);
+                                        if (r < 0)
+                                                return r;
+
+                                        r = sd_netlink_message_append_u32(m, IFLA_BRIDGE_VLAN_TUNNEL_ID, link->network->bridge_vlan_tunnel_id[end]);
+                                        if (r < 0)
+                                                return r;
+
+                                        r = sd_netlink_message_append_u16(m, IFLA_BRIDGE_VLAN_TUNNEL_VID, end);
+                                        if (r < 0)
+                                                return r;
+
+                                        r = sd_netlink_message_append_u16(m, IFLA_BRIDGE_VLAN_TUNNEL_FLAGS, BRIDGE_VLAN_INFO_RANGE_END);
+                                        if (r < 0)
+                                                return r;
+
+                                        r = sd_netlink_message_close_container(m);
+                                        if (r < 0)
+                                                return r;
+                                }
+
+                                begin = UINT16_MAX;
+                        }
+
+                        continue;
+                }
+
+                if (begin != UINT16_MAX) {
+                        /* Check if tunnel IDs are contiguous with the range start */
+                        uint32_t expected_tunnel_id = link->network->bridge_vlan_tunnel_id[begin] + (k - begin);
+                        if (link->network->bridge_vlan_tunnel_id[k] != expected_tunnel_id) {
+                                /* Non-contiguous tunnel IDs, flush previous range and start new one */
+                                uint16_t end = k - 1;
+
+                                if (begin == end) {
+                                        if (DEBUG_LOGGING)
+                                                (void) strextendf_with_separator(&str, ",", "%u=%"PRIu32, begin, link->network->bridge_vlan_tunnel_id[begin]);
+
+                                        r = sd_netlink_message_open_container(m, IFLA_BRIDGE_VLAN_TUNNEL_INFO);
+                                        if (r < 0)
+                                                return r;
+
+                                        r = sd_netlink_message_append_u32(m, IFLA_BRIDGE_VLAN_TUNNEL_ID, link->network->bridge_vlan_tunnel_id[begin]);
+                                        if (r < 0)
+                                                return r;
+
+                                        r = sd_netlink_message_append_u16(m, IFLA_BRIDGE_VLAN_TUNNEL_VID, begin);
+                                        if (r < 0)
+                                                return r;
+
+                                        r = sd_netlink_message_append_u16(m, IFLA_BRIDGE_VLAN_TUNNEL_FLAGS, 0);
+                                        if (r < 0)
+                                                return r;
+
+                                        r = sd_netlink_message_close_container(m);
+                                        if (r < 0)
+                                                return r;
+                                } else {
+                                        if (DEBUG_LOGGING)
+                                                (void) strextendf_with_separator(&str, ",", "%u-%u=%"PRIu32"-%"PRIu32,
+                                                                                 begin, end,
+                                                                                 link->network->bridge_vlan_tunnel_id[begin],
+                                                                                 link->network->bridge_vlan_tunnel_id[end]);
+
+                                        r = sd_netlink_message_open_container(m, IFLA_BRIDGE_VLAN_TUNNEL_INFO);
+                                        if (r < 0)
+                                                return r;
+
+                                        r = sd_netlink_message_append_u32(m, IFLA_BRIDGE_VLAN_TUNNEL_ID, link->network->bridge_vlan_tunnel_id[begin]);
+                                        if (r < 0)
+                                                return r;
+
+                                        r = sd_netlink_message_append_u16(m, IFLA_BRIDGE_VLAN_TUNNEL_VID, begin);
+                                        if (r < 0)
+                                                return r;
+
+                                        r = sd_netlink_message_append_u16(m, IFLA_BRIDGE_VLAN_TUNNEL_FLAGS, BRIDGE_VLAN_INFO_RANGE_BEGIN);
+                                        if (r < 0)
+                                                return r;
+
+                                        r = sd_netlink_message_close_container(m);
+                                        if (r < 0)
+                                                return r;
+
+                                        r = sd_netlink_message_open_container(m, IFLA_BRIDGE_VLAN_TUNNEL_INFO);
+                                        if (r < 0)
+                                                return r;
+
+                                        r = sd_netlink_message_append_u32(m, IFLA_BRIDGE_VLAN_TUNNEL_ID, link->network->bridge_vlan_tunnel_id[end]);
+                                        if (r < 0)
+                                                return r;
+
+                                        r = sd_netlink_message_append_u16(m, IFLA_BRIDGE_VLAN_TUNNEL_VID, end);
+                                        if (r < 0)
+                                                return r;
+
+                                        r = sd_netlink_message_append_u16(m, IFLA_BRIDGE_VLAN_TUNNEL_FLAGS, BRIDGE_VLAN_INFO_RANGE_END);
+                                        if (r < 0)
+                                                return r;
+
+                                        r = sd_netlink_message_close_container(m);
+                                        if (r < 0)
+                                                return r;
+                                }
+
+                                begin = k;
+                        }
+
+                        continue;
+                }
+
+                /* Start of a new range */
+                begin = k;
+        }
+
+        /* No pending range - same trick as bridge_vlan_append_set_info */
+        assert(begin == UINT16_MAX);
+
+        log_link_debug(link, "Setting Bridge VLAN tunnel mappings: %s", strna(str));
+        return 0;
+}
+
 int bridge_vlan_set_message(Link *link, sd_netlink_message *m, bool is_set) {
         int r;
 
@@ -253,12 +453,19 @@ int bridge_vlan_set_message(Link *link, sd_netlink_message *m, bool is_set) {
                         return r;
         }
 
-        if (is_set)
+        if (is_set) {
                 r = bridge_vlan_append_set_info(link, m);
-        else
+                if (r < 0)
+                        return r;
+
+                r = bridge_vlan_append_tunnel_info(link, m);
+                if (r < 0)
+                        return r;
+        } else {
                 r = bridge_vlan_append_del_info(link, m);
-        if (r < 0)
-                return r;
+                if (r < 0)
+                        return r;
+        }
 
         r = sd_netlink_message_close_container(m);
         if (r < 0)
@@ -329,9 +536,14 @@ int link_update_bridge_vlan(Link *link, sd_netlink_message *m) {
 void network_adjust_bridge_vlan(Network *network) {
         assert(network);
 
-        for (uint16_t k = 0; k < BRIDGE_VLAN_BITMAP_MAX; k++)
+        for (uint16_t k = 0; k < BRIDGE_VLAN_BITMAP_MAX; k++) {
                 if (is_bit_set(k, network->bridge_vlan_untagged_bitmap))
                         set_bit(k, network->bridge_vlan_bitmap);
+
+                /* Ensure VLANs with tunnel mappings are also in the VLAN bitmap */
+                if (is_bit_set(k, network->bridge_vlan_tunnel_bitmap))
+                        set_bit(k, network->bridge_vlan_bitmap);
+        }
 
         if (vlanid_is_valid(network->bridge_vlan_pvid))
                 set_bit(network->bridge_vlan_pvid, network->bridge_vlan_bitmap);
@@ -415,6 +627,94 @@ int config_parse_bridge_vlan_id_range(
 
         for (; vid <= vid_end; vid++)
                 set_bit(vid, bitmap);
+
+        return 0;
+}
+
+int config_parse_bridge_vlan_tunnel_id(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = ASSERT_PTR(userdata);
+        uint16_t vid, vid_end;
+        uint32_t tunnel_id, tunnel_id_end;
+        _cleanup_free_ char *vid_str = NULL;
+        const char *p;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                memzero(network->bridge_vlan_tunnel_bitmap, sizeof(network->bridge_vlan_tunnel_bitmap));
+                memzero(network->bridge_vlan_tunnel_id, sizeof(network->bridge_vlan_tunnel_id));
+                return 0;
+        }
+
+        /* Format: VID=TUNNELID or VID_RANGE=TUNNELID_RANGE (e.g., "100=10100" or "10-20=10010-10020") */
+        p = strchr(rvalue, '=');
+        if (!p) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Failed to parse %s=, expected VID=TUNNELID format, ignoring: %s",
+                           lvalue, rvalue);
+                return 0;
+        }
+
+        vid_str = strndup(rvalue, p - rvalue);
+        if (!vid_str)
+                return log_oom();
+
+        p++; /* skip '=' */
+
+        r = parse_vid_range(vid_str, &vid, &vid_end);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse VLAN ID in %s=, ignoring: %s",
+                           lvalue, rvalue);
+                return 0;
+        }
+
+        /* Parse tunnel ID range */
+        unsigned lower, upper;
+        r = parse_range(p, &lower, &upper);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse tunnel ID in %s=, ignoring: %s",
+                           lvalue, rvalue);
+                return 0;
+        }
+
+        tunnel_id = lower;
+        tunnel_id_end = upper;
+
+        if (tunnel_id > BRIDGE_VLAN_TUNNEL_ID_MAX || tunnel_id_end > BRIDGE_VLAN_TUNNEL_ID_MAX) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Tunnel ID out of range in %s=, ignoring: %s",
+                           lvalue, rvalue);
+                return 0;
+        }
+
+        if ((vid_end - vid) != (tunnel_id_end - tunnel_id)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "VLAN ID range and tunnel ID range must have the same size in %s=, ignoring: %s",
+                           lvalue, rvalue);
+                return 0;
+        }
+
+        for (uint16_t v = vid; v <= vid_end; v++) {
+                set_bit(v, network->bridge_vlan_tunnel_bitmap);
+                network->bridge_vlan_tunnel_id[v] = tunnel_id + (v - vid);
+        }
 
         return 0;
 }
