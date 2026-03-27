@@ -634,7 +634,6 @@ ln_s = ln.full_path() + ' -frsT -- "${DESTDIR:-}@0@" "${DESTDIR:-}@1@"'
 progs = [['quotaon',    'quotaon'              ],
          ['quotacheck', 'quotacheck'           ],
          ['kmod',       '/usr/bin/kmod'        ],
-         ['kexec',      'kexec'                ],
          ['sulogin',    'sulogin'              ],
          ['swapon',     'swapon'               ],
          ['swapoff',    'swapoff'              ],
