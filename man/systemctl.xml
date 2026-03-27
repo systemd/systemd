@@ -363,6 +363,20 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         </varlistentry>
 
         <varlistentry>
+          <term><command>limits <replaceable>UNIT</replaceable>…</command></term>
+
+          <listitem>
+            <para>Show the currently configured cgroup resource limits for one or more units. Displays CPU,
+            memory, tasks, and IO limits in a human-readable format. Properties that are set to their
+            default (unlimited) values are suppressed. For memory and tasks limits, if an effective limit is
+            inherited from a parent slice, it is shown as an annotation. This command works with any unit type
+            that supports cgroup resource control.</para>
+
+            <xi:include href="version-info.xml" xpointer="v261"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><command>help <replaceable>PATTERN</replaceable>…|<replaceable>PID</replaceable>…</command></term>
 
           <listitem>
