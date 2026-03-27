@@ -12,5 +12,6 @@ IPv4ProxyARPPrivateVLAN=yes
 IPv6ProxyNDP=yes
 IPv6AcceptRA=no
 IPv4AcceptLocal=yes
+IPv4SrcValidMark=yes
 IPv4ReversePathFilter=no
 MulticastIGMPVersion=v1
