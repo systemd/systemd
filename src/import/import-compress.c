@@ -318,6 +318,10 @@ static int enlarge_buffer(void **buffer, size_t *buffer_size, size_t *buffer_all
         size_t l;
         void *p;
 
+        assert(buffer);
+        assert(buffer_size);
+        assert(buffer_allocated);
+
         if (*buffer_allocated > *buffer_size)
                 return 0;
 

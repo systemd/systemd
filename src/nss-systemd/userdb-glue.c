@@ -415,6 +415,9 @@ enum nss_status userdb_getgrgid(
  * string vector strv and stores amount of pointers in n and total
  * length of all contained strings including NUL bytes in len. */
 static void nss_count_strv(char * const *strv, size_t *n, size_t *len) {
+        assert(n);
+        assert(len);
+
         STRV_FOREACH(str, strv) {
                 (*len) += sizeof(char*);  /* space for array entry */
                 (*len) += strlen(*str) + 1;

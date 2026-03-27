@@ -622,6 +622,7 @@ int pull_job_restart_with_sha256sum(PullJob *j, char **ret) {
         int r;
 
         assert(j);
+        assert(ret);
 
         /* Generic implementation of a PullJobNotFound handler, that restarts the job requesting SHA256SUMS */
 

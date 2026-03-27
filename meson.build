@@ -2979,16 +2979,14 @@ if spatch.found()
         coccinelle_exclude = [
                 'src/basic/',
                 'src/core/',
-                'src/import/',
                 'src/journal/',
-                'src/libc/',
                 'src/libsystemd/',
-                'src/libsystemd-network/',
                 'src/network/',
                 'src/nspawn/',
-                'src/nss-systemd/',
-                'src/resolve/',
                 'src/shared/',
+                # libc/ has no assert() or systemd-headers so leave it
+                'src/libc/',
+                # test/ has some deliberate wonky pointers, just leave excluded
                 'src/test/',
         ]
 
