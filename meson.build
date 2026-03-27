@@ -596,6 +596,7 @@ foreach ident : [
         ['fchmodat2',         '''#include <sys/stat.h>'''],     # no known header declares fchmodat2
         ['bpf',               '''#include <sys/syscall.h>'''],  # no known header declares bpf
         ['kcmp',              '''#include <sys/syscall.h>'''],  # no known header declares kcmp
+        ['kexec_file_load',   '''#include <sys/syscall.h>'''],  # no known header declares kexec_file_load
         ['keyctl',            '''#include <sys/syscall.h>'''],  # no known header declares keyctl
         ['add_key',           '''#include <sys/syscall.h>'''],  # no known header declares add_key
         ['request_key',       '''#include <sys/syscall.h>'''],  # no known header declares request_key
@@ -633,7 +634,6 @@ ln_s = ln.full_path() + ' -frsT -- "${DESTDIR:-}@0@" "${DESTDIR:-}@1@"'
 progs = [['quotaon',    'quotaon'              ],
          ['quotacheck', 'quotacheck'           ],
          ['kmod',       '/usr/bin/kmod'        ],
-         ['kexec',      'kexec'                ],
          ['sulogin',    'sulogin'              ],
          ['swapon',     'swapon'               ],
          ['swapoff',    'swapoff'              ],
