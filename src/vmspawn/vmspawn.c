@@ -2578,10 +2578,26 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         }
 
         case CONSOLE_GUI:
-                /* -vga is a convenience option, keep on cmdline */
-                r = strv_extend_many(&cmdline, "-vga", "virtio");
+                /* -display has no config file equivalent */
+                r = strv_extend_many(&cmdline, "-display", "sdl,gl=auto", "-vga", "none");
                 if (r < 0)
                         return log_oom();
+
+                r = qemu_config_section(config_file, "device", "vga0",
+                                        "driver", "virtio-vga");
+                if (r < 0)
+                        return r;
+
+                r = qemu_config_section(config_file, "audiodev", "audio0",
+                                        "driver", "default");
+                if (r < 0)
+                        return r;
+
+                r = qemu_config_section(config_file, "device", "virtio-sound0",
+                                        "driver", "virtio-sound-pci",
+                                        "audiodev", "audio0");
+                if (r < 0)
+                        return r;
 
                 r = qemu_config_section(config_file, "device", "virtio-serial0",
                                         "driver", "virtio-serial");
