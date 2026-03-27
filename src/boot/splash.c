@@ -133,7 +133,7 @@ static EFI_STATUS bmp_parse_header(
 }
 
 enum Channels { R, G, B, A, _CHANNELS_MAX };
-static void read_channel_mask(
+static EFI_STATUS read_channel_mask(
                 const struct bmp_dib *dib,
                 uint32_t channel_mask[static _CHANNELS_MAX],
                 uint8_t channel_shift[static _CHANNELS_MAX],
@@ -142,6 +142,9 @@ static void read_channel_mask(
         assert(dib);
 
         if (IN_SET(dib->depth, 16, 32) && dib->size >= SIZEOF_BMP_DIB_RGB) {
+                if (dib->channel_mask_r == 0 || dib->channel_mask_g == 0 || dib->channel_mask_b == 0)
+                        return EFI_INVALID_PARAMETER;
+
                 channel_mask[R] = dib->channel_mask_r;
                 channel_mask[G] = dib->channel_mask_g;
                 channel_mask[B] = dib->channel_mask_b;
@@ -176,6 +179,8 @@ static void read_channel_mask(
                 channel_scale[B] = bpp16 ? 0x08 : 0x1;
                 channel_scale[A] = bpp16 ? 0x00 : 0x0;
         }
+
+        return EFI_SUCCESS;
 }
 
 static EFI_STATUS bmp_to_blt(
@@ -193,7 +198,10 @@ static EFI_STATUS bmp_to_blt(
 
         uint32_t channel_mask[_CHANNELS_MAX];
         uint8_t channel_shift[_CHANNELS_MAX], channel_scale[_CHANNELS_MAX];
-        read_channel_mask(dib, channel_mask, channel_shift, channel_scale);
+
+        EFI_STATUS status = read_channel_mask(dib, channel_mask, channel_shift, channel_scale);
+        if (status != EFI_SUCCESS)
+                return status;
 
         /* transform and copy pixels */
         in = pixmap;
