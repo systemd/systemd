@@ -104,6 +104,8 @@ static int do_attach(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to dlopen libbpf: %m");
 
+        /* Try full version first, fall back to compat if the kernel lacks
+         * 1271a40eeafa and rejects the const void * ctx access. */
         obj = restrict_exec_bpf__open();
         if (!obj)
                 return log_error_errno(errno, "Failed to open BPF object: %m");
@@ -112,9 +114,33 @@ static int do_attach(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to size hash table: %m");
 
-        r = restrict_exec_bpf__load(obj);
+        r = sym_bpf_program__set_autoload(obj->progs.restrict_exec_bdev_setintegrity_compat, false);
         if (r < 0)
-                return log_error_errno(r, "Failed to load BPF object: %m");
+                return log_error_errno(r, "Failed to disable compat program: %m");
+
+        r = restrict_exec_bpf__load(obj);
+        if (r < 0) {
+                log_debug_errno(r, "Full version failed to load (%m), trying compat variant.");
+                obj = restrict_exec_bpf_free(obj);
+
+                obj = restrict_exec_bpf__open();
+                if (!obj)
+                        return log_error_errno(errno, "Failed to reopen BPF object: %m");
+
+                r = sym_bpf_map__set_max_entries(obj->maps.verity_devices, DMVERITY_DEVICES_MAX);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to size hash table: %m");
+
+                r = sym_bpf_program__set_autoload(obj->progs.restrict_exec_bdev_setintegrity, false);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to disable full program: %m");
+
+                r = restrict_exec_bpf__load(obj);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to load BPF object (compat): %m");
+
+                log_info("Loaded with compat bdev_setintegrity.");
+        }
 
         /* Set initramfs_s_dev to rootfs s_dev so the test script keeps running */
         if (stat("/", &st) < 0)
