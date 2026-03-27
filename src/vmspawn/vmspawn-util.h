@@ -39,6 +39,12 @@
 #  define ARCHITECTURE_SUPPORTS_FW_CFG 0
 #endif
 
+#if defined(__x86_64__) || defined(__i386__) || defined(__arm__) || defined(__aarch64__)
+#  define ARCHITECTURE_SUPPORTS_CXL 1
+#else
+#  define ARCHITECTURE_SUPPORTS_CXL 0
+#endif
+
 #if defined(__x86_64__) || defined(__i386__)
 #  define QEMU_MACHINE_TYPE "q35"
 #elif defined(__arm__) || defined(__aarch64__) || defined(__riscv) || defined(__loongarch64) || defined(__m68k__)

@@ -126,7 +126,9 @@ static char *arg_slice = NULL;
 static char **arg_property = NULL;
 static char *arg_cpus = NULL;
 static uint64_t arg_ram = UINT64_C(2) * U64_GB;
+static uint64_t arg_ram_max = 0;
 static int arg_kvm = -1;
+static int arg_cxl = -1;
 static int arg_vsock = -1;
 static unsigned arg_vsock_cid = VMADDR_CID_ANY;
 static int arg_tpm = -1;
@@ -223,8 +225,10 @@ static int help(void) {
                "                           Specify disk type (virtio-blk, virtio-scsi, nvme; default: virtio-blk)\n"
                "\n%3$sHost Configuration:%4$s\n"
                "     --cpus=CPUS           Configure number of CPUs in guest\n"
-               "     --ram=BYTES           Configure guest's RAM size\n"
+               "     --ram=BYTES[:MAXBYTES]\n"
+               "                           Configure guest's RAM size (and max for hotplug)\n"
                "     --kvm=BOOL            Enable use of KVM\n"
+               "     --cxl=BOOL            Enable CXL support\n"
                "     --vsock=BOOL          Override autodetection of VSOCK support\n"
                "     --vsock-cid=CID       Specify the CID to use for the guest's VSOCK support\n"
                "     --tpm=BOOL            Enable use of a virtual TPM\n"
@@ -331,6 +335,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_CPUS,
                 ARG_RAM,
                 ARG_KVM,
+                ARG_CXL,
                 ARG_VSOCK,
                 ARG_VSOCK_CID,
                 ARG_TPM,
@@ -388,6 +393,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "ram",               required_argument, NULL, ARG_RAM               },
                 { "qemu-mem",          required_argument, NULL, ARG_RAM               }, /* Compat alias */
                 { "kvm",               required_argument, NULL, ARG_KVM               },
+                { "cxl",               required_argument, NULL, ARG_CXL               },
                 { "qemu-kvm",          required_argument, NULL, ARG_KVM               }, /* Compat alias */
                 { "vsock",             required_argument, NULL, ARG_VSOCK             },
                 { "qemu-vsock",        required_argument, NULL, ARG_VSOCK             }, /* Compat alias */
@@ -506,14 +512,39 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
-                case ARG_RAM:
-                        r = parse_size(optarg, 1024, &arg_ram);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse --ram=%s: %m", optarg);
+                case ARG_RAM: {
+                        const char *e = strchr(optarg, ':');
+                        if (e) {
+                                _cleanup_free_ char *first = strndup(optarg, e - optarg);
+                                if (!first)
+                                        return log_oom();
+
+                                r = parse_size(first, 1024, &arg_ram);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse --ram=%s: %m", optarg);
+
+                                r = parse_size(e + 1, 1024, &arg_ram_max);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse --ram=%s: %m", optarg);
+                        } else {
+                                r = parse_size(optarg, 1024, &arg_ram);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse --ram=%s: %m", optarg);
+
+                                arg_ram_max = 0;
+                        }
+
                         break;
+                }
 
                 case ARG_KVM:
                         r = parse_tristate_argument_with_auto("--kvm=", optarg, &arg_kvm);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_CXL:
+                        r = parse_tristate_argument_with_auto("--cxl=", optarg, &arg_cxl);
                         if (r < 0)
                                 return r;
                         break;
@@ -974,6 +1005,9 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (!strv_isempty(arg_bind_user_groups) && strv_isempty(arg_bind_user))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot use --bind-user-group= without --bind-user=");
+
+        if (arg_ram_max > 0 && arg_ram_max < arg_ram)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Maximum RAM size must be greater than or equal to initial RAM size.");
 
         if (arg_ephemeral && arg_extra_drives.n_drives > 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot use --ephemeral with --extra-drive=");
@@ -2232,6 +2266,11 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (asprintf(&mem, "%" PRIu64 "M", DIV_ROUND_UP(arg_ram, U64_MB)) < 0)
                 return log_oom();
 
+        _cleanup_free_ char *mem_max = NULL;
+        if (arg_ram_max > 0)
+                if (asprintf(&mem_max, "%" PRIu64 "M", DIV_ROUND_UP(arg_ram_max, U64_MB)) < 0)
+                        return log_oom();
+
         /* Create runtime directory for the QEMU config file and other state */
         _cleanup_free_ char *runtime_dir = NULL;
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir_destroy = NULL;
@@ -2280,6 +2319,12 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return r;
         }
 
+        if (ARCHITECTURE_SUPPORTS_CXL && arg_cxl > 0) {
+                r = qemu_config_key(config_file, "cxl", "on");
+                if (r < 0)
+                        return r;
+        }
+
         if (arg_directory || arg_runtime_mounts.n_mounts != 0) {
                 r = qemu_config_key(config_file, "memory-backend", "mem");
                 if (r < 0)
@@ -2301,6 +2346,12 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                 "size", mem);
         if (r < 0)
                 return r;
+
+        if (mem_max) {
+                r = qemu_config_key(config_file, "maxmem", mem_max);
+                if (r < 0)
+                        return r;
+        }
 
         r = qemu_config_section(config_file, "object", "rng0",
                                 "qom-type", "rng-random",

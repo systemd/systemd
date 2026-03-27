@@ -166,10 +166,11 @@
         </varlistentry>
 
         <varlistentry>
-          <term><option>--ram=<replaceable>BYTES</replaceable></option></term>
+          <term><option>--ram=<replaceable>BYTES</replaceable>[:<replaceable>MAXBYTES</replaceable>]</option></term>
 
-          <listitem><para>The amount of memory to start the virtual machine with.
-          Defaults to 2G.</para>
+          <listitem><para>The amount of memory to start the virtual machine with. Defaults to 2G.
+          If a maximum size is specified after a colon, memory hotplug is enabled with the given
+          upper limit.</para>
 
           <xi:include href="version-info.xml" xpointer="v255"/>
           </listitem>
@@ -182,6 +183,15 @@
           KVM support will be detected automatically. If true, KVM is insisted on. If false, disable KVM.</para>
 
           <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--cxl=<replaceable>BOOL</replaceable></option></term>
+
+          <listitem><para>Controls whether to enable CXL (Compute Express Link) support in the virtual
+          machine. Only supported on x86 and ARM architectures.</para>
+
+          <xi:include href="version-info.xml" xpointer="v258"/></listitem>
         </varlistentry>
 
         <varlistentry>
