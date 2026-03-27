@@ -20,6 +20,7 @@
 #include "architecture.h"
 #include "bootspec.h"
 #include "build-path.h"
+#include "exit-status.h"
 #include "build.h"
 #include "bus-error.h"
 #include "bus-internal.h"
@@ -142,6 +143,7 @@ static bool arg_firmware_describe = false;
 static Set *arg_firmware_features_include = NULL;
 static Set *arg_firmware_features_exclude = NULL;
 static char *arg_forward_journal = NULL;
+static char *arg_forward_journal_config = NULL;
 static bool arg_register = true;
 static bool arg_keep_unit = false;
 static sd_id128_t arg_uuid = {};
@@ -182,6 +184,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_linux, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_initrds, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_runtime_mounts, runtime_mount_context_done);
 STATIC_DESTRUCTOR_REGISTER(arg_forward_journal, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_forward_journal_config, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_kernel_cmdline_extra, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_extra_drives, extra_drive_context_done);
 STATIC_DESTRUCTOR_REGISTER(arg_background, freep);
@@ -280,6 +283,8 @@ static int help(void) {
                "\n%3$sIntegration:%4$s\n"
                "     --forward-journal=FILE|DIR\n"
                "                           Forward the VM's journal to the host\n"
+               "     --forward-journal-config=PATH\n"
+               "                           Configuration file for systemd-journal-remote\n"
                "     --pass-ssh-key=BOOL   Create an SSH key to access the VM\n"
                "     --ssh-key-type=TYPE   Choose what type of SSH key to pass\n"
                "\n%3$sInput/Output:%4$s\n"
@@ -347,6 +352,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SECURE_BOOT,
                 ARG_PRIVATE_USERS,
                 ARG_FORWARD_JOURNAL,
+                ARG_FORWARD_JOURNAL_CONFIG,
                 ARG_PASS_SSH_KEY,
                 ARG_SSH_KEY_TYPE,
                 ARG_SET_CREDENTIAL,
@@ -407,7 +413,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "extra-drive",       required_argument, NULL, ARG_EXTRA_DRIVE       },
                 { "secure-boot",       required_argument, NULL, ARG_SECURE_BOOT       },
                 { "private-users",     required_argument, NULL, ARG_PRIVATE_USERS     },
-                { "forward-journal",   required_argument, NULL, ARG_FORWARD_JOURNAL   },
+                { "forward-journal",        required_argument, NULL, ARG_FORWARD_JOURNAL        },
+                { "forward-journal-config", required_argument, NULL, ARG_FORWARD_JOURNAL_CONFIG },
                 { "pass-ssh-key",      required_argument, NULL, ARG_PASS_SSH_KEY      },
                 { "ssh-key-type",      required_argument, NULL, ARG_SSH_KEY_TYPE      },
                 { "set-credential",    required_argument, NULL, ARG_SET_CREDENTIAL    },
@@ -694,6 +701,12 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
+                case ARG_FORWARD_JOURNAL_CONFIG:
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_forward_journal_config);
+                        if (r < 0)
+                                return r;
+                        break;
+
                 case ARG_PASS_SSH_KEY:
                         r = parse_boolean_argument("--pass-ssh-key=", optarg, &arg_pass_ssh_key);
                         if (r < 0)
@@ -974,6 +987,9 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (!strv_isempty(arg_bind_user_groups) && strv_isempty(arg_bind_user))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot use --bind-user-group= without --bind-user=");
+
+        if (arg_forward_journal_config && !arg_forward_journal)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--forward-journal-config= requires --forward-journal=.");
 
         if (arg_ephemeral && arg_extra_drives.n_drives > 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot use --ephemeral with --extra-drive=");
@@ -1558,9 +1574,22 @@ static int start_systemd_journal_remote(
         if (!argv)
                 return log_oom();
 
-        r = fork_notify(argv, ret_pidref);
+        r = fork_notify(/* argv= */ NULL, ret_pidref);
         if (r < 0)
                 return r;
+        if (r == 0) {
+                /* In the child */
+                if (setenv("SYSTEMD_JOURNAL_REMOTE_CONFIG_FILE",
+                            arg_forward_journal_config ?: "/dev/null",
+                            /* overwrite= */ true) < 0) {
+                        log_debug_errno(errno, "Failed to set $SYSTEMD_JOURNAL_REMOTE_CONFIG_FILE: %m");
+                        _exit(EXIT_MEMORY);
+                }
+
+                r = invoke_callout_binary(argv[0], argv);
+                log_error_errno(r, "Failed to invoke %s: %m", argv[0]);
+                _exit(EXIT_EXEC);
+        }
 
         if (ret_listen_address)
                 *ret_listen_address = TAKE_PTR(listen_address);
