@@ -2929,7 +2929,7 @@ static int partition_read_definition(
         if (streq_ptr(p->format, "empty")) {
                 p->format = mfree(p->format);
 
-                if (p->no_auto < 0)
+                if (p->no_auto < 0 && gpt_partition_type_knows_no_auto(p->type))
                         p->no_auto = true;
 
                 if (!p->new_label) {
