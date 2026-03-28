@@ -1090,3 +1090,8 @@ LIBSYSTEMD_260 {
 global:
         sd_session_get_extra_device_access;
 } LIBSYSTEMD_259;
+
+LIBSYSTEMD_261 {
+global:
+        sd_varlink_set_sentinel;
+} LIBSYSTEMD_260;

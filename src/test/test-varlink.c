@@ -443,7 +443,7 @@ TEST(invalid_parameter) {
 
 static int method_with_error_sentinel(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         /* Set an error sentinel and return without sending a reply. The sentinel error should be sent automatically. */
-        ASSERT_OK(varlink_set_sentinel(link, "io.test.SentinelError"));
+        ASSERT_OK(sd_varlink_set_sentinel(link, "io.test.SentinelError"));
         return 0;
 }
 
@@ -482,7 +482,7 @@ TEST(sentinel_error) {
 
 static int method_with_empty_sentinel(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         /* Set an empty sentinel and return without sending a reply. An empty reply should be sent automatically. */
-        ASSERT_OK(varlink_set_sentinel(link, /* error_id= */ NULL));
+        ASSERT_OK(sd_varlink_set_sentinel(link, /* error_id= */ NULL));
         return 0;
 }
 
@@ -522,7 +522,7 @@ TEST(sentinel_empty) {
 
 static int method_with_sentinel_but_reply(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         /* Set a sentinel but also send a reply. The sentinel should not be used. */
-        ASSERT_OK(varlink_set_sentinel(link, "io.test.SentinelError"));
+        ASSERT_OK(sd_varlink_set_sentinel(link, "io.test.SentinelError"));
         return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_STRING("result", "explicit-reply"));
 }
 
@@ -561,10 +561,10 @@ TEST(sentinel_with_explicit_reply) {
 }
 
 static int method_with_oneway_sentinel(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        /* The method was called oneway, so varlink_set_sentinel() should be a no-op and the server should
+        /* The method was called oneway, so sd_varlink_set_sentinel() should be a no-op and the server should
          * transition back to idle without sending any reply. */
         ASSERT_TRUE(FLAGS_SET(flags, SD_VARLINK_METHOD_ONEWAY));
-        ASSERT_OK(varlink_set_sentinel(link, "io.test.SentinelError"));
+        ASSERT_OK(sd_varlink_set_sentinel(link, "io.test.SentinelError"));
         return 0;
 }
 
@@ -619,7 +619,7 @@ static int method_with_fd_sentinel(sd_varlink *link, sd_json_variant *parameters
 
         /* Set a sentinel so sd_varlink_reply() defers sending: each reply and its pushed fds are captured in
          * the queue, and the last one is sent as the final reply when the callback returns. */
-        ASSERT_OK(varlink_set_sentinel(link, /* error_id= */ NULL));
+        ASSERT_OK(sd_varlink_set_sentinel(link, /* error_id= */ NULL));
 
         /* First reply: push one fd with "alpha" content */
         ASSERT_OK(fd1 = memfd_new_and_seal_string("data", "alpha"));

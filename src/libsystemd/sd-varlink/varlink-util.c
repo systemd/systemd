@@ -205,31 +205,6 @@ int varlink_check_privileged_peer(sd_varlink *vl) {
         return 0;
 }
 
-int varlink_set_sentinel(sd_varlink *v, const char *error_id) {
-        _cleanup_free_ char *s = NULL;
-
-        assert(v);
-
-        /* If the caller doesn't want a reply, then don't set a sentinel. */
-        if (v->state == VARLINK_PROCESSING_METHOD_ONEWAY)
-                return 0;
-
-        /* This has to be called during a callback, and not after it has exited. */
-        assert(IN_SET(v->state, VARLINK_PROCESSING_METHOD, VARLINK_PROCESSING_METHOD_MORE));
-
-        if (error_id) {
-                s = strdup(error_id);
-                if (!s)
-                        return -ENOMEM;
-        }
-
-        if (v->sentinel != POINTER_MAX)
-                free(v->sentinel);
-
-        v->sentinel = s ? TAKE_PTR(s) : POINTER_MAX;
-        return 0;
-}
-
 DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 varlink_hash_ops,
                 void,
