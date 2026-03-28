@@ -94,6 +94,27 @@ static int zstd_ret_to_errno(size_t ret) {
 }
 #endif
 
+#if HAVE_ZLIB
+#include <zlib.h>
+
+static void *zlib_dl = NULL;
+
+static DLSYM_PROTOTYPE(deflateInit2_) = NULL;
+static DLSYM_PROTOTYPE(deflate) = NULL;
+static DLSYM_PROTOTYPE(deflateEnd) = NULL;
+static DLSYM_PROTOTYPE(inflateInit2_) = NULL;
+static DLSYM_PROTOTYPE(inflate) = NULL;
+static DLSYM_PROTOTYPE(inflateEnd) = NULL;
+
+static inline void z_stream_deflate_end(z_stream *s) {
+        sym_deflateEnd(s);
+}
+
+static inline void z_stream_inflate_end(z_stream *s) {
+        sym_inflateEnd(s);
+}
+#endif
+
 #if HAVE_XZ
 static void *lzma_dl = NULL;
 
@@ -315,6 +336,28 @@ int dlopen_zstd(void) {
                         DLSYM_ARG(ZSTD_isError),
                         DLSYM_ARG(ZSTD_createDCtx),
                         DLSYM_ARG(ZSTD_createCCtx));
+#else
+        return -EOPNOTSUPP;
+#endif
+}
+
+int dlopen_zlib(void) {
+#if HAVE_ZLIB
+        SD_ELF_NOTE_DLOPEN(
+                        "zlib",
+                        "Support gzip decompression for kexec kernel loading",
+                        "suggested",
+                        "libz.so.1");
+
+        return dlopen_many_sym_or_warn(
+                        &zlib_dl,
+                        "libz.so.1", LOG_DEBUG,
+                        DLSYM_ARG(deflateInit2_),
+                        DLSYM_ARG(deflate),
+                        DLSYM_ARG(deflateEnd),
+                        DLSYM_ARG(inflateInit2_),
+                        DLSYM_ARG(inflate),
+                        DLSYM_ARG(inflateEnd));
 #else
         return -EOPNOTSUPP;
 #endif
@@ -1321,6 +1364,143 @@ int decompress_stream_zstd(int fdf, int fdt, uint64_t max_bytes) {
 #else
         return log_debug_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT),
                                "Cannot decompress file. Compiled without ZSTD support.");
+#endif
+}
+
+int compress_stream_gzip(int fdf, int fdt, uint64_t max_bytes, uint64_t *ret_uncompressed_size) {
+        assert(fdf >= 0);
+        assert(fdt >= 0);
+
+#if HAVE_ZLIB
+        int r;
+
+        r = dlopen_zlib();
+        if (r < 0)
+                return r;
+
+        _cleanup_(z_stream_deflate_end) z_stream s = {};
+
+        /* 15 + 16 = MAX_WBITS + generate gzip header */
+        r = sym_deflateInit2_(&s, Z_DEFAULT_COMPRESSION, Z_DEFLATED, 15 + 16, 8, Z_DEFAULT_STRATEGY, ZLIB_VERSION, sizeof(s));
+        if (r != Z_OK)
+                return -EIO;
+
+        uint8_t buf[BUFSIZ], out[BUFSIZ];
+        uint64_t total_in = 0;
+        int flush = Z_NO_FLUSH;
+
+        for (;;) {
+                if (s.avail_in == 0 && flush == Z_NO_FLUSH) {
+                        ssize_t n = read(fdf, buf, sizeof(buf));
+                        if (n < 0)
+                                return -errno;
+                        if (n == 0)
+                                flush = Z_FINISH;
+                        else {
+                                total_in += (size_t) n;
+                                if (max_bytes != UINT64_MAX && total_in > max_bytes)
+                                        return -EFBIG;
+                                s.next_in = buf;
+                                s.avail_in = (unsigned) n;
+                        }
+                }
+
+                s.next_out = out;
+                s.avail_out = sizeof(out);
+
+                r = sym_deflate(&s, flush);
+                if (r != Z_OK && r != Z_STREAM_END)
+                        return -EIO;
+
+                size_t have = sizeof(out) - s.avail_out;
+                if (have > 0) {
+                        ssize_t k = loop_write(fdt, out, have);
+                        if (k < 0)
+                                return k;
+                }
+
+                if (r == Z_STREAM_END)
+                        break;
+        }
+
+        if (ret_uncompressed_size)
+                *ret_uncompressed_size = total_in;
+
+        return 0;
+#else
+        return log_debug_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT),
+                               "Cannot compress file. Compiled without zlib support.");
+#endif
+}
+
+int decompress_stream_gzip(int fdf, int fdt, uint64_t max_bytes) {
+        assert(fdf >= 0);
+        assert(fdt >= 0);
+
+#if HAVE_ZLIB
+        int r;
+
+        r = dlopen_zlib();
+        if (r < 0)
+                return r;
+
+        _cleanup_(z_stream_inflate_end) z_stream s = {};
+
+        /* 15 + 16 = MAX_WBITS + enable gzip decoding */
+        r = sym_inflateInit2_(&s, 15 + 16, ZLIB_VERSION, sizeof(s));
+        if (r != Z_OK)
+                return -EIO;
+
+        uint8_t buf[BUFSIZ], out[BUFSIZ];
+        uint64_t left = max_bytes;
+
+        for (;;) {
+                ssize_t n;
+
+                if (s.avail_in == 0) {
+                        n = read(fdf, buf, sizeof(buf));
+                        if (n < 0)
+                                return -errno;
+                        if (n == 0)
+                                break;
+
+                        s.next_in = buf;
+                        s.avail_in = (unsigned) n;
+                }
+
+                s.next_out = out;
+                s.avail_out = sizeof(out);
+
+                r = sym_inflate(&s, Z_NO_FLUSH);
+                if (!IN_SET(r, Z_OK, Z_STREAM_END, Z_BUF_ERROR))
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "Gzip decompression failed: %s",
+                                               s.msg ?: "unknown error");
+
+                size_t have = sizeof(out) - s.avail_out;
+                if (have > 0) {
+                        if (left < have)
+                                return -EFBIG;
+
+                        ssize_t k = loop_write(fdt, out, have);
+                        if (k < 0)
+                                return k;
+
+                        left -= have;
+                }
+
+                if (r == Z_STREAM_END) {
+                        log_debug("Gzip decompression finished (%lu -> %lu bytes, %.1f%%)",
+                                  s.total_in, s.total_out,
+                                  s.total_in > 0 ? (double) s.total_out / s.total_in * 100 : 0.0);
+                        return 0;
+                }
+        }
+
+        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Gzip decompression failed: premature end of stream");
+#else
+        return log_debug_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT),
+                               "Cannot decompress file. Compiled without zlib support.");
 #endif
 }
 
