@@ -1339,8 +1339,7 @@ static int openssl_load_private_key_from_file(const char *path, EVP_PKEY **ret) 
                 return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to parse PEM private key: %s",
                                        ERR_error_string(ERR_get_error(), NULL));
 
-        if (ret)
-                *ret = TAKE_PTR(pk);
+        *ret = TAKE_PTR(pk);
 
         return 0;
 }
@@ -1404,8 +1403,7 @@ static int load_x509_certificate_from_file(const char *path, X509 **ret) {
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Failed to parse X.509 certificate: %s",
                                        ERR_error_string(ERR_get_error(), NULL));
 
-        if (ret)
-                *ret = TAKE_PTR(cert);
+        *ret = TAKE_PTR(cert);
 
         return 0;
 }
