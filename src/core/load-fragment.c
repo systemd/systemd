@@ -88,6 +88,8 @@ static int parse_socket_protocol(const char *s) {
 int parse_crash_chvt(const char *value, int *data) {
         int b;
 
+        assert(data);
+
         if (safe_atoi(value, data) >= 0)
                 return 0;
 
@@ -106,6 +108,8 @@ int parse_crash_chvt(const char *value, int *data) {
 int parse_confirm_spawn(const char *value, char **console) {
         char *s;
         int r;
+
+        assert(console);
 
         r = value ? parse_boolean(value) : 1;
         if (r == 0) {
@@ -564,6 +568,8 @@ static int patch_var_run(
 
         const char *e;
         char *z;
+
+        assert(path);
 
         e = path_startswith(*path, "/var/run/");
         if (!e)
