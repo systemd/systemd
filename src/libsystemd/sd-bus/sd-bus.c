@@ -2021,6 +2021,7 @@ static int bus_write_message(sd_bus *bus, sd_bus_message *m, size_t *idx) {
 
         assert(bus);
         assert(m);
+        assert(idx);
 
         r = bus_socket_write_message(bus, m, idx);
         if (r <= 0)
