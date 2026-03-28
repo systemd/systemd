@@ -918,6 +918,8 @@ static int _hashmap_by_section_find_unused_line(
         unsigned n = 0;
         void *entry;
 
+        assert(ret);
+
         HASHMAP_BASE_FOREACH_KEY(entry, cs, entries_by_section) {
                 if (filename && !streq(cs->filename, filename))
                         continue;
