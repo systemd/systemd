@@ -557,6 +557,8 @@ static int stdout_stream_process(sd_event_source *es, int fd, uint32_t revents, 
 
         /* Try to make use of the allocated buffer in full, but never read more than the configured line size. Also,
          * always leave room for a terminating NUL we might need to add. */
+        /* Silence static analyzers, GREEDY_REALLOC above ensures allocated > 0 */
+        assert(allocated > 0);
         limit = MIN(allocated - 1, MAX(s->manager->config.line_max, STDOUT_STREAM_SETUP_PROTOCOL_LINE_MAX));
         assert(s->length <= limit);
         iovec = IOVEC_MAKE(s->buffer + s->length, limit - s->length);
