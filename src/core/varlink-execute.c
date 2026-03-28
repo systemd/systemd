@@ -781,6 +781,9 @@ static int set_credential_build_json(sd_json_variant **ret, const char *name, vo
 int unit_exec_context_build_json(sd_json_variant **ret, const char *name, void *userdata) {
         Unit *u = ASSERT_PTR(userdata);
         ExecContext *c = unit_get_exec_context(u);
+
+        assert(ret);
+
         if (!c) {
                 *ret = NULL;
                 return 0;
