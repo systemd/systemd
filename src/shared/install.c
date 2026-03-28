@@ -646,6 +646,7 @@ static int mark_symlink_for_removal(
         char *n;
         int r;
 
+        assert(remove_symlinks_to);
         assert(p);
 
         r = set_ensure_allocated(remove_symlinks_to, &path_hash_ops_free);
@@ -1037,6 +1038,7 @@ static int find_symlinks_in_scope(
 
         assert(lp);
         assert(info);
+        assert(state);
 
         /* As we iterate over the list of search paths in lp->search_path, we may encounter "same name"
          * symlinks. The ones which are "below" (i.e. have lower priority) than the unit file itself are
@@ -1841,6 +1843,8 @@ static int install_info_discover_and_check(
                 size_t *n_changes) {
 
         int r;
+
+        POINTER_MAY_BE_NULL(ret);
 
         r = install_info_discover(ctx, lp, name_or_path, flags, ret, changes, n_changes);
         if (r < 0)
@@ -3510,6 +3514,7 @@ static int query_presets(const char *name, const UnitFilePresets *presets, char 
 
         assert(name);
         assert(presets);
+        POINTER_MAY_BE_NULL(instance_name_list);
 
         if (!unit_name_is_valid(name, UNIT_NAME_ANY))
                 return -EINVAL;
