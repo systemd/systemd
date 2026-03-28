@@ -36,7 +36,7 @@ EOF
             rm -f /tmp/foo.journal
             SYSTEMD_JOURNAL_COMPRESS="${cc}" /usr/lib/systemd/systemd-journal-remote --split-mode=none -o /tmp/foo.journal --getter="journalctl -b -o export -t $ID"
             SYSTEMD_LOG_LEVEL=debug journalctl --verify --quiet --file /tmp/foo.journal 2>&1 | grep -F "compress=${cc}" >/dev/null
-            journalctl -t "$ID" -o cat --file /tmp/foo.journal | grep -F "hoge with ${c}" >/dev/null
+            journalctl -t "$ID" -o cat --file /tmp/foo.journal | grep -F "hoge with ${c,,}" >/dev/null
         done
     fi
 done
