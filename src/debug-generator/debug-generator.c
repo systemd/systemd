@@ -101,7 +101,7 @@ static int parse_breakpoint_from_string(const char *s, uint32_t *ret_breakpoints
 
                 FOREACH_ELEMENT(i, breakpoint_info_table)
                         if (FLAGS_SET(i->validity, BREAKPOINT_DEFAULT) && breakpoint_applies(i, INT_MAX)) {
-                                breakpoints |= 1 << i->type;
+                                breakpoints |= UINT32_C(1) << i->type;
                                 found_default = true;
                                 break;
                         }
@@ -127,7 +127,7 @@ static int parse_breakpoint_from_string(const char *s, uint32_t *ret_breakpoints
                         }
 
                         if (breakpoint_applies(&breakpoint_info_table[tt], LOG_WARNING))
-                                breakpoints |= 1 << tt;
+                                breakpoints |= UINT32_C(1) << tt;
                 }
 
         *ret_breakpoints = breakpoints;
