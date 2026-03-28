@@ -371,6 +371,8 @@ static Compression getenv_compression(void) {
                 return r ? DEFAULT_COMPRESSION : COMPRESSION_NONE;
 
         c = compression_from_string(e);
+        if (c < 0)
+                c = compression_uppercase_from_string(e);
         if (c < 0) {
                 log_debug_errno(c, "Failed to parse SYSTEMD_JOURNAL_COMPRESS value, ignoring: %s", e);
                 return DEFAULT_COMPRESSION;
