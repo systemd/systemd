@@ -3807,6 +3807,9 @@ static int process_signal(sd_event *e, struct signal_data *d, uint32_t events, i
                 if (_unlikely_(!SIGNAL_VALID(si.ssi_signo)))
                         return -EIO;
 
+                /* Silence static analyzers */
+                assert(si.ssi_signo < _NSIG);
+
                 if (e->signal_sources)
                         s = e->signal_sources[si.ssi_signo];
                 if (!s)
