@@ -205,6 +205,10 @@ typedef struct Network {
         bool dhcp6_send_release;
         NFTSetContext dhcp6_nft_set_context;
 
+        /* DHCPv6 Relay */
+        struct in6_addr dhcp6_relay_target;
+        char *dhcp6_relay_interface_id;
+
         /* DHCP Server Support */
         bool dhcp_server;
         bool dhcp_server_bind_to_interface;
