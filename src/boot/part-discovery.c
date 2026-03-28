@@ -117,6 +117,8 @@ static EFI_STATUS try_gpt(
 
         /* Now load the GPT entry table */
         size = ALIGN_TO((size_t) gpt->SizeOfPartitionEntry * (size_t) gpt->NumberOfPartitionEntries, 512);
+        if (size == SIZE_MAX) /* overflow check */
+                return EFI_OUT_OF_RESOURCES;
         entries_pages = xmalloc_aligned_pages(
                 AllocateMaxAddress,
                 EfiLoaderData,
