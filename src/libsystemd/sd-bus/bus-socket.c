@@ -786,7 +786,7 @@ int bus_socket_start_auth(sd_bus *b) {
         bus_get_peercred(b);
 
         bus_set_state(b, BUS_AUTHENTICATING);
-        b->auth_timeout = now(CLOCK_MONOTONIC) + BUS_AUTH_TIMEOUT;
+        b->auth_timeout = usec_add(now(CLOCK_MONOTONIC), BUS_AUTH_TIMEOUT);
 
         if (sd_is_socket(b->input_fd, AF_UNIX, 0, 0) <= 0)
                 b->accept_fd = false;
