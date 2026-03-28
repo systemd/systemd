@@ -354,7 +354,7 @@ static size_t journal_input_callback(void *buf, size_t size, size_t nmemb, void 
                 r = compress_blob(u->compression->algorithm, compression_buffer, filled, buf, size * nmemb, &compressed_size, u->compression->level);
                 if (r < 0) {
                         log_error_errno(r, "Failed to compress %zu bytes by %s with level %i: %m",
-                                        filled, compression_lowercase_to_string(u->compression->algorithm), u->compression->level);
+                                        filled, compression_to_string(u->compression->algorithm), u->compression->level);
                         return CURL_READFUNC_ABORT;
                 }
 

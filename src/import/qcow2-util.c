@@ -1,8 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <zlib.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
+#include "compress.h"
 #include "copy.h"
 #include "qcow2-util.h"
 #include "sparse-endian.h"
@@ -97,8 +98,6 @@ static int decompress_cluster(
                 void *buffer2) {
 
         _cleanup_free_ void *large_buffer = NULL;
-        z_stream s = {};
-        uint64_t sz;
         ssize_t l;
         int r;
 
@@ -119,20 +118,9 @@ static int decompress_cluster(
         if ((uint64_t) l != compressed_size)
                 return -EIO;
 
-        s.next_in = buffer1;
-        s.avail_in = compressed_size;
-        s.next_out = buffer2;
-        s.avail_out = cluster_size;
-
-        r = inflateInit2(&s, -12);
-        if (r != Z_OK)
-                return -EIO;
-
-        r = inflate(&s, Z_FINISH);
-        sz = (uint8_t*) s.next_out - (uint8_t*) buffer2;
-        inflateEnd(&s);
-        if (r != Z_STREAM_END || sz != cluster_size)
-                return -EIO;
+        r = decompress_zlib_raw(buffer1, compressed_size, buffer2, cluster_size, /* wbits= */ -12);
+        if (r < 0)
+                return r;
 
         l = pwrite(dfd, buffer2, cluster_size, doffset);
         if (l < 0)
