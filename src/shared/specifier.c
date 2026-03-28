@@ -139,6 +139,8 @@ int specifier_id128(char specifier, const void *data, const char *root, const vo
         const sd_id128_t *id = ASSERT_PTR(data);
         char *n;
 
+        assert(ret);
+
         n = new(char, SD_ID128_STRING_MAX);
         if (!n)
                 return -ENOMEM;
@@ -150,6 +152,8 @@ int specifier_id128(char specifier, const void *data, const char *root, const vo
 int specifier_uuid(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         const sd_id128_t *id = ASSERT_PTR(data);
         char *n;
+
+        assert(ret);
 
         n = new(char, SD_ID128_UUID_STRING_MAX);
         if (!n)
