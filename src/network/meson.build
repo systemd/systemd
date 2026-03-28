@@ -258,6 +258,12 @@ executables += [
         network_test_template + {
                 'sources' : files('test-networkd-util.c'),
         },
+        test_template + {
+                'sources' : files('test-modem-manager-mock.c'),
+                'conditions' : ['ENABLE_NETWORKD'],
+                'link_with' : [libshared],
+                'type' : 'manual',
+        },
         network_fuzz_template + {
                 'sources' : files('fuzz-netdev-parser.c'),
         },
