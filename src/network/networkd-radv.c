@@ -561,6 +561,12 @@ static int radv_configure(Link *link) {
                         return r;
         }
 
+        if (link->network->router_captive_portal) {
+                r = sd_radv_set_captive_portal(link->radv, link->network->router_captive_portal);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "Could not set RA captive portal: %m");
+        }
+
         return 0;
 }
 
