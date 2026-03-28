@@ -2778,7 +2778,7 @@ static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varl
         if (r < 0)
                 return r;
 
-        r = varlink_set_sentinel(link, "io.systemd.sysext.NoImagesFound");
+        r = sd_varlink_set_sentinel(link, "io.systemd.sysext.NoImagesFound");
         if (r < 0)
                 return r;
 

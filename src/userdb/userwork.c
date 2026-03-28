@@ -172,7 +172,7 @@ static int vl_method_get_user_record(sd_varlink *link, sd_json_variant *paramete
                      * we are done'; == 0 means 'not processed, caller should process now' */
                 return r;
 
-        r = varlink_set_sentinel(link, "io.systemd.UserDatabase.NoRecordFound");
+        r = sd_varlink_set_sentinel(link, "io.systemd.UserDatabase.NoRecordFound");
         if (r < 0)
                 return r;
 
@@ -313,7 +313,7 @@ static int vl_method_get_group_record(sd_varlink *link, sd_json_variant *paramet
         if (r != 0)
                 return r;
 
-        r = varlink_set_sentinel(link, "io.systemd.UserDatabase.NoRecordFound");
+        r = sd_varlink_set_sentinel(link, "io.systemd.UserDatabase.NoRecordFound");
         if (r < 0)
                 return r;
 
@@ -401,7 +401,7 @@ static int vl_method_get_memberships(sd_varlink *link, sd_json_variant *paramete
         if (r != 0)
                 return r;
 
-        r = varlink_set_sentinel(link, "io.systemd.UserDatabase.NoRecordFound");
+        r = sd_varlink_set_sentinel(link, "io.systemd.UserDatabase.NoRecordFound");
         if (r < 0)
                 return r;
 
