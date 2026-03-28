@@ -1239,6 +1239,8 @@ static uint64_t free_area_current_end(Context *context, const FreeArea *a) {
 
         assert(a->after->offset != UINT64_MAX);
         assert(a->after->current_size != UINT64_MAX);
+        /* Silence static analyzers */
+        assert(a->after->current_size <= UINT64_MAX - a->after->offset);
 
         /* Calculate where the free area ends, based on the offset of the partition preceding it. */
         return round_up_size(a->after->offset + a->after->current_size, context->grain_size) + free_area_available(a);
