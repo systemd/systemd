@@ -277,6 +277,7 @@ static int netdev_attach_name_full(NetDev *netdev, const char *name, Hashmap **n
 
         assert(netdev);
         assert(name);
+        assert(netdevs);
 
         r = hashmap_ensure_put(netdevs, &string_hash_ops, name, netdev);
         if (r == -ENOMEM)

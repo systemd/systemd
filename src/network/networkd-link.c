@@ -862,6 +862,7 @@ static int link_put_carrier(Link *link, Link *carrier, Hashmap **h) {
 
         assert(link);
         assert(carrier);
+        assert(h);
 
         if (link == carrier)
                 return 0;
