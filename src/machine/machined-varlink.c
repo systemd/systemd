@@ -534,7 +534,7 @@ static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varl
         if (r != 0)
                 return r;
 
-        r = varlink_set_sentinel(link, VARLINK_ERROR_MACHINE_NO_SUCH_MACHINE);
+        r = sd_varlink_set_sentinel(link, VARLINK_ERROR_MACHINE_NO_SUCH_MACHINE);
         if (r < 0)
                 return r;
 
@@ -681,7 +681,7 @@ static int vl_method_list_images(sd_varlink *link, sd_json_variant *parameters, 
         if (r != 0)
                 return r;
 
-        r = varlink_set_sentinel(link, VARLINK_ERROR_MACHINE_IMAGE_NO_SUCH_IMAGE);
+        r = sd_varlink_set_sentinel(link, VARLINK_ERROR_MACHINE_IMAGE_NO_SUCH_IMAGE);
         if (r < 0)
                 return r;
 
