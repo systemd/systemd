@@ -500,7 +500,7 @@ assert_cc((1 << ELEMENTSOF(exec_command_strings)) - 1 == _EXEC_COMMAND_FLAGS_ALL
 
 const char* exec_command_flags_to_string(ExecCommandFlags i) {
         for (size_t idx = 0; idx < ELEMENTSOF(exec_command_strings); idx++)
-                if (i == (1 << idx))
+                if (i == (ExecCommandFlags) (1U << idx))
                         return exec_command_strings[idx];
 
         return NULL;
@@ -516,7 +516,7 @@ ExecCommandFlags exec_command_flags_from_string(const char *s) {
         if (idx < 0)
                 return _EXEC_COMMAND_FLAGS_INVALID;
 
-        return 1 << idx;
+        return 1U << idx;
 }
 
 int fexecve_or_execve(int executable_fd, const char *executable, char *const argv[], char *const envp[]) {

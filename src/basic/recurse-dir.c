@@ -41,6 +41,8 @@ int readdir_all(int dir_fd, RecurseDirFlags flags, DirectoryEntries **ret) {
          * Start with space for up to 8 directory entries. We expect at least 2 ("." + ".."), hence hopefully
          * 8 will cover most cases comprehensively. (Note that most likely a lot more entries will actually
          * fit in the buffer, given we calculate maximum file name length here.) */
+        /* Silence static analyzers */
+        assert_cc(offsetof(DirectoryEntries, buffer) <= SIZE_MAX - DIRENT_SIZE_MAX * 8);
         de = malloc(offsetof(DirectoryEntries, buffer) + DIRENT_SIZE_MAX * 8);
         if (!de)
                 return -ENOMEM;
