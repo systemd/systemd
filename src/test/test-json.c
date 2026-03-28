@@ -664,6 +664,7 @@ static void test_float_match(sd_json_variant *v) {
                   sd_json_variant_integer(sd_json_variant_by_index(v, 8)) == -10);
         assert_se(sd_json_variant_is_real(sd_json_variant_by_index(v, 9)) &&
                   !sd_json_variant_is_integer(sd_json_variant_by_index(v, 9)));
+        assert_se(!iszero_safe(sd_json_variant_real(sd_json_variant_by_index(v, 9))));
         assert_se(fabs(1.0 - (DBL_MIN / 2 / sd_json_variant_real(sd_json_variant_by_index(v, 9)))) <= delta);
         assert_se(sd_json_variant_is_real(sd_json_variant_by_index(v, 10)) &&
                   !sd_json_variant_is_integer(sd_json_variant_by_index(v, 10)));
