@@ -2979,7 +2979,6 @@ if spatch.found()
         coccinelle_exclude = [
                 'src/basic/',
                 'src/core/',
-                'src/journal/',
                 'src/libsystemd/',
                 'src/network/',
                 'src/shared/',
