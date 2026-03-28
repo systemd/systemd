@@ -2982,7 +2982,6 @@ if spatch.found()
                 'src/journal/',
                 'src/libsystemd/',
                 'src/network/',
-                'src/nspawn/',
                 'src/shared/',
                 # libc/ has no assert() or systemd-headers so leave it
                 'src/libc/',
