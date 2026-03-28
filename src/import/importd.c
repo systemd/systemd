@@ -418,6 +418,8 @@ static int transfer_on_log(sd_event_source *s, int fd, uint32_t revents, void *u
                 return 0;
         }
 
+        /* Silence static analyzers, l is bounded by read() count: sizeof - log_message_size */
+        assert((size_t) l <= sizeof(t->log_message) - t->log_message_size);
         t->log_message_size += l;
 
         transfer_send_logs(t, false);
