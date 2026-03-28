@@ -1982,6 +1982,8 @@ Manager* manager_reloading_start(Manager *m) {
 }
 
 void manager_reloading_stopp(Manager **m) {
+        assert(m);
+
         if (*m) {
                 assert((*m)->n_reloading > 0);
                 (*m)->n_reloading--;

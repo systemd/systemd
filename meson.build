@@ -2978,7 +2978,6 @@ if spatch.found()
         # Remove directories from this list as they are cleaned up.
         coccinelle_exclude = [
                 'src/basic/',
-                'src/core/',
                 'src/libsystemd/',
                 'src/shared/',
                 # libc/ has no assert() or systemd-headers so leave it

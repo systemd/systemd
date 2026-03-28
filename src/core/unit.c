@@ -6377,6 +6377,7 @@ int unit_clean(Unit *u, ExecCleanMask mask) {
 
 int unit_can_clean(Unit *u, ExecCleanMask *ret) {
         assert(u);
+        assert(ret);
 
         if (!UNIT_VTABLE(u)->clean ||
             u->load_state != UNIT_LOADED) {
