@@ -1149,7 +1149,8 @@ static int find_matching_component(
                 } else if (c->repeat > 0) {
                         int k;
 
-                        k = start + ROUND_UP(*val - start, c->repeat);
+                        if (!ADD_SAFE(&k, start, ROUND_UP(*val - start, c->repeat)))
+                                continue;
 
                         if ((!d_set || k < d) && (stop < 0 || k <= stop)) {
                                 d = k;
