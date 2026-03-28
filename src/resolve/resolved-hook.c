@@ -391,19 +391,6 @@ static int manager_hook_discover(Manager *m) {
 
         usec_t seen_usec = now(CLOCK_MONOTONIC);
 
-        struct stat st;
-        if (stat(dp, &st) < 0) {
-                if (errno == ENOENT)
-                        r = 0;
-                else
-                        r = log_warning_errno(errno, "Failed to stat %s/: %m", dp);
-
-                goto finish;
-        }
-
-        if (stat_inode_unmodified(&st, &m->hook_stat))
-                return 0;
-
         d = opendir(dp);
         if (!d) {
                 if (errno == ENOENT)
@@ -413,6 +400,15 @@ static int manager_hook_discover(Manager *m) {
 
                 goto finish;
         }
+
+        struct stat st;
+        if (fstat(dirfd(d), &st) < 0) {
+                r = log_warning_errno(errno, "Failed to fstat %s/: %m", dp);
+                goto finish;
+        }
+
+        if (stat_inode_unmodified(&st, &m->hook_stat))
+                return 0;
 
         for (;;) {
                 errno = 0;
