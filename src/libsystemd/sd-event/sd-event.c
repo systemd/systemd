@@ -5077,6 +5077,7 @@ _public_ int sd_event_get_watchdog(sd_event *e) {
 _public_ int sd_event_get_iteration(sd_event *e, uint64_t *ret) {
         assert_return(e, -EINVAL);
         assert_return(e = event_resolve(e), -ENOPKG);
+        assert_return(ret, -EINVAL);
         assert_return(!event_origin_changed(e), -ECHILD);
 
         *ret = e->iteration;
