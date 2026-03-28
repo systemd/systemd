@@ -23,6 +23,7 @@ foreach testcase : [
         'NetworkdIPv6PrefixTests',
         'NetworkdMTUTests',
         'NetworkdSysctlTest',
+        'NetworkdWWANTests',
 ]
         integration_tests += [
                 integration_test_template + {
