@@ -14,6 +14,7 @@
 #include "bitfield.h"
 #include "btrfs-util.h"
 #include "build.h"
+#include "capability-list.h"
 #include "capability-util.h"
 #include "chase.h"
 #include "chattr-util.h"
@@ -104,6 +105,8 @@ typedef enum ItemType {
         RECURSIVE_SET_XATTR            = 'T',
         SET_ACL                        = 'a',
         RECURSIVE_SET_ACL              = 'A',
+        SET_FCAPS                      = 'k',
+        RECURSIVE_SET_FCAPS            = 'K',
         SET_ATTRIBUTE                  = 'h',
         RECURSIVE_SET_ATTRIBUTE        = 'H',
         IGNORE_PATH                    = 'x',
@@ -126,6 +129,18 @@ typedef enum AgeBy {
         AGE_BY_DEFAULT_DIR  = AGE_BY_ATIME | AGE_BY_BTIME | AGE_BY_MTIME,
 } AgeBy;
 
+typedef struct FCapsPatch {
+        uint64_t mask;
+        uint64_t set;
+} FCapsPatch;
+
+typedef struct FCapsUpdate {
+        uid_t rootuid;
+        FCapsPatch inheritable;
+        FCapsPatch permitted;
+        FCapsPatch effective;
+} FCapsUpdate;
+
 typedef struct Item {
         ItemType type;
 
@@ -139,6 +154,7 @@ typedef struct Item {
         acl_t acl_access_exec;
         acl_t acl_default;
 #endif
+        FCapsUpdate fcaps;
         uid_t uid;
         gid_t gid;
         mode_t mode;
@@ -170,6 +186,8 @@ typedef struct Item {
         bool purge:1;
 
         bool ignore_if_target_missing:1;
+
+        bool fcaps_set:1;
 
         OperationMask done;
 } Item;
@@ -408,6 +426,8 @@ static bool needs_glob(ItemType t) {
                       RECURSIVE_SET_XATTR,
                       SET_ACL,
                       RECURSIVE_SET_ACL,
+                      SET_FCAPS,
+                      RECURSIVE_SET_FCAPS,
                       SET_ATTRIBUTE,
                       RECURSIVE_SET_ATTRIBUTE,
                       IGNORE_PATH,
@@ -1500,6 +1520,271 @@ static int path_set_acls(
         r = fd_set_acls(c, item, fd, path, /* st= */ NULL, creation);
 #endif
         return r;
+}
+
+static int capability_vfs_from_string(const char *s, FCapsUpdate *ret) {
+        FCapsUpdate set = {
+                .rootuid = UID_INVALID,
+        };
+
+        assert(s);
+        assert(ret);
+
+        for (const char *p = s;;) {
+                _cleanup_free_ char *word = NULL, *keys = NULL;
+                char *value, sep;
+                int r;
+
+                r = extract_first_word(&p, &word, NULL, EXTRACT_UNQUOTE|EXTRACT_RELAX);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to split words from '%s': %m", p);
+                if (r == 0)
+                        break;
+
+                value = strpbrk(word, "=+-");
+                if (!value)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse key/value '%s': %m", word);
+                keys = strndup(word, value - word);
+                if (!keys)
+                        return log_oom();
+                sep = *value;
+                value++;
+
+                if (sep == '=' && streq(keys, "rootuid")) {
+                        r = parse_uid(value, &set.rootuid);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to parse rootuid value '%s': %m", value);
+                } else {
+                        uint64_t caps = 0;
+
+                        if (!in_charset(value, "eip"))
+                                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse value '%s': %m", value);
+
+                        if (STR_IN_SET(keys, "all", ""))
+                                caps = all_capabilities();
+                        else
+                                for (const char *remaining_keys = keys; remaining_keys && *remaining_keys;) {
+                                        _cleanup_free_ char *key = NULL;
+
+                                        r = extract_first_word(&remaining_keys, &key, ",", /* flags= */0);
+                                        if (r < 0)
+                                                return log_debug_errno(r, "Failed to parse capability list '%s': %m", keys);
+                                        if (r == 0)
+                                                break;
+                                        if (streq(key, "all"))
+                                                caps = all_capabilities();
+                                        else {
+                                                r = capability_from_name(key);
+                                                if (r < 0)
+                                                        return log_debug_errno(r, "Failed to parse capability '%s': %m", key);
+                                                caps |= UINT64_C(1) << r;
+                                        }
+                                }
+
+                        if (sep == '=') {
+                                set.permitted.mask |= caps;
+                                set.inheritable.mask |= caps;
+                                set.effective.mask |= caps;
+                        }
+                        if (IN_SET(sep, '=', '+')) {
+                                if (strchr(value, 'p'))
+                                        set.permitted.set |= caps;
+                                if (strchr(value, 'i'))
+                                        set.inheritable.set |= caps;
+                                if (strchr(value, 'e'))
+                                        set.effective.set |= caps;
+                        } else {
+                                if (strchr(value, 'p')) {
+                                        set.permitted.mask |= caps;
+                                        set.permitted.set &= ~caps;
+                                }
+                                if (strchr(value, 'i')) {
+                                        set.inheritable.mask |= caps;
+                                        set.inheritable.set &= ~caps;
+                                }
+                                if (strchr(value, 'e')) {
+                                        set.effective.mask |= caps;
+                                        set.effective.set &= ~caps;
+                                }
+                        }
+                }
+        }
+
+        *ret = set;
+
+        return 0;
+}
+
+static size_t cap_data_size(uint32_t revision) {
+        switch (revision) {
+        case VFS_CAP_REVISION_1:
+                return XATTR_CAPS_SZ_1;
+        case VFS_CAP_REVISION_2:
+                return XATTR_CAPS_SZ_2;
+        case VFS_CAP_REVISION_3:
+                return XATTR_CAPS_SZ_3;
+        default:
+                return SIZE_MAX;
+        }
+}
+
+static bool inode_type_can_fcaps(mode_t mode) {
+        return S_ISREG(mode);
+}
+
+static int apply_fcaps(int fd, const char *path, bool append, const FCapsUpdate *set) {
+        struct vfs_ns_cap_data val = {
+                .magic_etc = htole32(VFS_CAP_REVISION),
+        };
+        le32_t effective[VFS_CAP_U32] = {};
+        struct stat st;
+        int r;
+
+        assert(fd >= 0);
+        assert(path);
+        assert(set);
+
+        if (fstat(fd, &st) < 0)
+                return log_error_errno(errno, "Failed to fstat(%s): %m", path);
+
+        if (hardlink_vulnerable(&st))
+                return log_error_errno(SYNTHETIC_ERRNO(EPERM),
+                                       "Refusing to set file capabilities on hardlinked file %s while the fs.protected_hardlinks sysctl is turned off.",
+                                       path);
+
+        if (!inode_type_can_fcaps(st.st_mode)) {
+                log_debug("Skipping file capabilities for '%s' (inode type does not support file capabilities).", path);
+                return 0;
+        }
+
+        if (append) {
+                _cleanup_free_ char *xattr_data = NULL;
+                size_t xattr_data_len;
+
+                r = fgetxattr_malloc(fd, "security.capability", &xattr_data, &xattr_data_len);
+                if (r == -ENODATA)
+                        log_debug("No capabilities found for '%s'", path);
+                else if (r < 0)
+                        return log_error_errno(r, "Failed to read capabilities of '%s': %m", path);
+                else {
+                        _cleanup_free_ struct vfs_ns_cap_data *original = NULL;
+
+                        if (xattr_data_len < endoffsetof_field(struct vfs_ns_cap_data, magic_etc))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Extended attributes for capabilities are too small");
+
+                        original = realloc0(xattr_data, sizeof(struct vfs_ns_cap_data));
+                        if (!original)
+                                return log_oom();
+                        xattr_data = NULL;
+
+                        size_t expected_size = cap_data_size(le32toh(original->magic_etc) & VFS_CAP_REVISION_MASK);
+                        if (expected_size == SIZE_MAX)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown type of file capabilities");
+                        if (xattr_data_len != expected_size)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Size of file capabilities does not match its type");
+
+                        if (FLAGS_SET(le32toh(original->magic_etc), VFS_CAP_FLAGS_EFFECTIVE))
+                                for (size_t n = 0; n < VFS_CAP_U32; n++)
+                                        effective[n] = original->data[n].permitted | original->data[n].inheritable;
+
+                        for (size_t n = 0; n < VFS_CAP_U32; n++) {
+                                val.data[n].permitted = original->data[n].permitted;
+                                val.data[n].inheritable = original->data[n].inheritable;
+                        }
+
+                        val.rootid = original->rootid;
+                }
+        }
+
+        for (size_t n = 0; n < VFS_CAP_U32; n++) {
+                size_t bit_shift = 32*n;
+                val.data[n].inheritable &= htole32(~(set->inheritable.mask >> bit_shift) & UINT32_C(0xffffffff));
+                val.data[n].inheritable |= htole32((set->inheritable.set >> bit_shift) & UINT32_C(0xffffffff));
+                val.data[n].permitted &= htole32(~(set->permitted.mask >> bit_shift) & UINT32_C(0xffffffff));
+                val.data[n].permitted |= htole32((set->permitted.set >> bit_shift) & UINT32_C(0xffffffff));
+                effective[n] &= htole32(~(set->effective.mask >> bit_shift) & UINT32_C(0xffffffff));
+                effective[n] |= htole32((set->effective.set >> bit_shift) & UINT32_C(0xffffffff));
+                if (effective[n] != 0)
+                        val.magic_etc |= htole32(VFS_CAP_FLAGS_EFFECTIVE);
+        }
+
+        if (FLAGS_SET(le32toh(val.magic_etc), VFS_CAP_FLAGS_EFFECTIVE))
+                for (size_t n = 0; n < VFS_CAP_U32; n++)
+                        if ((val.data[n].permitted | val.data[n].inheritable) != effective[n])
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Inconsistent effective bits");
+
+        if (set->rootuid != UID_INVALID)
+                val.rootid = htole32(set->rootuid);
+
+        log_action("Would try to set", "Trying to set",
+                   "%s capabilities on %s", path);
+
+        if (!arg_dry_run) {
+                r = xsetxattr_full(fd, /* path= */ NULL, AT_EMPTY_PATH, "security.capability", (void*)&val, sizeof(val), /* xattr_flags= */ 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to setcap '%s': %m", path);
+        }
+
+        return 0;
+}
+
+static int parse_caps_from_arg(Item *item) {
+        FCapsUpdate fcaps;
+        int r;
+
+        assert(item);
+
+        r = capability_vfs_from_string(item->argument, &fcaps);
+        if (r < 0) {
+                log_full_errno(arg_graceful ? LOG_DEBUG : LOG_WARNING,
+                               r, "Failed to parse capabilities \"%s\", ignoring: %m", item->argument);
+                return 0;
+        }
+
+        item->fcaps_set = true;
+        item->fcaps = fcaps;
+
+        return 0;
+}
+
+static int fd_set_caps(
+                Context *c,
+                Item *item,
+                int fd,
+                const char *path,
+                const struct stat *st,
+                CreationMode creation) {
+        assert(c);
+        assert(item);
+        assert(fd >= 0);
+        assert(path);
+
+        if (!item->fcaps_set)
+                return 0;
+        return apply_fcaps(fd, path, item->append_or_force, &item->fcaps);
+}
+
+static int path_set_caps(
+                Context *c,
+                Item *item,
+                const char *path,
+                CreationMode creation) {
+        _cleanup_close_ int fd = -EBADF;
+
+        assert(c);
+        assert(item);
+        assert(path);
+
+        if (!item->fcaps_set)
+                return 0;
+
+        fd = path_open_safe(path);
+        if (fd == -ENOENT)
+                return 0;
+        if (fd < 0)
+                return fd;
+
+        return apply_fcaps(fd, path, item->append_or_force, &item->fcaps);
 }
 
 static int parse_attribute_from_arg(Item *item) {
@@ -2955,6 +3240,18 @@ static int create_item(Context *c, Item *i) {
                         return r;
                 break;
 
+        case SET_FCAPS:
+                r = glob_item(c, i, path_set_caps);
+                if (r < 0)
+                        return r;
+                break;
+
+        case RECURSIVE_SET_FCAPS:
+                r = glob_item_recursively(c, i, fd_set_caps);
+                if (r < 0)
+                        return r;
+                break;
+
         case SET_ATTRIBUTE:
                 r = glob_item(c, i, path_set_attribute);
                 if (r < 0)
@@ -3812,6 +4109,23 @@ static int parse_line(
                                           "Set ACLs requires argument.");
                 }
                 r = parse_acls_from_arg(&i);
+                if (r < 0)
+                        return r;
+                break;
+
+        case SET_FCAPS:
+        case RECURSIVE_SET_FCAPS:
+                if (unbase64) {
+                        *invalid_config = true;
+                        return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG),
+                                          "base64 decoding not supported for capabilities.");
+                }
+                if (!i.argument) {
+                        *invalid_config = true;
+                        return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG),
+                                          "Set capabilities requires argument.");
+                }
+                r = parse_caps_from_arg(&i);
                 if (r < 0)
                         return r;
                 break;
