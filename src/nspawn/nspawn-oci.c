@@ -22,6 +22,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
+#include "user-util.h"
 
 /* TODO:
  * OCI runtime tool implementation
@@ -684,6 +685,10 @@ static int oci_uid_gid_mappings(const char *name, sd_json_variant *v, sd_json_di
         r = oci_dispatch(e, table, flags, &data);
         if (r < 0)
                 return r;
+
+        /* Silence static analyzers, sd_json_dispatch_uid_gid() already validates */
+        assert(uid_is_valid(data.host_id));
+        assert(uid_is_valid(data.container_id));
 
         if (data.range > UINT32_MAX - data.host_id ||
             data.range > UINT32_MAX - data.container_id)
