@@ -2437,8 +2437,7 @@ static int image_discover_and_read_metadata(ImageClass image_class, Hashmap **re
                         return log_error_errno(r, "Failed to read metadata for image %s: %m", img->name);
         }
 
-        if (ret_images)
-                *ret_images = TAKE_PTR(images);
+        *ret_images = TAKE_PTR(images);
 
         return 0;
 }
