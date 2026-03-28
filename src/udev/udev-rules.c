@@ -174,10 +174,10 @@ typedef struct UdevRuleLine UdevRuleLine;
 typedef struct UdevRuleToken UdevRuleToken;
 
 struct UdevRuleToken {
-        UdevRuleTokenType type:8;
-        UdevRuleOperatorType op:8;
-        UdevRuleMatchType match_type:8;
-        UdevRuleSubstituteType attr_subst_type:8;
+        UdevRuleTokenType type:16;
+        UdevRuleOperatorType op:16;
+        UdevRuleMatchType match_type:16;
+        UdevRuleSubstituteType attr_subst_type:16;
         const char *value;
         void *data;
 
