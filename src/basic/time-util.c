@@ -1894,17 +1894,16 @@ TimestampStyle timestamp_style_from_string(const char *s) {
 }
 
 int parse_calendar_date_full(const char *s, bool allow_pre_epoch, usec_t *ret_usec, struct tm *ret_tm) {
-        struct tm parsed_tm = {}, copy_tm;
+        struct tm parsed_tm = {};
         const char *k;
         int r;
 
         assert(s);
+        assert(!allow_pre_epoch || !ret_usec);
 
         k = strptime(s, "%Y-%m-%d", &parsed_tm);
         if (!k || *k)
                 return -EINVAL;
-
-        copy_tm = parsed_tm;
 
         usec_t usec = USEC_INFINITY;
 
@@ -1913,20 +1912,14 @@ int parse_calendar_date_full(const char *s, bool allow_pre_epoch, usec_t *ret_us
                  * timegm() returns (time_t) -1 both on error and for one second before the epoch.
                  * Initialize wday to -1 beforehand: if it remains -1 after the call, it's a genuine
                  * error; if timegm() changed it, the date was successfully normalized. */
-                copy_tm.tm_wday = -1;
-                if (timegm(&copy_tm) == (time_t) -1 && copy_tm.tm_wday == -1)
-                        return -EINVAL;
+                r = validate_tm(&parsed_tm);
+                if (r < 0)
+                        return r;
         } else {
-                r = mktime_or_timegm_usec(&copy_tm, /* utc= */ true, &usec);
+                r = mktime_or_timegm_usec(&parsed_tm, /* utc= */ true, &usec);
                 if (r < 0)
                         return r;
         }
-
-        /* Refuse non-normalized dates, e.g. Feb 30 */
-        if (copy_tm.tm_mday != parsed_tm.tm_mday ||
-            copy_tm.tm_mon  != parsed_tm.tm_mon  ||
-            copy_tm.tm_year != parsed_tm.tm_year)
-                return -EINVAL;
 
         if (ret_usec)
                 *ret_usec = usec;
@@ -1937,6 +1930,29 @@ int parse_calendar_date_full(const char *s, bool allow_pre_epoch, usec_t *ret_us
                 ret_tm->tm_mon = parsed_tm.tm_mon;
                 ret_tm->tm_year = parsed_tm.tm_year;
         }
+
+        return 0;
+}
+
+int validate_tm(const struct tm *t) {
+        assert(t);
+
+        struct tm copy_t = *t;
+        /* Initialize wday to -1 beforehand: if it remains -1 after the call, it's a genuine
+         * error; if timegm() changed it, the date was successfully normalized. */
+        copy_t.tm_wday = -1;
+        if (mktime(&copy_t) == (time_t) -1 && copy_t.tm_wday == -1)
+                return -EINVAL;
+
+        if (copy_t.tm_sec != t->tm_sec ||
+            copy_t.tm_min != t->tm_min ||
+            copy_t.tm_hour != t->tm_hour ||
+            copy_t.tm_mday != t->tm_mday ||
+            copy_t.tm_mon  != t->tm_mon  ||
+            copy_t.tm_year != t->tm_year ||
+            copy_t.tm_wday != t->tm_wday ||
+            copy_t.tm_yday != t->tm_yday)
+                return -EINVAL;
 
         return 0;
 }

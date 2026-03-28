@@ -8,7 +8,10 @@ executables += [
         executable_template + {
                 'name' : 'systemd-repart',
                 'public' : true,
-                'extract' : files('repart.c'),
+                'extract' : files(
+                        'repart.c',
+                        'iso9660.c',
+                ),
                 'link_with' : [
                         libshared,
                         libshared_fdisk,
