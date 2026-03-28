@@ -45,6 +45,10 @@ static void manager_process_entry_meta(
                 char **message,
                 pid_t *object_pid) {
 
+        assert(priority);
+        assert(identifier);
+        assert(message);
+
         /* We need to determine the priority of this entry for the rate limiting logic */
 
         if (l == 10 &&
@@ -112,6 +116,8 @@ static int manager_process_entry(
         pid_t object_pid = 0;
         const char *p;
         int r = 1;
+
+        assert(remaining);
 
         p = buffer;
 

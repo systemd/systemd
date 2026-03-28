@@ -81,9 +81,9 @@ int dns_stub_listener_extra_new(
                 Manager *m,
                 DnsStubListenerExtra **ret) {
 
-        assert(ret);
-
         DnsStubListenerExtra *l;
+
+        assert(ret);
 
         l = new(DnsStubListenerExtra, 1);
         if (!l)
