@@ -1837,7 +1837,7 @@ static int vl_method_list_transfers(sd_varlink *link, sd_json_variant *parameter
         if (r != 0)
                 return r;
 
-        r = varlink_set_sentinel(link, "io.systemd.Import.NoTransfers");
+        r = sd_varlink_set_sentinel(link, "io.systemd.Import.NoTransfers");
         if (r < 0)
                 return r;
 

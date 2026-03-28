@@ -205,6 +205,11 @@ int sd_varlink_bind_reply(sd_varlink *v, sd_varlink_reply_t reply);
 void* sd_varlink_set_userdata(sd_varlink *v, void *userdata);
 void* sd_varlink_get_userdata(sd_varlink *v);
 
+/* Queue a reply to be sent if no other reply was sent by a method callback.
+ * Useful when implementing services which send a (possibly empty) series
+ * of objects and terminate. */
+int sd_varlink_set_sentinel(sd_varlink *v, const char *error_id);
+
 int sd_varlink_get_peer_uid(sd_varlink *v, uid_t *ret);
 int sd_varlink_get_peer_gid(sd_varlink *v, gid_t *ret);
 int sd_varlink_get_peer_pid(sd_varlink *v, pid_t *ret);

@@ -90,7 +90,7 @@ int metrics_method_describe(
         if (r != 0)
                 return r;
 
-        r = varlink_set_sentinel(link, "io.systemd.Metrics.NoSuchMetric");
+        r = sd_varlink_set_sentinel(link, "io.systemd.Metrics.NoSuchMetric");
         if (r < 0)
                 return r;
 
@@ -127,7 +127,7 @@ int metrics_method_list(
         if (r != 0)
                 return r;
 
-        r = varlink_set_sentinel(link, "io.systemd.Metrics.NoSuchMetric");
+        r = sd_varlink_set_sentinel(link, "io.systemd.Metrics.NoSuchMetric");
         if (r < 0)
                 return r;
 
