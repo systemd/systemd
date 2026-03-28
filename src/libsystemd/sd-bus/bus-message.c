@@ -362,6 +362,8 @@ static int message_from_header(
 
         if (label) {
                 label_sz = strlen(label);
+                /* Silence static analyzers */
+                assert(label_sz <= SIZE_MAX - ALIGN(sizeof(sd_bus_message)) - 1);
                 a += label_sz + 1;
         }
 
