@@ -1320,7 +1320,6 @@ static int openssl_load_private_key_from_file(const char *path, EVP_PKEY **ret) 
         int r;
 
         assert(path);
-        assert(ret);
 
         r = read_full_file_full(
                         AT_FDCWD, path, UINT64_MAX, SIZE_MAX,
@@ -1385,7 +1384,6 @@ static int load_x509_certificate_from_file(const char *path, X509 **ret) {
         int r;
 
         assert(path);
-        assert(ret);
 
         r = read_full_file_full(
                         AT_FDCWD, path, UINT64_MAX, SIZE_MAX,
