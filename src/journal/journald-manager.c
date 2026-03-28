@@ -135,6 +135,8 @@ static int manager_determine_path_usage(
 }
 
 static void cache_space_invalidate(JournalStorageSpace *space) {
+        assert(space);
+
         zero(*space);
 }
 

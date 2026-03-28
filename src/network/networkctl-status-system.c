@@ -20,6 +20,9 @@ static int ifindex_str_compare_func(char * const *a, char * const *b) {
         size_t al, bl;
         int r;
 
+        POINTER_MAY_BE_NULL(a);
+        POINTER_MAY_BE_NULL(b);
+
         al = strlen_ptr(*a);
         bl = strlen_ptr(*b);
 

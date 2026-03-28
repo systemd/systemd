@@ -313,6 +313,8 @@ static int unit_compare_memory_limit(Unit *u, const char *property_name, uint64_
          * - ret_kernel_value will contain the actual value presented by the kernel. */
 
         assert(u);
+        assert(ret_unit_value);
+        assert(ret_kernel_value);
 
         /* The root slice doesn't have any controller files, so we can't compare anything. */
         if (unit_has_name(u, SPECIAL_ROOT_SLICE))
@@ -3188,6 +3190,8 @@ static int on_cgroup_inotify_event(sd_event_source *s, int fd, uint32_t revents,
 static int cg_bpf_mask_supported(CGroupMask *ret) {
         CGroupMask mask = 0;
         int r;
+
+        assert(ret);
 
         /* BPF-based firewall, device access control, and pinned foreign prog */
         if (bpf_program_supported() > 0)

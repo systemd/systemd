@@ -2003,6 +2003,8 @@ static int mount_get_timeout(Unit *u, usec_t *timeout) {
         usec_t t;
         int r;
 
+        assert(timeout);
+
         if (!m->timer_event_source)
                 return 0;
 
