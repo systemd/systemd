@@ -680,6 +680,22 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>Discard=</varname></term>
+
+        <listitem><para>Takes a boolean argument. The default is <literal>no</literal> if
+        <option>--discard=no</option> is used for the invocation of <command>systemd-repart</command>
+        or if <varname>Integrity=inline</varname> is set. It is <literal>yes</literal> otherwise.</para>
+
+        <para>If set to <literal>yes</literal>, when creating the LUKS2 superblock for the partition, the
+        <literal>allow-discards</literal> activation flag will be set so that future activations will allow
+        discards by default.</para>
+
+        <para>This option has no effect if the partition already exists or if <varname>Encrypt=off</varname> is used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>Verity=</varname></term>
 
         <listitem><para>Takes one of <literal>off</literal>, <literal>data</literal>,
