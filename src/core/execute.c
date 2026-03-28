@@ -113,7 +113,7 @@ int exec_context_apply_tty_size(
         if (rows == UINT_MAX && cols == UINT_MAX &&
             exec_context_shall_ansi_seq_reset(context) &&
             isatty_safe(input_fd)) {
-                r = terminal_get_size_by_dsr(input_fd, output_fd, &rows, &cols);
+                r = terminal_get_size(input_fd, output_fd, &rows, &cols, /* try_dsr= */ true, /* try_csi18= */ false);
                 if (r < 0)
                         log_debug_errno(r, "Failed to get terminal size by DSR, ignoring: %m");
         }
