@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include "sd-daemon.h"
 #include "sd-event.h"
@@ -38,7 +39,7 @@ typedef struct TarExport {
         int tree_fd;   /* directory fd of the tree to set up */
         int userns_fd;
 
-        ImportCompress compress;
+        Compressor *compress;
 
         sd_event_source *output_event_source;
 
@@ -74,7 +75,7 @@ TarExport *tar_export_unref(TarExport *e) {
                 free(e->temp_path);
         }
 
-        import_compress_free(&e->compress);
+        e->compress = compressor_free(e->compress);
 
         sd_event_unref(e->event);
 
@@ -188,9 +189,9 @@ static int tar_export_process(TarExport *e) {
 
         assert(e);
 
-        if (!e->tried_splice && e->compress.type == IMPORT_COMPRESS_UNCOMPRESSED) {
+        if (!e->tried_splice && compressor_type(e->compress) == COMPRESSION_NONE) {
 
-                l = splice(e->tar_fd, NULL, e->output_fd, NULL, IMPORT_BUFFER_SIZE, 0);
+                l = splice(e->tar_fd, NULL, e->output_fd, NULL, COMPRESS_PIPE_BUFFER_SIZE, 0);
                 if (l < 0) {
                         if (errno == EAGAIN)
                                 return 0;
@@ -210,7 +211,7 @@ static int tar_export_process(TarExport *e) {
         }
 
         while (e->buffer_size <= 0) {
-                uint8_t input[IMPORT_BUFFER_SIZE];
+                uint8_t input[COMPRESS_PIPE_BUFFER_SIZE];
 
                 if (e->eof) {
                         r = tar_export_finish(e);
@@ -225,10 +226,10 @@ static int tar_export_process(TarExport *e) {
 
                 if (l == 0) {
                         e->eof = true;
-                        r = import_compress_finish(&e->compress, &e->buffer, &e->buffer_size, &e->buffer_allocated);
+                        r = compressor_finish(e->compress, &e->buffer, &e->buffer_size, &e->buffer_allocated);
                 } else {
                         e->written_uncompressed += l;
-                        r = import_compress(&e->compress, input, l, &e->buffer, &e->buffer_size, &e->buffer_allocated);
+                        r = compressor_start(e->compress, input, l, &e->buffer, &e->buffer_size, &e->buffer_allocated);
                 }
                 if (r < 0) {
                         r = log_error_errno(r, "Failed to encode: %m");
@@ -282,7 +283,7 @@ int tar_export_start(
                 TarExport *e,
                 const char *path,
                 int fd,
-                ImportCompressType compress,
+                Compression compress,
                 ImportFlags flags) {
 
         _cleanup_close_ int sfd = -EBADF;
@@ -291,8 +292,8 @@ int tar_export_start(
         assert(e);
         assert(path);
         assert(fd >= 0);
-        assert(compress < _IMPORT_COMPRESS_TYPE_MAX);
-        assert(compress != IMPORT_COMPRESS_UNKNOWN);
+        assert(compress >= 0);
+        assert(compress < _COMPRESSION_MAX);
 
         if (e->output_fd >= 0)
                 return -EBUSY;
@@ -336,7 +337,7 @@ int tar_export_start(
                 }
         }
 
-        r = import_compress_init(&e->compress, compress);
+        r = compressor_new(&e->compress, compress);
         if (r < 0)
                 return r;
 

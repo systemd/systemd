@@ -1,17 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include "sd-daemon.h"
 #include "sd-event.h"
 
 #include "alloc-util.h"
+#include "compress.h"
 #include "copy.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "import-common.h"
-#include "import-compress.h"
 #include "import-raw.h"
 #include "import-util.h"
 #include "install-file.h"
@@ -43,11 +44,11 @@ typedef struct RawImport {
         int input_fd;
         int output_fd;
 
-        ImportCompress compress;
+        Compressor *compress;
 
         sd_event_source *input_event_source;
 
-        uint8_t buffer[IMPORT_BUFFER_SIZE];
+        uint8_t buffer[COMPRESS_PIPE_BUFFER_SIZE];
         size_t buffer_size;
 
         uint64_t written_compressed;
@@ -71,7 +72,7 @@ RawImport* raw_import_unref(RawImport *i) {
 
         unlink_and_free(i->temp_path);
 
-        import_compress_free(&i->compress);
+        i->compress = compressor_free(i->compress);
 
         sd_event_unref(i->event);
 
@@ -328,7 +329,7 @@ static int raw_import_try_reflink(RawImport *i) {
         assert(i->input_fd >= 0);
         assert(i->output_fd >= 0);
 
-        if (i->compress.type != IMPORT_COMPRESS_UNCOMPRESSED)
+        if (compressor_type(i->compress) != COMPRESSION_NONE)
                 return 0;
 
         if (i->offset != UINT64_MAX || i->size_max != UINT64_MAX)
@@ -425,13 +426,13 @@ static int raw_import_process(RawImport *i) {
 
         i->buffer_size += l;
 
-        if (i->compress.type == IMPORT_COMPRESS_UNKNOWN) {
+        if (!i->compress) {
 
                 if (l == 0) { /* EOF */
                         log_debug("File too short to be compressed, as no compression signature fits in, thus assuming uncompressed.");
-                        import_uncompress_force_off(&i->compress);
+                        decompressor_force_off(&i->compress);
                 } else {
-                        r = import_uncompress_detect(&i->compress, i->buffer, i->buffer_size);
+                        r = decompressor_detect(&i->compress, i->buffer, i->buffer_size);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to detect file compression: %m");
                                 goto finish;
@@ -451,7 +452,7 @@ static int raw_import_process(RawImport *i) {
                         goto complete;
         }
 
-        r = import_uncompress(&i->compress, i->buffer, i->buffer_size, raw_import_write, i);
+        r = decompressor_push(i->compress, i->buffer, i->buffer_size, raw_import_write, i);
         if (r < 0) {
                 log_error_errno(r, "Failed to decode and write: %m");
                 goto finish;
