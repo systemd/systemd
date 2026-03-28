@@ -153,7 +153,7 @@ int is_symlink(const char *path) {
         return verify_stat_at(AT_FDCWD, path, false, stat_verify_symlink, false);
 }
 
-static mode_t mode_verify_socket(mode_t mode) {
+static int mode_verify_socket(mode_t mode) {
         if (S_ISLNK(mode))
                 return -ELOOP;
 
