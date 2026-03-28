@@ -1103,7 +1103,7 @@ static int save_core(sd_journal *j, FILE *file, char **path, bool *unlink_temp) 
                         goto error;
                 }
 
-                r = decompress_stream(filename, fdf, fd, -1);
+                r = decompress_stream_by_filename(filename, fdf, fd, -1);
                 if (r < 0) {
                         log_error_errno(r, "Failed to decompress %s: %m", filename);
                         goto error;

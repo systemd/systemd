@@ -11,7 +11,6 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
-#include "import-common.h"
 #include "log.h"
 #include "pretty-print.h"
 #include "ratelimit.h"
@@ -32,7 +31,7 @@ typedef struct RawExport {
         int input_fd;
         int output_fd;
 
-        ImportCompress compress;
+        Compressor *compress;
 
         sd_event_source *output_event_source;
 
@@ -59,7 +58,7 @@ RawExport *raw_export_unref(RawExport *e) {
 
         sd_event_source_unref(e->output_event_source);
 
-        import_compress_free(&e->compress);
+        e->compress = compressor_free(e->compress);
 
         sd_event_unref(e->event);
 
@@ -143,7 +142,7 @@ static int raw_export_process(RawExport *e) {
 
         assert(e);
 
-        if (!e->tried_reflink && e->compress.type == IMPORT_COMPRESS_UNCOMPRESSED) {
+        if (!e->tried_reflink && compressor_type(e->compress) == COMPRESSION_NONE) {
 
                 /* If we shall take an uncompressed snapshot we can
                  * reflink source to destination directly. Let's see
@@ -158,9 +157,9 @@ static int raw_export_process(RawExport *e) {
                 e->tried_reflink = true;
         }
 
-        if (!e->tried_sendfile && e->compress.type == IMPORT_COMPRESS_UNCOMPRESSED) {
+        if (!e->tried_sendfile && compressor_type(e->compress) == COMPRESSION_NONE) {
 
-                l = sendfile(e->output_fd, e->input_fd, NULL, IMPORT_BUFFER_SIZE);
+                l = sendfile(e->output_fd, e->input_fd, NULL, COMPRESS_PIPE_BUFFER_SIZE);
                 if (l < 0) {
                         if (errno == EAGAIN)
                                 return 0;
@@ -180,7 +179,7 @@ static int raw_export_process(RawExport *e) {
         }
 
         while (e->buffer_size <= 0) {
-                uint8_t input[IMPORT_BUFFER_SIZE];
+                uint8_t input[COMPRESS_PIPE_BUFFER_SIZE];
 
                 if (e->eof) {
                         r = 0;
@@ -195,10 +194,10 @@ static int raw_export_process(RawExport *e) {
 
                 if (l == 0) {
                         e->eof = true;
-                        r = import_compress_finish(&e->compress, &e->buffer, &e->buffer_size, &e->buffer_allocated);
+                        r = compressor_finish(e->compress, &e->buffer, &e->buffer_size, &e->buffer_allocated);
                 } else {
                         e->written_uncompressed += l;
-                        r = import_compress(&e->compress, input, l, &e->buffer, &e->buffer_size, &e->buffer_allocated);
+                        r = compressor_start(e->compress, input, l, &e->buffer, &e->buffer_size, &e->buffer_allocated);
                 }
                 if (r < 0) {
                         r = log_error_errno(r, "Failed to encode: %m");
@@ -280,15 +279,15 @@ static int reflink_snapshot(int fd, const char *path) {
         return new_fd;
 }
 
-int raw_export_start(RawExport *e, const char *path, int fd, ImportCompressType compress) {
+int raw_export_start(RawExport *e, const char *path, int fd, Compression compress) {
         _cleanup_close_ int sfd = -EBADF, tfd = -EBADF;
         int r;
 
         assert(e);
         assert(path);
         assert(fd >= 0);
-        assert(compress < _IMPORT_COMPRESS_TYPE_MAX);
-        assert(compress != IMPORT_COMPRESS_UNKNOWN);
+        assert(compress >= 0);
+        assert(compress < _COMPRESSION_MAX);
 
         if (e->output_fd >= 0)
                 return -EBUSY;
@@ -318,7 +317,7 @@ int raw_export_start(RawExport *e, const char *path, int fd, ImportCompressType 
         else
                 e->input_fd = TAKE_FD(sfd);
 
-        r = import_compress_init(&e->compress, compress);
+        r = compressor_new(&e->compress, compress);
         if (r < 0)
                 return r;
 
