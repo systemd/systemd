@@ -177,6 +177,7 @@ static const sd_bus_vtable vtable2[] = {
 };
 
 static int enumerator_callback(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *reterr_error) {
+        assert(nodes);
 
         if (object_path_startswith("/value", path))
                 ASSERT_NOT_NULL(*nodes = strv_new("/value/c", "/value/b", "/value/a"));
@@ -185,6 +186,7 @@ static int enumerator_callback(sd_bus *bus, const char *path, void *userdata, ch
 }
 
 static int enumerator2_callback(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *reterr_error) {
+        assert(nodes);
 
         if (object_path_startswith("/value/a", path))
                 ASSERT_NOT_NULL(*nodes = strv_new("/value/a/z", "/value/a/x", "/value/a/y"));
@@ -194,6 +196,8 @@ static int enumerator2_callback(sd_bus *bus, const char *path, void *userdata, c
 
 static int enumerator3_callback(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *reterr_error) {
         _cleanup_strv_free_ char **v = NULL;
+
+        assert(nodes);
 
         if (!object_path_startswith("/value/b", path))
                 return 1;
