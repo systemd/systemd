@@ -47,6 +47,7 @@ typedef struct sd_dhcp_server {
 
         char *timezone;
         char *domain_name;
+        char *captive_portal;
 
         DHCPServerData servers[_SD_DHCP_LEASE_SERVER_TYPE_MAX];
         struct in_addr boot_server_address;
