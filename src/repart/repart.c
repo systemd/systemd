@@ -2998,10 +2998,17 @@ static int partition_read_definition(
                                   "VerityMatchKey= can only be set if Verity= is not \"%s\".",
                                   verity_mode_to_string(p->verity));
 
-        if (IN_SET(p->verity, VERITY_HASH, VERITY_SIG) && (p->copy_blocks_path || p->copy_blocks_auto || p->format || partition_needs_populate(p)))
-                return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "CopyBlocks=/CopyFiles=/Format=/MakeDirectories=/MakeSymlinks= cannot be used with Verity=%s.",
-                                  verity_mode_to_string(p->verity));
+        if (IN_SET(p->verity, VERITY_HASH, VERITY_SIG)) {
+                if (p->format || partition_needs_populate(p))
+                        return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
+                                          "CopyFiles=/Format=/MakeDirectories=/MakeSymlinks= cannot be used with Verity=%s.",
+                                          verity_mode_to_string(p->verity));
+
+                if (p->copy_blocks_path || p->copy_blocks_auto)
+                        log_syntax(NULL, LOG_WARNING, path, 1, 0,
+                                   "CopyBlocks= with Verity=%s, unable to ensure functioning dm-verity setup.",
+                                   verity_mode_to_string(p->verity));
+        }
 
         if (p->verity != VERITY_OFF && p->encrypt != ENCRYPT_OFF)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
@@ -5620,7 +5627,7 @@ static int partition_format_verity_hash(
         if (PARTITION_EXISTS(p)) /* Never format existing partitions */
                 return 0;
 
-        /* Minimized partitions will use the copy blocks logic so skip those here. */
+        /* Either we are minimizing the partition or we were instructed to copy an existing hash block directly. */
         if (p->copy_blocks_fd >= 0)
                 return 0;
 
@@ -5792,6 +5799,10 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
                 return 0;
 
         if (PARTITION_EXISTS(p))
+                return 0;
+
+        /* We were instructed to copy an existing signature block directly */
+        if (p->copy_blocks_fd >= 0)
                 return 0;
 
         assert_se(hp = p->siblings[VERITY_HASH]);
