@@ -2981,6 +2981,7 @@ static int wait_for_container(PidRef *pid, ContainerStatus *container) {
         int r;
 
         assert(pidref_is_set(pid));
+        assert(container);
 
         r = pidref_wait_for_terminate(pid, &status);
         if (r < 0)
@@ -4722,6 +4723,8 @@ static int nspawn_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t r
 
 static int setup_notify_parent(sd_event *event, int fd, PidRef *inner_child_pid, sd_event_source **notify_event_source) {
         int r;
+
+        assert(notify_event_source);
 
         if (fd < 0)
                 return 0;
