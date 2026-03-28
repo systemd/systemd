@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/xattr.h>
+#include <unistd.h>
 
 #include "alloc-util.h"
 #include "curl-util.h"
@@ -53,7 +54,7 @@ PullJob* pull_job_unref(PullJob *j) {
         curl_glue_remove_and_free(j->glue, j->curl);
         curl_slist_free_all(j->request_header);
 
-        import_compress_free(&j->compress);
+        j->compress = compressor_free(j->compress);
 
         if (j->checksum_ctx)
                 EVP_MD_CTX_free(j->checksum_ctx);
@@ -134,7 +135,7 @@ int pull_job_restart(PullJob *j, const char *new_url) {
         curl_glue_remove_and_free(j->glue, j->curl);
         j->curl = NULL;
 
-        import_compress_free(&j->compress);
+        j->compress = compressor_free(j->compress);
 
         if (j->checksum_ctx) {
                 EVP_MD_CTX_free(j->checksum_ctx);
@@ -453,7 +454,7 @@ static int pull_job_write_compressed(PullJob *j, const struct iovec *data) {
                                                "Could not hash chunk.");
         }
 
-        r = import_uncompress(&j->compress, data->iov_base, data->iov_len, pull_job_write_uncompressed, j);
+        r = decompressor_push(j->compress, data->iov_base, data->iov_len, pull_job_write_uncompressed, j);
         if (r < 0)
                 return r;
 
@@ -502,13 +503,13 @@ static int pull_job_detect_compression(PullJob *j) {
 
         assert(j);
 
-        r = import_uncompress_detect(&j->compress, j->payload.iov_base, j->payload.iov_len);
+        r = decompressor_detect(&j->compress, j->payload.iov_base, j->payload.iov_len);
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize compressor: %m");
         if (r == 0)
                 return 0;
 
-        log_debug("Stream is compressed: %s", import_compress_type_to_string(j->compress.type));
+        log_debug("Stream is compressed: %s", compression_to_string(compressor_type(j->compress)));
 
         r = pull_job_open_disk(j);
         if (r < 0)
