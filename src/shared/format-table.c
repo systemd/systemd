@@ -1543,6 +1543,8 @@ static int cell_data_compare(TableData *a, size_t index_a, TableData *b, size_t 
 static int table_data_compare(const size_t *a, const size_t *b, Table *t) {
         int r;
 
+        assert(a);
+        assert(b);
         assert(t);
         assert(t->sort_map);
 

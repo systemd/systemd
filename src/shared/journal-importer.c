@@ -50,6 +50,8 @@ static int get_line(JournalImporter *imp, char **line, size_t *size) {
         char *c = NULL;
 
         assert(imp);
+        assert(line);
+        assert(size);
         assert(imp->state == IMPORTER_STATE_LINE);
         assert(imp->offset <= imp->filled);
         assert(imp->filled <= MALLOC_SIZEOF_SAFE(imp->buf));
