@@ -1940,7 +1940,7 @@ _public_ int sd_json_variant_filter(sd_json_variant **v, char **to_remove) {
         if (strv_isempty(to_remove))
                 return 0;
 
-        for (size_t i = 0; i < sd_json_variant_elements(*v); i += 2) {
+        for (size_t i = 0, m = sd_json_variant_elements(*v); i < m; i += 2) {
                 sd_json_variant *p;
 
                 p = sd_json_variant_by_index(*v, i);
@@ -1949,7 +1949,9 @@ _public_ int sd_json_variant_filter(sd_json_variant **v, char **to_remove) {
 
                 if (strv_contains(to_remove, sd_json_variant_string(p))) {
                         if (!array) {
-                                array = new(sd_json_variant*, sd_json_variant_elements(*v) - 2);
+                                /* Silence static analyzers */
+                                assert(m >= 2);
+                                array = new(sd_json_variant*, m - 2);
                                 if (!array)
                                         return -ENOMEM;
 
