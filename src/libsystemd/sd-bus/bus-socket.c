@@ -35,6 +35,7 @@
 #define SNDBUF_SIZE (8*1024*1024)
 
 static void iovec_advance(struct iovec iov[], unsigned *idx, size_t size) {
+        assert(idx);
 
         while (size > 0) {
                 struct iovec *i = iov + *idx;
