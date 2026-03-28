@@ -1703,6 +1703,10 @@ static int dissect_image(
                 PartitionDesignator dv = partition_verity_hash_of(*dd);
                 PartitionDesignator ds = partition_verity_sig_of(*dd);
 
+                /* Hint to help static analyzers */
+                assert(dv >= 0);
+                assert(ds >= 0);
+
                 if (!m->partitions[*dd].found && (m->partitions[dv].found || m->partitions[ds].found))
                         return log_debug_errno(
                                         SYNTHETIC_ERRNO(EADDRNOTAVAIL),

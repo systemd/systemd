@@ -275,7 +275,7 @@ static void context_reset_for_refresh(Context *c) {
         c->child_data = hashmap_free(c->child_data);
         c->data_size = 0;
 
-        sd_event_source_set_enabled(c->retry_source, SD_EVENT_OFF);
+        (void) sd_event_source_set_enabled(c->retry_source, SD_EVENT_OFF);
 }
 
 static void context_reset_full(Context *c) {
