@@ -2982,6 +2982,24 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 r = strv_prepend(&arg_kernel_cmdline_extra, "console=hvc0");
                 if (r < 0)
                         return log_oom();
+
+                /* Propagate the host's $TERM into the VM via the kernel command line. TERM= is
+                 * picked up by PID 1 and inherited by services on /dev/console, and
+                 * systemd.tty.term.hvc0= is used by services directly attached to /dev/hvc0 (such
+                 * as serial-getty). While systemd can auto-detect the terminal type via DCS
+                 * XTGETTCAP, not all terminal emulators implement this, so let's always propagate
+                 * $TERM if we have it. */
+                const char *term = getenv("TERM");
+                if (term_env_valid(term)) {
+                        FOREACH_STRING(tty_key, "systemd.tty.term.hvc0", "TERM") {
+                                _cleanup_free_ char *p = strjoin(tty_key, "=", term);
+                                if (!p)
+                                        return log_oom();
+
+                                if (strv_consume_prepend(&arg_kernel_cmdline_extra, TAKE_PTR(p)) < 0)
+                                        return log_oom();
+                        }
+                }
         }
 
         for (size_t j = 0; j < arg_runtime_mounts.n_mounts; j++) {

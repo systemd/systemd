@@ -1716,6 +1716,16 @@ static bool on_dev_null(void) {
         return cached_on_dev_null;
 }
 
+bool term_env_valid(const char *term) {
+        /* Checks if the specified $TERM value is suitable for propagation, i.e. is not empty, not set to
+         * "unknown" (as is common in CI), and only contains characters valid in terminal type names.
+         * Valid $TERM values are things like "xterm-256color", "linux", "screen.xterm-256color", i.e.
+         * alphanumeric characters, hyphens, underscores, dots, and plus signs. */
+        return !isempty(term) &&
+                !streq(term, "unknown") &&
+                in_charset(term, ALPHANUMERICAL "-_+.");
+}
+
 bool getenv_terminal_is_dumb(void) {
         const char *e;
 
