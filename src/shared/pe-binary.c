@@ -421,7 +421,7 @@ int pe_hash(int fd,
         if ((uint64_t) st.st_size > p) {
 
                 if ((uint64_t) st.st_size - p < le32toh(certificate_table->Size))
-                        return log_debug_errno(errno, "No space for certificate table, refusing.");
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "No space for certificate table, refusing.");
 
                 r = hash_file(fd, mdctx, p, st.st_size - p - le32toh(certificate_table->Size));
                 if (r < 0)
