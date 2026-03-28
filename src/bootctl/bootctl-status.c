@@ -22,7 +22,6 @@
 #include "pretty-print.h"
 #include "string-util.h"
 #include "tpm2-util.h"
-#include "varlink-util.h"
 
 static int status_entries(
                 const BootConfig *config,
@@ -705,7 +704,7 @@ int vl_method_list_boot_entries(sd_varlink *link, sd_json_variant *parameters, s
         if (r < 0)
                 return r;
 
-        r = varlink_set_sentinel(link, "io.systemd.BootControl.NoSuchBootEntry");
+        r = sd_varlink_set_sentinel(link, "io.systemd.BootControl.NoSuchBootEntry");
         if (r < 0)
                 return r;
 

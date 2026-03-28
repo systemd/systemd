@@ -14,7 +14,6 @@
 #include "user-record.h"
 #include "user-record-util.h"
 #include "user-util.h"
-#include "varlink-util.h"
 
 typedef struct LookupParameters {
         const char *user_name;
@@ -104,7 +103,7 @@ int vl_method_get_user_record(sd_varlink *link, sd_json_variant *parameters, sd_
         if (!streq_ptr(p.service, m->userdb_service))
                 return sd_varlink_error(link, "io.systemd.UserDatabase.BadService", NULL);
 
-        r = varlink_set_sentinel(link, "io.systemd.UserDatabase.NoRecordFound");
+        r = sd_varlink_set_sentinel(link, "io.systemd.UserDatabase.NoRecordFound");
         if (r < 0)
                 return r;
 
@@ -212,7 +211,7 @@ int vl_method_get_group_record(sd_varlink *link, sd_json_variant *parameters, sd
         if (!streq_ptr(p.service, m->userdb_service))
                 return sd_varlink_error(link, "io.systemd.UserDatabase.BadService", NULL);
 
-        r = varlink_set_sentinel(link, "io.systemd.UserDatabase.NoRecordFound");
+        r = sd_varlink_set_sentinel(link, "io.systemd.UserDatabase.NoRecordFound");
         if (r < 0)
                 return r;
 
@@ -277,7 +276,7 @@ int vl_method_get_memberships(sd_varlink *link, sd_json_variant *parameters, sd_
         if (!streq_ptr(p.service, m->userdb_service))
                 return sd_varlink_error(link, "io.systemd.UserDatabase.BadService", NULL);
 
-        r = varlink_set_sentinel(link, "io.systemd.UserDatabase.NoRecordFound");
+        r = sd_varlink_set_sentinel(link, "io.systemd.UserDatabase.NoRecordFound");
         if (r < 0)
                 return r;
 

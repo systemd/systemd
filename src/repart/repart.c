@@ -10427,7 +10427,7 @@ static int vl_method_list_candidate_devices(
         if (r < 0)
                 return r;
 
-        r = varlink_set_sentinel(link, "io.systemd.Repart.NoCandidateDevices");
+        r = sd_varlink_set_sentinel(link, "io.systemd.Repart.NoCandidateDevices");
         if (r < 0)
                 return r;
 

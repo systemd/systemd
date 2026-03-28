@@ -5420,7 +5420,7 @@ static int vl_method_read_event_log(sd_varlink *link, sd_json_variant *parameter
                 return r;
 
         // FIXME: We can't use a NULL sentinel here because the output fields in the IDL are non-nullable.
-        r = varlink_set_sentinel(link, NULL);
+        r = sd_varlink_set_sentinel(link, NULL);
         if (r < 0)
                 return r;
 

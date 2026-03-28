@@ -334,7 +334,7 @@ int vl_method_enqueue_marked_jobs_manager(sd_varlink *link, sd_json_variant *par
         if (r <= 0)
                 return r;
 
-        r = varlink_set_sentinel(link, NULL);
+        r = sd_varlink_set_sentinel(link, NULL);
         if (r < 0)
                 return r;
 

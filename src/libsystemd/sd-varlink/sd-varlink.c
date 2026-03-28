@@ -2945,6 +2945,31 @@ _public_ void* sd_varlink_get_userdata(sd_varlink *v) {
         return v->userdata;
 }
 
+_public_ int sd_varlink_set_sentinel(sd_varlink *v, const char *error_id) {
+        assert_return(v, -EINVAL);
+
+        /* If the caller doesn't want a reply, then don't set a sentinel. */
+        if (v->state == VARLINK_PROCESSING_METHOD_ONEWAY)
+                return 0;
+
+        /* This has to be called during a callback, and not after it has exited. */
+        assert_return(IN_SET(v->state, VARLINK_PROCESSING_METHOD, VARLINK_PROCESSING_METHOD_MORE),
+                      -EUCLEAN);
+
+        char *s = NULL;
+        if (error_id) {
+                s = strdup(error_id);
+                if (!s)
+                        return log_oom_debug();
+        }
+
+        if (v->sentinel != POINTER_MAX)
+                free(v->sentinel);
+
+        v->sentinel = s ?: POINTER_MAX;
+        return 0;
+}
+
 static int varlink_acquire_ucred(sd_varlink *v) {
         int r;
 
