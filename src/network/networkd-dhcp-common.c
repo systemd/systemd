@@ -276,6 +276,7 @@ int link_get_captive_portal(Link *link, const char **ret) {
         int r;
 
         assert(link);
+        assert(ret);
 
         if (!link->network) {
                 *ret = NULL;
