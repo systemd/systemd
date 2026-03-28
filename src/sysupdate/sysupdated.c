@@ -977,8 +977,8 @@ static int target_method_describe(sd_bus_message *msg, void *userdata, sd_bus_er
         if (r < 0)
                 return r;
 
-        if (isempty(version))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Version must be specified");
+        if (!version_is_valid(version))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid version");
 
         if ((flags & ~SD_SYSUPDATE_FLAGS_ALL) != 0)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid flags specified");
@@ -1126,8 +1126,12 @@ static int target_method_acquire(sd_bus_message *msg, void *userdata, sd_bus_err
          * an update anyway. */
         if (isempty(version))
                 action = "org.freedesktop.sysupdate1.update";
-        else
+        else {
+                if (!version_is_valid(version))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid version");
+
                 action = "org.freedesktop.sysupdate1.update-to-version";
+        }
 
         const char *details[] = {
                 "class", target_class_to_string(t->class),
@@ -1210,8 +1214,12 @@ static int target_method_install(sd_bus_message *msg, void *userdata, sd_bus_err
          * an update anyway. */
         if (isempty(version))
                 action = "org.freedesktop.sysupdate1.update";
-        else
+        else {
+                if (!version_is_valid(version))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid version");
+
                 action = "org.freedesktop.sysupdate1.update-to-version";
+        }
 
         const char *details[] = {
                 "class", target_class_to_string(t->class),
@@ -1417,6 +1425,19 @@ static int target_method_list_features(sd_bus_message *msg, void *userdata, sd_b
         return sd_bus_message_send(reply);
 }
 
+static bool feature_name_is_valid(const char *name) {
+        if (isempty(name))
+                return false;
+
+        if (!ascii_is_valid(name))
+                return false;
+
+        if (!filename_is_valid(strjoina(name, ".feature.d")))
+                return false;
+
+        return true;
+}
+
 static int target_method_describe_feature(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
         Target *t = ASSERT_PTR(userdata);
         _cleanup_(job_freep) Job *j = NULL;
@@ -1430,8 +1451,8 @@ static int target_method_describe_feature(sd_bus_message *msg, void *userdata, s
         if (r < 0)
                 return r;
 
-        if (isempty(feature))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Feature must be specified");
+        if (!feature_name_is_valid(feature))
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid feature name");
 
         if (flags != 0)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Flags must be 0");
@@ -1450,19 +1471,6 @@ static int target_method_describe_feature(sd_bus_message *msg, void *userdata, s
         TAKE_PTR(j); /* Avoid job from being killed & freed */
 
         return 1;
-}
-
-static bool feature_name_is_valid(const char *name) {
-        if (isempty(name))
-                return false;
-
-        if (!ascii_is_valid(name))
-                return false;
-
-        if (!filename_is_valid(strjoina(name, ".feature.d")))
-                return false;
-
-        return true;
 }
 
 static int target_method_set_feature_enabled(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
