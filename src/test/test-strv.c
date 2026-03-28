@@ -799,14 +799,14 @@ TEST(strv_foreach) {
 
 TEST(strv_foreach_backwards) {
         _cleanup_strv_free_ char **a;
-        unsigned i = 2;
+        unsigned i = 3;
 
         a = strv_new("one", "two", "three");
 
         assert_se(a);
 
         STRV_FOREACH_BACKWARDS(check, a)
-                ASSERT_STREQ(*check, input_table_multiple[i--]);
+                ASSERT_STREQ(*check, input_table_multiple[--i]);
 
         STRV_FOREACH_BACKWARDS(check, (char**) NULL)
                 assert_not_reached();
