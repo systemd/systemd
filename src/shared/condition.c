@@ -70,7 +70,6 @@ Condition* condition_new(ConditionType type, const char *parameter, bool trigger
 
         assert(type >= 0);
         assert(type < _CONDITION_TYPE_MAX);
-        assert(parameter);
 
         c = new(Condition, 1);
         if (!c)
