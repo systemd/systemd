@@ -25,6 +25,8 @@ static int parse_alloc_uid(const char *path, const char *name, const char *t, ui
         uid_t uid;
         int r;
 
+        assert(ret_uid);
+
         r = parse_uid(t, &uid);
         if (r < 0)
                 return log_debug_errno(r, "%s: failed to parse %s %s, ignoring: %m", path, name, t);

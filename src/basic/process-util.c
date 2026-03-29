@@ -1151,6 +1151,8 @@ int safe_personality(unsigned long p) {
 int opinionated_personality(unsigned long *ret) {
         int current;
 
+        assert(ret);
+
         /* Returns the current personality, or PERSONALITY_INVALID if we can't determine it. This function is a bit
          * opinionated though, and ignores all the finer-grained bits and exotic personalities, only distinguishing the
          * two most relevant personalities: PER_LINUX and PER_LINUX32. */
@@ -1191,6 +1193,9 @@ void valgrind_summary_hack(void) {
 
 int pid_compare_func(const pid_t *a, const pid_t *b) {
         /* Suitable for usage in qsort() */
+        assert(a);
+        assert(b);
+
         return CMP(*a, *b);
 }
 

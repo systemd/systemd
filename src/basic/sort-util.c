@@ -65,9 +65,15 @@ void qsort_r_safe(void *base, size_t nmemb, size_t size, comparison_userdata_fn_
 }
 
 int cmp_int(const int *a, const int *b) {
+        assert(a);
+        assert(b);
+
         return CMP(*a, *b);
 }
 
 int cmp_uint16(const uint16_t *a, const uint16_t *b) {
+        assert(a);
+        assert(b);
+
         return CMP(*a, *b);
 }

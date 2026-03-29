@@ -106,6 +106,7 @@ int cunescape_one(const char *p, size_t length, char32_t *ret, bool *eight_bit, 
 
         assert(p);
         assert(ret);
+        assert(eight_bit);
 
         /* Unescapes C style. Returns the unescaped character in ret.
          * Sets *eight_bit to true if the escaped sequence either fits in
