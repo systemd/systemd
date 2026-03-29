@@ -63,6 +63,10 @@ static void uid_range_coalesce(UIDRange *range) {
                                 break;
 
                         begin = MIN(x->start, y->start);
+
+                        /* Silence static analyzers, overflow is prevented by uid_range_add_internal() */
+                        assert(x->start <= UINT32_MAX - x->nr);
+                        assert(y->start <= UINT32_MAX - y->nr);
                         end = MAX(x->start + x->nr, y->start + y->nr);
 
                         x->start = begin;

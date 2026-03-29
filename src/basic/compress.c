@@ -398,6 +398,8 @@ int decompress_blob_xz(
                         return -ENOBUFS;
 
                 used = space - s.avail_out;
+                /* Silence static analyzers, space is bounded by allocation size */
+                assert(space <= SIZE_MAX / 2);
                 space = MIN(2 * space, dst_max ?: SIZE_MAX);
                 if (!greedy_realloc(dst, space, 1))
                         return -ENOMEM;

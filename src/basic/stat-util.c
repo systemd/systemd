@@ -153,7 +153,7 @@ int is_symlink(const char *path) {
         return verify_stat_at(AT_FDCWD, path, false, stat_verify_symlink, false);
 }
 
-static mode_t mode_verify_socket(mode_t mode) {
+static int mode_verify_socket(mode_t mode) {
         if (S_ISLNK(mode))
                 return -ELOOP;
 
@@ -516,15 +516,17 @@ int inode_same_at(int fda, const char *filea, int fdb, const char *fileb, int fl
 
                         goto fallback;
                 }
-                if (r == 0)
+                bool have_unique_mntid = r > 0;
+
+                if (!have_unique_mntid)
                         mntida = _mntida;
 
                 r = name_to_handle_at_try_fid(
                                 fdb,
                                 fileb,
                                 &hb,
-                                r > 0 ? NULL : &_mntidb, /* if we managed to get unique mnt id for a, insist on that for b */
-                                r > 0 ? &mntidb : NULL,
+                                have_unique_mntid ? NULL : &_mntidb, /* if we managed to get unique mnt id for a, insist on that for b */
+                                have_unique_mntid ? &mntidb : NULL,
                                 ntha_flags);
                 if (r < 0) {
                         if (is_name_to_handle_at_fatal_error(r))
@@ -532,8 +534,10 @@ int inode_same_at(int fda, const char *filea, int fdb, const char *fileb, int fl
 
                         goto fallback;
                 }
-                if (r == 0)
+                if (r == 0) {
+                        assert(!have_unique_mntid); /* _mntidb was initialized by name_to_handle_at_try_fid() */
                         mntidb = _mntidb;
+                }
 
                 /* Now compare the two file handles */
                 if (!file_handle_equal(ha, hb))

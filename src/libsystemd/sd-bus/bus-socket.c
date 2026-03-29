@@ -676,6 +676,8 @@ static int bus_socket_read_auth(sd_bus *b) {
                 return -ECONNRESET;
         }
 
+        /* Silence static analyzers, k is bounded by iov size: n - rbuffer_size */
+        assert((size_t) k <= n - b->rbuffer_size);
         b->rbuffer_size += k;
 
         if (handle_cmsg) {
@@ -1453,6 +1455,8 @@ int bus_socket_read_message(sd_bus *bus) {
                 return -EXFULL;
         }
 
+        /* Silence static analyzers, k is bounded by iov size: need - rbuffer_size */
+        assert((size_t) k <= need - bus->rbuffer_size);
         bus->rbuffer_size += k;
 
         if (handle_cmsg) {
