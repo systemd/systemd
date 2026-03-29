@@ -27,6 +27,8 @@
 char *
 utf8_prev_char (const char *p)
 {
+  assert(p);
+
   for (;;)
     {
       p--;
