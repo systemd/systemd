@@ -764,6 +764,7 @@ Manager* manager_free(Manager *m) {
         m->nexthop_ids = set_free(m->nexthop_ids);
 
         m->address_labels_by_section = hashmap_free(m->address_labels_by_section);
+        m->routes_by_section = hashmap_free(m->routes_by_section);
 
         sd_event_source_unref(m->speed_meter_event_source);
         sd_event_unref(m->event);
@@ -811,6 +812,10 @@ int manager_start(Manager *m) {
         manager_set_sysctl(m);
 
         r = manager_request_static_address_labels(m);
+        if (r < 0)
+                return r;
+
+        r = manager_request_static_routes(m);
         if (r < 0)
                 return r;
 
