@@ -11,6 +11,9 @@
 
 #ifndef __GLIBC__
 static bool safe_glob_verify(const char *p, const char *prefix) {
+        POINTER_MAY_BE_NULL(p);
+        POINTER_MAY_BE_NULL(prefix);
+
         if (isempty(p))
                 return false; /* should not happen, but for safey. */
 
@@ -162,6 +165,9 @@ int glob_extend(char ***strv, const char *path, int flags) {
 }
 
 int glob_non_glob_prefix(const char *path, char **ret) {
+        assert(path);
+        assert(ret);
+
         /* Return the path of the path that has no glob characters. */
 
         size_t n = strcspn(path, GLOB_CHARS);
