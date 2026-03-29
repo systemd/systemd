@@ -116,6 +116,8 @@ systemd_networkd_extract_sources = files(
         'tc/tc-util.c',
         'tc/tc.c',
         'tc/tclass.c',
+        'tc/tfilter.c',
+        'tc/fw.c',
         'tc/teql.c',
 )
 
