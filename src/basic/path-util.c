@@ -587,6 +587,8 @@ char* path_extend_internal(char **x, ...) {
         va_list ap;
         bool slash;
 
+        POINTER_MAY_BE_NULL(x);
+
         /* Joins all listed strings until the sentinel and places a "/" between them unless the strings
          * end/begin already with one so that it is unnecessary. Note that slashes which are already
          * duplicate won't be removed. The string returned is hence always equal to or longer than the sum of
@@ -830,6 +832,8 @@ int fsck_exists_for_fstype(const char *fstype) {
 }
 
 static const char* skip_slash_or_dot(const char *p) {
+        POINTER_MAY_BE_NULL(p);
+
         for (; !isempty(p); p++) {
                 if (*p == '/')
                         continue;
@@ -932,6 +936,9 @@ static const char* skip_slash_or_dot_backward(const char *path, const char *q) {
 int path_find_last_component(const char *path, bool accept_dot_dot, const char **next, const char **ret) {
         const char *q, *last_end, *last_begin;
         size_t len;
+
+        POINTER_MAY_BE_NULL(next);
+        POINTER_MAY_BE_NULL(ret);
 
         /* Similar to path_find_first_component(), but search components from the end.
         *
