@@ -629,13 +629,16 @@
 
       <varlistentry>
         <term><option>-u</option></term>
-        <term><option>--user=</option></term>
+        <term><option>--uid=</option></term>
 
         <listitem><para>After transitioning into the container, change to the specified user defined in the
         container's user database. Like all other systemd-nspawn features, this is not a security feature and
-        provides protection against accidental destructive operations only.</para>
+        provides protection against accidental destructive operations only. This option was previously named
+        <option>--user=</option>. The old name is still accepted but deprecated. The short option
+        <option>-u</option> is compatible with both old and new versions of
+        <command>systemd-nspawn</command>.</para>
 
-        <para>Note that if credentials are used in combination with a non-root <option>--user=</option>
+        <para>Note that if credentials are used in combination with a non-root <option>--uid=</option>
         (e.g.: <option>--set-credential=</option> or <option>--load-credential=</option>), then
         <option>--no-new-privileges=yes</option> must be used, and <option>--boot</option> or
         <option>--as-pid2</option> must not be used, as the credentials would otherwise be unreadable
@@ -1922,6 +1925,23 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
     <title>Other</title>
 
     <variablelist>
+      <varlistentry>
+        <term><option>--system</option></term>
+        <term><option>--user</option></term>
+
+        <listitem><para>Specify whether to run in system or user scope. This controls which service manager and
+        machined instance to interact with, as well as operational defaults such as user namespace mode and
+        private networking. If neither is specified, <option>--system</option> is implied when running as
+        root, <option>--user</option> otherwise.</para>
+
+        <para>Note: for backwards compatibility, <option>--user</option> followed by a positional argument
+        is interpreted as the deprecated <option>--user=<replaceable>NAME</replaceable></option> form (now
+        <option>--uid=</option>). To use <option>--user</option> for scope selection when positional
+        arguments follow, separate them with <literal>--</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
