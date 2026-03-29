@@ -131,8 +131,9 @@
           <listitem><para>Specifies the disk type to use for the root disk passed to <option>--image=</option>.
           Extra drives added via <option>--extra-drive=</option> inherit this disk type unless overridden
           with an explicit disk type prefix. Takes one of <literal>virtio-blk</literal>,
-          <literal>virtio-scsi</literal>, or <literal>nvme</literal>. Defaults to
-          <literal>virtio-blk</literal>.</para>
+          <literal>virtio-scsi</literal>, <literal>nvme</literal>, or <literal>scsi-cd</literal>. Defaults to
+          <literal>virtio-blk</literal>. When <literal>scsi-cd</literal> is specified, the disk is attached
+          as a read-only CD-ROM drive.</para>
 
           <xi:include href="version-info.xml" xpointer="v261"/></listitem>
         </varlistentry>
