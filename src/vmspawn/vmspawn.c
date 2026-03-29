@@ -217,8 +217,8 @@ static int help(void) {
                "  -q --quiet               Do not show status information\n"
                "     --no-pager            Do not pipe output into a pager\n"
                "     --no-ask-password     Do not prompt for password\n"
-               "     --user                Interact with user manager\n"
-               "     --system              Interact with system manager\n"
+               "     --runtime-scope=system|user\n"
+               "                            Run in system or user service manager scope\n"
                "\n%3$sImage:%4$s\n"
                "  -D --directory=PATH      Root directory for the VM\n"
                "  -x --ephemeral           Run VM with snapshot of the disk or directory\n"
@@ -376,6 +376,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_BIND_USER,
                 ARG_BIND_USER_SHELL,
                 ARG_BIND_USER_GROUP,
+                ARG_RUNTIME_SCOPE,
                 ARG_SYSTEM,
                 ARG_USER,
                 ARG_IMAGE_FORMAT,
@@ -440,6 +441,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "bind-user",         required_argument, NULL, ARG_BIND_USER         },
                 { "bind-user-shell",   required_argument, NULL, ARG_BIND_USER_SHELL   },
                 { "bind-user-group",   required_argument, NULL, ARG_BIND_USER_GROUP   },
+                { "runtime-scope",     required_argument, NULL, ARG_RUNTIME_SCOPE     },
                 { "system",            no_argument,       NULL, ARG_SYSTEM            },
                 { "user",              no_argument,       NULL, ARG_USER              },
                 {}
@@ -992,6 +994,12 @@ static int parse_argv(int argc, char *argv[]) {
                         if (strv_extend(&arg_bind_user_groups, optarg) < 0)
                                 return log_oom();
 
+                        break;
+
+                case ARG_RUNTIME_SCOPE:
+                        arg_runtime_scope = runtime_scope_from_string(optarg);
+                        if (!IN_SET(arg_runtime_scope, RUNTIME_SCOPE_SYSTEM, RUNTIME_SCOPE_USER))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse runtime scope: %s", optarg);
                         break;
 
                 case ARG_SYSTEM:
