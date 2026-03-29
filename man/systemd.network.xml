@@ -981,6 +981,50 @@ DuplicateAddressDetection=none</programlisting></para>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>CLAT=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When enabled, <command>systemd-networkd</command> provides built-in
+          464XLAT/CLAT (Customer-side translator) support on the interface, enabling IPv4 connectivity
+          over IPv6-only networks via NAT64. IPv4 packets are translated to IPv6 using the PREF64
+          prefix, and vice versa for return traffic. When the BPF framework is available and the
+          kernel supports TCX (kernel 6.6+), translation is performed in-kernel using an eBPF program
+          attached to the interface's TC hooks for optimal performance. Otherwise, a TUN device with
+          userspace translation is used as a fallback. See
+          <ulink url="https://tools.ietf.org/html/rfc6877">RFC 6877</ulink> for further details.</para>
+
+          <para>This requires either a manually configured <varname>Pref64Prefix=</varname>, or
+          <varname>IPv6AcceptRA=</varname> to be enabled with <varname>UsePREF64=</varname> in
+          [IPv6AcceptRA] set to true, so that the NAT64 prefix is discovered from the network.
+          When multiple PREF64 prefixes are discovered via Router Advertisements, the selection
+          is non-deterministic; use <varname>Pref64Prefix=</varname> for deterministic prefix
+          selection. CLAT will only start when a PREF64 prefix is available and no native IPv4
+          default gateway exists on the link. If a native IPv4 default gateway appears while CLAT
+          is running, CLAT will be stopped automatically. Supported protocols are TCP, UDP (with
+          checksum recalculation), and ICMP Echo/Error messages. Other IP protocols (e.g. GRE,
+          SCTP, ESP) are not translated and will be silently dropped. Defaults to false.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>Pref64Prefix=</varname></term>
+        <listitem>
+          <para>Specifies the NAT64 PREF64 prefix to use for CLAT translation instead of
+          discovering it via Router Advertisements. Takes an IPv6 prefix in the format
+          <replaceable>prefix</replaceable>/<replaceable>length</replaceable>, where the prefix
+          length must be one of 32, 40, 48, 56, 64, or 96 as defined in
+          <ulink url="https://tools.ietf.org/html/rfc6052">RFC 6052</ulink>. This is useful when
+          the network gateway does not advertise the PREF64 prefix via Router Advertisements.
+          When set, <varname>CLAT=yes</varname> does not require
+          <varname>UsePREF64=</varname> to be enabled. When unset, the prefix is discovered via
+          Router Advertisements.</para>
+
+          <xi:include href="version-info.xml" xpointer="v261"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>IPv6DuplicateAddressDetection=</varname></term>
         <listitem>
           <para>Configures the amount of IPv6 Duplicate Address Detection (DAD) probes to send. When
