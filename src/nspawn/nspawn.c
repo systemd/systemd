@@ -81,6 +81,7 @@
 #include "nspawn-mount.h"
 #include "nspawn-network.h"
 #include "nspawn-oci.h"
+#include "machine-register.h"
 #include "nspawn-register.h"
 #include "nspawn-seccomp.h"
 #include "nspawn-settings.h"
@@ -5707,11 +5708,17 @@ static int run_container(
                 r = register_machine(
                                 system_bus,
                                 arg_machine,
+                                arg_uuid,
+                                arg_container_service_name,
+                                "container",
                                 pid,
                                 arg_directory,
-                                arg_uuid,
+                                /* cid= */ 0,
                                 ifi,
-                                arg_container_service_name);
+                                /* address= */ NULL,
+                                /* key_path= */ NULL,
+                                /* allocate_unit= */ false,
+                                RUNTIME_SCOPE_SYSTEM);
                 if (r < 0) {
                         if (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM) /* if system scope the request to register definitely failed */
                                 return r;
@@ -5724,11 +5731,17 @@ static int run_container(
                         r = register_machine(
                                         runtime_bus,
                                         arg_machine,
+                                        arg_uuid,
+                                        arg_container_service_name,
+                                        "container",
                                         pid,
                                         arg_directory,
-                                        arg_uuid,
+                                        /* cid= */ 0,
                                         ifi,
-                                        arg_container_service_name);
+                                        /* address= */ NULL,
+                                        /* key_path= */ NULL,
+                                        /* allocate_unit= */ false,
+                                        RUNTIME_SCOPE_USER);
                         if (r < 0) {
                                 if (!registered_system) /* neither registration worked: fail */
                                         return r;
@@ -5949,9 +5962,9 @@ static int run_container(
 
         /* Tell machined that we are gone. */
         if (registered_system)
-                (void) unregister_machine(system_bus, arg_machine);
+                (void) unregister_machine(system_bus, arg_machine, RUNTIME_SCOPE_SYSTEM);
         if (registered_runtime)
-                (void) unregister_machine(runtime_bus, arg_machine);
+                (void) unregister_machine(runtime_bus, arg_machine, RUNTIME_SCOPE_USER);
 
         if (r < 0)
                 /* We failed to wait for the container, or the container exited abnormally. */
