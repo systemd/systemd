@@ -317,6 +317,11 @@ int network_verify(Network *network) {
                 return r; /* sr_iov_drop_invalid_sections() logs internally. */
         network_drop_invalid_static_leases(network);
 
+        if (network->clat && !network->ndisc_use_pref64 && network->clat_pref64_prefix_len == 0)
+                log_warning("%s: CLAT=yes requires [IPv6AcceptRA] UsePREF64=yes or Pref64Prefix= to be set. "
+                            "CLAT will not start without a PREF64 prefix.",
+                            network->filename);
+
         return 0;
 }
 
