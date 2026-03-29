@@ -1909,6 +1909,8 @@ static int ndisc_router_process_dnssl(Link *link, sd_ndisc_router *rt, bool zero
                 _cleanup_free_ NDiscDNSSL *s = NULL;
                 NDiscDNSSL *dnssl;
 
+                /* Silence static analyzers */
+                assert(strlen(*j) <= SIZE_MAX - ALIGN(sizeof(NDiscDNSSL)) - 1);
                 s = malloc0(ALIGN(sizeof(NDiscDNSSL)) + strlen(*j) + 1);
                 if (!s)
                         return log_oom();

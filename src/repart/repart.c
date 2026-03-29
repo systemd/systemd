@@ -1125,16 +1125,16 @@ static uint64_t partition_min_size(const Context *context, const Partition *p) {
                 uint64_t d = 0;
 
                 if (p->encrypt != ENCRYPT_OFF)
-                        d += round_up_size(LUKS2_METADATA_KEEP_FREE, context->grain_size);
+                        assert_se(INC_SAFE(&d, round_up_size(LUKS2_METADATA_KEEP_FREE, context->grain_size)));
 
                 if (p->copy_blocks_size != UINT64_MAX)
-                        d += round_up_size(p->copy_blocks_size, context->grain_size);
+                        assert_se(INC_SAFE(&d, round_up_size(p->copy_blocks_size, context->grain_size)));
                 else if (p->format || p->encrypt != ENCRYPT_OFF) {
                         uint64_t f;
 
                         /* If we shall synthesize a file system, take minimal fs size into account (assumed to be 4K if not known) */
                         f = partition_fstype_min_size(context, p);
-                        d += f == UINT64_MAX ? context->grain_size : round_up_size(f, context->grain_size);
+                        assert_se(INC_SAFE(&d, f == UINT64_MAX ? context->grain_size : round_up_size(f, context->grain_size)));
                 }
 
                 if (d > sz)
@@ -1239,6 +1239,8 @@ static uint64_t free_area_current_end(Context *context, const FreeArea *a) {
 
         assert(a->after->offset != UINT64_MAX);
         assert(a->after->current_size != UINT64_MAX);
+        /* Silence static analyzers */
+        assert(a->after->current_size <= UINT64_MAX - a->after->offset);
 
         /* Calculate where the free area ends, based on the offset of the partition preceding it. */
         return round_up_size(a->after->offset + a->after->current_size, context->grain_size) + free_area_available(a);

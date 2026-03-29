@@ -1113,6 +1113,8 @@ int getpwnam_malloc(const char *name, struct passwd **ret) {
         for (;;) {
                 _cleanup_free_ void *buf = NULL;
 
+                /* Silence static analyzers */
+                assert(bufsize <= SIZE_MAX - ALIGN(sizeof(struct passwd)));
                 buf = malloc0(ALIGN(sizeof(struct passwd)) + bufsize);
                 if (!buf)
                         return -ENOMEM;
@@ -1154,6 +1156,8 @@ int getpwuid_malloc(uid_t uid, struct passwd **ret) {
         for (;;) {
                 _cleanup_free_ void *buf = NULL;
 
+                /* Silence static analyzers */
+                assert(bufsize <= SIZE_MAX - ALIGN(sizeof(struct passwd)));
                 buf = malloc0(ALIGN(sizeof(struct passwd)) + bufsize);
                 if (!buf)
                         return -ENOMEM;
@@ -1198,6 +1202,8 @@ int getgrnam_malloc(const char *name, struct group **ret) {
         for (;;) {
                 _cleanup_free_ void *buf = NULL;
 
+                /* Silence static analyzers */
+                assert(bufsize <= SIZE_MAX - ALIGN(sizeof(struct group)));
                 buf = malloc0(ALIGN(sizeof(struct group)) + bufsize);
                 if (!buf)
                         return -ENOMEM;
@@ -1237,6 +1243,8 @@ int getgrgid_malloc(gid_t gid, struct group **ret) {
         for (;;) {
                 _cleanup_free_ void *buf = NULL;
 
+                /* Silence static analyzers */
+                assert(bufsize <= SIZE_MAX - ALIGN(sizeof(struct group)));
                 buf = malloc0(ALIGN(sizeof(struct group)) + bufsize);
                 if (!buf)
                         return -ENOMEM;
