@@ -361,6 +361,7 @@ typedef struct Network {
         bool ndisc_quickack;
         bool ndisc_use_captive_portal;
         bool ndisc_use_pref64;
+        bool clat;
         bool active_slave;
         bool primary_slave;
         UseDomains ndisc_use_domains;
