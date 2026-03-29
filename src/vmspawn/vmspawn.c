@@ -48,6 +48,7 @@
 #include "log.h"
 #include "machine-bind-user.h"
 #include "machine-credential.h"
+#include "machine-register.h"
 #include "main-func.h"
 #include "mkdir.h"
 #include "namespace-util.h"
@@ -86,7 +87,6 @@
 #include "utf8.h"
 #include "vmspawn-mount.h"
 #include "vmspawn-qemu-config.h"
-#include "vmspawn-register.h"
 #include "vmspawn-scope.h"
 #include "vmspawn-settings.h"
 #include "vmspawn-util.h"
@@ -3538,9 +3538,11 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                 arg_machine,
                                 arg_uuid,
                                 "systemd-vmspawn",
+                                "vm",
                                 &child_pidref,
                                 arg_directory,
                                 child_cid,
+                                /* local_ifindex= */ 0,
                                 child_cid != VMADDR_CID_ANY ? vm_address : NULL,
                                 ssh_private_key_path,
                                 !arg_keep_unit && arg_runtime_scope == RUNTIME_SCOPE_SYSTEM,
@@ -3560,9 +3562,11 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                         arg_machine,
                                         arg_uuid,
                                         "systemd-vmspawn",
+                                        "vm",
                                         &child_pidref,
                                         arg_directory,
                                         child_cid,
+                                        /* local_ifindex= */ 0,
                                         child_cid != VMADDR_CID_ANY ? vm_address : NULL,
                                         ssh_private_key_path,
                                         !arg_keep_unit,
@@ -3678,9 +3682,9 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 terminate_scope(runtime_bus, arg_machine);
 
         if (registered_system)
-                (void) unregister_machine(system_bus, arg_machine);
+                (void) unregister_machine(system_bus, arg_machine, RUNTIME_SCOPE_SYSTEM);
         if (registered_runtime)
-                (void) unregister_machine(runtime_bus, arg_machine);
+                (void) unregister_machine(runtime_bus, arg_machine, RUNTIME_SCOPE_USER);
 
         if (use_vsock) {
                 if (exit_status == INT_MAX) {
