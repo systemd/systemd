@@ -1922,6 +1922,18 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
     <title>Other</title>
 
     <variablelist>
+      <varlistentry>
+        <term><option>--runtime-scope=</option></term>
+
+        <listitem><para>Takes either <literal>system</literal> or <literal>user</literal> to specify whether
+        to interact with the user service manager or the system service manager and whether to register with
+        the user machined instance or the system machined instance. If unspecified, the system service manager
+        and machined instance will be used when running as root, otherwise the user service manager and machined
+        instance will be used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
