@@ -131,7 +131,7 @@ _systemd_nspawn() {
                 comps=''
                 ;;
             --register)
-                comps='yes no'
+                comps='yes no auto'
                 ;;
             --network-interface)
                 comps=$(__get_interfaces)
