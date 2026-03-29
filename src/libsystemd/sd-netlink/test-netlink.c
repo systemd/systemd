@@ -6,6 +6,7 @@
 #include <linux/if_macsec.h>
 #include <linux/l2tp.h>
 #include <linux/nl80211.h>
+#include <linux/pkt_sched.h>
 #include <linux/unix_diag.h>
 #include <net/ethernet.h>
 #include <net/if.h>
@@ -442,6 +443,34 @@ TEST(dump_addresses) {
 
                 log_info("got IPv%i address on ifindex %i", family == AF_INET ? 4 : 6, ifindex);
         }
+}
+
+TEST(rtnl_traffic_control_info) {
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *filter = NULL, *qdisc = NULL;
+        uint16_t protocol, priority;
+        struct tcmsg *tcm;
+
+        ASSERT_OK(sd_netlink_open(&rtnl));
+
+        ASSERT_OK(sd_rtnl_message_new_traffic_control(rtnl, &filter, RTM_NEWTFILTER, /* ifindex= */ 1,
+                                                      /* handle= */ 1, /* parent= */ TC_H_MAKE(1U << 16, 0)));
+        ASSERT_TRUE(FLAGS_SET(filter->hdr->nlmsg_flags, NLM_F_CREATE | NLM_F_REPLACE));
+        ASSERT_OK(sd_rtnl_message_traffic_control_set_info(filter, ETH_P_IP, 0xc001));
+
+        /* The priority is in host byte order, the protocol in network byte order. */
+        tcm = NLMSG_DATA(filter->hdr);
+        ASSERT_EQ(tcm->tcm_info >> 16, 0xc001U);
+        ASSERT_EQ(tcm->tcm_info & 0xffffU, (uint32_t) htobe16(ETH_P_IP));
+
+        ASSERT_OK(sd_rtnl_message_traffic_control_get_info(filter, &protocol, &priority));
+        ASSERT_EQ(protocol, ETH_P_IP);
+        ASSERT_EQ(priority, 0xc001);
+
+        ASSERT_OK(sd_rtnl_message_new_traffic_control(rtnl, &qdisc, RTM_NEWQDISC, /* ifindex= */ 1,
+                                                      /* handle= */ 0, /* parent= */ TC_H_ROOT));
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_rtnl_message_traffic_control_set_info(qdisc, ETH_P_IP, 1), EINVAL));
+        ASSERT_RETURN_EXPECTED(ASSERT_ERROR(sd_rtnl_message_traffic_control_get_info(qdisc, &protocol, &priority), EINVAL));
 }
 
 TEST(sd_netlink_message_get_errno) {
