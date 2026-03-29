@@ -35,6 +35,8 @@ void* memdup_suffix0(const void *p, size_t l) {
 }
 
 size_t malloc_sizeof_safe(void **xp) {
+        POINTER_MAY_BE_NULL(xp);
+
         if (_unlikely_(!xp || !*xp))
                 return 0;
 

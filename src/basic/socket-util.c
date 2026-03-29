@@ -360,6 +360,7 @@ int sockaddr_port(const struct sockaddr *_sa, unsigned *ret_port) {
         /* Note, this returns the port as 'unsigned' rather than 'uint16_t', as AF_VSOCK knows larger ports */
 
         assert(sa);
+        assert(ret_port);
 
         switch (sa->sa.sa_family) {
 
@@ -823,6 +824,8 @@ bool ifname_valid_full(const char *p, IfnameValidFlags flags) {
 }
 
 bool address_label_valid(const char *p) {
+
+        POINTER_MAY_BE_NULL(p);
 
         if (isempty(p))
                 return false;
@@ -1555,6 +1558,8 @@ int socket_set_option(int fd, int af, int opt_ipv4, int opt_ipv6, int val) {
 
 int socket_get_mtu(int fd, int af, size_t *ret) {
         int mtu, r;
+
+        assert(ret);
 
         if (af == AF_UNSPEC) {
                 af = socket_get_family(fd);
