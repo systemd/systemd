@@ -20,15 +20,12 @@
 #include "architecture.h"
 #include "bootspec.h"
 #include "build-path.h"
-#include "exit-status.h"
 #include "build.h"
 #include "bus-error.h"
 #include "bus-internal.h"
 #include "bus-locator.h"
 #include "bus-util.h"
 #include "capability-util.h"
-#include "chase.h"
-#include "chattr-util.h"
 #include "common-signal.h"
 #include "copy.h"
 #include "discover-image.h"
@@ -1596,70 +1593,6 @@ static int start_tpm(
         return 0;
 }
 
-static int start_systemd_journal_remote(
-                const char *scope,
-                unsigned port,
-                const char *sd_socket_activate,
-                char **ret_listen_address,
-                PidRef *ret_pidref) {
-
-        int r;
-
-        assert(scope);
-
-        _cleanup_free_ char *scope_prefix = NULL;
-        r = unit_name_to_prefix(scope, &scope_prefix);
-        if (r < 0)
-                return log_error_errno(r, "Failed to strip .scope suffix from scope: %m");
-
-        _cleanup_free_ char *listen_address = NULL;
-        if (asprintf(&listen_address, "vsock:2:%u", port) < 0)
-                return log_oom();
-
-        _cleanup_free_ char *sd_journal_remote = NULL;
-        r = find_executable_full(
-                        "systemd-journal-remote",
-                        /* root= */ NULL,
-                        STRV_MAKE(LIBEXECDIR),
-                        /* use_path_envvar= */ true, /* systemd-journal-remote should be installed in
-                                                        * LIBEXECDIR, but for supporting fancy setups. */
-                        &sd_journal_remote,
-                        /* ret_fd= */ NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to find systemd-journal-remote binary: %m");
-
-        _cleanup_strv_free_ char **argv = strv_new(
-                        sd_socket_activate,
-                        "--listen", listen_address,
-                        sd_journal_remote,
-                        "--output", arg_forward_journal,
-                        "--split-mode", endswith(arg_forward_journal, ".journal") ? "none" : "host");
-        if (!argv)
-                return log_oom();
-
-        r = fork_notify(/* argv= */ NULL, ret_pidref);
-        if (r < 0)
-                return r;
-        if (r == 0) {
-                /* In the child */
-                if (setenv("SYSTEMD_JOURNAL_REMOTE_CONFIG_FILE",
-                            arg_forward_journal_config ?: "/dev/null",
-                            /* overwrite= */ true) < 0) {
-                        log_error_errno(errno, "Failed to set $SYSTEMD_JOURNAL_REMOTE_CONFIG_FILE: %m");
-                        _exit(EXIT_FAILURE);
-                }
-
-                r = invoke_callout_binary(argv[0], argv);
-                log_error_errno(r, "Failed to invoke %s: %m", argv[0]);
-                _exit(EXIT_EXEC);
-        }
-
-        if (ret_listen_address)
-                *ret_listen_address = TAKE_PTR(listen_address);
-
-        return 0;
-}
-
 static int discover_root(char **ret) {
         int r;
         _cleanup_(dissected_image_unrefp) DissectedImage *image = NULL;
@@ -2334,30 +2267,11 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         /* Create runtime directory for the QEMU config file and other state */
         _cleanup_free_ char *runtime_dir = NULL;
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir_destroy = NULL;
-        {
-                _cleanup_free_ char *subdir = NULL;
+        r = runtime_directory_make(arg_runtime_scope, "vmspawn", &runtime_dir, &runtime_dir_destroy);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create runtime directory: %m");
 
-                if (asprintf(&subdir, "systemd/vmspawn.%" PRIx64, random_u64()) < 0)
-                        return log_oom();
-
-                r = runtime_directory(arg_runtime_scope, subdir, &runtime_dir);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to lookup runtime directory: %m");
-                if (r > 0) { /* We need to create our own runtime dir */
-                        r = mkdir_p(runtime_dir, 0755);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to create runtime directory '%s': %m", runtime_dir);
-
-                        /* We created this, hence also destroy it */
-                        runtime_dir_destroy = TAKE_PTR(runtime_dir);
-
-                        runtime_dir = strdup(runtime_dir_destroy);
-                        if (!runtime_dir)
-                                return log_oom();
-                }
-
-                log_debug("Using runtime directory: %s", runtime_dir);
-        }
+        log_debug("Using runtime directory: %s", runtime_dir);
 
         /* Build a QEMU config file for -readconfig. Items that can be expressed as QemuOpts sections go
          * here; things that require cmdline-only switches (e.g. -kernel, -smbios, -nographic, --add-fd)
@@ -3336,25 +3250,14 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         if (arg_forward_journal) {
                 _cleanup_free_ char *listen_address = NULL;
-
-                ChaseFlags chase_flags = CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY;
-                if (endswith(arg_forward_journal, ".journal"))
-                        chase_flags |= CHASE_PARENT;
-
-                _cleanup_close_ int journal_fd = -EBADF;
-                r = chase(arg_forward_journal, /* root= */ NULL, chase_flags, /* ret_path= */ NULL, &journal_fd);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to create journal directory for '%s': %m", arg_forward_journal);
-
-                r = chattr_fd(journal_fd, FS_NOCOW_FL, FS_NOCOW_FL);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to set NOCOW flag on journal directory for '%s', ignoring: %m", arg_forward_journal);
+                if (asprintf(&listen_address, "vsock:2:%u", child_cid) < 0)
+                        return log_oom();
 
                 if (!GREEDY_REALLOC(children, n_children + 1))
                         return log_oom();
 
                 _cleanup_(fork_notify_terminate) PidRef child = PIDREF_NULL;
-                r = start_systemd_journal_remote(unit, child_cid, sd_socket_activate, &listen_address, &child);
+                r = fork_journal_remote(listen_address, arg_forward_journal, arg_forward_journal_config, &child);
                 if (r < 0)
                         return r;
 
