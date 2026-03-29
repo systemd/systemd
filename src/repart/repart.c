@@ -49,6 +49,7 @@
 #include "initrd-util.h"
 #include "install-file.h"
 #include "io-util.h"
+#include "iso9660.h"
 #include "json-util.h"
 #include "libmount-util.h"
 #include "list.h"
@@ -213,6 +214,10 @@ static char *arg_generate_crypttab = NULL;
 static Set *arg_verity_settings = NULL;
 static bool arg_relax_copy_block_security = false;
 static bool arg_varlink = false;
+static bool arg_eltorito = false;
+static char *arg_eltorito_system = NULL;
+static char *arg_eltorito_volume = NULL;
+static char *arg_eltorito_publisher = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_node, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
@@ -237,6 +242,9 @@ STATIC_DESTRUCTOR_REGISTER(arg_make_ddi, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_generate_fstab, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_generate_crypttab, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_verity_settings, set_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_eltorito_system, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_eltorito_volume, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_eltorito_publisher, freep);
 
 typedef enum ProgressPhase {
         PROGRESS_LOADING_DEFINITIONS,
@@ -7651,6 +7659,321 @@ static int context_split(Context *context) {
         return 0;
 }
 
+static int write_primary_descriptor(
+                int fd,
+                uint32_t root_sector,
+                usec_t usec,
+                bool utc,
+                const char *system_id,
+                const char *volume_id,
+                const char *publisher_id) {
+        int r;
+
+        struct iso9660_primary_volume_descriptor desc = {
+                .header = {
+                        .type = 1,
+                        .version = 1,
+                },
+                .volume_space_size_little = htole32(ISO9660_START + ISO9660_SIZE),
+                .volume_space_size_big = htobe32(ISO9660_START + ISO9660_SIZE),
+                .volume_set_size_little = htole16(1),
+                .volume_set_size_big = htobe16(1),
+                .volume_sequence_number_little = htole16(1),
+                .volume_sequence_number_big = htobe16(1),
+                .logical_block_size_little = htole16(ISO9660_BLOCK_SIZE),
+                .logical_block_size_big = htobe16(ISO9660_BLOCK_SIZE),
+                .file_structure_version = 1,
+                .root_directory_entry = {
+                        .len = sizeof(struct iso9660_directory_entry),
+                        .extent_loc_little = htole32(root_sector),
+                        .extent_loc_big = htobe32(root_sector),
+                        .data_len_little = htole32(2*sizeof(struct iso9660_directory_entry)), /* 2 entries with ident size 1: . and .. */
+                        .data_len_big = htobe32(2*sizeof(struct iso9660_directory_entry)), /* 2 entries with ident size 1: . and .. */
+                        .flags = 2, /* directory */
+                        .volume_seq_num_little = htole16(1),
+                        .volume_seq_num_big = htobe16(1),
+                        .ident_len = 1,
+                        .ident[0] = 0, /* special value for root */
+                }
+        };
+
+        set_iso9660_const_string(desc.header.identifier, sizeof(desc.header.identifier), "CD001", /* allow_a_chars= */ true);
+
+        r = time_to_iso9660_dir_datetime(usec, utc, &desc.root_directory_entry.time);
+        if (r < 0)
+                return r;
+
+        r = set_iso9660_string(desc.system_identifier, sizeof(desc.system_identifier), system_id, /* allow_a_chars= */ true);
+        if (r < 0)
+                return r;
+
+        /* In theory the volume identifier should be d-chars, but in practice, a-chars are allowed */
+        r = set_iso9660_string(desc.volume_identifier, sizeof(desc.volume_identifier), volume_id, /* allow_a_chars= */ true);
+        if (r < 0)
+                return r;
+
+        set_iso9660_const_string(desc.volume_set_identifier, sizeof(desc.volume_set_identifier), NULL, /* allow_a_chars= */ false);
+
+        r = set_iso9660_string(desc.publisher_identifier, sizeof(desc.publisher_identifier), publisher_id, /* allow_a_chars= */ true);
+        if (r < 0)
+                return r;
+
+        set_iso9660_const_string(desc.data_preparer_identifier, sizeof(desc.data_preparer_identifier), NULL, /* allow_a_chars= */ true);
+        set_iso9660_const_string(desc.application_identifier, sizeof(desc.application_identifier), "SYSTEMD-REPART", /* allow_a_chars= */ true);
+        set_iso9660_const_string(desc.copyright_file_identifier, sizeof(desc.copyright_file_identifier), NULL, /* allow_a_chars= */ false);
+        set_iso9660_const_string(desc.abstract_file_identifier, sizeof(desc.abstract_file_identifier), NULL, /* allow_a_chars= */ false);
+        set_iso9660_const_string(desc.bibliographic_file_identifier, sizeof(desc.bibliographic_file_identifier), NULL, /* allow_a_chars= */ false);
+
+        r = time_to_iso9660_datetime(usec, utc, &desc.volume_creation_date);
+        if (r < 0)
+                return r;
+
+        r = time_to_iso9660_datetime(usec, utc, &desc.volume_modification_date);
+        if (r < 0)
+                return r;
+
+        no_iso9660_datetime(&desc.volume_expiration_date);
+        no_iso9660_datetime(&desc.volume_effective_date);
+
+        ssize_t s = pwrite(fd, &desc, sizeof(desc), ISO9660_PRIMARY_DESCRIPTOR*ISO9660_BLOCK_SIZE);
+        if (s < 0)
+                return log_error_errno(errno, "Failed to write ISO9660 primary descriptor: %m");
+        if (s != sizeof(desc))
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to fully write ISO9660 primary descriptor");
+
+        return 0;
+}
+
+static int write_eltorito_descriptor(int fd, uint32_t catalog_sector) {
+        struct iso9660_eltorito_descriptor desc = {
+                .header = {
+                        .type = 0,
+                        .version = 1,
+                },
+                .boot_catalog_sector = htole32(catalog_sector),
+        };
+
+        set_iso9660_const_string(desc.header.identifier, sizeof(desc.header.identifier), "CD001", /* allow_a_chars= */ true);
+
+        strncpy(desc.boot_system_identifier, "EL TORITO SPECIFICATION", sizeof(desc.boot_system_identifier));
+
+        ssize_t s = pwrite(fd, &desc, sizeof(desc), ISO9660_ELTORITO_DESCRIPTOR*ISO9660_BLOCK_SIZE);
+        if (s < 0)
+                return log_error_errno(errno, "Failed to write ISO9660 El-Torito descriptor: %m");
+        if (s != sizeof(desc))
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to fully write ISO9660 El-Torito descriptor");
+
+        return 0;
+}
+
+static int write_terminal_descriptor(int fd) {
+        struct iso9660_terminal_descriptor desc = {
+                .header = {
+                        .type = 255,
+                        .version = 1,
+                },
+        };
+
+        set_iso9660_const_string(desc.header.identifier, sizeof(desc.header.identifier), "CD001", /* allow_a_chars= */ true);
+
+        ssize_t s = pwrite(fd, &desc, sizeof(desc), ISO9660_TERMINAL_DESCRIPTOR*ISO9660_BLOCK_SIZE);
+        if (s < 0)
+                return log_error_errno(errno, "Failed to write ISO9660 terminal descriptor: %m");
+        if (s != sizeof(desc))
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to fully write ISO9660 terminal descriptor");
+
+        return 0;
+}
+
+static uint16_t calculate_validation_entry_checksum(const void *p, size_t size) {
+        assert(size % 2 == 0);
+
+        uint16_t checksum = 0;
+
+        for (size_t i = 0; i < (size/2); i++)
+                checksum -= le16toh(((const le16_t*)p)[i]);
+
+        return checksum;
+}
+
+static int write_boot_catalog(int fd, uint32_t load_block) {
+        struct el_torito_validation_entry ve = {
+                .header_indicator = 1,
+                .platform = 0xef, /* EFI */
+                .key_bytes = {0x55, 0xaa},
+        };
+
+        ve.checksum = htole16(calculate_validation_entry_checksum(&ve, sizeof(ve)));
+
+        struct el_torito_initial_entry ie = {
+                .boot_indicator = 0x88, /* bootable */
+                .boot_media_type = 0, /* no emul */
+                /* From UEFI specification:
+                 * > If the value of Sector Count is set to 0 or 1, EFI will assume the system partition
+                 * > consumes the space from the beginning of the “no emulation” image to the end of the
+                 * > CD-ROM.
+                 */
+                .sector_count = htole16(0),
+                .load_rba = htole32(load_block),
+
+        };
+
+        struct el_torito_section_header sh = {
+                .header_indicator = 0x91, /* final header */
+                .nentries = htole16(0), /* no more entries */
+        };
+
+        uint8_t sector[ISO9660_BLOCK_SIZE] = {};
+        uint8_t *p = sector;
+        p = mempcpy(p, &ve, sizeof(ve));
+        p = mempcpy(p, &ie, sizeof(ie));
+        p = mempcpy(p, &sh, sizeof(sh));
+        assert((size_t) (p - sector) <= sizeof(sector));
+
+        ssize_t s = pwrite(fd, &sector, sizeof(sector), ISO9660_BOOT_CATALOG*ISO9660_BLOCK_SIZE);
+        if (s < 0)
+                return log_error_errno(errno, "Failed to write El-Torito boot catalog: %m");
+        if (s != sizeof(sector))
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to fully write El-Torito boot catalog");
+
+        return 0;
+}
+
+static int write_directories(int fd, usec_t usec, bool utc, uint32_t root_sector) {
+        int r;
+
+        uint32_t dir_size = 2*sizeof(struct iso9660_directory_entry); /* 2 entries with ident size 1: . and .. */
+
+        struct iso9660_directory_entry self = {
+                .len = sizeof(struct iso9660_directory_entry),
+                .extent_loc_little = htole32(root_sector),
+                .extent_loc_big = htobe32(root_sector),
+                .data_len_little = htole32(dir_size),
+                .data_len_big = htobe32(dir_size),
+                .flags = 2, /* directory */
+                .volume_seq_num_little = htole16(1),
+                .volume_seq_num_big = htobe16(1),
+                .ident_len = 1,
+                .ident[0] = 0, /* special value for self */
+        };
+
+        r = time_to_iso9660_dir_datetime(usec, utc, &self.time);
+        if (r < 0)
+                return r;
+
+        struct iso9660_directory_entry parent = {
+                .len = sizeof(struct iso9660_directory_entry),
+                .extent_loc_little = htole32(root_sector),
+                .extent_loc_big = htobe32(root_sector),
+                .data_len_little = htole32(dir_size),
+                .data_len_big = htobe32(dir_size),
+                .flags = 2, /* directory */
+                .volume_seq_num_little = htole16(1),
+                .volume_seq_num_big = htobe16(1),
+                .ident_len = 1,
+                .ident[0] = 1, /* special value for parent */
+        };
+
+        // TODO: we should probably add some text file explaining there is no content through ISO9660
+
+        r = time_to_iso9660_dir_datetime(usec, utc, &parent.time);
+        if (r < 0)
+                return r;
+
+        uint8_t sector[ISO9660_BLOCK_SIZE] = {};
+        uint8_t *p = sector;
+        p = mempcpy(p, &self, sizeof(self));
+        p = mempcpy(p, &parent, sizeof(parent));
+        assert((size_t) (p - sector) <= sizeof(sector));
+
+        ssize_t s = pwrite(fd, &sector, sizeof(sector), ISO9660_ROOT_DIRECTORY*ISO9660_BLOCK_SIZE);
+        if (s < 0)
+                return log_error_errno(errno, "Failed to write ISO9660 root directory: %m");
+        if (s != sizeof(sector))
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to fully write ISO9660 root directory");
+
+        return 0;
+}
+
+static int write_eltorito(int fd, usec_t usec, bool utc, uint32_t load_block, const char *system_id, const char *volume_id, const char *publisher_id) {
+        int r;
+
+        r = write_primary_descriptor(fd, ISO9660_ROOT_DIRECTORY, usec, utc, system_id, volume_id, publisher_id);
+        if (r < 0)
+                return r;
+
+        r = write_eltorito_descriptor(fd, ISO9660_BOOT_CATALOG);
+        if (r < 0)
+                return r;
+
+        r = write_terminal_descriptor(fd);
+        if (r < 0)
+                return r;
+
+        r = write_boot_catalog(fd, load_block);
+        if (r < 0)
+                return r;
+
+        r = write_directories(fd, usec, utc, ISO9660_ROOT_DIRECTORY);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static int context_verify_eltorito_overlap(Context *context) {
+        /* before writing the partition table, we check if we have collision with ISO9660 */
+        assert(context);
+
+        if (!arg_eltorito)
+                return 0;
+
+        /* Check how many GPT partition entries can be stored. */
+        size_t nents = fdisk_get_npartitions(context->fdisk_context);
+        /* The GPT contains
+         *  - 1 unused block (protective MBR)
+         *  - GPT header
+         *  - N entries of 128 bytes each.
+         */
+        size_t first_free_offset = 2*context->sector_size + round_up_size(nents*128, context->sector_size);
+
+        if (first_free_offset > ISO9660_START*ISO9660_BLOCK_SIZE)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "The partition table is overlapping with the El Torito boot catalog.");
+
+        /* The first lba is the first block where a partition could exist. Even if there is no partition
+         * there, we should still not overlap with it since a partition could be added later.
+         * It is unexpected for tools to change the first lba in the GPT header. So this should be safe.
+         */
+        if (fdisk_get_first_lba(context->fdisk_context) * context->sector_size < (ISO9660_START+ISO9660_SIZE)*ISO9660_BLOCK_SIZE)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "El Torito is overlapping with the first partition block.");
+
+        return 0;
+}
+
+static int context_find_esp_offset(Context *context, uint64_t *ret) {
+        assert(ret);
+
+        uint64_t esp_offset = UINT64_MAX;
+        LIST_FOREACH(partitions, p, context->partitions) {
+                if (p->dropped || PARTITION_IS_FOREIGN(p))
+                        continue;
+                if (p->type.designator == PARTITION_ESP) {
+                        esp_offset = p->offset;
+                        break;
+                }
+        }
+
+        if (esp_offset == UINT64_MAX)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "El Torito boot catalog requires an ESP.");
+        if (esp_offset / ISO9660_BLOCK_SIZE > UINT32_MAX)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "ESP offset is farther than El Torito boot catalog can support.");
+        if (esp_offset % ISO9660_BLOCK_SIZE != 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "ESP offset not aligned on 2K blocks.");
+
+        *ret = esp_offset;
+        return 0;
+}
+
 static int context_write_partition_table(Context *context) {
         _cleanup_(fdisk_unref_tablep) struct fdisk_table *original_table = NULL;
         int capable, r;
@@ -7717,6 +8040,10 @@ static int context_write_partition_table(Context *context) {
 
         (void) context_notify(context, PROGRESS_WRITING_TABLE, /* object= */ NULL, UINT_MAX);
 
+        r = context_verify_eltorito_overlap(context);
+        if (r < 0)
+                return r;
+
         r = fdisk_write_disklabel(context->fdisk_context);
         if (r < 0)
                 return log_error_errno(r, "Failed to write partition table: %m");
@@ -7735,6 +8062,24 @@ static int context_write_partition_table(Context *context) {
                         return log_error_errno(r, "Failed to reread partition table: %m");
         } else
                 log_notice("Not telling kernel to reread partition table, because selected image does not support kernel partition block devices.");
+
+        if (arg_eltorito) {
+                bool utc = true;
+                usec_t usec = parse_source_date_epoch();
+                if (usec == USEC_INFINITY) {
+                        usec = now(CLOCK_REALTIME);
+                        utc = false;
+                }
+
+                uint64_t esp_offset;
+                r = context_find_esp_offset(context, &esp_offset);
+                if (r < 0)
+                        return r;
+
+                r = write_eltorito(fdisk_get_devfd(context->fdisk_context), usec, utc, esp_offset / ISO9660_BLOCK_SIZE, arg_eltorito_system, arg_eltorito_volume, arg_eltorito_publisher);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to write El Torito boot catalog: %m");
+        }
 
         log_info("All done.");
 
@@ -9205,6 +9550,14 @@ static int help(void) {
                "                          Write fstab configuration to the given path\n"
                "     --generate-crypttab=PATH\n"
                "                          Write crypttab configuration to the given path\n"
+               "\n%3$sEl Torito boot catalog:%4$s\n"
+               "     --el-torito=BOOL     Whether to add a boot catalog to boot the ESP\n"
+               "     --el-torito-system=STRING\n"
+               "                          Set the system identifier in the ISO9660 descriptor\n"
+               "     --el-torito-volume=STRING\n"
+               "                          Set the volume identifier in the ISO9660 descriptor\n"
+               "     --el-torito-publisher=STRING\n"
+               "                          Set the publisher identifier in the ISO9660 descriptor\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -9264,6 +9617,10 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_GENERATE_CRYPTTAB,
                 ARG_LIST_DEVICES,
                 ARG_JOIN_SIGNATURE,
+                ARG_ELTORITO,
+                ARG_ELTORITO_SYSTEM,
+                ARG_ELTORITO_VOLUME,
+                ARG_ELTORITO_PUBLISHER,
         };
 
         static const struct option options[] = {
@@ -9314,6 +9671,10 @@ static int parse_argv(int argc, char *argv[]) {
                 { "generate-crypttab",              required_argument, NULL, ARG_GENERATE_CRYPTTAB              },
                 { "list-devices",                   no_argument,       NULL, ARG_LIST_DEVICES                   },
                 { "join-signature",                 required_argument, NULL, ARG_JOIN_SIGNATURE                 },
+                { "el-torito",                      required_argument, NULL, ARG_ELTORITO                       },
+                { "el-torito-system",               required_argument, NULL, ARG_ELTORITO_SYSTEM                },
+                { "el-torito-volume",               required_argument, NULL, ARG_ELTORITO_VOLUME                },
+                { "el-torito-publisher",            required_argument, NULL, ARG_ELTORITO_PUBLISHER             },
                 {}
         };
 
@@ -9738,6 +10099,43 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
+                case ARG_ELTORITO:
+                        r = parse_boolean_argument("--el-torito=", optarg, &arg_eltorito);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
+                case ARG_ELTORITO_SYSTEM:
+                        if (!iso9660_system_name_valid(optarg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid value '%s' for --el-torito-system=.", optarg);
+
+                        r = free_and_strdup_warn(&arg_eltorito_system, optarg);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
+                case ARG_ELTORITO_VOLUME:
+                        if (!iso9660_volume_name_valid(optarg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid value '%s' for --el-torito-volume=.", optarg);
+
+                        r = free_and_strdup_warn(&arg_eltorito_volume, optarg);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
+                case ARG_ELTORITO_PUBLISHER:
+                        if (!iso9660_publisher_name_valid(optarg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid value '%s' for --el-torito-publisher=.", optarg);
+
+                        r = free_and_strdup_warn(&arg_eltorito_publisher, optarg);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -9881,6 +10279,10 @@ static int parse_argv(int argc, char *argv[]) {
                 arg_varlink = true;
                 arg_pager_flags |= PAGER_DISABLE;
         }
+
+        if (arg_eltorito && !IN_SET(arg_empty, EMPTY_REQUIRE, EMPTY_FORCE, EMPTY_CREATE))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "--el-torito=yes requires --empty= to be either require, force or create.");
 
         return 1;
 }

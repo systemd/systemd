@@ -718,6 +718,59 @@
         <xi:include href="version-info.xml" xpointer="v257"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--el-torito=<replaceable>BOOL</replaceable></option></term>
+
+        <listitem><para>Write a minimal ISO9660 header with El Torito boot catalog. That will
+        boot the ESP on EFI firmware.</para>
+
+        <para>The ISO9660 filesystem created by it will be empty. The initramfs is expected to create a
+        partitionable loop device on top of the device to change the block size and enable GPT
+        partitions.</para>
+
+        <para>The disk requires at least one partition with <varname>Type=esp</varname>. The first one will
+        be the one referenced in the boot catalog.</para>
+
+        <para>This option is available only when creating a new partition table, that is when
+        <option>--empty=</option> has value <literal>require</literal>, <literal>force</literal> or
+        <literal>create</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--el-torito-system=<replaceable>STRING</replaceable></option></term>
+
+        <listitem><para>When creating an ISO9660 header, this value will be used as the system identifier.
+        This is useful for the media to be matched against osinfo db.</para>
+
+        <para>The value is limited to 32 characters.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--el-torito-volume=<replaceable>STRING</replaceable></option></term>
+
+        <listitem><para>When creating an ISO9660 header, this value will be used as volume identifier.
+        This is useful for the media to be matched against osinfo db.</para>
+
+        <para>The value is limited to 32 characters.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--el-torito-publisher=<replaceable>STRING</replaceable></option></term>
+
+        <listitem><para>When creating an ISO9660 header, this value will be used as publisher identifier.
+        This is useful for the media to be matched against osinfo db.</para>
+
+        <para>The value is limited to 128 characters.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
