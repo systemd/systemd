@@ -87,6 +87,11 @@ typedef struct Manager {
         unsigned route_remove_messages;
         Set *routes;
 
+        /* Manager-level static routes (e.g. blackhole/prohibit/unreachable) */
+        Hashmap *routes_by_section;
+        unsigned static_route_messages;
+        bool static_routes_configured;
+
         /* IPv6 Address Label */
         Hashmap *address_labels_by_section;
         unsigned static_address_label_messages;
