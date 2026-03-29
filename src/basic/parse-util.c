@@ -127,6 +127,8 @@ int parse_mtu(int family, const char *s, uint32_t *ret) {
         uint64_t u, m;
         int r;
 
+        assert(ret);
+
         r = parse_size(s, 1024, &u);
         if (r < 0)
                 return r;
@@ -376,6 +378,9 @@ int parse_user_shell(const char *s, char **ret_sh, bool *ret_copy) {
         char *sh;
         int r;
 
+        assert(ret_sh);
+        assert(ret_copy);
+
         if (path_is_absolute(s) && path_is_normalized(s)) {
                 sh = strdup(s);
                 if (!sh)
@@ -475,6 +480,8 @@ int safe_atou_full(const char *s, unsigned base, unsigned *ret_u) {
 int safe_atou_bounded(const char *s, unsigned min, unsigned max, unsigned *ret) {
         unsigned v;
         int r;
+
+        assert(ret);
 
         r = safe_atou(s, &v);
         if (r < 0)
@@ -577,6 +584,8 @@ int safe_atou8_full(const char *s, unsigned base, uint8_t *ret) {
         unsigned u;
         int r;
 
+        assert(ret);
+
         r = safe_atou_full(s, base, &u);
         if (r < 0)
                 return r;
@@ -590,6 +599,8 @@ int safe_atou8_full(const char *s, unsigned base, uint8_t *ret) {
 int safe_atou16_full(const char *s, unsigned base, uint16_t *ret) {
         unsigned u;
         int r;
+
+        assert(ret);
 
         r = safe_atou_full(s, base, &u);
         if (r < 0)
@@ -654,6 +665,9 @@ int parse_fractional_part_u(const char **p, size_t digits, unsigned *res) {
         unsigned val = 0;
         const char *s;
 
+        assert(p);
+        assert(res);
+
         s = *p;
 
         /* accept any number of digits, strtoull is limited to 19 */
@@ -688,6 +702,8 @@ int parse_fractional_part_u(const char **p, size_t digits, unsigned *res) {
 int parse_nice(const char *s, int *ret) {
         int n, r;
 
+        assert(ret);
+
         r = safe_atoi(s, &n);
         if (r < 0)
                 return r;
@@ -702,6 +718,8 @@ int parse_nice(const char *s, int *ret) {
 int parse_ip_port(const char *s, uint16_t *ret) {
         uint16_t l;
         int r;
+
+        assert(ret);
 
         r = safe_atou16_full(s, SAFE_ATO_REFUSE_LEADING_WHITESPACE, &l);
         if (r < 0)
@@ -718,6 +736,9 @@ int parse_ip_port(const char *s, uint16_t *ret) {
 int parse_ip_port_range(const char *s, uint16_t *low, uint16_t *high, bool allow_zero) {
         unsigned l, h;
         int r;
+
+        assert(low);
+        assert(high);
 
         r = parse_range(s, &l, &h);
         if (r < 0)

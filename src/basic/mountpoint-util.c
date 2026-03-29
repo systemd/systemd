@@ -320,6 +320,8 @@ int path_get_mnt_id_at(int dir_fd, const char *path, int *ret) {
         uint64_t mnt_id;
         int r;
 
+        assert(ret);
+
         r = path_get_mnt_id_at_internal(dir_fd, path, /* unique = */ false, &mnt_id);
         if (r < 0)
                 return r;
@@ -596,6 +598,9 @@ const char* mount_propagation_flag_to_string(unsigned long flags) {
 }
 
 int mount_propagation_flag_from_string(const char *name, unsigned long *ret) {
+
+        POINTER_MAY_BE_NULL(name);
+        assert(ret);
 
         if (isempty(name))
                 *ret = 0;
