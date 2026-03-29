@@ -45,7 +45,7 @@ _arguments \
     '--tmpfs=[Mount an empty tmpfs to the specified directory.]: : _files' \
     '--setenv=[Specifies an environment variable assignment to pass to the init process in the container, in the format "NAME=VALUE".]: : _message "environment variables"' \
     '--share-system[Allows the container to share certain system facilities with the host.]' \
-    '--register=[Controls whether the container is registered with systemd-machined(8).]:systemd-machined registration:( yes no )' \
+    '--register=[Controls whether the container is registered with systemd-machined(8).]:systemd-machined registration:( yes no auto )' \
     '--keep-unit[Instead of creating a transient scope unit to run the container in, simply register the service or scope unit systemd-nspawn has been invoked in with systemd-machined(8).]' \
     '--personality=[Control the architecture ("personality") reported by uname(2) in the container.]:architecture:(x86 x86-64)' \
     '--volatile=[Run the system in volatile mode.]:volatile:(no yes state)' \

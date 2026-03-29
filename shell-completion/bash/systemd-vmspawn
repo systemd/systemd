@@ -32,7 +32,7 @@ _systemd_vmspawn() {
         [STANDALONE]='-h --help --version -q --quiet --no-pager -n --network-tap --network-user-mode --user --system -x --ephemeral'
         [PATH]='-D --directory -i --image --linux --initrd --extra-drive --forward-journal --efi-nvram-template'
         [BOOL]='--kvm --cxl --vsock --tpm --discard-disk --register --pass-ssh-key'
-        [SECURE_BOOT]='--secure-boot'
+        [TRISTATE]='--register --secure-boot'
         [FIRMWARE]='--firmware'
         [FIRMWARE_FEATURES]='--firmware-features'
         [BIND]='--bind --bind-ro'
@@ -47,7 +47,7 @@ _systemd_vmspawn() {
 
     if __contains_word "$prev" ${OPTS[BOOL]}; then
         comps='yes no'
-    elif __contains_word "$prev" ${OPTS[SECURE_BOOT]}; then
+    elif __contains_word "$prev" ${OPTS[TRISTATE]}; then
         comps='yes no auto'
     elif __contains_word "$prev" ${OPTS[PATH]}; then
         compopt -o nospace -o filenames
