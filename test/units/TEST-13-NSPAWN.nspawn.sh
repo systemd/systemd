@@ -202,7 +202,7 @@ testcase_sanity() {
     systemd-nspawn --register=no --directory="$root" bash -xec '[[ $$ -eq 1 ]]'
     systemd-nspawn --register=no --directory="$root" --as-pid2 bash -xec '[[ $$ -eq 2 ]]'
 
-    # --user=
+    # --uid=
     # "Fake" getent passwd's bare minimum, so we don't have to pull it in
     # with all the DSO shenanigans
     cat >"$root/bin/getent" <<\EOF
@@ -222,6 +222,9 @@ EOF
     # as bash isn't invoked with the necessary environment variables for that.
     useradd --root="$root" --uid 1000 --user-group --create-home testuser
     systemd-nspawn --register=no --directory="$root" bash -xec '[[ $USER == root ]]'
+    systemd-nspawn --register=no --directory="$root" --uid=testuser bash -xec '[[ $USER == testuser ]]'
+    # Backward compat: --user NAME (space-separated) and --user=testuser should still work
+    systemd-nspawn --register=no --directory="$root" --user testuser bash -xec '[[ $USER == testuser ]]'
     systemd-nspawn --register=no --directory="$root" --user=testuser bash -xec '[[ $USER == testuser ]]'
 
     # --settings= + .nspawn files
@@ -335,10 +338,10 @@ EOF
                    --load-credential=cred.path:/tmp/cred.path \
                    --set-credential="cred.set:hello world" \
                    bash -xec '[[ "$(</run/host/credentials/cred.path)" == "foo bar" ]]; [[ "$(</run/host/credentials/cred.set)" == "hello world" ]]'
-    # Combine with --user to ensure creds are still readable
+    # Combine with --uid to ensure creds are still readable
     systemd-nspawn --register=no \
                    --directory="$root" \
-                   --user=testuser \
+                   --uid=testuser \
                    --no-new-privileges=yes \
                    --load-credential=cred.path:/tmp/cred.path \
                    --set-credential="cred.set:hello world" \
@@ -907,7 +910,7 @@ testcase_owneridmap() {
 
     create_dummy_container "$root"
 
-    # --user=
+    # --uid=
     # "Fake" getent passwd's bare minimum, so we don't have to pull it in
     # with all the DSO shenanigans
     cat >"$root/bin/getent" <<\EOF
@@ -933,7 +936,7 @@ EOF
             systemd-nspawn --register=no \
                            --directory="$root" \
                            -U \
-                           --user=testuser \
+                           --uid=testuser \
                            --bind=/tmp/owneridmap/bind:/home/testuser:owneridmap \
                            ${COVERAGE_BUILD_DIR:+--bind="$COVERAGE_BUILD_DIR"} \
                            bash -c "$cmd" |& tee nspawn.out; then
