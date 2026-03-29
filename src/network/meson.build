@@ -93,6 +93,7 @@ systemd_networkd_extract_sources = files(
         'networkd-wiphy.c',
         'networkd-wwan.c',
         'networkd-wwan-bus.c',
+        'networkd-xlat.c',
         'tc/cake.c',
         'tc/codel.c',
         'tc/drr.c',
