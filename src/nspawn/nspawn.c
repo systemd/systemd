@@ -153,7 +153,7 @@ static char *arg_hostname = NULL;    /* The name the payload sees by default */
 static const char *arg_selinux_context = NULL;
 static const char *arg_selinux_apifs_context = NULL;
 static char *arg_slice = NULL;
-static bool arg_private_network; /* initialized depending on arg_privileged in run() */
+static bool arg_private_network; /* initialized depending on arg_runtime_scope in run() */
 static bool arg_read_only = false;
 static StartMode arg_start_mode = START_PID1;
 static bool arg_ephemeral = false;
@@ -212,7 +212,7 @@ static VolatileMode arg_volatile_mode = VOLATILE_NO;
 static ExposePort *arg_expose_ports = NULL;
 static char **arg_property = NULL;
 static sd_bus_message *arg_property_message = NULL;
-static UserNamespaceMode arg_userns_mode; /* initialized depending on arg_privileged in run() */
+static UserNamespaceMode arg_userns_mode; /* initialized depending on arg_runtime_scope in run() */
 static uid_t arg_uid_shift = UID_INVALID, arg_uid_range = 0x10000U;
 static unsigned arg_delegate_container_ranges = 0;
 static UserNamespaceOwnership arg_userns_ownership = _USER_NAMESPACE_OWNERSHIP_INVALID;
@@ -253,7 +253,7 @@ static char *arg_settings_filename = NULL;
 static Architecture arg_architecture = _ARCHITECTURE_INVALID;
 static ImagePolicy *arg_image_policy = NULL;
 static char *arg_background = NULL;
-static bool arg_privileged = false;
+static RuntimeScope arg_runtime_scope = _RUNTIME_SCOPE_INVALID;
 static bool arg_cleanup = false;
 static bool arg_ask_password = true;
 
@@ -521,6 +521,9 @@ static int help(void) {
                "     --load-credential=ID:PATH\n"
                "                            Load credential to pass to container from file or\n"
                "                            AF_UNIX stream socket.\n"
+               "\n%3$sOther:%4$s\n"
+               "     --runtime-scope=system|user\n"
+               "                            Run in system or user service manager scope\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -749,6 +752,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_CLEANUP,
                 ARG_NO_ASK_PASSWORD,
                 ARG_MSTACK,
+                ARG_RUNTIME_SCOPE,
         };
 
         static const struct option options[] = {
@@ -830,6 +834,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "cleanup",                no_argument,       NULL, ARG_CLEANUP                },
                 { "no-ask-password",        no_argument,       NULL, ARG_NO_ASK_PASSWORD        },
                 { "mstack",                 required_argument, NULL, ARG_MSTACK                 },
+                { "runtime-scope",          required_argument, NULL, ARG_RUNTIME_SCOPE          },
                 {}
         };
 
@@ -1230,7 +1235,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'U':
                         if (userns_supported()) {
                                 /* Note that arg_userns_ownership is implied by USER_NAMESPACE_PICK further down. */
-                                arg_userns_mode = arg_privileged ? USER_NAMESPACE_PICK : USER_NAMESPACE_MANAGED;
+                                arg_userns_mode = arg_runtime_scope == RUNTIME_SCOPE_SYSTEM ? USER_NAMESPACE_PICK : USER_NAMESPACE_MANAGED;
                                 arg_uid_shift = UID_INVALID;
                                 arg_uid_range = UINT32_C(0x10000);
 
@@ -1599,6 +1604,12 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_ask_password = false;
                         break;
 
+                case ARG_RUNTIME_SCOPE:
+                        arg_runtime_scope = runtime_scope_from_string(optarg);
+                        if (!IN_SET(arg_runtime_scope, RUNTIME_SCOPE_SYSTEM, RUNTIME_SCOPE_USER))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse runtime scope: %s", optarg);
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -1649,7 +1660,7 @@ static int verify_arguments(void) {
 
         /* We can mount selinuxfs only if we are privileged and can do so before userns. In managed mode we
          * have to enter the userns earlier, hence cannot do that. */
-        /* SET_FLAG(arg_mount_settings, MOUNT_PRIVILEGED, arg_privileged); */
+        /* SET_FLAG(arg_mount_settings, MOUNT_PRIVILEGED, arg_runtime_scope == RUNTIME_SCOPE_SYSTEM); */
         SET_FLAG(arg_mount_settings, MOUNT_PRIVILEGED, arg_userns_mode != USER_NAMESPACE_MANAGED);
 
         SET_FLAG(arg_mount_settings, MOUNT_USE_USERNS, arg_userns_mode != USER_NAMESPACE_NO);
@@ -1657,7 +1668,7 @@ static int verify_arguments(void) {
         if (arg_private_network)
                 SET_FLAG(arg_mount_settings, MOUNT_APPLY_APIVFS_NETNS, arg_private_network);
 
-        if (!arg_privileged && arg_userns_mode != USER_NAMESPACE_MANAGED)
+        if (arg_runtime_scope != RUNTIME_SCOPE_SYSTEM && arg_userns_mode != USER_NAMESPACE_MANAGED)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unprivileged operation requires managed user namespaces, as otherwise no UID range can be acquired.");
 
         if (arg_userns_mode == USER_NAMESPACE_MANAGED && !arg_private_network)
@@ -3183,7 +3194,7 @@ static int determine_names(void) {
                 if (arg_machine) {
                         _cleanup_(image_unrefp) Image *i = NULL;
 
-                        r = image_find(arg_privileged ? RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER,
+                        r = image_find(arg_runtime_scope,
                                        IMAGE_MACHINE, arg_machine, NULL, &i);
                         if (r == -ENOENT)
                                 return log_error_errno(r, "No image for machine '%s'.", arg_machine);
@@ -5147,7 +5158,7 @@ static int load_settings(void) {
                 _SD_PATH_INVALID,
         };
 
-        const uint64_t *q = arg_privileged ? lookup_dir_system : lookup_dir_user;
+        const uint64_t *q = arg_runtime_scope == RUNTIME_SCOPE_SYSTEM ? lookup_dir_system : lookup_dir_user;
         for (; *q != _SD_PATH_INVALID; q++) {
                 _cleanup_free_ char *cd = NULL;
                 r = sd_path_lookup(*q, "systemd/nspawn", &cd);
@@ -5578,7 +5589,7 @@ static int run_container(
 
         /* Registration always happens on the system bus */
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *system_bus = NULL;
-        if (arg_register || (arg_privileged && !arg_keep_unit)) {
+        if (arg_register || (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM && !arg_keep_unit)) {
                 r = sd_bus_default_system(&system_bus);
                 if (r < 0)
                         return log_error_errno(r, "Failed to open system bus: %m");
@@ -5594,7 +5605,7 @@ static int run_container(
         _cleanup_(sd_bus_unrefp) sd_bus *runtime_bus = NULL;
 
         if (arg_register || !arg_keep_unit) {
-                if (arg_privileged)
+                if (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM)
                         runtime_bus = sd_bus_ref(system_bus);
                 else {
                         r = sd_bus_default_user(&user_bus);
@@ -5672,14 +5683,14 @@ static int run_container(
                                 ifi,
                                 arg_container_service_name);
                 if (r < 0) {
-                        if (arg_privileged) /* if privileged the request to register definitely failed */
+                        if (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM) /* if system scope the request to register definitely failed */
                                 return r;
 
                         log_notice_errno(r, "Failed to register machine in system context, will try in user context.");
                 } else
                         registered_system = true;
 
-                if (!arg_privileged) {
+                if (arg_runtime_scope != RUNTIME_SCOPE_SYSTEM) {
                         r = register_machine(
                                         runtime_bus,
                                         arg_machine,
@@ -6062,19 +6073,19 @@ static int cant_be_in_netns(void) {
 }
 
 static void initialize_defaults(void) {
-        arg_privileged = getuid() == 0;
+        arg_runtime_scope = getuid() == 0 ? RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER;
 
         /* If running unprivileged default to systemd-nsresourced operation */
-        arg_userns_mode = arg_privileged ? USER_NAMESPACE_NO : USER_NAMESPACE_MANAGED;
+        arg_userns_mode = arg_runtime_scope == RUNTIME_SCOPE_SYSTEM ? USER_NAMESPACE_NO : USER_NAMESPACE_MANAGED;
 
         /* Imply private networking for unprivileged operation, since kernel otherwise refuses mounting sysfs */
-        arg_private_network = !arg_privileged;
+        arg_private_network = arg_runtime_scope != RUNTIME_SCOPE_SYSTEM;
 }
 
 static void cleanup_propagation_and_export_directories(void) {
         const char *p;
 
-        if (!arg_machine || !arg_privileged)
+        if (!arg_machine || arg_runtime_scope != RUNTIME_SCOPE_SYSTEM)
                 return;
 
         p = strjoina("/run/systemd/nspawn/propagate/", arg_machine);
@@ -6274,7 +6285,7 @@ static int run(int argc, char *argv[]) {
 
                         r = create_ephemeral_snapshot(
                                         arg_directory,
-                                        arg_privileged ? RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER,
+                                        arg_runtime_scope,
                                         arg_read_only,
                                         &tree_global_lock,
                                         &tree_local_lock,
@@ -6295,10 +6306,10 @@ static int run(int argc, char *argv[]) {
                                 goto finish;
 
                         r = image_path_lock(
-                                        arg_privileged ? RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER,
+                                        arg_runtime_scope,
                                         arg_directory,
                                         (arg_read_only ? LOCK_SH : LOCK_EX) | LOCK_NB,
-                                        arg_privileged ? &tree_global_lock : NULL,
+                                        arg_runtime_scope == RUNTIME_SCOPE_SYSTEM ? &tree_global_lock : NULL,
                                         &tree_local_lock);
                         if (r == -EBUSY) {
                                 log_error_errno(r, "Directory tree %s is currently busy.", arg_directory);
@@ -6426,10 +6437,10 @@ static int run(int argc, char *argv[]) {
 
                         /* Always take an exclusive lock on our own ephemeral copy. */
                         r = image_path_lock(
-                                        arg_privileged ? RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER,
+                                        arg_runtime_scope,
                                         np,
                                         LOCK_EX|LOCK_NB,
-                                        arg_privileged ? &tree_global_lock : NULL,
+                                        arg_runtime_scope == RUNTIME_SCOPE_SYSTEM ? &tree_global_lock : NULL,
                                         &tree_local_lock);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to create image lock: %m");
@@ -6454,10 +6465,10 @@ static int run(int argc, char *argv[]) {
                         remove_image = true;
                 } else {
                         r = image_path_lock(
-                                        arg_privileged ? RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER,
+                                        arg_runtime_scope,
                                         arg_image,
                                         (arg_read_only ? LOCK_SH : LOCK_EX) | LOCK_NB,
-                                        arg_privileged ? &tree_global_lock : NULL,
+                                        arg_runtime_scope == RUNTIME_SCOPE_SYSTEM ? &tree_global_lock : NULL,
                                         &tree_local_lock);
                         if (r == -EBUSY) {
                                 log_error_errno(r, "Disk image %s is currently busy.", arg_image);

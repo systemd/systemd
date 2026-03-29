@@ -70,13 +70,13 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--system</option></term>
-        <term><option>--user</option></term>
+        <term><option>--runtime-scope=</option></term>
 
-        <listitem><para>Specify whether to interact with the user manager or the system manager and whether
-        to register with the user machined instance or the system machined instance. If
-        unspecified, the system manager and machined instance will be used when running as root, otherwise
-        the user manager and machined instance will be used.</para>
+        <listitem><para>Takes either <literal>system</literal> or <literal>user</literal> to specify whether
+        to interact with the user service manager or the system service manager and whether to register with
+        the user machined instance or the system machined instance. If unspecified, the system service manager
+        and machined instance will be used when running as root, otherwise the user service manager and machined
+        instance will be used.</para>
 
         <xi:include href="version-info.xml" xpointer="v260"/></listitem>
       </varlistentry>
