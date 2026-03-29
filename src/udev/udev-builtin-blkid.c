@@ -20,6 +20,8 @@
 #include "blockdev-util.h"
 #include "device-util.h"
 #include "devnum-util.h"
+#include "dissect-image.h"
+#include "efi-api.h"
 #include "efi-loader.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -421,6 +423,157 @@ notloop:
         return 0;
 }
 
+static int find_cdrom_boot_device(UdevEvent *event, int fd) {
+
+#if defined(SD_GPT_ROOT_NATIVE) && ENABLE_EFI
+        sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
+        int r;
+
+        /* For CD-ROM devices booted via El Torito, the GPT partition table may use a different sector size
+         * than the device's native block size (e.g. 512-byte GPT sectors on a 2048-byte CD-ROM). The kernel
+         * can't parse the GPT in that case, so we need to detect the boot CD-ROM here and trigger a loop
+         * device to re-expose it with the correct sector size.
+         *
+         * We identify the boot CD-ROM by reading StubDevicePartUUID/LoaderDevicePartUUID and matching it
+         * against the partition UUIDs in the GPT hidden behind the sector size mismatch. */
+
+        if (!in_initrd()) {
+                log_device_debug(dev, "Not in initrd, skipping.");
+                return 0;
+        }
+
+        r = block_device_is_whole_disk(dev);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to check whole disk: %m");
+        if (r == 0) {
+                log_device_debug(dev, "Not a whole disk, skipping.");
+                return 0;
+        }
+
+        log_device_debug(dev, "Whole disk device in initrd, probing sector size...");
+
+        /* Probe the GPT sector size — if it matches the device, there's no sector size mismatch */
+        uint32_t probed_ssz;
+        r = probe_sector_size(fd, &probed_ssz);
+        if (r < 0) {
+                log_device_debug_errno(dev, r, "Failed to probe sector size: %m");
+                return 0;
+        }
+        if (r == 0) {
+                log_device_debug(dev, "No GPT found on device, skipping.");
+                return 0;
+        }
+
+        uint32_t device_ssz;
+        r = blockdev_get_sector_size(fd, &device_ssz);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to get device sector size: %m");
+
+        log_device_debug(dev, "Probed GPT sector size=%" PRIu32 ", device sector size=%" PRIu32, probed_ssz, device_ssz);
+
+        if (probed_ssz == device_ssz) {
+                log_device_debug(dev, "Sector sizes match, no mismatch to handle.");
+                return 0;
+        }
+
+        log_device_debug(dev, "Sector size mismatch detected, reading boot partition UUID from EFI variables...");
+
+        /* Read the boot partition UUID from EFI variables */
+        sd_id128_t boot_uuid;
+        r = efi_loader_get_device_part_uuid(&boot_uuid);
+        if (r == -ENOENT || ERRNO_IS_NEG_NOT_SUPPORTED(r)) {
+                log_device_debug_errno(dev, r, "LoaderDevicePartUUID not available, trying StubDevicePartUUID...");
+                r = efi_stub_get_device_part_uuid(&boot_uuid);
+                if (r == -ENOENT || ERRNO_IS_NEG_NOT_SUPPORTED(r)) {
+                        log_device_debug_errno(dev, r, "StubDevicePartUUID not available either, skipping.");
+                        return 0;
+                }
+        }
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to read loader/stub partition UUID: %m");
+
+        log_device_debug(dev, "Boot partition UUID=" SD_ID128_UUID_FORMAT_STR, SD_ID128_FORMAT_VAL(boot_uuid));
+
+        /* Read the GPT header at the probed sector size offset */
+        uint8_t sectors[2 * 4096];
+        ssize_t n = pread(fd, sectors, sizeof(sectors), 0);
+        if (n < 0)
+                return log_device_debug_errno(dev, errno, "Failed to read GPT header area: %m");
+        if ((size_t) n < probed_ssz + sizeof(GptHeader)) {
+                log_device_debug(dev, "Short read (got %zi bytes, need %zu), skipping.", n, (size_t) probed_ssz + sizeof(GptHeader));
+                return 0;
+        }
+
+        GptHeader *h = (GptHeader *) (sectors + probed_ssz);
+        if (!gpt_header_has_signature(h)) {
+                log_device_debug(dev, "GPT header at offset %" PRIu32 " has no valid signature.", probed_ssz);
+                return 0;
+        }
+
+        uint64_t entry_offset = le64toh(h->partition_entry_lba) * probed_ssz;
+        uint32_t entry_size = le32toh(h->size_of_partition_entry);
+        uint32_t entry_count = le32toh(h->number_of_partition_entries);
+
+        log_device_debug(dev, "GPT has %" PRIu32 " entries (size=%" PRIu32 ") at byte offset %" PRIu64, entry_count, entry_size, entry_offset);
+
+        if (entry_size < sizeof(GptPartitionEntry) || entry_count == 0 || entry_count > 1024) {
+                log_device_debug(dev, "Invalid entry size/count, skipping.");
+                return 0;
+        }
+        if (entry_size > SIZE_MAX / entry_count)
+                return 0;
+
+        size_t entries_size = (size_t) entry_size * entry_count;
+        _cleanup_free_ void *entries = malloc(entries_size);
+        if (!entries)
+                return log_oom_debug();
+
+        n = pread(fd, entries, entries_size, entry_offset);
+        if (n < 0)
+                return log_device_debug_errno(dev, errno, "Failed to read GPT partition entries: %m");
+        if ((size_t) n < entries_size) {
+                log_device_debug(dev, "Short read on partition entries (got %zi, need %zu), skipping.", n, entries_size);
+                return 0;
+        }
+
+        for (uint32_t i = 0; i < entry_count; i++) {
+                GptPartitionEntry *entry = (GptPartitionEntry *) ((uint8_t *) entries + (size_t) entry_size * i);
+
+                sd_id128_t entry_uuid = efi_guid_to_id128(entry->unique_partition_guid);
+
+                if (sd_id128_is_null(entry_uuid))
+                        continue;
+
+                log_device_debug(dev, "Partition %" PRIu32 " UUID=" SD_ID128_UUID_FORMAT_STR, i, SD_ID128_FORMAT_VAL(entry_uuid));
+
+                if (!sd_id128_equal(entry_uuid, boot_uuid))
+                        continue;
+
+                log_device_debug(dev, "Partition %" PRIu32 " matches boot UUID, triggering loop device.", i);
+
+                /* This CD-ROM contains the partition we booted from — trigger a loop device */
+                const char *sysname;
+                r = sd_device_get_sysname(dev, &sysname);
+                if (r < 0)
+                        return log_device_debug_errno(dev, r, "Failed to get sysname: %m");
+
+                _cleanup_free_ char *service = NULL;
+                service = strjoin("systemd-loop@dev-", sysname, ".service");
+                if (!service)
+                        return log_oom_debug();
+
+                log_device_debug(dev, "Setting SYSTEMD_WANTS=%s", service);
+                udev_builtin_add_property(event, "SYSTEMD_WANTS", service);
+
+                return 1;
+        }
+
+        log_device_debug(dev, "No partition matched boot UUID, skipping.");
+#endif
+
+        return 0;
+}
+
 static int builtin_blkid(UdevEvent *event, int argc, char *argv[]) {
         sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         const char *devnode, *root_partition = NULL, *data, *name;
@@ -562,6 +715,10 @@ static int builtin_blkid(UdevEvent *event, int argc, char *argv[]) {
 
         if (is_gpt)
                 find_gpt_root(event, pr, backing_fname);
+        else {
+                log_device_debug(dev, "No GPT detected by blkid, checking for CDROM boot device with sector size mismatch...");
+                (void) find_cdrom_boot_device(event, fd);
+        }
 
         return 0;
 }
