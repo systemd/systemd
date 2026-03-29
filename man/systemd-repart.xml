@@ -731,10 +731,6 @@
         <para>The disk requires at least one partition with <varname>Type=esp</varname>. The first one will
         be the one referenced in the boot catalog.</para>
 
-        <para>This option is available only when creating a new partition table, that is when
-        <option>--empty=</option> has value <literal>require</literal>, <literal>force</literal> or
-        <literal>create</literal>.</para>
-
         <xi:include href="version-info.xml" xpointer="v261"/></listitem>
       </varlistentry>
 

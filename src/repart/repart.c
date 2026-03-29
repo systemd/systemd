@@ -10280,10 +10280,6 @@ static int parse_argv(int argc, char *argv[]) {
                 arg_pager_flags |= PAGER_DISABLE;
         }
 
-        if (arg_eltorito && !IN_SET(arg_empty, EMPTY_REQUIRE, EMPTY_FORCE, EMPTY_CREATE))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "--el-torito=yes requires --empty= to be either require, force or create.");
-
         return 1;
 }
 
