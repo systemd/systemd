@@ -63,6 +63,7 @@ int utf8_encoded_to_unichar(const char *str, char32_t *ret_unichar) {
         size_t len;
 
         assert(str);
+        assert(ret_unichar);
 
         len = utf8_encoded_expected_len(str[0]);
 
@@ -500,6 +501,8 @@ size_t char16_strlen(const char16_t *s) {
 }
 
 size_t char16_strsize(const char16_t *s) {
+        POINTER_MAY_BE_NULL(s);
+
         return s ? (char16_strlen(s) + 1) * sizeof(*s) : 0;
 }
 
@@ -566,6 +569,8 @@ int utf8_encoded_valid_unichar(const char *str, size_t length /* bytes */) {
 size_t utf8_n_codepoints(const char *str) {
         size_t n = 0;
 
+        assert(str);
+
         /* Returns the number of UTF-8 codepoints in this string, or SIZE_MAX if the string is not valid UTF-8. */
 
         while (*str != 0) {
@@ -583,6 +588,7 @@ size_t utf8_n_codepoints(const char *str) {
 }
 
 size_t utf8_console_width(const char *str) {
+        POINTER_MAY_BE_NULL(str);
 
         if (isempty(str))
                 return 0;
