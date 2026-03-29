@@ -293,6 +293,138 @@ EFI_STATUS partition_open(const EFI_GUID *type, EFI_HANDLE *device, EFI_HANDLE *
         return EFI_SUCCESS;
 }
 
+static char16_t *disk_get_part_uuid_cdrom(EFI_DEVICE_PATH *dp) {
+        EFI_STATUS err;
+
+        assert(dp);
+
+        /* When booting from a CD-ROM via El Torito, the device path contains a CDROM node instead of
+         * a HARDDRIVE node. The CDROM node doesn't carry a partition UUID, so we need to read the GPT
+         * from the underlying disk to find it. */
+
+        CDROM_DEVICE_PATH *cdrom = NULL;
+        for (EFI_DEVICE_PATH *node = dp; !device_path_is_end(node); node = device_path_next_node(node))
+                if (node->Type == MEDIA_DEVICE_PATH && node->SubType == MEDIA_CDROM_DP)
+                        cdrom = (CDROM_DEVICE_PATH *) node;
+
+        if (!cdrom)
+                return NULL;
+
+        /* Chop off the CDROM node to get the whole-disk device path */
+        _cleanup_free_ EFI_DEVICE_PATH *disk_path = device_path_replace_node(dp, &cdrom->Header, NULL);
+
+        EFI_DEVICE_PATH *remaining = disk_path;
+        EFI_HANDLE disk_handle;
+        err = BS->LocateDevicePath(MAKE_GUID_PTR(EFI_BLOCK_IO_PROTOCOL), &remaining, &disk_handle);
+        if (err != EFI_SUCCESS)
+                return NULL;
+
+        (void) BS->ConnectController(disk_handle, NULL, NULL, true);
+
+        EFI_BLOCK_IO_PROTOCOL *block_io;
+        err = BS->HandleProtocol(disk_handle, MAKE_GUID_PTR(EFI_BLOCK_IO_PROTOCOL), (void **) &block_io);
+        if (err != EFI_SUCCESS)
+                return NULL;
+
+        if (block_io->Media->LogicalPartition || !block_io->Media->MediaPresent ||
+            block_io->Media->LastBlock <= 1)
+                return NULL;
+
+        uint32_t block_size = block_io->Media->BlockSize;
+
+        /* Probe for the GPT header at multiple possible sector sizes (512, 1024, 2048, 4096).
+         * The GPT header is at LBA 1, i.e. byte offset == sector_size. We need to read enough
+         * blocks to cover the header at max sector size 4096. */
+        size_t probe_size = ALIGN_TO(4096U + sizeof(GptHeader), block_size);
+
+        _cleanup_pages_ Pages probe_pages = {};
+        probe_pages = xmalloc_aligned_pages(
+                        AllocateMaxAddress,
+                        EfiLoaderData,
+                        EFI_SIZE_TO_PAGES(probe_size),
+                        block_io->Media->IoAlign,
+                        UINTPTR_MAX);
+        uint8_t *probe_buf = PHYSICAL_ADDRESS_TO_POINTER(probe_pages.addr);
+
+        err = block_io->ReadBlocks(block_io, block_io->Media->MediaId, 0, probe_size, probe_buf);
+        if (err != EFI_SUCCESS)
+                return NULL;
+
+        /* Try sector sizes 512, 1024, 2048, 4096 — check for the GPT signature at each */
+        uint32_t sector_size = 0;
+        for (uint32_t ss = 512; ss <= 4096; ss <<= 1) {
+                if (ss + sizeof(GptHeader) > probe_size)
+                        break;
+
+                GptHeader *h = (GptHeader *) (probe_buf + ss);
+                if (memcmp(&h->Header.Signature, "EFI PART", sizeof(h->Header.Signature)) != 0)
+                        continue;
+
+                if (sector_size != 0)
+                        return NULL; /* Ambiguous — valid headers at multiple offsets */
+
+                sector_size = ss;
+        }
+
+        if (sector_size == 0)
+                return NULL;
+
+        GptHeader *gpt = (GptHeader *) (probe_buf + sector_size);
+        if (!verify_gpt(gpt, 1))
+                return NULL;
+
+        if ((gpt->SizeOfPartitionEntry % sizeof(EFI_PARTITION_ENTRY)) != 0)
+                return NULL;
+        if (gpt->NumberOfPartitionEntries == 0 || gpt->NumberOfPartitionEntries > 1024)
+                return NULL;
+        if (gpt->SizeOfPartitionEntry > SIZE_MAX / gpt->NumberOfPartitionEntries)
+                return NULL;
+
+        /* Read the partition entry array. The GPT stores entry LBAs in sector_size units,
+         * but block I/O operates in block_size units. */
+        uint64_t entries_byte_offset = gpt->PartitionEntryLBA * sector_size;
+        size_t entries_size = ALIGN_TO(
+                        (size_t) gpt->SizeOfPartitionEntry * (size_t) gpt->NumberOfPartitionEntries,
+                        sector_size);
+        uint64_t entries_start_block = entries_byte_offset / block_size;
+        size_t entries_offset_in_buf = entries_byte_offset % block_size;
+        size_t entries_read_size = ALIGN_TO(entries_offset_in_buf + entries_size, block_size);
+
+        _cleanup_pages_ Pages entries_pages = {};
+        entries_pages = xmalloc_aligned_pages(
+                        AllocateMaxAddress,
+                        EfiLoaderData,
+                        EFI_SIZE_TO_PAGES(entries_read_size),
+                        block_io->Media->IoAlign,
+                        UINTPTR_MAX);
+        uint8_t *entries_buf = PHYSICAL_ADDRESS_TO_POINTER(entries_pages.addr);
+
+        err = block_io->ReadBlocks(
+                        block_io, block_io->Media->MediaId,
+                        entries_start_block, entries_read_size, entries_buf);
+        if (err != EFI_SUCCESS)
+                return NULL;
+
+        uint8_t *entries = entries_buf + entries_offset_in_buf;
+
+        uint32_t crc32;
+        err = BS->CalculateCrc32(entries, entries_size, &crc32);
+        if (err != EFI_SUCCESS || crc32 != gpt->PartitionEntryArrayCRC32)
+                return NULL;
+
+        /* Find the partition whose byte offset matches the CDROM's PartitionStart.
+         * CDROM PartitionStart is in media block_size units, GPT StartingLBA is in sector_size units. */
+        for (size_t i = 0; i < gpt->NumberOfPartitionEntries; i++) {
+                EFI_PARTITION_ENTRY *entry =
+                                (EFI_PARTITION_ENTRY *) (entries + gpt->SizeOfPartitionEntry * i);
+
+                if (entry->StartingLBA * sector_size == cdrom->PartitionStart * block_size)
+                        return xasprintf(GUID_FORMAT_STR, GUID_FORMAT_VAL(entry->UniquePartitionGUID));
+        }
+
+        return NULL;
+}
+
 char16_t *disk_get_part_uuid(EFI_HANDLE *handle) {
         EFI_STATUS err;
         EFI_DEVICE_PATH *dp;
@@ -306,16 +438,17 @@ char16_t *disk_get_part_uuid(EFI_HANDLE *handle) {
         if (err != EFI_SUCCESS)
                 return NULL;
 
-        for (; !device_path_is_end(dp); dp = device_path_next_node(dp)) {
-                if (dp->Type != MEDIA_DEVICE_PATH || dp->SubType != MEDIA_HARDDRIVE_DP)
+        for (EFI_DEVICE_PATH *node = dp; !device_path_is_end(node); node = device_path_next_node(node)) {
+                if (node->Type != MEDIA_DEVICE_PATH || node->SubType != MEDIA_HARDDRIVE_DP)
                         continue;
 
-                HARDDRIVE_DEVICE_PATH *hd = (HARDDRIVE_DEVICE_PATH *) dp;
+                HARDDRIVE_DEVICE_PATH *hd = (HARDDRIVE_DEVICE_PATH *) node;
                 if (hd->SignatureType != SIGNATURE_TYPE_GUID)
                         continue;
 
                 return xasprintf(GUID_FORMAT_STR, GUID_FORMAT_VAL(hd->SignatureGuid));
         }
 
-        return NULL;
+        /* No GPT partition node found — try CDROM device path as fallback */
+        return disk_get_part_uuid_cdrom(dp);
 }

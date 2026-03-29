@@ -5,6 +5,7 @@
 #endif
 
 #include <fcntl.h>
+#include <linux/fs.h>
 #include <linux/loop.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
@@ -453,11 +454,38 @@ static int loop_device_make_internal(
                 return -errno;
 
         if (S_ISBLK(st.st_mode)) {
-                if (offset == 0 && IN_SET(size, 0, UINT64_MAX))
-                        /* If this is already a block device and we are supposed to cover the whole of it
-                         * then store an fd to the original open device node — and do not actually create an
-                         * unnecessary loopback device for it. */
-                        return loop_device_open_from_fd(fd, open_flags, lock_op, ret);
+                if (offset == 0 && IN_SET(size, 0, UINT64_MAX)) {
+                        uint32_t device_ssz;
+                        r = blockdev_get_sector_size(fd, &device_ssz);
+                        if (r < 0)
+                                return r;
+
+                        uint32_t wanted_ssz = sector_size;
+
+                        /* If auto-detecting sector size and partition scanning is requested, probe
+                         * the GPT to find the sector size the partition table was written with. This
+                         * matters for e.g. CD-ROMs where the device has 2048-byte blocks but the GPT
+                         * uses 512-byte sectors — in that case we need to create a real loop device
+                         * to change the sector size. */
+                        if (wanted_ssz == UINT32_MAX && FLAGS_SET(loop_flags, LO_FLAGS_PARTSCAN)) {
+                                uint32_t probed_ssz;
+                                r = probe_sector_size(fd, &probed_ssz);
+                                if (r > 0)
+                                        wanted_ssz = probed_ssz;
+                                else
+                                        wanted_ssz = device_ssz;
+                        }
+
+                        if (IN_SET(wanted_ssz, 0, UINT32_MAX) || wanted_ssz == device_ssz)
+                                /* Sector size matches (or doesn't matter) — use the block device
+                                 * directly without creating a loop device. */
+                                return loop_device_open_from_fd(fd, open_flags, lock_op, ret);
+
+                        /* Sector size mismatch — need a real loop device. Drop LO_FLAGS_PARTSCAN
+                         * to avoid the kernel double-scan bug where partitions briefly disappear,
+                         * breaking BindsTo= dependencies. udev will handle partition scanning. */
+                        sector_size = wanted_ssz;
+                }
         } else {
                 r = stat_verify_regular(&st);
                 if (r < 0)
