@@ -4,16 +4,6 @@
 #include "shared-forward.h"
 #include "nspawn-settings.h"
 
-int register_machine(
-                sd_bus *bus,
-                const char *machine_name,
-                const PidRef *pid,
-                const char *directory,
-                sd_id128_t uuid,
-                int local_ifindex,
-                const char *service);
-int unregister_machine(sd_bus *bus, const char *machine_name);
-
 typedef enum AllocateScopeFlags {
         ALLOCATE_SCOPE_ALLOW_PIDFD = 1 << 0,
 } AllocateScopeFlags;

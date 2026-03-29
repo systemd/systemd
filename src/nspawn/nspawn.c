@@ -66,6 +66,7 @@
 #include "loopback-setup.h"
 #include "machine-bind-user.h"
 #include "machine-credential.h"
+#include "machine-register.h"
 #include "main-func.h"
 #include "mkdir.h"
 #include "mount-util.h"
@@ -192,7 +193,7 @@ static CustomMount *arg_custom_mounts = NULL;
 static size_t arg_n_custom_mounts = 0;
 static char **arg_setenv = NULL;
 static bool arg_quiet = false;
-static bool arg_register = true;
+static int arg_register = -1;
 static bool arg_keep_unit = false;
 static char **arg_network_interfaces = NULL;
 static char **arg_network_macvlan = NULL;
@@ -1163,7 +1164,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_REGISTER:
-                        r = parse_boolean_argument("--register=", optarg, &arg_register);
+                        r = parse_tristate_argument_with_auto("--register=", optarg, &arg_register);
                         if (r < 0)
                                 return r;
 
@@ -5613,7 +5614,7 @@ static int run_container(
 
         /* Registration always happens on the system bus */
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *system_bus = NULL;
-        if (arg_register || (arg_privileged && !arg_keep_unit)) {
+        if (arg_register != 0 || (arg_privileged && !arg_keep_unit)) {
                 r = sd_bus_default_system(&system_bus);
                 if (r < 0)
                         return log_error_errno(r, "Failed to open system bus: %m");
@@ -5628,7 +5629,7 @@ static int run_container(
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *user_bus = NULL;
         _cleanup_(sd_bus_unrefp) sd_bus *runtime_bus = NULL;
 
-        if (arg_register || !arg_keep_unit) {
+        if (arg_register != 0 || !arg_keep_unit) {
                 if (arg_privileged)
                         runtime_bus = sd_bus_ref(system_bus);
                 else {
@@ -5697,40 +5698,27 @@ static int run_container(
         }
 
         bool registered_system = false, registered_runtime = false;
-        if (arg_register) {
-                r = register_machine(
+        if (arg_register != 0) {
+                r = register_machine_with_fallback_and_log(
+                                arg_privileged ? RUNTIME_SCOPE_SYSTEM : _RUNTIME_SCOPE_INVALID,
                                 system_bus,
+                                runtime_bus,
                                 arg_machine,
+                                arg_uuid,
+                                arg_container_service_name,
+                                "container",
                                 pid,
                                 arg_directory,
-                                arg_uuid,
+                                /* cid= */ 0,
                                 ifi,
-                                arg_container_service_name);
-                if (r < 0) {
-                        if (arg_privileged) /* if privileged the request to register definitely failed */
-                                return r;
-
-                        log_notice_errno(r, "Failed to register machine in system context, will try in user context.");
-                } else
-                        registered_system = true;
-
-                if (!arg_privileged) {
-                        r = register_machine(
-                                        runtime_bus,
-                                        arg_machine,
-                                        pid,
-                                        arg_directory,
-                                        arg_uuid,
-                                        ifi,
-                                        arg_container_service_name);
-                        if (r < 0) {
-                                if (!registered_system) /* neither registration worked: fail */
-                                        return r;
-
-                                log_notice_errno(r, "Failed to register machine in user context, but succeeded in system context, will proceed.");
-                        } else
-                                registered_runtime = true;
-                }
+                                /* address= */ NULL,
+                                /* key_path= */ NULL,
+                                /* allocate_unit= */ false,
+                                /* graceful= */ arg_register < 0,
+                                &registered_system,
+                                &registered_runtime);
+                if (r < 0)
+                        return r;
         }
 
         if (arg_keep_unit && (arg_slice || arg_property))
@@ -5942,10 +5930,9 @@ static int run_container(
         r = wait_for_container(pid, &container_status);
 
         /* Tell machined that we are gone. */
-        if (registered_system)
-                (void) unregister_machine(system_bus, arg_machine);
-        if (registered_runtime)
-                (void) unregister_machine(runtime_bus, arg_machine);
+        int q = unregister_machine_with_fallback(system_bus, runtime_bus, arg_machine, registered_system, registered_runtime);
+        if (q < 0)
+                log_notice_errno(q, "Failed to unregister machine, ignoring: %m");
 
         if (r < 0)
                 /* We failed to wait for the container, or the container exited abnormally. */
