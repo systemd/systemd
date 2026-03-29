@@ -832,7 +832,7 @@ systemd-repart --definitions repart.d \
   --copy-source=/tmp/tree/ \
   --empty=create --size=600M \
   --json=short \
-  /tmp/img.raw | | jq --raw-output0 .[-1].roothash &gt; /tmp/img.roothash
+  /tmp/img.raw | jq --raw-output0 ".[-1].roothash" &gt; /tmp/img.roothash
 
 openssl smime -sign -in /tmp/img.roothash \
   -inkey verity-private-key.pem \
