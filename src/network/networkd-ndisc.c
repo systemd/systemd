@@ -25,6 +25,7 @@
 #include "networkd-route.h"
 #include "networkd-state-file.h"
 #include "networkd-sysctl.h"
+#include "networkd-xlat.h"
 #include "ordered-set.h"
 #include "set.h"
 #include "siphash24.h"
@@ -2139,6 +2140,13 @@ static int ndisc_router_process_pref64(Link *link, sd_ndisc_router *rt, bool zer
                                         .prefix = a,
                                         .prefix_len = prefix_len
                                 }));
+
+                /* Only stop CLAT on PREF64 expiry if we depend on NDisc for the prefix.
+                 * If Pref64Prefix= is manually configured, CLAT doesn't need NDisc entries. */
+                if (set_isempty(link->ndisc_pref64) &&
+                    link->network && link->network->clat_pref64_prefix_len == 0)
+                        (void) xlat_stop(link);
+
                 return 0;
         }
 
@@ -2151,6 +2159,9 @@ static int ndisc_router_process_pref64(Link *link, sd_ndisc_router *rt, bool zer
                 /* update existing entry */
                 exist->router = router;
                 exist->lifetime_usec = lifetime_usec;
+
+                /* Retry CLAT start - it may have been deferred if no IPv6 address was available */
+                (void) xlat_start(link);
                 return 0;
         }
 
@@ -2176,6 +2187,8 @@ static int ndisc_router_process_pref64(Link *link, sd_ndisc_router *rt, bool zer
 
         assert(r > 0);
         TAKE_PTR(new_entry);
+
+        (void) xlat_start(link);
 
         return 0;
 }
@@ -2494,6 +2507,10 @@ static int ndisc_drop_outdated(Link *link, const struct in6_addr *router, usec_t
                 free(set_remove(link->ndisc_pref64, p64));
                 /* The pref64 prefix is not exported through the state file, hence it is not necessary to set
                  * the 'updated' flag. */
+
+                if (set_isempty(link->ndisc_pref64) &&
+                    link->network && link->network->clat_pref64_prefix_len == 0)
+                        (void) xlat_stop(link);
         }
 
         SET_FOREACH(dnr, link->ndisc_dnr) {
