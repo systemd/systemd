@@ -338,7 +338,7 @@ static int add_export_unix_socket(
                 return r;
 
         log_debug("Binding SSH to AF_UNIX socket /run/host/unix-export/ssh\n"
-                  "→ connect via 'ssh unix/run/systemd/nspawn/unix-export/\?\?\?/ssh' from host");
+                  "→ connect via 'ssh unix/run/systemd/nspawn/\?\?\?/unix-export/ssh' from host");
 
         return 0;
 }
