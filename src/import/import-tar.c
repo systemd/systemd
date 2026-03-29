@@ -8,12 +8,12 @@
 
 #include "alloc-util.h"
 #include "btrfs-util.h"
+#include "compress.h"
 #include "dissect-image.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "import-common.h"
-#include "import-compress.h"
 #include "import-tar.h"
 #include "import-util.h"
 #include "install-file.h"
@@ -50,7 +50,7 @@ typedef struct TarImport {
         int tree_fd;
         int userns_fd;
 
-        ImportCompress compress;
+        Compressor *compress;
 
         sd_event_source *input_event_source;
 
@@ -81,7 +81,7 @@ TarImport* tar_import_unref(TarImport *i) {
                 free(i->temp_path);
         }
 
-        import_compress_free(&i->compress);
+        i->compress = compressor_free(i->compress);
 
         sd_event_unref(i->event);
 
@@ -344,13 +344,13 @@ static int tar_import_process(TarImport *i) {
 
         i->buffer_size += l;
 
-        if (i->compress.type == IMPORT_COMPRESS_UNKNOWN) {
+        if (!i->compress) {
 
                 if (l == 0) { /* EOF */
                         log_debug("File too short to be compressed, as no compression signature fits in, thus assuming uncompressed.");
-                        import_uncompress_force_off(&i->compress);
+                        decompressor_force_off(&i->compress);
                 } else {
-                        r = import_uncompress_detect(&i->compress, i->buffer, i->buffer_size);
+                        r = decompressor_detect(&i->compress, i->buffer, i->buffer_size);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to detect file compression: %m");
                                 goto finish;
@@ -364,7 +364,7 @@ static int tar_import_process(TarImport *i) {
                         goto finish;
         }
 
-        r = import_uncompress(&i->compress, i->buffer, i->buffer_size, tar_import_write, i);
+        r = decompressor_push(i->compress, i->buffer, i->buffer_size, tar_import_write, i);
         if (r < 0) {
                 log_error_errno(r, "Failed to decode and write: %m");
                 goto finish;
