@@ -8,12 +8,14 @@ int register_machine(
                 const char *machine_name,
                 sd_id128_t uuid,
                 const char *service,
+                const char *class,
                 const PidRef *pidref,
                 const char *directory,
                 unsigned cid,
+                int local_ifindex,
                 const char *address,
                 const char *key_path,
                 bool allocate_unit,
                 RuntimeScope scope);
 
-int unregister_machine(sd_bus *bus, const char *machine_name);
+int unregister_machine(sd_bus *bus, const char *machine_name, RuntimeScope scope);
