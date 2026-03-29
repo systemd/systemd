@@ -629,13 +629,13 @@
 
       <varlistentry>
         <term><option>-u</option></term>
-        <term><option>--user=</option></term>
+        <term><option>--uid=</option></term>
 
         <listitem><para>After transitioning into the container, change to the specified user defined in the
         container's user database. Like all other systemd-nspawn features, this is not a security feature and
         provides protection against accidental destructive operations only.</para>
 
-        <para>Note that if credentials are used in combination with a non-root <option>--user=</option>
+        <para>Note that if credentials are used in combination with a non-root <option>--uid=</option>
         (e.g.: <option>--set-credential=</option> or <option>--load-credential=</option>), then
         <option>--no-new-privileges=yes</option> must be used, and <option>--boot</option> or
         <option>--as-pid2</option> must not be used, as the credentials would otherwise be unreadable
@@ -1922,6 +1922,18 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
     <title>Other</title>
 
     <variablelist>
+      <varlistentry>
+        <term><option>--system</option></term>
+        <term><option>--user</option></term>
+
+        <listitem><para>Specify whether to interact with the user manager or the system manager and whether
+        to register with the user machined instance or the system machined instance. If
+        unspecified, the system manager and machined instance will be used when running as root, otherwise
+        the user manager and machined instance will be used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
