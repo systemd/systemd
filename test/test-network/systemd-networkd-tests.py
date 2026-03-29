@@ -9455,6 +9455,47 @@ class NetworkdIPv6PrefixTests(unittest.TestCase, Utilities):
         print(output)
         self.assertIn('example.com', output)
 
+    def test_clat(self):
+        copy_network_unit('25-veth.netdev', '25-ipv6ra-prefix-client-clat.network', '25-ipv6ra-prefix.network',
+                          '12-dummy.netdev', '25-ipv6ra-uplink.network')
+
+        start_networkd()
+        self.wait_online('veth99:routable', 'veth-peer:routable', 'dummy98:routable')
+
+        # Verify PREF64 was discovered
+        output = networkctl_json('veth-peer')
+        check_json(output)
+        pref64 = json.loads(output)['NDisc']['PREF64'][0]
+        prefix = socket.inet_ntop(socket.AF_INET6, bytearray(pref64['Prefix']))
+        self.assertEqual(prefix, '64:ff9b::')
+        self.assertEqual(pref64['PrefixLength'], 96)
+
+        # Verify CLAT started by checking the log
+        self.check_networkd_log('veth-peer: Starting CLAT with PREF64 64:ff9b::/96')
+
+        # Verify CLAT TUN device was created
+        self.wait_links('cl-veth-peer')
+
+        # Verify TUN device is up
+        output = check_output('ip link show cl-veth-peer')
+        print(output)
+        self.assertIn('UP', output)
+
+        # Verify CLAT IPv4 address (192.0.0.1/32 per RFC 7335)
+        output = check_output('ip -4 address show dev cl-veth-peer')
+        print(output)
+        self.assertIn('192.0.0.1/32', output)
+
+        # Verify default IPv4 route through CLAT TUN
+        output = check_output('ip -4 route show dev cl-veth-peer')
+        print(output)
+        self.assertIn('default', output)
+        self.assertIn('metric 2048', output)
+
+        # Verify CLAT TUN is removed after stopping networkd
+        stop_networkd()
+        self.assertFalse(link_exists('cl-veth-peer'), 'CLAT TUN device should be removed after stop')
+
 class NetworkdMTUTests(unittest.TestCase, Utilities):
 
     def setUp(self):
