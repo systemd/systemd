@@ -1590,6 +1590,36 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         <xi:include href="version-info.xml" xpointer="v187"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--forward-journal=</option></term>
+
+        <listitem><para>Forward the container's journal to the host by starting
+        <citerefentry><refentrytitle>systemd-journal-remote</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        listening on a Unix socket that is bind-mounted into the container. The container's
+        <citerefentry><refentrytitle>systemd-journald</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        connects to the socket via the <varname>journal.forward_to_socket</varname> credential and streams
+        journal entries to the host in real-time. Takes a path to a journal file or directory where the received
+        entries will be stored. If the path ends in <literal>.journal</literal>, entries are written to a single
+        file; otherwise, entries are split per host into the specified directory.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--forward-journal-max-use=<replaceable>BYTES</replaceable></option></term>
+        <term><option>--forward-journal-keep-free=<replaceable>BYTES</replaceable></option></term>
+        <term><option>--forward-journal-max-file-size=<replaceable>BYTES</replaceable></option></term>
+        <term><option>--forward-journal-max-files=<replaceable>N</replaceable></option></term>
+
+        <listitem><para>These options configure the corresponding settings of
+        <citerefentry><refentrytitle>systemd-journal-remote</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        when forwarding journal entries from the container. See
+        <citerefentry><refentrytitle>journal-remote.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for the descriptions of these settings.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
     </variablelist>
 
     </refsect2><refsect2>
