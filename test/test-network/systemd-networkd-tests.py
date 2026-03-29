@@ -5417,6 +5417,123 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, '2004:da8:1::/64 dev dummy98 label 4444')
         self.assertRegex(output, '2004:da8:2::/64 label 5555')
 
+    def check_route_global_reject(self):
+        output = check_output('ip -4 route show table main')
+        print(output)
+        self.assertIn('blackhole 192.168.222.0/24 proto static', output)
+        self.assertIn('prohibit 192.168.223.0/24 proto static', output)
+        self.assertIn('unreachable 192.168.224.0/24 proto static', output)
+        self.assertIn('prohibit 192.168.225.0/24 proto static', output)
+        self.assertNotIn('blackhole 192.168.225.0/24', output)
+        for i in range(226, 229):
+            self.assertNotIn(f'192.168.{i}.0/24', output)
+
+        output = check_output('ip -6 route show table main')
+        print(output)
+        self.assertIn('blackhole 2001:db8:abcd::/48 dev lo proto static metric 1024', output)
+        self.assertIn('prohibit 2001:db8:abce::/48 dev lo proto static metric 1024', output)
+        self.assertIn('unreachable 2001:db8:abcf::/48 dev lo proto static metric 1024', output)
+        self.assertIn('prohibit 2001:db8:abd0::/48 dev lo proto static metric 1024', output)
+        self.assertNotIn('blackhole 2001:db8:abd0::/48', output)
+
+        output = check_output('ip -4 route show table 100')
+        print(output)
+        self.assertIn('blackhole 10.99.0.0/16 proto 55 metric 200', output)
+
+        output = check_output('ip -6 route show table 1234')
+        print(output)
+        self.assertIn('prohibit 2001:db8:99::/48 dev lo proto 55 metric 200', output)
+
+    def _test_route_global_reject(self, manage_foreign_routes):
+        if not manage_foreign_routes:
+            copy_networkd_conf_dropin('networkd-manage-foreign-routes-no.conf')
+        copy_networkd_conf_dropin('networkd-route.conf')
+        copy_network_unit('12-dummy.netdev', '12-dummy.network')
+        start_networkd()
+        self.wait_online('dummy98:routable')
+        self.check_route_global_reject()
+
+        # The routes must survive reconfiguration and removal of interfaces, and restart of networkd.
+        networkctl_reconfigure('dummy98')
+        self.wait_online('dummy98:routable')
+        self.check_route_global_reject()
+
+        networkctl_reload()
+        self.wait_online('dummy98:routable')
+        self.check_route_global_reject()
+
+        restart_networkd()
+        self.wait_online('dummy98:routable')
+        self.check_route_global_reject()
+        self.assertNotRegex(read_networkd_log(), 'Removing .*type: (blackhole|prohibit|unreachable)')
+
+        # networkd.conf is not read again on reload.
+        remove_networkd_conf_dropin('networkd-route.conf')
+        copy_networkd_conf_dropin('networkd-route-update.conf')
+        networkctl_reload()
+        self.wait_online('dummy98:routable')
+        self.check_route_global_reject()
+
+        remove_link('dummy98')
+        time.sleep(2)
+        self.check_route_global_reject()
+
+        if not manage_foreign_routes:
+            return
+
+        # Restarting networkd applies the new settings.
+        restart_networkd()
+        self.wait_online('dummy98:routable')
+
+        output = check_output('ip -4 route show table main')
+        print(output)
+        self.assertIn('unreachable 192.168.222.0/24 proto static', output)
+        self.assertNotIn('blackhole 192.168.222.0/24', output)
+        self.assertIn('prohibit 192.168.223.0/24 proto static', output)
+        self.assertIn('blackhole 192.168.229.0/24 proto static', output)
+        self.assertNotIn('192.168.224.0/24', output)
+
+        output = check_output('ip -6 route show table main')
+        print(output)
+        self.assertIn('unreachable 2001:db8:abcd::/48 dev lo proto static', output)
+        self.assertNotIn('blackhole 2001:db8:abcd::/48', output)
+        self.assertIn('prohibit 2001:db8:abce::/48 dev lo proto 55', output)
+        self.assertIn('blackhole 2001:db8:abd1::/48 dev lo proto static', output)
+
+        self.assertNotIn('10.99.0.0/16', check_output('ip -4 route show table all'))
+
+        # Changes are applied also after an unclean restart, even without any managed interface.
+        remove_networkd_conf_dropin('networkd-route-update.conf')
+        copy_networkd_conf_dropin('networkd-route.conf')
+        remove_network_unit('12-dummy.netdev', '12-dummy.network')
+        pid = networkd_pid()
+        check_output('systemctl kill --signal=KILL systemd-networkd.service')
+        for _ in range(20):
+            if networkd_pid() != pid:
+                break
+            time.sleep(0.5)
+        remove_link('dummy98')
+        start_networkd()
+        for _ in range(20):
+            output = check_output('ip -4 route show table main')
+            if 'unreachable 192.168.222.0/24' not in output:
+                break
+            time.sleep(0.5)
+        self.assertNotIn('unreachable 192.168.222.0/24', output)
+        self.check_route_global_reject()
+
+    def test_route_global_reject(self):
+        first = True
+        for manage_foreign_routes in [True, False]:
+            if first:
+                first = False
+            else:
+                self.tearDown()
+
+            print(f'### test_route_global_reject(manage_foreign_routes={manage_foreign_routes})')
+            with self.subTest(manage_foreign_routes=manage_foreign_routes):
+                self._test_route_global_reject(manage_foreign_routes)
+
     def test_ipv6_proxy_ndp(self):
         copy_network_unit('25-ipv6-proxy-ndp.network', '12-dummy.netdev')
         start_networkd()
