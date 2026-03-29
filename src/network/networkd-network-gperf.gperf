@@ -41,6 +41,7 @@ _Pragma("GCC diagnostic ignored \"-Wzero-as-null-pointer-constant\"")
 #include "networkd-route.h"
 #include "networkd-routing-policy-rule.h"
 #include "networkd-wwan.h"
+#include "networkd-xlat.h"
 #include "qdisc.h"
 #include "socket-util.h"
 #include "tclass.h"
@@ -138,6 +139,8 @@ Network.IPv6LinkLocalAddressGenerationMode,      config_parse_ipv6_link_local_ad
 Network.IPv6StableSecretAddress,                 config_parse_in_addr_non_null,                  AF_INET6,                               offsetof(Network, ipv6ll_stable_secret)
 Network.IPv4LLStartAddress,                      config_parse_ipv4ll_address,                    0,                                      offsetof(Network, ipv4ll_start_address)
 Network.IPv4LLRoute,                             config_parse_bool,                              0,                                      offsetof(Network, ipv4ll_route)
+Network.CLAT,                                    config_parse_bool,                              0,                                      offsetof(Network, clat)
+Network.Pref64Prefix,                            config_parse_clat_pref64_prefix,                0,                                      0
 Network.DefaultRouteOnDevice,                    config_parse_bool,                              0,                                      offsetof(Network, default_route_on_device)
 Network.LLDP,                                    config_parse_lldp_mode,                         0,                                      offsetof(Network, lldp_mode)
 Network.EmitLLDP,                                config_parse_lldp_multicast_mode,               0,                                      offsetof(Network, lldp_multicast_mode)
