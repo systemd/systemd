@@ -662,6 +662,20 @@ static int link_set_ipv4_route_localnet(Link *link) {
         return sysctl_write_ip_property_boolean(AF_INET, link->ifname, "route_localnet", link->network->ipv4_route_localnet > 0, manager_get_sysctl_shadow(link->manager));
 }
 
+static int link_set_ipv4_src_valid_mark(Link *link) {
+        assert(link);
+        assert(link->manager);
+        assert(link->network);
+
+        if (!link_is_configured_for_family(link, AF_INET))
+                return 0;
+
+        if (link->network->ipv4_src_valid_mark < 0)
+                return 0;
+
+        return sysctl_write_ip_property_boolean(AF_INET, link->ifname, "src_valid_mark", link->network->ipv4_src_valid_mark > 0, manager_get_sysctl_shadow(link->manager));
+}
+
 static int link_set_ipv4_promote_secondaries(Link *link) {
         assert(link);
         assert(link->manager);
@@ -749,6 +763,10 @@ int link_set_sysctl(Link *link) {
         r = link_set_ipv4_route_localnet(link);
         if (r < 0)
                 log_link_warning_errno(link, r, "Cannot set IPv4 route_localnet flag for interface, ignoring: %m");
+
+        r = link_set_ipv4_src_valid_mark(link);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Cannot set IPv4 src_valid_mark flag for interface, ignoring: %m");
 
         r = link_set_ipv4_rp_filter(link);
         if (r < 0)
