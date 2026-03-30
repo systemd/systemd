@@ -3,7 +3,6 @@
 #include "alloc-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
-#include "hashmap.h"
 #include "log.h"
 #include "path-util.h"
 #include "qmp-client.h"
@@ -13,14 +12,9 @@
 #include "vmspawn-qmp.h"
 
 struct VmspawnQmpContext {
-        /* The dynamic interface must be declared (and thus freed) after the varlink server, because
-         * sd_varlink_server_add_interface() stores a bare pointer. Struct fields are freed in the order
-         * specified in vmspawn_qmp_context_free(), where we explicitly free the server first. */
-        sd_varlink_interface *qemu_interface;
         sd_varlink_server *varlink_server;
         QmpClient *qmp_client;
         Set *subscribed;
-        Hashmap *qmp_command_names;
 };
 
 static int qmp_execute_simple(sd_varlink *link, VmspawnQmpContext *ctx, const char *qmp_command) {
@@ -34,8 +28,6 @@ static int qmp_execute_simple(sd_varlink *link, VmspawnQmpContext *ctx, const ch
         r = qmp_client_execute(ctx->qmp_client, qmp_command, /* arguments= */ NULL, /* ret_result= */ NULL, &error_class);
         if (ERRNO_IS_NEG_DISCONNECT(r))
                 return sd_varlink_error(link, "io.systemd.VMControl.NotConnected", NULL);
-        if (r == -EIO)
-                return sd_varlink_error(link, "io.systemd.VMControl.NotSupported", NULL);
         if (r < 0)
                 return sd_varlink_error_errno(link, r);
 
@@ -67,8 +59,6 @@ static int vl_method_query_status(sd_varlink *link, sd_json_variant *parameters,
         r = qmp_client_execute(ctx->qmp_client, "query-status", /* arguments= */ NULL, &result, &error_class);
         if (ERRNO_IS_NEG_DISCONNECT(r))
                 return sd_varlink_error(link, "io.systemd.VMControl.NotConnected", NULL);
-        if (r == -EIO)
-                return sd_varlink_error(link, "io.systemd.VMControl.NotSupported", NULL);
         if (r < 0)
                 return sd_varlink_error_errno(link, r);
 
@@ -82,7 +72,73 @@ static int vl_method_query_status(sd_varlink *link, sd_json_variant *parameters,
 }
 
 static int vl_method_subscribe_events(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        return sd_varlink_error(link, "io.systemd.VMControl.NotSupported", NULL);
+        VmspawnQmpContext *ctx = ASSERT_PTR(userdata);
+        int r;
+
+        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
+                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
+
+        r = sd_varlink_notifybo(link, SD_JSON_BUILD_PAIR_BOOLEAN("ready", true));
+        if (r < 0)
+                return r;
+
+        r = set_ensure_put(&ctx->subscribed, &varlink_hash_ops, link);
+        if (r < 0)
+                return r;
+
+        sd_varlink_ref(link);
+        return 0;
+}
+
+static void vl_disconnect(sd_varlink_server *server, sd_varlink *link, void *userdata) {
+        VmspawnQmpContext *ctx = ASSERT_PTR(userdata);
+        sd_varlink *removed;
+
+        assert(server);
+        assert(link);
+
+        removed = set_remove(ctx->subscribed, link);
+        if (removed)
+                sd_varlink_unref(removed);
+}
+
+static void on_qmp_event(
+                QmpClient *client,
+                const char *event,
+                sd_json_variant *data,
+                uint64_t timestamp_seconds,
+                uint64_t timestamp_microseconds,
+                void *userdata) {
+
+        VmspawnQmpContext *ctx = ASSERT_PTR(userdata);
+        int r;
+
+        assert(client);
+        assert(event);
+
+        r = varlink_many_notifybo(
+                        ctx->subscribed,
+                        SD_JSON_BUILD_PAIR_STRING("event", event),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!data, "data", SD_JSON_BUILD_VARIANT(data)),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("timestampSeconds", timestamp_seconds),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("timestampMicroseconds", timestamp_microseconds));
+        if (r < 0)
+                log_warning_errno(r, "Failed to notify event subscribers, ignoring: %m");
+}
+
+static void on_qmp_disconnect(QmpClient *client, void *userdata) {
+        VmspawnQmpContext *ctx = ASSERT_PTR(userdata);
+        int r;
+
+        assert(client);
+
+        log_debug("QMP connection lost");
+
+        r = varlink_many_error(ctx->subscribed, "io.systemd.VMControl.NotConnected", NULL);
+        if (r < 0)
+                log_warning_errno(r, "Failed to send disconnect error to subscribers, ignoring: %m");
+
+        ctx->subscribed = set_free(ctx->subscribed);
 }
 
 int vmspawn_qmp_setup(VmspawnQmpContext **ret, int _qmp_fd, sd_event *event, const char *runtime_dir, char **ret_varlink_address) {
@@ -129,6 +185,10 @@ int vmspawn_qmp_setup(VmspawnQmpContext **ret, int _qmp_fd, sd_event *event, con
         if (r < 0)
                 return log_error_errno(r, "Failed to bind VMControl methods: %m");
 
+        r = sd_varlink_server_bind_disconnect(ctx->varlink_server, vl_disconnect);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind disconnect handler: %m");
+
         listen_address = path_join(runtime_dir, "io.systemd.VMControl");
         if (!listen_address)
                 return log_oom();
@@ -140,6 +200,9 @@ int vmspawn_qmp_setup(VmspawnQmpContext **ret, int _qmp_fd, sd_event *event, con
         r = sd_varlink_server_attach_event(ctx->varlink_server, event, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach varlink server to event loop: %m");
+
+        qmp_client_set_event_callback(ctx->qmp_client, on_qmp_event, ctx);
+        qmp_client_set_disconnect_callback(ctx->qmp_client, on_qmp_disconnect, ctx);
 
         log_debug("QMP varlink server listening on %s", listen_address);
 
@@ -154,13 +217,9 @@ VmspawnQmpContext *vmspawn_qmp_context_free(VmspawnQmpContext *ctx) {
         if (!ctx)
                 return NULL;
 
-        /* Free the varlink server before the dynamic interface, since the server stores bare pointers to
-         * interfaces added via sd_varlink_server_add_interface(). */
         ctx->varlink_server = sd_varlink_server_unref(ctx->varlink_server);
-        ctx->qemu_interface = sd_varlink_interface_free(ctx->qemu_interface);
         ctx->qmp_client = qmp_client_free(ctx->qmp_client);
         set_free(ctx->subscribed);
-        hashmap_free(ctx->qmp_command_names);
 
         return mfree(ctx);
 }
