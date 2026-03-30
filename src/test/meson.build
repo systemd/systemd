@@ -298,6 +298,10 @@ executables += [
                 'type' : 'manual',
         },
         test_template + {
+                'sources' : files('test-luo.c'),
+                'type' : 'manual',
+        },
+        test_template + {
                 'sources' : files('test-dlopen-so.c'),
                 'dependencies' : [
                         libblkid_cflags,
