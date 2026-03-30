@@ -3436,6 +3436,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                 child_cid,
                                 child_cid != VMADDR_CID_ANY ? vm_address : NULL,
                                 ssh_private_key_path,
+                                qmp_varlink_address,
                                 !arg_keep_unit && arg_runtime_scope == RUNTIME_SCOPE_SYSTEM,
                                 RUNTIME_SCOPE_SYSTEM);
                 if (r < 0) {
@@ -3458,6 +3459,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                         child_cid,
                                         child_cid != VMADDR_CID_ANY ? vm_address : NULL,
                                         ssh_private_key_path,
+                                        qmp_varlink_address,
                                         !arg_keep_unit,
                                         RUNTIME_SCOPE_USER);
                         if (r < 0) {
