@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "device-path-util.h"
+#include "efi-log.h"
 #include "part-discovery.h"
 #include "proto/block-io.h"
 #include "proto/device-path.h"
@@ -71,14 +72,14 @@ static bool verify_gpt(/* const */ GptHeader *h, EFI_LBA lba_expected) {
         return true;
 }
 
-static EFI_STATUS try_gpt(
-                const EFI_GUID *type,
+static EFI_STATUS read_gpt_entries(
                 EFI_DISK_IO_PROTOCOL *disk_io,
                 uint32_t media_id,
                 uint32_t block_size,
                 EFI_LBA lba,
-                EFI_LBA *ret_backup_lba, /* May be changed even on error! */
-                HARDDRIVE_DEVICE_PATH *ret_hd) {
+                EFI_LBA *reterr_backup_lba, /* May be changed even on error! */
+                GptHeader *ret_gpt,
+                void **ret_entries) {
 
         GptHeader gpt;
         EFI_STATUS err;
@@ -86,44 +87,80 @@ static EFI_STATUS try_gpt(
         size_t size;
 
         assert(disk_io);
-        assert(ret_hd);
+        assert(ret_gpt);
+        assert(ret_entries);
 
-        /* Read the GPT header */
         uint64_t offset;
         if (!MUL_SAFE(&offset, lba, block_size))
-                return EFI_INVALID_PARAMETER;
+                return log_debug_status(
+                                EFI_INVALID_PARAMETER,
+                                "LBA %" PRIu64 " * block size %" PRIu32 " overflow: %m",
+                                lba,
+                                block_size);
 
         err = disk_io->ReadDisk(disk_io, media_id, offset, sizeof(gpt), &gpt);
         if (err != EFI_SUCCESS)
-                return err;
+                return log_debug_status(err, "Failed to read GPT header at LBA %" PRIu64 ": %m", lba);
 
-        /* Indicate the location of backup LBA even if the rest of the header is corrupt. */
-        if (ret_backup_lba)
-                *ret_backup_lba = gpt.AlternateLBA;
+        /* Expose backup LBA even if the rest of the header is corrupt, so the caller can
+         * try the backup GPT. */
+        if (reterr_backup_lba)
+                *reterr_backup_lba = gpt.AlternateLBA;
 
         if (!verify_gpt(&gpt, lba))
-                return EFI_NOT_FOUND;
+                return log_debug_status(EFI_NOT_FOUND, "GPT header at LBA %" PRIu64 " is not valid: %m", lba);
 
-        /* Now load the GPT entry table */
         size = (size_t) gpt.SizeOfPartitionEntry * (size_t) gpt.NumberOfPartitionEntries;
         if (size == SIZE_MAX) /* overflow check */
-                return EFI_OUT_OF_RESOURCES;
+                return log_debug_status(EFI_OUT_OF_RESOURCES, "GPT partition entries size overflow: %m");
 
         _cleanup_free_ void *entries = xmalloc(size);
 
         if (!MUL_SAFE(&offset, gpt.PartitionEntryLBA, block_size))
-                return EFI_INVALID_PARAMETER;
+                return log_debug_status(
+                                EFI_INVALID_PARAMETER,
+                                "Partition entry LBA %" PRIu64 " * block size %" PRIu32 " overflow: %m",
+                                gpt.PartitionEntryLBA,
+                                block_size);
 
         err = disk_io->ReadDisk(disk_io, media_id, offset, size, entries);
         if (err != EFI_SUCCESS)
+                return log_debug_status(err, "Failed to read GPT partition entries at LBA %" PRIu64 ": %m", gpt.PartitionEntryLBA);
+
+        err = BS->CalculateCrc32(entries, size, &crc32);
+        if (err != EFI_SUCCESS)
+                return log_debug_status(err, "Failed to calculate CRC32 of GPT partition entries: %m");
+        if (crc32 != gpt.PartitionEntryArrayCRC32)
+                return log_debug_status(
+                                EFI_CRC_ERROR,
+                                "GPT partition entries CRC32 mismatch (got 0x%08" PRIx32 ", expected 0x%08" PRIx32 "): %m",
+                                crc32,
+                                gpt.PartitionEntryArrayCRC32);
+
+        *ret_gpt = gpt;
+        *ret_entries = TAKE_PTR(entries);
+        return EFI_SUCCESS;
+}
+
+static EFI_STATUS try_gpt(
+                const EFI_GUID *type,
+                EFI_DISK_IO_PROTOCOL *disk_io,
+                uint32_t media_id,
+                uint32_t block_size,
+                EFI_LBA lba,
+                EFI_LBA *reterr_backup_lba, /* May be changed even on error! */
+                HARDDRIVE_DEVICE_PATH *ret_hd) {
+
+        GptHeader gpt;
+        _cleanup_free_ void *entries = NULL;
+        EFI_STATUS err;
+
+        assert(ret_hd);
+
+        err = read_gpt_entries(disk_io, media_id, block_size, lba, reterr_backup_lba, &gpt, &entries);
+        if (err != EFI_SUCCESS)
                 return err;
 
-        /* Calculate CRC of entries array, too */
-        err = BS->CalculateCrc32(entries, size, &crc32);
-        if (err != EFI_SUCCESS || crc32 != gpt.PartitionEntryArrayCRC32)
-                return EFI_CRC_ERROR;
-
-        /* Now we can finally look for xbootloader partitions. */
         for (size_t i = 0; i < gpt.NumberOfPartitionEntries; i++) {
                 EFI_PARTITION_ENTRY *entry =
                                 (EFI_PARTITION_ENTRY *) ((uint8_t *) entries + gpt.SizeOfPartitionEntry * i);
