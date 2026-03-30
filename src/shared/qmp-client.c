@@ -1,0 +1,899 @@
+/* SPDX-License-Identifier: LGPL-2.1-or-later */
+
+#include "sd-event.h"
+#include "sd-json.h"
+
+#include "alloc-util.h"
+#include "fd-util.h"
+#include "hash-funcs.h"
+#include "json-stream.h"
+#include "json-util.h"
+#include "qmp-client.h"
+#include "set.h"
+#include "siphash24.h"
+#include "string-util.h"
+
+typedef enum QmpClientState {
+        QMP_CLIENT_HANDSHAKE_INITIAL,           /* waiting for QMP greeting */
+        QMP_CLIENT_HANDSHAKE_GREETING_RECEIVED, /* greeting received, sending qmp_capabilities */
+        QMP_CLIENT_HANDSHAKE_CAPABILITIES_SENT, /* waiting for qmp_capabilities response */
+        QMP_CLIENT_HANDSHAKE_PROBING,           /* running probe callbacks; user commands still blocked */
+        QMP_CLIENT_RUNNING,                     /* connected, ready for commands */
+        QMP_CLIENT_DISCONNECTED,                /* connection closed */
+        _QMP_CLIENT_STATE_MAX,
+        _QMP_CLIENT_STATE_INVALID = -EINVAL,
+} QmpClientState;
+
+/* States routed to dispatch_handshake. PROBING uses dispatch_reply for its probe replies. */
+#define QMP_CLIENT_STATE_IS_HANDSHAKE(s)               \
+        IN_SET(s,                                      \
+               QMP_CLIENT_HANDSHAKE_INITIAL,           \
+               QMP_CLIENT_HANDSHAKE_GREETING_RECEIVED, \
+               QMP_CLIENT_HANDSHAKE_CAPABILITIES_SENT)
+
+typedef struct QmpSlot {
+        uint64_t id;
+        qmp_command_callback_t callback;
+        void *userdata;
+        bool is_probe;
+} QmpSlot;
+
+struct QmpClient {
+        unsigned n_ref;
+
+        JsonStream stream;
+
+        sd_event_source *quit_event_source;
+        sd_event_source *defer_event_source;
+
+        uint64_t next_id;
+        Set *slots;     /* QmpSlot* entries indexed by id, for async dispatch */
+
+        qmp_event_callback_t event_callback;
+        qmp_disconnect_callback_t disconnect_callback;
+        qmp_client_probe_callback_t probe_callback;
+        void *userdata;
+        void *probe_userdata;
+
+        unsigned next_fdset_id;   /* monotonic fdset-id allocator for add-fd */
+        size_t pending_probes;    /* PROBING -> RUNNING when this reaches zero */
+        bool in_process;          /* re-entrancy guard for qmp_client_process() */
+
+        QmpClientState state;
+        sd_json_variant *current;  /* most recently parsed message, pending dispatch */
+};
+
+static void qmp_slot_hash_func(const QmpSlot *p, struct siphash *state) {
+        siphash24_compress_typesafe(p->id, state);
+}
+
+static int qmp_slot_compare_func(const QmpSlot *a, const QmpSlot *b) {
+        return CMP(a->id, b->id);
+}
+
+DEFINE_PRIVATE_HASH_OPS(qmp_slot_hash_ops,
+                        QmpSlot, qmp_slot_hash_func, qmp_slot_compare_func);
+
+static void qmp_client_clear(QmpClient *c);
+
+static QmpClient* qmp_client_destroy(QmpClient *c) {
+        if (!c)
+                return NULL;
+
+        qmp_client_clear(c);
+
+        return mfree(c);
+}
+
+DEFINE_PRIVATE_TRIVIAL_REF_FUNC(QmpClient, qmp_client);
+DEFINE_TRIVIAL_UNREF_FUNC(QmpClient, qmp_client, qmp_client_destroy);
+
+static void qmp_client_clear_current(QmpClient *c) {
+        assert(c);
+
+        c->current = sd_json_variant_unref(c->current);
+}
+
+static void qmp_client_dispatch_event(QmpClient *c, sd_json_variant *v) {
+        int r;
+
+        assert(c);
+        assert(v);
+
+        if (!c->event_callback)
+                return;
+
+        struct {
+                const char *event;
+                sd_json_variant *data;
+        } p = {};
+
+        static const sd_json_dispatch_field table[] = {
+                { "event", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string,  voffsetof(p, event), SD_JSON_MANDATORY },
+                { "data",  SD_JSON_VARIANT_OBJECT, sd_json_dispatch_variant_noref, voffsetof(p, data),  0                 },
+                {},
+        };
+
+        r = sd_json_dispatch(v, table, SD_JSON_ALLOW_EXTENSIONS|SD_JSON_LOG|SD_JSON_DEBUG, &p);
+        if (r < 0)
+                return;
+
+        r = c->event_callback(c, p.event, p.data, c->userdata);
+        if (r < 0)
+                json_stream_log_errno(&c->stream, r, "Event callback returned error, ignoring: %m");
+}
+
+/* QEMU's error "class" is effectively always "GenericError"; only "desc" carries useful info. */
+static const char* qmp_extract_error_description(sd_json_variant *v) {
+
+        sd_json_variant *error = sd_json_variant_by_key(v, "error");
+        if (!error)
+                return NULL;
+        sd_json_variant *desc = sd_json_variant_by_key(error, "desc");
+        if (desc)
+                return sd_json_variant_string(desc);
+        return "unspecified error";
+}
+
+/* Returns 1 with id set; 0 if absent (e.g. pre-parse error responses); -EBADMSG on wrong type. */
+static int qmp_extract_response_id(sd_json_variant *v, uint64_t *ret) {
+        sd_json_variant *id_variant;
+
+        assert(v);
+        assert(ret);
+
+        id_variant = sd_json_variant_by_key(v, "id");
+        if (!id_variant)
+                return 0;
+        if (!sd_json_variant_is_unsigned(id_variant))
+                return -EBADMSG;
+
+        *ret = sd_json_variant_unsigned(id_variant);
+        return 1;
+}
+
+/* Returns 0 on success (ret_result = "return" value), -EIO on QMP error (ret_error_desc set). */
+static int qmp_parse_response(sd_json_variant *v, sd_json_variant **ret_result, const char **ret_error_desc) {
+        const char *desc;
+
+        desc = qmp_extract_error_description(v);
+        if (desc) {
+                if (ret_result)
+                        *ret_result = NULL;
+                if (ret_error_desc)
+                        *ret_error_desc = desc;
+                return -EIO;
+        }
+
+        if (ret_result)
+                *ret_result = sd_json_variant_by_key(v, "return");
+        if (ret_error_desc)
+                *ret_error_desc = NULL;
+        return 0;
+}
+
+static int qmp_client_build_command(
+                QmpClient *c,
+                const char *command,
+                sd_json_variant *arguments,
+                sd_json_variant **ret,
+                uint64_t *ret_id) {
+
+        uint64_t id;
+        int r;
+
+        assert(c);
+        assert(command);
+        assert(ret);
+        assert(ret_id);
+
+        id = c->next_id++;
+
+        r = sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_STRING("execute", command),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!arguments, "arguments", SD_JSON_BUILD_VARIANT(arguments)),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("id", id));
+        if (r < 0)
+                return r;
+
+        *ret_id = id;
+        return 0;
+}
+
+/* Route c->current to event callback or matching async slot. Returns 1 on dispatch. */
+static int qmp_client_dispatch_reply(QmpClient *c) {
+        sd_json_variant *result = NULL;
+        const char *desc = NULL;
+        uint64_t id;
+        int error, r;
+
+        assert(c);
+
+        if (!c->current)
+                return 0;
+
+        /* Events have an "event" key */
+        if (sd_json_variant_by_key(c->current, "event")) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = TAKE_PTR(c->current);
+                qmp_client_dispatch_event(c, v);
+                return 1;
+        }
+
+        /* Command responses carry an "id" matching a request we sent */
+        r = qmp_extract_response_id(c->current, &id);
+        if (r < 0) {
+                qmp_client_clear_current(c);
+                return json_stream_log_errno(&c->stream, r, "Discarding QMP response with malformed id: %m");
+        }
+        if (r == 0) {
+                qmp_client_clear_current(c);
+                json_stream_log(&c->stream, "Discarding unrecognized QMP message");
+                return 0;
+        }
+
+        _cleanup_free_ QmpSlot *pending = set_remove(c->slots, &(QmpSlot) { .id = id });
+        if (!pending) {
+                qmp_client_clear_current(c);
+                json_stream_log(&c->stream, "Discarding QMP response with unknown id %" PRIu64, id);
+                return 0;
+        }
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = TAKE_PTR(c->current);
+        error = qmp_parse_response(v, &result, &desc);
+
+        r = pending->callback(c, result, desc, error, pending->userdata);
+
+        /* Decrement AFTER the callback so chained probe invokes re-increment first. */
+        if (pending->is_probe) {
+                assert(c->pending_probes > 0);
+                c->pending_probes--;
+                if (c->pending_probes == 0 && c->state == QMP_CLIENT_HANDSHAKE_PROBING)
+                        c->state = QMP_CLIENT_RUNNING;
+        }
+
+        if (r < 0) {
+                if (pending->is_probe)
+                        return r;  /* fail closed — can't trust VM state after a failed probe */
+                json_stream_log_errno(&c->stream, r, "Command callback returned error, ignoring: %m");
+        }
+
+        return 1;
+}
+
+/* Fail all pending async commands with the given error. Called on disconnect. */
+static void qmp_client_fail_pending(QmpClient *c, int error) {
+        QmpSlot *p;
+        int r;
+
+        assert(c);
+
+        while ((p = set_steal_first(c->slots))) {
+                r = p->callback(c, /* result= */ NULL, /* error_desc= */ NULL, error, p->userdata);
+                if (r < 0)
+                        json_stream_log_errno(&c->stream, r, "Command callback returned error, ignoring: %m");
+                free(p);
+        }
+
+        c->pending_probes = 0;
+}
+
+/* Synthetic SHUTDOWN on unexpected disconnect so subscribers learn the VM is gone. */
+static void qmp_client_emit_synthetic_shutdown(QmpClient *c) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *data = NULL;
+        int r;
+
+        assert(c);
+
+        if (!c->event_callback)
+                return;
+
+        r = sd_json_buildo(
+                        &data,
+                        SD_JSON_BUILD_PAIR_BOOLEAN("guest", false),
+                        SD_JSON_BUILD_PAIR_STRING("reason", "disconnected"));
+        if (r < 0) {
+                json_stream_log_errno(&c->stream, r, "Failed to build synthetic SHUTDOWN event data, skipping: %m");
+                return;
+        }
+
+        r = c->event_callback(c, "SHUTDOWN", data, c->userdata);
+        if (r < 0)
+                json_stream_log_errno(&c->stream, r, "Event callback returned error, ignoring: %m");
+}
+
+static int qmp_client_handle_disconnect(QmpClient *c) {
+        assert(c);
+
+        if (c->state == QMP_CLIENT_DISCONNECTED)
+                return 0;
+
+        c->state = QMP_CLIENT_DISCONNECTED;
+
+        /* Disable defer event source so we don't busy-loop on the EOF condition. */
+        if (c->defer_event_source)
+                (void) sd_event_source_set_enabled(c->defer_event_source, SD_EVENT_OFF);
+
+        qmp_client_fail_pending(c, -ECONNRESET);
+        qmp_client_emit_synthetic_shutdown(c);
+        if (c->disconnect_callback)
+                c->disconnect_callback(c, c->userdata);
+
+        return 1;
+}
+
+static int qmp_client_test_disconnect(QmpClient *c) {
+        assert(c);
+
+        /* Already disconnected? */
+        if (c->state == QMP_CLIENT_DISCONNECTED)
+                return 0;
+
+        if (!json_stream_should_disconnect(&c->stream))
+                return 0;
+
+        return qmp_client_handle_disconnect(c);
+}
+
+/* INITIAL → greeting → GREETING_RECEIVED → qmp_capabilities → CAPABILITIES_SENT → response → RUNNING. */
+static int qmp_client_dispatch_handshake(QmpClient *c) {
+        int r;
+
+        assert(c);
+        assert(QMP_CLIENT_STATE_IS_HANDSHAKE(c->state));
+
+        if (!c->current)
+                return 0;
+
+        /* Defensive: QEMU shouldn't emit events during capability negotiation, but if one
+         * arrives, dispatch it as an event rather than mis-parsing it as a handshake reply. */
+        if (sd_json_variant_by_key(c->current, "event")) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = TAKE_PTR(c->current);
+                qmp_client_dispatch_event(c, v);
+                return 1;
+        }
+
+        switch (c->state) {
+
+        case QMP_CLIENT_HANDSHAKE_INITIAL: {
+                /* Waiting for QMP greeting. Take ownership so by_key()'s borrowed pointer
+                 * stays valid through the case scope. */
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = TAKE_PTR(c->current);
+                if (!sd_json_variant_by_key(v, "QMP"))
+                        return json_stream_log_errno(&c->stream, SYNTHETIC_ERRNO(EPROTO),
+                                                     "Expected QMP greeting, got something else");
+
+                c->state = QMP_CLIENT_HANDSHAKE_GREETING_RECEIVED;
+
+                /* Fall through to immediately send capabilities */
+                _fallthrough_;
+        }
+
+        case QMP_CLIENT_HANDSHAKE_GREETING_RECEIVED: {
+                /* Send qmp_capabilities command */
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *cmd = NULL;
+                r = sd_json_buildo(
+                                &cmd,
+                                SD_JSON_BUILD_PAIR_STRING("execute", "qmp_capabilities"),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("id", c->next_id++));
+                if (r < 0)
+                        return r;
+
+                r = json_stream_enqueue(&c->stream, cmd);
+                if (r < 0)
+                        return r;
+
+                c->state = QMP_CLIENT_HANDSHAKE_CAPABILITIES_SENT;
+                return 1;
+        }
+
+        case QMP_CLIENT_HANDSHAKE_CAPABILITIES_SENT: {
+                /* Take ownership so desc (borrowed from v's "error.desc") survives the format string. */
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = TAKE_PTR(c->current);
+                const char *desc = NULL;
+                r = qmp_parse_response(v, /* ret_result= */ NULL, &desc);
+                if (r < 0)
+                        return json_stream_log_errno(&c->stream, SYNTHETIC_ERRNO(EPROTO),
+                                                     "qmp_capabilities failed: %s", desc);
+
+                c->state = QMP_CLIENT_HANDSHAKE_PROBING;
+
+                if (c->probe_callback) {
+                        r = c->probe_callback(c, c->probe_userdata);
+                        if (r < 0)
+                                return r;
+                }
+
+                /* No probes enqueued — go straight to RUNNING. */
+                if (c->pending_probes == 0)
+                        c->state = QMP_CLIENT_RUNNING;
+
+                return 1;
+        }
+
+        default:
+                assert_not_reached();
+        }
+}
+
+static int qmp_client_dispatch(QmpClient *c) {
+        assert(c);
+
+        if (!c->current)
+                return 0;
+
+        if (QMP_CLIENT_STATE_IS_HANDSHAKE(c->state))
+                return qmp_client_dispatch_handshake(c);
+
+        return qmp_client_dispatch_reply(c);
+}
+
+/* Single step: write → dispatch → parse → read → disconnect. Matches sd_varlink_process(). */
+static int qmp_client_process(QmpClient *c) {
+        int r;
+
+        assert(c);
+
+        if (c->state == QMP_CLIENT_DISCONNECTED || c->state == _QMP_CLIENT_STATE_INVALID)
+                return -ENOTCONN;
+
+        /* Pin against a callback dropping the last ref mid-dispatch. Matches sd_varlink_process(). */
+        qmp_client_ref(c);
+        assert(!c->in_process);
+        c->in_process = true;
+
+        /* 1. Write — drain output buffer */
+        r = json_stream_write(&c->stream);
+        if (r < 0)
+                json_stream_log_errno(&c->stream, r, "Write failed: %m");
+        if (r != 0)
+                goto finish;
+
+        /* 2. Dispatch — route based on state */
+        r = qmp_client_dispatch(c);
+        if (r < 0)
+                json_stream_log_errno(&c->stream, r, "Dispatch failed: %m");
+        if (r != 0)
+                goto finish;
+
+        /* 3. Parse — extract one complete message into c->current */
+        if (!c->current) {
+                r = json_stream_parse(&c->stream, &c->current);
+                if (r < 0)
+                        json_stream_log_errno(&c->stream, r, "Message parsing failed: %m");
+                if (r != 0)
+                        goto finish;
+        }
+
+        /* 4. Read — fill input buffer from fd */
+        if (!c->current) {
+                r = json_stream_read(&c->stream);
+                if (r < 0)
+                        json_stream_log_errno(&c->stream, r, "Read failed: %m");
+                if (r != 0)
+                        goto finish;
+        }
+
+        /* 5. Test disconnect */
+        r = qmp_client_test_disconnect(c);
+        assert(r >= 0);
+        if (r != 0)
+                goto finish;
+
+finish:
+        /* Re-arm defer source on progress so we get called again next iteration. */
+        if (r >= 0 && c->defer_event_source) {
+                int q;
+
+                q = sd_event_source_set_enabled(c->defer_event_source, r > 0 ? SD_EVENT_ON : SD_EVENT_OFF);
+                if (q < 0)
+                        r = json_stream_log_errno(&c->stream, q, "Failed to enable deferred event source: %m");
+        }
+
+        /* -ENOBUFS is the buffered stream's 16 MiB cap, not a transport error — propagate without disconnecting. */
+        if (r < 0 && r != -ENOBUFS && c->state != QMP_CLIENT_DISCONNECTED)
+                qmp_client_handle_disconnect(c);
+
+        c->in_process = false;
+        qmp_client_unref(c);
+        return r;
+}
+
+/* Map our state to the transport phase used for POLLIN / salvage / timeout decisions. */
+static JsonStreamPhase qmp_client_phase(void *userdata) {
+        QmpClient *c = ASSERT_PTR(userdata);
+
+        /* During handshake we're waiting for the greeting or qmp_capabilities response. */
+        if (QMP_CLIENT_STATE_IS_HANDSHAKE(c->state) && !c->current)
+                return JSON_STREAM_PHASE_AWAITING_REPLY;
+
+        /* PROBING: same as RUNNING-with-pending — probe replies are pending. */
+        if (c->state == QMP_CLIENT_HANDSHAKE_PROBING && !c->current)
+                return JSON_STREAM_PHASE_AWAITING_REPLY;
+
+        /* Running with pending async commands — waiting for their responses. */
+        if (c->state == QMP_CLIENT_RUNNING && !c->current &&
+            !set_isempty(c->slots))
+                return JSON_STREAM_PHASE_AWAITING_REPLY;
+
+        /* Running with no pending commands — waiting for unsolicited events. */
+        if (c->state == QMP_CLIENT_RUNNING && !c->current)
+                return JSON_STREAM_PHASE_READING;
+
+        return JSON_STREAM_PHASE_OTHER;
+}
+
+static int qmp_client_dispatch_cb(void *userdata) {
+        QmpClient *c = ASSERT_PTR(userdata);
+        return qmp_client_process(c);
+}
+
+static int qmp_client_defer_callback(sd_event_source *source, void *userdata) {
+        QmpClient *c = ASSERT_PTR(userdata);
+
+        assert(source);
+
+        (void) qmp_client_process(c);
+
+        return 1;
+}
+
+/* Drive handshake to completion. Matches sd-bus's bus_ensure_running(). */
+static int qmp_client_ensure_running(QmpClient *c) {
+        int r;
+
+        assert(c);
+
+        if (c->state == QMP_CLIENT_RUNNING)
+                return 1;
+
+        /* Re-entry from inside a callback fired by process(); pumping again would clobber state. */
+        if (c->in_process)
+                return -EBUSY;
+
+        for (;;) {
+                if (IN_SET(c->state, QMP_CLIENT_DISCONNECTED, _QMP_CLIENT_STATE_INVALID))
+                        return -ENOTCONN;
+
+                r = qmp_client_process(c);
+                if (r < 0)
+                        return r;
+                if (c->state == QMP_CLIENT_RUNNING)
+                        return 1;
+                if (r > 0)
+                        continue;
+
+                r = json_stream_wait(&c->stream, USEC_INFINITY);
+                if (r < 0)
+                        return r;
+        }
+}
+
+static void qmp_client_detach_event(QmpClient *c) {
+        if (!c)
+                return;
+
+        c->defer_event_source = sd_event_source_disable_unref(c->defer_event_source);
+        c->quit_event_source = sd_event_source_disable_unref(c->quit_event_source);
+        json_stream_detach_event(&c->stream);
+}
+
+static void qmp_client_clear(QmpClient *c) {
+        assert(c);
+
+        qmp_client_handle_disconnect(c);
+        qmp_client_detach_event(c);
+        qmp_client_clear_current(c);
+        json_stream_done(&c->stream);
+        c->slots = set_free(c->slots);
+}
+
+/* Blocks until output buffer is empty. Matches sd_varlink_flush(). */
+static int qmp_client_flush(QmpClient *c) {
+        if (!c)
+                return 0;
+
+        if (c->state == QMP_CLIENT_DISCONNECTED)
+                return -ENOTCONN;
+
+        return json_stream_flush(&c->stream);
+}
+
+/* Notify callbacks, fire disconnect, detach sources, close fd. Matches sd_varlink_close(). */
+static int qmp_client_close(QmpClient *c) {
+        if (!c)
+                return 0;
+
+        /* Take a temporary ref to prevent destruction mid-callback,
+         * matching sd_varlink_close()'s pattern. */
+        qmp_client_ref(c);
+        qmp_client_clear(c);
+        qmp_client_unref(c);
+
+        return 1;
+}
+
+static int qmp_client_quit_callback(sd_event_source *source, void *userdata) {
+        QmpClient *c = ASSERT_PTR(userdata);
+
+        assert(source);
+
+        qmp_client_flush(c);
+        qmp_client_close(c);
+
+        return 1;
+}
+
+/* Takes ownership of fd. Handshake runs lazily on first invoke or from the event loop. */
+int qmp_client_connect_fd(QmpClient **ret, int fd) {
+        _cleanup_(qmp_client_unrefp) QmpClient *c = NULL;
+        _cleanup_close_ int fd_copy = fd;
+        int r;
+
+        assert(ret);
+        assert(fd >= 0);
+
+        c = new(QmpClient, 1);
+        if (!c)
+                return -ENOMEM;
+
+        *c = (QmpClient) {
+                .n_ref = 1,
+                .state = QMP_CLIENT_HANDSHAKE_INITIAL,
+                .next_id = 1,
+        };
+
+        const JsonStreamParams params = {
+                /* QMP wire framing is \r\n; splitting on \n lets JSON parsing absorb the \r. */
+                .delimiter = "\n",
+                .phase = qmp_client_phase,
+                .dispatch = qmp_client_dispatch_cb,
+                .userdata = c,
+        };
+
+        r = json_stream_init(&c->stream, &params);
+        if (r < 0)
+                return r;
+
+        r = json_stream_connect_fd_pair(&c->stream, fd, fd);
+        if (r < 0)
+                return r;
+
+        TAKE_FD(fd_copy); /* stream owns the fd now */
+        *ret = TAKE_PTR(c);
+        return 0;
+}
+
+int qmp_client_attach_event(QmpClient *c, sd_event *event, int64_t priority) {
+        int r;
+
+        assert(c);
+        assert(event);
+        assert(!json_stream_get_event(&c->stream));
+
+        r = json_stream_attach_event(&c->stream, event, priority);
+        if (r < 0)
+                return r;
+
+        sd_event *ev = json_stream_get_event(&c->stream);
+
+        r = sd_event_add_exit(ev, &c->quit_event_source, qmp_client_quit_callback, c);
+        if (r < 0)
+                goto fail;
+
+        r = sd_event_source_set_priority(c->quit_event_source, priority);
+        if (r < 0)
+                goto fail;
+
+        (void) sd_event_source_set_description(c->quit_event_source, "qmp-client-quit");
+
+        r = sd_event_add_defer(ev, &c->defer_event_source, qmp_client_defer_callback, c);
+        if (r < 0)
+                goto fail;
+
+        r = sd_event_source_set_priority(c->defer_event_source, priority);
+        if (r < 0)
+                goto fail;
+
+        r = sd_event_source_set_enabled(c->defer_event_source, SD_EVENT_OFF);
+        if (r < 0)
+                goto fail;
+
+        (void) sd_event_source_set_description(c->defer_event_source, "qmp-client-defer");
+
+        return 0;
+
+fail:
+        qmp_client_detach_event(c);
+        return r;
+}
+
+/* Cleanup hook: closes any fds in *args not yet transferred to the stream. */
+static QmpClientArgs* qmp_client_args_close_fds(QmpClientArgs *p) {
+        assert(p);
+        if (!p->fds)
+                return NULL;
+        for (size_t i = 0; i < p->n_fds; i++)
+                safe_close(p->fds[i]);
+        return NULL;
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(QmpClientArgs*, qmp_client_args_close_fds);
+
+/* Transfer fds to the stream. On partial failure narrow args to the unstaged tail so
+ * the caller's cleanup closes only the untransferred fds. */
+static int qmp_client_stage_fds(QmpClient *c, QmpClientArgs *args) {
+        int r;
+
+        assert(c);
+
+        if (!args || args->n_fds == 0)
+                return 0;
+
+        assert(args->fds);
+
+        for (size_t i = 0; i < args->n_fds; i++) {
+                r = json_stream_push_fd(&c->stream, args->fds[i]);
+                if (r < 0) {
+                        /* Already-staged are owned by the stream; narrow args to the rest. */
+                        json_stream_reset_pushed_fds(&c->stream);
+                        args->fds = &args->fds[i];
+                        args->n_fds -= i;
+                        return r;
+                }
+        }
+
+        args->n_fds = 0;
+        return 0;
+}
+
+int qmp_client_invoke(
+                QmpClient *c,
+                const char *command,
+                QmpClientArgs *args,
+                qmp_command_callback_t callback,
+                void *userdata) {
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *cmd = NULL;
+        _cleanup_free_ QmpSlot *pending = NULL;
+        /* Closes any fds in args not yet handed to the stream on every early-return path. */
+        _cleanup_(qmp_client_args_close_fdsp) QmpClientArgs *fds_owner = args;
+        const bool is_probe = args && args->is_probe;
+        uint64_t id;
+        int r;
+
+        assert(c);
+        assert(command);
+        assert(callback);
+
+        if (is_probe) {
+                if (c->state != QMP_CLIENT_HANDSHAKE_PROBING)
+                        return -EBUSY;
+        } else {
+                r = qmp_client_ensure_running(c);
+                if (r < 0)
+                        return r;
+        }
+
+        r = qmp_client_build_command(c, command, args ? args->arguments : NULL, &cmd, &id);
+        if (r < 0)
+                return r;
+
+        pending = new(QmpSlot, 1);
+        if (!pending)
+                return -ENOMEM;
+
+        *pending = (QmpSlot) {
+                .id       = id,
+                .callback = callback,
+                .userdata = userdata,
+                .is_probe = is_probe,
+        };
+
+        r = set_ensure_put(&c->slots, &qmp_slot_hash_ops, pending);
+        if (r < 0)
+                return r;
+
+        /* Stage AFTER ensure_running() drained internal enqueues so the next enqueue is ours. */
+        r = qmp_client_stage_fds(c, args);
+        if (r < 0) {
+                set_remove(c->slots, pending);
+                return r;
+        }
+
+        r = json_stream_enqueue(&c->stream, cmd);
+        if (r < 0) {
+                json_stream_reset_pushed_fds(&c->stream);
+                set_remove(c->slots, pending);
+                return r;
+        }
+
+        if (is_probe)
+                c->pending_probes++;
+
+        /* Arm defer so process() drains the output on the next iteration. */
+        if (c->defer_event_source)
+                (void) sd_event_source_set_enabled(c->defer_event_source, SD_EVENT_ON);
+
+        TAKE_PTR(pending);
+        return 0;
+}
+
+void qmp_client_bind_event(QmpClient *c, qmp_event_callback_t callback) {
+        assert(c);
+        c->event_callback = callback;
+}
+
+void qmp_client_bind_disconnect(QmpClient *c, qmp_disconnect_callback_t callback) {
+        assert(c);
+        c->disconnect_callback = callback;
+}
+
+void qmp_client_bind_probe(QmpClient *c, qmp_client_probe_callback_t callback, void *userdata) {
+        assert(c);
+        assert(c->state == QMP_CLIENT_HANDSHAKE_INITIAL);
+        assert(!json_stream_get_event(&c->stream));
+
+        c->probe_callback = callback;
+        c->probe_userdata = userdata;
+}
+
+void* qmp_client_set_userdata(QmpClient *c, void *userdata) {
+        void *old;
+
+        assert(c);
+
+        old = c->userdata;
+        c->userdata = userdata;
+        return old;
+}
+
+int qmp_client_set_description(QmpClient *c, const char *description) {
+        assert(c);
+        return json_stream_set_description(&c->stream, description);
+}
+
+sd_event* qmp_client_get_event(QmpClient *c) {
+        if (c)
+                return json_stream_get_event(&c->stream);
+
+        return NULL;
+}
+
+unsigned qmp_client_next_fdset_id(QmpClient *c) {
+        assert(c);
+        return c->next_fdset_id++;
+}
+
+bool qmp_schema_has_member(sd_json_variant *schema, const char *member_name) {
+        sd_json_variant *entry;
+
+        assert(member_name);
+
+        if (!sd_json_variant_is_array(schema))
+                return false;
+
+        JSON_VARIANT_ARRAY_FOREACH(entry, schema) {
+                if (!sd_json_variant_is_object(entry))
+                        continue;
+
+                sd_json_variant *meta = sd_json_variant_by_key(entry, "meta-type");
+                if (!meta || !streq_ptr(sd_json_variant_string(meta), "object"))
+                        continue;
+
+                sd_json_variant *members = sd_json_variant_by_key(entry, "members");
+                if (!sd_json_variant_is_array(members))
+                        continue;
+
+                sd_json_variant *m;
+                JSON_VARIANT_ARRAY_FOREACH(m, members) {
+                        if (!sd_json_variant_is_object(m))
+                                continue;
+                        sd_json_variant *mn = sd_json_variant_by_key(m, "name");
+                        if (mn && streq_ptr(sd_json_variant_string(mn), member_name))
+                                return true;
+                }
+        }
+
+        return false;
+}
