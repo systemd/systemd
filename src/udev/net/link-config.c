@@ -558,26 +558,6 @@ static int link_apply_ethtool_settings(Link *link, int *ethtool_fd) {
         return 0;
 }
 
-static bool hw_addr_is_valid(Link *link, const struct hw_addr_data *hw_addr) {
-        assert(link);
-        assert(hw_addr);
-
-        switch (link->iftype) {
-        case ARPHRD_ETHER:
-                /* Refuse all zero and all 0xFF. */
-                assert(hw_addr->length == ETH_ALEN);
-                return !ether_addr_is_null(&hw_addr->ether) && !ether_addr_is_broadcast(&hw_addr->ether);
-
-        case ARPHRD_INFINIBAND:
-                /* The last 8 bytes cannot be zero. */
-                assert(hw_addr->length == INFINIBAND_ALEN);
-                return !memeqzero(hw_addr->bytes + INFINIBAND_ALEN - 8, 8);
-
-        default:
-                assert_not_reached();
-        }
-}
-
 static int link_generate_new_hw_addr(Link *link, struct hw_addr_data *ret) {
         struct hw_addr_data hw_addr = HW_ADDR_NULL;
         bool is_static = false;
@@ -647,7 +627,7 @@ static int link_generate_new_hw_addr(Link *link, struct hw_addr_data *ret) {
                  * systems booting up at the very same time. */
                 for (;;) {
                         random_bytes(p, len);
-                        if (hw_addr_is_valid(link, &hw_addr))
+                        if (hw_addr_is_valid(&hw_addr, link->iftype))
                                 break;
                 }
 
@@ -662,7 +642,7 @@ static int link_generate_new_hw_addr(Link *link, struct hw_addr_data *ret) {
 
                 assert(len <= sizeof(result));
                 memcpy(p, &result, len);
-                if (!hw_addr_is_valid(link, &hw_addr))
+                if (!hw_addr_is_valid(&hw_addr, link->iftype))
                         return log_link_warning_errno(link, SYNTHETIC_ERRNO(EINVAL),
                                                       "Could not generate valid persistent MAC address.");
         }
