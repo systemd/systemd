@@ -142,7 +142,6 @@ static void test_event_callback(
                 QmpClient *client,
                 const char *event,
                 sd_json_variant *data,
-                usec_t timestamp_usec,
                 void *userdata) {
 
         /* We may also receive a synthetic SHUTDOWN event when the mock server closes the connection;
@@ -150,7 +149,6 @@ static void test_event_callback(
         if (!streq(event, "STOP"))
                 return;
 
-        assert_se(timestamp_usec == 1234 * USEC_PER_SEC + 5678);
         event_received = true;
 }
 
