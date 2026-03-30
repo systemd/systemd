@@ -30,6 +30,7 @@ int register_machine(
                 unsigned cid,
                 const char *address,
                 const char *key_path,
+                const char *varlink_address,
                 bool allocate_unit,
                 RuntimeScope scope) {
 
@@ -85,6 +86,7 @@ int register_machine(
                         SD_JSON_BUILD_PAIR_CONDITION(!!directory, "rootDirectory", SD_JSON_BUILD_STRING(directory)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!address, "sshAddress", SD_JSON_BUILD_STRING(address)),
                         SD_JSON_BUILD_PAIR_CONDITION(!!key_path, "sshPrivateKeyPath", SD_JSON_BUILD_STRING(key_path)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!varlink_address, "varlinkAddress", SD_JSON_BUILD_STRING(varlink_address)),
                         SD_JSON_BUILD_PAIR_CONDITION(isatty_safe(STDIN_FILENO), "allowInteractiveAuthentication", SD_JSON_BUILD_BOOLEAN(true)),
                         SD_JSON_BUILD_PAIR_CONDITION(allocate_unit, "allocateUnit", SD_JSON_BUILD_BOOLEAN(true)),
                         SD_JSON_BUILD_PAIR_CONDITION(pidref_is_set(pidref), "leaderProcessId", JSON_BUILD_PIDREF(pidref)));
