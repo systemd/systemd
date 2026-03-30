@@ -16,6 +16,9 @@
 #define DEFAULT_RECURSION_MAX 100
 
 static int sort_func(struct dirent * const *a, struct dirent * const *b) {
+        assert(a);
+        assert(b);
+
         return strcmp((*a)->d_name, (*b)->d_name);
 }
 

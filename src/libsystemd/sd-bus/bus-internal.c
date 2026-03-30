@@ -263,6 +263,8 @@ bool path_simple_pattern(const char *pattern, const char *value) {
 }
 
 int bus_message_type_from_string(const char *s, uint8_t *u) {
+        assert(u);
+
         if (streq(s, "signal"))
                 *u = SD_BUS_MESSAGE_SIGNAL;
         else if (streq(s, "method_call"))

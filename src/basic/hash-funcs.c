@@ -103,10 +103,15 @@ DEFINE_HASH_OPS_FULL(
                 void, free);
 
 void uint64_hash_func(const uint64_t *p, struct siphash *state) {
+        assert(p);
+
         siphash24_compress_typesafe(*p, state);
 }
 
 int uint64_compare_func(const uint64_t *a, const uint64_t *b) {
+        assert(a);
+        assert(b);
+
         return CMP(*a, *b);
 }
 
@@ -119,12 +124,17 @@ DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
 
 #if SIZEOF_DEV_T != 8
 void devt_hash_func(const dev_t *p, struct siphash *state) {
+        assert(p);
+
         siphash24_compress_typesafe(*p, state);
 }
 #endif
 
 int devt_compare_func(const dev_t *a, const dev_t *b) {
         int r;
+
+        assert(a);
+        assert(b);
 
         r = CMP(major(*a), major(*b));
         if (r != 0)

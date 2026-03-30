@@ -2425,8 +2425,6 @@ static int image_discover_and_read_metadata(ImageClass image_class, Hashmap **re
         Image *img;
         int r;
 
-        assert(ret_images);
-
         r = image_discover(RUNTIME_SCOPE_SYSTEM, image_class, arg_root, &images);
         if (r < 0)
                 return log_error_errno(r, "Failed to discover images: %m");

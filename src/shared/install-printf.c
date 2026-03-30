@@ -49,6 +49,8 @@ static int specifier_instance(char specifier, const void *data, const char *root
         char *instance;
         int r;
 
+        assert(ret);
+
         r = unit_name_to_instance(i->name, &instance);
         if (r < 0)
                 return r;

@@ -142,6 +142,8 @@ int tar_strip_suffixes(const char *name, char **ret) {
         const char *e;
         char *s;
 
+        assert(ret);
+
         e = endswith(name, ".tar");
         if (!e)
                 e = endswith(name, ".tar.xz");
