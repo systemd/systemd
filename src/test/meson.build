@@ -370,6 +370,10 @@ executables += [
                 'dependencies' : common_test_dependencies,
         },
         test_template + {
+                'sources' : files('test-luo.c'),
+                'type' : 'manual',
+        },
+        test_template + {
                 'sources' : files('test-math-util.c'),
                 'dependencies' : libm,
         },
