@@ -9,6 +9,7 @@
 #include "sd-bus.h"
 #include "sd-event.h"
 #include "sd-journal.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "ask-password-agent.h"
@@ -45,6 +46,7 @@
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
+#include "path-lookup.h"
 #include "path-util.h"
 #include "pidref.h"
 #include "polkit-agent.h"
@@ -1106,40 +1108,172 @@ static int verb_kill_machine(int argc, char *argv[], uintptr_t _data, void *user
         return 0;
 }
 
+static int verb_machine_control_one(const char *machine_name, const char *method);
+
 static int verb_reboot_machine(int argc, char *argv[], uintptr_t data, void *userdata) {
-        if (arg_runner == RUNNER_VMSPAWN)
-                return log_error_errno(
-                                SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                "%s only support supported for --runner=nspawn",
-                                streq(argv[0], "reboot") ? "Reboot" : "Restart");
-
-        arg_kill_whom = "leader";
-        arg_signal = SIGINT; /* sysvinit + systemd */
-
-        return verb_kill_machine(argc, argv, data, userdata);
-}
-
-static int verb_poweroff_machine(int argc, char *argv[], uintptr_t data, void *userdata) {
-        arg_kill_whom = "leader";
-        arg_signal = SIGRTMIN+4; /* only systemd */
-
-        return verb_kill_machine(argc, argv, data, userdata);
-}
-
-static int verb_terminate_machine(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         for (int i = 1; i < argc; i++) {
+                r = verb_machine_control_one(argv[i], "io.systemd.MachineInstance.Reboot");
+                if (r >= 0)
+                        continue;
+                if (r != -EOPNOTSUPP)
+                        return r;
+
+                /* Container fallback: SIGINT to init (sysvinit + systemd compatible) */
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                r = bus_call_method(bus, bus_machine_mgr, "KillMachine", &error, NULL,
+                                   "ssi", argv[i], "leader", (int32_t) SIGINT);
+                if (r < 0)
+                        return log_error_errno(r, "Could not reboot machine '%s': %s", argv[i], bus_error_message(&error, r));
+        }
+
+        return 0;
+}
+
+static int verb_poweroff_machine(int argc, char *argv[], uintptr_t data, void *userdata) {
+        sd_bus *bus = ASSERT_PTR(userdata);
+        int r;
+
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
+        for (int i = 1; i < argc; i++) {
+                /* VM with varlink control socket: QMP graceful powerdown */
+                r = verb_machine_control_one(argv[i], "io.systemd.MachineInstance.PowerOff");
+                if (r >= 0)
+                        continue;
+                if (r != -EOPNOTSUPP)
+                        return r;
+
+                /* Not a VM: signal-based poweroff */
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                r = bus_call_method(bus, bus_machine_mgr, "KillMachine", &error, NULL,
+                                   "ssi", argv[i], "leader", (int32_t) (SIGRTMIN+4));
+                if (r < 0)
+                        return log_error_errno(r, "Could not kill machine: %s", bus_error_message(&error, r));
+        }
+
+        return 0;
+}
+
+static int verb_terminate_machine(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        sd_bus *bus = ASSERT_PTR(userdata);
+        int r;
+
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
+        for (int i = 1; i < argc; i++) {
+                /* VM with varlink control socket: QMP quit (immediate termination) */
+                r = verb_machine_control_one(argv[i], "io.systemd.MachineInstance.Terminate");
+                if (r >= 0)
+                        continue;
+                if (r != -EOPNOTSUPP)
+                        return r;
+
+                /* Not a VM or no varlink socket: fall back to machined */
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 r = bus_call_method(bus, bus_machine_mgr, "TerminateMachine", &error, NULL, "s", argv[i]);
                 if (r < 0)
                         return log_error_errno(r, "Could not terminate machine: %s", bus_error_message(&error, r));
         }
 
         return 0;
+}
+
+/* Look up the controlAddress of a machine by calling machined's Machine.List varlink interface. */
+static int machine_get_control_address(const char *machine_name, char **ret) {
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        sd_json_variant *reply = NULL;
+        const char *error_id = NULL;
+        int r;
+
+        assert(machine_name);
+        assert(ret);
+
+        if (arg_transport != BUS_TRANSPORT_LOCAL)
+                return -EOPNOTSUPP;
+
+        _cleanup_free_ char *p = NULL;
+        r = runtime_directory_generic(arg_runtime_scope, "systemd/machine/io.systemd.Machine", &p);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine Machine varlink socket path: %m");
+
+        r = sd_varlink_connect_address(&vl, p);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to machined varlink: %m");
+
+        r = sd_varlink_callbo(
+                        vl,
+                        "io.systemd.Machine.List",
+                        &reply,
+                        &error_id,
+                        SD_JSON_BUILD_PAIR_STRING("name", machine_name));
+        if (r < 0)
+                return log_error_errno(r, "Failed to list machine: %m");
+        if (error_id)
+                return log_error_errno(sd_varlink_error_to_errno(error_id, reply),
+                                       "Failed to look up machine '%s': %s", machine_name, error_id);
+
+        sd_json_variant *addr = sd_json_variant_by_key(reply, "controlAddress");
+        if (!addr || !sd_json_variant_is_string(addr))
+                return -EOPNOTSUPP; /* No varlink control socket, caller decides whether to log */
+
+        char *a = strdup(sd_json_variant_string(addr));
+        if (!a)
+                return log_oom();
+
+        *ret = a;
+        return 0;
+}
+
+static int verb_machine_control_one(const char *machine_name, const char *method) {
+        _cleanup_free_ char *address = NULL;
+        int r;
+
+        r = machine_get_control_address(machine_name, &address);
+        if (r < 0)
+                return r;
+
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        r = sd_varlink_connect_address(&vl, address);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to machine control socket: %m");
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
+        const char *error_id = NULL;
+        r = sd_varlink_call(vl, method, /* parameters= */ NULL, &reply, &error_id);
+        if (r < 0)
+                return log_error_errno(r, "Failed to call %s: %m", method);
+        if (error_id)
+                return log_error_errno(sd_varlink_error_to_errno(error_id, reply),
+                                       "Machine control call failed: %s", error_id);
+
+        return 0;
+}
+
+static int verb_vm_control(int argc, char *argv[], const char *method) {
+        int r;
+
+        for (int i = 1; i < argc; i++) {
+                r = verb_machine_control_one(argv[i], method);
+                if (r == -EOPNOTSUPP)
+                        return log_error_errno(r, "Machine '%s' does not expose a varlink control socket.", argv[i]);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+static int verb_pause(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        return verb_vm_control(argc, argv, "io.systemd.MachineInstance.Pause");
+}
+
+static int verb_resume(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        return verb_vm_control(argc, argv, "io.systemd.MachineInstance.Resume");
 }
 
 static const char *select_copy_method(bool copy_from, bool force) {
@@ -2077,10 +2211,12 @@ static int help(void) {
                "                              or on the local host\n"
                "  enable NAME...              Enable automatic container start at boot\n"
                "  disable NAME...             Disable automatic container start at boot\n"
-               "  poweroff NAME...            Power off one or more containers\n"
-               "  reboot NAME...              Reboot one or more containers\n"
-               "  terminate NAME...           Terminate one or more VMs/containers\n"
-               "  kill NAME...                Send signal to processes of a VM/container\n"
+               "  poweroff NAME...            Power off one or more machines\n"
+               "  reboot NAME...              Reboot one or more machines\n"
+               "  pause NAME...               Pause one or more machines\n"
+               "  resume NAME...              Resume one or more paused machines\n"
+               "  terminate NAME...           Terminate one or more machines\n"
+               "  kill NAME...                Send signal to processes of a machine\n"
                "  copy-to NAME PATH [PATH]    Copy files from the host to a container\n"
                "  copy-from NAME PATH [PATH]  Copy files from a container to the host\n"
                "  bind NAME PATH [PATH]       Bind mount a path from the host into a container\n"
@@ -2465,6 +2601,8 @@ static int machinectl_main(int argc, char *argv[], sd_bus *bus) {
                 { "poweroff",        2,        VERB_ANY, 0,            verb_poweroff_machine  },
                 { "stop",            2,        VERB_ANY, 0,            verb_poweroff_machine  }, /* Convenience alias */
                 { "kill",            2,        VERB_ANY, 0,            verb_kill_machine      },
+                { "pause",           2,        VERB_ANY, 0,            verb_pause             },
+                { "resume",          2,        VERB_ANY, 0,            verb_resume            },
                 { "login",           VERB_ANY, 2,        0,            verb_login_machine     },
                 { "shell",           VERB_ANY, VERB_ANY, 0,            verb_shell_machine     },
                 { "bind",            3,        4,        0,            verb_bind_mount        },
