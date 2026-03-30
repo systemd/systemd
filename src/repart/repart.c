@@ -5809,6 +5809,25 @@ static const VeritySettings *lookup_verity_settings_by_uuid_pair(sd_id128_t data
         return set_get(arg_verity_settings, &key);
 }
 
+static int iovec_roothash_from_uuid_pair(
+                sd_id128_t data_uuid,
+                sd_id128_t hash_uuid,
+                struct iovec *ret_roothash) {
+
+        uint8_t roothash_bytes[sizeof(sd_id128_t) * 2];
+
+        if (sd_id128_is_null(data_uuid) || sd_id128_is_null(hash_uuid))
+                return -EINVAL;
+
+        memcpy(roothash_bytes, data_uuid.bytes, sizeof(sd_id128_t));
+        memcpy(roothash_bytes + sizeof(sd_id128_t), hash_uuid.bytes, sizeof(sd_id128_t));
+
+        if (!iovec_memdup(&IOVEC_MAKE(roothash_bytes, sizeof(roothash_bytes)), ret_roothash))
+                return -ENOMEM;
+
+        return 0;
+}
+
 static int partition_format_verity_sig(Context *context, Partition *p) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
         _cleanup_free_ char *text = NULL, *hint = NULL;
@@ -5834,6 +5853,14 @@ static int partition_format_verity_sig(Context *context, Partition *p) {
         assert(!hp->dropped);
         assert_se(rp = p->siblings[VERITY_DATA]);
         assert(!rp->dropped);
+
+        /* Currently only set while formatting the hash partition. But if this is skipped via CopyBlocks=
+         * we just derive the roothash from the UUIDs from the data + hash partition. */
+        if (!iovec_is_set(&hp->roothash)) {
+                r = iovec_roothash_from_uuid_pair(rp->new_uuid, hp->new_uuid, &hp->roothash);
+                if (r < 0)
+                        return log_error_errno(r, "Unable to derive roothash: %m");
+        }
 
         verity_settings = lookup_verity_settings_by_uuid_pair(rp->current_uuid, hp->current_uuid);
 
