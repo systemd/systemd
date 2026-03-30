@@ -81,8 +81,6 @@ int option_parse(
                 const Option **ret_option,
                 const char **ret_arg) {
 
-        assert(ret_arg);
-
         /* Check and initialize */
         if (state->optind == 0) {
                 if (argc < 1 || strv_isempty(argv))
@@ -237,7 +235,13 @@ int option_parse(
         if (ret_option)
                 /* Return the matched Option structure to allow the caller to "know" what was matched */
                 *ret_option = option;
-        *ret_arg = optval;
+
+        if (ret_arg)
+                *ret_arg = optval;
+        else
+                /* It's fine to omit ret_arg, but only if no options return a value. */
+                assert(!optval);
+
         return option->id;
 }
 
