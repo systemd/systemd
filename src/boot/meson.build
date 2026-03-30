@@ -8,6 +8,7 @@ libefitest = static_library(
                 'bcd.c',
                 'chid.c',
                 'efi-string.c',
+                'pe-reloc.c',
         ),
         build_by_default : false,
         include_directories : [
@@ -51,6 +52,10 @@ executables += [
         },
         efi_test_template + {
                 'sources' : files('test-efi-string.c'),
+                'conditions' : ['ENABLE_BOOTLOADER'],
+        },
+        efi_test_template + {
+                'sources' : files('test-pe.c'),
                 'conditions' : ['ENABLE_BOOTLOADER'],
         },
         efi_test_template + {
@@ -331,6 +336,7 @@ libefi_sources = files(
         'measure.c',
         'measure-smbios.c',
         'part-discovery.c',
+        'pe-reloc.c',
         'pe.c',
         'random-seed.c',
         'secure-boot.c',
