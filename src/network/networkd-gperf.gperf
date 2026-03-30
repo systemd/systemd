@@ -11,6 +11,7 @@ _Pragma("GCC diagnostic ignored \"-Wzero-as-null-pointer-constant\"")
 #include "networkd-dhcp-common.h"
 #include "networkd-dns.h"
 #include "networkd-manager.h"
+#include "networkd-route.h"
 #include "networkd-route-util.h"
 %}
 struct ConfigPerfItem;
@@ -45,6 +46,11 @@ DHCPv6.UseDomains,                       config_parse_use_domains,              
 DHCPv6.DUIDType,                         config_parse_duid_type,                  0,                                                         offsetof(Manager, dhcp6_duid)
 DHCPv6.DUIDRawData,                      config_parse_duid_rawdata,               0,                                                         offsetof(Manager, dhcp6_duid)
 DHCPServer.PersistLeases,                config_parse_dhcp_server_persist_leases, 0,                                                         offsetof(Manager, dhcp_server_persist_leases)
+Route.Destination,                       config_parse_route_section,              ROUTE_BY_MANAGER | ROUTE_DESTINATION,                      0
+Route.Type,                              config_parse_route_section,              ROUTE_BY_MANAGER | ROUTE_TYPE,                             0
+Route.Priority,                          config_parse_route_section,              ROUTE_BY_MANAGER | ROUTE_PRIORITY,                         0
+Route.Table,                             config_parse_route_section,              ROUTE_BY_MANAGER | ROUTE_TABLE,                            0
+Route.Protocol,                          config_parse_route_section,              ROUTE_BY_MANAGER | ROUTE_PROTOCOL,                         0
 /* Deprecated */
 DHCP.DUIDType,                           config_parse_manager_duid_type,          0,                                                         0
 DHCP.DUIDRawData,                        config_parse_manager_duid_rawdata,       0,                                                         0
