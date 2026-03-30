@@ -932,6 +932,10 @@ int image_discover(
                         if (dot_or_dot_dot(fname))
                                 continue;
 
+                        /* Ignore sysupdate temporary files */
+                        if (startswith(fname, ".sysupdate."))
+                                continue;
+
                         _cleanup_close_ int fd = openat(dirfd(d), fname, O_PATH|O_CLOEXEC|open_flags);
                         if (fd < 0) {
                                 if (errno != ENOENT)
