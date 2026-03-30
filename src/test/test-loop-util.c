@@ -371,4 +371,171 @@ TEST(loop_block) {
 #endif
 }
 
+static int make_test_image(int *ret_fd) {
+        _cleanup_free_ char *p = NULL, *cmd = NULL;
+        _cleanup_pclose_ FILE *sfdisk = NULL;
+
+        ASSERT_OK(tempfn_random_child("/var/tmp", "sfdisk", &p));
+        int fd = ASSERT_OK_ERRNO(open(p, O_CREAT|O_EXCL|O_RDWR|O_CLOEXEC|O_NOFOLLOW, 0666));
+        ASSERT_OK_ERRNO(ftruncate(fd, 256*1024*1024));
+
+        cmd = ASSERT_NOT_NULL(strjoin("sfdisk ", p));
+        sfdisk = ASSERT_NOT_NULL(popen(cmd, "we"));
+
+        fputs("label: gpt\n"
+              "size=32M, type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B\n", sfdisk);
+
+        ASSERT_EQ(pclose(sfdisk), 0);
+        sfdisk = NULL;
+
+        (void) unlink(p);
+
+        *ret_fd = fd;
+        return 0;
+}
+
+TEST(sector_size_regular_file) {
+        _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
+        _cleanup_close_ int fd = -EBADF;
+
+        if (have_effective_cap(CAP_SYS_ADMIN) <= 0) {
+                log_tests_skipped("not running privileged");
+                return;
+        }
+
+        if (detect_container() != 0 || running_in_chroot() != 0) {
+                log_tests_skipped("Test not supported in a container/chroot");
+                return;
+        }
+
+        ASSERT_OK(make_test_image(&fd));
+
+        /* sector_size=0 on regular file: should default to 512 */
+        ASSERT_OK(loop_device_make(fd, O_RDWR, 0, UINT64_MAX, 0, 0, LOCK_EX, &loop));
+        ASSERT_EQ(loop->sector_size, 512u);
+        loop = loop_device_unref(loop);
+
+        /* sector_size=UINT32_MAX on regular file with GPT: should probe and find 512 */
+        ASSERT_OK(loop_device_make(fd, O_RDWR, 0, UINT64_MAX, UINT32_MAX, 0, LOCK_EX, &loop));
+        ASSERT_EQ(loop->sector_size, 512u);
+        loop = loop_device_unref(loop);
+
+        /* Explicit sector_size=512 on regular file */
+        ASSERT_OK(loop_device_make(fd, O_RDWR, 0, UINT64_MAX, 512, 0, LOCK_EX, &loop));
+        ASSERT_EQ(loop->sector_size, 512u);
+        loop = loop_device_unref(loop);
+
+        /* Explicit sector_size=4096 on regular file */
+        ASSERT_OK(loop_device_make(fd, O_RDWR, 0, UINT64_MAX, 4096, 0, LOCK_EX, &loop));
+        ASSERT_EQ(loop->sector_size, 4096u);
+        loop = loop_device_unref(loop);
+}
+
+TEST(sector_size_block_device) {
+        _cleanup_(loop_device_unrefp) LoopDevice *block_loop = NULL, *loop = NULL;
+        _cleanup_close_ int fd = -EBADF;
+
+        if (have_effective_cap(CAP_SYS_ADMIN) <= 0) {
+                log_tests_skipped("not running privileged");
+                return;
+        }
+
+        if (detect_container() != 0 || running_in_chroot() != 0) {
+                log_tests_skipped("Test not supported in a container/chroot, requires udev/uevent notifications");
+                return;
+        }
+
+        ASSERT_OK(make_test_image(&fd));
+
+        /* Create a loop device to use as our block device */
+        ASSERT_OK(loop_device_make(fd, O_RDWR, 0, UINT64_MAX, 0, LO_FLAGS_PARTSCAN, LOCK_EX, &block_loop));
+        ASSERT_FALSE(LOOP_DEVICE_IS_FOREIGN(block_loop));
+        ASSERT_OK(loop_device_flock(block_loop, LOCK_SH));
+
+        uint32_t device_ssz = block_loop->sector_size;
+
+        /* sector_size=0 on block device: should use device directly */
+        ASSERT_OK(loop_device_make(block_loop->fd, O_RDWR, 0, UINT64_MAX, 0, 0, LOCK_SH, &loop));
+        ASSERT_FALSE(loop->created);
+        ASSERT_EQ(loop->sector_size, device_ssz);
+        loop = loop_device_unref(loop);
+
+        /* sector_size=UINT32_MAX on block device: should probe, match device, use directly */
+        ASSERT_OK(loop_device_make(block_loop->fd, O_RDWR, 0, UINT64_MAX, UINT32_MAX, 0, LOCK_SH, &loop));
+        ASSERT_FALSE(loop->created);
+        ASSERT_EQ(loop->sector_size, device_ssz);
+        loop = loop_device_unref(loop);
+
+        /* sector_size=UINT32_MAX with LO_FLAGS_PARTSCAN: should probe, match, use directly */
+        ASSERT_OK(loop_device_make(block_loop->fd, O_RDWR, 0, UINT64_MAX, UINT32_MAX, LO_FLAGS_PARTSCAN, LOCK_SH, &loop));
+        ASSERT_FALSE(loop->created);
+        ASSERT_EQ(loop->sector_size, device_ssz);
+        loop = loop_device_unref(loop);
+
+        /* Explicit sector_size matching device: should use device directly */
+        ASSERT_OK(loop_device_make(block_loop->fd, O_RDWR, 0, UINT64_MAX, device_ssz, 0, LOCK_SH, &loop));
+        ASSERT_FALSE(loop->created);
+        ASSERT_EQ(loop->sector_size, device_ssz);
+        loop = loop_device_unref(loop);
+
+        /* Explicit sector_size=4096 (differs from device 512): should create a real loop device */
+        if (device_ssz != 4096) {
+                ASSERT_OK(loop_device_make(block_loop->fd, O_RDWR, 0, UINT64_MAX, 4096, 0, LOCK_SH, &loop));
+                ASSERT_TRUE(loop->created);
+                ASSERT_EQ(loop->sector_size, 4096u);
+                loop = loop_device_unref(loop);
+        }
+}
+
+TEST(sector_size_mismatch) {
+        _cleanup_(loop_device_unrefp) LoopDevice *block_loop = NULL, *loop = NULL;
+        _cleanup_close_ int fd = -EBADF;
+
+        if (have_effective_cap(CAP_SYS_ADMIN) <= 0) {
+                log_tests_skipped("not running privileged");
+                return;
+        }
+
+        if (detect_container() != 0 || running_in_chroot() != 0) {
+                log_tests_skipped("Test not supported in a container/chroot");
+                return;
+        }
+
+        /* Create an image with a GPT written at 512-byte sectors, then create a loop device with
+         * 4096-byte sectors on top. This simulates the CD-ROM scenario where the device has large
+         * blocks but the GPT uses 512-byte sectors. */
+        ASSERT_OK(make_test_image(&fd));
+
+        /* Create a loop device with 4096-byte sector size — GPT was written at 512 */
+        ASSERT_OK(loop_device_make(fd, O_RDWR, 0, UINT64_MAX, 4096, 0, LOCK_EX, &block_loop));
+        ASSERT_TRUE(block_loop->created);
+        ASSERT_EQ(block_loop->sector_size, 4096u);
+        ASSERT_OK(loop_device_flock(block_loop, LOCK_SH));
+
+        /* sector_size=0: no preference, should use block device directly despite GPT mismatch */
+        ASSERT_OK(loop_device_make(block_loop->fd, O_RDWR, 0, UINT64_MAX, 0, 0, LOCK_SH, &loop));
+        ASSERT_FALSE(loop->created);
+        ASSERT_EQ(loop->sector_size, 4096u);
+        loop = loop_device_unref(loop);
+
+        /* sector_size=UINT32_MAX: should probe GPT at 512, detect mismatch with device 4096,
+         * and create a new loop device with 512-byte sectors */
+        ASSERT_OK(loop_device_make(block_loop->fd, O_RDWR, 0, UINT64_MAX, UINT32_MAX, 0, LOCK_SH, &loop));
+        ASSERT_TRUE(loop->created);
+        ASSERT_EQ(loop->sector_size, 512u);
+        loop = loop_device_unref(loop);
+
+        /* Explicit sector_size=512: differs from device 4096, should create a new loop device */
+        ASSERT_OK(loop_device_make(block_loop->fd, O_RDWR, 0, UINT64_MAX, 512, 0, LOCK_SH, &loop));
+        ASSERT_TRUE(loop->created);
+        ASSERT_EQ(loop->sector_size, 512u);
+        loop = loop_device_unref(loop);
+
+        /* Explicit sector_size=4096: matches device, should use directly */
+        ASSERT_OK(loop_device_make(block_loop->fd, O_RDWR, 0, UINT64_MAX, 4096, 0, LOCK_SH, &loop));
+        ASSERT_FALSE(loop->created);
+        ASSERT_EQ(loop->sector_size, 4096u);
+        loop = loop_device_unref(loop);
+}
+
 DEFINE_TEST_MAIN_WITH_INTRO(LOG_DEBUG, intro);
