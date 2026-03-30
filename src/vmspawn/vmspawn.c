@@ -3579,8 +3579,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         /* Set up QMP client and varlink server for VM control */
         _cleanup_(vmspawn_varlink_context_freep) VmspawnVarlinkContext *qmp_ctx = NULL;
-        _cleanup_free_ char *qmp_varlink_address = NULL;
-        r = vmspawn_varlink_setup(&qmp_ctx, TAKE_FD(qmp_fds[0]), event, runtime_dir, &qmp_varlink_address);
+        _cleanup_free_ char *qmp_control_address = NULL;
+        r = vmspawn_varlink_setup(&qmp_ctx, TAKE_FD(qmp_fds[0]), event, runtime_dir, &qmp_control_address);
         if (r < 0)
                 return r;
 
@@ -3647,6 +3647,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         .vsock_cid            = child_cid,
                         .ssh_address          = child_cid != VMADDR_CID_ANY ? vm_address : NULL,
                         .ssh_private_key_path = ssh_private_key_path,
+                        .control_address      = qmp_control_address,
                         .allocate_unit        = !arg_keep_unit,
                 };
 
