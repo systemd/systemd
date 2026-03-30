@@ -165,6 +165,7 @@ shared_sources = files(
         'printk-util.c',
         'prompt-util.c',
         'ptyfwd.c',
+        'qmp-client.c',
         'qrcode-util.c',
         'quota-util.c',
         'reboot-util.c',
