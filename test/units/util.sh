@@ -525,3 +525,36 @@ check_nss_module() (
 
     return 0
 )
+
+find_qemu_binary() {
+    # Mirrors find_qemu_binary() from src/vmspawn/vmspawn-util.c.
+    # Returns 0 if a usable QEMU binary exists, 1 otherwise.
+    for binary in qemu qemu-kvm; do
+        if command -v "$binary" >/dev/null 2>&1; then
+            return 0
+        fi
+    done
+
+    if test -x /usr/libexec/qemu-kvm; then
+        return 0
+    fi
+
+    local arch
+    case "$(uname -m)" in
+        x86_64)      arch=x86_64 ;;
+        i?86)        arch=i386 ;;
+        aarch64)     arch=aarch64 ;;
+        armv*l|arm*) arch=arm ;;
+        alpha)       arch=alpha ;;
+        loongarch64) arch=loongarch64 ;;
+        mips*)       arch=mips ;;
+        parisc*)     arch=hppa ;;
+        ppc64*|ppc*) arch=ppc ;;
+        riscv32)     arch=riscv32 ;;
+        riscv64)     arch=riscv64 ;;
+        s390x)       arch=s390x ;;
+        *)           return 1 ;;
+    esac
+
+    command -v "qemu-system-$arch" >/dev/null 2>&1
+}
