@@ -603,6 +603,8 @@ static int pid_notify_with_fds_internal(
                                 return log_debug_errno(errno, "Failed to send notify message to '%s': %m", e);
 
                         /* If that failed, try with our own ucred instead */
+                        /* Silence static analyzers */
+                        assert(msghdr.msg_controllen >= CMSG_SPACE(sizeof(struct ucred)));
                         msghdr.msg_controllen -= CMSG_SPACE(sizeof(struct ucred));
                         if (msghdr.msg_controllen == 0)
                                 msghdr.msg_control = NULL;

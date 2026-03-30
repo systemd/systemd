@@ -78,6 +78,8 @@ static int _check_states(unsigned line,
         assert_se(m);
         assert_se(service);
 
+        /* Silence static analyzers */
+        assert_cc(30 * USEC_PER_SEC <= USEC_INFINITY);
         usec_t end = now(CLOCK_MONOTONIC) + 30 * USEC_PER_SEC;
 
         while (path->state != path_state || service->state != service_state ||
