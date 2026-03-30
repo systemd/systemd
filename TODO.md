@@ -421,7 +421,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   included in the user/group record credentials
 
 - allow dynamic modifications of ConcurrencyHardMax= and ConcurrencySoftMax=
-  via DBus (and with that also by daemon-reload)
+  via DBus (and with that also by daemon-reload). Similar for portabled.
 
 - also include packaging metadata (á la
   https://systemd.io/PACKAGE_METADATA_FOR_EXECUTABLE_FILES/) in our UEFI PE
@@ -1774,7 +1774,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   - Reduce the number of sockets that are currently in use and just rely on one
     or two sockets.
   - map foreign UID range through 1:1
-  - d-nspawn should get the same SSH key support that vmspawn now has.
+  - systemd-nspawn should get the same SSH key support that vmspawn now has.
 
 - oci: add support for "importctl import-oci" which implements the "OCI layout"
   spec (i.e. acquiring via local fs access), as opposed to the current
@@ -2327,14 +2327,14 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 - sysext: measure all activated sysext into a TPM PCR
 
-- system LSFMMBPF policy that enforces that block device backed mounts may only
+- system LSM BPF policy that enforces that block device backed mounts may only
   be established on top of dm-crypt or dm-verity devices, or an allowlist of
   file systems (which should probably include vfat, for compat with the ESP)
 
-- system LSFMMBPF policy that prohibits creating files owned by "nobody"
+- system LSM BPF policy that prohibits creating files owned by "nobody"
   system-wide
 
-- system LSFMMBPF policy that prohibits creating or opening device nodes outside
+- system LSM BPF policy that prohibits creating or opening device nodes outside
   of devtmpfs/tmpfs, except if they are the pseudo-devices /dev/null,
   /dev/zero, /dev/urandom and so on.
 
