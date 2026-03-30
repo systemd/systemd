@@ -257,6 +257,23 @@ systemctl revert "$UNIT_NAME"
 (! grep -r "IOAccounting=" "/run/systemd/system.control/${UNIT_NAME}.d/")
 (! grep -r "CPUQuota=" "/run/systemd/system.control/${UNIT_NAME}.d/")
 
+# limits
+systemctl set-property "$UNIT_NAME" MemoryMax=1073741824 CPUQuota=10% TasksMax=500 IOWeight=200
+output=$(systemctl limits "$UNIT_NAME")
+echo "$output"
+echo "$output" | grep "Memory Max:.*1G"
+echo "$output" | grep "CPU Quota:.*10%"
+echo "$output" | grep "Tasks Max:.*500"
+echo "$output" | grep "IO Weight:.*200"
+systemctl revert "$UNIT_NAME"
+output=$(systemctl limits "$UNIT_NAME")
+(! echo "$output" | grep "Memory Max")
+(! echo "$output" | grep "CPU Quota")
+(! echo "$output" | grep "Tasks Max")
+(! echo "$output" | grep "IO Weight")
+# Error cases
+(! systemctl limits hopefully-nonexistent-unit.service)
+
 # Failed-unit related tests
 (! systemd-run --wait --unit "failed.service" false)
 systemctl is-failed failed.service
