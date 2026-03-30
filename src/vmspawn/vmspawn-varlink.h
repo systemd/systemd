@@ -11,7 +11,7 @@ typedef struct VmspawnVarlinkContext VmspawnVarlinkContext;
 VmspawnVarlinkBridge *vmspawn_varlink_bridge_free(VmspawnVarlinkBridge *b);
 DEFINE_TRIVIAL_CLEANUP_FUNC(VmspawnVarlinkBridge *, vmspawn_varlink_bridge_free);
 
-int vmspawn_varlink_setup(VmspawnVarlinkContext **ret, int qmp_fd, sd_event *event, const char *runtime_dir, char **ret_varlink_address);
+int vmspawn_varlink_setup(VmspawnVarlinkContext **ret, int qmp_fd, sd_event *event, const char *runtime_dir, char **ret_control_address);
 VmspawnVarlinkContext *vmspawn_varlink_context_free(VmspawnVarlinkContext *ctx);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(VmspawnVarlinkContext *, vmspawn_varlink_context_free);
