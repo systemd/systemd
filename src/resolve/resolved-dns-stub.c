@@ -83,9 +83,7 @@ int dns_stub_listener_extra_new(
 
         assert(ret);
 
-        DnsStubListenerExtra *l;
-
-        l = new(DnsStubListenerExtra, 1);
+        DnsStubListenerExtra *l = new(DnsStubListenerExtra, 1);
         if (!l)
                 return -ENOMEM;
 

@@ -125,6 +125,7 @@ static int macsec_receive_channel_new(MACsec *s, uint64_t sci, ReceiveChannel **
         ReceiveChannel *c;
 
         assert(s);
+        assert(ret);
 
         c = new(ReceiveChannel, 1);
         if (!c)

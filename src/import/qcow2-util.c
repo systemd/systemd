@@ -154,9 +154,7 @@ static int normalize_offset(
         POINTER_MAY_BE_NULL(compressed);
         POINTER_MAY_BE_NULL(compressed_size);
 
-        uint64_t q;
-
-        q = be64toh(p);
+        uint64_t q = be64toh(p);
 
         if (q & QCOW2_COMPRESSED) {
                 uint64_t sz, csize_shift, csize_mask;

@@ -931,6 +931,7 @@ static int activation_details_path_deserialize(const char *key, const char *valu
 
         assert(key);
         assert(value);
+        POINTER_MAY_BE_NULL(details);
 
         if (!details || !*details)
                 return -EINVAL;

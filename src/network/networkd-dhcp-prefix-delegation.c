@@ -557,6 +557,7 @@ static int dhcp_pd_get_preferred_subnet_prefix(
         assert(link->manager);
         assert(link->network);
         assert(pd_prefix);
+        assert(ret);
 
         if (link->network->dhcp_pd_subnet_id >= 0) {
                 /* If the link has a preference for a particular subnet id try to allocate that */

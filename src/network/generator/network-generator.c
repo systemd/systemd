@@ -119,6 +119,7 @@ static int address_new(
         assert(network);
         assert(IN_SET(family, AF_INET, AF_INET6));
         assert(addr);
+        POINTER_MAY_BE_NULL(peer);
 
         address = new(Address, 1);
         if (!address)

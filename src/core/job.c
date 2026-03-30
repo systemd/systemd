@@ -510,6 +510,8 @@ JobType job_type_collapse(JobType t, Unit *u) {
 int job_type_merge_and_collapse(JobType *a, JobType b, Unit *u) {
         JobType t;
 
+        assert(a);
+
         t = job_type_lookup_merge(*a, b);
         if (t < 0)
                 return -EEXIST;
@@ -1523,6 +1525,11 @@ void job_add_to_gc_queue(Job *j) {
 }
 
 static int job_compare_id(Job * const *a, Job * const *b) {
+        assert(a);
+        assert(b);
+        assert(*a);
+        assert(*b);
+
         return CMP((*a)->id, (*b)->id);
 }
 
