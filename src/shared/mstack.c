@@ -578,7 +578,7 @@ int mstack_open_images(
 
                                 r = loop_device_make(
                                                 m->what_fd,
-                                                FLAGS_SET(flags, MSTACK_RDONLY) ? O_RDONLY : O_RDWR,
+                                                FLAGS_SET(flags, MSTACK_RDONLY) ? O_RDONLY : -1,
                                                 /* offset= */ 0,
                                                 /* size= */ UINT64_MAX,
                                                 /* sector_size= */ UINT32_MAX,
