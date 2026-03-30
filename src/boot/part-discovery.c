@@ -1,10 +1,12 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "device-path-util.h"
+#include "efi-log.h"
 #include "part-discovery.h"
 #include "proto/block-io.h"
 #include "proto/device-path.h"
 #include "proto/disk-io.h"
+#include "string-util-fundamental.h"
 #include "util.h"
 
 typedef struct {
@@ -294,6 +296,107 @@ EFI_STATUS partition_open(const EFI_GUID *type, EFI_HANDLE *device, EFI_HANDLE *
         return EFI_SUCCESS;
 }
 
+static char16_t* disk_get_part_uuid_cdrom(EFI_DEVICE_PATH *dp) {
+        EFI_STATUS err;
+
+        assert(dp);
+
+        /* When booting from a CD-ROM via El Torito, the device path contains a CDROM node instead of
+         * a HARDDRIVE node. The CDROM node doesn't carry a partition UUID, so we need to read the GPT
+         * from the underlying disk to find it. */
+
+        CDROM_DEVICE_PATH *cdrom = NULL;
+        for (EFI_DEVICE_PATH *node = dp; !device_path_is_end(node); node = device_path_next_node(node))
+                if (node->Type == MEDIA_DEVICE_PATH && node->SubType == MEDIA_CDROM_DP)
+                        cdrom = (CDROM_DEVICE_PATH *) node;
+
+        if (!cdrom) {
+                log_debug("No CDROM device path node found.");
+                return NULL;
+        }
+
+        /* Chop off the CDROM node to get the whole-disk device path */
+        _cleanup_free_ EFI_DEVICE_PATH *disk_path = device_path_replace_node(dp, &cdrom->Header, NULL);
+
+        EFI_DEVICE_PATH *remaining = disk_path;
+        EFI_HANDLE disk_handle;
+        err = BS->LocateDevicePath(MAKE_GUID_PTR(EFI_BLOCK_IO_PROTOCOL), &remaining, &disk_handle);
+        if (err != EFI_SUCCESS) {
+                log_debug_status(err, "Failed to locate disk device for CDROM: %m");
+                return NULL;
+        }
+
+        (void) BS->ConnectController(disk_handle, NULL, NULL, true);
+
+        EFI_BLOCK_IO_PROTOCOL *block_io;
+        err = BS->HandleProtocol(disk_handle, MAKE_GUID_PTR(EFI_BLOCK_IO_PROTOCOL), (void **) &block_io);
+        if (err != EFI_SUCCESS) {
+                log_debug_status(err, "Failed to get block I/O protocol for CDROM disk: %m");
+                return NULL;
+        }
+
+        if (block_io->Media->LogicalPartition || !block_io->Media->MediaPresent ||
+            block_io->Media->LastBlock <= 1) {
+                log_debug("CDROM disk has unsuitable media (partition=%ls, present=%ls, lastblock=%" PRIu64 ").",
+                          yes_no(block_io->Media->LogicalPartition),
+                          yes_no(block_io->Media->MediaPresent),
+                          (uint64_t) block_io->Media->LastBlock);
+                return NULL;
+        }
+
+        uint32_t block_size = block_io->Media->BlockSize;
+        if (block_size < 512 || block_size > 4096 || !ISPOWEROF2(block_size)) {
+                log_debug("Unexpected CDROM block size %" PRIu32 ", skipping.", block_size);
+                return NULL;
+        }
+
+        EFI_DISK_IO_PROTOCOL *disk_io;
+        err = BS->HandleProtocol(disk_handle, MAKE_GUID_PTR(EFI_DISK_IO_PROTOCOL), (void **) &disk_io);
+        if (err != EFI_SUCCESS) {
+                log_debug_status(err, "Failed to get disk I/O protocol for CDROM disk: %m");
+                return NULL;
+        }
+
+        uint32_t media_id = block_io->Media->MediaId;
+
+        /* Probe for the GPT header at multiple possible sector sizes (512, 1024, 2048, 4096).
+         * The GPT header is at LBA 1, i.e. byte offset == sector_size. On CD-ROMs, the GPT
+         * may use a different sector size than the media's block size (e.g. 512-byte GPT sectors
+         * on 2048-byte CD-ROM blocks), so we try all possibilities. */
+        uint32_t sector_size = 0;
+        GptHeader gpt;
+        _cleanup_free_ void *entries = NULL;
+        for (uint32_t ss = 512; ss <= 4096; ss <<= 1) {
+                err = read_gpt_entries(disk_io, media_id, ss, /* lba= */ 1, /* reterr_backup_lba= */ NULL, &gpt, &entries);
+                if (err == EFI_SUCCESS) {
+                        sector_size = ss;
+                        break;
+                }
+        }
+
+        if (sector_size == 0) {
+                log_debug("No valid GPT found on CDROM at any sector size.");
+                return NULL;
+        }
+
+        log_debug("Found GPT on CDROM with sector size %" PRIu32 ", %" PRIu32 " partition entries.",
+                  sector_size, gpt.NumberOfPartitionEntries);
+
+        /* Find the partition whose byte offset matches the CDROM's PartitionStart.
+         * CDROM PartitionStart is in media block_size units, GPT StartingLBA is in sector_size units. */
+        for (size_t i = 0; i < gpt.NumberOfPartitionEntries; i++) {
+                EFI_PARTITION_ENTRY *entry =
+                                (EFI_PARTITION_ENTRY *) ((uint8_t *) entries + gpt.SizeOfPartitionEntry * i);
+
+                if (entry->StartingLBA * sector_size == cdrom->PartitionStart * block_size)
+                        return xasprintf(GUID_FORMAT_STR, GUID_FORMAT_VAL(entry->UniquePartitionGUID));
+        }
+
+        log_debug("No GPT partition matches CDROM start offset %" PRIu64 " (block size %" PRIu32 ").",
+                  cdrom->PartitionStart, block_size);
+        return NULL;
+}
+
 char16_t *disk_get_part_uuid(EFI_HANDLE *handle) {
         EFI_STATUS err;
         EFI_DEVICE_PATH *dp;
@@ -307,16 +410,17 @@ char16_t *disk_get_part_uuid(EFI_HANDLE *handle) {
         if (err != EFI_SUCCESS)
                 return NULL;
 
-        for (; !device_path_is_end(dp); dp = device_path_next_node(dp)) {
-                if (dp->Type != MEDIA_DEVICE_PATH || dp->SubType != MEDIA_HARDDRIVE_DP)
+        for (EFI_DEVICE_PATH *node = dp; !device_path_is_end(node); node = device_path_next_node(node)) {
+                if (node->Type != MEDIA_DEVICE_PATH || node->SubType != MEDIA_HARDDRIVE_DP)
                         continue;
 
-                HARDDRIVE_DEVICE_PATH *hd = (HARDDRIVE_DEVICE_PATH *) dp;
+                HARDDRIVE_DEVICE_PATH *hd = (HARDDRIVE_DEVICE_PATH *) node;
                 if (hd->SignatureType != SIGNATURE_TYPE_GUID)
                         continue;
 
                 return xasprintf(GUID_FORMAT_STR, GUID_FORMAT_VAL(hd->SignatureGuid));
         }
 
-        return NULL;
+        /* No GPT partition node found — try CDROM device path as fallback */
+        return disk_get_part_uuid_cdrom(dp);
 }
