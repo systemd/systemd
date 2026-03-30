@@ -773,8 +773,12 @@ int loop_device_make_by_path_memory(
         int r;
 
         assert(path);
-        assert(IN_SET(open_flags, O_RDWR, O_RDONLY));
+        assert(open_flags < 0 || IN_SET(open_flags, O_RDWR, O_RDONLY));
         assert(ret);
+
+        /* memfds are always writable, so default to O_RDWR when auto-detecting. */
+        if (open_flags < 0)
+                open_flags = O_RDWR;
 
         loop_flags &= ~LO_FLAGS_DIRECT_IO; /* memfds don't support O_DIRECT, hence LO_FLAGS_DIRECT_IO can't be used either */
 

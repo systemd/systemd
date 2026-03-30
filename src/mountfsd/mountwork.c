@@ -521,7 +521,7 @@ static int vl_method_mount_image(
 
         r = loop_device_make(
                         image_fd,
-                        p.read_only > 0 ? O_RDONLY : O_RDWR,
+                        p.read_only > 0 ? O_RDONLY : -1,
                         0,
                         UINT64_MAX,
                         UINT32_MAX,
