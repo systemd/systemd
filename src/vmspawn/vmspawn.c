@@ -90,6 +90,7 @@
 #include "utf8.h"
 #include "vmspawn-mount.h"
 #include "vmspawn-qemu-config.h"
+#include "vmspawn-varlink.h"
 #include "vmspawn-scope.h"
 #include "vmspawn-settings.h"
 #include "vmspawn-util.h"
@@ -3575,6 +3576,13 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         child_vsock_fd = safe_close(child_vsock_fd);
         bridge_fds[1] = safe_close(bridge_fds[1]);
         tap_fd = safe_close(tap_fd);
+
+        /* Set up QMP client and varlink server for VM control */
+        _cleanup_(vmspawn_varlink_context_freep) VmspawnVarlinkContext *varlink_ctx = NULL;
+        _cleanup_free_ char *qmp_varlink_address = NULL;
+        r = vmspawn_varlink_setup(&varlink_ctx, TAKE_FD(bridge_fds[0]), event, runtime_dir, &qmp_varlink_address);
+        if (r < 0)
+                return r;
 
         if (!arg_keep_unit) {
                 /* When a new scope is created for this container, then we'll be registered as its controller, in which
