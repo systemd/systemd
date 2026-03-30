@@ -2324,8 +2324,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (asprintf(&mem, "%" PRIu64 "M", DIV_ROUND_UP(arg_ram, U64_MB)) < 0)
                 return log_oom();
 
-        /* Create our runtime directory. We need this for the QEMU config file, TPM state, virtiofsd
-         * sockets, runtime mounts, and SSH key material. */
+        /* Create our runtime directory. We need this for the QMP varlink control socket, the QEMU
+         * config file, TPM state, virtiofsd sockets, runtime mounts, and SSH key material. */
         _cleanup_free_ char *runtime_dir = NULL, *runtime_dir_suffix = NULL;
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir_destroy = NULL;
 
@@ -3483,6 +3483,29 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_error_errno(r, "Failed to call getsockname on VSOCK: %m");
         }
 
+        /* Create QMP socketpair for QEMU machine monitor control. FORK_CLOEXEC_OFF clears CLOEXEC on
+         * pass_fds in the child, so we don't need to do it manually here (same as TAP and VSOCK fds). */
+        _cleanup_close_pair_ int bridge_fds[2] = EBADF_PAIR;
+        if (socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, bridge_fds) < 0)
+                return log_error_errno(errno, "Failed to create QMP socketpair: %m");
+
+        if (!GREEDY_REALLOC(pass_fds, n_pass_fds + 1))
+                return log_oom();
+        pass_fds[n_pass_fds++] = bridge_fds[1];
+
+        r = qemu_config_section(config_file, "chardev", "qmp",
+                                "backend", "socket");
+        if (r < 0)
+                return r;
+        r = qemu_config_keyf(config_file, "fd", "%d", bridge_fds[1]);
+        if (r < 0)
+                return r;
+        r = qemu_config_section(config_file, "mon", "qmp",
+                                "chardev", "qmp",
+                                "mode", "control");
+        if (r < 0)
+                return r;
+
         /* Finalize the config file and add -readconfig to the cmdline */
         r = fflush_and_check(config_file);
         if (r < 0)
@@ -3550,6 +3573,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         /* Close relevant fds we passed to qemu in the parent. We don't need them anymore. */
         child_pty = safe_close(child_pty);
         child_vsock_fd = safe_close(child_vsock_fd);
+        bridge_fds[1] = safe_close(bridge_fds[1]);
         tap_fd = safe_close(tap_fd);
 
         if (!arg_keep_unit) {
