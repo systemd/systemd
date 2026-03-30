@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "hashmap.h"
 #include "log.h"
@@ -22,24 +23,62 @@ struct VmspawnQmpContext {
         Hashmap *qmp_command_names;
 };
 
+static int qmp_execute_simple(sd_varlink *link, VmspawnQmpContext *ctx, const char *qmp_command) {
+        _cleanup_free_ char *error_class = NULL;
+        int r;
+
+        assert(link);
+        assert(ctx);
+        assert(qmp_command);
+
+        r = qmp_client_execute(ctx->qmp_client, qmp_command, /* arguments= */ NULL, /* ret_result= */ NULL, &error_class);
+        if (ERRNO_IS_NEG_DISCONNECT(r))
+                return sd_varlink_error(link, "io.systemd.VMControl.NotConnected", NULL);
+        if (r == -EIO)
+                return sd_varlink_error(link, "io.systemd.VMControl.NotSupported", NULL);
+        if (r < 0)
+                return sd_varlink_error_errno(link, r);
+
+        return sd_varlink_reply(link, NULL);
+}
+
 static int vl_method_pause(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        return sd_varlink_error(link, "io.systemd.VMControl.NotSupported", NULL);
+        return qmp_execute_simple(link, ASSERT_PTR(userdata), "stop");
 }
 
 static int vl_method_resume(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        return sd_varlink_error(link, "io.systemd.VMControl.NotSupported", NULL);
+        return qmp_execute_simple(link, ASSERT_PTR(userdata), "cont");
 }
 
 static int vl_method_powerdown(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        return sd_varlink_error(link, "io.systemd.VMControl.NotSupported", NULL);
+        return qmp_execute_simple(link, ASSERT_PTR(userdata), "system_powerdown");
 }
 
 static int vl_method_reset(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        return sd_varlink_error(link, "io.systemd.VMControl.NotSupported", NULL);
+        return qmp_execute_simple(link, ASSERT_PTR(userdata), "system_reset");
 }
 
 static int vl_method_query_status(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        return sd_varlink_error(link, "io.systemd.VMControl.NotSupported", NULL);
+        VmspawnQmpContext *ctx = ASSERT_PTR(userdata);
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *result = NULL;
+        _cleanup_free_ char *error_class = NULL;
+        int r;
+
+        r = qmp_client_execute(ctx->qmp_client, "query-status", /* arguments= */ NULL, &result, &error_class);
+        if (ERRNO_IS_NEG_DISCONNECT(r))
+                return sd_varlink_error(link, "io.systemd.VMControl.NotConnected", NULL);
+        if (r == -EIO)
+                return sd_varlink_error(link, "io.systemd.VMControl.NotSupported", NULL);
+        if (r < 0)
+                return sd_varlink_error_errno(link, r);
+
+        sd_json_variant *running = sd_json_variant_by_key(result, "running");
+        sd_json_variant *status = sd_json_variant_by_key(result, "status");
+
+        return sd_varlink_replybo(
+                        link,
+                        SD_JSON_BUILD_PAIR_BOOLEAN("running", running ? sd_json_variant_boolean(running) : false),
+                        SD_JSON_BUILD_PAIR_STRING("status", status ? sd_json_variant_string(status) : "unknown"));
 }
 
 static int vl_method_subscribe_events(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
