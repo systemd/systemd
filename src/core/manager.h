@@ -492,6 +492,10 @@ typedef struct Manager {
 
         unsigned soft_reboots_count;
 
+        /* FDs retrieved from a LUO session for units that weren't loaded yet (e.g. during initrd).
+         * Hashmap: cgroup_path (char*) → Set* of ServiceExtraFD*. */
+        Hashmap *luo_held_fds;
+
         /* Original ambient capabilities when we were initialized */
         uint64_t saved_ambient_set;
 } Manager;
