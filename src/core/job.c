@@ -1525,10 +1525,10 @@ void job_add_to_gc_queue(Job *j) {
 }
 
 static int job_compare_id(Job * const *a, Job * const *b) {
-        assert(a);
-        assert(b);
-        assert(*a);
-        assert(*b);
+        /* Called from sort/hash inner loops, use POINTER_MAY_BE_NULL instead of
+         * assert() to avoid the runtime cost. */
+        POINTER_MAY_BE_NULL(a);
+        POINTER_MAY_BE_NULL(b);
 
         return CMP((*a)->id, (*b)->id);
 }

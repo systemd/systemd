@@ -170,6 +170,9 @@ static int rlimit_parse_nice(const char *val, rlim_t *ret) {
         uint64_t rl;
         int r;
 
+        assert(val);
+        assert(ret);
+
         /* So, Linux is weird. The range for RLIMIT_NICE is 40..1, mapping to the nice levels -20..19. However, the
          * RLIMIT_NICE limit defaults to 0 by the kernel, i.e. a value that maps to nice level 20, which of course is
          * bogus and does not exist. In order to permit parsing the RLIMIT_NICE of 0 here we hence implement a slight

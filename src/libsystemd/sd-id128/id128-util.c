@@ -199,6 +199,8 @@ int id128_write_at(int dir_fd, const char *path, Id128Flag f, sd_id128_t id) {
 }
 
 void id128_hash_func(const sd_id128_t *p, struct siphash *state) {
+        assert(p);
+
         siphash24_compress_typesafe(*p, state);
 }
 
