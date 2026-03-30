@@ -5798,6 +5798,7 @@ static int run_container(
                                 ifi,
                                 /* address= */ NULL,
                                 /* key_path= */ NULL,
+                                /* control_address= */ NULL,
                                 /* allocate_unit= */ false,
                                 /* graceful= */ arg_register < 0,
                                 &registered_system,
