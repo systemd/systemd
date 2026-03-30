@@ -9,6 +9,7 @@
 #include "sd-bus.h"
 #include "sd-event.h"
 #include "sd-journal.h"
+#include "sd-varlink.h"
 
 #include "alloc-util.h"
 #include "ask-password-agent.h"
@@ -47,6 +48,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "pidref.h"
+#include "path-lookup.h"
 #include "polkit-agent.h"
 #include "pretty-print.h"
 #include "process-util.h"
@@ -1118,27 +1120,146 @@ static int verb_reboot_machine(int argc, char *argv[], uintptr_t data, void *use
         return verb_kill_machine(argc, argv, data, userdata);
 }
 
+static int machine_get_varlink_address(const char *machine_name, char **ret);
+static int verb_vm_control_one(const char *machine_name, const char *method);
+
 static int verb_poweroff_machine(int argc, char *argv[], uintptr_t data, void *userdata) {
-        arg_kill_whom = "leader";
-        arg_signal = SIGRTMIN+4; /* only systemd */
-
-        return verb_kill_machine(argc, argv, data, userdata);
-}
-
-static int verb_terminate_machine(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         for (int i = 1; i < argc; i++) {
+                /* VM with varlink control socket: QMP graceful powerdown */
+                r = verb_vm_control_one(argv[i], "io.systemd.MachineInstance.PowerOff");
+                if (r >= 0)
+                        continue;
+                if (r != -EOPNOTSUPP)
+                        return r;
+
+                /* Not a VM: signal-based poweroff */
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                r = bus_call_method(bus, bus_machine_mgr, "KillMachine", &error, NULL,
+                                   "ssi", argv[i], "leader", (int32_t) (SIGRTMIN+4));
+                if (r < 0)
+                        return log_error_errno(r, "Could not kill machine: %s", bus_error_message(&error, r));
+        }
+
+        return 0;
+}
+
+static int verb_terminate_machine(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        sd_bus *bus = ASSERT_PTR(userdata);
+        int r;
+
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
+        for (int i = 1; i < argc; i++) {
+                /* VM with varlink control socket: QMP quit (immediate termination) */
+                r = verb_vm_control_one(argv[i], "io.systemd.MachineInstance.Terminate");
+                if (r >= 0)
+                        continue;
+                if (r != -EOPNOTSUPP)
+                        return r;
+
+                /* Not a VM or no varlink socket: fall back to machined */
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 r = bus_call_method(bus, bus_machine_mgr, "TerminateMachine", &error, NULL, "s", argv[i]);
                 if (r < 0)
                         return log_error_errno(r, "Could not terminate machine: %s", bus_error_message(&error, r));
         }
 
         return 0;
+}
+
+/* Look up the varlinkAddress of a machine by calling machined's Machine.List varlink interface. */
+static int machine_get_varlink_address(const char *machine_name, char **ret) {
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
+        const char *error_id = NULL;
+        int r;
+
+        assert(machine_name);
+        assert(ret);
+
+        _cleanup_free_ char *p = NULL;
+        r = runtime_directory_generic(RUNTIME_SCOPE_SYSTEM, "systemd/machine/io.systemd.Machine", &p);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine Machine varlink socket path: %m");
+
+        r = sd_varlink_connect_address(&vl, p);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to machined varlink: %m");
+
+        r = sd_varlink_callbo(
+                        vl,
+                        "io.systemd.Machine.List",
+                        &reply,
+                        &error_id,
+                        SD_JSON_BUILD_PAIR_STRING("name", machine_name));
+        if (r < 0)
+                return log_error_errno(r, "Failed to list machine: %m");
+        if (error_id)
+                return log_error_errno(sd_varlink_error_to_errno(error_id, reply),
+                                       "Failed to look up machine '%s': %s", machine_name, error_id);
+
+        sd_json_variant *addr = sd_json_variant_by_key(reply, "varlinkAddress");
+        if (!addr || !sd_json_variant_is_string(addr))
+                return -EOPNOTSUPP; /* No varlink control socket, caller decides whether to log */
+
+        char *a = strdup(sd_json_variant_string(addr));
+        if (!a)
+                return log_oom();
+
+        *ret = a;
+        return 0;
+}
+
+static int verb_vm_control_one(const char *machine_name, const char *method) {
+        _cleanup_free_ char *address = NULL;
+        int r;
+
+        r = machine_get_varlink_address(machine_name, &address);
+        if (r < 0)
+                return r;
+
+        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        r = sd_varlink_connect_address(&vl, address);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to VM control socket: %m");
+
+        const char *error_id = NULL;
+        r = sd_varlink_call(vl, method, /* parameters= */ NULL, /* ret_reply= */ NULL, &error_id);
+        if (r < 0)
+                return log_error_errno(r, "Failed to call %s: %m", method);
+        if (error_id)
+                return log_error_errno(sd_varlink_error_to_errno(error_id, NULL),
+                                       "VM control call failed: %s", error_id);
+
+        return 0;
+}
+
+static int verb_vm_control(int argc, char *argv[], const char *method) {
+        int r;
+
+        for (int i = 1; i < argc; i++) {
+                r = verb_vm_control_one(argv[i], method);
+                if (r < 0) {
+                        if (r == -EOPNOTSUPP)
+                                return log_error_errno(r, "Machine '%s' does not expose a varlink control socket.", argv[i]);
+                        return r;
+                }
+        }
+
+        return 0;
+}
+
+static int verb_pause(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        return verb_vm_control(argc, argv, "io.systemd.MachineInstance.Pause");
+}
+
+static int verb_resume(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        return verb_vm_control(argc, argv, "io.systemd.MachineInstance.Resume");
 }
 
 static const char *select_copy_method(bool copy_from, bool force) {
@@ -2479,6 +2600,8 @@ static int machinectl_main(int argc, char *argv[], sd_bus *bus) {
                 { "enable",          2,        VERB_ANY, 0,            verb_enable_machine    },
                 { "disable",         2,        VERB_ANY, 0,            verb_enable_machine    },
                 { "set-limit",       2,        3,        0,            verb_set_limit         },
+                { "pause",           2,        VERB_ANY, 0,            verb_pause             },
+                { "resume",          2,        VERB_ANY, 0,            verb_resume            },
                 { "clean",           VERB_ANY, 1,        0,            verb_clean_images      },
                 {}
         };
