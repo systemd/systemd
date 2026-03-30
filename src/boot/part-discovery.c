@@ -4,6 +4,7 @@
 #include "part-discovery.h"
 #include "proto/block-io.h"
 #include "proto/device-path.h"
+#include "proto/disk-io.h"
 #include "util.h"
 
 typedef struct {
@@ -72,80 +73,60 @@ static bool verify_gpt(/* const */ GptHeader *h, EFI_LBA lba_expected) {
 
 static EFI_STATUS try_gpt(
                 const EFI_GUID *type,
-                EFI_BLOCK_IO_PROTOCOL *block_io,
+                EFI_DISK_IO_PROTOCOL *disk_io,
+                uint32_t media_id,
+                uint32_t block_size,
                 EFI_LBA lba,
                 EFI_LBA *ret_backup_lba, /* May be changed even on error! */
                 HARDDRIVE_DEVICE_PATH *ret_hd) {
 
-        EFI_PARTITION_ENTRY *entries;
-        _cleanup_pages_ Pages gpt_pages = {};
-        _cleanup_pages_ Pages entries_pages = {};
-        GptHeader *gpt;
+        GptHeader gpt;
         EFI_STATUS err;
         uint32_t crc32;
         size_t size;
 
-        assert(block_io);
-        assert(block_io->Media);
+        assert(disk_io);
         assert(ret_hd);
 
-        gpt_pages = xmalloc_aligned_pages(
-                AllocateMaxAddress,
-                EfiLoaderData,
-                EFI_SIZE_TO_PAGES(sizeof(GptHeader)),
-                block_io->Media->IoAlign,
-                /* On 32-bit allocate below 4G boundary as we can't easily access anything above that.
-                 * 64-bit platforms don't suffer this limitation, so we can allocate from anywhere.
-                 * addr= */ UINTPTR_MAX);
-        gpt = PHYSICAL_ADDRESS_TO_POINTER(gpt_pages.addr);
-
         /* Read the GPT header */
-        err = block_io->ReadBlocks(
-                        block_io,
-                        block_io->Media->MediaId,
-                        lba,
-                        sizeof(*gpt), gpt);
+        uint64_t offset;
+        if (!MUL_SAFE(&offset, lba, block_size))
+                return EFI_INVALID_PARAMETER;
+
+        err = disk_io->ReadDisk(disk_io, media_id, offset, sizeof(gpt), &gpt);
         if (err != EFI_SUCCESS)
                 return err;
 
         /* Indicate the location of backup LBA even if the rest of the header is corrupt. */
         if (ret_backup_lba)
-                *ret_backup_lba = gpt->AlternateLBA;
+                *ret_backup_lba = gpt.AlternateLBA;
 
-        if (!verify_gpt(gpt, lba))
+        if (!verify_gpt(&gpt, lba))
                 return EFI_NOT_FOUND;
 
         /* Now load the GPT entry table */
-        size = ALIGN_TO((size_t) gpt->SizeOfPartitionEntry * (size_t) gpt->NumberOfPartitionEntries, 512);
+        size = (size_t) gpt.SizeOfPartitionEntry * (size_t) gpt.NumberOfPartitionEntries;
         if (size == SIZE_MAX) /* overflow check */
                 return EFI_OUT_OF_RESOURCES;
-        entries_pages = xmalloc_aligned_pages(
-                AllocateMaxAddress,
-                EfiLoaderData,
-                EFI_SIZE_TO_PAGES(size),
-                block_io->Media->IoAlign,
-                /* On 32-bit allocate below 4G boundary as we can't easily access anything above that.
-                 * 64-bit platforms don't suffer this limitation, so we can allocate from anywhere.
-                 * addr= */ UINTPTR_MAX);
-        entries = PHYSICAL_ADDRESS_TO_POINTER(entries_pages.addr);
 
-        err = block_io->ReadBlocks(
-                        block_io,
-                        block_io->Media->MediaId,
-                        gpt->PartitionEntryLBA,
-                        size, entries);
+        _cleanup_free_ void *entries = xmalloc(size);
+
+        if (!MUL_SAFE(&offset, gpt.PartitionEntryLBA, block_size))
+                return EFI_INVALID_PARAMETER;
+
+        err = disk_io->ReadDisk(disk_io, media_id, offset, size, entries);
         if (err != EFI_SUCCESS)
                 return err;
 
         /* Calculate CRC of entries array, too */
         err = BS->CalculateCrc32(entries, size, &crc32);
-        if (err != EFI_SUCCESS || crc32 != gpt->PartitionEntryArrayCRC32)
+        if (err != EFI_SUCCESS || crc32 != gpt.PartitionEntryArrayCRC32)
                 return EFI_CRC_ERROR;
 
         /* Now we can finally look for xbootloader partitions. */
-        for (size_t i = 0; i < gpt->NumberOfPartitionEntries; i++) {
+        for (size_t i = 0; i < gpt.NumberOfPartitionEntries; i++) {
                 EFI_PARTITION_ENTRY *entry =
-                                (EFI_PARTITION_ENTRY *) ((uint8_t *) entries + gpt->SizeOfPartitionEntry * i);
+                                (EFI_PARTITION_ENTRY *) ((uint8_t *) entries + gpt.SizeOfPartitionEntry * i);
 
                 if (!efi_guid_equal(&entry->PartitionTypeGUID, type))
                         continue;
@@ -184,7 +165,7 @@ static EFI_STATUS find_device(const EFI_GUID *type, EFI_HANDLE *device, EFI_DEVI
         EFI_DEVICE_PATH *partition_path;
         err = BS->HandleProtocol(device, MAKE_GUID_PTR(EFI_DEVICE_PATH_PROTOCOL), (void **) &partition_path);
         if (err != EFI_SUCCESS)
-                return err;
+                return log_debug_status(err, "Failed to get device path: %m");
 
         /* Find the (last) partition node itself. */
         EFI_DEVICE_PATH *part_node = NULL;
@@ -207,7 +188,7 @@ static EFI_STATUS find_device(const EFI_GUID *type, EFI_HANDLE *device, EFI_DEVI
         EFI_BLOCK_IO_PROTOCOL *block_io;
         err = BS->LocateDevicePath(MAKE_GUID_PTR(EFI_BLOCK_IO_PROTOCOL), &p, &disk_handle);
         if (err != EFI_SUCCESS)
-                return err;
+                return log_debug_status(err, "Failed to locate disk device: %m");
 
         /* The drivers for other partitions on this drive may not be initialized on fastboot firmware, so we
          * have to ask the firmware to do just that. */
@@ -215,15 +196,21 @@ static EFI_STATUS find_device(const EFI_GUID *type, EFI_HANDLE *device, EFI_DEVI
 
         err = BS->HandleProtocol(disk_handle, MAKE_GUID_PTR(EFI_BLOCK_IO_PROTOCOL), (void **) &block_io);
         if (err != EFI_SUCCESS)
-                return err;
+                return log_debug_status(err, "Failed to get block I/O protocol: %m");
 
         /* Filter out some block devices early. (We only care about block devices that aren't
          * partitions themselves — we look for GPT partition tables to parse after all —, and only
          * those which contain a medium and have at least 2 blocks.) */
         if (block_io->Media->LogicalPartition ||
             !block_io->Media->MediaPresent ||
-            block_io->Media->LastBlock <= 1)
+            block_io->Media->LastBlock <= 1 ||
+            block_io->Media->BlockSize < 512 || block_io->Media->BlockSize > 4096)
                 return EFI_NOT_FOUND;
+
+        EFI_DISK_IO_PROTOCOL *disk_io;
+        err = BS->HandleProtocol(disk_handle, MAKE_GUID_PTR(EFI_DISK_IO_PROTOCOL), (void **) &disk_io);
+        if (err != EFI_SUCCESS)
+                return log_debug_status(err, "Failed to get disk I/O protocol: %m");
 
         /* Try several copies of the GPT header, in case one is corrupted */
         EFI_LBA backup_lba = 0;
@@ -243,7 +230,7 @@ static EFI_STATUS find_device(const EFI_GUID *type, EFI_HANDLE *device, EFI_DEVI
                         continue;
 
                 HARDDRIVE_DEVICE_PATH hd;
-                err = try_gpt(type, block_io, lba,
+                err = try_gpt(type, disk_io, block_io->Media->MediaId, block_io->Media->BlockSize, lba,
                         nr == 0 ? &backup_lba : NULL, /* Only get backup LBA location from first GPT header. */
                         &hd);
                 if (err != EFI_SUCCESS) {
