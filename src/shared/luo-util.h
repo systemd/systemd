@@ -2,6 +2,7 @@
 #pragma once
 
 #include "basic-forward.h"
+#include "sd-forward.h"
 
 #define LUO_SESSION_NAME "systemd"
 
@@ -28,3 +29,6 @@ int luo_retrieve_session(int device_fd, const char *name);
 int luo_session_preserve_fd(int session_fd, int fd, uint64_t token);
 int luo_session_retrieve_fd(int session_fd, uint64_t token);
 int luo_session_finish(int session_fd);
+
+int luo_parse_serialization(sd_json_variant **ret, int **ret_fds, size_t *ret_n_fds);
+int luo_preserve_fd_stores(sd_json_variant *serialization, int *ret_session_fd);
