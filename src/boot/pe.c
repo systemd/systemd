@@ -5,6 +5,7 @@
 #include "efi-firmware.h"
 #include "efi-log.h"
 #include "pe.h"
+#include "unaligned-fundamental.h"
 #include "util.h"
 
 #define DOS_FILE_MAGIC "MZ"
@@ -460,7 +461,12 @@ static uint32_t get_compatibility_entry_address(const DosFileHeader *dos, const 
         return 0;
 }
 
-EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_entry_point, uint32_t *ret_compat_entry_point, size_t *ret_size_in_memory) {
+EFI_STATUS pe_kernel_info(
+                const void *base,
+                uint32_t *ret_entry_point,
+                uint32_t *ret_compat_entry_point,
+                size_t *ret_size_in_memory,
+                size_t *ret_headers_size) {
         assert(base);
 
         const DosFileHeader *dos = (const DosFileHeader *) base;
@@ -474,6 +480,7 @@ EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_entry_point, uint32_t 
         /* When allocating we need to also consider the virtual/uninitialized data sections, so parse it out
          * of the SizeOfImage field in the PE header and return it */
         size_t size_in_memory = pe->OptionalHeader.SizeOfImage;
+        size_t headers_size = pe->OptionalHeader.SizeOfHeaders;
 
         /* Support for LINUX_INITRD_MEDIA_GUID was added in kernel stub 1.0. */
         if (pe->OptionalHeader.MajorImageVersion < 1)
@@ -486,6 +493,8 @@ EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_entry_point, uint32_t 
                         *ret_compat_entry_point = 0;
                 if (ret_size_in_memory)
                         *ret_size_in_memory = size_in_memory;
+                if (ret_headers_size)
+                        *ret_headers_size = headers_size;
                 return EFI_SUCCESS;
         }
 
@@ -500,6 +509,8 @@ EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_entry_point, uint32_t 
                 *ret_compat_entry_point = compat_entry_point;
         if (ret_size_in_memory)
                 *ret_size_in_memory = size_in_memory;
+        if (ret_headers_size)
+                *ret_headers_size = headers_size;
 
         return EFI_SUCCESS;
 }
@@ -507,36 +518,122 @@ EFI_STATUS pe_kernel_info(const void *base, uint32_t *ret_entry_point, uint32_t 
 /* https://learn.microsoft.com/en-us/windows/win32/debug/pe-format#optional-header-data-directories-image-only */
 #define BASE_RELOCATION_TABLE_DATA_DIRECTORY_ENTRY 5
 
-/* We do not expect PE inner kernels to have any relocations. However that might be wrong for some
- * architectures, or it might change in the future. If the case of relocation arise, we should transform this
- * function in a function applying the relocations. However for now, since it would not be exercised and
- * would bitrot, we leave it as a check that relocations are never expected.
- */
-EFI_STATUS pe_kernel_check_no_relocation(const void *base) {
-        assert(base);
+/* https://learn.microsoft.com/en-us/windows/win32/debug/pe-format#base-relocation-types */
+#define IMAGE_REL_BASED_ABSOLUTE 0
+#define IMAGE_REL_BASED_DIR64    10
 
-        const DosFileHeader *dos = base;
+/* Apply the subset of PE base relocations we need for 64-bit kernels.
+ *
+ * Our custom inner-kernel loader does not go through UEFI LoadImage(), hence it must
+ * apply the relocation directory itself whenever the image is loaded away from its
+ * preferred PE ImageBase. At the moment we only support IMAGE_REL_BASED_DIR64, which
+ * is sufficient for the affected 64-bit kernels.
+ *
+ * See: https://learn.microsoft.com/en-us/windows/win32/debug/pe-format#the-reloc-section-image-only
+ */
+EFI_STATUS pe_kernel_apply_relocations(
+                const void *file_base,
+                uint8_t *loaded_base,
+                size_t loaded_size,
+                uint64_t actual_base) {
+
+        assert(file_base);
+        assert(loaded_base);
+
+        const DosFileHeader *dos = file_base;
         if (!verify_dos(dos))
                 return EFI_LOAD_ERROR;
 
-        const PeFileHeader *pe = (const PeFileHeader *) ((const uint8_t *) base + dos->ExeHeader);
+        const PeFileHeader *pe = (const PeFileHeader *) ((const uint8_t *) file_base + dos->ExeHeader);
         if (!verify_pe(dos, pe, /* allow_compatibility= */ true))
                 return EFI_LOAD_ERROR;
 
         const PeImageDataDirectory *data_directory;
+        uint32_t n_data_directory;
+        uint64_t image_base;
         switch (pe->OptionalHeader.Magic) {
         case OPTHDR32_MAGIC:
                 data_directory = pe->OptionalHeader.DataDirectory32;
+                n_data_directory = pe->OptionalHeader.NumberOfRvaAndSizes32;
+                image_base = pe->OptionalHeader.ImageBase32;
                 break;
         case OPTHDR64_MAGIC:
                 data_directory = pe->OptionalHeader.DataDirectory64;
+                n_data_directory = pe->OptionalHeader.NumberOfRvaAndSizes64;
+                image_base = pe->OptionalHeader.ImageBase64;
                 break;
         default:
-                assert_not_reached();
+                return EFI_LOAD_ERROR;
         }
 
-        if (data_directory[BASE_RELOCATION_TABLE_DATA_DIRECTORY_ENTRY].Size != 0)
-                return log_error_status(EFI_LOAD_ERROR, "Inner kernel image contains base relocations, which we do not support.");
+        if (n_data_directory <= BASE_RELOCATION_TABLE_DATA_DIRECTORY_ENTRY)
+                return EFI_SUCCESS;
+
+        uint32_t reloc_rva = data_directory[BASE_RELOCATION_TABLE_DATA_DIRECTORY_ENTRY].VirtualAddress;
+        uint32_t reloc_size = data_directory[BASE_RELOCATION_TABLE_DATA_DIRECTORY_ENTRY].Size;
+
+        if (reloc_size == 0)
+                return EFI_SUCCESS;
+
+        uint64_t delta = actual_base - image_base;
+        if (delta == 0)
+                return EFI_SUCCESS;
+
+        if (reloc_rva > loaded_size || reloc_size > loaded_size - reloc_rva)
+                return log_error_status(EFI_LOAD_ERROR, "Base relocation table extends outside loaded image");
+
+        /* Walk the relocation blocks. Each block starts with a header:
+         *   uint32_t VirtualAddress  (page RVA)
+         *   uint32_t SizeOfBlock     (total block size including header)
+         * Followed by uint16_t entries: top 4 bits = type, bottom 12 bits = offset within page */
+        const uint8_t *reloc_ptr = loaded_base + reloc_rva;
+        const uint8_t *reloc_end = reloc_ptr + reloc_size;
+
+        while (reloc_ptr < reloc_end) {
+                size_t remaining = reloc_end - reloc_ptr;
+                if (remaining < 8)
+                        return log_error_status(EFI_LOAD_ERROR, "Truncated relocation block");
+
+                uint32_t page_rva = unaligned_read_ne32(reloc_ptr);
+                uint32_t block_size = unaligned_read_ne32(reloc_ptr + 4);
+
+                if (block_size < 8 || block_size > remaining)
+                        return log_error_status(EFI_LOAD_ERROR, "Invalid relocation block");
+                if ((block_size - 8) % sizeof(uint16_t) != 0)
+                        return log_error_status(EFI_LOAD_ERROR, "Invalid relocation block size");
+
+                size_t n_entries = (block_size - 8) / sizeof(uint16_t);
+
+                for (size_t i = 0; i < n_entries; i++) {
+                        uint16_t entry = unaligned_read_ne16(reloc_ptr + 8 + i * sizeof(uint16_t));
+                        uint16_t type = entry >> 12;
+                        uint16_t offset = entry & 0xFFF;
+
+                        if (page_rva > UINT32_MAX - offset)
+                                return log_error_status(EFI_LOAD_ERROR, "Relocation fixup overflows");
+
+                        uint32_t fixup_rva = page_rva + offset;
+
+                        switch (type) {
+                        case IMAGE_REL_BASED_ABSOLUTE:
+                                /* Padding, skip */
+                                break;
+                        case IMAGE_REL_BASED_DIR64:
+                                if (fixup_rva > loaded_size || sizeof(uint64_t) > loaded_size - fixup_rva)
+                                        return log_error_status(EFI_LOAD_ERROR, "Relocation fixup outside loaded image");
+
+                                unaligned_write_ne64(
+                                                loaded_base + fixup_rva,
+                                                unaligned_read_ne64(loaded_base + fixup_rva) + delta);
+                                break;
+                        default:
+                                return log_error_status(EFI_LOAD_ERROR,
+                                                "Unsupported relocation type %u", type);
+                        }
+                }
+
+                reloc_ptr += block_size;
+        }
 
         return EFI_SUCCESS;
 }
