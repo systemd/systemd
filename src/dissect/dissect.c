@@ -2170,7 +2170,7 @@ static int run(int argc, char *argv[]) {
                         uint32_t loop_flags;
                         int open_flags;
 
-                        open_flags = FLAGS_SET(arg_flags, DISSECT_IMAGE_DEVICE_READ_ONLY) ? O_RDONLY : O_RDWR;
+                        open_flags = FLAGS_SET(arg_flags, DISSECT_IMAGE_DEVICE_READ_ONLY) ? O_RDONLY : -1;
                         loop_flags = FLAGS_SET(arg_flags, DISSECT_IMAGE_NO_PARTITION_TABLE) ? 0 : LO_FLAGS_PARTSCAN;
 
                         if (arg_in_memory)

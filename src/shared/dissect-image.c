@@ -4792,7 +4792,7 @@ int mount_image_privately_interactively(
 
         r = loop_device_make_by_path(
                         image,
-                        FLAGS_SET(flags, DISSECT_IMAGE_DEVICE_READ_ONLY) ? O_RDONLY : O_RDWR,
+                        FLAGS_SET(flags, DISSECT_IMAGE_DEVICE_READ_ONLY) ? O_RDONLY : -1,
                         /* sector_size= */ UINT32_MAX,
                         FLAGS_SET(flags, DISSECT_IMAGE_NO_PARTITION_TABLE) ? 0 : LO_FLAGS_PARTSCAN,
                         LOCK_SH,
