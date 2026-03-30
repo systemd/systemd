@@ -1110,6 +1110,10 @@ int image_discover(
                         if (dot_or_dot_dot(fname))
                                 continue;
 
+                        /* Ignore sysupdate temporary files */
+                        if (startswith(fname, ".sysupdate."))
+                                continue;
+
                         fname_path = path_join(search_path, fname);
                         if (!fname_path)
                                 return -ENOMEM;
