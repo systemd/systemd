@@ -96,6 +96,7 @@ typedef struct Machine {
         unsigned vsock_cid;
         char *ssh_address;
         char *ssh_private_key_path;
+        char *varlink_address;
 
         LIST_HEAD(Operation, operations);
 
