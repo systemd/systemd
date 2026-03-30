@@ -120,6 +120,7 @@ shared_sources = files(
         'logs-show.c',
         'loop-util.c',
         'loopback-setup.c',
+        'machine-register.c',
         'lsm-util.c',
         'machine-bind-user.c',
         'machine-credential.c',

@@ -22,6 +22,7 @@
 #include "main-func.h"
 #include "microhttpd-util.h"
 #include "parse-argument.h"
+#include "path-util.h"
 #include "parse-helpers.h"
 #include "parse-util.h"
 #include "pretty-print.h"
@@ -827,6 +828,27 @@ static int parse_config(void) {
                 { "Remote",  "Compression",            config_parse_compression,      0, &arg_compression },
                 {}
         };
+
+        const char *config_file = getenv("SYSTEMD_JOURNAL_REMOTE_CONFIG_FILE");
+        if (config_file) {
+                if (path_equal(config_file, "/dev/null"))
+                        return 0;
+
+                const char* const files[] = { config_file, NULL };
+
+                return config_parse_many_full(
+                                files,
+                                /* conf_file_dirs= */ NULL,
+                                /* dropin_dirname= */ NULL,
+                                /* root= */ NULL,
+                                /* root_fd= */ XAT_FDROOT,
+                                "Remote\0",
+                                config_item_table_lookup, items,
+                                CONFIG_PARSE_WARN,
+                                /* userdata= */ NULL,
+                                /* ret_stats_by_path= */ NULL,
+                                /* ret_dropin_files= */ NULL);
+        }
 
         return config_parse_standard_file_with_dropins(
                         "systemd/journal-remote.conf",
