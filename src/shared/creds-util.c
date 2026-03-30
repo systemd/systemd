@@ -1068,6 +1068,8 @@ int encrypt_credential_and_warn(
                 ALIGN8(offsetof(struct metadata_credential_header, name) + strlen_ptr(name)) +
                 input->iov_len + 2U * (size_t) bsz +
                 tsz;
+        /* Silence static analyzers */
+        assert(output.iov_len >= input->iov_len);
 
         output.iov_base = malloc0(output.iov_len);
         if (!output.iov_base)

@@ -120,6 +120,8 @@ int dns_packet_new(
                 a = min_alloc_dsize;
 
         /* round up to next page size */
+        /* Silence static analyzers */
+        assert(a <= SIZE_MAX - ALIGN(sizeof(DnsPacket)));
         a = PAGE_ALIGN(ALIGN(sizeof(DnsPacket)) + a) - ALIGN(sizeof(DnsPacket));
 
         /* make sure we never allocate more than useful */
@@ -226,6 +228,8 @@ int dns_packet_dup(DnsPacket **ret, DnsPacket *p) {
         if (r < 0)
                 return r;
 
+        /* Silence static analyzers */
+        assert(p->size <= SIZE_MAX - ALIGN(sizeof(DnsPacket)));
         c = malloc(ALIGN(sizeof(DnsPacket)) + p->size);
         if (!c)
                 return -ENOMEM;
