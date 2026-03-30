@@ -1609,8 +1609,10 @@ int transfer_process_partial_and_pending_instance(Transfer *t, Instance *i) {
 
         /* Does this instance already exist in the target but isn’t pending? */
         existing = resource_find_instance(&t->target, i->metadata.version);
-        if (existing && !existing->is_pending)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to acquire '%s', instance is already in the target but is not pending.", i->path);
+        if (existing && !existing->is_pending) {
+                log_info("Resource '%s' instance is already in the target but is not pending.", i->path);
+                return 0;
+        }
 
         /* All we need to do is compute the temporary paths. We don’t need to do any of the other work in
          * transfer_acquire_instance(). */
