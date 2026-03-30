@@ -1334,7 +1334,9 @@ static int target_method_get_version(sd_bus_message *msg, void *userdata, sd_bus
 
         version_json = sd_json_variant_by_key(v, "current");
         if (!version_json)
-                return log_sysupdate_bad_json(SYNTHETIC_ERRNO(EPROTO), "list", "Missing key 'current'");
+                version_json = sd_json_variant_by_key(v, "current+pending");
+        if (!version_json)
+                return log_sysupdate_bad_json(SYNTHETIC_ERRNO(EPROTO), "list", "Missing key 'current' or 'current+pending'");
 
         if (sd_json_variant_is_null(version_json))
                 return sd_bus_reply_method_return(msg, "s", "");
