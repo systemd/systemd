@@ -4,9 +4,17 @@
 #include <linux/liveupdate.h>
 #include <sys/ioctl.h>
 
+#include "sd-json.h"
+
+#include "alloc-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "fileio.h"
+#include "json-util.h"
+#include "log.h"
 #include "luo-util.h"
+#include "memfd-util.h"
+#include "parse-util.h"
 #include "string-util.h"
 
 /* Kernel API defined at https://docs.kernel.org/userspace-api/liveupdate.html The /dev/liveupdate is a
@@ -102,4 +110,204 @@ int luo_session_finish(int session_fd) {
         assert(session_fd >= 0);
 
         return RET_NERRNO(ioctl(session_fd, LIVEUPDATE_SESSION_FINISH, &args));
+}
+
+int luo_parse_serialization(sd_json_variant **ret, int **ret_fds, size_t *ret_n_fds) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *root = NULL;
+        _cleanup_free_ int *fd_list = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        size_t n_fds = 0;
+        int serialize_fd = -EBADF, r;
+
+        assert(ret);
+        assert(ret_fds);
+        assert(ret_n_fds);
+
+        const char *luo_fd_str = secure_getenv("SYSTEMD_LUO_SERIALIZE_FD");
+        if (!luo_fd_str) {
+                *ret = NULL;
+                *ret_fds = NULL;
+                *ret_n_fds = 0;
+                return 0;
+        }
+
+        serialize_fd = parse_fd(luo_fd_str);
+        if (serialize_fd < 0)
+                return log_warning_errno(serialize_fd,
+                                         "Failed to parse SYSTEMD_LUO_SERIALIZE_FD='%s': %m", luo_fd_str);
+
+        r = fdopen_independent(serialize_fd, "r", &f);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to open LUO serialization fd %d: %m", serialize_fd);
+
+        r = sd_json_parse_file(f, /* path= */ NULL, SD_JSON_PARSE_MUST_BE_OBJECT, &root, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to parse LUO serialization JSON: %m");
+
+        /* Collect all fd numbers referenced in the JSON (plus the serialization fd itself)
+         * so the caller can protect them from close_all_fds(). */
+        const char *unit_id _unused_;
+        sd_json_variant *unit_entries;
+
+        JSON_VARIANT_OBJECT_FOREACH(unit_id, unit_entries, root) {
+                sd_json_variant *entry;
+
+                JSON_VARIANT_ARRAY_FOREACH(entry, unit_entries) {
+                        struct {
+                                int fd;
+                        } p = {
+                                .fd = -EBADF,
+                        };
+
+                        static const sd_json_dispatch_field dispatch_table[] = {
+                                { "fd", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int, voffsetof(p, fd), 0 },
+                                {}
+                        };
+
+                        r = sd_json_dispatch(entry, dispatch_table, SD_JSON_ALLOW_EXTENSIONS|SD_JSON_LOG|SD_JSON_WARNING, &p);
+                        if (r < 0)
+                                continue;
+
+                        if (p.fd < 0)
+                                continue;
+
+                        if (!GREEDY_REALLOC(fd_list, n_fds + 1))
+                                return log_oom();
+
+                        fd_list[n_fds++] = p.fd;
+                }
+        }
+
+        /* Also protect the serialization fd itself */
+        if (!GREEDY_REALLOC(fd_list, n_fds + 1))
+                return log_oom();
+        fd_list[n_fds++] = serialize_fd;
+
+        log_debug("Parsed LUO serialization with %zu fd(s) to preserve.", n_fds);
+
+        *ret = TAKE_PTR(root);
+        *ret_fds = TAKE_PTR(fd_list);
+        *ret_n_fds = n_fds;
+        return 0;
+}
+
+int luo_preserve_fd_stores(sd_json_variant *serialization, int *ret_session_fd) {
+        _cleanup_close_ int device_fd = -EBADF, session_fd = -EBADF;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *mapping = NULL;
+        const char *unit_id;
+        sd_json_variant *entries;
+        uint64_t token = LUO_MAPPING_INDEX + 1;
+        int r;
+
+        assert(ret_session_fd);
+
+        if (!serialization) {
+                *ret_session_fd = -EBADF;
+                return 0; /* No LUO serialization, nothing to preserve */
+        }
+
+        device_fd = luo_open_device();
+        if (ERRNO_IS_NEG_DEVICE_ABSENT(device_fd)) {
+                *ret_session_fd = -EBADF;
+                return 0; /* LUO not supported, ignore */
+        }
+        if (device_fd < 0)
+                return log_error_errno(device_fd, "Failed to open /dev/liveupdate: %m");
+
+        session_fd = luo_create_session(device_fd, LUO_SESSION_NAME);
+        if (session_fd < 0)
+                return log_error_errno(session_fd, "Failed to create LUO session '%s': %m", LUO_SESSION_NAME);
+
+        /* Build the mapping JSON for the new kernel's PID 1 and preserve each fd.
+         * JSON format:   { "unit_id": [ {"type": "fd", "name": "...", "token": N}, ... ], ... }
+         *
+         * For regular fds: type=fd, preserved in the systemd session with the given LUO token. */
+        JSON_VARIANT_OBJECT_FOREACH(unit_id, entries, serialization) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *fd_list = NULL;
+                sd_json_variant *entry;
+
+                JSON_VARIANT_ARRAY_FOREACH(entry, entries) {
+                        struct {
+                                const char *type;
+                                const char *name;
+                                int fd;
+                                const char *session_name;
+                        } p = {
+                                .fd = -EBADF,
+                        };
+
+                        static const sd_json_dispatch_field dispatch_table[] = {
+                                { "type",        SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, voffsetof(p, type),         SD_JSON_MANDATORY },
+                                { "name",        SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, voffsetof(p, name),         SD_JSON_MANDATORY },
+                                { "fd",          _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_int,          voffsetof(p, fd),           0                 },
+                                { "sessionName", SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, voffsetof(p, session_name), 0                 },
+                                {}
+                        };
+
+                        r = sd_json_dispatch(entry, dispatch_table, SD_JSON_ALLOW_EXTENSIONS|SD_JSON_LOG|SD_JSON_WARNING, &p);
+                        if (r < 0)
+                                continue;
+
+                        if (streq(p.type, "fd")) {
+                                if (p.fd < 0) {
+                                        log_warning("LUO mapping for unit '%s' fd '%s': missing or negative fd, skipping.", unit_id, p.name);
+                                        continue;
+                                }
+
+                                /* Regular fd, preserve in the systemd session */
+                                r = luo_session_preserve_fd(session_fd, p.fd, token);
+                                if (r < 0) {
+                                        log_warning_errno(r, "Failed to preserve LUO fd %i (name '%s') with token %" PRIu64 ", will be lost across kexec: %m", p.fd, p.name, token);
+                                        continue;
+                                }
+
+                                r = sd_json_variant_append_arraybo(
+                                                &fd_list,
+                                                SD_JSON_BUILD_PAIR_STRING("type", "fd"),
+                                                SD_JSON_BUILD_PAIR_STRING("name", p.name),
+                                                SD_JSON_BUILD_PAIR_UNSIGNED("token", token));
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to build LUO mapping: %m");
+
+                                ++token;
+                        } else
+                                log_warning("Unknown fd type '%s' for unit '%s' fd '%s', skipping.", p.type, unit_id, p.name);
+                }
+
+                if (fd_list) {
+                        r = sd_json_variant_set_field(&mapping, unit_id, fd_list);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to add unit to LUO mapping: %m");
+                }
+        }
+
+        if (!mapping) {
+                log_debug("No fds were preserved in LUO session.");
+                *ret_session_fd = -EBADF;
+                return 0;
+        }
+
+        /* Store the mapping as a memfd at LUO token 0 */
+        _cleanup_free_ char *mapping_text = NULL;
+
+        r = sd_json_variant_format(mapping, /* flags= */ 0, &mapping_text);
+        if (r < 0)
+                return log_error_errno(r, "Failed to format LUO mapping JSON: %m");
+
+        _cleanup_close_ int mapping_fd = -EBADF;
+
+        mapping_fd = memfd_new_and_seal_string("luo-mapping", mapping_text);
+        if (mapping_fd < 0)
+                return log_error_errno(mapping_fd, "Failed to create LUO mapping memfd: %m");
+
+        r = luo_session_preserve_fd(session_fd, mapping_fd, LUO_MAPPING_INDEX);
+        if (r < 0)
+                return log_error_errno(r, "Failed to preserve LUO mapping memfd: %m");
+
+        log_info("Preserved fd stores in LUO session '%s' for kexec.", LUO_SESSION_NAME);
+
+        /* Return the session fd to the caller as it must stay open until the kexec syscall,
+         * otherwise the kernel discards the session. */
+        *ret_session_fd = TAKE_FD(session_fd);
+        return 1;
 }
