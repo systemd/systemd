@@ -431,6 +431,10 @@ executables += [
                 'sources' : files('test-qmp-client.c'),
         },
         test_template + {
+                'sources' : files('test-qmp-client-qemu.c'),
+                'objects' : ['systemd-vmspawn'],
+        },
+        test_template + {
                 'sources' : files('test-qrcode-util.c'),
                 'dependencies' : libdl,
         },
