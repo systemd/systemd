@@ -432,6 +432,9 @@ executables += [
                 'sources' : files('test-progress-bar.c'),
         },
         test_template + {
+                'sources' : files('test-qmp-client.c'),
+        },
+        test_template + {
                 'sources' : files('test-qrcode-util.c'),
                 'dependencies' : libdl,
         },
