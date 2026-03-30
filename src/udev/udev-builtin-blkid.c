@@ -20,6 +20,7 @@
 #include "blockdev-util.h"
 #include "device-util.h"
 #include "devnum-util.h"
+#include "dissect-image.h"
 #include "efi-loader.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -30,6 +31,7 @@
 #include "strv.h"
 #include "strxcpyx.h"
 #include "udev-builtin.h"
+#include "unit-name.h"
 
 static void print_property(UdevEvent *event, const char *name, const char *value) {
         char s[256];
@@ -122,7 +124,7 @@ static void print_property(UdevEvent *event, const char *name, const char *value
         }
 }
 
-static int find_gpt_root(UdevEvent *event, blkid_probe pr, const char *loop_backing_fname) {
+static int find_gpt_root(UdevEvent *event, blkid_probe pr, int fd, uint32_t gpt_sector_size, const char *loop_backing_fname) {
 
 #if defined(SD_GPT_ROOT_NATIVE) && ENABLE_EFI
         sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
@@ -153,12 +155,30 @@ static int find_gpt_root(UdevEvent *event, blkid_probe pr, const char *loop_back
                 return 0;
         }
 
-        r = blockdev_partscan_enabled(dev);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to determine if block device '%s' supports partitions: %m", devnode);
-        if (r == 0) {
-                log_device_debug(dev, "Invoked on block device '%s' that lacks partition scanning, ignoring.", devnode);
-                return 0;
+        /* If the GPT sector size doesn't match the device's native block size, the kernel can't parse the
+         * partition table (e.g. 512-byte GPT sectors on a 2048-byte CD-ROM booted via El Torito). We'll
+         * trigger a loop device to re-expose it with the correct sector size, but still run through the
+         * partition discovery logic (using blkid which has the correct sector size) to determine if this
+         * disk is actually relevant. This check must happen before blockdev_partscan_enabled() since the
+         * kernel disables partition scanning when it can't parse the partition table. */
+        bool sector_size_mismatch = false;
+        if (gpt_sector_size > 0) {
+                uint32_t device_ssz;
+                r = blockdev_get_sector_size(fd, &device_ssz);
+                if (r < 0)
+                        return log_device_debug_errno(dev, r, "Failed to get device sector size: %m");
+
+                sector_size_mismatch = gpt_sector_size != device_ssz;
+        }
+
+        if (!sector_size_mismatch) {
+                r = blockdev_partscan_enabled(dev);
+                if (r < 0)
+                        return log_device_debug_errno(dev, r, "Failed to determine if block device '%s' supports partitions: %m", devnode);
+                if (r == 0) {
+                        log_device_debug(dev, "Invoked on block device '%s' that lacks partition scanning, ignoring.", devnode);
+                        return 0;
+                }
         }
 
         sd_id128_t esp_or_xbootldr = SD_ID128_NULL;
@@ -304,12 +324,31 @@ static int find_gpt_root(UdevEvent *event, blkid_probe pr, const char *loop_back
         }
 
         if (!need_esp_or_xbootldr || found_esp_or_xbootldr) {
-                /* We found the ESP/XBOOTLDR on this disk (or we didn't need it) */
-                udev_builtin_add_property(event, "ID_PART_GPT_AUTO_ROOT_DISK", "1");
+                if (sector_size_mismatch) {
+                        /* The kernel can't parse the partition table at this sector size. Trigger a
+                         * loop device to re-expose the device with the correct sector size. Don't set
+                         * root disk properties — that will happen on the loop device. */
+                        const char *sysname;
+                        r = sd_device_get_sysname(dev, &sysname);
+                        if (r < 0)
+                                return log_device_debug_errno(dev, r, "Failed to get sysname: %m");
 
-                /* We found a root partition, nice! Let's export its UUID. */
-                if (!sd_id128_is_null(root_id))
-                        udev_builtin_add_property(event, "ID_PART_GPT_AUTO_ROOT_UUID", SD_ID128_TO_UUID_STRING(root_id));
+                        _cleanup_free_ char *service = NULL;
+                        r = unit_name_from_path_instance("systemd-loop", devnode, ".service", &service);
+                        if (r < 0)
+                                return log_device_debug_errno(dev, r, "Failed to build loop service instance name: %%m");
+
+                        log_device_debug(dev, "GPT sector size %" PRIu32 " != device sector size, triggering loop device.",
+                                         gpt_sector_size);
+                        udev_builtin_add_property(event, "SYSTEMD_WANTS", service);
+                } else {
+                        /* We found the ESP/XBOOTLDR on this disk (or we didn't need it) */
+                        udev_builtin_add_property(event, "ID_PART_GPT_AUTO_ROOT_DISK", "1");
+
+                        /* We found a root partition, nice! Let's export its UUID. */
+                        if (!sd_id128_is_null(root_id))
+                                udev_builtin_add_property(event, "ID_PART_GPT_AUTO_ROOT_UUID", SD_ID128_TO_UUID_STRING(root_id));
+                }
         }
 #endif
 
@@ -504,6 +543,22 @@ static int builtin_blkid(UdevEvent *event, int argc, char *argv[]) {
         if (r < 0)
                 return log_device_debug_errno(dev, errno_or_else(ENOMEM), "Failed to set device to blkid prober: %m");
 
+        /* Probe the GPT sector size. For CD-ROMs booted via El Torito, the GPT may use a different
+         * sector size than the device (e.g. 512-byte GPT on a 2048-byte CD-ROM). By telling blkid the
+         * correct sector size upfront, it can always find the GPT. */
+        uint32_t gpt_ssz = 0;
+        if (offset == 0) {
+                uint32_t ssz;
+                r = probe_sector_size(fd, &ssz);
+                if (r > 0) {
+                        gpt_ssz = ssz;
+
+                        errno = 0;
+                        if (sym_blkid_probe_set_sectorsize(pr, gpt_ssz) != 0)
+                                return log_device_debug_errno(dev, errno_or_else(EIO), "Failed to set blkid sector size: %m");
+                }
+        }
+
         log_device_debug(dev, "Probe %s with %sraid and offset=%"PRIi64, devnode, noraid ? "no" : "", offset);
 
         r = probe_superblocks(pr);
@@ -561,7 +616,7 @@ static int builtin_blkid(UdevEvent *event, int argc, char *argv[]) {
         }
 
         if (is_gpt)
-                find_gpt_root(event, pr, backing_fname);
+                find_gpt_root(event, pr, fd, gpt_ssz, backing_fname);
 
         return 0;
 }
