@@ -39,6 +39,7 @@
 #include "load-fragment.h"
 #include "log.h"
 #include "logarithm.h"
+#include "luo.h"
 #include "mkdir-label.h"
 #include "manager.h"
 #include "mount-util.h"
@@ -1742,6 +1743,10 @@ int unit_load(Unit *u) {
 
                 /* We finished loading, let's ensure our parents recalculate the members mask */
                 unit_invalidate_cgroup_members_masks(u);
+
+                /* Check if there are any LUO held fds for this unit, in case it was loaded after boot */
+                if (u->type == UNIT_SERVICE)
+                        (void) manager_luo_try_restore_held_fds_for_unit(u);
         }
 
         assert((u->load_state != UNIT_MERGED) == !u->merged_into);
