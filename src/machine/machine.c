@@ -154,6 +154,7 @@ Machine* machine_free(Machine *m) {
         free(m->netif);
         free(m->ssh_address);
         free(m->ssh_private_key_path);
+        free(m->control_address);
 
         return mfree(m);
 }
@@ -245,6 +246,7 @@ int machine_save(Machine *m) {
 
         env_file_fputs_assignment(f, "SSH_ADDRESS=", m->ssh_address);
         env_file_fputs_assignment(f, "SSH_PRIVATE_KEY_PATH=", m->ssh_private_key_path);
+        env_file_fputs_assignment(f, "CONTROL_ADDRESS=", m->control_address);
 
         r = flink_tmpfile(f, temp_path, m->state_file, LINK_TMPFILE_REPLACE);
         if (r < 0)
@@ -338,6 +340,7 @@ int machine_load(Machine *m) {
                            "VSOCK_CID",            &vsock_cid,
                            "SSH_ADDRESS",          &m->ssh_address,
                            "SSH_PRIVATE_KEY_PATH", &m->ssh_private_key_path,
+                           "CONTROL_ADDRESS",      &m->control_address,
                            "UID",                  &uid);
         if (r == -ENOENT)
                 return 0;
