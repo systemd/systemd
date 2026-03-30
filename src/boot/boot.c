@@ -20,6 +20,7 @@
 #include "part-discovery.h"
 #include "pe.h"
 #include "proto/block-io.h"
+#include "proto/disk-io.h"
 #include "proto/load-file.h"
 #include "proto/simple-text-io.h"
 #include "random-seed.h"
@@ -2165,18 +2166,13 @@ static EFI_STATUS call_boot_windows_bitlocker(const BootEntry *entry, EFI_FILE *
                 if (err != EFI_SUCCESS || block_io->Media->BlockSize < 512 || block_io->Media->BlockSize > 4096)
                         continue;
 
-                #define BLOCK_IO_BUFFER_SIZE 4096
-                _cleanup_pages_ Pages buf_pages = xmalloc_aligned_pages(
-                        AllocateMaxAddress,
-                        EfiLoaderData,
-                        EFI_SIZE_TO_PAGES(BLOCK_IO_BUFFER_SIZE),
-                        block_io->Media->IoAlign,
-                        /* On 32-bit allocate below 4G boundary as we can't easily access anything above that.
-                         * 64-bit platforms don't suffer this limitation, so we can allocate from anywhere.
-                         * addr= */ UINTPTR_MAX);
-                char *buf = PHYSICAL_ADDRESS_TO_POINTER(buf_pages.addr);
+                EFI_DISK_IO_PROTOCOL *disk_io;
+                err = BS->HandleProtocol(handles[i], MAKE_GUID_PTR(EFI_DISK_IO_PROTOCOL), (void **) &disk_io);
+                if (err != EFI_SUCCESS)
+                        continue;
 
-                err = block_io->ReadBlocks(block_io, block_io->Media->MediaId, /* LBA= */ 0, BLOCK_IO_BUFFER_SIZE, buf);
+                char buf[3 + STRLEN("-FVE-FS-")];
+                err = disk_io->ReadDisk(disk_io, block_io->Media->MediaId, /* Offset= */ 0, sizeof(buf), buf);
                 if (err != EFI_SUCCESS)
                         continue;
 
