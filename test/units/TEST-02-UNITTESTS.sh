@@ -24,7 +24,7 @@ if [[ -z "${TEST_MATCH_SUBTEST:-}" ]]; then
     # in QEMU to only those that can't run in a container to avoid running
     # the same tests again in a, most likely, very slow environment
     if ! systemd-detect-virt -qc && [[ "${TEST_PREFER_NSPAWN:-0}" -ne 0 ]]; then
-        TEST_MATCH_SUBTEST="test-loop-block"
+        TEST_MATCH_SUBTEST="test-loop-util"
     else
         TEST_MATCH_SUBTEST="test-*"
     fi
