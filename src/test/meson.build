@@ -579,7 +579,7 @@ executables += [
                 'dependencies' : common_test_dependencies,
         },
         core_test_template + {
-                'sources' : files('test-loop-block.c'),
+                'sources' : files('test-loop-util.c'),
                 'dependencies' : [threads],
                 'parallel' : false,
         },
