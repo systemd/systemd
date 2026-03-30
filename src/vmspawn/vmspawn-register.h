@@ -13,6 +13,7 @@ int register_machine(
                 unsigned cid,
                 const char *address,
                 const char *key_path,
+                const char *varlink_address,
                 bool allocate_unit,
                 RuntimeScope scope);
 
