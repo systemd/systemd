@@ -719,6 +719,11 @@ units = [
           'conditions' : ['ENABLE_REPART'],
         },
         {
+          'file' : 'systemd-report-cgroup-metrics.socket',
+          'symlinks' : ['sockets.target.wants/'],
+        },
+        { 'file' : 'systemd-report-cgroup-metrics@.service.in' },
+        {
           'file' : 'systemd-resolved.service.in',
           'conditions' : ['ENABLE_RESOLVE'],
         },
