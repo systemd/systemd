@@ -279,6 +279,10 @@ extern const UnitVTable service_vtable;
 int service_set_socket_fd(Service *s, int fd, struct Socket *socket, struct SocketPeer *peer, bool selinux_context_net);
 void service_release_socket_fd(Service *s);
 
+int service_add_fd_store(Service *s, int fd_in, const char *name, bool do_poll);
+
+ServiceExtraFD* service_extra_fd_free(ServiceExtraFD *fd);
+
 usec_t service_restart_usec_next(const Service *s) _pure_;
 
 int service_determine_exec_selinux_label(Service *s, char **ret);
