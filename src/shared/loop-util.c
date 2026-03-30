@@ -541,12 +541,26 @@ static int loop_device_make_internal(
                         return r;
         }
 
+        /* Strip LO_FLAGS_PARTSCAN from LOOP_CONFIGURE and enable it afterwards via
+         * LOOP_SET_STATUS64 to work around a kernel race: LOOP_CONFIGURE sends a uevent with
+         * GD_NEED_PART_SCAN set before calling loop_reread_partitions(). If udev opens the device in
+         * response, blkdev_get_whole() triggers a first scan, then loop_reread_partitions() does a
+         * second scan that briefly drops all partitions. By configuring without partscan,
+         * GD_SUPPRESS_PART_SCAN stays set, making any concurrent open harmless. LOOP_SET_STATUS64
+         * doesn't call disk_force_media_change() so it doesn't set GD_NEED_PART_SCAN.
+         *
+         * See: https://lore.kernel.org/linux-block/20260330081819.652890-1-daan@amutable.com/T/#u
+         * Drop this workaround once the kernel fix is widely available. */
+        bool deferred_partscan = FLAGS_SET(loop_flags, LO_FLAGS_PARTSCAN);
+
         config = (struct loop_config) {
                 .fd = fd,
                 .block_size = sector_size,
                 .info = {
                         /* Use the specified flags, but configure the read-only flag from the open flags, and force autoclear */
-                        .lo_flags = (loop_flags & ~LO_FLAGS_READ_ONLY) | ((open_flags & O_ACCMODE_STRICT) == O_RDONLY ? LO_FLAGS_READ_ONLY : 0) | LO_FLAGS_AUTOCLEAR,
+                        .lo_flags = ((loop_flags & ~(LO_FLAGS_READ_ONLY|LO_FLAGS_PARTSCAN)) |
+                                     ((open_flags & O_ACCMODE_STRICT) == O_RDONLY ? LO_FLAGS_READ_ONLY : 0) |
+                                     LO_FLAGS_AUTOCLEAR),
                         .lo_offset = offset,
                         .lo_sizelimit = size == UINT64_MAX ? 0 : size,
                 },
@@ -636,6 +650,24 @@ static int loop_device_make_internal(
                         if (r < 0)
                                 log_debug_errno(r, "Failed to write 'discard_max_bytes' of loop device, ignoring: %m");
                 }
+        }
+
+        if (deferred_partscan) {
+                /* Open+close to drain GD_NEED_PART_SCAN harmlessly (GD_SUPPRESS_PART_SCAN is still
+                 * set so no partitions appear). Then enable partscan via LOOP_SET_STATUS64. */
+                int tmp_fd = fd_reopen(d->fd, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
+                if (tmp_fd < 0)
+                        return log_debug_errno(tmp_fd, "Failed to reopen loop device to drain partscan flag: %m");
+                safe_close(tmp_fd);
+
+                struct loop_info64 info;
+                if (ioctl(d->fd, LOOP_GET_STATUS64, &info) < 0)
+                        return log_debug_errno(errno, "Failed to get loop device status: %m");
+
+                info.lo_flags |= LO_FLAGS_PARTSCAN;
+
+                if (ioctl(d->fd, LOOP_SET_STATUS64, &info) < 0)
+                        return log_debug_errno(errno, "Failed to enable partscan on loop device: %m");
         }
 
         d->backing_file = TAKE_PTR(backing_file);
