@@ -129,6 +129,8 @@ int open_credentials_dir(void) {
 int get_system_credentials_dir(const char **ret) {
         int r;
 
+        assert(ret);
+
         /* Note that for system credentials the environment variable we honour is just for debugging purpose
          * (unlike for the per-service credential path env var where it's key part of the protocol). */
         r = get_credentials_dir_internal("SYSTEMD_SYSTEM_CREDENTIALS_DIRECTORY", ret);
@@ -141,6 +143,8 @@ int get_system_credentials_dir(const char **ret) {
 
 int get_encrypted_system_credentials_dir(const char **ret) {
         int r;
+
+        assert(ret);
 
         r = get_credentials_dir_internal("SYSTEMD_ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY", ret);
         if (r >= 0 || r != -ENXIO)

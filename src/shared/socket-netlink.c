@@ -98,6 +98,8 @@ int socket_address_parse_and_warn(SocketAddress *a, const char *s) {
         SocketAddress b;
         int r;
 
+        assert(a);
+
         /* Similar to socket_address_parse() but warns for IPv6 sockets when we don't support them. */
 
         r = socket_address_parse(&b, s);
