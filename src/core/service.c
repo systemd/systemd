@@ -512,6 +512,15 @@ static void service_release_extra_fds(Service *s) {
         s->n_extra_fds = 0;
 }
 
+ServiceExtraFD* service_extra_fd_free(ServiceExtraFD *fd) {
+        if (!fd)
+                return NULL;
+
+        safe_close(fd->fd);
+        free(fd->fdname);
+        return mfree(fd);
+}
+
 static void service_release_stdio_fd(Service *s) {
         assert(s);
 
@@ -593,7 +602,7 @@ static int on_fd_store_io(sd_event_source *e, int fd, uint32_t revents, void *us
         return 0;
 }
 
-static int service_add_fd_store(Service *s, int fd_in, const char *name, bool do_poll) {
+int service_add_fd_store(Service *s, int fd_in, const char *name, bool do_poll) {
         _cleanup_(service_fd_store_unlinkp) ServiceFDStore *fs = NULL;
         _cleanup_(asynchronous_closep) int fd = ASSERT_FD(fd_in);
         struct stat st;
@@ -650,6 +659,18 @@ static int service_add_fd_store(Service *s, int fd_in, const char *name, bool do
         fs->service = s;
         LIST_PREPEND(fd_store, s->fd_store, TAKE_PTR(fs));
         s->n_fd_store++;
+
+        /* If fds are added to an otherwise inactive service (e.g. restored from LUO), make sure the unit
+         * transitions from SERVICE_DEAD to SERVICE_DEAD_RESOURCES_PINNED so it won't be garbage collected
+         * across daemon-reload when FileDescriptorStorePreserve=yes is set. */
+        if (s->state == SERVICE_DEAD && s->fd_store_preserve_mode == EXEC_PRESERVE_YES) {
+                service_set_state(s, SERVICE_DEAD_RESOURCES_PINNED);
+
+                /* Also update deserialized_state so service_coldplug() does not transition the service
+                 * back to SERVICE_DEAD. */
+                if (s->deserialized_state == SERVICE_DEAD)
+                        s->deserialized_state = SERVICE_DEAD_RESOURCES_PINNED;
+        }
 
         return 1; /* fd newly stored */
 }
@@ -1437,7 +1458,8 @@ static int service_coldplug(Unit *u) {
         int r;
 
         assert(s);
-        assert(s->state == SERVICE_DEAD);
+        /* Ensure we can insert FD store into units at boot */
+        assert(IN_SET(s->state, SERVICE_DEAD, SERVICE_DEAD_RESOURCES_PINNED));
 
         if (s->deserialized_state == s->state)
                 return 0;
