@@ -4058,6 +4058,8 @@ static void journal_default_metrics(JournalMetrics *m, int fd, bool compact) {
                 if (m->max_size < JOURNAL_FILE_SIZE_MIN)
                         m->max_size = JOURNAL_FILE_SIZE_MIN;
 
+                /* Silence static analyzers */
+                assert(m->max_size <= UINT64_MAX / 2);
                 if (m->max_use != 0 && m->max_size*2 > m->max_use)
                         m->max_use = m->max_size*2;
         }
