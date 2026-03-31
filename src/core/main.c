@@ -813,6 +813,7 @@ static int parse_config_file(void) {
                 { "Manager", "DefaultOOMScoreAdjust",        config_parse_oom_score_adjust,      0,                        NULL                              },
                 { "Manager", "ReloadLimitIntervalSec",       config_parse_sec,                   0,                        &arg_reload_limit_interval_sec    },
                 { "Manager", "ReloadLimitBurst",             config_parse_unsigned,              0,                        &arg_reload_limit_burst           },
+                { "Manager", "DefaultMemoryZSwapWriteback",  config_parse_bool,                  0,                        &arg_defaults.memory_zswap_writeback },
 #if ENABLE_SMACK
                 { "Manager", "DefaultSmackProcessLabel",     config_parse_string,                0,                        &arg_defaults.smack_process_label },
 #else

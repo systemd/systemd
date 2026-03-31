@@ -180,6 +180,8 @@ static void unit_init(Unit *u) {
 
                 cc->memory_pressure_watch = u->manager->defaults.memory_pressure_watch;
                 cc->memory_pressure_threshold_usec = u->manager->defaults.memory_pressure_threshold_usec;
+
+                cc->memory_zswap_writeback = u->manager->defaults.memory_zswap_writeback;
         }
 
         ec = unit_get_exec_context(u);
