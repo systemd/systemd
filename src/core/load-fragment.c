@@ -4136,6 +4136,29 @@ int config_parse_managed_oom_mem_pressure_duration_sec(
         return 0;
 }
 
+int config_parse_managed_oom_rules(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        UnitType t;
+
+        t = unit_name_to_type(unit);
+        assert(t != _UNIT_TYPE_INVALID);
+
+        if (!unit_vtable[t]->can_set_managed_oom)
+                return log_syntax(unit, LOG_WARNING, filename, line, 0, "%s= is not supported for this unit type, ignoring.", lvalue);
+
+        return config_parse_strv(unit, filename, line, section, section_line, lvalue, ltype, rvalue, data, userdata);
+}
+
 int config_parse_device_allow(
                 const char *unit,
                 const char *filename,
