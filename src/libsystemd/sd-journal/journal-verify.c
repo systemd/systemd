@@ -23,6 +23,8 @@ static void draw_progress(uint64_t p, usec_t *last_usec) {
         unsigned n, i, j, k;
         usec_t z, x;
 
+        assert(last_usec);
+
         if (!on_tty())
                 return;
 

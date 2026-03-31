@@ -1468,6 +1468,7 @@ int dns_packet_read_uint8(DnsPacket *p, uint8_t *ret, size_t *start) {
         int r;
 
         assert(p);
+        assert(ret);
 
         r = dns_packet_read(p, sizeof(uint8_t), &d, start);
         if (r < 0)
@@ -1498,6 +1499,7 @@ int dns_packet_read_uint32(DnsPacket *p, uint32_t *ret, size_t *start) {
         int r;
 
         assert(p);
+        assert(ret);
 
         r = dns_packet_read(p, sizeof(uint32_t), &d, start);
         if (r < 0)
@@ -2404,6 +2406,7 @@ static bool opt_is_good(DnsResourceRecord *rr, bool *rfc6975) {
          * a reply). */
 
         assert(rr);
+        assert(rfc6975);
         assert(rr->key->type == DNS_TYPE_OPT);
 
         /* Check that the version is 0 */

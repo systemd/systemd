@@ -268,6 +268,8 @@ typedef struct TodoEntry {
 } TodoEntry;
 
 static void free_todo_entries(TodoEntry **todos) {
+        assert(todos);
+
         for (TodoEntry *x = *todos; x && x->dir; x++) {
                 closedir(x->dir);
                 free(x->dirname);
