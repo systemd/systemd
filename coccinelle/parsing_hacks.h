@@ -61,6 +61,12 @@
 /* Coccinelle doesn't know this keyword, so just drop it, since it's not important for any of our rules. */
 #define thread_local
 
+/* Coccinelle can't handle the __attribute__((__cleanup__(x))) GCC extension used by our _cleanup_*
+ * macros. Without this, any variable declared with _cleanup_free_ or _cleanup_(foo) makes the whole
+ * function unparsable. Drop the attribute since it's not relevant for semantic checks. */
+#define _cleanup_free_
+#define _cleanup_(x)
+
 /* Coccinelle fails to parse these from the included headers, so let's just drop them. */
 #define PAM_EXTERN
 #define STACK_OF(x)
@@ -73,8 +79,10 @@
 #define FOREACH_STRING(x, y, ...) YACFE_ITERATOR
 #define HASHMAP_FOREACH(e, h) YACFE_ITERATOR
 #define LIST_FOREACH(name, i, head) YACFE_ITERATOR
+#define NULSTR_FOREACH(s, l) YACFE_ITERATOR
 #define ORDERED_HASHMAP_FOREACH(e, h) YACFE_ITERATOR
 #define SET_FOREACH(e, s) YACFE_ITERATOR
+#define STRV_FOREACH(s, l) YACFE_ITERATOR
 #define STRV_FOREACH_BACKWARDS YACFE_ITERATOR
 
 /* Coccinelle really doesn't like multiline macros that are not in the "usual" do { ... } while(0) format, so
