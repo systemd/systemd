@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-import_curl_util_c = files('curl-util.c')
-
 if conf.get('ENABLE_IMPORTD') != 1
         subdir_done()
 endif
@@ -40,7 +38,7 @@ executables += [
                         'pull-oci.c',
                         'pull-raw.c',
                         'pull-tar.c',
-                ) + import_curl_util_c,
+                ) + curl_util_c,
                 'objects' : ['systemd-importd'],
                 'dependencies' : common_deps + [
                         libopenssl,
