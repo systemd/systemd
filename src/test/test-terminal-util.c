@@ -36,35 +36,34 @@ TEST(read_one_char) {
         bool need_nl;
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/test-read_one_char.XXXXXX";
 
-        assert_se(fmkostemp_safe(name, "r+", &file) == 0);
+        ASSERT_OK_ZERO(fmkostemp_safe(name, "r+", &file));
 
-        assert_se(fputs("c\n", file) >= 0);
+        ASSERT_OK_ERRNO(fputs("c\n", file));
         rewind(file);
-        assert_se(read_one_char(file, &r, 1000000, /* echo= */ true, &need_nl) >= 0);
-        assert_se(!need_nl);
-        assert_se(r == 'c');
-        assert_se(read_one_char(file, &r, 1000000, /* echo= */ true, &need_nl) < 0);
-
-        rewind(file);
-        assert_se(fputs("foobar\n", file) >= 0);
-        rewind(file);
-        assert_se(read_one_char(file, &r, 1000000, /* echo= */ true, &need_nl) < 0);
+        ASSERT_OK(read_one_char(file, &r, 1000000, /* echo= */ true, &need_nl));
+        ASSERT_FALSE(need_nl);
+        ASSERT_EQ(r, 'c');
+        ASSERT_FAIL(read_one_char(file, &r, 1000000, /* echo= */ true, &need_nl));
 
         rewind(file);
-        assert_se(fputs("\n", file) >= 0);
+        ASSERT_OK_ERRNO(fputs("foobar\n", file));
         rewind(file);
-        assert_se(read_one_char(file, &r, 1000000, /* echo= */ true, &need_nl) < 0);
+        ASSERT_FAIL(read_one_char(file, &r, 1000000, /* echo= */ true, &need_nl));
+
+        rewind(file);
+        ASSERT_OK_ERRNO(fputs("\n", file));
+        rewind(file);
+        ASSERT_FAIL(read_one_char(file, &r, 1000000, /* echo= */ true, &need_nl));
 }
 
 TEST(getttyname_malloc) {
         _cleanup_free_ char *ttyname = NULL;
-        _cleanup_close_ int master = -EBADF;
 
-        assert_se((master = posix_openpt(O_RDWR|O_NOCTTY)) >= 0);
-        assert_se(getttyname_malloc(master, &ttyname) >= 0);
+        _cleanup_close_ int master = ASSERT_OK_ERRNO(posix_openpt(O_RDWR|O_NOCTTY));
+        ASSERT_OK(getttyname_malloc(master, &ttyname));
         log_info("ttyname = %s", ttyname);
 
-        assert_se(PATH_IN_SET(ttyname, "ptmx", "pts/ptmx"));
+        ASSERT_TRUE(PATH_IN_SET(ttyname, "ptmx", "pts/ptmx"));
 }
 
 typedef struct {
@@ -152,8 +151,8 @@ TEST(get_ctty) {
         if (S_ISCHR(st.st_mode) && st.st_rdev == devnr) {
                 _cleanup_free_ char *stdin_name = NULL;
 
-                assert_se(getttyname_malloc(STDIN_FILENO, &stdin_name) >= 0);
-                assert_se(path_equal(stdin_name, ctty));
+                ASSERT_OK(getttyname_malloc(STDIN_FILENO, &stdin_name));
+                ASSERT_TRUE(path_equal(stdin_name, ctty));
         } else
                 log_notice("Not invoked with stdin == ctty, cutting get_ctty() test short");
 }
@@ -279,23 +278,19 @@ TEST(query_term_for_tty) {
 }
 
 TEST(terminal_is_pty_fd) {
-        _cleanup_close_ int fd1 = -EBADF, fd2 = -EBADF;
         int r;
 
-        fd1 = openpt_allocate(O_RDWR, /* ret_peer_path= */ NULL);
-        assert_se(fd1 >= 0);
-        assert_se(terminal_is_pty_fd(fd1) > 0);
+        _cleanup_close_ int fd1 = ASSERT_OK(openpt_allocate(O_RDWR, /* ret_peer_path= */ NULL));
+        ASSERT_OK_POSITIVE(terminal_is_pty_fd(fd1));
 
-        fd2 = pty_open_peer(fd1, O_RDWR|O_CLOEXEC|O_NOCTTY);
-        assert_se(fd2 >= 0);
-        assert_se(terminal_is_pty_fd(fd2) > 0);
+        _cleanup_close_ int fd2 = ASSERT_OK(pty_open_peer(fd1, O_RDWR|O_CLOEXEC|O_NOCTTY));
+        ASSERT_OK_POSITIVE(terminal_is_pty_fd(fd2));
 
         fd1 = safe_close(fd1);
         fd2 = safe_close(fd2);
 
-        fd1 = open("/dev/null", O_RDONLY|O_CLOEXEC);
-        assert_se(fd1 >= 0);
-        assert_se(terminal_is_pty_fd(fd1) == 0);
+        fd1 = ASSERT_OK_ERRNO(open("/dev/null", O_RDONLY|O_CLOEXEC));
+        ASSERT_OK_ZERO(terminal_is_pty_fd(fd1));
 
         /* In container managers real tty devices might be weird, avoid them. */
         r = path_is_read_only_fs("/sys");
@@ -313,7 +308,7 @@ TEST(terminal_is_pty_fd) {
                         continue;
                 }
 
-                assert_se(terminal_is_pty_fd(tfd) <= 0);
+                ASSERT_LE(terminal_is_pty_fd(tfd), 0);
         }
 }
 
@@ -374,31 +369,27 @@ TEST(terminal_reset_defensive) {
 }
 
 TEST(pty_open_peer) {
-        _cleanup_close_ int pty_fd = -EBADF, peer_fd = -EBADF;
         _cleanup_free_ char *pty_path = NULL;
 
-        pty_fd = openpt_allocate(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK, &pty_path);
-        assert_se(pty_fd >= 0);
-        assert_se(pty_path);
+        _cleanup_close_ int pty_fd = ASSERT_OK(openpt_allocate(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK, &pty_path));
+        ASSERT_NOT_NULL(pty_path);
 
-        peer_fd = pty_open_peer(pty_fd, O_RDWR|O_NOCTTY|O_CLOEXEC);
-        assert_se(peer_fd >= 0);
+        _cleanup_close_ int peer_fd = ASSERT_OK(pty_open_peer(pty_fd, O_RDWR|O_NOCTTY|O_CLOEXEC));
 
         static const char x[] = { 'x', '\n' };
-        assert_se(write(pty_fd, x, sizeof(x)) == 2);
+        ASSERT_OK_EQ_ERRNO(write(pty_fd, x, sizeof(x)), (ssize_t) sizeof(x));
 
         char buf[3];
-        assert_se(read(peer_fd, &buf, sizeof(buf)) == sizeof(x));
-        assert_se(buf[0] == x[0]);
-        assert_se(buf[1] == x[1]);
+        ASSERT_OK_EQ_ERRNO(read(peer_fd, &buf, sizeof(buf)), (ssize_t) sizeof(x));
+        ASSERT_EQ(buf[0], x[0]);
+        ASSERT_EQ(buf[1], x[1]);
 }
 
 TEST(terminal_new_session) {
-        _cleanup_close_ int pty_fd = -EBADF, peer_fd = -EBADF;
         int r;
 
-        ASSERT_OK(pty_fd = openpt_allocate(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK, NULL));
-        ASSERT_OK(peer_fd = pty_open_peer(pty_fd, O_RDWR|O_NOCTTY|O_CLOEXEC));
+        _cleanup_close_ int pty_fd = ASSERT_OK(openpt_allocate(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK, NULL));
+        _cleanup_close_ int peer_fd = ASSERT_OK(pty_open_peer(pty_fd, O_RDWR|O_NOCTTY|O_CLOEXEC));
 
         r = pidref_safe_fork_full(
                         "test-term-session",
