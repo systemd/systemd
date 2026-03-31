@@ -1256,6 +1256,8 @@ bool cg_needs_escape(const char *p) {
 int cg_escape(const char *p, char **ret) {
         _cleanup_free_ char *n = NULL;
 
+        assert(ret);
+
         /* This implements very minimal escaping for names to be used as file names in the cgroup tree: any
          * name which might conflict with a kernel name or is prefixed with '_' is prefixed with a '_'. That
          * way, when reading cgroup names it is sufficient to remove a single prefixing underscore if there
@@ -1651,6 +1653,8 @@ int cg_mask_from_string(const char *s, CGroupMask *ret) {
 int cg_mask_supported_subtree(const char *root, CGroupMask *ret) {
         CGroupMask mask;
         int r;
+
+        assert(ret);
 
         /* Determines the mask of supported cgroup controllers. Only includes controllers we can make sense of and that
          * are actually accessible. Only covers real controllers, i.e. not the CGROUP_CONTROLLER_BPF_xyz

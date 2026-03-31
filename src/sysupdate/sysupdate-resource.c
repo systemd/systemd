@@ -477,6 +477,7 @@ static int resource_load_from_web(
         int r;
 
         assert(rr);
+        POINTER_MAY_BE_NULL(web_cache);
 
         ci = web_cache ? web_cache_get_item(*web_cache, rr->path, verify) : NULL;
         if (ci) {

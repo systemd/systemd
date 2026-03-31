@@ -21,6 +21,8 @@ static int load_kernel_syscalls(Set **ret) {
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
+        assert(ret);
+
         /* Let's read the available system calls from the list of available tracing events. Slightly dirty,
          * but good enough for analysis purposes. */
 

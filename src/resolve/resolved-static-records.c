@@ -50,6 +50,8 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
 static int load_static_record_file_item(sd_json_variant *rj, Hashmap **records) {
         int r;
 
+        assert(records);
+
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
         r = dns_resource_record_from_json(rj, &rr);
         if (r < 0)

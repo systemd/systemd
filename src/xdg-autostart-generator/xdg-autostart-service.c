@@ -190,6 +190,9 @@ static int strv_strndup_unescape_and_push(
                 const char *start,
                 const char *end) {
 
+        assert(sv);
+        assert(n);
+
         if (end == start)
                 return 0;
 

@@ -90,6 +90,7 @@ static int get_sender_session(
         int r;
 
         assert(m);
+        assert(ret);
 
         /* Acquire the sender's session. This first checks if the sending process is inside a session itself,
          * and returns that. If not and 'consult_display' is true, this returns the display session of the
@@ -164,6 +165,8 @@ static int get_sender_user(Manager *m, sd_bus_message *message, sd_bus_error *er
         uid_t uid;
         User *user;
         int r;
+
+        assert(ret);
 
         /* Note that we get the owner UID of the session, not the actual client UID here! */
         r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_OWNER_UID|SD_BUS_CREDS_AUGMENT, &creds);
