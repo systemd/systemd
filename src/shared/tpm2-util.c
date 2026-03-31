@@ -5038,6 +5038,8 @@ static int tpm2_calculate_seal_public(
         int r;
 
         assert(parent);
+        POINTER_MAY_BE_NULL(attributes);
+        POINTER_MAY_BE_NULL(policy);
         assert(seed);
         assert(secret);
         assert(ret);
