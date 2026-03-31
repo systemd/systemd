@@ -4303,6 +4303,8 @@ int manager_set_unit_defaults(Manager *m, const UnitDefaults *defaults) {
         m->defaults.memory_pressure_watch = defaults->memory_pressure_watch;
         m->defaults.memory_pressure_threshold_usec = defaults->memory_pressure_threshold_usec;
 
+        m->defaults.memory_zswap_writeback = defaults->memory_zswap_writeback;
+
         free_and_replace(m->defaults.smack_process_label, label);
         rlimit_free_all(m->defaults.rlimit);
         memcpy(m->defaults.rlimit, rlimit, sizeof(struct rlimit*) * _RLIMIT_MAX);
@@ -5198,6 +5200,8 @@ void unit_defaults_init(UnitDefaults *defaults, RuntimeScope scope) {
 
                 .oom_policy = OOM_STOP,
                 .oom_score_adjust_set = false,
+
+                .memory_zswap_writeback = true,
         };
 }
 
