@@ -2652,6 +2652,8 @@ static int do_queue_default_job(
         Unit *target;
         int r;
 
+        assert(ret_error_message);
+
         if (arg_default_unit)
                 unit = arg_default_unit;
         else if (in_initrd())

@@ -211,6 +211,9 @@ static int find_addr_records(
         DnsResourceRecord *rr;
         int ifindex, r;
 
+        assert(q);
+        POINTER_MAY_BE_NULL(canonical);
+
         DNS_ANSWER_FOREACH_IFINDEX(rr, ifindex, q->answer) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *entry = NULL;
                 int family;

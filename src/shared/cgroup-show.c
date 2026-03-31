@@ -413,6 +413,8 @@ int show_cgroup_get_path_and_warn(
         _cleanup_free_ char *root = NULL;
         int r;
 
+        assert(ret);
+
         if (machine) {
                 _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
                 _cleanup_free_ char *unit = NULL;

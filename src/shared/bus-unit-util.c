@@ -1175,6 +1175,8 @@ static int bus_append_import_credential(sd_bus_message *m, const char *field, co
 static int bus_append_refresh_on_reload(sd_bus_message *m, const char *field, const char *eq) {
         int r;
 
+        assert(eq);
+
         r = sd_bus_message_open_container(m, 'r', "sv");
         if (r < 0)
                 return bus_log_create_error(r);

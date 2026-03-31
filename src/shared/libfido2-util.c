@@ -1153,6 +1153,12 @@ static int check_device_is_fido2_with_hmac_secret(
         _cleanup_(fido_dev_free_wrapper) fido_dev_t *d = NULL;
         int r;
 
+        assert(ret_has_rk);
+        assert(ret_has_client_pin);
+        assert(ret_has_up);
+        assert(ret_has_uv);
+        assert(ret_has_always_uv);
+
         d = sym_fido_dev_new();
         if (!d)
                 return log_oom();

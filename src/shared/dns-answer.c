@@ -574,6 +574,8 @@ int dns_answer_remove_by_answer_keys(DnsAnswer **a, DnsAnswer *b) {
         DnsAnswerItem *item;
         int r;
 
+        assert(a);
+
         /* Removes all items from '*a' that have a matching key in 'b' */
 
         DNS_ANSWER_FOREACH_ITEM(item, b) {
