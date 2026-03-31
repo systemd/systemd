@@ -2522,6 +2522,8 @@ int manager_load_startable_unit_or_warn(
         Unit *unit;
         int r;
 
+        assert(ret);
+
         r = manager_load_unit(m, name, path, &error, &unit);
         if (r < 0)
                 return log_error_errno(r, "Failed to load %s %s: %s",

@@ -1463,6 +1463,8 @@ int getttyname_harder(int fd, char **ret) {
         _cleanup_free_ char *s = NULL;
         int r;
 
+        assert(ret);
+
         r = getttyname_malloc(fd, &s);
         if (r < 0)
                 return r;

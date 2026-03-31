@@ -152,6 +152,8 @@ int bpf_program_new(uint32_t prog_type, const char *prog_name, BPFProgram **ret)
         _cleanup_(bpf_program_freep) BPFProgram *p = NULL;
         _cleanup_free_ char *name = NULL;
 
+        assert(ret);
+
         if (prog_name) {
                 if (strlen(prog_name) >= BPF_OBJ_NAME_LEN)
                         return -ENAMETOOLONG;

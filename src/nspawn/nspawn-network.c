@@ -177,6 +177,7 @@ int setup_veth(const char *machine_name,
         assert(machine_name);
         assert(pidref_is_set(pid));
         assert(iface_name);
+        assert(provided_mac);
 
         /* Use two different interface name prefixes depending whether
          * we are in bridge mode or not. */

@@ -337,6 +337,7 @@ static int output_collected_list(Context *context, Table **ret) {
         int r;
 
         assert(context);
+        assert(ret);
 
         _cleanup_(table_unrefp) Table *table = table_new("family", "object", "fields", "value");
         if (!table)
@@ -391,6 +392,7 @@ static int output_collected_describe(Context *context, Table **ret) {
         int r;
 
         assert(context);
+        assert(ret);
 
         _cleanup_(table_unrefp) Table *table = table_new("family", "type", "description");
         if (!table)
@@ -442,6 +444,7 @@ static int facts_output_list(Context *context, Table **ret) {
         int r;
 
         assert(context);
+        assert(ret);
 
         _cleanup_(table_unrefp) Table *table = table_new("family", "object", "value");
         if (!table)
@@ -493,6 +496,7 @@ static int facts_output_describe(Context *context, Table **ret) {
         int r;
 
         assert(context);
+        assert(ret);
 
         _cleanup_(table_unrefp) Table *table = table_new("family", "description");
         if (!table)

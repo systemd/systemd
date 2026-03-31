@@ -1009,6 +1009,7 @@ static int callout_context_new(const Transfer *t, const Instance *i, TransferPro
         assert(t);
         assert(i);
         assert(cb);
+        assert(ret);
 
         ctx = new(CalloutContext, 1);
         if (!ctx)
