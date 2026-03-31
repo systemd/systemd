@@ -942,6 +942,7 @@ static int dissect_image_from_unpartitioned(
         assert(devname);
         assert(m);
         assert(fstype);
+        POINTER_MAY_BE_NULL(mount_node_fd);
 
         if (!image_filter_test(filter, PARTITION_ROOT, /* label= */ NULL)) /* do a filter check with an empty partition label */
                 return -ECOMM;

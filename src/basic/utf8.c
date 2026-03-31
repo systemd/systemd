@@ -284,6 +284,9 @@ int utf8_to_ascii(const char *str, char replacement_char, char **ret) {
         /* Convert to a string that has only ASCII chars, replacing anything that is not ASCII
          * by replacement_char. */
 
+        assert(str);
+        assert(ret);
+
         _cleanup_free_ char *ans = new(char, strlen(str) + 1);
         if (!ans)
                 return -ENOMEM;

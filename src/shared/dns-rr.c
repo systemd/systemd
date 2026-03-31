@@ -2012,6 +2012,7 @@ int dns_resource_record_get_cname_target(DnsResourceKey *key, DnsResourceRecord 
 
         assert(key);
         assert(cname);
+        assert(ret);
 
         /* Checks if the RR `cname` is a CNAME/DNAME RR that matches the specified `key`. If so, returns the
          * target domain. If not, returns -EUNATCH */

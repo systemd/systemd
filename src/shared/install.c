@@ -1861,6 +1861,8 @@ int unit_file_verify_alias(
         _cleanup_free_ char *dst_updated = NULL;
         int r;
 
+        assert(ret_dst);
+
         /* Verify that dst is a valid either a valid alias or a valid .wants/.requires symlink for the target
          * unit *i. Return negative on error or if not compatible, zero on success.
          *
@@ -2902,6 +2904,9 @@ static int do_unit_file_disable(
         _cleanup_(install_context_done) InstallContext ctx = { .scope = scope };
         bool has_install_info = false;
         int r;
+
+        assert(changes);
+        assert(n_changes);
 
         STRV_FOREACH(name, names) {
                 InstallInfo *info;

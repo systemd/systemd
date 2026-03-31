@@ -6412,6 +6412,7 @@ int tpm2_seal_data(
         assert(c);
         assert(data);
         assert(primary_handle);
+        POINTER_MAY_BE_NULL(policy);
 
         /* This is a generic version of tpm2_seal(), that doesn't imply any policy or any specific
          * combination of the two keypairs in their marshalling. tpm2_seal() is somewhat specific to the FDE
@@ -6477,6 +6478,7 @@ int tpm2_unseal_data(
         assert(public_blob);
         assert(private_blob);
         assert(primary_handle);
+        assert(ret_data);
 
         TPM2B_PUBLIC public;
         r = tpm2_unmarshal_public(public_blob->iov_base, public_blob->iov_len, &public);
@@ -8319,6 +8321,8 @@ int tpm2_pcrlock_policy_load(
         _cleanup_free_ char *discovered_path = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
+
+        assert(ret_policy);
 
         r = tpm2_pcrlock_search_file(path, &f, &discovered_path);
         if (r == -ENOENT) {

@@ -193,6 +193,7 @@ static int call_get_addresses(
         assert(name);
         assert(prefix);
         assert(prefix2);
+        assert(ret);
 
         r = bus_call_method(bus, bus_machine_mgr, "GetMachineAddresses", NULL, &reply, "s", name);
         if (r < 0)
