@@ -256,6 +256,9 @@ if get_option('tests') != 'false'
         shared_sources += files('tests.c')
 endif
 
+# A small shared file that is is linked into a few places
+curl_util_c = files('curl-util.c')
+
 syscall_list_inc = custom_target(
         input : syscall_list_txt,
         output : 'syscall-list.inc',
