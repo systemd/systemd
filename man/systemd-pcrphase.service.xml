@@ -148,7 +148,7 @@
   <refsect1>
     <title>Options</title>
 
-    <para>The <filename>/usr/lib/systemd/system-pcrextend</filename> executable may also be invoked from the
+    <para>The <filename>/usr/lib/systemd/systemd-pcrextend</filename> executable may also be invoked from the
     command line, where it expects the word to extend into a PCR or NvPCR, as well as the following
     switches:</para>
 
