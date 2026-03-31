@@ -18,6 +18,7 @@
 #include "chase.h"
 #include "copy.h"
 #include "creds-util.h"
+#include "curl-util.h"
 #include "device-private.h"
 #include "dns-rr.h"
 #include "errno-util.h"
@@ -52,8 +53,6 @@
 #include "varlink-util.h"
 #include "web-util.h"
 #include "xattr-util.h"
-
-#include "../import/curl-util.h"
 
 /* This implements a client to the AWS' and Azure's "Instance Metadata Service", as well as GCP's "VM
  * Metadata", i.e.:

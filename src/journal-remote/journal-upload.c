@@ -11,6 +11,7 @@
 #include "alloc-util.h"
 #include "build.h"
 #include "conf-parser.h"
+#include "curl-util.h"
 #include "daemon-util.h"
 #include "env-file.h"
 #include "extract-word.h"
@@ -80,18 +81,6 @@ static void close_fd_input(Uploader *u);
 #define SERVER_ANSWER_KEEP 2048
 
 #define STATE_FILE "/var/lib/systemd/journal-upload/state"
-
-#define easy_setopt(curl, log_level, opt, value) ({                     \
-        CURLcode code = curl_easy_setopt(ASSERT_PTR(curl), opt, value); \
-        if (code)                                                       \
-                log_full(log_level,                                     \
-                         "curl_easy_setopt %s failed: %s",              \
-                         #opt, curl_easy_strerror(code));               \
-        !code;                                                          \
-})
-
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(CURL*, curl_easy_cleanup, NULL);
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct curl_slist*, curl_slist_free_all, NULL);
 
 static size_t output_callback(char *buf,
                               size_t size,
