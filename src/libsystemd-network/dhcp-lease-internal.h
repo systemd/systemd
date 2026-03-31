@@ -6,10 +6,11 @@
 ***/
 
 #include "sd-dhcp-lease.h"
+#include "sd-forward.h"
 
 #include "dhcp-client-id-internal.h"
+#include "dhcp-message.h"
 #include "dhcp-option.h"
-#include "sd-forward.h"
 #include "list.h"
 
 struct sd_dhcp_raw_option {
@@ -22,6 +23,8 @@ struct sd_dhcp_raw_option {
 
 struct sd_dhcp_lease {
         unsigned n_ref;
+
+        sd_dhcp_message *message;
 
         /* each 0 if unset */
         usec_t t1;
@@ -86,6 +89,8 @@ int dhcp_lease_insert_private_option(sd_dhcp_lease *lease, uint8_t tag, const vo
 void dhcp_lease_set_timestamp(sd_dhcp_lease *lease, const triple_timestamp *timestamp);
 int dhcp_lease_set_default_subnet_mask(sd_dhcp_lease *lease);
 int dhcp_lease_set_client_id(sd_dhcp_lease *lease, const sd_dhcp_client_id *client_id);
+
+int dhcp_client_parse_message(sd_dhcp_client *client, const struct iovec *iov, sd_dhcp_lease **ret);
 
 #define dhcp_lease_unref_and_replace(a, b)                              \
         free_and_replace_full(a, b, sd_dhcp_lease_unref)
