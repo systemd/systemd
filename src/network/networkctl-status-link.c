@@ -23,7 +23,6 @@
 #include "json-util.h"
 #include "macvlan-util.h"
 #include "netif-util.h"
-#include "network-internal.h"
 #include "networkctl.h"
 #include "networkctl-description.h"
 #include "networkctl-dump-util.h"
@@ -292,11 +291,6 @@ static int link_status_one(
         r = net_get_type_string(info->sd_device, info->iftype, &t);
         if (r == -ENOMEM)
                 return log_oom();
-
-        char lease_file[STRLEN("/run/systemd/netif/leases/") + DECIMAL_STR_MAX(int)];
-        xsprintf(lease_file, "/run/systemd/netif/leases/%i", info->ifindex);
-
-        (void) dhcp_lease_load(&lease, lease_file);
 
         r = format_config_files(&network_dropins, network);
         if (r < 0)
@@ -779,7 +773,7 @@ static int link_status_one(
                         return r;
         }
 
-        r = dump_addresses(rtnl, lease, table, info->ifindex);
+        r = dump_addresses(rtnl, info->dhcp_lease, table, info->ifindex);
         if (r < 0)
                 return r;
 
@@ -837,11 +831,10 @@ static int link_status_one(
                         return table_log_add_error(r);
         }
 
-        if (lease) {
-                const sd_dhcp_client_id *client_id;
+        if (info->dhcp_lease) {
                 const char *tz;
 
-                r = sd_dhcp_lease_get_timezone(lease, &tz);
+                r = sd_dhcp_lease_get_timezone(info->dhcp_lease, &tz);
                 if (r >= 0) {
                         r = table_add_many(table,
                                            TABLE_FIELD, "Time Zone",
@@ -849,19 +842,18 @@ static int link_status_one(
                         if (r < 0)
                                 return table_log_add_error(r);
                 }
+        }
 
-                r = sd_dhcp_lease_get_client_id(lease, &client_id);
+        if (sd_dhcp_client_id_is_set(&info->dhcp_client_id)) {
+                _cleanup_free_ char *id = NULL;
+
+                r = sd_dhcp_client_id_to_string(&info->dhcp_client_id, &id);
                 if (r >= 0) {
-                        _cleanup_free_ char *id = NULL;
-
-                        r = sd_dhcp_client_id_to_string(client_id, &id);
-                        if (r >= 0) {
-                                r = table_add_many(table,
-                                                   TABLE_FIELD, "DHCPv4 Client ID",
-                                                   TABLE_STRING, id);
-                                if (r < 0)
-                                        return table_log_add_error(r);
-                        }
+                        r = table_add_many(table,
+                                           TABLE_FIELD, "DHCPv4 Client ID",
+                                           TABLE_STRING, id);
+                        if (r < 0)
+                                return table_log_add_error(r);
                 }
         }
 
