@@ -2797,6 +2797,15 @@ void unit_prune_cgroup(Unit *u) {
                 }
         }
 
+        /* For delegated units, the payload may have written domain controllers (e.g. "pids") into
+         * cgroup.subtree_control via a cgroup namespace root write. These persist even after cg_trim()
+         * removes sub-cgroups, leaving the cgroup as an "internal node" which causes clone3() with
+         * CLONE_INTO_CGROUP to fail with EBUSY on the next start. Clear them now as part of cleanup.
+         * Ignore errors: if sub-cgroups still have live processes, the clearing will fail, but so will
+         * the next start — there is nothing more we can do here in that case. */
+        if (unit_cgroup_delegate(u))
+                (void) cg_enable(u->manager->cgroup_supported, /* mask= */ 0, crt->cgroup_path, /* ret_result_mask= */ NULL);
+
         if (is_root_slice)
                 return;
 
