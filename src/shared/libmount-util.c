@@ -100,6 +100,8 @@ int libmount_parse_full(
         /* Older libmount seems to require this. */
         assert(!source || path);
         assert(IN_SET(direction, MNT_ITER_FORWARD, MNT_ITER_BACKWARD));
+        assert(ret_table);
+        assert(ret_iter);
 
         r = dlopen_libmount();
         if (r < 0)

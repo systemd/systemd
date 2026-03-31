@@ -245,6 +245,8 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
 int route_new(Route **ret) {
         _cleanup_(route_unrefp) Route *route = NULL;
 
+        assert(ret);
+
         route = new(Route, 1);
         if (!route)
                 return -ENOMEM;

@@ -132,6 +132,8 @@ int unit_new_for_name(Manager *m, size_t size, const char *name, Unit **ret) {
         _cleanup_(unit_freep) Unit *u = NULL;
         int r;
 
+        assert(ret);
+
         u = unit_new(m, size);
         if (!u)
                 return -ENOMEM;
@@ -4300,6 +4302,9 @@ static int user_from_unit_name(Unit *u, char **ret) {
 
         _cleanup_free_ char *n = NULL;
         int r;
+
+        assert(u);
+        assert(ret);
 
         r = unit_name_to_prefix(u->id, &n);
         if (r < 0)

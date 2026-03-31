@@ -197,6 +197,7 @@ int user_record_reconcile(
 
         assert(host);
         assert(embedded);
+        assert(ret);
 
         /* Make sure both records are initialized */
         if (!host->json || !embedded->json)

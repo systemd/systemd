@@ -214,6 +214,8 @@ int cryptsetup_get_volume_key_prefix(
         const char *uuid;
         char *s;
 
+        assert(ret);
+
         uuid = sym_crypt_get_uuid(cd);
         if (!uuid)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to get LUKS UUID.");
@@ -247,6 +249,8 @@ int cryptsetup_get_volume_key_id(
         uint8_t digest[SHA256_DIGEST_SIZE];
         char *hex;
         int r;
+
+        assert(ret);
 
         r = cryptsetup_get_volume_key_prefix(cd, volume_name, &prefix);
         if (r < 0)

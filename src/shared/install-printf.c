@@ -12,6 +12,8 @@ static int specifier_prefix_and_instance(char specifier, const void *data, const
         _cleanup_free_ char *prefix = NULL;
         int r;
 
+        assert(ret);
+
         r = unit_name_to_prefix_and_instance(i->name, &prefix);
         if (r < 0)
                 return r;

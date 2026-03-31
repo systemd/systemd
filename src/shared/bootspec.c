@@ -1056,6 +1056,7 @@ static int pe_find_addon_sections(
 
         assert(fd >= 0);
         assert(path);
+        assert(ret_cmdline);
 
         r = pe_load_headers_and_sections(fd, path, &sections, &pe_header);
         if (r < 0)

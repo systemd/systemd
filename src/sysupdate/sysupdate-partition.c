@@ -158,6 +158,7 @@ int find_suitable_partition(
         int r;
 
         assert(device);
+        POINTER_MAY_BE_NULL(partition_type);
         assert(ret);
 
         r = fdisk_new_context_at(AT_FDCWD, device, /* read_only= */ true, /* sector_size= */ UINT32_MAX, &c);
