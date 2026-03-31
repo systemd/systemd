@@ -26,8 +26,6 @@
 #include "bus-locator.h"
 #include "bus-util.h"
 #include "capability-util.h"
-#include "chase.h"
-#include "chattr-util.h"
 #include "common-signal.h"
 #include "copy.h"
 #include "discover-image.h"
@@ -88,7 +86,7 @@
 #include "utf8.h"
 #include "vmspawn-mount.h"
 #include "vmspawn-qemu-config.h"
-#include "vmspawn-register.h"
+#include "machine-register.h"
 #include "vmspawn-scope.h"
 #include "vmspawn-settings.h"
 #include "vmspawn-util.h"
@@ -126,7 +124,10 @@ static char *arg_slice = NULL;
 static char **arg_property = NULL;
 static char *arg_cpus = NULL;
 static uint64_t arg_ram = UINT64_C(2) * U64_GB;
+static uint64_t arg_ram_max = 0;
+static unsigned arg_ram_slots = 0;
 static int arg_kvm = -1;
+static int arg_cxl = -1;
 static int arg_vsock = -1;
 static unsigned arg_vsock_cid = VMADDR_CID_ANY;
 static int arg_tpm = -1;
@@ -142,6 +143,7 @@ static bool arg_firmware_describe = false;
 static Set *arg_firmware_features_include = NULL;
 static Set *arg_firmware_features_exclude = NULL;
 static char *arg_forward_journal = NULL;
+static char *arg_forward_journal_config = NULL;
 static bool arg_register = true;
 static bool arg_keep_unit = false;
 static sd_id128_t arg_uuid = {};
@@ -182,6 +184,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_linux, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_initrds, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_runtime_mounts, runtime_mount_context_done);
 STATIC_DESTRUCTOR_REGISTER(arg_forward_journal, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_forward_journal_config, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_kernel_cmdline_extra, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_extra_drives, extra_drive_context_done);
 STATIC_DESTRUCTOR_REGISTER(arg_background, freep);
@@ -212,19 +215,23 @@ static int help(void) {
                "  -q --quiet               Do not show status information\n"
                "     --no-pager            Do not pipe output into a pager\n"
                "     --no-ask-password     Do not prompt for password\n"
-               "     --user                Interact with user manager\n"
-               "     --system              Interact with system manager\n"
+               "     --runtime-scope=system|user\n"
+               "                            Run in system or user service manager scope\n"
                "\n%3$sImage:%4$s\n"
                "  -D --directory=PATH      Root directory for the VM\n"
                "  -x --ephemeral           Run VM with snapshot of the disk or directory\n"
                "  -i --image=FILE|DEVICE   Root file system disk image or device for the VM\n"
                "     --image-format=FORMAT Specify disk image format (raw, qcow2; default: raw)\n"
                "     --image-disk-type=TYPE\n"
-               "                           Specify disk type (virtio-blk, virtio-scsi, nvme; default: virtio-blk)\n"
+               "                           Specify disk type (virtio-blk, virtio-scsi, nvme,\n"
+               "                           scsi-cd; default: virtio-blk)\n"
                "\n%3$sHost Configuration:%4$s\n"
                "     --cpus=CPUS           Configure number of CPUs in guest\n"
-               "     --ram=BYTES           Configure guest's RAM size\n"
+               "     --ram=BYTES[:MAXBYTES[:SLOTS]]\n"
+               "                           Configure guest's RAM size (and max/slots for\n"
+               "                           hotplug)\n"
                "     --kvm=BOOL            Enable use of KVM\n"
+               "     --cxl=BOOL            Enable CXL support\n"
                "     --vsock=BOOL          Override autodetection of VSOCK support\n"
                "     --vsock-cid=CID       Specify the CID to use for the guest's VSOCK support\n"
                "     --tpm=BOOL            Enable use of a virtual TPM\n"
@@ -280,6 +287,8 @@ static int help(void) {
                "\n%3$sIntegration:%4$s\n"
                "     --forward-journal=FILE|DIR\n"
                "                           Forward the VM's journal to the host\n"
+               "     --forward-journal-config=PATH\n"
+               "                           Configuration file for systemd-journal-remote\n"
                "     --pass-ssh-key=BOOL   Create an SSH key to access the VM\n"
                "     --ssh-key-type=TYPE   Choose what type of SSH key to pass\n"
                "\n%3$sInput/Output:%4$s\n"
@@ -331,6 +340,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_CPUS,
                 ARG_RAM,
                 ARG_KVM,
+                ARG_CXL,
                 ARG_VSOCK,
                 ARG_VSOCK_CID,
                 ARG_TPM,
@@ -347,6 +357,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SECURE_BOOT,
                 ARG_PRIVATE_USERS,
                 ARG_FORWARD_JOURNAL,
+                ARG_FORWARD_JOURNAL_CONFIG,
                 ARG_PASS_SSH_KEY,
                 ARG_SSH_KEY_TYPE,
                 ARG_SET_CREDENTIAL,
@@ -365,6 +376,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_BIND_USER,
                 ARG_BIND_USER_SHELL,
                 ARG_BIND_USER_GROUP,
+                ARG_RUNTIME_SCOPE,
                 ARG_SYSTEM,
                 ARG_USER,
                 ARG_IMAGE_FORMAT,
@@ -388,6 +400,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "ram",               required_argument, NULL, ARG_RAM               },
                 { "qemu-mem",          required_argument, NULL, ARG_RAM               }, /* Compat alias */
                 { "kvm",               required_argument, NULL, ARG_KVM               },
+                { "cxl",               required_argument, NULL, ARG_CXL               },
                 { "qemu-kvm",          required_argument, NULL, ARG_KVM               }, /* Compat alias */
                 { "vsock",             required_argument, NULL, ARG_VSOCK             },
                 { "qemu-vsock",        required_argument, NULL, ARG_VSOCK             }, /* Compat alias */
@@ -407,7 +420,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "extra-drive",       required_argument, NULL, ARG_EXTRA_DRIVE       },
                 { "secure-boot",       required_argument, NULL, ARG_SECURE_BOOT       },
                 { "private-users",     required_argument, NULL, ARG_PRIVATE_USERS     },
-                { "forward-journal",   required_argument, NULL, ARG_FORWARD_JOURNAL   },
+                { "forward-journal",        required_argument, NULL, ARG_FORWARD_JOURNAL        },
+                { "forward-journal-config", required_argument, NULL, ARG_FORWARD_JOURNAL_CONFIG },
                 { "pass-ssh-key",      required_argument, NULL, ARG_PASS_SSH_KEY      },
                 { "ssh-key-type",      required_argument, NULL, ARG_SSH_KEY_TYPE      },
                 { "set-credential",    required_argument, NULL, ARG_SET_CREDENTIAL    },
@@ -427,6 +441,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "bind-user",         required_argument, NULL, ARG_BIND_USER         },
                 { "bind-user-shell",   required_argument, NULL, ARG_BIND_USER_SHELL   },
                 { "bind-user-group",   required_argument, NULL, ARG_BIND_USER_GROUP   },
+                { "runtime-scope",     required_argument, NULL, ARG_RUNTIME_SCOPE     },
                 { "system",            no_argument,       NULL, ARG_SYSTEM            },
                 { "user",              no_argument,       NULL, ARG_USER              },
                 {}
@@ -506,14 +521,55 @@ static int parse_argv(int argc, char *argv[]) {
                                 return r;
                         break;
 
-                case ARG_RAM:
-                        r = parse_size(optarg, 1024, &arg_ram);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to parse --ram=%s: %m", optarg);
+                case ARG_RAM: {
+                        const char *e = strchr(optarg, ':');
+                        if (e) {
+                                _cleanup_free_ char *first = strndup(optarg, e - optarg);
+                                if (!first)
+                                        return log_oom();
+
+                                r = parse_size(first, 1024, &arg_ram);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse --ram=%s: %m", optarg);
+
+                                const char *e2 = strchr(e + 1, ':');
+                                if (e2) {
+                                        _cleanup_free_ char *second = strndup(e + 1, e2 - e - 1);
+                                        if (!second)
+                                                return log_oom();
+
+                                        r = parse_size(second, 1024, &arg_ram_max);
+                                        if (r < 0)
+                                                return log_error_errno(r, "Failed to parse --ram=%s: %m", optarg);
+
+                                        r = safe_atou(e2 + 1, &arg_ram_slots);
+                                        if (r < 0)
+                                                return log_error_errno(r, "Failed to parse --ram=%s: %m", optarg);
+                                } else {
+                                        r = parse_size(e + 1, 1024, &arg_ram_max);
+                                        if (r < 0)
+                                                return log_error_errno(r, "Failed to parse --ram=%s: %m", optarg);
+                                }
+                        } else {
+                                r = parse_size(optarg, 1024, &arg_ram);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse --ram=%s: %m", optarg);
+
+                                arg_ram_max = 0;
+                                arg_ram_slots = 0;
+                        }
+
                         break;
+                }
 
                 case ARG_KVM:
                         r = parse_tristate_argument_with_auto("--kvm=", optarg, &arg_kvm);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_CXL:
+                        r = parse_tristate_argument_with_auto("--cxl=", optarg, &arg_cxl);
                         if (r < 0)
                                 return r;
                         break;
@@ -690,6 +746,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_FORWARD_JOURNAL:
                         r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_forward_journal);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_FORWARD_JOURNAL_CONFIG:
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_forward_journal_config);
                         if (r < 0)
                                 return r;
                         break;
@@ -950,6 +1012,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_RUNTIME_SCOPE:
+                        arg_runtime_scope = runtime_scope_from_string(optarg);
+                        if (!IN_SET(arg_runtime_scope, RUNTIME_SCOPE_SYSTEM, RUNTIME_SCOPE_USER))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse runtime scope: %s", optarg);
+                        break;
+
                 case ARG_SYSTEM:
                         arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
                         break;
@@ -974,6 +1042,15 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (!strv_isempty(arg_bind_user_groups) && strv_isempty(arg_bind_user))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot use --bind-user-group= without --bind-user=");
+
+        if (arg_ram_max > 0 && arg_ram_max < arg_ram)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Maximum RAM size must be greater than or equal to initial RAM size.");
+
+        if (arg_ram_slots > 0 && arg_ram_max == 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Memory hotplug slots require a maximum RAM size.");
+
+        if (arg_forward_journal_config && !arg_forward_journal)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--forward-journal-config= requires --forward-journal=.");
 
         if (arg_ephemeral && arg_extra_drives.n_drives > 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot use --ephemeral with --extra-drive=");
@@ -1517,57 +1594,6 @@ static int start_tpm(
         return 0;
 }
 
-static int start_systemd_journal_remote(
-                const char *scope,
-                unsigned port,
-                const char *sd_socket_activate,
-                char **ret_listen_address,
-                PidRef *ret_pidref) {
-
-        int r;
-
-        assert(scope);
-
-        _cleanup_free_ char *scope_prefix = NULL;
-        r = unit_name_to_prefix(scope, &scope_prefix);
-        if (r < 0)
-                return log_error_errno(r, "Failed to strip .scope suffix from scope: %m");
-
-        _cleanup_free_ char *listen_address = NULL;
-        if (asprintf(&listen_address, "vsock:2:%u", port) < 0)
-                return log_oom();
-
-        _cleanup_free_ char *sd_journal_remote = NULL;
-        r = find_executable_full(
-                        "systemd-journal-remote",
-                        /* root= */ NULL,
-                        STRV_MAKE(LIBEXECDIR),
-                        /* use_path_envvar= */ true, /* systemd-journal-remote should be installed in
-                                                        * LIBEXECDIR, but for supporting fancy setups. */
-                        &sd_journal_remote,
-                        /* ret_fd= */ NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to find systemd-journal-remote binary: %m");
-
-        _cleanup_strv_free_ char **argv = strv_new(
-                        sd_socket_activate,
-                        "--listen", listen_address,
-                        sd_journal_remote,
-                        "--output", arg_forward_journal,
-                        "--split-mode", endswith(arg_forward_journal, ".journal") ? "none" : "host");
-        if (!argv)
-                return log_oom();
-
-        r = fork_notify(argv, ret_pidref);
-        if (r < 0)
-                return r;
-
-        if (ret_listen_address)
-                *ret_listen_address = TAKE_PTR(listen_address);
-
-        return 0;
-}
-
 static int discover_root(char **ret) {
         int r;
         _cleanup_(dissected_image_unrefp) DissectedImage *image = NULL;
@@ -1686,7 +1712,9 @@ static int start_virtiofsd(
                         "--shared-dir", source_uid == FOREIGN_UID_MIN ? "/run/systemd/mount-rootfs" : directory,
                         "--xattr",
                         "--fd", sockstr,
-                        "--no-announce-submounts");
+                        "--no-announce-submounts",
+                        "--log-level=error",
+                        "--modcaps=-mknod");
         if (!argv)
                 return log_oom();
 
@@ -2232,33 +2260,19 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (asprintf(&mem, "%" PRIu64 "M", DIV_ROUND_UP(arg_ram, U64_MB)) < 0)
                 return log_oom();
 
+        _cleanup_free_ char *mem_max = NULL;
+        if (arg_ram_max > 0)
+                if (asprintf(&mem_max, "%" PRIu64 "M", DIV_ROUND_UP(arg_ram_max, U64_MB)) < 0)
+                        return log_oom();
+
         /* Create runtime directory for the QEMU config file and other state */
         _cleanup_free_ char *runtime_dir = NULL;
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir_destroy = NULL;
-        {
-                _cleanup_free_ char *subdir = NULL;
+        r = runtime_directory_make(arg_runtime_scope, "vmspawn", &runtime_dir, &runtime_dir_destroy);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create runtime directory: %m");
 
-                if (asprintf(&subdir, "systemd/vmspawn.%" PRIx64, random_u64()) < 0)
-                        return log_oom();
-
-                r = runtime_directory(arg_runtime_scope, subdir, &runtime_dir);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to lookup runtime directory: %m");
-                if (r > 0) { /* We need to create our own runtime dir */
-                        r = mkdir_p(runtime_dir, 0755);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to create runtime directory '%s': %m", runtime_dir);
-
-                        /* We created this, hence also destroy it */
-                        runtime_dir_destroy = TAKE_PTR(runtime_dir);
-
-                        runtime_dir = strdup(runtime_dir_destroy);
-                        if (!runtime_dir)
-                                return log_oom();
-                }
-
-                log_debug("Using runtime directory: %s", runtime_dir);
-        }
+        log_debug("Using runtime directory: %s", runtime_dir);
 
         /* Build a QEMU config file for -readconfig. Items that can be expressed as QemuOpts sections go
          * here; things that require cmdline-only switches (e.g. -kernel, -smbios, -nographic, --add-fd)
@@ -2280,6 +2294,12 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return r;
         }
 
+        if (ARCHITECTURE_SUPPORTS_CXL && arg_cxl > 0) {
+                r = qemu_config_key(config_file, "cxl", "on");
+                if (r < 0)
+                        return r;
+        }
+
         if (arg_directory || arg_runtime_mounts.n_mounts != 0) {
                 r = qemu_config_key(config_file, "memory-backend", "mem");
                 if (r < 0)
@@ -2288,6 +2308,31 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         if (ARCHITECTURE_SUPPORTS_HPET) {
                 r = qemu_config_key(config_file, "hpet", "off");
+                if (r < 0)
+                        return r;
+        }
+
+        r = qemu_config_section(config_file, "smp-opts", /* id= */ NULL,
+                                "cpus", arg_cpus ?: "1");
+        if (r < 0)
+                return r;
+
+        r = qemu_config_section(config_file, "memory", /* id= */ NULL,
+                                "size", mem);
+        if (r < 0)
+                return r;
+
+        if (mem_max) {
+                _cleanup_free_ char *slots = NULL;
+
+                r = qemu_config_key(config_file, "maxmem", mem_max);
+                if (r < 0)
+                        return r;
+
+                if (asprintf(&slots, "%u", arg_ram_slots > 0 ? arg_ram_slots : 1u) < 0)
+                        return log_oom();
+
+                r = qemu_config_key(config_file, "slots", slots);
                 if (r < 0)
                         return r;
         }
@@ -2333,8 +2378,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         /* Start building the cmdline for items that must remain as command line arguments */
         cmdline = strv_new(qemu_binary,
-                           "-smp", arg_cpus ?: "1",
-                           "-m", mem);
+                           "-no-user-config");
         if (!cmdline)
                 return log_oom();
 
@@ -2532,12 +2576,22 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         PTYForwardFlags ptyfwd_flags = 0;
         switch (arg_console_mode) {
 
-        case CONSOLE_READ_ONLY:
-                ptyfwd_flags |= PTY_FORWARD_READ_ONLY;
+        case CONSOLE_NATIVE:
+                /* Use a PTY instead of chardev stdio to prevent QEMU from setting O_NONBLOCK on
+                 * our stdio file descriptions (see qemu's chardev/char-stdio.c and char-fd.c).
+                 * Use PTY_FORWARD_DUMB_TERMINAL|PTY_FORWARD_TRANSPARENT so the forwarder just
+                 * shovels bytes without any terminal manipulation or escape sequence handling. */
+                ptyfwd_flags |= PTY_FORWARD_DUMB_TERMINAL|PTY_FORWARD_TRANSPARENT;
 
                 _fallthrough_;
 
-        case CONSOLE_INTERACTIVE:  {
+        case CONSOLE_READ_ONLY:
+                if (arg_console_mode == CONSOLE_READ_ONLY)
+                        ptyfwd_flags |= PTY_FORWARD_READ_ONLY;
+
+                _fallthrough_;
+
+        case CONSOLE_INTERACTIVE: {
                 _cleanup_free_ char *pty_path = NULL;
 
                 master = openpt_allocate(O_RDWR|O_NONBLOCK, &pty_path);
@@ -2553,9 +2607,11 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (r < 0)
                         return r;
 
+                /* Enable mux for native console so the QEMU monitor is accessible via Ctrl-a c */
                 r = qemu_config_section(config_file, "chardev", "console",
                                         "backend", "serial",
-                                        "path", pty_path);
+                                        "path", pty_path,
+                                        "mux", on_off(arg_console_mode == CONSOLE_NATIVE));
                 if (r < 0)
                         return r;
 
@@ -2565,14 +2621,37 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (r < 0)
                         return r;
 
+                if (arg_console_mode == CONSOLE_NATIVE) {
+                        r = qemu_config_section(config_file, "mon", "mon0",
+                                                "chardev", "console");
+                        if (r < 0)
+                                return r;
+                }
+
                 break;
         }
 
         case CONSOLE_GUI:
-                /* -vga is a convenience option, keep on cmdline */
-                r = strv_extend_many(&cmdline, "-vga", "virtio");
+                /* -display has no config file equivalent */
+                r = strv_extend_many(&cmdline, "-display", "sdl,gl=on", "-vga", "none");
                 if (r < 0)
                         return log_oom();
+
+                r = qemu_config_section(config_file, "device", "vga0",
+                                        "driver", "virtio-vga");
+                if (r < 0)
+                        return r;
+
+                r = qemu_config_section(config_file, "audiodev", "audio0",
+                                        "driver", "default");
+                if (r < 0)
+                        return r;
+
+                r = qemu_config_section(config_file, "device", "virtio-sound0",
+                                        "driver", "virtio-sound-pci",
+                                        "audiodev", "audio0");
+                if (r < 0)
+                        return r;
 
                 r = qemu_config_section(config_file, "device", "virtio-serial0",
                                         "driver", "virtio-serial");
@@ -2590,36 +2669,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                         "driver", "virtserialport",
                                         "chardev", "vdagent",
                                         "name", "org.qemu.guest_agent.0");
-                if (r < 0)
-                        return r;
-
-                break;
-
-        case CONSOLE_NATIVE:
-                r = strv_extend_many(&cmdline, "-nographic", "-nodefaults");
-                if (r < 0)
-                        return log_oom();
-
-                r = qemu_config_section(config_file, "chardev", "console",
-                                        "backend", "stdio",
-                                        "mux", "on",
-                                        "signal", "off");
-                if (r < 0)
-                        return r;
-
-                r = qemu_config_section(config_file, "device", "vmspawn-virtio-serial-pci",
-                                        "driver", "virtio-serial-pci");
-                if (r < 0)
-                        return r;
-
-                r = qemu_config_section(config_file, "device", "virtconsole0",
-                                        "driver", "virtconsole",
-                                        "chardev", "console");
-                if (r < 0)
-                        return r;
-
-                r = qemu_config_section(config_file, "mon", "mon0",
-                                        "chardev", "console");
                 if (r < 0)
                         return r;
 
@@ -2740,15 +2789,16 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         r = kernel_cmdline_maybe_append_root();
                         if (r < 0)
                                 return r;
+
                 }
         }
 
         bool need_scsi_controller =
-                arg_image_disk_type == DISK_TYPE_VIRTIO_SCSI && arg_image;
+                IN_SET(arg_image_disk_type, DISK_TYPE_VIRTIO_SCSI, DISK_TYPE_SCSI_CD) && arg_image;
         if (!need_scsi_controller)
                 FOREACH_ARRAY(drive, arg_extra_drives.drives, arg_extra_drives.n_drives) {
                         DiskType dt = drive->disk_type >= 0 ? drive->disk_type : arg_image_disk_type;
-                        if (dt == DISK_TYPE_VIRTIO_SCSI) {
+                        if (IN_SET(dt, DISK_TYPE_VIRTIO_SCSI, DISK_TYPE_SCSI_CD)) {
                                 need_scsi_controller = true;
                                 break;
                         }
@@ -2772,12 +2822,20 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                                        arg_image);
                 }
 
-                r = qemu_config_section(config_file, "drive", "vmspawn",
-                                        "if", "none",
-                                        "file", arg_image,
-                                        "format", image_format_to_string(arg_image_format),
-                                        "discard", on_off(arg_discard_disk),
-                                        "snapshot", on_off(arg_ephemeral));
+                if (arg_image_disk_type == DISK_TYPE_SCSI_CD)
+                        r = qemu_config_section(config_file, "drive", "vmspawn",
+                                                "if", "none",
+                                                "file", arg_image,
+                                                "format", image_format_to_string(arg_image_format),
+                                                "media", "cdrom",
+                                                "readonly", "on");
+                else
+                        r = qemu_config_section(config_file, "drive", "vmspawn",
+                                                "if", "none",
+                                                "file", arg_image,
+                                                "format", image_format_to_string(arg_image_format),
+                                                "discard", on_off(arg_discard_disk),
+                                                "snapshot", on_off(arg_ephemeral));
                 if (r < 0)
                         return r;
 
@@ -2808,6 +2866,12 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         if (r < 0)
                                 return log_oom();
                         break;
+                case DISK_TYPE_SCSI_CD:
+                        disk_driver = "scsi-cd";
+                        r = disk_serial(image_fn, 30, &serial);
+                        if (r < 0)
+                                return log_oom();
+                        break;
                 default:
                         assert_not_reached();
                 }
@@ -2820,15 +2884,17 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (r < 0)
                         return r;
 
-                if (arg_image_disk_type == DISK_TYPE_VIRTIO_SCSI) {
+                if (IN_SET(arg_image_disk_type, DISK_TYPE_VIRTIO_SCSI, DISK_TYPE_SCSI_CD)) {
                         r = qemu_config_key(config_file, "bus", "vmspawn_scsi.0");
                         if (r < 0)
                                 return r;
                 }
 
-                r = grow_image(arg_image, arg_grow_image);
-                if (r < 0)
-                        return r;
+                if (arg_image_disk_type != DISK_TYPE_SCSI_CD) {
+                        r = grow_image(arg_image, arg_grow_image);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
@@ -2933,7 +2999,11 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 } else
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected regular file or block device, not '%s'.", drive->path);
 
-                if (strv_extendf(&cmdline, "driver=%s,cache.direct=off,cache.no-flush=on,file.driver=%s,file.filename=%s,node-name=vmspawn_extra_%zu", image_format_to_string(drive->format), driver, escaped_drive, i) < 0)
+                DiskType dt = drive->disk_type >= 0 ? drive->disk_type : arg_image_disk_type;
+
+                if (strv_extendf(&cmdline, "driver=%s,cache.direct=off,cache.no-flush=on,file.driver=%s,file.filename=%s,node-name=vmspawn_extra_%zu%s",
+                                 image_format_to_string(drive->format), driver, escaped_drive, i,
+                                 dt == DISK_TYPE_SCSI_CD ? ",read-only=on" : "") < 0)
                         return log_oom();
 
                 _cleanup_free_ char *drive_fn = NULL;
@@ -2947,8 +3017,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
                 if (strv_extend(&cmdline, "-device") < 0)
                         return log_oom();
-
-                DiskType dt = drive->disk_type >= 0 ? drive->disk_type : arg_image_disk_type;
 
                 switch (dt) {
                 case DISK_TYPE_VIRTIO_BLK:
@@ -2973,6 +3041,15 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                 return log_oom();
                         break;
                 }
+                case DISK_TYPE_SCSI_CD: {
+                        _cleanup_free_ char *serial = NULL;
+                        r = disk_serial(escaped_drive_fn, 30, &serial);
+                        if (r < 0)
+                                return log_oom();
+                        if (strv_extendf(&cmdline, "scsi-cd,bus=vmspawn_scsi.0,drive=vmspawn_extra_%zu,serial=%s", i++, serial) < 0)
+                                return log_oom();
+                        break;
+                }
                 default:
                         assert_not_reached();
                 }
@@ -2982,7 +3059,28 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 r = strv_prepend(&arg_kernel_cmdline_extra, "console=hvc0");
                 if (r < 0)
                         return log_oom();
+
+                /* Propagate the host's $TERM into the VM via the kernel command line. TERM= is
+                 * picked up by PID 1 and inherited by services on /dev/console, and
+                 * systemd.tty.term.hvc0= is used by services directly attached to /dev/hvc0 (such
+                 * as serial-getty). While systemd can auto-detect the terminal type via DCS
+                 * XTGETTCAP, not all terminal emulators implement this, so let's always propagate
+                 * $TERM if we have it. */
+                const char *term = getenv("TERM");
+                if (!isempty(term) && !streq(term, "unknown") /* some CI environments set TERM=unknown */) {
+                        FOREACH_STRING(tty_key, "systemd.tty.term.hvc0", "TERM") {
+                                _cleanup_free_ char *p = strjoin(tty_key, "=", term);
+                                if (!p)
+                                        return log_oom();
+
+                                r = strv_prepend(&arg_kernel_cmdline_extra, p);
+                                if (r < 0)
+                                        return log_oom();
+                        }
+                }
         }
+
+        _cleanup_free_ char *fstab_extra = NULL;
 
         for (size_t j = 0; j < arg_runtime_mounts.n_mounts; j++) {
                 RuntimeMount *m = arg_runtime_mounts.mounts + j;
@@ -3030,23 +3128,42 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (r < 0)
                         return r;
 
-                _cleanup_free_ char *clean_target = xescape(m->target, "\":");
-                if (!clean_target)
+                /* fstab uses whitespace as field separator, so octal-escape spaces in paths */
+                _cleanup_free_ char *escaped_target = octescape_full(m->target, SIZE_MAX, " \t");
+                if (!escaped_target)
                         return log_oom();
 
-                if (strv_extendf(&arg_kernel_cmdline_extra, "systemd.mount-extra=\"%s:%s:virtiofs:%s\"",
-                                 id, clean_target, m->read_only ? "ro" : "rw") < 0)
+                if (strextendf(&fstab_extra, "%s %s virtiofs %s,x-initrd.mount\n",
+                               id, escaped_target, m->read_only ? "ro" : "rw") < 0)
                         return log_oom();
+        }
+
+        if (fstab_extra) {
+                /* If the user already specified a fstab.extra credential, combine it with ours */
+                MachineCredential *existing = machine_credential_find(&arg_credentials, "fstab.extra");
+                if (existing) {
+                        _cleanup_free_ char *combined = NULL;
+
+                        if (existing->size > 0 && existing->data[existing->size - 1] != '\n')
+                                r = asprintf(&combined, "%.*s\n%s", (int) existing->size, existing->data, fstab_extra);
+                        else
+                                r = asprintf(&combined, "%.*s%s", (int) existing->size, existing->data, fstab_extra);
+                        if (r < 0)
+                                return log_oom();
+
+                        free_and_replace(existing->data, combined);
+                        existing->size = strlen(existing->data);
+                } else {
+                        r = machine_credential_add(&arg_credentials, "fstab.extra", fstab_extra, SIZE_MAX);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         _cleanup_(rm_rf_physical_and_freep) char *smbios_dir = NULL;
         r = mkdtemp_malloc("/var/tmp/vmspawn-smbios-XXXXXX", &smbios_dir);
         if (r < 0)
                 return log_error_errno(r, "Failed to create temporary directory: %m");
-
-        r = cmdline_add_kernel_cmdline(&cmdline, kernel, smbios_dir);
-        if (r < 0)
-                return r;
 
         r = cmdline_add_smbios11(&cmdline, smbios_dir);
         if (r < 0)
@@ -3162,25 +3279,14 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         if (arg_forward_journal) {
                 _cleanup_free_ char *listen_address = NULL;
-
-                ChaseFlags chase_flags = CHASE_MKDIR_0755|CHASE_MUST_BE_DIRECTORY;
-                if (endswith(arg_forward_journal, ".journal"))
-                        chase_flags |= CHASE_PARENT;
-
-                _cleanup_close_ int journal_fd = -EBADF;
-                r = chase(arg_forward_journal, /* root= */ NULL, chase_flags, /* ret_path= */ NULL, &journal_fd);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to create journal directory for '%s': %m", arg_forward_journal);
-
-                r = chattr_fd(journal_fd, FS_NOCOW_FL, FS_NOCOW_FL);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to set NOCOW flag on journal directory for '%s', ignoring: %m", arg_forward_journal);
+                if (asprintf(&listen_address, "vsock:2:%u", child_cid) < 0)
+                        return log_oom();
 
                 if (!GREEDY_REALLOC(children, n_children + 1))
                         return log_oom();
 
                 _cleanup_(fork_notify_terminate) PidRef child = PIDREF_NULL;
-                r = start_systemd_journal_remote(unit, child_cid, sd_socket_activate, &listen_address, &child);
+                r = fork_journal_remote(listen_address, arg_forward_journal, arg_forward_journal_config, &child);
                 if (r < 0)
                         return r;
 
@@ -3250,16 +3356,19 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_error_errno(r, "Failed to set credential systemd.unit-dropin.sshd-vsock@.service: %m");
         }
 
-        if (ARCHITECTURE_SUPPORTS_SMBIOS)
-                FOREACH_ARRAY(cred, arg_credentials.credentials, arg_credentials.n_credentials) {
-                        _cleanup_free_ char *p = NULL, *cred_data_b64 = NULL;
-                        ssize_t n;
+        FOREACH_ARRAY(cred, arg_credentials.credentials, arg_credentials.n_credentials) {
+                _cleanup_free_ char *cred_data_b64 = NULL;
+                ssize_t n;
 
-                        n = base64mem(cred->data, cred->size, &cred_data_b64);
-                        if (n < 0)
-                                return log_oom();
+                n = base64mem(cred->data, cred->size, &cred_data_b64);
+                if (n < 0)
+                        return log_oom();
 
-                        p = path_join(smbios_dir, cred->id);
+                /* SMBIOS is always available on x86, but on ARM it requires UEFI firmware
+                 * and does not work with direct kernel boot. */
+                if (ARCHITECTURE_SUPPORTS_SMBIOS &&
+                    (IN_SET(native_architecture(), ARCHITECTURE_X86, ARCHITECTURE_X86_64) || !kernel)) {
+                        _cleanup_free_ char *p = path_join(smbios_dir, cred->id);
                         if (!p)
                                 return log_oom();
 
@@ -3270,14 +3379,63 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to write smbios credential file %s: %m", p);
 
-                        r = strv_extend(&cmdline, "-smbios");
-                        if (r < 0)
+                        if (strv_extend(&cmdline, "-smbios") < 0)
                                 return log_oom();
 
-                        r = strv_extend_joined(&cmdline, "type=11,path=", p);
-                        if (r < 0)
+                        if (strv_extend_joined(&cmdline, "type=11,path=", p) < 0)
                                 return log_oom();
-                }
+
+                } else if (ARCHITECTURE_SUPPORTS_FW_CFG) {
+                        /* fw_cfg keys are limited to 55 characters */
+                        _cleanup_free_ char *key = strjoin("opt/io.systemd.credentials/", cred->id);
+                        if (!key)
+                                return log_oom();
+
+                        if (strlen(key) <= 55) {
+                                _cleanup_free_ char *p = path_join(smbios_dir, cred->id);
+                                if (!p)
+                                        return log_oom();
+
+                                r = write_data_file_atomic_at(
+                                                AT_FDCWD, p,
+                                                &IOVEC_MAKE(cred->data, cred->size),
+                                                WRITE_DATA_FILE_MODE_0400);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to write fw_cfg credential file %s: %m", p);
+
+                                if (strv_extend(&cmdline, "-fw_cfg") < 0)
+                                        return log_oom();
+
+                                if (strv_extendf(&cmdline, "name=%s,file=%s", key, p) < 0)
+                                        return log_oom();
+
+                                continue;
+                        }
+
+                        /* Fall through to kernel command line if key is too long */
+                        log_debug("fw_cfg key '%s' exceeds 55 character limit, falling back to kernel command line.", key);
+
+                        if (strv_extendf(&arg_kernel_cmdline_extra,
+                                         "systemd.set_credential_binary=%s:%s", cred->id, cred_data_b64) < 0)
+                                return log_oom();
+
+                } else if (kernel) {
+                        if (strv_extendf(&arg_kernel_cmdline_extra,
+                                         "systemd.set_credential_binary=%s:%s", cred->id, cred_data_b64) < 0)
+                                return log_oom();
+                } else
+                        log_warning("Cannot pass credential '%s' to VM, native architecture doesn't support SMBIOS or fw_cfg and no kernel for direct boot specified.",
+                                    cred->id);
+        }
+
+        /* CD-ROMs are read-only, so override any "rw" on the kernel command line. */
+        if (arg_image_disk_type == DISK_TYPE_SCSI_CD && strv_contains(arg_kernel_cmdline_extra, "rw"))
+                if (strv_extend(&arg_kernel_cmdline_extra, "ro") < 0)
+                        return log_oom();
+
+        r = cmdline_add_kernel_cmdline(&cmdline, kernel, smbios_dir);
+        if (r < 0)
+                return r;
 
         if (use_vsock) {
                 notify_sock_fd = open_vsock();
@@ -3404,9 +3562,11 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                 arg_machine,
                                 arg_uuid,
                                 "systemd-vmspawn",
+                                "vm",
                                 &child_pidref,
                                 arg_directory,
                                 child_cid,
+                                /* local_ifindex= */ 0,
                                 child_cid != VMADDR_CID_ANY ? vm_address : NULL,
                                 ssh_private_key_path,
                                 !arg_keep_unit && arg_runtime_scope == RUNTIME_SCOPE_SYSTEM,
@@ -3426,9 +3586,11 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                         arg_machine,
                                         arg_uuid,
                                         "systemd-vmspawn",
+                                        "vm",
                                         &child_pidref,
                                         arg_directory,
                                         child_cid,
+                                        /* local_ifindex= */ 0,
                                         child_cid != VMADDR_CID_ANY ? vm_address : NULL,
                                         ssh_private_key_path,
                                         !arg_keep_unit,
@@ -3508,29 +3670,31 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         _cleanup_(osc_context_closep) sd_id128_t osc_context_id = SD_ID128_NULL;
         _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
         if (master >= 0) {
-                if (!terminal_is_dumb()) {
-                        r = osc_context_open_vm(arg_machine, /* ret_seq= */ NULL, &osc_context_id);
-                        if (r < 0)
-                                return r;
-                }
-
                 r = pty_forward_new(event, master, ptyfwd_flags, &forward);
                 if (r < 0)
                         return log_error_errno(r, "Failed to create PTY forwarder: %m");
 
-                if (!arg_background) {
-                        _cleanup_free_ char *bg = NULL;
+                if (!FLAGS_SET(ptyfwd_flags, PTY_FORWARD_DUMB_TERMINAL)) {
+                        if (!terminal_is_dumb()) {
+                                r = osc_context_open_vm(arg_machine, /* ret_seq= */ NULL, &osc_context_id);
+                                if (r < 0)
+                                        return r;
+                        }
 
-                        r = terminal_tint_color(130 /* green */, &bg);
-                        if (r < 0)
-                                log_debug_errno(r, "Failed to determine terminal background color, not tinting.");
-                        else
-                                (void) pty_forward_set_background_color(forward, bg);
-                } else if (!isempty(arg_background))
-                        (void) pty_forward_set_background_color(forward, arg_background);
+                        if (!arg_background) {
+                                _cleanup_free_ char *bg = NULL;
 
-                (void) pty_forward_set_window_title(forward, GLYPH_GREEN_CIRCLE, /* hostname= */ NULL,
-                                                    STRV_MAKE("Virtual Machine", arg_machine));
+                                r = terminal_tint_color(130 /* green */, &bg);
+                                if (r < 0)
+                                        log_debug_errno(r, "Failed to determine terminal background color, not tinting.");
+                                else
+                                        (void) pty_forward_set_background_color(forward, bg);
+                        } else if (!isempty(arg_background))
+                                (void) pty_forward_set_background_color(forward, arg_background);
+
+                        (void) pty_forward_set_window_title(forward, GLYPH_GREEN_CIRCLE, /* hostname= */ NULL,
+                                                            STRV_MAKE("Virtual Machine", arg_machine));
+                }
         }
 
         r = sd_event_loop(event);
@@ -3542,9 +3706,9 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 terminate_scope(runtime_bus, arg_machine);
 
         if (registered_system)
-                (void) unregister_machine(system_bus, arg_machine);
+                (void) unregister_machine(system_bus, arg_machine, RUNTIME_SCOPE_SYSTEM);
         if (registered_runtime)
-                (void) unregister_machine(runtime_bus, arg_machine);
+                (void) unregister_machine(runtime_bus, arg_machine, RUNTIME_SCOPE_USER);
 
         if (use_vsock) {
                 if (exit_status == INT_MAX) {

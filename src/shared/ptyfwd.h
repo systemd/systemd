@@ -17,6 +17,9 @@ typedef enum PTYForwardFlags {
 
         /* Don't tint the background, or set window title */
         PTY_FORWARD_DUMB_TERMINAL          = 1 << 3,
+
+        /* Don't interpret escape sequences (^] exit, hotkeys), just forward everything as-is */
+        PTY_FORWARD_TRANSPARENT            = 1 << 4,
 } PTYForwardFlags;
 
 typedef int (*PTYForwardHangupHandler)(PTYForward *f, int rcode, void *userdata);
