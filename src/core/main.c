@@ -2494,6 +2494,15 @@ static int initialize_runtime(
                                 return -ENOEXEC;
                         }
 
+                        /* Check that / has correct permissions (0755) so that
+                         * non-root services can traverse the filesystem */
+                        struct stat st;
+                        if (stat("/", &st) >= 0 && (st.st_mode & 0755) != 0755)
+                                log_emergency("Root directory / has restrictive permissions %04o, "
+                                              "which will prevent non-root services from starting. "
+                                              "Expected at least 0755.",
+                                              st.st_mode & 07777);
+
                         /* Pull credentials from various sources into a common credential directory (we do
                          * this here, before setting up the machine ID, so that we can use credential info
                          * for setting up the machine ID) */
