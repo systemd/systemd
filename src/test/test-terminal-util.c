@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <fcntl.h>
+#include <poll.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/ioctl.h>
@@ -11,7 +12,10 @@
 #include "ansi-color.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "io-util.h"
+#include "memory-util.h"
 #include "path-util.h"
+#include "pidref.h"
 #include "process-util.h"
 #include "stat-util.h"
 #include "strv.h"
@@ -415,6 +419,312 @@ TEST(terminal_new_session) {
 
                 _exit(EXIT_SUCCESS);
         }
+}
+
+/* Helper for PTY-based terminal_fix_size() tests. Forks a child with a PTY as stdio, simulates
+ * a terminal by writing pre-canned responses on the master side, and verifies the result via ioctl.
+ *
+ * terminal_fix_size() always tries CSI 18 first and falls back to DSR on failure.
+ *
+ * responses/n_responses: what to write to the master after each query is read (NULL entries
+ * mean "don't respond", causing the child to time out on that round). */
+static void test_terminal_fix_size_pty(
+                unsigned initial_rows,
+                unsigned initial_columns,
+                const char *const *responses,
+                size_t n_responses,
+                int expected_r,
+                unsigned expected_rows,
+                unsigned expected_columns) {
+
+        _cleanup_close_ int master_fd = ASSERT_OK(openpt_allocate(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK, NULL));
+        _cleanup_close_ int peer_fd = ASSERT_OK(pty_open_peer(master_fd, O_RDWR|O_NOCTTY|O_CLOEXEC));
+
+        /* Set the initial terminal size via ioctl */
+        struct winsize ws = { .ws_row = initial_rows, .ws_col = initial_columns };
+        ASSERT_OK_ERRNO(ioctl(master_fd, TIOCSWINSZ, &ws));
+
+        _cleanup_(pidref_done_sigkill_wait) PidRef child = PIDREF_NULL;
+        int r = pidref_safe_fork_full(
+                        "(terminal-fix-size-test)",
+                        (int[]) { peer_fd, peer_fd, peer_fd },
+                        NULL, 0,
+                        FORK_DEATHSIG_SIGKILL|FORK_LOG|FORK_REARRANGE_STDIO,
+                        &child);
+        ASSERT_OK(r);
+        if (r == 0) {
+                /* Child: call terminal_fix_size() and verify the result via ioctl */
+                ASSERT_OK_ERRNO(setenv("TERM", "xterm", true));
+                reset_terminal_feature_caches();
+
+                r = terminal_fix_size(STDIN_FILENO, STDOUT_FILENO);
+                ASSERT_EQ(r, expected_r);
+
+                if (r >= 0) {
+                        struct winsize wsc;
+                        ASSERT_OK_ERRNO(ioctl(STDIN_FILENO, TIOCGWINSZ, &wsc));
+                        ASSERT_EQ((unsigned) wsc.ws_row, expected_rows);
+                        ASSERT_EQ((unsigned) wsc.ws_col, expected_columns);
+                }
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        /* Parent: simulate terminal by reading queries and writing responses */
+        peer_fd = safe_close(peer_fd);
+
+        for (size_t i = 0; i < n_responses; i++) {
+                /* Wait for the child to write a query */
+                ASSERT_OK(fd_wait_for_event(master_fd, POLLIN, 5 * USEC_PER_SEC));
+
+                /* Read and discard the query. The child writes the entire query via a single
+                 * loop_write(), so all data is in the kernel buffer once POLLIN fires. */
+                char buf[256];
+                for (;;) {
+                        ssize_t l = read(master_fd, buf, sizeof(buf));
+                        if (l < 0) {
+                                if (errno == EAGAIN)
+                                        break;
+                                ASSERT_OK_ERRNO(l);
+                        }
+                        if (l == 0)
+                                break;
+                }
+
+                /* Write the simulated response */
+                if (responses[i])
+                        ASSERT_OK(loop_write(master_fd, responses[i], strlen(responses[i])));
+        }
+
+        /* Wait for child and check it exited successfully */
+        ASSERT_OK(pidref_wait_for_terminate_and_check("(terminal-fix-size-test)", &child, WAIT_LOG));
+}
+
+/* CSI 18: valid response, size updated */
+TEST(terminal_fix_size_csi18_pty) {
+        test_terminal_fix_size_pty(
+                        /* initial: */ 25, 80,
+                        STRV_MAKE_CONST("\x1B[8;24;80t"), 1,
+                        /* expected_r= */ 1,
+                        /* expected: */ 24, 80);
+}
+
+/* CSI 18: valid response, size already matches → no change */
+TEST(terminal_fix_size_csi18_pty_unchanged) {
+        test_terminal_fix_size_pty(
+                        /* initial: */ 24, 80,
+                        STRV_MAKE_CONST("\x1B[8;24;80t"), 1,
+                        /* expected_r= */ 0,
+                        /* expected: */ 24, 80);
+}
+
+/* CSI 18: valid response with large terminal size */
+TEST(terminal_fix_size_csi18_pty_large) {
+        test_terminal_fix_size_pty(
+                        /* initial: */ 25, 80,
+                        STRV_MAKE_CONST("\x1B[8;200;300t"), 1,
+                        /* expected_r= */ 1,
+                        /* expected: */ 200, 300);
+}
+
+/* CSI 18 fails with -EINVAL, falls back to DSR which succeeds */
+TEST(terminal_fix_size_csi18_fallback_to_dsr_pty) {
+        const char *responses[] = {
+                "\x1B[X;1;1t",   /* Invalid CSI 18 response → triggers DSR fallback */
+                "\x1B[40;160R",  /* Valid DSR response */
+        };
+
+        test_terminal_fix_size_pty(
+                        /* initial: */ 25, 80,
+                        responses, ELEMENTSOF(responses),
+                        /* expected_r= */ 1,
+                        /* expected: */ 40, 160);
+}
+
+/* DSR: garbage bytes before valid CPR responses (state machine should handle this) */
+TEST(terminal_fix_size_dsr_pty_garbage_prefix) {
+        const char *responses[] = {
+                NULL,                   /* No CSI 18 response → timeout */
+                "garbage\x1B[50;132R",  /* DSR: garbage before valid CPR */
+        };
+
+        test_terminal_fix_size_pty(
+                        /* initial: */ 25, 80,
+                        responses, ELEMENTSOF(responses),
+                        /* expected_r= */ 1,
+                        /* expected: */ 50, 132);
+}
+
+/* DSR: bogus escape sequence before valid CPR responses */
+TEST(terminal_fix_size_dsr_pty_bogus_escape) {
+        const char *responses[] = {
+                NULL,                    /* No CSI 18 response → timeout */
+                "\x1B[?1X\x1B[80;120R",  /* DSR: bogus escape before valid CPR */
+        };
+
+        test_terminal_fix_size_pty(
+                        /* initial: */ 25, 80,
+                        responses, ELEMENTSOF(responses),
+                        /* expected_r= */ 1,
+                        /* expected: */ 80, 120);
+}
+
+/* DSR: row/column values too small (< 4) in size response → error */
+TEST(terminal_fix_size_dsr_pty_too_small) {
+        const char *responses[] = {
+                NULL,         /* No CSI 18 response → timeout */
+                "\x1B[2;2R",  /* DSR: too-small size */
+        };
+
+        test_terminal_fix_size_pty(
+                        /* initial: */ 25, 80,
+                        responses, ELEMENTSOF(responses),
+                        /* expected_r= */ -ENODATA,
+                        /* expected: */ 25, 80);
+}
+
+/* DSR: row/column values at boundary (>= 32766) → error */
+TEST(terminal_fix_size_dsr_pty_too_large) {
+        const char *responses[] = {
+                NULL,                 /* No CSI 18 response → timeout */
+                "\x1B[32766;32766R",  /* DSR: too-large size */
+        };
+
+        test_terminal_fix_size_pty(
+                        /* initial: */ 25, 80,
+                        responses, ELEMENTSOF(responses),
+                        /* expected_r= */ -ENODATA,
+                        /* expected: */ 25, 80);
+}
+
+/* No response at all (both CSI 18 and DSR time out) → error */
+TEST(terminal_fix_size_pty_timeout) {
+        test_terminal_fix_size_pty(
+                        /* initial: */ 25, 80,
+                        NULL, 0,
+                        /* expected_r= */ -EOPNOTSUPP,
+                        /* expected: */ 25, 80);
+}
+
+/* Reproduces the core scenario from https://github.com/systemd/systemd/issues/35499:
+ * CSI 18 times out (terminal doesn't respond), then DSR fallback succeeds. */
+TEST(terminal_fix_size_csi18_timeout_fallback_to_dsr_pty) {
+        const char *responses[] = {
+                NULL,           /* No CSI 18 response → times out after 333ms */
+                "\x1B[24;80R",  /* Valid DSR response */
+        };
+
+        test_terminal_fix_size_pty(
+                        /* initial: */ 25, 80,
+                        responses, ELEMENTSOF(responses),
+                        /* expected_r= */ 1,
+                        /* expected: */ 24, 80);
+}
+
+/* Simulates a late CSI 18 response arriving together with the DSR response.
+ * This is the echo contamination scenario from https://github.com/systemd/systemd/issues/35499:
+ * the CSI 18 query times out, the child sends DSR queries, but then a stale CSI 18 response
+ * and the DSR responses arrive together. The DSR state machine must skip over the stale
+ * CSI 18 bytes and parse the valid CPR responses. */
+TEST(terminal_fix_size_csi18_late_response_with_dsr_pty) {
+        const char *responses[] = {
+                NULL,                           /* No CSI 18 response → timeout */
+                "\x1B[8;30;90t" "\x1B[24;80R",  /* Late CSI 18 response + valid DSR response */
+        };
+
+        test_terminal_fix_size_pty(
+                        /* initial: */ 25, 80,
+                        responses, ELEMENTSOF(responses),
+                        /* expected_r= */ 1,
+                        /* expected: */ 24, 80);
+}
+
+/* CSI 18 response fills the buffer without a valid terminator → -EOPNOTSUPP → DSR fallback.
+ * Simulates a terminal that sends an unrelated response instead of the CSI 18 answer. */
+TEST(terminal_fix_size_csi18_buffer_full_fallback_to_dsr_pty) {
+        const char *responses[] = {
+                "\x1B[?62;4;6;22;99c",  /* Device Attributes response, fills CSI 18 buffer with no 't' terminator */
+                "\x1B[24;80R",          /* Valid DSR response */
+        };
+
+        test_terminal_fix_size_pty(
+                        /* initial: */ 25, 80,
+                        responses, ELEMENTSOF(responses),
+                        /* expected_r= */ 1,
+                        /* expected: */ 24, 80);
+}
+
+/* DSR: unrelated escape sequence (Device Attributes) before valid CPR.
+ * The state machine should skip non-CPR sequences and find the valid response. */
+TEST(terminal_fix_size_dsr_pty_da_response_before_cpr) {
+        const char *responses[] = {
+                NULL,                               /* No CSI 18 response → timeout */
+                "\x1B[?62;4;6;22c" "\x1B[50;132R",  /* DA response + valid CPR */
+        };
+
+        test_terminal_fix_size_pty(
+                        /* initial: */ 25, 80,
+                        responses, ELEMENTSOF(responses),
+                        /* expected_r= */ 1,
+                        /* expected: */ 50, 132);
+}
+
+/* CSI 18: minimum valid terminal size (1x1) */
+TEST(terminal_fix_size_csi18_pty_minimum) {
+        test_terminal_fix_size_pty(
+                        /* initial: */ 25, 80,
+                        STRV_MAKE_CONST("\x1B[8;1;1t"), 1,
+                        /* expected_r= */ 1,
+                        /* expected: */ 1, 1);
+}
+
+/* Verifies that DECRC (\x1B8) is always sent as part of the DSR query, ensuring the cursor is
+ * restored even when the DSR response times out. The old code only restored the cursor on success
+ * (by querying the position first via a separate DSR, then moving back), leaving the cursor stuck
+ * at the bottom-right corner on timeout — a visible artifact reported in #35499. */
+TEST(terminal_fix_size_dsr_timeout_cursor_restore) {
+        _cleanup_close_ int master_fd = ASSERT_OK(openpt_allocate(O_RDWR|O_NOCTTY|O_CLOEXEC|O_NONBLOCK, NULL));
+        _cleanup_close_ int peer_fd = ASSERT_OK(pty_open_peer(master_fd, O_RDWR|O_NOCTTY|O_CLOEXEC));
+
+        _cleanup_(pidref_done_sigkill_wait) PidRef child = PIDREF_NULL;
+        int r = pidref_safe_fork_full(
+                        "(cursor-restore-test)",
+                        (int[]) { peer_fd, peer_fd, peer_fd },
+                        NULL, 0,
+                        FORK_DEATHSIG_SIGKILL|FORK_LOG|FORK_REARRANGE_STDIO,
+                        &child);
+        ASSERT_OK(r);
+        if (r == 0) {
+                ASSERT_OK_ERRNO(setenv("TERM", "xterm", true));
+                reset_terminal_feature_caches();
+
+                /* Let both CSI 18 and DSR time out */
+                (void) terminal_fix_size(STDIN_FILENO, STDOUT_FILENO);
+                _exit(EXIT_SUCCESS);
+        }
+
+        peer_fd = safe_close(peer_fd);
+        ASSERT_OK(pidref_wait_for_terminate_and_check("(cursor-restore-test)", &child, WAIT_LOG));
+
+        /* Read all bytes the child wrote to the terminal. EIO is expected once the peer
+         * side of the PTY is closed after the child exits. */
+        char buf[512];
+        size_t total = 0;
+        for (;;) {
+                ssize_t l = read(master_fd, buf + total, sizeof(buf) - total);
+                if (l < 0) {
+                        if (IN_SET(errno, EAGAIN, EIO))
+                                break;
+                        ASSERT_OK_ERRNO(l);
+                }
+                if (l == 0)
+                        break;
+                total += l;
+        }
+
+        /* The DSR query must include DECRC (\x1B8) to restore the cursor unconditionally.
+         * The old code skipped cursor restore on timeout, leaving it at the bottom-right. */
+        ASSERT_NOT_NULL(memmem_safe(buf, total, "\x1B" "8", 2));
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
