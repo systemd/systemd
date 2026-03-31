@@ -1704,6 +1704,10 @@ typedef enum {
 static bool names_are_valid(const char *signature, const char **names, names_flags *flags) {
         int r;
 
+        assert(signature);
+        assert(names);
+        assert(flags);
+
         if ((*flags & NAMES_FIRST_PART || *flags & NAMES_SINGLE_PART) && **names != '\0')
                 *flags |= NAMES_PRESENT;
 

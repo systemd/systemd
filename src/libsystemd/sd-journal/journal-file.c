@@ -2107,6 +2107,8 @@ static int link_entry_into_array(
         assert(f->header);
         assert(first);
         assert(idx);
+        POINTER_MAY_BE_NULL(tail);
+        POINTER_MAY_BE_NULL(tidx);
         assert(p > 0);
 
         a = tail ? le32toh(*tail) : le64toh(*first);

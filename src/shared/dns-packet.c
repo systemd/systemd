@@ -1473,7 +1473,9 @@ int dns_packet_read_uint8(DnsPacket *p, uint8_t *ret, size_t *start) {
         if (r < 0)
                 return r;
 
-        *ret = ((uint8_t*) d)[0];
+        if (ret)
+                *ret = ((uint8_t*) d)[0];
+
         return 0;
 }
 
@@ -1503,7 +1505,8 @@ int dns_packet_read_uint32(DnsPacket *p, uint32_t *ret, size_t *start) {
         if (r < 0)
                 return r;
 
-        *ret = unaligned_read_be32(d);
+        if (ret)
+                *ret = unaligned_read_be32(d);
 
         return 0;
 }
@@ -2404,6 +2407,7 @@ static bool opt_is_good(DnsResourceRecord *rr, bool *rfc6975) {
          * a reply). */
 
         assert(rr);
+        assert(rfc6975);
         assert(rr->key->type == DNS_TYPE_OPT);
 
         /* Check that the version is 0 */
