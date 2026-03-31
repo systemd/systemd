@@ -131,6 +131,7 @@ networkctl_sources = files(
         'networkctl-dump-util.c',
         'networkctl-journal.c',
         'networkctl-link-info.c',
+        'networkctl-link-info-json.c',
         'networkctl-list.c',
         'networkctl-lldp.c',
         'networkctl-misc.c',

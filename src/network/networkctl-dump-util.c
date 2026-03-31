@@ -5,6 +5,7 @@
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
+#include "dhcp-protocol.h"
 #include "ether-addr-util.h"
 #include "format-ifname.h"
 #include "format-table.h"
@@ -210,13 +211,14 @@ int dump_gateways(sd_netlink *rtnl, sd_hwdb *hwdb, Table *table, int ifindex) {
 
 int dump_addresses(
                 sd_netlink *rtnl,
+                sd_dhcp_message *message,
                 sd_dhcp_lease *lease,
                 Table *table,
                 int ifindex) {
 
         _cleanup_free_ struct local_address *local_addrs = NULL;
         _cleanup_strv_free_ char **buf = NULL;
-        struct in_addr dhcp4_address = {};
+        struct in_addr dhcp4_address = {}, server_address = {};
         int r, n;
 
         assert(rtnl);
@@ -226,15 +228,18 @@ int dump_addresses(
         if (n <= 0)
                 return n;
 
-        if (lease)
+        if (message) {
+                dhcp4_address.s_addr = message->header.yiaddr;
+                if (dhcp_message_get_option_address(message, SD_DHCP_OPTION_SERVER_IDENTIFIER, &server_address) < 0)
+                        /* The message should be BOOTP, let's fallback to the siaddr field. */
+                        server_address.s_addr = message->header.siaddr;
+        } else if (lease) {
                 (void) sd_dhcp_lease_get_address(lease, &dhcp4_address);
+                (void) sd_dhcp_lease_get_server_identifier(lease, &server_address);
+        }
 
         FOREACH_ARRAY(local, local_addrs, n) {
-                struct in_addr server_address;
-                bool dhcp4 = false;
-
-                if (local->family == AF_INET && in4_addr_equal(&local->address.in, &dhcp4_address))
-                        dhcp4 = sd_dhcp_lease_get_server_identifier(lease, &server_address) >= 0;
+                bool dhcp4 = local->family == AF_INET && in4_addr_equal(&local->address.in, &dhcp4_address);
 
                 r = strv_extendf(&buf, "%s%s%s%s%s%s",
                                  IN_ADDR_TO_STRING(local->family, &local->address),
