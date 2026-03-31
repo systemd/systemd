@@ -79,8 +79,8 @@
   <refsect1>
     <title>Options</title>
 
-    <para>The <filename>/usr/lib/systemd/system-validatefs</filename> executable may also be invoked from the
-    command line, where it expects a path to a mount and the following options:</para>
+    <para>The <filename>/usr/lib/systemd/systemd-validatefs</filename> executable may also be invoked from
+    the command line, where it expects a path to a mount and the following options:</para>
 
     <variablelist>
       <varlistentry>
