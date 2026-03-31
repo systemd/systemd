@@ -981,6 +981,22 @@ DuplicateAddressDetection=none</programlisting></para>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>CLAT=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When enabled, <command>systemd-networkd</command> provides built-in
+          464XLAT/CLAT (Customer-side translator) support on the interface, enabling IPv4 connectivity
+          over IPv6-only networks via NAT64. A TUN device is created to translate IPv4 packets to IPv6
+          using the PREF64 prefix discovered via Router Advertisements, and vice versa for return traffic.
+          See <ulink url="https://tools.ietf.org/html/rfc6877">RFC 6877</ulink> for further details.</para>
+
+          <para>This requires <varname>IPv6AcceptRA=</varname> to be enabled and
+          <varname>UsePREF64=</varname> in [IPv6AcceptRA] to be set to true, so that the NAT64 prefix
+          is discovered from the network. CLAT will only start when a PREF64 prefix is available and
+          no native IPv4 default gateway exists on the link. Defaults to false.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>IPv6DuplicateAddressDetection=</varname></term>
         <listitem>
           <para>Configures the amount of IPv6 Duplicate Address Detection (DAD) probes to send. When

@@ -29,6 +29,7 @@
 #include "networkd-queue.h"
 #include "networkd-route.h"
 #include "networkd-route-util.h"
+#include "networkd-xlat.h"
 #include "ordered-set.h"
 #include "parse-util.h"
 #include "set.h"
@@ -888,6 +889,10 @@ static int address_drop(Address *in, bool removed_by_us) {
         if (address->family == AF_INET6 &&
             in6_addr_equal(&address->in_addr.in6, &link->ipv6ll_address))
                 link->ipv6ll_address = (const struct in6_addr) {};
+
+        /* Restart CLAT if its cached source address was removed */
+        if (address->family == AF_INET6)
+                (void) xlat_check_address(link);
 
         ipv4acd_detach(link, address);
 
