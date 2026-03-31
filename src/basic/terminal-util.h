@@ -145,6 +145,29 @@ assert_cc((TTY_MODE & 0711) == 0600);
 
 void termios_disable_echo(struct termios *termios);
 
+/* A termios sentinel with all flag fields set to all-ones-bits. No real tcgetattr() result will ever
+ * match this because the multi-bit sub-fields (CSIZE, CBAUD, …) can't validly have every bit set. */
+#define TERMIOS_NULL (struct termios) {         \
+        .c_iflag = UINT_MAX,                    \
+        .c_oflag = UINT_MAX,                    \
+        .c_cflag = UINT_MAX,                    \
+        .c_lflag = UINT_MAX,                    \
+}
+
+typedef struct TermiosResetContext {
+        int *fd;
+        struct termios *termios;
+} TermiosResetContext;
+
+void termios_reset(const TermiosResetContext *c);
+
+#define CLEANUP_TERMIOS_RESET(_fd, _termios)                                   \
+        _cleanup_(termios_reset) _unused_ const TermiosResetContext            \
+                CONCATENATE(_cleanup_termios_, UNIQ) = {                       \
+                        .fd = &(_fd),                                          \
+                        .termios = &(_termios),                                \
+                }
+
 /* The $TERM value we use for terminals other than the Linux console */
 #define FALLBACK_TERM "vt220"
 
