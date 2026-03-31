@@ -24,7 +24,7 @@
 
   <refsynopsisdiv>
     <para><filename>systemd-boot-check-no-failures.service</filename></para>
-    <para><filename>/usr/lib/systemd/system-boot-check-no-failures</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-boot-check-no-failures</filename></para>
   </refsynopsisdiv>
 
   <refsect1>
