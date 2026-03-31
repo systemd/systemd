@@ -9,6 +9,7 @@
 #include "sd-dhcp-lease.h"
 
 #include "alloc-util.h"
+#include "dhcp-client-internal.h"
 #include "dhcp-lease-internal.h"
 #include "dhcp-option.h"
 #include "dns-def.h"
@@ -21,9 +22,11 @@
 #include "hexdecoct.h"
 #include "hostname-util.h"
 #include "in-addr-util.h"
+#include "iovec-util.h"
 #include "network-common.h"
 #include "network-internal.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "sort-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -65,9 +68,31 @@ int sd_dhcp_lease_get_address(sd_dhcp_lease *lease, struct in_addr *addr) {
         return 0;
 }
 
+static int dhcp_lease_get_broadcast(sd_dhcp_lease *lease, struct in_addr *ret) {
+        int r;
+
+        assert_return(lease, -EINVAL);
+        assert(lease->message);
+
+        struct in_addr a;
+        r = dhcp_message_get_option_address(lease->message, SD_DHCP_OPTION_BROADCAST, &a);
+        if (r < 0)
+                return r;
+
+        if (in4_addr_is_null(&a))
+                return -ENODATA;
+
+        if (ret)
+                *ret = a;
+        return 0;
+}
+
 int sd_dhcp_lease_get_broadcast(sd_dhcp_lease *lease, struct in_addr *addr) {
         assert_return(lease, -EINVAL);
         assert_return(addr, -EINVAL);
+
+        if (lease->message)
+                return dhcp_lease_get_broadcast(lease, addr);
 
         if (!lease->have_broadcast)
                 return -ENODATA;
@@ -136,9 +161,34 @@ DEFINE_GET_TIMESTAMP(lifetime);
 DEFINE_GET_TIMESTAMP(t1);
 DEFINE_GET_TIMESTAMP(t2);
 
+static int dhcp_lease_get_mtu(sd_dhcp_lease *lease, uint16_t *ret) {
+        int r;
+
+        assert_return(lease, -EINVAL);
+        assert(lease->message);
+
+        uint16_t mtu;
+        r = dhcp_message_get_option_u16(lease->message, SD_DHCP_OPTION_MTU_INTERFACE, &mtu);
+        if (r < 0)
+                return r;
+
+        /* Refuse too small value.
+         * See RFC 791 section 3.1:
+         * All hosts must be prepared to accept datagrams of up to 576 octets. */
+        if (mtu < 576)
+                return -EBADMSG;
+
+        if (ret)
+                *ret = mtu;
+        return 0;
+}
+
 int sd_dhcp_lease_get_mtu(sd_dhcp_lease *lease, uint16_t *mtu) {
         assert_return(lease, -EINVAL);
         assert_return(mtu, -EINVAL);
+
+        if (lease->message)
+                return dhcp_lease_get_mtu(lease, mtu);
 
         if (lease->mtu <= 0)
                 return -ENODATA;
@@ -147,14 +197,35 @@ int sd_dhcp_lease_get_mtu(sd_dhcp_lease *lease, uint16_t *mtu) {
         return 0;
 }
 
+static uint8_t server_type_to_option_code[_SD_DHCP_LEASE_SERVER_TYPE_MAX] = {
+        [SD_DHCP_LEASE_DNS]  = SD_DHCP_OPTION_DOMAIN_NAME_SERVER,
+        [SD_DHCP_LEASE_NTP]  = SD_DHCP_OPTION_NTP_SERVER,
+        [SD_DHCP_LEASE_SIP]  = SD_DHCP_OPTION_SIP_SERVER,
+        [SD_DHCP_LEASE_POP3] = SD_DHCP_OPTION_POP3_SERVER,
+        [SD_DHCP_LEASE_SMTP] = SD_DHCP_OPTION_SMTP_SERVER,
+        [SD_DHCP_LEASE_LPR]  = SD_DHCP_OPTION_LPR_SERVER,
+};
+
 int sd_dhcp_lease_get_servers(
                 sd_dhcp_lease *lease,
                 sd_dhcp_lease_server_type_t what,
                 const struct in_addr **addr) {
 
+        int r;
+
         assert_return(lease, -EINVAL);
         assert_return(what >= 0, -EINVAL);
         assert_return(what < _SD_DHCP_LEASE_SERVER_TYPE_MAX, -EINVAL);
+
+        if (lease->message && !lease->servers[what].addr) {
+                r = dhcp_message_get_option_addresses(
+                                lease->message,
+                                server_type_to_option_code[what],
+                                &lease->servers[what].size,
+                                &lease->servers[what].addr);
+                if (r < 0)
+                        return r;
+        }
 
         if (lease->servers[what].size <= 0)
                 return -ENODATA;
@@ -185,8 +256,16 @@ int sd_dhcp_lease_get_lpr(sd_dhcp_lease *lease, const struct in_addr **addr) {
 }
 
 int sd_dhcp_lease_get_domainname(sd_dhcp_lease *lease, const char **domainname) {
+        int r;
+
         assert_return(lease, -EINVAL);
         assert_return(domainname, -EINVAL);
+
+        if (lease->message && !lease->domainname) {
+                r = dhcp_message_get_option_dns_name(lease->message, SD_DHCP_OPTION_DOMAIN_NAME, &lease->domainname);
+                if (r < 0)
+                        return r;
+        }
 
         if (!lease->domainname)
                 return -ENODATA;
@@ -196,8 +275,16 @@ int sd_dhcp_lease_get_domainname(sd_dhcp_lease *lease, const char **domainname) 
 }
 
 int sd_dhcp_lease_get_hostname(sd_dhcp_lease *lease, const char **hostname) {
+        int r;
+
         assert_return(lease, -EINVAL);
         assert_return(hostname, -EINVAL);
+
+        if (lease->message && !lease->hostname) {
+                r = dhcp_message_get_option_hostname(lease->message, &lease->hostname);
+                if (r < 0)
+                        return r;
+        }
 
         /* FQDN option (81) always takes precedence. */
 
@@ -222,9 +309,36 @@ int sd_dhcp_lease_get_root_path(sd_dhcp_lease *lease, const char **root_path) {
         return 0;
 }
 
+static int dhcp_lease_get_captive_portal(sd_dhcp_lease *lease, char **ret) {
+        int r;
+
+        assert_return(lease, -EINVAL);
+        assert(lease->message);
+
+        _cleanup_free_ char *s = NULL;
+        r = dhcp_message_get_option_string(lease->message, SD_DHCP_OPTION_DHCP_CAPTIVE_PORTAL, &s);
+        if (r < 0)
+                return r;
+
+        if (!in_charset(s, URI_VALID))
+                return -EBADMSG;
+
+        if (ret)
+                *ret = TAKE_PTR(s);
+        return 0;
+}
+
 int sd_dhcp_lease_get_captive_portal(sd_dhcp_lease *lease, const char **ret) {
+        int r;
+
         assert_return(lease, -EINVAL);
         assert_return(ret, -EINVAL);
+
+        if (lease->message && !lease->captive_portal) {
+                r = dhcp_lease_get_captive_portal(lease, &lease->captive_portal);
+                if (r < 0)
+                        return r;
+        }
 
         if (!lease->captive_portal)
                 return -ENODATA;
@@ -233,9 +347,34 @@ int sd_dhcp_lease_get_captive_portal(sd_dhcp_lease *lease, const char **ret) {
         return 0;
 }
 
+static int lease_parse_dnr(const uint8_t *option, size_t len, sd_dns_resolver **dnr, size_t *n_dnr);
+
+static int dhcp_lease_get_dnr(sd_dhcp_lease *lease, size_t *ret_n, sd_dns_resolver **ret) {
+        int r;
+
+        assert_return(lease, -EINVAL);
+        assert(lease->message);
+
+        size_t len;
+        _cleanup_free_ void *buf = NULL;
+        r = dhcp_message_get_option_alloc(lease->message, SD_DHCP_OPTION_V4_DNR, &len, &buf);
+        if (r < 0)
+                return r;
+
+        return lease_parse_dnr(buf, len, ret, ret_n);
+}
+
 int sd_dhcp_lease_get_dnr(sd_dhcp_lease *lease, sd_dns_resolver **ret_resolvers) {
+        int r;
+
         assert_return(lease, -EINVAL);
         assert_return(ret_resolvers, -EINVAL);
+
+        if (lease->message && !lease->dnr) {
+                r = dhcp_lease_get_dnr(lease, &lease->n_dnr, &lease->dnr);
+                if (r < 0)
+                        return r;
+        }
 
         if (!lease->dnr)
                 return -ENODATA;
@@ -245,8 +384,16 @@ int sd_dhcp_lease_get_dnr(sd_dhcp_lease *lease, sd_dns_resolver **ret_resolvers)
 }
 
 int sd_dhcp_lease_get_router(sd_dhcp_lease *lease, const struct in_addr **addr) {
+        int r;
+
         assert_return(lease, -EINVAL);
         assert_return(addr, -EINVAL);
+
+        if (lease->message && !lease->router) {
+                r = dhcp_message_get_option_addresses(lease->message, SD_DHCP_OPTION_ROUTER, &lease->router_size, &lease->router);
+                if (r < 0)
+                        return r;
+        }
 
         if (lease->router_size <= 0)
                 return -ENODATA;
@@ -259,7 +406,7 @@ int sd_dhcp_lease_get_netmask(sd_dhcp_lease *lease, struct in_addr *addr) {
         assert_return(lease, -EINVAL);
         assert_return(addr, -EINVAL);
 
-        if (!lease->have_subnet_mask)
+        if (lease->subnet_mask == INADDR_ANY)
                 return -ENODATA;
 
         addr->s_addr = lease->subnet_mask;
@@ -294,9 +441,37 @@ int sd_dhcp_lease_get_prefix(sd_dhcp_lease *lease, struct in_addr *ret_prefix, u
         return 0;
 }
 
+static int dhcp_lease_get_server_identifier(sd_dhcp_lease *lease, struct in_addr *ret) {
+        int r;
+
+        assert_return(lease, -EINVAL);
+        assert(lease->message);
+
+        if (lease->server_address == INADDR_ANY) {
+                r = dhcp_message_get_option_be32(lease->message, SD_DHCP_OPTION_SERVER_IDENTIFIER, &lease->server_address);
+                if (r < 0) {
+                        if (dhcp_message_get_option_u8(lease->message, SD_DHCP_OPTION_MESSAGE_TYPE, /* ret= */ NULL) < 0)
+                                /* This should be a BOOTP message. Fall back to siaddr. See also client_parse_bootreply(). */
+                                lease->server_address = lease->message->header.siaddr;
+                        else
+                                return r;
+                }
+        }
+
+        if (lease->server_address == INADDR_ANY)
+                return -ENODATA;
+
+        if (ret)
+                ret->s_addr = lease->server_address;
+        return 0;
+}
+
 int sd_dhcp_lease_get_server_identifier(sd_dhcp_lease *lease, struct in_addr *addr) {
         assert_return(lease, -EINVAL);
         assert_return(addr, -EINVAL);
+
+        if (lease->message)
+                return dhcp_lease_get_server_identifier(lease, addr);
 
         if (lease->server_address == 0)
                 return -ENODATA;
@@ -342,32 +517,187 @@ static int dhcp_lease_get_routes(sd_dhcp_route *routes, size_t n_routes, sd_dhcp
         return (int) n_routes;
 }
 
-int sd_dhcp_lease_get_static_routes(sd_dhcp_lease *lease, sd_dhcp_route ***ret) {
+static int dhcp_lease_get_static_routes(sd_dhcp_lease *lease, size_t *ret_n, sd_dhcp_route **ret) {
+        int r;
+
         assert_return(lease, -EINVAL);
+        assert(lease->message);
+
+        size_t n;
+        _cleanup_free_ struct in_addr *addrs = NULL;
+        r = dhcp_message_get_option_addresses(lease->message, SD_DHCP_OPTION_STATIC_ROUTE, &n, &addrs);
+        if (r < 0)
+                return r;
+
+        if (n % 2 != 0)
+                return -EBADMSG;
+
+        _cleanup_free_ sd_dhcp_route *routes = NULL;
+        size_t n_routes = 0;
+
+        for (size_t i = 0; i < n; i += 2) {
+                struct in_addr dst = addrs[i];
+
+                uint8_t prefixlen;
+                r = in4_addr_default_prefixlen(&dst, &prefixlen);
+                if (r < 0) {
+                        log_debug("sd-dhcp-lease: cannot determine class of received static route, ignoring.");
+                        continue;
+                }
+
+                (void) in4_addr_mask(&dst, prefixlen);
+
+                if (!ret) {
+                        n_routes++;
+                        continue;
+                }
+
+                if (!GREEDY_REALLOC(routes, n_routes + 1))
+                        return -ENOMEM;
+
+                routes[n_routes++] = (struct sd_dhcp_route) {
+                        .dst_addr = dst,
+                        .gw_addr = addrs[i + 1],
+                        .dst_prefixlen = prefixlen,
+                };
+        }
+
+        if (n_routes <= 0)
+                return -ENODATA;
+
+        if (ret)
+                *ret = TAKE_PTR(routes);
+        if (ret_n)
+                *ret_n = n_routes;
+        return 0;
+}
+
+int sd_dhcp_lease_get_static_routes(sd_dhcp_lease *lease, sd_dhcp_route ***ret) {
+        int r;
+
+        assert_return(lease, -EINVAL);
+
+        if (lease->message && !lease->static_routes) {
+                r = dhcp_lease_get_static_routes(lease, &lease->n_static_routes, &lease->static_routes);
+                if (r < 0)
+                        return r;
+        }
 
         return dhcp_lease_get_routes(lease->static_routes, lease->n_static_routes, ret);
 }
 
-int sd_dhcp_lease_get_classless_routes(sd_dhcp_lease *lease, sd_dhcp_route ***ret) {
+static int dhcp_lease_get_classless_routes(sd_dhcp_lease *lease, size_t *ret_n, sd_dhcp_route **ret) {
+        int r;
+
         assert_return(lease, -EINVAL);
+        assert(lease->message);
+
+        _cleanup_(iovec_done) struct iovec iov = {};
+        r = dhcp_message_get_option_alloc_iovec(lease->message, SD_DHCP_OPTION_CLASSLESS_STATIC_ROUTE, &iov);
+        if (r < 0)
+                return r;
+
+        _cleanup_free_ sd_dhcp_route *routes = NULL;
+        size_t n_routes = 0;
+
+        for (struct iovec i = iov; iovec_is_set(&i);) {
+                uint8_t prefixlen = *(uint8_t*) i.iov_base;
+                iovec_inc(&i, 1);
+
+                if (prefixlen > 32)
+                        return -EBADMSG;
+
+                size_t n = DIV_ROUND_UP(prefixlen, 8);
+                if (n > i.iov_len)
+                        return -EBADMSG;
+
+                struct in_addr dst = {};
+                memcpy_safe(&dst, i.iov_base, n);
+                iovec_inc(&i, n);
+
+                if (i.iov_len < 4)
+                        return -EBADMSG;
+
+                struct in_addr gw;
+                memcpy(&gw, i.iov_base, 4);
+                iovec_inc(&i, 4);
+
+                if (!ret) {
+                        n_routes++;
+                        continue;
+                }
+
+                if (!GREEDY_REALLOC(routes, n_routes + 1))
+                        return -ENOMEM;
+
+                routes[n_routes++] = (struct sd_dhcp_route) {
+                        .dst_addr = dst,
+                        .gw_addr = gw,
+                        .dst_prefixlen = prefixlen,
+                };
+        }
+
+        if (n_routes <= 0)
+                return -ENODATA;
+
+        if (ret)
+                *ret = TAKE_PTR(routes);
+        if (ret_n)
+                *ret_n = n_routes;
+        return 0;
+}
+
+int sd_dhcp_lease_get_classless_routes(sd_dhcp_lease *lease, sd_dhcp_route ***ret) {
+        int r;
+
+        assert_return(lease, -EINVAL);
+
+        if (lease->message && !lease->classless_routes) {
+                r = dhcp_lease_get_classless_routes(lease, &lease->n_classless_routes, &lease->classless_routes);
+                if (r < 0)
+                        return r;
+        }
 
         return dhcp_lease_get_routes(lease->classless_routes, lease->n_classless_routes, ret);
 }
 
+static int dhcp_lease_get_search_domains(sd_dhcp_lease *lease, char ***ret) {
+        int r;
+
+        assert_return(lease, -EINVAL);
+        assert(lease->message);
+
+        _cleanup_free_ void *buf = NULL;
+        size_t len;
+        r = dhcp_message_get_option_alloc(lease->message, SD_DHCP_OPTION_DOMAIN_SEARCH, &len, &buf);
+        if (r < 0)
+                return r;
+
+        return dhcp_lease_parse_search_domains(buf, len, ret);
+}
+
 int sd_dhcp_lease_get_search_domains(sd_dhcp_lease *lease, char ***domains) {
-        size_t r;
+        int r;
 
         assert_return(lease, -EINVAL);
         assert_return(domains, -EINVAL);
 
-        r = strv_length(lease->search_domains);
-        if (r > 0) {
+        if (lease->message && !lease->search_domains) {
+                r = dhcp_lease_get_search_domains(lease, &lease->search_domains);
+                if (r < 0)
+                        return r;
+        }
+
+        size_t n = strv_length(lease->search_domains);
+        if (n > 0) {
                 *domains = lease->search_domains;
-                return (int) r;
+                return (int) n;
         }
 
         return -ENODATA;
 }
+
+static int lease_parse_6rd(sd_dhcp_lease *lease, const uint8_t *option, size_t len);
 
 int sd_dhcp_lease_get_6rd(
                 sd_dhcp_lease *lease,
@@ -377,7 +707,21 @@ int sd_dhcp_lease_get_6rd(
                 const struct in_addr **ret_br_addresses,
                 size_t *ret_n_br_addresses) {
 
+        int r;
+
         assert_return(lease, -EINVAL);
+
+        if (lease->message && !lease->sixrd_br_addresses) {
+                _cleanup_free_ void *buf = NULL;
+                size_t len;
+                r = dhcp_message_get_option_alloc(lease->message, SD_DHCP_OPTION_6RD, &len, &buf);
+                if (r < 0)
+                        return r;
+
+                r = lease_parse_6rd(lease, buf, len);
+                if (r < 0)
+                        return r;
+        }
 
         if (lease->sixrd_n_br_addresses <= 0)
                 return -ENODATA;
@@ -397,13 +741,32 @@ int sd_dhcp_lease_get_6rd(
 }
 
 int sd_dhcp_lease_has_6rd(sd_dhcp_lease *lease) {
-        return lease && lease->sixrd_n_br_addresses > 0;
+        return lease &&
+                sd_dhcp_lease_get_6rd(
+                                lease,
+                                /* ret_ipv4masklen= */ NULL,
+                                /* ret_prefixlen= */ NULL,
+                                /* ret_prefix= */ NULL,
+                                /* ret_br_addresses= */ NULL,
+                                /* ret_n_br_addresses= */ NULL) >= 0;
 }
 
 int sd_dhcp_lease_get_vendor_specific(sd_dhcp_lease *lease, const void **data, size_t *data_len) {
+        int r;
+
         assert_return(lease, -EINVAL);
         assert_return(data, -EINVAL);
         assert_return(data_len, -EINVAL);
+
+        if (lease->message && !lease->vendor_specific) {
+                r = dhcp_message_get_option_alloc(
+                                lease->message,
+                                SD_DHCP_OPTION_VENDOR_SPECIFIC,
+                                &lease->vendor_specific_len,
+                                &lease->vendor_specific);
+                if (r < 0)
+                        return r;
+        }
 
         if (lease->vendor_specific_len <= 0)
                 return -ENODATA;
@@ -417,6 +780,8 @@ static sd_dhcp_lease *dhcp_lease_free(sd_dhcp_lease *lease) {
         struct sd_dhcp_raw_option *option;
 
         assert(lease);
+
+        sd_dhcp_message_unref(lease->message);
 
         while ((option = LIST_POP(options, lease->private_options))) {
                 free(option->data);
@@ -1801,9 +2166,36 @@ int dhcp_lease_set_client_id(sd_dhcp_lease *lease, const sd_dhcp_client_id *clie
         return 0;
 }
 
+static int dhcp_lease_get_timezone(sd_dhcp_lease *lease, char **ret) {
+        int r;
+
+        assert_return(lease, -EINVAL);
+        assert(lease->message);
+
+        _cleanup_free_ char *tz = NULL;
+        r = dhcp_message_get_option_string(lease->message, SD_DHCP_OPTION_TZDB_TIMEZONE, &tz);
+        if (r < 0)
+                return r;
+
+        if (!timezone_is_valid(tz, LOG_DEBUG))
+                return -EBADMSG;
+
+        if (ret)
+                *ret = TAKE_PTR(tz);
+        return 0;
+}
+
 int sd_dhcp_lease_get_timezone(sd_dhcp_lease *lease, const char **ret) {
+        int r;
+
         assert_return(lease, -EINVAL);
         assert_return(ret, -EINVAL);
+
+        if (lease->message && !lease->timezone) {
+                r = dhcp_lease_get_timezone(lease, &lease->timezone);
+                if (r < 0)
+                        return r;
+        }
 
         if (!lease->timezone)
                 return -ENODATA;
@@ -1834,4 +2226,273 @@ int sd_dhcp_route_get_gateway(sd_dhcp_route *route, struct in_addr *gateway) {
 
         *gateway = route->gw_addr;
         return 0;
+}
+
+static int dhcp_lease_get_sec(sd_dhcp_lease *lease, uint8_t code, usec_t *ret) {
+        int r;
+
+        assert(lease);
+        assert(lease->message);
+
+        be32_t t;
+        r = dhcp_message_get_option_be32(lease->message, code, &t);
+        if (r < 0)
+                return r;
+
+        usec_t u = be32_sec_to_usec(t, /* max_as_infinity= */ true);
+        if (u <= 0)
+                return -ENODATA;
+
+        if (ret)
+                *ret = u;
+        return 0;
+}
+
+int dhcp_lease_new_from_message(sd_dhcp_message *message, sd_dhcp_lease **ret) {
+        int r;
+
+        assert(message);
+        assert(ret);
+
+        _cleanup_(sd_dhcp_lease_unrefp) sd_dhcp_lease *lease = NULL;
+        r = dhcp_lease_new(&lease);
+        if (r < 0)
+                return r;
+
+        /* acquired address */
+        if (message->header.yiaddr == INADDR_ANY)
+                return -EBADMSG;
+        lease->address = message->header.yiaddr;
+
+        /* subnet mask */
+        if (dhcp_message_get_option_be32(message, SD_DHCP_OPTION_SUBNET_MASK, &lease->subnet_mask) < 0) {
+                /* fall back to the default subnet masks based on address class */
+                struct in_addr mask;
+                r = in4_addr_default_subnet_mask(
+                                &(struct in_addr) {
+                                        .s_addr = message->header.yiaddr,
+                                },
+                                &mask);
+                if (r < 0)
+                        return r;
+
+                lease->subnet_mask = mask.s_addr;
+        }
+
+        lease->message = sd_dhcp_message_ref(message);
+        *ret = TAKE_PTR(lease);
+        return 0;
+}
+
+static int client_parse_bootreply(sd_dhcp_client *client, sd_dhcp_message *message, sd_dhcp_lease **ret) {
+        int r;
+
+        assert(client);
+        assert(message);
+        assert(ret);
+
+        if (client->state != DHCP_STATE_SELECTING)
+                return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(EBADMSG), "Received unexpected BOOTREPLY.");
+
+        _cleanup_(sd_dhcp_lease_unrefp) sd_dhcp_lease *lease = NULL;
+        r = dhcp_lease_new_from_message(message, &lease);
+        if (r < 0)
+                return log_dhcp_client_errno(client, r, "Failed to create BOOTP lease: %m");
+
+        /* BOOTP does not have lifetime option. */
+        lease->lifetime = USEC_INFINITY;
+
+        /* BOOTP typically does not use Server Identifier option, but use the siaddr field. */
+        if (dhcp_message_get_option_be32(message, SD_DHCP_OPTION_SERVER_IDENTIFIER, &lease->server_address) < 0)
+                lease->server_address = message->header.siaddr;
+
+        log_dhcp_client(client, "Received BOOTREPLY from %s", IN4_ADDR_TO_STRING(&(struct in_addr) { .s_addr = lease->server_address }));
+
+        *ret = TAKE_PTR(lease);
+        return DHCP_ACK;
+}
+
+static int client_parse_ack(sd_dhcp_client *client, sd_dhcp_message *message, sd_dhcp_lease **ret) {
+        int r;
+
+        assert(client);
+        assert(message);
+        assert(ret);
+
+        switch (client->state) {
+        case DHCP_STATE_SELECTING:
+                if (!client->rapid_commit)
+                        return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(EBADMSG), "Received unexpected DHCPACK.");
+
+                r = dhcp_message_get_option_flag(message, SD_DHCP_OPTION_RAPID_COMMIT);
+                if (r < 0)
+                        return log_dhcp_client_errno(client, r, "Failed to get Rapid Commit option: %m");
+
+                break;
+        case DHCP_STATE_REBOOTING:
+        case DHCP_STATE_REQUESTING:
+        case DHCP_STATE_RENEWING:
+        case DHCP_STATE_REBINDING:
+                break;
+        default:
+                return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(EBADMSG), "Received unexpected DHCPACK.");
+        }
+
+        _cleanup_(sd_dhcp_lease_unrefp) sd_dhcp_lease *lease = NULL;
+        r = dhcp_lease_new_from_message(message, &lease);
+        if (r < 0)
+                return log_dhcp_client_errno(client, r, "Failed to create DHCP lease: %m");
+
+        /* DHCP server address: mandatory */
+        r = dhcp_message_get_option_be32(message, SD_DHCP_OPTION_SERVER_IDENTIFIER, &lease->server_address);
+        if (r < 0)
+                return log_dhcp_client_errno(client, r, "Failed to read Server Identifier option: %m");
+
+        /* lifetime: mandatory unless fallback lifetime is unset */
+        r = dhcp_lease_get_sec(lease, SD_DHCP_OPTION_IP_ADDRESS_LEASE_TIME, &lease->lifetime);
+        if (r < 0) {
+                if (client->fallback_lease_lifetime == 0)
+                        return log_dhcp_client_errno(client, r, "Failed to read IP Address Lease Time option: %m");
+
+                lease->lifetime = client->fallback_lease_lifetime;
+        }
+
+        /* There is nothing mentioned about the valid range of the lifetime in RFC, but if it is too short,
+         * then the network connection easily become unstable. Let's bump to 30 seconds in that case.
+         * TODO: filter short lifetime in selecting state. */
+        if (lease->lifetime <= 30 * USEC_PER_SEC) {
+                log_dhcp_client(client, "IP Address Lease Time is too short (%s), bumping lease lifetime to 30 seconds: %m",
+                                FORMAT_TIMESPAN(lease->lifetime, USEC_PER_SEC));
+                lease->lifetime = 30 * USEC_PER_SEC;
+        }
+
+        if (lease->lifetime != USEC_INFINITY) {
+                /* T2 */
+                r = dhcp_lease_get_sec(lease, SD_DHCP_OPTION_REBINDING_TIME, &lease->t2);
+                if (r < 0)
+                        log_dhcp_client_errno(client, r, "Failed to read Rebinding Time option, ignoring: %m");
+
+                /* verify that 0 < t2 < lifetime */
+                if (lease->t2 <= 0 || lease->t2 >= lease->lifetime)
+                        /* RFC2131 section 4.4.5: T2 defaults to (0.875 * duration_of_lease). */
+                        lease->t2 = lease->lifetime * 7 / 8;
+
+                /* T1 */
+                r = dhcp_lease_get_sec(lease, SD_DHCP_OPTION_RENEWAL_TIME, &lease->t1);
+                if (r < 0)
+                        log_dhcp_client_errno(client, r, "Failed to read Renewal Time option, ignoring: %m");
+
+                /* verify that 0 < t1 < t2 */
+                if (lease->t1 <= 0 || lease->t1 >= lease->t2)
+                        /* RFC2131 section 4.4.5: T1 defaults to (0.5 * duration_of_lease). */
+                        lease->t1 = lease->lifetime / 2;
+
+                /* For the case when T2 is too small compared with lifetime. */
+                if (lease->t1 >= lease->t2)
+                        /* RFC2131 section 4.4.5: T2 defaults to (0.875 * duration_of_lease). */
+                        lease->t2 = lease->lifetime * 7 / 8;
+
+                assert(lease->t1 > 0);
+                assert(lease->t1 < lease->t2);
+                assert(lease->t2 < lease->lifetime);
+        }
+
+        log_dhcp_client(client, "Received DHCPACK from %s", IN4_ADDR_TO_STRING(&(struct in_addr) { .s_addr = lease->server_address }));
+
+        *ret = TAKE_PTR(lease);
+        return DHCP_ACK;
+}
+
+static int client_parse_offer(sd_dhcp_client *client, sd_dhcp_message *message, sd_dhcp_lease **ret) {
+        int r;
+
+        assert(client);
+        assert(message);
+        assert(ret);
+
+        if (client->state != DHCP_STATE_SELECTING)
+                return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(EBADMSG), "Received unexpected DHCPOFFER.");
+
+        _cleanup_(sd_dhcp_lease_unrefp) sd_dhcp_lease *lease = NULL;
+        r = dhcp_lease_new_from_message(message, &lease);
+        if (r < 0)
+                return log_dhcp_client_errno(client, r, "Failed to create DHCP lease: %m");
+
+        /* DHCP server address: mandatory */
+        r = dhcp_message_get_option_be32(message, SD_DHCP_OPTION_SERVER_IDENTIFIER, &lease->server_address);
+        if (r < 0)
+                return log_dhcp_client_errno(client, r, "Failed to read Server Identifier option: %m");
+
+        log_dhcp_client(client, "Received DHCPOFFER from %s", IN4_ADDR_TO_STRING(&(struct in_addr) { .s_addr = lease->server_address }));
+
+        *ret = TAKE_PTR(lease);
+        return DHCP_OFFER;
+}
+
+static int client_parse_nak(sd_dhcp_client *client, sd_dhcp_message *message, sd_dhcp_lease **ret) {
+        int r;
+
+        assert(client);
+        assert(message);
+
+        /* DHCPNAK is a valid rely when we sent DHCPREQUEST. When we receive it after sending
+         * DHCPDISCOVER (or even we sent nothing, we should ignore the message. */
+        if (!IN_SET(client->state, DHCP_STATE_REBOOTING, DHCP_STATE_REQUESTING, DHCP_STATE_RENEWING, DHCP_STATE_REBINDING))
+                return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(EBADMSG), "Received unexpected DHCPNAK.");
+
+        /* Always ignore DHCPNAK without Server Identifier option. */
+        struct in_addr a;
+        r = dhcp_message_get_option_address(message, SD_DHCP_OPTION_SERVER_IDENTIFIER, &a);
+        if (r < 0)
+                return log_dhcp_client_errno(client, r, "Failed to read Server Identifier option in DHCPNAK: %m");
+
+        if (client->lease && client->lease->server_address != a.s_addr)
+                return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(EBADMSG),
+                                             "Received DHCPNAK from unexpected server (%s).",
+                                             IN4_ADDR_TO_STRING(&a));
+
+        _cleanup_free_ char *e = NULL;
+        (void) dhcp_message_get_option_string(message, SD_DHCP_OPTION_ERROR_MESSAGE, &e);
+        log_dhcp_client(client, "Received DHCPNAK: %s", strna(e));
+
+        *ret = NULL;
+        return DHCP_NAK;
+}
+
+int dhcp_client_parse_message(sd_dhcp_client *client, const struct iovec *iov, sd_dhcp_lease **ret) {
+        int r;
+
+        assert(client);
+        assert(iov);
+        assert(ret);
+
+        _cleanup_(sd_dhcp_message_unrefp) sd_dhcp_message *message = NULL;
+        r = dhcp_message_parse(
+                        iov,
+                        BOOTREPLY,
+                        &client->xid,
+                        client->arp_type,
+                        &client->hw_addr,
+                        &message);
+        if (r < 0)
+                return r;
+
+        if (client->bootp)
+                return client_parse_bootreply(client, message, ret);
+
+        uint8_t type;
+        r = dhcp_message_get_option_u8(message, SD_DHCP_OPTION_MESSAGE_TYPE, &type);
+        if (r < 0)
+                return log_dhcp_client_errno(client, r, "Failed to read Message Type option: %m");
+
+        switch (type) {
+        case DHCP_OFFER:
+                return client_parse_offer(client, message, ret);
+        case DHCP_ACK:
+                return client_parse_ack(client, message, ret);
+        case DHCP_NAK:
+                return client_parse_nak(client, message, ret);
+        default:
+                return log_dhcp_client_errno(client, SYNTHETIC_ERRNO(EBADMSG), "Received message with unexpected type (%u).", type);
+        }
 }
