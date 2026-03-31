@@ -3,6 +3,7 @@
 #include "sd-device.h"
 #include "sd-dhcp-client-id.h"
 #include "sd-dhcp-lease.h"
+#include "sd-dhcp-protocol.h"
 #include "sd-hwdb.h"
 #include "sd-netlink.h"
 #include "sd-network.h"
@@ -779,7 +780,7 @@ static int link_status_one(
                         return r;
         }
 
-        r = dump_addresses(rtnl, lease, table, info->ifindex);
+        r = dump_addresses(rtnl, info->dhcp_message, lease, table, info->ifindex);
         if (r < 0)
                 return r;
 
@@ -837,8 +838,18 @@ static int link_status_one(
                         return table_log_add_error(r);
         }
 
-        if (lease) {
-                const sd_dhcp_client_id *client_id;
+        if (info->dhcp_message) {
+                _cleanup_free_ char *tz = NULL;
+
+                if (dhcp_message_get_option_string(info->dhcp_message, SD_DHCP_OPTION_TZDB_TIMEZONE, &tz) >= 0
+                    && timezone_is_valid(tz, LOG_DEBUG)) {
+                        r = table_add_many(table,
+                                           TABLE_FIELD, "Time Zone",
+                                           TABLE_STRING, tz);
+                        if (r < 0)
+                                return table_log_add_error(r);
+                }
+        } else if (lease) {
                 const char *tz;
 
                 r = sd_dhcp_lease_get_timezone(lease, &tz);
@@ -849,19 +860,18 @@ static int link_status_one(
                         if (r < 0)
                                 return table_log_add_error(r);
                 }
+        }
 
-                r = sd_dhcp_lease_get_client_id(lease, &client_id);
+        if (sd_dhcp_client_id_is_set(&info->dhcp_client_id)) {
+                _cleanup_free_ char *id = NULL;
+
+                r = sd_dhcp_client_id_to_string(&info->dhcp_client_id, &id);
                 if (r >= 0) {
-                        _cleanup_free_ char *id = NULL;
-
-                        r = sd_dhcp_client_id_to_string(client_id, &id);
-                        if (r >= 0) {
-                                r = table_add_many(table,
-                                                   TABLE_FIELD, "DHCPv4 Client ID",
-                                                   TABLE_STRING, id);
-                                if (r < 0)
-                                        return table_log_add_error(r);
-                        }
+                        r = table_add_many(table,
+                                           TABLE_FIELD, "DHCPv4 Client ID",
+                                           TABLE_STRING, id);
+                        if (r < 0)
+                                return table_log_add_error(r);
                 }
         }
 
