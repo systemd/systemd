@@ -256,9 +256,6 @@ if get_option('tests') != 'false'
         shared_sources += files('tests.c')
 endif
 
-# A small shared file that is is linked into a few places
-curl_util_c = files('curl-util.c')
-
 syscall_list_inc = custom_target(
         input : syscall_list_txt,
         output : 'syscall-list.inc',
@@ -457,4 +454,15 @@ libshared_fdisk = static_library(
         dependencies : [libfdisk,
                         userspace],
         c_args : ['-fvisibility=default'],
+        build_by_default : false)
+
+# A small shared file that is linked into a few places.
+# It is not part of libshared because this code needs libcurl and
+# we don't want to link libshared to libcurl.
+libcurlutil_static = static_library(
+        'curl-util',
+        'curl-util.c',
+        implicit_include_directories : false,
+        dependencies : [userspace, libcurl],
+        include_directories : includes,
         build_by_default : false)
