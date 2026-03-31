@@ -33,8 +33,9 @@ executables += [
                         'pull-oci.c',
                         'pull-raw.c',
                         'pull-tar.c',
-                ) + curl_util_c,
+                ),
                 'objects' : ['systemd-importd'],
+                'link_with' : [libcurlutil_static, libshared],
                 'dependencies' : common_deps + [
                         libopenssl,
                 ],

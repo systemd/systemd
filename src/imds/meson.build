@@ -11,7 +11,8 @@ executables += [
                 'sources' : files(
                         'imdsd.c',
                         'imds-util.c'
-                ) + curl_util_c,
+                ),
+                'link_with' : [libcurlutil_static, libshared],
                 'dependencies' : [libcurl],
         },
         libexec_template + {
