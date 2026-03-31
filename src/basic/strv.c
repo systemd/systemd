@@ -587,6 +587,9 @@ int strv_push_with_size(char ***l, size_t *n, char *value) {
          * If n is not NULL, the size after the push will be returned.
          * If value is empty, no action is taken and *n is not set. */
 
+        assert(l);
+        POINTER_MAY_BE_NULL(n);
+
         if (!value)
                 return 0;
 
@@ -614,6 +617,8 @@ int strv_push_with_size(char ***l, size_t *n, char *value) {
 int strv_push_pair(char ***l, char *a, char *b) {
         char **c;
         size_t n;
+
+        assert(l);
 
         if (!a && !b)
                 return 0;
@@ -828,6 +833,9 @@ char** strv_remove(char **l, const char *s) {
 }
 
 bool strv_overlap(char * const *a, char * const *b) {
+        POINTER_MAY_BE_NULL(a);
+        POINTER_MAY_BE_NULL(b);
+
         STRV_FOREACH(i, a)
                 if (strv_contains(b, *i))
                         return true;
@@ -836,6 +844,11 @@ bool strv_overlap(char * const *a, char * const *b) {
 }
 
 static int str_compare(char * const *a, char * const *b) {
+        /* This is called from qsort()s inner loops. Correctly implemented qsort will never pass NULL so we
+           just suppress the check via POINTER_MAY_BE_NULL instead of assert() to avoid the runtime cost. */
+        POINTER_MAY_BE_NULL(a);
+        POINTER_MAY_BE_NULL(b);
+
         return strcmp(*a, *b);
 }
 
@@ -861,6 +874,9 @@ char** strv_sort_uniq(char **l) {
 
 int strv_compare(char * const *a, char * const *b) {
         int r;
+
+        POINTER_MAY_BE_NULL(a);
+        POINTER_MAY_BE_NULL(b);
 
         if (strv_isempty(a)) {
                 if (strv_isempty(b))

@@ -2974,12 +2974,7 @@ endif
 
 spatch = find_program('spatch', required : false)
 if spatch.found()
-        # Directories excluded from coccinelle checks until their warnings are fixed.
-        # Remove directories from this list as they are cleaned up.
         coccinelle_exclude = [
-                'src/basic/',
-                'src/libsystemd/',
-                'src/shared/',
                 # libc/ has no assert() or systemd-headers so leave it
                 'src/libc/',
                 # test/ has some deliberate wonky pointers, just leave excluded
