@@ -41,6 +41,8 @@ ssize_t string_table_lookup_from_string_with_boolean(const char * const *table, 
 int string_table_lookup_to_string_fallback(const char * const *table, size_t len, ssize_t i, size_t max, char **ret) {
         char *s;
 
+        assert(ret);
+
         if (i < 0 || i > (ssize_t) max)
                 return -ERANGE;
 
