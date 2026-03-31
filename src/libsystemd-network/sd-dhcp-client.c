@@ -1142,13 +1142,47 @@ static int client_handle_offer_or_rapid_ack(sd_dhcp_client *client, DHCPMessage 
         return 0;
 }
 
+static usec_t client_get_ipv6_only_preferred_usec(sd_dhcp_client *client) {
+        assert(client);
+
+        if (!client->lease)
+                return 0;
+
+        /* RFC 8925 section 3.2
+         * If the client did not include the IPv6-Only Preferred option code in the Parameter Request List in
+         * the DHCPDISCOVER or DHCPREQUEST message, it MUST ignore the IPv6-Only Preferred option in any
+         * messages received from the server. */
+        if (client->anonymize || !client_request_contains(client, SD_DHCP_OPTION_IPV6_ONLY_PREFERRED))
+                return 0;
+
+        if (client->lease->ipv6_only_preferred_usec > 0)
+                return client->lease->ipv6_only_preferred_usec;
+
+        if (!client->lease->message)
+                return 0;
+
+        be32_t t;
+        if (dhcp_message_get_option_be32(client->lease->message, SD_DHCP_OPTION_IPV6_ONLY_PREFERRED, &t) < 0)
+                return 0;
+
+        usec_t u = be32_sec_to_usec(t, /* max_as_infinity= */ false);
+
+        /* RFC 8925 section 3.4
+         * MIN_V6ONLY_WAIT: The lower boundary for V6ONLY_WAIT. */
+        if (u < MIN_V6ONLY_WAIT_USEC && !network_test_mode_enabled())
+                return MIN_V6ONLY_WAIT_USEC;
+
+        return u;
+}
+
 static int client_enter_requesting(sd_dhcp_client *client) {
         assert(client);
         assert(client->lease);
 
         client_disable_event_sources(client);
 
-        if (client->lease->ipv6_only_preferred_usec > 0) {
+        usec_t t = client_get_ipv6_only_preferred_usec(client);
+        if (t > 0) {
                 if (client->ipv6_acquired) {
                         log_dhcp_client(client,
                                         "Received an OFFER with IPv6-only preferred option, and the host already acquired IPv6 connectivity, stopping DHCPv4 client.");
@@ -1157,7 +1191,7 @@ static int client_enter_requesting(sd_dhcp_client *client) {
 
                 log_dhcp_client(client,
                                 "Received an OFFER with IPv6-only preferred option, delaying to send REQUEST with %s.",
-                                FORMAT_TIMESPAN(client->lease->ipv6_only_preferred_usec, USEC_PER_SEC));
+                                FORMAT_TIMESPAN(t, USEC_PER_SEC));
         }
 
         client_set_state(client, DHCP_STATE_REQUESTING);
@@ -1166,7 +1200,7 @@ static int client_enter_requesting(sd_dhcp_client *client) {
                         client->event,
                         &client->timeout_resend,
                         CLOCK_BOOTTIME,
-                        client->lease->ipv6_only_preferred_usec,
+                        t,
                         /* accuracy= */ 0,
                         client_timeout_resend,
                         client,
@@ -1375,8 +1409,8 @@ static int client_enter_bound(sd_dhcp_client *client, int notify_event) {
          *
          * Also here, we use the timer when we are in the selecting state, that is, when we received ACK with
          * rapid commit. */
-        if (IN_SET(client->state, DHCP_STATE_REBOOTING, DHCP_STATE_SELECTING) &&
-            client->lease->ipv6_only_preferred_usec > 0) {
+        usec_t t = client_get_ipv6_only_preferred_usec(client);
+        if (t > 0 && IN_SET(client->state, DHCP_STATE_REBOOTING, DHCP_STATE_SELECTING)) {
                 if (client->ipv6_acquired) {
                         log_dhcp_client(client,
                                         "Received an ACK with IPv6-only preferred option, and the host already acquired IPv6 connectivity, stopping DHCPv4 client.");
@@ -1385,14 +1419,19 @@ static int client_enter_bound(sd_dhcp_client *client, int notify_event) {
 
                 log_dhcp_client(client,
                                 "Received an ACK with IPv6-only preferred option, delaying to enter bound state with %s.",
-                                FORMAT_TIMESPAN(client->lease->ipv6_only_preferred_usec, USEC_PER_SEC));
+                                FORMAT_TIMESPAN(t, USEC_PER_SEC));
 
-                return event_reset_time_relative(client->event, &client->timeout_ipv6_only_mode,
-                                                 CLOCK_BOOTTIME,
-                                                 client->lease->ipv6_only_preferred_usec, 0,
-                                                 client_enter_bound_delayed, client,
-                                                 client->event_priority, "dhcp4-ipv6-only-mode",
-                                                 /* force_reset= */ true);
+                return event_reset_time_relative(
+                                client->event,
+                                &client->timeout_ipv6_only_mode,
+                                CLOCK_BOOTTIME,
+                                t,
+                                /* accuracy= */ 0,
+                                client_enter_bound_delayed,
+                                client,
+                                client->event_priority,
+                                "dhcp4-ipv6-only-mode",
+                                /* force_reset= */ true);
         }
 
         return client_enter_bound_now(client, notify_event);
@@ -1711,7 +1750,7 @@ int sd_dhcp_client_set_ipv6_connectivity(sd_dhcp_client *client, int have) {
         /* We have already received a message with IPv6-Only preferred option, and are waiting for IPv6
          * connectivity or timeout, let's stop the client. But, do not stop when the lease has been already
          * bound, especially, do not release the bound lease on renewing/rebinding. */
-        if (have && client->lease && client->lease->ipv6_only_preferred_usec > 0 &&
+        if (have && client_get_ipv6_only_preferred_usec(client) > 0 &&
             IN_SET(client->state,
                    DHCP_STATE_SELECTING,  /* Received DHCPACK (rapid commit) and delaying entering the bound state. */
                    DHCP_STATE_REQUESTING, /* Received DHCPOFFER and delaying sending the DHCPREQUEST, or
