@@ -317,6 +317,11 @@ int network_verify(Network *network) {
                 return r; /* sr_iov_drop_invalid_sections() logs internally. */
         network_drop_invalid_static_leases(network);
 
+        if (network->clat && !network->ndisc_use_pref64)
+                log_warning("%s: CLAT=yes requires [IPv6AcceptRA] UsePREF64=yes to function. "
+                            "CLAT will not start without PREF64 prefix discovery.",
+                            network->filename);
+
         return 0;
 }
 
