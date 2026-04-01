@@ -2452,26 +2452,30 @@ _public_ int sd_varlink_call_and_upgrade(
                 }
         }
 
-        /* Handle the case where the caller is not interested in one of the fds. We need
-         * to consider the case when (input_fd == output_fd) just clear the alias
-         * rather than closing it, since the other branch may hand it out. */
+        /* Hand out the fds to the caller. When the caller doesn't want one direction, shut it
+         * down: but avoid closing the underlying fd if the other direction still needs it
+         * (i.e. when input_fd == output_fd). */
         bool same_fd = v->input_fd == v->output_fd;
 
         if (ret_input_fd)
                 *ret_input_fd = TAKE_FD(v->input_fd);
-        else if (!same_fd) {
+        else {
                 (void) shutdown(v->input_fd, SHUT_RD);
-                v->input_fd = safe_close(v->input_fd);
-        } else
-                v->input_fd = -EBADF;
+                if (same_fd && ret_output_fd)
+                        TAKE_FD(v->input_fd); /* don't close yet, output branch needs it */
+                else
+                        v->input_fd = safe_close(v->input_fd);
+        }
 
         if (ret_output_fd)
                 *ret_output_fd = TAKE_FD(v->output_fd);
-        else if (!same_fd) {
+        else {
                 (void) shutdown(v->output_fd, SHUT_WR);
-                v->output_fd = safe_close(v->output_fd);
-        } else
-                v->output_fd = -EBADF;
+                if (same_fd && ret_input_fd)
+                        TAKE_FD(v->output_fd);
+                else
+                        v->output_fd = safe_close(v->output_fd);
+        }
 
         varlink_set_state(v, VARLINK_DISCONNECTED);
         assert(v->n_pending == 1);
