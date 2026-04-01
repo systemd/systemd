@@ -355,8 +355,11 @@ jobs:
           ## Review result
 
           Produce your review result as structured output. The fields are:
-          - `summary`: Markdown summary for the tracking comment.
+          - `summary`: The markdown summary for the tracking comment, **base64-encoded**.
+            Write the summary to a temporary file first, then encode it with
+            `base64 -w0 /tmp/summary.md` and put the resulting string in this field.
           - `comments`: Array of review comments (same schema as the reviewer output above).
+            The `body` field of each comment must also be **base64-encoded** the same way.
           - `resolve`: REST API IDs of review comment threads to resolve.
           PROMPT
 
@@ -449,7 +452,7 @@ jobs:
                 if (Array.isArray(review.resolve))
                   resolveIds = review.resolve;
                 if (typeof review.summary === "string")
-                  summary = review.summary;
+                  summary = Buffer.from(review.summary, "base64").toString("utf-8");
               } catch (e) {
                 core.warning(`Failed to parse structured output: ${e.message}`);
               }
@@ -480,7 +483,7 @@ jobs:
                   ...(c.side != null && { side: c.side }),
                   ...(c.start_line != null && { start_line: c.start_line }),
                   ...(c.start_side != null && { start_side: c.start_side }),
-                  body: `Claude: **${c.severity}**: ${c.body}`,
+                  body: `Claude: **${c.severity}**: ${Buffer.from(c.body, "base64").toString("utf-8")}`,
                 });
                 posted++;
               } catch (e) {
