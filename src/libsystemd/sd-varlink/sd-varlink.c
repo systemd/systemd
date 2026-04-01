@@ -3100,11 +3100,8 @@ _public_ int sd_varlink_set_sentinel(sd_varlink *v, const char *error_id) {
                       -EUCLEAN);
 
         char *s = NULL;
-        if (error_id) {
-                s = strdup(error_id);
-                if (!s)
-                        return log_oom_debug();
-        }
+        if (strdup_to(&s, error_id) < 0)
+                return log_oom_debug();
 
         if (v->sentinel != POINTER_MAX)
                 free(v->sentinel);
