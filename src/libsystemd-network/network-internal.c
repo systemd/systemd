@@ -1,18 +1,14 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <arpa/inet.h>
 #include <stdio.h>
 
 #include "sd-dhcp-lease.h"
 
 #include "alloc-util.h"
-#include "dhcp-route.h"
 #include "dns-resolver-internal.h"
 #include "extract-word.h"
-#include "hexdecoct.h"
 #include "in-addr-util.h"
 #include "network-internal.h"
-#include "parse-util.h"
 #include "string-util.h"
 #include "strv.h"
 
@@ -215,113 +211,4 @@ int deserialize_dnr(sd_dns_resolver **ret, const char *string) {
 
         *ret = TAKE_PTR(dnr);
         return n;
-}
-
-void serialize_dhcp_routes(FILE *f, const char *key, sd_dhcp_route **routes, size_t size) {
-        assert(f);
-        assert(key);
-        assert(routes);
-        assert(size);
-
-        fprintf(f, "%s=", key);
-
-        for (size_t i = 0; i < size; i++) {
-                struct in_addr dest, gw;
-                uint8_t length;
-
-                assert_se(sd_dhcp_route_get_destination(routes[i], &dest) >= 0);
-                assert_se(sd_dhcp_route_get_gateway(routes[i], &gw) >= 0);
-                assert_se(sd_dhcp_route_get_destination_prefix_length(routes[i], &length) >= 0);
-
-                fprintf(f, "%s,%s%s",
-                        IN4_ADDR_PREFIX_TO_STRING(&dest, length),
-                        IN4_ADDR_TO_STRING(&gw),
-                        i < size - 1 ? " ": "");
-        }
-
-        fputs("\n", f);
-}
-
-int deserialize_dhcp_routes(struct sd_dhcp_route **ret, size_t *ret_size, const char *string) {
-        _cleanup_free_ struct sd_dhcp_route *routes = NULL;
-        size_t size = 0;
-
-        assert(ret);
-        assert(ret_size);
-        assert(string);
-
-         /* WORD FORMAT: dst_ip/dst_prefixlen,gw_ip */
-        for (;;) {
-                _cleanup_free_ char *word = NULL;
-                char *tok, *tok_end;
-                unsigned n;
-                int r;
-
-                r = extract_first_word(&string, &word, NULL, 0);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        break;
-
-                struct sd_dhcp_route route = {};
-
-                tok = word;
-
-                /* get the subnet */
-                tok_end = strchr(tok, '/');
-                if (!tok_end)
-                        continue;
-                *tok_end = '\0';
-
-                r = inet_aton(tok, &route.dst_addr);
-                if (r == 0)
-                        continue;
-
-                tok = tok_end + 1;
-
-                /* get the prefixlen */
-                tok_end = strchr(tok, ',');
-                if (!tok_end)
-                        continue;
-
-                *tok_end = '\0';
-
-                r = safe_atou(tok, &n);
-                if (r < 0 || n > 32)
-                        continue;
-
-                route.dst_prefixlen = (uint8_t) n;
-                tok = tok_end + 1;
-
-                /* get the gateway */
-                r = inet_aton(tok, &route.gw_addr);
-                if (r == 0)
-                        continue;
-
-                if (!GREEDY_REALLOC(routes, size + 1))
-                        return -ENOMEM;
-
-                routes[size++] = route;
-        }
-
-        *ret_size = size;
-        *ret = TAKE_PTR(routes);
-
-        return 0;
-}
-
-int serialize_dhcp_option(FILE *f, const char *key, const void *data, size_t size) {
-        _cleanup_free_ char *hex_buf = NULL;
-
-        assert(f);
-        assert(key);
-        assert(data);
-
-        hex_buf = hexmem(data, size);
-        if (!hex_buf)
-                return -ENOMEM;
-
-        fprintf(f, "%s=%s\n", key, hex_buf);
-
-        return 0;
 }
