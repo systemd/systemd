@@ -7,11 +7,9 @@
 #include "dhcp-message.h"
 #include "iovec-util.h"
 #include "json-util.h"
-#include "network-internal.h"
 #include "networkctl-link-info.h"
 #include "networkctl-link-info-json.h"
 #include "networkctl-util.h"
-#include "stdio-util.h"
 
 static int acquire_link_bitrates(LinkInfo *link) {
         int r;
@@ -68,11 +66,8 @@ static int acquire_link_dhcp_lease(LinkInfo *link) {
 
         sd_json_variant *v;
         r = json_variant_find_object(link->description, STRV_MAKE("Interface", "DHCPv4Client", "Lease", "Message"), &v);
-        if (r == -ENODATA) {
-                char lease_file[STRLEN("/run/systemd/netif/leases/") + DECIMAL_STR_MAX(int)];
-                xsprintf(lease_file, "/run/systemd/netif/leases/%i", link->ifindex);
-                return dhcp_lease_load(&link->dhcp_lease, lease_file);
-        }
+        if (r == -ENODATA)
+                return 0;
         if (r < 0)
                 return r;
 
