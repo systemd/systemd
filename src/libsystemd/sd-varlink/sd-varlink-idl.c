@@ -401,6 +401,16 @@ static int varlink_idl_format_symbol(
                         fputs("\n", f);
                 }
 
+                if ((symbol->symbol_flags & (SD_VARLINK_REQUIRES_UPGRADE|SD_VARLINK_SUPPORTS_UPGRADE)) != 0) {
+                        fputs(colors[COLOR_COMMENT], f);
+                        if (FLAGS_SET(symbol->symbol_flags, SD_VARLINK_REQUIRES_UPGRADE))
+                                fputs("# [Requires 'upgrade' flag]", f);
+                        else
+                                fputs("# [Supports 'upgrade' flag]", f);
+                        fputs(colors[COLOR_RESET], f);
+                        fputs("\n", f);
+                }
+
                 fputs(colors[COLOR_SYMBOL_TYPE], f);
                 fputs("method ", f);
                 fputs(colors[COLOR_IDENTIFIER], f);
@@ -1944,6 +1954,10 @@ int varlink_idl_validate_method_call(const sd_varlink_symbol *method, sd_json_va
         /* If method calls require the "more" flag, but none is given, return a recognizable error */
         if (FLAGS_SET(method->symbol_flags, SD_VARLINK_REQUIRES_MORE) && !FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
                 return -EBADE;
+
+        /* Same for upgrade */
+        if (FLAGS_SET(method->symbol_flags, SD_VARLINK_REQUIRES_UPGRADE) && !FLAGS_SET(flags, SD_VARLINK_METHOD_UPGRADE))
+                return -EPROTOTYPE;
 
         return varlink_idl_validate_symbol(method, v, SD_VARLINK_INPUT, reterr_bad_field);
 }
