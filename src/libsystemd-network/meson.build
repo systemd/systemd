@@ -115,9 +115,6 @@ executables += [
                 'sources' : files('test-ndisc-send.c'),
                 'type' : 'manual',
         },
-        network_test_template + {
-                'sources' : files('test-sd-dhcp-lease.c'),
-        },
         network_fuzz_template + {
                 'sources' : files('fuzz-dhcp-client.c'),
         },
