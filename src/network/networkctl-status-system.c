@@ -94,7 +94,7 @@ int system_status(sd_netlink *rtnl, sd_hwdb *hwdb) {
         if (r < 0)
                 return table_log_add_error(r);
 
-        r = dump_addresses(rtnl, /* message= */ NULL, /* lease= */ NULL, table, /* ifindex= */ 0);
+        r = dump_addresses(rtnl, /* message= */ NULL, table, /* ifindex= */ 0);
         if (r < 0)
                 return r;
 
