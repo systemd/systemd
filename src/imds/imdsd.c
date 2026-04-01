@@ -2243,10 +2243,6 @@ static bool http_header_name_valid(const char *a) {
         return a && ascii_is_valid(a) && !string_has_cc(a, /* ok= */ NULL) && !strchr(a, ':');
 }
 
-static bool http_header_valid(const char *a) {
-        return a && ascii_is_valid(a) && !string_has_cc(a, /* ok= */ NULL) && strchr(a, ':');
-}
-
 static int parse_argv(int argc, char *argv[]) {
         int r;
 
