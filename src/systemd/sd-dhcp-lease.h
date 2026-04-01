@@ -56,26 +56,19 @@ int sd_dhcp_lease_get_broadcast(sd_dhcp_lease *lease, struct in_addr *addr);
 int sd_dhcp_lease_get_netmask(sd_dhcp_lease *lease, struct in_addr *addr);
 int sd_dhcp_lease_get_prefix(sd_dhcp_lease *lease, struct in_addr *ret_prefix, uint8_t *ret_prefixlen);
 int sd_dhcp_lease_get_router(sd_dhcp_lease *lease, const struct in_addr **addr);
-int sd_dhcp_lease_get_next_server(sd_dhcp_lease *lease, struct in_addr *addr);
 int sd_dhcp_lease_get_server_identifier(sd_dhcp_lease *lease, struct in_addr *addr);
 int sd_dhcp_lease_get_servers(sd_dhcp_lease *lease, sd_dhcp_lease_server_type_t what, const struct in_addr **addr);
 int sd_dhcp_lease_get_dns(sd_dhcp_lease *lease, const struct in_addr **addr);
 int sd_dhcp_lease_get_ntp(sd_dhcp_lease *lease, const struct in_addr **addr);
 int sd_dhcp_lease_get_sip(sd_dhcp_lease *lease, const struct in_addr **addr);
-int sd_dhcp_lease_get_pop3(sd_dhcp_lease *lease, const struct in_addr **addr);
-int sd_dhcp_lease_get_smtp(sd_dhcp_lease *lease, const struct in_addr **addr);
-int sd_dhcp_lease_get_lpr(sd_dhcp_lease *lease, const struct in_addr **addr);
 int sd_dhcp_lease_get_mtu(sd_dhcp_lease *lease, uint16_t *mtu);
 int sd_dhcp_lease_get_domainname(sd_dhcp_lease *lease, const char **domainname);
 int sd_dhcp_lease_get_search_domains(sd_dhcp_lease *lease, char ***domains);
-int sd_dhcp_lease_get_hostname(sd_dhcp_lease *lease, const char **hostname);
-int sd_dhcp_lease_get_root_path(sd_dhcp_lease *lease, const char **root_path);
+int sd_dhcp_lease_get_hostname(sd_dhcp_lease *lease, const char **ret);
 int sd_dhcp_lease_get_captive_portal(sd_dhcp_lease *lease, const char **ret);
 int sd_dhcp_lease_get_dnr(sd_dhcp_lease *lease, sd_dns_resolver **ret_resolvers);
 int sd_dhcp_lease_get_static_routes(sd_dhcp_lease *lease, sd_dhcp_route ***ret);
 int sd_dhcp_lease_get_classless_routes(sd_dhcp_lease *lease, sd_dhcp_route ***ret);
-int sd_dhcp_lease_get_vendor_specific(sd_dhcp_lease *lease, const void **data, size_t *data_len);
-int sd_dhcp_lease_get_client_id(sd_dhcp_lease *lease, const sd_dhcp_client_id **ret);
 int sd_dhcp_lease_get_timezone(sd_dhcp_lease *lease, const char **ret);
 int sd_dhcp_lease_get_6rd(
                 sd_dhcp_lease *lease,
