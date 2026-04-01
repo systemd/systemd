@@ -475,6 +475,12 @@ TEST(efi_fnmatch) {
         TEST_FNMATCH_ONE_MAY_SKIP_LIBC("[a\\-z]", "b", false);
         TEST_FNMATCH_ONE("?a*b[.-0]c", "/a/b/c", true);
         TEST_FNMATCH_ONE("debian-*-*-*.*", "debian-jessie-2018-06-17-kernel-image-5.10.0-16-amd64.efi", true);
+        TEST_FNMATCH_ONE("console=*", "console=xxx", true);
+        TEST_FNMATCH_ONE("* console=*", "opt1 console=ttyS0 opt2", true);
+        TEST_FNMATCH_ONE("console=*", " console=xxx", false);
+        TEST_FNMATCH_ONE("* console=", "opt1 console=ttyS0 opt2", false);
+        TEST_FNMATCH_ONE("console=*", "netconsole=@/eth0,@10.0.0.1/", false);
+        TEST_FNMATCH_ONE("* console=*", "netconsole=@/eth0,@10.0.0.1/", false);
 
         /* These would take forever with a backtracking implementation. */
         TEST_FNMATCH_ONE(
