@@ -138,6 +138,8 @@ static void service_enter_reload_by_notify(Service *s);
 
 static bool service_can_reload_extensions(Service *s, bool warn);
 
+static void service_set_state(Service *s, ServiceState state);
+
 static bool SERVICE_STATE_WITH_MAIN_PROCESS(ServiceState state) {
         return IN_SET(state,
                       SERVICE_START, SERVICE_START_POST,
@@ -571,15 +573,20 @@ static void service_done(Unit *u) {
 
 static int on_fd_store_io(sd_event_source *e, int fd, uint32_t revents, void *userdata) {
         ServiceFDStore *fs = ASSERT_PTR(userdata);
+        Service *s = fs->service;
 
         assert(e);
 
         /* If we get either EPOLLHUP or EPOLLERR, it's time to remove this entry from the fd store */
-        log_unit_debug(UNIT(fs->service),
+        log_unit_debug(UNIT(s),
                        "Received %s on stored fd %d (%s), closing.",
                        revents & EPOLLERR ? "EPOLLERR" : "EPOLLHUP",
                        fs->fd, strna(fs->fdname));
         service_fd_store_unlink(fs);
+
+        if (s->state == SERVICE_DEAD_RESOURCES_PINNED && s->n_fd_store == 0)
+                service_set_state(s, SERVICE_DEAD);
+
         return 0;
 }
 
@@ -3950,8 +3957,10 @@ static bool service_may_gc(Unit *u) {
                 return false;
 
         /* Only allow collection of actually dead services, i.e. not those that are in the transitionary
-         * SERVICE_DEAD_BEFORE_AUTO_RESTART/SERVICE_FAILED_BEFORE_AUTO_RESTART states. */
-        if (!IN_SET(s->state, SERVICE_DEAD, SERVICE_FAILED, SERVICE_DEAD_RESOURCES_PINNED))
+         * SERVICE_DEAD_BEFORE_AUTO_RESTART/SERVICE_FAILED_BEFORE_AUTO_RESTART states, and not those
+         * that still have resources pinned (fd store with FileDescriptorStorePreserve=yes) in case they are
+         * started again later despite not having any reverse dependency. */
+        if (!IN_SET(s->state, SERVICE_DEAD, SERVICE_FAILED))
                 return false;
 
         return true;
