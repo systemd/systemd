@@ -1,21 +1,38 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "bus-polkit.h"
 #include "varlink-io.systemd.MachineInstance.h"
 
-static SD_VARLINK_DEFINE_METHOD(Terminate);
-static SD_VARLINK_DEFINE_METHOD(PowerOff);
-static SD_VARLINK_DEFINE_METHOD(Reboot);
-static SD_VARLINK_DEFINE_METHOD(Pause);
-static SD_VARLINK_DEFINE_METHOD(Resume);
+static SD_VARLINK_DEFINE_METHOD(
+                Terminate,
+                VARLINK_DEFINE_POLKIT_INPUT);
+
+static SD_VARLINK_DEFINE_METHOD(
+                PowerOff,
+                VARLINK_DEFINE_POLKIT_INPUT);
+
+static SD_VARLINK_DEFINE_METHOD(
+                Reboot,
+                VARLINK_DEFINE_POLKIT_INPUT);
+
+static SD_VARLINK_DEFINE_METHOD(
+                Pause,
+                VARLINK_DEFINE_POLKIT_INPUT);
+
+static SD_VARLINK_DEFINE_METHOD(
+                Resume,
+                VARLINK_DEFINE_POLKIT_INPUT);
 
 static SD_VARLINK_DEFINE_METHOD(
                 QueryStatus,
+                VARLINK_DEFINE_POLKIT_INPUT,
                 SD_VARLINK_DEFINE_OUTPUT(running, SD_VARLINK_BOOL, 0),
                 SD_VARLINK_DEFINE_OUTPUT(status, SD_VARLINK_STRING, 0));
 
 static SD_VARLINK_DEFINE_METHOD_FULL(
                 SubscribeEvents,
                 SD_VARLINK_REQUIRES_MORE,
+                VARLINK_DEFINE_POLKIT_INPUT,
                 SD_VARLINK_DEFINE_INPUT(filter, SD_VARLINK_STRING, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
                 SD_VARLINK_DEFINE_OUTPUT(event, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
                 SD_VARLINK_DEFINE_OUTPUT(data, SD_VARLINK_OBJECT, SD_VARLINK_NULLABLE),
