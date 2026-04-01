@@ -47,6 +47,7 @@
 #include "hostname-setup.h"
 #include "hostname-util.h"
 #include "id128-util.h"
+#include "kernel-image.h"
 #include "log.h"
 #include "machine-bind-user.h"
 #include "machine-credential.h"
@@ -1373,11 +1374,24 @@ static int cmdline_add_kernel_cmdline(char ***cmdline, const char *kernel, const
         if (strv_isempty(arg_kernel_cmdline_extra))
                 return 0;
 
+        KernelImageType type = _KERNEL_IMAGE_TYPE_INVALID;
+        if (kernel) {
+                r = inspect_kernel(
+                                AT_FDCWD,
+                                kernel,
+                                &type,
+                                /* ret_cmdline= */ NULL,
+                                /* ret_uname= */ NULL,
+                                /* ret_pretty_name= */ NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine '%s' kernel image type: %m", kernel);
+        }
+
         _cleanup_free_ char *kcl = strv_join(arg_kernel_cmdline_extra, " ");
         if (!kcl)
                 return log_oom();
 
-        if (kernel) {
+        if (kernel && type != KERNEL_IMAGE_TYPE_UKI) {
                 if (strv_extend_many(cmdline, "-append", kcl) < 0)
                         return log_oom();
         } else {
