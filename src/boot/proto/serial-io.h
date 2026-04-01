@@ -1,7 +1,0 @@
-/* SPDX-License-Identifier: LGPL-2.1-or-later */
-#pragma once
-
-#include "efi.h"
-
-#define EFI_SERIAL_IO_PROTOCOL_GUID \
-        GUID_DEF(0xbb25cf6f, 0xf1d4, 0x11d2, 0x9a, 0x0c, 0x00, 0x90, 0x27, 0x3f, 0xc1, 0xfd)
