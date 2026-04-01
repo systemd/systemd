@@ -31,5 +31,3 @@ int dhcp_packet_append_ip_headers(
                 uint16_t destination,
                 uint16_t len,
                 int ip_service_type);
-
-int dhcp_packet_verify_headers(DHCPPacket *packet, size_t len, bool checksum, uint16_t port);
