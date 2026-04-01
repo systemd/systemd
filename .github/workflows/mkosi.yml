@@ -324,7 +324,7 @@ jobs:
             "${MAX_LINES[@]}"
 
       - name: Archive failed test journals
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         if: failure() && (github.repository == 'systemd/systemd' || github.repository == 'systemd/systemd-stable')
         with:
           name: ci-mkosi-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.distro }}-${{ matrix.release }}-${{ matrix.runner }}-failed-test-journals
