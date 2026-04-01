@@ -115,7 +115,3 @@ int dhcp_packet_append_ip_headers(
         packet->udp = udp;
         return 0;
 }
-
-int dhcp_packet_verify_headers(DHCPPacket *packet, size_t len, bool checksum, uint16_t port) {
-        return udp_packet_verify(&IOVEC_MAKE(packet, len), port, checksum, /* ret_payload= */ NULL);
-}
