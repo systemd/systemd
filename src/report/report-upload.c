@@ -72,6 +72,13 @@ int upload_collected(Context *context) {
                 return log_oom();
         header = l;
 
+        STRV_FOREACH(h, arg_headers) {
+                l = curl_slist_append(header, *h);
+                if (!l)
+                        return log_oom();
+                header = l;
+        }
+
         _cleanup_(curl_easy_cleanupp) CURL *curl = curl_easy_init();
         if (!curl)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOSR),
