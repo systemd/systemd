@@ -1246,6 +1246,8 @@ static int verb_vm_control_one(const char *machine_name, const char *method) {
 static int verb_vm_control(int argc, char *argv[], const char *method) {
         int r;
 
+        (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
+
         for (int i = 1; i < argc; i++) {
                 r = verb_vm_control_one(argv[i], method);
                 if (r < 0) {
