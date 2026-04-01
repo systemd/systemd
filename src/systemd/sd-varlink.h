@@ -168,6 +168,12 @@ int sd_varlink_replyb(sd_varlink *v, ...);
 #define sd_varlink_replybo(v, ...)                         \
         sd_varlink_replyb((v), SD_JSON_BUILD_OBJECT(__VA_ARGS__))
 
+/* Send a final reply to an upgrade request, then steal the connection fds for raw I/O.
+ * The fds are returned in blocking mode. The varlink connection is disconnected afterwards.
+ * For bidirectional sockets ret_input_fd and ret_output_fd will be the same fd. For pipe
+ * pairs (e.g. ssh-exec transport) they will differ. Either ret pointer may be NULL. */
+int sd_varlink_reply_and_upgrade(sd_varlink *v, sd_json_variant *parameters, int *ret_input_fd, int *ret_output_fd);
+
 /* Enqueue a (final) error */
 int sd_varlink_error(sd_varlink *v, const char *error_id, sd_json_variant *parameters);
 int sd_varlink_errorb(sd_varlink *v, const char *error_id, ...);
