@@ -2604,16 +2604,24 @@ int terminal_get_size(
 
         if (try_csi18) {
                 r = terminal_query_size_by_csi18(nonblock_input_fd, output_fd, ret_rows, ret_columns);
-                if (!IN_SET(r, -EOPNOTSUPP, -EINVAL) || !try_dsr)
+                if (r >= 0)
                         return r;
 
-                /* CSI 18 query failed. Flush input before trying the DSR fallback — a late CSI 18 response
-                 * may have landed in the input queue and would confuse the DSR response parser. */
+                /* Query failed. Flush any outstanding input. */
                 (void) tcflush(nonblock_input_fd, TCIFLUSH);
+
+                if (!IN_SET(r, -EOPNOTSUPP, -EINVAL))
+                        return r;
         }
 
-        if (try_dsr)
+        if (try_dsr) {
                 r = terminal_query_size_by_dsr(nonblock_input_fd, output_fd, ret_rows, ret_columns);
+                if (r >= 0)
+                        return r;
+
+                /* Query failed. Flush any outstanding input. */
+                (void) tcflush(nonblock_input_fd, TCIFLUSH);
+        }
 
         return r;
 }
