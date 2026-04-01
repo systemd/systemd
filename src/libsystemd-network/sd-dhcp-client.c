@@ -691,12 +691,6 @@ static usec_t client_compute_request_timeout(uint64_t attempt) {
 }
 
 /* RFC2131 section 4.4.5:
- * T1 defaults to (0.5 * duration_of_lease).
- * T2 defaults to (0.875 * duration_of_lease). */
-#define T1_DEFAULT(lifetime) ((lifetime) / 2)
-#define T2_DEFAULT(lifetime) (((lifetime) * 7) / 8)
-
-/* RFC2131 section 4.4.5:
  * the client SHOULD wait one-half of the remaining time until T2 (in RENEWING state)
  * and one-half of the remaining lease time (in REBINDING state), down to a minimum
  * of 60 seconds.
@@ -1011,22 +1005,6 @@ static int client_set_lease_timeouts(sd_dhcp_client *client) {
         r = sd_event_now(client->event, CLOCK_BOOTTIME, &time_now);
         if (r < 0)
                 return r;
-
-        /* verify that 0 < t2 < lifetime */
-        if (client->lease->t2 == 0 || client->lease->t2 >= client->lease->lifetime)
-                client->lease->t2 = T2_DEFAULT(client->lease->lifetime);
-        /* verify that 0 < t1 < lifetime */
-        if (client->lease->t1 == 0 || client->lease->t1 >= client->lease->t2)
-                client->lease->t1 = T1_DEFAULT(client->lease->lifetime);
-        /* now, if t1 >= t2, t1 *must* be T1_DEFAULT, since the previous check
-         * could not evaluate to false if t1 >= t2; so setting t2 to T2_DEFAULT
-         * guarantees t1 < t2. */
-        if (client->lease->t1 >= client->lease->t2)
-                client->lease->t2 = T2_DEFAULT(client->lease->lifetime);
-
-        assert(client->lease->t1 > 0);
-        assert(client->lease->t1 < client->lease->t2);
-        assert(client->lease->t2 < client->lease->lifetime);
 
         r = sd_dhcp_lease_get_lifetime_timestamp(client->lease, CLOCK_BOOTTIME, &client->expire_time);
         if (r < 0)
