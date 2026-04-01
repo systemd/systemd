@@ -14,6 +14,7 @@ typedef enum DiskType {
         DISK_TYPE_VIRTIO_BLK,
         DISK_TYPE_VIRTIO_SCSI,
         DISK_TYPE_NVME,
+        DISK_TYPE_SCSI_CD,
         _DISK_TYPE_MAX,
         _DISK_TYPE_INVALID = -EINVAL,
 } DiskType;
