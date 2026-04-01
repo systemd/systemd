@@ -265,11 +265,22 @@ cat >"$UPGRADE_SERVER" <<'PYEOF'
 Without arguments, speaks over stdin/stdout (for ssh-exec: transport testing)."""
 import json, os, socket, sys
 
+def sd_notify_ready():
+    addr = os.environ.get("NOTIFY_SOCKET")
+    if not addr:
+        return
+    if addr[0] == "@":
+        addr = "\0" + addr[1:]
+    s = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+    s.connect(addr)
+    s.sendall(b"READY=1")
+    s.close()
+
 if len(sys.argv) > 1:
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     sock.bind(sys.argv[1])
     sock.listen(1)
-    print("READY", flush=True)
+    sd_notify_ready()
     conn, _ = sock.accept()
     inp = conn.makefile("rb")
     out = conn.makefile("wb")
@@ -309,12 +320,8 @@ if sock:
 PYEOF
 chmod +x "$UPGRADE_SERVER"
 
-# Start the server in the background
-python3 "$UPGRADE_SERVER" "$UPGRADE_SOCKET" &
-SERVER_PID=$!
-
-# Wait for server readiness
-timeout 5 bash -c "while [ ! -S '$UPGRADE_SOCKET' ]; do sleep 0.1; done"
+# Start the server in the background, wait for readiness via sd_notify
+systemd-notify --fork -q -- python3 "$UPGRADE_SERVER" "$UPGRADE_SOCKET"
 
 # Test proxy mode: pipe data through --upgrade, passing parameters and validate
 result="$(echo "hello world" | varlinkctl call --upgrade "unix:$UPGRADE_SOCKET" io.systemd.test.Reverse '{"foo":"bar"}')"
@@ -322,22 +329,16 @@ echo "$result" | grep "<<< UPGRADED >>>" >/dev/null
 echo "$result" | grep '"foo": "bar"' >/dev/null
 echo "$result" | grep "dlrow olleh" >/dev/null
 
-wait "$SERVER_PID" || :
-
 # Test --upgrade with stdin redirected from a regular file (epoll can't poll regular files,
-# so this exercises the fork+pipe fallback path)
+# so this exercises the sd_event_add_defer fallback path)
 UPGRADE_SOCKET2="$(mktemp -d)/upgrade.sock"
-python3 "$UPGRADE_SERVER" "$UPGRADE_SOCKET2" &
-SERVER_PID=$!
-timeout 5 bash -c "while [ ! -S '$UPGRADE_SOCKET2' ]; do sleep 0.1; done"
+systemd-notify --fork -q -- python3 "$UPGRADE_SERVER" "$UPGRADE_SOCKET2"
 
 echo "file input test" > /tmp/test-upgrade-input
 result="$(varlinkctl call --upgrade "unix:$UPGRADE_SOCKET2" io.systemd.test.Reverse '{"foo":"file"}' < /tmp/test-upgrade-input)"
 echo "$result" | grep "<<< UPGRADED >>>" >/dev/null
 echo "$result" | grep '"foo": "file"' >/dev/null
 echo "$result" | grep "tset tupni elif" >/dev/null
-
-wait "$SERVER_PID" || :
 
 # Test --upgrade over ssh-exec: transport (pipe pair, not a bidirectional socket).
 # This exercises the input_fd != output_fd path in sd_varlink_call_and_upgrade().
@@ -355,9 +356,7 @@ echo "$result" | grep "tset epip hss" >/dev/null
 
 # Start another server for --exec test
 rm -f "$UPGRADE_SOCKET"
-python3 "$UPGRADE_SERVER" "$UPGRADE_SOCKET" &
-SERVER_PID=$!
-timeout 5 bash -c "while [ ! -S '$UPGRADE_SOCKET' ]; do sleep 0.1; done"
+systemd-notify --fork -q -- python3 "$UPGRADE_SERVER" "$UPGRADE_SOCKET"
 
 # Test --exec mode: the upgraded socket becomes stdin/stdout of the child.
 # Since stdout goes to the socket (not the terminal), write results to a file for verification.
@@ -369,6 +368,5 @@ grep '"foo": "bar"' "$EXEC_RESULT" >/dev/null
 grep "dlrow olleh" "$EXEC_RESULT" >/dev/null
 rm -f "$EXEC_RESULT"
 
-wait "$SERVER_PID" || :
 rm -f "$UPGRADE_SOCKET" "$UPGRADE_SOCKET2" "$UPGRADE_SERVER" /tmp/test-upgrade-input
 rm -rf "$(dirname "$UPGRADE_SOCKET")" "$(dirname "$UPGRADE_SOCKET2")"
