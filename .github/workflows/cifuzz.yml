@@ -60,7 +60,7 @@ jobs:
           sanitizer: ${{ matrix.sanitizer }}
           output-sarif: true
       - name: Upload Crash
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
         if: failure() && steps.build.outcome == 'success'
         with:
           name: ${{ matrix.sanitizer }}-${{ matrix.architecture }}-artifacts
