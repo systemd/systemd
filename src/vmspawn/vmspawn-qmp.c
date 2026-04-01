@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "bus-polkit.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "log.h"
@@ -19,7 +20,27 @@ struct VmspawnQmpContext {
         sd_varlink_server *varlink_server;
         QmpClient *qmp_client;
         Set *subscribed;
+        Hashmap *polkit_registry;
+        RuntimeScope runtime_scope;
+        uid_t owner_uid;
 };
+
+static int vmspawn_verify_polkit(sd_varlink *link, VmspawnQmpContext *ctx, const char *verb) {
+        assert(link);
+        assert(ctx);
+
+        if (ctx->runtime_scope == RUNTIME_SCOPE_USER)
+                return 1; /* User scope: always authorized */
+
+        return varlink_verify_polkit_async_full(
+                        link,
+                        /* bus= */ NULL, /* auto-opens system bus */
+                        "org.freedesktop.machine1.manage-machines",
+                        (const char**) STRV_MAKE("verb", verb),
+                        ctx->owner_uid,
+                        /* flags= */ 0,
+                        &ctx->polkit_registry);
+}
 
 /* Translate a QMP async completion into a varlink error reply */
 static void qmp_error_to_varlink(sd_varlink *link, const char *error_class, int error) {
@@ -73,23 +94,58 @@ static int qmp_execute_simple_async(sd_varlink *link, VmspawnQmpContext *ctx, co
 }
 
 static int vl_method_terminate(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        return qmp_execute_simple_async(link, ASSERT_PTR(userdata), "quit");
+        VmspawnQmpContext *ctx = ASSERT_PTR(userdata);
+        int r;
+
+        r = vmspawn_verify_polkit(link, ctx, "terminate");
+        if (r <= 0)
+                return r;
+
+        return qmp_execute_simple_async(link, ctx, "quit");
 }
 
 static int vl_method_pause(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        return qmp_execute_simple_async(link, ASSERT_PTR(userdata), "stop");
+        VmspawnQmpContext *ctx = ASSERT_PTR(userdata);
+        int r;
+
+        r = vmspawn_verify_polkit(link, ctx, "pause");
+        if (r <= 0)
+                return r;
+
+        return qmp_execute_simple_async(link, ctx, "stop");
 }
 
 static int vl_method_resume(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        return qmp_execute_simple_async(link, ASSERT_PTR(userdata), "cont");
+        VmspawnQmpContext *ctx = ASSERT_PTR(userdata);
+        int r;
+
+        r = vmspawn_verify_polkit(link, ctx, "resume");
+        if (r <= 0)
+                return r;
+
+        return qmp_execute_simple_async(link, ctx, "cont");
 }
 
 static int vl_method_power_off(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        return qmp_execute_simple_async(link, ASSERT_PTR(userdata), "system_powerdown");
+        VmspawnQmpContext *ctx = ASSERT_PTR(userdata);
+        int r;
+
+        r = vmspawn_verify_polkit(link, ctx, "power_off");
+        if (r <= 0)
+                return r;
+
+        return qmp_execute_simple_async(link, ctx, "system_powerdown");
 }
 
 static int vl_method_reboot(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        return qmp_execute_simple_async(link, ASSERT_PTR(userdata), "system_reset");
+        VmspawnQmpContext *ctx = ASSERT_PTR(userdata);
+        int r;
+
+        r = vmspawn_verify_polkit(link, ctx, "reboot");
+        if (r <= 0)
+                return r;
+
+        return qmp_execute_simple_async(link, ctx, "system_reset");
 }
 
 /* Async completion for query-status: extract running/status from QMP result */
@@ -123,6 +179,10 @@ static int vl_method_query_status(sd_varlink *link, sd_json_variant *parameters,
         VmspawnQmpContext *ctx = ASSERT_PTR(userdata);
         int r;
 
+        r = vmspawn_verify_polkit(link, ctx, "query_status");
+        if (r <= 0)
+                return r;
+
         sd_varlink_ref(link);
 
         r = qmp_client_execute(ctx->qmp_client, "query-status", /* arguments= */ NULL, on_qmp_query_status_complete, link);
@@ -137,6 +197,10 @@ static int vl_method_query_status(sd_varlink *link, sd_json_variant *parameters,
 static int vl_method_subscribe_events(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         VmspawnQmpContext *ctx = ASSERT_PTR(userdata);
         int r;
+
+        r = vmspawn_verify_polkit(link, ctx, "subscribe_events");
+        if (r <= 0)
+                return r;
 
         /* SD_VARLINK_REQUIRES_MORE in the IDL rejects non-streaming callers before we get here */
 
@@ -156,6 +220,13 @@ static int vl_method_subscribe_events(sd_varlink *link, sd_json_variant *paramet
 }
 
 static int vl_method_acquire_qmp(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        VmspawnQmpContext *ctx = ASSERT_PTR(userdata);
+        int r;
+
+        r = vmspawn_verify_polkit(link, ctx, "acquire_qmp");
+        if (r <= 0)
+                return r;
+
         return sd_varlink_error_errno(link, -EOPNOTSUPP);
 }
 
@@ -209,7 +280,7 @@ static void on_qmp_disconnect(QmpClient *client, void *userdata) {
         ctx->subscribed = set_free(ctx->subscribed);
 }
 
-int vmspawn_qmp_setup(VmspawnQmpContext **ret, int _qmp_fd, sd_event *event, const char *runtime_dir, char **ret_varlink_address) {
+int vmspawn_qmp_setup(VmspawnQmpContext **ret, int _qmp_fd, sd_event *event, const char *runtime_dir, RuntimeScope runtime_scope, uid_t owner_uid, char **ret_varlink_address) {
         _cleanup_(vmspawn_qmp_context_freep) VmspawnQmpContext *ctx = NULL;
         _cleanup_close_ int fd = TAKE_FD(_qmp_fd);
         _cleanup_free_ char *listen_address = NULL;
@@ -224,7 +295,10 @@ int vmspawn_qmp_setup(VmspawnQmpContext **ret, int _qmp_fd, sd_event *event, con
         if (!ctx)
                 return log_oom();
 
-        *ctx = (VmspawnQmpContext) {};
+        *ctx = (VmspawnQmpContext) {
+                .runtime_scope = runtime_scope,
+                .owner_uid = owner_uid,
+        };
 
         /* Phase 1: blocking QMP handshake */
         r = qmp_client_connect_fd(&ctx->qmp_client, TAKE_FD(fd), event);
@@ -294,6 +368,7 @@ VmspawnQmpContext *vmspawn_qmp_context_free(VmspawnQmpContext *ctx) {
         ctx->varlink_server = sd_varlink_server_unref(ctx->varlink_server);
         ctx->qmp_client = qmp_client_free(ctx->qmp_client);
         set_free(ctx->subscribed);
+        hashmap_free(ctx->polkit_registry);
 
         return mfree(ctx);
 }
