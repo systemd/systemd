@@ -40,6 +40,7 @@ char *arg_url = NULL;
 char *arg_key = NULL;
 char *arg_cert = NULL;
 char *arg_trust = NULL;
+char **arg_headers = NULL;
 usec_t arg_network_timeout_usec = TIMEOUT_USEC;
 
 STATIC_DESTRUCTOR_REGISTER(arg_matches, strv_freep);
@@ -47,6 +48,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_url, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_cert, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_trust, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_headers, strv_freep);
 
 typedef struct LinkInfo {
         Context *context;
@@ -1039,9 +1041,21 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         if (r < 0)
                                 return r;
                         break;
+
+                OPTION_LONG("header", "HEADER",
+                            "Inject additional header into the upload request"):
+                        if (isempty(arg))
+                                arg_headers = strv_free(arg_headers);
+                        else {
+                                r = strv_extend(&arg_headers, arg);
+                                if (r < 0)
+                                        return log_oom();
+                        }
+
+                        break;
                 }
 
-        if ((arg_url || arg_key || arg_cert || arg_trust) && !HAVE_LIBCURL)
+        if ((arg_url || arg_key || arg_cert || arg_trust || arg_headers) && !HAVE_LIBCURL)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Compiled without libcurl.");
 
         *ret_args = option_parser_get_args(&state);
