@@ -119,6 +119,7 @@ static int manager_context_build_json(sd_json_variant **ret, const char *name, v
                         SD_JSON_BUILD_PAIR_INTEGER("DefaultOOMScoreAdjust", m->defaults.oom_score_adjust),
                         SD_JSON_BUILD_PAIR_BOOLEAN("DefaultRestrictSUIDSGID", m->defaults.restrict_suid_sgid),
                         SD_JSON_BUILD_PAIR_STRING("CtrlAltDelBurstAction", emergency_action_to_string(m->cad_burst_action)),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("DefaultMemoryZSwapWriteback", m->defaults.memory_zswap_writeback),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("ConfirmSpawn", manager_get_confirm_spawn(m)),
                         JSON_BUILD_PAIR_STRING_NON_EMPTY("ControlGroup", m->cgroup_root));
 }

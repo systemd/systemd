@@ -488,6 +488,9 @@ CPUWeight=20   DisableControllers=cpu              /          \
           <ulink url="https://docs.kernel.org/admin-guide/mm/zswap.html">Zswap</ulink> documentation
           for more details.</para>
 
+          <para>The system default for this setting may be controlled with <varname>DefaultMemoryZSwapWriteback=</varname>
+          in <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
           <xi:include href="version-info.xml" xpointer="v256"/>
         </listitem>
       </varlistentry>
