@@ -2123,35 +2123,48 @@ static int setup_resolv_conf(const char *dest) {
         return 0;
 }
 
-static int setup_boot_id(void) {
-        sd_id128_t rnd = SD_ID128_NULL;
+static int setup_boot_id_file(const char *directory) {
+        _cleanup_free_ char *p = NULL;
+        sd_id128_t rnd;
         int r;
 
-        /* Generate a new randomized boot ID, so that each boot-up of the container gets a new one */
+        assert(directory);
+
+        /* Generate a new randomized boot ID, so that each boot-up of the container gets a new one. We create
+         * the backing file here in the outer child already, since /run/host/ is mounted read-only by the time
+         * the inner child runs. We intentionally do not unlink it: bind mounts of unlinked files cannot be
+         * replicated to other mount namespaces (both the old and new mount APIs fail with ENOENT). Since
+         * mount_private_apivfs() needs to replicate submounts like boot_id when setting up a fresh /proc
+         * instance, the backing file must remain on disk. It lives in /run/host/ which is cleaned up on
+         * shutdown anyway. */
+
+        p = path_join(directory, "/run/host/proc-sys-kernel-random-boot-id");
+        if (!p)
+                return log_oom();
 
         r = sd_id128_randomize(&rnd);
         if (r < 0)
                 return log_error_errno(r, "Failed to generate random boot id: %m");
 
-        r = id128_write("/run/.proc-sys-kernel-random-boot-id", ID128_FORMAT_UUID, rnd);
+        r = id128_write(p, ID128_FORMAT_UUID, rnd);
         if (r < 0)
                 return log_error_errno(r, "Failed to write boot id: %m");
 
+        return userns_lchown(p, 0, 0);
+}
+
+static int setup_boot_id(void) {
+        int r;
+
         r = mount_nofollow_verbose(
                         LOG_ERR,
-                        "/run/.proc-sys-kernel-random-boot-id",
+                        "/run/host/proc-sys-kernel-random-boot-id",
                         "/proc/sys/kernel/random/boot_id",
                         /* fstype= */ NULL,
                         MS_BIND,
                         /* options= */ NULL);
         if (r < 0)
                 return r;
-
-        /* NB: We intentionally do not unlink the backing file. Bind mounts of unlinked files cannot be
-         * replicated to other mount namespaces (both the old and new mount APIs fail with ENOENT). Since
-         * mount_private_apivfs() needs to replicate submounts like boot_id when setting up a fresh /proc
-         * instance, the backing file must remain on disk. It lives in /run which is cleaned up on
-         * shutdown anyway. */
 
         return mount_nofollow_verbose(
                         LOG_ERR,
@@ -2539,31 +2552,43 @@ static int setup_credentials(const char *root) {
         return mount_nofollow_verbose(LOG_ERR, NULL, q, NULL, MS_REMOUNT|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV, "mode=0500");
 }
 
+static int setup_kmsg_fifo(const char *directory) {
+        _cleanup_free_ char *p = NULL;
+
+        assert(directory);
+
+        p = path_join(directory, "/run/host/proc-kmsg");
+        if (!p)
+                return log_oom();
+
+        BLOCK_WITH_UMASK(0000);
+
+        if (mkfifo(p, 0600) < 0)
+                return log_error_errno(errno, "mkfifo() for /run/host/proc-kmsg failed: %m");
+
+        return userns_lchown(p, 0, 0);
+}
+
 static int setup_kmsg(int fd_inner_socket) {
         _cleanup_close_ int fd = -EBADF;
         int r;
 
         assert(fd_inner_socket >= 0);
 
-        BLOCK_WITH_UMASK(0000);
-
-        /* We create the kmsg FIFO in /run, and bind mount it to /proc/kmsg. While FIFOs on the reading
+        /* We bind mount the kmsg FIFO (created in the outer child) to /proc/kmsg. While FIFOs on the reading
          * side behave very similar to /proc/kmsg, their writing side behaves differently from /dev/kmsg in
          * that writing blocks when nothing is reading. In order to avoid any problems with containers
          * deadlocking due to this we simply make /dev/kmsg unavailable to the container. */
 
-        if (mkfifo("/run/.proc-kmsg", 0600) < 0)
-                return log_error_errno(errno, "mkfifo() for /run/.proc-kmsg failed: %m");
-
-        r = mount_nofollow_verbose(LOG_ERR, "/run/.proc-kmsg", "/proc/kmsg", NULL, MS_BIND, NULL);
+        r = mount_nofollow_verbose(LOG_ERR, "/run/host/proc-kmsg", "/proc/kmsg", NULL, MS_BIND, NULL);
         if (r < 0)
                 return r;
 
-        fd = open("/run/.proc-kmsg", O_RDWR|O_NONBLOCK|O_CLOEXEC);
+        fd = open("/run/host/proc-kmsg", O_RDWR|O_NONBLOCK|O_CLOEXEC);
         if (fd < 0)
                 return log_error_errno(errno, "Failed to open fifo: %m");
 
-        /* NB: We intentionally do not unlink the backing FIFO. See setup_boot_id() for details. */
+        /* NB: We intentionally do not unlink the backing FIFO. See setup_boot_id_file() for details. */
 
         /* Store away the fd in the socket, so that it stays open as long as we run the child */
         r = send_one_fd(fd_inner_socket, fd, 0);
@@ -4376,6 +4401,14 @@ static int outer_child(
                 return log_oom();
 
         (void) make_inaccessible_nodes(p, chown_uid, chown_uid);
+
+        r = setup_boot_id_file(directory);
+        if (r < 0)
+                return r;
+
+        r = setup_kmsg_fifo(directory);
+        if (r < 0)
+                return r;
 
         r = setup_unix_export_host_inside(directory, unix_export_path);
         if (r < 0)
