@@ -1,8 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "bus-polkit.h"
 #include "varlink-io.systemd.QemuMachineInstance.h"
 
-static SD_VARLINK_DEFINE_METHOD(AcquireQMP);
+static SD_VARLINK_DEFINE_METHOD(
+                AcquireQMP,
+                VARLINK_DEFINE_POLKIT_INPUT);
 
 static SD_VARLINK_DEFINE_ERROR(AlreadyAcquired);
 
