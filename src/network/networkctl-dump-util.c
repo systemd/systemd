@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "sd-dhcp-lease.h"
 #include "sd-hwdb.h"
 #include "sd-netlink.h"
 
@@ -212,7 +211,6 @@ int dump_gateways(sd_netlink *rtnl, sd_hwdb *hwdb, Table *table, int ifindex) {
 int dump_addresses(
                 sd_netlink *rtnl,
                 sd_dhcp_message *message,
-                sd_dhcp_lease *lease,
                 Table *table,
                 int ifindex) {
 
@@ -233,9 +231,6 @@ int dump_addresses(
                 if (dhcp_message_get_option_address(message, SD_DHCP_OPTION_SERVER_IDENTIFIER, &server_address) < 0)
                         /* The message should be BOOTP, let's fallback to the siaddr field. */
                         server_address.s_addr = message->header.siaddr;
-        } else if (lease) {
-                (void) sd_dhcp_lease_get_address(lease, &dhcp4_address);
-                (void) sd_dhcp_lease_get_server_identifier(lease, &server_address);
         }
 
         FOREACH_ARRAY(local, local_addrs, n) {
