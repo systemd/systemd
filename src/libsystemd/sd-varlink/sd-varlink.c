@@ -1544,6 +1544,8 @@ static int varlink_dispatch_method(sd_varlink *v) {
                              (flags & SD_VARLINK_METHOD_ONEWAY) ? VARLINK_PROCESSING_METHOD_ONEWAY :
                                                                   VARLINK_PROCESSING_METHOD);
 
+        v->protocol_upgrade = FLAGS_SET(flags, SD_VARLINK_METHOD_UPGRADE);
+
         assert(v->server);
 
         /* First consult user supplied method implementations */
@@ -1566,11 +1568,15 @@ static int varlink_dispatch_method(sd_varlink *v) {
 
                         r = varlink_idl_validate_method_call(v->current_method, parameters, flags, &bad_field);
                         if (r == -EBADE) {
-                                varlink_log_errno(v, r, "Method %s() called without 'more' flag, but flag needs to be set.",
-                                                  method);
+                                bool missing_upgrade = FLAGS_SET(v->current_method->symbol_flags, SD_VARLINK_REQUIRES_UPGRADE) &&
+                                                       !FLAGS_SET(flags, SD_VARLINK_METHOD_UPGRADE);
+
+                                varlink_log_errno(v, r, "Method %s() called without '%s' flag, but flag needs to be set.",
+                                                  method, missing_upgrade ? "upgrade" : "more");
 
                                 if (v->state == VARLINK_PROCESSING_METHOD) {
-                                        r = sd_varlink_error(v, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
+                                        r = sd_varlink_error(v, missing_upgrade ? SD_VARLINK_ERROR_EXPECTED_UPGRADE
+                                                                                : SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
                                         /* If we didn't manage to enqueue an error response, then fail the
                                          * connection completely. Otherwise ignore the error from
                                          * sd_varlink_error() here, as it is synthesized from the function's
@@ -2821,6 +2827,100 @@ _public_ int sd_varlink_replyb(sd_varlink *v, ...) {
                 return r;
 
         return sd_varlink_reply(v, parameters);
+}
+
+_public_ int sd_varlink_reply_and_upgrade(sd_varlink *v, sd_json_variant *parameters, int *ret_input_fd, int *ret_output_fd) {
+        int r;
+
+        assert_return(v, -EINVAL);
+        assert_return(ret_input_fd || ret_output_fd, -EINVAL);
+
+        if (v->state == VARLINK_DISCONNECTED)
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
+
+        if (!IN_SET(v->state,
+                    VARLINK_PROCESSING_METHOD,
+                    VARLINK_PENDING_METHOD))
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "Connection busy.");
+
+        /* Verify the client actually requested a protocol upgrade */
+        if (!v->protocol_upgrade)
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(EPROTO),
+                                         "Method call did not request a protocol upgrade.");
+
+        /* Ensure we did not buffer any data beyond the upgrade request. Check this before sending the
+         * reply so that we can return a normal error (the framework will send an error reply to the
+         * client). In normal operation this cannot happen because the client waits for our reply before
+         * sending raw data, and we set protocol_upgrade=true in dispatch to limit subsequent reads to
+         * single bytes. But a misbehaving client could pipeline data early. */
+        if (v->input_buffer_size > 0)
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(EBADMSG),
+                                         "Unexpected buffered data from client during protocol upgrade.");
+
+        /* Validate parameters BEFORE sanitization (same validation as sd_varlink_reply(), but upgrade
+         * replies never carry the 'continues' flag so we always pass flags=0) */
+        if (v->current_method) {
+                const char *bad_field = NULL;
+
+                r = varlink_idl_validate_method_reply(v->current_method, parameters, /* flags= */ 0, &bad_field);
+                if (r == -EBADE)
+                        varlink_log_errno(v, r, "Method reply for %s() has 'continues' flag set, but IDL structure doesn't allow that, ignoring: %m",
+                                          v->current_method->name);
+                else if (r < 0)
+                        /* Please adjust test/units/end.sh when updating the log message. */
+                        varlink_log_errno(v, r, "Return parameters for method reply %s() didn't pass validation on field '%s', ignoring: %m",
+                                          v->current_method->name, strna(bad_field));
+        }
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
+        r = sd_json_buildo(&m, JSON_BUILD_PAIR_VARIANT_NON_EMPTY("parameters", parameters));
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to build json message: %m");
+
+        r = varlink_enqueue_json(v, m);
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to enqueue json message: %m");
+
+        /* Flush the reply to the socket before stealing the fds. The reply must be fully written
+         * before the caller starts speaking the upgraded protocol. */
+        for (;;) {
+                r = varlink_write(v);
+                if (r < 0) {
+                        varlink_log_errno(v, r, "Failed to flush reply: %m");
+                        goto disconnect;
+                }
+                if (v->output_buffer_size == 0 && !v->output_queue)
+                        break;
+                if (v->write_disconnected) {
+                        r = varlink_log_errno(v, SYNTHETIC_ERRNO(ECONNRESET),
+                                              "Write disconnected during upgrade reply flush.");
+                        goto disconnect;
+                }
+
+                r = fd_wait_for_event(v->output_fd, POLLOUT, USEC_INFINITY);
+                if (ERRNO_IS_NEG_TRANSIENT(r))
+                        continue;
+                if (r < 0) {
+                        varlink_log_errno(v, r, "Failed to wait for writable fd: %m");
+                        goto disconnect;
+                }
+                assert(r > 0);
+
+                handle_revents(v, r);
+        }
+
+        /* Detach from the event loop before stealing the fds */
+        varlink_detach_event_sources(v);
+
+        /* Now hand the original FDs over to the caller, from this point on we have nothing to do with the
+         * connection anymore, it's up to the caller and we close the connection below */
+        r = varlink_handle_upgrade_fds(v, ret_input_fd, ret_output_fd);
+
+disconnect:
+        /* This also sets the connection state to VARLINK_DISCONNECTED */
+        sd_varlink_close(v);
+
+        return r < 0 ? r : 1;
 }
 
 _public_ int sd_varlink_reset_fds(sd_varlink *v) {
@@ -4574,6 +4674,7 @@ _public_ int sd_varlink_error_to_errno(const char *error, sd_json_variant *param
                 { SD_VARLINK_ERROR_INVALID_PARAMETER,      -EINVAL        },
                 { SD_VARLINK_ERROR_PERMISSION_DENIED,      -EACCES        },
                 { SD_VARLINK_ERROR_EXPECTED_MORE,          -EBADE         },
+                { SD_VARLINK_ERROR_EXPECTED_UPGRADE,       -EPROTOTYPE    },
         };
 
         int r;
