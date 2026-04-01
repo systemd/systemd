@@ -1,9 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <arpa/inet.h>
-
 #include "alloc-util.h"
-#include "dhcp-route.h"
 #include "hashmap.h"
 #include "hostname-setup.h"
 #include "network-internal.h"
@@ -40,51 +37,6 @@ TEST(deserialize_in_addr) {
         ASSERT_TRUE(in6_addr_equal(&d.in6, &addresses6[0]));
         ASSERT_TRUE(in6_addr_equal(&e.in6, &addresses6[1]));
         ASSERT_TRUE(in6_addr_equal(&f.in6, &addresses6[2]));
-}
-
-TEST(deserialize_dhcp_routes) {
-        _cleanup_free_ struct sd_dhcp_route *routes = NULL;
-        size_t size;
-
-        ASSERT_OK(deserialize_dhcp_routes(&routes, &size, ""));
-        ASSERT_EQ(size, 0U);
-        ASSERT_NULL(routes);
-
-        ASSERT_OK(deserialize_dhcp_routes(&routes, &size, "192.168.0.0/16,192.168.0.1 10.1.2.0/24,10.1.2.1 0.0.0.0/0,10.0.1.1"));
-        ASSERT_EQ(size, 3U);
-        ASSERT_NOT_NULL(routes);
-
-        ASSERT_EQ(routes[0].dst_addr.s_addr, inet_addr("192.168.0.0"));
-        ASSERT_EQ(routes[0].gw_addr.s_addr, inet_addr("192.168.0.1"));
-        ASSERT_EQ(routes[0].dst_prefixlen, 16U);
-
-        ASSERT_EQ(routes[1].dst_addr.s_addr, inet_addr("10.1.2.0"));
-        ASSERT_EQ(routes[1].gw_addr.s_addr, inet_addr("10.1.2.1"));
-        ASSERT_EQ(routes[1].dst_prefixlen, 24U);
-
-        ASSERT_EQ(routes[2].dst_addr.s_addr, inet_addr("0.0.0.0"));
-        ASSERT_EQ(routes[2].gw_addr.s_addr, inet_addr("10.0.1.1"));
-        ASSERT_EQ(routes[2].dst_prefixlen, 0U);
-
-        routes = mfree(routes);
-
-        ASSERT_OK(deserialize_dhcp_routes(&routes, &size, "192.168.0.0/16,192.168.0.1 10.1.2.0#24,10.1.2.1 0.0.0.0/0,10.0.1.1"));
-        ASSERT_EQ(size, 2U);
-        ASSERT_NOT_NULL(routes);
-
-        ASSERT_EQ(routes[0].dst_addr.s_addr, inet_addr("192.168.0.0"));
-        ASSERT_EQ(routes[0].gw_addr.s_addr, inet_addr("192.168.0.1"));
-        ASSERT_EQ(routes[0].dst_prefixlen, 16U);
-
-        ASSERT_EQ(routes[1].dst_addr.s_addr, inet_addr("0.0.0.0"));
-        ASSERT_EQ(routes[1].gw_addr.s_addr, inet_addr("10.0.1.1"));
-        ASSERT_EQ(routes[1].dst_prefixlen, 0U);
-
-        routes = mfree(routes);
-
-        ASSERT_OK(deserialize_dhcp_routes(&routes, &size, "192.168.0.0/55,192.168.0.1 10.1.2.0#24,10.1.2.1 0.0.0.0/0,10.0.1.X"));
-        ASSERT_EQ(size, 0U);
-        ASSERT_NULL(routes);
 }
 
 static void test_route_tables_one(Manager *manager, const char *name, uint32_t number) {
