@@ -6,7 +6,7 @@
 #include "sd-dhcp-client.h"
 #include "sd-dhcp6-client.h"
 
-#include "dhcp-lease-internal.h"
+#include "dhcp-lease-internal.h"         /* IWYU pragma: keep */
 #include "dhcp-server-lease-internal.h"
 #include "dhcp6-lease-internal.h"
 #include "extract-word.h"
@@ -1354,11 +1354,9 @@ static int dhcp_client_lease_append_json(Link *link, sd_json_variant **v) {
                 return r;
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
-        if (link->dhcp_lease->message) {
-                r = dhcp_message_build_json(link->dhcp_lease->message, &m);
-                if (r < 0)
-                        return r;
-        }
+        r = dhcp_message_build_json(link->dhcp_lease->message, &m);
+        if (r < 0)
+                return r;
 
         r = sd_json_buildo(
                         &w,
@@ -1427,19 +1425,6 @@ static int dhcp_client_private_options_append_json(Link *link, sd_json_variant *
 
         if (!link->dhcp_lease)
                 return 0;
-
-        if (!link->dhcp_lease->message) {
-                LIST_FOREACH(options, option, link->dhcp_lease->private_options) {
-                        r = sd_json_variant_append_arraybo(
-                                        &array,
-                                        SD_JSON_BUILD_PAIR_UNSIGNED("Option", option->tag),
-                                        SD_JSON_BUILD_PAIR_HEX("PrivateOptionData", option->data, option->length));
-                        if (r < 0)
-                                return r;
-                }
-
-                return json_variant_set_field_non_null(v, "PrivateOptions", array);
-        }
 
         for (uint8_t i = SD_DHCP_OPTION_PRIVATE_BASE; i <= SD_DHCP_OPTION_PRIVATE_LAST; i++) {
                 _cleanup_(iovec_done) struct iovec iov = {};
