@@ -8,7 +8,7 @@
 #define REPORT_TRUST_FILE    CERTIFICATE_ROOT "/ca/trusted.pem"
 #define REPORT_DEFAULT_PORT  3000  // FIXME
 
-extern char *arg_url, *arg_key, *arg_cert, *arg_trust;
+extern char *arg_url, *arg_key, *arg_cert, *arg_trust, **arg_headers;
 extern usec_t arg_network_timeout_usec;
 
 typedef enum Action {
