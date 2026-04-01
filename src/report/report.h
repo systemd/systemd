@@ -11,6 +11,7 @@
 #define REPORT_DEFAULT_PORT  3000  // FIXME
 
 extern char *arg_url, *arg_key, *arg_cert, *arg_trust;
+extern char **arg_extra_headers;
 extern usec_t arg_network_timeout_usec;
 
 typedef enum Action {

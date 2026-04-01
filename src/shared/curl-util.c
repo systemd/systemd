@@ -10,7 +10,12 @@
 #include "string-util.h"
 #include "strv.h"
 #include "time-util.h"
+#include "utf8.h"
 #include "version.h"
+
+bool http_header_valid(const char *a) {
+        return a && ascii_is_valid(a) && !string_has_cc(a, /* ok= */ NULL) && strchr(a, ':');
+}
 
 static void curl_glue_check_finished(CurlGlue *g) {
         int r;
