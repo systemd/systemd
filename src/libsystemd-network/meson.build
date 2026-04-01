@@ -117,9 +117,6 @@ executables += [
                 'type' : 'manual',
         },
         network_test_template + {
-                'sources' : files('test-sd-dhcp-lease.c'),
-        },
-        network_test_template + {
                 'sources' : files('test-tlv-util.c'),
         },
         network_fuzz_template + {
