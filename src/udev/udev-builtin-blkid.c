@@ -20,6 +20,7 @@
 #include "blockdev-util.h"
 #include "device-util.h"
 #include "devnum-util.h"
+#include "dissect-image.h"
 #include "efi-loader.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -122,7 +123,7 @@ static void print_property(UdevEvent *event, const char *name, const char *value
         }
 }
 
-static int find_gpt_root(UdevEvent *event, blkid_probe pr, const char *loop_backing_fname) {
+static int find_gpt_root(UdevEvent *event, blkid_probe pr, bool sector_size_mismatch, const char *loop_backing_fname) {
 
 #if defined(SD_GPT_ROOT_NATIVE) && ENABLE_EFI
         sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
@@ -153,12 +154,17 @@ static int find_gpt_root(UdevEvent *event, blkid_probe pr, const char *loop_back
                 return 0;
         }
 
-        r = blockdev_partscan_enabled(dev);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to determine if block device '%s' supports partitions: %m", devnode);
-        if (r == 0) {
-                log_device_debug(dev, "Invoked on block device '%s' that lacks partition scanning, ignoring.", devnode);
-                return 0;
+        /* When there's a sector size mismatch, the kernel can't parse the partition table and disables
+         * partition scanning. Skip this check in that case — blkid has the correct sector size and can
+         * still find the GPT. */
+        if (!sector_size_mismatch) {
+                r = blockdev_partscan_enabled(dev);
+                if (r < 0)
+                        return log_device_debug_errno(dev, r, "Failed to determine if block device '%s' supports partitions: %m", devnode);
+                if (r == 0) {
+                        log_device_debug(dev, "Invoked on block device '%s' that lacks partition scanning, ignoring.", devnode);
+                        return 0;
+                }
         }
 
         sd_id128_t esp_or_xbootldr = SD_ID128_NULL;
@@ -504,6 +510,32 @@ static int builtin_blkid(UdevEvent *event, int argc, char *argv[]) {
         if (r < 0)
                 return log_device_debug_errno(dev, errno_or_else(ENOMEM), "Failed to set device to blkid prober: %m");
 
+        /* Probe the GPT sector size. For CD-ROMs booted via El Torito, the GPT may use a different
+         * sector size than the device (e.g. 512-byte GPT on a 2048-byte CD-ROM). If there's a mismatch,
+         * tell blkid the correct sector size so it can find the GPT, run find_gpt_root() to determine if
+         * this is the root disk, and skip the rest — no properties should be exported on the original
+         * device, they'll be set on the loop device instead. */
+        if (offset == 0) {
+                uint32_t gpt_ssz;
+                r = probe_sector_size(fd, &gpt_ssz);
+                if (r > 0) {
+                        uint32_t device_ssz;
+                        r = blockdev_get_sector_size(fd, &device_ssz);
+                        if (r < 0)
+                                return log_device_debug_errno(dev, r, "Failed to get device sector size: %m");
+
+                        if (gpt_ssz != device_ssz) {
+                                errno = 0;
+                                if (sym_blkid_probe_set_sectorsize(pr, gpt_ssz) != 0)
+                                        return log_device_debug_errno(dev, errno_or_else(EIO), "Failed to set blkid sector size: %m");
+
+                                udev_builtin_add_property(event, "ID_SECTOR_SIZE_MISMATCH", "1");
+                                find_gpt_root(event, pr, /* sector_size_mismatch= */ true, /* loop_backing_fname= */ NULL);
+                                return 0;
+                        }
+                }
+        }
+
         log_device_debug(dev, "Probe %s with %sraid and offset=%"PRIi64, devnode, noraid ? "no" : "", offset);
 
         r = probe_superblocks(pr);
@@ -561,7 +593,7 @@ static int builtin_blkid(UdevEvent *event, int argc, char *argv[]) {
         }
 
         if (is_gpt)
-                find_gpt_root(event, pr, backing_fname);
+                find_gpt_root(event, pr, /* sector_size_mismatch= */ false, backing_fname);
 
         return 0;
 }
