@@ -5,6 +5,8 @@
 
 #include "shared-forward.h"
 
+bool http_header_valid(const char *a);
+
 #define easy_setopt(curl, log_level, opt, value) ({                     \
         CURLcode code = curl_easy_setopt(ASSERT_PTR(curl), opt, value); \
         if (code)                                                       \

@@ -94,6 +94,10 @@ int upload_collected(Context *context) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create curl header: %m");
 
+        r = curl_append_to_header(&header, arg_extra_headers);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create curl header: %m");
+
         _cleanup_(curl_easy_cleanupp) CURL *curl = curl_easy_init();
         if (!curl)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOSR),
