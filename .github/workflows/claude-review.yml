@@ -256,17 +256,7 @@ jobs:
 
           ## Phase 1: Review commits
 
-          Read `pr-context.json` from the repository root. `pr-context.json` contains
-          PR metadata from the GitHub API. Rules for its `review_comments` field:
-          - Only re-check your own comments (user.login == "github-actions[bot]" and
-            body starts with "Claude: ").
-          - Items checked off in the `tracking_comment` (`- [x]`) are resolved.
-          - You will need the `id` fields of your own unresolved comments in Phase 2
-            to populate the `resolve` array.
-          - If `tracking_comment` is non-null, use it as the basis for your summary
-            in Phase 2.
-
-          Then, list the directories in `worktrees/` — there is one per commit. Each
+          List the directories in `worktrees/` — there is one per commit. Each
           worktree at `worktrees/<sha>/` contains the full source tree checked out at
           that commit, plus `commit.patch` (the diff) and `commit-message.txt`
           (the commit message). Spawn one
@@ -278,7 +268,8 @@ jobs:
           security implications.
 
           Each subagent prompt must include:
-          - Instructions to read `pr-context.json` in the repository root for context.
+          - Instructions to read `pr-context.json` in the repository root for additional
+            context.
           - Instructions to read `review-schema.json` in the repository root and
             return a JSON array matching the `comments` items schema from that file.
           - The worktree path.
@@ -289,22 +280,36 @@ jobs:
 
           ## Phase 2: Collect, deduplicate, and summarize
 
-          After all reviews (yours and any subagents') are done:
+          After all reviews are done, read `pr-context.json` from the repository root.
+          It contains PR metadata from the GitHub API. Rules for its `review_comments`
+          field:
+          - Only look at your own comments (user.login == "github-actions[bot]" and
+            body starts with "Claude: "). Ignore all other comments.
+          - Items checked off in the `tracking_comment` (`- [x]`) are resolved.
+          - You will need the `id` fields of your own unresolved comments to
+            populate the `resolve` array.
+          - If `tracking_comment` is non-null, use it as the basis for your summary.
+
+          Then:
           1. Collect all issues. Merge duplicates (same file, lines within 3 of each other, same problem).
           2. Drop low-confidence findings.
-          3. Check the existing inline review comments fetched in Phase 1. Do NOT include a
-              comment if one already exists on the same file and line about the same problem.
-              Also check for author replies that dismiss or reject a previous comment — do NOT
-              re-raise an issue the PR author has already responded to disagreeing with.
-              Populate the `resolve` array with the REST API `id` (integer) of existing
-              review comments whose threads should be resolved. A thread should be resolved if:
-              - The issue it raised has been addressed in the current PR (i.e. your review
-                no longer flags it), or
-              - The PR author (or another reviewer) left a reply disagreeing with or
-                dismissing the comment.
-              Only include the `id` of the **first** comment in each thread (the one that
-              started the conversation). Do not resolve threads for issues that are still
-              present and unaddressed.
+          3. Check the existing inline review comments from `pr-context.json`. Do NOT
+             include a comment if one already exists on the same file about the same
+             problem, even if the exact line numbers differ (lines shift between
+             revisions). Also check for author replies that dismiss or reject a previous
+             comment — do NOT re-raise an issue the PR author has already responded to
+             disagreeing with.
+             Populate the `resolve` array with the REST API `id` (integer) of your own
+             review comment threads that should be resolved (user.login == "github-actions[bot]"
+             and body starts with "Claude: "). Do not resolve threads from human reviewers.
+             A thread should be resolved if:
+             - The issue it raised has been addressed in the current PR (i.e. your review
+               no longer flags it), or
+             - The PR author (or another reviewer) left a reply disagreeing with or
+               dismissing the comment.
+             Only include the `id` of the **first** comment in each thread (the one that
+             started the conversation). Do not resolve threads for issues that are still
+             present and unaddressed.
           4. Write a `summary` field in markdown for a top-level tracking comment.
 
               **If no existing tracking comment was found (first run):**
@@ -350,8 +355,11 @@ jobs:
           ## Review result
 
           Produce your review result as structured output. The fields are:
-          - `summary`: Markdown summary for the tracking comment.
+          - `summary`: The markdown summary for the tracking comment, **base64-encoded**.
+            Write the summary to a temporary file first, then encode it with
+            `base64 -w0 /tmp/summary.md` and put the resulting string in this field.
           - `comments`: Array of review comments (same schema as the reviewer output above).
+            The `body` field of each comment must also be **base64-encoded** the same way.
           - `resolve`: REST API IDs of review comment threads to resolve.
           PROMPT
 
@@ -444,7 +452,7 @@ jobs:
                 if (Array.isArray(review.resolve))
                   resolveIds = review.resolve;
                 if (typeof review.summary === "string")
-                  summary = review.summary;
+                  summary = Buffer.from(review.summary, "base64").toString("utf-8");
               } catch (e) {
                 core.warning(`Failed to parse structured output: ${e.message}`);
               }
@@ -475,7 +483,7 @@ jobs:
                   ...(c.side != null && { side: c.side }),
                   ...(c.start_line != null && { start_line: c.start_line }),
                   ...(c.start_side != null && { start_side: c.start_side }),
-                  body: `Claude: **${c.severity}**: ${c.body}`,
+                  body: `Claude: **${c.severity}**: ${Buffer.from(c.body, "base64").toString("utf-8")}`,
                 });
                 posted++;
               } catch (e) {
