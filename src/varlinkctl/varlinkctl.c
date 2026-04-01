@@ -651,56 +651,42 @@ static int upgrade_forward_done(SocketForward *sf, int error, void *userdata) {
         return sd_event_exit(event, error < 0 ? error : 0);
 }
 
-_noreturn_ static void exec_with_listen_fds(char **exec_cmdline, int *fds, size_t n_fds) {
-        int r;
-
+/* This will only return if something goes wrong, otherwise the exec_cmdline
+ * is run and replaces our code. */
+static int exec_with_listen_fds(char **exec_cmdline, int *fds, size_t n_fds) {
         _cleanup_free_ char *j = quote_command_line(exec_cmdline, SHELL_ESCAPE_EMPTY);
-        if (!j) {
-                log_oom();
-                _exit(EXIT_FAILURE);
-        }
+        if (!j)
+                return log_oom();
 
         log_close();
         log_set_open_when_needed(true);
 
-        r = close_all_fds(fds, n_fds);
-        if (r < 0) {
-                log_error_errno(r, "Failed to close all remaining file descriptors: %m");
-                _exit(EXIT_FAILURE);
-        }
+        int r = close_all_fds(fds, n_fds);
+        if (r < 0)
+                return log_error_errno(r, "Failed to close all remaining file descriptors: %m");
 
         r = pack_fds(fds, n_fds);
-        if (r < 0) {
-                log_error_errno(r, "Failed to rearrange file descriptors: %m");
-                _exit(EXIT_FAILURE);
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to rearrange file descriptors: %m");
 
         r = fd_cloexec_many(fds, n_fds, false);
-        if (r < 0) {
-                log_error_errno(r, "Failed to disable O_CLOEXEC for file descriptors: %m");
-                _exit(EXIT_FAILURE);
-        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to disable O_CLOEXEC for file descriptors: %m");
 
         if (n_fds > 0) {
                 r = setenvf("LISTEN_FDS", /* overwrite= */ true, "%zu", n_fds);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to set $LISTEN_FDS environment variable: %m");
-                        _exit(EXIT_FAILURE);
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set $LISTEN_FDS environment variable: %m");
 
                 r = setenvf("LISTEN_PID", /* overwrite= */ true, PID_FMT, getpid_cached());
-                if (r < 0) {
-                        log_error_errno(r, "Failed to set $LISTEN_PID environment variable: %m");
-                        _exit(EXIT_FAILURE);
-                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set $LISTEN_PID environment variable: %m");
 
                 uint64_t pidfdid;
                 if (pidfd_get_inode_id_self_cached(&pidfdid) >= 0) {
                         r = setenvf("LISTEN_PIDFDID", /* overwrite= */ true, "%" PRIu64, pidfdid);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to set $LISTEN_PIDFDID environment variable: %m");
-                                _exit(EXIT_FAILURE);
-                        }
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set $LISTEN_PIDFDID environment variable: %m");
                 }
         } else {
                 (void) unsetenv("LISTEN_FDS");
@@ -712,8 +698,7 @@ _noreturn_ static void exec_with_listen_fds(char **exec_cmdline, int *fds, size_
         log_debug("Executing: %s", j);
 
         execvp(exec_cmdline[0], exec_cmdline);
-        log_error_errno(errno, "Failed to execute '%s': %m", j);
-        _exit(EXIT_FAILURE);
+        return log_error_errno(errno, "Failed to execute '%s': %m", j);
 }
 
 static int varlink_call_and_upgrade(const char *url, const char *method, sd_json_variant *parameters, char **exec_cmdline) {
@@ -778,8 +763,9 @@ static int varlink_call_and_upgrade(const char *url, const char *method, sd_json
                         _exit(EXIT_FAILURE);
                 }
 
-                /* We exec and never return here */
-                exec_with_listen_fds(exec_cmdline, /* fds= */ NULL, /* n_fds= */ 0);
+                r = exec_with_listen_fds(exec_cmdline, /* fds= */ NULL, /* n_fds= */ 0);
+                /* This is only reached on failure, otherwise we continue with exec_cmldine). */
+                _exit(EXIT_FAILURE);
         }
 
         /* No --exec: bidirectional proxy between stdin/stdout and the upgraded socket */
@@ -1070,6 +1056,8 @@ static int verb_call(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         }
 
                         exec_with_listen_fds(exec_cmdline, fd_array, m);
+                        /* This is only reached on failure, otherwise we continue with exec_cmdline. */
+                        _exit(EXIT_FAILURE);
                 }
 
                 if (arg_quiet)
