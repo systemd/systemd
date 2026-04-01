@@ -3374,7 +3374,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         /* Set up QMP client and varlink server for VM control */
         _cleanup_(vmspawn_qmp_context_freep) VmspawnQmpContext *qmp_ctx = NULL;
         _cleanup_free_ char *qmp_varlink_address = NULL;
-        r = vmspawn_qmp_setup(&qmp_ctx, TAKE_FD(qmp_fds[0]), event, runtime_dir, &qmp_varlink_address);
+        r = vmspawn_qmp_setup(&qmp_ctx, TAKE_FD(qmp_fds[0]), event, runtime_dir, arg_runtime_scope, getuid(), &qmp_varlink_address);
         if (r < 0)
                 return r;
 
