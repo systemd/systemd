@@ -2324,33 +2324,32 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (asprintf(&mem, "%" PRIu64 "M", DIV_ROUND_UP(arg_ram, U64_MB)) < 0)
                 return log_oom();
 
-        /* Create runtime directory for the QEMU config file and other state */
-        _cleanup_free_ char *runtime_dir = NULL;
+        /* Create our runtime directory. We need this for the QEMU config file, TPM state, virtiofsd
+         * sockets, runtime mounts, and SSH key material. */
+        _cleanup_free_ char *runtime_dir = NULL, *runtime_dir_suffix = NULL;
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir_destroy = NULL;
-        {
-                _cleanup_free_ char *subdir = NULL;
 
-                if (asprintf(&subdir, "systemd/vmspawn.%" PRIx64, random_u64()) < 0)
-                        return log_oom();
+        runtime_dir_suffix = path_join("systemd/vmspawn", arg_machine);
+        if (!runtime_dir_suffix)
+                return log_oom();
 
-                r = runtime_directory(arg_runtime_scope, subdir, &runtime_dir);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to lookup runtime directory: %m");
-                if (r > 0) { /* We need to create our own runtime dir */
-                        r = mkdir_p(runtime_dir, 0755);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to create runtime directory '%s': %m", runtime_dir);
+        r = runtime_directory_generic(arg_runtime_scope, runtime_dir_suffix, &runtime_dir);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine runtime directory: %m");
 
-                        /* We created this, hence also destroy it */
-                        runtime_dir_destroy = TAKE_PTR(runtime_dir);
+        /* If a previous vmspawn instance was killed without cleanup (e.g. SIGKILL), the directory may
+         * already exist with stale contents. This is harmless: varlink's sockaddr_un_unlink() removes stale
+         * sockets before bind(), and other files (QEMU config, SSH keys) are created fresh. This matches
+         * nspawn's approach of not proactively cleaning stale runtime directories. */
+        r = mkdir_p(runtime_dir, 0755);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create runtime directory '%s': %m", runtime_dir);
 
-                        runtime_dir = strdup(runtime_dir_destroy);
-                        if (!runtime_dir)
-                                return log_oom();
-                }
+        runtime_dir_destroy = strdup(runtime_dir);
+        if (!runtime_dir_destroy)
+                return log_oom();
 
-                log_debug("Using runtime directory: %s", runtime_dir);
-        }
+        log_debug("Using runtime directory: %s", runtime_dir);
 
         /* Build a QEMU config file for -readconfig. Items that can be expressed as QemuOpts sections go
          * here; things that require cmdline-only switches (e.g. -kernel, -smbios, -nographic, --add-fd)
