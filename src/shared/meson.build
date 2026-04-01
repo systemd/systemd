@@ -77,6 +77,7 @@ shared_sources = files(
         'exit-status.c',
         'extension-util.c',
         'factory-reset.c',
+        'facts.c',
         'fdset.c',
         'fido2-util.c',
         'find-esp.c',
@@ -205,6 +206,7 @@ shared_sources = files(
         'varlink-io.systemd.BootControl.c',
         'varlink-io.systemd.Credentials.c',
         'varlink-io.systemd.FactoryReset.c',
+        'varlink-io.systemd.Facts.c',
         'varlink-io.systemd.Hostname.c',
         'varlink-io.systemd.Import.c',
         'varlink-io.systemd.InstanceMetadata.c',
@@ -450,4 +452,14 @@ libshared_fdisk = static_library(
         dependencies : [libfdisk,
                         userspace],
         c_args : ['-fvisibility=default'],
+        build_by_default : false)
+
+# A small shared file that is is linked into a few places.
+# It is not part of libshared because we don't want to link it
+# to libcurl.
+libcurlutil_static = static_library(
+        'curl-util',
+        'curl-util.c',
+        dependencies : [userspace, libcurl],
+        include_directories : includes,
         build_by_default : false)

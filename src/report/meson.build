@@ -4,6 +4,19 @@ executables += [
         libexec_template + {
                 'name' : 'systemd-report',
                 'public' : true,
-                'sources' : files('report.c'),
+                'sources' : files(
+                        'report.c',
+                        'report-upload.c',
+                ),
+                'dependencies' : common_deps + [libcurl],
+        },
+
+        libexec_template + {
+                'name' : 'systemd-report-basic',
+                'public' : true,
+                'sources' : files(
+                        'report-basic-server.c',
+                        'report-basic.c',
+                ),
         },
 ]
