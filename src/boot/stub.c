@@ -1276,15 +1276,14 @@ static bool has_virtio_console_pci_device(void) {
                 if (BS->HandleProtocol(handles[i], MAKE_GUID_PTR(EFI_PCI_IO_PROTOCOL), (void **) &pci_io) != EFI_SUCCESS)
                         continue;
 
-                uint16_t vendor_id = 0, device_id = 0;
-                if (pci_io->Pci.Read(pci_io, EfiPciIoWidthUint16, 0x00, 1, &vendor_id) != EFI_SUCCESS)
-                        continue;
-                if (pci_io->Pci.Read(pci_io, EfiPciIoWidthUint16, 0x02, 1, &device_id) != EFI_SUCCESS)
+                /* Read PCI vendor ID and device ID (at offsets 0x00 and 0x02 in PCI config space) */
+                uint16_t pci_id[2] = {};
+                if (pci_io->Pci.Read(pci_io, EfiPciIoWidthUint16, /* offset= */ 0x00, /* count= */ 2, pci_id) != EFI_SUCCESS)
                         continue;
 
-                log_debug("PCI device %zu: vendor=%04x device=%04x", i, vendor_id, device_id);
+                log_debug("PCI device %zu: vendor=%04x device=%04x", i, pci_id[0], pci_id[1]);
 
-                if (vendor_id == PCI_VENDOR_ID_REDHAT && device_id == PCI_DEVICE_ID_VIRTIO_CONSOLE)
+                if (pci_id[0] == PCI_VENDOR_ID_REDHAT && pci_id[1] == PCI_DEVICE_ID_VIRTIO_CONSOLE)
                         n_virtio_console++;
 
                 if (n_virtio_console > 1) {
