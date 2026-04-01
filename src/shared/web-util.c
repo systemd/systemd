@@ -50,6 +50,13 @@ bool documentation_url_is_valid(const char *url) {
         return ascii_is_valid(p);
 }
 
+bool http_header_valid(const char *header) {
+        return header &&
+                ascii_is_valid(header) &&
+                !string_has_cc(header, /* ok= */ NULL) &&
+                strchr(header, ':');
+}
+
 bool http_etag_is_valid(const char *etag) {
         if (isempty(etag))
                 return false;
