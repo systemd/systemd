@@ -26,6 +26,7 @@
 #include "time-util.h"
 #include "varlink-idl-util.h"
 #include "verbs.h"
+#include "web-util.h"
 
 #define METRICS_OR_FACTS_MAX 4096U
 #define METRICS_OR_FACTS_LINKS_MAX 128U
@@ -40,6 +41,7 @@ char *arg_url = NULL;
 char *arg_key = NULL;
 char *arg_cert = NULL;
 char *arg_trust = NULL;
+char **arg_extra_headers = NULL;
 usec_t arg_network_timeout_usec = TIMEOUT_USEC;
 
 STATIC_DESTRUCTOR_REGISTER(arg_matches, strv_freep);
@@ -47,6 +49,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_url, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_cert, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_trust, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_extra_headers, strv_freep);
 
 typedef struct LinkInfo {
         Context *context;
@@ -1052,9 +1055,23 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --network-timeout value: %s", arg);
                         break;
+
+                OPTION_LONG("extra-header", "NAME: VALUE",
+                            "Inject additional header into the upload request"):
+                        if (isempty(arg)) {
+                                arg_extra_headers = strv_free(arg_extra_headers);
+                                break;
+                        }
+
+                        if (!http_header_valid(arg))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid HTTP header: %s", arg);
+
+                        if (strv_extend(&arg_extra_headers, arg) < 0)
+                                return log_oom();
+                        break;
                 }
 
-        if ((arg_url || arg_key || arg_cert || arg_trust) && !HAVE_LIBCURL)
+        if ((arg_url || arg_key || arg_cert || arg_trust || arg_extra_headers) && !HAVE_LIBCURL)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Compiled without libcurl.");
 
         *ret_args = option_parser_get_args(&state);
