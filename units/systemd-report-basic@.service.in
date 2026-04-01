@@ -9,6 +9,10 @@
 [Unit]
 Description=Report System Basic Facts
 
+DefaultDependencies=no
+Conflicts=shutdown.target
+Before=shutdown.target
+
 [Service]
 CapabilityBoundingSet=
 DeviceAllow=
