@@ -2203,6 +2203,14 @@ evdev:atkbd:dmi:bvnTIMI*:bvr*:bd*:svnTIMI*:pnMiNoteBookPro*:*
  KEYBOARD_KEY_72=macro
 
 ###########################################################
+# X+
+###########################################################
+
+# X+ piccolo series 81X (Intel N305, possibly more)
+evdev:input:b0011v0001p0001eAB83*
+ KEYBOARD_KEY_9c=enter                                  # KP_enter in the main area is wrong
+
+###########################################################
 # Zepto
 ###########################################################
 
