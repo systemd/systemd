@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "memory-util.h"
 #include "shared-forward.h"
 
 typedef enum OptionFlags {
