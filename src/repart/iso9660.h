@@ -127,14 +127,14 @@ struct _packed_ iso9660_primary_volume_descriptor {
         uint8_t file_structure_version; /* 1 */
         uint8_t unused_5;
         char application_used[512];
-        char reserved[653];
+        uint8_t reserved[653];
 };
 assert_cc(sizeof(struct iso9660_primary_volume_descriptor) == 2048);
 
 struct _packed_ el_torito_validation_entry {
         uint8_t header_indicator;
         uint8_t platform;
-        char reserved[2];
+        uint8_t reserved[2];
         char id_string[24];
         le16_t checksum;
         uint8_t key_bytes[2];
