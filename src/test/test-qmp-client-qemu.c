@@ -145,6 +145,9 @@ TEST(qmp_client_qemu_handshake_and_schema) {
                 return;
         }
 
+        r = qmp_client_start_async(client);
+        assert_se(r >= 0);
+
         /* query-qmp-schema returns ~200KB -- validates the buffered reader handles large multi-read()
          * responses correctly */
         r = qmp_client_execute(client, "query-qmp-schema", NULL, on_test_result, &t);
@@ -198,6 +201,9 @@ TEST(qmp_client_qemu_query_status) {
                 (void) waitpid(pid, NULL, 0);
                 return;
         }
+
+        r = qmp_client_start_async(client);
+        assert_se(r >= 0);
 
         /* query-status validates response parsing against real QEMU output format */
         r = qmp_client_execute(client, "query-status", NULL, on_test_result, &t);
