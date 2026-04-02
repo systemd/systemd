@@ -3713,6 +3713,8 @@ static int verify_arguments(void) {
                         log_warning("--ephemeral has no effect with --image-disk-type=scsi-cd (CD-ROMs are read-only).");
                 if (arg_discard_disk)
                         log_warning("--discard-disk has no effect with --image-disk-type=scsi-cd (CD-ROMs are read-only).");
+                if (arg_grow_image)
+                        log_warning("--grow-image has no effect with --image-disk-type=scsi-cd (CD-ROMs are read-only).");
         }
 
         return 0;
