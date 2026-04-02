@@ -2117,6 +2117,8 @@ static bool termios_is_null(const struct termios *t) {
 void termios_reset(const TermiosResetContext *c) {
         assert(c);
 
+        PROTECT_ERRNO;
+
         if (c->fd && *c->fd >= 0 && !termios_is_null(c->termios))
                 (void) tcsetattr(*c->fd, TCSANOW, c->termios);
 }
