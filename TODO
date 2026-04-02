@@ -120,6 +120,15 @@ Deprecations and removals:
 
 Features:
 
+* sd-varlink: add fully async modes of the protocol upgrade stuff
+
+* sd-varlink: optimize the read-byte-by-byte mode in case upgrade mode is
+  enabled, via recvmsg() with MSG_SEEK: first read non-destrictively, look for
+  NUL byte, and only then flush out
+
+* repart: maybe remove iso9660/eltorito superblock from disk when booting via
+  gpt, if there is one.
+
 * crypttab/gpt-auto-generator: allow explicit control over which unlock mechs
   to permit, and maybe have a global headless kernel cmdline option
 
