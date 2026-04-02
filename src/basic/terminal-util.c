@@ -44,11 +44,8 @@
 #include "time-util.h"
 #include "utf8.h"
 
-/* How much to wait for a reply to a terminal sequence */
-#define CONSOLE_REPLY_WAIT_USEC  (333 * USEC_PER_MSEC)
-
-/* How much to wait when writing ANSI sequences to the console */
-#define CONSOLE_WRITE_TIMEOUT_USEC (100 * USEC_PER_MSEC)
+/* How much to wait when reading/writing ANSI sequences from/to the console */
+#define CONSOLE_ANSI_SEQUENCE_TIMEOUT_USEC (100 * USEC_PER_MSEC)
 
 static volatile unsigned cached_columns = 0;
 static volatile unsigned cached_lines = 0;
@@ -851,7 +848,7 @@ int vt_disallocate(const char *tty_path) {
                                "\033[3J"  /* clear screen including scrollback, requires Linux 2.6.40 */
                                "\033c",   /* reset to initial state */
                                SIZE_MAX,
-                               CONSOLE_WRITE_TIMEOUT_USEC);
+                               CONSOLE_ANSI_SEQUENCE_TIMEOUT_USEC);
 }
 
 static int vt_default_utf8(void) {
@@ -969,7 +966,7 @@ int terminal_reset_ansi_seq(int fd) {
                             "\033[1G"              /* place cursor at beginning of current line */
                             "\033[0J",             /* erase till end of screen */
                             SIZE_MAX,
-                            CONSOLE_WRITE_TIMEOUT_USEC);
+                            CONSOLE_ANSI_SEQUENCE_TIMEOUT_USEC);
         if (k < 0)
                 log_debug_errno(k, "Failed to reset terminal through ANSI sequences: %m");
 
@@ -2012,7 +2009,7 @@ int terminal_get_cursor_position(
         if (r < 0)
                 return r;
 
-        usec_t end = usec_add(now(CLOCK_MONOTONIC), CONSOLE_REPLY_WAIT_USEC);
+        usec_t end = usec_add(now(CLOCK_MONOTONIC), CONSOLE_ANSI_SEQUENCE_TIMEOUT_USEC);
         char buf[STRLEN("\x1B[1;1R")]; /* The shortest valid reply possible */
         size_t buf_full = 0;
         CursorPositionContext context = {};
@@ -2311,7 +2308,7 @@ int get_default_background_color(double *ret_red, double *ret_green, double *ret
         if (r < 0)
                 return r;
 
-        usec_t end = usec_add(now(CLOCK_MONOTONIC), CONSOLE_REPLY_WAIT_USEC);
+        usec_t end = usec_add(now(CLOCK_MONOTONIC), CONSOLE_ANSI_SEQUENCE_TIMEOUT_USEC);
         char buf[STRLEN(ANSI_OSC "11;rgb:0/0/0" ANSI_ST)]; /* shortest possible reply */
         size_t buf_full = 0;
         BackgroundColorContext context = {};
@@ -2388,11 +2385,11 @@ static int terminal_query_size_by_dsr(
                             "\x1B[6n"               /* DSR: request cursor position (CPR) */
                             "\x1B" "8",             /* DECRC: restore cursor position */
                             SIZE_MAX,
-                            CONSOLE_WRITE_TIMEOUT_USEC);
+                            CONSOLE_ANSI_SEQUENCE_TIMEOUT_USEC);
         if (r < 0)
                 return r;
 
-        usec_t end = usec_add(now(CLOCK_MONOTONIC), CONSOLE_REPLY_WAIT_USEC);
+        usec_t end = usec_add(now(CLOCK_MONOTONIC), CONSOLE_ANSI_SEQUENCE_TIMEOUT_USEC);
         char buf[STRLEN("\x1B[1;1R")]; /* The shortest valid reply possible */
         size_t buf_full = 0;
         CursorPositionContext context = {};
@@ -2540,11 +2537,11 @@ static int terminal_query_size_by_csi18(
         assert(nonblock_input_fd >= 0);
         assert(output_fd >= 0);
 
-        r = loop_write_full(output_fd, CSI18_Q, SIZE_MAX, CONSOLE_WRITE_TIMEOUT_USEC);
+        r = loop_write_full(output_fd, CSI18_Q, SIZE_MAX, CONSOLE_ANSI_SEQUENCE_TIMEOUT_USEC);
         if (r < 0)
                 return r;
 
-        usec_t end = usec_add(now(CLOCK_MONOTONIC), CONSOLE_REPLY_WAIT_USEC);
+        usec_t end = usec_add(now(CLOCK_MONOTONIC), CONSOLE_ANSI_SEQUENCE_TIMEOUT_USEC);
         char buf[STRLEN(CSI18_R1)];
         size_t bytes = 0;
 
@@ -2749,7 +2746,7 @@ int terminal_get_terminfo_by_dcs(int fd, char **ret_name) {
         if (r < 0)
                 return r;
 
-        usec_t end = usec_add(now(CLOCK_MONOTONIC), CONSOLE_REPLY_WAIT_USEC);
+        usec_t end = usec_add(now(CLOCK_MONOTONIC), CONSOLE_ANSI_SEQUENCE_TIMEOUT_USEC);
         char buf[STRLEN(DCS_TERMINFO_R1) + MAX_TERMINFO_LENGTH + STRLEN(ANSI_ST)];
         size_t bytes = 0;
 
