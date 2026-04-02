@@ -139,54 +139,24 @@ static const char *getenv_fstype(PartitionDesignator d) {
 
 int probe_sector_size(int fd, uint32_t *ret) {
 
-        /* Disk images might be for 512B or for 4096 sector sizes, let's try to auto-detect that by searching
-         * for the GPT headers at the relevant byte offsets */
-
-        assert_cc(sizeof(GptHeader) == 92);
-
-        /* We expect a sector size in the range 512…4096. The GPT header is located in the second
-         * sector. Hence it could be at byte 512 at the earliest, and at byte 4096 at the latest. And we must
-         * read with granularity of the largest sector size we care about. Which means 8K. */
-        uint8_t sectors[2 * 4096];
-        uint32_t found = 0;
-        ssize_t n;
-
         assert(fd >= 0);
         assert(ret);
 
-        n = pread(fd, sectors, sizeof(sectors), 0);
-        if (n < 0)
-                return -errno;
-        if (n != sizeof(sectors)) /* too short? */
-                goto not_found;
-
-        /* Let's see if we find the GPT partition header with various expected sector sizes */
-        for (uint32_t sz = 512; sz <= 4096; sz <<= 1) {
-                const GptHeader *p;
-
-                assert(sizeof(sectors) >= sz * 2);
-                p = (const GptHeader*) (sectors + sz);
-
-                if (!gpt_header_has_signature(p))
-                        continue;
-
-                if (found != 0)
-                        return log_debug_errno(SYNTHETIC_ERRNO(ENOTUNIQ),
-                                               "Detected valid partition table at offsets matching multiple sector sizes, refusing.");
-
-                found = sz;
+        ssize_t ssz = gpt_probe(fd, /* ret_header= */ NULL, /* ret_entries= */ NULL, /* ret_n_entries= */ NULL, /* ret_entry_size= */ NULL);
+        if (ssz == -ENOTUNIQ)
+                return log_debug_errno(ssz,
+                                       "Detected valid partition table at offsets matching multiple sector sizes, refusing.");
+        if (ssz < 0)
+                return ssz;
+        if (ssz == 0) {
+                log_debug("Couldn't find any partition table to derive sector size of.");
+                *ret = 512; /* pick the traditional default */
+                return 0;   /* indicate we didn't find it */
         }
 
-        if (found != 0) {
-                log_debug("Determined sector size %" PRIu32 " based on discovered partition table.", found);
-                *ret = found;
-                return 1; /* indicate we *did* find it */
-        }
-
-not_found:
-        log_debug("Couldn't find any partition table to derive sector size of.");
-        *ret = 512; /* pick the traditional default */
-        return 0;   /* indicate we didn't find it */
+        log_debug("Determined sector size %" PRIu32 " based on discovered partition table.", (uint32_t) ssz);
+        *ret = ssz;
+        return 1; /* indicate we *did* find it */
 }
 
 int probe_sector_size_prefer_ioctl(int fd, uint32_t *ret) {
