@@ -7671,6 +7671,8 @@ static int write_primary_descriptor(
                 const char *publisher_id) {
         int r;
 
+        assert_se(fd >= 0);
+
         struct iso9660_primary_volume_descriptor desc = {
                 .header = {
                         .type = 1,
@@ -7747,6 +7749,8 @@ static int write_primary_descriptor(
 }
 
 static int write_eltorito_descriptor(int fd, uint32_t catalog_sector) {
+        assert(fd >= 0);
+
         struct iso9660_eltorito_descriptor desc = {
                 .header = {
                         .type = 0,
@@ -7769,6 +7773,8 @@ static int write_eltorito_descriptor(int fd, uint32_t catalog_sector) {
 }
 
 static int write_terminal_descriptor(int fd) {
+        assert(fd >= 0);
+
         struct iso9660_terminal_descriptor desc = {
                 .header = {
                         .type = 255,
@@ -7788,6 +7794,7 @@ static int write_terminal_descriptor(int fd) {
 }
 
 static uint16_t calculate_validation_entry_checksum(const void *p, size_t size) {
+        assert(p || size == 0);
         assert(size % 2 == 0);
 
         uint16_t checksum = 0;
@@ -7799,6 +7806,8 @@ static uint16_t calculate_validation_entry_checksum(const void *p, size_t size) 
 }
 
 static int write_boot_catalog(int fd, uint32_t load_block) {
+        assert(fd >= 0);
+
         struct el_torito_validation_entry ve = {
                 .header_indicator = 1,
                 .platform = 0xef, /* EFI */
@@ -7843,6 +7852,8 @@ static int write_boot_catalog(int fd, uint32_t load_block) {
 
 static int write_directories(int fd, usec_t usec, bool utc, uint32_t root_sector) {
         int r;
+
+        assert(fd >= 0);
 
         uint32_t dir_size = 2*sizeof(struct iso9660_directory_entry); /* 2 entries with ident size 1: . and .. */
 
@@ -7899,6 +7910,8 @@ static int write_directories(int fd, usec_t usec, bool utc, uint32_t root_sector
 
 static int write_eltorito(int fd, usec_t usec, bool utc, uint32_t load_block, const char *system_id, const char *volume_id, const char *publisher_id) {
         int r;
+
+        assert(fd >= 0);
 
         r = write_primary_descriptor(fd, ISO9660_ROOT_DIRECTORY, usec, utc, system_id, volume_id, publisher_id);
         if (r < 0)
