@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "boot-secret.h"
+#include "console.h"
 #include "cpio.h"
 #include "device-path-util.h"
 #include "devicetree.h"
@@ -15,9 +16,6 @@
 #include "memory-util-fundamental.h"
 #include "part-discovery.h"
 #include "pe.h"
-#include "proto/graphics-output.h"
-#include "proto/pci-io.h"
-#include "proto/serial-io.h"            /* IWYU pragma: keep */
 #include "proto/shell-parameters.h"
 #include "random-seed.h"
 #include "sbat.h"
@@ -1246,220 +1244,6 @@ static void measure_profile(unsigned profile, int *parameters_measured) {
         combine_measured_flag(parameters_measured, m);
 }
 
-static bool has_virtio_console_pci_device(void) {
-        _cleanup_free_ EFI_HANDLE *handles = NULL;
-        size_t n_handles = 0;
-
-        EFI_STATUS err = BS->LocateHandleBuffer(
-                        ByProtocol,
-                        MAKE_GUID_PTR(EFI_PCI_IO_PROTOCOL),
-                        NULL,
-                        &n_handles,
-                        &handles);
-        if (err != EFI_SUCCESS) {
-                log_debug_status(err, "Failed to locate PCI I/O protocol handles, assuming no VirtIO console: %m");
-                return false;
-        }
-
-        if (n_handles == 0) {
-                log_debug("No PCI devices found, not scanning for VirtIO console.");
-                return false;
-        }
-
-        log_debug("Found %zu PCI devices, scanning for VirtIO console...", n_handles);
-
-        size_t n_virtio_console = 0;
-
-        for (size_t i = 0; i < n_handles; i++) {
-                EFI_PCI_IO_PROTOCOL *pci_io = NULL;
-
-                if (BS->HandleProtocol(handles[i], MAKE_GUID_PTR(EFI_PCI_IO_PROTOCOL), (void **) &pci_io) != EFI_SUCCESS)
-                        continue;
-
-                uint16_t vendor_id = 0, device_id = 0;
-                if (pci_io->Pci.Read(pci_io, EfiPciIoWidthUint16, 0x00, 1, &vendor_id) != EFI_SUCCESS)
-                        continue;
-                if (pci_io->Pci.Read(pci_io, EfiPciIoWidthUint16, 0x02, 1, &device_id) != EFI_SUCCESS)
-                        continue;
-
-                log_debug("PCI device %zu: vendor=%04x device=%04x", i, vendor_id, device_id);
-
-                if (vendor_id == PCI_VENDOR_ID_REDHAT && device_id == PCI_DEVICE_ID_VIRTIO_CONSOLE)
-                        n_virtio_console++;
-
-                if (n_virtio_console > 1) {
-                        log_debug("There is more than one VirtIO console PCI device, cannot determine which one is the console.");
-                        return false;
-                }
-        }
-
-        if (n_virtio_console == 0) {
-                log_debug("No VirtIO console PCI device found.");
-                return false;
-        }
-
-        log_debug("Found exactly one VirtIO console PCI device.");
-        return true;
-}
-
-static bool device_path_has_uart(const EFI_DEVICE_PATH *dp) {
-        for (const EFI_DEVICE_PATH *node = dp; !device_path_is_end(node); node = device_path_next_node(node))
-                if (node->Type == MESSAGING_DEVICE_PATH && node->SubType == MSG_UART_DP)
-                        return true;
-
-        return false;
-}
-
-static size_t count_serial_devices(void) {
-        _cleanup_free_ EFI_HANDLE *handles = NULL;
-        size_t n_handles = 0;
-
-        if (BS->LocateHandleBuffer(
-                        ByProtocol,
-                        MAKE_GUID_PTR(EFI_SERIAL_IO_PROTOCOL),
-                        NULL,
-                        &n_handles,
-                        &handles) != EFI_SUCCESS)
-                return 0;
-
-        log_debug("Found %zu serial I/O devices in total.", n_handles);
-        return n_handles;
-}
-
-static bool has_single_serial_console(void) {
-        /* Even if we find exactly one serial console, we can only confidently map it to ttyS0
-         * if there's only one serial device in the entire system. With multiple UARTs, the
-         * kernel assigns ttyS indices based on its own discovery order, so the console UART
-         * might end up as ttyS1 or higher. */
-        size_t n_serial_devices = count_serial_devices();
-        if (n_serial_devices == 0) {
-                log_debug("No serial I/O devices found.");
-                return false;
-        }
-        if (n_serial_devices > 1) {
-                log_debug("Found %zu serial I/O devices, cannot determine ttyS index.", n_serial_devices);
-                return false;
-        }
-
-        /* Exactly one serial device in the system. Verify it's actually used as a console
-         * by checking if ConOut or any text output handle has a UART device path. */
-
-        /* First try the ConOut handle directly */
-        EFI_DEVICE_PATH *dp = NULL;
-        if (BS->HandleProtocol(ST->ConsoleOutHandle, MAKE_GUID_PTR(EFI_DEVICE_PATH_PROTOCOL), (void **) &dp) == EFI_SUCCESS) {
-                _cleanup_free_ char16_t *dp_str = NULL;
-                (void) device_path_to_str(dp, &dp_str);
-                log_debug("ConOut device path: %ls", strempty(dp_str));
-
-                if (device_path_has_uart(dp)) {
-                        log_debug("ConOut device path contains UART node.");
-                        return true;
-                }
-
-                log_debug("ConOut device path does not contain UART node.");
-                return false;
-        }
-
-        /* ConOut handle has no device path (e.g. ConSplitter virtual handle). Enumerate all
-         * text output handles and check if any of them is a serial console. */
-        log_debug("ConOut handle has no device path, enumerating text output handles...");
-
-        _cleanup_free_ EFI_HANDLE *handles = NULL;
-        size_t n_handles = 0;
-        if (BS->LocateHandleBuffer(
-                        ByProtocol,
-                        MAKE_GUID_PTR(EFI_SIMPLE_TEXT_OUTPUT_PROTOCOL),
-                        NULL,
-                        &n_handles,
-                        &handles) != EFI_SUCCESS) {
-                log_debug("Failed to enumerate text output handles.");
-                return false;
-        }
-
-        for (size_t i = 0; i < n_handles; i++) {
-                dp = NULL;
-                if (BS->HandleProtocol(handles[i], MAKE_GUID_PTR(EFI_DEVICE_PATH_PROTOCOL), (void **) &dp) != EFI_SUCCESS)
-                        continue;
-
-                _cleanup_free_ char16_t *dp_str = NULL;
-                (void) device_path_to_str(dp, &dp_str);
-                log_debug("Text output handle %zu device path: %ls", i, strempty(dp_str));
-
-                if (device_path_has_uart(dp)) {
-                        log_debug("Text output handle %zu is a serial console.", i);
-                        return true;
-                }
-        }
-
-        log_debug("No serial console found among text output handles.");
-        return false;
-}
-
-static bool has_graphics_output(void) {
-        EFI_GRAPHICS_OUTPUT_PROTOCOL *gop = NULL;
-        EFI_STATUS err;
-
-        err = BS->LocateProtocol(MAKE_GUID_PTR(EFI_GRAPHICS_OUTPUT_PROTOCOL), NULL, (void **) &gop);
-        if (err != EFI_SUCCESS) {
-                log_debug_status(err, "No EFI Graphics Output Protocol found: %m");
-                return false;
-        }
-
-        log_debug("EFI Graphics Output Protocol found.");
-        return true;
-}
-
-static const char16_t *serial_console_arg(void) {
-#if defined(__arm__) || defined(__aarch64__)
-        return u"console=ttyAMA0";
-#else
-        return u"console=ttyS0";
-#endif
-}
-
-/* If there's no console= in the command line yet, try to detect the appropriate console device.
- *
- * Detection order:
- * 1. If exactly one VirtIO console PCI device exists → console=hvc0
- * 2. If there's graphical output (GOP) → don't add console=, the kernel defaults are fine
- * 3. If exactly one serial console exists → arch-specific serial (ttyS0, ttyAMA0, etc.)
- * 4. Otherwise → don't add console=, let the user handle it
- *
- * VirtIO console takes priority since it's explicitly configured by the VMM. Graphics is
- * checked before serial to avoid accidentally redirecting output away from a graphical
- * console by adding a serial console= argument. */
-static void cmdline_append_console(char16_t **cmdline) {
-        assert(cmdline);
-
-        if (*cmdline && (efi_fnmatch(u"console=*", *cmdline) || efi_fnmatch(u"* console=*", *cmdline))) {
-                log_debug("Kernel command line already contains console=, not adding one.");
-                return;
-        }
-
-        const char16_t *console_arg = NULL;
-
-        if (has_virtio_console_pci_device())
-                console_arg = u"console=hvc0";
-        else if (has_graphics_output()) {
-                log_debug("Graphical output available, not adding console= to kernel command line.");
-                return;
-        } else if (has_single_serial_console())
-                console_arg = serial_console_arg();
-
-        if (!console_arg) {
-                log_debug("Cannot determine console type, not adding console= to kernel command line.");
-                return;
-        }
-
-        log_debug("Appending %ls to kernel command line.", console_arg);
-
-        _cleanup_free_ char16_t *old = TAKE_PTR(*cmdline);
-        if (isempty(old))
-                *cmdline = xstrdup16(console_arg);
-        else
-                *cmdline = xasprintf("%ls %ls", old, console_arg);
-}
-
 static EFI_STATUS run(EFI_HANDLE image) {
         int sections_measured = -1, parameters_measured = -1, sysext_measured = -1, confext_measured = -1;
         _cleanup_(devicetree_cleanup) struct devicetree_state dt_state = {};
@@ -1522,10 +1306,6 @@ static EFI_STATUS run(EFI_HANDLE image) {
         cmdline_append_and_measure_addons(cmdline_addons, &cmdline, &parameters_measured);
         cmdline_append_and_measure_smbios(&cmdline, &parameters_measured);
 
-        /* Console auto-detection is intentionally not TPM-measured. The value is deterministically
-         * derived from firmware-reported hardware state (PCI device enumeration, GOP presence, serial
-         * device paths), so it doesn't represent an independent input that could be manipulated
-         * without also changing the firmware environment that TPM already captures. */
         cmdline_append_console(&cmdline);
 
         export_common_variables(loaded_image);
