@@ -1876,22 +1876,20 @@ static int bind_user_setup(
 
 static int kernel_cmdline_maybe_append_root(void) {
         int r;
-        bool cmdline_contains_root = strv_find_startswith(arg_kernel_cmdline_extra, "root=")
-                        || strv_find_startswith(arg_kernel_cmdline_extra, "mount.usr=");
 
-        if (!cmdline_contains_root) {
-                _cleanup_free_ char *root = NULL;
+        if (strv_find_startswith(arg_kernel_cmdline_extra, "root=") ||
+            strv_find_startswith(arg_kernel_cmdline_extra, "mount.usr="))
+                return 0;
 
-                r = discover_root(&root);
-                if (r < 0)
-                        return r;
+        _cleanup_free_ char *root = NULL;
+        r = discover_root(&root);
+        if (r < 0)
+                return r;
 
-                log_debug("Determined root file system %s from dissected image", root);
+        log_debug("Determined root file system '%s' from dissected image", root);
 
-                r = strv_consume(&arg_kernel_cmdline_extra, TAKE_PTR(root));
-                if (r < 0)
-                        return log_oom();
-        }
+        if (strv_consume(&arg_kernel_cmdline_extra, TAKE_PTR(root)) < 0)
+                return log_oom();
 
         return 0;
 }
