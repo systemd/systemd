@@ -38,6 +38,8 @@
         "disable:Disable automatic container start at boot"
         "poweroff:Power off one or more VMs/containers"
         "reboot:Reboot one or more VMs/containers"
+        "pause:Pause one or more machines"
+        "resume:Resume one or more previously paused machines"
         "terminate:Terminate one or more VMs/containers"
         "kill:Send signal to process or a VM/container"
         "copy-to:Copy files from the host to a container"
@@ -77,7 +79,7 @@
         start|enable|disable)
             _machinectl_images ;;
 
-        status|show|poweroff|reboot|terminate|kill)
+        status|show|poweroff|reboot|pause|resume|terminate|kill)
             _sd_machines ;;
 
         login|shell)
