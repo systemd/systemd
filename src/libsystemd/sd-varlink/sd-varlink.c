@@ -2385,6 +2385,60 @@ _public_ int sd_varlink_call(
         return sd_varlink_call_full(v, method, parameters, ret_parameters, ret_error_id, NULL);
 }
 
+static int varlink_handle_upgrade_fds(sd_varlink *v, int *ret_input_fd, int *ret_output_fd) {
+        int r;
+
+        assert(v);
+        assert(ret_input_fd || ret_output_fd);
+
+        /* Ensure no post-upgrade data was consumed into our input buffer. On the client side,
+         * byte-by-byte reading prevents this. On the server side, SD_VARLINK_SERVER_UPGRADABLE
+         * enables the same protection. If data leaked in despite this, refuse the upgrade
+         * rather than silently losing the data. */
+        if (v->input_buffer_size != 0)
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(EPROTO),
+                                         "Unexpected buffered data during protocol upgrade, refusing.");
+
+        /* Pass the connection fds to the caller, it owns them now. Reset to blocking mode
+         * since callers of the upgraded protocol will generally expect normal blocking
+         * semantics. */
+        r = fd_nonblock(v->input_fd, false);
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to set input fd to blocking mode: %m");
+        if (v->input_fd != v->output_fd) {
+                r = fd_nonblock(v->output_fd, false);
+                if (r < 0)
+                        return varlink_log_errno(v, r, "Failed to set output fd to blocking mode: %m");
+        }
+
+        /* Hand out the fds to the caller. When the caller doesn't want one direction, shut it
+         * down: but avoid closing the underlying fd if the other direction still needs it
+         * (i.e. when input_fd == output_fd). */
+        bool same_fd = v->input_fd == v->output_fd;
+
+        if (ret_input_fd)
+                *ret_input_fd = TAKE_FD(v->input_fd);
+        else {
+                (void) shutdown(v->input_fd, SHUT_RD);
+                if (same_fd && ret_output_fd)
+                        TAKE_FD(v->input_fd); /* don't close yet, output branch needs it */
+                else
+                        v->input_fd = safe_close(v->input_fd);
+        }
+
+        if (ret_output_fd)
+                *ret_output_fd = TAKE_FD(v->output_fd);
+        else {
+                (void) shutdown(v->output_fd, SHUT_WR);
+                if (same_fd && ret_input_fd)
+                        TAKE_FD(v->output_fd);
+                else
+                        v->output_fd = safe_close(v->output_fd);
+        }
+
+        return 0;
+}
+
 _public_ int sd_varlink_call_and_upgrade(
                 sd_varlink *v,
                 const char *method,
@@ -2436,45 +2490,12 @@ _public_ int sd_varlink_call_and_upgrade(
                 goto finish;
         }
 
-        /* Pass the connection fds to the caller, it owns them now. Reset to blocking mode
-         * since callers of the upgraded protocol will generally expect normal blocking
-         * semantics. */
-        r = fd_nonblock(v->input_fd, false);
+        /* Even if setting up the fds fails we must disconnect: the server already accepted the
+         * upgrade, so the other side is speaking raw protocol while we expect JSON. */
+        r = varlink_handle_upgrade_fds(v, ret_input_fd, ret_output_fd);
         if (r < 0) {
-                varlink_log_errno(v, r, "Failed to set input fd to blocking mode: %m");
-                goto disconnect;
-        }
-        if (v->input_fd != v->output_fd) {
-                r = fd_nonblock(v->output_fd, false);
-                if (r < 0) {
-                        varlink_log_errno(v, r, "Failed to set output fd to blocking mode: %m");
-                        goto disconnect;
-                }
-        }
-
-        /* Hand out the fds to the caller. When the caller doesn't want one direction, shut it
-         * down: but avoid closing the underlying fd if the other direction still needs it
-         * (i.e. when input_fd == output_fd). */
-        bool same_fd = v->input_fd == v->output_fd;
-
-        if (ret_input_fd)
-                *ret_input_fd = TAKE_FD(v->input_fd);
-        else {
-                (void) shutdown(v->input_fd, SHUT_RD);
-                if (same_fd && ret_output_fd)
-                        TAKE_FD(v->input_fd); /* don't close yet, output branch needs it */
-                else
-                        v->input_fd = safe_close(v->input_fd);
-        }
-
-        if (ret_output_fd)
-                *ret_output_fd = TAKE_FD(v->output_fd);
-        else {
-                (void) shutdown(v->output_fd, SHUT_WR);
-                if (same_fd && ret_input_fd)
-                        TAKE_FD(v->output_fd);
-                else
-                        v->output_fd = safe_close(v->output_fd);
+                varlink_set_state(v, VARLINK_DISCONNECTED);
+                goto finish;
         }
 
         varlink_set_state(v, VARLINK_DISCONNECTED);
@@ -2488,10 +2509,6 @@ _public_ int sd_varlink_call_and_upgrade(
 
         return 1;
 
-disconnect:
-        /* If we fail after the server already accepted the upgrade, nothing can be done but disconnect.
-         * The other side is speaking raw protocol while we expect JSON. */
-        varlink_set_state(v, VARLINK_DISCONNECTED);
 finish:
         v->protocol_upgrade = false;
         assert(v->n_pending == 1);
