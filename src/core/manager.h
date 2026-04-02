@@ -147,6 +147,8 @@ typedef struct UnitDefaults {
         int oom_score_adjust;
         bool oom_score_adjust_set;
 
+        bool memory_zswap_writeback;
+
         CGroupPressureWatch memory_pressure_watch;
         usec_t memory_pressure_threshold_usec;
 

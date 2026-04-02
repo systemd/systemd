@@ -1,11 +1,13 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "boot-secret.h"
+#include "console.h"
 #include "cpio.h"
 #include "device-path-util.h"
 #include "devicetree.h"
 #include "efi-efivars.h"
 #include "efi-log.h"
+#include "efi-string.h"
 #include "export-vars.h"
 #include "graphics.h"
 #include "iovec-util-fundamental.h"
@@ -1303,6 +1305,8 @@ static EFI_STATUS run(EFI_HANDLE image) {
          * image-specific ones later, for the same reason. */
         cmdline_append_and_measure_addons(cmdline_addons, &cmdline, &parameters_measured);
         cmdline_append_and_measure_smbios(&cmdline, &parameters_measured);
+
+        cmdline_append_console(&cmdline);
 
         export_common_variables(loaded_image);
         export_stub_variables(loaded_image, profile);

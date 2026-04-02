@@ -14,6 +14,7 @@ typedef enum DiskType {
         DISK_TYPE_VIRTIO_BLK,
         DISK_TYPE_VIRTIO_SCSI,
         DISK_TYPE_NVME,
+        DISK_TYPE_VIRTIO_SCSI_CDROM,
         _DISK_TYPE_MAX,
         _DISK_TYPE_INVALID = -EINVAL,
 } DiskType;
@@ -41,6 +42,13 @@ typedef enum ConsoleMode {
         _CONSOLE_MODE_INVALID = -EINVAL,
 } ConsoleMode;
 
+typedef enum ConsoleTransport {
+        CONSOLE_TRANSPORT_VIRTIO,       /* virtio-serial (hvc0) */
+        CONSOLE_TRANSPORT_SERIAL,       /* regular serial port (ttyS0/ttyAMA0) */
+        _CONSOLE_TRANSPORT_MAX,
+        _CONSOLE_TRANSPORT_INVALID = -EINVAL,
+} ConsoleTransport;
+
 typedef enum SettingsMask {
         SETTING_START_MODE        = UINT64_C(1) << 0,
         SETTING_MACHINE_ID        = UINT64_C(1) << 6,
@@ -52,5 +60,6 @@ typedef enum SettingsMask {
 } SettingsMask;
 
 DECLARE_STRING_TABLE_LOOKUP(console_mode, ConsoleMode);
+DECLARE_STRING_TABLE_LOOKUP(console_transport, ConsoleTransport);
 DECLARE_STRING_TABLE_LOOKUP(disk_type, DiskType);
 DECLARE_STRING_TABLE_LOOKUP(image_format, ImageFormat);

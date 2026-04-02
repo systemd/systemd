@@ -141,7 +141,7 @@ static int help(void) {
                 return r;
 
         /* Make the 1st column same width in both tables */
-        (void) table_sync_column_width(options, 0, commands, 0);
+        (void) table_sync_column_widths(0, options, commands);
 
         printf("%1$s [OPTIONS...] IMAGE\n"
                "%1$s [OPTIONS...] --mount IMAGE PATH\n"
@@ -207,11 +207,11 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        OptionParser state = {};
+        OptionParser state = { argc, argv };
         const Option *current;
         const char *arg;
 
-        FOREACH_OPTION_FULL(&state, c, argc, argv, &current, &arg, /* on_error= */ return c)
+        FOREACH_OPTION_FULL(&state, c, &current, &arg, /* on_error= */ return c)
                 switch (c) {
 
                 OPTION_COMMON_NO_PAGER:
@@ -495,7 +495,7 @@ static int parse_argv(int argc, char *argv[]) {
                 arg_runtime_scope = system_scope_requested && user_scope_requested ? _RUNTIME_SCOPE_INVALID :
                         system_scope_requested ? RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER;
 
-        char **args = option_parser_get_args(&state, argc, argv);
+        char **args = option_parser_get_args(&state);
 
         switch (arg_action) {
 
@@ -2015,7 +2015,7 @@ static int run(int argc, char *argv[]) {
                         uint32_t loop_flags;
                         int open_flags;
 
-                        open_flags = FLAGS_SET(arg_flags, DISSECT_IMAGE_DEVICE_READ_ONLY) ? O_RDONLY : O_RDWR;
+                        open_flags = FLAGS_SET(arg_flags, DISSECT_IMAGE_DEVICE_READ_ONLY) ? O_RDONLY : -1;
                         loop_flags = FLAGS_SET(arg_flags, DISSECT_IMAGE_NO_PARTITION_TABLE) ? 0 : LO_FLAGS_PARTSCAN;
 
                         if (arg_in_memory)

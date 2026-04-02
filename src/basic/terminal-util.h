@@ -118,6 +118,7 @@ void columns_lines_cache_reset(int _unused_ signum);
 void reset_terminal_feature_caches(void);
 
 bool on_tty(void);
+bool term_env_valid(const char *term);
 bool getenv_terminal_is_dumb(void);
 bool terminal_is_dumb(void);
 
@@ -145,12 +146,34 @@ assert_cc((TTY_MODE & 0711) == 0600);
 
 void termios_disable_echo(struct termios *termios);
 
+/* A termios sentinel with all flag fields set to all-ones-bits. No real tcgetattr() result will ever
+ * match this because no real terminal configuration uses all-ones in every flag field simultaneously. */
+#define TERMIOS_NULL (struct termios) {         \
+        .c_iflag = UINT_MAX,                    \
+        .c_oflag = UINT_MAX,                    \
+        .c_cflag = UINT_MAX,                    \
+        .c_lflag = UINT_MAX,                    \
+}
+
+typedef struct TermiosResetContext {
+        int *fd;
+        struct termios *termios;
+} TermiosResetContext;
+
+void termios_reset(const TermiosResetContext *c);
+
+#define CLEANUP_TERMIOS_RESET(_fd, _termios)                                   \
+        _cleanup_(termios_reset) _unused_ const TermiosResetContext            \
+                CONCATENATE(_cleanup_termios_, UNIQ) = {                       \
+                        .fd = &(_fd),                                          \
+                        .termios = &(_termios),                                \
+                }
+
 /* The $TERM value we use for terminals other than the Linux console */
 #define FALLBACK_TERM "vt220"
 
 int get_default_background_color(double *ret_red, double *ret_green, double *ret_blue);
-int terminal_get_size_by_dsr(int input_fd, int output_fd, unsigned *ret_rows, unsigned *ret_columns);
-int terminal_get_size_by_csi18(int input_fd, int output_fd, unsigned *ret_rows, unsigned *ret_columns);
+int terminal_get_size(int input_fd, int output_fd, unsigned *ret_rows, unsigned *ret_columns, bool try_dsr, bool try_csi18);
 int terminal_fix_size(int input_fd, int output_fd);
 
 int terminal_get_terminfo_by_dcs(int fd, char **ret_name);

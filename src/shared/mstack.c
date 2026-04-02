@@ -576,11 +576,10 @@ int mstack_open_images(
                                 _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
                                 _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
 
-                                r = loop_device_make(
+                                r = loop_device_make_by_path_at(
                                                 m->what_fd,
-                                                FLAGS_SET(flags, MSTACK_RDONLY) ? O_RDONLY : O_RDWR,
-                                                /* offset= */ 0,
-                                                /* size= */ UINT64_MAX,
+                                                /* path= */ NULL,
+                                                FLAGS_SET(flags, MSTACK_RDONLY) ? O_RDONLY : -1,
                                                 /* sector_size= */ UINT32_MAX,
                                                 LO_FLAGS_PARTSCAN,
                                                 LOCK_SH,
