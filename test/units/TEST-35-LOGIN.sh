@@ -806,7 +806,7 @@ teardown_varlink() (
 )
 
 testcase_varlink() {
-    local session uid session_out
+    local session uid session_out user_out
 
     if [[ ! -c /dev/tty2 ]]; then
         echo "/dev/tty2 does not exist, skipping test ${FUNCNAME[0]}."
@@ -821,6 +821,8 @@ testcase_varlink() {
     varlinkctl introspect "$VARLINK_SOCKET"
     varlinkctl introspect "$VARLINK_SOCKET" | grep "method DescribeSession" >/dev/null
     varlinkctl introspect "$VARLINK_SOCKET" | grep "method ListSessions" >/dev/null
+    varlinkctl introspect "$VARLINK_SOCKET" | grep "method DescribeUser" >/dev/null
+    varlinkctl introspect "$VARLINK_SOCKET" | grep "method ListUsers" >/dev/null
 
     : "--- Setup test session ---"
     create_session
@@ -849,6 +851,29 @@ testcase_varlink() {
     test "$(varlinkctl call --more "$VARLINK_SOCKET" io.systemd.Login.ListSessions '{}' | wc -l)" -ge 2
     # without --more should fail
     (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.ListSessions '{}')
+
+    : "--- DescribeUser ---"
+    user_out=$(varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.DescribeUser "{\"UID\":$uid}")
+    echo "$user_out" | jq -e ".User.UID == $uid" >/dev/null
+    echo "$user_out" | jq -e '.User.Name == "logind-test-user"' >/dev/null
+    echo "$user_out" | jq -e '.User.State' >/dev/null
+    echo "$user_out" | jq -e '.User.Linger == false' >/dev/null
+    echo "$user_out" | jq -e ".User.Sessions[] | select(.Id == \"$session\")" >/dev/null
+
+    # default UID should resolve to the caller's user. Invoke from inside the
+    # test user's scope so logind's peer-cgroup lookup maps back to logind-test-user.
+    default_user_out=$(systemd-run --user --pipe --wait -M "logind-test-user@.host" \
+                           varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.DescribeUser '{}')
+    echo "$default_user_out" | jq -e --argjson u "$uid" '.User.UID == $u' >/dev/null
+
+    # nonexistent UID
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.DescribeUser '{"UID":4294967294}')
+
+    : "--- ListUsers ---"
+    varlinkctl call --more "$VARLINK_SOCKET" io.systemd.Login.ListUsers '{}' | grep "logind-test-user" >/dev/null
+    test "$(varlinkctl call --more "$VARLINK_SOCKET" io.systemd.Login.ListUsers '{}' | wc -l)" -ge 2
+    # without --more should fail
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.ListUsers '{}')
 }
 
 testcase_restart() {
