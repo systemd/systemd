@@ -166,6 +166,13 @@ int fd_nonblock(int fd, bool nonblock) {
         return 1;
 }
 
+void nonblock_resetp(int *fd) {
+        PROTECT_ERRNO;
+
+        if (*fd >= 0)
+                (void) fd_nonblock(*fd, false);
+}
+
 int stdio_disable_nonblock(void) {
         int ret = 0;
 
