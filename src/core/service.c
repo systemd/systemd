@@ -3959,8 +3959,10 @@ static bool service_may_gc(Unit *u) {
                 return false;
 
         /* Only allow collection of actually dead services, i.e. not those that are in the transitionary
-         * SERVICE_DEAD_BEFORE_AUTO_RESTART/SERVICE_FAILED_BEFORE_AUTO_RESTART states. */
-        if (!IN_SET(s->state, SERVICE_DEAD, SERVICE_FAILED, SERVICE_DEAD_RESOURCES_PINNED))
+         * SERVICE_DEAD_BEFORE_AUTO_RESTART/SERVICE_FAILED_BEFORE_AUTO_RESTART states, and not those
+         * that still have resources pinned (fd store with FileDescriptorStorePreserve=yes) in case they are
+         * started again later despite not having any reverse dependency. */
+        if (!IN_SET(s->state, SERVICE_DEAD, SERVICE_FAILED))
                 return false;
 
         return true;

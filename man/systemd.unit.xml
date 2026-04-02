@@ -1082,6 +1082,11 @@
         resources, …) are flushed out immediately after the unit completed, except for what is stored in the logging
         subsystem. Defaults to <option>inactive</option>.</para>
 
+        <para>Since v261, if <varname>FileDescriptorStorePreserve=</varname> is set to <option>yes</option>,
+        and the unit has file descriptors stored, garbage collection will be disabled until the unit is
+        removed, the service manager exits, or the file descriptors get <constant>EPOLLHUP</constant> or
+        <constant>EPOLLERR</constant>.</para>
+
         <xi:include href="version-info.xml" xpointer="v236"/>
         </listitem>
       </varlistentry>
