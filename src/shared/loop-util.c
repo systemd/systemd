@@ -1231,6 +1231,9 @@ int loop_device_set_autoclear(LoopDevice *d, bool autoclear) {
 
         assert(d);
 
+        if (LOOP_DEVICE_IS_FOREIGN(d))
+                return 0;
+
         if (ioctl(ASSERT_FD(d->fd), LOOP_GET_STATUS64, &info) < 0)
                 return -errno;
 
