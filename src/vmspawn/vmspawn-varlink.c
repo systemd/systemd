@@ -4,12 +4,12 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "hashmap.h"
+#include "json-util.h"
 #include "log.h"
 #include "path-util.h"
 #include "qmp-client.h"
 #include "string-util.h"
 #include "strv.h"
-#include "time-util.h"
 #include "varlink-io.systemd.MachineInstance.h"
 #include "varlink-io.systemd.QemuMachineInstance.h"
 #include "varlink-io.systemd.VirtualMachineInstance.h"
@@ -256,27 +256,242 @@ static void on_qmp_disconnect(QmpClient *client, void *userdata) {
         drain_event_subscribers(&ctx->subscribed);
 }
 
-int vmspawn_varlink_setup(VmspawnVarlinkContext **ret, int _qmp_fd, sd_event *event, const char *runtime_dir, char **ret_control_address) {
-        _cleanup_(vmspawn_varlink_context_freep) VmspawnVarlinkContext *ctx = NULL;
-        _cleanup_close_ int fd = TAKE_FD(_qmp_fd);
-        _cleanup_free_ char *listen_address = NULL;
+
+
+/* Detect QEMU features via schema introspection. query-qmp-schema returns all QAPI types;
+ * conditionally compiled enum values (like io_uring in BlockdevAioOptions) are only present
+ * if QEMU was built with support for them. */
+static int qmp_detect_features(QmpClient *qmp, QemuFeatures *ret) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *schema = NULL;
+        int r;
+
+        assert(qmp);
+        assert(ret);
+
+        *ret = (QemuFeatures) {};
+
+        r = qmp_client_call(qmp, "query-qmp-schema", /* arguments= */ NULL, &schema, /* ret_error= */ NULL);
+        if (r < 0)
+                return r;
+
+        sd_json_variant *entry;
+        JSON_VARIANT_ARRAY_FOREACH(entry, schema) {
+                sd_json_variant *name = sd_json_variant_by_key(entry, "name");
+                if (!streq_ptr(sd_json_variant_string(name), "BlockdevAioOptions"))
+                        continue;
+
+                sd_json_variant *meta = sd_json_variant_by_key(entry, "meta-type");
+                if (!streq_ptr(sd_json_variant_string(meta), "enum"))
+                        break;
+
+                sd_json_variant *members = sd_json_variant_by_key(entry, "members");
+                sd_json_variant *member;
+                JSON_VARIANT_ARRAY_FOREACH(member, members) {
+                        sd_json_variant *mname = sd_json_variant_by_key(member, "name");
+                        if (streq_ptr(sd_json_variant_string(mname), "io_uring")) {
+                                ret->io_uring = true;
+                                break;
+                        }
+                }
+                break;
+        }
+
+        log_debug("QEMU feature detection: io_uring=%s", yes_no(ret->io_uring));
+        return 0;
+}
+
+/* Build blockdev-add JSON arguments for a drive */
+static int qmp_build_blockdev_add(const QmpDriveInfo *drive, bool io_uring, sd_json_variant **ret) {
+        assert(drive);
+        assert(ret);
+
+        /* aio and cache are members of BlockdevOptionsFile (the protocol-level driver), not of
+         * BlockdevOptions (the format-level base). They must be inside the "file" sub-object.
+         * discard is in the BlockdevOptions base and correctly stays at the top level.
+         * cache.direct=false uses the page cache (QEMU default). cache.no-flush=true suppresses
+         * host flush on guest fsync, matching the old -blockdev CLI behavior. */
+        return sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_STRING("node-name", drive->node_name),
+                        SD_JSON_BUILD_PAIR_STRING("driver", drive->format),
+                        SD_JSON_BUILD_PAIR_CONDITION(drive->read_only, "read-only", SD_JSON_BUILD_BOOLEAN(true)),
+                        SD_JSON_BUILD_PAIR_CONDITION(drive->discard, "discard", SD_JSON_BUILD_STRING("unmap")),
+                        SD_JSON_BUILD_PAIR("file", SD_JSON_BUILD_OBJECT(
+                                        SD_JSON_BUILD_PAIR_STRING("driver", drive->is_block_device ? "host_device" : "file"),
+                                        SD_JSON_BUILD_PAIR_STRING("filename", drive->path),
+                                        SD_JSON_BUILD_PAIR_CONDITION(io_uring, "aio", SD_JSON_BUILD_STRING("io_uring")),
+                                        SD_JSON_BUILD_PAIR("cache", SD_JSON_BUILD_OBJECT(
+                                                        SD_JSON_BUILD_PAIR_BOOLEAN("direct", false),
+                                                        SD_JSON_BUILD_PAIR_BOOLEAN("no-flush", true))))));
+}
+
+/* Build device_add JSON arguments for a drive */
+static int qmp_build_device_add(const QmpDriveInfo *drive, sd_json_variant **ret) {
+        assert(drive);
+        assert(ret);
+
+        return sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_STRING("driver", drive->disk_driver),
+                        SD_JSON_BUILD_PAIR_STRING("drive", drive->node_name),
+                        SD_JSON_BUILD_PAIR_STRING("id", drive->node_name),
+                        SD_JSON_BUILD_PAIR_CONDITION(drive->boot, "bootindex", SD_JSON_BUILD_INTEGER(1)),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!drive->serial, "serial", SD_JSON_BUILD_STRING(drive->serial)),
+                        SD_JSON_BUILD_PAIR_CONDITION(STR_IN_SET(drive->disk_driver, "scsi-hd", "scsi-cd"),
+                                                    "bus", SD_JSON_BUILD_STRING("vmspawn_scsi.0")));
+}
+
+/* Configure a single drive via synchronous QMP commands: blockdev-add to create the block
+ * backend, device_add to attach it, and optionally blockdev-snapshot-sync for ephemeral
+ * overlays. If blockdev-add with io_uring fails, retries without it. */
+static int qmp_setup_one_drive(QmpClient *qmp, const QmpDriveInfo *drive, bool io_uring) {
+        _cleanup_free_ char *error_class = NULL;
+        int r;
+
+        assert(qmp);
+        assert(drive);
+
+        /* blockdev-add: create the block backend */
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *blockdev_args = NULL;
+        r = qmp_build_blockdev_add(drive, io_uring, &blockdev_args);
+        if (r < 0)
+                return r;
+
+        r = qmp_client_call(qmp, "blockdev-add", blockdev_args, /* ret_result= */ NULL, &error_class);
+        if (r == -EIO && io_uring) {
+                log_debug("blockdev-add with aio=io_uring failed for '%s' (%s), retrying without",
+                          drive->path, strna(error_class));
+
+                blockdev_args = sd_json_variant_unref(blockdev_args);
+                error_class = mfree(error_class);
+
+                r = qmp_build_blockdev_add(drive, /* io_uring= */ false, &blockdev_args);
+                if (r < 0)
+                        return r;
+
+                r = qmp_client_call(qmp, "blockdev-add", blockdev_args, /* ret_result= */ NULL, &error_class);
+                io_uring = false;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add block device '%s': %s", drive->path, strna(error_class));
+
+        /* device_add: attach to virtual hardware */
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *device_args = NULL;
+        r = qmp_build_device_add(drive, &device_args);
+        if (r < 0)
+                return r;
+
+        error_class = mfree(error_class);
+        r = qmp_client_call(qmp, "device_add", device_args, /* ret_result= */ NULL, &error_class);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add device for '%s': %s", drive->path, strna(error_class));
+
+        /* blockdev-snapshot-sync: ephemeral overlay */
+        if (drive->snapshot_file) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *snap_args = NULL;
+                r = sd_json_buildo(
+                                &snap_args,
+                                SD_JSON_BUILD_PAIR_STRING("node-name", drive->node_name),
+                                SD_JSON_BUILD_PAIR_STRING("snapshot-file", drive->snapshot_file),
+                                SD_JSON_BUILD_PAIR_STRING("format", "qcow2"));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to build blockdev-snapshot-sync JSON: %m");
+
+                error_class = mfree(error_class);
+                r = qmp_client_call(qmp, "blockdev-snapshot-sync", snap_args, /* ret_result= */ NULL, &error_class);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create ephemeral snapshot for '%s': %s",
+                                               drive->path, strna(error_class));
+        }
+
+        log_debug("Added drive '%s' via QMP (aio=%s%s)", drive->path,
+                   io_uring ? "io_uring" : "default",
+                   drive->snapshot_file ? ", ephemeral" : "");
+
+        return 0;
+}
+
+static int qmp_setup_drives(QmpClient *qmp, const QmpDriveInfo *drives, size_t n_drives, bool io_uring) {
+        int r;
+
+        for (size_t i = 0; i < n_drives; i++) {
+                r = qmp_setup_one_drive(qmp, &drives[i], io_uring);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+int vmspawn_varlink_init(
+                QmpClient **ret,
+                int qmp_fd,
+                sd_event *event,
+                const QmpDriveInfo *drives,
+                size_t n_drives) {
+
+        _cleanup_(qmp_client_freep) QmpClient *qmp = NULL;
+        _cleanup_close_ int fd = TAKE_FD(qmp_fd);
         int r;
 
         assert_return(ret, -EINVAL);
         assert_return(fd >= 0, -EBADF);
         assert_return(event, -EINVAL);
+
+        /* Blocking QMP handshake */
+        r = qmp_client_connect_fd(&qmp, TAKE_FD(fd), event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to perform QMP handshake: %m");
+
+        QemuFeatures features = {};
+        r = qmp_detect_features(qmp, &features);
+        if (r < 0)
+                log_warning_errno(r, "Failed to detect QEMU features, continuing with defaults: %m");
+
+        /* Add drives via pipelined QMP commands, then resume the VM */
+        r = qmp_setup_drives(qmp, drives, n_drives, features.io_uring);
+        if (r < 0)
+                return r;
+
+        _cleanup_free_ char *cont_error = NULL;
+        r = qmp_client_call(qmp, "cont", /* arguments= */ NULL, /* ret_result= */ NULL, &cont_error);
+        if (r < 0)
+                return log_error_errno(r, "Failed to resume QEMU execution: %s", strna(cont_error));
+
+        /* Switch QMP client to async mode for event processing during the event loop */
+        r = qmp_client_start_async(qmp);
+        if (r < 0)
+                return log_error_errno(r, "Failed to switch QMP client to async mode: %m");
+
+        *ret = TAKE_PTR(qmp);
+        return 0;
+}
+
+int vmspawn_varlink_setup(
+                VmspawnVarlinkContext **ret,
+                QmpClient *qmp,
+                const char *runtime_dir,
+                char **ret_control_address) {
+
+        _cleanup_(qmp_client_freep) QmpClient *qmp_owned = qmp;
+        _cleanup_(vmspawn_varlink_context_freep) VmspawnVarlinkContext *ctx = NULL;
+        _cleanup_free_ char *listen_address = NULL;
+        int r;
+
+        assert_return(ret, -EINVAL);
+        assert_return(qmp_owned, -EINVAL);
         assert_return(runtime_dir, -EINVAL);
+
+        sd_event *event = qmp_client_get_event(qmp_owned);
+        assert(event);
 
         ctx = new(VmspawnVarlinkContext, 1);
         if (!ctx)
                 return log_oom();
 
-        *ctx = (VmspawnVarlinkContext) {};
-
-        /* Phase 1: blocking QMP handshake */
-        r = qmp_client_connect_fd(&ctx->qmp_client, TAKE_FD(fd), event);
-        if (r < 0)
-                return log_error_errno(r, "Failed to perform QMP handshake: %m");
+        *ctx = (VmspawnVarlinkContext) {
+                .qmp_client = TAKE_PTR(qmp_owned),
+        };
 
         /* Create varlink server for VM control */
         r = varlink_server_new(&ctx->varlink_server,
