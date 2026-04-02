@@ -478,7 +478,7 @@ static int link_apply_bearer_impl(Link *link, Bearer *b) {
                         if (r < 0)
                                 return r;
 
-                        r = link_request_bearer_route(link, AF_INET6, &b->ip6_gateway, NULL);
+                        r = link_request_bearer_route(link, AF_INET6, &b->ip6_gateway, &b->ip6_address);
                         if (r < 0)
                                 return r;
                 }
