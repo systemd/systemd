@@ -1003,7 +1003,7 @@ _public_ uint64_t sd_json_variant_unsigned(sd_json_variant *v) {
         if (!json_variant_is_regular(v))
                 goto mismatch;
         if (v->is_reference)
-                return sd_json_variant_integer(v->reference);
+                return sd_json_variant_unsigned(v->reference);
 
         switch (v->type) {
 
