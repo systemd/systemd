@@ -257,6 +257,9 @@ systemd-run --wait --pipe --user --machine testuser@ \
         varlinkctl --more call "/run/user/$testuser_uid/systemd/io.systemd.Manager" io.systemd.Unit.List '{}'
 
 # test --upgrade (protocol upgrade)
+# The basic --upgrade proxy and file-input tests are covered by the "varlinkctl serve" tests
+# below (which use serve+rev/gunzip as the server). The tests here exercise features that
+# need the Python server: ssh-exec transport (pipe pairs) and --exec mode (banner+parameters).
 UPGRADE_SOCKET="$(mktemp -d)/upgrade.sock"
 UPGRADE_SERVER="$(mktemp)"
 cat >"$UPGRADE_SERVER" <<'PYEOF'
@@ -309,36 +312,6 @@ if sock:
 PYEOF
 chmod +x "$UPGRADE_SERVER"
 
-# Start the server in the background
-python3 "$UPGRADE_SERVER" "$UPGRADE_SOCKET" &
-SERVER_PID=$!
-
-# Wait for server readiness
-timeout 5 bash -c "while [ ! -S '$UPGRADE_SOCKET' ]; do sleep 0.1; done"
-
-# Test proxy mode: pipe data through --upgrade, passing parameters and validate
-result="$(echo "hello world" | varlinkctl call --upgrade "unix:$UPGRADE_SOCKET" io.systemd.test.Reverse '{"foo":"bar"}')"
-echo "$result" | grep "<<< UPGRADED >>>" >/dev/null
-echo "$result" | grep '"foo": "bar"' >/dev/null
-echo "$result" | grep "dlrow olleh" >/dev/null
-
-wait "$SERVER_PID" || :
-
-# Test --upgrade with stdin redirected from a regular file (epoll can't poll regular files,
-# so this exercises the fork+pipe fallback path)
-UPGRADE_SOCKET2="$(mktemp -d)/upgrade.sock"
-python3 "$UPGRADE_SERVER" "$UPGRADE_SOCKET2" &
-SERVER_PID=$!
-timeout 5 bash -c "while [ ! -S '$UPGRADE_SOCKET2' ]; do sleep 0.1; done"
-
-echo "file input test" > /tmp/test-upgrade-input
-result="$(varlinkctl call --upgrade "unix:$UPGRADE_SOCKET2" io.systemd.test.Reverse '{"foo":"file"}' < /tmp/test-upgrade-input)"
-echo "$result" | grep "<<< UPGRADED >>>" >/dev/null
-echo "$result" | grep '"foo": "file"' >/dev/null
-echo "$result" | grep "tset tupni elif" >/dev/null
-
-wait "$SERVER_PID" || :
-
 # Test --upgrade over ssh-exec: transport (pipe pair, not a bidirectional socket).
 # This exercises the input_fd != output_fd path in sd_varlink_call_and_upgrade().
 # Reuse the same server script without a socket argument - it speaks over stdin/stdout.
@@ -370,5 +343,38 @@ grep "dlrow olleh" "$EXEC_RESULT" >/dev/null
 rm -f "$EXEC_RESULT"
 
 wait "$SERVER_PID" || :
-rm -f "$UPGRADE_SOCKET" "$UPGRADE_SOCKET2" "$UPGRADE_SERVER" /tmp/test-upgrade-input
-rm -rf "$(dirname "$UPGRADE_SOCKET")" "$(dirname "$UPGRADE_SOCKET2")"
+rm -f "$UPGRADE_SOCKET" "$UPGRADE_SERVER"
+rm -rf "$(dirname "$UPGRADE_SOCKET")"
+
+# Test varlinkctl serve: expose a stdio command via varlink protocol upgrade with socket activation.
+# This is the "inetd for varlink" pattern: any stdio tool becomes a varlink service.
+SERVE_SOCKET="$(mktemp -d)/serve.sock"
+
+# Test 1: serve rev: proves bidirectional data flow through the upgrade
+systemd-socket-activate -l "$SERVE_SOCKET" -- \
+        varlinkctl serve io.systemd.test.Reverse rev &
+SERVE_PID=$!
+timeout 5 bash -c "while [ ! -S '$SERVE_SOCKET' ]; do sleep 0.1; done"
+
+result="$(echo "hello world" | varlinkctl call --upgrade "unix:$SERVE_SOCKET" io.systemd.test.Reverse '{}')"
+echo "$result" | grep "dlrow olleh" >/dev/null
+kill "$SERVE_PID" 2>/dev/null || true
+wait "$SERVE_PID" 2>/dev/null || true
+rm -f "$SERVE_SOCKET"
+
+# Test 2: decompress via serve: the "sandboxed decompressor" use-case (the real thing would be a proper
+# unit with real sandboxing).
+# Pipe gzip-compressed data through a varlinkctl serve + gunzip endpoint and verify round-trip.
+systemd-socket-activate -l "$SERVE_SOCKET" -- \
+        varlinkctl serve io.systemd.Compress.Decompress gunzip &
+SERVE_PID=$!
+timeout 5 bash -c "while [ ! -S '$SERVE_SOCKET' ]; do sleep 0.1; done"
+
+echo "untrusted data decompressed safely via varlink serve" | gzip > /tmp/test-compressed.gz
+result="$(varlinkctl call --upgrade "unix:$SERVE_SOCKET" io.systemd.Compress.Decompress '{}' < /tmp/test-compressed.gz)"
+echo "$result" | grep "untrusted data decompressed safely" >/dev/null
+kill "$SERVE_PID" 2>/dev/null || true
+wait "$SERVE_PID" 2>/dev/null || true
+
+rm -f "$SERVE_SOCKET" /tmp/test-compressed.gz
+rm -rf "$(dirname "$SERVE_SOCKET")"
