@@ -2750,6 +2750,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
                 destroy_path = mfree(destroy_path); /* disarm auto-destroy */
 
+                /* Required on x86 but invalid config on ARM. */
+#if defined(__x86_64__) || defined(__i386__)
                 r = qemu_config_section(config_file, "global", /* id= */ NULL,
                                         "driver", "ICH9-LPC",
                                         "property", "disable_s3",
@@ -2763,6 +2765,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                         "value", "on");
                 if (r < 0)
                         return r;
+#endif
 
                 r = qemu_config_section(config_file, "drive", "ovmf-vars",
                                         "file", state,
