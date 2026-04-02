@@ -65,6 +65,7 @@ int iso9660_datetime_from_usec(usec_t usec, bool utc, struct iso9660_datetime *r
                 return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "GMT offset out of range.");
 
         char buf[17];
+        assert_cc(sizeof(buf)-1 == offsetof(struct iso9660_datetime, zone));
         /* Ignore leap seconds, no real hope for hardware. Deci-seconds always zero. */
         xsprintf(buf, "%04d%02d%02d%02d%02d%02d00",
                  t.tm_year + 1900, t.tm_mon + 1, t.tm_mday,
