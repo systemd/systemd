@@ -48,12 +48,16 @@ WORKDIR="$(mktemp -d)"
 at_exit() {
     set +e
 
-    if machinectl status "$MACHINE" &>/dev/null; then
-        machinectl terminate "$MACHINE" 2>/dev/null
-        timeout 10 bash -c "while machinectl status '$MACHINE' &>/dev/null; do sleep .5; done" 2>/dev/null
-    fi
+    for m in "$MACHINE" "${MACHINE2:-}"; do
+        [[ -n "$m" ]] || continue
+        if machinectl status "$m" &>/dev/null; then
+            machinectl terminate "$m" 2>/dev/null
+            timeout 10 bash -c "while machinectl status '$m' &>/dev/null; do sleep .5; done" 2>/dev/null
+        fi
+    done
 
     [[ -n "${VMSPAWN_PID:-}" ]] && kill "$VMSPAWN_PID" 2>/dev/null && wait "$VMSPAWN_PID" 2>/dev/null
+    [[ -n "${VMSPAWN2_PID:-}" ]] && kill "$VMSPAWN2_PID" 2>/dev/null && wait "$VMSPAWN2_PID" 2>/dev/null
     rm -rf "$WORKDIR"
     rm -f /etc/polkit-1/rules.d/vmspawntest.rules
 }
@@ -211,14 +215,70 @@ echo "Unprivileged Pause/Resume succeeded with polkit rule"
 # Clean up the polkit rule
 rm -f /etc/polkit-1/rules.d/vmspawntest.rules
 
-# --- Terminate and verify cleanup ---
-# Test machinectl terminate -- sends QMP quit which forcefully kills QEMU.
-machinectl terminate "$MACHINE"
-timeout 10 bash -c "while machinectl status '$MACHINE' &>/dev/null; do sleep .5; done"
-echo "machinectl terminate succeeded, VM is gone"
+# --- Parallel multi-machine dispatch tests ---
+# Launch a second VM to test machinectl operating on multiple machines simultaneously.
+# Use a separate rootfs so each VM gets independent sidecar state (TPM, EFI NVRAM).
+MACHINE2="test-vmspawn-qmp2-$$"
 
-# vmspawn should have exited too
+mkdir -p "$WORKDIR/root2/sbin"
+cp "$WORKDIR/root/sbin/init" "$WORKDIR/root2/sbin/init"
+
+systemd-vmspawn \
+    --machine="$MACHINE2" \
+    --directory="$WORKDIR/root2" \
+    --linux="$KERNEL" \
+    --tpm=no \
+    --console=headless \
+    &>"$WORKDIR/vmspawn2.log" &
+VMSPAWN2_PID=$!
+
+timeout 30 bash -c "
+    while ! machinectl list --no-legend 2>/dev/null | grep >/dev/null '$MACHINE2'; do
+        if ! kill -0 $VMSPAWN2_PID 2>/dev/null; then
+            echo 'vmspawn2 exited before registering'
+            cat '$WORKDIR/vmspawn2.log'
+            exit 1
+        fi
+        sleep .5
+    done
+"
+echo "Second machine '$MACHINE2' registered"
+
+VARLINK_ADDR2=$(varlinkctl call /run/systemd/machine/io.systemd.Machine \
+    io.systemd.Machine.List "{\"name\":\"$MACHINE2\"}" | jq -r '.controlAddress')
+assert_neq "$VARLINK_ADDR2" "null"
+
+# Parallel pause: both machines at once
+machinectl pause "$MACHINE" "$MACHINE2"
+echo "Parallel pause of two machines succeeded"
+
+# Verify both are paused
+varlinkctl call "$VARLINK_ADDR" io.systemd.MachineInstance.QueryStatus '{}' | jq -e '.running == false'
+varlinkctl call "$VARLINK_ADDR2" io.systemd.MachineInstance.QueryStatus '{}' | jq -e '.running == false'
+echo "Both machines verified paused"
+
+# Parallel resume
+machinectl resume "$MACHINE" "$MACHINE2"
+echo "Parallel resume of two machines succeeded"
+
+# Verify both resumed
+varlinkctl call "$VARLINK_ADDR" io.systemd.MachineInstance.QueryStatus '{}' | jq -e '.running == true'
+varlinkctl call "$VARLINK_ADDR2" io.systemd.MachineInstance.QueryStatus '{}' | jq -e '.running == true'
+echo "Both machines verified running"
+
+# --- Terminate and verify cleanup ---
+# Parallel terminate: both machines at once (QMP quit)
+machinectl terminate "$MACHINE" "$MACHINE2"
+timeout 10 bash -c "
+    while machinectl status '$MACHINE' &>/dev/null || machinectl status '$MACHINE2' &>/dev/null; do
+        sleep .5
+    done
+"
+echo "Parallel terminate succeeded, both VMs gone"
+
+# Both vmspawn processes should have exited
 timeout 10 bash -c "while kill -0 '$VMSPAWN_PID' 2>/dev/null; do sleep .5; done"
-echo "vmspawn process exited"
+timeout 10 bash -c "while kill -0 '$VMSPAWN2_PID' 2>/dev/null; do sleep .5; done"
+echo "Both vmspawn processes exited"
 
 echo "All vmspawn QMP-varlink bridge tests passed"
