@@ -41,7 +41,8 @@ static int manager_varlink_get_session_by_peer(
         assert(ret);
 
         /* Determines the session of the peer. If the peer is not part of a session, but consult_display is
-         * true, then will return the display session of the peer's owning user */
+         * true, then will return the display session of the peer's owning user. Returns 0 with *ret set to
+         * NULL if no session could be determined; the caller decides which error to report to the client. */
 
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         r = varlink_get_peer_pidref(link, &pidref);
@@ -70,9 +71,6 @@ static int manager_varlink_get_session_by_peer(
         } else
                 session = hashmap_get(m->sessions, name);
 
-        if (!session)
-                return sd_varlink_error(link, "io.systemd.Login.NoSuchSession", /* parameters= */ NULL);
-
         *ret = session;
         return 0;
 }
@@ -83,16 +81,26 @@ static int manager_varlink_get_session_by_name(
                 const char *name,
                 Session **ret) {
 
+        int r;
+
         assert(m);
         assert(link);
         assert(ret);
 
         /* Resolves a session name to a session object. Supports resolving the special names "self" and "auto". */
 
-        if (session_is_self(name))
-                return manager_varlink_get_session_by_peer(m, link, /* consult_display= */ false, ret);
-        if (session_is_auto(name))
-                return manager_varlink_get_session_by_peer(m, link, /* consult_display= */ true, ret);
+        if (session_is_self(name) || session_is_auto(name)) {
+                Session *session;
+
+                r = manager_varlink_get_session_by_peer(m, link, /* consult_display= */ session_is_auto(name), &session);
+                if (r < 0)
+                        return r;
+                if (!session)
+                        return sd_varlink_error(link, "io.systemd.Login.NoSuchSession", /* parameters= */ NULL);
+
+                *ret = session;
+                return 0;
+        }
 
         Session *session = hashmap_get(m->sessions, name);
         if (!session)
@@ -304,6 +312,67 @@ fail:
         return r;
 }
 
+static int vl_method_describe_session(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        struct {
+                const char *id;
+        } p = {};
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "Id", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, voffsetof(p, id), 0 },
+                {}
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        Session *session;
+        r = manager_varlink_get_session_by_name(m, link, p.id, &session);
+        if (r != 0)
+                return r;
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        r = session_build_json(session, &v);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_VARIANT("Session", v));
+}
+
+static int vl_method_list_sessions(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
+                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, /* parameters= */ NULL);
+
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
+        if (r != 0)
+                return r;
+
+        r = sd_varlink_set_sentinel(link, "io.systemd.Login.NoSuchSession");
+        if (r < 0)
+                return r;
+
+        Session *session;
+        HASHMAP_FOREACH(session, m->sessions) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+                r = session_build_json(session, &v);
+                if (r < 0)
+                        return r;
+
+                r = sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_VARIANT("Session", v));
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static int vl_method_release_session(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
         int r;
@@ -330,6 +399,8 @@ static int vl_method_release_session(sd_varlink *link, sd_json_variant *paramete
         r = manager_varlink_get_session_by_peer(m, link, /* consult_display= */ false, &peer_session);
         if (r < 0)
                 return r;
+        if (!peer_session)
+                return sd_varlink_error(link, "io.systemd.Login.NoSuchSession", /* parameters= */ NULL);
 
         if (session != peer_session)
                 return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, /* parameters= */ NULL);
@@ -472,6 +543,8 @@ int manager_varlink_init(Manager *m, int fd) {
                         "io.systemd.Shutdown.Halt",          vl_method_halt,
                         "io.systemd.Shutdown.KExec",         vl_method_kexec,
                         "io.systemd.Shutdown.SoftReboot",    vl_method_soft_reboot,
+                        "io.systemd.Login.DescribeSession",  vl_method_describe_session,
+                        "io.systemd.Login.ListSessions",     vl_method_list_sessions,
                         "io.systemd.service.Ping",           varlink_method_ping,
                         "io.systemd.service.SetLogLevel",    varlink_method_set_log_level,
                         "io.systemd.service.GetEnvironment", varlink_method_get_environment);
