@@ -17,6 +17,7 @@
 #include "format-util.h"
 #include "fs-util.h"
 #include "hashmap.h"
+#include "json-util.h"
 #include "limits-util.h"
 #include "logind-session.h"
 #include "logind.h"
@@ -957,6 +958,57 @@ void user_update_last_session_timer(User *u) {
                 log_debug("Last session of user '%s' logged out, terminating user context in %s.",
                           u->user_record->user_name,
                           FORMAT_TIMESPAN(user_stop_delay, USEC_PER_MSEC));
+}
+
+int user_build_json(User *u, sd_json_variant **ret) {
+        assert(u);
+        assert(u->user_record);
+        assert(ret);
+
+        dual_timestamp idle_ts = DUAL_TIMESTAMP_NULL;
+        bool idle;
+        int r;
+
+        idle = user_get_idle_hint(u, &idle_ts);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *sessions_array = NULL;
+        LIST_FOREACH(sessions_by_user, session, u->sessions) {
+                r = sd_json_variant_append_arraybo(
+                                &sessions_array,
+                                SD_JSON_BUILD_PAIR_STRING("Id", session->id));
+                if (r < 0)
+                        return r;
+        }
+
+        int linger = user_check_linger_file(u);
+        if (linger == -ENOMEM)
+                return linger;
+        if (linger < 0)
+                log_warning_errno(linger,
+                                  "Failed to check linger file for user '%s', assuming disabled: %m",
+                                  u->user_record->user_name);
+
+        return sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_UNSIGNED("UID", u->user_record->uid),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("GID", u->user_record->gid),
+                        SD_JSON_BUILD_PAIR_STRING("Name", u->user_record->user_name),
+                        JSON_BUILD_PAIR_DUAL_TIMESTAMP_NON_NULL("Timestamp", &u->timestamp),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("RuntimePath", u->runtime_path),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Service", u->service_manager_unit),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Slice", u->slice),
+                        JSON_BUILD_PAIR_STRING_NON_EMPTY("Display", u->display ? u->display->id : NULL),
+                        SD_JSON_BUILD_PAIR_STRING("State", user_state_to_string(user_get_state(u))),
+                        SD_JSON_BUILD_PAIR_CONDITION(sd_json_variant_is_blank_array(sessions_array),
+                                                     "Sessions", SD_JSON_BUILD_EMPTY_ARRAY),
+                        SD_JSON_BUILD_PAIR_CONDITION(!sd_json_variant_is_blank_array(sessions_array),
+                                                     "Sessions", SD_JSON_BUILD_VARIANT(sessions_array)),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("IdleHint", idle),
+                        SD_JSON_BUILD_PAIR_CONDITION(dual_timestamp_is_set(&idle_ts),
+                                                     "IdleSinceHint", SD_JSON_BUILD_UNSIGNED(idle_ts.realtime)),
+                        SD_JSON_BUILD_PAIR_CONDITION(dual_timestamp_is_set(&idle_ts),
+                                                     "IdleSinceHintMonotonic", SD_JSON_BUILD_UNSIGNED(idle_ts.monotonic)),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("Linger", linger > 0));
 }
 
 static const char* const user_state_table[_USER_STATE_MAX] = {
