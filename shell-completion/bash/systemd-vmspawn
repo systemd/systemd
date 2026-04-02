@@ -31,7 +31,7 @@ _systemd_vmspawn() {
     local -A OPTS=(
         [STANDALONE]='-h --help --version -q --quiet --no-pager -n --network-tap --network-user-mode --user --system -x --ephemeral'
         [PATH]='-D --directory -i --image --linux --initrd --extra-drive --forward-journal --efi-nvram-template'
-        [BOOL]='--kvm --vsock --tpm --discard-disk --register --pass-ssh-key'
+        [BOOL]='--kvm --cxl --vsock --tpm --discard-disk --register --pass-ssh-key'
         [SECURE_BOOT]='--secure-boot'
         [FIRMWARE]='--firmware'
         [FIRMWARE_FEATURES]='--firmware-features'
