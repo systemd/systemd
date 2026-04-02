@@ -47,6 +47,9 @@
 /* How much to wait for a reply to a terminal sequence */
 #define CONSOLE_REPLY_WAIT_USEC  (333 * USEC_PER_MSEC)
 
+/* How much to wait when writing ANSI sequences to the console */
+#define CONSOLE_WRITE_TIMEOUT_USEC (100 * USEC_PER_MSEC)
+
 static volatile unsigned cached_columns = 0;
 static volatile unsigned cached_lines = 0;
 
@@ -848,7 +851,7 @@ int vt_disallocate(const char *tty_path) {
                                "\033[3J"  /* clear screen including scrollback, requires Linux 2.6.40 */
                                "\033c",   /* reset to initial state */
                                SIZE_MAX,
-                               100 * USEC_PER_MSEC);
+                               CONSOLE_WRITE_TIMEOUT_USEC);
 }
 
 static int vt_default_utf8(void) {
@@ -966,7 +969,7 @@ int terminal_reset_ansi_seq(int fd) {
                             "\033[1G"              /* place cursor at beginning of current line */
                             "\033[0J",             /* erase till end of screen */
                             SIZE_MAX,
-                            100 * USEC_PER_MSEC);
+                            CONSOLE_WRITE_TIMEOUT_USEC);
         if (k < 0)
                 log_debug_errno(k, "Failed to reset terminal through ANSI sequences: %m");
 
@@ -2379,12 +2382,13 @@ static int terminal_query_size_by_dsr(
 
         /* Use DECSC/DECRC to save/restore cursor instead of querying position via DSR. This way the cursor
          * is always restored — even on timeout — and we only need one DSR response instead of two. */
-        r = loop_write(output_fd,
-                       "\x1B" "7"              /* DECSC: save cursor position */
-                       "\x1B[32766;32766H"     /* CUP: position cursor far to the right and to the bottom, staying within 16bit signed range */
-                       "\x1B[6n"               /* DSR: request cursor position (CPR) */
-                       "\x1B" "8",             /* DECRC: restore cursor position */
-                       SIZE_MAX);
+        r = loop_write_full(output_fd,
+                            "\x1B" "7"              /* DECSC: save cursor position */
+                            "\x1B[32766;32766H"     /* CUP: position cursor far to the right and to the bottom, staying within 16bit signed range */
+                            "\x1B[6n"               /* DSR: request cursor position (CPR) */
+                            "\x1B" "8",             /* DECRC: restore cursor position */
+                            SIZE_MAX,
+                            CONSOLE_WRITE_TIMEOUT_USEC);
         if (r < 0)
                 return r;
 
@@ -2536,7 +2540,7 @@ static int terminal_query_size_by_csi18(
         assert(nonblock_input_fd >= 0);
         assert(output_fd >= 0);
 
-        r = loop_write(output_fd, CSI18_Q, SIZE_MAX);
+        r = loop_write_full(output_fd, CSI18_Q, SIZE_MAX, CONSOLE_WRITE_TIMEOUT_USEC);
         if (r < 0)
                 return r;
 
@@ -2591,7 +2595,7 @@ int terminal_get_size(
         _cleanup_close_ int nonblock_input_fd = -EBADF;
         struct termios old_termios = TERMIOS_NULL;
         CLEANUP_TERMIOS_RESET(nonblock_input_fd, old_termios);
-        int r;
+        int r, nb;
 
         assert(try_dsr || try_csi18);
 
@@ -2599,28 +2603,41 @@ int terminal_get_size(
         if (r < 0)
                 return r;
 
+        /* Put the output fd in non-blocking mode with a write timeout, to avoid blocking indefinitely on
+         * write if the terminal is not consuming data (e.g. serial console with flow control). */
+        nb = fd_nonblock(output_fd, true);
+        if (nb < 0)
+                log_debug_errno(nb, "Failed to set terminal to non-blocking mode, ignoring: %m");
+
         /* Flush any stale input that might confuse the response parsers. */
         (void) tcflush(nonblock_input_fd, TCIFLUSH);
 
         if (try_csi18) {
                 r = terminal_query_size_by_csi18(nonblock_input_fd, output_fd, ret_rows, ret_columns);
                 if (r >= 0)
-                        return r;
+                        goto finish;
 
                 /* Query failed. Flush any outstanding input. */
                 (void) tcflush(nonblock_input_fd, TCIFLUSH);
 
                 if (!IN_SET(r, -EOPNOTSUPP, -EINVAL))
-                        return r;
+                        goto finish;
         }
 
         if (try_dsr) {
                 r = terminal_query_size_by_dsr(nonblock_input_fd, output_fd, ret_rows, ret_columns);
                 if (r >= 0)
-                        return r;
+                        goto finish;
 
                 /* Query failed. Flush any outstanding input. */
                 (void) tcflush(nonblock_input_fd, TCIFLUSH);
+        }
+
+finish:
+        if (nb > 0) {
+                int q = fd_nonblock(output_fd, false);
+                if (q < 0)
+                        log_debug_errno(q, "Failed to set terminal back to blocking mode: %m");
         }
 
         return r;
