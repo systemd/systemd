@@ -41,7 +41,8 @@ static int manager_varlink_get_session_by_peer(
         assert(ret);
 
         /* Determines the session of the peer. If the peer is not part of a session, but consult_display is
-         * true, then will return the display session of the peer's owning user */
+         * true, then will return the display session of the peer's owning user. Returns 0 with *ret set to
+         * NULL if no session could be determined; the caller decides which error to report to the client. */
 
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         r = varlink_get_peer_pidref(link, &pidref);
@@ -70,35 +71,114 @@ static int manager_varlink_get_session_by_peer(
         } else
                 session = hashmap_get(m->sessions, name);
 
+        *ret = session;
+        return 0;
+}
+
+static int lookup_session_by_name(Manager *m, sd_varlink *link, const char *name, Session **ret) {
+        int r;
+
+        assert(m);
+        assert(link);
+        assert(name);
+        assert(ret);
+
+        if (session_is_self(name) || session_is_auto(name)) {
+                Session *peer;
+                r = manager_varlink_get_session_by_peer(m, link, /* consult_display= */ session_is_auto(name), &peer);
+                if (r < 0)
+                        return r;
+                if (!peer)
+                        return -ESRCH;
+
+                *ret = peer;
+                return 0;
+        }
+
+        if (!session_id_valid(name))
+                return -EINVAL;
+
+        Session *session = hashmap_get(m->sessions, name);
         if (!session)
-                return sd_varlink_error(link, "io.systemd.Login.NoSuchSession", /* parameters= */ NULL);
+                return -ESRCH;
 
         *ret = session;
         return 0;
 }
 
-static int manager_varlink_get_session_by_name(
+static int lookup_session_by_pidref(Manager *m, const PidRef *pidref, Session **ret) {
+        int r;
+
+        assert(m);
+        assert(pidref);
+        assert(ret);
+
+        Session *session;
+        r = manager_get_session_by_pidref(m, pidref, &session);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to look up session by PID " PID_FMT ": %m", pidref->pid);
+        if (!session)
+                return -ESRCH;
+
+        *ret = session;
+        return 0;
+}
+
+static int manager_varlink_get_session_by_name_or_pidref(
                 Manager *m,
                 sd_varlink *link,
                 const char *name,
+                const PidRef *pidref,
                 Session **ret) {
+
+        Session *by_name = NULL, *by_pid = NULL;
+        int r;
 
         assert(m);
         assert(link);
         assert(ret);
 
-        /* Resolves a session name to a session object. Supports resolving the special names "self" and "auto". */
+        /* Resolves a session by name and/or PID. Supports the special names "self" and "auto" for the name
+         * argument. If both name and pidref are unset, resolves to the caller's session. If both name and
+         * pidref are set they must refer to the same session, otherwise -ESRCH is returned. Returns -ESRCH
+         * on "not found". Caller is expected to turn that into a varlink error, typically via
+         * sd_varlink_set_sentinel(). Returns negative errno on other failures. */
 
-        if (session_is_self(name))
-                return manager_varlink_get_session_by_peer(m, link, /* consult_display= */ false, ret);
-        if (session_is_auto(name))
-                return manager_varlink_get_session_by_peer(m, link, /* consult_display= */ true, ret);
+        if (name) {
+                r = lookup_session_by_name(m, link, name, &by_name);
+                if (r == -EINVAL)
+                        return sd_varlink_error_invalid_parameter_name(link, "ID");
+                if (r < 0)
+                        return r;
+        }
 
-        Session *session = hashmap_get(m->sessions, name);
-        if (!session)
-                return sd_varlink_error(link, "io.systemd.Login.NoSuchSession", /* parameters= */ NULL);
+        if (pidref && pidref_is_set(pidref)) {
+                r = lookup_session_by_pidref(m, pidref, &by_pid);
+                if (r == -EINVAL)
+                        return sd_varlink_error_invalid_parameter_name(link, "PID");
+                if (r < 0)
+                        return r;
+        }
 
-        *ret = session;
+        if (by_name && by_pid && by_name != by_pid)
+                return log_debug_errno(SYNTHETIC_ERRNO(ESRCH),
+                                       "Search by session id '%s' and PID " PID_FMT " resulted in two different sessions",
+                                       name, pidref->pid);
+
+        if (by_name || by_pid) {
+                *ret = by_name ?: by_pid;
+                return 0;
+        }
+
+        /* Neither filter set — fall back to caller's session. */
+        Session *by_peer;
+        r = manager_varlink_get_session_by_peer(m, link, /* consult_display= */ true, &by_peer);
+        if (r < 0)
+                return r;
+        if (!by_peer)
+                return -ESRCH;
+
+        *ret = by_peer;
         return 0;
 }
 
@@ -125,11 +205,11 @@ int session_send_create_reply_varlink(Session *s, const sd_bus_error *error) {
 
         return sd_varlink_replybo(
                         vl,
-                        SD_JSON_BUILD_PAIR_STRING("Id", s->id),
+                        SD_JSON_BUILD_PAIR_STRING("ID", s->id),
                         SD_JSON_BUILD_PAIR_STRING("RuntimePath", s->user->runtime_path),
                         SD_JSON_BUILD_PAIR_UNSIGNED("UID", s->user->user_record->uid),
                         SD_JSON_BUILD_PAIR_CONDITION(!!s->seat, "Seat", SD_JSON_BUILD_STRING(s->seat ? s->seat->id : NULL)),
-                        SD_JSON_BUILD_PAIR_CONDITION(s->vtnr > 0, "VTNr", SD_JSON_BUILD_UNSIGNED(s->vtnr)),
+                        JSON_BUILD_PAIR_INTEGER_NON_NEGATIVE("VTNr", s->vtnr),
                         JSON_BUILD_PAIR_ENUM("Class", session_class_to_string(s->class)),
                         JSON_BUILD_PAIR_ENUM("Type", session_type_to_string(s->type)));
 }
@@ -304,6 +384,76 @@ fail:
         return r;
 }
 
+static int emit_session_reply(sd_varlink *link, Session *session) {
+        assert(link);
+        assert(session);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        int r = session_build_json(session, &v);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_reply(link, v);
+}
+
+typedef struct ListSessionsParameters {
+        const char *id;
+        PidRef pidref;
+} ListSessionsParameters;
+
+static void list_sessions_parameters_done(ListSessionsParameters *p) {
+        assert(p);
+        pidref_done(&p->pidref);
+}
+
+static int vl_method_list_sessions(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "ID",  SD_JSON_VARIANT_STRING,        sd_json_dispatch_const_string, offsetof(ListSessionsParameters, id),     0 },
+                { "PID", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_pidref,          offsetof(ListSessionsParameters, pidref), 0 },
+                {}
+        };
+
+        _cleanup_(list_sessions_parameters_done) ListSessionsParameters p = {
+                .pidref = PIDREF_NULL,
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        r = sd_varlink_set_sentinel(link, "io.systemd.Login.NoSuchSession");
+        if (r < 0)
+                return r;
+
+        /* Unique-key path: ID and/or PID provided. Single reply or NoSuchSession. */
+        if (p.id || pidref_is_set(&p.pidref)) {
+                Session *session;
+                r = manager_varlink_get_session_by_name_or_pidref(m, link, p.id, &p.pidref, &session);
+                if (r == -ESRCH)
+                        return 0; /* triggers NoSuchSession sentinel */
+                if (r < 0)
+                        return r;
+
+                return emit_session_reply(link, session);
+        }
+
+        /* Streaming path: no filter. Full list, requires 'more' flag. */
+        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
+                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, /* parameters= */ NULL);
+
+        Session *session;
+        HASHMAP_FOREACH(session, m->sessions) {
+                r = emit_session_reply(link, session);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static int vl_method_release_session(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
         int r;
@@ -313,7 +463,7 @@ static int vl_method_release_session(sd_varlink *link, sd_json_variant *paramete
         } p;
 
         static const sd_json_dispatch_field dispatch_table[] = {
-                { "Id", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, voffsetof(p, id), 0 },
+                { "ID", SD_JSON_VARIANT_STRING, sd_json_dispatch_const_string, voffsetof(p, id), 0 },
                 {}
         };
 
@@ -322,7 +472,9 @@ static int vl_method_release_session(sd_varlink *link, sd_json_variant *paramete
                 return r;
 
         Session *session;
-        r = manager_varlink_get_session_by_name(m, link, p.id, &session);
+        r = manager_varlink_get_session_by_name_or_pidref(m, link, p.id, /* pidref= */ NULL, &session);
+        if (r == -ESRCH)
+                return sd_varlink_error(link, "io.systemd.Login.NoSuchSession", /* parameters= */ NULL);
         if (r < 0)
                 return r;
 
@@ -330,6 +482,8 @@ static int vl_method_release_session(sd_varlink *link, sd_json_variant *paramete
         r = manager_varlink_get_session_by_peer(m, link, /* consult_display= */ false, &peer_session);
         if (r < 0)
                 return r;
+        if (!peer_session)
+                return sd_varlink_error(link, "io.systemd.Login.NoSuchSession", /* parameters= */ NULL);
 
         if (session != peer_session)
                 return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, /* parameters= */ NULL);
@@ -472,6 +626,7 @@ int manager_varlink_init(Manager *m, int fd) {
                         "io.systemd.Shutdown.Halt",          vl_method_halt,
                         "io.systemd.Shutdown.KExec",         vl_method_kexec,
                         "io.systemd.Shutdown.SoftReboot",    vl_method_soft_reboot,
+                        "io.systemd.Login.ListSessions",     vl_method_list_sessions,
                         "io.systemd.service.Ping",           varlink_method_ping,
                         "io.systemd.service.SetLogLevel",    varlink_method_set_log_level,
                         "io.systemd.service.GetEnvironment", varlink_method_get_environment);
