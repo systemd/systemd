@@ -52,7 +52,8 @@ typedef struct {
 #define VERB_NOARG(d, v, h)                                             \
         VERB(d, v, /* a= */ NULL, /* amin= */ VERB_ANY, /* amax= */ 1, /* f= */ 0, h)
 
-/* Magic entry in the table (which will not be returned) that designates the start of the group <gr>. */
+/* Magic entry in the table (which will not be returned) that designates the start of the group <gr>.
+ * The macro works as a separator between groups and must be between other VERB* stanzas. */
 #define VERB_GROUP(gr)                                                  \
         _VERB_DATA(/* d= */ NULL, /* v= */ gr, /* a= */ NULL, /* amin= */ 0, /* amax= */ 0, \
                   /* f= */ VERB_GROUP_MARKER, /* dat= */ 0, /* h= */ NULL)
