@@ -2033,7 +2033,7 @@ static int run(int argc, char *argv[]) {
                                 log_debug_errno(r, "Lacking permissions or missing /dev/loop-control to set up loopback block device for %s, using service: %m", arg_image);
                                 arg_via_service = true;
                         } else {
-                                if (arg_loop_ref) {
+                                if (arg_loop_ref && !LOOP_DEVICE_IS_FOREIGN(d)) {
                                         r = loop_device_set_filename(d, arg_loop_ref);
                                         if (r < 0)
                                                 log_warning_errno(r, "Failed to set loop reference string to '%s', ignoring: %m", arg_loop_ref);
