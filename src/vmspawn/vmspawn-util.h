@@ -49,6 +49,12 @@
 #  define QEMU_MACHINE_TYPE "none"
 #endif
 
+#if defined(__arm__) || defined(__aarch64__)
+#  define QEMU_SERIAL_CONSOLE_NAME "ttyAMA0"
+#else
+#  define QEMU_SERIAL_CONSOLE_NAME "ttyS0"
+#endif
+
 typedef struct OvmfConfig {
         char *path;
         char *format;

@@ -36,3 +36,10 @@ static const char *const console_mode_table[_CONSOLE_MODE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(console_mode, ConsoleMode);
+
+static const char *const console_transport_table[_CONSOLE_TRANSPORT_MAX] = {
+        [CONSOLE_TRANSPORT_VIRTIO] = "virtio",
+        [CONSOLE_TRANSPORT_SERIAL] = "serial",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(console_transport, ConsoleTransport);

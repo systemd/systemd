@@ -134,6 +134,7 @@ static int arg_tpm = -1;
 static char *arg_linux = NULL;
 static char **arg_initrds = NULL;
 static ConsoleMode arg_console_mode = CONSOLE_INTERACTIVE;
+static ConsoleTransport arg_console_transport = CONSOLE_TRANSPORT_VIRTIO;
 static NetworkStack arg_network_stack = NETWORK_STACK_NONE;
 static MachineCredentialContext arg_credentials = {};
 static uid_t arg_uid_shift = UID_INVALID, arg_uid_range = 0x10000U;
@@ -286,6 +287,8 @@ static int help(void) {
                "\n%3$sInput/Output:%4$s\n"
                "     --console=MODE        Console mode (interactive, native, gui, read-only\n"
                "                           or headless)\n"
+               "     --console-transport=TRANSPORT\n"
+               "                           Console transport (virtio or serial)\n"
                "     --background=COLOR    Set ANSI color for background\n"
                "\n%3$sCredentials:%4$s\n"
                "     --set-credential=ID:VALUE\n"
@@ -370,6 +373,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_USER,
                 ARG_IMAGE_FORMAT,
                 ARG_IMAGE_DISK_TYPE,
+                ARG_CONSOLE_TRANSPORT,
         };
 
         static const struct option options[] = {
@@ -397,6 +401,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "linux",             required_argument, NULL, ARG_LINUX             },
                 { "initrd",            required_argument, NULL, ARG_INITRD            },
                 { "console",           required_argument, NULL, ARG_CONSOLE           },
+                { "console-transport", required_argument, NULL, ARG_CONSOLE_TRANSPORT },
                 { "qemu-gui",          no_argument,       NULL, ARG_QEMU_GUI          }, /* compat option */
                 { "network-tap",       no_argument,       NULL, 'n'                   },
                 { "network-user-mode", no_argument,       NULL, ARG_NETWORK_USER_MODE },
@@ -570,6 +575,13 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_console_mode = console_mode_from_string(optarg);
                         if (arg_console_mode < 0)
                                 return log_error_errno(arg_console_mode, "Failed to parse specified console mode: %s", optarg);
+
+                        break;
+
+                case ARG_CONSOLE_TRANSPORT:
+                        arg_console_transport = console_transport_from_string(optarg);
+                        if (arg_console_transport < 0)
+                                return log_error_errno(arg_console_transport, "Failed to parse specified console transport: %s", optarg);
 
                         break;
 
@@ -2562,20 +2574,9 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (r < 0)
                         return log_oom();
 
-                r = qemu_config_section(config_file, "device", "vmspawn-virtio-serial-pci",
-                                        "driver", "virtio-serial-pci");
-                if (r < 0)
-                        return r;
-
                 r = qemu_config_section(config_file, "chardev", "console",
                                         "backend", "serial",
                                         "path", pty_path);
-                if (r < 0)
-                        return r;
-
-                r = qemu_config_section(config_file, "device", "virtconsole0",
-                                        "driver", "virtconsole",
-                                        "chardev", "console");
                 if (r < 0)
                         return r;
 
@@ -2621,17 +2622,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (r < 0)
                         return r;
 
-                r = qemu_config_section(config_file, "device", "vmspawn-virtio-serial-pci",
-                                        "driver", "virtio-serial-pci");
-                if (r < 0)
-                        return r;
-
-                r = qemu_config_section(config_file, "device", "virtconsole0",
-                                        "driver", "virtconsole",
-                                        "chardev", "console");
-                if (r < 0)
-                        return r;
-
                 r = qemu_config_section(config_file, "mon", "mon0",
                                         "chardev", "console");
                 if (r < 0)
@@ -2648,6 +2638,29 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         default:
                 assert_not_reached();
+        }
+
+        if (!IN_SET(arg_console_mode, CONSOLE_GUI, CONSOLE_HEADLESS)) {
+                if (arg_console_transport == CONSOLE_TRANSPORT_SERIAL) {
+                        /* Use -serial to connect the chardev to the platform's default serial
+                         * device (e.g. isa-serial on x86, PL011 on ARM). On some platforms the
+                         * serial device is a sysbus device that can only be connected via
+                         * serial_hd() which is populated by -serial, not via the config file. */
+                        r = strv_extend_many(&cmdline, "-serial", "chardev:console");
+                        if (r < 0)
+                                return log_oom();
+                } else {
+                        r = qemu_config_section(config_file, "device", "vmspawn-virtio-serial-pci",
+                                                "driver", "virtio-serial-pci");
+                        if (r < 0)
+                                return r;
+
+                        r = qemu_config_section(config_file, "device", "virtconsole0",
+                                                "driver", "virtconsole",
+                                                "chardev", "console");
+                        if (r < 0)
+                                return r;
+                }
         }
 
         r = qemu_config_section(config_file, "drive", "ovmf-code",
@@ -2993,7 +3006,9 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         }
 
         if (!IN_SET(arg_console_mode, CONSOLE_GUI, CONSOLE_HEADLESS)) {
-                r = strv_prepend(&arg_kernel_cmdline_extra, "console=hvc0");
+                r = strv_prepend(&arg_kernel_cmdline_extra,
+                                 arg_console_transport == CONSOLE_TRANSPORT_SERIAL ?
+                                 "console=" QEMU_SERIAL_CONSOLE_NAME : "console=hvc0");
                 if (r < 0)
                         return log_oom();
         }
