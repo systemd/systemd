@@ -397,6 +397,158 @@ static int vl_method_list_sessions(sd_varlink *link, sd_json_variant *parameters
         return 0;
 }
 
+static int manager_varlink_resolve_peer_uid(sd_varlink *link, uid_t *ret) {
+        assert(link);
+        assert(ret);
+
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        int r = varlink_get_peer_pidref(link, &pidref);
+        if (r < 0)
+                return log_error_errno(r, "Failed to acquire peer PID: %m");
+
+        uid_t uid;
+        r = cg_pidref_get_owner_uid(&pidref, &uid);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to acquire owning UID of peer: %m");
+                return -ESRCH;
+        }
+
+        *ret = uid;
+        return 0;
+}
+
+static int manager_varlink_get_user_by_uid_or_pidref(
+                Manager *m,
+                sd_varlink *link,
+                uid_t uid,
+                const PidRef *pidref,
+                User **ret) {
+
+        int r;
+
+        assert(m);
+        assert(link);
+        assert(ret);
+
+        /* Resolves a user by UID and/or PID. If UID is UID_INVALID and pidref is unset, resolves to the
+         * calling peer's UID. If both UID and pidref are set they must reference the same user, otherwise
+         * -ESRCH is returned. Returns -ESRCH on "not found". Returns negative errno on other failures; a
+         * positive return value indicates that a varlink error reply has already been sent. */
+
+        User *by_uid = NULL;
+        if (uid_is_valid(uid)) {
+                by_uid = hashmap_get(m->users, UID_TO_PTR(uid));
+                if (!by_uid)
+                        return -ESRCH;
+        }
+
+        User *by_pid = NULL;
+        if (pidref && pidref_is_set(pidref)) {
+                uid_t pid_uid;
+                r = cg_pidref_get_owner_uid(pidref, &pid_uid);
+                if (r == -ENOENT || r == -ENODATA || r == -ESRCH)
+                        return -ESRCH;
+                if (r < 0)
+                        return r;
+
+                by_pid = hashmap_get(m->users, UID_TO_PTR(pid_uid));
+                if (!by_pid)
+                        return -ESRCH;
+        }
+
+        if (by_uid && by_pid && by_uid != by_pid)
+                return -ESRCH;
+
+        if (by_uid || by_pid) {
+                *ret = by_uid ?: by_pid;
+                return 0;
+        }
+
+        /* No filter set: resolve to caller's UID. */
+        uid_t peer_uid;
+        r = manager_varlink_resolve_peer_uid(link, &peer_uid);
+        if (r < 0)
+                return r; /* -ESRCH propagates as "not found" */
+
+        User *peer_user = hashmap_get(m->users, UID_TO_PTR(peer_uid));
+        if (!peer_user)
+                return -ESRCH;
+
+        *ret = peer_user;
+        return 0;
+}
+
+static int emit_user_reply(sd_varlink *link, User *user) {
+        assert(link);
+        assert(user);
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        int r = user_build_json(user, &v);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_VARIANT("User", v));
+}
+
+typedef struct ListUsersParameters {
+        uid_t uid;
+        PidRef pidref;
+} ListUsersParameters;
+
+static void list_users_parameters_done(ListUsersParameters *p) {
+        assert(p);
+        pidref_done(&p->pidref);
+}
+
+static int vl_method_list_users(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "UID", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uid_gid, offsetof(ListUsersParameters, uid),    0 },
+                { "PID", _SD_JSON_VARIANT_TYPE_INVALID, json_dispatch_pidref,     offsetof(ListUsersParameters, pidref), 0 },
+                {}
+        };
+
+        _cleanup_(list_users_parameters_done) ListUsersParameters p = {
+                .uid = UID_INVALID,
+                .pidref = PIDREF_NULL,
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        r = sd_varlink_set_sentinel(link, "io.systemd.Login.NoSuchUser");
+        if (r < 0)
+                return r;
+
+        bool has_filter = uid_is_valid(p.uid) || pidref_is_set(&p.pidref);
+
+        /* Single-reply path: either an explicit filter, or no filter + no 'more' flag (caller-UID
+         * fallback preserves the DescribeUser ergonomic). */
+        if (has_filter || !FLAGS_SET(flags, SD_VARLINK_METHOD_MORE)) {
+                User *user;
+                r = manager_varlink_get_user_by_uid_or_pidref(m, link, p.uid, &p.pidref, &user);
+                if (r == -ESRCH)
+                        return 0; /* triggers NoSuchUser sentinel */
+                if (r != 0)
+                        return r;
+
+                return emit_user_reply(link, user);
+        }
+
+        /* Streaming path: no filter, 'more' flag set. Full list. */
+        User *user;
+        HASHMAP_FOREACH(user, m->users) {
+                r = emit_user_reply(link, user);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static int vl_method_release_session(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
         int r;
@@ -570,6 +722,7 @@ int manager_varlink_init(Manager *m, int fd) {
                         "io.systemd.Shutdown.KExec",         vl_method_kexec,
                         "io.systemd.Shutdown.SoftReboot",    vl_method_soft_reboot,
                         "io.systemd.Login.ListSessions",     vl_method_list_sessions,
+                        "io.systemd.Login.ListUsers",        vl_method_list_users,
                         "io.systemd.service.Ping",           varlink_method_ping,
                         "io.systemd.service.SetLogLevel",    varlink_method_set_log_level,
                         "io.systemd.service.GetEnvironment", varlink_method_get_environment);
