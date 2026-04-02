@@ -1642,33 +1642,30 @@ static int discover_root(char **ret) {
 
 static int find_virtiofsd(char **ret) {
         int r;
-        _cleanup_free_ char *virtiofsd = NULL;
 
         assert(ret);
 
-        r = find_executable("virtiofsd", &virtiofsd);
-        if (r < 0 && r != -ENOENT)
+        r = find_executable("virtiofsd", ret);
+        if (r >= 0)
+                return 0;
+        if (r != -ENOENT)
                 return log_error_errno(r, "Error while searching for virtiofsd: %m");
 
-        if (!virtiofsd) {
-                FOREACH_STRING(file, "/usr/libexec/virtiofsd", "/usr/lib/virtiofsd") {
-                        if (access(file, X_OK) >= 0) {
-                                virtiofsd = strdup(file);
-                                if (!virtiofsd)
-                                        return log_oom();
-                                break;
-                        }
+        FOREACH_STRING(file, "/usr/libexec/virtiofsd", "/usr/lib/virtiofsd") {
+                if (access(file, X_OK) >= 0) {
+                        _cleanup_free_ char *copy = strdup(file);
+                        if (!copy)
+                                return log_oom();
 
-                        if (!IN_SET(errno, ENOENT, EACCES))
-                                return log_error_errno(errno, "Error while searching for virtiofsd: %m");
+                        *ret = TAKE_PTR(copy);
+                        return 0;
                 }
+
+                if (!IN_SET(errno, ENOENT, EACCES))
+                        return log_error_errno(errno, "Error while searching for virtiofsd: %m");
         }
 
-        if (!virtiofsd)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Failed to find virtiofsd binary.");
-
-        *ret = TAKE_PTR(virtiofsd);
-        return 0;
+        return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Failed to find virtiofsd binary.");
 }
 
 static int start_virtiofsd(
