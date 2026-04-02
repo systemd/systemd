@@ -154,7 +154,57 @@ static SD_VARLINK_DEFINE_METHOD(
                 SD_VARLINK_FIELD_COMMENT("The identifier string of the session to release. If unspecified or 'self', will return the callers session."),
                 SD_VARLINK_DEFINE_INPUT(Id, SD_VARLINK_STRING, SD_VARLINK_NULLABLE));
 
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                SessionRef,
+                SD_VARLINK_FIELD_COMMENT("The session identifier"),
+                SD_VARLINK_DEFINE_FIELD(Id, SD_VARLINK_STRING, 0));
+
+static SD_VARLINK_DEFINE_STRUCT_TYPE(
+                UserInfo,
+                SD_VARLINK_FIELD_COMMENT("Numeric UNIX UID"),
+                SD_VARLINK_DEFINE_FIELD(UID, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("Numeric UNIX GID"),
+                SD_VARLINK_DEFINE_FIELD(GID, SD_VARLINK_INT, 0),
+                SD_VARLINK_FIELD_COMMENT("User name"),
+                SD_VARLINK_DEFINE_FIELD(Name, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("The user timestamps"),
+                SD_VARLINK_DEFINE_FIELD(Timestamp, SD_VARLINK_OBJECT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Path to the user's runtime directory"),
+                SD_VARLINK_DEFINE_FIELD(RuntimePath, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Service manager unit name"),
+                SD_VARLINK_DEFINE_FIELD(Service, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("User slice unit name"),
+                SD_VARLINK_DEFINE_FIELD(Slice, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Display session identifier"),
+                SD_VARLINK_DEFINE_FIELD(Display, SD_VARLINK_STRING, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Current state of the user"),
+                SD_VARLINK_DEFINE_FIELD(State, SD_VARLINK_STRING, 0),
+                SD_VARLINK_FIELD_COMMENT("List of session references belonging to this user"),
+                SD_VARLINK_DEFINE_FIELD_BY_TYPE(Sessions, SessionRef, SD_VARLINK_NULLABLE|SD_VARLINK_ARRAY),
+                SD_VARLINK_FIELD_COMMENT("Whether the user is idle"),
+                SD_VARLINK_DEFINE_FIELD(IdleHint, SD_VARLINK_BOOL, 0),
+                SD_VARLINK_FIELD_COMMENT("Realtime timestamp when the user went idle"),
+                SD_VARLINK_DEFINE_FIELD(IdleSinceHint, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Monotonic timestamp when the user went idle"),
+                SD_VARLINK_DEFINE_FIELD(IdleSinceHintMonotonic, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("Whether lingering is enabled for this user"),
+                SD_VARLINK_DEFINE_FIELD(Linger, SD_VARLINK_BOOL, 0));
+
+static SD_VARLINK_DEFINE_METHOD(
+                DescribeUser,
+                SD_VARLINK_FIELD_COMMENT("Numeric UNIX UID of the user. If unspecified, returns the caller's user."),
+                SD_VARLINK_DEFINE_INPUT(UID, SD_VARLINK_INT, SD_VARLINK_NULLABLE),
+                SD_VARLINK_FIELD_COMMENT("The user information"),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(User, UserInfo, 0));
+
+static SD_VARLINK_DEFINE_METHOD_FULL(
+                ListUsers,
+                SD_VARLINK_REQUIRES_MORE,
+                SD_VARLINK_FIELD_COMMENT("The user information"),
+                SD_VARLINK_DEFINE_OUTPUT_BY_TYPE(User, UserInfo, 0));
+
 static SD_VARLINK_DEFINE_ERROR(NoSuchSession);
+static SD_VARLINK_DEFINE_ERROR(NoSuchUser);
 static SD_VARLINK_DEFINE_ERROR(NoSuchSeat);
 static SD_VARLINK_DEFINE_ERROR(AlreadySessionMember);
 static SD_VARLINK_DEFINE_ERROR(VirtualTerminalAlreadyTaken);
@@ -182,10 +232,20 @@ SD_VARLINK_DEFINE_INTERFACE(
                 &vl_method_DescribeSession,
                 SD_VARLINK_SYMBOL_COMMENT("Lists all current sessions."),
                 &vl_method_ListSessions,
+                SD_VARLINK_SYMBOL_COMMENT("Reference to a session by identifier"),
+                &vl_type_SessionRef,
+                SD_VARLINK_SYMBOL_COMMENT("Information about a user"),
+                &vl_type_UserInfo,
+                SD_VARLINK_SYMBOL_COMMENT("Describes a specific user."),
+                &vl_method_DescribeUser,
+                SD_VARLINK_SYMBOL_COMMENT("Lists all current users."),
+                &vl_method_ListUsers,
                 SD_VARLINK_SYMBOL_COMMENT("No session by this name found"),
                 &vl_error_NoSuchSession,
                 SD_VARLINK_SYMBOL_COMMENT("No seat by this name found"),
                 &vl_error_NoSuchSeat,
+                SD_VARLINK_SYMBOL_COMMENT("No user by this UID found"),
+                &vl_error_NoSuchUser,
                 SD_VARLINK_SYMBOL_COMMENT("Process already member of a session"),
                 &vl_error_AlreadySessionMember,
                 SD_VARLINK_SYMBOL_COMMENT("The specified virtual terminal (VT) is already taken by another session"),
