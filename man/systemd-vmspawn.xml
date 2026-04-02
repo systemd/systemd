@@ -713,6 +713,20 @@
         </varlistentry>
 
         <varlistentry>
+          <term><option>--console-transport=<replaceable>TRANSPORT</replaceable></option></term>
+
+          <listitem><para>Configures the transport to use for the VM console. Takes one of
+          <literal>virtio</literal> or <literal>serial</literal>. Defaults to <literal>virtio</literal>.
+          <literal>virtio</literal> uses a virtio-serial device, which appears as
+          <filename>/dev/hvc0</filename> in the VM. <literal>serial</literal> uses a regular serial port,
+          which appears as <filename>/dev/ttyS0</filename> (or <filename>/dev/ttyAMA0</filename> on ARM) in the VM. This option only has an effect in
+          <option>--console=interactive</option>, <option>--console=read-only</option>, and
+          <option>--console=native</option> modes.</para>
+
+          <xi:include href="version-info.xml" xpointer="v262"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><option>--background=<replaceable>COLOR</replaceable></option></term>
 
           <listitem><para>Change the terminal background color to the specified ANSI color as long as the VM
