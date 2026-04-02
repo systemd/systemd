@@ -120,15 +120,17 @@ static bool iso9660_valid_string(const char *str, bool allow_a_chars) {
 }
 
 int iso9660_set_string(char target[], size_t len, const char *source, bool allow_a_chars) {
-        if (source && !iso9660_valid_string(source, allow_a_chars))
-                return -EINVAL;
+        assert(target || len == 0);
 
         if (source) {
+                if (!iso9660_valid_string(source, allow_a_chars))
+                        return -EINVAL;
+
                 size_t slen = strlen(source);
                 if (slen > len)
                         return -EINVAL;
-                void *p = mempcpy(target, source, slen);
-                memset(p, ' ', len - slen);
+
+                memset(mempcpy(target, source, slen), ' ', len - slen);
         } else
                 memset(target, ' ', len);
 
