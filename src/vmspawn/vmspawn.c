@@ -96,6 +96,9 @@
 
 #define VM_TAP_HASH_KEY SD_ID128_MAKE(01,d0,c6,4c,2b,df,24,fb,c0,f8,b2,09,7d,59,b2,93)
 
+#define DISK_SERIAL_MAX_LEN_SCSI 30
+#define DISK_SERIAL_MAX_LEN_NVME 20
+
 /* An enum controlling how auxiliary state for the VM are maintained, i.e. the TPM state and the EFI variable
  * NVRAM. */
 typedef enum StateMode {
@@ -221,7 +224,8 @@ static int help(void) {
                "  -i --image=FILE|DEVICE   Root file system disk image or device for the VM\n"
                "     --image-format=FORMAT Specify disk image format (raw, qcow2; default: raw)\n"
                "     --image-disk-type=TYPE\n"
-               "                           Specify disk type (virtio-blk, virtio-scsi, nvme; default: virtio-blk)\n"
+               "                           Specify disk type (virtio-blk, virtio-scsi, nvme,\n"
+               "                           scsi-cd; default: virtio-blk)\n"
                "\n%3$sHost Configuration:%4$s\n"
                "     --cpus=CPUS           Configure number of CPUs in guest\n"
                "     --ram=BYTES           Configure guest's RAM size\n"
@@ -272,7 +276,8 @@ static int help(void) {
                "     --extra-drive=[FORMAT:][DISKTYPE:]PATH\n"
                "                           Adds an additional disk to the VM\n"
                "                           FORMAT: raw, qcow2\n"
-               "                           DISKTYPE: virtio-blk, virtio-scsi, nvme\n"
+               "                           DISKTYPE: virtio-blk, virtio-scsi, nvme,\n"
+               "                           scsi-cd\n"
                "     --bind-user=NAME       Bind user from host to virtual machine\n"
                "     --bind-user-shell=BOOL|PATH\n"
                "                            Configure the shell to use for --bind-user= users\n"
@@ -2756,15 +2761,16 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         r = kernel_cmdline_maybe_append_root();
                         if (r < 0)
                                 return r;
+
                 }
         }
 
         bool need_scsi_controller =
-                arg_image_disk_type == DISK_TYPE_VIRTIO_SCSI && arg_image;
+                IN_SET(arg_image_disk_type, DISK_TYPE_VIRTIO_SCSI, DISK_TYPE_VIRTIO_SCSI_CDROM) && arg_image;
         if (!need_scsi_controller)
                 FOREACH_ARRAY(drive, arg_extra_drives.drives, arg_extra_drives.n_drives) {
                         DiskType dt = drive->disk_type >= 0 ? drive->disk_type : arg_image_disk_type;
-                        if (dt == DISK_TYPE_VIRTIO_SCSI) {
+                        if (IN_SET(dt, DISK_TYPE_VIRTIO_SCSI, DISK_TYPE_VIRTIO_SCSI_CDROM)) {
                                 need_scsi_controller = true;
                                 break;
                         }
@@ -2788,12 +2794,20 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                                        arg_image);
                 }
 
-                r = qemu_config_section(config_file, "drive", "vmspawn",
-                                        "if", "none",
-                                        "file", arg_image,
-                                        "format", image_format_to_string(arg_image_format),
-                                        "discard", on_off(arg_discard_disk),
-                                        "snapshot", on_off(arg_ephemeral));
+                if (arg_image_disk_type == DISK_TYPE_VIRTIO_SCSI_CDROM)
+                        r = qemu_config_section(config_file, "drive", "vmspawn",
+                                                "if", "none",
+                                                "file", arg_image,
+                                                "format", image_format_to_string(arg_image_format),
+                                                "media", "cdrom",
+                                                "readonly", "on");
+                else
+                        r = qemu_config_section(config_file, "drive", "vmspawn",
+                                                "if", "none",
+                                                "file", arg_image,
+                                                "format", image_format_to_string(arg_image_format),
+                                                "discard", on_off(arg_discard_disk),
+                                                "snapshot", on_off(arg_ephemeral));
                 if (r < 0)
                         return r;
 
@@ -2814,13 +2828,19 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         break;
                 case DISK_TYPE_VIRTIO_SCSI:
                         disk_driver = "scsi-hd";
-                        r = disk_serial(image_fn, 30, &serial);
+                        r = disk_serial(image_fn, DISK_SERIAL_MAX_LEN_SCSI, &serial);
                         if (r < 0)
                                 return log_oom();
                         break;
                 case DISK_TYPE_NVME:
                         disk_driver = "nvme";
-                        r = disk_serial(image_fn, 20, &serial);
+                        r = disk_serial(image_fn, DISK_SERIAL_MAX_LEN_NVME, &serial);
+                        if (r < 0)
+                                return log_oom();
+                        break;
+                case DISK_TYPE_VIRTIO_SCSI_CDROM:
+                        disk_driver = "scsi-cd";
+                        r = disk_serial(image_fn, DISK_SERIAL_MAX_LEN_SCSI, &serial);
                         if (r < 0)
                                 return log_oom();
                         break;
@@ -2836,15 +2856,20 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (r < 0)
                         return r;
 
-                if (arg_image_disk_type == DISK_TYPE_VIRTIO_SCSI) {
+                if (IN_SET(arg_image_disk_type, DISK_TYPE_VIRTIO_SCSI, DISK_TYPE_VIRTIO_SCSI_CDROM)) {
                         r = qemu_config_key(config_file, "bus", "vmspawn_scsi.0");
                         if (r < 0)
                                 return r;
                 }
 
-                r = grow_image(arg_image, arg_grow_image);
-                if (r < 0)
-                        return r;
+                if (arg_image_disk_type != DISK_TYPE_VIRTIO_SCSI_CDROM) {
+                        r = grow_image(arg_image, arg_grow_image);
+                        if (r < 0)
+                                return r;
+                /* CD-ROMs are read-only, so override any "rw" on the kernel command line. */
+                } else if (strv_contains(arg_kernel_cmdline_extra, "rw") &&
+                           strv_extend(&arg_kernel_cmdline_extra, "ro") < 0)
+                        return log_oom();
         }
 
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
@@ -2949,7 +2974,11 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 } else
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected regular file or block device, not '%s'.", drive->path);
 
-                if (strv_extendf(&cmdline, "driver=%s,cache.direct=off,cache.no-flush=on,file.driver=%s,file.filename=%s,node-name=vmspawn_extra_%zu", image_format_to_string(drive->format), driver, escaped_drive, i) < 0)
+                DiskType dt = drive->disk_type >= 0 ? drive->disk_type : arg_image_disk_type;
+
+                if (strv_extendf(&cmdline, "driver=%s,cache.direct=off,cache.no-flush=on,file.driver=%s,file.filename=%s,node-name=vmspawn_extra_%zu%s",
+                                 image_format_to_string(drive->format), driver, escaped_drive, i,
+                                 dt == DISK_TYPE_VIRTIO_SCSI_CDROM ? ",read-only=on" : "") < 0)
                         return log_oom();
 
                 _cleanup_free_ char *drive_fn = NULL;
@@ -2964,8 +2993,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (strv_extend(&cmdline, "-device") < 0)
                         return log_oom();
 
-                DiskType dt = drive->disk_type >= 0 ? drive->disk_type : arg_image_disk_type;
-
                 switch (dt) {
                 case DISK_TYPE_VIRTIO_BLK:
                         if (strv_extendf(&cmdline, "virtio-blk-pci,drive=vmspawn_extra_%zu,serial=%s", i++, escaped_drive_fn) < 0)
@@ -2973,7 +3000,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         break;
                 case DISK_TYPE_VIRTIO_SCSI: {
                         _cleanup_free_ char *serial = NULL;
-                        r = disk_serial(escaped_drive_fn, 30, &serial);
+                        r = disk_serial(escaped_drive_fn, DISK_SERIAL_MAX_LEN_SCSI, &serial);
                         if (r < 0)
                                 return log_oom();
                         if (strv_extendf(&cmdline, "scsi-hd,bus=vmspawn_scsi.0,drive=vmspawn_extra_%zu,serial=%s", i++, serial) < 0)
@@ -2982,10 +3009,19 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 }
                 case DISK_TYPE_NVME: {
                         _cleanup_free_ char *serial = NULL;
-                        r = disk_serial(escaped_drive_fn, 20, &serial);
+                        r = disk_serial(escaped_drive_fn, DISK_SERIAL_MAX_LEN_NVME, &serial);
                         if (r < 0)
                                 return log_oom();
                         if (strv_extendf(&cmdline, "nvme,drive=vmspawn_extra_%zu,serial=%s", i++, serial) < 0)
+                                return log_oom();
+                        break;
+                }
+                case DISK_TYPE_VIRTIO_SCSI_CDROM: {
+                        _cleanup_free_ char *serial = NULL;
+                        r = disk_serial(escaped_drive_fn, DISK_SERIAL_MAX_LEN_SCSI, &serial);
+                        if (r < 0)
+                                return log_oom();
+                        if (strv_extendf(&cmdline, "scsi-cd,bus=vmspawn_scsi.0,drive=vmspawn_extra_%zu,serial=%s", i++, serial) < 0)
                                 return log_oom();
                         break;
                 }
@@ -3646,6 +3682,13 @@ static int determine_names(void) {
 static int verify_arguments(void) {
         if (!strv_isempty(arg_initrds) && !arg_linux)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option --initrd= cannot be used without --linux=.");
+
+        if (arg_image_disk_type == DISK_TYPE_VIRTIO_SCSI_CDROM) {
+                if (arg_ephemeral)
+                        log_warning("--ephemeral has no effect with --image-disk-type=scsi-cd (CD-ROMs are read-only).");
+                if (arg_discard_disk)
+                        log_warning("--discard-disk has no effect with --image-disk-type=scsi-cd (CD-ROMs are read-only).");
+        }
 
         return 0;
 }
