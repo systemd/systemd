@@ -2750,19 +2750,19 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
                 destroy_path = mfree(destroy_path); /* disarm auto-destroy */
 
-                r = qemu_config_section(config_file, "global", /* id= */ NULL,
-                                        "driver", "ICH9-LPC",
-                                        "property", "disable_s3",
-                                        "value", "1");
-                if (r < 0)
-                        return r;
+                /* Mark the UEFI variable store pflash as requiring SMM access. This
+                 * prevents the guest OS from writing to pflash directly, ensuring all
+                 * variable updates go through the firmware's validation checks. Without
+                 * this, secure boot keys could be overwritten by the OS. */
+                if (ARCHITECTURE_SUPPORTS_SMM) {
+                        r = qemu_config_section(config_file, "global", /* id= */ NULL,
+                                                "driver", "cfi.pflash01",
+                                                "property", "secure",
+                                                "value", "on");
+                        if (r < 0)
+                                return r;
+                }
 
-                r = qemu_config_section(config_file, "global", /* id= */ NULL,
-                                        "driver", "cfi.pflash01",
-                                        "property", "secure",
-                                        "value", "on");
-                if (r < 0)
-                        return r;
 
                 r = qemu_config_section(config_file, "drive", "ovmf-vars",
                                         "file", state,
