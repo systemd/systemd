@@ -179,6 +179,10 @@ TEST(qmp_client_basic) {
         r = qmp_client_connect_fd(&client, qmp_fds[0], event);
         assert_se(r >= 0);
 
+        /* Switch to async mode */
+        r = qmp_client_start_async(client);
+        assert_se(r >= 0);
+
         /* Set event callback to catch STOP event during cont */
         qmp_client_set_event_callback(client, test_event_callback, NULL);
 
@@ -252,6 +256,9 @@ TEST(qmp_client_eof) {
         safe_close(qmp_fds[1]);
 
         r = qmp_client_connect_fd(&client, qmp_fds[0], event);
+        assert_se(r >= 0);
+
+        r = qmp_client_start_async(client);
         assert_se(r >= 0);
 
         /* Executing a command should fail with a disconnect error because the server closed.
