@@ -26,6 +26,7 @@ typedef struct {
         _alignptr_                                                      \
         _used_                                                          \
         _retain_                                                        \
+        _no_reorder_                                                    \
         _variable_no_sanitize_address_                                  \
         static const Verb CONCATENATE(verb_data_, __COUNTER__) = {      \
                 .verb = v,                                              \
