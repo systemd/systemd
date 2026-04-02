@@ -127,14 +127,14 @@ struct _packed_ iso9660_primary_volume_descriptor {
         uint8_t file_structure_version; /* 1 */
         uint8_t unused_5;
         char application_used[512];
-        char reserved[653];
+        uint8_t reserved[653];
 };
 assert_cc(sizeof(struct iso9660_primary_volume_descriptor) == 2048);
 
 struct _packed_ el_torito_validation_entry {
         uint8_t header_indicator;
         uint8_t platform;
-        char reserved[2];
+        uint8_t reserved[2];
         char id_string[24];
         le16_t checksum;
         uint8_t key_bytes[2];
@@ -158,13 +158,13 @@ struct _packed_ el_torito_section_header {
         char id_string[28];
 };
 
-void no_iso9660_datetime(struct iso9660_datetime *ret);
-int time_to_iso9660_datetime(usec_t usec, bool utc, struct iso9660_datetime *ret);
-int time_to_iso9660_dir_datetime(usec_t usec, bool utc, struct iso9660_dir_time *ret);
-int set_iso9660_string(char target[], size_t len, const char *source, bool allow_a_chars);
+void iso9660_datetime_zero(struct iso9660_datetime *ret);
+int iso9660_datetime_from_usec(usec_t usec, bool utc, struct iso9660_datetime *ret);
+int iso9660_dir_datetime_from_usec(usec_t usec, bool utc, struct iso9660_dir_time *ret);
+int iso9660_set_string(char target[], size_t len, const char *source, bool allow_a_chars);
 
-static inline void set_iso9660_const_string(char target[], size_t len, const char *source, bool allow_a_chars) {
-        assert_se(set_iso9660_string(target, len, source, allow_a_chars) == 0);
+static inline void iso9660_set_const_string(char target[], size_t len, const char *source, bool allow_a_chars) {
+        assert_se(iso9660_set_string(target, len, source, allow_a_chars) == 0);
 }
 
 bool iso9660_volume_name_valid(const char *name);
