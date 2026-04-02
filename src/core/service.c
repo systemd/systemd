@@ -60,6 +60,8 @@
 
 #define service_spawn(...) service_spawn_internal(__func__, __VA_ARGS__)
 
+#define SERVICE_FD_STORE_POPULATED(s) (!!(s)->fd_store)
+
 static const UnitActiveState state_translation_table[_SERVICE_STATE_MAX] = {
         [SERVICE_DEAD]                       = UNIT_INACTIVE,
         [SERVICE_CONDITION]                  = UNIT_ACTIVATING,
@@ -481,12 +483,12 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(ServiceFDStore*, service_fd_store_unlink);
 static void service_release_fd_store(Service *s) {
         assert(s);
 
-        if (!s->fd_store)
+        if (!SERVICE_FD_STORE_POPULATED(s))
                 return;
 
         log_unit_debug(UNIT(s), "Releasing all stored fds.");
 
-        while (s->fd_store)
+        while (SERVICE_FD_STORE_POPULATED(s))
                 service_fd_store_unlink(s->fd_store);
 
         assert(s->n_fd_store == 0);
@@ -584,7 +586,7 @@ static int on_fd_store_io(sd_event_source *e, int fd, uint32_t revents, void *us
                        fs->fd, strna(fs->fdname));
         service_fd_store_unlink(fs);
 
-        if (s->state == SERVICE_DEAD_RESOURCES_PINNED && !s->fd_store)
+        if (s->state == SERVICE_DEAD_RESOURCES_PINNED && !SERVICE_FD_STORE_POPULATED(s))
                 service_set_state(s, SERVICE_DEAD);
 
         return 0;
@@ -2133,7 +2135,7 @@ static bool service_will_restart(Unit *u) {
 static ServiceState service_determine_dead_state(Service *s) {
         assert(s);
 
-        return s->fd_store && s->fd_store_preserve_mode == EXEC_PRESERVE_YES ? SERVICE_DEAD_RESOURCES_PINNED : SERVICE_DEAD;
+        return SERVICE_FD_STORE_POPULATED(s) && s->fd_store_preserve_mode == EXEC_PRESERVE_YES ? SERVICE_DEAD_RESOURCES_PINNED : SERVICE_DEAD;
 }
 
 static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) {
@@ -5619,7 +5621,7 @@ static int service_clean(Unit *u, ExecCleanMask mask) {
 
         /* If we are done, leave quickly */
         if (strv_isempty(l)) {
-                if (s->state == SERVICE_DEAD_RESOURCES_PINNED && !s->fd_store)
+                if (s->state == SERVICE_DEAD_RESOURCES_PINNED && !SERVICE_FD_STORE_POPULATED(s))
                         service_set_state(s, SERVICE_DEAD);
                 return 0;
         }
@@ -5872,7 +5874,7 @@ static void service_release_resources(Unit *u) {
         if (s->fd_store_preserve_mode != EXEC_PRESERVE_YES)
                 service_release_fd_store(s);
 
-        if (s->state == SERVICE_DEAD_RESOURCES_PINNED && !s->fd_store)
+        if (s->state == SERVICE_DEAD_RESOURCES_PINNED && !SERVICE_FD_STORE_POPULATED(s))
                 service_set_state(s, SERVICE_DEAD);
 }
 
