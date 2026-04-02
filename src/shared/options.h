@@ -25,6 +25,7 @@ typedef struct Option {
         _alignptr_                                                      \
         _used_                                                          \
         _retain_                                                        \
+        _no_reorder_                                                    \
         _variable_no_sanitize_address_                                  \
         static const Option CONCATENATE(option, counter) = {            \
                 .id = 0x100 + counter,                                  \
