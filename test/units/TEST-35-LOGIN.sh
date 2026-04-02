@@ -797,8 +797,58 @@ EOF
     systemctl stop "$RUN0UNIT3"
 }
 
+teardown_varlink() (
+    set +ex
+
+    cleanup_session
+
+    return 0
+)
+
 testcase_varlink() {
-    varlinkctl introspect /run/systemd/io.systemd.Login
+    local session uid session_out
+
+    if [[ ! -c /dev/tty2 ]]; then
+        echo "/dev/tty2 does not exist, skipping test ${FUNCNAME[0]}."
+        return
+    fi
+
+    trap teardown_varlink RETURN
+
+    local VARLINK_SOCKET="/run/systemd/io.systemd.Login"
+
+    : "--- Introspect ---"
+    varlinkctl introspect "$VARLINK_SOCKET"
+    varlinkctl introspect "$VARLINK_SOCKET" | grep "method DescribeSession" >/dev/null
+    varlinkctl introspect "$VARLINK_SOCKET" | grep "method ListSessions" >/dev/null
+
+    : "--- Setup test session ---"
+    create_session
+    session=$(loginctl --no-legend | grep -v manager | awk '$3 == "logind-test-user" { print $1 }')
+    uid=$(id -ru logind-test-user)
+    loginctl activate "$session"
+
+    : "--- DescribeSession ---"
+    session_out=$(varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.DescribeSession "{\"Id\":\"$session\"}")
+    echo "$session_out" | jq -e ".Session.Id == \"$session\"" >/dev/null
+    echo "$session_out" | jq -e ".Session.User.UID == $uid" >/dev/null
+    echo "$session_out" | jq -e '.Session.User.Name == "logind-test-user"' >/dev/null
+    echo "$session_out" | jq -e '.Session.TTY == "tty2"' >/dev/null
+    echo "$session_out" | jq -e '.Session.Remote == false' >/dev/null
+    echo "$session_out" | jq -e '.Session.Type' >/dev/null
+    echo "$session_out" | jq -e '.Session.Class' >/dev/null
+    echo "$session_out" | jq -e '.Session.State' >/dev/null
+    echo "$session_out" | jq -e '.Session.Active == true' >/dev/null
+
+    # nonexistent session
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.DescribeSession '{"Id":"nonexistent-session-id"}')
+
+    : "--- ListSessions ---"
+    varlinkctl call --more "$VARLINK_SOCKET" io.systemd.Login.ListSessions '{}' \
+        | jq -e --arg s "$session" 'select(.Session.Id == $s)' >/dev/null
+    test "$(varlinkctl call --more "$VARLINK_SOCKET" io.systemd.Login.ListSessions '{}' | wc -l)" -ge 2
+    # without --more should fail
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.ListSessions '{}')
 }
 
 testcase_restart() {
