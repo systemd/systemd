@@ -21,6 +21,26 @@ void iso9660_datetime_zero(struct iso9660_datetime *ret) {
         ret->zone = 0;
 }
 
+static int validate_tm(const struct tm *t) {
+        assert(t);
+
+        /* Safety checks on bounded fields of struct tm, ranges as per tm(3type). Mostly in place because
+         * ISO9660 date/time ranges and struct tm ranges differ. */
+
+        if (t->tm_mon < 0 || t->tm_mon > 11)
+                return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Month out of range.");
+        if (t->tm_mday < 1 || t->tm_mday > 31)
+                return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Day of month out of range.");
+        if (t->tm_hour < 0 || t->tm_hour > 23)
+                return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Hour out of range.");
+        if (t->tm_min < 0 || t->tm_min > 59)
+                return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Minute out of range.");
+        if (t->tm_sec < 0 || t->tm_sec > 60)
+                return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Seconds out of range.");
+
+        return 0;
+}
+
 int iso9660_datetime_from_usec(usec_t usec, bool utc, struct iso9660_datetime *ret) {
         struct tm t;
         int r;
@@ -31,10 +51,18 @@ int iso9660_datetime_from_usec(usec_t usec, bool utc, struct iso9660_datetime *r
         if (r < 0)
                 return r;
 
+        r = validate_tm(&t);
+        if (r < 0)
+                return r;
+
         if (t.tm_year >= 10000 - 1900)
                 return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Year has more than 4 digits and is incompatible with ISO9660.");
         if (t.tm_year + 1900 < 0)
                 return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Year is negative and is incompatible with ISO9660.");
+
+        long offset = t.tm_gmtoff / (15*60); /* The time zone is encoded by 15 minutes increments */
+        if (offset < INT8_MIN || offset > INT8_MAX)
+                return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "GMT offset out of range.");
 
         char buf[17];
         /* Ignore leap seconds, no real hope for hardware. Deci-seconds always zero. */
@@ -43,8 +71,7 @@ int iso9660_datetime_from_usec(usec_t usec, bool utc, struct iso9660_datetime *r
                  t.tm_hour, t.tm_min, MIN(t.tm_sec, 59));
         memcpy(ret, buf, sizeof(buf)-1);
 
-        /* The time zone is encoded by 15 minutes increments */
-        ret->zone = t.tm_gmtoff / (15*60);
+        ret->zone = offset;
 
         return 0;
 }
@@ -59,8 +86,16 @@ int iso9660_dir_datetime_from_usec(usec_t usec, bool utc, struct iso9660_dir_tim
         if (r < 0)
                 return r;
 
+        r = validate_tm(&t);
+        if (r < 0)
+                return r;
+
         if (t.tm_year < 0 || t.tm_year > UINT8_MAX)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Year is incompatible with ISO9660.");
+                return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Year is incompatible with ISO9660.");
+
+        long offset = t.tm_gmtoff / (15*60); /* The time zone is encoded by 15 minutes increments */
+        if (offset < INT8_MIN || offset > INT8_MAX)
+                return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "GMT offset out of range.");
 
         *ret = (struct iso9660_dir_time) {
                 .year = t.tm_year,
@@ -70,7 +105,7 @@ int iso9660_dir_datetime_from_usec(usec_t usec, bool utc, struct iso9660_dir_tim
                 .minute = t.tm_min,
                 .second = MIN(t.tm_sec, 59),
                 /* The time zone is encoded by 15 minutes increments */
-                .offset = t.tm_gmtoff / (15*60),
+                .offset = offset,
         };
 
         return 0;
