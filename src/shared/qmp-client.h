@@ -5,7 +5,6 @@
 #include "sd-json.h"
 
 #include "cleanup-util.h"
-#include "time-util.h"
 
 typedef struct QmpClient QmpClient;
 
@@ -35,6 +34,20 @@ typedef void (*qmp_command_callback_t)(
  * for success. Then switches fd to non-blocking and attaches to sd_event for async event processing. */
 int qmp_client_connect_fd(QmpClient **ret, int fd, sd_event *event);
 
+/* Switch from blocking setup phase to async event processing. Must be called
+ * after all blocking setup (qmp_client_call, drive config, cont). */
+int qmp_client_start_async(QmpClient *client);
+
+/* Execute a QMP command synchronously (blocking). Only valid before qmp_client_start_async().
+ * Returns 0 on success (result in ret_result), -EIO on QMP error (class in ret_error),
+ * negative errno on transport failure. ret_result and ret_error may be NULL. */
+int qmp_client_call(
+                QmpClient *client,
+                const char *command,
+                sd_json_variant *arguments,
+                sd_json_variant **ret_result,
+                char **ret_error);
+
 /* Send a QMP command asynchronously. The callback is invoked exactly once from the sd-event loop when
  * the matching response arrives or the connection drops (-ECONNRESET). Returns 0 if the command was
  * sent and registered (callback will be invoked later), negative errno on failure (callback NOT invoked). */
@@ -46,6 +59,7 @@ int qmp_client_execute(
                 void *userdata);
 void qmp_client_set_event_callback(QmpClient *client, qmp_event_callback_t callback, void *userdata);
 void qmp_client_set_disconnect_callback(QmpClient *client, qmp_disconnect_callback_t callback, void *userdata);
+sd_event *qmp_client_get_event(QmpClient *client);
 QmpClient *qmp_client_free(QmpClient *client);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(QmpClient *, qmp_client_free);
