@@ -2779,6 +2779,88 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   - translate SIGTERM to clean ACPI shutdown event
   - implement hotkeys ^]^]r and ^]^]p like nspawn
 
+- **vmspawn disk hotplug:**
+  - virtio-blk-pci — the simplest path. Each disk is an independent PCI
+    device. QMP sequence (two steps):
+
+        blockdev-add  {driver: "raw", node-name: "disk1",
+                       file: {driver: "file", filename: "/path/to/img"}}
+        device_add    {driver: "virtio-blk-pci", id: "disk1", drive: "disk1"}
+
+    Removal (three steps):
+
+        device_del    {id: "disk1"}
+                      ... wait for DEVICE_DELETED event (guest acknowledges unplug) ...
+        blockdev-del  {node-name: "disk1"}
+
+    Works on both i440fx (legacy PCI) and q35 (PCIe) machine types. PCI
+    address auto-assigned by QEMU — no topology pre-configuration needed.
+    Each disk independently hotpluggable. Guest sees a virtio block
+    device (/dev/vdX). Well-tested path — used by libvirt, Incus, and all
+    major VM managers. No special boot-time setup required.
+
+  - NVMe — two-level model: controller + namespace(s). The controller is
+    a PCIe device; namespaces live on an internal NVMe bus attached to
+    the controller. Key limitation: namespaces are NOT hotpluggable —
+    TYPE_NVME_BUS has no HotplugHandler, so device_add of nvme-ns at
+    runtime fails with "Bus does not support hotplugging". The only
+    option is hotplugging the entire controller, which embeds one
+    namespace via its "drive" property:
+
+        blockdev-add  {driver: "raw", node-name: "disk1",
+                       file: {driver: "file", filename: "/path/to/img"}}
+        device_add    {driver: "nvme", id: "disk1", drive: "disk1", serial: "disk1"}
+
+    Same two-step pattern as virtio-blk, with these limitations:
+
+    1. PCIe-only (implements INTERFACE_PCIE_DEVICE). Does not work on
+       i440fx. Requires q35 or virt (aarch64).
+    2. Requires pre-configured PCIe root ports that exist at boot.
+       Without them, device_add fails with "no slot/function available".
+       vmspawn would need to create empty root ports at QEMU startup to
+       reserve hotplug slots.
+    3. No namespace-level granularity. Each hotplugged disk burns a full
+       PCIe slot (controller + one namespace). Cannot add multiple
+       namespaces to a single controller at runtime.
+    4. Serial property required (up to 20 chars). virtio-blk does not
+       require it.
+
+  - virtio-scsi — shared virtio-scsi-pci controller with individual
+    scsi-hd devices attached. Incus uses this as its default bus. The
+    controller must exist at boot, but individual disks (LUNs) can be
+    hotplugged onto it without burning PCI slots. Scales better than
+    virtio-blk when many disks are needed, but adds complexity
+    (controller management, LUN assignment).
+
+- **vmspawn AcquireQMP():** implement as id-rewriting proxy with FD
+  passing. vmspawn acts as a QMP multiplexer. When a client calls
+  AcquireQMP():
+
+  1. Create socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0).
+  2. Return one end to the client via sd_varlink_push_fd() +
+     sd_varlink_reply().
+  3. Add an sd-event I/O source on vmspawn's end for the client socket.
+  4. Send a synthetic QMP greeting on the client socket, handle
+     qmp_capabilities locally. Maybe we don't even need that and just
+     document that it's a fully initialized connection.
+  5. For client commands: read from the client socket, rewrite id to
+     vmspawn's internal counter (store mapping internal_id ->
+     (client_fd, original_id_json_variant)), forward to QEMU.
+  6. For QEMU responses: match internal id, look up original client id,
+     rewrite back, send to the correct client socket.
+  7. Broadcast QMP events (no id) to all AcquireQMP clients AND to
+     SubscribeEvents subscribers.
+  8. On client EOF: remove the I/O source, clean up id mappings.
+
+  This keeps vmspawn in full control of the QMP connection — VMControl
+  handlers and multiple AcquireQMP clients can coexist without id
+  collisions. The server needs SD_VARLINK_SERVER_ALLOW_FD_PASSING_OUTPUT
+  (already set in machined's pattern).
+
+  AcquireQMP() also requires server-side Varlink protocol upgrades.
+  mvo's WIP branch:
+  <https://github.com/systemd/systemd/compare/main...mvo5:varlink-protocol-upgrade-server-side?expand=1>
+
 - we probably needs .pcrpkeyrd or so as additional PE section in UKIs,
   which contains a separate public key for PCR values that only apply in the
   initrd, i.e. in the boot phase "enter-initrd". Then, consumers in userspace
