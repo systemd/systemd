@@ -360,6 +360,101 @@ static int vl_method_list_sessions(sd_varlink *link, sd_json_variant *parameters
         return 0;
 }
 
+static int manager_varlink_get_user_by_uid(
+                Manager *m,
+                sd_varlink *link,
+                uid_t uid,
+                User **ret) {
+
+        assert(m);
+        assert(link);
+        assert(ret);
+
+        /* If UID is UID_INVALID, resolve to the calling peer's UID */
+        if (!uid_is_valid(uid)) {
+                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+                int r = varlink_get_peer_pidref(link, &pidref);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to acquire peer PID: %m");
+
+                r = cg_pidref_get_owner_uid(&pidref, &uid);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to acquire owning UID of peer: %m");
+                        return sd_varlink_error(link, "io.systemd.Login.NoSuchUser", NULL);
+                }
+        }
+
+        User *user = hashmap_get(m->users, UID_TO_PTR(uid));
+        if (!user)
+                return sd_varlink_error(link, "io.systemd.Login.NoSuchUser", /* parameters= */ NULL);
+
+        *ret = user;
+        return 0;
+}
+
+static int vl_method_describe_user(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        struct {
+                uid_t uid;
+        } p = {
+                .uid = UID_INVALID,
+        };
+
+        static const sd_json_dispatch_field dispatch_table[] = {
+                { "UID", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uid_gid, voffsetof(p, uid), 0 },
+                {}
+        };
+
+        r = sd_varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        User *user;
+        r = manager_varlink_get_user_by_uid(m, link, p.uid, &user);
+        if (r < 0)
+                return r;
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        r = user_build_json(user, &v);
+        if (r < 0)
+                return r;
+
+        return sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_VARIANT("User", v));
+}
+
+static int vl_method_list_users(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        r = sd_varlink_dispatch(link, parameters, /* dispatch_table= */ NULL, /* userdata= */ NULL);
+        if (r != 0)
+                return r;
+
+        if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
+                return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
+
+        r = sd_varlink_set_sentinel(link, "io.systemd.Login.NoSuchUser");
+        if (r < 0)
+                return r;
+
+        User *user;
+        HASHMAP_FOREACH(user, m->users) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+
+                r = user_build_json(user, &v);
+                if (r < 0)
+                        return r;
+
+                r = sd_varlink_replybo(link, SD_JSON_BUILD_PAIR_VARIANT("User", v));
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static int vl_method_release_session(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
         int r;
@@ -429,6 +524,8 @@ int manager_varlink_init(Manager *m, int fd) {
                         "io.systemd.Login.ReleaseSession",   vl_method_release_session,
                         "io.systemd.Login.DescribeSession",  vl_method_describe_session,
                         "io.systemd.Login.ListSessions",     vl_method_list_sessions,
+                        "io.systemd.Login.DescribeUser",     vl_method_describe_user,
+                        "io.systemd.Login.ListUsers",        vl_method_list_users,
                         "io.systemd.service.Ping",           varlink_method_ping,
                         "io.systemd.service.SetLogLevel",    varlink_method_set_log_level,
                         "io.systemd.service.GetEnvironment", varlink_method_get_environment);
