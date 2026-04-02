@@ -1716,6 +1716,13 @@ static bool on_dev_null(void) {
         return cached_on_dev_null;
 }
 
+bool term_env_valid(const char *term) {
+        /* Checks if the specified $TERM value is suitable for propagation, i.e. is not empty, not set to
+         * "unknown" (as is common in CI), and doesn't contain characters that would be problematic in
+         * contexts like kernel command line parameters. */
+        return !isempty(term) && !streq(term, "unknown") && !strchr(term, ' ') && !strchr(term, '=');
+}
+
 bool getenv_terminal_is_dumb(void) {
         const char *e;
 
