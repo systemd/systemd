@@ -806,7 +806,7 @@ teardown_varlink() (
 )
 
 testcase_varlink() {
-    local session uid session_out
+    local session uid session_out user_out default_user_out
 
     if [[ ! -c /dev/tty2 ]]; then
         echo "/dev/tty2 does not exist, skipping test ${FUNCNAME[0]}."
@@ -820,6 +820,7 @@ testcase_varlink() {
     : "--- Introspect ---"
     varlinkctl introspect "$VARLINK_SOCKET"
     varlinkctl introspect "$VARLINK_SOCKET" | grep "method ListSessions" >/dev/null
+    varlinkctl introspect "$VARLINK_SOCKET" | grep "method ListUsers" >/dev/null
 
     : "--- Setup test session ---"
     create_session
@@ -868,6 +869,45 @@ testcase_varlink() {
     test "$(varlinkctl call --more "$VARLINK_SOCKET" io.systemd.Login.ListSessions '{}' | wc -l)" -ge 2
     # without --more and no filter should fail with ExpectedMore
     (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.ListSessions '{}')
+
+    : "--- ListUsers: UID filter (single reply) ---"
+    user_out=$(varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.ListUsers "{\"UID\":$uid}")
+    echo "$user_out" | jq -e ".User.UID == $uid" >/dev/null
+    echo "$user_out" | jq -e '.User.Name == "logind-test-user"' >/dev/null
+    echo "$user_out" | jq -e '.User.State' >/dev/null
+    echo "$user_out" | jq -e '.User.Linger == false' >/dev/null
+    echo "$user_out" | jq -e ".User.Sessions[] | select(.Id == \"$session\")" >/dev/null
+
+    : "--- ListUsers: PID filter (single reply) ---"
+    # PID of a process in the test user's session should map back to the user.
+    local pid_user_out
+    pid_user_out=$(varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.ListUsers \
+        "{\"PID\":{\"pid\":$leader_pid}}")
+    echo "$pid_user_out" | jq -e --argjson u "$uid" '.User.UID == $u' >/dev/null
+
+    : "--- ListUsers: UID+PID consistency check ---"
+    # Same user referenced two ways: must succeed.
+    local ok_user_out mismatch_user_err
+    ok_user_out=$(varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.ListUsers \
+        "{\"UID\":$uid,\"PID\":{\"pid\":$leader_pid}}")
+    echo "$ok_user_out" | jq -e --argjson u "$uid" '.User.UID == $u' >/dev/null
+    # Mismatched UID and PID (PID 1 is systemd init, UID 0): must fail with NoSuchUser.
+    mismatch_user_err=$(varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.ListUsers \
+        "{\"UID\":$uid,\"PID\":{\"pid\":1}}" 2>&1 || true)
+    echo "$mismatch_user_err" | grep NoSuchUser >/dev/null
+
+    : "--- ListUsers: empty input without --more resolves to caller's user ---"
+    # Invoke from inside the test user's scope so logind's peer-cgroup lookup maps back to logind-test-user.
+    default_user_out=$(systemd-run --user --pipe --wait -M "logind-test-user@.host" \
+                           varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.ListUsers '{}')
+    echo "$default_user_out" | jq -e --argjson u "$uid" '.User.UID == $u' >/dev/null
+
+    # nonexistent UID
+    (! varlinkctl call "$VARLINK_SOCKET" io.systemd.Login.ListUsers '{"UID":4294967294}')
+
+    : "--- ListUsers: streaming path ---"
+    varlinkctl call --more "$VARLINK_SOCKET" io.systemd.Login.ListUsers '{}' | grep "logind-test-user" >/dev/null
+    test "$(varlinkctl call --more "$VARLINK_SOCKET" io.systemd.Login.ListUsers '{}' | wc -l)" -ge 2
 }
 
 testcase_restart() {
