@@ -158,13 +158,13 @@ struct _packed_ el_torito_section_header {
         char id_string[28];
 };
 
-void no_iso9660_datetime(struct iso9660_datetime *ret);
-int time_to_iso9660_datetime(usec_t usec, bool utc, struct iso9660_datetime *ret);
-int time_to_iso9660_dir_datetime(usec_t usec, bool utc, struct iso9660_dir_time *ret);
-int set_iso9660_string(char target[], size_t len, const char *source, bool allow_a_chars);
+void iso9660_datetime_zero(struct iso9660_datetime *ret);
+int iso9660_datetime_from_usec(usec_t usec, bool utc, struct iso9660_datetime *ret);
+int iso9660_dir_datetime_from_usec(usec_t usec, bool utc, struct iso9660_dir_time *ret);
+int iso9660_set_string(char target[], size_t len, const char *source, bool allow_a_chars);
 
-static inline void set_iso9660_const_string(char target[], size_t len, const char *source, bool allow_a_chars) {
-        assert_se(set_iso9660_string(target, len, source, allow_a_chars) == 0);
+static inline void iso9660_set_const_string(char target[], size_t len, const char *source, bool allow_a_chars) {
+        assert_se(iso9660_set_string(target, len, source, allow_a_chars) == 0);
 }
 
 bool iso9660_volume_name_valid(const char *name);
