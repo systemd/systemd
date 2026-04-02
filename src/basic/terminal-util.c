@@ -1985,7 +1985,7 @@ int terminal_get_cursor_position(
         assert(input_fd >= 0);
         assert(output_fd >= 0);
 
-        if (terminal_is_dumb())
+        if (getenv_terminal_is_dumb())
                 return -EOPNOTSUPP;
 
         r = terminal_verify_same(input_fd, output_fd);
@@ -2397,7 +2397,11 @@ int terminal_get_size_by_dsr(
          * recognized as a "niche" value. (Note that the dimension fields in "struct winsize" are 16bit only,
          * too). */
 
-        if (terminal_is_dumb())
+        /* Use getenv_terminal_is_dumb() instead of terminal_is_dumb() here since we operate on an
+         * explicitly passed fd, not on stdio. terminal_is_dumb() additionally checks on_tty() which
+         * tests whether *stderr* is a tty — that's irrelevant when we're querying a directly opened
+         * terminal such as /dev/console. */
+        if (getenv_terminal_is_dumb())
                 return -EOPNOTSUPP;
 
         r = terminal_verify_same(input_fd, output_fd);
