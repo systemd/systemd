@@ -7699,43 +7699,43 @@ static int write_primary_descriptor(
                 }
         };
 
-        set_iso9660_const_string(desc.header.identifier, sizeof(desc.header.identifier), "CD001", /* allow_a_chars= */ true);
+        iso9660_set_const_string(desc.header.identifier, sizeof(desc.header.identifier), "CD001", /* allow_a_chars= */ true);
 
-        r = time_to_iso9660_dir_datetime(usec, utc, &desc.root_directory_entry.time);
+        r = iso9660_dir_datetime_from_usec(usec, utc, &desc.root_directory_entry.time);
         if (r < 0)
                 return r;
 
-        r = set_iso9660_string(desc.system_identifier, sizeof(desc.system_identifier), system_id, /* allow_a_chars= */ true);
+        r = iso9660_set_string(desc.system_identifier, sizeof(desc.system_identifier), system_id, /* allow_a_chars= */ true);
         if (r < 0)
                 return r;
 
         /* In theory the volume identifier should be d-chars, but in practice, a-chars are allowed */
-        r = set_iso9660_string(desc.volume_identifier, sizeof(desc.volume_identifier), volume_id, /* allow_a_chars= */ true);
+        r = iso9660_set_string(desc.volume_identifier, sizeof(desc.volume_identifier), volume_id, /* allow_a_chars= */ true);
         if (r < 0)
                 return r;
 
-        set_iso9660_const_string(desc.volume_set_identifier, sizeof(desc.volume_set_identifier), NULL, /* allow_a_chars= */ false);
+        iso9660_set_const_string(desc.volume_set_identifier, sizeof(desc.volume_set_identifier), NULL, /* allow_a_chars= */ false);
 
-        r = set_iso9660_string(desc.publisher_identifier, sizeof(desc.publisher_identifier), publisher_id, /* allow_a_chars= */ true);
+        r = iso9660_set_string(desc.publisher_identifier, sizeof(desc.publisher_identifier), publisher_id, /* allow_a_chars= */ true);
         if (r < 0)
                 return r;
 
-        set_iso9660_const_string(desc.data_preparer_identifier, sizeof(desc.data_preparer_identifier), NULL, /* allow_a_chars= */ true);
-        set_iso9660_const_string(desc.application_identifier, sizeof(desc.application_identifier), "SYSTEMD-REPART", /* allow_a_chars= */ true);
-        set_iso9660_const_string(desc.copyright_file_identifier, sizeof(desc.copyright_file_identifier), NULL, /* allow_a_chars= */ false);
-        set_iso9660_const_string(desc.abstract_file_identifier, sizeof(desc.abstract_file_identifier), NULL, /* allow_a_chars= */ false);
-        set_iso9660_const_string(desc.bibliographic_file_identifier, sizeof(desc.bibliographic_file_identifier), NULL, /* allow_a_chars= */ false);
+        iso9660_set_const_string(desc.data_preparer_identifier, sizeof(desc.data_preparer_identifier), NULL, /* allow_a_chars= */ true);
+        iso9660_set_const_string(desc.application_identifier, sizeof(desc.application_identifier), "SYSTEMD-REPART", /* allow_a_chars= */ true);
+        iso9660_set_const_string(desc.copyright_file_identifier, sizeof(desc.copyright_file_identifier), NULL, /* allow_a_chars= */ false);
+        iso9660_set_const_string(desc.abstract_file_identifier, sizeof(desc.abstract_file_identifier), NULL, /* allow_a_chars= */ false);
+        iso9660_set_const_string(desc.bibliographic_file_identifier, sizeof(desc.bibliographic_file_identifier), NULL, /* allow_a_chars= */ false);
 
-        r = time_to_iso9660_datetime(usec, utc, &desc.volume_creation_date);
+        r = iso9660_datetime_from_usec(usec, utc, &desc.volume_creation_date);
         if (r < 0)
                 return r;
 
-        r = time_to_iso9660_datetime(usec, utc, &desc.volume_modification_date);
+        r = iso9660_datetime_from_usec(usec, utc, &desc.volume_modification_date);
         if (r < 0)
                 return r;
 
-        no_iso9660_datetime(&desc.volume_expiration_date);
-        no_iso9660_datetime(&desc.volume_effective_date);
+        iso9660_datetime_zero(&desc.volume_expiration_date);
+        iso9660_datetime_zero(&desc.volume_effective_date);
 
         ssize_t s = pwrite(fd, &desc, sizeof(desc), ISO9660_PRIMARY_DESCRIPTOR*ISO9660_BLOCK_SIZE);
         if (s < 0)
@@ -7755,7 +7755,7 @@ static int write_eltorito_descriptor(int fd, uint32_t catalog_sector) {
                 .boot_catalog_sector = htole32(catalog_sector),
         };
 
-        set_iso9660_const_string(desc.header.identifier, sizeof(desc.header.identifier), "CD001", /* allow_a_chars= */ true);
+        iso9660_set_const_string(desc.header.identifier, sizeof(desc.header.identifier), "CD001", /* allow_a_chars= */ true);
 
         strncpy(desc.boot_system_identifier, "EL TORITO SPECIFICATION", sizeof(desc.boot_system_identifier));
 
@@ -7776,7 +7776,7 @@ static int write_terminal_descriptor(int fd) {
                 },
         };
 
-        set_iso9660_const_string(desc.header.identifier, sizeof(desc.header.identifier), "CD001", /* allow_a_chars= */ true);
+        iso9660_set_const_string(desc.header.identifier, sizeof(desc.header.identifier), "CD001", /* allow_a_chars= */ true);
 
         ssize_t s = pwrite(fd, &desc, sizeof(desc), ISO9660_TERMINAL_DESCRIPTOR*ISO9660_BLOCK_SIZE);
         if (s < 0)
@@ -7859,7 +7859,7 @@ static int write_directories(int fd, usec_t usec, bool utc, uint32_t root_sector
                 .ident[0] = 0, /* special value for self */
         };
 
-        r = time_to_iso9660_dir_datetime(usec, utc, &self.time);
+        r = iso9660_dir_datetime_from_usec(usec, utc, &self.time);
         if (r < 0)
                 return r;
 
@@ -7878,7 +7878,7 @@ static int write_directories(int fd, usec_t usec, bool utc, uint32_t root_sector
 
         // TODO: we should probably add some text file explaining there is no content through ISO9660
 
-        r = time_to_iso9660_dir_datetime(usec, utc, &parent.time);
+        r = iso9660_dir_datetime_from_usec(usec, utc, &parent.time);
         if (r < 0)
                 return r;
 

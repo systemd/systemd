@@ -8,7 +8,7 @@
 #include "string-util.h"
 #include "time-util.h"
 
-void no_iso9660_datetime(struct iso9660_datetime *ret) {
+void iso9660_datetime_zero(struct iso9660_datetime *ret) {
         assert(ret);
 
         memcpy(ret->year, "0000", 4);
@@ -21,7 +21,7 @@ void no_iso9660_datetime(struct iso9660_datetime *ret) {
         ret->zone = 0;
 }
 
-int time_to_iso9660_datetime(usec_t usec, bool utc, struct iso9660_datetime *ret) {
+int iso9660_datetime_from_usec(usec_t usec, bool utc, struct iso9660_datetime *ret) {
         struct tm t;
         int r;
 
@@ -49,7 +49,7 @@ int time_to_iso9660_datetime(usec_t usec, bool utc, struct iso9660_datetime *ret
         return 0;
 }
 
-int time_to_iso9660_dir_datetime(usec_t usec, bool utc, struct iso9660_dir_time *ret) {
+int iso9660_dir_datetime_from_usec(usec_t usec, bool utc, struct iso9660_dir_time *ret) {
         struct tm t;
         int r;
 
@@ -76,15 +76,15 @@ int time_to_iso9660_dir_datetime(usec_t usec, bool utc, struct iso9660_dir_time 
         return 0;
 }
 
-static bool valid_iso9660_string(const char *str, bool allow_a_chars) {
+static bool iso9660_valid_string(const char *str, bool allow_a_chars) {
         /* note that a-chars are not supposed to accept lower case letters, but it looks like common practice
          * to use them
          */
         return in_charset(str, allow_a_chars ? UPPERCASE_LETTERS LOWERCASE_LETTERS DIGITS " _!\"%&'()*+,-./:;<=>?" : UPPERCASE_LETTERS DIGITS "_");
 }
 
-int set_iso9660_string(char target[], size_t len, const char *source, bool allow_a_chars) {
-        if (source && !valid_iso9660_string(source, allow_a_chars))
+int iso9660_set_string(char target[], size_t len, const char *source, bool allow_a_chars) {
+        if (source && !iso9660_valid_string(source, allow_a_chars))
                 return -EINVAL;
 
         if (source) {
@@ -101,16 +101,16 @@ int set_iso9660_string(char target[], size_t len, const char *source, bool allow
 
 bool iso9660_volume_name_valid(const char *name) {
         /* In theory the volume identifier should be d-chars, but in practice, a-chars are allowed */
-        return valid_iso9660_string(name, /* allow_a_chars= */ true) &&
+        return iso9660_valid_string(name, /* allow_a_chars= */ true) &&
                 strlen(name) <= 32;
 }
 
 bool iso9660_system_name_valid(const char *name) {
-        return valid_iso9660_string(name, /* allow_a_chars= */ true) &&
+        return iso9660_valid_string(name, /* allow_a_chars= */ true) &&
                 strlen(name) <= 32;
 }
 
 bool iso9660_publisher_name_valid(const char *name) {
-        return valid_iso9660_string(name, /* allow_a_chars= */ true) &&
+        return iso9660_valid_string(name, /* allow_a_chars= */ true) &&
                 strlen(name) <= 128;
 }
