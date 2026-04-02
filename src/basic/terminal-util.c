@@ -44,8 +44,8 @@
 #include "time-util.h"
 #include "utf8.h"
 
-/* How much to wait for a reply to a terminal sequence */
-#define CONSOLE_REPLY_WAIT_USEC  (333 * USEC_PER_MSEC)
+/* How much to wait when reading/writing ANSI sequences from/to the console */
+#define CONSOLE_ANSI_SEQUENCE_TIMEOUT_USEC (333 * USEC_PER_MSEC)
 
 static volatile unsigned cached_columns = 0;
 static volatile unsigned cached_lines = 0;
@@ -858,7 +858,7 @@ int vt_disallocate(const char *tty_path) {
                                "\033[3J"  /* clear screen including scrollback, requires Linux 2.6.40 */
                                "\033c",   /* reset to initial state */
                                SIZE_MAX,
-                               100 * USEC_PER_MSEC);
+                               CONSOLE_ANSI_SEQUENCE_TIMEOUT_USEC);
 }
 
 static int vt_default_utf8(void) {
@@ -957,7 +957,8 @@ finish:
 }
 
 int terminal_reset_ansi_seq(int fd) {
-        int r, k;
+        _cleanup_(nonblock_resetp) int nonblock_reset = -EBADF;
+        int r;
 
         assert(fd >= 0);
 
@@ -967,8 +968,10 @@ int terminal_reset_ansi_seq(int fd) {
         r = fd_nonblock(fd, true);
         if (r < 0)
                 return log_debug_errno(r, "Failed to set terminal to non-blocking mode: %m");
+        if (r > 0)
+                nonblock_reset = fd;
 
-        k = loop_write_full(fd,
+        r = loop_write_full(fd,
                             "\033[!p"              /* soft terminal reset */
                             ANSI_OSC "104" ANSI_ST /* reset color palette via OSC 104 */
                             ANSI_NORMAL            /* reset colors */
@@ -976,17 +979,11 @@ int terminal_reset_ansi_seq(int fd) {
                             "\033[1G"              /* place cursor at beginning of current line */
                             "\033[0J",             /* erase till end of screen */
                             SIZE_MAX,
-                            100 * USEC_PER_MSEC);
-        if (k < 0)
-                log_debug_errno(k, "Failed to reset terminal through ANSI sequences: %m");
+                            CONSOLE_ANSI_SEQUENCE_TIMEOUT_USEC);
+        if (r < 0)
+                log_debug_errno(r, "Failed to reset terminal through ANSI sequences: %m");
 
-        if (r > 0) {
-                r = fd_nonblock(fd, false);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to set terminal back to blocking mode: %m");
-        }
-
-        return k < 0 ? k : r;
+        return r;
 }
 
 void reset_dev_console_fd(int fd, bool switch_to_text) {
@@ -2017,7 +2014,7 @@ int terminal_get_cursor_position(
         if (r < 0)
                 goto finish;
 
-        usec_t end = usec_add(now(CLOCK_MONOTONIC), CONSOLE_REPLY_WAIT_USEC);
+        usec_t end = usec_add(now(CLOCK_MONOTONIC), CONSOLE_ANSI_SEQUENCE_TIMEOUT_USEC);
         char buf[STRLEN("\x1B[1;1R")]; /* The shortest valid reply possible */
         size_t buf_full = 0;
         CursorPositionContext context = {};
@@ -2311,7 +2308,7 @@ int get_default_background_color(double *ret_red, double *ret_green, double *ret
         if (r < 0)
                 goto finish;
 
-        usec_t end = usec_add(now(CLOCK_MONOTONIC), CONSOLE_REPLY_WAIT_USEC);
+        usec_t end = usec_add(now(CLOCK_MONOTONIC), CONSOLE_ANSI_SEQUENCE_TIMEOUT_USEC);
         char buf[STRLEN(ANSI_OSC "11;rgb:0/0/0" ANSI_ST)]; /* shortest possible reply */
         size_t buf_full = 0;
         BackgroundColorContext context = {};
@@ -2379,6 +2376,7 @@ int terminal_get_size_by_dsr(
                 unsigned *ret_rows,
                 unsigned *ret_columns) {
 
+        _cleanup_(nonblock_resetp) int nonblock_reset = -EBADF;
         int r;
 
         assert(input_fd >= 0);
@@ -2412,6 +2410,12 @@ int terminal_get_size_by_dsr(
         if (r < 0)
                 return r;
 
+        r = fd_nonblock(output_fd, true);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to set terminal to non-blocking mode: %m");
+        if (r > 0)
+                nonblock_reset = output_fd;
+
         struct termios old_termios;
         if (tcgetattr(nonblock_input_fd, &old_termios) < 0)
                 return log_debug_errno(errno, "Failed to get terminal settings: %m");
@@ -2427,16 +2431,17 @@ int terminal_get_size_by_dsr(
 
         /* Use DECSC/DECRC to save/restore cursor instead of querying position via DSR. This way the cursor
          * is always restored — even on timeout — and we only need one DSR response instead of two. */
-        r = loop_write(output_fd,
+        r = loop_write_full(output_fd,
                        "\x1B" "7"              /* DECSC: save cursor position */
                        "\x1B[32766;32766H"     /* CUP: position cursor far to the right and to the bottom, staying within 16bit signed range */
                        "\x1B[6n"               /* DSR: request cursor position (CPR) */
                        "\x1B" "8",             /* DECRC: restore cursor position */
-                       SIZE_MAX);
+                       SIZE_MAX,
+                       CONSOLE_ANSI_SEQUENCE_TIMEOUT_USEC);
         if (r < 0)
                 goto finish;
 
-        usec_t end = usec_add(now(CLOCK_MONOTONIC), CONSOLE_REPLY_WAIT_USEC);
+        usec_t end = usec_add(now(CLOCK_MONOTONIC), CONSOLE_ANSI_SEQUENCE_TIMEOUT_USEC);
         char buf[STRLEN("\x1B[1;1R")]; /* The shortest valid reply possible */
         size_t buf_full = 0;
         CursorPositionContext context = {};
@@ -2607,7 +2612,7 @@ int terminal_get_terminfo_by_dcs(int fd, char **ret_name) {
         if (r < 0)
                 goto finish;
 
-        usec_t end = usec_add(now(CLOCK_MONOTONIC), CONSOLE_REPLY_WAIT_USEC);
+        usec_t end = usec_add(now(CLOCK_MONOTONIC), CONSOLE_ANSI_SEQUENCE_TIMEOUT_USEC);
         char buf[STRLEN(DCS_TERMINFO_R1) + MAX_TERMINFO_LENGTH + STRLEN(ANSI_ST)];
         size_t bytes = 0;
 
