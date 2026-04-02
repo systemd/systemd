@@ -45,7 +45,7 @@ _machinectl() {
 
     local -A VERBS=(
         [STANDALONE]='list list-images clean pull-tar pull-raw list-transfers cancel-transfer import-fs'
-        [MACHINES]='status show start stop login shell enable disable poweroff reboot terminate kill
+        [MACHINES]='status show start stop login shell enable disable poweroff reboot pause resume terminate kill
                     image-status show-image remove export-tar export-raw'
         [MACHINES_OR_FILES]='edit cat'
         [MACHINE_ONLY]='clone rename set-limit'
