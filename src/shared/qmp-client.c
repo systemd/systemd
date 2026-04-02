@@ -128,7 +128,7 @@ static int qmp_client_parse_message(QmpClient *c, sd_json_variant **ret) {
 
         *e = '\0';
 
-        r = sd_json_parse(begin, /* flags= */ 0, ret, /* ret_line= */ NULL, /* ret_column= */ NULL);
+        r = sd_json_parse(begin, /* flags= */ 0, ret, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
         if (r < 0) {
                 c->input_buffer_index = c->input_buffer_size = c->input_buffer_unscanned = 0;
                 return r;
@@ -247,23 +247,18 @@ static int qmp_client_build_command(QmpClient *c, const char *command, sd_json_v
         return 0;
 }
 
-/* Send a QMP command and wait for the matching response. Events arriving in the meantime are dispatched
- * to the event callback. Returns 0 on success, -EIO on QMP error, negative errno on transport failure. */
-static int qmp_client_call(QmpClient *c, const char *command, sd_json_variant *arguments) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *cmd = NULL;
-        uint64_t id;
+/* Wait for a response matching the given id. Events are dispatched, non-matching responses
+ * are discarded. Single response-parsing path for all blocking callers. Returns 0 on success,
+ * -EIO on QMP error (class in ret_error), negative errno on transport failure. */
+static int qmp_client_wait_response(
+                QmpClient *c,
+                uint64_t id,
+                sd_json_variant **ret_result,
+                char **ret_error) {
+
         int r;
 
         assert(c);
-        assert(command);
-
-        r = qmp_client_build_command(c, command, arguments, &cmd, &id);
-        if (r < 0)
-                return r;
-
-        r = qmp_client_write_json(c, cmd);
-        if (r < 0)
-                return r;
 
         for (;;) {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *response = NULL;
@@ -279,19 +274,54 @@ static int qmp_client_call(QmpClient *c, const char *command, sd_json_variant *a
                 }
 
                 resp_id = sd_json_variant_by_key(response, "id");
-                if (!resp_id || sd_json_variant_unsigned(resp_id) != id) {
-                        log_debug("Discarding unmatched QMP response");
+                if (!resp_id || sd_json_variant_unsigned(resp_id) != id)
                         continue;
+
+                sd_json_variant *result = sd_json_variant_by_key(response, "return");
+                if (result) {
+                        if (ret_result)
+                                *ret_result = sd_json_variant_ref(result);
+                        if (ret_error)
+                                *ret_error = NULL;
+                        return 0;
                 }
 
-                if (sd_json_variant_by_key(response, "return"))
-                        return 0;
-
-                if (sd_json_variant_by_key(response, "error"))
+                sd_json_variant *error = sd_json_variant_by_key(response, "error");
+                if (error) {
+                        if (ret_error) {
+                                sd_json_variant *class = sd_json_variant_by_key(error, "class");
+                                if (class)
+                                        (void) free_and_strdup(ret_error, sd_json_variant_string(class));
+                                else
+                                        *ret_error = NULL;
+                        }
+                        if (ret_result)
+                                *ret_result = NULL;
                         return -EIO;
+                }
 
                 return -EPROTO;
         }
+}
+
+/* Send a QMP command and wait for the matching response. Used only during the initial handshake. */
+static int qmp_client_handshake_call(QmpClient *c, const char *command, sd_json_variant *arguments) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *cmd = NULL;
+        uint64_t id;
+        int r;
+
+        assert(c);
+        assert(command);
+
+        r = qmp_client_build_command(c, command, arguments, &cmd, &id);
+        if (r < 0)
+                return r;
+
+        r = qmp_client_write_json(c, cmd);
+        if (r < 0)
+                return r;
+
+        return qmp_client_wait_response(c, id, NULL, NULL);
 }
 
 /* Dispatch a parsed QMP message: route command responses to pending async callbacks,
@@ -467,19 +497,31 @@ int qmp_client_connect_fd(QmpClient **ret, int fd, sd_event *event) {
         /* Phase 1: Blocking handshake. The fd is in blocking mode at this point — this is fine because
          * we are talking to a trusted peer (our own QEMU child over a socketpair we created), same
          * pattern as nspawn's barrier synchronization before entering sd_event_loop(). Read the QMP
-         * greeting, then send qmp_capabilities via qmp_client_call() which handles the response loop.
-         * If QEMU dies during this, read() returns 0 (EOF). */
+         * greeting, then send qmp_capabilities. If QEMU dies during this, read() returns 0 (EOF). */
         r = qmp_client_read_greeting(c);
         if (r < 0)
                 return r;
 
-        r = qmp_client_call(c, "qmp_capabilities", NULL);
+        r = qmp_client_handshake_call(c, "qmp_capabilities", NULL);
         if (r < 0)
                 return r;
 
-        /* Phase 2: Switch to async mode. Set the fd to non-blocking and attach an I/O event source to
-         * the caller's event loop for processing QMP responses and async events (STOP, RESUME, SHUTDOWN,
-         * etc.) arriving on the socketpair. Leftover bytes in the read buffer are preserved. */
+        *ret = TAKE_PTR(c);
+        return 0;
+}
+
+/* Switch from blocking (Phase 1) to async (Phase 2) mode. Must be called after all blocking
+ * setup calls (qmp_client_call, drive configuration, cont) are complete. Switches the fd
+ * to non-blocking and attaches an I/O event source for processing async events. */
+int qmp_client_start_async(QmpClient *c) {
+        int r;
+
+        assert_return(c, -EINVAL);
+        assert_return(!c->io_event_source, -EALREADY);
+
+        if (!c->connected)
+                return -ENOTCONN;
+
         r = fd_nonblock(c->fd, true);
         if (r < 0)
                 return r;
@@ -489,9 +531,39 @@ int qmp_client_connect_fd(QmpClient **ret, int fd, sd_event *event) {
                 return r;
 
         (void) sd_event_source_set_description(c->io_event_source, "qmp-client-io");
-
-        *ret = TAKE_PTR(c);
         return 0;
+}
+
+/* Execute a QMP command synchronously (blocking). Only valid during Phase 1, before
+ * qmp_client_start_async(). Returns the result JSON on success, -EIO on QMP error
+ * (with error class in ret_error), negative errno on transport failure. */
+int qmp_client_call(
+                QmpClient *c,
+                const char *command,
+                sd_json_variant *arguments,
+                sd_json_variant **ret_result,
+                char **ret_error) {
+
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *cmd = NULL;
+        uint64_t id;
+        int r;
+
+        assert_return(c, -EINVAL);
+        assert_return(command, -EINVAL);
+        assert_return(!c->io_event_source, -EBUSY);
+
+        if (!c->connected)
+                return -ENOTCONN;
+
+        r = qmp_client_build_command(c, command, arguments, &cmd, &id);
+        if (r < 0)
+                return r;
+
+        r = qmp_client_write_json(c, cmd);
+        if (r < 0)
+                return r;
+
+        return qmp_client_wait_response(c, id, ret_result, ret_error);
 }
 
 int qmp_client_execute(
@@ -552,6 +624,10 @@ void qmp_client_set_disconnect_callback(QmpClient *c, qmp_disconnect_callback_t 
 
         c->disconnect_callback = callback;
         c->disconnect_userdata = userdata;
+}
+
+sd_event *qmp_client_get_event(QmpClient *c) {
+        return c ? c->event : NULL;
 }
 
 QmpClient *qmp_client_free(QmpClient *c) {
