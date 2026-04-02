@@ -262,16 +262,17 @@
       <varlistentry>
         <term><command>poweroff</command> <replaceable>NAME</replaceable>…</term>
 
-        <listitem><para>Power off one or more containers. This will
-        trigger a shutdown by sending SIGRTMIN+4 to the container's init
-        process, which causes systemd-compatible init systems to shut
-        down cleanly. Use <command>stop</command> as alias for <command>poweroff</command>.
-        This operation does not work on containers that do not run a
+        <listitem><para>Power off one or more machines. For VMs managed by
+        <citerefentry><refentrytitle>systemd-vmspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        this sends an ACPI powerdown request via QMP. For containers, this
+        sends SIGRTMIN+4 to the container's init process, which causes
+        systemd-compatible init systems to shut down cleanly. This
+        operation does not work on containers that do not run a
         <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>-compatible
         init system, such as sysvinit. Use
-        <command>terminate</command> (see below) to immediately
-        terminate a container or VM, without cleanly shutting it
-        down.</para>
+        <command>stop</command> as alias for <command>poweroff</command>.
+        Use <command>terminate</command> (see below) to immediately
+        terminate a machine without cleanly shutting it down.</para>
 
         <xi:include href="version-info.xml" xpointer="v212"/></listitem>
       </varlistentry>
@@ -279,14 +280,38 @@
       <varlistentry>
         <term><command>reboot</command> <replaceable>NAME</replaceable>…</term>
 
-        <listitem><para>Reboot one or more containers. This will
-        trigger a reboot by sending SIGINT to the container's init
-        process, which is roughly equivalent to pressing Ctrl+Alt+Del
-        on a non-containerized system, and is compatible with
-        containers running any system manager. Use <command>restart</command> as alias
-        for <command>reboot</command>.</para>
+        <listitem><para>Reboot one or more machines. For VMs managed by
+        <citerefentry><refentrytitle>systemd-vmspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        this sends a system reset request via QMP. For containers, this
+        sends SIGINT to the container's init process, which is roughly
+        equivalent to pressing Ctrl+Alt+Del on a non-containerized
+        system, and is compatible with containers running any system
+        manager. Use <command>restart</command> as alias for
+        <command>reboot</command>.</para>
 
         <xi:include href="version-info.xml" xpointer="v209"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>pause</command> <replaceable>NAME</replaceable>…</term>
+
+        <listitem><para>Pause one or more machines. For VMs managed by
+        <citerefentry><refentrytitle>systemd-vmspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        this freezes vCPU execution at the hypervisor level — the guest
+        operating system is not notified and does not observe an ACPI suspend.
+        From the guest's perspective time simply stops until the machine is
+        resumed with <command>resume</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>resume</command> <replaceable>NAME</replaceable>…</term>
+
+        <listitem><para>Resume one or more previously paused machines.
+        This restarts execution after a <command>pause</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
       </varlistentry>
 
       <varlistentry>
