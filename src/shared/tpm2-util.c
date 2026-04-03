@@ -6584,7 +6584,7 @@ int tpm2_list_devices(bool legend, bool quiet) {
                 return 0;
         }
 
-        r = table_print(t, stdout);
+        r = table_print(t);
         if (r < 0)
                 return log_error_errno(r, "Failed to show device table: %m");
 

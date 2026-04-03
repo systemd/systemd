@@ -163,7 +163,7 @@ static int print_status_info(const StatusInfo *i) {
         if (r < 0)
                 return table_log_add_error(r);
 
-        r = table_print(table, NULL);
+        r = table_print(table);
         if (r < 0)
                 return table_log_print_error(r);
 
@@ -443,7 +443,7 @@ static int print_ntp_status_info(NTPStatusInfo *i) {
                 if (r < 0)
                         return table_log_add_error(r);
 
-                r = table_print(table, NULL);
+                r = table_print(table);
                 if (r < 0)
                         return table_log_print_error(r);
 
@@ -452,7 +452,7 @@ static int print_ntp_status_info(NTPStatusInfo *i) {
 
         if (i->dest < i->origin || i->trans < i->recv || i->dest - i->origin < i->trans - i->recv) {
                 log_error("Invalid NTP response");
-                r = table_print(table, NULL);
+                r = table_print(table);
                 if (r < 0)
                         return table_log_print_error(r);
 
@@ -536,7 +536,7 @@ static int print_ntp_status_info(NTPStatusInfo *i) {
                         return table_log_add_error(r);
         }
 
-        r = table_print(table, NULL);
+        r = table_print(table);
         if (r < 0)
                 return table_log_print_error(r);
 

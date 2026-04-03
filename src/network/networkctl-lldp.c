@@ -303,7 +303,7 @@ int verb_link_lldp_status(int argc, char *argv[], uintptr_t _data, void *userdat
                 }
         }
 
-        r = table_print(table, NULL);
+        r = table_print(table);
         if (r < 0)
                 return table_log_print_error(r);
 

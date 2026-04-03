@@ -47,7 +47,7 @@ static int help(void) {
                ansi_normal(),
                ansi_underline(),
                ansi_normal());
-        table_print(options, stdout);
+        table_print(options);
 
         return 0;
 }

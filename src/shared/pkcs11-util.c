@@ -1816,7 +1816,7 @@ int pkcs11_list_tokens(void) {
                 return 0;
         }
 
-        r = table_print(t, stdout);
+        r = table_print(t);
         if (r < 0)
                 return log_error_errno(r, "Failed to show device table: %m");
 
