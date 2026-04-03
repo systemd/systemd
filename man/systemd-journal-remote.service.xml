@@ -333,6 +333,19 @@
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--max-use=</option></term>
+        <term><option>--keep-free=</option></term>
+        <term><option>--max-file-size=</option></term>
+        <term><option>--max-files=</option></term>
+
+        <listitem><para>These options override the corresponding settings from the configuration file
+        (see <citerefentry><refentrytitle>journal-remote.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
+        See that page for the descriptions of these options.</para>
+
+        <xi:include href="version-info.xml" xpointer="v261"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
