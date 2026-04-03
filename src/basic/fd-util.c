@@ -167,6 +167,8 @@ int fd_nonblock(int fd, bool nonblock) {
 }
 
 void nonblock_resetp(int *fd) {
+        assert(fd);
+
         PROTECT_ERRNO;
 
         if (*fd >= 0)
