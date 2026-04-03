@@ -30,6 +30,13 @@ REPORT=/usr/lib/systemd/systemd-report
 "$REPORT" describe-metrics io.systemd piff
 "$REPORT" describe-metrics piff
 
+# test io.systemd.CGroup Metrics
+systemctl start systemd-report-cgroup.socket
+varlinkctl info /run/systemd/report/io.systemd.CGroup
+varlinkctl list-methods /run/systemd/report/io.systemd.CGroup
+varlinkctl --more call /run/systemd/report/io.systemd.CGroup io.systemd.Metrics.List {}
+varlinkctl --more call /run/systemd/report/io.systemd.CGroup io.systemd.Metrics.Describe {}
+
 # test io.systemd.Network Metrics
 varlinkctl info /run/systemd/report/io.systemd.Network
 varlinkctl list-methods /run/systemd/report/io.systemd.Network
