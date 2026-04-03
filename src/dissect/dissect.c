@@ -165,11 +165,15 @@ static int help(void) {
                ansi_underline(),
                ansi_normal());
 
-        table_print(options);
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
 
         printf("\n%sCommands:%s\n", ansi_underline(), ansi_normal());
 
-        table_print(commands);
+        r = table_print_or_warn(commands);
+        if (r < 0)
+                return r;
 
         printf("\nSee the %s for details.\n", link);
         return 0;
@@ -1082,9 +1086,9 @@ static int action_dissect(
         if (!sd_json_format_enabled(arg_json_format_flags)) {
                 table_set_header(t, arg_legend);
 
-                r = table_print(t);
+                r = table_print_or_warn(t);
                 if (r < 0)
-                        return table_log_print_error(r);
+                        return r;
         } else {
                 _cleanup_(sd_json_variant_unrefp) sd_json_variant *jt = NULL;
 

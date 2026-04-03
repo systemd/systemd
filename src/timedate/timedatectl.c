@@ -163,9 +163,9 @@ static int print_status_info(const StatusInfo *i) {
         if (r < 0)
                 return table_log_add_error(r);
 
-        r = table_print(table);
+        r = table_print_or_warn(table);
         if (r < 0)
-                return table_log_print_error(r);
+                return r;
 
         if (i->rtc_local) {
                 fflush(stdout);
@@ -443,20 +443,12 @@ static int print_ntp_status_info(NTPStatusInfo *i) {
                 if (r < 0)
                         return table_log_add_error(r);
 
-                r = table_print(table);
-                if (r < 0)
-                        return table_log_print_error(r);
-
-                return 0;
+                return table_print_or_warn(table);
         }
 
         if (i->dest < i->origin || i->trans < i->recv || i->dest - i->origin < i->trans - i->recv) {
                 log_error("Invalid NTP response");
-                r = table_print(table);
-                if (r < 0)
-                        return table_log_print_error(r);
-
-                return 0;
+                return table_print_or_warn(table);
         }
 
         delay = (i->dest - i->origin) - (i->trans - i->recv);
@@ -536,11 +528,7 @@ static int print_ntp_status_info(NTPStatusInfo *i) {
                         return table_log_add_error(r);
         }
 
-        r = table_print(table);
-        if (r < 0)
-                return table_log_print_error(r);
-
-        return 0;
+        return table_print_or_warn(table);
 }
 
 static int map_server_address(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
