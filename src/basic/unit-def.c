@@ -24,6 +24,8 @@ int unit_name_from_dbus_path(const char *path, char **name) {
         const char *e;
         char *n;
 
+        assert(name);
+
         e = startswith(path, "/org/freedesktop/systemd1/unit/");
         if (!e)
                 return -EINVAL;

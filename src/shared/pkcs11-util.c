@@ -874,6 +874,8 @@ int pkcs11_token_find_related_object(
         CK_OBJECT_HANDLE objects[2];
         CK_RV rv;
 
+        assert(ret_object);
+
         rv = m->C_GetAttributeValue(session, prototype, attributes, ELEMENTSOF(attributes));
         if (!IN_SET(rv, CKR_OK, CKR_ATTRIBUTE_TYPE_INVALID))
                 return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to retrieve length of attributes: %s", sym_p11_kit_strerror(rv));
@@ -1071,6 +1073,9 @@ static int pkcs11_token_decrypt_data_ecc(
         _cleanup_free_ void *compressed_point = NULL;
         int r;
 #endif
+
+        assert(ret_decrypted_data);
+        assert(ret_decrypted_data_size);
 
         rv = m->C_GetSessionInfo(session, &session_info);
         if (rv != CKR_OK)

@@ -841,6 +841,8 @@ int in_addr_parse_prefixlen(int family, const char *p, unsigned char *ret) {
         uint8_t u;
         int r;
 
+        assert(ret);
+
         if (!IN_SET(family, AF_INET, AF_INET6))
                 return -EAFNOSUPPORT;
 

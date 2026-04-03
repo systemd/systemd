@@ -82,11 +82,9 @@ Condition* condition_new(ConditionType type, const char *parameter, bool trigger
                 .negate = negate,
         };
 
-        if (parameter) {
-                c->parameter = strdup(parameter);
-                if (!c->parameter)
-                        return mfree(c);
-        }
+        c->parameter = strdup(parameter);
+        if (!c->parameter)
+                return mfree(c);
 
         return c;
 }

@@ -115,10 +115,15 @@ char* ether_addr_to_string(const struct ether_addr *addr, char buffer[ETHER_ADDR
 }
 
 int ether_addr_compare(const struct ether_addr *a, const struct ether_addr *b) {
+        assert(a);
+        assert(b);
+
         return memcmp(a, b, ETH_ALEN);
 }
 
 static void ether_addr_hash_func(const struct ether_addr *p, struct siphash *state) {
+        assert(p);
+
         siphash24_compress_typesafe(*p, state);
 }
 

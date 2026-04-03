@@ -33,6 +33,8 @@
 #include "time-util.h"
 
 static void cleanup_clear_loop_close(int *fd) {
+        assert(fd);
+
         if (*fd < 0)
                 return;
 
