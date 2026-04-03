@@ -1203,6 +1203,47 @@ systemd-sysext unmerge
 systemctl status foo.service 2>&1 | grep -v -F "Warning" >/dev/null
 rm /var/lib/extensions/app-reload.raw
 
+# Test that GPT images with an ISO9660 El Torito boot catalog are dissected correctly. The blkid
+# superblock filter must prevent the iso9660 superblock from being detected, so dissection proceeds via
+# the GPT partition table rather than treating the whole image as a single iso9660 filesystem.
+defs="$(mktemp --directory "$IMAGE_DIR/test-50-dissect-eltorito.defs.XXXXXXXXXX")"
+imgs="$(mktemp --directory "$IMAGE_DIR/test-50-dissect-eltorito.imgs.XXXXXXXXXX")"
+
+tee "$defs/00-esp.conf" <<EOF
+[Partition]
+Type=esp
+Format=vfat
+SizeMinBytes=100M
+SizeMaxBytes=100M
+EOF
+
+tee "$defs/10-root.conf" <<EOF
+[Partition]
+Type=root
+Format=ext4
+SizeMinBytes=100M
+SizeMaxBytes=100M
+EOF
+
+systemd-repart --pretty=yes \
+               --definitions="$defs" \
+               --empty=create \
+               --size=auto \
+               --dry-run=no \
+               --offline=yes \
+               --el-torito=yes \
+               "$imgs/eltorito.img"
+
+# Verify the image has both iso9660 superblock and GPT partition table
+blkid -o value -s PTTYPE "$imgs/eltorito.img" | grep -x gpt
+blkid -o value -s TYPE "$imgs/eltorito.img" | grep -x iso9660
+
+# systemd-dissect must process the GPT partitions, not the whole-device iso9660 superblock
+systemd-dissect --json=short "$imgs/eltorito.img" | grep -F '"designator":"root"' | grep -F '"fstype":"ext4"'
+systemd-dissect --json=short "$imgs/eltorito.img" | grep -F '"designator":"esp"' | grep -F '"fstype":"vfat"'
+
+rm -rf "$defs" "$imgs"
+
 # Sneak in a couple of expected-to-fail invocations to cover
 # https://github.com/systemd/systemd/issues/29610
 (! systemd-run -P -p MountImages="/this/should/definitely/not/exist.img:/run/img2\:3:nosuid" false)
