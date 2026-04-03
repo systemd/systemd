@@ -439,7 +439,7 @@ static int verb_info(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         if (r < 0)
                                 return table_log_add_error(r);
 
-                        r = table_print(t, NULL);
+                        r = table_print(t);
                         if (r < 0)
                                 return table_log_print_error(r);
                 }

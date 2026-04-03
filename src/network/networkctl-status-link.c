@@ -900,7 +900,7 @@ static int link_status_one(
                on_color_operational, glyph(GLYPH_BLACK_CIRCLE), off_color_operational,
                info->ifindex, info->name);
 
-        r = table_print(table, NULL);
+        r = table_print(table);
         if (r < 0)
                 return table_log_print_error(r);
 

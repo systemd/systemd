@@ -2217,7 +2217,7 @@ int _table_sync_column_widths(size_t column, Table *a, ...) {
         return r;
 }
 
-int table_print(Table *t, FILE *f) {
+int table_print_full(Table *t, FILE *f, bool flush) {
         size_t n_rows, *minimum_width, *maximum_width, display_columns, *requested_width,
                 table_minimum_width, table_maximum_width, table_requested_width, table_effective_width,
                 *width = NULL;
@@ -2637,6 +2637,9 @@ int table_print(Table *t, FILE *f) {
                 } while (more_sublines);
         }
 
+        if (!flush)
+                return 0;
+
         return fflush_and_check(f);
 }
 
@@ -2652,7 +2655,7 @@ int table_format(Table *t, char **ret) {
         if (!f)
                 return -ENOMEM;
 
-        r = table_print(t, f);
+        r = table_print_full(t, f, /* flush= */ true);
         if (r < 0)
                 return r;
 
@@ -3141,7 +3144,7 @@ int table_print_json(Table *t, FILE *f, sd_json_format_flags_t flags) {
         assert(t);
 
         if (!sd_json_format_enabled(flags)) /* If JSON output is turned off, use regular output */
-                return table_print(t, f);
+                return table_print_full(t, f, /* flush= */ true);
 
         if (!f)
                 f = stdout;
