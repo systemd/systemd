@@ -716,9 +716,9 @@ static int print_session_status_info(sd_bus *bus, const char *path) {
         /* We don't use the table to show the header, in order to make the width of the column stable. */
         printf("%s%s - %s (" UID_FMT ")%s\n", ansi_highlight(), i.id, i.name, i.uid, ansi_normal());
 
-        r = table_print(table, NULL);
+        r = table_print_or_warn(table);
         if (r < 0)
-                return table_log_print_error(r);
+                return r;
 
         if (i.scope) {
                 show_unit_cgroup(bus, i.scope, i.leader, /* prefix= */ strrepa(" ", STRLEN("Display: ")));
@@ -821,9 +821,9 @@ static int print_user_status_info(sd_bus *bus, const char *path) {
 
         printf("%s%s (" UID_FMT ")%s\n", ansi_highlight(), i.name, i.uid, ansi_normal());
 
-        r = table_print(table, NULL);
+        r = table_print_or_warn(table);
         if (r < 0)
-                return table_log_print_error(r);
+                return r;
 
         if (i.slice) {
                 show_unit_cgroup(bus, i.slice, /* leader= */ 0, /* prefix= */ strrepa(" ", STRLEN("Sessions: ")));
@@ -896,9 +896,9 @@ static int print_seat_status_info(sd_bus *bus, const char *path) {
 
         printf("%s%s%s\n", ansi_highlight(), i.id, ansi_normal());
 
-        r = table_print(table, NULL);
+        r = table_print_or_warn(table);
         if (r < 0)
-                return table_log_print_error(r);
+                return r;
 
         if (arg_transport == BUS_TRANSPORT_LOCAL) {
                 unsigned c = MAX(LESS_BY(columns(), 21U), 10U);

@@ -1188,13 +1188,7 @@ static int verb_introspect(int argc, char *argv[], uintptr_t _data, void *userda
                         return table_log_add_error(r);
         }
 
-        pager_open(arg_pager_flags);
-
-        r = table_print(table, NULL);
-        if (r < 0)
-                return table_log_print_error(r);
-
-        return 0;
+        return table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
 }
 
 static int message_dump(sd_bus_message *m, FILE *f) {

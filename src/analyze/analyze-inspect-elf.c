@@ -118,9 +118,9 @@ static int analyze_elf(char **filenames, sd_json_format_flags_t json_flags) {
                 if (sd_json_format_enabled(json_flags))
                         sd_json_variant_dump(package_metadata, json_flags, stdout, NULL);
                 else {
-                        r = table_print(t, NULL);
+                        r = table_print_or_warn(t);
                         if (r < 0)
-                                return table_log_print_error(r);
+                                return r;
                 }
         }
 

@@ -79,9 +79,9 @@ int verb_list_links(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         return table_log_add_error(r);
         }
 
-        r = table_print(table, NULL);
+        r = table_print_or_warn(table);
         if (r < 0)
-                return table_log_print_error(r);
+                return r;
 
         if (arg_legend)
                 printf("\n%i links listed.\n", c);

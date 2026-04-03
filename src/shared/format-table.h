@@ -147,7 +147,12 @@ int table_set_column_width(Table *t, size_t column, size_t width);
 int _table_sync_column_widths(size_t column, Table *a, ...);
 #define table_sync_column_widths(column, a, ...) _table_sync_column_widths(column, a, __VA_ARGS__, NULL)
 
-int table_print(Table *t, FILE *f);
+int table_print_full(Table *t, FILE *f, bool flush);
+static inline int table_print(Table *t) {
+        return table_print_full(t, /* f= */ NULL, /* flush= */ false);
+}
+int table_print_or_warn(Table *t);
+
 int table_format(Table *t, char **ret);
 
 static inline TableCell* TABLE_HEADER_CELL(size_t i) {

@@ -126,9 +126,9 @@ int system_status(sd_netlink *rtnl, sd_hwdb *hwdb) {
                on_color_operational, glyph(GLYPH_BLACK_CIRCLE), off_color_operational,
                strna(netifs_joined));
 
-        r = table_print(table, NULL);
+        r = table_print_or_warn(table);
         if (r < 0)
-                return table_log_print_error(r);
+                return r;
 
         return show_logs(0, NULL);
 }

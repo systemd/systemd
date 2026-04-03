@@ -1241,11 +1241,9 @@ int fido2_list_devices(void) {
                 }
         }
 
-        r = table_print(t, stdout);
-        if (r < 0) {
-                log_error_errno(r, "Failed to show device table: %m");
+        r = table_print_or_warn(t);
+        if (r < 0)
                 goto finish;
-        }
 
         if (!table_isempty(t))
                 printf("\n"

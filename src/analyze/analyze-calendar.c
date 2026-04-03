@@ -35,14 +35,10 @@ static int test_calendar_one(usec_t n, const char *p) {
                 return log_oom();
 
         assert_se(cell = table_get_cell(table, 0, 0));
-        r = table_set_ellipsize_percent(table, cell, 100);
-        if (r < 0)
-                return r;
+        (void) table_set_ellipsize_percent(table, cell, 100);
 
         assert_se(cell = table_get_cell(table, 0, 1));
-        r = table_set_ellipsize_percent(table, cell, 100);
-        if (r < 0)
-                return r;
+        (void) table_set_ellipsize_percent(table, cell, 100);
 
         if (!streq(t, p)) {
                 r = table_add_many(table,
@@ -119,7 +115,7 @@ static int test_calendar_one(usec_t n, const char *p) {
                 n = next;
         }
 
-        return table_print(table, NULL);
+        return table_print_or_warn(table);
 }
 
 int verb_calendar(int argc, char *argv[], uintptr_t _data, void *userdata) {
