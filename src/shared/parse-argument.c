@@ -128,11 +128,7 @@ int parse_signal_argument(const char *s, int *ret) {
                                 return table_log_add_error(r);
                 }
 
-                r = table_print(table);
-                if (r < 0)
-                        return table_log_print_error(r);
-
-                return 0;
+                return table_print_or_warn(table);
         }
 
         r = signal_from_string(s);

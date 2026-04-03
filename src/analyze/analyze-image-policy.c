@@ -157,7 +157,7 @@ int verb_image_policy(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
                 putc('\n', stdout);
 
-                r = table_print(table);
+                r = table_print_or_warn(table);
                 if (r < 0)
                         return r;
         }

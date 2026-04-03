@@ -151,6 +151,7 @@ int table_print_full(Table *t, FILE *f, bool flush);
 static inline int table_print(Table *t) {
         return table_print_full(t, /* f= */ NULL, /* flush= */ false);
 }
+int table_print_or_warn(Table *t);
 
 int table_format(Table *t, char **ret);
 
