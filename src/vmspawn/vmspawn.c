@@ -138,6 +138,7 @@ static int arg_vsock = -1;
 static unsigned arg_vsock_cid = VMADDR_CID_ANY;
 static int arg_tpm = -1;
 static char *arg_linux = NULL;
+static KernelImageType arg_linux_image_type = _KERNEL_IMAGE_TYPE_INVALID;
 static char **arg_initrds = NULL;
 static ConsoleMode arg_console_mode = CONSOLE_INTERACTIVE;
 static ConsoleTransport arg_console_transport = CONSOLE_TRANSPORT_VIRTIO;
@@ -146,6 +147,7 @@ static MachineCredentialContext arg_credentials = {};
 static uid_t arg_uid_shift = UID_INVALID, arg_uid_range = 0x10000U;
 static RuntimeMountContext arg_runtime_mounts = {};
 static char *arg_firmware = NULL;
+static bool arg_firmware_none = false;
 static bool arg_firmware_describe = false;
 static Set *arg_firmware_features_include = NULL;
 static Set *arg_firmware_features_exclude = NULL;
@@ -816,12 +818,21 @@ static int parse_argv(int argc, char *argv[]) {
                                  * taken into account. */
                                 arg_firmware = mfree(arg_firmware);
                                 arg_firmware_describe = true;
+                                arg_firmware_none = false;
                                 break;
                         }
 
                         arg_firmware_describe = false;
 
-                        if (!isempty(optarg) && !path_is_absolute(optarg) && !startswith(optarg, "./"))
+                        if (isempty(optarg)) {
+                                arg_firmware = mfree(arg_firmware);
+                                arg_firmware_none = true;
+                                break;
+                        }
+
+                        arg_firmware_none = false;
+
+                        if (!path_is_absolute(optarg) && !startswith(optarg, "./"))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Absolute path or path starting with './' required.");
 
                         r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_firmware);
@@ -1423,15 +1434,15 @@ static int on_child_exit(sd_event_source *s, const siginfo_t *si, void *userdata
         return 0;
 }
 
-static int cmdline_add_vsock(char ***cmdline, int vsock_fd) {
-        int r;
+static bool smbios_supported(void) {
+        /* SMBIOS is always available on x86 (via SeaBIOS fallback), but on
+         * other architectures it requires UEFI firmware to be loaded. */
+        return ARCHITECTURE_SUPPORTS_SMBIOS &&
+               (IN_SET(native_architecture(), ARCHITECTURE_X86, ARCHITECTURE_X86_64) || !arg_firmware_none);
+}
 
-        assert(cmdline);
+static int add_vsock_credential(int vsock_fd) {
         assert(vsock_fd >= 0);
-
-        r = strv_extend(cmdline, "-smbios");
-        if (r < 0)
-                return r;
 
         union sockaddr_union addr;
         socklen_t addr_len = sizeof addr.vm;
@@ -1441,14 +1452,14 @@ static int cmdline_add_vsock(char ***cmdline, int vsock_fd) {
         assert(addr_len >= sizeof addr.vm);
         assert(addr.vm.svm_family == AF_VSOCK);
 
-        r = strv_extendf(cmdline, "type=11,value=io.systemd.credential:vmm.notify_socket=vsock-stream:%u:%u", (unsigned) VMADDR_CID_HOST, addr.vm.svm_port);
-        if (r < 0)
-                return r;
+        _cleanup_free_ char *value = NULL;
+        if (asprintf(&value, "vsock-stream:%u:%u", (unsigned) VMADDR_CID_HOST, addr.vm.svm_port) < 0)
+                return -ENOMEM;
 
-        return 0;
+        return machine_credential_add(&arg_credentials, "vmm.notify_socket", value, SIZE_MAX);
 }
 
-static int cmdline_add_kernel_cmdline(char ***cmdline, KernelImageType type, int smbios_dir_fd, const char *smbios_dir) {
+static int cmdline_add_kernel_cmdline(char ***cmdline, int smbios_dir_fd, const char *smbios_dir) {
         int r;
 
         assert(cmdline);
@@ -1468,11 +1479,11 @@ static int cmdline_add_kernel_cmdline(char ***cmdline, KernelImageType type, int
                                        "Kernel command line length (%zu) exceeds the kernel's COMMAND_LINE_SIZE (%d).",
                                        kcl_len, KERNEL_CMDLINE_SIZE);
 
-        if (type >= 0 && type != KERNEL_IMAGE_TYPE_UKI) {
+        if (arg_linux_image_type >= 0 && arg_linux_image_type != KERNEL_IMAGE_TYPE_UKI) {
                 if (strv_extend_many(cmdline, "-append", kcl) < 0)
                         return log_oom();
         } else {
-                if (!ARCHITECTURE_SUPPORTS_SMBIOS) {
+                if (!smbios_supported()) {
                         log_warning("Cannot append extra args to kernel cmdline, native architecture doesn't support SMBIOS, ignoring.");
                         return 0;
                 }
@@ -1503,7 +1514,7 @@ static int cmdline_add_kernel_cmdline(char ***cmdline, KernelImageType type, int
         return 0;
 }
 
-static int cmdline_add_credentials(char ***cmdline, KernelImageType type, int smbios_dir_fd, const char *smbios_dir) {
+static int cmdline_add_credentials(char ***cmdline, int smbios_dir_fd, const char *smbios_dir) {
         int r;
 
         assert(cmdline);
@@ -1518,10 +1529,7 @@ static int cmdline_add_credentials(char ***cmdline, KernelImageType type, int sm
                 if (n < 0)
                         return log_oom();
 
-                /* SMBIOS is always available on x86, but on ARM it requires UEFI firmware
-                 * and does not work with direct kernel boot. */
-                if (ARCHITECTURE_SUPPORTS_SMBIOS &&
-                    (IN_SET(native_architecture(), ARCHITECTURE_X86, ARCHITECTURE_X86_64) || type < 0 || type == KERNEL_IMAGE_TYPE_UKI)) {
+                if (smbios_supported()) {
                         _cleanup_free_ char *content = NULL;
                         if (asprintf(&content, "io.systemd.credential.binary:%s=%s", cred->id, cred_data_b64) < 0)
                                 return log_oom();
@@ -1572,7 +1580,7 @@ static int cmdline_add_credentials(char ***cmdline, KernelImageType type, int sm
                         /* Fall through to kernel command line if key is too long */
                         log_debug("fw_cfg key '%s' exceeds %d character limit, falling back to kernel command line.", key, QEMU_FW_CFG_MAX_KEY_LEN);
 
-                        if (type < 0)
+                        if (arg_linux_image_type < 0)
                                 return log_error_errno(
                                                 SYNTHETIC_ERRNO(E2BIG),
                                                 "Cannot pass credential '%s' to VM, fw_cfg key exceeds %d character limit and no kernel for direct boot specified.",
@@ -1583,7 +1591,7 @@ static int cmdline_add_credentials(char ***cmdline, KernelImageType type, int sm
                                          "systemd.set_credential_binary=%s:%s", cred->id, cred_data_b64) < 0)
                                 return log_oom();
 
-                } else if (type >= 0) {
+                } else if (arg_linux_image_type >= 0) {
                         if (strv_extendf(&arg_kernel_cmdline_extra,
                                          "systemd.set_credential_binary=%s:%s", cred->id, cred_data_b64) < 0)
                                 return log_oom();
@@ -1605,7 +1613,7 @@ static int cmdline_add_smbios11(char ***cmdline, int smbios_dir_fd, const char *
         if (strv_isempty(arg_smbios11))
                 return 0;
 
-        if (!ARCHITECTURE_SUPPORTS_SMBIOS) {
+        if (!smbios_supported()) {
                 log_warning("Cannot issue SMBIOS Type #11 strings, native architecture doesn't support SMBIOS, ignoring.");
                 return 0;
         }
@@ -2317,9 +2325,115 @@ static int disk_serial(const char *filename, size_t max_len, char **ret) {
         return 0;
 }
 
+static int cmdline_add_ovmf(FILE *config_file, const OvmfConfig *ovmf_config, char **ret_ovmf_vars) {
+        int r;
+
+        assert(config_file);
+        assert(ret_ovmf_vars);
+
+        if (!ovmf_config) {
+                *ret_ovmf_vars = NULL;
+                return 0;
+        }
+
+        r = qemu_config_section(config_file, "drive", "ovmf-code",
+                                "if", "pflash",
+                                "format", ovmf_config_format(ovmf_config),
+                                "readonly", "on",
+                                "file", ovmf_config->path);
+        if (r < 0)
+                return r;
+
+        if (!ovmf_config->vars && !arg_efi_nvram_template)
+                return 0;
+
+        if (arg_efi_nvram_state_mode == STATE_AUTO && !arg_ephemeral) {
+                assert(!arg_efi_nvram_state_path);
+
+                r = make_sidecar_path(".efinvramstate", &arg_efi_nvram_state_path);
+                if (r < 0)
+                        return r;
+
+                log_debug("Storing EFI NVRAM state persistently under '%s'.", arg_efi_nvram_state_path);
+        }
+
+        const char *vars_source = arg_efi_nvram_template ?: ovmf_config->vars;
+        _cleanup_close_ int target_fd = -EBADF;
+        _cleanup_(unlink_and_freep) char *destroy_path = NULL;
+        bool newly_created;
+        const char *state;
+        if (arg_efi_nvram_state_path) {
+                _cleanup_free_ char *d = strdup(arg_efi_nvram_state_path);
+                if (!d)
+                        return log_oom();
+
+                target_fd = openat_report_new(AT_FDCWD, arg_efi_nvram_state_path, O_WRONLY|O_CREAT|O_CLOEXEC, 0600, &newly_created);
+                if (target_fd < 0)
+                        return log_error_errno(target_fd, "Failed to open file for OVMF vars at %s: %m", arg_efi_nvram_state_path);
+
+                if (newly_created)
+                        destroy_path = TAKE_PTR(d);
+
+                r = fd_verify_regular(target_fd);
+                if (r < 0)
+                        return log_error_errno(r, "Not a regular file for OVMF variables at %s: %m", arg_efi_nvram_state_path);
+
+                state = arg_efi_nvram_state_path;
+        } else {
+                _cleanup_free_ char *t = NULL;
+                r = tempfn_random_child(/* p= */ NULL, "vmspawn-", &t);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create temporary filename: %m");
+
+                target_fd = open(t, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0600);
+                if (target_fd < 0)
+                        return log_error_errno(errno, "Failed to create regular file for OVMF vars at %s: %m", t);
+
+                newly_created = true;
+                state = *ret_ovmf_vars = TAKE_PTR(t);
+        }
+
+        if (newly_created) {
+                _cleanup_close_ int source_fd = open(vars_source, O_RDONLY|O_CLOEXEC);
+                if (source_fd < 0)
+                        return log_error_errno(errno, "Failed to open OVMF vars file %s: %m", vars_source);
+
+                r = copy_bytes(source_fd, target_fd, UINT64_MAX, COPY_REFLINK);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to copy bytes from %s to %s: %m", vars_source, state);
+
+                /* This isn't always available so don't raise an error if it fails */
+                (void) copy_times(source_fd, target_fd, 0);
+        }
+
+        destroy_path = mfree(destroy_path); /* disarm auto-destroy */
+
+        /* Mark the UEFI variable store pflash as requiring SMM access. This
+         * prevents the guest OS from writing to pflash directly, ensuring all
+         * variable updates go through the firmware's validation checks. Without
+         * this, secure boot keys could be overwritten by the OS. */
+        if (ARCHITECTURE_SUPPORTS_SMM) {
+                r = qemu_config_section(config_file, "global", /* id= */ NULL,
+                                        "driver", "cfi.pflash01",
+                                        "property", "secure",
+                                        "value", "on");
+                if (r < 0)
+                        return r;
+        }
+
+        r = qemu_config_section(config_file, "drive", "ovmf-vars",
+                                "file", state,
+                                "if", "pflash",
+                                "format", ovmf_config_format(ovmf_config));
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         _cleanup_(ovmf_config_freep) OvmfConfig *ovmf_config = NULL;
-        _cleanup_free_ char *qemu_binary = NULL, *mem = NULL, *kernel = NULL;
+        _cleanup_free_ char *qemu_binary = NULL, *mem = NULL;
         _cleanup_(rm_rf_physical_and_freep) char *ssh_private_key_path = NULL, *ssh_public_key_path = NULL;
         _cleanup_(rm_rf_subvolume_and_freep) char *snapshot_directory = NULL;
         _cleanup_(release_lock_file) LockFile tree_global_lock = LOCK_FILE_INIT, tree_local_lock = LOCK_FILE_INIT;
@@ -2373,18 +2487,20 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 use_kvm = r;
         }
 
-        if (arg_firmware)
-                r = load_ovmf_config(arg_firmware, &ovmf_config);
-        else
-                r = find_ovmf_config(arg_firmware_features_include, arg_firmware_features_exclude, &ovmf_config, /* ret_firmware_json= */ NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to find OVMF config: %m");
+        if (!arg_firmware_none) {
+                if (arg_firmware)
+                        r = load_ovmf_config(arg_firmware, &ovmf_config);
+                else
+                        r = find_ovmf_config(arg_firmware_features_include, arg_firmware_features_exclude, &ovmf_config, /* ret_firmware_json= */ NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to find OVMF config: %m");
 
-        if (set_contains(arg_firmware_features_include, "secure-boot") && !ovmf_config->supports_sb)
-                return log_error_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE),
-                                       "Secure Boot requested, but selected OVMF firmware doesn't support it.");
+                if (set_contains(arg_firmware_features_include, "secure-boot") && !ovmf_config->supports_sb)
+                        return log_error_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE),
+                                               "Secure Boot requested, but selected OVMF firmware doesn't support it.");
 
-        log_debug("Using OVMF firmware %s Secure Boot support.", ovmf_config->supports_sb ? "with" : "without");
+                log_debug("Using OVMF firmware %s Secure Boot support.", ovmf_config->supports_sb ? "with" : "without");
+        }
 
         _cleanup_(machine_bind_user_context_freep) MachineBindUserContext *bind_user_context = NULL;
         r = machine_bind_user_prepare(
@@ -2401,19 +2517,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         r = bind_user_setup(bind_user_context, &arg_credentials, &arg_runtime_mounts);
         if (r < 0)
                 return r;
-
-        if (arg_linux) {
-                kernel = strdup(arg_linux);
-                if (!kernel)
-                        return log_oom();
-        } else if (arg_directory) {
-                /* a kernel is required for directory type images so attempt to locate a UKI under /boot and /efi */
-                r = discover_boot_entry(arg_directory, &kernel, &arg_initrds);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to locate UKI in directory type image, please specify one with --linux=.");
-
-                log_debug("Discovered UKI image at %s", kernel);
-        }
 
         r = find_qemu_binary(&qemu_binary);
         if (r == -EOPNOTSUPP)
@@ -2466,7 +2569,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (r < 0)
                 return r;
 
-        if (ARCHITECTURE_SUPPORTS_SMM) {
+        if (ovmf_config && ARCHITECTURE_SUPPORTS_SMM) {
                 r = qemu_config_key(config_file, "smm", on_off(ovmf_config->supports_sb));
                 if (r < 0)
                         return r;
@@ -2658,7 +2761,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return r;
         }
 
-        bool use_vsock = arg_vsock > 0 && ARCHITECTURE_SUPPORTS_SMBIOS;
+        bool use_vsock = arg_vsock > 0;
         if (arg_vsock < 0) {
                 r = qemu_check_vsock_support();
                 if (r < 0)
@@ -2854,106 +2957,19 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 }
         }
 
-        r = qemu_config_section(config_file, "drive", "ovmf-code",
-                                "if", "pflash",
-                                "format", ovmf_config_format(ovmf_config),
-                                "readonly", "on",
-                                "file", ovmf_config->path);
+        _cleanup_(unlink_and_freep) char *ovmf_vars = NULL;
+        r = cmdline_add_ovmf(config_file, ovmf_config, &ovmf_vars);
         if (r < 0)
                 return r;
 
-        if (arg_efi_nvram_state_mode == STATE_AUTO && !arg_ephemeral) {
-                assert(!arg_efi_nvram_state_path);
-
-                r = make_sidecar_path(".efinvramstate", &arg_efi_nvram_state_path);
-                if (r < 0)
-                        return r;
-
-                log_debug("Storing EFI NVRAM state persistently under '%s'.", arg_efi_nvram_state_path);
-        }
-
-        _cleanup_(unlink_and_freep) char *ovmf_vars = NULL;
-        if (ovmf_config->vars || arg_efi_nvram_template) {
-                const char *vars_source = arg_efi_nvram_template ?: ovmf_config->vars;
-                _cleanup_close_ int target_fd = -EBADF;
-                _cleanup_(unlink_and_freep) char *destroy_path = NULL;
-                bool newly_created;
-                const char *state;
-                if (arg_efi_nvram_state_path) {
-                        _cleanup_free_ char *d = strdup(arg_efi_nvram_state_path);
-                        if (!d)
-                                return log_oom();
-
-                        target_fd = openat_report_new(AT_FDCWD, arg_efi_nvram_state_path, O_WRONLY|O_CREAT|O_CLOEXEC, 0600, &newly_created);
-                        if (target_fd < 0)
-                                return log_error_errno(target_fd, "Failed to open file for OVMF vars at %s: %m", arg_efi_nvram_state_path);
-
-                        if (newly_created)
-                                destroy_path = TAKE_PTR(d);
-
-                        r = fd_verify_regular(target_fd);
-                        if (r < 0)
-                                return log_error_errno(r, "Not a regular file for OVMF variables at %s: %m", arg_efi_nvram_state_path);
-
-                        state = arg_efi_nvram_state_path;
-                } else {
-                        _cleanup_free_ char *t = NULL;
-                        r = tempfn_random_child(/* p= */ NULL, "vmspawn-", &t);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to create temporary filename: %m");
-
-                        target_fd = open(t, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0600);
-                        if (target_fd < 0)
-                                return log_error_errno(errno, "Failed to create regular file for OVMF vars at %s: %m", t);
-
-                        newly_created = true;
-                        state = ovmf_vars = TAKE_PTR(t);
-                }
-
-                if (newly_created) {
-                        _cleanup_close_ int source_fd = open(vars_source, O_RDONLY|O_CLOEXEC);
-                        if (source_fd < 0)
-                                return log_error_errno(errno, "Failed to open OVMF vars file %s: %m", vars_source);
-
-                        r = copy_bytes(source_fd, target_fd, UINT64_MAX, COPY_REFLINK);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to copy bytes from %s to %s: %m", vars_source, state);
-
-                        /* This isn't always available so don't raise an error if it fails */
-                        (void) copy_times(source_fd, target_fd, 0);
-                }
-
-                destroy_path = mfree(destroy_path); /* disarm auto-destroy */
-
-                /* Mark the UEFI variable store pflash as requiring SMM access. This
-                 * prevents the guest OS from writing to pflash directly, ensuring all
-                 * variable updates go through the firmware's validation checks. Without
-                 * this, secure boot keys could be overwritten by the OS. */
-                if (ARCHITECTURE_SUPPORTS_SMM) {
-                        r = qemu_config_section(config_file, "global", /* id= */ NULL,
-                                                "driver", "cfi.pflash01",
-                                                "property", "secure",
-                                                "value", "on");
-                        if (r < 0)
-                                return r;
-                }
-
-                r = qemu_config_section(config_file, "drive", "ovmf-vars",
-                                        "file", state,
-                                        "if", "pflash",
-                                        "format", ovmf_config_format(ovmf_config));
-                if (r < 0)
-                        return r;
-        }
-
-        if (kernel) {
-                r = strv_extend_many(&cmdline, "-kernel", kernel);
+        if (arg_linux) {
+                r = strv_extend_many(&cmdline, "-kernel", arg_linux);
                 if (r < 0)
                         return log_oom();
 
                 /* We can't rely on gpt-auto-generator when direct kernel booting so synthesize a root=
                  * kernel argument instead. */
-                if (arg_image) {
+                if (arg_linux_image_type != KERNEL_IMAGE_TYPE_UKI && arg_image) {
                         r = kernel_cmdline_maybe_append_root();
                         if (r < 0)
                                 return r;
@@ -3539,32 +3555,23 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_error_errno(r, "Failed to set credential systemd.unit-dropin.sshd-vsock@.service: %m");
         }
 
-        KernelImageType kernel_image_type = _KERNEL_IMAGE_TYPE_INVALID;
-        if (kernel) {
-                r = inspect_kernel(AT_FDCWD, kernel, &kernel_image_type);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to determine '%s' kernel image type: %m", kernel);
-        }
-
-        r = cmdline_add_credentials(&cmdline, kernel_image_type, smbios_dir_fd, smbios_dir);
-        if (r < 0)
-                return r;
-
-        r = cmdline_add_kernel_cmdline(&cmdline, kernel_image_type, smbios_dir_fd, smbios_dir);
-        if (r < 0)
-                return r;
-
         if (use_vsock) {
                 notify_sock_fd = open_vsock();
                 if (notify_sock_fd < 0)
                         return log_error_errno(notify_sock_fd, "Failed to open VSOCK: %m");
 
-                r = cmdline_add_vsock(&cmdline, notify_sock_fd);
-                if (r == -ENOMEM)
-                        return log_oom();
+                r = add_vsock_credential(notify_sock_fd);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to call getsockname on VSOCK: %m");
+                        return log_error_errno(r, "Failed to add VSOCK credential: %m");
         }
+
+        r = cmdline_add_credentials(&cmdline, smbios_dir_fd, smbios_dir);
+        if (r < 0)
+                return r;
+
+        r = cmdline_add_kernel_cmdline(&cmdline, smbios_dir_fd, smbios_dir);
+        if (r < 0)
+                return r;
 
         /* Finalize the config file and add -readconfig to the cmdline */
         r = fflush_and_check(config_file);
@@ -3904,9 +3911,43 @@ static int determine_names(void) {
         return 0;
 }
 
+static int determine_kernel(void) {
+        int r;
+
+        if (!arg_linux && arg_directory) {
+                /* A kernel is required for directory type images so attempt to find one under /boot and /efi */
+                r = discover_boot_entry(arg_directory, &arg_linux, &arg_initrds);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to locate UKI in directory type image, please specify one with --linux=.");
+
+                log_debug("Discovered UKI image at %s", arg_linux);
+        }
+
+        if (!arg_linux)
+                return 0;
+
+        r = inspect_kernel(AT_FDCWD, arg_linux, &arg_linux_image_type);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine '%s' kernel image type: %m", arg_linux);
+
+        if (arg_linux_image_type == KERNEL_IMAGE_TYPE_UNKNOWN) {
+                if (arg_firmware)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Kernel image '%s' is not a PE binary, --firmware= is not supported.",
+                                               arg_linux);
+                arg_firmware_none = true;
+        }
+
+        return 0;
+}
+
 static int verify_arguments(void) {
         if (!strv_isempty(arg_initrds) && !arg_linux)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option --initrd= cannot be used without --linux=.");
+
+        if (arg_firmware_none && arg_linux_image_type == KERNEL_IMAGE_TYPE_UKI)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Booting a UKI requires UEFI firmware, --firmware= cannot be used.");
 
         if (arg_image_disk_type == DISK_TYPE_VIRTIO_SCSI_CDROM) {
                 if (arg_ephemeral)
@@ -3952,6 +3993,10 @@ static int run(int argc, char *argv[]) {
         }
 
         r = determine_names();
+        if (r < 0)
+                return r;
+
+        r = determine_kernel();
         if (r < 0)
                 return r;
 
