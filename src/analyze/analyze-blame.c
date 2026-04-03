@@ -28,8 +28,6 @@ int verb_blame(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (!table)
                 return log_oom();
 
-        table_set_header(table, false);
-
         assert_se(cell = table_get_cell(table, 0, 0));
         r = table_set_ellipsize_percent(table, cell, 100);
         if (r < 0)
@@ -63,11 +61,5 @@ int verb_blame(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         return table_log_add_error(r);
         }
 
-        pager_open(arg_pager_flags);
-
-        r = table_print(table, NULL);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, /* show_header= */ false);
 }
