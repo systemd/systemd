@@ -2943,9 +2943,13 @@ static int partition_read_definition(
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
                                   "Minimize= can only be enabled if Format= or Verity=hash are set.");
 
-        if (p->minimize == MINIMIZE_BEST && (p->format && !fstype_is_ro(p->format)) && p->verity != VERITY_HASH)
+        if (p->minimize == MINIMIZE_BEST &&
+                p->format &&
+                !fstype_is_ro(p->format) &&
+                !streq(p->format, "btrfs") &&
+                p->verity != VERITY_HASH)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                  "Minimize=best can only be used with read-only filesystems or Verity=hash.");
+                                  "Minimize=best can only be used with read-only filesystems, btrfs, or Verity=hash.");
 
         if (partition_needs_populate(p) && !mkfs_supports_root_option(p->format) && geteuid() != 0)
                 return log_syntax(NULL, LOG_ERR, path, 1, SYNTHETIC_ERRNO(EPERM),
@@ -6913,6 +6917,9 @@ static int finalize_extra_mkfs_options(const Partition *p, const char *root, cha
                         if (r < 0)
                                 return r;
                 }
+
+                if (p->minimize != MINIMIZE_OFF && strv_extend(&sv, "--shrink") < 0)
+                        return log_oom();
         }
 
         *ret = TAKE_PTR(sv);
@@ -8671,6 +8678,8 @@ static int context_minimize(Context *context) {
                 if (!p->format)
                         continue;
 
+                bool is_btrfs = streq(p->format, "btrfs");
+
                 if (p->copy_blocks_fd >= 0)
                         continue;
 
@@ -8686,7 +8695,7 @@ static int context_minimize(Context *context) {
 
                 (void) partition_hint(p, context->node, &hint);
 
-                log_info("Pre-populating %s filesystem of partition %s twice to calculate minimal partition size",
+                log_info("Pre-populating %s filesystem of partition %s to calculate minimal partition size",
                          p->format, strna(hint));
 
                 if (!vt) {
@@ -8708,7 +8717,9 @@ static int context_minimize(Context *context) {
                 if (fd < 0)
                         return log_error_errno(errno, "Failed to open temporary file %s: %m", temp);
 
-                if (fstype_is_ro(p->format))
+                if (fstype_is_ro(p->format) || is_btrfs)
+                        /* Read-only filesystems and btrfs (with mkfs.btrfs --shrink) produce a minimal
+                         * filesystem in one pass, so we can use the real UUID directly. */
                         fs_uuid = p->fs_uuid;
                 else {
                         /* This may seem huge but it will be created sparse so it doesn't take up any space
@@ -8730,7 +8741,7 @@ static int context_minimize(Context *context) {
                                 return r;
                 }
 
-                if (!d || fstype_is_ro(p->format) || (streq_ptr(p->format, "btrfs") && p->compression)) {
+                if (!d || fstype_is_ro(p->format)) {
                         if (!mkfs_supports_root_option(p->format))
                                 return log_error_errno(SYNTHETIC_ERRNO(ENODEV),
                                                        "Loop device access is required to populate %s filesystems.",
@@ -8760,8 +8771,9 @@ static int context_minimize(Context *context) {
                         return r;
 
                 /* Read-only filesystems are minimal from the first try because they create and size the
-                 * loopback file for us. */
-                if (fstype_is_ro(p->format)) {
+                 * loopback file for us. Similarly, mkfs.btrfs --shrink populates the filesystem from the
+                 * root directory and then shrinks the backing file to the minimal size. */
+                if (fstype_is_ro(p->format) || is_btrfs) {
                         fd = safe_close(fd);
 
                         fd = open(temp, O_RDONLY|O_CLOEXEC|O_NONBLOCK);
@@ -8796,10 +8808,8 @@ static int context_minimize(Context *context) {
 
                 /* Other filesystems need to be provided with a pre-sized loopback file and will adapt to
                  * fully occupy it. Because we gave the filesystem a 1T sparse file, we need to shrink the
-                 * filesystem down to a reasonable size again to fit it in the disk image. While there are
-                 * some filesystems that support shrinking, it doesn't always work properly (e.g. shrinking
-                 * btrfs gives us a 2.0G filesystem regardless of what we put in it). Instead, let's populate
-                 * the filesystem again, but this time, instead of providing the filesystem with a 1T sparse
+                 * filesystem down to a reasonable size again to fit it in the disk image. Let's populate the
+                 * filesystem again, but this time, instead of providing the filesystem with a 1T sparse
                  * loopback file, let's size the loopback file based on the actual data used by the
                  * filesystem in the sparse file after the first attempt. This should be a good guess of the
                  * minimal amount of space needed in the filesystem to fit all the required data.
