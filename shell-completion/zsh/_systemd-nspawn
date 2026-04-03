@@ -22,7 +22,9 @@ _arguments \
     '(--ephemeral -x)'{--ephemeral,-x}'[Run container with snapshot of root directory, and remove it after exit.]' \
     '(--image -i)'{--image=,-i+}'[Disk image to mount the root directory for the container from.]:disk image: _files' \
     '(--boot -b)'{--boot,-b}'[Automatically search for an init binary and invoke it instead of a shell or a user supplied program.]' \
-    '(--user -u)'{--user=,-u+}'[Run the command under specified user, create home directory and cd into it.]:user:_users' \
+    '(--uid -u)'{--uid=,-u+}'[Run the command under specified user, create home directory and cd into it.]:user:_users' \
+    '--user[Run in user service manager scope]' \
+    '--system[Run in system service manager scope]' \
     '(--machine -M)'{--machine=,-M+}'[Sets the machine name for this container.]: : _message "container name"' \
     '--uuid=[Set the specified uuid for the container.]: : _message "container UUID"' \
     '(--slice -S)'{--slice=,-S+}'[Make the container part of the specified slice, instead of the default machine.slice.]: : _message slice' \
