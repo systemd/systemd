@@ -42,6 +42,7 @@ static int run(int argc, char **argv) {
          * where .so versions change and distributions update, but systemd doesn't have the new so names
          * around yet. */
 
+        ASSERT_DLOPEN(dlopen_bzip2, HAVE_BZIP2);
         ASSERT_DLOPEN(dlopen_bpf, HAVE_LIBBPF);
         ASSERT_DLOPEN(dlopen_cryptsetup, HAVE_LIBCRYPTSETUP);
         ASSERT_DLOPEN(dlopen_dw, HAVE_ELFUTILS);
@@ -60,14 +61,15 @@ static int run(int argc, char **argv) {
         ASSERT_DLOPEN(dlopen_libpam, HAVE_PAM);
         ASSERT_DLOPEN(dlopen_libseccomp, HAVE_SECCOMP);
         ASSERT_DLOPEN(dlopen_libselinux, HAVE_SELINUX);
+        ASSERT_DLOPEN(dlopen_xz, HAVE_XZ);
         ASSERT_DLOPEN(dlopen_lz4, HAVE_LZ4);
-        ASSERT_DLOPEN(dlopen_lzma, HAVE_XZ);
         ASSERT_DLOPEN(dlopen_p11kit, HAVE_P11KIT);
         ASSERT_DLOPEN(dlopen_passwdqc, HAVE_PASSWDQC);
         ASSERT_DLOPEN(dlopen_pcre2, HAVE_PCRE2);
         ASSERT_DLOPEN(dlopen_pwquality, HAVE_PWQUALITY);
         ASSERT_DLOPEN(dlopen_qrencode, HAVE_QRENCODE);
         ASSERT_DLOPEN(dlopen_tpm2, HAVE_TPM2);
+        ASSERT_DLOPEN(dlopen_zlib, HAVE_ZLIB);
         ASSERT_DLOPEN(dlopen_zstd, HAVE_ZSTD);
 
         return 0;
