@@ -195,15 +195,23 @@ static int probe_blkid_filter(blkid_probe p) {
         if (r < 0)
                 return r;
 
+        /* allowed_fstypes() returns the list of filesystem types that we are willing to mount. For the
+         * blkid probe filter we additionally need to be able to detect crypto_LUKS (so that we can set up
+         * LUKS decryption for encrypted partitions) and swap (so that we can identify swap partitions). */
+        r = strv_extend_many(&fstypes, "crypto_LUKS", "swap");
+        if (r < 0)
+                return r;
+
         errno = 0;
         r = sym_blkid_probe_filter_superblocks_type(p, BLKID_FLTR_ONLYIN, fstypes);
         if (r != 0)
                 return errno_or_else(EINVAL);
 
-        errno = 0;
-        r = sym_blkid_probe_filter_superblocks_usage(p, BLKID_FLTR_NOTIN, BLKID_USAGE_RAID);
-        if (r != 0)
-                return errno_or_else(EINVAL);
+        /* Note: don't call blkid_probe_filter_superblocks_usage() here. Both filter functions share the
+         * same bitmap internally, and each call resets it before applying its own filter — so a subsequent
+         * usage filter would wipe the type filter we just set. The ONLYIN type filter above already
+         * excludes everything not in the allowed list, including RAID superblocks, so a separate usage
+         * filter is redundant anyway. */
 
         return 0;
 }
