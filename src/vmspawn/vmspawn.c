@@ -1142,6 +1142,8 @@ static int vmspawn_dispatch_vsock_connections(sd_event_source *source, int fd, u
         sd_event *event;
         int r;
 
+        assert(source);
+        assert(fd >= 0);
         assert(userdata);
 
         if (revents != EPOLLIN) {
@@ -1328,6 +1330,7 @@ fallback:
 }
 
 static int on_child_exit(sd_event_source *s, const siginfo_t *si, void *userdata) {
+        assert(s);
         assert(si);
 
         /* Let's first do some logging about the exit status of the child. */
@@ -1364,6 +1367,9 @@ static int on_child_exit(sd_event_source *s, const siginfo_t *si, void *userdata
 static int cmdline_add_vsock(char ***cmdline, int vsock_fd) {
         int r;
 
+        assert(cmdline);
+        assert(vsock_fd >= 0);
+
         r = strv_extend(cmdline, "-smbios");
         if (r < 0)
                 return r;
@@ -1387,6 +1393,7 @@ static int cmdline_add_kernel_cmdline(char ***cmdline, const char *kernel, const
         int r;
 
         assert(cmdline);
+        assert(smbios_dir);
 
         if (strv_isempty(arg_kernel_cmdline_extra))
                 return 0;
@@ -1491,6 +1498,7 @@ static int start_tpm(
         assert(scope);
         assert(swtpm);
         assert(runtime_dir);
+        assert(sd_socket_activate);
 
         _cleanup_free_ char *scope_prefix = NULL;
         r = unit_name_to_prefix(scope, &scope_prefix);
@@ -1558,6 +1566,7 @@ static int start_systemd_journal_remote(
         int r;
 
         assert(scope);
+        assert(sd_socket_activate);
 
         _cleanup_free_ char *scope_prefix = NULL;
         r = unit_name_to_prefix(scope, &scope_prefix);
@@ -1633,33 +1642,30 @@ static int discover_root(char **ret) {
 
 static int find_virtiofsd(char **ret) {
         int r;
-        _cleanup_free_ char *virtiofsd = NULL;
 
         assert(ret);
 
-        r = find_executable("virtiofsd", &virtiofsd);
-        if (r < 0 && r != -ENOENT)
+        r = find_executable("virtiofsd", ret);
+        if (r >= 0)
+                return 0;
+        if (r != -ENOENT)
                 return log_error_errno(r, "Error while searching for virtiofsd: %m");
 
-        if (!virtiofsd) {
-                FOREACH_STRING(file, "/usr/libexec/virtiofsd", "/usr/lib/virtiofsd") {
-                        if (access(file, X_OK) >= 0) {
-                                virtiofsd = strdup(file);
-                                if (!virtiofsd)
-                                        return log_oom();
-                                break;
-                        }
+        FOREACH_STRING(file, "/usr/libexec/virtiofsd", "/usr/lib/virtiofsd") {
+                if (access(file, X_OK) >= 0) {
+                        _cleanup_free_ char *copy = strdup(file);
+                        if (!copy)
+                                return log_oom();
 
-                        if (!IN_SET(errno, ENOENT, EACCES))
-                                return log_error_errno(errno, "Error while searching for virtiofsd: %m");
+                        *ret = TAKE_PTR(copy);
+                        return 0;
                 }
+
+                if (!IN_SET(errno, ENOENT, EACCES))
+                        return log_error_errno(errno, "Error while searching for virtiofsd: %m");
         }
 
-        if (!virtiofsd)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Failed to find virtiofsd binary.");
-
-        *ret = TAKE_PTR(virtiofsd);
-        return 0;
+        return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Failed to find virtiofsd binary.");
 }
 
 static int start_virtiofsd(
@@ -1870,22 +1876,20 @@ static int bind_user_setup(
 
 static int kernel_cmdline_maybe_append_root(void) {
         int r;
-        bool cmdline_contains_root = strv_find_startswith(arg_kernel_cmdline_extra, "root=")
-                        || strv_find_startswith(arg_kernel_cmdline_extra, "mount.usr=");
 
-        if (!cmdline_contains_root) {
-                _cleanup_free_ char *root = NULL;
+        if (strv_find_startswith(arg_kernel_cmdline_extra, "root=") ||
+            strv_find_startswith(arg_kernel_cmdline_extra, "mount.usr="))
+                return 0;
 
-                r = discover_root(&root);
-                if (r < 0)
-                        return r;
+        _cleanup_free_ char *root = NULL;
+        r = discover_root(&root);
+        if (r < 0)
+                return r;
 
-                log_debug("Determined root file system %s from dissected image", root);
+        log_debug("Determined root file system '%s' from dissected image", root);
 
-                r = strv_consume(&arg_kernel_cmdline_extra, TAKE_PTR(root));
-                if (r < 0)
-                        return log_oom();
-        }
+        if (strv_consume(&arg_kernel_cmdline_extra, TAKE_PTR(root)) < 0)
+                return log_oom();
 
         return 0;
 }
