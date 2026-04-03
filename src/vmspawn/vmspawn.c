@@ -51,6 +51,7 @@
 #include "log.h"
 #include "machine-bind-user.h"
 #include "machine-credential.h"
+#include "machine-register.h"
 #include "main-func.h"
 #include "mkdir.h"
 #include "namespace-util.h"
@@ -89,7 +90,6 @@
 #include "utf8.h"
 #include "vmspawn-mount.h"
 #include "vmspawn-qemu-config.h"
-#include "vmspawn-register.h"
 #include "vmspawn-scope.h"
 #include "vmspawn-settings.h"
 #include "vmspawn-util.h"
@@ -147,7 +147,7 @@ static bool arg_firmware_describe = false;
 static Set *arg_firmware_features_include = NULL;
 static Set *arg_firmware_features_exclude = NULL;
 static char *arg_forward_journal = NULL;
-static bool arg_register = true;
+static int arg_register = -1;
 static bool arg_keep_unit = false;
 static sd_id128_t arg_uuid = {};
 static char **arg_kernel_cmdline_extra = NULL;
@@ -612,7 +612,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_REGISTER:
-                        r = parse_boolean_argument("--register=", optarg, &arg_register);
+                        r = parse_tristate_argument_with_auto("--register=", optarg, &arg_register);
                         if (r < 0)
                                 return r;
 
@@ -2175,7 +2175,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         /* Registration always happens on the system bus */
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *system_bus = NULL;
-        if (arg_register || arg_runtime_scope == RUNTIME_SCOPE_SYSTEM) {
+        if (arg_register != 0 || arg_runtime_scope == RUNTIME_SCOPE_SYSTEM) {
                 r = sd_bus_default_system(&system_bus);
                 if (r < 0)
                         return log_error_errno(r, "Failed to open system bus: %m");
@@ -3487,7 +3487,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         }
 
         bool scope_allocated = false;
-        if (!arg_keep_unit && (!arg_register || arg_runtime_scope != RUNTIME_SCOPE_SYSTEM)) {
+        if (!arg_keep_unit && (arg_register == 0 || arg_runtime_scope != RUNTIME_SCOPE_SYSTEM)) {
                 r = allocate_scope(
                                 runtime_bus,
                                 arg_machine,
@@ -3512,50 +3512,33 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         }
 
         bool registered_system = false, registered_runtime = false;
-        if (arg_register) {
+        if (arg_register != 0) {
                 char vm_address[STRLEN("vsock/") + DECIMAL_STR_MAX(unsigned)];
                 xsprintf(vm_address, "vsock/%u", child_cid);
-                r = register_machine(
+                r = register_machine_with_fallback(
+                                arg_runtime_scope == RUNTIME_SCOPE_USER ? _RUNTIME_SCOPE_INVALID : RUNTIME_SCOPE_SYSTEM,
                                 system_bus,
+                                runtime_bus,
                                 arg_machine,
                                 arg_uuid,
                                 "systemd-vmspawn",
+                                "vm",
                                 &child_pidref,
                                 arg_directory,
                                 child_cid,
+                                /* local_ifindex= */ 0,
                                 child_cid != VMADDR_CID_ANY ? vm_address : NULL,
                                 ssh_private_key_path,
-                                !arg_keep_unit && arg_runtime_scope == RUNTIME_SCOPE_SYSTEM,
-                                RUNTIME_SCOPE_SYSTEM);
+                                !arg_keep_unit,
+                                &registered_system,
+                                &registered_runtime);
                 if (r < 0) {
-                        /* if privileged the request to register definitely failed */
-                        if (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM)
-                                return r;
+                        if (arg_register > 0)
+                                return log_error_errno(r, "Failed to register machine in %s context.",
+                                                       register_machine_failed_context_string(registered_system, registered_runtime));
 
-                        log_notice_errno(r, "Failed to register machine in system context, will try in user context.");
-                } else
-                        registered_system = true;
-
-                if (arg_runtime_scope == RUNTIME_SCOPE_USER) {
-                        r = register_machine(
-                                        runtime_bus,
-                                        arg_machine,
-                                        arg_uuid,
-                                        "systemd-vmspawn",
-                                        &child_pidref,
-                                        arg_directory,
-                                        child_cid,
-                                        child_cid != VMADDR_CID_ANY ? vm_address : NULL,
-                                        ssh_private_key_path,
-                                        !arg_keep_unit,
-                                        RUNTIME_SCOPE_USER);
-                        if (r < 0) {
-                                if (!registered_system) /* neither registration worked: fail */
-                                        return r;
-
-                                log_notice_errno(r, "Failed to register machine in user context, but succeeded in system context, will proceed.");
-                        } else
-                                registered_runtime = true;
+                        log_notice_errno(r, "Failed to register machine in %s context, ignoring.",
+                                         register_machine_failed_context_string(registered_system, registered_runtime));
                 }
         }
 
@@ -3659,10 +3642,9 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (scope_allocated)
                 terminate_scope(runtime_bus, arg_machine);
 
-        if (registered_system)
-                (void) unregister_machine(system_bus, arg_machine);
-        if (registered_runtime)
-                (void) unregister_machine(runtime_bus, arg_machine);
+        r = unregister_machine_with_fallback(system_bus, runtime_bus, arg_machine, registered_system, registered_runtime);
+        if (r < 0)
+                log_notice_errno(r, "Failed to unregister machine, ignoring: %m");
 
         if (use_vsock) {
                 if (exit_status == INT_MAX) {

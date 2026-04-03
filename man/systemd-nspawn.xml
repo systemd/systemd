@@ -781,14 +781,14 @@
 
         <listitem><para>Controls whether the container is registered with
         <citerefentry><refentrytitle>systemd-machined</refentrytitle><manvolnum>8</manvolnum></citerefentry>.  Takes a
-        boolean argument, which defaults to <literal>yes</literal>.  This option should be enabled when the container
-        runs a full Operating System (more specifically: a system and service manager as PID 1), and is useful to
-        ensure that the container is accessible via
+        boolean argument or <literal>auto</literal>, and defaults to <literal>auto</literal>.  This option should be
+        enabled when the container runs a full Operating System (more specifically: a system and service manager as
+        PID 1), and is useful to ensure that the container is accessible via
         <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry> and shown by
         tools such as <citerefentry
         project='man-pages'><refentrytitle>ps</refentrytitle><manvolnum>1</manvolnum></citerefentry>.  If the container
-        does not run a service manager, it is recommended to set this option to
-        <literal>no</literal>.</para>
+        does not run a service manager, it is recommended to set this option to <literal>no</literal>.  When set to
+        <literal>auto</literal>, registration is attempted but failures are ignored.</para>
 
         <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
