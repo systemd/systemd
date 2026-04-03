@@ -116,6 +116,12 @@
 #  define _retain_
 #endif
 
+#if HAVE_ATTRIBUTE_NO_REORDER
+#  define _no_reorder_ __attribute__((__no_reorder__))
+#else
+#  define _no_reorder_
+#endif
+
 #if __GNUC__ >= 15
 #  define _nonnull_if_nonzero_(p, n) __attribute__((nonnull_if_nonzero(p, n)))
 #else

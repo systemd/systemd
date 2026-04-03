@@ -381,14 +381,10 @@ static int action_summary(sd_varlink *link) {
         if (table_isempty(table))
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "No well-known IMDS data available.");
 
-        r = table_print(table, NULL);
-        if (r < 0)
-                return table_log_print_error(r);
-
-        return 0;
+        return table_print_or_warn(table);
 }
 
-static const char *detect_json_object(const char *text) {
+static const char* detect_json_object(const char *text) {
         assert(text);
 
         /* Checks if the provided text looks like a JSON object. It checks if the first non-whitespace

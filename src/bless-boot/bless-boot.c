@@ -58,10 +58,14 @@ static int help(void) {
                program_invocation_short_name,
                ansi_highlight(),
                ansi_normal());
-        table_print(verbs, stdout);
+        r = table_print_or_warn(verbs);
+        if (r < 0)
+                return r;
 
         printf("\nOptions:\n");
-        table_print(options, stdout);
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
 
         printf("\nSee the %s for details.\n", link);
         return 0;

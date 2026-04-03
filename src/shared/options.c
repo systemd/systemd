@@ -238,7 +238,8 @@ char** option_parser_get_args(const OptionParser *state) {
         /* Returns positional args as a strv.
          * If "--" was found, it has been moved before state->positional_offset.
          * The array is only valid, i.e. clean without any options, after parsing
-         * has naturally finished. */
+         * has naturally finished. The array that is returned is a slice of the
+         * original argv array, so it must not be freed or modified. */
 
         assert(state->optind > 0);
         assert(state->optind == state->argc || state->parsing_stopped);

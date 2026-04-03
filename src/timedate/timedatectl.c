@@ -1,6 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <getopt.h>
 #include <locale.h>
 #include <math.h>
 #include <stdlib.h>
@@ -20,6 +19,7 @@
 #include "in-addr-util.h"
 #include "log.h"
 #include "main-func.h"
+#include "options.h"
 #include "pager.h"
 #include "parse-argument.h"
 #include "parse-util.h"
@@ -163,9 +163,9 @@ static int print_status_info(const StatusInfo *i) {
         if (r < 0)
                 return table_log_add_error(r);
 
-        r = table_print(table, NULL);
+        r = table_print_or_warn(table);
         if (r < 0)
-                return table_log_print_error(r);
+                return r;
 
         if (i->rtc_local) {
                 fflush(stdout);
@@ -180,7 +180,8 @@ static int print_status_info(const StatusInfo *i) {
         return 0;
 }
 
-static int verb_show_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
+VERB(verb_status, "status", NULL, VERB_ANY, 1, VERB_DEFAULT, "Show current time settings");
+static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
         StatusInfo info = {};
         static const struct bus_properties_map map[]  = {
                 { "Timezone",        "s", NULL, offsetof(StatusInfo, timezone)    },
@@ -212,7 +213,8 @@ static int verb_show_status(int argc, char *argv[], uintptr_t _data, void *userd
         return print_status_info(&info);
 }
 
-static int verb_show_properties(int argc, char *argv[], uintptr_t _data, void *userdata) {
+VERB_NOARG(verb_show, "show", "Show properties of systemd-timedated");
+static int verb_show(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
@@ -229,6 +231,7 @@ static int verb_show_properties(int argc, char *argv[], uintptr_t _data, void *u
         return 0;
 }
 
+VERB(verb_set_time, "set-time", "TIME", 2, 2, 0, "Set system time");
 static int verb_set_time(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
@@ -254,6 +257,7 @@ static int verb_set_time(int argc, char *argv[], uintptr_t _data, void *userdata
         return 0;
 }
 
+VERB(verb_set_timezone, "set-timezone", "ZONE", 2, 2, 0, "Set system time zone");
 static int verb_set_timezone(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
@@ -268,6 +272,30 @@ static int verb_set_timezone(int argc, char *argv[], uintptr_t _data, void *user
         return 0;
 }
 
+VERB_NOARG(verb_list_timezones, "list-timezones", "Show known time zones");
+static int verb_list_timezones(int argc, char *argv[], uintptr_t _data, void *userdata) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        sd_bus *bus = userdata;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        int r;
+        _cleanup_strv_free_ char **zones = NULL;
+
+        r = bus_call_method(bus, bus_timedate, "ListTimezones", &error, &reply, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to request list of time zones: %s",
+                                       bus_error_message(&error, r));
+
+        r = sd_bus_message_read_strv(reply, &zones);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        pager_open(arg_pager_flags);
+        strv_print(zones);
+
+        return 0;
+}
+
+VERB(verb_set_local_rtc, "set-local-rtc", "BOOL", 2, 2, 0, "Control whether RTC is in local time");
 static int verb_set_local_rtc(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = userdata;
@@ -299,6 +327,7 @@ static int verb_set_local_rtc(int argc, char *argv[], uintptr_t _data, void *use
         return 0;
 }
 
+VERB(verb_set_ntp, "set-ntp", "BOOL", 2, 2, 0, "Enable or disable network time synchronization");
 static int verb_set_ntp(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -323,28 +352,6 @@ static int verb_set_ntp(int argc, char *argv[], uintptr_t _data, void *userdata)
         r = sd_bus_call(bus, m, DAEMON_RELOAD_TIMEOUT_SEC, &error, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to set ntp: %s", bus_error_message(&error, r));
-
-        return 0;
-}
-
-static int verb_list_timezones(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        sd_bus *bus = userdata;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        int r;
-        _cleanup_strv_free_ char **zones = NULL;
-
-        r = bus_call_method(bus, bus_timedate, "ListTimezones", &error, &reply, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to request list of time zones: %s",
-                                       bus_error_message(&error, r));
-
-        r = sd_bus_message_read_strv(reply, &zones);
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        pager_open(arg_pager_flags);
-        strv_print(zones);
 
         return 0;
 }
@@ -443,20 +450,12 @@ static int print_ntp_status_info(NTPStatusInfo *i) {
                 if (r < 0)
                         return table_log_add_error(r);
 
-                r = table_print(table, NULL);
-                if (r < 0)
-                        return table_log_print_error(r);
-
-                return 0;
+                return table_print_or_warn(table);
         }
 
         if (i->dest < i->origin || i->trans < i->recv || i->dest - i->origin < i->trans - i->recv) {
                 log_error("Invalid NTP response");
-                r = table_print(table, NULL);
-                if (r < 0)
-                        return table_log_print_error(r);
-
-                return 0;
+                return table_print_or_warn(table);
         }
 
         delay = (i->dest - i->origin) - (i->trans - i->recv);
@@ -536,11 +535,7 @@ static int print_ntp_status_info(NTPStatusInfo *i) {
                         return table_log_add_error(r);
         }
 
-        r = table_print(table, NULL);
-        if (r < 0)
-                return table_log_print_error(r);
-
-        return 0;
+        return table_print_or_warn(table);
 }
 
 static int map_server_address(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus_error *error, void *userdata) {
@@ -688,7 +683,10 @@ static int on_properties_changed(sd_bus_message *m, void *userdata, sd_bus_error
         return show_timesync_status_once(sd_bus_message_get_bus(m));
 }
 
-static int verb_show_timesync_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
+VERB_GROUP("systemd-timesyncd Commands");
+
+VERB_NOARG(verb_timesync_status, "timesync-status", "Show status of systemd-timesyncd");
+static int verb_timesync_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
@@ -792,6 +790,7 @@ static int print_timesync_property(const char *name, const char *expected_value,
         return 0;
 }
 
+VERB_NOARG(verb_show_timesync, "show-timesync", "Show properties of systemd-timesyncd");
 static int verb_show_timesync(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
@@ -841,6 +840,8 @@ static int parse_ifindex_bus(sd_bus *bus, const char *str) {
         return i;
 }
 
+VERB(verb_ntp_servers, "ntp-servers", "INTERFACE SERVER…", 3, VERB_ANY, 0,
+     "Set the interface specific NTP servers");
 static int verb_ntp_servers(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL;
@@ -872,6 +873,7 @@ static int verb_ntp_servers(int argc, char *argv[], uintptr_t _data, void *userd
         return 0;
 }
 
+VERB(verb_revert, "revert", "INTERFACE", 2, 2, 0, "Revert the interface specific NTP servers");
 static int verb_revert(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
@@ -892,179 +894,133 @@ static int verb_revert(int argc, char *argv[], uintptr_t _data, void *userdata) 
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
+        _cleanup_(table_unrefp) Table *verbs = NULL, *verbs2 = NULL, *options = NULL;
         int r;
 
         r = terminal_urlify_man("timedatectl", "1", &link);
         if (r < 0)
                 return log_oom();
 
+        r = verbs_get_help_table(&verbs);
+        if (r < 0)
+                return r;
+
+        r = verbs_get_help_table_group("systemd-timesyncd Commands", &verbs2);
+        if (r < 0)
+                return r;
+
+        r = option_parser_get_help_table(&options);
+        if (r < 0)
+                return r;
+
+        (void) table_sync_column_widths(0, verbs, verbs2, options);
+
         printf("%s [OPTIONS...] COMMAND ...\n"
                "\n%sQuery or change system time and date settings.%s\n"
-               "\nCommands:\n"
-               "  status                   Show current time settings\n"
-               "  show                     Show properties of systemd-timedated\n"
-               "  set-time TIME            Set system time\n"
-               "  set-timezone ZONE        Set system time zone\n"
-               "  list-timezones           Show known time zones\n"
-               "  set-local-rtc BOOL       Control whether RTC is in local time\n"
-               "  set-ntp BOOL             Enable or disable network time synchronization\n"
-               "\nsystemd-timesyncd Commands:\n"
-               "  timesync-status          Show status of systemd-timesyncd\n"
-               "  show-timesync            Show properties of systemd-timesyncd\n"
-               "  ntp-servers INTERFACE SERVER…\n"
-               "                           Set the interface specific NTP servers\n"
-               "  revert INTERFACE         Revert the interface specific NTP servers\n"
-               "\nOptions:\n"
-               "  -h --help                Show this help message\n"
-               "     --version             Show package version\n"
-               "     --no-pager            Do not pipe output into a pager\n"
-               "     --no-ask-password     Do not prompt for password\n"
-               "  -H --host=[USER@]HOST    Operate on remote host\n"
-               "  -M --machine=CONTAINER   Operate on local container\n"
-               "     --adjust-system-clock Adjust system clock when changing local RTC mode\n"
-               "     --monitor             Monitor status of systemd-timesyncd\n"
-               "  -p --property=NAME       Show only properties by this name\n"
-               "  -a --all                 Show all properties, including empty ones\n"
-               "     --value               When showing properties, only print the value\n"
-               "  -P NAME                  Equivalent to --value --property=NAME\n"
-               "\nSee the %s for details.\n",
+               "\nCommands:\n",
                program_invocation_short_name,
                ansi_highlight(),
-               ansi_normal(),
-               link);
+               ansi_normal());
+        r = table_print_or_warn(verbs);
+        if (r < 0)
+                return r;
 
+        printf("\nsystemd-timesyncd Commands:\n");
+        r = table_print_or_warn(verbs2);
+        if (r < 0)
+                return r;
+
+        printf("\nOptions:\n");
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
+
+        printf("\nSee the %s for details.\n", link);
         return 0;
 }
 
-static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        return help();
-}
+VERB_COMMON_HELP_HIDDEN(help);
 
-static int parse_argv(int argc, char *argv[]) {
-        enum {
-                ARG_VERSION = 0x100,
-                ARG_NO_PAGER,
-                ARG_ADJUST_SYSTEM_CLOCK,
-                ARG_NO_ASK_PASSWORD,
-                ARG_MONITOR,
-                ARG_VALUE,
-        };
-
-        static const struct option options[] = {
-                { "help",                no_argument,       NULL, 'h'                     },
-                { "version",             no_argument,       NULL, ARG_VERSION             },
-                { "no-pager",            no_argument,       NULL, ARG_NO_PAGER            },
-                { "host",                required_argument, NULL, 'H'                     },
-                { "machine",             required_argument, NULL, 'M'                     },
-                { "no-ask-password",     no_argument,       NULL, ARG_NO_ASK_PASSWORD     },
-                { "adjust-system-clock", no_argument,       NULL, ARG_ADJUST_SYSTEM_CLOCK },
-                { "monitor",             no_argument,       NULL, ARG_MONITOR             },
-                { "property",            required_argument, NULL, 'p'                     },
-                { "value",               no_argument,       NULL, ARG_VALUE               },
-                { "all",                 no_argument,       NULL, 'a'                     },
-                {}
-        };
-
-        int c, r;
+static int parse_argv(int argc, char *argv[], char ***ret_args) {
+        int r;
 
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hH:M:p:P:a", options, NULL)) >= 0)
-                switch (c) {
+        OptionParser state = { argc, argv };
+        const Option *current;
+        const char *arg;
 
-                case 'h':
+        FOREACH_OPTION_FULL(&state, c, &current, &arg, /* on_error= */ return c)
+                switch (c) {
+                OPTION_COMMON_HELP:
                         return help();
 
-                case ARG_VERSION:
+                OPTION_COMMON_VERSION:
                         return version();
 
-                case 'H':
-                        arg_transport = BUS_TRANSPORT_REMOTE;
-                        arg_host = optarg;
+                OPTION_COMMON_NO_PAGER:
+                        arg_pager_flags |= PAGER_DISABLE;
                         break;
 
-                case 'M':
-                        r = parse_machine_argument(optarg, &arg_host, &arg_transport);
+                OPTION_COMMON_NO_ASK_PASSWORD:
+                        arg_ask_password = false;
+                        break;
+
+                OPTION_COMMON_HOST:
+                        arg_transport = BUS_TRANSPORT_REMOTE;
+                        arg_host = arg;
+                        break;
+
+                OPTION_COMMON_MACHINE:
+                        r = parse_machine_argument(arg, &arg_host, &arg_transport);
                         if (r < 0)
                                 return r;
                         break;
 
-                case ARG_NO_ASK_PASSWORD:
-                        arg_ask_password = false;
-                        break;
-
-                case ARG_ADJUST_SYSTEM_CLOCK:
+                OPTION_LONG("adjust-system-clock", NULL, "Adjust system clock when changing local RTC mode"):
                         arg_adjust_system_clock = true;
                         break;
 
-                case ARG_NO_PAGER:
-                        arg_pager_flags |= PAGER_DISABLE;
-                        break;
-
-                case ARG_MONITOR:
+                OPTION_LONG("monitor", NULL, "Monitor status of systemd-timesyncd"):
                         arg_monitor = true;
                         break;
 
-                case 'p':
-                case 'P':
-                        r = strv_extend(&arg_property, optarg);
+                OPTION('p', "property", "NAME", "Show only properties by this name"): {}
+                OPTION_SHORT('P', "NAME", "Equivalent to --value --property=NAME"):
+                        r = strv_extend(&arg_property, arg);
                         if (r < 0)
                                 return log_oom();
 
                         /* If the user asked for a particular property, show it to them, even if empty. */
                         SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY, true);
 
-                        if (c == 'p')
-                                break;
-                        _fallthrough_;
+                        if (current->short_code == 'P')
+                                SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_ONLY_VALUE, true);
+                        break;
 
-                case ARG_VALUE:
+                OPTION_LONG("value", NULL, "When showing properties, only print the value"):
                         SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_ONLY_VALUE, true);
                         break;
 
-                case 'a':
+                OPTION('a', "all", NULL, "Show all properties, including empty ones"):
                         SET_FLAG(arg_print_flags, BUS_PRINT_PROPERTY_SHOW_EMPTY, true);
                         break;
-
-                case '?':
-                        return -EINVAL;
-
-                default:
-                        assert_not_reached();
                 }
 
+        *ret_args = option_parser_get_args(&state);
         return 1;
-}
-
-static int timedatectl_main(sd_bus *bus, int argc, char *argv[]) {
-        static const Verb verbs[] = {
-                { "status",          VERB_ANY, 1,        VERB_DEFAULT, verb_show_status          },
-                { "show",            VERB_ANY, 1,        0,            verb_show_properties      },
-                { "set-time",        2,        2,        0,            verb_set_time             },
-                { "set-timezone",    2,        2,        0,            verb_set_timezone         },
-                { "list-timezones",  VERB_ANY, 1,        0,            verb_list_timezones       },
-                { "set-local-rtc",   2,        2,        0,            verb_set_local_rtc        },
-                { "set-ntp",         2,        2,        0,            verb_set_ntp              },
-                { "timesync-status", VERB_ANY, 1,        0,            verb_show_timesync_status },
-                { "show-timesync",   VERB_ANY, 1,        0,            verb_show_timesync        },
-                { "ntp-servers",     3,        VERB_ANY, 0,            verb_ntp_servers          },
-                { "revert",          2,        2,        0,            verb_revert               },
-                { "help",            VERB_ANY, VERB_ANY, 0,            verb_help                 }, /* Not documented, but supported since it has been created. */
-                {}
-        };
-
-        return dispatch_verb(argc, argv, verbs, bus);
 }
 
 static int run(int argc, char *argv[]) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        char **args = NULL;
         int r;
 
         setlocale(LC_ALL, "");
         log_setup();
 
-        r = parse_argv(argc, argv);
+        r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 
@@ -1074,7 +1030,7 @@ static int run(int argc, char *argv[]) {
 
         (void) sd_bus_set_allow_interactive_authorization(bus, arg_ask_password);
 
-        return timedatectl_main(bus, argc, argv);
+        return dispatch_verb_with_args(args, bus);
 }
 
 DEFINE_MAIN_FUNCTION(run);

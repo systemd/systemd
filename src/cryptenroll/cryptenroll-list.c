@@ -125,9 +125,5 @@ int list_enrolled(struct crypt_device *cd) {
                 return 0;
         }
 
-        r = table_print(t, stdout);
-        if (r < 0)
-                return log_error_errno(r, "Failed to show slot table: %m");
-
-        return 0;
+        return table_print_or_warn(t);
 }

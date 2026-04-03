@@ -416,6 +416,8 @@ static int verb_info(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 if (streq_ptr(argv[0], "list-interfaces")) {
                         STRV_FOREACH(i, data.interfaces)
                                 puts(*i);
+
+                        return 0;
                 } else {
                         _cleanup_(table_unrefp) Table *t = NULL;
 
@@ -439,20 +441,14 @@ static int verb_info(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         if (r < 0)
                                 return table_log_add_error(r);
 
-                        r = table_print(t, NULL);
-                        if (r < 0)
-                                return table_log_print_error(r);
+                        return table_print_or_warn(t);
                 }
         } else {
-                sd_json_variant *v;
-
-                v = streq_ptr(argv[0], "list-interfaces") ?
+                sd_json_variant *v = streq_ptr(argv[0], "list-interfaces") ?
                         sd_json_variant_by_key(reply, "interfaces") : reply;
 
-                sd_json_variant_dump(v, arg_json_format_flags, stdout, NULL);
+                return sd_json_variant_dump(v, arg_json_format_flags, stdout, NULL);
         }
-
-        return 0;
 }
 
 static size_t break_columns(void) {

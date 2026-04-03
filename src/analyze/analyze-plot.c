@@ -429,7 +429,7 @@ static int show_table(Table *table, const char *word) {
                 if (sd_json_format_enabled(arg_json_format_flags))
                         r = table_print_json(table, NULL, arg_json_format_flags | SD_JSON_FORMAT_COLOR_AUTO);
                 else
-                        r = table_print(table, NULL);
+                        r = table_print(table);
                 if (r < 0)
                         return table_log_print_error(r);
         }
