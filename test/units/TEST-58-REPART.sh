@@ -1254,6 +1254,18 @@ Minimize=guess
 EOF
     done
 
+    if command -v mkfs.btrfs >/dev/null; then
+        for minimize in guess best; do
+            tee "$defs/root-btrfs-${minimize}.conf" <<EOF
+[Partition]
+Type=root-${architecture}
+Format=btrfs
+CopyFiles=${defs}
+Minimize=${minimize}
+EOF
+        done
+    fi
+
     if command -v mksquashfs >/dev/null; then
         tee "$defs/root-squashfs.conf" <<EOF
 [Partition]

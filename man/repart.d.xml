@@ -842,9 +842,9 @@
         <literal>off</literal> when false, and <literal>best</literal> when true). Defaults to
         <literal>off</literal>. If set to <literal>best</literal>, the partition will have the minimal size
         required to store the sources configured with <varname>CopyFiles=</varname>. <literal>best</literal>
-        is currently only supported for read-only filesystems. If set to <literal>guess</literal>, the
-        partition is created at least as big as required to store the sources configured with
-        <varname>CopyFiles=</varname>. Note that unless the filesystem is a read-only filesystem,
+        is currently only supported for read-only filesystems and btrfs. If set to <literal>guess</literal>,
+        the partition is created at least as big as required to store the sources configured with
+        <varname>CopyFiles=</varname>. Note that unless the filesystem is a read-only filesystem or btrfs,
         <command>systemd-repart</command> will have to populate the filesystem twice to guess the minimal
         required size, so enabling this option might slow down repart when populating large partitions.
         </para>
