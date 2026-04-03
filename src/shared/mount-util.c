@@ -2067,7 +2067,7 @@ int make_fsmount(
 
                 r = extract_first_word(&p, &word, ",", EXTRACT_KEEP_QUOTE);
                 if (r < 0)
-                        return log_full_errno(error_log_level, r, "Failed to parse mount option string \"%s\": %m", o);
+                        return log_full_errno(error_log_level, r, "Failed to parse mount option string \"%s\": %m", strempty(o));
                 if (r == 0)
                         break;
 
