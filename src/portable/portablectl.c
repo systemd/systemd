@@ -1075,9 +1075,9 @@ static int verb_list_images(int argc, char *argv[], uintptr_t _data, void *userd
 
                 table_set_header(table, arg_legend);
 
-                r = table_print(table);
+                r = table_print_or_warn(table);
                 if (r < 0)
-                        return table_log_print_error(r);
+                        return r;
         }
 
         if (arg_legend) {

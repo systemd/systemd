@@ -73,7 +73,7 @@ static int test_timestamp_one(const char *p) {
         if (r < 0)
                 return table_log_add_error(r);
 
-        return table_print(table);
+        return table_print_or_warn(table);
 }
 
 int verb_timestamp(int argc, char *argv[], uintptr_t _data, void *userdata) {

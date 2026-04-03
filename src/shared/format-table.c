@@ -2643,6 +2643,15 @@ int table_print_full(Table *t, FILE *f, bool flush) {
         return fflush_and_check(f);
 }
 
+int table_print_or_warn(Table *t) {
+        int r;
+
+        r = table_print(t);
+        if (r < 0)
+                return table_log_print_error(r);
+        return 0;
+}
+
 int table_format(Table *t, char **ret) {
         _cleanup_(memstream_done) MemStream m = {};
         FILE *f;
