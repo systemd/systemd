@@ -63,11 +63,5 @@ int verb_blame(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         return table_log_add_error(r);
         }
 
-        pager_open(arg_pager_flags);
-
-        r = table_print(table, NULL);
-        if (r < 0)
-                return r;
-
-        return 0;
+        return table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
 }
