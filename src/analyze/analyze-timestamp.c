@@ -27,14 +27,10 @@ static int test_timestamp_one(const char *p) {
                 return log_oom();
 
         assert_se(cell = table_get_cell(table, 0, 0));
-        r = table_set_ellipsize_percent(table, cell, 100);
-        if (r < 0)
-                return r;
+        (void) table_set_ellipsize_percent(table, cell, 100);
 
         assert_se(cell = table_get_cell(table, 0, 1));
-        r = table_set_ellipsize_percent(table, cell, 100);
-        if (r < 0)
-                return r;
+        (void) table_set_ellipsize_percent(table, cell, 100);
 
         r = table_add_many(table,
                            TABLE_FIELD, "Original form",
@@ -65,7 +61,7 @@ static int test_timestamp_one(const char *p) {
                                            usec / USEC_PER_SEC,
                                            usec % USEC_PER_SEC);
         if (r < 0)
-                return r;
+                return table_log_add_error(r);
 
         r = table_add_many(table,
                            TABLE_FIELD, "From now",
