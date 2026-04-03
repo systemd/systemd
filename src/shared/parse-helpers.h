@@ -20,6 +20,8 @@ int path_simplify_and_warn(
                 unsigned line,
                 const char *lvalue);
 
+int parse_address_families(const char *rvalue, Set **families, bool *is_allowlist);
+
 int parse_socket_bind_item(
                 const char *str,
                 int *address_family,
