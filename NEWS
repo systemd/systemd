@@ -4,6 +4,13 @@ CHANGES WITH 261 in spe:
 
         Feature Removals and Incompatible Changes:
 
+        * systemd-nspawn's --user= option has been renamed to --uid=. The -u
+          short option continues to work. The old --user NAME and --user=NAME
+          form (with and without "=") are still accepted but deprecated; a warning
+          is emitted suggesting --uid=NAME. The --user option (without an argument)
+          has been repurposed as a standalone switch (without argument) to select
+          the user service manager scope, matching --system.
+
         * It was discovered that systemd-stub does not measure all the events
           it measures to the TPM to the hardware CC registers (e.g. Intel TDX
           RTMRs) using EFI_CC_MEASUREMENT_PROTOCOL. In particular, devicetree,
