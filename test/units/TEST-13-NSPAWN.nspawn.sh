@@ -222,7 +222,7 @@ EOF
     # as bash isn't invoked with the necessary environment variables for that.
     useradd --root="$root" --uid 1000 --user-group --create-home testuser
     systemd-nspawn --register=no --directory="$root" bash -xec '[[ $USER == root ]]'
-    systemd-nspawn --register=no --directory="$root" --user=testuser bash -xec '[[ $USER == testuser ]]'
+    systemd-nspawn --register=no --directory="$root" --uid=testuser bash -xec '[[ $USER == testuser ]]'
 
     # --settings= + .nspawn files
     mkdir -p /run/systemd/nspawn/
