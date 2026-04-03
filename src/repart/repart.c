@@ -7994,7 +7994,7 @@ static int write_eltorito(int fd, usec_t usec, bool utc, uint32_t load_block, co
 }
 
 static int context_verify_eltorito_overlap(Context *context) {
-        /* before writing the partition table, we check if we have collision with ISO9660 */
+        /* Check if the partition table collides with the ISO9660 El Torito area. */
         assert(context);
 
         if (!arg_eltorito)
@@ -8112,10 +8112,6 @@ static int context_write_partition_table(Context *context) {
 
         (void) context_notify(context, PROGRESS_WRITING_TABLE, /* object= */ NULL, UINT_MAX);
 
-        r = context_verify_eltorito_overlap(context);
-        if (r < 0)
-                return r;
-
         r = fdisk_write_disklabel(context->fdisk_context);
         if (r < 0)
                 return log_error_errno(r, "Failed to write partition table: %m");
@@ -8135,25 +8131,39 @@ static int context_write_partition_table(Context *context) {
         } else
                 log_notice("Not telling kernel to reread partition table, because selected image does not support kernel partition block devices.");
 
-        if (arg_eltorito) {
-                bool utc = true;
-                usec_t usec = parse_source_date_epoch();
-                if (usec == USEC_INFINITY) {
-                        usec = now(CLOCK_REALTIME);
-                        utc = false;
-                }
+        log_info("Partition table written.");
 
-                uint64_t esp_offset;
-                r = context_find_esp_offset(context, &esp_offset);
-                if (r < 0)
-                        return r;
+        return 0;
+}
 
-                r = write_eltorito(fdisk_get_devfd(context->fdisk_context), usec, utc, esp_offset / ISO9660_BLOCK_SIZE, arg_eltorito_system, arg_eltorito_volume, arg_eltorito_publisher);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to write El Torito boot catalog: %m");
+static int context_eltorito(Context *context) {
+        int r;
+
+        assert(context);
+
+        if (!arg_eltorito)
+                return 0;
+
+        if (context->dry_run)
+                return 0;
+
+        bool utc = true;
+        usec_t usec = parse_source_date_epoch();
+        if (usec == USEC_INFINITY) {
+                usec = now(CLOCK_REALTIME);
+                utc = false;
         }
 
-        log_info("All done.");
+        uint64_t esp_offset;
+        r = context_find_esp_offset(context, &esp_offset);
+        if (r < 0)
+                return r;
+
+        log_info("Writing El Torito boot catalog.");
+
+        r = write_eltorito(fdisk_get_devfd(context->fdisk_context), usec, utc, esp_offset / ISO9660_BLOCK_SIZE, arg_eltorito_system, arg_eltorito_volume, arg_eltorito_publisher);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write El Torito boot catalog: %m");
 
         return 0;
 }
@@ -11039,6 +11049,10 @@ static int vl_method_run(
                                 SD_JSON_BUILD_PAIR_UNSIGNED("minimalSizeBytes", minimal_size));
         }
 
+        r = context_verify_eltorito_overlap(context);
+        if (r < 0)
+                return r;
+
         r = context_ponder(context);
         if (r == -ENOSPC) {
                 uint64_t current_size, foreign_size, minimal_size;
@@ -11084,6 +11098,10 @@ static int vl_method_run(
         }
 
         r = context_write_partition_table(context);
+        if (r < 0)
+                return r;
+
+        r = context_eltorito(context);
         if (r < 0)
                 return r;
 
@@ -11353,6 +11371,10 @@ static int run(int argc, char *argv[]) {
                         return r;
         }
 
+        r = context_verify_eltorito_overlap(context);
+        if (r < 0)
+                return r;
+
         r = context_ponder(context);
         if (r == -ENOSPC) {
                 /* When we hit space issues, tell the user the minimal size. */
@@ -11365,6 +11387,10 @@ static int run(int argc, char *argv[]) {
         (void) context_dump(context, /* late= */ false);
 
         r = context_write_partition_table(context);
+        if (r < 0)
+                return r;
+
+        r = context_eltorito(context);
         if (r < 0)
                 return r;
 
