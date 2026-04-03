@@ -15,4 +15,11 @@ executables += [
                         'report-basic.c',
                 ),
         },
+        libexec_template + {
+                'name' : 'systemd-report-cgroup',
+                'sources' : files(
+                        'report-cgroup.c',
+                        'report-cgroup-server.c',
+                ),
+        },
 ]
