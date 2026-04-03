@@ -337,7 +337,7 @@ static int run(int argc, char *argv[]) {
                                         return table_log_add_error(r);
                         }
 
-                        r = table_print(t, stdout);
+                        r = table_print(t);
                         if (r < 0)
                                 return table_log_print_error(r);
 

@@ -55,7 +55,7 @@ int verb_timespan(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 if (r < 0)
                         return table_log_add_error(r);
 
-                r = table_print(table, NULL);
+                r = table_print(table);
                 if (r < 0)
                         return r;
 

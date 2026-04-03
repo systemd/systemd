@@ -375,7 +375,7 @@ static int print_status_info(StatusInfo *i) {
                 }
         }
 
-        r = table_print(table, NULL);
+        r = table_print(table);
         if (r < 0)
                 return table_log_print_error(r);
 
@@ -748,10 +748,10 @@ static int help(void) {
                program_invocation_short_name,
                ansi_highlight(),
                ansi_normal());
-        table_print(verbs, stdout);
+        table_print(verbs);
 
         printf("\nOptions:\n");
-        table_print(options, stdout);
+        table_print(options);
 
         printf("\nSee the %s for details.\n", link);
         return 0;

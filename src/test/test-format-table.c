@@ -890,7 +890,7 @@ TEST(table_ansi) {
                      "FOO   BAR            BAZ    KKK\n"
                      "hallo knuerzredgreen noansi thisisgrey\n");
 
-        ASSERT_OK(table_print(table, /* f= */ NULL));
+        ASSERT_OK(table_print(table));
 
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL, *jj = NULL;
 

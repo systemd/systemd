@@ -1321,7 +1321,7 @@ static int verb_show_statistics(int argc, char *argv[], uintptr_t _data, void *u
         if (r < 0)
                 return table_log_add_error(r);
 
-        r = table_print(table, NULL);
+        r = table_print(table);
         if (r < 0)
                 return table_log_print_error(r);
 
@@ -1890,7 +1890,7 @@ static int print_configuration(DNSConfiguration *configuration, StatusMode mode,
                         return table_log_add_error(r);
         }
 
-        r = table_print(table, NULL);
+        r = table_print(table);
         if (r < 0)
                 return table_log_print_error(r);
 
@@ -3097,7 +3097,7 @@ static int dump_server_state(sd_json_variant *server) {
         if (r < 0)
                 return table_log_add_error(r);
 
-        r = table_print(table, NULL);
+        r = table_print(table);
         if (r < 0)
                 return table_log_print_error(r);
 

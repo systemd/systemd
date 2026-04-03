@@ -262,7 +262,7 @@ static int show_table(Table *table, const char *word) {
                 if (OUTPUT_MODE_IS_JSON(arg_output))
                         r = table_print_json(table, NULL, output_mode_to_json_format_flags(arg_output) | SD_JSON_FORMAT_COLOR_AUTO);
                 else
-                        r = table_print(table, NULL);
+                        r = table_print(table);
                 if (r < 0)
                         return table_log_print_error(r);
         }
