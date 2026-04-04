@@ -2498,8 +2498,15 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_oom();
 
         _cleanup_close_ int delegate_userns_fd = -EBADF, tap_fd = -EBADF;
+        _cleanup_free_ char *tap_name = NULL;
+        struct ether_addr mac_vm = {};
+        QmpNetworkInfo qmp_network = {};
+
         if (arg_network_stack == NETWORK_STACK_TAP) {
                 if (have_effective_cap(CAP_NET_ADMIN) <= 0) {
+                        /* Without CAP_NET_ADMIN we use nsresourced to create a TAP device
+                         * and pass the FD to QEMU directly. This must stay on the command
+                         * line since QEMU needs the FD at startup via inheritance. */
                         delegate_userns_fd = userns_acquire_self_root();
                         if (delegate_userns_fd < 0)
                                 return log_error_errno(delegate_userns_fd, "Failed to acquire userns: %m");
@@ -2538,48 +2545,33 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
                         pass_fds[n_pass_fds++] = tap_fd;
                 } else {
-                        _cleanup_free_ char *tap_name = NULL;
-                        struct ether_addr mac_vm = {};
-
+                        /* With CAP_NET_ADMIN we create the TAP interface by name.
+                         * Configure via QMP after QEMU starts. */
                         tap_name = strjoin("vt-", arg_machine);
                         if (!tap_name)
                                 return log_oom();
 
                         (void) net_shorten_ifname(tap_name, /* check_naming_scheme= */ false);
 
-                        if (ether_addr_is_null(&arg_network_provided_mac)){
+                        if (ether_addr_is_null(&arg_network_provided_mac)) {
                                 r = net_generate_mac(arg_machine, &mac_vm, VM_TAP_HASH_KEY, 0);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to generate predictable MAC address for VM side: %m");
                         } else
                                 mac_vm = arg_network_provided_mac;
 
-                        r = qemu_config_section(config_file, "netdev", "net0",
-                                                "type", "tap",
-                                                "ifname", tap_name,
-                                                "script", "no",
-                                                "downscript", "no");
-                        if (r < 0)
-                                return r;
-
-                        r = qemu_config_section(config_file, "device", "nic0",
-                                                "driver", "virtio-net-pci",
-                                                "netdev", "net0",
-                                                "mac", ETHER_ADDR_TO_STR(&mac_vm));
-                        if (r < 0)
-                                return r;
+                        qmp_network = (QmpNetworkInfo) {
+                                .type   = "tap",
+                                .ifname = tap_name,
+                                .mac    = &mac_vm,
+                                .fd     = -EBADF,
+                        };
                 }
         } else if (arg_network_stack == NETWORK_STACK_USER) {
-                r = qemu_config_section(config_file, "netdev", "net0",
-                                        "type", "user");
-                if (r < 0)
-                        return r;
-
-                r = qemu_config_section(config_file, "device", "nic0",
-                                        "driver", "virtio-net-pci",
-                                        "netdev", "net0");
-                if (r < 0)
-                        return r;
+                qmp_network = (QmpNetworkInfo) {
+                        .type = "user",
+                        .fd   = -EBADF,
+                };
         } else {
                 r = strv_extend_many(&cmdline, "-nic", "none");
                 if (r < 0)
@@ -3514,9 +3506,10 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_oom();
         }
 
-        /* QMP handshake, feature detection, drive setup, and VM start */
+        /* QMP handshake, feature detection, device setup, and VM start */
         _cleanup_(qmp_client_freep) QmpClient *qmp = NULL;
-        r = vmspawn_qmp_init(&qmp, TAKE_FD(qmp_fds[0]), event, qmp_drives.drives, qmp_drives.n);
+        r = vmspawn_qmp_init(&qmp, TAKE_FD(qmp_fds[0]), event, qmp_drives.drives, qmp_drives.n,
+                              qmp_network.type ? &qmp_network : NULL);
         if (r < 0)
                 return r;
 
