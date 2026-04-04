@@ -224,7 +224,7 @@ static int dispatch_targets(const char *name, sd_json_variant *v, sd_json_dispat
         };
 
         JSON_VARIANT_ARRAY_FOREACH(e, v) {
-                _cleanup_(firmware_target_freep) FirmwareTarget *t = new0(FirmwareTarget, 1);
+                _cleanup_free(firmware_target) FirmwareTarget *t = new0(FirmwareTarget, 1);
                 if (!t)
                         return -ENOMEM;
 
@@ -258,7 +258,7 @@ static int get_firmware_search_dirs(char ***ret) {
         if (r < 0)
                 return r;
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         l = strv_new(user_firmware_dir, "/etc/qemu/firmware", "/usr/share/qemu/firmware");
         if (!l)
                 return log_oom_debug();
@@ -268,7 +268,7 @@ static int get_firmware_search_dirs(char ***ret) {
 }
 
 int list_ovmf_config(char ***ret) {
-        _cleanup_strv_free_ char **search_dirs = NULL;
+        _cleanup_free(strv) char **search_dirs = NULL;
         int r;
 
         assert(ret);
@@ -295,7 +295,7 @@ static int load_firmware_data(const char *path, FirmwareData **ret, sd_json_vari
         assert(path);
         assert(ret);
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *json = NULL;
         r = sd_json_parse_file(
                         /* f= */ NULL,
                         path,
@@ -316,7 +316,7 @@ static int load_firmware_data(const char *path, FirmwareData **ret, sd_json_vari
                 {}
         };
 
-        _cleanup_(firmware_data_freep) FirmwareData *fwd = NULL;
+        _cleanup_free(firmware_data) FirmwareData *fwd = NULL;
         fwd = new0(FirmwareData, 1);
         if (!fwd)
                 return -ENOMEM;
@@ -334,8 +334,8 @@ static int load_firmware_data(const char *path, FirmwareData **ret, sd_json_vari
 }
 
 int list_ovmf_firmware_features(char ***ret) {
-        _cleanup_strv_free_ char **conf_files = NULL;
-        _cleanup_set_free_ Set *feature_set = NULL;
+        _cleanup_free(strv) char **conf_files = NULL;
+        _cleanup_free(set) Set *feature_set = NULL;
         int r;
 
         assert(ret);
@@ -345,7 +345,7 @@ int list_ovmf_firmware_features(char ***ret) {
                 return r;
 
         STRV_FOREACH(file, conf_files) {
-                _cleanup_(firmware_data_freep) FirmwareData *fwd = NULL;
+                _cleanup_free(firmware_data) FirmwareData *fwd = NULL;
 
                 r = load_firmware_data(*file, &fwd, /* ret_json= */ NULL);
                 if (r < 0) {
@@ -358,7 +358,7 @@ int list_ovmf_firmware_features(char ***ret) {
                         return log_oom_debug();
         }
 
-        _cleanup_strv_free_ char **features = set_to_strv(&feature_set);
+        _cleanup_free(strv) char **features = set_to_strv(&feature_set);
         if (!features)
                 return log_oom_debug();
 
@@ -390,7 +390,7 @@ static int ovmf_config_make(FirmwareData *fwd, OvmfConfig **ret) {
 }
 
 int load_ovmf_config(const char *path, OvmfConfig **ret) {
-        _cleanup_(firmware_data_freep) FirmwareData *fwd = NULL;
+        _cleanup_free(firmware_data) FirmwareData *fwd = NULL;
         int r;
 
         assert(path);
@@ -408,8 +408,8 @@ int find_ovmf_config(
                 Set *features_exclude,
                 OvmfConfig **ret,
                 sd_json_variant **ret_firmware_json) {
-        _cleanup_(ovmf_config_freep) OvmfConfig *config = NULL;
-        _cleanup_strv_free_ char **conf_files = NULL;
+        _cleanup_free(ovmf_config) OvmfConfig *config = NULL;
+        _cleanup_free(strv) char **conf_files = NULL;
         const char* native_arch_qemu;
         int r;
 
@@ -432,8 +432,8 @@ int find_ovmf_config(
                 return r;
 
         STRV_FOREACH(file, conf_files) {
-                _cleanup_(firmware_data_freep) FirmwareData *fwd = NULL;
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
+                _cleanup_free(firmware_data) FirmwareData *fwd = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *json = NULL;
 
                 r = load_firmware_data(*file, &fwd, ret_firmware_json ? &json : NULL);
                 if (r < 0) {

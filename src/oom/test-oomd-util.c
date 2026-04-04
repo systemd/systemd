@@ -128,7 +128,7 @@ static int wait_for_killed_signal(sd_bus *server, sd_bus *client, const char *cg
         assert(reason);
 
         for (size_t i = 0; i < 200; i++) {
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m_client = NULL;
+                _cleanup_unref(sd_bus_message) sd_bus_message *m_client = NULL;
 
                 r = sd_bus_process(server, NULL);
                 if (r < 0)
@@ -183,7 +183,7 @@ TEST(oomd_cgroup_kill) {
         /* Do this twice to also check the increment behavior on the xattrs */
         for (size_t i = 0; i < 2; i++) {
                 _cleanup_free_ char *v = NULL;
-                _cleanup_(pidref_done) PidRef one = PIDREF_NULL, two = PIDREF_NULL;
+                _cleanup_done(pidref) PidRef one = PIDREF_NULL, two = PIDREF_NULL;
 
                 ASSERT_OK(fork_and_sleep(5, &one));
                 ASSERT_OK(cg_attach(subcgroup, one.pid));
@@ -241,7 +241,7 @@ TEST(oomd_cgroup_kill_signal_reason) {
         m.bus = server;
 
         for (size_t i = 0; i < ELEMENTSOF(reasons); i++) {
-                _cleanup_(pidref_done) PidRef one = PIDREF_NULL, two = PIDREF_NULL;
+                _cleanup_done(pidref) PidRef one = PIDREF_NULL, two = PIDREF_NULL;
                 const char *reason = reasons[i];
 
                 ASSERT_OK(fork_and_sleep(5, &one));
@@ -268,8 +268,8 @@ TEST(oomd_cgroup_kill_signal_reason) {
 }
 
 TEST(oomd_cgroup_context_acquire_and_insert) {
-        _cleanup_hashmap_free_ Hashmap *h1 = NULL, *h2 = NULL;
-        _cleanup_(oomd_cgroup_context_unrefp) OomdCGroupContext *ctx = NULL;
+        _cleanup_free(hashmap) Hashmap *h1 = NULL, *h2 = NULL;
+        _cleanup_unref(oomd_cgroup_context) OomdCGroupContext *ctx = NULL;
         OomdCGroupContext *c1, *c2;
         CGroupMask mask;
 
@@ -323,7 +323,7 @@ TEST(oomd_cgroup_context_acquire_and_insert) {
 }
 
 TEST(oomd_update_cgroup_contexts_between_hashmaps) {
-        _cleanup_hashmap_free_ Hashmap *h_old = NULL, *h_new = NULL;
+        _cleanup_free(hashmap) Hashmap *h_old = NULL, *h_new = NULL;
         OomdCGroupContext *c_old, *c_new;
         char **paths = STRV_MAKE("/0.slice",
                                  "/1.slice");
@@ -416,8 +416,8 @@ TEST(oomd_system_context_acquire) {
 }
 
 TEST(oomd_pressure_above) {
-        _cleanup_hashmap_free_ Hashmap *h1 = NULL, *h2 = NULL;
-        _cleanup_set_free_ Set *t1 = NULL, *t2 = NULL, *t3 = NULL;
+        _cleanup_free(hashmap) Hashmap *h1 = NULL, *h2 = NULL;
+        _cleanup_free(set) Set *t1 = NULL, *t2 = NULL, *t3 = NULL;
         OomdCGroupContext ctx[2] = {}, *c;
         loadavg_t threshold;
 
@@ -496,7 +496,7 @@ TEST(oomd_mem_and_swap_free_below) {
 }
 
 TEST(oomd_sort_cgroups) {
-        _cleanup_hashmap_free_ Hashmap *h = NULL;
+        _cleanup_free(hashmap) Hashmap *h = NULL;
         _cleanup_free_ OomdCGroupContext **sorted_cgroups = NULL;
         char **paths = STRV_MAKE("/herp.slice",
                                  "/herp.slice/derp.scope",
@@ -583,7 +583,7 @@ TEST(oomd_sort_cgroups) {
 }
 
 TEST(oomd_fetch_cgroup_oom_preference) {
-        _cleanup_(oomd_cgroup_context_unrefp) OomdCGroupContext *ctx = NULL;
+        _cleanup_unref(oomd_cgroup_context) OomdCGroupContext *ctx = NULL;
         ManagedOOMPreference root_pref;
         CGroupMask mask;
         bool test_xattrs;

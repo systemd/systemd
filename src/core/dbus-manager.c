@@ -220,7 +220,7 @@ static int property_get_environment(
                 void *userdata,
                 sd_bus_error *reterr_error) {
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         Manager *m = ASSERT_PTR(userdata);
         int r;
 
@@ -496,7 +496,7 @@ static int bus_get_unit_by_name(Manager *m, sd_bus_message *message, const char 
          * its sleeve: if the name is specified empty we use the client's unit. */
 
         if (isempty(name)) {
-                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+                _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
 
                 r = bus_query_sender_pidref(message, &pidref);
                 if (r < 0)
@@ -569,7 +569,7 @@ static int method_get_unit(sd_bus_message *message, void *userdata, sd_bus_error
 
 static int method_get_unit_by_pid(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
         Manager *m = ASSERT_PTR(userdata);
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         Unit *u;
         int r;
 
@@ -612,7 +612,7 @@ static int method_get_unit_by_invocation_id(sd_bus_message *message, void *userd
                 return sd_bus_error_set(reterr_error, SD_BUS_ERROR_INVALID_ARGS, "Invalid invocation ID");
 
         if (sd_id128_is_null(id)) {
-                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+                _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
 
                 r = bus_query_sender_pidref(message, &pidref);
                 if (r < 0)
@@ -668,8 +668,8 @@ static int method_get_unit_by_control_group(sd_bus_message *message, void *userd
 }
 
 static int method_get_unit_by_pidfd(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         Manager *m = ASSERT_PTR(userdata);
         _cleanup_free_ char *path = NULL;
         int r, pidfd;
@@ -957,10 +957,10 @@ static int reply_unit_info(sd_bus_message *reply, Unit *u) {
 }
 
 static int method_list_units_by_names(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         Manager *m = ASSERT_PTR(userdata);
         int r;
-        _cleanup_strv_free_ char **units = NULL;
+        _cleanup_free(strv) char **units = NULL;
 
         assert(message);
 
@@ -1255,7 +1255,7 @@ static int method_reset_failed(sd_bus_message *message, void *userdata, sd_bus_e
 }
 
 static int list_units_filtered(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error, char **states, char **patterns) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         Manager *m = ASSERT_PTR(userdata);
         const char *k;
         Unit *u;
@@ -1301,7 +1301,7 @@ static int method_list_units(sd_bus_message *message, void *userdata, sd_bus_err
 }
 
 static int method_list_units_filtered(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        _cleanup_strv_free_ char **states = NULL;
+        _cleanup_free(strv) char **states = NULL;
         int r;
 
         r = sd_bus_message_read_strv(message, &states);
@@ -1312,8 +1312,8 @@ static int method_list_units_filtered(sd_bus_message *message, void *userdata, s
 }
 
 static int method_list_units_by_patterns(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        _cleanup_strv_free_ char **states = NULL;
-        _cleanup_strv_free_ char **patterns = NULL;
+        _cleanup_free(strv) char **states = NULL;
+        _cleanup_free(strv) char **patterns = NULL;
         int r;
 
         r = sd_bus_message_read_strv(message, &states);
@@ -1328,7 +1328,7 @@ static int method_list_units_by_patterns(sd_bus_message *message, void *userdata
 }
 
 static int method_list_jobs(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         Manager *m = ASSERT_PTR(userdata);
         Job *j;
         int r;
@@ -1518,7 +1518,7 @@ static int dump_units_matching_patterns(
                 void *userdata,
                 sd_bus_error *reterr_error,
                 int (*reply)(sd_bus_message *, char *)) {
-        _cleanup_strv_free_ char **patterns = NULL;
+        _cleanup_free(strv) char **patterns = NULL;
         int r;
 
         r = sd_bus_message_read_strv(message, &patterns);
@@ -1541,8 +1541,8 @@ static int method_refuse_snapshot(sd_bus_message *message, void *userdata, sd_bu
 }
 
 static void log_caller(sd_bus_message *message, Manager *manager, const char *method) {
-        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_unref(sd_bus_creds) sd_bus_creds *creds = NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         int r;
 
         assert(message);
@@ -1881,7 +1881,7 @@ static int method_switch_root(sd_bus_message *message, void *userdata, sd_bus_er
 }
 
 static int method_set_environment(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        _cleanup_strv_free_ char **plus = NULL;
+        _cleanup_free(strv) char **plus = NULL;
         Manager *m = ASSERT_PTR(userdata);
         int r;
 
@@ -1911,7 +1911,7 @@ static int method_set_environment(sd_bus_message *message, void *userdata, sd_bu
 }
 
 static int method_unset_environment(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        _cleanup_strv_free_ char **minus = NULL;
+        _cleanup_free(strv) char **minus = NULL;
         Manager *m = ASSERT_PTR(userdata);
         int r;
 
@@ -1943,7 +1943,7 @@ static int method_unset_environment(sd_bus_message *message, void *userdata, sd_
 }
 
 static int method_unset_and_set_environment(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        _cleanup_strv_free_ char **minus = NULL, **plus = NULL;
+        _cleanup_free(strv) char **minus = NULL, **plus = NULL;
         Manager *m = ASSERT_PTR(userdata);
         int r;
 
@@ -2061,7 +2061,7 @@ static int method_lookup_dynamic_user_by_uid(sd_bus_message *message, void *user
 }
 
 static int method_get_dynamic_users(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         Manager *m = ASSERT_PTR(userdata);
         DynamicUser *d;
         int r;
@@ -2122,7 +2122,7 @@ static int method_enqueue_marked_jobs(sd_bus_message *message, void *userdata, s
 
         log_info("Queuing reload/restart jobs for marked units%s", glyph(GLYPH_ELLIPSIS));
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         r = sd_bus_message_new_method_return(message, &reply);
         if (r < 0)
                 return r;
@@ -2135,7 +2135,7 @@ static int method_enqueue_marked_jobs(sd_bus_message *message, void *userdata, s
         char *k;
         int ret = 0;
         HASHMAP_FOREACH_KEY(u, k, m->units) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                 /* ignore aliases */
                 if (u->id != k)
@@ -2183,8 +2183,8 @@ static int method_enqueue_marked_jobs(sd_bus_message *message, void *userdata, s
 
 static int list_unit_files_by_patterns(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error, char **states, char **patterns) {
         Manager *m = ASSERT_PTR(userdata);
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_hashmap_free_ Hashmap *h = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
+        _cleanup_free(hashmap) Hashmap *h = NULL;
         int r;
 
         assert(message);
@@ -2226,8 +2226,8 @@ static int method_list_unit_files(sd_bus_message *message, void *userdata, sd_bu
 }
 
 static int method_list_unit_files_by_patterns(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        _cleanup_strv_free_ char **states = NULL;
-        _cleanup_strv_free_ char **patterns = NULL;
+        _cleanup_free(strv) char **states = NULL;
+        _cleanup_free(strv) char **patterns = NULL;
         int r;
 
         r = sd_bus_message_read_strv(message, &states);
@@ -2289,7 +2289,7 @@ static int method_get_default_target(sd_bus_message *message, void *userdata, sd
 }
 
 static int send_unit_files_changed(sd_bus *bus, void *userdata) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *message = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *message = NULL;
         int r;
 
         assert(bus);
@@ -2363,7 +2363,7 @@ static int reply_install_changes_and_free(
                 size_t n_changes,
                 sd_bus_error *reterr_error) {
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         bool bad = false, good = false;
         int r;
 
@@ -2419,7 +2419,7 @@ static int method_enable_unit_files_generic(
                 bool carries_install_info,
                 sd_bus_error *reterr_error) {
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         InstallChange *changes = NULL;
         size_t n_changes = 0;
         UnitFileFlags flags;
@@ -2494,7 +2494,7 @@ static int method_mask_unit_files(sd_bus_message *message, void *userdata, sd_bu
 
 static int method_preset_unit_files_with_mode(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         InstallChange *changes = NULL;
         size_t n_changes = 0;
         Manager *m = ASSERT_PTR(userdata);
@@ -2544,7 +2544,7 @@ static int method_disable_unit_files_generic(
                 bool carries_install_info,
                 sd_bus_error *reterr_error) {
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         InstallChange *changes = NULL;
         UnitFileFlags flags;
         size_t n_changes = 0;
@@ -2608,7 +2608,7 @@ static int method_unmask_unit_files(sd_bus_message *message, void *userdata, sd_
 }
 
 static int method_revert_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         InstallChange *changes = NULL;
         size_t n_changes = 0;
         Manager *m = ASSERT_PTR(userdata);
@@ -2709,7 +2709,7 @@ static int method_preset_all_unit_files(sd_bus_message *message, void *userdata,
 }
 
 static int method_add_dependency_unit_files(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         Manager *m = ASSERT_PTR(userdata);
         InstallChange *changes = NULL;
         size_t n_changes = 0;
@@ -2749,7 +2749,7 @@ static int method_add_dependency_unit_files(sd_bus_message *message, void *userd
 }
 
 static int method_get_unit_file_links(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         Manager *m = ASSERT_PTR(userdata);
         InstallChange *changes = NULL;
         size_t n_changes = 0, i;
@@ -3495,7 +3495,7 @@ const sd_bus_vtable bus_manager_log_control_vtable[] = {
 };
 
 static int send_finished(sd_bus *bus, void *userdata) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *message = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *message = NULL;
         usec_t *times = ASSERT_PTR(userdata);
         int r;
 
@@ -3546,7 +3546,7 @@ void bus_manager_send_finished(
 }
 
 static int send_reloading(sd_bus *bus, void *userdata) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *message = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *message = NULL;
         int r;
 
         assert(bus);

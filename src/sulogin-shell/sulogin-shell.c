@@ -24,7 +24,7 @@
 #include "unit-def.h"
 
 static int target_is_inactive(sd_bus *bus, const char *target) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *path = NULL, *state = NULL;
         int r;
 
@@ -46,7 +46,7 @@ static int target_is_inactive(sd_bus *bus, const char *target) {
 }
 
 static int start_target(sd_bus *bus, const char *target) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         log_info("Starting %s", target);
@@ -69,7 +69,7 @@ static int start_target(sd_bus *bus, const char *target) {
 static int fork_wait(const char* const cmdline[]) {
         int r;
 
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         r = pidref_safe_fork("(sulogin)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pidref);
         if (r < 0)
                 return r;

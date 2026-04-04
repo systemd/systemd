@@ -88,7 +88,7 @@ static void exec_status_info_free(ExecStatusInfo *i) {
 }
 
 static int exec_status_info_deserialize(sd_bus_message *m, ExecStatusInfo *i, bool is_ex_prop) {
-        _cleanup_strv_free_ char **ex_opts = NULL;
+        _cleanup_free(strv) char **ex_opts = NULL;
         uint64_t start_timestamp, exit_timestamp, start_timestamp_monotonic, exit_timestamp_monotonic;
         const char *path;
         uint32_t pid;
@@ -906,7 +906,7 @@ static void print_status_info(
                 print_exec_directory_quota(i, dt);
 
         if (i->control_group) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
                 static const char prefix[] = "             ";
                 unsigned c;
 
@@ -1052,7 +1052,7 @@ static int map_conditions(sd_bus *bus, const char *member, sd_bus_message *m, sd
                 return r;
 
         while ((r = sd_bus_message_read(m, "(sbbsi)", &cond, &trigger, &negate, &param, &state)) > 0) {
-                _cleanup_(unit_condition_freep) UnitCondition *c = NULL;
+                _cleanup_free(unit_condition) UnitCondition *c = NULL;
 
                 c = new(UnitCondition, 1);
                 if (!c)
@@ -1268,7 +1268,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                         return 1;
 
                 } else if (STR_IN_SET(name, "SystemCallFilter", "SystemCallLog", "RestrictAddressFamilies", "RestrictNetworkInterfaces", "RestrictFileSystems")) {
-                        _cleanup_strv_free_ char **l = NULL;
+                        _cleanup_free(strv) char **l = NULL;
                         int allow_list;
 
                         r = sd_bus_message_enter_container(m, 'r', "bas");
@@ -1520,7 +1520,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                 return bus_log_parse_error(r);
 
                         while ((r = exec_status_info_deserialize(m, &info, is_ex_prop)) > 0) {
-                                _cleanup_strv_free_ char **optv = NULL;
+                                _cleanup_free(strv) char **optv = NULL;
                                 _cleanup_free_ char *tt = NULL, *o = NULL;
 
                                 tt = strv_join(info.argv, " ");
@@ -1843,7 +1843,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
                                       "EffectiveCPUs", "EffectiveMemoryNodes")) {
 
                         _cleanup_free_ char *affinity = NULL;
-                        _cleanup_(cpu_set_done) CPUSet set = {};
+                        _cleanup_done(cpu_set) CPUSet set = {};
                         const void *a;
                         size_t n;
 
@@ -2125,7 +2125,7 @@ static int print_property(const char *name, const char *expected_value, sd_bus_m
 
                         return 1;
                 } else if (streq(name, "ExtraFileDescriptorNames")) {
-                        _cleanup_strv_free_ char **extra_fd_names = NULL;
+                        _cleanup_free(strv) char **extra_fd_names = NULL;
                         _cleanup_free_ char *joined = NULL;
 
                         r = sd_bus_message_read_strv(m, &extra_fd_names);
@@ -2289,10 +2289,10 @@ static int show_one(
                 {}
         };
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_set_free_ Set *found_properties = NULL;
-        _cleanup_(unit_status_info_done) UnitStatusInfo info = {
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free(set) Set *found_properties = NULL;
+        _cleanup_done(unit_status_info) UnitStatusInfo info = {
                 .runtime_max_sec = USEC_INFINITY,
                 .memory_current = UINT64_MAX,
                 .memory_high = CGROUP_LIMIT_MAX,
@@ -2385,7 +2385,7 @@ static int show_all(
                 bool *new_line,
                 bool *ellipsized) {
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         _cleanup_free_ UnitInfo *unit_infos = NULL;
         unsigned c;
         int r, ret = 0;
@@ -2418,8 +2418,8 @@ static int show_all(
 }
 
 static int show_system_status(sd_bus *bus) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(machine_info_clear) struct machine_info mi = {};
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_clear(machine_info) struct machine_info mi = {};
         static const char prefix[] = "           ";
         _cleanup_free_ char *hn = NULL;
         const char *on, *off;
@@ -2565,7 +2565,7 @@ int verb_show(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 }
 
                 if (!strv_isempty(patterns)) {
-                        _cleanup_strv_free_ char **names = NULL;
+                        _cleanup_free(strv) char **names = NULL;
 
                         r = expand_unit_names(bus, patterns, NULL, &names, NULL);
                         if (r < 0)

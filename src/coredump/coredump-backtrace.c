@@ -13,7 +13,7 @@
 
 int coredump_backtrace(int argc, char *argv[]) {
         _cleanup_(journal_importer_cleanup) JournalImporter importer = JOURNAL_IMPORTER_INIT(STDIN_FILENO);
-        _cleanup_(coredump_context_done) CoredumpContext context = COREDUMP_CONTEXT_NULL;
+        _cleanup_done(coredump_context) CoredumpContext context = COREDUMP_CONTEXT_NULL;
         int r;
 
         assert(argc >= 2);

@@ -510,8 +510,8 @@ static void path_enter_dead(Path *p, PathResult f) {
 }
 
 static void path_enter_running(Path *p, char *trigger_path) {
-        _cleanup_(activation_details_unrefp) ActivationDetails *details = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(activation_details) ActivationDetails *details = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         Unit *trigger;
         Job *job;
         int r;

@@ -54,7 +54,7 @@ int pull_find_old_etags(
                 return -errno;
         }
 
-        _cleanup_strv_free_ char **ans = NULL;
+        _cleanup_free(strv) char **ans = NULL;
 
         FOREACH_DIRENT_ALL(de, d, return -errno) {
                 _cleanup_free_ char *u = NULL;
@@ -179,7 +179,7 @@ int pull_make_auxiliary_job(
                 void *userdata) {
 
         _cleanup_free_ char *last_component = NULL, *ll = NULL, *auxiliary_url = NULL;
-        _cleanup_(pull_job_unrefp) PullJob *job = NULL;
+        _cleanup_unref(pull_job) PullJob *job = NULL;
         const char *q;
         int r;
 
@@ -254,7 +254,7 @@ int pull_make_verification_jobs(
                 PullJobFinished on_finished,
                 void *userdata) {
 
-        _cleanup_(pull_job_unrefp) PullJob *checksum_job = NULL, *signature_job = NULL;
+        _cleanup_unref(pull_job) PullJob *checksum_job = NULL, *signature_job = NULL;
         _cleanup_free_ char *fn = NULL;
         int r;
 

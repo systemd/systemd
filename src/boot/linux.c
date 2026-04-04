@@ -95,7 +95,7 @@ static EFI_STATUS load_via_boot_services(
                 loaded_image->LoadOptionsSize = strsize16(loaded_image->LoadOptions);
         }
 
-        _cleanup_(cleanup_initrd) EFI_HANDLE initrd_handle = NULL;
+        _cleanup_done(initrd_handle) EFI_HANDLE initrd_handle = NULL;
         err = initrd_register(initrd, &initrd_handle);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error registering initrd: %m");
@@ -265,7 +265,7 @@ EFI_STATUS linux_exec(
                 return log_error_status(err, "Cannot read sections: %m");
 
         /* Do we need to ensure under 4gb address on x86? */
-        _cleanup_pages_ Pages loaded_kernel_pages = xmalloc_pages(
+        _cleanup_done(pages) Pages loaded_kernel_pages = xmalloc_pages(
                         AllocateAnyPages, EfiLoaderCode, EFI_SIZE_TO_PAGES(kernel_size_in_memory), 0);
 
         uint8_t* loaded_kernel = PHYSICAL_ADDRESS_TO_POINTER(loaded_kernel_pages.addr);
@@ -320,7 +320,7 @@ EFI_STATUS linux_exec(
                 parent_loaded_image->LoadOptionsSize = strsize16(parent_loaded_image->LoadOptions);
         }
 
-        _cleanup_(cleanup_initrd) EFI_HANDLE initrd_handle = NULL;
+        _cleanup_done(initrd_handle) EFI_HANDLE initrd_handle = NULL;
         err = initrd_register(initrd, &initrd_handle);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error registering initrd: %m");

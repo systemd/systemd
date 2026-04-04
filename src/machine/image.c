@@ -119,7 +119,7 @@ int image_clean_pool_operation(Manager *manager, ImageCleanPoolMode mode, Operat
         if (r == 0) {
                 errno_pipe_fd[0] = safe_close(errno_pipe_fd[0]);
 
-                _cleanup_hashmap_free_ Hashmap *images = NULL;
+                _cleanup_free(hashmap) Hashmap *images = NULL;
                 r = image_discover(manager->runtime_scope, IMAGE_MACHINE, /* root= */ NULL, &images);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to discover images: %m");

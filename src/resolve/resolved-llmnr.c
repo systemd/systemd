@@ -90,7 +90,7 @@ eaddrinuse:
 }
 
 static int on_llmnr_packet(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *p = NULL;
         DnsTransaction *t = NULL;
         Manager *m = ASSERT_PTR(userdata);
         DnsScope *scope;

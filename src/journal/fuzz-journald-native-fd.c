@@ -11,7 +11,7 @@
 #include "tmpfile-util.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
-        _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_free(manager) Manager *m = NULL;
         _cleanup_close_ int sealed_fd = -EBADF, unsealed_fd = -EBADF;
         _cleanup_(unlink_tempfilep) char name[] = "/tmp/fuzz-journald-native-fd.XXXXXX";
         struct ucred ucred;

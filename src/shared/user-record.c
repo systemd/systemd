@@ -514,7 +514,7 @@ static int json_dispatch_locale(const char *name, sd_json_variant *variant, sd_j
 }
 
 static int json_dispatch_locales(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        _cleanup_strv_free_ char **n = NULL;
+        _cleanup_free(strv) char **n = NULL;
         char ***l = userdata;
         const char *locale;
         sd_json_variant *e;
@@ -592,7 +592,7 @@ static int json_dispatch_weight(const char *name, sd_json_variant *variant, sd_j
 
 int json_dispatch_user_group_list(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         char ***list = ASSERT_PTR(userdata);
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         int r;
 
         if (!sd_json_variant_is_array(variant))
@@ -658,7 +658,7 @@ static int dispatch_pkcs11_uri(const char *name, sd_json_variant *variant, sd_js
 }
 
 static int dispatch_pkcs11_uri_array(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        _cleanup_strv_free_ char **z = NULL;
+        _cleanup_free(strv) char **z = NULL;
         char ***l = userdata;
         sd_json_variant *e;
         int r;
@@ -1065,7 +1065,7 @@ static int dispatch_binding(const char *name, sd_json_variant *variant, sd_json_
 }
 
 static int dispatch_blob_manifest(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        _cleanup_hashmap_free_ Hashmap *manifest = NULL;
+        _cleanup_free(hashmap) Hashmap *manifest = NULL;
         Hashmap **ret = ASSERT_PTR(userdata);
         sd_json_variant *value;
         const char *key;
@@ -1489,7 +1489,7 @@ int user_group_record_mangle(
         };
 
         sd_json_dispatch_flags_t json_flags = USER_RECORD_LOAD_FLAGS_TO_JSON_DISPATCH_FLAGS(load_flags);
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *w = NULL;
         sd_json_variant *array[ELEMENTSOF(mask_field) * 2];
         size_t n_retain = 0;
         UserRecordMask m = 0;
@@ -1759,8 +1759,8 @@ int user_record_load(UserRecord *h, sd_json_variant *v, UserRecordLoadFlags load
 }
 
 int user_record_build(UserRecord **ret, ...) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        _cleanup_(user_record_unrefp) UserRecord *u = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
+        _cleanup_unref(user_record) UserRecord *u = NULL;
         va_list ap;
         int r;
 
@@ -2200,7 +2200,7 @@ uint64_t user_record_capability_ambient_set(UserRecord *h) {
 }
 
 int user_record_languages(UserRecord *h, char ***ret) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         int r;
 
         assert(h);
@@ -2333,7 +2333,7 @@ const char** user_record_self_modifiable_privileged(UserRecord *h) {
 }
 
 static int remove_self_modifiable_json_fields_common(UserRecord *current, sd_json_variant **target) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *blobs = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL, *blobs = NULL;
         char **allowed;
         int r;
 
@@ -2377,7 +2377,7 @@ static int remove_self_modifiable_json_fields_common(UserRecord *current, sd_jso
 }
 
 static int remove_self_modifiable_json_fields(UserRecord *current, UserRecord *h, sd_json_variant **ret) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *privileged = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL, *privileged = NULL;
         sd_json_variant *per_machine;
         char **allowed;
         int r;
@@ -2398,14 +2398,14 @@ static int remove_self_modifiable_json_fields(UserRecord *current, UserRecord *h
         /* Handle the perMachine section */
         per_machine = sd_json_variant_by_key(v, "perMachine");
         if (per_machine) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *new_per_machine = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *new_per_machine = NULL;
                 sd_json_variant *e;
 
                 if (!sd_json_variant_is_array(per_machine))
                         return -EINVAL;
 
                 JSON_VARIANT_ARRAY_FOREACH(e, per_machine) {
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *z = NULL;
+                        _cleanup_unref(sd_json_variant) sd_json_variant *z = NULL;
 
                         if (!sd_json_variant_is_object(e))
                                 return -EINVAL;
@@ -2463,7 +2463,7 @@ static int remove_self_modifiable_json_fields(UserRecord *current, UserRecord *h
 }
 
 int user_record_self_changes_allowed(UserRecord *current, UserRecord *incoming) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *vc = NULL, *vi = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *vc = NULL, *vi = NULL;
         int r;
 
         assert(current);
@@ -2563,7 +2563,7 @@ int user_record_compare_last_change(UserRecord *a, UserRecord *b) {
 }
 
 int user_record_clone(UserRecord *h, UserRecordLoadFlags flags, UserRecord **ret) {
-        _cleanup_(user_record_unrefp) UserRecord *c = NULL;
+        _cleanup_unref(user_record) UserRecord *c = NULL;
         int r;
 
         assert(h);
@@ -2582,7 +2582,7 @@ int user_record_clone(UserRecord *h, UserRecordLoadFlags flags, UserRecord **ret
 }
 
 int user_record_masked_equal(UserRecord *a, UserRecord *b, UserRecordMask mask) {
-        _cleanup_(user_record_unrefp) UserRecord *x = NULL, *y = NULL;
+        _cleanup_unref(user_record) UserRecord *x = NULL, *y = NULL;
         int r;
 
         assert(a);

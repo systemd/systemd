@@ -238,7 +238,7 @@ int coredump_send_to_container(CoredumpContext *context) {
         if (!context->got_pidfd && context->dumpable != SUID_DUMP_USER)
                 return 0;
 
-        _cleanup_(pidref_done) PidRef leader_pid = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef leader_pid = PIDREF_NULL;
         r = namespace_get_leader(&context->pidref, NAMESPACE_PID, &leader_pid);
         if (r < 0)
                 return log_error_errno(r, "Failed to get namespace leader: %m");
@@ -248,7 +248,7 @@ int coredump_send_to_container(CoredumpContext *context) {
                 return r;
 
         _cleanup_close_ int pidnsfd = -EBADF, mntnsfd = -EBADF, netnsfd = -EBADF, usernsfd = -EBADF, rootfd = -EBADF;
-        _cleanup_(pidref_done) PidRef child = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef child = PIDREF_NULL;
         _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
         struct ucred ucred = {
                 .pid = context->pidref.pid,

@@ -20,7 +20,7 @@ static enum {
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL;
+        _cleanup_unref(table) Table *options = NULL;
         int r;
 
         r = terminal_urlify_man("systemd-ac-power", "1", &link);

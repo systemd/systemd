@@ -86,11 +86,11 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         /* Important: the declaration order matters here! we want that the fds are closed on return after the
          * event sources, hence we declare the fds first, the event sources second */
         _cleanup_close_pair_ int server_pair[2] = EBADF_PAIR, client_pair[2] = EBADF_PAIR;
-        _cleanup_(sd_event_source_unrefp) sd_event_source *idle_event_source = NULL,
+        _cleanup_unref(sd_event_source) sd_event_source *idle_event_source = NULL,
                 *server_event_source = NULL, *client_event_source = NULL;
-        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        _cleanup_unref(sd_varlink_server) sd_varlink_server *s = NULL;
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *c = NULL;
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
 
         fuzz_setup_logging();
 

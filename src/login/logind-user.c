@@ -40,7 +40,7 @@
 #include "user-util.h"
 
 int user_new(Manager *m, UserRecord *ur, User **ret) {
-        _cleanup_(user_freep) User *u = NULL;
+        _cleanup_free(user) User *u = NULL;
         char lu[DECIMAL_STR_MAX(uid_t) + 1];
         int r;
 
@@ -339,7 +339,7 @@ int user_load(User *u) {
 }
 
 static int user_start_runtime_dir(User *u) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(u);
@@ -372,7 +372,7 @@ static bool user_wants_service_manager(const User *u) {
 }
 
 int user_start_service_manager(User *u) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(u);
@@ -402,7 +402,7 @@ int user_start_service_manager(User *u) {
 }
 
 static int update_slice_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
-        _cleanup_(user_record_unrefp) UserRecord *ur = ASSERT_PTR(userdata);
+        _cleanup_unref(user_record) UserRecord *ur = ASSERT_PTR(userdata);
         const sd_bus_error *e;
         int r;
 
@@ -424,7 +424,7 @@ static int update_slice_callback(sd_bus_message *m, void *userdata, sd_bus_error
 }
 
 static int user_update_slice(User *u) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
         int r;
 
         assert(u);
@@ -535,7 +535,7 @@ int user_start(User *u) {
 }
 
 static void user_stop_service(User *u, bool force) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(u);
@@ -689,7 +689,7 @@ static bool user_unit_active(User *u) {
         assert(u->service_manager_unit);
 
         FOREACH_STRING(i, u->slice, u->runtime_dir_unit, u->service_manager_unit) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                 r = manager_unit_is_active(u->manager, i, &error);
                 if (r < 0)
@@ -770,7 +770,7 @@ bool user_may_gc(User *u, bool drop_not_started) {
         /* Check if our job is still pending */
         const char *j;
         FOREACH_ARGUMENT(j, u->runtime_dir_job, u->service_manager_job) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                 if (!j)
                         continue;

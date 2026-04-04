@@ -103,7 +103,7 @@ static void set_type(unsigned type_num, char *to, size_t len) {
 static int get_file_options(const char *vendor, const char *model,
                             int *argc, char ***newargv) {
         _cleanup_free_ char *vendor_in = NULL, *model_in = NULL, *options_in = NULL; /* read in from file */
-        _cleanup_strv_free_ char **options_argv = NULL;
+        _cleanup_free(strv) char **options_argv = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int lineno, r;
 
@@ -320,7 +320,7 @@ static int set_options(int argc, char **argv,
 }
 
 static int per_dev_options(struct scsi_id_device *dev_scsi, int *good_bad, int *page_code) {
-        _cleanup_strv_free_ char **newargv = NULL;
+        _cleanup_free(strv) char **newargv = NULL;
         int retval;
         int newargc;
         int option;
@@ -467,7 +467,7 @@ out:
 }
 
 int main(int argc, char **argv) {
-        _cleanup_strv_free_ char **newargv = NULL;
+        _cleanup_free(strv) char **newargv = NULL;
         int retval = 0;
         char maj_min_dev[MAX_PATH_LEN];
         int newargc;

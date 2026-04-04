@@ -113,7 +113,7 @@ _public_ int cryptsetup_token_validate(
 
         int r;
         sd_json_variant *w;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
 
         r = sd_json_parse(json, SD_JSON_PARSE_MUST_BE_OBJECT, &v, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
         if (r < 0)

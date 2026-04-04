@@ -36,7 +36,7 @@
 #include "wifi-util.h"
 
 static int address_append_json(Address *address, bool serializing, sd_json_variant **array) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         int r;
 
         assert(address);
@@ -89,7 +89,7 @@ static int address_append_json(Address *address, bool serializing, sd_json_varia
 }
 
 int addresses_append_json(Link *link, bool serializing, sd_json_variant **v) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *array = NULL;
         Address *address;
         int r;
 
@@ -135,7 +135,7 @@ static int neighbor_append_json(Neighbor *n, sd_json_variant **array) {
 }
 
 static int neighbors_append_json(Set *neighbors, sd_json_variant **v) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *array = NULL;
         Neighbor *neighbor;
         int r;
 
@@ -151,7 +151,7 @@ static int neighbors_append_json(Set *neighbors, sd_json_variant **v) {
 }
 
 static int nexthop_group_build_json(NextHop *nexthop, sd_json_variant **ret) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *array = NULL;
         struct nexthop_grp *g;
         int r;
 
@@ -172,7 +172,7 @@ static int nexthop_group_build_json(NextHop *nexthop, sd_json_variant **ret) {
 }
 
 static int nexthop_append_json(NextHop *n, bool serializing, sd_json_variant **array) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         int r;
 
         assert(n);
@@ -188,7 +188,7 @@ static int nexthop_append_json(NextHop *n, bool serializing, sd_json_variant **a
                 return r;
 
         if (!serializing) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *group = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *group = NULL;
                 _cleanup_free_ char *flags = NULL, *protocol = NULL, *state = NULL;
 
                 r = route_flags_to_string_alloc(n->flags, &flags);
@@ -223,7 +223,7 @@ static int nexthop_append_json(NextHop *n, bool serializing, sd_json_variant **a
 }
 
 int nexthops_append_json(Manager *manager, int ifindex, sd_json_variant **v) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *array = NULL;
         NextHop *nexthop;
         int r;
 
@@ -254,7 +254,7 @@ int nexthops_append_json(Manager *manager, int ifindex, sd_json_variant **v) {
 }
 
 static int route_append_json(Route *route, bool serializing, sd_json_variant **array) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         int r;
 
         assert(route);
@@ -332,7 +332,7 @@ static int route_append_json(Route *route, bool serializing, sd_json_variant **a
 }
 
 int routes_append_json(Manager *manager, int ifindex, sd_json_variant **v) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *array = NULL;
         Route *route;
         int r;
 
@@ -421,7 +421,7 @@ static int routing_policy_rule_append_json(RoutingPolicyRule *rule, sd_json_vari
 }
 
 static int routing_policy_rules_append_json(Set *rules, sd_json_variant **v) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *array = NULL;
         RoutingPolicyRule *rule;
         int r;
 
@@ -470,7 +470,7 @@ static int netdev_append_json(NetDev *netdev, sd_json_variant **v) {
 }
 
 static int device_append_json(sd_device *device, sd_json_variant **v) {
-        _cleanup_strv_free_ char **link_dropins = NULL;
+        _cleanup_free(strv) char **link_dropins = NULL;
         const char *link = NULL, *path = NULL, *vendor = NULL, *model = NULL, *joined;
         int r;
 
@@ -521,7 +521,7 @@ static int dns_append_json_one(Link *link, const struct in_addr_full *a, Network
 }
 
 static int dns_append_json(Link *link, sd_json_variant **v) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *array = NULL;
         int r;
 
         assert(link);
@@ -613,8 +613,8 @@ static int dns_append_json(Link *link, sd_json_variant **v) {
 }
 
 static int dnr_append_json_one(Link *link, const struct sd_dns_resolver *res, NetworkConfigSource s, const union in_addr_union *p, sd_json_variant **array) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *addrs_array = NULL;
-        _cleanup_strv_free_ char **transports = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *addrs_array = NULL;
+        _cleanup_free(strv) char **transports = NULL;
         int r;
 
         assert(link);
@@ -649,7 +649,7 @@ static int dnr_append_json_one(Link *link, const struct sd_dns_resolver *res, Ne
 }
 
 static int dnr_append_json(Link *link, sd_json_variant **v) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *array = NULL;
         int r;
 
         assert(link);
@@ -765,7 +765,7 @@ static int server_append_json_one_string(const char *str, NetworkConfigSource s,
 }
 
 static int ntp_append_json(Link *link, sd_json_variant **v) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *array = NULL;
         int r;
 
         assert(link);
@@ -852,7 +852,7 @@ static int domain_append_json(int family, const char *domain, NetworkConfigSourc
 }
 
 static int sip_append_json(Link *link, sd_json_variant **v) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *array = NULL;
         int r;
 
         assert(link);
@@ -921,7 +921,7 @@ static int sip_append_json(Link *link, sd_json_variant **v) {
 }
 
 static int domains_append_json(Link *link, bool is_route, sd_json_variant **v) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *array = NULL;
         OrderedSet *link_domains, *network_domains;
         UseDomains use_domains;
         union in_addr_union s;
@@ -1009,7 +1009,7 @@ static int nta_append_json(const char *nta, NetworkConfigSource s, sd_json_varia
 }
 
 static int ntas_append_json(Link *link, sd_json_variant **v) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *array = NULL;
         const char *nta;
         int r;
 
@@ -1031,7 +1031,7 @@ static int ntas_append_json(Link *link, sd_json_variant **v) {
 }
 
 static int dns_misc_append_json(Link *link, sd_json_variant **v) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *array = NULL;
         ResolveSupport resolve_support;
         NetworkConfigSource source;
         DnsOverTlsMode mode;
@@ -1109,7 +1109,7 @@ static int captive_portal_append_json(Link *link, sd_json_variant **v) {
 }
 
 static int pref64_append_json(Link *link, sd_json_variant **v) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL, *w = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *array = NULL, *w = NULL;
         NDiscPREF64 *i;
         int r;
 
@@ -1138,7 +1138,7 @@ static int pref64_append_json(Link *link, sd_json_variant **v) {
 }
 
 static int dhcp_server_append_json(Link *link, sd_json_variant **v) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *w = NULL;
         int r;
 
         assert(link);
@@ -1166,7 +1166,7 @@ static int dhcp_server_append_json(Link *link, sd_json_variant **v) {
 }
 
 static int dhcp6_client_vendor_options_append_json(Link *link, sd_json_variant **v) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *array = NULL;
         sd_dhcp6_option **options = NULL;
         int r, n_vendor_options;
 
@@ -1192,7 +1192,7 @@ static int dhcp6_client_vendor_options_append_json(Link *link, sd_json_variant *
 }
 
 static int dhcp6_client_lease_append_json(Link *link, sd_json_variant **v) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *w = NULL;
         usec_t ts = USEC_INFINITY, t1 = USEC_INFINITY, t2 = USEC_INFINITY;
         int r;
 
@@ -1226,7 +1226,7 @@ static int dhcp6_client_lease_append_json(Link *link, sd_json_variant **v) {
 }
 
 static int dhcp6_client_pd_append_json(Link *link, sd_json_variant **v) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *array = NULL;
         int r;
 
         assert(link);
@@ -1296,7 +1296,7 @@ static int dhcp6_client_duid_append_json(Link *link, sd_json_variant **v) {
 }
 
 static int dhcp6_client_append_json(Link *link, sd_json_variant **v) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *w = NULL;
         int r;
 
         assert(link);
@@ -1325,7 +1325,7 @@ static int dhcp6_client_append_json(Link *link, sd_json_variant **v) {
 }
 
 static int dhcp_client_lease_append_json(Link *link, sd_json_variant **v) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *w = NULL;
         usec_t lease_timestamp_usec = USEC_INFINITY, t1 = USEC_INFINITY, t2 = USEC_INFINITY;
         const char *hostname = NULL;
         int r;
@@ -1365,7 +1365,7 @@ static int dhcp_client_lease_append_json(Link *link, sd_json_variant **v) {
 }
 
 static int dhcp_client_pd_append_json(Link *link, sd_json_variant **v) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *addresses = NULL, *array = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *addresses = NULL, *array = NULL;
         uint8_t ipv4masklen, sixrd_prefixlen;
         struct in6_addr sixrd_prefix;
         const struct in_addr *br_addresses;
@@ -1410,7 +1410,7 @@ static int dhcp_client_pd_append_json(Link *link, sd_json_variant **v) {
 }
 
 static int dhcp_client_private_options_append_json(Link *link, sd_json_variant **v) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *array = NULL;
         int r;
 
         assert(link);
@@ -1455,7 +1455,7 @@ static int dhcp_client_id_append_json(Link *link, sd_json_variant **v) {
 }
 
 static int dhcp_client_append_json(Link *link, sd_json_variant **v) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *w = NULL;
         int r;
 
         assert(link);
@@ -1484,7 +1484,7 @@ static int dhcp_client_append_json(Link *link, sd_json_variant **v) {
 }
 
 static int lldp_tx_append_json(Link *link, sd_json_variant **v) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *w = NULL;
         int r;
 
         assert(link);
@@ -1501,7 +1501,7 @@ static int lldp_tx_append_json(Link *link, sd_json_variant **v) {
 }
 
 int link_build_json(Link *link, sd_json_variant **ret) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         _cleanup_free_ char *type = NULL, *flags = NULL;
         int r;
 
@@ -1659,7 +1659,7 @@ int link_build_json(Link *link, sd_json_variant **ret) {
 }
 
 static int links_append_json(Manager *manager, sd_json_variant **v) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *array = NULL;
         _cleanup_free_ Link **links = NULL;
         size_t n_links = 0;
         int r;
@@ -1672,7 +1672,7 @@ static int links_append_json(Manager *manager, sd_json_variant **v) {
                 return r;
 
         FOREACH_ARRAY(link, links, n_links) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *e = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *e = NULL;
 
                 r = link_build_json(*link, &e);
                 if (r < 0)
@@ -1687,7 +1687,7 @@ static int links_append_json(Manager *manager, sd_json_variant **v) {
 }
 
 int manager_build_json(Manager *manager, sd_json_variant **ret) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         int r;
 
         assert(manager);

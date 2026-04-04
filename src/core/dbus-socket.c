@@ -336,7 +336,7 @@ static int bus_socket_set_transient_property(
                                                       message, flags, reterr_error);
 
         if (streq(name, "Symlinks")) {
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_free(strv) char **l = NULL;
 
                 r = sd_bus_message_read_strv(message, &l);
                 if (r < 0)
@@ -377,7 +377,7 @@ static int bus_socket_set_transient_property(
                         return r;
 
                 while ((r = sd_bus_message_read(message, "(ss)", &t, &a)) > 0) {
-                        _cleanup_(socket_port_freep) SocketPort *p = NULL;
+                        _cleanup_free(socket_port) SocketPort *p = NULL;
 
                         p = new(SocketPort, 1);
                         if (!p)

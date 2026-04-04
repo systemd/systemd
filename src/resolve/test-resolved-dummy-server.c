@@ -22,7 +22,7 @@
 
 /* This is more or less verbatim manager_recv() from resolved-manager.c, sans the manager stuff */
 static int server_recv(int fd, DnsPacket **ret) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *p = NULL;
         CMSG_BUFFER_TYPE(CMSG_SPACE(MAXSIZE(struct in_pktinfo, struct in6_pktinfo))
                          + CMSG_SPACE(int) /* ttl/hoplimit */
                          + EXTRA_CMSG_SPACE /* kernel appears to require extra buffer space */) control;
@@ -176,7 +176,7 @@ static int server_ipv4_send(
 }
 
 static int make_reply_packet(DnsPacket *packet, DnsPacket **ret) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *p = NULL;
         int r;
 
         assert(packet);
@@ -357,8 +357,8 @@ static int server_handle_edns_code_zero(DnsPacket *packet, DnsPacket *reply) {
 }
 
 static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
-        _cleanup_(dns_packet_unrefp) DnsPacket *reply = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *reply = NULL;
         const char *name;
         int r;
 
@@ -416,7 +416,7 @@ static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *use
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_unref(sd_event) sd_event *event = NULL;
         _cleanup_close_ int fd = -EBADF;
         int r;
 

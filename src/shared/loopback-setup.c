@@ -42,7 +42,7 @@ static int generic_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userda
 }
 
 static int start_loopback(sd_netlink *rtnl, struct state *s) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *req = NULL;
         int r;
 
         assert(rtnl);
@@ -65,7 +65,7 @@ static int start_loopback(sd_netlink *rtnl, struct state *s) {
 }
 
 static int add_ipv4_address(sd_netlink *rtnl, struct state *s) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *req = NULL;
         int r;
 
         assert(rtnl);
@@ -100,7 +100,7 @@ static int add_ipv4_address(sd_netlink *rtnl, struct state *s) {
 }
 
 static int add_ipv6_address(sd_netlink *rtnl, struct state *s) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *req = NULL;
         int r;
 
         assert(rtnl);
@@ -136,7 +136,7 @@ static int add_ipv6_address(sd_netlink *rtnl, struct state *s) {
 }
 
 static int check_loopback(sd_netlink *rtnl) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *req = NULL, *reply = NULL;
         unsigned flags;
         int r;
 
@@ -156,7 +156,7 @@ static int check_loopback(sd_netlink *rtnl) {
 }
 
 int loopback_setup(void) {
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *rtnl = NULL;
         struct state state_4 = {
                 .error_message = "Failed to add address 127.0.0.1 to loopback interface",
                 .success_message = "Successfully added address 127.0.0.1 to loopback interface",

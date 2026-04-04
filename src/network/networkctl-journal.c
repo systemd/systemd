@@ -19,7 +19,7 @@ static OutputFlags get_output_flags(void) {
 }
 
 int show_logs(int ifindex, const char *ifname) {
-        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_close(sd_journal) sd_journal *j = NULL;
         int r;
 
         assert(ifindex == 0 || ifname);

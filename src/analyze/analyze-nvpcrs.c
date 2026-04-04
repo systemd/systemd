@@ -23,7 +23,7 @@ static int add_nvpcr_to_table(Tpm2Context **c, Table *t, const char *name) {
                                 return r;
                 }
 
-                _cleanup_(iovec_done) struct iovec digest = {};
+                _cleanup_done(iovec) struct iovec digest = {};
                 r = tpm2_nvpcr_read(*c, /* session= */ NULL, name, &digest, &nv_index);
                 if (r < 0)
                         return log_error_errno(r, "Failed to read NvPCR '%s': %m", name);
@@ -52,8 +52,8 @@ static int add_nvpcr_to_table(Tpm2Context **c, Table *t, const char *name) {
 
 int verb_nvpcrs(int argc, char *argv[], uintptr_t _data, void *userdata) {
 #if HAVE_TPM2
-        _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
-        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_unref(tpm2_context) Tpm2Context *c = NULL;
+        _cleanup_unref(table) Table *table = NULL;
         int r;
 
         bool have_tpm2 = tpm2_is_mostly_supported();
@@ -73,7 +73,7 @@ int verb_nvpcrs(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 (void) table_hide_column_from_display(table, (size_t) 2);
 
         if (strv_isempty(strv_skip(argv, 1))) {
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_free(strv) char **l = NULL;
                 r = conf_files_list_nulstr(
                                 &l,
                                 ".nvpcr",

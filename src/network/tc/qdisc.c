@@ -112,7 +112,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
         qdisc_detach);
 
 static int qdisc_new(QDiscKind kind, QDisc **ret) {
-        _cleanup_(qdisc_unrefp) QDisc *qdisc = NULL;
+        _cleanup_unref(qdisc) QDisc *qdisc = NULL;
         int r;
 
         if (kind == _QDISC_KIND_INVALID) {
@@ -148,8 +148,8 @@ static int qdisc_new(QDiscKind kind, QDisc **ret) {
 }
 
 int qdisc_new_static(QDiscKind kind, Network *network, const char *filename, unsigned section_line, QDisc **ret) {
-        _cleanup_(config_section_freep) ConfigSection *n = NULL;
-        _cleanup_(qdisc_unrefp) QDisc *qdisc = NULL;
+        _cleanup_free(config_section) ConfigSection *n = NULL;
+        _cleanup_unref(qdisc) QDisc *qdisc = NULL;
         QDisc *existing;
         int r;
 
@@ -305,7 +305,7 @@ static int qdisc_attach(Link *link, QDisc *qdisc) {
 }
 
 static int qdisc_dup(const QDisc *src, QDisc **ret) {
-        _cleanup_(qdisc_unrefp) QDisc *dst = NULL;
+        _cleanup_unref(qdisc) QDisc *dst = NULL;
 
         assert(src);
         assert(ret);
@@ -453,7 +453,7 @@ static int qdisc_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, 
 }
 
 static int qdisc_configure(QDisc *qdisc, Link *link, Request *req) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         int r;
 
         assert(qdisc);
@@ -532,7 +532,7 @@ static int qdisc_process_request(Request *req, Link *link, QDisc *qdisc) {
 }
 
 int link_request_qdisc(Link *link, const QDisc *qdisc) {
-        _cleanup_(qdisc_unrefp) QDisc *tmp = NULL;
+        _cleanup_unref(qdisc) QDisc *tmp = NULL;
         QDisc *existing = NULL;
         int r;
 
@@ -573,7 +573,7 @@ int link_request_qdisc(Link *link, const QDisc *qdisc) {
 }
 
 int manager_rtnl_process_qdisc(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
-        _cleanup_(qdisc_unrefp) QDisc *tmp = NULL;
+        _cleanup_unref(qdisc) QDisc *tmp = NULL;
         Request *req = NULL;
         QDisc *qdisc = NULL;
         Link *link;

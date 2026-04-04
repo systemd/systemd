@@ -66,9 +66,9 @@ static void fuzz_client(sd_dhcp6_client *client, const uint8_t *data, size_t siz
 }
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
-        _cleanup_(sd_dhcp6_client_unrefp) sd_dhcp6_client *client = NULL;
-        _cleanup_(sd_dhcp6_option_unrefp) sd_dhcp6_option *v1 = NULL, *v2 = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
+        _cleanup_unref(sd_dhcp6_client) sd_dhcp6_client *client = NULL;
+        _cleanup_unref(sd_dhcp6_option) sd_dhcp6_option *v1 = NULL, *v2 = NULL;
         struct in6_addr address = { { { 0xfe, 0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x01 } } };
         struct in6_addr hint = { { { 0x3f, 0xfe, 0x05, 0x01, 0xff, 0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 } } };
         static const char *v1_data = "hogehoge", *v2_data = "foobar";

@@ -1349,7 +1349,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_ROOT_HASH: {
-                        _cleanup_(iovec_done) struct iovec k = {};
+                        _cleanup_done(iovec) struct iovec k = {};
 
                         r = unhexmem(optarg, &k.iov_base, &k.iov_len);
                         if (r < 0)
@@ -1363,7 +1363,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 case ARG_ROOT_HASH_SIG: {
-                        _cleanup_(iovec_done) struct iovec p = {};
+                        _cleanup_done(iovec) struct iovec p = {};
                         char *value;
 
                         if ((value = startswith(optarg, "base64:"))) {
@@ -2008,7 +2008,7 @@ static int have_resolv_conf(const char *path) {
 }
 
 static int resolved_listening(void) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ char *dns_stub_listener_mode = NULL;
         int r;
@@ -3117,7 +3117,7 @@ static int pick_paths(void) {
         int r;
 
         if (arg_directory) {
-                _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
+                _cleanup_done(pick_result) PickResult result = PICK_RESULT_NULL;
                 PickFilter filter = *pick_filter_image_dir;
 
                 filter.architecture = arg_architecture;
@@ -3137,7 +3137,7 @@ static int pick_paths(void) {
         }
 
         if (arg_image) {
-                _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
+                _cleanup_done(pick_result) PickResult result = PICK_RESULT_NULL;
                 PickFilter filter = *pick_filter_image_raw;
 
                 filter.architecture = arg_architecture;
@@ -3155,7 +3155,7 @@ static int pick_paths(void) {
         }
 
         if (arg_mstack) {
-                _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
+                _cleanup_done(pick_result) PickResult result = PICK_RESULT_NULL;
                 PickFilter filter = *pick_filter_image_mstack;
 
                 filter.architecture = arg_architecture;
@@ -3173,7 +3173,7 @@ static int pick_paths(void) {
         }
 
         if (arg_template) {
-                _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
+                _cleanup_done(pick_result) PickResult result = PICK_RESULT_NULL;
                 PickFilter filter = *pick_filter_image_dir;
 
                 filter.architecture = arg_architecture;
@@ -3208,7 +3208,7 @@ static int determine_names(void) {
 
         if (!arg_image && !arg_directory && !arg_mstack) {
                 if (arg_machine) {
-                        _cleanup_(image_unrefp) Image *i = NULL;
+                        _cleanup_unref(image) Image *i = NULL;
 
                         r = image_find(arg_privileged ? RUNTIME_SCOPE_SYSTEM : RUNTIME_SCOPE_USER,
                                        IMAGE_MACHINE, arg_machine, NULL, &i);
@@ -3462,7 +3462,7 @@ static int inner_child(
                 NULL
         };
         const char *exec_target;
-        _cleanup_strv_free_ char **env_use = NULL;
+        _cleanup_free(strv) char **env_use = NULL;
         int r, which_failed;
 
         /* This is the "inner" child process, i.e. the one forked off by the "outer" child process, which is the one
@@ -4021,7 +4021,7 @@ static int outer_child(
                 int netns_fd,
                 const char *unix_export_path) {
 
-        _cleanup_strv_free_ char **os_release_pairs = NULL;
+        _cleanup_free(strv) char **os_release_pairs = NULL;
         bool idmap = false;
         ssize_t l;
         int r;
@@ -4216,7 +4216,7 @@ static int outer_child(
         if (r < 0)
                 return r;
 
-        _cleanup_(machine_bind_user_context_freep) MachineBindUserContext *bind_user_context = NULL;
+        _cleanup_free(machine_bind_user_context) MachineBindUserContext *bind_user_context = NULL;
         r = machine_bind_user_prepare(
                         directory,
                         arg_bind_user,
@@ -4268,7 +4268,7 @@ static int outer_child(
         if (!IN_SET(arg_userns_mode, USER_NAMESPACE_NO, USER_NAMESPACE_MANAGED) &&
             IN_SET(arg_userns_ownership, USER_NAMESPACE_OWNERSHIP_MAP, USER_NAMESPACE_OWNERSHIP_FOREIGN, USER_NAMESPACE_OWNERSHIP_AUTO) &&
             chown_uid != 0) {
-                _cleanup_strv_free_ char **dirs = NULL;
+                _cleanup_free(strv) char **dirs = NULL;
                 RemountIdmapping mapping;
 
                 switch (arg_userns_ownership) {
@@ -4716,8 +4716,8 @@ static int nspawn_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t r
 
         assert(userdata);
 
-        _cleanup_(pidref_done) PidRef sender_pid = PIDREF_NULL;
-        _cleanup_strv_free_ char **tags = NULL;
+        _cleanup_done(pidref) PidRef sender_pid = PIDREF_NULL;
+        _cleanup_free(strv) char **tags = NULL;
         r = notify_recv_strv(fd, &tags, /* ret_ucred= */ NULL, &sender_pid);
         if (r == -EAGAIN)
                 return 0;
@@ -5157,7 +5157,7 @@ static int merge_settings(Settings *settings, const char *path) {
 }
 
 static int load_settings(void) {
-        _cleanup_(settings_freep) Settings *settings = NULL;
+        _cleanup_free(settings) Settings *settings = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char *p = NULL;
         int r;
@@ -5258,7 +5258,7 @@ static int load_settings(void) {
 }
 
 static int load_oci_bundle(void) {
-        _cleanup_(settings_freep) Settings *settings = NULL;
+        _cleanup_free(settings) Settings *settings = NULL;
         int r;
 
         if (!arg_oci_bundle)
@@ -5296,12 +5296,12 @@ static int run_container(
                 fd_outer_socket_pair[2] = EBADF_PAIR;
 
         _cleanup_close_ int notify_socket = -EBADF, mntns_fd = -EBADF, fd_kmsg_fifo = -EBADF;
-        _cleanup_(barrier_destroy) Barrier barrier = BARRIER_NULL;
-        _cleanup_(sd_event_source_unrefp) sd_event_source *notify_event_source = NULL;
+        _cleanup_destroy(barrier) Barrier barrier = BARRIER_NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *notify_event_source = NULL;
         _cleanup_(umount_and_rmdir_and_freep) char *unix_export_host_dir = NULL;
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_unref(sd_event) sd_event *event = NULL;
+        _cleanup_free(pty_forward) PTYForward *forward = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *rtnl = NULL;
         _cleanup_free_ uid_t *bind_user_uid = NULL;
         size_t n_bind_user_uid = 0;
         ContainerStatus container_status = 0;
@@ -5626,7 +5626,7 @@ static int run_container(
         }
 
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *user_bus = NULL;
-        _cleanup_(sd_bus_unrefp) sd_bus *runtime_bus = NULL;
+        _cleanup_unref(sd_bus) sd_bus *runtime_bus = NULL;
 
         if (arg_register || !arg_keep_unit) {
                 if (arg_privileged)
@@ -5854,7 +5854,7 @@ static int run_container(
                 (void) expose_port_execute(rtnl, expose_args->nfnl, arg_expose_ports, AF_INET6, &expose_args->address6);
         }
 
-        _cleanup_(osc_context_closep) sd_id128_t osc_context_id = SD_ID128_NULL;
+        _cleanup_close(osc_context) sd_id128_t osc_context_id = SD_ID128_NULL;
         if (IN_SET(arg_console_mode, CONSOLE_INTERACTIVE, CONSOLE_READ_ONLY) && !terminal_is_dumb()) {
                 r = osc_context_open_container(arg_machine, /* ret_seq= */ NULL, &osc_context_id);
                 if (r < 0)
@@ -6137,19 +6137,19 @@ static int do_cleanup(void) {
 static int run(int argc, char *argv[]) {
         bool remove_image = false, veth_created = false;
         _cleanup_close_ int master = -EBADF, userns_fd = -EBADF, mount_fd = -EBADF;
-        _cleanup_fdset_free_ FDSet *fds = NULL;
+        _cleanup_free(fdset) FDSet *fds = NULL;
         int r, ret = EXIT_SUCCESS;
         char veth_name[IFNAMSIZ] = "";
         struct ExposeArgs expose_args = {};
         _cleanup_(release_lock_file) LockFile tree_global_lock = LOCK_FILE_INIT, tree_local_lock = LOCK_FILE_INIT;
         _cleanup_(rmdir_and_freep) char *rootdir = NULL;
         _cleanup_(rm_rf_subvolume_and_freep) char *snapshot_dir = NULL;
-        _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
-        _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
-        _cleanup_(mstack_freep) MStack *mstack = NULL;
-        _cleanup_(sd_netlink_unrefp) sd_netlink *nfnl = NULL;
-        _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
-        _cleanup_(sd_varlink_unrefp) sd_varlink *nsresource_link = NULL, *mountfsd_link = NULL;
+        _cleanup_unref(loop_device) LoopDevice *loop = NULL;
+        _cleanup_unref(dissected_image) DissectedImage *dissected_image = NULL;
+        _cleanup_free(mstack) MStack *mstack = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *nfnl = NULL;
+        _cleanup_done(pidref) PidRef pid = PIDREF_NULL;
+        _cleanup_unref(sd_varlink) sd_varlink *nsresource_link = NULL, *mountfsd_link = NULL;
 
         log_setup();
 

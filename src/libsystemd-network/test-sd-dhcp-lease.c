@@ -11,7 +11,7 @@
  */
 TEST(dhcp_lease_parse_search_domains_basic) {
         int r;
-        _cleanup_strv_free_ char **domains = NULL;
+        _cleanup_free(strv) char **domains = NULL;
         static const uint8_t optionbuf[] = {
                 0x03, 'F', 'O', 'O', 0x03, 'B', 'A', 'R', 0x00,
                 0x04, 'A', 'B', 'C', 'D', 0x03, 'E', 'F', 'G', 0x00,
@@ -25,7 +25,7 @@ TEST(dhcp_lease_parse_search_domains_basic) {
 
 TEST(dhcp_lease_parse_search_domains_ptr) {
         int r;
-        _cleanup_strv_free_ char **domains = NULL;
+        _cleanup_free(strv) char **domains = NULL;
         static const uint8_t optionbuf[] = {
                 0x03, 'F', 'O', 'O', 0x00, 0xC0, 0x00,
         };
@@ -38,7 +38,7 @@ TEST(dhcp_lease_parse_search_domains_ptr) {
 
 TEST(dhcp_lease_parse_search_domains_labels_and_ptr) {
         int r;
-        _cleanup_strv_free_ char **domains = NULL;
+        _cleanup_free(strv) char **domains = NULL;
         static const uint8_t optionbuf[] = {
                 0x03, 'F', 'O', 'O', 0x03, 'B', 'A', 'R', 0x00,
                 0x03, 'A', 'B', 'C', 0xC0, 0x04,
@@ -53,7 +53,7 @@ TEST(dhcp_lease_parse_search_domains_labels_and_ptr) {
 /* Tests for exceptions. */
 
 TEST(dhcp_lease_parse_search_domains_no_data) {
-        _cleanup_strv_free_ char **domains = NULL;
+        _cleanup_free(strv) char **domains = NULL;
         static const uint8_t optionbuf[3] = {0, 0, 0};
 
         assert_se(dhcp_lease_parse_search_domains(NULL, 0, &domains) == -EBADMSG);
@@ -61,7 +61,7 @@ TEST(dhcp_lease_parse_search_domains_no_data) {
 }
 
 TEST(dhcp_lease_parse_search_domains_loops) {
-        _cleanup_strv_free_ char **domains = NULL;
+        _cleanup_free(strv) char **domains = NULL;
         static const uint8_t optionbuf[] = {
                 0x03, 'F', 'O', 'O', 0x00, 0x03, 'B', 'A', 'R', 0xC0, 0x06,
         };
@@ -70,7 +70,7 @@ TEST(dhcp_lease_parse_search_domains_loops) {
 }
 
 TEST(dhcp_lease_parse_search_domains_wrong_len) {
-        _cleanup_strv_free_ char **domains = NULL;
+        _cleanup_free(strv) char **domains = NULL;
         static const uint8_t optionbuf[] = {
                 0x03, 'F', 'O', 'O', 0x03, 'B', 'A', 'R', 0x00,
                 0x04, 'A', 'B', 'C', 'D', 0x03, 'E', 'F', 'G', 0x00,

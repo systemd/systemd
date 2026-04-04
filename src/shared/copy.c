@@ -1128,7 +1128,7 @@ static int fd_copy_directory(
                 copy_progress_bytes_t progress_bytes,
                 void *userdata) {
 
-        _cleanup_(hardlink_context_destroy) HardlinkContext our_hardlink_context = {
+        _cleanup_destroy(hardlink_context) HardlinkContext our_hardlink_context = {
                 .dir_fd = -EBADF,
                 .parent_fd = -EBADF,
         };

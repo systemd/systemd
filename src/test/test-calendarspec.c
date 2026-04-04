@@ -12,7 +12,7 @@
 #include "time-util.h"
 
 static void _test_one(int line, const char *input, const char *output) {
-        _cleanup_(calendar_spec_freep) CalendarSpec *c = NULL;
+        _cleanup_free(calendar_spec) CalendarSpec *c = NULL;
         _cleanup_free_ char *p = NULL, *q = NULL;
         usec_t u;
         int r;
@@ -42,7 +42,7 @@ static void _test_one(int line, const char *input, const char *output) {
 #define test_one(input, output) _test_one(__LINE__, input, output)
 
 static void _test_next(int line, const char *input, const char *new_tz, usec_t after, usec_t expect) {
-        _cleanup_(calendar_spec_freep) CalendarSpec *c = NULL;
+        _cleanup_free(calendar_spec) CalendarSpec *c = NULL;
         usec_t u;
         int r;
 
@@ -71,7 +71,7 @@ static void _test_next(int line, const char *input, const char *new_tz, usec_t a
 TEST(timestamp) {
         char buf[FORMAT_TIMESTAMP_MAX];
         _cleanup_free_ char *t = NULL;
-        _cleanup_(calendar_spec_freep) CalendarSpec *c = NULL;
+        _cleanup_free(calendar_spec) CalendarSpec *c = NULL;
         usec_t x, y;
 
         /* Ensure that a timestamp is also a valid calendar specification. Convert forth and back */
@@ -89,7 +89,7 @@ TEST(timestamp) {
 }
 
 TEST(hourly_bug_4031) {
-        _cleanup_(calendar_spec_freep) CalendarSpec *c = NULL;
+        _cleanup_free(calendar_spec) CalendarSpec *c = NULL;
         usec_t n, u, w;
         int r;
 

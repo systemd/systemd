@@ -72,8 +72,8 @@ static int dns_answer_reserve_internal(DnsAnswer *a, size_t n) {
 }
 
 DnsAnswer *dns_answer_new(size_t n) {
-        _cleanup_ordered_set_free_ OrderedSet *s = NULL;
-        _cleanup_(dns_answer_unrefp) DnsAnswer *a = NULL;
+        _cleanup_free(ordered_set) OrderedSet *s = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *a = NULL;
 
         if (n > UINT16_MAX)
                 n = UINT16_MAX;
@@ -114,7 +114,7 @@ static int dns_answer_add_raw(
                 DnsResourceRecord *rrsig,
                 usec_t until) {
 
-        _cleanup_(dns_answer_item_unrefp) DnsAnswerItem *item = NULL;
+        _cleanup_unref(dns_answer_item) DnsAnswerItem *item = NULL;
         int r;
 
         assert(rr);
@@ -263,7 +263,7 @@ int dns_answer_add_extend_full(
 }
 
 int dns_answer_add_soa(DnsAnswer *a, const char *name, uint32_t ttl, int ifindex) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *soa = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *soa = NULL;
 
         soa = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SOA, name);
         if (!soa)
@@ -459,7 +459,7 @@ int dns_answer_find_cname_or_dname(
 }
 
 int dns_answer_merge(DnsAnswer *a, DnsAnswer *b, DnsAnswer **ret) {
-        _cleanup_(dns_answer_unrefp) DnsAnswer *k = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *k = NULL;
         int r;
 
         assert(ret);
@@ -540,7 +540,7 @@ int dns_answer_remove_by_key(DnsAnswer **a, const DnsResourceKey *key) {
 }
 
 int dns_answer_remove_by_rr(DnsAnswer **a, DnsResourceRecord *rr) {
-        _unused_ _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr_ref = dns_resource_record_ref(rr);
+        _unused_ _cleanup_unref(dns_resource_record) DnsResourceRecord *rr_ref = dns_resource_record_ref(rr);
         DnsAnswerItem *item;
         bool found = false;
         int r;
@@ -570,7 +570,7 @@ int dns_answer_remove_by_rr(DnsAnswer **a, DnsResourceRecord *rr) {
 }
 
 int dns_answer_remove_by_answer_keys(DnsAnswer **a, DnsAnswer *b) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *prev = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *prev = NULL;
         DnsAnswerItem *item;
         int r;
 
@@ -703,7 +703,7 @@ int dns_answer_reserve(DnsAnswer **a, size_t n_free) {
 }
 
 int dns_answer_reserve_or_clone(DnsAnswer **a, size_t n_free) {
-        _cleanup_(dns_answer_unrefp) DnsAnswer *n = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *n = NULL;
         size_t ns;
         int r;
 
@@ -874,10 +874,10 @@ int dns_answer_to_json(DnsAnswer *answer, sd_json_variant **ret) {
 
         assert(ret);
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *ja = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *ja = NULL;
         DnsResourceRecord *rr;
         DNS_ANSWER_FOREACH(rr, answer) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
 
                 r = dns_resource_record_to_json(rr, &v);
                 if (r < 0)

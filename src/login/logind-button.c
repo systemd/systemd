@@ -565,7 +565,7 @@ static int button_set_mask(const char *name, int fd) {
 }
 
 int button_open(Button *b) {
-        _cleanup_(asynchronous_closep) int fd = -EBADF;
+        _cleanup_close(asynchronous) int fd = -EBADF;
         const char *p;
         char name[256];
         int r;

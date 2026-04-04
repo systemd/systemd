@@ -410,7 +410,7 @@ DnsResourceRecord* dns_resource_record_new(DnsResourceKey *key) {
 }
 
 DnsResourceRecord* dns_resource_record_new_full(uint16_t class, uint16_t type, const char *name) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
 
         key = dns_resource_key_new(class, type, name);
         if (!key)
@@ -530,8 +530,8 @@ static DnsResourceRecord* dns_resource_record_free(DnsResourceRecord *rr) {
 DEFINE_TRIVIAL_REF_UNREF_FUNC(DnsResourceRecord, dns_resource_record, dns_resource_record_free);
 
 int dns_resource_record_new_reverse(DnsResourceRecord **ret, int family, const union in_addr_union *address, const char *hostname) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
         _cleanup_free_ char *ptr = NULL;
         int r;
 
@@ -813,7 +813,7 @@ static int format_timestamp_dns(char *buf, size_t l, time_t sec) {
 }
 
 static char *format_types(Bitmap *types) {
-        _cleanup_strv_free_ char **strv = NULL;
+        _cleanup_free(strv) char **strv = NULL;
         _cleanup_free_ char *str = NULL;
         unsigned type;
         int r;
@@ -876,7 +876,7 @@ static char *format_svc_param_value(DnsSvcParam *i) {
         switch (i->key) {
         case DNS_SVC_PARAM_KEY_ALPN: {
                 size_t offset = 0;
-                _cleanup_strv_free_ char **values_strv = NULL;
+                _cleanup_free(strv) char **values_strv = NULL;
                 while (offset < i->length) {
                         size_t sz = i->value[offset++];
 
@@ -903,7 +903,7 @@ static char *format_svc_param_value(DnsSvcParam *i) {
         }
         case DNS_SVC_PARAM_KEY_IPV4HINT: {
                 const struct in_addr *addrs = i->value_in_addr;
-                _cleanup_strv_free_ char **values_strv = NULL;
+                _cleanup_free(strv) char **values_strv = NULL;
                 for (size_t n = 0; n < i->length / sizeof (struct in_addr); n++) {
                         char *addr;
                         if (in_addr_to_string(AF_INET, (const union in_addr_union*) &addrs[n], &addr) < 0)
@@ -915,7 +915,7 @@ static char *format_svc_param_value(DnsSvcParam *i) {
         }
         case DNS_SVC_PARAM_KEY_IPV6HINT: {
                 const struct in6_addr *addrs = i->value_in6_addr;
-                _cleanup_strv_free_ char **values_strv = NULL;
+                _cleanup_free(strv) char **values_strv = NULL;
                 for (size_t n = 0; n < i->length / sizeof (struct in6_addr); n++) {
                         char *addr;
                         if (in_addr_to_string(AF_INET6, (const union in_addr_union*) &addrs[n], &addr) < 0)
@@ -954,7 +954,7 @@ static char *format_svc_param(DnsSvcParam *i) {
 }
 
 static char *format_svc_params(DnsSvcParam *first) {
-        _cleanup_strv_free_ char **params = NULL;
+        _cleanup_free(strv) char **params = NULL;
 
         LIST_FOREACH(params, i, first) {
                 char *param = format_svc_param(i);
@@ -1738,7 +1738,7 @@ DEFINE_HASH_OPS_FULL(
                 dns_resource_record_unref);
 
 DnsResourceRecord *dns_resource_record_copy(DnsResourceRecord *rr) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *copy = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *copy = NULL;
         DnsResourceRecord *t;
 
         assert(rr);
@@ -2161,7 +2161,7 @@ int dns_txt_item_new_empty(DnsTxtItem **ret) {
 }
 
 int dns_resource_record_new_from_raw(DnsResourceRecord **ret, const void *data, size_t size) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *p = NULL;
         int r;
 
         r = dns_packet_new(&p, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX);
@@ -2202,7 +2202,7 @@ int dns_resource_key_from_json(sd_json_variant *v, DnsResourceKey **ret) {
                 {}
         };
 
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
         struct params p = {
                 .class = DNS_CLASS_IN,
         };
@@ -2230,14 +2230,14 @@ int dns_resource_key_from_json(sd_json_variant *v, DnsResourceKey **ret) {
 }
 
 static int type_bitmap_to_json(Bitmap *b, sd_json_variant **ret) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *l = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *l = NULL;
         unsigned t;
         int r;
 
         assert(ret);
 
         BITMAP_FOREACH(t, b) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
 
                 r = sd_json_variant_new_unsigned(&v, t);
                 if (r < 0)
@@ -2283,13 +2283,13 @@ finalize:
 }
 
 static int svc_params_to_json(DnsSvcParam *params, sd_json_variant **ret) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *w = NULL;
         int r;
 
         assert(ret);
 
         LIST_FOREACH(params, i, params) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
                 r = sd_json_variant_new_base64(&v, i->value, i->length);
                 if (r < 0)
                         return r;
@@ -2304,7 +2304,7 @@ static int svc_params_to_json(DnsSvcParam *params, sd_json_variant **ret) {
 }
 
 int dns_resource_record_to_json(DnsResourceRecord *rr, sd_json_variant **ret) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *k = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *k = NULL;
         int r;
 
         assert(rr);
@@ -2342,7 +2342,7 @@ int dns_resource_record_to_json(DnsResourceRecord *rr, sd_json_variant **ret) {
 
         case DNS_TYPE_SPF:
         case DNS_TYPE_TXT: {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *l = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *l = NULL;
 
                 r = txt_to_json(rr->txt.items, &l);
                 if (r < 0)
@@ -2436,7 +2436,7 @@ int dns_resource_record_to_json(DnsResourceRecord *rr, sd_json_variant **ret) {
                                 SD_JSON_BUILD_PAIR_BASE64("signature", rr->rrsig.signature, rr->rrsig.signature_size));
 
         case DNS_TYPE_NSEC: {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *bm = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *bm = NULL;
 
                 r = type_bitmap_to_json(rr->nsec.types, &bm);
                 if (r < 0)
@@ -2450,7 +2450,7 @@ int dns_resource_record_to_json(DnsResourceRecord *rr, sd_json_variant **ret) {
         }
 
         case DNS_TYPE_NSEC3: {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *bm = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *bm = NULL;
 
                 r = type_bitmap_to_json(rr->nsec3.types, &bm);
                 if (r < 0)
@@ -2478,7 +2478,7 @@ int dns_resource_record_to_json(DnsResourceRecord *rr, sd_json_variant **ret) {
 
         case DNS_TYPE_SVCB:
         case DNS_TYPE_HTTPS: {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *p = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *p = NULL;
                 r = svc_params_to_json(rr->svcb.params, &p);
                 if (r < 0)
                         return r;
@@ -2528,12 +2528,12 @@ int dns_resource_record_from_json(sd_json_variant *v, DnsResourceRecord **ret) {
         if (!k)
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Resource record entry lacks key field, refusing.");
 
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
         r = dns_resource_key_from_json(k, &key);
         if (r < 0)
                 return r;
 
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
         rr = dns_resource_record_new(key);
         if (!rr)
                 return log_oom_debug();
@@ -2660,7 +2660,7 @@ int dns_json_dispatch_resource_key(const char *name, sd_json_variant *variant, s
         DnsResourceKey **k = ASSERT_PTR(userdata);
         int r;
 
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *nk = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *nk = NULL;
         r = dns_resource_key_from_json(variant, &nk);
         if (r < 0)
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid resource record key.", strna(name));

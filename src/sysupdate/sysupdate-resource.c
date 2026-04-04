@@ -88,7 +88,7 @@ static int resource_load_from_directory_recursive(
         int r;
 
         for (;;) {
-                _cleanup_(instance_metadata_destroy) InstanceMetadata extracted_fields = INSTANCE_METADATA_NULL;
+                _cleanup_destroy(instance_metadata) InstanceMetadata extracted_fields = INSTANCE_METADATA_NULL;
                 _cleanup_free_ char *joined = NULL, *rel_joined = NULL;
                 _cleanup_free_ char *rel_joined_for_matching = NULL;
                 Instance *instance;
@@ -222,8 +222,8 @@ static int resource_load_from_directory(
 }
 
 static int resource_load_from_blockdev(Resource *rr) {
-        _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
-        _cleanup_(fdisk_unref_tablep) struct fdisk_table *t = NULL;
+        _cleanup_unref(fdisk_context) struct fdisk_context *c = NULL;
+        _cleanup_unref(fdisk_table) struct fdisk_table *t = NULL;
         size_t n_partitions;
         int r;
 
@@ -242,8 +242,8 @@ static int resource_load_from_blockdev(Resource *rr) {
 
         n_partitions = fdisk_table_get_nents(t);
         for (size_t i = 0; i < n_partitions; i++)  {
-                _cleanup_(instance_metadata_destroy) InstanceMetadata extracted_fields = INSTANCE_METADATA_NULL;
-                _cleanup_(partition_info_destroy) PartitionInfo pinfo = PARTITION_INFO_NULL;
+                _cleanup_destroy(instance_metadata) InstanceMetadata extracted_fields = INSTANCE_METADATA_NULL;
+                _cleanup_destroy(partition_info) PartitionInfo pinfo = PARTITION_INFO_NULL;
                 Instance *instance;
                 bool is_partial = false, is_pending = false;
 
@@ -344,7 +344,7 @@ static int download_manifest(
         log_info("%s Acquiring manifest file %s%s", glyph(GLYPH_DOWNLOAD),
                  suffixed_url, glyph(GLYPH_ELLIPSIS));
 
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         r = pidref_safe_fork_full(
                         "(sd-pull)",
                         (int[]) { -EBADF, pfd[1], STDERR_FILENO },
@@ -503,8 +503,8 @@ static int resource_load_from_web(
         left = manifest_size;
 
         while (left > 0) {
-                _cleanup_(instance_metadata_destroy) InstanceMetadata extracted_fields = INSTANCE_METADATA_NULL;
-                _cleanup_(iovec_done) struct iovec h = {};
+                _cleanup_destroy(instance_metadata) InstanceMetadata extracted_fields = INSTANCE_METADATA_NULL;
+                _cleanup_done(iovec) struct iovec h = {};
                 _cleanup_free_ char *fn = NULL;
                 Instance *instance;
                 const char *e;

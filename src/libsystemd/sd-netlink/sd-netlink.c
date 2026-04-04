@@ -28,7 +28,7 @@
 #define REPLY_CALLBACKS_MAX UINT16_MAX
 
 static int netlink_new(sd_netlink **ret) {
-        _cleanup_(sd_netlink_unrefp) sd_netlink *nl = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *nl = NULL;
 
         assert_return(ret, -EINVAL);
 
@@ -73,7 +73,7 @@ static int netlink_new(sd_netlink **ret) {
 }
 
 int sd_netlink_open_fd(sd_netlink **ret, int fd) {
-        _cleanup_(sd_netlink_unrefp) sd_netlink *nl = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *nl = NULL;
         int r, protocol = 0; /* Avoid maybe-uninitialized false positive */
 
         assert_return(ret, -EINVAL);
@@ -293,7 +293,7 @@ static int dispatch_rqueue(sd_netlink *nl, sd_netlink_message **ret) {
 }
 
 static int process_timeout(sd_netlink *nl) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         struct reply_callback *c;
         sd_netlink_slot *slot;
         int r;
@@ -353,7 +353,7 @@ static int process_reply(sd_netlink *nl, sd_netlink_message *m) {
         if (type == NLMSG_DONE)
                 m = NULL;
 
-        _cleanup_(sd_netlink_slot_unrefp) sd_netlink_slot *slot =
+        _cleanup_unref(sd_netlink_slot) sd_netlink_slot *slot =
                 sd_netlink_slot_ref(container_of(c, sd_netlink_slot, reply_callback));
 
         r = c->callback(nl, m, slot->userdata);
@@ -422,7 +422,7 @@ static int process_match(sd_netlink *nl, sd_netlink_message *m) {
 }
 
 static int process_running(sd_netlink *nl, sd_netlink_message **ret) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         int r;
 
         assert(nl);
@@ -618,7 +618,7 @@ int sd_netlink_read(
         usec = timespan_to_timestamp(nl, timeout);
 
         for (;;) {
-                _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+                _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
                 usec_t left;
 
                 m = hashmap_remove(nl->rqueue_by_serial, UINT32_TO_PTR(serial));

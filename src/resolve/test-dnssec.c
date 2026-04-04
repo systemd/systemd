@@ -42,7 +42,7 @@ TEST(dnssec_verify_dns_key) {
                 0xe7, 0xea, 0x77, 0x03,
         };
 
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *dnskey = NULL, *ds1 = NULL, *ds2 = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *dnskey = NULL, *ds1 = NULL, *ds2 = NULL;
 
         /* The two DS RRs in effect for nasa.gov on 2015-12-01. */
         ds1 = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DS, "nasa.gov");
@@ -106,9 +106,9 @@ TEST(dnssec_verify_rfc8080_ed25519_example1) {
                 0x72, 0xba, 0x8d, 0x02
         };
 
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *dnskey = NULL, *ds = NULL, *mx = NULL,
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *dnskey = NULL, *ds = NULL, *mx = NULL,
                 *rrsig = NULL;
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *answer = NULL;
         DnssecResult result;
 
         dnskey = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNSKEY, "example.com.");
@@ -194,9 +194,9 @@ TEST(dnssec_verify_rfc8080_ed25519_example2) {
                 0x93, 0x6a, 0x5c, 0x06
         };
 
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *dnskey = NULL, *ds = NULL, *mx = NULL,
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *dnskey = NULL, *ds = NULL, *mx = NULL,
                 *rrsig = NULL;
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *answer = NULL;
         DnssecResult result;
 
         dnskey = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNSKEY, "example.com.");
@@ -283,9 +283,9 @@ TEST(dnssec_verify_rfc6605_example1) {
                 0x7b, 0xe3, 0x00, 0x9c, 0xba, 0xfe, 0x5a, 0x2f, 0x71, 0x31, 0x6c, 0x90, 0x2d, 0xcf, 0x0d, 0x00,
         };
 
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *dnskey = NULL, *ds = NULL, *a = NULL,
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *dnskey = NULL, *ds = NULL, *a = NULL,
                 *rrsig = NULL;
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *answer = NULL;
         DnssecResult result;
 
         dnskey = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNSKEY, "example.net.");
@@ -377,9 +377,9 @@ TEST(dnssec_verify_rfc6605_example2) {
                 0xab, 0xf0, 0x8f, 0xe6, 0x95, 0x53, 0x60, 0x17, 0xa5, 0xbf, 0xa9, 0x32, 0x37, 0xee, 0x6e, 0x34,
         };
 
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *dnskey = NULL, *ds = NULL, *a = NULL,
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *dnskey = NULL, *ds = NULL, *a = NULL,
                 *rrsig = NULL;
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *answer = NULL;
         DnssecResult result;
 
         dnskey = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_DNSKEY, "example.net.");
@@ -467,8 +467,8 @@ TEST(dnssec_verify_rrset) {
                 0x4f, 0x00, 0x51, 0x3b,
         };
 
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *a = NULL, *rrsig = NULL, *dnskey = NULL;
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *a = NULL, *rrsig = NULL, *dnskey = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *answer = NULL;
         DnssecResult result;
 
         a = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, "nAsA.gov");
@@ -545,8 +545,8 @@ TEST(dnssec_verify_rrset2) {
                 0x74, 0x62, 0xfe, 0xd7,
         };
 
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *nsec = NULL, *rrsig = NULL, *dnskey = NULL;
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *nsec = NULL, *rrsig = NULL, *dnskey = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *answer = NULL;
         DnssecResult result;
 
         nsec = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_NSEC, "nasa.gov");
@@ -652,8 +652,8 @@ TEST(dnssec_verify_rrset3) {
                 0x99, 0x4d, 0xf3, 0x43
         };
 
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *mx1 = NULL, *mx2 = NULL, *mx3 = NULL, *mx4 = NULL, *rrsig = NULL, *dnskey = NULL;
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *mx1 = NULL, *mx2 = NULL, *mx3 = NULL, *mx4 = NULL, *rrsig = NULL, *dnskey = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *answer = NULL;
         DnssecResult result;
 
         mx1 = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_MX, "kodapan.se");
@@ -744,7 +744,7 @@ TEST(dnssec_verify_rrset3) {
 TEST(dnssec_nsec3_hash) {
         static const uint8_t salt[] = { 0xB0, 0x1D, 0xFA, 0xCE };
         static const uint8_t next_hashed_name[] = { 0x84, 0x10, 0x26, 0x53, 0xc9, 0xfa, 0x4d, 0x85, 0x6c, 0x97, 0x82, 0xe2, 0x8f, 0xdf, 0x2d, 0x5e, 0x87, 0x69, 0xc4, 0x52 };
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
         uint8_t h[DNSSEC_HASH_SIZE_MAX];
         _cleanup_free_ char *b = NULL;
         int k;

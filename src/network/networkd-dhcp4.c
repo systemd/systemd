@@ -418,7 +418,7 @@ static bool prefixroute_by_kernel(Link *link) {
 }
 
 static int dhcp4_request_prefix_route(Link *link, Route *rt) {
-        _cleanup_(route_unrefp) Route *route = NULL;
+        _cleanup_unref(route) Route *route = NULL;
         int r;
 
         assert(link);
@@ -450,7 +450,7 @@ static int dhcp4_request_prefix_route(Link *link, Route *rt) {
 }
 
 static int dhcp4_request_route_to_gateway(Link *link, const Route *rt) {
-        _cleanup_(route_unrefp) Route *route = NULL;
+        _cleanup_unref(route) Route *route = NULL;
         struct in_addr address;
         int r;
 
@@ -575,7 +575,7 @@ static int dhcp4_request_classless_static_or_static_routes(Link *link) {
                 return r;
 
         FOREACH_ARRAY(e, routes, n_routes) {
-                _cleanup_(route_unrefp) Route *route = NULL;
+                _cleanup_unref(route) Route *route = NULL;
                 struct in_addr gw;
 
                 r = route_new(&route);
@@ -603,7 +603,7 @@ static int dhcp4_request_classless_static_or_static_routes(Link *link) {
 }
 
 static int dhcp4_request_default_gateway(Link *link) {
-        _cleanup_(route_unrefp) Route *route = NULL;
+        _cleanup_unref(route) Route *route = NULL;
         struct in_addr address, router;
         int r;
 
@@ -658,7 +658,7 @@ static int dhcp4_request_semi_static_routes(Link *link) {
         assert(link->network);
 
         HASHMAP_FOREACH(rt, link->network->routes_by_section) {
-                _cleanup_(route_unrefp) Route *route = NULL;
+                _cleanup_unref(route) Route *route = NULL;
                 struct in_addr gw;
 
                 if (rt->source != NETWORK_CONFIG_SOURCE_DHCP4)
@@ -723,7 +723,7 @@ static int dhcp4_request_routes_to_servers(
         assert(servers || n_servers == 0);
 
         FOREACH_ARRAY(dst, servers, n_servers) {
-                _cleanup_(route_unrefp) Route *route = NULL;
+                _cleanup_unref(route) Route *route = NULL;
                 struct in_addr gw;
 
                 if (in4_addr_is_null(dst))
@@ -918,7 +918,7 @@ static int dhcp4_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Reques
 }
 
 static int dhcp4_request_address(Link *link, bool announce) {
-        _cleanup_(address_unrefp) Address *addr = NULL;
+        _cleanup_unref(address) Address *addr = NULL;
         struct in_addr address, server;
         uint8_t prefixlen;
         Address *existing;
@@ -1042,7 +1042,7 @@ static int dhcp4_request_address_and_routes(Link *link, bool announce) {
 }
 
 static int dhcp_lease_renew(sd_dhcp_client *client, Link *link) {
-        _cleanup_(sd_dhcp_lease_unrefp) sd_dhcp_lease *old_lease = NULL;
+        _cleanup_unref(sd_dhcp_lease) sd_dhcp_lease *old_lease = NULL;
         sd_dhcp_lease *lease;
         int r;
 

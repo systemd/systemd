@@ -243,7 +243,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 route_detach);
 
 int route_new(Route **ret) {
-        _cleanup_(route_unrefp) Route *route = NULL;
+        _cleanup_unref(route) Route *route = NULL;
 
         route = new(Route, 1);
         if (!route)
@@ -266,8 +266,8 @@ int route_new(Route **ret) {
 }
 
 int route_new_static(Network *network, const char *filename, unsigned section_line, Route **ret) {
-        _cleanup_(config_section_freep) ConfigSection *n = NULL;
-        _cleanup_(route_unrefp) Route *route = NULL;
+        _cleanup_free(config_section) ConfigSection *n = NULL;
+        _cleanup_unref(route) Route *route = NULL;
         int r;
 
         assert(network);
@@ -392,7 +392,7 @@ int route_get_request(Manager *manager, const Route *route, Request **ret) {
 }
 
 int route_dup(const Route *src, const RouteNextHop *nh, Route **ret) {
-        _cleanup_(route_unrefp) Route *dest = NULL;
+        _cleanup_unref(route) Route *dest = NULL;
         int r;
 
         assert(src);
@@ -610,7 +610,7 @@ static int route_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, RemoveR
 }
 
 int route_remove(Route *route, Manager *manager) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         Link *link = NULL;
         int r;
 
@@ -645,7 +645,7 @@ int route_remove(Route *route, Manager *manager) {
 }
 
 int route_remove_and_cancel(Route *route, Manager *manager) {
-        _cleanup_(request_unrefp) Request *req = NULL;
+        _cleanup_unref(request) Request *req = NULL;
         bool waiting = false;
 
         assert(route);
@@ -777,7 +777,7 @@ static int route_update_on_existing(Request *req) {
 
         RouteNextHop *nh;
         ORDERED_SET_FOREACH(nh, rt->nexthops) {
-                _cleanup_(route_unrefp) Route *dup = NULL;
+                _cleanup_unref(route) Route *dup = NULL;
 
                 r = route_dup(rt, nh, &dup);
                 if (r < 0)
@@ -826,7 +826,7 @@ int route_configure_handler_internal(sd_netlink_message *m, Request *req, Route 
 }
 
 static int route_configure(const Route *route, uint32_t lifetime_sec, Link *link, Request *req) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         int r;
 
         assert(route);
@@ -854,8 +854,8 @@ static int route_configure(const Route *route, uint32_t lifetime_sec, Link *link
 }
 
 static int route_requeue_request(Request *req, Link *link, const Route *route) {
-        _unused_ _cleanup_(request_unrefp) Request *req_unref = NULL;
-        _cleanup_(route_unrefp) Route *tmp = NULL;
+        _unused_ _cleanup_unref(request) Request *req_unref = NULL;
+        _cleanup_unref(route) Route *tmp = NULL;
         int r;
 
         assert(req);
@@ -971,7 +971,7 @@ static int link_request_route_one(
                 unsigned *message_counter,
                 route_netlink_handler_t netlink_handler) {
 
-        _cleanup_(route_unrefp) Route *tmp = NULL;
+        _cleanup_unref(route) Route *tmp = NULL;
         Route *existing = NULL;
         int r;
 
@@ -1221,7 +1221,7 @@ static int process_route_one(
 }
 
 int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
-        _cleanup_(route_unrefp) Route *tmp = NULL;
+        _cleanup_unref(route) Route *tmp = NULL;
         int r;
 
         assert(rtnl);
@@ -1368,7 +1368,7 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
 
         RouteNextHop *nh;
         ORDERED_SET_FOREACH(nh, tmp->nexthops) {
-                _cleanup_(route_unrefp) Route *dup = NULL;
+                _cleanup_unref(route) Route *dup = NULL;
 
                 r = route_dup(tmp, nh, &dup);
                 if (r < 0)
@@ -1520,7 +1520,7 @@ bool route_can_update(Manager *manager, const Route *existing, const Route *requ
 }
 
 static int link_unmark_route(Link *link, const Route *route, const RouteNextHop *nh) {
-        _cleanup_(route_unrefp) Route *tmp = NULL;
+        _cleanup_unref(route) Route *tmp = NULL;
         Route *existing;
         int r;
 

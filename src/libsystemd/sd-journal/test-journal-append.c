@@ -39,9 +39,9 @@ static int journal_append_message(JournalFile *mj, const char *message) {
 }
 
 static int journal_corrupt_and_append(uint64_t start_offset, uint64_t step) {
-        _cleanup_(mmap_cache_unrefp) MMapCache *mmap_cache = NULL;
+        _cleanup_unref(mmap_cache) MMapCache *mmap_cache = NULL;
         _cleanup_(rm_rf_physical_and_freep) char *tempdir = NULL;
-        _cleanup_(journal_file_offline_closep) JournalFile *mj = NULL;
+        _cleanup_close(journal_file_offline) JournalFile *mj = NULL;
         uint64_t start, end;
         int r;
 

@@ -738,7 +738,7 @@ static void automount_stop_expire(Automount *a) {
 }
 
 static void automount_enter_running(Automount *a) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         Unit *trigger;
         struct stat st;
         int r;
@@ -932,7 +932,7 @@ static bool automount_may_gc(Unit *u) {
 
 static int automount_dispatch_io(sd_event_source *s, int fd, uint32_t events, void *userdata) {
         Automount *a = ASSERT_PTR(AUTOMOUNT(userdata));
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         union autofs_v5_packet_union packet;
         Unit *trigger;
         int r;

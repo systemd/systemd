@@ -250,7 +250,7 @@ static int on_rtnl_event(sd_netlink *rtnl, sd_netlink_message *mm, void *userdat
 }
 
 static int manager_rtnl_listen(Manager *m) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *req = NULL, *reply = NULL;
         int r;
 
         assert(m);
@@ -375,7 +375,7 @@ static int on_dns_configuration_event(
         hashmap_clear(m->dns_configuration_by_link_index);
 
         JSON_VARIANT_ARRAY_FOREACH(v, configurations) {
-                _cleanup_(dns_configuration_freep) DNSConfiguration *c = NULL;
+                _cleanup_free(dns_configuration) DNSConfiguration *c = NULL;
 
                 r = dns_configuration_from_json(v, &c);
                 if (r < 0) {
@@ -411,7 +411,7 @@ static int on_dns_configuration_event(
 }
 
 static int manager_dns_configuration_listen(Manager *m) {
-        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        _cleanup_unref(sd_varlink) sd_varlink *vl = NULL;
         int r;
 
         assert(m);
@@ -461,7 +461,7 @@ int manager_new(Manager **ret,
                 usec_t timeout,
                 bool requires_dns) {
 
-        _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_free(manager) Manager *m = NULL;
         int r;
 
         assert(ret);

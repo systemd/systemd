@@ -22,8 +22,8 @@
 
 int verb_unit_shell(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *unit = NULL;
         int r;
 
@@ -72,14 +72,14 @@ int verb_unit_shell(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to retrieve FDs of namespaces of %s: %m", unit);
 
-        _cleanup_strv_free_ char **args = NULL;
+        _cleanup_free(strv) char **args = NULL;
         if (argc > 2) {
                 args = strv_copy(strv_skip(argv, 2));
                 if (!args)
                         return log_oom();
         }
 
-        _cleanup_(pidref_done) PidRef child = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef child = PIDREF_NULL;
         r = namespace_fork(
                         "(unit-shell-ns)",
                         "(unit-shell)",

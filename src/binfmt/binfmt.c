@@ -109,7 +109,7 @@ static int cat_config(char **files) {
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL;
+        _cleanup_unref(table) Table *options = NULL;
         int r;
 
         r = terminal_urlify_man("systemd-binfmt.service", "8", &link);
@@ -215,7 +215,7 @@ static int run(int argc, char *argv[]) {
                         RET_GATHER(r, apply_file(*f, false));
 
         } else {
-                _cleanup_strv_free_ char **files = NULL;
+                _cleanup_free(strv) char **files = NULL;
 
                 r = conf_files_list_strv(&files, ".conf", /* root= */ NULL, CONF_FILES_WARN, (const char**) CONF_PATHS_STRV("binfmt.d"));
                 if (r < 0)

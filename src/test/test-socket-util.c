@@ -514,7 +514,7 @@ TEST(getpeerpidref) {
 
         ASSERT_OK(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, fd));
 
-        _cleanup_(pidref_done) PidRef pidref0 = PIDREF_NULL, pidref1 = PIDREF_NULL, pidref_self = PIDREF_NULL, pidref_pid1 = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref0 = PIDREF_NULL, pidref1 = PIDREF_NULL, pidref_self = PIDREF_NULL, pidref_pid1 = PIDREF_NULL;
         ASSERT_OK(getpeerpidref(fd[0], &pidref0));
         ASSERT_OK(getpeerpidref(fd[1], &pidref1));
 

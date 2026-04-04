@@ -107,7 +107,7 @@ static int on_spawn_io(sd_event_source *s, int fd, uint32_t revents, void *userd
 
         /* Log output only if we watch stderr. */
         if (l > 0 && spawn->fd_stderr >= 0) {
-                _cleanup_strv_free_ char **v = NULL;
+                _cleanup_free(strv) char **v = NULL;
 
                 r = strv_split_newlines_full(&v, p, EXTRACT_RETAIN_ESCAPE);
                 if (r < 0)
@@ -174,7 +174,7 @@ static int on_spawn_exit(sd_event_source *s, const siginfo_t *si, void *userdata
 }
 
 static int spawn_wait(Spawn *spawn) {
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
         _cleanup_(sd_event_source_disable_unrefp) sd_event_source *child_source = NULL;
         _cleanup_(sd_event_source_disable_unrefp) sd_event_source *stdout_source = NULL;
         _cleanup_(sd_event_source_disable_unrefp) sd_event_source *stderr_source = NULL;
@@ -274,7 +274,7 @@ int udev_event_spawn(
                         return log_device_error_errno(event->dev, errno,
                                                       "Failed to create pipe for command '%s': %m", cmd);
 
-        _cleanup_strv_free_ char **argv = NULL;
+        _cleanup_free(strv) char **argv = NULL;
         r = strv_split_full(&argv, cmd, NULL, EXTRACT_UNQUOTE | EXTRACT_RELAX | EXTRACT_RETAIN_ESCAPE);
         if (r < 0)
                 return log_device_error_errno(event->dev, r, "Failed to split command: %m");
@@ -309,7 +309,7 @@ int udev_event_spawn(
 
         log_device_debug(event->dev, "Starting '%s'", cmd);
 
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         r = pidref_safe_fork_full(
                         "(spawn)",
                         (int[]) { -EBADF, outpipe[WRITE_END], errpipe[WRITE_END] },

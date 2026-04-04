@@ -66,7 +66,7 @@ static int dns_stream_update_io(DnsStream *s) {
 }
 
 static int dns_stream_complete(DnsStream *s, int error) {
-        _cleanup_(dns_stream_unrefp) _unused_ DnsStream *ref = dns_stream_ref(s); /* Protect stream while we process it */
+        _cleanup_unref(dns_stream) _unused_ DnsStream *ref = dns_stream_ref(s); /* Protect stream while we process it */
 
         assert(s);
         assert(error >= 0);
@@ -303,7 +303,7 @@ static DnsPacket *dns_stream_take_read_packet(DnsStream *s) {
 }
 
 static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
-        _cleanup_(dns_stream_unrefp) DnsStream *s = dns_stream_ref(userdata); /* Protect stream while we process it */
+        _cleanup_unref(dns_stream) DnsStream *s = dns_stream_ref(userdata); /* Protect stream while we process it */
         bool progressed = false;
         int r;
 
@@ -441,7 +441,7 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
 
                         /* Are we done? If so, call the packet handler and re-enable EPOLLIN for the
                          * event source if necessary. */
-                        _cleanup_(dns_packet_unrefp) DnsPacket *p = dns_stream_take_read_packet(s);
+                        _cleanup_unref(dns_packet) DnsPacket *p = dns_stream_take_read_packet(s);
                         if (p) {
                                 assert(s->on_packet);
                                 r = s->on_packet(s, p);
@@ -519,7 +519,7 @@ int dns_stream_new(
                 int (complete)(DnsStream*, int), /* optional */
                 usec_t connect_timeout_usec) {
 
-        _cleanup_(dns_stream_unrefp) DnsStream *s = NULL;
+        _cleanup_unref(dns_stream) DnsStream *s = NULL;
         int r;
 
         assert(m);
@@ -619,7 +619,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 dns_stream_unref);
 
 int dns_stream_disconnect_all(Manager *m) {
-        _cleanup_set_free_ Set *closed = NULL;
+        _cleanup_free(set) Set *closed = NULL;
         int r;
 
         assert(m);

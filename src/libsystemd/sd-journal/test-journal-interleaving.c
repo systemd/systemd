@@ -28,7 +28,7 @@ static bool arg_keep = false;
 static dual_timestamp previous_ts = {};
 
 static JournalFile* test_open_internal(const char *name, JournalFileFlags flags) {
-        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_unref(mmap_cache) MMapCache *m = NULL;
         JournalFile *f;
 
         ASSERT_NOT_NULL((m = mmap_cache_new()));
@@ -148,7 +148,7 @@ static void test_check_numbers_up(sd_journal *j, unsigned count) {
 }
 
 static void setup_sequential(void) {
-        _cleanup_(journal_file_offline_closep) JournalFile *f1 = NULL, *f2 = NULL, *f3 = NULL;
+        _cleanup_close(journal_file_offline) JournalFile *f1 = NULL, *f2 = NULL, *f3 = NULL;
         sd_id128_t id;
 
         f1 = test_open("one.journal");
@@ -172,7 +172,7 @@ static void setup_sequential(void) {
 }
 
 static void setup_interleaved(void) {
-        _cleanup_(journal_file_offline_closep) JournalFile *f1 = NULL, *f2 = NULL, *f3 = NULL;
+        _cleanup_close(journal_file_offline) JournalFile *f1 = NULL, *f2 = NULL, *f3 = NULL;
         sd_id128_t id;
 
         f1 = test_open("one.journal");
@@ -192,7 +192,7 @@ static void setup_interleaved(void) {
 }
 
 static void setup_unreferenced_data(void) {
-        _cleanup_(journal_file_offline_closep) JournalFile *f1 = NULL, *f2 = NULL, *f3 = NULL;
+        _cleanup_close(journal_file_offline) JournalFile *f1 = NULL, *f2 = NULL, *f3 = NULL;
         sd_id128_t id;
 
         /* For issue #29275. */
@@ -233,7 +233,7 @@ static void mkdtemp_chdir_chattr(const char *template, char **ret) {
 }
 
 static void test_cursor(sd_journal *j) {
-        _cleanup_strv_free_ char **cursors = NULL;
+        _cleanup_free(strv) char **cursors = NULL;
         int r;
 
         ASSERT_OK(sd_journal_seek_head(j));
@@ -435,7 +435,7 @@ TEST(skip) {
 
 static void test_boot_id_one(void (*setup)(void), size_t n_ids_expected) {
         _cleanup_(test_donep) char *t = NULL;
-        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_close(sd_journal) sd_journal *j = NULL;
         _cleanup_free_ LogId *ids = NULL;
         size_t n_ids;
 
@@ -506,8 +506,8 @@ TEST(boot_id) {
 
 static void test_sequence_numbers_one(void) {
         _cleanup_(test_donep) char *t = NULL;
-        _cleanup_(journal_file_offline_closep) JournalFile *one = NULL, *two = NULL;
-        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_close(journal_file_offline) JournalFile *one = NULL, *two = NULL;
+        _cleanup_unref(mmap_cache) MMapCache *m = NULL;
         uint64_t seqnum = 0;
         sd_id128_t seqnum_id;
 
@@ -832,9 +832,9 @@ static void verify(JournalFile *f, const uint64_t *seqnum, const uint64_t *offse
 
 static void test_generic_array_bisect_one(size_t n, size_t num_corrupted) {
         _cleanup_(test_donep) char *t = NULL;
-        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_unref(mmap_cache) MMapCache *m = NULL;
         _cleanup_free_ uint64_t *seqnum = NULL, *offset = NULL, *offset_candidates = NULL;
-        _cleanup_(journal_file_offline_closep) JournalFile *f = NULL;
+        _cleanup_close(journal_file_offline) JournalFile *f = NULL;
 
         log_info("/* %s(%zu, %zu) */", __func__, n, num_corrupted);
 
@@ -1188,7 +1188,7 @@ static void append_test_entry(
 
 TEST(seek_time) {
         _cleanup_(test_donep) char *t = NULL;
-        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_unref(mmap_cache) MMapCache *m = NULL;
         _cleanup_free_ TestEntry *entries = NULL;
         size_t n_entries = 0;
         JournalFile *f;
@@ -1282,7 +1282,7 @@ TEST(seek_time) {
 
         journal_file_offline_close(f);
 
-        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_close(sd_journal) sd_journal *j = NULL;
         ASSERT_OK(sd_journal_open_directory(&j, t, SD_JOURNAL_ASSUME_IMMUTABLE));
 
         log_debug("Testing sequential read");

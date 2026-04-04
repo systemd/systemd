@@ -57,7 +57,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int run(int argc, char **argv) {
-        _cleanup_(sd_device_unrefp) struct sd_device *device = NULL;
+        _cleanup_unref(sd_device) struct sd_device *device = NULL;
         _cleanup_free_ char *desc_path = NULL;
         _cleanup_close_ int fd = -EBADF;
         struct sd_device *hid_device;

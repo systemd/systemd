@@ -127,7 +127,7 @@ static int find_unit_directory(const char *p, char **ret) {
 }
 
 int verify_set_unit_path(char **filenames) {
-        _cleanup_strv_free_ char **ans = NULL;
+        _cleanup_free(strv) char **ans = NULL;
         _cleanup_free_ char *joined = NULL;
         const char *old;
         int r;
@@ -247,7 +247,7 @@ static int verify_documentation(Unit *u, bool check_man) {
 }
 
 static int verify_unit(Unit *u, bool check_man, const char *root) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(u);
@@ -290,7 +290,7 @@ int verify_units(
                 (recursive_errors == RECURSIVE_ERRORS_NO) * MANAGER_TEST_RUN_IGNORE_DEPENDENCIES |
                 run_generators * MANAGER_TEST_RUN_GENERATORS;
 
-        _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_free(manager) Manager *m = NULL;
         _cleanup_(set_destroy_ignore_pointer_max) Set *s = NULL;
         _unused_ _cleanup_(clear_log_syntax_callback) dummy_t dummy;
         Unit *units[strv_length(filenames)];

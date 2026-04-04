@@ -515,7 +515,7 @@ static int pull_job_detect_compression(PullJob *j) {
                 return r;
 
         /* Now, take the payload we read so far, and decompress it */
-        _cleanup_(iovec_done) struct iovec stub = TAKE_STRUCT(j->payload);
+        _cleanup_done(iovec) struct iovec stub = TAKE_STRUCT(j->payload);
 
         j->state = PULL_JOB_RUNNING;
 
@@ -737,7 +737,7 @@ int pull_job_new(
                 CurlGlue *glue,
                 void *userdata) {
 
-        _cleanup_(pull_job_unrefp) PullJob *j = NULL;
+        _cleanup_unref(pull_job) PullJob *j = NULL;
         _cleanup_free_ char *u = NULL;
 
         assert(url);

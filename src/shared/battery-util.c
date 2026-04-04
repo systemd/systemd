@@ -10,7 +10,7 @@
 #define BATTERY_LOW_CAPACITY_LEVEL 5
 
 static int device_is_power_sink(sd_device *device) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *e = NULL;
         bool found_source = false, found_sink = false;
         sd_device *parent;
         int r;
@@ -107,7 +107,7 @@ static bool battery_is_discharging(sd_device *d) {
 }
 
 int on_ac_power(void) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *e = NULL;
         bool found_ac_online = false, found_discharging_battery = false;
         int r;
 
@@ -180,7 +180,7 @@ int on_ac_power(void) {
 
 /* Get the list of batteries */
 int battery_enumerator_new(sd_device_enumerator **ret) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *e = NULL;
         int r;
 
         assert(ret);
@@ -231,7 +231,7 @@ int battery_read_capacity_percentage(sd_device *dev) {
 
 /* If a battery whose percentage capacity is <= 5% exists, and we're not on AC power, return success */
 int battery_is_discharging_and_low(void) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *e = NULL;
         bool unsure = false, found_low = false;
         int r;
 

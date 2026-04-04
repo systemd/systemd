@@ -54,7 +54,7 @@ static int varlink_idl_format_comment(
                 return 0;
         }
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         r = strv_split_full(&l, text, NEWLINE, EXTRACT_RELAX);
         if (r < 0)
                 return log_error_errno(r, "Failed to split comment string: %m");
@@ -64,7 +64,7 @@ static int varlink_idl_format_comment(
         if (max_width < 10)
                 max_width = 10;
 
-        _cleanup_strv_free_ char **broken = NULL;
+        _cleanup_free(strv) char **broken = NULL;
         r = strv_rebreak_lines(l, max_width, &broken);
         if (r < 0)
                 return log_error_errno(r, "Failed to rebreak lines in comment: %m");
@@ -558,7 +558,7 @@ _public_ int sd_varlink_idl_dump(FILE *f, const sd_varlink_interface *interface,
 }
 
 _public_ int sd_varlink_idl_format_full(const sd_varlink_interface *interface, sd_varlink_idl_format_flags_t flags, size_t cols, char **ret) {
-        _cleanup_(memstream_done) MemStream memstream = {};
+        _cleanup_done(memstream) MemStream memstream = {};
         int r;
 
         if (!memstream_init(&memstream))
@@ -880,7 +880,7 @@ static int varlink_idl_subparse_field_type(
                 l = 3;
                 field->field_type = SD_VARLINK_ANY;
         } else if (**p == '(') {
-                _cleanup_(varlink_symbol_freep) sd_varlink_symbol *symbol = NULL;
+                _cleanup_free(varlink_symbol) sd_varlink_symbol *symbol = NULL;
                 size_t n_fields = 0;
 
                 r = varlink_symbol_realloc(&symbol, n_fields);
@@ -1159,8 +1159,8 @@ _public_ int sd_varlink_idl_parse(
                 unsigned *reterr_column,
                 sd_varlink_interface **ret) {
 
-        _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *interface = NULL;
-        _cleanup_(varlink_symbol_freep) sd_varlink_symbol *symbol = NULL;
+        _cleanup_free(sd_varlink_interface) sd_varlink_interface *interface = NULL;
+        _cleanup_free(varlink_symbol) sd_varlink_symbol *symbol = NULL;
         enum {
                 STATE_PRE_INTERFACE,
                 STATE_INTERFACE,
@@ -1623,7 +1623,7 @@ static int varlink_idl_symbol_consistent(
                 const sd_varlink_symbol *symbol,
                 int level) {
 
-        _cleanup_set_free_ Set *input_set = NULL, *output_set = NULL;
+        _cleanup_free(set) Set *input_set = NULL, *output_set = NULL;
         const char *symbol_name;
         int r;
 
@@ -1670,7 +1670,7 @@ static int varlink_idl_symbol_consistent(
 }
 
 int varlink_idl_consistent(const sd_varlink_interface *interface, int level) {
-        _cleanup_set_free_ Set *name_set = NULL;
+        _cleanup_free(set) Set *name_set = NULL;
         int r;
 
         assert(interface);

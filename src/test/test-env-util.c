@@ -10,7 +10,7 @@
 #include "tests.h"
 
 TEST(strv_env_delete) {
-        _cleanup_strv_free_ char **a = NULL, **b = NULL, **c = NULL, **d = NULL;
+        _cleanup_free(strv) char **a = NULL, **b = NULL, **c = NULL, **d = NULL;
 
         a = strv_new("FOO=BAR", "WALDO=WALDO", "WALDO=", "PIEP", "SCHLUMPF=SMURF");
         assert_se(a);
@@ -47,7 +47,7 @@ TEST(strv_env_pairs_get) {
 }
 
 TEST(strv_env_unset) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
 
         l = strv_new("PIEP", "SCHLUMPF=SMURFF", "NANANANA=YES");
         assert_se(l);
@@ -63,7 +63,7 @@ TEST(strv_env_merge) {
         char **a = STRV_MAKE("FOO=BAR", "WALDO=WALDO", "WALDO=", "PIEP", "SCHLUMPF=SMURF", "EQ===");
         char **b = STRV_MAKE("FOO=KKK", "FOO=", "PIEP=", "SCHLUMPF=SMURFF", "NANANANA=YES");
 
-        _cleanup_strv_free_ char **r = strv_env_merge(NULL, a, NULL, b, NULL, a, b, b, NULL);
+        _cleanup_free(strv) char **r = strv_env_merge(NULL, a, NULL, b, NULL, a, b, b, NULL);
         assert_se(r);
         ASSERT_STREQ(r[0], "FOO=");
         ASSERT_STREQ(r[1], "WALDO=");
@@ -85,7 +85,7 @@ TEST(strv_env_merge) {
 }
 
 TEST(strv_env_replace_strdup) {
-        _cleanup_strv_free_ char **a = NULL;
+        _cleanup_free(strv) char **a = NULL;
 
         assert_se(strv_env_replace_strdup(&a, "a=a") == 1);
         assert_se(strv_env_replace_strdup(&a, "b=b") == 1);
@@ -99,7 +99,7 @@ TEST(strv_env_replace_strdup) {
 }
 
 TEST(strv_env_replace_strdup_passthrough) {
-        _cleanup_strv_free_ char **a = NULL;
+        _cleanup_free(strv) char **a = NULL;
 
         assert_se(putenv((char*) "a=a") == 0);
         assert_se(putenv((char*) "b=") == 0);
@@ -118,7 +118,7 @@ TEST(strv_env_replace_strdup_passthrough) {
 }
 
 TEST(strv_env_assign) {
-        _cleanup_strv_free_ char **a = NULL;
+        _cleanup_free(strv) char **a = NULL;
 
         assert_se(strv_env_assign(&a, "a", "a") == 1);
         assert_se(strv_env_assign(&a, "b", "b") == 1);
@@ -132,7 +132,7 @@ TEST(strv_env_assign) {
 }
 
 TEST(strv_env_assignf) {
-        _cleanup_strv_free_ char **a = NULL;
+        _cleanup_free(strv) char **a = NULL;
 
         assert_se(strv_env_assignf(&a, "a", "a") > 0);
         assert_se(strv_env_assignf(&a, "a", "%c", 'a') == 0);
@@ -153,7 +153,7 @@ TEST(strv_env_assignf) {
 }
 
 TEST(strv_env_assign_many) {
-        _cleanup_strv_free_ char **a = NULL;
+        _cleanup_free(strv) char **a = NULL;
 
         assert_se(strv_env_assign_many(&a, "a", "a", "b", "b") >= 0);
 
@@ -301,7 +301,7 @@ TEST(replace_env_argv) {
                 "${FOO:+|${BAR}{|}",
                 NULL
         };
-        _cleanup_strv_free_ char **r = NULL;
+        _cleanup_free(strv) char **r = NULL;
 
         assert_se(replace_env_argv((char**) line, (char**) env, &r, NULL, NULL) >= 0);
         assert_se(r);
@@ -344,7 +344,7 @@ TEST(replace_env_argv_bad) {
                 NULL
         };
 
-        _cleanup_strv_free_ char **bad = NULL, **unset = NULL, **replaced = NULL;
+        _cleanup_free(strv) char **bad = NULL, **unset = NULL, **replaced = NULL;
 
         assert_se(replace_env_argv((char**) line, (char**) env, &replaced, &unset, &bad) >= 0);
 
@@ -367,7 +367,7 @@ TEST(replace_env_argv_bad) {
 }
 
 TEST(env_clean) {
-        _cleanup_strv_free_ char **e = strv_new("FOOBAR=WALDO",
+        _cleanup_free(strv) char **e = strv_new("FOOBAR=WALDO",
                                                 "FOOBAR=WALDO",
                                                 "FOOBAR",
                                                 "F",
@@ -496,7 +496,7 @@ TEST(getenv_steal_erase) {
 
         r = pidref_safe_fork("(sd-getenvstealerase)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL);
         if (r == 0) {
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_free(strv) char **l = NULL;
 
                 /* child */
 
@@ -545,7 +545,7 @@ TEST(strv_env_name_is_valid) {
 }
 
 TEST(getenv_path_list) {
-        _cleanup_strv_free_ char **path_list = NULL;
+        _cleanup_free(strv) char **path_list = NULL;
 
         /* Empty paths */
         FOREACH_STRING(s, "", ":", ":::::", " : ::: :: :") {
@@ -582,7 +582,7 @@ TEST(getenv_path_list) {
 TEST(strv_env_get_merged) {
         char **l = STRV_MAKE("ONE", "1", "TWO", "2", "THREE", "3", "FOUR", "4", "FIVE", "5"),
                 **expected = STRV_MAKE("ONE=1", "TWO=2", "THREE=3", "FOUR=4", "FIVE=5");
-        _cleanup_strv_free_ char **m = NULL;
+        _cleanup_free(strv) char **m = NULL;
 
         ASSERT_OK(strv_env_get_merged(NULL, &m));
         ASSERT_NULL(m);

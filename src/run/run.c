@@ -583,7 +583,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_ON_CALENDAR: {
-                        _cleanup_(calendar_spec_freep) CalendarSpec *cs = NULL;
+                        _cleanup_free(calendar_spec) CalendarSpec *cs = NULL;
 
                         r = calendar_spec_from_string(optarg, &cs);
                         if (r < 0)
@@ -1171,7 +1171,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
         arg_expand_environment = false;
         arg_send_sighup = true;
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         if (argc > optind) {
                 l = strv_copy(argv + optind);
                 if (!l)
@@ -1629,7 +1629,7 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
                         return bus_log_create_error(r);
 
                 if (use_ex_prop) {
-                        _cleanup_strv_free_ char **opts = NULL;
+                        _cleanup_free(strv) char **opts = NULL;
 
                         r = exec_command_flags_to_strv(
                                         (arg_expand_environment ? 0 : EXEC_COMMAND_NO_ENV_EXPAND)|
@@ -1682,7 +1682,7 @@ static int transient_scope_set_properties(sd_bus_message *m, bool allow_pidfd) {
         if (r < 0)
                 return r;
 
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
 
         r = pidref_set_self(&pidref);
         if (r < 0)
@@ -1723,7 +1723,7 @@ static int make_unit_name(UnitType t, char **ret) {
          * managed by the kernel. Unfortunately only new kernels support this, hence we keep some fallback
          * logic in place. */
 
-        _cleanup_(pidref_done) PidRef self = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef self = PIDREF_NULL;
         r = pidref_set_self(&self);
         if (r < 0)
                 return log_error_errno(r, "Failed to get reference to my own process: %m");
@@ -1837,8 +1837,8 @@ static int on_retry_timer(sd_event_source *s, uint64_t usec, void *userdata) {
 }
 
 static int run_context_reconnect(RunContext *c) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus) sd_bus *bus = NULL;
         int r;
 
         assert(c);
@@ -1997,7 +1997,7 @@ static int run_context_update(RunContext *c) {
                 {}
         };
 
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(c);
@@ -2127,7 +2127,7 @@ static int make_transient_service_unit(
                 const char *pty_path,
                 int pty_fd) {
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
         int r;
 
         assert(bus);
@@ -2171,7 +2171,7 @@ static int bus_call_with_hint(
                 const char *name,
                 sd_bus_message **reply) {
 
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         r = sd_bus_call(bus, message, 0, &error, reply);
@@ -2189,8 +2189,8 @@ static int bus_call_with_hint(
 }
 
 static int acquire_invocation_id(sd_bus *bus, const char *unit, sd_id128_t *ret) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         _cleanup_free_ char *object = NULL;
         int r;
 
@@ -2251,7 +2251,7 @@ static int fchown_to_capsule(int fd, const char *capsule) {
 }
 
 static int print_unit_invocation(const char *unit, sd_id128_t invocation_id) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         int r;
 
         assert(unit);
@@ -2313,7 +2313,7 @@ static int run_context_show_result(RunContext *c) {
 
         assert(c);
 
-        _cleanup_(table_unrefp) Table *t = table_new_vertical();
+        _cleanup_unref(table) Table *t = table_new_vertical();
         if (!t)
                 return log_oom();
 
@@ -2445,9 +2445,9 @@ static int run_context_show_result(RunContext *c) {
 }
 
 static int start_transient_service(sd_bus *bus) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free(bus_wait_for_jobs) BusWaitForJobs *w = NULL;
         _cleanup_free_ char *pty_path = NULL;
         _cleanup_close_ int peer_fd = -EBADF;
         int r;
@@ -2457,7 +2457,7 @@ static int start_transient_service(sd_bus *bus) {
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
         (void) ask_password_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        _cleanup_(run_context_done) RunContext c = {
+        _cleanup_done(run_context) RunContext c = {
                 .pty_fd = -EBADF,
                 .cpu_usage_nsec = NSEC_INFINITY,
                 .memory_peak = UINT64_MAX,
@@ -2490,8 +2490,8 @@ static int start_transient_service(sd_bus *bus) {
                         }
 
                 } else if (arg_transport == BUS_TRANSPORT_MACHINE) {
-                        _cleanup_(sd_bus_unrefp) sd_bus *system_bus = NULL;
-                        _cleanup_(sd_bus_message_unrefp) sd_bus_message *pty_reply = NULL;
+                        _cleanup_unref(sd_bus) sd_bus *system_bus = NULL;
+                        _cleanup_unref(sd_bus_message) sd_bus_message *pty_reply = NULL;
                         const char *s;
 
                         r = sd_bus_default_system(&system_bus);
@@ -2615,7 +2615,7 @@ static int start_transient_service(sd_bus *bus) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to get event loop: %m");
 
-                _cleanup_(osc_context_closep) sd_id128_t osc_context_id = SD_ID128_NULL;
+                _cleanup_close(osc_context) sd_id128_t osc_context_id = SD_ID128_NULL;
                 if (c.pty_fd >= 0) {
                         if (arg_exec_user && !terminal_is_dumb()) {
                                 r = osc_context_open_chpriv(arg_exec_user, /* ret_seq= */ NULL, &osc_context_id);
@@ -2666,9 +2666,9 @@ static int start_transient_service(sd_bus *bus) {
 }
 
 static int start_transient_scope(sd_bus *bus) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
-        _cleanup_strv_free_ char **env = NULL, **user_env = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
+        _cleanup_free(bus_wait_for_jobs) BusWaitForJobs *w = NULL;
+        _cleanup_free(strv) char **env = NULL, **user_env = NULL;
         _cleanup_free_ char *scope = NULL;
         const char *object = NULL;
         sd_id128_t invocation_id;
@@ -2698,8 +2698,8 @@ static int start_transient_scope(sd_bus *bus) {
         (void) ask_password_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         for (;;) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
 
                 r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "StartTransientUnit");
                 if (r < 0)
@@ -2841,7 +2841,7 @@ static int start_transient_scope(sd_bus *bus) {
         }
 
         if (arg_expand_environment) {
-                _cleanup_strv_free_ char **expanded_cmdline = NULL, **unset_variables = NULL, **bad_variables = NULL;
+                _cleanup_free(strv) char **expanded_cmdline = NULL, **unset_variables = NULL, **bad_variables = NULL;
 
                 r = replace_env_argv(arg_cmdline, env, &expanded_cmdline, &unset_variables, &bad_variables);
                 if (r < 0)
@@ -2872,7 +2872,7 @@ static int make_transient_trigger_unit(
                 const char *trigger,
                 const char *service) {
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
         int r;
 
         assert(bus);
@@ -2949,8 +2949,8 @@ static int make_transient_trigger_unit(
 }
 
 static int start_transient_trigger(sd_bus *bus, const char *suffix) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
-        _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_free(bus_wait_for_jobs) BusWaitForJobs *w = NULL;
         _cleanup_free_ char *trigger = NULL, *service = NULL;
         const char *object = NULL;
         int r;
@@ -3101,7 +3101,7 @@ static int run(int argc, char* argv[]) {
                 } else if (startswith(arg_cmdline[0], "-")) {
                         /* Drop the login shell marker from the command line when generating the description,
                          * in order to minimize user confusion. */
-                        _cleanup_strv_free_ char **l = strv_copy(arg_cmdline);
+                        _cleanup_free(strv) char **l = strv_copy(arg_cmdline);
                         if (!l)
                                 return log_oom();
 

@@ -23,7 +23,7 @@ void sync_req_varlink_reply(SyncReq *req) {
         log_debug("Client request to sync journal (%s offlining) completed.", req->offline ? "with" : "without");
 
         /* Disconnect the SyncReq from the Varlink connection object, and free it */
-        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = TAKE_PTR(req->link);
+        _cleanup_unref(sd_varlink) sd_varlink *vl = TAKE_PTR(req->link);
         sd_varlink_set_userdata(vl, req->manager); /* reinstall manager object */
         req = sync_req_free(req);
 
@@ -67,7 +67,7 @@ static int vl_method_synchronize(sd_varlink *link, sd_json_variant *parameters, 
         log_full(offline ? LOG_INFO : LOG_DEBUG,
                  "Received client request to sync journal (%s offlining).", offline ? "with" : "without");
 
-        _cleanup_(sync_req_freep) SyncReq *sr = NULL;
+        _cleanup_free(sync_req) SyncReq *sr = NULL;
 
         r = sync_req_new(m, link, &sr);
         if (r < 0)

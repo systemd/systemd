@@ -276,7 +276,7 @@ static int manager_open_journal(
                 JournalMetrics *metrics,
                 JournalFile **ret) {
 
-        _cleanup_(journal_file_offline_closep) JournalFile *f = NULL;
+        _cleanup_close(journal_file_offline) JournalFile *f = NULL;
         JournalFileFlags file_flags;
         int r;
 
@@ -459,7 +459,7 @@ static int manager_system_journal_open(
 }
 
 static int manager_find_user_journal(Manager *m, uid_t uid, JournalFile **ret) {
-        _cleanup_(journal_file_offline_closep) JournalFile *f = NULL;
+        _cleanup_close(journal_file_offline) JournalFile *f = NULL;
         _cleanup_free_ char *p = NULL;
         int r;
 
@@ -1402,7 +1402,7 @@ finish:
                 journal_file_post_change(m->system_journal);
 
         /* Save parent directories of runtime journals before closing runtime journals. */
-        _cleanup_strv_free_ char **dirs = NULL;
+        _cleanup_free(strv) char **dirs = NULL;
         (void) journal_get_directories(j, &dirs);
 
         /* First, close all runtime journals opened in the above. */
@@ -2159,7 +2159,7 @@ static int manager_idle_handler(sd_event_source *source, uint64_t usec, void *us
 }
 
 int manager_start_or_stop_idle_timer(Manager *m) {
-        _cleanup_(sd_event_source_unrefp) sd_event_source *source = NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *source = NULL;
         int r;
 
         assert(m);
@@ -2291,7 +2291,7 @@ void manager_reopen_journals(Manager *m, const JournalConfig *old) {
 }
 
 int manager_new(Manager **ret) {
-        _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_free(manager) Manager *m = NULL;
 
         assert(ret);
 
@@ -2335,7 +2335,7 @@ int manager_new(Manager **ret) {
 
 int manager_init(Manager *m) {
         const char *native_socket, *syslog_socket, *stdout_socket, *varlink_socket, *e;
-        _cleanup_fdset_free_ FDSet *fds = NULL;
+        _cleanup_free(fdset) FDSet *fds = NULL;
         int n, r, varlink_fd = -EBADF;
         bool no_sockets;
 

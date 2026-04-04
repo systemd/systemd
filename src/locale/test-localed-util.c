@@ -71,8 +71,8 @@ TEST(find_legacy_keymap) {
 }
 
 TEST(vconsole_convert_to_x11) {
-        _cleanup_(x11_context_clear) X11Context xc = {};
-        _cleanup_(vc_context_clear) VCContext vc = {};
+        _cleanup_clear(x11_context) X11Context xc = {};
+        _cleanup_clear(vc_context) VCContext vc = {};
         int r;
 
         log_info("/* test empty keymap */");
@@ -141,8 +141,8 @@ TEST(vconsole_convert_to_x11) {
 }
 
 TEST(x11_convert_to_vconsole) {
-        _cleanup_(x11_context_clear) X11Context xc = {};
-        _cleanup_(vc_context_clear) VCContext vc = {};
+        _cleanup_clear(x11_context) X11Context xc = {};
+        _cleanup_clear(vc_context) VCContext vc = {};
 
         log_info("/* test empty layout (:) */");
         ASSERT_OK(x11_convert_to_vconsole(&xc, &vc));

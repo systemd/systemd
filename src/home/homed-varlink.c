@@ -42,7 +42,7 @@ static bool client_is_trusted(sd_varlink *link, Home *h) {
 }
 
 static int build_user_json(Home *h, bool trusted, sd_json_variant **ret) {
-        _cleanup_(user_record_unrefp) UserRecord *augmented = NULL;
+        _cleanup_unref(user_record) UserRecord *augmented = NULL;
         UserRecordLoadFlags flags;
         int r;
 
@@ -123,7 +123,7 @@ int vl_method_get_user_record(sd_varlink *link, sd_json_variant *parameters, sd_
 
                         trusted = client_is_trusted(link, h);
 
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
                         r = build_user_json(h, trusted, &v);
                         if (r < 0)
                                 return r;
@@ -144,7 +144,7 @@ int vl_method_get_user_record(sd_varlink *link, sd_json_variant *parameters, sd_
 
         trusted = client_is_trusted(link, h);
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         r = build_user_json(h, trusted, &v);
         if (r < 0)
                 return r;
@@ -153,7 +153,7 @@ int vl_method_get_user_record(sd_varlink *link, sd_json_variant *parameters, sd_
 }
 
 static int build_group_json(Home *h, sd_json_variant **ret) {
-        _cleanup_(group_record_unrefp) GroupRecord *g = NULL;
+        _cleanup_unref(group_record) GroupRecord *g = NULL;
         int r;
 
         assert(h);
@@ -226,7 +226,7 @@ int vl_method_get_group_record(sd_varlink *link, sd_json_variant *parameters, sd
                         if (!home_group_match_lookup_parameters(&p, h))
                                 continue;
 
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
                         r = build_group_json(h, &v);
                         if (r < 0)
                                 return r;
@@ -245,7 +245,7 @@ int vl_method_get_group_record(sd_varlink *link, sd_json_variant *parameters, sd
         if (!home_group_match_lookup_parameters(&p, h))
                 return sd_varlink_error(link, "io.systemd.UserDatabase.ConflictingRecordFound", NULL);
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         r = build_group_json(h, &v);
         if (r < 0)
                 return r;

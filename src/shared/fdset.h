@@ -40,6 +40,5 @@ void fdset_close(FDSet *fds, bool async);
         _FDSET_FOREACH(fd, fds, UNIQ_T(i, UNIQ))
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(FDSet*, fdset_free);
-#define _cleanup_fdset_free_ _cleanup_(fdset_freep)
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(FDSet*, fdset_free_async);

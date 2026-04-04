@@ -217,7 +217,7 @@ void dev_kmsg_record(Manager *m, char *p, size_t l) {
         }
 
         if (kernel_device) {
-                _cleanup_(sd_device_unrefp) sd_device *d = NULL;
+                _cleanup_unref(sd_device) sd_device *d = NULL;
 
                 if (sd_device_new_from_device_id(&d, kernel_device) >= 0) {
                         const char *g;
@@ -404,7 +404,7 @@ int manager_open_dev_kmsg(Manager *m) {
                 return 0;
         }
 
-        _cleanup_(sd_event_source_unrefp) sd_event_source *es = NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *es = NULL;
         r = sd_event_add_io(m->event, &es, fd, EPOLLIN, dispatch_dev_kmsg, m);
         if (r < 0)
                 return log_error_errno(r, "Failed to add /dev/kmsg fd to event loop: %m");

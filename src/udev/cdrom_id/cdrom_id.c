@@ -956,7 +956,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(context_clear) Context c = CONTEXT_EMPTY;
+        _cleanup_clear(context) Context c = CONTEXT_EMPTY;
         int r;
 
         (void) udev_parse_config();

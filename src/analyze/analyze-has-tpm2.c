@@ -16,7 +16,7 @@ int verb_identify_tpm2(int argc, char **argv, uintptr_t _data, void *userdata) {
 #if HAVE_TPM2
         int r;
 
-        _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
+        _cleanup_unref(tpm2_context) Tpm2Context *c = NULL;
         r = tpm2_context_new_or_warn(/* device= */ NULL, &c);
         if (r < 0)
                 return r;
@@ -26,7 +26,7 @@ int verb_identify_tpm2(int argc, char **argv, uintptr_t _data, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire TPM2 vendor information: %m");
 
-        _cleanup_(table_unrefp) Table *table = table_new_vertical();
+        _cleanup_unref(table) Table *table = table_new_vertical();
         if (!table)
                 return log_oom();
 

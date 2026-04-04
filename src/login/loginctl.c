@@ -218,8 +218,8 @@ static int list_sessions_table_add_fallback(Table *table, sd_bus_message *reply,
                 return bus_log_parse_error(r);
 
         for (;;) {
-                _cleanup_(sd_bus_error_free) sd_bus_error e = SD_BUS_ERROR_NULL;
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error e = SD_BUS_ERROR_NULL;
+                _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
                 const char *id, *user, *seat, *object;
                 uint32_t uid;
                 SessionStatusInfo i = {};
@@ -268,9 +268,9 @@ static int list_sessions_table_add_fallback(Table *table, sd_bus_message *reply,
 
 static int verb_list_sessions(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus = ASSERT_PTR(userdata);
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
+        _cleanup_unref(table) Table *table = NULL;
         bool use_ex = true;
         int r;
 
@@ -316,9 +316,9 @@ static int verb_list_users(int argc, char *argv[], uintptr_t _data, void *userda
                 {},
         };
 
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
+        _cleanup_unref(table) Table *table = NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
@@ -340,9 +340,9 @@ static int verb_list_users(int argc, char *argv[], uintptr_t _data, void *userda
         table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
         for (;;) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error_property = SD_BUS_ERROR_NULL;
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply_property = NULL;
-                _cleanup_(user_status_info_done) UserStatusInfo info = {};
+                _cleanup_done(sd_bus_error) sd_bus_error error_property = SD_BUS_ERROR_NULL;
+                _cleanup_unref(sd_bus_message) sd_bus_message *reply_property = NULL;
+                _cleanup_done(user_status_info) UserStatusInfo info = {};
                 const char *user, *object;
                 uint32_t uid;
 
@@ -385,9 +385,9 @@ static int verb_list_users(int argc, char *argv[], uintptr_t _data, void *userda
 }
 
 static int verb_list_seats(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
+        _cleanup_unref(table) Table *table = NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
@@ -434,7 +434,7 @@ static int show_unit_cgroup(
                 pid_t leader,
                 const char *prefix) {
 
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *cgroup = NULL;
         int r;
 
@@ -565,9 +565,9 @@ static int print_session_status_info(sd_bus *bus, const char *path) {
                 {}
         };
 
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
+        _cleanup_unref(table) Table *table = NULL;
         SessionStatusInfo i = {};
         int r;
 
@@ -756,10 +756,10 @@ static int print_user_status_info(sd_bus *bus, const char *path) {
                 {}
         };
 
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        _cleanup_(user_status_info_done) UserStatusInfo i = {};
-        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
+        _cleanup_done(user_status_info) UserStatusInfo i = {};
+        _cleanup_unref(table) Table *table = NULL;
         int r;
 
         r = bus_map_all_properties(bus, "org.freedesktop.login1", path, map, BUS_MAP_BOOLEAN_AS_BOOL, &error, &m, &i);
@@ -791,7 +791,7 @@ static int print_user_status_info(sd_bus *bus, const char *path) {
                 return table_log_add_error(r);
 
         if (!strv_isempty(i.sessions)) {
-                _cleanup_strv_free_ char **sessions = TAKE_PTR(i.sessions);
+                _cleanup_free(strv) char **sessions = TAKE_PTR(i.sessions);
 
                 r = mark_session(sessions, i.display);
                 if (r < 0)
@@ -855,10 +855,10 @@ static int print_seat_status_info(sd_bus *bus, const char *path) {
                 {}
         };
 
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        _cleanup_(seat_status_info_done) SeatStatusInfo i = {};
-        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
+        _cleanup_done(seat_status_info) SeatStatusInfo i = {};
+        _cleanup_unref(table) Table *table = NULL;
         int r;
 
         r = bus_map_all_properties(bus, "org.freedesktop.login1", path, map, 0, &error, &m, &i);
@@ -872,7 +872,7 @@ static int print_seat_status_info(sd_bus *bus, const char *path) {
         table_set_ersatz_string(table, TABLE_ERSATZ_NA);
 
         if (!strv_isempty(i.sessions)) {
-                _cleanup_strv_free_ char **sessions = TAKE_PTR(i.sessions);
+                _cleanup_free(strv) char **sessions = TAKE_PTR(i.sessions);
 
                 r = mark_session(sessions, i.active_session);
                 if (r < 0)
@@ -1015,8 +1015,8 @@ static int get_bus_path_by_id(
                 const char *id,
                 char **ret) {
 
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         const char *path;
         int r;
 
@@ -1104,8 +1104,8 @@ static int verb_show_user(int argc, char *argv[], uintptr_t _data, void *userdat
         }
 
         for (int i = 1, first = true; i < argc; i++, first = false) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
                 const char *path;
                 uid_t uid;
 
@@ -1182,7 +1182,7 @@ static int verb_show_seat(int argc, char *argv[], uintptr_t _data, void *userdat
 }
 
 static int verb_activate(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
@@ -1225,7 +1225,7 @@ static int verb_activate(int argc, char *argv[], uintptr_t _data, void *userdata
 }
 
 static int verb_kill_session(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
@@ -1251,7 +1251,7 @@ static int verb_kill_session(int argc, char *argv[], uintptr_t _data, void *user
 }
 
 static int verb_enable_linger(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         char* short_argv[3];
         bool b;
@@ -1299,7 +1299,7 @@ static int verb_enable_linger(int argc, char *argv[], uintptr_t _data, void *use
 }
 
 static int verb_terminate_user(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
@@ -1329,7 +1329,7 @@ static int verb_terminate_user(int argc, char *argv[], uintptr_t _data, void *us
 }
 
 static int verb_kill_user(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
@@ -1367,7 +1367,7 @@ static int verb_kill_user(int argc, char *argv[], uintptr_t _data, void *userdat
 }
 
 static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
@@ -1391,7 +1391,7 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
 }
 
 static int verb_flush_devices(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
@@ -1407,7 +1407,7 @@ static int verb_flush_devices(int argc, char *argv[], uintptr_t _data, void *use
 }
 
 static int verb_lock_sessions(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
@@ -1428,7 +1428,7 @@ static int verb_lock_sessions(int argc, char *argv[], uintptr_t _data, void *use
 }
 
 static int verb_terminate_seat(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 

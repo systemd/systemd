@@ -6,7 +6,7 @@
 #include "tmpfile-util.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
-        _cleanup_(manager_freep) Manager *manager = NULL;
+        _cleanup_free(manager) Manager *manager = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_(unlink_tempfilep) char network_config[] = "/tmp/fuzz-networkd.XXXXXX";
 

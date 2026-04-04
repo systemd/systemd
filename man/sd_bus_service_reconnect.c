@@ -41,6 +41,7 @@
 #include <systemd/sd-bus.h>
 
 #define _cleanup_(f) __attribute__((cleanup(f)))
+#define _cleanup_unref(x) _cleanup_(x ## _unrefp)
 
 static int log_error(int r, const char *str) {
   fprintf(stderr, "%s failed: %s\n", str, strerror(-r));
@@ -226,8 +227,8 @@ int main(int argc, char **argv) {
   /* The bus should be relinquished before the program terminates. The cleanup
    * attribute allows us to do it nicely and cleanly whenever we exit the block.
    */
-  _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-  _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+  _cleanup_unref(sd_bus_flush_close) sd_bus *bus = NULL;
+  _cleanup_unref(sd_event) sd_event *event = NULL;
   object o = {
     .example = "example",
     .bus = &bus,

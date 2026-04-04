@@ -16,7 +16,7 @@
 #include "wifi-util.h"
 
 int link_get_wlan_interface(Link *link) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *req = NULL, *reply = NULL;
         int r;
 
         assert(link);

@@ -129,7 +129,7 @@ static void test_encrypt_decrypt_with(sd_id128_t mode, uid_t uid) {
         else
                 log_notice("Running encryption/decryption test with mode " SD_ID128_FORMAT_STR ".", SD_ID128_FORMAT_VAL(mode));
 
-        _cleanup_(iovec_done) struct iovec encrypted = {};
+        _cleanup_done(iovec) struct iovec encrypted = {};
         r = encrypt_credential_and_warn(
                         mode,
                         "foo",
@@ -154,7 +154,7 @@ static void test_encrypt_decrypt_with(sd_id128_t mode, uid_t uid) {
 
         ASSERT_OK(r);
 
-        _cleanup_(iovec_done) struct iovec decrypted = {};
+        _cleanup_done(iovec) struct iovec decrypted = {};
         r = decrypt_credential_and_warn(
                         "bar",
                         /* validate_timestamp= */ USEC_INFINITY,
@@ -182,7 +182,7 @@ static void test_encrypt_decrypt_with(sd_id128_t mode, uid_t uid) {
 
 static bool try_tpm2(void) {
 #if HAVE_TPM2
-        _cleanup_(tpm2_context_unrefp) Tpm2Context *tpm2_context = NULL;
+        _cleanup_unref(tpm2_context) Tpm2Context *tpm2_context = NULL;
         int r;
 
         r = tpm2_context_new(/* device= */ NULL, &tpm2_context);

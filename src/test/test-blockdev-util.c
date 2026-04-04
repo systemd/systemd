@@ -44,7 +44,7 @@ TEST(path_is_encrypted) {
 
 TEST(partscan_enabled) {
 
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *e = NULL;
         int r;
 
         assert_se(sd_device_enumerator_new(&e) >= 0);

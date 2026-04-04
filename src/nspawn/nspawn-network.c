@@ -40,7 +40,7 @@
 #define MACVLAN_HASH_KEY SD_ID128_MAKE(00,13,6d,bc,66,83,44,81,bb,0c,f9,51,1f,24,a6,6f)
 
 static int remove_one_link(sd_netlink *rtnl, const char *name) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         int r;
 
         if (isempty(name))
@@ -95,7 +95,7 @@ static int add_veth(
                 const char *ifname_container,
                 const struct ether_addr *mac_container) {
 
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         int r;
 
         assert(rtnl);
@@ -168,7 +168,7 @@ int setup_veth(const char *machine_name,
                bool bridge,
                const struct ether_addr *provided_mac) {
 
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *rtnl = NULL;
         struct ether_addr mac_host, mac_container;
         unsigned u;
         char *n, *a = NULL;
@@ -218,7 +218,7 @@ int setup_veth_extra(
                 const PidRef *pid,
                 char **pairs) {
 
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *rtnl = NULL;
         uint64_t idx = 0;
         int r;
 
@@ -254,7 +254,7 @@ int setup_veth_extra(
 }
 
 static int join_bridge(sd_netlink *rtnl, const char *veth_name, const char *bridge_name) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         int r, bridge_ifi;
 
         assert(rtnl);
@@ -289,7 +289,7 @@ static int join_bridge(sd_netlink *rtnl, const char *veth_name, const char *brid
 }
 
 static int create_bridge(sd_netlink *rtnl, const char *bridge_name) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         int r;
 
         r = sd_rtnl_message_new_link(rtnl, &m, RTM_NEWLINK, 0);
@@ -325,7 +325,7 @@ static int create_bridge(sd_netlink *rtnl, const char *bridge_name) {
 
 int setup_bridge(const char *veth_name, const char *bridge_name, bool create) {
         _cleanup_(release_lock_file) LockFile bridge_lock = LOCK_FILE_INIT;
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *rtnl = NULL;
         int r, bridge_ifi;
         unsigned n = 0;
 
@@ -366,7 +366,7 @@ int setup_bridge(const char *veth_name, const char *bridge_name, bool create) {
 
 int remove_bridge(const char *bridge_name) {
         _cleanup_(release_lock_file) LockFile bridge_lock = LOCK_FILE_INIT;
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *rtnl = NULL;
         const char *path;
         int r;
 
@@ -397,7 +397,7 @@ int remove_bridge(const char *bridge_name) {
 }
 
 static int test_network_interface_initialized(const char *name) {
-        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
+        _cleanup_unref(sd_device) sd_device *d = NULL;
         int r;
 
         if (!udev_available())
@@ -435,7 +435,7 @@ int test_network_interfaces_initialized(char **iface_pairs) {
 }
 
 int resolve_network_interface_names(char **iface_pairs) {
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *rtnl = NULL;
         int r;
 
         /* Due to a bug in kernel fixed by 8e15aee621618a3ee3abecaf1fd8c1428098b7ef (v6.6, backported to
@@ -445,7 +445,7 @@ int resolve_network_interface_names(char **iface_pairs) {
 
         STRV_FOREACH_PAIR(from, to, iface_pairs) {
                 _cleanup_free_ char *name = NULL;
-                _cleanup_strv_free_ char **altnames = NULL;
+                _cleanup_free(strv) char **altnames = NULL;
 
                 r = rtnl_resolve_ifname_full(&rtnl, _RESOLVE_IFNAME_ALL, *from, &name, &altnames);
                 if (r < 0)
@@ -533,8 +533,8 @@ static int netns_fork_and_wait(int netns_fd, int *ret_original_netns_fd) {
 }
 
 static int move_wlan_interface_impl(sd_netlink **genl, int netns_fd, sd_device *dev) {
-        _cleanup_(sd_netlink_unrefp) sd_netlink *our_genl = NULL;
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *our_genl = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         int r;
 
         assert(netns_fd >= 0);
@@ -615,7 +615,7 @@ static int move_wlan_interface_one(
         if (r < 0)
                 return log_error_errno(r, "Failed to fork process (nspawn-rename-wlan): %m");
         if (r == 0) {
-                _cleanup_(sd_device_unrefp) sd_device *temp_dev = NULL;
+                _cleanup_unref(sd_device) sd_device *temp_dev = NULL;
 
                 r = rtnl_rename_link(NULL, sysname, name);
                 if (r < 0) {
@@ -639,7 +639,7 @@ static int move_wlan_interface_one(
 }
 
 static int move_network_interface_one(sd_netlink **rtnl, int netns_fd, sd_device *dev, const char *name) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         int r;
 
         assert(rtnl);
@@ -679,7 +679,7 @@ static int move_network_interface_one(sd_netlink **rtnl, int netns_fd, sd_device
 }
 
 int move_network_interfaces(int netns_fd, char **iface_pairs) {
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL, *genl = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *rtnl = NULL, *genl = NULL;
         _cleanup_close_ int temp_netns_fd = -EBADF;
         int r;
 
@@ -689,7 +689,7 @@ int move_network_interfaces(int netns_fd, char **iface_pairs) {
                 return 0;
 
         STRV_FOREACH_PAIR(from, to, iface_pairs) {
-                _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+                _cleanup_unref(sd_device) sd_device *dev = NULL;
                 const char *name;
 
                 name = streq(*from, *to) ? NULL : *to;
@@ -734,7 +734,7 @@ int move_back_network_interfaces(int child_netns_fd, char **interface_pairs) {
 }
 
 int setup_macvlan(const char *machine_name, const PidRef *pid, char **iface_pairs) {
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *rtnl = NULL;
         unsigned idx = 0;
         int r;
 
@@ -748,7 +748,7 @@ int setup_macvlan(const char *machine_name, const PidRef *pid, char **iface_pair
                 return log_error_errno(r, "Failed to connect to netlink: %m");
 
         STRV_FOREACH_PAIR(i, b, iface_pairs) {
-                _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+                _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
                 _cleanup_free_ char *n = NULL;
                 int shortened, ifi;
                 struct ether_addr mac;
@@ -819,7 +819,7 @@ int setup_macvlan(const char *machine_name, const PidRef *pid, char **iface_pair
 }
 
 static int remove_macvlan_impl(char **interface_pairs) {
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *rtnl = NULL;
         int r;
 
         assert(interface_pairs);
@@ -869,7 +869,7 @@ int remove_macvlan(int child_netns_fd, char **interface_pairs) {
 }
 
 int setup_ipvlan(const char *machine_name, const PidRef *pid, char **iface_pairs) {
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *rtnl = NULL;
         int r;
 
         assert(pidref_is_set(pid));
@@ -882,7 +882,7 @@ int setup_ipvlan(const char *machine_name, const PidRef *pid, char **iface_pairs
                 return log_error_errno(r, "Failed to connect to netlink: %m");
 
         STRV_FOREACH_PAIR(i, b, iface_pairs) {
-                _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+                _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
                 _cleanup_free_ char *n = NULL;
                 int shortened, ifi ;
 
@@ -974,7 +974,7 @@ int veth_extra_parse(char ***l, const char *p) {
 }
 
 int remove_veth_links(const char *primary, char **pairs) {
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *rtnl = NULL;
         int r;
 
         /* In some cases the kernel might pin the veth links between host and container even after the namespace

@@ -111,7 +111,7 @@ static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
 
                 item = hashmap_get(hosts->by_address, &address);
                 if (!item) {
-                        _cleanup_(etc_hosts_item_by_address_freep) EtcHostsItemByAddress *new_item = NULL;
+                        _cleanup_free(etc_hosts_item_by_address) EtcHostsItemByAddress *new_item = NULL;
 
                         new_item = new(EtcHostsItemByAddress, 1);
                         if (!new_item)
@@ -163,7 +163,7 @@ static int parse_line(EtcHosts *hosts, unsigned nr, const char *line) {
 
                 bn = hashmap_get(hosts->by_name, name);
                 if (!bn) {
-                        _cleanup_(etc_hosts_item_by_name_freep) EtcHostsItemByName *new_item = NULL;
+                        _cleanup_free(etc_hosts_item_by_name) EtcHostsItemByName *new_item = NULL;
                         _cleanup_free_ char *name_copy = NULL;
 
                         name_copy = strdup(name);
@@ -298,7 +298,7 @@ static void strip_localhost(EtcHosts *hosts) {
 }
 
 int etc_hosts_parse(EtcHosts *hosts, FILE *f) {
-        _cleanup_(etc_hosts_clear) EtcHosts t = {};
+        _cleanup_clear(etc_hosts) EtcHosts t = {};
         unsigned nr = 0;
         int r;
 
@@ -390,7 +390,7 @@ static int manager_etc_hosts_read(Manager *m) {
 }
 
 static int answer_add_ptr(DnsAnswer *answer, DnsResourceKey *key, const char *name) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
 
         rr = dns_resource_record_new(key);
         if (!rr)
@@ -404,7 +404,7 @@ static int answer_add_ptr(DnsAnswer *answer, DnsResourceKey *key, const char *na
 }
 
 static int answer_add_cname(DnsAnswer *answer, const char *name, const char *cname) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
 
         rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_CNAME, name);
         if (!rr)
@@ -418,7 +418,7 @@ static int answer_add_cname(DnsAnswer *answer, const char *name, const char *cna
 }
 
 static int answer_add_addr(DnsAnswer *answer, const char *name, const struct in_addr_data *a) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
         int r;
 
         r = dns_resource_record_new_address(&rr, a->family, &a->address, name);

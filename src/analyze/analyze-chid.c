@@ -128,7 +128,7 @@ static int add_chid(Table *table, const EFI_GUID guids[static CHID_TYPES_MAX], s
         return 0;
 }
 
-static void smbios_fields_free(char16_t *(*fields)[_CHID_SMBIOS_FIELDS_MAX]) {
+static void smbios_fields_done(char16_t *(*fields)[_CHID_SMBIOS_FIELDS_MAX]) {
         assert(fields);
 
         FOREACH_ARRAY(i, *fields, _CHID_SMBIOS_FIELDS_MAX)
@@ -281,8 +281,8 @@ static int edid_parse(sd_device *drm_dev, char16_t **ret_panel) {
 }
 
 static int edid_search(char16_t **ret_panel) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        _cleanup_strv_free_ char **drm_paths = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *e = NULL;
+        _cleanup_free(strv) char **drm_paths = NULL;
         _cleanup_free_ char16_t *unique_panel = NULL;
         size_t n = 0;
         int r;
@@ -340,7 +340,7 @@ static int edid_search(char16_t **ret_panel) {
 
 int verb_chid(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
-        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_unref(table) Table *table = NULL;
         int r;
 
         if (detect_container() > 0)
@@ -353,13 +353,13 @@ int verb_chid(int argc, char *argv[], uintptr_t _data, void *userdata) {
         (void) table_set_align_percent(table, table_get_cell(table, 0, 0), 100);
         (void) table_set_align_percent(table, table_get_cell(table, 0, 1), 50);
 
-        _cleanup_(smbios_fields_free) char16_t* smbios_fields[_CHID_SMBIOS_FIELDS_MAX] = {};
+        _cleanup_done(smbios_fields) char16_t* smbios_fields[_CHID_SMBIOS_FIELDS_MAX] = {};
         r = smbios_fields_acquire(smbios_fields);
         if (r < 0)
                 return r;
 
         if (arg_drm_device_path) {
-                _cleanup_(sd_device_unrefp) sd_device *drm_dev = NULL;
+                _cleanup_unref(sd_device) sd_device *drm_dev = NULL;
                 r = sd_device_new_from_path(&drm_dev, arg_drm_device_path);
                 if (r < 0)
                         return log_error_errno(r, "Failed to open device %s: %m", arg_drm_device_path);

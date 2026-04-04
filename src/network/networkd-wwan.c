@@ -51,7 +51,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
         bearer_free);
 
 int bearer_new(Modem *modem, const char *path, Bearer **ret) {
-        _cleanup_(bearer_freep) Bearer *b = NULL;
+        _cleanup_free(bearer) Bearer *b = NULL;
         _cleanup_free_ char *p = NULL;
         int r;
 
@@ -179,7 +179,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
         modem_free);
 
 int modem_new(Manager *m, const char *path, Modem **ret) {
-        _cleanup_(modem_freep) Modem *modem = NULL;
+        _cleanup_free(modem) Modem *modem = NULL;
         _cleanup_free_ char *p = NULL;
         int r;
 
@@ -317,7 +317,7 @@ static int link_request_bearer_address(
                 const union in_addr_union *addr,
                 unsigned prefixlen) {
 
-        _cleanup_(address_unrefp) Address *address = NULL;
+        _cleanup_unref(address) Address *address = NULL;
         Address *existing;
         int r;
 
@@ -379,7 +379,7 @@ static int link_request_bearer_route(
                 const union in_addr_union *gw,
                 const union in_addr_union *prefsrc) {
 
-        _cleanup_(route_unrefp) Route *route = NULL;
+        _cleanup_unref(route) Route *route = NULL;
         Route *existing;
         int r;
 

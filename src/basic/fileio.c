@@ -1227,7 +1227,7 @@ int search_and_open(
                 int *ret_fd,
                 char **ret_path) {
 
-        _cleanup_strv_free_ char **copy = NULL;
+        _cleanup_free(strv) char **copy = NULL;
 
         assert(path);
 
@@ -1285,7 +1285,7 @@ int search_and_fopen(
                 FILE **ret_file,
                 char **ret_path) {
 
-        _cleanup_strv_free_ char **copy = NULL;
+        _cleanup_free(strv) char **copy = NULL;
 
         assert(path);
         assert(mode || !ret_file);
@@ -1305,7 +1305,7 @@ int search_and_fopen_nulstr(
                 FILE **ret_file,
                 char **ret_path) {
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
 
         assert(path);
         assert(mode || !ret_file);

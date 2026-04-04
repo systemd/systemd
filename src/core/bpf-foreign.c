@@ -83,7 +83,7 @@ static int bpf_foreign_prepare(
                 enum bpf_attach_type attach_type,
                 const char *bpffs_path) {
 
-        _cleanup_(bpf_program_freep) BPFProgram *prog = NULL;
+        _cleanup_free(bpf_program) BPFProgram *prog = NULL;
         _cleanup_free_ BPFForeignKey *key = NULL;
         uint32_t prog_id;
         int r;

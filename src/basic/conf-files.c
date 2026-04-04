@@ -53,7 +53,7 @@ static int prepare_dirs(
                 char ***ret_dirs) {
 
         _cleanup_free_ char *root_abs = NULL;
-        _cleanup_strv_free_ char **dirs_abs = NULL;
+        _cleanup_free(strv) char **dirs_abs = NULL;
         int r;
 
         assert(ret_root);
@@ -290,7 +290,7 @@ int conf_file_new_at(
                 root = _root;
         }
 
-        _cleanup_(conf_file_freep) ConfFile *c = new(ConfFile, 1);
+        _cleanup_free(conf_file) ConfFile *c = new(ConfFile, 1);
         if (!c)
                 return log_oom_full(log_level);
 
@@ -361,7 +361,7 @@ int conf_file_new(const char *path, const char *root, ConfFilesFlags flags, Conf
                 path = path_abs;
         }
 
-        _cleanup_(conf_file_freep) ConfFile *c = NULL;
+        _cleanup_free(conf_file) ConfFile *c = NULL;
         r = conf_file_new_at(path, root_abs, rfd, flags, &c);
         if (r < 0)
                 return r;
@@ -451,7 +451,7 @@ static int files_add(
                 if (r < 0)
                         continue;
 
-                _cleanup_(conf_file_freep) ConfFile *c = new(ConfFile, 1);
+                _cleanup_free(conf_file) ConfFile *c = new(ConfFile, 1);
                 if (!c)
                         return log_oom_full(log_level);
 
@@ -518,7 +518,7 @@ static int copy_and_sort_files_from_hashmap(
                 ConfFilesFlags flags,
                 char ***ret) {
 
-        _cleanup_strv_free_ char **results = NULL;
+        _cleanup_free(strv) char **results = NULL;
         _cleanup_free_ ConfFile **files = NULL;
         size_t n_files = 0, n_results = 0;
         int r;
@@ -582,7 +582,7 @@ static int copy_and_sort_files_from_hashmap(
 }
 
 static int insert_replacement(Hashmap **fh, ConfFile *replacement, ConfFilesFlags flags, const ConfFile **ret) {
-        _cleanup_(conf_file_freep) ConfFile *c = ASSERT_PTR(replacement);
+        _cleanup_free(conf_file) ConfFile *c = ASSERT_PTR(replacement);
         int r;
 
         assert(fh);
@@ -621,9 +621,9 @@ static int conf_files_list_impl(
                 Hashmap **ret,
                 const ConfFile **ret_inserted) {
 
-        _cleanup_hashmap_free_ Hashmap *fh = NULL;
-        _cleanup_set_free_ Set *masked = NULL;
-        _cleanup_(conf_file_freep) ConfFile *c = NULL;
+        _cleanup_free(hashmap) Hashmap *fh = NULL;
+        _cleanup_free(set) Set *masked = NULL;
+        _cleanup_free(conf_file) ConfFile *c = NULL;
         const ConfFile *inserted = NULL;
         int r;
 
@@ -681,10 +681,10 @@ int conf_files_list_strv(
                 ConfFilesFlags flags,
                 const char * const *dirs) {
 
-        _cleanup_hashmap_free_ Hashmap *fh = NULL;
+        _cleanup_free(hashmap) Hashmap *fh = NULL;
         _cleanup_close_ int rfd = -EBADF;
         _cleanup_free_ char *root_abs = NULL;
-        _cleanup_strv_free_ char **dirs_abs = NULL;
+        _cleanup_free(strv) char **dirs_abs = NULL;
         int r;
 
         assert(ret);
@@ -709,10 +709,10 @@ int conf_files_list_strv_full(
                 ConfFile ***ret_files,
                 size_t *ret_n_files) {
 
-        _cleanup_hashmap_free_ Hashmap *fh = NULL;
+        _cleanup_free(hashmap) Hashmap *fh = NULL;
         _cleanup_close_ int rfd = -EBADF;
         _cleanup_free_ char *root_abs = NULL;
-        _cleanup_strv_free_ char **dirs_abs = NULL;
+        _cleanup_free(strv) char **dirs_abs = NULL;
         int r;
 
         assert(ret_files);
@@ -737,7 +737,7 @@ int conf_files_list_strv_at(
                 ConfFilesFlags flags,
                 const char * const *dirs) {
 
-        _cleanup_hashmap_free_ Hashmap *fh = NULL;
+        _cleanup_free(hashmap) Hashmap *fh = NULL;
         _cleanup_free_ char *root = NULL;
         int r;
 
@@ -762,7 +762,7 @@ int conf_files_list_strv_at_full(
                 ConfFile ***ret_files,
                 size_t *ret_n_files) {
 
-        _cleanup_hashmap_free_ Hashmap *fh = NULL;
+        _cleanup_free(hashmap) Hashmap *fh = NULL;
         _cleanup_free_ char *root = NULL;
         int r;
 
@@ -797,7 +797,7 @@ int conf_files_list_at_full(const char *suffix, int rfd, ConfFilesFlags flags, c
 }
 
 int conf_files_list_nulstr(char ***ret, const char *suffix, const char *root, ConfFilesFlags flags, const char *dirs) {
-        _cleanup_strv_free_ char **d = NULL;
+        _cleanup_free(strv) char **d = NULL;
 
         assert(ret);
 
@@ -809,7 +809,7 @@ int conf_files_list_nulstr(char ***ret, const char *suffix, const char *root, Co
 }
 
 int conf_files_list_nulstr_full(const char *suffix, const char *root, ConfFilesFlags flags, const char *dirs, ConfFile ***ret_files, size_t *ret_n_files) {
-        _cleanup_strv_free_ char **d = NULL;
+        _cleanup_free(strv) char **d = NULL;
 
         assert(ret_files);
         assert(ret_n_files);
@@ -822,7 +822,7 @@ int conf_files_list_nulstr_full(const char *suffix, const char *root, ConfFilesF
 }
 
 int conf_files_list_nulstr_at(char ***ret, const char *suffix, int rfd, ConfFilesFlags flags, const char *dirs) {
-        _cleanup_strv_free_ char **d = NULL;
+        _cleanup_free(strv) char **d = NULL;
 
         assert(ret);
 
@@ -834,7 +834,7 @@ int conf_files_list_nulstr_at(char ***ret, const char *suffix, int rfd, ConfFile
 }
 
 int conf_files_list_nulstr_at_full(const char *suffix, int rfd, ConfFilesFlags flags, const char *dirs, ConfFile ***ret_files, size_t *ret_n_files) {
-        _cleanup_strv_free_ char **d = NULL;
+        _cleanup_free(strv) char **d = NULL;
 
         assert(ret_files);
         assert(ret_n_files);
@@ -853,12 +853,12 @@ int conf_files_list_with_replacement(
                 char ***ret_files,
                 char **ret_inserted) {
 
-        _cleanup_hashmap_free_ Hashmap *fh = NULL;
+        _cleanup_free(hashmap) Hashmap *fh = NULL;
         _cleanup_free_ char *inserted = NULL;
         ConfFilesFlags flags = CONF_FILES_REGULAR | CONF_FILES_FILTER_MASKED_BY_SYMLINK | CONF_FILES_WARN;
         _cleanup_close_ int rfd = -EBADF;
         _cleanup_free_ char *root_abs = NULL;
-        _cleanup_strv_free_ char **dirs_abs = NULL;
+        _cleanup_free(strv) char **dirs_abs = NULL;
         const ConfFile *c = NULL;
         int r;
 
@@ -898,7 +898,7 @@ int conf_files_list_dropins(
                 ConfFilesFlags flags,
                 const char * const *dirs) {
 
-        _cleanup_strv_free_ char **dropin_dirs = NULL;
+        _cleanup_free(strv) char **dropin_dirs = NULL;
         const char *suffix;
         int r;
 

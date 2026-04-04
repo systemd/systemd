@@ -27,7 +27,7 @@ int web_cache_add_item(
                 const void *data,
                 size_t size) {
 
-        _cleanup_(web_cache_item_freep) WebCacheItem *item = NULL;
+        _cleanup_free(web_cache_item) WebCacheItem *item = NULL;
         _cleanup_free_ char *u = NULL;
         int r;
 

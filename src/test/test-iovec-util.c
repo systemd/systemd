@@ -30,7 +30,7 @@ TEST(iovec_memcmp) {
         assert_se(iovec_memcmp(&iov2, &iov1_truncated) > 0);
         assert_se(iovec_memcmp(&iov1_truncated, &iov2) < 0);
 
-        _cleanup_(iovec_done) struct iovec copy = {};
+        _cleanup_done(iovec) struct iovec copy = {};
 
         assert_se(iovec_memdup(&iov1, &copy));
         assert_se(iovec_memcmp(&iov1, &copy) == 0);
@@ -56,7 +56,7 @@ TEST(iovec_set_and_valid) {
 }
 
 TEST(iovec_append) {
-        _cleanup_(iovec_done) struct iovec iov = {};
+        _cleanup_done(iovec) struct iovec iov = {};
 
         assert_se(iovec_append(&iov, &IOVEC_MAKE_STRING("")) == &iov);
         assert_se(iovec_append(&iov, &IOVEC_MAKE_STRING("waldo")) == &iov);

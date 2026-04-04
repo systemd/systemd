@@ -138,7 +138,7 @@ int coredump_vacuum(int exclude_fd, uint64_t keep_free, uint64_t max_use) {
         }
 
         for (;;) {
-                _cleanup_hashmap_free_ Hashmap *h = NULL;
+                _cleanup_free(hashmap) Hashmap *h = NULL;
                 VacuumCandidate *worst = NULL;
                 uint64_t sum = 0;
 
@@ -179,7 +179,7 @@ int coredump_vacuum(int exclude_fd, uint64_t keep_free, uint64_t max_use) {
                                         c->oldest_mtime = t;
                                 }
                         } else {
-                                _cleanup_(vacuum_candidate_freep) VacuumCandidate *n = NULL;
+                                _cleanup_free(vacuum_candidate) VacuumCandidate *n = NULL;
 
                                 n = new0(VacuumCandidate, 1);
                                 if (!n)

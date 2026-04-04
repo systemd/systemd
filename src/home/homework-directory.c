@@ -69,7 +69,7 @@ int home_activate_directory(
                 PasswordCache *cache,
                 UserRecord **ret_home) {
 
-        _cleanup_(user_record_unrefp) UserRecord *new_home = NULL, *header_home = NULL;
+        _cleanup_unref(user_record) UserRecord *new_home = NULL, *header_home = NULL;
         const char *hd, *hdo;
         int r;
 
@@ -113,7 +113,7 @@ int home_activate_directory(
 
 int home_create_directory_or_subvolume(UserRecord *h, HomeSetup *setup, UserRecord **ret_home) {
         _cleanup_(rm_rf_subvolume_and_freep) char *temporary = NULL;
-        _cleanup_(user_record_unrefp) UserRecord *new_home = NULL;
+        _cleanup_unref(user_record) UserRecord *new_home = NULL;
         _cleanup_close_ int mount_fd = -EBADF;
         _cleanup_free_ char *d = NULL;
         bool is_subvolume = false;
@@ -270,7 +270,7 @@ int home_resize_directory(
                 PasswordCache *cache,
                 UserRecord **ret_home) {
 
-        _cleanup_(user_record_unrefp) UserRecord *embedded_home = NULL, *new_home = NULL;
+        _cleanup_unref(user_record) UserRecord *embedded_home = NULL, *new_home = NULL;
         int r, reconciled;
 
         assert(h);

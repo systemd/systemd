@@ -58,11 +58,11 @@ static void verify_contents(sd_journal *j, unsigned skip) {
 }
 
 static void run_test(void) {
-        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_unref(mmap_cache) MMapCache *m = NULL;
         JournalFile *one, *two, *three;
         char t[] = "/var/tmp/journal-stream-XXXXXX";
         unsigned i;
-        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_close(sd_journal) sd_journal *j = NULL;
         char *z;
         const void *data;
         size_t l;

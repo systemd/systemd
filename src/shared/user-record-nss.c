@@ -50,7 +50,7 @@ int nss_passwd_to_user_record(
                 const struct spwd *spwd,
                 UserRecord **ret) {
 
-        _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
+        _cleanup_unref(user_record) UserRecord *hr = NULL;
         int r;
 
         assert(pwd);
@@ -288,7 +288,7 @@ int nss_group_to_group_record(
                 const struct sgrp *sgrp,
                 GroupRecord **ret) {
 
-        _cleanup_(group_record_unrefp) GroupRecord *g = NULL;
+        _cleanup_unref(group_record) GroupRecord *g = NULL;
         int r;
 
         assert(grp);

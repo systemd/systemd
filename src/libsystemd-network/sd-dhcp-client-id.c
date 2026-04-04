@@ -184,7 +184,7 @@ int client_id_compare_func(const sd_dhcp_client_id *a, const sd_dhcp_client_id *
 
 int json_dispatch_client_id(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         sd_dhcp_client_id *client_id = ASSERT_PTR(userdata);
-        _cleanup_(iovec_done) struct iovec iov = {};
+        _cleanup_done(iovec) struct iovec iov = {};
         int r;
 
         r = json_dispatch_byte_array_iovec(name, variant, flags, &iov);

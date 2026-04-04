@@ -27,7 +27,7 @@ static int spawn_getent(const char *database, const char *key, PidRef *ret) {
         if (pipe2(pipe_fds, O_CLOEXEC) < 0)
                 return log_error_errno(errno, "Failed to allocate pipe: %m");
 
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         r = pidref_safe_fork_full(
                         "(getent)",
                         (int[]) { -EBADF, pipe_fds[1], -EBADF }, NULL, 0,
@@ -101,7 +101,7 @@ int change_uid_gid(const char *user, bool chown_stdio, char **ret_home) {
         }
 
         /* First, get user credentials */
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         fd = spawn_getent("passwd", user, &pidref);
         if (fd < 0)
                 return fd;

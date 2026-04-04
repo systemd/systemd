@@ -590,7 +590,7 @@ int mac_selinux_get_peer_label(int socket_fd, char **ret_label) {
 int mac_selinux_get_child_mls_label(int socket_fd, const char *exe, const char *exec_label, char **ret_label) {
 #if HAVE_SELINUX
         _cleanup_freecon_ char *mycon = NULL, *peercon = NULL, *fcon = NULL;
-        _cleanup_(context_freep) context_t pcon = NULL, bcon = NULL;
+        _cleanup_free(context) context_t pcon = NULL, bcon = NULL;
         const char *range = NULL, *bcon_str = NULL;
         security_class_t sclass;
         int r;

@@ -11,7 +11,7 @@ TEST(manager_parse_string) {
         /* Make sure that NTP_SERVERS is configured to something
          * that we can actually parse successfully. */
 
-        _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_free(manager) Manager *m = NULL;
 
         assert_se(manager_new(&m) == 0);
 

@@ -16,8 +16,8 @@
 
 static int builtin_uaccess(UdevEvent *event, int argc, char *argv[]) {
         sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
-        _cleanup_strv_free_ char **sessions = NULL;
-        _cleanup_set_free_ Set *uids = NULL;
+        _cleanup_free(strv) char **sessions = NULL;
+        _cleanup_free(set) Set *uids = NULL;
         uid_t uid;
         int r = 0, k;
 
@@ -91,7 +91,7 @@ static int builtin_uaccess(UdevEvent *event, int argc, char *argv[]) {
                                 continue;
                         }
 
-                        _cleanup_strv_free_ char **extra_devices = NULL;
+                        _cleanup_free(strv) char **extra_devices = NULL;
                         r = sd_session_get_extra_device_access(*s, &extra_devices);
                         if (r < 0) {
                                 log_device_debug_errno(dev, r, "Failed to query extra device access for session %s, ignoring: %m", *s);

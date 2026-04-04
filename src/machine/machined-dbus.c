@@ -147,7 +147,7 @@ static int method_get_image(sd_bus_message *message, void *userdata, sd_bus_erro
 }
 
 static int method_get_machine_by_pid(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         _cleanup_free_ char *p = NULL;
         Manager *m = ASSERT_PTR(userdata);
         Machine *machine = NULL;
@@ -168,7 +168,7 @@ static int method_get_machine_by_pid(sd_bus_message *message, void *userdata, sd
         pidref = PIDREF_MAKE_FROM_PID(pid);
 
         if (pid == 0) {
-                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+                _cleanup_unref(sd_bus_creds) sd_bus_creds *creds = NULL;
 
                 r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID|SD_BUS_CREDS_PIDFD, &creds);
                 if (r < 0)
@@ -193,7 +193,7 @@ static int method_get_machine_by_pid(sd_bus_message *message, void *userdata, sd
 }
 
 static int method_list_machines(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         Manager *m = ASSERT_PTR(userdata);
         Machine *machine;
         int r;
@@ -264,7 +264,7 @@ static int machine_add_from_params(
         if (supervisor_pidref->pid == 1)
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid supervisor PID");
 
-        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+        _cleanup_unref(sd_bus_creds) sd_bus_creds *creds = NULL;
         r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_EUID, &creds);
         if (r < 0)
                 return r;
@@ -390,7 +390,7 @@ static int method_create_or_register_machine(
                 Machine **ret,
                 sd_bus_error *error) {
 
-        _cleanup_(pidref_done) PidRef leader_pidref = PIDREF_NULL, supervisor_pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef leader_pidref = PIDREF_NULL, supervisor_pidref = PIDREF_NULL;
         const char *name, *service, *class, *root_directory;
         const int32_t *netif = NULL;
         MachineClass c;
@@ -455,7 +455,7 @@ static int method_create_or_register_machine(
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Failed to pin process " PID_FMT ": %m", (pid_t) leader);
 
-                _cleanup_(pidref_done) PidRef client_pidref = PIDREF_NULL;
+                _cleanup_done(pidref) PidRef client_pidref = PIDREF_NULL;
                 r = bus_query_sender_pidref(message, &client_pidref);
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Failed to pin client process: %m");
@@ -495,7 +495,7 @@ static int method_create_or_register_machine_ex(
                 sd_bus_error *error) {
 
         const char *name = NULL, *service = NULL, *class = NULL, *root_directory = NULL, *ssh_address = NULL, *ssh_private_key_path = NULL;
-        _cleanup_(pidref_done) PidRef leader_pidref = PIDREF_NULL, supervisor_pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef leader_pidref = PIDREF_NULL, supervisor_pidref = PIDREF_NULL;
         sd_id128_t id = SD_ID128_NULL;
         const int32_t *netif = NULL;
         size_t n_netif = 0;
@@ -640,7 +640,7 @@ static int method_create_or_register_machine_ex(
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Both LeaderPID and LeaderPIDFDID must be specified to identify the leader process by PIDFDID");
 
         if (pidref_is_set(&leader_pidref)) {
-                _cleanup_(pidref_done) PidRef client_pidref = PIDREF_NULL;
+                _cleanup_done(pidref) PidRef client_pidref = PIDREF_NULL;
                 r = bus_query_sender_pidref(message, &client_pidref);
                 if (r < 0)
                         return sd_bus_error_set_errnof(error, r, "Failed to pin client process: %m");
@@ -817,13 +817,13 @@ static int method_get_machine_os_release(sd_bus_message *message, void *userdata
 }
 
 static int method_list_images(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         Manager *m = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
 
-        _cleanup_hashmap_free_ Hashmap *images = NULL;
+        _cleanup_free(hashmap) Hashmap *images = NULL;
         r = image_discover(m->runtime_scope, IMAGE_MACHINE, NULL, &images);
         if (r < 0)
                 return r;
@@ -949,7 +949,7 @@ static int method_get_image_os_release(sd_bus_message *message, void *userdata, 
 }
 
 static int clean_pool_done(Operation *operation, int child_error, sd_bus_error *error) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         _cleanup_fclose_ FILE *file = NULL;
         int r;
 
@@ -1481,7 +1481,7 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
                         if (streq(result, "done"))
                                 machine_send_create_reply(machine, NULL);
                         else {
-                                _cleanup_(sd_bus_error_free) sd_bus_error e = SD_BUS_ERROR_NULL;
+                                _cleanup_done(sd_bus_error) sd_bus_error e = SD_BUS_ERROR_NULL;
 
                                 sd_bus_error_setf(&e, BUS_ERROR_JOB_FAILED, "Start job for unit %s failed with '%s'", unit, result);
 
@@ -1583,7 +1583,7 @@ int manager_unref_unit(
 }
 
 int manager_stop_unit(Manager *manager, const char *unit, sd_bus_error *error, char **job) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         int r;
 
         assert(manager);
@@ -1633,8 +1633,8 @@ int manager_kill_unit(Manager *manager, const char *unit, const char *subgroup, 
 }
 
 int manager_unit_is_active(Manager *manager, const char *unit, sd_bus_error *reterr_error) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         _cleanup_free_ char *path = NULL;
         const char *state;
         int r;
@@ -1681,8 +1681,8 @@ int manager_unit_is_active(Manager *manager, const char *unit, sd_bus_error *ret
 }
 
 int manager_job_is_active(Manager *manager, const char *path, sd_bus_error *reterr_error) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         int r;
 
         assert(manager);

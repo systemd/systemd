@@ -50,12 +50,12 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
 static int load_static_record_file_item(sd_json_variant *rj, Hashmap **records) {
         int r;
 
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
         r = dns_resource_record_from_json(rj, &rr);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse DNS record from JSON: %m");
 
-        _cleanup_(dns_answer_unrefp) DnsAnswer *a =
+        _cleanup_unref(dns_answer) DnsAnswer *a =
                 hashmap_remove(*records, dns_resource_key_name(rr->key));
 
         r = dns_answer_add_extend_full(&a, rr, /* ifindex= */ 0, DNS_ANSWER_AUTHENTICATED, /* rrsig= */ NULL, /* until= */ USEC_INFINITY);
@@ -101,7 +101,7 @@ static int load_static_record_file(const ConfFile *cf, Hashmap **records, Set **
                 return 0;
         }
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *j = NULL;
         unsigned line = 0, column = 0;
         r = sd_json_parse_file(f, cf->result, /* flags= */ 0, &j, &line, &column);
         if (r < 0) {
@@ -176,8 +176,8 @@ static int manager_static_records_read(Manager *m) {
                 return 0;
         }
 
-        _cleanup_(hashmap_freep) Hashmap *records = NULL;
-        _cleanup_(set_freep) Set *stats = NULL;
+        _cleanup_free(hashmap) Hashmap *records = NULL;
+        _cleanup_free(set) Set *stats = NULL;
         FOREACH_ARRAY(f, files, n_files)
                 (void) load_static_record_file(*f, &records, &stats);
 

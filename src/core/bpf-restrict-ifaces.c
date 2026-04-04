@@ -31,8 +31,8 @@ static int prepare_restrict_ifaces_bpf(
                 const Set *restrict_network_interfaces,
                 struct restrict_ifaces_bpf **ret_object) {
 
-        _cleanup_(restrict_ifaces_bpf_freep) struct restrict_ifaces_bpf *obj = NULL;
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_free(restrict_ifaces_bpf) struct restrict_ifaces_bpf *obj = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *rtnl = NULL;
         char *iface;
         int r, map_fd;
 
@@ -79,7 +79,7 @@ static int prepare_restrict_ifaces_bpf(
 }
 
 int bpf_restrict_ifaces_supported(void) {
-        _cleanup_(restrict_ifaces_bpf_freep) struct restrict_ifaces_bpf *obj = NULL;
+        _cleanup_free(restrict_ifaces_bpf) struct restrict_ifaces_bpf *obj = NULL;
         static int supported = -1;
         int r;
 
@@ -99,8 +99,8 @@ int bpf_restrict_ifaces_supported(void) {
 }
 
 static int restrict_ifaces_install_impl(Unit *u, CGroupRuntime *crt) {
-        _cleanup_(bpf_link_freep) struct bpf_link *egress_link = NULL, *ingress_link = NULL;
-        _cleanup_(restrict_ifaces_bpf_freep) struct restrict_ifaces_bpf *obj = NULL;
+        _cleanup_free(bpf_link) struct bpf_link *egress_link = NULL, *ingress_link = NULL;
+        _cleanup_free(restrict_ifaces_bpf) struct restrict_ifaces_bpf *obj = NULL;
         _cleanup_free_ char *cgroup_path = NULL;
         _cleanup_close_ int cgroup_fd = -EBADF;
         int r;

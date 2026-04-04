@@ -15,7 +15,7 @@ typedef struct PasswordCache {
         char **fido2_passwords;
 } PasswordCache;
 
-void password_cache_free(PasswordCache *cache);
+void password_cache_done(PasswordCache *cache);
 
 static inline bool password_cache_contains(const PasswordCache *cache, const char *p) {
         if (!cache)

@@ -11,8 +11,8 @@
 #include "networkctl-address-label.h"
 
 static int dump_address_labels(sd_netlink *rtnl) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
-        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *req = NULL, *reply = NULL;
+        _cleanup_unref(table) Table *table = NULL;
         TableCell *cell;
         int r;
 
@@ -86,7 +86,7 @@ static int dump_address_labels(sd_netlink *rtnl) {
 }
 
 int verb_list_address_labels(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *rtnl = NULL;
         int r;
 
         r = sd_netlink_open(&rtnl);

@@ -5,7 +5,7 @@
 #include "tests.h"
 
 TEST(open_file_parse) {
-        _cleanup_(open_file_freep) OpenFile *of = NULL;
+        _cleanup_free(open_file) OpenFile *of = NULL;
         int r;
 
         r = open_file_parse("/proc/1/ns/mnt:host-mount-namespace:read-only", &of);
@@ -109,7 +109,7 @@ TEST(open_file_parse) {
 
 TEST(open_file_to_string) {
         _cleanup_free_ char *s = NULL;
-        _cleanup_(open_file_freep) OpenFile *of = NULL;
+        _cleanup_free(open_file) OpenFile *of = NULL;
         int r;
 
         assert_se(of = new (OpenFile, 1));

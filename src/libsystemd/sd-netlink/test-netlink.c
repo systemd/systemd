@@ -29,8 +29,8 @@
 #include "time-util.h"
 
 TEST(message_newlink_bridge) {
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *rtnl = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *message = NULL;
         uint32_t cost;
 
         ASSERT_OK(sd_netlink_open(&rtnl));
@@ -50,8 +50,8 @@ TEST(message_newlink_bridge) {
 }
 
 TEST(message_getlink) {
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL, *reply = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *rtnl = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *message = NULL, *reply = NULL;
         int ifindex;
         uint8_t u8_data;
         uint16_t u16_data;
@@ -89,8 +89,8 @@ TEST(message_getlink) {
 }
 
 TEST(message_address) {
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL, *reply = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *rtnl = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *message = NULL, *reply = NULL;
         int ifindex;
         struct in_addr in_data;
         struct ifa_cacheinfo cache;
@@ -115,8 +115,8 @@ TEST(message_address) {
 }
 
 TEST(message_route) {
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *rtnl = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *req = NULL;
         struct in_addr addr, addr_data;
         uint32_t index = 2, u32_data;
 
@@ -156,9 +156,9 @@ static int link_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata)
 }
 
 TEST(netlink_event_loop) {
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_event) sd_event *event = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *rtnl = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         _cleanup_free_ char *userdata = NULL;
         int ifindex;
 
@@ -183,9 +183,9 @@ static void test_async_destroy(void *userdata) {
 }
 
 TEST(netlink_call_async) {
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL, *reply = NULL;
-        _cleanup_(sd_netlink_slot_unrefp) sd_netlink_slot *slot = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *rtnl = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL, *reply = NULL;
+        _cleanup_unref(sd_netlink_slot) sd_netlink_slot *slot = NULL;
         _cleanup_free_ char *userdata = NULL;
         sd_netlink_destroy_t destroy_callback;
         const char *description;
@@ -273,10 +273,10 @@ static void test_async_object_destroy(void *userdata) {
 }
 
 TEST(async_destroy_callback) {
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL, *reply = NULL;
-        _cleanup_(test_async_object_unrefp) struct test_async_object *t = NULL;
-        _cleanup_(sd_netlink_slot_unrefp) sd_netlink_slot *slot = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *rtnl = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL, *reply = NULL;
+        _cleanup_unref(test_async_object) struct test_async_object *t = NULL;
+        _cleanup_unref(sd_netlink_slot) sd_netlink_slot *slot = NULL;
         int ifindex;
 
         ASSERT_OK(sd_netlink_open(&rtnl));
@@ -338,8 +338,8 @@ static int pipe_handler(sd_netlink *rtnl, sd_netlink_message *m, void *userdata)
 }
 
 TEST(pipe) {
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m1 = NULL, *m2 = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *rtnl = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m1 = NULL, *m2 = NULL;
         int ifindex, counter = 0;
 
         ASSERT_OK(sd_netlink_open(&rtnl));
@@ -363,8 +363,8 @@ TEST(pipe) {
 }
 
 TEST(message_container) {
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *rtnl = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         uint16_t u16_data;
         uint32_t u32_data;
         const char *string_data;
@@ -397,8 +397,8 @@ TEST(message_container) {
 }
 
 TEST(sd_netlink_add_match) {
-        _cleanup_(sd_netlink_slot_unrefp) sd_netlink_slot *s1 = NULL, *s2 = NULL;
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_unref(sd_netlink_slot) sd_netlink_slot *s1 = NULL, *s2 = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *rtnl = NULL;
 
         ASSERT_OK(sd_netlink_open(&rtnl));
 
@@ -413,8 +413,8 @@ TEST(sd_netlink_add_match) {
 }
 
 TEST(dump_addresses) {
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *rtnl = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *req = NULL, *reply = NULL;
 
         ASSERT_OK(sd_netlink_open(&rtnl));
 
@@ -444,8 +444,8 @@ TEST(dump_addresses) {
 }
 
 TEST(sd_netlink_message_get_errno) {
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *rtnl = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
 
         ASSERT_OK(sd_netlink_open(&rtnl));
 
@@ -454,8 +454,8 @@ TEST(sd_netlink_message_get_errno) {
 }
 
 TEST(message_array) {
-        _cleanup_(sd_netlink_unrefp) sd_netlink *genl = NULL;
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *genl = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
 
         ASSERT_OK(sd_genl_socket_open(&genl));
         ASSERT_OK(sd_genl_message_new(genl, CTRL_GENL_NAME, CTRL_CMD_GETFAMILY, &m));
@@ -495,9 +495,9 @@ TEST(message_array) {
 }
 
 TEST(message_strv) {
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
-        _cleanup_strv_free_ char **names_in = NULL, **names_out;
+        _cleanup_unref(sd_netlink) sd_netlink *rtnl = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
+        _cleanup_free(strv) char **names_in = NULL, **names_out;
         const char *p;
 
         ASSERT_OK(sd_netlink_open(&rtnl));
@@ -563,9 +563,9 @@ static int genl_ctrl_match_callback(sd_netlink *genl, sd_netlink_message *m, voi
 }
 
 TEST(genl) {
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        _cleanup_(sd_netlink_unrefp) sd_netlink *genl = NULL;
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_event) sd_event *event = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *genl = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         const char *name;
         uint8_t cmd;
         int r;
@@ -605,8 +605,8 @@ TEST(genl) {
 }
 
 static void remove_dummy_interfacep(int *ifindex) {
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *rtnl = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *message = NULL;
 
         if (!ifindex || *ifindex <= 0)
                 return;
@@ -618,10 +618,10 @@ static void remove_dummy_interfacep(int *ifindex) {
 }
 
 TEST(rtnl_set_link_name) {
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL, *reply = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *rtnl = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *message = NULL, *reply = NULL;
         _cleanup_(remove_dummy_interfacep) int ifindex = 0;
-        _cleanup_strv_free_ char **alternative_names = NULL;
+        _cleanup_free(strv) char **alternative_names = NULL;
         int r;
 
         if (geteuid() != 0)
@@ -704,7 +704,7 @@ TEST(rtnl_set_link_name) {
 }
 
 TEST(sock_diag_unix) {
-        _cleanup_(sd_netlink_unrefp) sd_netlink *nl = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *nl = NULL;
         int r;
 
         ASSERT_OK(sd_sock_diag_socket_open(&nl));
@@ -719,10 +719,10 @@ TEST(sock_diag_unix) {
         uint64_t cookie;
         ASSERT_OK(socket_get_cookie(unix_fd, &cookie));
 
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *message = NULL;
         ASSERT_OK(sd_sock_diag_message_new_unix(nl, &message, st.st_ino, cookie, UDIAG_SHOW_RQLEN));
 
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *reply = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *reply = NULL;
         r = sd_netlink_call(nl, message, /* timeout= */ 0, &reply);
         if (r == -ENOENT)
                 return (void) log_tests_skipped("CONFIG_UNIX_DIAG disabled");
