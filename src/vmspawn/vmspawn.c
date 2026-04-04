@@ -2930,11 +2930,11 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (r < 0)
                 return log_error_errno(r, "Failed to find systemd-socket-activate binary: %m");
 
-        _cleanup_free_ VirtiofsInfo *virtiofs = NULL;
-        size_t n_virtiofs = 0;
-        _cleanup_free_ char *rootdir_listen_address = NULL;
+        _cleanup_(virtiofs_infos_done) VirtiofsInfos virtiofs = {};
+
 
         if (arg_directory) {
+                _cleanup_free_ char *listen_address = NULL;
                 _cleanup_(fork_notify_terminate) PidRef child = PIDREF_NULL;
 
                 if (!GREEDY_REALLOC(children, n_children + 1))
@@ -2962,7 +2962,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                 /* target_uid= */ 0,
                                 /* uid_range= */ arg_uid_range,
                                 runtime_dir,
-                                &rootdir_listen_address,
+                                &listen_address,
                                 &child);
                 if (r < 0)
                         return r;
@@ -2975,14 +2975,18 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 pidref_done(&child);
                 children[n_children++] = TAKE_PTR(source);
 
-                if (!GREEDY_REALLOC(virtiofs, n_virtiofs + 1))
+                if (!GREEDY_REALLOC(virtiofs.entries, virtiofs.n + 1))
                         return log_oom();
 
-                virtiofs[n_virtiofs++] = (VirtiofsInfo) {
-                        .id          = "rootdir",
-                        .socket_path = rootdir_listen_address,
-                        .tag         = "root",
+                virtiofs.entries[virtiofs.n++] = (VirtiofsInfo) {
+                        .id          = strdup("rootdir"),
+                        .socket_path = TAKE_PTR(listen_address),
+                        .tag         = strdup("root"),
                 };
+
+                if (!virtiofs.entries[virtiofs.n - 1].id ||
+                    !virtiofs.entries[virtiofs.n - 1].tag)
+                        return log_oom();
 
                 if (strv_extend(&arg_kernel_cmdline_extra, "root=root rootfstype=virtiofs rw") < 0)
                         return log_oom();
@@ -3018,11 +3022,10 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         }
 
         _cleanup_free_ char *fstab_extra = NULL;
-        _cleanup_strv_free_ char **mount_listen_addresses = NULL, **mount_ids = NULL;
 
         for (size_t j = 0; j < arg_runtime_mounts.n_mounts; j++) {
                 RuntimeMount *m = arg_runtime_mounts.mounts + j;
-                _cleanup_free_ char *listen_address = NULL, *id = NULL;
+                _cleanup_free_ char *listen_address = NULL, *id = NULL, *tag = NULL;
                 _cleanup_(fork_notify_terminate) PidRef child = PIDREF_NULL;
 
                 if (!GREEDY_REALLOC(children, n_children + 1))
@@ -3051,24 +3054,9 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (asprintf(&id, "mnt%zu", j) < 0)
                         return log_oom();
 
-                if (!GREEDY_REALLOC(virtiofs, n_virtiofs + 1))
+                tag = strdup(id);
+                if (!tag)
                         return log_oom();
-
-                /* Ownership of listen_address and id strings transfers to the strv arrays
-                 * which keep them alive until after vmspawn_varlink_init() consumes them. */
-                r = strv_consume(&mount_listen_addresses, TAKE_PTR(listen_address));
-                if (r < 0)
-                        return log_oom();
-
-                r = strv_consume(&mount_ids, TAKE_PTR(id));
-                if (r < 0)
-                        return log_oom();
-
-                virtiofs[n_virtiofs++] = (VirtiofsInfo) {
-                        .id          = mount_ids[j],
-                        .socket_path = mount_listen_addresses[j],
-                        .tag         = mount_ids[j],
-                };
 
                 /* fstab uses whitespace as field separator, so octal-escape spaces in paths */
                 _cleanup_free_ char *escaped_target = octescape_full(m->target, SIZE_MAX, " \t");
@@ -3076,8 +3064,17 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_oom();
 
                 if (strextendf(&fstab_extra, "%s %s virtiofs %s,x-initrd.mount\n",
-                               mount_ids[j], escaped_target, m->read_only ? "ro" : "rw") < 0)
+                               id, escaped_target, m->read_only ? "ro" : "rw") < 0)
                         return log_oom();
+
+                if (!GREEDY_REALLOC(virtiofs.entries, virtiofs.n + 1))
+                        return log_oom();
+
+                virtiofs.entries[virtiofs.n++] = (VirtiofsInfo) {
+                        .id          = TAKE_PTR(id),
+                        .socket_path = TAKE_PTR(listen_address),
+                        .tag         = TAKE_PTR(tag),
+                };
         }
 
         if (fstab_extra) {
@@ -3528,7 +3525,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         _cleanup_(vmspawn_varlink_bridge_freep) VmspawnVarlinkBridge *bridge = NULL;
         r = vmspawn_varlink_init(&bridge, TAKE_FD(bridge_fds[0]), event, drives.drives, drives.n,
                               network.type ? &network : NULL,
-                              virtiofs, n_virtiofs);
+                              virtiofs.entries, virtiofs.n);
         if (r < 0)
                 return r;
 
