@@ -368,7 +368,7 @@ executables += [
                 'dependencies' : libm,
         },
         test_template + {
-                'sources' : files('test-mempress.c'),
+                'sources' : files('test-pressure.c'),
                 'dependencies' : threads,
         },
         test_template + {
