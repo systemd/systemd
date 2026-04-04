@@ -190,6 +190,25 @@ static int parse_image_path_argument(const char *path, char **ret_root, char **r
         if (r < 0)
                 return r;
 
+        /* If we got a sysfs path (e.g. from a udev-instantiated template unit's %f specifier),
+         * resolve it to the corresponding devnode. */
+        if (path_startswith(p, "/sys/")) {
+                _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+                const char *devname;
+
+                r = sd_device_new_from_syspath(&dev, p);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get device from syspath '%s': %m", p);
+
+                r = sd_device_get_devname(dev, &devname);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get devname for '%s': %m", p);
+
+                r = free_and_strdup(&p, devname);
+                if (r < 0)
+                        return log_oom();
+        }
+
         if (stat(p, &st) < 0)
                 return log_error_errno(errno, "Failed to stat %s: %m", p);
 
@@ -2033,7 +2052,7 @@ static int run(int argc, char *argv[]) {
                                 log_debug_errno(r, "Lacking permissions or missing /dev/loop-control to set up loopback block device for %s, using service: %m", arg_image);
                                 arg_via_service = true;
                         } else {
-                                if (arg_loop_ref) {
+                                if (arg_loop_ref && !LOOP_DEVICE_IS_FOREIGN(d)) {
                                         r = loop_device_set_filename(d, arg_loop_ref);
                                         if (r < 0)
                                                 log_warning_errno(r, "Failed to set loop reference string to '%s', ignoring: %m", arg_loop_ref);
