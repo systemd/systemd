@@ -2437,7 +2437,7 @@ static int run_context_show_result(RunContext *c) {
                         return table_log_add_error(r);
         }
 
-        r = table_print(t, stderr);
+        r = table_print_full(t, stderr, /* flush= */ true);
         if (r < 0)
                 return table_log_print_error(r);
 

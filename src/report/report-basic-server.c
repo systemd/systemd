@@ -47,9 +47,8 @@ static int help(void) {
                ansi_normal(),
                ansi_underline(),
                ansi_normal());
-        table_print(options, stdout);
 
-        return 0;
+        return table_print_or_warn(options);
 }
 
 static int parse_argv(int argc, char *argv[]) {

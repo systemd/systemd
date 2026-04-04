@@ -144,11 +144,7 @@ static int print_status_info(StatusInfo *i) {
                         return table_log_add_error(r);
         }
 
-        r = table_print(table, NULL);
-        if (r < 0)
-                return table_log_print_error(r);
-
-        return 0;
+        return table_print_or_warn(table);
 }
 
 static int verb_show_status(int argc, char *argv[], uintptr_t _data, void *userdata) {

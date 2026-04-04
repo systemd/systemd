@@ -77,7 +77,9 @@ static int help(void) {
                ansi_highlight(),
                ansi_normal());
 
-        table_print(options, stdout);
+        r = table_print_or_warn(options);
+        if (r < 0)
+                return r;
 
         printf("\nSee the %s for details.\n", link);
         return 0;
