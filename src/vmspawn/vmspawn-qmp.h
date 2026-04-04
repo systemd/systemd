@@ -92,13 +92,26 @@ static inline void qmp_virtiofs_infos_done(QmpVirtiofsInfos *infos) {
         infos->n = 0;
 }
 
+/* VSOCK device info for QMP-based setup via getfd + device_add */
+typedef struct QmpVsockInfo {
+        int fd;                 /* vhost-vsock fd to pass via getfd (-EBADF if unused) */
+        unsigned cid;           /* guest CID */
+} QmpVsockInfo;
+
+static inline void qmp_vsock_info_done(QmpVsockInfo *info) {
+        assert(info);
+        info->fd = safe_close(info->fd);
+}
+
 /* QMP handshake, feature detection, device setup, and VM start.
- * vmgenid is optional: pass SD_ID128_NULL to skip vmgenid device creation. */
+ * vmgenid is optional: pass SD_ID128_NULL to skip vmgenid device creation.
+ * vsock is optional: pass NULL to skip VSOCK device creation. */
 int vmspawn_qmp_init(QmpClient **ret, int qmp_fd, sd_event *event,
                       const QmpDriveInfo *drives, size_t n_drives,
                       const QmpNetworkInfo *network,
                       const QmpVirtiofsInfo *virtiofs, size_t n_virtiofs,
-                      sd_id128_t vmgenid);
+                      sd_id128_t vmgenid,
+                      const QmpVsockInfo *vsock);
 
 /* Varlink server for VM control on top of an established QMP client */
 int vmspawn_qmp_setup(VmspawnQmpContext **ret, QmpClient *qmp,
