@@ -45,6 +45,8 @@ struct QmpClient {
         qmp_disconnect_callback_t disconnect_callback;
         void *disconnect_userdata;
 
+        unsigned next_fdset_id;   /* monotonic fdset-id allocator for add-fd */
+
         bool connected;
 };
 
@@ -303,7 +305,7 @@ static int qmp_client_wait_response(
                         if (ret_result)
                                 *ret_result = sd_json_variant_ref(result);
                         if (ret_error)
-                                *ret_error = NULL;
+                                *ret_error = mfree(*ret_error);
                         return 0;
                 }
 
@@ -619,6 +621,56 @@ int qmp_client_call_send_fd(
         assert_return(!c->io_event_source, -EBUSY);
 
         return qmp_client_call_full(c, command, arguments, fd, ret_result, ret_error);
+}
+
+static int qmp_client_fdset_add_fd_internal(QmpClient *c, unsigned fdset_id, int fd) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *args = NULL;
+        _cleanup_free_ char *error_class = NULL;
+        int r;
+
+        r = sd_json_buildo(&args, SD_JSON_BUILD_PAIR_UNSIGNED("fdset-id", fdset_id));
+        if (r < 0)
+                return r;
+
+        r = qmp_client_call_send_fd(c, "add-fd", args, fd, /* ret_result= */ NULL, &error_class);
+        if (r < 0)
+                return log_error_errno(r, "Failed to pass fd to QEMU via add-fd (fdset %u): %s",
+                                       fdset_id, strna(error_class));
+        return 0;
+}
+
+int qmp_client_fdset_new(QmpClient *c, int fd, QmpFdset *ret) {
+        _cleanup_free_ char *path = NULL;
+        unsigned id;
+        int r;
+
+        assert_return(c, -EINVAL);
+        assert_return(fd >= 0, -EBADF);
+        assert_return(ret, -EINVAL);
+
+        id = c->next_fdset_id++;
+
+        r = qmp_client_fdset_add_fd_internal(c, id, fd);
+        if (r < 0)
+                return r;
+
+        if (asprintf(&path, "/dev/fdset/%u", id) < 0)
+                return log_oom();
+
+        *ret = (QmpFdset) {
+                .id   = id,
+                .path = TAKE_PTR(path),
+        };
+        return 0;
+}
+
+int qmp_client_fdset_add_fd(QmpClient *c, QmpFdset *fdset, int fd) {
+        assert_return(c, -EINVAL);
+        assert_return(fdset, -EINVAL);
+        assert_return(fdset->path, -EINVAL);
+        assert_return(fd >= 0, -EBADF);
+
+        return qmp_client_fdset_add_fd_internal(c, fdset->id, fd);
 }
 int qmp_client_execute(
                 QmpClient *c,

@@ -58,6 +58,25 @@ int qmp_client_call_send_fd(
                 sd_json_variant **ret_result,
                 char **ret_error);
 
+/* Represents a QEMU fdset created via add-fd. The path field ("/dev/fdset/N")
+ * is used in blockdev-add filename fields. Multiple fds can be added to the
+ * same fdset (for different O_ACCMODE flags to support reopen). */
+typedef struct QmpFdset {
+        unsigned id;
+        char *path;   /* owned: "/dev/fdset/N" */
+} QmpFdset;
+
+static inline void qmp_fdset_done(QmpFdset *fdset) {
+        if (fdset)
+                fdset->path = mfree(fdset->path);
+}
+
+/* Create a new fdset and add an fd to it via add-fd + SCM_RIGHTS. */
+int qmp_client_fdset_new(QmpClient *client, int fd, QmpFdset *ret);
+
+/* Add another fd to an existing fdset (for multi-access-mode support). */
+int qmp_client_fdset_add_fd(QmpClient *client, QmpFdset *fdset, int fd);
+
 /* Send a QMP command asynchronously. The callback is invoked exactly once from the sd-event loop when
  * the matching response arrives or the connection drops (-ECONNRESET). Returns 0 if the command was
  * sent and registered (callback will be invoked later), negative errno on failure (callback NOT invoked). */
