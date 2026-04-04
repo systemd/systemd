@@ -154,7 +154,7 @@ static int context_copy(const Context *source, Context *ret) {
         assert(ret);
         assert(source->rfd >= 0 || source->rfd == AT_FDCWD || source->rfd == XAT_FDROOT);
 
-        _cleanup_(context_done) Context copy = (Context) {
+        _cleanup_done(context) Context copy = (Context) {
                 .rfd = source->rfd,
                 .action = source->action,
                 .machine_id = source->machine_id,
@@ -381,7 +381,7 @@ static int context_set_kernel(Context *c, const char *s) {
 }
 
 static int context_set_path_strv(Context *c, char* const* strv, const char *source, const char *name, char ***dest) {
-        _cleanup_strv_free_ char **w = NULL;
+        _cleanup_free(strv) char **w = NULL;
         int r;
 
         assert(c);
@@ -421,7 +421,7 @@ static int context_set_path_strv(Context *c, char* const* strv, const char *sour
 }
 
 static int context_set_plugins(Context *c, const char *s, const char *source) {
-        _cleanup_strv_free_ char **v = NULL;
+        _cleanup_free(strv) char **v = NULL;
         int r;
 
         assert(c);
@@ -959,7 +959,7 @@ static int context_remove_entry_dir(Context *c) {
 }
 
 static int context_build_arguments(Context *c) {
-        _cleanup_strv_free_ char **a = NULL;
+        _cleanup_free(strv) char **a = NULL;
         const char *verb;
         int r;
 
@@ -1021,7 +1021,7 @@ static int context_build_arguments(Context *c) {
 }
 
 static int context_build_environment(Context *c) {
-        _cleanup_strv_free_ char **e = NULL;
+        _cleanup_free(strv) char **e = NULL;
         int r;
 
         assert(c);
@@ -1200,7 +1200,7 @@ static int verb_add(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (bypass())
                 return 0;
 
-        _cleanup_(context_done) Context c = CONTEXT_NULL;
+        _cleanup_done(context) Context c = CONTEXT_NULL;
         r = context_from_cmdline(&c, ACTION_ADD);
         if (r < 0)
                 return r;
@@ -1229,7 +1229,7 @@ static int verb_add_all(int argc, char *argv[], uintptr_t _data, void *userdata)
         if (bypass())
                 return 0;
 
-        _cleanup_(context_done) Context c = CONTEXT_NULL;
+        _cleanup_done(context) Context c = CONTEXT_NULL;
         r = context_from_cmdline(&c, ACTION_ADD);
         if (r < 0)
                 return r;
@@ -1266,7 +1266,7 @@ static int verb_add_all(int argc, char *argv[], uintptr_t _data, void *userdata)
                         continue;
                 }
 
-                _cleanup_(context_done) Context copy = CONTEXT_NULL;
+                _cleanup_done(context) Context copy = CONTEXT_NULL;
 
                 r = context_copy(&c, &copy);
                 if (r < 0)
@@ -1322,7 +1322,7 @@ static int verb_remove(int argc, char *argv[], uintptr_t _data, void *userdata) 
         if (bypass())
                 return 0;
 
-        _cleanup_(context_done) Context c = CONTEXT_NULL;
+        _cleanup_done(context) Context c = CONTEXT_NULL;
         r = context_from_cmdline(&c, ACTION_REMOVE);
         if (r < 0)
                 return r;
@@ -1343,14 +1343,14 @@ static int verb_remove(int argc, char *argv[], uintptr_t _data, void *userdata) 
 }
 
 static int verb_inspect(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(table_unrefp) Table *t = NULL;
+        _cleanup_unref(table) Table *t = NULL;
         _cleanup_free_ char *vmlinuz = NULL;
         const char *version, *kernel;
         char **initrds;
         struct utsname un;
         int r;
 
-        _cleanup_(context_done) Context c = CONTEXT_NULL;
+        _cleanup_done(context) Context c = CONTEXT_NULL;
         r = context_from_cmdline(&c, ACTION_INSPECT);
         if (r < 0)
                 return r;
@@ -1459,7 +1459,7 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_close_ int fd = -EBADF;
         int r;
 
-        _cleanup_(context_done) Context c = CONTEXT_NULL;
+        _cleanup_done(context) Context c = CONTEXT_NULL;
         r = context_from_cmdline(&c, ACTION_INSPECT);
         if (r < 0)
                 return r;
@@ -1473,7 +1473,7 @@ static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to numerate /usr/lib/modules/ contents: %m");
 
-        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_unref(table) Table *table = NULL;
         table = table_new("version", "has kernel", "path");
         if (!table)
                 return log_oom();
@@ -1734,7 +1734,7 @@ static int run(int argc, char* argv[]) {
         if (r <= 0)
                 return r;
 
-        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
+        _cleanup_unref(loop_device) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
         if (arg_image) {
                 assert(!arg_root);

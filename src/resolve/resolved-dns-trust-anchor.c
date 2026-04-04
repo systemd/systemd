@@ -60,7 +60,7 @@ static int add_root_ksk(
                 const void *digest,
                 size_t digest_size) {
 
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
         int r;
 
         rr = dns_resource_record_new(key);
@@ -83,8 +83,8 @@ static int add_root_ksk(
 }
 
 static int dns_trust_anchor_add_builtin_positive(DnsTrustAnchor *d) {
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *answer = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
         int r;
 
         assert(d);
@@ -221,9 +221,9 @@ static int dns_trust_anchor_add_builtin_negative(DnsTrustAnchor *d) {
 }
 
 static int dns_trust_anchor_load_positive(DnsTrustAnchor *d, const char *path, unsigned line, const char *s) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
         _cleanup_free_ char *domain = NULL, *class = NULL, *type = NULL;
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *answer = NULL;
         DnsAnswer *old_answer = NULL;
         const char *p = s;
         int r;
@@ -430,7 +430,7 @@ static int dns_trust_anchor_load_files(
                 const char *suffix,
                 int (*loader)(DnsTrustAnchor *d, const char *path, unsigned n, const char *line)) {
 
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_free(strv) char **files = NULL;
         int r;
 
         assert(d);
@@ -610,7 +610,7 @@ static int dns_trust_anchor_revoked_put(DnsTrustAnchor *d, DnsResourceRecord *rr
 }
 
 static int dns_trust_anchor_remove_revoked(DnsTrustAnchor *d, DnsResourceRecord *rr) {
-        _cleanup_(dns_answer_unrefp) DnsAnswer *new_answer = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *new_answer = NULL;
         DnsAnswer *old_answer;
         DnsAnswerItem *item;
         int r;

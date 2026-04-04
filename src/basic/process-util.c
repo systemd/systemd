@@ -246,7 +246,7 @@ int pid_get_cmdline(pid_t pid, size_t max_columns, ProcessCmdlineFlags flags, ch
 
                 assert(!(flags & PROCESS_CMDLINE_USE_LOCALE));
 
-                _cleanup_strv_free_ char **args = NULL;
+                _cleanup_free(strv) char **args = NULL;
 
                 /* Drop trailing NULs, otherwise strv_parse_nulstr() adds additional empty strings at the end.
                  * See also issue #21186. */
@@ -325,7 +325,7 @@ int pid_get_cmdline_strv(pid_t pid, ProcessCmdlineFlags flags, char ***ret) {
 }
 
 int pidref_get_cmdline_strv(const PidRef *pid, ProcessCmdlineFlags flags, char ***ret) {
-        _cleanup_strv_free_ char **args = NULL;
+        _cleanup_free(strv) char **args = NULL;
         int r;
 
         if (!pidref_is_set(pid))
@@ -681,7 +681,7 @@ int pidref_get_ppid_as_pidref(const PidRef *pidref, PidRef *ret) {
                 return r;
 
         for (unsigned attempt = 0; attempt < 16; attempt++) {
-                _cleanup_(pidref_done) PidRef parent = PIDREF_NULL;
+                _cleanup_done(pidref) PidRef parent = PIDREF_NULL;
 
                 r = pidref_set_pid(&parent, ppid);
                 if (r < 0)
@@ -1029,7 +1029,7 @@ int pidref_is_alive(const PidRef *pidref) {
 }
 
 int pidref_from_same_root_fs(PidRef *a, PidRef *b) {
-        _cleanup_(pidref_done) PidRef self = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef self = PIDREF_NULL;
         int r;
 
         /* Checks if the two specified processes have the same root fs. Either can be specified as NULL in
@@ -1183,7 +1183,7 @@ void valgrind_summary_hack(void) {
                         exit(EXIT_SUCCESS);
                 else {
                         log_info("Spawned valgrind helper as PID "PID_FMT".", pid);
-                        _cleanup_(pidref_done) PidRef pidref = PIDREF_MAKE_FROM_PID(pid);
+                        _cleanup_done(pidref) PidRef pidref = PIDREF_MAKE_FROM_PID(pid);
                         (void) pidref_set_pid(&pidref, pid);
                         (void) pidref_wait_for_terminate(&pidref, NULL);
                 }
@@ -1481,7 +1481,7 @@ int pidref_safe_fork_full(
                 /* If we are in the intermediary process, exit now */
                 if (intermediary) {
                         if (pidref_transport_fds[1] >= 0) {
-                                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+                                _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
 
                                 r = pidref_set_pid(&pidref, pid);
                                 if (r < 0) {
@@ -1776,7 +1776,7 @@ int namespace_fork_full(
         if (r < 0)
                 return r;
         if (r == 0) {
-                _cleanup_(pidref_done) PidRef pidref_inner = PIDREF_NULL;
+                _cleanup_done(pidref) PidRef pidref_inner = PIDREF_NULL;
 
                 /* Child */
 

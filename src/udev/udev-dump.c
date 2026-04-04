@@ -35,7 +35,7 @@ void event_cache_written_sysctl(UdevEvent *event, const char *attr, const char *
 
 static int dump_event_json(UdevEvent *event, sd_json_format_flags_t flags, FILE *f) {
         sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         const char *str;
         int r;
 
@@ -90,7 +90,7 @@ static int dump_event_json(UdevEvent *event, sd_json_format_flags_t flags, FILE 
         }
 
         if (sd_device_get_devname(dev, &str) >= 0) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *node = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *node = NULL;
 
                 r = sd_json_variant_set_field_string(&node, "path", str);
                 if (r < 0)
@@ -107,7 +107,7 @@ static int dump_event_json(UdevEvent *event, sd_json_format_flags_t flags, FILE 
                                 return r;
                 }
 
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *owner = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *owner = NULL;
 
                 uid_t uid = event->uid;
                 if (!uid_is_valid(uid))
@@ -159,7 +159,7 @@ static int dump_event_json(UdevEvent *event, sd_json_format_flags_t flags, FILE 
                                 return r;
                 }
 
-                _cleanup_strv_free_ char **links = NULL;
+                _cleanup_free(strv) char **links = NULL;
                 FOREACH_DEVICE_DEVLINK(dev, devlink) {
                         r = strv_extend(&links, devlink);
                         if (r < 0)
@@ -179,7 +179,7 @@ static int dump_event_json(UdevEvent *event, sd_json_format_flags_t flags, FILE 
                                 return r;
                 }
 
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *labels = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *labels = NULL;
                 const char *name, *label;
                 ORDERED_HASHMAP_FOREACH_KEY(label, name, event->seclabel_list) {
                         r = sd_json_variant_append_arraybo(
@@ -205,7 +205,7 @@ static int dump_event_json(UdevEvent *event, sd_json_format_flags_t flags, FILE 
 
         int ifindex;
         if (sd_device_get_ifindex(dev, &ifindex) >= 0) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *netif = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *netif = NULL;
 
                 r = sd_json_variant_set_field_integer(&netif, "index", ifindex);
                 if (r < 0)
@@ -228,7 +228,7 @@ static int dump_event_json(UdevEvent *event, sd_json_format_flags_t flags, FILE 
                         return r;
         }
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *sysattrs = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *sysattrs = NULL;
         const char *key, *value;
         HASHMAP_FOREACH_KEY(value, key, event->written_sysattrs) {
                 r = sd_json_variant_append_arraybo(
@@ -243,7 +243,7 @@ static int dump_event_json(UdevEvent *event, sd_json_format_flags_t flags, FILE 
         if (r < 0)
                 return r;
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *sysctls = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *sysctls = NULL;
         HASHMAP_FOREACH_KEY(value, key, event->written_sysctls) {
                 r = sd_json_variant_append_arraybo(
                                 &sysctls,
@@ -257,7 +257,7 @@ static int dump_event_json(UdevEvent *event, sd_json_format_flags_t flags, FILE 
         if (r < 0)
                 return r;
 
-        _cleanup_strv_free_ char **tags = NULL;
+        _cleanup_free(strv) char **tags = NULL;
         FOREACH_DEVICE_TAG(dev, tag) {
                 r = strv_extend(&tags, tag);
                 if (r < 0)
@@ -291,7 +291,7 @@ static int dump_event_json(UdevEvent *event, sd_json_format_flags_t flags, FILE 
                         return r;
         }
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *commands = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *commands = NULL;
         void *val;
         const char *command;
         ORDERED_HASHMAP_FOREACH_KEY(val, command, event->run_list) {

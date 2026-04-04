@@ -321,7 +321,7 @@ int cg_migrate(
                 const char *to,
                 CGroupFlags flags) {
 
-        _cleanup_set_free_ Set *s = NULL;
+        _cleanup_free(set) Set *s = NULL;
         bool done;
         int r, ret = 0;
 

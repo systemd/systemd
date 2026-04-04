@@ -12,8 +12,8 @@
  * ================================================================ */
 
 TEST(dns_answer_add_a) {
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *answer = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
 
         ASSERT_NOT_NULL(answer = dns_answer_new(0));
 
@@ -29,8 +29,8 @@ TEST(dns_answer_add_a) {
  * ================================================================ */
 
 TEST(dns_answer_match_key_single) {
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *answer = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
         DnsResourceKey *key;
         DnsAnswerFlags flags;
 
@@ -78,7 +78,7 @@ TEST(dns_answer_match_key_single) {
 }
 
 TEST(dns_answer_match_key_multiple) {
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *answer = NULL;
         DnsResourceRecord *rr;
         DnsResourceKey *key;
         DnsAnswerFlags flags;
@@ -112,7 +112,7 @@ TEST(dns_answer_match_key_multiple) {
  * ================================================================ */
 
 TEST(dns_answer_find_soa) {
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *answer = NULL;
         DnsResourceRecord *rr;
         DnsResourceKey *key;
         DnsAnswerFlags flags;
@@ -177,7 +177,7 @@ TEST(dns_answer_find_soa) {
 }
 
 TEST(dns_answer_find_soa_multi) {
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *answer = NULL;
         DnsResourceKey *key;
         DnsResourceRecord *rr;
         DnsAnswerFlags flags;
@@ -212,8 +212,8 @@ TEST(dns_answer_find_soa_multi) {
  * ================================================================ */
 
 TEST(dns_answer_merge) {
-        _cleanup_(dns_answer_unrefp) DnsAnswer *a = NULL, *b = NULL, *ret = NULL;
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr_a = NULL, *rr_b = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *a = NULL, *b = NULL, *ret = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr_a = NULL, *rr_b = NULL;
 
         ASSERT_NOT_NULL(a = dns_answer_new(0));
         ASSERT_OK(dns_answer_merge(a, a, &ret));
@@ -258,8 +258,8 @@ TEST(dns_answer_merge) {
  * ================================================================ */
 
 TEST(dns_answer_extend) {
-        _cleanup_(dns_answer_unrefp) DnsAnswer *a = NULL, *b = NULL;
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr_a = NULL, *rr_b = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *a = NULL, *b = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr_a = NULL, *rr_b = NULL;
 
         ASSERT_NOT_NULL(a = dns_answer_new(0));
         ASSERT_NOT_NULL(b = dns_answer_new(0));
@@ -284,13 +284,13 @@ TEST(dns_answer_extend) {
  * ================================================================ */
 
 static DnsAnswer* prepare_answer(void) {
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *answer = NULL;
 
         ASSERT_NOT_NULL(answer = dns_answer_new(0));
 
         char **hosts = STRV_MAKE("a.example.com", "b.example.com", "c.example.com");
         STRV_FOREACH(h, hosts) {
-                _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+                _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
 
                 ASSERT_NOT_NULL(rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_A, *h));
                 rr->a.in_addr.s_addr = htobe32(0xc0a8017f);
@@ -301,7 +301,7 @@ static DnsAnswer* prepare_answer(void) {
 }
 
 TEST(dns_answer_remove_by_key) {
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = prepare_answer();
+        _cleanup_unref(dns_answer) DnsAnswer *answer = prepare_answer();
         DnsResourceKey *key;
 
         /* ignore non-matching class */
@@ -343,13 +343,13 @@ TEST(dns_answer_remove_by_key) {
 }
 
 TEST(dns_answer_remove_by_rr) {
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = prepare_answer();
+        _cleanup_unref(dns_answer) DnsAnswer *answer = prepare_answer();
 
         char **hosts = STRV_MAKE("a.example.com", "b.example.com", "c.example.com");
         unsigned n = strv_length(hosts);
         STRV_FOREACH(h, hosts) {
-                _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
-                _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+                _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
+                _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
 
                 ASSERT_NOT_NULL(key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, *h));
                 ASSERT_OK_POSITIVE(dns_answer_match_key(answer, key, /* ret_flags= */ NULL));
@@ -372,7 +372,7 @@ TEST(dns_answer_remove_by_rr) {
 }
 
 TEST(dns_answer_remove_by_answer_keys) {
-        _cleanup_(dns_answer_unrefp) DnsAnswer *a = prepare_answer(), *b = prepare_answer();
+        _cleanup_unref(dns_answer) DnsAnswer *a = prepare_answer(), *b = prepare_answer();
         DnsResourceKey *key;
 
         ASSERT_OK(dns_answer_remove_by_answer_keys(&a, b));
@@ -410,7 +410,7 @@ TEST(dns_answer_remove_by_answer_keys) {
  * ================================================================ */
 
 TEST(dns_answer_copy_by_key) {
-        _cleanup_(dns_answer_unrefp) DnsAnswer *source = NULL, *target = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *source = NULL, *target = NULL;
         DnsResourceRecord *rr;
         DnsResourceKey *key;
         DnsAnswerFlags flags;
@@ -487,7 +487,7 @@ TEST(dns_answer_copy_by_key) {
  * ================================================================ */
 
 TEST(dns_answer_move_by_key) {
-        _cleanup_(dns_answer_unrefp) DnsAnswer *source = NULL, *target = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *source = NULL, *target = NULL;
         DnsResourceRecord *rr;
         DnsResourceKey *key;
 
@@ -568,8 +568,8 @@ TEST(dns_answer_move_by_key) {
  * ================================================================ */
 
 TEST(dns_answer_has_dname_for_cname) {
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *cname = NULL, *dname = NULL, *rr = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *answer = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *cname = NULL, *dname = NULL, *rr = NULL;
 
         ASSERT_NOT_NULL(answer = dns_answer_new(0));
 
@@ -603,9 +603,9 @@ TEST(dns_answer_has_dname_for_cname) {
  * ================================================================ */
 
 TEST(dns_answer_dump) {
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *answer = NULL;
         DnsResourceRecord *rr;
-        _cleanup_(memstream_done) MemStream ms = {};
+        _cleanup_done(memstream) MemStream ms = {};
         _cleanup_free_ char *buf = NULL;
         FILE *f;
 
@@ -656,9 +656,9 @@ TEST(dns_answer_dump) {
 /* link-local addresses are a9fe0100 (169.254.1.0) to a9fefeff (169.254.254.255) */
 
 TEST(dns_answer_order_by_scope) {
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *answer = NULL;
         DnsResourceRecord *rr;
-        _cleanup_(memstream_done) MemStream ms = {};
+        _cleanup_done(memstream) MemStream ms = {};
         _cleanup_free_ char *buf = NULL;
         FILE *f;
 

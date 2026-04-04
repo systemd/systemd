@@ -661,7 +661,7 @@ char* strip_tab_ansi(char **ibuf, size_t *_isz, size_t highlight[2]) {
                 STATE_OSC,
                 STATE_OSC_CLOSING,
         } state = STATE_OTHER;
-        _cleanup_(memstream_done) MemStream m = {};
+        _cleanup_done(memstream) MemStream m = {};
         size_t isz, shift[2] = {}, n_carriage_returns = 0;
         FILE *f;
 

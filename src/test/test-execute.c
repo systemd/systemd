@@ -86,7 +86,7 @@ static void wait_for_service_finish(Manager *m, Unit *unit) {
         printf("%s\n", unit->id);
         exec_context_dump(&service->exec_context, stdout, "\t");
 
-        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *s = NULL;
         ASSERT_OK(sd_event_add_time_relative(m->event, &s, CLOCK_MONOTONIC, timeout, 0, time_handler, unit));
 
         /* Here, sd_event_loop() cannot be used, as the sd_event object will be reused in the next test case. */
@@ -247,7 +247,7 @@ static bool apparmor_restrict_unprivileged_userns(void) {
 }
 
 static bool have_userns_privileges(void) {
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         int r;
 
         if (apparmor_restrict_unprivileged_userns())
@@ -331,7 +331,7 @@ static void test_exec_bindpaths(Manager *m) {
 }
 
 static void test_exec_cpuaffinity(Manager *m) {
-        _cleanup_(cpu_set_done) CPUSet c = {};
+        _cleanup_done(cpu_set) CPUSet c = {};
 
         ASSERT_OK(cpu_set_realloc(&c, 8192)); /* just allocate the maximum possible size */
         ASSERT_OK_ERRNO(sched_getaffinity(0, c.allocated, c.set));
@@ -692,12 +692,12 @@ static int on_spawn_exit(sd_event_source *s, const siginfo_t *si, void *userdata
 }
 
 static int find_libraries(const char *exec, char ***ret) {
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
-        _cleanup_(sd_event_source_unrefp) sd_event_source *sigchld_source = NULL;
-        _cleanup_(sd_event_source_unrefp) sd_event_source *stdout_source = NULL;
-        _cleanup_(sd_event_source_unrefp) sd_event_source *stderr_source = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *sigchld_source = NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *stdout_source = NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *stderr_source = NULL;
         _cleanup_close_pair_ int outpipe[2] = EBADF_PAIR, errpipe[2] = EBADF_PAIR;
-        _cleanup_strv_free_ char **libraries = NULL;
+        _cleanup_free(strv) char **libraries = NULL;
         _cleanup_free_ char *result = NULL;
         int r;
 
@@ -707,7 +707,7 @@ static int find_libraries(const char *exec, char ***ret) {
         ASSERT_OK_ERRNO(pipe2(outpipe, O_NONBLOCK|O_CLOEXEC));
         ASSERT_OK_ERRNO(pipe2(errpipe, O_NONBLOCK|O_CLOEXEC));
 
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         r = pidref_safe_fork_full(
                         "(spawn-ldd)",
                         (int[]) { -EBADF, outpipe[1], errpipe[1] },
@@ -737,7 +737,7 @@ static int find_libraries(const char *exec, char ***ret) {
 
         ASSERT_OK(sd_event_loop(e));
 
-        _cleanup_strv_free_ char **v = NULL;
+        _cleanup_free(strv) char **v = NULL;
         ASSERT_OK(strv_split_newlines_full(&v, result, 0));
 
         STRV_FOREACH(q, v) {
@@ -783,7 +783,7 @@ static int find_libraries(const char *exec, char ***ret) {
 static void test_exec_mount_apivfs(Manager *m) {
 #if !HAS_FEATURE_ADDRESS_SANITIZER
         _cleanup_free_ char *fullpath_touch = NULL, *fullpath_test = NULL, *data = NULL;
-        _cleanup_strv_free_ char **libraries = NULL, **libraries_test = NULL;
+        _cleanup_free(strv) char **libraries = NULL, **libraries_test = NULL;
         int r;
 
         ASSERT_NOT_NULL(user_runtime_unit_dir);
@@ -1347,7 +1347,7 @@ typedef struct test_entry {
 static void run_tests(RuntimeScope scope, char **patterns) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
         _cleanup_free_ char *unit_paths = NULL;
-        _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_free(manager) Manager *m = NULL;
         usec_t start, finish;
         int r;
 
@@ -1541,7 +1541,7 @@ static int prepare_ns(const char *process_name) {
 }
 
 TEST(run_tests_root) {
-        _cleanup_strv_free_ char **filters = NULL;
+        _cleanup_free(strv) char **filters = NULL;
 
         if (!have_namespaces())
                 return (void) log_tests_skipped("unshare() is disabled");
@@ -1565,7 +1565,7 @@ TEST(run_tests_without_unshare) {
         }
 
 #if HAVE_SECCOMP
-        _cleanup_strv_free_ char **filters = NULL;
+        _cleanup_free(strv) char **filters = NULL;
         int r;
 
         /* The following tests are for 1beab8b0d0ff2d7d1436b52d4a0c3d56dc908962. */
@@ -1576,7 +1576,7 @@ TEST(run_tests_without_unshare) {
         ASSERT_NOT_NULL((filters = strv_copy(strv_skip(saved_argv, 1))));
 
         if (prepare_ns("(test-execute-without-unshare)") == 0) {
-                _cleanup_hashmap_free_ Hashmap *s = NULL;
+                _cleanup_free(hashmap) Hashmap *s = NULL;
 
                 r = sym_seccomp_syscall_resolve_name("unshare");
                 ASSERT_NE(r, __NR_SCMP_ERROR);
@@ -1596,7 +1596,7 @@ TEST(run_tests_without_unshare) {
 }
 
 TEST(run_tests_unprivileged) {
-        _cleanup_strv_free_ char **filters = NULL;
+        _cleanup_free(strv) char **filters = NULL;
 
         if (!have_namespaces())
                 return (void) log_tests_skipped("unshare() is disabled");

@@ -1321,7 +1321,7 @@ static void cgroup_apply_bind_network_interface(Unit *u) {
 }
 
 static int cgroup_apply_devices(Unit *u) {
-        _cleanup_(bpf_program_freep) BPFProgram *prog = NULL;
+        _cleanup_free(bpf_program) BPFProgram *prog = NULL;
         CGroupContext *c;
         CGroupDevicePolicy policy;
         int r;
@@ -2118,7 +2118,7 @@ static int unit_update_cgroup(
 }
 
 static int unit_attach_pid_to_cgroup_via_bus(Unit *u, const char *cgroup_path, pid_t pid) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(u);
@@ -2712,7 +2712,7 @@ static bool unit_maybe_release_cgroup(Unit *u) {
 }
 
 static int unit_prune_cgroup_via_bus(Unit *u) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(u);
@@ -2813,7 +2813,7 @@ void unit_prune_cgroup(Unit *u) {
 }
 
 int unit_search_main_pid(Unit *u, PidRef *ret) {
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -2829,7 +2829,7 @@ int unit_search_main_pid(Unit *u, PidRef *ret) {
                 return r;
 
         for (;;) {
-                _cleanup_(pidref_done) PidRef npidref = PIDREF_NULL;
+                _cleanup_done(pidref) PidRef npidref = PIDREF_NULL;
 
                 /* cg_read_pidref() will return an error on unmapped PIDs.
                  * We can't reasonably deal with units that contain those. */
@@ -3085,7 +3085,7 @@ static void unit_add_to_cgroup_oom_queue(Unit *u) {
 
         /* Trigger the defer event */
         if (!u->manager->cgroup_oom_event_source) {
-                _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+                _cleanup_unref(sd_event_source) sd_event_source *s = NULL;
 
                 r = sd_event_add_defer(u->manager->event, &s, on_cgroup_oom_event, u->manager);
                 if (r < 0) {
@@ -4122,7 +4122,7 @@ int unit_get_cpuset(Unit *u, CPUSet *cpus, const char *name) {
 }
 
 CGroupRuntime* cgroup_runtime_new(void) {
-        _cleanup_(cgroup_runtime_freep) CGroupRuntime *crt = NULL;
+        _cleanup_free(cgroup_runtime) CGroupRuntime *crt = NULL;
 
         crt = new(CGroupRuntime, 1);
         if (!crt)

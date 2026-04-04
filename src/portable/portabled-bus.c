@@ -86,7 +86,7 @@ static int property_get_profiles(
                 void *userdata,
                 sd_bus_error *error) {
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         Manager *m = ASSERT_PTR(userdata);
         int r;
 
@@ -125,8 +125,8 @@ static int method_get_image(sd_bus_message *message, void *userdata, sd_bus_erro
 }
 
 static int method_list_images(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_hashmap_free_ Hashmap *images = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
+        _cleanup_free(hashmap) Hashmap *images = NULL;
         Manager *m = ASSERT_PTR(userdata);
         Image *image;
         int r;
@@ -146,7 +146,7 @@ static int method_list_images(sd_bus_message *message, void *userdata, sd_bus_er
                 return r;
 
         HASHMAP_FOREACH(image, images) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error_state = SD_BUS_ERROR_NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error_state = SD_BUS_ERROR_NULL;
                 PortableState state = _PORTABLE_STATE_INVALID;
                 _cleanup_free_ char *p = NULL;
 
@@ -215,7 +215,7 @@ static int method_get_image_metadata(sd_bus_message *message, void *userdata, sd
 }
 
 static int method_get_image_state(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_strv_free_ char **extension_images = NULL;
+        _cleanup_free(strv) char **extension_images = NULL;
         Manager *m = ASSERT_PTR(userdata);
         const char *name_or_path;
         PortableState state;
@@ -264,7 +264,7 @@ static int method_attach_image(sd_bus_message *message, void *userdata, sd_bus_e
 }
 
 static int method_detach_image(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_strv_free_ char **extension_images = NULL;
+        _cleanup_free(strv) char **extension_images = NULL;
         PortableChange *changes = NULL;
         PortableFlags flags = 0;
         Manager *m = ASSERT_PTR(userdata);
@@ -558,7 +558,7 @@ static int reply_portable_compose_message(sd_bus_message *reply, const PortableC
 }
 
 int reply_portable_changes(sd_bus_message *m, const PortableChange *changes, size_t n_changes) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         int r;
 
         assert(m);
@@ -581,7 +581,7 @@ int reply_portable_changes_pair(
                 const PortableChange *changes_second,
                 size_t n_changes_second) {
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         int r;
 
         assert(m);

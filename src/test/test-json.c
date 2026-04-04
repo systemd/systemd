@@ -89,7 +89,7 @@ static void test_tokenizer_one(const char *data, ...) {
 typedef void (*Test)(sd_json_variant *);
 
 static void test_variant_one(const char *data, Test test) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *w = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL, *w = NULL;
         _cleanup_free_ char *s = NULL;
         int r;
 
@@ -296,7 +296,7 @@ static int test_callback(sd_json_variant **ret, const char *name, void *userdata
 }
 
 TEST(build) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *a = NULL, *b = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *a = NULL, *b = NULL;
         _cleanup_free_ char *s = NULL, *t = NULL;
 
         assert_se(sd_json_build(&a, SD_JSON_BUILD_STRING("hallo")) >= 0);
@@ -382,12 +382,12 @@ TEST(build) {
 
         assert_se(sd_json_variant_equal(a, b));
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *x = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *x = NULL;
         assert_se(sd_json_build(&x, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("foo", SD_JSON_BUILD_INTEGER(77)),
                                                          SD_JSON_BUILD_PAIR("bar", SD_JSON_BUILD_INTEGER(88)))) >= 0);
 
         sd_json_variant *array[] = { a, a, b, b, x, x };
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *va = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *va = NULL;
 
         assert_se(sd_json_build(&va, SD_JSON_BUILD_VARIANT_ARRAY(array, ELEMENTSOF(array))) >= 0);
 
@@ -400,7 +400,7 @@ TEST(build) {
         assert_se(sd_json_variant_equal(sd_json_variant_by_index(va, 4), x));
         assert_se(sd_json_variant_equal(sd_json_variant_by_index(va, 5), x));
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *y = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *y = NULL;
         assert_se(sd_json_build(&y, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("mypid1", SD_JSON_BUILD_CALLBACK(test_callback, INT_TO_PTR(4711))),
                                                          SD_JSON_BUILD_PAIR("mypid2", SD_JSON_BUILD_CALLBACK(test_callback, INT_TO_PTR(4712))))) >= 0);
 
@@ -410,7 +410,7 @@ TEST(build) {
         assert_se(sd_json_variant_format(y, /* flags= */ 0, &f2));
         ASSERT_STREQ(f1, f2);
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *z = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *z = NULL;
         ASSERT_OK(sd_json_build(&z, SD_JSON_BUILD_OBJECT(JSON_BUILD_PAIR_CALLBACK_NON_NULL("mypid3", test_callback, INT_TO_PTR(4713)))));
         ASSERT_TRUE(sd_json_variant_is_blank_object(z));
         z = sd_json_variant_unref(z);
@@ -420,36 +420,36 @@ TEST(build) {
         ASSERT_OK(sd_json_variant_format(z, /* flags= */ 0, &f2));
         ASSERT_STREQ(f1, f2);
 
-        _cleanup_set_free_ Set *ss = NULL;
+        _cleanup_free(set) Set *ss = NULL;
         assert_se(set_ensure_put(&ss, &string_hash_ops_free, ASSERT_PTR(strdup("pief"))) >= 0);
         assert_se(set_ensure_put(&ss, &string_hash_ops_free, ASSERT_PTR(strdup("xxxx"))) >= 0);
         assert_se(set_ensure_put(&ss, &string_hash_ops_free, ASSERT_PTR(strdup("kawumm"))) >= 0);
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *ssv = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *ssv = NULL;
         assert_se(sd_json_build(&ssv, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("zzz", JSON_BUILD_STRING_SET(ss)))) >= 0);
         assert_se(sd_json_variant_sort(&ssv) >= 0);
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *ssv2 = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *ssv2 = NULL;
         assert_se(sd_json_build(&ssv2, SD_JSON_BUILD_LITERAL("{\"zzz\":[\"kawumm\",\"pief\",\"xxxx\"]}")) >= 0);
 
         assert_se(sd_json_variant_equal(ssv, ssv2));
 
-        _cleanup_ordered_set_free_ OrderedSet *oss = NULL;
+        _cleanup_free(ordered_set) OrderedSet *oss = NULL;
         assert_se(ordered_set_ensure_put(&oss, &string_hash_ops_free, ASSERT_PTR(strdup("pief"))) >= 0);
         assert_se(ordered_set_ensure_put(&oss, &string_hash_ops_free, ASSERT_PTR(strdup("xxxx"))) >= 0);
         assert_se(ordered_set_ensure_put(&oss, &string_hash_ops_free, ASSERT_PTR(strdup("kawumm"))) >= 0);
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *ossv = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *ossv = NULL;
         assert_se(sd_json_build(&ossv, SD_JSON_BUILD_OBJECT(SD_JSON_BUILD_PAIR("zzz", JSON_BUILD_STRING_ORDERED_SET(oss)))) >= 0);
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *ossv2 = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *ossv2 = NULL;
         assert_se(sd_json_build(&ossv2, SD_JSON_BUILD_LITERAL("{\"zzz\":[\"pief\",\"xxxx\",\"kawumm\"]}")) >= 0);
 
         assert_se(sd_json_variant_equal(ossv, ossv2));
 }
 
 TEST(json_buildo) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *a = NULL, *b = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *a = NULL, *b = NULL;
 
         assert_se(sd_json_buildo(&a,
                                  SD_JSON_BUILD_PAIR("foo", SD_JSON_BUILD_INTEGER(4711)),
@@ -465,7 +465,7 @@ TEST(json_buildo) {
 
 TEST(json_parse_file_empty) {
         _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
 
         assert_se(fopen_unlocked("/dev/null", "re", &f) >= 0);
         assert_se(sd_json_parse_file(f, "waldo", 0, &v, NULL, NULL) == -ENODATA);
@@ -474,7 +474,7 @@ TEST(json_parse_file_empty) {
 
 TEST(json_parse_file_invalid) {
         _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
 
         assert_se(f = fmemopen_unlocked((void*) "kookoo", 6, "r"));
         assert_se(sd_json_parse_file(f, "waldo", 0, &v, NULL, NULL) == -EINVAL);
@@ -499,7 +499,7 @@ TEST(source) {
                 "}\n";
 
         _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
 
         printf("--- original begin ---\n"
                "%s"
@@ -519,7 +519,7 @@ TEST(source) {
 }
 
 TEST(depth) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         int r;
 
         v = JSON_VARIANT_STRING_CONST("start");
@@ -527,7 +527,7 @@ TEST(depth) {
         /* Let's verify that the maximum depth checks work */
 
         for (unsigned i = 0;; i++) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *w = NULL;
 
                 assert_se(i <= UINT16_MAX);
                 if (i & 1)
@@ -557,7 +557,7 @@ TEST(depth) {
 }
 
 TEST(normalize) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *w = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL, *w = NULL;
         _cleanup_free_ char *t = NULL;
 
         assert_se(sd_json_build(&v, SD_JSON_BUILD_OBJECT(
@@ -601,7 +601,7 @@ TEST(normalize) {
 }
 
 TEST(bisect) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
 
         /* Tests the bisection logic in sd_json_variant_by_key() */
 
@@ -610,7 +610,7 @@ TEST(bisect) {
                 if ((c % 3) == 0)
                         continue;
 
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *w = NULL;
                 assert_se(sd_json_variant_new_stringn(&w, (char[4]) { '<', c, c, '>' }, 4) >= 0);
                 assert_se(sd_json_variant_set_field(&v, (char[2]) { c, 0 }, w) >= 0);
         }
@@ -674,7 +674,7 @@ static void test_float_match(sd_json_variant *v) {
 }
 
 TEST(float) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *w = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL, *w = NULL;
         _cleanup_free_ char *text = NULL;
 
         assert_se(sd_json_build(&v, SD_JSON_BUILD_ARRAY(
@@ -703,14 +703,14 @@ TEST(float) {
 }
 
 static void test_equal_text(sd_json_variant *v, const char *text) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *w = NULL;
 
         assert_se(sd_json_parse(text, 0, &w, NULL, NULL) >= 0);
         assert_se(sd_json_variant_equal(v, w) || (!v && sd_json_variant_is_null(w)));
 }
 
 TEST(set_field) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
 
         test_equal_text(v, "null");
         assert_se(sd_json_variant_set_field(&v, "foo", NULL) >= 0);
@@ -771,7 +771,7 @@ TEST(variant) {
 }
 
 TEST(json_variant_merge_objectb) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *w = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL, *w = NULL;
 
         assert_se(sd_json_build(&v, SD_JSON_BUILD_OBJECT(
                                              SD_JSON_BUILD_PAIR("b", SD_JSON_BUILD_STRING("x")),
@@ -786,7 +786,7 @@ TEST(json_variant_merge_objectb) {
 }
 
 static void json_array_append_with_source_one(bool source) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *a, *b;
+        _cleanup_unref(sd_json_variant) sd_json_variant *a, *b;
 
         /* Parse two sources, each with a different name and line/column numbers */
 
@@ -849,7 +849,7 @@ TEST(json_array_append_without_source) {
 }
 
 TEST(json_array_append_nodup) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *l = NULL, *s = NULL, *wd = NULL, *nd = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *l = NULL, *s = NULL, *wd = NULL, *nd = NULL;
 
         assert_se(sd_json_build(&l, SD_JSON_BUILD_STRV(STRV_MAKE("foo", "bar", "baz", "bar", "baz", "foo", "qux", "baz"))) >= 0);
         assert_se(sd_json_build(&s, SD_JSON_BUILD_STRV(STRV_MAKE("foo", "bar", "baz", "qux"))) >= 0);
@@ -885,7 +885,7 @@ TEST(json_dispatch) {
                 int8_t o, p;
         } foobar = {};
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
 
         assert_se(sd_json_build(&v, SD_JSON_BUILD_OBJECT(
                                              SD_JSON_BUILD_PAIR("a", SD_JSON_BUILD_UNSIGNED(UINT64_MAX)),
@@ -977,7 +977,7 @@ TEST(json_dispatch_enum_define) {
                 .e = _myinvalid,
         };
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *j = NULL;
 
         assert_se(sd_json_buildo(&j,
                                  SD_JSON_BUILD_PAIR("a", SD_JSON_BUILD_STRING("mybaz")),
@@ -1007,7 +1007,7 @@ TEST(json_dispatch_enum_define) {
 
 TEST(json_dispatch_double) {
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *j = NULL;
 
         assert_se(sd_json_build(&j, SD_JSON_BUILD_OBJECT(
                                              SD_JSON_BUILD_PAIR("x1", SD_JSON_BUILD_REAL(0.5)),
@@ -1050,7 +1050,7 @@ TEST(json_dispatch_double) {
 }
 
 TEST(json_sensitive) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *a = NULL, *b = NULL, *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *a = NULL, *b = NULL, *v = NULL;
         _cleanup_free_ char *s = NULL;
         int r;
 
@@ -1150,14 +1150,14 @@ TEST(json_sensitive) {
 TEST(json_iovec) {
         struct iovec iov1 = CONST_IOVEC_MAKE_STRING("üxknürz"), iov2 = CONST_IOVEC_MAKE_STRING("wuffwuffmiau");
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *j = NULL;
         assert_se(sd_json_build(&j, SD_JSON_BUILD_OBJECT(
                                              SD_JSON_BUILD_PAIR("nr1", JSON_BUILD_IOVEC_BASE64(&iov1)),
                                              SD_JSON_BUILD_PAIR("nr2", JSON_BUILD_IOVEC_HEX(&iov2)))) >= 0);
 
         sd_json_variant_dump(j, SD_JSON_FORMAT_PRETTY_AUTO|SD_JSON_FORMAT_COLOR_AUTO, /* f= */ NULL, /* prefix= */ NULL);
 
-        _cleanup_(iovec_done) struct iovec a = {}, b = {};
+        _cleanup_done(iovec) struct iovec a = {}, b = {};
         assert_se(json_variant_unbase64_iovec(sd_json_variant_by_key(j, "nr1"), &a) >= 0);
         assert_se(json_variant_unhex_iovec(sd_json_variant_by_key(j, "nr2"), &b) >= 0);
 
@@ -1169,7 +1169,7 @@ TEST(json_iovec) {
 
 TEST(json_dispatch_nullable) {
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *j = NULL;
 
         assert_se(sd_json_build(&j, SD_JSON_BUILD_OBJECT(
                                              SD_JSON_BUILD_PAIR("x1", JSON_BUILD_CONST_STRING("foo")),
@@ -1251,7 +1251,7 @@ TEST(parse_continue) {
         unsigned line = 23, column = 43;
 
         /* First try to parse with continue logic off, this should fail */
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *x = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *x = NULL;
         assert_se(sd_json_parse_with_source("4711 512", "piff", /* flags= */ 0, &x, &line, &column) == -EINVAL);
         assert_se(line == 1);
         assert_se(column == 6);
@@ -1273,12 +1273,12 @@ TEST(parse_continue) {
 }
 
 TEST(pidref) {
-        _cleanup_(pidref_done) PidRef myself = PIDREF_NULL, pid1 = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef myself = PIDREF_NULL, pid1 = PIDREF_NULL;
 
         assert_se(pidref_set_pid(&myself, 0) >= 0);
         assert_se(pidref_set_pid(&pid1, 1) >= 0);
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         sd_id128_t randomized_boot_id;
         assert_se(sd_id128_randomize(&randomized_boot_id) >= 0);
         assert_se(sd_json_buildo(&v,
@@ -1334,7 +1334,7 @@ TEST(pidref) {
 }
 
 TEST(devnum) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         dev_t dev = makedev(123, 456), parsed;
 
         ASSERT_OK(json_variant_new_devnum(&v, dev));
@@ -1357,8 +1357,8 @@ TEST(devnum) {
 }
 
 TEST(fd_info) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         _cleanup_close_ int fd = -EBADF;
 
         /* directories */
@@ -1427,7 +1427,7 @@ TEST(fd_info) {
 }
 
 TEST(unit_name) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         ASSERT_OK(sd_json_buildo(&v,
                                  SD_JSON_BUILD_PAIR_STRING("plain", "myservice.service"),
                                  SD_JSON_BUILD_PAIR_STRING("instance", "myservice@instance1.service"),
@@ -1481,7 +1481,7 @@ TEST(unit_name) {
 
 TEST(access_mode) {
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         ASSERT_OK(sd_json_parse("{"
                                 " \"a\" : \"0755\", "
                                 " \"b\" : 448, "
@@ -1528,11 +1528,11 @@ TEST(access_mode) {
 static void test_json_variant_compare_one(const char *a, const char *b, int expected) {
         int r;
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *aa = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *aa = NULL;
         if (!isempty(a))
                 ASSERT_OK(sd_json_parse(a, /* flags= */ 0, &aa, /* reterr_line= */ NULL, /* reterr_column= */ NULL));
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *bb = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *bb = NULL;
         if (!isempty(b))
                 ASSERT_OK(sd_json_parse(b, /* flags= */ 0, &bb, /* reterr_line= */ NULL, /* reterr_column= */ NULL));
 
@@ -1633,7 +1633,7 @@ TEST(must_be) {
 }
 
 TEST(json_dispatch_in_addr) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *j = NULL;
 
         /* 192.168.1.1 = { 192, 168, 1, 1 } */
         ASSERT_OK(sd_json_build(&j, SD_JSON_BUILD_OBJECT(
@@ -1735,7 +1735,7 @@ TEST(json_dispatch_in_addr) {
 }
 
 TEST(json_dispatch_in6_addr) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *j = NULL;
 
         /* ::1 */
         ASSERT_OK(sd_json_build(&j, SD_JSON_BUILD_OBJECT(

@@ -72,7 +72,7 @@ TEST(mdio_bus) {
                 ASSERT_NOT_NULL(uevent);
                 ASSERT_OK(touch(uevent));
 
-                _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+                _cleanup_unref(sd_device) sd_device *dev = NULL;
                 ASSERT_OK(sd_device_new_from_syspath(&dev, syspath));
 
                 FOREACH_ELEMENT(t, table) {
@@ -97,7 +97,7 @@ TEST(mdio_bus) {
 }
 
 static void test_sd_device_one(sd_device *d) {
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        _cleanup_unref(sd_device) sd_device *dev = NULL;
         const char *syspath, *sysname, *subsystem = NULL, *devname, *val;
         bool is_block = false;
         dev_t devnum;
@@ -322,7 +322,7 @@ static void exclude_problematic_devices(sd_device_enumerator *e) {
 }
 
 TEST(sd_device_enumerator_devices) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *e = NULL;
 
         ASSERT_OK(sd_device_enumerator_new(&e));
         ASSERT_OK(sd_device_enumerator_allow_uninitialized(e));
@@ -333,7 +333,7 @@ TEST(sd_device_enumerator_devices) {
 }
 
 TEST(sd_device_enumerator_subsystems) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *e = NULL;
 
         ASSERT_OK(sd_device_enumerator_new(&e));
         ASSERT_OK(sd_device_enumerator_allow_uninitialized(e));
@@ -347,7 +347,7 @@ static void test_sd_device_enumerator_filter_subsystem_one(
                 unsigned *ret_n_new_dev,
                 unsigned *ret_n_removed_dev) {
 
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *e = NULL;
         unsigned n_new_dev = 0, n_removed_dev = 0;
         sd_device *dev;
 
@@ -387,8 +387,8 @@ static void test_sd_device_enumerator_filter_subsystem_one(
 }
 
 static bool test_sd_device_enumerator_filter_subsystem_trial(void) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        _cleanup_hashmap_free_ Hashmap *subsystems = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *e = NULL;
+        _cleanup_free(hashmap) Hashmap *subsystems = NULL;
         unsigned n_new_dev = 0, n_removed_dev = 0;
         Hashmap *h;
         char *s;
@@ -471,7 +471,7 @@ TEST(sd_device_enumerator_filter_subsystem) {
         if (!sd_booted())
                 return (void) log_tests_skipped("Test requires fully booted system with udev/etc, skipping to avoid hanging forever.");
 
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_unref(sd_event) sd_event *event = NULL;
         ASSERT_OK(sd_event_default(&event));
         ASSERT_OK(sd_event_add_inotify(event, NULL, "/run/udev" , IN_DELETE, on_inotify, NULL));
 
@@ -483,7 +483,7 @@ TEST(sd_device_enumerator_filter_subsystem) {
 }
 
 TEST(sd_device_enumerator_add_match_sysattr) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *e = NULL;
         sd_device *dev;
         int ifindex;
 
@@ -504,7 +504,7 @@ TEST(sd_device_enumerator_add_match_sysattr) {
 }
 
 TEST(sd_device_enumerator_add_match_property) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *e = NULL;
         sd_device *dev;
         int ifindex;
 
@@ -524,7 +524,7 @@ TEST(sd_device_enumerator_add_match_property) {
 }
 
 TEST(sd_device_enumerator_add_match_property_required) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *e = NULL;
         sd_device *dev;
         int ifindex;
 
@@ -573,7 +573,7 @@ static void check_parent_match(sd_device_enumerator *e, sd_device *dev) {
 }
 
 TEST(sd_device_enumerator_add_match_parent) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *e = NULL;
         /* Some devices have thousands of children. Avoid spending too much time in the double loop below. */
         unsigned iterations = 200;
         int r;
@@ -586,7 +586,7 @@ TEST(sd_device_enumerator_add_match_parent) {
                 ASSERT_OK(sd_device_enumerator_add_match_subsystem(e, "block", true));
 
         FOREACH_DEVICE(e, dev) {
-                _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *p = NULL;
+                _cleanup_unref(sd_device_enumerator) sd_device_enumerator *p = NULL;
                 const char *syspath;
                 sd_device *parent;
 
@@ -620,7 +620,7 @@ TEST(sd_device_enumerator_add_match_parent) {
 }
 
 TEST(sd_device_enumerator_add_all_parents) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *e = NULL;
         int r;
 
         /* STEP 1: enumerate all block devices without all_parents() */
@@ -658,7 +658,7 @@ TEST(sd_device_enumerator_add_all_parents) {
 }
 
 TEST(sd_device_get_child) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *e = NULL;
         /* Some devices have thousands of children. Avoid spending too much time in the double loop below. */
         unsigned iterations = 3000;
         int r;
@@ -718,7 +718,7 @@ TEST(sd_device_new_from_nulstr) {
                 "/dev/disk/by-partlabel/Arch\\x20Linux\0"
                 "\0";
 
-        _cleanup_(sd_device_unrefp) sd_device *device = NULL, *from_nulstr = NULL;
+        _cleanup_unref(sd_device) sd_device *device = NULL, *from_nulstr = NULL;
         _cleanup_free_ char *nulstr_copy = NULL;
         const char *nulstr;
         size_t len;
@@ -763,7 +763,7 @@ TEST(sd_device_new_from_nulstr) {
 }
 
 TEST(sd_device_new_from_path) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *e = NULL;
         _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
         int r;
 
@@ -777,7 +777,7 @@ TEST(sd_device_new_from_path) {
         ASSERT_OK(sd_device_enumerator_add_match_property(e, "DEVNAME", "*"));
 
         FOREACH_DEVICE(e, dev) {
-                _cleanup_(sd_device_unrefp) sd_device *d = NULL;
+                _cleanup_unref(sd_device) sd_device *d = NULL;
                 const char *syspath, *devpath, *sysname, *s;
                 _cleanup_free_ char *path = NULL;
 
@@ -842,7 +842,7 @@ TEST(devname_from_devnum) {
 }
 
 TEST(device_add_property) {
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        _cleanup_unref(sd_device) sd_device *dev = NULL;
         const char *val;
 
         ASSERT_OK(sd_device_new_from_syspath(&dev, "/sys/class/net/lo"));

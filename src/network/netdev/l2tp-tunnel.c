@@ -63,8 +63,8 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 L2tpSession, l2tp_session_free);
 
 static int l2tp_session_new_static(L2tpTunnel *t, const char *filename, unsigned section_line, L2tpSession **ret) {
-        _cleanup_(config_section_freep) ConfigSection *n = NULL;
-        _cleanup_(l2tp_session_freep) L2tpSession *s = NULL;
+        _cleanup_free(config_section) ConfigSection *n = NULL;
+        _cleanup_free(l2tp_session) L2tpSession *s = NULL;
         int r;
 
         assert(t);
@@ -105,7 +105,7 @@ static int netdev_l2tp_create_message_tunnel(NetDev *netdev, union in_addr_union
         assert(netdev);
         assert(netdev->manager);
 
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         uint16_t encap_type;
         L2tpTunnel *t = L2TP(netdev);
         int r;
@@ -191,7 +191,7 @@ static int netdev_l2tp_create_message_tunnel(NetDev *netdev, union in_addr_union
 }
 
 static int netdev_l2tp_create_message_session(NetDev *netdev, L2tpSession *session, sd_netlink_message **ret) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         uint16_t l2_spec_len;
         uint8_t l2_spec_type;
         int r;
@@ -391,7 +391,7 @@ static int l2tp_create_session_handler(sd_netlink *rtnl, sd_netlink_message *m, 
 }
 
 static int l2tp_create_session(NetDev *netdev, L2tpSession *session) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *n = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *n = NULL;
         int r;
 
         assert(netdev);
@@ -438,7 +438,7 @@ static int l2tp_create_tunnel_handler(sd_netlink *rtnl, sd_netlink_message *m, N
 }
 
 static int l2tp_create_tunnel(NetDev *netdev) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         union in_addr_union local_address;
         L2tpTunnel *t = L2TP(netdev);
         int r;
@@ -829,7 +829,7 @@ static int netdev_l2tp_tunnel_verify(NetDev *netdev, const char *filename) {
                                                 "%s: L2TP tunnel without tunnel IDs configured. Ignoring",
                                                 filename);
 
-        _cleanup_set_free_ Set *names = NULL;
+        _cleanup_free(set) Set *names = NULL;
         ORDERED_HASHMAP_FOREACH(session, t->sessions_by_section)
                 if (l2tp_session_verify(session, &names) < 0)
                         l2tp_session_free(session);

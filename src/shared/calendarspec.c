@@ -334,7 +334,7 @@ static void format_chain(FILE *f, int space, const CalendarComponent *c, bool us
 }
 
 int calendar_spec_to_string(const CalendarSpec *c, char **ret) {
-        _cleanup_(memstream_done) MemStream m = {};
+        _cleanup_done(memstream) MemStream m = {};
         FILE *f;
 
         assert(c);
@@ -574,7 +574,7 @@ static int const_chain(int value, CalendarComponent **c) {
 }
 
 static int calendarspec_from_time_t(CalendarSpec *c, time_t time) {
-        _cleanup_(chain_freep) CalendarComponent
+        _cleanup_free(chain) CalendarComponent
                 *year = NULL, *month = NULL, *day = NULL,
                 *hour = NULL, *minute = NULL, *us = NULL;
         struct tm tm;
@@ -695,7 +695,7 @@ static int prepend_component(const char **p, bool usec, unsigned nesting, Calend
 }
 
 static int parse_chain(const char **p, bool usec, CalendarComponent **c) {
-        _cleanup_(chain_freep) CalendarComponent *cc = NULL;
+        _cleanup_free(chain) CalendarComponent *cc = NULL;
         const char *t;
         int r;
 
@@ -727,7 +727,7 @@ static int parse_chain(const char **p, bool usec, CalendarComponent **c) {
 }
 
 static int parse_date(const char **p, CalendarSpec *c) {
-        _cleanup_(chain_freep) CalendarComponent *first = NULL, *second = NULL, *third = NULL;
+        _cleanup_free(chain) CalendarComponent *first = NULL, *second = NULL, *third = NULL;
         const char *t;
         int r;
 
@@ -810,7 +810,7 @@ static int parse_date(const char **p, CalendarSpec *c) {
 }
 
 static int parse_calendar_time(const char **p, CalendarSpec *c) {
-        _cleanup_(chain_freep) CalendarComponent *h = NULL, *m = NULL, *s = NULL;
+        _cleanup_free(chain) CalendarComponent *h = NULL, *m = NULL, *s = NULL;
         const char *t;
         int r;
 
@@ -879,7 +879,7 @@ finish:
 
 int calendar_spec_from_string(const char *p, CalendarSpec **ret) {
         const char *utc;
-        _cleanup_(calendar_spec_freep) CalendarSpec *c = NULL;
+        _cleanup_free(calendar_spec) CalendarSpec *c = NULL;
         _cleanup_free_ char *p_tmp = NULL;
         int r;
 

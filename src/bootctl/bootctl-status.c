@@ -613,7 +613,7 @@ int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 RET_GATHER(r, status_variables());
 
         if (arg_esp_path || arg_xbootldr_path) {
-                _cleanup_(boot_config_free) BootConfig config = BOOT_CONFIG_NULL;
+                _cleanup_done(boot_config) BootConfig config = BOOT_CONFIG_NULL;
 
                 k = boot_config_load_and_select(&config,
                                                 arg_esp_path, esp_devid,
@@ -631,7 +631,7 @@ int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
 }
 
 int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(boot_config_free) BootConfig config = BOOT_CONFIG_NULL;
+        _cleanup_done(boot_config) BootConfig config = BOOT_CONFIG_NULL;
         dev_t esp_devid = 0, xbootldr_devid = 0;
         int r;
 
@@ -668,7 +668,7 @@ int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
 }
 
 int vl_method_list_boot_entries(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        _cleanup_(boot_config_free) BootConfig config = BOOT_CONFIG_NULL;
+        _cleanup_done(boot_config) BootConfig config = BOOT_CONFIG_NULL;
         dev_t esp_devid = 0, xbootldr_devid = 0;
         int r;
 
@@ -709,7 +709,7 @@ int vl_method_list_boot_entries(sd_varlink *link, sd_json_variant *parameters, s
                 return r;
 
         for (size_t i = 0; i < config.n_entries; i++) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
 
                 r = boot_entry_to_json(&config, i, &v);
                 if (r < 0)

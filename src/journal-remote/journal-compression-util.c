@@ -61,7 +61,7 @@ int compression_configs_mangle(OrderedHashmap **configs) {
 
         /* If nothing specified, then list all supported algorithms with the default compression level. */
 
-        _cleanup_(ordered_hashmap_freep) OrderedHashmap *h = NULL;
+        _cleanup_free(ordered_hashmap) OrderedHashmap *h = NULL;
 
         /* First, put the default algorithm. */
         if (DEFAULT_COMPRESSION != COMPRESSION_NONE) {

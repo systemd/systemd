@@ -51,8 +51,8 @@ static int address_label_new_static(
                 unsigned section_line,
                 AddressLabel **ret) {
 
-        _cleanup_(config_section_freep) ConfigSection *n = NULL;
-        _cleanup_(address_label_freep) AddressLabel *label = NULL;
+        _cleanup_free(config_section) ConfigSection *n = NULL;
+        _cleanup_free(address_label) AddressLabel *label = NULL;
         Hashmap **address_labels_by_section;
         int r;
 
@@ -165,7 +165,7 @@ static int address_label_fill_message(AddressLabel *label, sd_netlink_message *m
 }
 
 static int link_address_label_configure(AddressLabel *label, Link *link, Request *req) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         int r;
 
         assert(label);
@@ -188,7 +188,7 @@ static int link_address_label_configure(AddressLabel *label, Link *link, Request
 }
 
 static int manager_address_label_configure(AddressLabel *label, Manager *manager, Request *req) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         int r;
 
         assert(label);

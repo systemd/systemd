@@ -459,7 +459,7 @@ int catalog_update(const char *database, const char *root, const char* const *di
         if (r < 0)
                 return log_error_errno(r, "Failed to get catalog files: %m");
 
-        _cleanup_ordered_hashmap_free_ OrderedHashmap *h = NULL;
+        _cleanup_free(ordered_hashmap) OrderedHashmap *h = NULL;
         FOREACH_ARRAY(i, files, n_files) {
                 ConfFile *c = *i;
 
@@ -480,7 +480,7 @@ int catalog_update(const char *database, const char *root, const char* const *di
         if (!items)
                 return log_oom();
 
-        _cleanup_(strbuf_freep) struct strbuf *sb = strbuf_new();
+        _cleanup_free(strbuf) struct strbuf *sb = strbuf_new();
         if (!sb)
                 return log_oom();
 

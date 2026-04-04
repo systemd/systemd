@@ -91,7 +91,7 @@ int tar_export_new(
                 TarExportFinished on_finished,
                 void *userdata) {
 
-        _cleanup_(tar_export_unrefp) TarExport *e = NULL;
+        _cleanup_unref(tar_export) TarExport *e = NULL;
         int r;
 
         assert(ret);

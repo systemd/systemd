@@ -46,7 +46,7 @@ char* setup_fake_runtime_dir(void) {
 static void load_testdata_env(void) {
         static bool called = false;
         _cleanup_free_ char *s = NULL, *d = NULL, *envpath = NULL;
-        _cleanup_strv_free_ char **pairs = NULL;
+        _cleanup_free(strv) char **pairs = NULL;
         int r;
 
         if (called)
@@ -142,7 +142,7 @@ int write_tmpfile(char *pattern, const char *contents) {
 }
 
 bool have_namespaces(void) {
-        _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pid = PIDREF_NULL;
         int r;
 
         /* Checks whether namespaces are available. In some cases they aren't. We do this by calling unshare(), and we
@@ -168,7 +168,7 @@ bool have_namespaces(void) {
 }
 
 bool userns_has_single_user(void) {
-        _cleanup_(uid_range_freep) UIDRange *uidrange = NULL, *gidrange = NULL;
+        _cleanup_free(uid_range) UIDRange *uidrange = NULL, *gidrange = NULL;
 
         /* Check if we're in a user namespace with only a single user mapped in. We special case this
          * scenario in a few tests because it's the only kind of namespace that can be created unprivileged
@@ -204,9 +204,9 @@ bool can_memlock(void) {
 }
 
 static int allocate_scope(void) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free(bus_wait_for_jobs) BusWaitForJobs *w = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_free_ char *scope = NULL, *cgroup_root = NULL;
         const char *object;
@@ -377,7 +377,7 @@ const char* ci_environment(void) {
 }
 
 int run_test_table(const TestFunc *start, const TestFunc *end) {
-        _cleanup_strv_free_ char **tests = NULL;
+        _cleanup_free(strv) char **tests = NULL;
         int r = EXIT_SUCCESS;
         bool ran = false;
         const char *e;
@@ -450,7 +450,7 @@ int assert_signal_internal(int *ret_signal) {
                 return ASSERT_SIGNAL_FORK_CHILD;
         }
 
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         r = pidref_set_pid(&pidref, r);
         if (r < 0)
                 return r;

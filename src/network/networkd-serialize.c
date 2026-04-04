@@ -20,7 +20,7 @@
 #include "string-util.h"
 
 int manager_serialize(Manager *manager) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *array = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL, *array = NULL;
         int r;
 
         assert(manager);
@@ -29,7 +29,7 @@ int manager_serialize(Manager *manager) {
 
         Link *link;
         HASHMAP_FOREACH(link, manager->links_by_index) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *e = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *e = NULL;
 
                 /* ignore unmanaged, failed, or removed interfaces. */
                 if (!IN_SET(link->state, LINK_STATE_PENDING, LINK_STATE_INITIALIZED, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
@@ -158,7 +158,7 @@ static int link_deserialize_address(Link *link, sd_json_variant *v) {
         assert(link);
         assert(v);
 
-        _cleanup_(address_param_done) AddressParam p = {};
+        _cleanup_done(address_param) AddressParam p = {};
         r = sd_json_dispatch(v, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &p);
         if (r < 0)
                 return log_link_debug_errno(link, r, "Failed to dispatch address from json variant: %m");
@@ -267,7 +267,7 @@ static int manager_deserialize_nexthop(Manager *manager, sd_json_variant *v) {
         assert(manager);
         assert(v);
 
-        _cleanup_(nexthop_param_done) NextHopParam p = {};
+        _cleanup_done(nexthop_param) NextHopParam p = {};
         r = sd_json_dispatch(v, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &p);
         if (r < 0)
                 return log_debug_errno(r, "Failed to dispatch nexthop from json variant: %m");
@@ -356,7 +356,7 @@ static int manager_deserialize_route(Manager *manager, sd_json_variant *v) {
         assert(manager);
         assert(v);
 
-        _cleanup_(route_param_done) RouteParam p = {};
+        _cleanup_done(route_param) RouteParam p = {};
         r = sd_json_dispatch(v, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &p);
         if (r < 0)
                 return log_debug_errno(r, "Failed to dispatch route from json variant: %m");
@@ -446,7 +446,7 @@ int manager_deserialize(Manager *manager) {
         if (!f)
                 return log_debug_errno(errno, "Failed to fdopen() serialization file descriptor: %m");
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         unsigned err_line = 0, err_column = 0;
         r = sd_json_parse_file(
                         f,

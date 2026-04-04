@@ -134,7 +134,7 @@ int capability_set_to_string_negative(uint64_t set, char **ret) {
 }
 
 int capability_set_to_strv(uint64_t set, char ***ret) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         int r;
 
         assert(ret);

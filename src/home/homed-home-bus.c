@@ -64,7 +64,7 @@ static int property_get_state(
 }
 
 static int bus_home_client_is_trusted(Home *h, sd_bus_message *message, bool strict) {
-        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+        _cleanup_unref(sd_bus_creds) sd_bus_creds *creds = NULL;
         uid_t euid;
         int r;
 
@@ -118,7 +118,7 @@ int bus_home_get_record_json(
                 char **ret,
                 bool *ret_incomplete) {
 
-        _cleanup_(user_record_unrefp) UserRecord *augmented = NULL;
+        _cleanup_unref(user_record) UserRecord *augmented = NULL;
         UserRecordLoadFlags flags;
         int r, trusted;
 
@@ -180,7 +180,7 @@ int bus_home_method_activate(
                 void *userdata,
                 sd_bus_error *error) {
 
-        _cleanup_(user_record_unrefp) UserRecord *secret = NULL;
+        _cleanup_unref(user_record) UserRecord *secret = NULL;
         Home *h = ASSERT_PTR(userdata);
         bool if_referenced;
         int r;
@@ -282,7 +282,7 @@ int bus_home_method_realize(
                 void *userdata,
                 sd_bus_error *error) {
 
-        _cleanup_(user_record_unrefp) UserRecord *secret = NULL;
+        _cleanup_unref(user_record) UserRecord *secret = NULL;
         Home *h = ASSERT_PTR(userdata);
         int r;
 
@@ -360,7 +360,7 @@ int bus_home_method_fixate(
                 void *userdata,
                 sd_bus_error *error) {
 
-        _cleanup_(user_record_unrefp) UserRecord *secret = NULL;
+        _cleanup_unref(user_record) UserRecord *secret = NULL;
         Home *h = ASSERT_PTR(userdata);
         int r;
 
@@ -389,7 +389,7 @@ int bus_home_method_authenticate(
                 void *userdata,
                 sd_bus_error *error) {
 
-        _cleanup_(user_record_unrefp) UserRecord *secret = NULL;
+        _cleanup_unref(user_record) UserRecord *secret = NULL;
         Home *h = ASSERT_PTR(userdata);
         int r;
 
@@ -498,8 +498,8 @@ int bus_home_method_update(
                 void *userdata,
                 sd_bus_error *error) {
 
-        _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
-        _cleanup_hashmap_free_ Hashmap *blobs = NULL;
+        _cleanup_unref(user_record) UserRecord *hr = NULL;
+        _cleanup_free(hashmap) Hashmap *blobs = NULL;
         uint64_t flags = 0;
         Home *h = ASSERT_PTR(userdata);
         int r;
@@ -528,7 +528,7 @@ int bus_home_method_resize(
                 void *userdata,
                 sd_bus_error *error) {
 
-        _cleanup_(user_record_unrefp) UserRecord *secret = NULL;
+        _cleanup_unref(user_record) UserRecord *secret = NULL;
         Home *h = ASSERT_PTR(userdata);
         uint64_t sz;
         int r;
@@ -573,7 +573,7 @@ int bus_home_method_change_password(
                 void *userdata,
                 sd_bus_error *error) {
 
-        _cleanup_(user_record_unrefp) UserRecord *new_secret = NULL, *old_secret = NULL;
+        _cleanup_unref(user_record) UserRecord *new_secret = NULL, *old_secret = NULL;
         Home *h = ASSERT_PTR(userdata);
         int r;
 
@@ -643,7 +643,7 @@ int bus_home_method_unlock(
                 void *userdata,
                 sd_bus_error *error) {
 
-        _cleanup_(user_record_unrefp) UserRecord *secret = NULL;
+        _cleanup_unref(user_record) UserRecord *secret = NULL;
         Home *h = ASSERT_PTR(userdata);
         int r;
 
@@ -673,8 +673,8 @@ int bus_home_method_acquire(
                 void *userdata,
                 sd_bus_error *error) {
 
-        _cleanup_(user_record_unrefp) UserRecord *secret = NULL;
-        _cleanup_(operation_unrefp) Operation *o = NULL;
+        _cleanup_unref(user_record) UserRecord *secret = NULL;
+        _cleanup_unref(operation) Operation *o = NULL;
         _cleanup_close_ int fd = -EBADF;
         int r, please_suspend;
         Home *h = ASSERT_PTR(userdata);
@@ -761,7 +761,7 @@ int bus_home_method_release(
                 void *userdata,
                 sd_bus_error *error) {
 
-        _cleanup_(operation_unrefp) Operation *o = NULL;
+        _cleanup_unref(operation) Operation *o = NULL;
         Home *h = ASSERT_PTR(userdata);
         int r;
 
@@ -826,7 +826,7 @@ static int bus_home_node_enumerator(
                 char ***nodes,
                 sd_bus_error *error) {
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         Manager *m = userdata;
         size_t k = 0;
         Home *h;

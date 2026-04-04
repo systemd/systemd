@@ -12,7 +12,7 @@
 
 int verb_service_watchdogs(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_bus *bus;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         int b, r;
 
         assert(argv);

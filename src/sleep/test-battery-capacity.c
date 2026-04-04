@@ -10,7 +10,7 @@
 #include "time-util.h"
 
 TEST(fetch_batteries_capacity_by_name) {
-        _cleanup_hashmap_free_ Hashmap *capacity = NULL;
+        _cleanup_free(hashmap) Hashmap *capacity = NULL;
         int r;
 
         assert_se(fetch_batteries_capacity_by_name(&capacity) >= 0);

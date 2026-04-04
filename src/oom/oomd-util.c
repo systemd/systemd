@@ -86,7 +86,7 @@ static OomdCGroupContext *oomd_cgroup_context_free(OomdCGroupContext *ctx) {
 DEFINE_TRIVIAL_REF_UNREF_FUNC(OomdCGroupContext, oomd_cgroup_context, oomd_cgroup_context_free);
 
 int oomd_pressure_above(Hashmap *h, Set **ret) {
-        _cleanup_set_free_ Set *targets = NULL;
+        _cleanup_free(set) Set *targets = NULL;
         OomdCGroupContext *ctx;
         char *key;
         int r;
@@ -247,7 +247,7 @@ int oomd_sort_cgroup_contexts(Hashmap *h, oomd_compare_t compare_func, const cha
 }
 
 int oomd_cgroup_kill(Manager *m, OomdCGroupContext *ctx, bool recurse, const char *reason) {
-        _cleanup_set_free_ Set *pids_killed = NULL;
+        _cleanup_free(set) Set *pids_killed = NULL;
         int r;
 
         assert(ctx);
@@ -449,7 +449,7 @@ static int oomd_prekill_hook(Manager *m, OomdKillState *ks) {
                                        VARLINK_DIR_OOMD_PREKILL_HOOK);
         }
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *cparams = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *cparams = NULL;
         r = sd_json_buildo(&cparams, SD_JSON_BUILD_PAIR_STRING("cgroup", ks->ctx->path));
         if (r < 0)
                 return log_oom_debug();
@@ -522,7 +522,7 @@ static int dump_kill_candidates(
                 const OomdCGroupContext *killed,
                 dump_candidate_func dump_func) {
 
-        _cleanup_(memstream_done) MemStream m = {};
+        _cleanup_done(memstream) MemStream m = {};
         FILE *f;
 
         /* Try dumping top offendors, ignoring any errors that might happen. */
@@ -623,7 +623,7 @@ int oomd_select_by_swap_usage(Hashmap *h, uint64_t threshold_usage, OomdCGroupCo
 }
 
 int oomd_cgroup_context_acquire(const char *path, OomdCGroupContext **ret) {
-        _cleanup_(oomd_cgroup_context_unrefp) OomdCGroupContext *ctx = NULL;
+        _cleanup_unref(oomd_cgroup_context) OomdCGroupContext *ctx = NULL;
         _cleanup_free_ char *p = NULL, *val = NULL;
         bool is_root;
         int r;
@@ -768,7 +768,7 @@ int oomd_system_context_acquire(const char *proc_meminfo_path, OomdSystemContext
 }
 
 int oomd_insert_cgroup_context(Hashmap *old_h, Hashmap *new_h, const char *path) {
-        _cleanup_(oomd_cgroup_context_unrefp) OomdCGroupContext *curr_ctx = NULL;
+        _cleanup_unref(oomd_cgroup_context) OomdCGroupContext *curr_ctx = NULL;
         OomdCGroupContext *old_ctx;
         int r;
 

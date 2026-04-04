@@ -186,7 +186,7 @@ static sd_ndisc *ndisc_free(sd_ndisc *nd) {
 DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_ndisc, sd_ndisc, ndisc_free);
 
 int sd_ndisc_new(sd_ndisc **ret) {
-        _cleanup_(sd_ndisc_unrefp) sd_ndisc *nd = NULL;
+        _cleanup_unref(sd_ndisc) sd_ndisc *nd = NULL;
 
         assert_return(ret, -EINVAL);
 
@@ -205,7 +205,7 @@ int sd_ndisc_new(sd_ndisc **ret) {
 }
 
 static int ndisc_handle_router(sd_ndisc *nd, ICMP6Packet *packet) {
-        _cleanup_(sd_ndisc_router_unrefp) sd_ndisc_router *rt = NULL;
+        _cleanup_unref(sd_ndisc_router) sd_ndisc_router *rt = NULL;
         int r;
 
         assert(nd);
@@ -262,7 +262,7 @@ static int ndisc_handle_router(sd_ndisc *nd, ICMP6Packet *packet) {
 }
 
 static int ndisc_handle_neighbor(sd_ndisc *nd, ICMP6Packet *packet) {
-        _cleanup_(sd_ndisc_neighbor_unrefp) sd_ndisc_neighbor *na = NULL;
+        _cleanup_unref(sd_ndisc_neighbor) sd_ndisc_neighbor *na = NULL;
         int r;
 
         assert(nd);
@@ -295,7 +295,7 @@ static int ndisc_handle_neighbor(sd_ndisc *nd, ICMP6Packet *packet) {
 }
 
 static int ndisc_handle_redirect(sd_ndisc *nd, ICMP6Packet *packet) {
-        _cleanup_(sd_ndisc_redirect_unrefp) sd_ndisc_redirect *rd = NULL;
+        _cleanup_unref(sd_ndisc_redirect) sd_ndisc_redirect *rd = NULL;
         int r;
 
         assert(nd);
@@ -335,7 +335,7 @@ static int ndisc_handle_redirect(sd_ndisc *nd, ICMP6Packet *packet) {
 }
 
 static int ndisc_recv(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        _cleanup_(icmp6_packet_unrefp) ICMP6Packet *packet = NULL;
+        _cleanup_unref(icmp6_packet) ICMP6Packet *packet = NULL;
         sd_ndisc *nd = ASSERT_PTR(userdata);
         int r;
 
@@ -391,7 +391,7 @@ static int ndisc_send_router_solicitation(sd_ndisc *nd) {
                 .nd_rs_type = ND_ROUTER_SOLICIT,
         };
 
-        _cleanup_set_free_ Set *options = NULL;
+        _cleanup_free(set) Set *options = NULL;
         int r;
 
         assert(nd);
@@ -491,7 +491,7 @@ static int ndisc_setup_recv_event(sd_ndisc *nd) {
         if (fd < 0)
                 return fd;
 
-        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *s = NULL;
         r = sd_event_add_io(nd->event, &s, fd, EPOLLIN, ndisc_recv, nd);
         if (r < 0)
                 return r;

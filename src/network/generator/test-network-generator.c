@@ -4,7 +4,7 @@
 #include "tests.h"
 
 static void test_network_one(const char *ifname, const char *key, const char *value, const char *expected) {
-        _cleanup_(context_clear) Context context = {};
+        _cleanup_clear(context) Context context = {};
         _cleanup_free_ char *output = NULL;
         Network *network;
 
@@ -20,7 +20,7 @@ static void test_network_two(const char *ifname,
                              const char *key1, const char *value1,
                              const char *key2, const char *value2,
                              const char *expected) {
-        _cleanup_(context_clear) Context context = {};
+        _cleanup_clear(context) Context context = {};
         _cleanup_free_ char *output = NULL;
         Network *network;
 
@@ -40,7 +40,7 @@ static void test_network_three(const char *ifname,
                                const char *key2, const char *value2,
                                const char *key3, const char *value3,
                                const char *expected) {
-        _cleanup_(context_clear) Context context = {};
+        _cleanup_clear(context) Context context = {};
         _cleanup_free_ char *output = NULL;
         Network *network;
 
@@ -62,7 +62,7 @@ static void test_network_three(const char *ifname,
 }
 
 static void test_netdev_one(const char *ifname, const char *key, const char *value, const char *expected) {
-        _cleanup_(context_clear) Context context = {};
+        _cleanup_clear(context) Context context = {};
         _cleanup_free_ char *output = NULL;
         NetDev *netdev;
 
@@ -75,7 +75,7 @@ static void test_netdev_one(const char *ifname, const char *key, const char *val
 }
 
 static void test_link_one(const char *filename, const char *key, const char *value, const char *expected) {
-        _cleanup_(context_clear) Context context = {};
+        _cleanup_clear(context) Context context = {};
         _cleanup_free_ char *output = NULL;
         Link *link;
 

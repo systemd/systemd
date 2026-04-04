@@ -105,9 +105,9 @@ static int suitable_home_record(UserRecord *hr) {
 }
 
 int home_new(Manager *m, UserRecord *hr, const char *sysfs, Home **ret) {
-        _cleanup_(home_freep) Home *home = NULL;
+        _cleanup_free(home) Home *home = NULL;
         _cleanup_free_ char *nm = NULL, *ns = NULL, *blob = NULL;
-        _cleanup_strv_free_ char **aliases = NULL;
+        _cleanup_free(strv) char **aliases = NULL;
         int r;
 
         assert(m);
@@ -268,7 +268,7 @@ Home *home_free(Home *h) {
 }
 
 int home_set_record(Home *h, UserRecord *hr) {
-        _cleanup_(user_record_unrefp) UserRecord *new_hr = NULL;
+        _cleanup_unref(user_record) UserRecord *new_hr = NULL;
         Home *other;
         int r;
 
@@ -296,7 +296,7 @@ int home_set_record(Home *h, UserRecord *hr) {
                 return -EINVAL;
 
         if (FLAGS_SET(h->record->mask, USER_RECORD_STATUS)) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
 
                 /* Hmm, the existing record has status fields? If so, copy them over */
 
@@ -338,7 +338,7 @@ int home_set_record(Home *h, UserRecord *hr) {
 }
 
 int home_save_record(Home *h) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         _cleanup_free_ char *text = NULL;
         const char *fn;
         int r;
@@ -553,9 +553,9 @@ static void home_set_state(Home *h, HomeState state) {
 }
 
 static int home_parse_worker_stdout(int _fd, UserRecord **ret) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         _cleanup_close_ int fd = _fd; /* take possession, even on failure */
-        _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
+        _cleanup_unref(user_record) UserRecord *hr = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         struct stat st;
         int r;
@@ -729,8 +729,8 @@ static void home_count_bad_authentication(Home *h, int error, bool save) {
 }
 
 static void home_fixate_finish(Home *h, int ret, UserRecord *hr) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(user_record_unrefp) UserRecord *secret = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(user_record) UserRecord *secret = NULL;
         bool signed_locally;
         int r;
 
@@ -824,7 +824,7 @@ static bool error_is_bad_password(int ret) {
 }
 
 static void home_activate_finish(Home *h, int ret, UserRecord *hr) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(h);
@@ -875,7 +875,7 @@ finish:
 }
 
 static void home_deactivate_finish(Home *h, int ret, UserRecord *hr) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(h);
@@ -900,7 +900,7 @@ finish:
 }
 
 static void home_remove_finish(Home *h, int ret, UserRecord *hr) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         Manager *m;
         int r;
 
@@ -950,7 +950,7 @@ static void home_create_finish(Home *h, int ret, UserRecord *hr) {
         assert(h->state == HOME_CREATING);
 
         if (ret < 0) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                 (void) convert_worker_errno(h, ret, &error);
                 log_error_errno(ret, "Operation on %s failed: %m", h->user_name);
@@ -985,7 +985,7 @@ static void home_create_finish(Home *h, int ret, UserRecord *hr) {
 }
 
 static void home_change_finish(Home *h, int ret, UserRecord *hr) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         uint64_t flags;
         int r;
 
@@ -1032,7 +1032,7 @@ finish:
 }
 
 static void home_locking_finish(Home *h, int ret, UserRecord *hr) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(h);
@@ -1062,7 +1062,7 @@ finish:
 }
 
 static void home_unlocking_finish(Home *h, int ret, UserRecord *hr) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(h);
@@ -1098,7 +1098,7 @@ static void home_unlocking_finish(Home *h, int ret, UserRecord *hr) {
 }
 
 static void home_authenticating_finish(Home *h, int ret, UserRecord *hr) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(h);
@@ -1137,7 +1137,7 @@ finish:
 }
 
 static int home_on_worker_process(sd_event_source *s, const siginfo_t *si, void *userdata) {
-        _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
+        _cleanup_unref(user_record) UserRecord *hr = NULL;
         Home *h = ASSERT_PTR(userdata);
         int ret;
 
@@ -1230,7 +1230,7 @@ static int home_start_work(
                 UserRecord *secret,
                 Hashmap *blobs,
                 uint64_t flags) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *fdmap = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL, *fdmap = NULL;
         _cleanup_(erase_and_freep) char *formatted = NULL;
         _cleanup_close_ int stdin_fd = -EBADF, stdout_fd = -EBADF;
         _cleanup_free_ int *blob_fds = NULL;
@@ -1697,8 +1697,8 @@ int home_remove(Home *h, sd_bus_error *error) {
 }
 
 static int user_record_extend_with_binding(UserRecord *hr, UserRecord *with_binding, UserRecordLoadFlags flags, UserRecord **ret) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        _cleanup_(user_record_unrefp) UserRecord *nr = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
+        _cleanup_unref(user_record) UserRecord *nr = NULL;
         sd_json_variant *binding;
         int r;
 
@@ -1736,7 +1736,7 @@ static int home_update_internal(
                 uint64_t flags,
                 sd_bus_error *error) {
 
-        _cleanup_(user_record_unrefp) UserRecord *new_hr = NULL, *saved_secret = NULL, *signed_hr = NULL;
+        _cleanup_unref(user_record) UserRecord *new_hr = NULL, *saved_secret = NULL, *signed_hr = NULL;
         int r, c;
 
         assert(h);
@@ -1849,7 +1849,7 @@ int home_resize(Home *h,
                 UserRecord *secret,
                 sd_bus_error *error) {
 
-        _cleanup_(user_record_unrefp) UserRecord *c = NULL;
+        _cleanup_unref(user_record) UserRecord *c = NULL;
         HomeState state;
         int r;
 
@@ -1888,7 +1888,7 @@ int home_resize(Home *h,
 
                 c = user_record_ref(h->record); /* Shortcut if size is unspecified or matches the record */
         } else {
-                _cleanup_(user_record_unrefp) UserRecord *signed_c = NULL;
+                _cleanup_unref(user_record) UserRecord *signed_c = NULL;
 
                 if (h->signed_locally <= 0) /* Don't allow changing of records not signed only by us */
                         return sd_bus_error_setf(error, BUS_ERROR_HOME_RECORD_SIGNED, "Home %s is signed and cannot be modified locally.", h->user_name);
@@ -1954,7 +1954,7 @@ int home_passwd(Home *h,
                 UserRecord *old_secret,
                 sd_bus_error *error) {
 
-        _cleanup_(user_record_unrefp) UserRecord *c = NULL, *merged_secret = NULL, *signed_c = NULL;
+        _cleanup_unref(user_record) UserRecord *c = NULL, *merged_secret = NULL, *signed_c = NULL;
         HomeState state;
         int r;
 
@@ -2221,7 +2221,7 @@ void home_process_notify(Home *h, char **l, int fd) {
 }
 
 int home_killall(Home *h) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *unit = NULL;
         int r;
 
@@ -2645,8 +2645,8 @@ int home_augment_status(
                 UserRecord **ret) {
 
         uint64_t disk_size = UINT64_MAX, disk_usage = UINT64_MAX, disk_free = UINT64_MAX, disk_ceiling = UINT64_MAX, disk_floor = UINT64_MAX;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL, *v = NULL, *m = NULL, *status = NULL;
-        _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *j = NULL, *v = NULL, *m = NULL, *status = NULL;
+        _cleanup_unref(user_record) UserRecord *ur = NULL;
         statfs_f_type_t magic;
         const char *fstype;
         mode_t access_mode;
@@ -2741,7 +2741,7 @@ int home_augment_status(
 }
 
 static int on_home_ref_eof(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        _cleanup_(operation_unrefp) Operation *o = NULL;
+        _cleanup_unref(operation) Operation *o = NULL;
         Home *h = ASSERT_PTR(userdata);
 
         assert(s);
@@ -2823,7 +2823,7 @@ int home_create_fifo(Home *h, bool please_suspend) {
 }
 
 static int home_dispatch_acquire(Home *h, Operation *o) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         int (*call)(Home *h, UserRecord *secret, HomeState for_state, sd_bus_error *error) = NULL;
         HomeState for_state;
         int r;
@@ -2896,7 +2896,7 @@ bool home_shall_suspend(Home *h) {
 }
 
 static int home_dispatch_release(Home *h, Operation *o) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(h);
@@ -2945,7 +2945,7 @@ static int home_dispatch_release(Home *h, Operation *o) {
 }
 
 static int home_dispatch_lock_all(Home *h, Operation *o) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(h);
@@ -2990,7 +2990,7 @@ static int home_dispatch_lock_all(Home *h, Operation *o) {
 }
 
 static int home_dispatch_deactivate_all(Home *h, Operation *o) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(h);
@@ -3035,7 +3035,7 @@ static int home_dispatch_deactivate_all(Home *h, Operation *o) {
 }
 
 static int home_dispatch_pipe_eof(Home *h, Operation *o) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(h);
@@ -3079,7 +3079,7 @@ static int home_dispatch_pipe_eof(Home *h, Operation *o) {
 }
 
 static int home_dispatch_deactivate_force(Home *h, Operation *o) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(h);
@@ -3194,7 +3194,7 @@ int home_schedule_operation(Home *h, Operation *o, sd_bus_error *error) {
 }
 
 static int home_get_image_path_seat(Home *h, char **ret) {
-        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
+        _cleanup_unref(sd_device) sd_device *d = NULL;
         const char *ip, *seat;
         struct stat st;
         int r;
@@ -3253,7 +3253,7 @@ int home_auto_login(Home *h, char ***ret_seats) {
         }
 
         if (seat || seat2) {
-                _cleanup_strv_free_ char **list = NULL;
+                _cleanup_free(strv) char **list = NULL;
                 size_t i = 0;
 
                 list = new(char*, 3);

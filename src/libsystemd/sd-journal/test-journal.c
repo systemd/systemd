@@ -26,7 +26,7 @@ static void mkdtemp_chdir_chattr(char *path) {
 }
 
 static void test_non_empty_one(void) {
-        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_unref(mmap_cache) MMapCache *m = NULL;
         dual_timestamp ts;
         JournalFile *f;
         struct iovec iovec;
@@ -129,7 +129,7 @@ TEST(non_empty) {
 }
 
 static void test_empty_one(void) {
-        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_unref(mmap_cache) MMapCache *m = NULL;
         JournalFile *f1, *f2, *f3, *f4;
         char t[] = "/var/tmp/journal-XXXXXX";
 
@@ -178,7 +178,7 @@ TEST(empty) {
 
 #if HAVE_COMPRESSION
 static bool check_compressed(uint64_t compress_threshold, uint64_t data_size) {
-        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        _cleanup_unref(mmap_cache) MMapCache *m = NULL;
         dual_timestamp ts;
         JournalFile *f;
         struct iovec iovec;

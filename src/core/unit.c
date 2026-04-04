@@ -129,7 +129,7 @@ Unit* unit_new(Manager *m, size_t size) {
 }
 
 int unit_new_for_name(Manager *m, size_t size, const char *name, Unit **ret) {
-        _cleanup_(unit_freep) Unit *u = NULL;
+        _cleanup_free(unit) Unit *u = NULL;
         int r;
 
         u = unit_new(m, size);
@@ -1073,7 +1073,7 @@ static void unit_merge_dependencies(Unit *u, Unit *other) {
         }
 
         for (;;) {
-                _cleanup_hashmap_free_ Hashmap *other_deps = NULL;
+                _cleanup_free(hashmap) Hashmap *other_deps = NULL;
                 UnitDependencyInfo di_back;
                 Unit *back;
 
@@ -1796,7 +1796,7 @@ static int log_unit_internal(void *userdata, int level, int error, const char *f
 }
 
 static bool unit_test_condition(Unit *u) {
-        _cleanup_strv_free_ char **env = NULL;
+        _cleanup_free(strv) char **env = NULL;
         int r;
 
         assert(u);
@@ -1820,7 +1820,7 @@ static bool unit_test_condition(Unit *u) {
 }
 
 static bool unit_test_assert(Unit *u) {
-        _cleanup_strv_free_ char **env = NULL;
+        _cleanup_free(strv) char **env = NULL;
         int r;
 
         assert(u);
@@ -2356,7 +2356,7 @@ void unit_start_on_termination_deps(Unit *u, UnitDependencyAtom atom) {
 
         Unit *other;
         UNIT_FOREACH_DEPENDENCY_SAFE(other, u, atom) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                 if (n_jobs == 0)
                         log_unit_info(u, "Triggering %s dependencies.", dependency_name);
@@ -2881,7 +2881,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 }
 
 int unit_watch_pidref(Unit *u, const PidRef *pid, bool exclusive) {
-        _cleanup_(pidref_freep) PidRef *pid_dup = NULL;
+        _cleanup_free(pidref) PidRef *pid_dup = NULL;
         int r;
 
         /* Adds a specific PID to the set of PIDs this unit watches. */
@@ -2952,7 +2952,7 @@ void unit_unwatch_pidref(Unit *u, const PidRef *pid) {
         assert(pidref_is_set(pid));
 
         /* Remove from the set we maintain for this unit. (And destroy the returned pid eventually) */
-        _cleanup_(pidref_freep) PidRef *pid1 = set_remove(u->pids, pid);
+        _cleanup_free(pidref) PidRef *pid1 = set_remove(u->pids, pid);
         if (!pid1)
                 return; /* Early exit if this PID was never watched by us */
 
@@ -3058,7 +3058,7 @@ static Hashmap *unit_get_dependency_hashmap_per_type(Unit *u, UnitDependency d) 
 
         deps = hashmap_get(u->dependencies, UNIT_DEPENDENCY_TO_PTR(d));
         if (!deps) {
-                _cleanup_hashmap_free_ Hashmap *h = NULL;
+                _cleanup_free(hashmap) Hashmap *h = NULL;
 
                 h = hashmap_new(NULL);
                 if (!h)
@@ -3634,7 +3634,7 @@ static int get_name_owner_handler(sd_bus_message *message, void *userdata, sd_bu
 }
 
 int unit_install_bus_match(Unit *u, sd_bus *bus, const char *name) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
         const char *match;
         usec_t timeout_usec = 0;
         int r;
@@ -3876,7 +3876,7 @@ bool unit_need_daemon_reload(Unit *u) {
                 return true;
 
         if (u->load_state == UNIT_LOADED) {
-                _cleanup_strv_free_ char **dropins = NULL;
+                _cleanup_free(strv) char **dropins = NULL;
 
                 (void) unit_find_dropin_paths(u, /* use_unit_path_cache= */ false, &dropins);
 
@@ -4140,7 +4140,7 @@ int unit_kill(
         if (IN_SET(whom, KILL_ALL, KILL_ALL_FAIL, KILL_CGROUP, KILL_CGROUP_FAIL) && code == SI_USER) {
                 CGroupRuntime *crt = unit_get_cgroup_runtime(u);
                 if (crt && crt->cgroup_path) {
-                        _cleanup_set_free_ Set *pid_set = NULL;
+                        _cleanup_free(set) Set *pid_set = NULL;
                         _cleanup_free_ char *joined = NULL;
                         const char *p;
 
@@ -4810,7 +4810,7 @@ int unit_write_setting(Unit *u, UnitWriteFlags flags, const char *name, const ch
         if (r < 0)
                 return r;
 
-        _cleanup_strv_free_ char **dropins = NULL;
+        _cleanup_free(strv) char **dropins = NULL;
         r = unit_find_dropin_paths(u, /* use_unit_path_cache= */ true, &dropins);
         if (r < 0)
                 return r;
@@ -5021,7 +5021,7 @@ int unit_kill_context(Unit *u, KillOperation k) {
         CGroupRuntime *crt = unit_get_cgroup_runtime(u);
         if (crt && crt->cgroup_path &&
             (c->kill_mode == KILL_CONTROL_GROUP || (c->kill_mode == KILL_MIXED && k == KILL_KILL))) {
-                _cleanup_set_free_ Set *pid_set = NULL;
+                _cleanup_free(set) Set *pid_set = NULL;
 
                 /* Exclude the main/control pids from being killed via the cgroup */
                 r = unit_pid_set(u, &pid_set);
@@ -5147,9 +5147,9 @@ int unit_add_mounts_for(Unit *u, const char *path, UnitDependencyMask mask, Unit
 }
 
 int unit_setup_exec_runtime(Unit *u) {
-        _cleanup_(exec_shared_runtime_unrefp) ExecSharedRuntime *esr = NULL;
-        _cleanup_(dynamic_creds_unrefp) DynamicCreds *dcreds = NULL;
-        _cleanup_set_free_ Set *units = NULL;
+        _cleanup_unref(exec_shared_runtime) ExecSharedRuntime *esr = NULL;
+        _cleanup_unref(dynamic_creds) DynamicCreds *dcreds = NULL;
+        _cleanup_free(set) Set *units = NULL;
         ExecRuntime **rt;
         ExecContext *ec;
         size_t offset;
@@ -5618,7 +5618,7 @@ int unit_fork_helper_process_full(Unit *u, const char *name, bool into_cgroup, F
                 crt = unit_get_cgroup_runtime(u);
         }
 
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         r = pidref_safe_fork(name, FORK_REOPEN_LOG|FORK_DEATHSIG_SIGTERM|flags, &pidref);
         if (r < 0)
                 return r;
@@ -5649,7 +5649,7 @@ int unit_fork_helper_process(Unit *u, const char *name, bool into_cgroup, PidRef
 }
 
 int unit_fork_and_watch_rm_rf(Unit *u, char **paths, PidRef *ret_pid) {
-        _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pid = PIDREF_NULL;
         int r;
 
         assert(u);
@@ -6704,7 +6704,7 @@ int unit_get_dependency_array(const Unit *u, UnitDependencyAtom atom, Unit ***re
 }
 
 int unit_get_transitive_dependency_set(Unit *u, UnitDependencyAtom atom, Set **ret) {
-        _cleanup_set_free_ Set *units = NULL, *queue = NULL;
+        _cleanup_free(set) Set *units = NULL, *queue = NULL;
         Unit *other;
         int r;
 

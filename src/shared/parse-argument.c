@@ -115,7 +115,7 @@ int parse_signal_argument(const char *s, int *ret) {
                 return DUMP_STRING_TABLE(signal, int, _NSIG);
 
         if (streq(s, "list")) {
-                _cleanup_(table_unrefp) Table *table = NULL;
+                _cleanup_unref(table) Table *table = NULL;
 
                 table = table_new("signal", "name");
                 if (!table)

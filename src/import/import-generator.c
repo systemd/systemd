@@ -206,7 +206,7 @@ static int parse_pull_expression(const char *v) {
         if (r < 0)
                 return log_error_errno(r, "Failed to pick image root: %m");
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *j = NULL;
         r = sd_json_buildo(
                         &j,
                         SD_JSON_BUILD_PAIR_STRING("remote", remote),

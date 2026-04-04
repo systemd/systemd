@@ -228,16 +228,16 @@ static void test_callback_ra(sd_ndisc *nd, sd_ndisc_event_t event, void *message
 }
 
 static int on_recv_rs(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        _cleanup_(icmp6_packet_unrefp) ICMP6Packet *packet = NULL;
+        _cleanup_unref(icmp6_packet) ICMP6Packet *packet = NULL;
         assert_se(icmp6_packet_receive(fd, &packet) >= 0);
 
         return send_ra(0);
 }
 
 TEST(rs) {
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
-        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
-        _cleanup_(sd_ndisc_unrefp) sd_ndisc *nd = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *s = NULL;
+        _cleanup_unref(sd_ndisc) sd_ndisc *nd = NULL;
 
         assert_se(sd_event_new(&e) >= 0);
 
@@ -314,16 +314,16 @@ static int send_ra_invalid_domain(uint8_t flags) {
 }
 
 static int on_recv_rs_invalid_domain(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        _cleanup_(icmp6_packet_unrefp) ICMP6Packet *packet = NULL;
+        _cleanup_unref(icmp6_packet) ICMP6Packet *packet = NULL;
         assert_se(icmp6_packet_receive(fd, &packet) >= 0);
 
         return send_ra_invalid_domain(0);
 }
 
 TEST(invalid_domain) {
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
-        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
-        _cleanup_(sd_ndisc_unrefp) sd_ndisc *nd = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *s = NULL;
+        _cleanup_unref(sd_ndisc) sd_ndisc *nd = NULL;
 
         assert_se(sd_event_new(&e) >= 0);
 
@@ -427,16 +427,16 @@ static void test_callback_na(sd_ndisc *nd, sd_ndisc_event_t event, void *message
 }
 
 static int on_recv_rs_na(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        _cleanup_(icmp6_packet_unrefp) ICMP6Packet *packet = NULL;
+        _cleanup_unref(icmp6_packet) ICMP6Packet *packet = NULL;
         assert_se(icmp6_packet_receive(fd, &packet) >= 0);
 
         return send_na(0);
 }
 
 TEST(na) {
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
-        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
-        _cleanup_(sd_ndisc_unrefp) sd_ndisc *nd = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *s = NULL;
+        _cleanup_unref(sd_ndisc) sd_ndisc *nd = NULL;
 
         assert_se(sd_event_new(&e) >= 0);
 
@@ -464,7 +464,7 @@ TEST(na) {
 }
 
 static int on_recv_rs_timeout(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        _cleanup_(icmp6_packet_unrefp) ICMP6Packet *packet = NULL;
+        _cleanup_unref(icmp6_packet) ICMP6Packet *packet = NULL;
         sd_ndisc *nd = ASSERT_PTR(userdata);
         static int count = 0;
         static usec_t last = 0;
@@ -513,9 +513,9 @@ static int on_recv_rs_timeout(sd_event_source *s, int fd, uint32_t revents, void
 }
 
 TEST(timeout) {
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
-        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
-        _cleanup_(sd_ndisc_unrefp) sd_ndisc *nd = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *s = NULL;
+        _cleanup_unref(sd_ndisc) sd_ndisc *nd = NULL;
 
         assert_se(sd_event_new(&e) >= 0);
 

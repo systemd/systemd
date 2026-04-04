@@ -93,8 +93,8 @@ int libmount_parse_full(
                 struct libmnt_table **ret_table,
                 struct libmnt_iter **ret_iter) {
 
-        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
-        _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
+        _cleanup_free(mnt_table) struct libmnt_table *table = NULL;
+        _cleanup_free(mnt_iter) struct libmnt_iter *iter = NULL;
         int r;
 
         /* Older libmount seems to require this. */
@@ -141,7 +141,7 @@ int libmount_is_leaf(
 
         assert(table);
 
-        _cleanup_(mnt_free_iterp) struct libmnt_iter *iter_children = NULL;
+        _cleanup_free(mnt_iter) struct libmnt_iter *iter_children = NULL;
         iter_children = sym_mnt_new_iter(MNT_ITER_FORWARD);
         if (!iter_children)
                 return log_oom();

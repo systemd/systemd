@@ -90,7 +90,7 @@ static int find_slots_by_mask(
                 Set *keep_slots,
                 unsigned by_mask) {
 
-        _cleanup_set_free_ Set *listed_slots = NULL;
+        _cleanup_free(set) Set *listed_slots = NULL;
         int r;
 
         assert(cd);
@@ -102,7 +102,7 @@ static int find_slots_by_mask(
         /* Find all slots that are associated with a token of a type in the specified token type mask */
 
         for (int token = 0; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
                 sd_json_variant *w, *z;
                 EnrollType t;
 
@@ -202,7 +202,7 @@ static int find_slot_tokens(struct crypt_device *cd, Set *wipe_slots, Set *keep_
          * the slots sets according to the token data: add any other slots listed in the tokens we act on. */
 
         for (int token = 0; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
                 bool shall_wipe = false;
                 sd_json_variant *w, *z;
 
@@ -303,7 +303,7 @@ int wipe_slots(struct crypt_device *cd,
                unsigned by_mask,
                int except_slot) {
 
-        _cleanup_set_free_ Set *wipe_slots = NULL, *wipe_tokens = NULL, *keep_slots = NULL;
+        _cleanup_free(set) Set *wipe_slots = NULL, *wipe_tokens = NULL, *keep_slots = NULL;
         _cleanup_free_ int *ordered_slots = NULL, *ordered_tokens = NULL;
         size_t n_ordered_slots = 0, n_ordered_tokens = 0;
         int r, slot_max, ret;

@@ -25,7 +25,7 @@ int acquire_luks2_key(
         _cleanup_free_ char *rp_id = NULL;
         _cleanup_(erase_and_freep) void *decrypted_key = NULL;
         _cleanup_(erase_and_freep) char *base64_encoded = NULL;
-        _cleanup_strv_free_erase_ char **pins = NULL;
+        _cleanup_(strv_free_erasep) char **pins = NULL;
         ssize_t base64_encoded_size;
 
         assert(ret_keyslot_passphrase);
@@ -85,7 +85,7 @@ int parse_luks2_fido2_data(
         size_t cid_size = 0, salt_size = 0;
         _cleanup_free_ char *rp = NULL;
         int r;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         sd_json_variant *w;
         Fido2EnrollFlags required = 0;
 

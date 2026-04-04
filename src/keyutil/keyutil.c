@@ -197,9 +197,9 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int verb_validate(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(X509_freep) X509 *certificate = NULL;
-        _cleanup_(openssl_ask_password_ui_freep) OpenSSLAskPasswordUI *ui = NULL;
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *private_key = NULL;
+        _cleanup_free(X509) X509 *certificate = NULL;
+        _cleanup_free(openssl_ask_password_ui) OpenSSLAskPasswordUI *ui = NULL;
+        _cleanup_free(EVP_PKEY) EVP_PKEY *private_key = NULL;
         int r;
 
         if (!arg_certificate)
@@ -252,11 +252,11 @@ static int verb_validate(int argc, char *argv[], uintptr_t _data, void *userdata
 }
 
 static int verb_extract_public(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *public_key = NULL;
+        _cleanup_free(EVP_PKEY) EVP_PKEY *public_key = NULL;
         int r;
 
         if (arg_certificate) {
-                _cleanup_(X509_freep) X509 *certificate = NULL;
+                _cleanup_free(X509) X509 *certificate = NULL;
 
                 if (arg_certificate_source_type == OPENSSL_CERTIFICATE_SOURCE_FILE) {
                         r = parse_path_argument(arg_certificate, /* suppress_root= */ false, &arg_certificate);
@@ -280,8 +280,8 @@ static int verb_extract_public(int argc, char *argv[], uintptr_t _data, void *us
                                         arg_certificate);
 
         } else if (arg_private_key) {
-                _cleanup_(openssl_ask_password_ui_freep) OpenSSLAskPasswordUI *ui = NULL;
-                _cleanup_(EVP_PKEY_freep) EVP_PKEY *private_key = NULL;
+                _cleanup_free(openssl_ask_password_ui) OpenSSLAskPasswordUI *ui = NULL;
+                _cleanup_free(EVP_PKEY) EVP_PKEY *private_key = NULL;
 
                 if (arg_private_key_source_type == OPENSSL_KEY_SOURCE_FILE) {
                         r = parse_path_argument(arg_private_key, /* suppress_root= */ false, &arg_private_key);
@@ -319,7 +319,7 @@ static int verb_extract_public(int argc, char *argv[], uintptr_t _data, void *us
 }
 
 static int verb_extract_certificate(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(X509_freep) X509 *certificate = NULL;
+        _cleanup_free(X509) X509 *certificate = NULL;
         int r;
 
         if (!arg_certificate)
@@ -346,7 +346,7 @@ static int verb_extract_certificate(int argc, char *argv[], uintptr_t _data, voi
 }
 
 static int verb_pkcs7(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(X509_freep) X509 *certificate = NULL;
+        _cleanup_free(X509) X509 *certificate = NULL;
         _cleanup_free_ char *pkcs1 = NULL;
         size_t pkcs1_len = 0;
         int r;
@@ -380,7 +380,7 @@ static int verb_pkcs7(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (pkcs1_len == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "PKCS#1 file %s is empty", arg_signature);
 
-        _cleanup_(PKCS7_freep) PKCS7 *pkcs7 = NULL;
+        _cleanup_free(PKCS7) PKCS7 *pkcs7 = NULL;
         PKCS7_SIGNER_INFO *signer_info;
         r = pkcs7_new(certificate, /* private_key= */ NULL, arg_hash_algorithm, &pkcs7, &signer_info);
         if (r < 0)

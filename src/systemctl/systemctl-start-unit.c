@@ -69,7 +69,7 @@ static int start_unit_one(
                 BusWaitForJobs *w,
                 BusWaitForUnits *wu) {
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         const char *path;
         bool done = false;
         int r;
@@ -87,7 +87,7 @@ static int start_unit_one(
                 return 0;
 
         if (arg_show_transaction) {
-                _cleanup_(sd_bus_error_free) sd_bus_error enqueue_error = SD_BUS_ERROR_NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error enqueue_error = SD_BUS_ERROR_NULL;
 
                 /* Use the new, fancy EnqueueUnitJob() API if the user wants us to print the transaction */
                 r = bus_call_method(
@@ -196,8 +196,8 @@ static int enqueue_marked_jobs(
                 sd_bus *bus,
                 BusWaitForJobs *w) {
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         log_debug("%s dbus call org.freedesktop.systemd1.Manager EnqueueMarkedJobs()",
@@ -210,7 +210,7 @@ static int enqueue_marked_jobs(
         if (r < 0)
                 return log_error_errno(r, "Failed to start jobs: %s", bus_error_message(&error, r));
 
-        _cleanup_strv_free_ char **paths = NULL;
+        _cleanup_free(strv) char **paths = NULL;
         r = sd_bus_message_read_strv(reply, &paths);
         if (r < 0)
                 return bus_log_parse_error(r);
@@ -290,11 +290,11 @@ static const char** make_extra_args(const char *extra_args[static 4]) {
 }
 
 int verb_start(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(bus_wait_for_units_freep) BusWaitForUnits *wu = NULL;
-        _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
+        _cleanup_free(bus_wait_for_units) BusWaitForUnits *wu = NULL;
+        _cleanup_free(bus_wait_for_jobs) BusWaitForJobs *w = NULL;
         const char *method, *job_type, *mode, *one_name, *suffix = NULL;
-        _cleanup_free_ char **stopped_units = NULL; /* Do not use _cleanup_strv_free_ */
-        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_free_ char **stopped_units = NULL; /* Do not use _cleanup_free(strv) */
+        _cleanup_free(strv) char **names = NULL;
         bool is_enqueue_marked_jobs = false;
         int r, ret = EXIT_SUCCESS;
         sd_bus *bus;
@@ -405,7 +405,7 @@ int verb_start(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         (void) journal_fork(arg_runtime_scope, names, &journal_pid);
 
                 STRV_FOREACH(name, names) {
-                        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                         r = start_unit_one(bus, method, job_type, *name, mode, &error, w, wu);
                         if (ret == EXIT_SUCCESS && r < 0)

@@ -45,7 +45,7 @@ static int device_get_file_system_word(
         if (block_fd < 0)
                 return block_fd;
 
-        _cleanup_(blkid_free_probep) blkid_probe b = sym_blkid_new_probe();
+        _cleanup_free(blkid_probe) blkid_probe b = sym_blkid_new_probe();
         if (!b)
                 return -ENOMEM;
 
@@ -68,7 +68,7 @@ static int device_get_file_system_word(
 
         assert(r == _BLKID_SAFEPROBE_FOUND);
 
-        _cleanup_strv_free_ char **l = strv_new(prefix);
+        _cleanup_free(strv) char **l = strv_new(prefix);
         if (!l)
                 return -ENOMEM;
 
@@ -101,7 +101,7 @@ static int device_get_file_system_word(
 
 int pcrextend_file_system_word(const char *path, char **ret_word, char **ret_normalized_path) {
         _cleanup_free_ char *normalized_path = NULL, *normalized_escaped = NULL, *prefix = NULL, *word = NULL;
-        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
+        _cleanup_unref(sd_device) sd_device *d = NULL;
         _cleanup_close_ int dfd = -EBADF;
         int r;
 
@@ -262,12 +262,12 @@ int pcrextend_verity_now(
         if (r < 0)
                 return r;
 
-        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        _cleanup_unref(sd_varlink) sd_varlink *vl = NULL;
         r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.PCRExtend");
         if (r < 0)
                 return r;
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *reply = NULL;
         const char *error_id = NULL;
         r = sd_varlink_callbo(
                         vl,
@@ -329,12 +329,12 @@ int pcrextend_imds_userdata_now(const struct iovec *data) {
         if (r < 0)
                 return r;
 
-        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        _cleanup_unref(sd_varlink) sd_varlink *vl = NULL;
         r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.PCRExtend");
         if (r < 0)
                 return r;
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *reply = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *reply = NULL;
         const char *error_id = NULL;
         r = sd_varlink_callbo(
                         vl,

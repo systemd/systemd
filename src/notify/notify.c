@@ -58,7 +58,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_fdname, freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL;
+        _cleanup_unref(table) Table *options = NULL;
         int r;
 
         r = terminal_urlify_man("systemd-notify", "1", &link);
@@ -98,7 +98,7 @@ static int get_manager_pid(PidRef *ret) {
                 return 0;
         }
 
-        _cleanup_(pidref_done) PidRef manager = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef manager = PIDREF_NULL;
         r = pidref_set_pidstr(&manager, e);
         if (r < 0)
                 return log_warning_errno(r, "$MANAGERPID is set to an invalid PID, ignoring: %s", e);
@@ -127,7 +127,7 @@ static int get_manager_pid(PidRef *ret) {
 }
 
 static int pidref_parent_if_applicable(PidRef *ret) {
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL, manager = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL, manager = PIDREF_NULL;
         int r;
 
         assert(ret);
@@ -153,7 +153,7 @@ from_self:
 }
 
 static int parse_argv(int argc, char *argv[], char ***ret_args) {
-        _cleanup_fdset_free_ FDSet *passed = NULL;
+        _cleanup_free(fdset) FDSet *passed = NULL;
         bool do_exec = false;
         int r;
 
@@ -370,7 +370,7 @@ static int on_notify_socket(sd_event_source *s, int fd, unsigned event, void *us
         assert(fd >= 0);
 
         _cleanup_free_ char *text = NULL;
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         r = notify_recv(fd, &text, /* ret_ucred= */ NULL, &pidref);
         if (r == -EAGAIN)
                 return 0;
@@ -442,7 +442,7 @@ static int action_fork(char *const *_command) {
         assert(!strv_isempty(_command));
 
         /* Make a copy, since pidref_safe_fork_full() will change argv[] further down. */
-        _cleanup_strv_free_ char **command = strv_copy(_command);
+        _cleanup_free(strv) char **command = strv_copy(_command);
         if (!command)
                 return log_oom();
 
@@ -450,12 +450,12 @@ static int action_fork(char *const *_command) {
         if (!c)
                 return log_oom();
 
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_unref(sd_event) sd_event *event = NULL;
         r = sd_event_new(&event);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate event loop: %m");
 
-        _cleanup_(pidref_done) PidRef child = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef child = PIDREF_NULL;
         _cleanup_free_ char *addr_string = NULL;
         r = notify_socket_prepare(
                         event,
@@ -527,7 +527,7 @@ static int action_fork(char *const *_command) {
 static int run(int argc, char* argv[]) {
         _cleanup_free_ char *status = NULL, *main_pid = NULL, *main_pidfd_id = NULL, *msg = NULL,
                        *monotonic_usec = NULL, *fdn = NULL;
-        _cleanup_strv_free_ char **final_env = NULL;
+        _cleanup_free(strv) char **final_env = NULL;
         const char *our_env[10];
         size_t i = 0;
         char **args = NULL;  /* unnecessary initialization to appease gcc */

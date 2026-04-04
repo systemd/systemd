@@ -11,7 +11,7 @@
 #include "random-util.h"
 
 int fido2_generate_salt(struct iovec *ret_salt) {
-        _cleanup_(iovec_done) struct iovec salt = {};
+        _cleanup_done(iovec) struct iovec salt = {};
         int r;
 
         r = crypto_random_bytes_allocate_iovec(FIDO2_SALT_SIZE, &salt);

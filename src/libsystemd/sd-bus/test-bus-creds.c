@@ -8,7 +8,7 @@
 #include "tests.h"
 
 int main(int argc, char *argv[]) {
-        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+        _cleanup_unref(sd_bus_creds) sd_bus_creds *creds = NULL;
         int r;
 
         test_setup_logging(LOG_DEBUG);
@@ -33,7 +33,7 @@ int main(int argc, char *argv[]) {
 
         creds = sd_bus_creds_unref(creds);
 
-        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+        _cleanup_unref(sd_bus) sd_bus *bus = NULL;
         r = sd_bus_default_system(&bus);
         if (r < 0)
                 log_warning_errno(r, "Unable to connect to system bus, skipping rest of test.");

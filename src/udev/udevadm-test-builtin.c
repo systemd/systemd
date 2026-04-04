@@ -64,8 +64,8 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 int verb_builtin_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(udev_event_unrefp) UdevEvent *event = NULL;
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        _cleanup_unref(udev_event) UdevEvent *event = NULL;
+        _cleanup_unref(sd_device) sd_device *dev = NULL;
         UdevBuiltinCommand cmd;
         int r;
 

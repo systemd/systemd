@@ -47,7 +47,7 @@ static bool error_shall_try_again(const char *error_id) {
 }
 
 static int connect_to_resolved(sd_varlink **ret) {
-        _cleanup_(sd_varlink_unrefp) sd_varlink *link = NULL;
+        _cleanup_unref(sd_varlink) sd_varlink *link = NULL;
         int r;
 
         r = sd_varlink_connect_address(&link, "/run/systemd/resolve/io.systemd.Resolve");
@@ -213,9 +213,9 @@ enum nss_status _nss_resolve_gethostbyname4_r(
                 int *errnop, int *h_errnop,
                 int32_t *ttlp) {
 
-        _cleanup_(sd_varlink_unrefp) sd_varlink *link = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *cparams = NULL;
-        _cleanup_(resolve_hostname_reply_destroy) ResolveHostnameReply p = {};
+        _cleanup_unref(sd_varlink) sd_varlink *link = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *cparams = NULL;
+        _cleanup_destroy(resolve_hostname_reply) ResolveHostnameReply p = {};
         sd_json_variant *rparams, *entry;
         int r;
 
@@ -374,9 +374,9 @@ enum nss_status _nss_resolve_gethostbyname3_r(
                 int32_t *ttlp,
                 char **canonp) {
 
-        _cleanup_(sd_varlink_unrefp) sd_varlink *link = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *cparams = NULL;
-        _cleanup_(resolve_hostname_reply_destroy) ResolveHostnameReply p = {};
+        _cleanup_unref(sd_varlink) sd_varlink *link = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *cparams = NULL;
+        _cleanup_destroy(resolve_hostname_reply) ResolveHostnameReply p = {};
         sd_json_variant *rparams, *entry;
         int r;
 
@@ -591,9 +591,9 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
                 int *errnop, int *h_errnop,
                 int32_t *ttlp) {
 
-        _cleanup_(sd_varlink_unrefp) sd_varlink *link = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *cparams = NULL;
-        _cleanup_(resolve_address_reply_destroy) ResolveAddressReply p = {};
+        _cleanup_unref(sd_varlink) sd_varlink *link = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *cparams = NULL;
+        _cleanup_destroy(resolve_address_reply) ResolveAddressReply p = {};
         sd_json_variant *rparams, *entry;
         int r;
 
@@ -652,7 +652,7 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
         size_t ms = 0, idx;
 
         JSON_VARIANT_ARRAY_FOREACH(entry, p.names) {
-                _cleanup_(name_parameters_destroy) NameParameters q = {};
+                _cleanup_destroy(name_parameters) NameParameters q = {};
 
                 r = sd_json_dispatch(entry, name_parameters_dispatch_table, nss_json_dispatch_flags, &q);
                 if (r < 0)
@@ -693,7 +693,7 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
 
         size_t i = 0;
         JSON_VARIANT_ARRAY_FOREACH(entry, p.names) {
-                _cleanup_(name_parameters_destroy) NameParameters q = {};
+                _cleanup_destroy(name_parameters) NameParameters q = {};
 
                 r = sd_json_dispatch(entry, name_parameters_dispatch_table, nss_json_dispatch_flags, &q);
                 if (r < 0)

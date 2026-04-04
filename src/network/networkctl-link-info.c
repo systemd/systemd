@@ -161,7 +161,7 @@ static int decode_link(
                 char * const *patterns,
                 bool matched_patterns[]) {
 
-        _cleanup_strv_free_ char **altnames = NULL;
+        _cleanup_free(strv) char **altnames = NULL;
         const char *name, *qdisc;
         int ifindex, r;
         uint16_t type;
@@ -320,7 +320,7 @@ static void acquire_ether_link_info(int *fd, LinkInfo *link) {
 }
 
 static void acquire_wlan_link_info(LinkInfo *link) {
-        _cleanup_(sd_netlink_unrefp) sd_netlink *genl = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *genl = NULL;
         int r, k = 0;
 
         assert(link);
@@ -353,8 +353,8 @@ static void acquire_wlan_link_info(LinkInfo *link) {
 }
 
 int acquire_link_info(sd_varlink *vl, sd_netlink *rtnl, char * const *patterns, LinkInfo **ret) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
-        _cleanup_(link_info_array_freep) LinkInfo *links = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *req = NULL, *reply = NULL;
+        _cleanup_free(link_info_array) LinkInfo *links = NULL;
         _cleanup_free_ bool *matched_patterns = NULL;
         _cleanup_close_ int fd = -EBADF;
         size_t c = 0;

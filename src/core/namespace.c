@@ -499,7 +499,7 @@ static int append_mount_images(MountList *ml, const MountImage *mount_images, si
         assert(mount_images || n == 0);
 
         FOREACH_ARRAY(m, mount_images, n) {
-                _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
+                _cleanup_done(verity_settings) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
                 MountEntry *me = mount_list_extend(ml);
                 if (!me)
                         return log_oom_debug();
@@ -559,8 +559,8 @@ static int append_extensions(
         /* First, prepare a mount for each image, but these won't be visible to the unit, instead
          * they will be mounted in our propagate directory, and used as a source for the overlay. */
         for (size_t i = 0; i < n_mount_images; i++) {
-                _cleanup_(verity_settings_done) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
-                _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
+                _cleanup_done(verity_settings) VeritySettings verity = VERITY_SETTINGS_DEFAULT;
+                _cleanup_done(pick_result) PickResult result = PICK_RESULT_NULL;
                 _cleanup_free_ char *mount_point = NULL;
                 const MountImage *m = mount_images + i;
 
@@ -622,7 +622,7 @@ static int append_extensions(
          * Bind mount them in the same location as the ExtensionImages, so that we
          * can check that they are valid trees (extension-release.d). */
         STRV_FOREACH(extension_directory, extension_directories) {
-                _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
+                _cleanup_done(pick_result) PickResult result = PICK_RESULT_NULL;
                 _cleanup_free_ char *mount_point = NULL;
                 const char *e = *extension_directory;
                 bool ignore_enoent = false;
@@ -1653,7 +1653,7 @@ static int mount_image(
                 const ImagePolicy *image_policy,
                 RuntimeScope runtime_scope) {
 
-        _cleanup_(extension_release_data_done) ExtensionReleaseData rdata = {};
+        _cleanup_done(extension_release_data) ExtensionReleaseData rdata = {};
         ImageClass required_class = _IMAGE_CLASS_INVALID;
         int r;
 
@@ -1937,7 +1937,7 @@ static int apply_one_mount(
                 _cleanup_free_ char *host_os_release_id = NULL, *host_os_release_id_like = NULL,
                                 *host_os_release_version_id = NULL, *host_os_release_level = NULL,
                                 *extension_name = NULL;
-                _cleanup_strv_free_ char **extension_release = NULL;
+                _cleanup_free(strv) char **extension_release = NULL;
                 ImageClass class = IMAGE_SYSEXT;
 
                 r = path_extract_filename(mount_entry_source(m), &extension_name);
@@ -2565,10 +2565,10 @@ static bool namespace_read_only(const NamespaceParameters *p) {
 
 int setup_namespace(const NamespaceParameters *p, char **reterr_path) {
 
-        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
-        _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
-        _cleanup_strv_free_ char **hierarchies = NULL;
-        _cleanup_(mount_list_done) MountList ml = {};
+        _cleanup_unref(loop_device) LoopDevice *loop_device = NULL;
+        _cleanup_unref(dissected_image) DissectedImage *dissected_image = NULL;
+        _cleanup_free(strv) char **hierarchies = NULL;
+        _cleanup_done(mount_list) MountList ml = {};
         _cleanup_close_ int userns_fd = -EBADF;
         bool require_prefix = false;
         const char *root;
@@ -3264,7 +3264,7 @@ void mount_image_free_many(MountImage *m, size_t n) {
 
 int mount_image_add(MountImage **m, size_t *n, const MountImage *item) {
         _cleanup_free_ char *s = NULL, *d = NULL;
-        _cleanup_(mount_options_free_allp) MountOptions *o = NULL;
+        _cleanup_free(mount_options) MountOptions *o = NULL;
         int r;
 
         assert(m);
@@ -3818,7 +3818,7 @@ static int handle_mount_from_grandchild(
 
         _cleanup_free_ char *layers = NULL, *options = NULL, *hierarchy_path_moved_mount = NULL;
         _cleanup_close_ int hierarchy_path_fd = -EBADF, overlay_fs_fd = -EBADF;
-        _cleanup_strv_free_ char **new_layers = NULL;
+        _cleanup_free(strv) char **new_layers = NULL;
         int r;
 
         assert(m);
@@ -3934,7 +3934,7 @@ static int refresh_apply_and_prune(const NamespaceParameters *p, MountList *ml) 
                                         if (m->mode != MOUNT_OVERLAY)
                                                 continue;
 
-                                        _cleanup_strv_free_ char **pruned = NULL;
+                                        _cleanup_free(strv) char **pruned = NULL;
 
                                         STRV_FOREACH(ol, m->overlay_layers)
                                                 if (!path_startswith(*ol, mount_entry_path(f))) {
@@ -3966,9 +3966,9 @@ int refresh_extensions_in_namespace(
 
         _cleanup_close_ int mntns_fd = -EBADF, root_fd = -EBADF, pidns_fd = -EBADF;
         const char *overlay_prefix = "/run/systemd/mount-rootfs";
-        _cleanup_(mount_list_done) MountList ml = {};
+        _cleanup_done(mount_list) MountList ml = {};
         _cleanup_free_ char *extension_dir = NULL;
-        _cleanup_strv_free_ char **hierarchies = NULL;
+        _cleanup_free(strv) char **hierarchies = NULL;
         int r;
 
         assert(pidref_is_set(target));

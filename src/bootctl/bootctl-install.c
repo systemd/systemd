@@ -137,7 +137,7 @@ static int install_context_from_cmdline(
         assert(operation >= 0);
         assert(operation < _INSTALL_OPERATION_MAX);
 
-        _cleanup_(install_context_done) InstallContext b = INSTALL_CONTEXT_NULL;
+        _cleanup_done(install_context) InstallContext b = INSTALL_CONTEXT_NULL;
         b.operation = operation;
         b.graceful = arg_graceful() == ARG_GRACEFUL_FORCE ||
                 (operation == INSTALL_UPDATE && arg_graceful() != ARG_GRACEFUL_NO);
@@ -1114,7 +1114,7 @@ static int install_secure_boot_auto_enroll(InstallContext *c) {
                 EFI_VARIABLE_TIME_BASED_AUTHENTICATED_WRITE_ACCESS;
 
         FOREACH_STRING(db, "PK", "KEK", "db") {
-                _cleanup_(BIO_freep) BIO *bio = NULL;
+                _cleanup_free(BIO) BIO *bio = NULL;
 
                 bio = BIO_new(BIO_s_mem());
                 if (!bio)
@@ -1142,7 +1142,7 @@ static int install_secure_boot_auto_enroll(InstallContext *c) {
                 if (BIO_write(bio, siglist, siglistsz) < 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write signature list to bio");
 
-                _cleanup_(PKCS7_freep) PKCS7 *p7 = NULL;
+                _cleanup_free(PKCS7) PKCS7 *p7 = NULL;
                 p7 = PKCS7_sign(c->secure_boot_certificate, c->secure_boot_private_key, /* certs= */ NULL, bio, PKCS7_DETACHED|PKCS7_NOATTR|PKCS7_BINARY|PKCS7_NOSMIMECAP);
                 if (!p7)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to calculate PKCS7 signature: %s",
@@ -1331,7 +1331,7 @@ static int pick_efi_boot_option_description(int esp_fd, char **ret) {
         assert(ret);
 
         /* early declarations, so that they are definitely initialized even if we follow any of the gotos */
-        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
+        _cleanup_unref(sd_device) sd_device *d = NULL;
         _cleanup_free_ char *j = NULL;
 
         const char *b = arg_efi_boot_option_description ?: "Linux Boot Manager";
@@ -1521,7 +1521,7 @@ static int load_secure_boot_auto_enroll(
                         return r;
         }
 
-        _cleanup_(X509_freep) X509 *certificate = NULL;
+        _cleanup_free(X509) X509 *certificate = NULL;
         r = openssl_load_x509_certificate(
                         arg_certificate_source_type,
                         arg_certificate_source,
@@ -1665,7 +1665,7 @@ int verb_install(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         /* Invoked for both "update" and "install" */
 
-        _cleanup_(install_context_done) InstallContext c = INSTALL_CONTEXT_NULL;
+        _cleanup_done(install_context) InstallContext c = INSTALL_CONTEXT_NULL;
         r = install_context_from_cmdline(&c, streq(argv[0], "install") ? INSTALL_NEW : INSTALL_UPDATE);
         if (r < 0)
                 return r;
@@ -1675,7 +1675,7 @@ int verb_install(int argc, char *argv[], uintptr_t _data, void *userdata) {
         }
 
 #if HAVE_OPENSSL
-        _cleanup_(openssl_ask_password_ui_freep) OpenSSLAskPasswordUI *ui = NULL;
+        _cleanup_free(openssl_ask_password_ui) OpenSSLAskPasswordUI *ui = NULL;
         r = load_secure_boot_auto_enroll(&c.secure_boot_certificate, &c.secure_boot_private_key, &ui);
         if (r < 0)
                 return r;
@@ -1885,7 +1885,7 @@ int verb_remove(int argc, char *argv[], uintptr_t _data, void *userdata) {
         sd_id128_t uuid = SD_ID128_NULL;
         int r;
 
-        _cleanup_(install_context_done) InstallContext c = INSTALL_CONTEXT_NULL;
+        _cleanup_done(install_context) InstallContext c = INSTALL_CONTEXT_NULL;
         r = install_context_from_cmdline(&c, INSTALL_REMOVE);
         if (r < 0)
                 return r;
@@ -1958,7 +1958,7 @@ int verb_remove(int argc, char *argv[], uintptr_t _data, void *userdata) {
 int verb_is_installed(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
-        _cleanup_(install_context_done) InstallContext c = INSTALL_CONTEXT_NULL;
+        _cleanup_done(install_context) InstallContext c = INSTALL_CONTEXT_NULL;
         r = install_context_from_cmdline(&c, INSTALL_TEST);
         if (r < 0)
                 return r;
@@ -2008,7 +2008,7 @@ int vl_method_install(
 
         assert(link);
 
-        _cleanup_(install_parameters_done) InstallParameters p = {
+        _cleanup_done(install_parameters) InstallParameters p = {
                 .context = INSTALL_CONTEXT_NULL,
                 .root_fd_index = UINT_MAX,
         };

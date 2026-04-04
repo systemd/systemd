@@ -25,7 +25,7 @@
 #include "strv.h"
 
 static int vconsole_reload(sd_bus *bus) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(bus);
@@ -46,7 +46,7 @@ static int property_get_locale(
                 sd_bus_error *error) {
 
         Context *c = ASSERT_PTR(userdata);
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         int r;
 
         r = locale_read_data(c, reply);
@@ -203,8 +203,8 @@ static int locale_gen_process_locale(char *new_locale[static _VARIABLE_LC_MAX], 
 }
 
 static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        _cleanup_(locale_variables_freep) char *new_locale[_VARIABLE_LC_MAX] = {};
-        _cleanup_strv_free_ char **l = NULL, **l_set = NULL, **l_unset = NULL;
+        _cleanup_free(locale_variables) char *new_locale[_VARIABLE_LC_MAX] = {};
+        _cleanup_free(strv) char **l = NULL, **l_set = NULL, **l_unset = NULL;
         Context *c = ASSERT_PTR(userdata);
         int interactive, r;
         bool use_localegen;
@@ -326,7 +326,7 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
 }
 
 static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        _cleanup_(x11_context_clear) X11Context converted = {};
+        _cleanup_clear(x11_context) X11Context converted = {};
         Context *c = ASSERT_PTR(userdata);
         int convert, interactive, r;
         bool x_needs_update;
@@ -444,7 +444,7 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
 }
 
 static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        _cleanup_(vc_context_clear) VCContext converted = {};
+        _cleanup_clear(vc_context) VCContext converted = {};
         Context *c = ASSERT_PTR(userdata);
         int convert, interactive, r;
         X11Context in;
@@ -624,8 +624,8 @@ static bool context_check_idle(void *userdata) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(context_clear) Context context = {};
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_clear(context) Context context = {};
+        _cleanup_unref(sd_event) sd_event *event = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 

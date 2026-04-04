@@ -99,7 +99,7 @@ static int mangle_fat_label(const char *s, char **ret) {
 
 static int do_mcopy(const char *node, const char *root) {
         _cleanup_free_ char *mcopy = NULL;
-        _cleanup_strv_free_ char **argv = NULL;
+        _cleanup_free(strv) char **argv = NULL;
         _cleanup_free_ DirectoryEntries *de = NULL;
         int r;
 
@@ -178,7 +178,7 @@ int make_filesystem(
                 char * const *extra_mkfs_args) {
 
         _cleanup_free_ char *mkfs = NULL, *mangled_label = NULL;
-        _cleanup_strv_free_ char **argv = NULL, **env = NULL;
+        _cleanup_free(strv) char **argv = NULL, **env = NULL;
         char vol_id[CONST_MAX(SD_ID128_UUID_STRING_MAX, 8U + 1U)] = {};
         int stdio_fds[3] = { -EBADF, STDERR_FILENO, STDERR_FILENO};
         ForkFlags fork_flags = FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT|
@@ -585,7 +585,7 @@ int make_filesystem(
 }
 
 int mkfs_options_from_env(const char *component, const char *fstype, char ***ret) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         const char *e;
         char *n;
 

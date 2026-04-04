@@ -308,7 +308,7 @@ int bus_image_method_get_machine_id(
                 void *userdata,
                 sd_bus_error *error) {
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         Image *image = ASSERT_PTR(userdata);
         Manager *m = ASSERT_PTR(image->userdata);
         int r;
@@ -419,12 +419,12 @@ static int image_node_enumerator(sd_bus *bus, const char *path, void *userdata, 
         assert(path);
         assert(nodes);
 
-        _cleanup_hashmap_free_ Hashmap *images = NULL;
+        _cleanup_free(hashmap) Hashmap *images = NULL;
         r = image_discover(m->runtime_scope, IMAGE_MACHINE, NULL, &images);
         if (r < 0)
                 return r;
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         Image *image;
         HASHMAP_FOREACH(image, images) {
                 char *p;

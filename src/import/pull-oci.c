@@ -164,7 +164,7 @@ int oci_pull_new(
         if (!root)
                 return -ENOMEM;
 
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
         if (event)
                 e = sd_event_ref(event);
         else {
@@ -173,12 +173,12 @@ int oci_pull_new(
                         return r;
         }
 
-        _cleanup_(curl_glue_unrefp) CurlGlue *g = NULL;
+        _cleanup_unref(curl_glue) CurlGlue *g = NULL;
         r = curl_glue_new(&g, e);
         if (r < 0)
                 return r;
 
-        _cleanup_(oci_pull_unrefp) OciPull *i = NULL;
+        _cleanup_unref(oci_pull) OciPull *i = NULL;
         i = new(OciPull, 1);
         if (!i)
                 return -ENOMEM;
@@ -212,7 +212,7 @@ static int pull_job_payload_as_json_object(PullJob *j, sd_json_variant **ret) {
         if (memchr(j->payload.iov_base, 0, j->payload.iov_len))
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Embedded NUL byte in JSON data, refusing.");
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         unsigned line = 0, column = 0;
         r = sd_json_parse((char*) j->payload.iov_base, SD_JSON_PARSE_MUST_BE_OBJECT, &v, &line, &column);
         if (r < 0)
@@ -273,7 +273,7 @@ static int json_dispatch_oci_digest(const char *name, sd_json_variant *variant, 
         if (!h)
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EOPNOTSUPP), "Unsupported hash algorithm used in '%s', refusing.", s);
 
-        _cleanup_(iovec_done) struct iovec d = {};
+        _cleanup_done(iovec) struct iovec d = {};
         r = unhexmem(h, &d.iov_base, &d.iov_len);
         if (r < 0)
                 return json_log(variant, flags, r, "Failed to decode hash '%s', refusing.", s);
@@ -346,7 +346,7 @@ static int oci_pull_redirect_manifest(OciPull *i, const OciIndexEntry *entry) {
         if (r < 0)
                 return r;
 
-        _cleanup_(pull_job_unrefp) PullJob *j = NULL;
+        _cleanup_unref(pull_job) PullJob *j = NULL;
         r = pull_job_new(&j, url, i->glue, i);
         if (r < 0)
                 return r;
@@ -390,7 +390,7 @@ static int oci_pull_process_index(OciPull *i, PullJob *j) {
          *
          * https://github.com/opencontainers/image-spec/blob/main/image-index.md */
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         r = pull_job_payload_as_json_object(j, &v);
         if (r < 0)
                 return r;
@@ -421,7 +421,7 @@ static int oci_pull_process_index(OciPull *i, PullJob *j) {
 
         sd_json_variant *m;
         JSON_VARIANT_ARRAY_FOREACH(m, index_data.manifests) {
-                _cleanup_(oci_index_entry_done) OciIndexEntry entry = {
+                _cleanup_done(oci_index_entry) OciIndexEntry entry = {
                         .size = UINT64_MAX,
                 };
 
@@ -467,7 +467,7 @@ static int oci_pull_job_on_open_disk(PullJob *j) {
                 if (r < 0)
                         return r;
 
-                _cleanup_(sd_varlink_unrefp) sd_varlink *mountfsd_link = NULL;
+                _cleanup_unref(sd_varlink) sd_varlink *mountfsd_link = NULL;
                 r = mountfsd_connect(&mountfsd_link);
                 if (r < 0)
                         return log_error_errno(r, "Failed to connect to mountfsd: %m");
@@ -577,7 +577,7 @@ static int oci_pull_queue_layer(OciPull *i, OciManifestLayer *layer) {
                 return 0;
         }
 
-        _cleanup_(oci_layer_state_freep) OciLayerState *st = new(OciLayerState, 1);
+        _cleanup_free(oci_layer_state) OciLayerState *st = new(OciLayerState, 1);
         if (!st)
                 return -ENOMEM;
 
@@ -589,7 +589,7 @@ static int oci_pull_queue_layer(OciPull *i, OciManifestLayer *layer) {
         };
 
         /* Set up  */
-        _cleanup_(pull_job_unrefp) PullJob *j = NULL;
+        _cleanup_unref(pull_job) PullJob *j = NULL;
         r = pull_job_new(&j, url, i->glue, st);
         if (r < 0)
                 return r;
@@ -754,7 +754,7 @@ static int oci_pull_fetch_layers(OciPull *i) {
         assert(i);
 
         while (set_size(i->active_layer_jobs) < ACTIVE_LAYERS_MAX) {
-                _cleanup_(pull_job_unrefp) PullJob *j = ordered_set_steal_first(i->queued_layer_jobs);
+                _cleanup_unref(pull_job) PullJob *j = ordered_set_steal_first(i->queued_layer_jobs);
                 if (!j)
                         return 0;
 
@@ -782,7 +782,7 @@ static int oci_pull_process_manifest(OciPull *i, PullJob *j) {
          *
          * https://github.com/opencontainers/image-spec/blob/main/manifest.md */
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         r = pull_job_payload_as_json_object(j, &v);
         if (r < 0)
                 return r;
@@ -814,7 +814,7 @@ static int oci_pull_process_manifest(OciPull *i, PullJob *j) {
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "OCI image manifest has unexpected media type '%s', refusing.", manifest_data.media_type);
 
         if (manifest_data.config) {
-                _cleanup_(oci_manifest_config_done) OciManifestConfig config = {
+                _cleanup_done(oci_manifest_config) OciManifestConfig config = {
                         .size = UINT64_MAX,
                 };
 
@@ -834,7 +834,7 @@ static int oci_pull_process_manifest(OciPull *i, PullJob *j) {
 
         sd_json_variant *m;
         JSON_VARIANT_ARRAY_FOREACH(m, manifest_data.layers) {
-                _cleanup_(oci_manifest_layer_done) OciManifestLayer layer = {
+                _cleanup_done(oci_manifest_layer) OciManifestLayer layer = {
                         .size = UINT64_MAX,
                 };
 
@@ -956,7 +956,7 @@ static int oci_pull_save_nspawn_settings(OciPull *i) {
         if (memchr(i->config.iov_base, 0, i->config.iov_len))
                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Embedded NUL by in JSON config data, refusing.");
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         unsigned line = 0, column = 0;
         r = sd_json_parse((char*) i->config.iov_base, SD_JSON_PARSE_MUST_BE_OBJECT, &v, &line, &column);
         if (r < 0)
@@ -964,7 +964,7 @@ static int oci_pull_save_nspawn_settings(OciPull *i) {
 
         sd_json_variant *config = sd_json_variant_by_key(v, "config");
 
-        _cleanup_(oci_configuration_done) OciConfiguration config_data = {
+        _cleanup_done(oci_configuration) OciConfiguration config_data = {
                 .stop_signal = SIGTERM,
         };
         static const struct sd_json_dispatch_field dispatch_table[] = {
@@ -1031,7 +1031,7 @@ static int oci_pull_save_nspawn_settings(OciPull *i) {
                         return r;
         }
 
-        _cleanup_strv_free_ char **cmdline = strv_copy(config_data.entrypoint);
+        _cleanup_free(strv) char **cmdline = strv_copy(config_data.entrypoint);
         if (!cmdline)
                 return log_oom();
         if (strv_extend_strv(&cmdline, config_data.cmd, /* filter_duplicates= */ false) < 0)
@@ -1330,7 +1330,7 @@ static void oci_pull_job_on_finished_bearer_token(PullJob *j) {
         OciPull *i = ASSERT_PTR(j->userdata);
         assert(i->bearer_token_job == j);
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
 
         if (j->error != 0) {
                 if (j->error == -ENOMEDIUM) /* HTTP 404 */
@@ -1414,7 +1414,7 @@ static int oci_pull_process_authentication_challenge(OciPull *i, const char *cha
 
         e += strspn(e, WHITESPACE);
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         r = strv_split_full(&l, e, ",", EXTRACT_KEEP_QUOTE);
         if (r < 0)
                 return log_error_errno(r, "Failed to split bearer token parameters: %m");

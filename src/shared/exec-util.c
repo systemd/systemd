@@ -53,7 +53,7 @@ static int do_spawn(
                 return 0;
         }
 
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         r = pidref_safe_fork_full(
                         "(exec-inner)",
                         (const int[]) { STDIN_FILENO, stdout_fd < 0 ? STDOUT_FILENO : stdout_fd, STDERR_FILENO },
@@ -98,7 +98,7 @@ static int do_execute(
                 char *envp[],
                 ExecDirFlags flags) {
 
-        _cleanup_hashmap_free_ Hashmap *pids = NULL;
+        _cleanup_free(hashmap) Hashmap *pids = NULL;
         bool parallel_execution;
         int r;
 
@@ -165,13 +165,13 @@ static int do_execute(
                                             "permission bits. Proceeding anyway.", t);
                 }
 
-                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+                _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
                 r = do_spawn(t, argv, fd, FLAGS_SET(flags, EXEC_DIR_SET_SYSTEMD_EXEC_PID), &pidref);
                 if (r <= 0)
                         continue;
 
                 if (parallel_execution) {
-                        _cleanup_(pidref_freep) PidRef *dup = NULL;
+                        _cleanup_free(pidref) PidRef *dup = NULL;
                         r = pidref_dup(&pidref, &dup);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to duplicate pid reference: %m");
@@ -222,7 +222,7 @@ static int do_execute(
         }
 
         while (!hashmap_isempty(pids)) {
-                _cleanup_(pidref_freep) PidRef *pidref = NULL;
+                _cleanup_free(pidref) PidRef *pidref = NULL;
                 _cleanup_free_ char *t = NULL;
 
                 t = ASSERT_PTR(hashmap_steal_first_key_and_value(pids, (void**) &pidref));
@@ -274,7 +274,7 @@ int execute_strv(
 
         const char *process_name = strjoina("(", name, ")");
 
-        _cleanup_(pidref_done) PidRef executor_pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef executor_pidref = PIDREF_NULL;
         r = pidref_safe_fork(process_name, FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_LOG, &executor_pidref);
         if (r < 0)
                 return r;
@@ -313,7 +313,7 @@ int execute_directories(
                 char *envp[],
                 ExecDirFlags flags) {
 
-        _cleanup_strv_free_ char **paths = NULL;
+        _cleanup_free(strv) char **paths = NULL;
         int r;
 
         assert(name);
@@ -339,7 +339,7 @@ int execute_directories(
 static int gather_environment_generate(int fd, void *arg) {
         char ***env = ASSERT_PTR(arg);
         _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_strv_free_ char **new = NULL;
+        _cleanup_free(strv) char **new = NULL;
         int r;
 
         /* Read a series of VAR=value assignments from fd, use them to update the list of variables in env.
@@ -467,7 +467,7 @@ int exec_command_flags_from_strv(char * const *ex_opts, ExecCommandFlags *ret) {
 }
 
 int exec_command_flags_to_strv(ExecCommandFlags flags, char ***ret) {
-        _cleanup_strv_free_ char **opts = NULL;
+        _cleanup_free(strv) char **opts = NULL;
         int r;
 
         assert(flags >= 0);

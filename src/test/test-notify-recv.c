@@ -29,8 +29,8 @@ static int on_recv(sd_event_source *s, int fd, uint32_t revents, void *userdata)
         Context *c = ASSERT_PTR(userdata);
 
         _cleanup_(fdset_free_asyncp) FDSet *fds = NULL;
-        _cleanup_(pidref_done) PidRef sender = PIDREF_NULL;
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_done(pidref) PidRef sender = PIDREF_NULL;
+        _cleanup_free(strv) char **l = NULL;
         struct ucred ucred;
         ASSERT_OK(notify_recv_with_fds_strv(fd, &l, &ucred, &sender, &fds));
 
@@ -81,10 +81,10 @@ static int on_sigchld(sd_event_source *s, const siginfo_t *si, void *userdata) {
 TEST(notify_socket_prepare) {
         int r;
 
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
         ASSERT_OK(sd_event_new(&e));
 
-        _cleanup_(context_done) Context c = {
+        _cleanup_done(context) Context c = {
                 .pidref = PIDREF_NULL,
         };
         _cleanup_free_ char *path = NULL;

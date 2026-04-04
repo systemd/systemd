@@ -18,8 +18,8 @@ static void test_with_sd_ndisc(const uint8_t *data, size_t size) {
         struct ether_addr mac_addr = {
                 .ether_addr_octet = {'A', 'B', 'C', '1', '2', '3'}
         };
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
-        _cleanup_(sd_ndisc_unrefp) sd_ndisc *nd = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
+        _cleanup_unref(sd_ndisc) sd_ndisc *nd = NULL;
 
         assert_se(sd_event_new(&e) >= 0);
         assert_se(sd_ndisc_new(&nd) >= 0);
@@ -38,8 +38,8 @@ static void test_with_sd_radv(const uint8_t *data, size_t size) {
         struct ether_addr mac_addr = {
                 .ether_addr_octet = {'A', 'B', 'C', '1', '2', '3'}
         };
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
-        _cleanup_(sd_radv_unrefp) sd_radv *ra = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
+        _cleanup_unref(sd_radv) sd_radv *ra = NULL;
 
         assert_se(socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, test_fd) >= 0);
 
@@ -58,8 +58,8 @@ static void test_with_sd_radv(const uint8_t *data, size_t size) {
 
 static void test_with_icmp6_packet(const uint8_t *data, size_t size) {
         _cleanup_close_pair_ int fd_pair[2] = EBADF_PAIR;
-        _cleanup_(icmp6_packet_unrefp) ICMP6Packet *packet = NULL;
-        _cleanup_set_free_ Set *options = NULL;
+        _cleanup_unref(icmp6_packet) ICMP6Packet *packet = NULL;
+        _cleanup_free(set) Set *options = NULL;
 
         assert_se(socketpair(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, fd_pair) >= 0);
         assert_se(write(fd_pair[1], data, size) == (ssize_t) size);

@@ -10,7 +10,7 @@
 
 #if HAVE_P11KIT && HAVE_OPENSSL
 static int uri_set_private_class(const char *uri, char **ret_uri) {
-        _cleanup_(p11_kit_uri_freep) P11KitUri *p11kit_uri = NULL;
+        _cleanup_free(p11_kit_uri) P11KitUri *p11kit_uri = NULL;
         _cleanup_free_ char *private_uri = NULL;
         int r;
 
@@ -38,11 +38,11 @@ int enroll_pkcs11(struct crypt_device *cd, const struct iovec *volume_key,const 
 #if HAVE_P11KIT && HAVE_OPENSSL
         _cleanup_(erase_and_freep) void *decrypted_key = NULL;
         _cleanup_(erase_and_freep) char *base64_encoded = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         _cleanup_free_ char *keyslot_as_string = NULL, *private_uri = NULL;
         size_t decrypted_key_size, saved_key_size;
         _cleanup_free_ void *saved_key = NULL;
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
+        _cleanup_free(EVP_PKEY) EVP_PKEY *pkey = NULL;
         ssize_t base64_encoded_size;
         const char *node;
         int r;

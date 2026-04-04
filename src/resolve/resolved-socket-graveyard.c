@@ -94,7 +94,7 @@ static void manager_socket_graveyard_make_room(Manager *m) {
 }
 
 int manager_add_socket_to_graveyard(Manager *m, int fd) {
-        _cleanup_(socket_graveyard_freep) SocketGraveyard *g = NULL;
+        _cleanup_free(socket_graveyard) SocketGraveyard *g = NULL;
         int r;
 
         assert(m);

@@ -98,7 +98,7 @@ static int image_policy_build_json(sd_json_variant **ret, const char *name, void
 }
 
 static int bind_paths_build_json(sd_json_variant **ret, const char *name, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         ExecContext *c = ASSERT_PTR(userdata);
         int r;
 
@@ -125,7 +125,7 @@ static int bind_paths_build_json(sd_json_variant **ret, const char *name, void *
 }
 
 static int mount_images_build_json(sd_json_variant **ret, const char *name, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         ExecContext *c = ASSERT_PTR(userdata);
         int r;
 
@@ -133,7 +133,7 @@ static int mount_images_build_json(sd_json_variant **ret, const char *name, void
         assert(name);
 
         FOREACH_ARRAY(i, c->mount_images, c->n_mount_images) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *mo = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *mo = NULL;
 
                 r = json_append_mount_options(&mo, i->mount_options);
                 if (r < 0)
@@ -154,7 +154,7 @@ static int mount_images_build_json(sd_json_variant **ret, const char *name, void
 }
 
 static int extension_images_build_json(sd_json_variant **ret, const char *name, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         ExecContext *c = ASSERT_PTR(userdata);
         int r;
 
@@ -162,7 +162,7 @@ static int extension_images_build_json(sd_json_variant **ret, const char *name, 
         assert(name);
 
         FOREACH_ARRAY(i, c->extension_images, c->n_extension_images) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *mo = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *mo = NULL;
 
                 r = json_append_mount_options(&mo, i->mount_options);
                 if (r < 0)
@@ -183,7 +183,7 @@ static int extension_images_build_json(sd_json_variant **ret, const char *name, 
 
 static int capability_set_build_json(sd_json_variant **ret, const char *name, void *userdata) {
         uint64_t capability_set = PTR_TO_INT64(userdata);
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         int r;
 
         assert(ret);
@@ -203,7 +203,7 @@ static int capability_set_build_json(sd_json_variant **ret, const char *name, vo
 
 static int secure_bits_build_json(sd_json_variant **ret, const char *name, void *userdata) {
         int secure_bits = PTR_TO_INT(userdata);
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         int r;
 
         assert(ret);
@@ -231,7 +231,7 @@ static int rlimit_table_with_defaults_build_json(sd_json_variant **ret, const ch
         Unit *u = ASSERT_PTR(userdata);
         Manager *m = ASSERT_PTR(u->manager);
         ExecContext *c = ASSERT_PTR(unit_get_exec_context(u));
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         int r;
 
         assert(ret);
@@ -266,8 +266,8 @@ static int cpu_sched_class_build_json(sd_json_variant **ret, const char *name, v
 }
 
 static int cpu_affinity_build_json(sd_json_variant **ret, const char *name, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        _cleanup_(cpu_set_done) CPUSet numa_cpuset = {};
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
+        _cleanup_done(cpu_set) CPUSet numa_cpuset = {};
         ExecContext *c = ASSERT_PTR(userdata);
         CPUSet *s = NULL;
         int r;
@@ -347,7 +347,7 @@ static int ioprio_class_build_json(sd_json_variant **ret, const char *name, void
 }
 
 static int exec_dir_build_json(sd_json_variant **ret, const char *name, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         ExecDirectory *exec_dir = ASSERT_PTR(userdata);
         const QuotaLimit *quota = &exec_dir->exec_quota;
         int r;
@@ -382,7 +382,7 @@ static int exec_dir_build_json(sd_json_variant **ret, const char *name, void *us
 }
 
 static int temporary_filesystems_build_json(sd_json_variant **ret, const char *name, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         ExecContext *c = ASSERT_PTR(userdata);
         int r;
 
@@ -403,7 +403,7 @@ static int temporary_filesystems_build_json(sd_json_variant **ret, const char *n
 }
 
 static int address_families_build_json(sd_json_variant **ret, const char *name, void *userdata) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         ExecContext *c = ASSERT_PTR(userdata);
 
         assert(ret);
@@ -426,7 +426,7 @@ static int address_families_build_json(sd_json_variant **ret, const char *name, 
 
 static int restrict_filesystems_build_json(sd_json_variant **ret, const char *name, void *userdata) {
         ExecContext *c = ASSERT_PTR(userdata);
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
 
         assert(ret);
         assert(name);
@@ -447,7 +447,7 @@ static int restrict_filesystems_build_json(sd_json_variant **ret, const char *na
 }
 
 static int namespace_flags_build_json(sd_json_variant **ret, const char *name, void *userdata) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         unsigned long namespaces = PTR_TO_ULONG(userdata);
         int r;
 
@@ -516,7 +516,7 @@ static int private_bpf_delegate_attachments_build_json(sd_json_variant **ret, co
 
 static int syscall_filter_build_json(sd_json_variant **ret, const char *name, void *userdata) {
         ExecContext *c = ASSERT_PTR(userdata);
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
 
         assert(ret);
         assert(name);
@@ -552,7 +552,7 @@ static int syscall_error_number_build_json(sd_json_variant **ret, const char *na
 
 static int syscall_archs_build_json(sd_json_variant **ret, const char *name, void *userdata) {
         ExecContext *c = ASSERT_PTR(userdata);
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
 
         assert(ret);
         assert(name);
@@ -571,7 +571,7 @@ static int syscall_archs_build_json(sd_json_variant **ret, const char *name, voi
 
 static int syscall_log_build_json(sd_json_variant **ret, const char *name, void *userdata) {
         ExecContext *c = ASSERT_PTR(userdata);
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
 
         assert(ret);
         assert(name);
@@ -592,7 +592,7 @@ static int syscall_log_build_json(sd_json_variant **ret, const char *name, void 
 }
 
 static int environment_files_build_json(sd_json_variant **ret, const char *name, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         char **environment_files = userdata;
         int r;
 
@@ -637,7 +637,7 @@ static int log_level_build_json(sd_json_variant **ret, const char *name, void *u
 }
 
 static int log_extra_fields_build_json(sd_json_variant **ret, const char *name, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         ExecContext *c = ASSERT_PTR(userdata);
         int r;
 
@@ -645,7 +645,7 @@ static int log_extra_fields_build_json(sd_json_variant **ret, const char *name, 
         assert(name);
 
         FOREACH_ARRAY(i, c->log_extra_fields, c->n_log_extra_fields) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *s = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *s = NULL;
                 r = sd_json_variant_new_stringn(&s, i->iov_base, i->iov_len);
                 if (r < 0)
                         return r;
@@ -660,7 +660,7 @@ static int log_extra_fields_build_json(sd_json_variant **ret, const char *name, 
 }
 
 static int log_filter_patterns_build_json(sd_json_variant **ret, const char *name, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         ExecContext *c = ASSERT_PTR(userdata);
         const char *pattern;
         int r;
@@ -706,7 +706,7 @@ static int syslog_facility_build_json(sd_json_variant **ret, const char *name, v
 }
 
 static int load_credential_build_json(sd_json_variant **ret, const char *name, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         Hashmap *load_credentials = userdata;
         ExecLoadCredential *lc;
         int r;
@@ -732,7 +732,7 @@ static int load_credential_build_json(sd_json_variant **ret, const char *name, v
 }
 
 static int import_credential_build_json(sd_json_variant **ret, const char *name, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         OrderedSet *import_credentials = userdata;
         ExecImportCredential *ic;
         int r;
@@ -753,7 +753,7 @@ static int import_credential_build_json(sd_json_variant **ret, const char *name,
 }
 
 static int set_credential_build_json(sd_json_variant **ret, const char *name, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         Hashmap *set_credentials = userdata;
         ExecSetCredential *sc;
         int r;

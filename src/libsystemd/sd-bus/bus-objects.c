@@ -227,7 +227,7 @@ static int get_child_nodes(
                 OrderedSet **ret,
                 sd_bus_error *reterr_error) {
 
-        _cleanup_ordered_set_free_ OrderedSet *s = NULL;
+        _cleanup_free(ordered_set) OrderedSet *s = NULL;
         int r;
 
         assert(bus);
@@ -261,7 +261,7 @@ static int node_callbacks_run(
         assert(found_object);
 
         LIST_FOREACH(callbacks, c, first) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
                 sd_bus_slot *slot;
 
                 if (bus->nodes_modified)
@@ -344,7 +344,7 @@ static int method_callbacks_run(
                 bool require_fallback,
                 bool *found_object) {
 
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *signature;
         void *u;
         int r;
@@ -570,8 +570,8 @@ static int property_get_set_callbacks_run(
                 bool is_get,
                 bool *found_object) {
 
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         sd_bus_slot *slot;
         void *u = NULL;
         int r;
@@ -805,7 +805,7 @@ static int property_get_all_callbacks_run(
                 const char *iface,
                 bool *found_object) {
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         bool found_interface;
         int r;
 
@@ -827,7 +827,7 @@ static int property_get_all_callbacks_run(
                                                "org.freedesktop.DBus.Introspectable");
 
         LIST_FOREACH(vtables, c, first) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
                 void *u;
 
                 if (require_fallback && !c->is_fallback)
@@ -905,7 +905,7 @@ static int bus_node_exists(
         }
 
         LIST_FOREACH(vtables, c, n->vtables) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                 if (require_fallback && !c->is_fallback)
                         continue;
@@ -930,8 +930,8 @@ int introspect_path(
                 char **ret,
                 sd_bus_error *reterr_error) {
 
-        _cleanup_ordered_set_free_ OrderedSet *s = NULL;
-        _cleanup_(introspect_done) BusIntrospect intro = {};
+        _cleanup_free(ordered_set) OrderedSet *s = NULL;
+        _cleanup_done(introspect) BusIntrospect intro = {};
         bool empty;
         int r;
 
@@ -1011,8 +1011,8 @@ static int process_introspect(
                 bool *found_object) {
 
         _cleanup_free_ char *s = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         int r;
 
         assert(bus);
@@ -1231,9 +1231,9 @@ static int process_get_managed_objects(
                 bool require_fallback,
                 bool *found_object) {
 
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_ordered_set_free_ OrderedSet *s = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
+        _cleanup_free(ordered_set) OrderedSet *s = NULL;
         char *path;
         int r;
 
@@ -2076,8 +2076,8 @@ static int emit_properties_changed_on_interface(
                 bool *found_interface,
                 char **names) {
 
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
         bool has_invalidating = false, has_changing = false;
         BusVTableMember key = {};
         BusNode *n;
@@ -2337,7 +2337,7 @@ _public_ int sd_bus_emit_properties_changed(
                 const char *interface,
                 const char *name, ...)  {
 
-        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_free(strv) char **names = NULL;
 
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
@@ -2386,7 +2386,7 @@ static int object_added_append_all_prefix(
                 return 0;
 
         LIST_FOREACH(vtables, c, n->vtables) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
                 void *u = NULL;
 
                 if (require_fallback && !c->is_fallback)
@@ -2454,7 +2454,7 @@ static int object_added_append_all_prefix(
 }
 
 static int object_added_append_all(sd_bus *bus, sd_bus_message *m, const char *path, bool path_has_object_manager) {
-        _cleanup_ordered_set_free_ OrderedSet *s = NULL;
+        _cleanup_free(ordered_set) OrderedSet *s = NULL;
         _cleanup_free_ char *prefix = NULL;
         size_t pl;
         int r;
@@ -2521,7 +2521,7 @@ static int object_added_append_all(sd_bus *bus, sd_bus_message *m, const char *p
 }
 
 _public_ int sd_bus_emit_object_added(sd_bus *bus, const char *path) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
         BusNode *object_manager;
         int r;
 
@@ -2608,7 +2608,7 @@ static int object_removed_append_all_prefix(
                 return 0;
 
         LIST_FOREACH(vtables, c, n->vtables) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
                 void *u = NULL;
 
                 if (require_fallback && !c->is_fallback)
@@ -2646,7 +2646,7 @@ static int object_removed_append_all_prefix(
 }
 
 static int object_removed_append_all(sd_bus *bus, sd_bus_message *m, const char *path, bool path_has_object_manager) {
-        _cleanup_ordered_set_free_ OrderedSet *s = NULL;
+        _cleanup_free(ordered_set) OrderedSet *s = NULL;
         _cleanup_free_ char *prefix = NULL;
         size_t pl;
         int r;
@@ -2701,7 +2701,7 @@ static int object_removed_append_all(sd_bus *bus, sd_bus_message *m, const char 
 }
 
 _public_ int sd_bus_emit_object_removed(sd_bus *bus, const char *path) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
         BusNode *object_manager;
         int r;
 
@@ -2773,7 +2773,7 @@ static int interfaces_added_append_one_prefix(
                 const char *interface,
                 bool require_fallback) {
 
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         bool found_interface = false;
         BusNode *n;
         void *u = NULL;
@@ -2871,7 +2871,7 @@ static int interfaces_added_append_one(
 }
 
 _public_ int sd_bus_emit_interfaces_added_strv(sd_bus *bus, const char *path, char **interfaces) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
         BusNode *object_manager;
         int r;
 
@@ -2943,7 +2943,7 @@ _public_ int sd_bus_emit_interfaces_added_strv(sd_bus *bus, const char *path, ch
 }
 
 _public_ int sd_bus_emit_interfaces_added(sd_bus *bus, const char *path, const char *interface, ...) {
-        _cleanup_strv_free_ char **interfaces = NULL;
+        _cleanup_free(strv) char **interfaces = NULL;
 
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);
@@ -2966,7 +2966,7 @@ _public_ int sd_bus_emit_interfaces_added(sd_bus *bus, const char *path, const c
 }
 
 _public_ int sd_bus_emit_interfaces_removed_strv(sd_bus *bus, const char *path, char **interfaces) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
         BusNode *object_manager;
         int r;
 
@@ -3004,7 +3004,7 @@ _public_ int sd_bus_emit_interfaces_removed_strv(sd_bus *bus, const char *path, 
 }
 
 _public_ int sd_bus_emit_interfaces_removed(sd_bus *bus, const char *path, const char *interface, ...) {
-        _cleanup_strv_free_ char **interfaces = NULL;
+        _cleanup_free(strv) char **interfaces = NULL;
 
         assert_return(bus, -EINVAL);
         assert_return(bus = bus_resolve(bus), -ENOPKG);

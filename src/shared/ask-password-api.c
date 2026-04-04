@@ -166,7 +166,7 @@ static key_serial_t keyring_cache_type(void) {
 }
 
 static int add_to_keyring(const char *keyname, AskPasswordFlags flags, char **passwords) {
-        _cleanup_strv_free_erase_ char **l = NULL;
+        _cleanup_(strv_free_erasep) char **l = NULL;
         _cleanup_(erase_and_freep) char *p = NULL;
         key_serial_t serial;
         size_t n;
@@ -249,7 +249,7 @@ static int ask_password_keyring(const AskPasswordRequest *req, AskPasswordFlags 
         if (r < 0)
                 return log_debug_errno(r, "Failed to look up key %s in keyring: %m", req->keyring);
 
-        _cleanup_strv_free_erase_ char **l = NULL;
+        _cleanup_(strv_free_erasep) char **l = NULL;
         r = retrieve_key(serial, &l);
         if (r < 0)
                 return r;
@@ -432,7 +432,7 @@ int ask_password_plymouth(
                         return -ENOENT;
 
                 } else if (IN_SET(buffer[0], 2, 9)) {
-                        _cleanup_strv_free_erase_ char **l = NULL;
+                        _cleanup_(strv_free_erasep) char **l = NULL;
                         uint32_t size;
 
                         /* One or more answers */
@@ -476,7 +476,7 @@ int ask_password_tty(
         _cleanup_close_ int cttyfd = -EBADF, inotify_fd = -EBADF;
         struct termios old_termios, new_termios;
         char passphrase[LINE_MAX + 1] = {}, *x;
-        _cleanup_strv_free_erase_ char **l = NULL;
+        _cleanup_(strv_free_erasep) char **l = NULL;
         size_t p = 0, codepoint = 0;
         int r;
 
@@ -965,7 +965,7 @@ int ask_password_agent(
 
         assert(n_pollfd <= _POLL_MAX);
 
-        _cleanup_strv_free_erase_ char **l = NULL;
+        _cleanup_(strv_free_erasep) char **l = NULL;
 
         for (;;) {
                 usec_t timeout;
@@ -1077,7 +1077,7 @@ int ask_password_agent(
 
 static int ask_password_credential(const AskPasswordRequest *req, AskPasswordFlags flags, char ***ret) {
         _cleanup_(erase_and_freep) char *buffer = NULL;
-        _cleanup_strv_free_erase_ char **l = NULL;
+        _cleanup_(strv_free_erasep) char **l = NULL;
         size_t size;
         int r;
 

@@ -35,7 +35,7 @@
 #include "tmpfile-util.h"
 
 int link_new(Manager *m, Link **ret, int ifindex) {
-        _cleanup_(link_freep) Link *l = NULL;
+        _cleanup_free(link) Link *l = NULL;
         int r;
 
         assert(m);
@@ -290,7 +290,7 @@ static int link_update_dns_server_one(Link *l, const char *str) {
 }
 
 static int link_update_dns_servers(Link *l) {
-        _cleanup_strv_free_ char **nameservers = NULL;
+        _cleanup_free(strv) char **nameservers = NULL;
         int r;
 
         assert(l);
@@ -470,8 +470,8 @@ static int link_update_dnssec_mode(Link *l) {
 }
 
 static int link_update_dnssec_negative_trust_anchors(Link *l) {
-        _cleanup_strv_free_ char **ntas = NULL;
-        _cleanup_set_free_ Set *ns = NULL;
+        _cleanup_free(strv) char **ntas = NULL;
+        _cleanup_free(set) Set *ns = NULL;
         int r;
 
         assert(l);
@@ -515,7 +515,7 @@ static int link_update_search_domain_one(Link *l, const char *name, bool route_o
 }
 
 static int link_update_search_domains(Link *l) {
-        _cleanup_strv_free_ char **sdomains = NULL, **rdomains = NULL;
+        _cleanup_free(strv) char **sdomains = NULL, **rdomains = NULL;
         int r, q;
 
         assert(l);
@@ -1458,7 +1458,7 @@ int link_load_user(Link *l) {
         }
 
         if (ntas) {
-                _cleanup_set_free_ Set *ns = NULL;
+                _cleanup_free(set) Set *ns = NULL;
 
                 ns = set_new(&dns_name_hash_ops_free);
                 if (!ns) {

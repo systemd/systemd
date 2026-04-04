@@ -408,7 +408,7 @@ static int table_add_uid_map(
 }
 
 static int verb_display_user(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_unref(table) Table *table = NULL;
         bool draw_separator = false;
         int ret = 0, r;
 
@@ -429,7 +429,7 @@ static int verb_display_user(int argc, char *argv[], uintptr_t _data, void *user
                         (void) table_hide_column_from_display(table, (size_t) 0);
         }
 
-        _cleanup_(userdb_match_done) UserDBMatch match = {
+        _cleanup_done(userdb_match) UserDBMatch match = {
                 .disposition_mask = arg_disposition_mask,
                 .uid_min = arg_uid_min,
                 .uid_max = arg_uid_max,
@@ -440,7 +440,7 @@ static int verb_display_user(int argc, char *argv[], uintptr_t _data, void *user
                 if (argc > 1)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No argument expected when invoked with --from-file=, refusing.");
 
-                _cleanup_(user_record_unrefp) UserRecord *ur = user_record_new();
+                _cleanup_unref(user_record) UserRecord *ur = user_record_new();
                 if (!ur)
                         return log_oom();
 
@@ -454,7 +454,7 @@ static int verb_display_user(int argc, char *argv[], uintptr_t _data, void *user
 
         } else if (argc > 1 && !arg_fuzzy)
                 STRV_FOREACH(i, argv + 1) {
-                        _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
+                        _cleanup_unref(user_record) UserRecord *ur = NULL;
 
                         r = userdb_by_name(*i, &match, arg_userdb_flags|USERDB_PARSE_NUMERIC, &ur);
                         if (r < 0) {
@@ -487,7 +487,7 @@ static int verb_display_user(int argc, char *argv[], uintptr_t _data, void *user
                                 return log_oom();
                 }
 
-                _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
+                _cleanup_free(userdb_iterator) UserDBIterator *iterator = NULL;
                 r = userdb_all(&match, arg_userdb_flags, &iterator);
                 if (r == -ENOLINK) /* ENOLINK → Didn't find answer without Varlink, and didn't try Varlink because was configured to off. */
                         log_debug_errno(r, "No entries found. (Didn't check via Varlink.)");
@@ -497,7 +497,7 @@ static int verb_display_user(int argc, char *argv[], uintptr_t _data, void *user
                         return log_error_errno(r, "Failed to enumerate users: %m");
                 else {
                         for (;;) {
-                                _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
+                                _cleanup_unref(user_record) UserRecord *ur = NULL;
 
                                 r = userdb_iterator_get(iterator, &match, &ur);
                                 if (r == -ESRCH)
@@ -523,7 +523,7 @@ static int verb_display_user(int argc, char *argv[], uintptr_t _data, void *user
                 int boundary_lines = 0, uid_map_lines = 0;
 
                 if (arg_boundaries) {
-                        _cleanup_(uid_range_freep) UIDRange *uid_range = NULL;
+                        _cleanup_free(uid_range) UIDRange *uid_range = NULL;
 
                         r = uid_range_load_userns(/* path= */ NULL, UID_RANGE_USERNS_INSIDE, &uid_range);
                         if (r < 0)
@@ -751,7 +751,7 @@ static int add_unavailable_gid(Table *table, uid_t start, uid_t end) {
 }
 
 static int verb_display_group(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_unref(table) Table *table = NULL;
         bool draw_separator = false;
         int ret = 0, r;
 
@@ -771,7 +771,7 @@ static int verb_display_group(int argc, char *argv[], uintptr_t _data, void *use
                         (void) table_hide_column_from_display(table, (size_t) 0);
         }
 
-        _cleanup_(userdb_match_done) UserDBMatch match = {
+        _cleanup_done(userdb_match) UserDBMatch match = {
                 .disposition_mask = arg_disposition_mask,
                 .gid_min = arg_uid_min,
                 .gid_max = arg_uid_max,
@@ -782,7 +782,7 @@ static int verb_display_group(int argc, char *argv[], uintptr_t _data, void *use
                 if (argc > 1)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No argument expected when invoked with --from-file=, refusing.");
 
-                _cleanup_(group_record_unrefp) GroupRecord *gr = group_record_new();
+                _cleanup_unref(group_record) GroupRecord *gr = group_record_new();
                 if (!gr)
                         return log_oom();
 
@@ -796,7 +796,7 @@ static int verb_display_group(int argc, char *argv[], uintptr_t _data, void *use
 
         } else if (argc > 1 && !arg_fuzzy)
                 STRV_FOREACH(i, argv + 1) {
-                        _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
+                        _cleanup_unref(group_record) GroupRecord *gr = NULL;
 
                         r = groupdb_by_name(*i, &match, arg_userdb_flags|USERDB_PARSE_NUMERIC, &gr);
                         if (r < 0) {
@@ -828,7 +828,7 @@ static int verb_display_group(int argc, char *argv[], uintptr_t _data, void *use
                                 return log_oom();
                 }
 
-                _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
+                _cleanup_free(userdb_iterator) UserDBIterator *iterator = NULL;
                 r = groupdb_all(&match, arg_userdb_flags, &iterator);
                 if (r == -ENOLINK)
                         log_debug_errno(r, "No entries found. (Didn't check via Varlink.)");
@@ -838,7 +838,7 @@ static int verb_display_group(int argc, char *argv[], uintptr_t _data, void *use
                         return log_error_errno(r, "Failed to enumerate groups: %m");
                 else {
                         for (;;) {
-                                _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
+                                _cleanup_unref(group_record) GroupRecord *gr = NULL;
 
                                 r = groupdb_iterator_get(iterator, &match, &gr);
                                 if (r == -ESRCH)
@@ -864,7 +864,7 @@ static int verb_display_group(int argc, char *argv[], uintptr_t _data, void *use
                 int boundary_lines = 0, gid_map_lines = 0;
 
                 if (arg_boundaries) {
-                        _cleanup_(uid_range_freep) UIDRange *gid_range = NULL;
+                        _cleanup_free(uid_range) UIDRange *gid_range = NULL;
                         r = uid_range_load_userns(/* path= */ NULL, GID_RANGE_USERNS_INSIDE, &gid_range);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to load /proc/self/gid_map, ignoring: %m");
@@ -914,7 +914,7 @@ static int show_membership(const char *user, const char *group, Table *table) {
                 break;
 
         case OUTPUT_JSON: {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
 
                 r = sd_json_buildo(
                                 &v,
@@ -952,7 +952,7 @@ static int show_membership(const char *user, const char *group, Table *table) {
 }
 
 static int verb_display_memberships(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_unref(table) Table *table = NULL;
         int ret = 0, r;
 
         if (arg_from_file)
@@ -971,7 +971,7 @@ static int verb_display_memberships(int argc, char *argv[], uintptr_t _data, voi
 
         if (argc > 1)
                 STRV_FOREACH(i, argv + 1) {
-                        _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
+                        _cleanup_free(userdb_iterator) UserDBIterator *iterator = NULL;
 
                         if (streq(argv[0], "users-in-group")) {
                                 r = membershipdb_by_group(*i, arg_userdb_flags, &iterator);
@@ -1001,7 +1001,7 @@ static int verb_display_memberships(int argc, char *argv[], uintptr_t _data, voi
                         }
                 }
         else {
-                _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
+                _cleanup_free(userdb_iterator) UserDBIterator *iterator = NULL;
 
                 r = membershipdb_all(arg_userdb_flags, &iterator);
                 if (r == -ENOLINK)
@@ -1048,7 +1048,7 @@ static int verb_display_memberships(int argc, char *argv[], uintptr_t _data, voi
 }
 
 static int verb_display_services(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(table_unrefp) Table *t = NULL;
+        _cleanup_unref(table) Table *t = NULL;
         _cleanup_closedir_ DIR *d = NULL;
         int r;
 
@@ -1115,7 +1115,7 @@ static int verb_display_services(int argc, char *argv[], uintptr_t _data, void *
 }
 
 static int verb_ssh_authorized_keys(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
+        _cleanup_unref(user_record) UserRecord *ur = NULL;
         char **chain_invocation;
         int r;
 
@@ -1258,14 +1258,14 @@ static int load_credential_one(
         } else if (*userdb_dir_fd < 0)
                 return log_debug_errno(*userdb_dir_fd, "Previous attempt to open '%s/' failed, skipping.", userdb_dir);
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         unsigned line = 0, column = 0;
         r = sd_json_parse_file_at(/* f= */ NULL, credential_dir_fd, name, SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_SENSITIVE, &v, &line, &column);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse credential '%s' as JSON at %u:%u: %m", name, line, column);
 
-        _cleanup_(user_record_unrefp) UserRecord *ur = NULL, *ur_stripped = NULL, *ur_privileged = NULL;
-        _cleanup_(group_record_unrefp) GroupRecord *gr = NULL, *gr_stripped = NULL, *gr_privileged = NULL;
+        _cleanup_unref(user_record) UserRecord *ur = NULL, *ur_stripped = NULL, *ur_privileged = NULL;
+        _cleanup_unref(group_record) GroupRecord *gr = NULL, *gr_stripped = NULL, *gr_privileged = NULL;
         _cleanup_free_ char *fn = NULL, *link = NULL;
 
         if (user) {
@@ -1293,7 +1293,7 @@ static int load_credential_one(
                 if (!gid_is_valid(user_record_gid(ur)))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "JSON user record missing gid field");
 
-                _cleanup_(user_record_unrefp) UserRecord *m = NULL;
+                _cleanup_unref(user_record) UserRecord *m = NULL;
                 r = userdb_by_name(ur->user_name, /* match= */ NULL, USERDB_SUPPRESS_SHADOW, &m);
                 if (r >= 0) {
                         if (m->uid != ur->uid)
@@ -1359,7 +1359,7 @@ static int load_credential_one(
                 if (!gid_is_valid(gr->gid))
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "JSON group record missing gid field");
 
-                _cleanup_(group_record_unrefp) GroupRecord *m = NULL;
+                _cleanup_unref(group_record) GroupRecord *m = NULL;
                 r = groupdb_by_name(gr->group_name, /* match= */ NULL, USERDB_SUPPRESS_SHADOW, &m);
                 if (r >= 0) {
                         if (m->gid != gr->gid)
@@ -1841,7 +1841,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 break;
                         }
 
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
                         const char *fn = streq(optarg, "-") ? NULL : optarg;
                         unsigned line = 0;
                         r = sd_json_parse_file(fn ? NULL : stdin, fn ?: "<stdin>", SD_JSON_PARSE_MUST_BE_OBJECT|SD_JSON_PARSE_SENSITIVE, &v, &line, /* reterr_column= */ NULL);

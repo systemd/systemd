@@ -63,7 +63,7 @@ static int prepare_socket_bind_bpf(
                 CGroupSocketBindItem *deny,
                 struct socket_bind_bpf **ret_obj) {
 
-        _cleanup_(socket_bind_bpf_freep) struct socket_bind_bpf *obj = NULL;
+        _cleanup_free(socket_bind_bpf) struct socket_bind_bpf *obj = NULL;
         size_t allow_count = 0, deny_count = 0;
         int allow_map_fd, deny_map_fd, r;
 
@@ -122,7 +122,7 @@ static int prepare_socket_bind_bpf(
 }
 
 int bpf_socket_bind_supported(void) {
-        _cleanup_(socket_bind_bpf_freep) struct socket_bind_bpf *obj = NULL;
+        _cleanup_free(socket_bind_bpf) struct socket_bind_bpf *obj = NULL;
         int r;
 
         if (dlopen_bpf_full(LOG_WARNING) < 0)
@@ -161,8 +161,8 @@ int bpf_socket_bind_add_initial_link_fd(Unit *u, int fd) {
 }
 
 static int socket_bind_install_impl(Unit *u) {
-        _cleanup_(bpf_link_freep) struct bpf_link *ipv4 = NULL, *ipv6 = NULL;
-        _cleanup_(socket_bind_bpf_freep) struct socket_bind_bpf *obj = NULL;
+        _cleanup_free(bpf_link) struct bpf_link *ipv4 = NULL, *ipv6 = NULL;
+        _cleanup_free(socket_bind_bpf) struct socket_bind_bpf *obj = NULL;
         _cleanup_free_ char *cgroup_path = NULL;
         _cleanup_close_ int cgroup_fd = -EBADF;
         CGroupContext *cc;

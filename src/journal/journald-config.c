@@ -373,7 +373,7 @@ int manager_dispatch_reload_signal(sd_event_source *s, const struct signalfd_sig
 
         (void) notify_reloading();
 
-        _cleanup_(journal_config_done) JournalConfig old = TAKE_STRUCT(m->config);
+        _cleanup_done(journal_config) JournalConfig old = TAKE_STRUCT(m->config);
 
         manager_reload_config(m);
 

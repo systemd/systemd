@@ -35,7 +35,7 @@ typedef enum Status {
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL, *verbs = NULL;
+        _cleanup_unref(table) Table *options = NULL, *verbs = NULL;
         int r;
 
         r = terminal_urlify_man("systemd-bless-boot.service", "8", &link);

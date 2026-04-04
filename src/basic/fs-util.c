@@ -277,7 +277,7 @@ int fchmod_and_chown_with_fallback(int fd, const char *path, mode_t mode, uid_t 
 }
 
 int fchmod_umask(int fd, mode_t m) {
-        _cleanup_umask_ mode_t u = umask(0777);
+        _cleanup_(umaskp) mode_t u = umask(0777);
 
         return RET_NERRNO(fchmod(fd, m & (~u)));
 }
@@ -550,7 +550,7 @@ int mkfifoat_atomic(int dir_fd, const char *path, mode_t mode) {
 }
 
 int get_files_in_directory(const char *path, char ***ret_list) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         _cleanup_closedir_ DIR *d = NULL;
         size_t n = 0;
 

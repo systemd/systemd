@@ -136,7 +136,7 @@ static int builtin_hwdb(UdevEvent *event, int argc, char *argv[]) {
                 {}
         };
         const char *filter = NULL, *device = NULL, *subsystem = NULL, *prefix = NULL;
-        _cleanup_(sd_device_unrefp) sd_device *srcdev = NULL;
+        _cleanup_unref(sd_device) sd_device *srcdev = NULL;
         sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         int r;
 

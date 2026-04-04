@@ -535,7 +535,7 @@ static int parse_one_option(const char *option) {
         } else if ((val = startswith(option, "tpm2-measure-bank="))) {
 
 #if HAVE_OPENSSL
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_free(strv) char **l = NULL;
 
                 l = strv_split(val, ":");
                 if (!l)
@@ -712,7 +712,7 @@ static char* disk_description(const char *path) {
                 "ID_MODEL_FROM_DATABASE\0"
                 "ID_MODEL\0";
 
-        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        _cleanup_unref(sd_device) sd_device *device = NULL;
         const char *name;
         struct stat st;
 
@@ -755,8 +755,8 @@ static char* disk_description(const char *path) {
 }
 
 static char* disk_mount_point(const char *label) {
-        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
-        _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
+        _cleanup_free(mnt_table) struct libmnt_table *table = NULL;
+        _cleanup_free(mnt_iter) struct libmnt_iter *iter = NULL;
         _cleanup_free_ char *device = NULL;
         int r;
 
@@ -839,7 +839,7 @@ static PassphraseType check_registered_passwords(struct crypt_device *cd) {
 
         /* Iterate all LUKS2 tokens and keep track of all their slots */
         for (int token = 0; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
                 const char *type;
                 sd_json_variant *w, *z;
                 int tk;
@@ -917,7 +917,7 @@ static int get_password(
                 char ***ret) {
 
         _cleanup_free_ char *friendly = NULL, *text = NULL, *disk_path = NULL, *id = NULL;
-        _cleanup_strv_free_erase_ char **passwords = NULL;
+        _cleanup_(strv_free_erasep) char **passwords = NULL;
         AskPasswordFlags flags = arg_ask_password_flags;
         int r;
 
@@ -962,7 +962,7 @@ static int get_password(
                 return log_error_errno(r, "Failed to query password: %m");
 
         if (arg_verify) {
-                _cleanup_strv_free_erase_ char **passwords2 = NULL;
+                _cleanup_(strv_free_erasep) char **passwords2 = NULL;
 
                 assert(strv_length(passwords) == 1);
 
@@ -1039,12 +1039,12 @@ static int measure_volume_key(
         }
 
 #if HAVE_TPM2
-        _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
+        _cleanup_unref(tpm2_context) Tpm2Context *c = NULL;
         r = tpm2_context_new_or_warn(arg_tpm2_device, &c);
         if (r < 0)
                 return r;
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         if (strv_isempty(arg_tpm2_measure_banks)) {
                 r = tpm2_get_good_pcr_banks_strv(c, UINT32_C(1) << arg_tpm2_measure_pcr, &l);
                 if (r < 0)
@@ -1117,7 +1117,7 @@ static int measure_keyslot(
                 return 0;
         }
 
-        _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
+        _cleanup_unref(tpm2_context) Tpm2Context *c = NULL;
         r = tpm2_context_new_or_warn(arg_tpm2_device, &c);
         if (r < 0)
                 return r;
@@ -1401,8 +1401,8 @@ static char *make_bindname(const char *volume, TokenType token_type) {
 static int make_security_device_monitor(
                 sd_event **ret_event,
                 sd_device_monitor **ret_monitor) {
-        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor = NULL;
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_unref(sd_device_monitor) sd_device_monitor *monitor = NULL;
+        _cleanup_unref(sd_event) sd_event *event = NULL;
         int r;
 
         assert(ret_event);
@@ -1518,7 +1518,7 @@ static bool use_token_plugins(void) {
 #if HAVE_LIBCRYPTSETUP_PLUGINS
 static int acquire_pins_from_env_variable(char ***ret_pins) {
         _cleanup_(erase_and_freep) char *envpin = NULL;
-        _cleanup_strv_free_erase_ char **pins = NULL;
+        _cleanup_(strv_free_erasep) char **pins = NULL;
         int r;
 
         assert(ret_pins);
@@ -1551,7 +1551,7 @@ static int crypt_activate_by_token_pin_ask_password(
 
 #if HAVE_LIBCRYPTSETUP_PLUGINS
         AskPasswordFlags flags = arg_ask_password_flags;
-        _cleanup_strv_free_erase_ char **pins = NULL;
+        _cleanup_(strv_free_erasep) char **pins = NULL;
         int r;
 
         r = crypt_activate_by_token_pin(cd, name, type, CRYPT_ANY_TOKEN, /* pin= */ NULL, /* pin_size= */ 0, userdata, activation_flags);
@@ -1642,9 +1642,9 @@ static int attach_luks_or_plain_or_bitlk_by_fido2(
                 uint32_t flags,
                 bool pass_volume_key) {
 
-        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor = NULL;
+        _cleanup_unref(sd_device_monitor) sd_device_monitor *monitor = NULL;
         _cleanup_(erase_and_freep) void *decrypted_key = NULL;
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_unref(sd_event) sd_event *event = NULL;
         size_t decrypted_key_size;
         _cleanup_free_ char *friendly = NULL;
         int keyslot = arg_key_slot, r;
@@ -1807,11 +1807,11 @@ static int attach_luks_or_plain_or_bitlk_by_pkcs11(
                 uint32_t flags,
                 bool pass_volume_key) {
 
-        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor = NULL;
+        _cleanup_unref(sd_device_monitor) sd_device_monitor *monitor = NULL;
         _cleanup_free_ char *friendly = NULL, *discovered_uri = NULL;
         size_t decrypted_key_size = 0, discovered_key_size = 0;
         _cleanup_(erase_and_freep) void *decrypted_key = NULL;
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_unref(sd_event) sd_event *event = NULL;
         _cleanup_free_ void *discovered_key = NULL;
         struct iovec discovered_key_data = {};
         int keyslot = arg_key_slot, r;
@@ -1946,8 +1946,8 @@ static int make_tpm2_device_monitor(
                 sd_event **ret_event,
                 sd_device_monitor **ret_monitor) {
 
-        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor = NULL;
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_unref(sd_device_monitor) sd_device_monitor *monitor = NULL;
+        _cleanup_unref(sd_event) sd_event *event = NULL;
         int r;
 
         assert(ret_event);
@@ -2026,9 +2026,9 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                 uint32_t flags,
                 bool pass_volume_key) {
 
-        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor = NULL;
+        _cleanup_unref(sd_device_monitor) sd_device_monitor *monitor = NULL;
         _cleanup_(iovec_done_erase) struct iovec decrypted_key = {};
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_unref(sd_event) sd_event *event = NULL;
         _cleanup_free_ char *friendly = NULL;
         int keyslot = arg_key_slot, r;
 
@@ -2104,7 +2104,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                          * works. */
 
                         for (;;) {
-                                _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {};
+                                _cleanup_done(iovec) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {};
                                 struct iovec *blobs = NULL, *policy_hash = NULL;
                                 uint32_t hash_pcr_mask, pubkey_pcr_mask;
                                 size_t n_blobs = 0, n_policy_hash = 0;
@@ -2589,7 +2589,7 @@ static int discover_key(const char *key_file, const char *volume, TokenType toke
 }
 
 static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_free(crypt) struct crypt_device *cd = NULL;
         _unused_ _cleanup_(remove_and_erasep) const char *destroy_key_file = NULL;
         crypt_status_info status;
         uint32_t flags = 0;
@@ -2718,7 +2718,7 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
 
         bool use_cached_passphrase = true, try_discover_key = !key_file;
         const char *discovered_key_fn = strjoina(volume, ".key");
-        _cleanup_strv_free_erase_ char **passwords = NULL;
+        _cleanup_(strv_free_erasep) char **passwords = NULL;
         for (tries = 0; arg_tries == 0 || tries < arg_tries; tries++) {
                 _cleanup_(iovec_done_erase) struct iovec discovered_key_data = {};
                 const struct iovec *key_data = NULL;
@@ -2829,7 +2829,7 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
 }
 
 static int verb_detach(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_free(crypt) struct crypt_device *cd = NULL;
         const char *volume = ASSERT_PTR(argv[1]);
         int r;
 

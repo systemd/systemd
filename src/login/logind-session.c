@@ -56,7 +56,7 @@
 static void session_restore_vt(Session *s);
 
 int session_new(Manager *m, const char *id, Session **ret) {
-        _cleanup_(session_freep) Session *s = NULL;
+        _cleanup_free(session) Session *s = NULL;
         int r;
 
         assert(m);
@@ -233,7 +233,7 @@ void session_set_user(Session *s, User *u) {
 }
 
 int session_set_leader_consume(Session *s, PidRef _leader) {
-        _cleanup_(pidref_done) PidRef pidref = _leader;
+        _cleanup_done(pidref) PidRef pidref = _leader;
         int r;
 
         assert(s);
@@ -286,12 +286,12 @@ static int trigger_xaccess(char * const *extra_devices) {
         if (strv_isempty(extra_devices))
                 return 0;
 
-        _cleanup_strv_free_ char **tags = NULL;
+        _cleanup_free(strv) char **tags = NULL;
         r = strv_extend_strv_biconcat(&tags, "xaccess-", (const char * const *)extra_devices, /* suffix= */ NULL);
         if (r < 0)
                 return r;
 
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *e = NULL;
         r = sd_device_enumerator_new(&e);
         if (r < 0)
                 return r;
@@ -474,7 +474,7 @@ static int session_load_devices(Session *s, const char *devices) {
 }
 
 static int session_load_leader(Session *s, uint64_t pidfdid) {
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         int r;
 
         assert(s);
@@ -948,7 +948,7 @@ int session_start(Session *s, sd_bus_message *properties, sd_bus_error *error) {
 }
 
 static int session_stop_scope(Session *s, bool force) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(s);
@@ -1334,7 +1334,7 @@ bool session_may_gc(Session *s, bool drop_not_started) {
                 return false;
 
         if (s->scope_job) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                 r = manager_job_is_active(s->manager, s->scope_job, &error);
                 if (r < 0)
@@ -1344,7 +1344,7 @@ bool session_may_gc(Session *s, bool drop_not_started) {
         }
 
         if (s->scope) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                 r = manager_unit_is_active(s->manager, s->scope, &error);
                 if (r < 0)

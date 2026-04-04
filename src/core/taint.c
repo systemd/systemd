@@ -17,7 +17,7 @@
 #include "uid-range.h"
 
 static int short_uid_gid_range(UIDRangeUsernsMode mode) {
-        _cleanup_(uid_range_freep) UIDRange *p = NULL;
+        _cleanup_free(uid_range) UIDRange *p = NULL;
         int r;
 
         /* Taint systemd if we the UID/GID range assigned to this environment doesn't at least cover 0…65534,
@@ -83,7 +83,7 @@ char** taint_strv(void) {
 }
 
 char* taint_string(void) {
-        _cleanup_strv_free_ char **taints = NULL;
+        _cleanup_free(strv) char **taints = NULL;
 
         taints = taint_strv();
         if (!taints)

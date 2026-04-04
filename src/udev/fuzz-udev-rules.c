@@ -10,7 +10,7 @@
 #include "udev-rules.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
-        _cleanup_(udev_rules_freep) UdevRules *rules = NULL;
+        _cleanup_free(udev_rules) UdevRules *rules = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_(unlink_tempfilep) char filename[] = "/tmp/fuzz-udev-rules.XXXXXX";
         int r;
@@ -27,7 +27,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         assert_se(rules = udev_rules_new(RESOLVE_NAME_EARLY));
 
-        _cleanup_(conf_file_freep) ConfFile *c = NULL;
+        _cleanup_free(conf_file) ConfFile *c = NULL;
         ASSERT_OK(conf_file_new(filename, /* root= */ NULL, CONF_FILES_REGULAR, &c));
 
         r = udev_rules_parse_file(rules, c, /* extra_checks= */ false, /* ret= */ NULL);

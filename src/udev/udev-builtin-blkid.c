@@ -483,7 +483,7 @@ static int probe_gpt_sector_size_mismatch(UdevEvent *event, int fd) {
 static int builtin_blkid(UdevEvent *event, int argc, char *argv[]) {
         sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         const char *devnode, *root_partition = NULL, *data, *name;
-        _cleanup_(blkid_free_probep) blkid_probe pr = NULL;
+        _cleanup_free(blkid_probe) blkid_probe pr = NULL;
         _cleanup_free_ char *backing_fname = NULL;
         bool noraid = false, is_gpt = false;
         _cleanup_close_ int fd = -EBADF;

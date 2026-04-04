@@ -94,7 +94,7 @@ static int dnssd_object_find(sd_bus *bus, const char *path, const char *interfac
 }
 
 static int dnssd_node_enumerator(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *error) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         Manager *m = ASSERT_PTR(userdata);
         DnssdRegisteredService *service;
         unsigned c = 0;

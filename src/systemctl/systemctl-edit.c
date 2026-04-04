@@ -21,9 +21,9 @@
 #include "unit-name.h"
 
 int verb_cat(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_hashmap_free_ Hashmap *cached_id_map = NULL, *cached_name_map = NULL;
-        _cleanup_(lookup_paths_done) LookupPaths lp = {};
-        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_free(hashmap) Hashmap *cached_id_map = NULL, *cached_name_map = NULL;
+        _cleanup_done(lookup_paths) LookupPaths lp = {};
+        _cleanup_free(strv) char **names = NULL;
         sd_bus *bus = NULL;
         bool first = true;
         int r, rc = 0;
@@ -62,7 +62,7 @@ int verb_cat(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
         STRV_FOREACH(name, names) {
                 _cleanup_free_ char *fragment_path = NULL;
-                _cleanup_strv_free_ char **dropin_paths = NULL;
+                _cleanup_free(strv) char **dropin_paths = NULL;
 
                 r = unit_find_paths(bus, *name, &lp, /* force_client_side= */ !bus, &cached_id_map, &cached_name_map, &fragment_path, &dropin_paths);
                 if (r == -ERFKILL) {
@@ -212,8 +212,8 @@ static int find_paths_to_edit(
                 EditFileContext *context,
                 char **names) {
 
-        _cleanup_hashmap_free_ Hashmap *cached_id_map = NULL, *cached_name_map = NULL;
-        _cleanup_(lookup_paths_done) LookupPaths lp = {};
+        _cleanup_free(hashmap) Hashmap *cached_id_map = NULL, *cached_name_map = NULL;
+        _cleanup_done(lookup_paths) LookupPaths lp = {};
         _cleanup_free_ char *drop_in_alloc = NULL, *suffix = NULL;
         const char *drop_in;
         int r;
@@ -245,7 +245,7 @@ static int find_paths_to_edit(
 
         STRV_FOREACH(name, names) {
                 _cleanup_free_ char *path = NULL;
-                _cleanup_strv_free_ char **unit_paths = NULL;
+                _cleanup_free(strv) char **unit_paths = NULL;
 
                 r = unit_find_paths(bus, *name, &lp, /* force_client_side= */ !bus, &cached_id_map, &cached_name_map, &path, &unit_paths);
                 if (r == -EKEYREJECTED && bus) {
@@ -325,14 +325,14 @@ static int find_paths_to_edit(
 }
 
 int verb_edit(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(edit_file_context_done) EditFileContext context = {
+        _cleanup_done(edit_file_context) EditFileContext context = {
                 .marker_start = DROPIN_MARKER_START,
                 .marker_end = DROPIN_MARKER_END,
                 .remove_parent = !arg_full,
                 .overwrite_with_origin = true,
                 .read_from_stdin = arg_stdin,
         };
-        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_free(strv) char **names = NULL;
         sd_bus *bus = NULL;
         int r;
 

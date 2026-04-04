@@ -246,8 +246,8 @@ int group_record_load(
 }
 
 int group_record_build(GroupRecord **ret, ...) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        _cleanup_(group_record_unrefp) GroupRecord *g = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
+        _cleanup_unref(group_record) GroupRecord *g = NULL;
         va_list ap;
         int r;
 
@@ -317,7 +317,7 @@ UserDisposition group_record_disposition(GroupRecord *h) {
 }
 
 int group_record_clone(GroupRecord *h, UserRecordLoadFlags flags, GroupRecord **ret) {
-        _cleanup_(group_record_unrefp) GroupRecord *c = NULL;
+        _cleanup_unref(group_record) GroupRecord *c = NULL;
         int r;
 
         assert(h);

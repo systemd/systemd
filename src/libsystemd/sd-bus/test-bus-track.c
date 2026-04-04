@@ -48,9 +48,9 @@ static void track_destroy_z(void *userdata) {
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        _cleanup_(sd_bus_track_unrefp) sd_bus_track *x = NULL, *y = NULL, *z = NULL;
-        _cleanup_(sd_bus_unrefp) sd_bus *a = NULL, *b = NULL;
+        _cleanup_unref(sd_event) sd_event *event = NULL;
+        _cleanup_unref(sd_bus_track) sd_bus_track *x = NULL, *y = NULL, *z = NULL;
+        _cleanup_unref(sd_bus) sd_bus *a = NULL, *b = NULL;
         bool use_system_bus = false;
         const char *unique;
         int r;

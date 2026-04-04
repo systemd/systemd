@@ -135,8 +135,8 @@ static int vl_method_get_user_record(sd_varlink *link, sd_json_variant *paramete
                 {}
         };
 
-        _cleanup_(userns_info_freep) UserNamespaceInfo *userns_info = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_free(userns_info) UserNamespaceInfo *userns_info = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         LookupParameters p = {
                 .uid = UID_INVALID,
         };
@@ -262,8 +262,8 @@ static int vl_method_get_group_record(sd_varlink *link, sd_json_variant *paramet
                 {}
         };
 
-        _cleanup_(userns_info_freep) UserNamespaceInfo *userns_info = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_free(userns_info) UserNamespaceInfo *userns_info = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         LookupParameters p = {
                 .gid = GID_INVALID,
         };
@@ -405,7 +405,7 @@ static int uid_is_available(int registry_dir_fd, uid_t candidate, int parent_use
         if (r < 0)
                 return r;
         if (r > 0) {
-                _cleanup_(delegated_userns_info_done) DelegatedUserNamespaceInfo delegation = DELEGATED_USER_NAMESPACE_INFO_NULL;
+                _cleanup_done(delegated_userns_info) DelegatedUserNamespaceInfo delegation = DELEGATED_USER_NAMESPACE_INFO_NULL;
                 r = userns_registry_load_delegation_by_uid(registry_dir_fd, candidate, &delegation);
                 if (r < 0)
                         return r;
@@ -422,7 +422,7 @@ static int uid_is_available(int registry_dir_fd, uid_t candidate, int parent_use
         if (r < 0)
                 return r;
         if (r > 0) {
-                _cleanup_(delegated_userns_info_done) DelegatedUserNamespaceInfo delegation = DELEGATED_USER_NAMESPACE_INFO_NULL;
+                _cleanup_done(delegated_userns_info) DelegatedUserNamespaceInfo delegation = DELEGATED_USER_NAMESPACE_INFO_NULL;
                 r = userns_registry_load_delegation_by_gid(registry_dir_fd, candidate, &delegation);
                 if (r < 0)
                         return r;
@@ -513,7 +513,7 @@ static int allocate_one(
                 0xd4, 0xd7, 0x33, 0xa7, 0x4d, 0xd3, 0x42, 0xcd,
                 0xaa, 0xe9, 0x45, 0xd0, 0xfb, 0xec, 0x79, 0xee,
         };
-        _cleanup_(uid_range_freep) UIDRange *copy = NULL;
+        _cleanup_free(uid_range) UIDRange *copy = NULL;
         uid_t candidate, uidmin, uidmax;
         unsigned n_tries = 100;
         size_t idx;
@@ -607,7 +607,7 @@ static int allocate_now(
                 UserNamespaceInfo *info,
                 int *ret_lock_fd) {
 
-        _cleanup_(uid_range_freep) UIDRange *candidates = NULL;
+        _cleanup_free(uid_range) UIDRange *candidates = NULL;
         uid_t candidate;
         int r;
 
@@ -768,12 +768,12 @@ static int write_userns(
 
         /* Now write mapping */
 
-        _cleanup_(uid_range_freep) UIDRange *outside_range = NULL;
+        _cleanup_free(uid_range) UIDRange *outside_range = NULL;
         r = uid_range_load_userns_by_fd_full(parent_userns_fd, UID_RANGE_USERNS_OUTSIDE, /* coalesce= */ false, &outside_range);
         if (r < 0)
                 return log_debug_errno(r, "Failed to read userns UID range: %m");
 
-        _cleanup_(uid_range_freep) UIDRange *inside_range = NULL;
+        _cleanup_free(uid_range) UIDRange *inside_range = NULL;
         r = uid_range_load_userns_by_fd_full(parent_userns_fd, UID_RANGE_USERNS_INSIDE, /* coalesce= */ false, &inside_range);
         if (r < 0)
                 return log_debug_errno(r, "Failed to read userns UID range: %m");
@@ -1149,7 +1149,7 @@ static int validate_userns_is_empty(sd_varlink *link, int userns_fd) {
         assert(link);
         assert(userns_fd >= 0);
 
-        _cleanup_(uid_range_freep) UIDRange *range = NULL;
+        _cleanup_free(uid_range) UIDRange *range = NULL;
         r = uid_range_load_userns_by_fd(userns_fd, UID_RANGE_USERNS_OUTSIDE, &range);
         if (r < 0)
                 return log_debug_errno(r, "Failed to read userns UID range: %m");
@@ -1285,7 +1285,7 @@ static int vl_method_allocate_user_range(sd_varlink *link, sd_json_variant *para
         if (registry_dir_fd < 0)
                 return registry_dir_fd;
 
-        _cleanup_(userns_info_freep) UserNamespaceInfo *userns_info = userns_info_new();
+        _cleanup_free(userns_info) UserNamespaceInfo *userns_info = userns_info_new();
         if (!userns_info)
                 return -ENOMEM;
 
@@ -1410,7 +1410,7 @@ static int validate_userns_is_safe(sd_varlink *link, int userns_fd) {
         assert(userns_fd >= 0);
 
         /* Read the outside UID range and verify it isn't empty */
-        _cleanup_(uid_range_freep) UIDRange *outside_range = NULL;
+        _cleanup_free(uid_range) UIDRange *outside_range = NULL;
         r = uid_range_load_userns_by_fd(userns_fd, UID_RANGE_USERNS_OUTSIDE, &outside_range);
         if (r < 0)
                 return log_debug_errno(r, "Failed to read userns UID range: %m");
@@ -1418,7 +1418,7 @@ static int validate_userns_is_safe(sd_varlink *link, int userns_fd) {
                 return sd_varlink_error_invalid_parameter_name(link, "userNamespaceFileDescriptor");
 
         /* Read the outside GID range and check it is the same as the UID range */
-        _cleanup_(uid_range_freep) UIDRange *outside_range_gid = NULL;
+        _cleanup_free(uid_range) UIDRange *outside_range_gid = NULL;
         r = uid_range_load_userns_by_fd(userns_fd, GID_RANGE_USERNS_OUTSIDE, &outside_range_gid);
         if (r < 0)
                 return log_debug_errno(r, "Failed to read userns GID range: %m");
@@ -1426,7 +1426,7 @@ static int validate_userns_is_safe(sd_varlink *link, int userns_fd) {
                 return sd_varlink_error_invalid_parameter_name(link, "userNamespaceFileDescriptor");
 
         /* Read the inside UID range, and verify it matches the size of the outside UID range */
-        _cleanup_(uid_range_freep) UIDRange *inside_range = NULL;
+        _cleanup_free(uid_range) UIDRange *inside_range = NULL;
         r = uid_range_load_userns_by_fd(userns_fd, UID_RANGE_USERNS_INSIDE, &inside_range);
         if (r < 0)
                 return log_debug_errno(r, "Failed to read userns contents: %m");
@@ -1434,7 +1434,7 @@ static int validate_userns_is_safe(sd_varlink *link, int userns_fd) {
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Uh, inside and outside UID range sizes don't match.");
 
         /* Read the inside GID range, and verify it matches the inside UID range */
-        _cleanup_(uid_range_freep) UIDRange *inside_range_gid = NULL;
+        _cleanup_free(uid_range) UIDRange *inside_range_gid = NULL;
         r = uid_range_load_userns_by_fd(userns_fd, GID_RANGE_USERNS_INSIDE, &inside_range_gid);
         if (r < 0)
                 return log_debug_errno(r, "Failed to read userns contents: %m");
@@ -1565,7 +1565,7 @@ static int vl_method_register_user_namespace(sd_varlink *link, sd_json_variant *
         if (r == 0)
                 return sd_varlink_error(link, "io.systemd.NamespaceResource.NameExists", NULL);
 
-        _cleanup_(userns_info_freep) UserNamespaceInfo *userns_info = userns_info_new();
+        _cleanup_free(userns_info) UserNamespaceInfo *userns_info = userns_info_new();
         if (!userns_info)
                 return -ENOMEM;
 
@@ -1692,7 +1692,7 @@ static int vl_method_add_mount_to_user_namespace(sd_varlink *link, sd_json_varia
         if (lock_fd < 0)
                 return log_debug_errno(lock_fd, "Failed to open nsresource registry lock file: %m");
 
-        _cleanup_(userns_info_freep) UserNamespaceInfo *userns_info = NULL;
+        _cleanup_free(userns_info) UserNamespaceInfo *userns_info = NULL;
         r = userns_registry_load_by_userns_inode(
                         registry_dir_fd,
                         userns_st.st_ino,
@@ -1785,7 +1785,7 @@ static int vl_method_add_cgroup_to_user_namespace(sd_varlink *link, sd_json_vari
                 .userns_fd_idx = UINT_MAX,
                 .cgroup_fd_idx = UINT_MAX,
         };
-        _cleanup_(userns_info_freep) UserNamespaceInfo *userns_info = NULL;
+        _cleanup_free(userns_info) UserNamespaceInfo *userns_info = NULL;
         Context *c = ASSERT_PTR(userdata);
         struct stat userns_st, cgroup_st;
         uid_t peer_uid;
@@ -1956,12 +1956,12 @@ static int create_veth(
                   ifname_host, strna(altifname_host), ETHER_ADDR_TO_STR(mac_host),
                   ifname_namespace, ETHER_ADDR_TO_STR(mac_namespace));
 
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *rtnl = NULL;
         r = sd_netlink_open(&rtnl);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocation netlink connection: %m");
 
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         r = sd_rtnl_message_new_link(rtnl, &m, RTM_NEWLINK, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate netlink message: %m");
@@ -2038,7 +2038,7 @@ static int create_tap(
         log_debug("Creating tap link on host %s (%s) with address %s",
                   ifname_host, strna(altifname_host ? altifname_host[0] : NULL), ETHER_ADDR_TO_STR(mac_host));
 
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *rtnl = NULL;
         if (altifname_host) {
                 r = sd_netlink_open(&rtnl);
                 if (r < 0)
@@ -2237,7 +2237,7 @@ static int vl_method_add_netif_to_user_namespace(sd_varlink *link, sd_json_varia
         if (lock_fd < 0)
                 return log_debug_errno(lock_fd, "Failed to open nsresource registry lock file: %m");
 
-        _cleanup_(userns_info_freep) UserNamespaceInfo *userns_info = NULL;
+        _cleanup_free(userns_info) UserNamespaceInfo *userns_info = NULL;
         r = userns_registry_load_by_userns_inode(
                         registry_dir_fd,
                         userns_st.st_ino,
@@ -2340,7 +2340,7 @@ static int vl_method_add_netif_to_user_namespace(sd_varlink *link, sd_json_varia
 static int process_connection(sd_varlink_server *server, int _fd) {
         _cleanup_close_ int fd = TAKE_FD(_fd); /* always take possession */
         _cleanup_(sd_varlink_close_unrefp) sd_varlink *vl = NULL;
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_unref(sd_event) sd_event *event = NULL;
         int r;
 
         assert(server);
@@ -2372,7 +2372,7 @@ static int process_connection(sd_varlink_server *server, int _fd) {
         return 0;
 }
 
-static void context_free(Context *c) {
+static void context_done(Context *c) {
         assert(c);
 
         c->polkit_registry = hashmap_free(c->polkit_registry);
@@ -2381,9 +2381,9 @@ static void context_free(Context *c) {
 
 static int run(int argc, char *argv[]) {
         usec_t start_time, listen_idle_usec, last_busy_usec = USEC_INFINITY;
-        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *server = NULL;
-        _cleanup_(context_free) Context c = {};
-        _cleanup_(pidref_done) PidRef parent = PIDREF_NULL;
+        _cleanup_unref(sd_varlink_server) sd_varlink_server *server = NULL;
+        _cleanup_done(context) Context c = {};
+        _cleanup_done(pidref) PidRef parent = PIDREF_NULL;
         unsigned n_iterations = 0;
         int m, listen_fd, r;
 

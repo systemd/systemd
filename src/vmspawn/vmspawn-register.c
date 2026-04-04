@@ -33,7 +33,7 @@ int register_machine(
                 bool allocate_unit,
                 RuntimeScope scope) {
 
-        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        _cleanup_unref(sd_varlink) sd_varlink *vl = NULL;
         int r;
 
         assert(machine_name);
@@ -47,7 +47,7 @@ int register_machine(
 
         r = sd_varlink_connect_address(&vl, p);
         if (r == -ENOENT || ERRNO_IS_DISCONNECT(r)) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                 assert(bus);
 
@@ -91,7 +91,7 @@ int register_machine(
 }
 
 int unregister_machine(sd_bus *bus, const char *machine_name) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(bus);

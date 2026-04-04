@@ -107,8 +107,8 @@ static int server(sd_bus *bus) {
         int r;
 
         while (!client1_gone || !client2_gone) {
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+                _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
+                _cleanup_unref(sd_bus_creds) sd_bus_creds *creds = NULL;
                 pid_t pid = 0;
                 const char *label = NULL;
 
@@ -218,9 +218,9 @@ static int server(sd_bus *bus) {
 }
 
 static void* client1(void *p) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *hello;
         int r;
         _cleanup_close_pair_ int pp[2] = EBADF_PAIR;
@@ -287,7 +287,7 @@ static void* client1(void *p) {
 
 finish:
         if (bus) {
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *q = NULL;
+                _cleanup_unref(sd_bus_message) sd_bus_message *q = NULL;
 
                 r = sd_bus_message_new_method_call(
                                 bus,
@@ -316,9 +316,9 @@ static int quit_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_er
 }
 
 static void* client2(void *p) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         bool quit = false;
         const char *mid;
         int r;
@@ -477,7 +477,7 @@ static void* client2(void *p) {
 
 finish:
         if (bus) {
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *q = NULL;
+                _cleanup_unref(sd_bus_message) sd_bus_message *q = NULL;
 
                 r = sd_bus_message_new_method_call(
                                 bus,
@@ -522,7 +522,7 @@ static int get_one_message(sd_bus *bus, sd_bus_message **m) {
 
 TEST(ctrunc) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *recvd = NULL, *sent = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *recvd = NULL, *sent = NULL;
         struct rlimit orig_rl, new_rl;
         const char *unique;
         const int n_fds_to_send = 64;

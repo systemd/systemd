@@ -74,7 +74,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
         tclass_detach);
 
 static int tclass_new(TClassKind kind, TClass **ret) {
-        _cleanup_(tclass_unrefp) TClass *tclass = NULL;
+        _cleanup_unref(tclass) TClass *tclass = NULL;
         int r;
 
         if (kind == _TCLASS_KIND_INVALID) {
@@ -110,8 +110,8 @@ static int tclass_new(TClassKind kind, TClass **ret) {
 }
 
 int tclass_new_static(TClassKind kind, Network *network, const char *filename, unsigned section_line, TClass **ret) {
-        _cleanup_(config_section_freep) ConfigSection *n = NULL;
-        _cleanup_(tclass_unrefp) TClass *tclass = NULL;
+        _cleanup_free(config_section) ConfigSection *n = NULL;
+        _cleanup_unref(tclass) TClass *tclass = NULL;
         TClass *existing;
         int r;
 
@@ -255,7 +255,7 @@ static int tclass_attach(Link *link, TClass *tclass) {
 }
 
 static int tclass_dup(const TClass *src, TClass **ret) {
-        _cleanup_(tclass_unrefp) TClass *dst = NULL;
+        _cleanup_unref(tclass) TClass *dst = NULL;
 
         assert(src);
         assert(ret);
@@ -399,7 +399,7 @@ static int tclass_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req,
 }
 
 static int tclass_configure(TClass *tclass, Link *link, Request *req) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         int r;
 
         assert(tclass);
@@ -462,7 +462,7 @@ static int tclass_process_request(Request *req, Link *link, TClass *tclass) {
 }
 
 int link_request_tclass(Link *link, const TClass *tclass) {
-        _cleanup_(tclass_unrefp) TClass *tmp = NULL;
+        _cleanup_unref(tclass) TClass *tmp = NULL;
         TClass *existing = NULL;
         int r;
 
@@ -503,7 +503,7 @@ int link_request_tclass(Link *link, const TClass *tclass) {
 }
 
 int manager_rtnl_process_tclass(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
-        _cleanup_(tclass_unrefp) TClass *tmp = NULL;
+        _cleanup_unref(tclass) TClass *tmp = NULL;
         Request *req = NULL;
         TClass *tclass = NULL;
         Link *link;
@@ -609,7 +609,7 @@ int manager_rtnl_process_tclass(sd_netlink *rtnl, sd_netlink_message *message, M
 }
 
 int link_enumerate_tclass(Link *link, uint32_t parent) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *req = NULL;
         int r;
 
         assert(link);

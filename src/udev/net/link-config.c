@@ -106,7 +106,7 @@ LinkConfigContext *link_config_ctx_free(LinkConfigContext *ctx) {
 }
 
 int link_config_ctx_new(LinkConfigContext **ret) {
-        _cleanup_(link_config_ctx_freep) LinkConfigContext *ctx = NULL;
+        _cleanup_free(link_config_ctx) LinkConfigContext *ctx = NULL;
 
         if (!ret)
                 return -EINVAL;
@@ -227,8 +227,8 @@ static int link_adjust_wol_options(LinkConfig *config) {
 }
 
 int link_load_one(LinkConfigContext *ctx, const char *filename) {
-        _cleanup_(link_config_freep) LinkConfig *config = NULL;
-        _cleanup_hashmap_free_ Hashmap *stats_by_path = NULL;
+        _cleanup_free(link_config) LinkConfig *config = NULL;
+        _cleanup_free(hashmap) Hashmap *stats_by_path = NULL;
         _cleanup_free_ char *name = NULL, *file_basename = NULL;
         const char *dropin_dirname;
         int r;
@@ -338,7 +338,7 @@ int link_load_one(LinkConfigContext *ctx, const char *filename) {
 }
 
 int link_config_load(LinkConfigContext *ctx) {
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_free(strv) char **files = NULL;
         int r;
 
         assert(ctx);
@@ -356,7 +356,7 @@ int link_config_load(LinkConfigContext *ctx) {
 }
 
 bool link_config_should_reload(LinkConfigContext *ctx) {
-        _cleanup_hashmap_free_ Hashmap *stats_by_path = NULL;
+        _cleanup_free(hashmap) Hashmap *stats_by_path = NULL;
         int r;
 
         assert(ctx);
@@ -381,7 +381,7 @@ Link* link_free(Link *link) {
 
 int link_new(LinkConfigContext *ctx, UdevEvent *event, Link **ret) {
         sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
-        _cleanup_(link_freep) Link *link = NULL;
+        _cleanup_free(link) Link *link = NULL;
         int r;
 
         assert(ctx);
@@ -792,7 +792,7 @@ no_rename:
 }
 
 static int link_generate_alternative_names(Link *link) {
-        _cleanup_strv_free_ char **altnames = NULL;
+        _cleanup_free(strv) char **altnames = NULL;
         LinkConfig *config = ASSERT_PTR(ASSERT_PTR(link)->config);
         sd_device *device = ASSERT_PTR(ASSERT_PTR(link->event)->dev);
         int r;
@@ -861,7 +861,7 @@ static int sr_iov_configure(Link *link, sd_netlink **rtnl, SRIOV *sr_iov, SRIOVA
                         return r;
         }
 
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *req = NULL;
         r = sd_rtnl_message_new_link(*rtnl, &req, RTM_SETLINK, link->ifindex);
         if (r < 0)
                 return r;
@@ -1357,7 +1357,7 @@ int config_parse_rps_cpu_mask(
         assert(rvalue);
 
         if (streq(rvalue, "disable")) {
-                _cleanup_(cpu_set_done) CPUSet c = {};
+                _cleanup_done(cpu_set) CPUSet c = {};
 
                 r = cpu_set_realloc(&c, 1);
                 if (r < 0)
@@ -1367,7 +1367,7 @@ int config_parse_rps_cpu_mask(
         }
 
         if (streq(rvalue, "all")) {
-                _cleanup_(cpu_set_done) CPUSet c = {};
+                _cleanup_done(cpu_set) CPUSet c = {};
 
                 r = cpu_set_add_all(&c);
                 if (r < 0) {

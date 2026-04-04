@@ -581,7 +581,7 @@ static int read_identity_file(int root_fd, sd_json_variant **ret) {
 }
 
 static int write_identity_file(int root_fd, sd_json_variant *v, uid_t uid) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *normalized = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *normalized = NULL;
         _cleanup_fclose_ FILE *identity_file = NULL;
         _cleanup_close_ int identity_fd = -EBADF;
         _cleanup_free_ char *fn = NULL;
@@ -646,8 +646,8 @@ int home_load_embedded_identity(
                 UserRecord **ret_embedded_home,
                 UserRecord **ret_new_home) {
 
-        _cleanup_(user_record_unrefp) UserRecord *embedded_home = NULL, *intermediate_home = NULL, *new_home = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(user_record) UserRecord *embedded_home = NULL, *intermediate_home = NULL, *new_home = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         int r;
 
         assert(h);
@@ -739,7 +739,7 @@ int home_load_embedded_identity(
 }
 
 int home_store_embedded_identity(UserRecord *h, int root_fd, UserRecord *old_home) {
-        _cleanup_(user_record_unrefp) UserRecord *embedded = NULL;
+        _cleanup_unref(user_record) UserRecord *embedded = NULL;
         int r;
 
         assert(h);
@@ -865,7 +865,7 @@ int home_refresh(
                 struct statfs *ret_statfs,
                 UserRecord **ret_new_home) {
 
-        _cleanup_(user_record_unrefp) UserRecord *embedded_home = NULL, *new_home = NULL;
+        _cleanup_unref(user_record) UserRecord *embedded_home = NULL, *new_home = NULL;
         int r, reconciled;
 
         assert(h);
@@ -908,9 +908,9 @@ int home_refresh(
 }
 
 static int home_activate(UserRecord *h, UserRecord **ret_home) {
-        _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
-        _cleanup_(user_record_unrefp) UserRecord *new_home = NULL;
-        _cleanup_(password_cache_free) PasswordCache cache = {};
+        _cleanup_done(home_setup) HomeSetup setup = HOME_SETUP_INIT;
+        _cleanup_unref(user_record) UserRecord *new_home = NULL;
+        _cleanup_done(password_cache) PasswordCache cache = {};
         HomeSetupFlags flags = 0;
         int r;
 
@@ -974,8 +974,8 @@ static int home_activate(UserRecord *h, UserRecord **ret_home) {
 }
 
 static int home_deactivate(UserRecord *h, bool force) {
-        _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
-        _cleanup_(password_cache_free) PasswordCache cache = {};
+        _cleanup_done(home_setup) HomeSetup setup = HOME_SETUP_INIT;
+        _cleanup_done(password_cache) PasswordCache cache = {};
         bool done = false;
         int r;
 
@@ -1138,7 +1138,7 @@ static int user_record_compile_effective_passwords(
                 PasswordCache *cache,
                 char ***ret_effective_passwords) {
 
-        _cleanup_strv_free_erase_ char **effective = NULL;
+        _cleanup_(strv_free_erasep) char **effective = NULL;
         int r;
 
         assert(h);
@@ -1357,10 +1357,10 @@ static int determine_default_storage(UserStorage *ret) {
 }
 
 static int home_create(UserRecord *h, Hashmap *blobs, UserRecord **ret_home) {
-        _cleanup_strv_free_erase_ char **effective_passwords = NULL;
-        _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
-        _cleanup_(user_record_unrefp) UserRecord *new_home = NULL;
-        _cleanup_(password_cache_free) PasswordCache cache = {};
+        _cleanup_(strv_free_erasep) char **effective_passwords = NULL;
+        _cleanup_done(home_setup) HomeSetup setup = HOME_SETUP_INIT;
+        _cleanup_unref(user_record) UserRecord *new_home = NULL;
+        _cleanup_done(password_cache) PasswordCache cache = {};
         UserStorage new_storage = _USER_STORAGE_INVALID;
         const char *new_fs = NULL;
         int r;
@@ -1640,9 +1640,9 @@ static int home_validate_update(UserRecord *h, HomeSetup *setup, HomeSetupFlags 
 }
 
 static int home_update(UserRecord *h, Hashmap *blobs, UserRecord **ret) {
-        _cleanup_(user_record_unrefp) UserRecord *new_home = NULL, *header_home = NULL, *embedded_home = NULL;
-        _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
-        _cleanup_(password_cache_free) PasswordCache cache = {};
+        _cleanup_unref(user_record) UserRecord *new_home = NULL, *header_home = NULL, *embedded_home = NULL;
+        _cleanup_done(home_setup) HomeSetup setup = HOME_SETUP_INIT;
+        _cleanup_done(password_cache) PasswordCache cache = {};
         HomeSetupFlags flags = 0;
         bool offline;
         int r;
@@ -1724,8 +1724,8 @@ static int home_update(UserRecord *h, Hashmap *blobs, UserRecord **ret) {
 }
 
 static int home_resize(UserRecord *h, UserRecord **ret) {
-        _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
-        _cleanup_(password_cache_free) PasswordCache cache = {};
+        _cleanup_done(home_setup) HomeSetup setup = HOME_SETUP_INIT;
+        _cleanup_done(password_cache) PasswordCache cache = {};
         HomeSetupFlags flags = 0;
         int r;
 
@@ -1762,10 +1762,10 @@ static int home_resize(UserRecord *h, UserRecord **ret) {
 }
 
 static int home_passwd(UserRecord *h, UserRecord **ret_home) {
-        _cleanup_(user_record_unrefp) UserRecord *header_home = NULL, *embedded_home = NULL, *new_home = NULL;
-        _cleanup_strv_free_erase_ char **effective_passwords = NULL;
-        _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
-        _cleanup_(password_cache_free) PasswordCache cache = {};
+        _cleanup_unref(user_record) UserRecord *header_home = NULL, *embedded_home = NULL, *new_home = NULL;
+        _cleanup_(strv_free_erasep) char **effective_passwords = NULL;
+        _cleanup_done(home_setup) HomeSetup setup = HOME_SETUP_INIT;
+        _cleanup_done(password_cache) PasswordCache cache = {};
         HomeSetupFlags flags = 0;
         int r, reconciled;
 
@@ -1844,9 +1844,9 @@ static int home_passwd(UserRecord *h, UserRecord **ret_home) {
 }
 
 static int home_inspect(UserRecord *h, UserRecord **ret_home) {
-        _cleanup_(user_record_unrefp) UserRecord *header_home = NULL, *new_home = NULL;
-        _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
-        _cleanup_(password_cache_free) PasswordCache cache = {};
+        _cleanup_unref(user_record) UserRecord *header_home = NULL, *new_home = NULL;
+        _cleanup_done(home_setup) HomeSetup setup = HOME_SETUP_INIT;
+        _cleanup_done(password_cache) PasswordCache cache = {};
         HomeSetupFlags flags = 0;
         int r;
 
@@ -1909,7 +1909,7 @@ static int user_session_freezer_new(uid_t uid, UnitFreezer **ret) {
 }
 
 static int home_lock(UserRecord *h) {
-        _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
+        _cleanup_done(home_setup) HomeSetup setup = HOME_SETUP_INIT;
         int r;
 
         assert(h);
@@ -1925,7 +1925,7 @@ static int home_lock(UserRecord *h) {
         if (r != USER_TEST_MOUNTED)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOEXEC), "Home directory of %s is not mounted, can't lock.", h->user_name);
 
-        _cleanup_(unit_freezer_freep) UnitFreezer *f = NULL;
+        _cleanup_free(unit_freezer) UnitFreezer *f = NULL;
 
         r = user_session_freezer_new(h->uid, &f);
         if (r < 0)
@@ -1954,8 +1954,8 @@ static int home_lock(UserRecord *h) {
 }
 
 static int home_unlock(UserRecord *h) {
-        _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
-        _cleanup_(password_cache_free) PasswordCache cache = {};
+        _cleanup_done(home_setup) HomeSetup setup = HOME_SETUP_INIT;
+        _cleanup_done(password_cache) PasswordCache cache = {};
         int r;
 
         assert(h);
@@ -1976,7 +1976,7 @@ static int home_unlock(UserRecord *h) {
         if (r < 0)
                 return r;
 
-        _cleanup_(unit_freezer_freep) UnitFreezer *f = NULL;
+        _cleanup_free(unit_freezer) UnitFreezer *f = NULL;
 
         /* We want to thaw the session only after it's safe to access $HOME */
         r = user_session_freezer_new(h->uid, &f);
@@ -1990,10 +1990,10 @@ static int home_unlock(UserRecord *h) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(user_record_unrefp) UserRecord *home = NULL, *new_home = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(user_record) UserRecord *home = NULL, *new_home = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         _cleanup_fclose_ FILE *opened_file = NULL;
-        _cleanup_hashmap_free_ Hashmap *blobs = NULL;
+        _cleanup_free(hashmap) Hashmap *blobs = NULL;
         const char *json_path = NULL, *blob_filename;
         FILE *json_file;
         usec_t start;

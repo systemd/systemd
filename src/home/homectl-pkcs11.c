@@ -13,8 +13,8 @@
 #include "strv.h"
 
 int identity_add_token_pin(sd_json_variant **v, const char *pin) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL, *l = NULL;
-        _cleanup_strv_free_erase_ char **pins = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *w = NULL, *l = NULL;
+        _cleanup_(strv_free_erasep) char **pins = NULL;
         int r;
 
         assert(v);
@@ -62,8 +62,8 @@ int identity_add_token_pin(sd_json_variant **v, const char *pin) {
 #if HAVE_P11KIT
 
 static int add_pkcs11_token_uri(sd_json_variant **v, const char *uri) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *w = NULL;
+        _cleanup_free(strv) char **l = NULL;
         int r;
 
         assert(v);
@@ -101,7 +101,7 @@ static int add_pkcs11_encrypted_key(
                 const void *encrypted_key, size_t encrypted_key_size,
                 const void *decrypted_key, size_t decrypted_key_size) {
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *l = NULL, *w = NULL, *e = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *l = NULL, *w = NULL, *e = NULL;
         _cleanup_(erase_and_freep) char *base64_encoded = NULL, *hashed = NULL;
         ssize_t base64_encoded_size;
         int r;
@@ -155,7 +155,7 @@ int identity_add_pkcs11_key_data(sd_json_variant **v, const char *uri) {
         _cleanup_(erase_and_freep) void *decrypted_key = NULL, *saved_key = NULL;
         _cleanup_(erase_and_freep) char *pin = NULL;
         size_t decrypted_key_size, saved_key_size;
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
+        _cleanup_free(EVP_PKEY) EVP_PKEY *pkey = NULL;
         int r;
 
         assert(v);

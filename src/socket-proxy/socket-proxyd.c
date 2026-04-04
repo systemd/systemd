@@ -301,7 +301,7 @@ static int context_add_connection(Context *context, int fd) {
         if (r < 0)
                 log_warning_errno(r, "Unable to disable idle timer, continuing: %m");
 
-        _cleanup_(connection_freep) Connection *c = new(Connection, 1);
+        _cleanup_free(connection) Connection *c = new(Connection, 1);
         if (!c)
                 return log_oom();
 
@@ -359,7 +359,7 @@ static int add_listen_socket(Context *context, int fd) {
         if (r < 0)
                 return log_error_errno(r, "Failed to mark file descriptor non-blocking: %m");
 
-        _cleanup_(sd_event_source_unrefp) sd_event_source *source = NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *source = NULL;
         r = sd_event_add_io(context->event, &source, fd, EPOLLIN, accept_cb, context);
         if (r < 0)
                 return log_error_errno(r, "Failed to add event source: %m");
@@ -481,7 +481,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(context_done) Context context = {};
+        _cleanup_done(context) Context context = {};
         _unused_ _cleanup_(notify_on_cleanup) const char *notify_stop = NULL;
         int r, n, fd;
 

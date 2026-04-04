@@ -12,7 +12,7 @@
 #include "virt.h"
 
 TEST(uid_range) {
-        _cleanup_(uid_range_freep) UIDRange *p = NULL;
+        _cleanup_free(uid_range) UIDRange *p = NULL;
         uid_t search;
 
         ASSERT_TRUE(uid_range_covers(p, 0, 0));
@@ -98,7 +98,7 @@ TEST(uid_range) {
         ASSERT_EQ(p->entries[1].start, 2002U);
         ASSERT_EQ(p->entries[1].nr, 1U);
 
-        _cleanup_(uid_range_freep) UIDRange *q = NULL;
+        _cleanup_free(uid_range) UIDRange *q = NULL;
         ASSERT_FALSE(uid_range_equal(p, q));
         ASSERT_OK(uid_range_add_str(&q, "20-2000"));
         ASSERT_FALSE(uid_range_equal(p, q));
@@ -116,7 +116,7 @@ TEST(uid_range) {
 }
 
 TEST(load_userns) {
-        _cleanup_(uid_range_freep) UIDRange *p = NULL;
+        _cleanup_free(uid_range) UIDRange *p = NULL;
         _cleanup_(unlink_and_freep) char *fn = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
@@ -157,7 +157,7 @@ TEST(load_userns) {
 }
 
 TEST(uid_range_coalesce) {
-        _cleanup_(uid_range_freep) UIDRange *p = NULL;
+        _cleanup_free(uid_range) UIDRange *p = NULL;
 
         for (size_t i = 0; i < 10; i++) {
                 ASSERT_OK(uid_range_add_internal(&p, i * 10, 10, /* coalesce= */ false));
@@ -196,7 +196,7 @@ TEST(uid_range_coalesce) {
 }
 
 TEST(uid_range_clip) {
-        _cleanup_(uid_range_freep) UIDRange *p = NULL;
+        _cleanup_free(uid_range) UIDRange *p = NULL;
 
         /* Build a range: 100-199, 300-399, 500-599 */
         ASSERT_OK(uid_range_add_str(&p, "100-199"));
@@ -265,7 +265,7 @@ TEST(uid_range_clip) {
 }
 
 TEST(uid_range_partition) {
-        _cleanup_(uid_range_freep) UIDRange *p = NULL;
+        _cleanup_free(uid_range) UIDRange *p = NULL;
 
         /* Single entry that divides evenly */
         ASSERT_OK(uid_range_add_str(&p, "0-299"));
@@ -331,7 +331,7 @@ TEST(uid_range_partition) {
 }
 
 TEST(uid_range_copy) {
-        _cleanup_(uid_range_freep) UIDRange *p = NULL, *copy = NULL;
+        _cleanup_free(uid_range) UIDRange *p = NULL, *copy = NULL;
 
         /* Copy NULL range */
         ASSERT_OK(uid_range_copy(NULL, &copy));
@@ -362,7 +362,7 @@ TEST(uid_range_copy) {
 }
 
 TEST(uid_range_remove) {
-        _cleanup_(uid_range_freep) UIDRange *p = NULL;
+        _cleanup_free(uid_range) UIDRange *p = NULL;
 
         /* Build a range: 100-199 */
         ASSERT_OK(uid_range_add_str(&p, "100-199"));
@@ -436,7 +436,7 @@ TEST(uid_range_remove) {
 }
 
 TEST(uid_range_translate) {
-        _cleanup_(uid_range_freep) UIDRange *o = NULL, *i = NULL;
+        _cleanup_free(uid_range) UIDRange *o = NULL, *i = NULL;
         uid_t uid;
 
         ASSERT_OK(uid_range_add_str_full(&o, "200-299", /* coalesce= */ false));

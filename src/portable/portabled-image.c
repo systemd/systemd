@@ -93,7 +93,7 @@ int manager_image_cache_discover(Manager *m, Hashmap **ret_images, sd_bus_error 
         /* A wrapper around image_discover() (for finding images in search path) and portable_discover_attached() (for
          * finding attached images). */
 
-        _cleanup_hashmap_free_ Hashmap *images = NULL;
+        _cleanup_free(hashmap) Hashmap *images = NULL;
         r = image_discover(m->runtime_scope, IMAGE_PORTABLE, NULL, &images);
         if (r < 0)
                 return r;

@@ -28,7 +28,7 @@
 #include "string-util.h"
 
 int sd_radv_new(sd_radv **ret) {
-        _cleanup_(sd_radv_unrefp) sd_radv *ra = NULL;
+        _cleanup_unref(sd_radv) sd_radv *ra = NULL;
 
         assert_return(ret, -EINVAL);
 
@@ -127,7 +127,7 @@ static int radv_send_router_on_stop(sd_radv *ra) {
                 .nd_ra_type = ND_ROUTER_ADVERT,
         };
 
-        _cleanup_set_free_ Set *options = NULL;
+        _cleanup_free(set) Set *options = NULL;
         struct ether_addr mac_addr;
         usec_t time_now;
         int r;
@@ -185,7 +185,7 @@ static int radv_process_packet(sd_radv *ra, ICMP6Packet *packet) {
         if (icmp6_packet_get_type(packet) != ND_ROUTER_SOLICIT)
                 return log_radv_errno(ra, SYNTHETIC_ERRNO(EBADMSG), "Received ICMP6 packet with unexpected type, ignoring.");
 
-        _cleanup_(sd_ndisc_router_solicit_unrefp) sd_ndisc_router_solicit *rs = NULL;
+        _cleanup_unref(sd_ndisc_router_solicit) sd_ndisc_router_solicit *rs = NULL;
         rs = ndisc_router_solicit_new(packet);
         if (!rs)
                 return log_oom_debug();
@@ -214,7 +214,7 @@ static int radv_process_packet(sd_radv *ra, ICMP6Packet *packet) {
 }
 
 static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        _cleanup_(icmp6_packet_unrefp) ICMP6Packet *packet = NULL;
+        _cleanup_unref(icmp6_packet) ICMP6Packet *packet = NULL;
         sd_radv *ra = ASSERT_PTR(userdata);
         int r;
 
@@ -328,7 +328,7 @@ static int radv_setup_recv_event(sd_radv *ra) {
         if (fd < 0)
                 return fd;
 
-        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *s = NULL;
         r = sd_event_add_io(ra->event, &s, fd, EPOLLIN, radv_recv, ra);
         if (r < 0)
                 return r;

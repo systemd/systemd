@@ -30,7 +30,7 @@ static int get_completions(
                 return 0;
         }
 
-        _cleanup_strv_free_ char **copy = strv_copy(userdata);
+        _cleanup_free(strv) char **copy = strv_copy(userdata);
         if (!copy)
                 return -ENOMEM;
 
@@ -56,7 +56,7 @@ int prompt_loop(
                 PromptFlags flags,
                 char **ret) {
 
-        _cleanup_strv_free_ char **refreshed_menu = NULL, **refreshed_accepted = NULL;
+        _cleanup_free(strv) char **refreshed_menu = NULL, **refreshed_accepted = NULL;
         int r;
 
         assert(text);
@@ -128,7 +128,7 @@ int prompt_loop(
                         putchar('\n');
 
                         if (refresh) {
-                                _cleanup_strv_free_ char **rm = NULL, **ra = NULL;
+                                _cleanup_free(strv) char **rm = NULL, **ra = NULL;
 
                                 /* If a refresh method is provided, then use it now to refresh the menu
                                  * before redisplaying it. */
@@ -339,7 +339,7 @@ static int vl_on_reply(sd_varlink *link, sd_json_variant *parameters, const char
         /* We want to keep the link around (since its lifetime defines the lifetime of the console muting),
          * hence let's detach it from the event loop now, and then exit the event loop. */
 
-        _cleanup_(sd_event_unrefp) sd_event *e = sd_event_ref(ASSERT_PTR(sd_varlink_get_event(link)));
+        _cleanup_unref(sd_event) sd_event *e = sd_event_ref(ASSERT_PTR(sd_varlink_get_event(link)));
         sd_varlink_detach_event(link);
         (void) sd_event_exit(e, (error_id || !FLAGS_SET(flags, SD_VARLINK_REPLY_CONTINUES)) ? -EBADR : 0);
 
@@ -359,7 +359,7 @@ int mute_console(sd_varlink **ret_link) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to connect to console muting service: %m");
 
-        _cleanup_(sd_event_unrefp) sd_event* event = NULL;
+        _cleanup_unref(sd_event) sd_event* event = NULL;
         r = sd_event_new(&event);
         if (r < 0)
                 return r;

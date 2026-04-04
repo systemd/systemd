@@ -10,8 +10,8 @@
 #include "memstream-util.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
-        _cleanup_(memstream_done) MemStream m = {};
-        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+        _cleanup_done(memstream) MemStream m = {};
+        _cleanup_unref(sd_bus) sd_bus *bus = NULL;
         FILE *g = NULL;
         int r;
 
@@ -23,7 +23,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         r = sd_bus_new(&bus);
         assert_se(r >= 0);
 
-        _cleanup_(bus_match_free) BusMatchNode root = {
+        _cleanup_done(bus_match) BusMatchNode root = {
                 .type = BUS_MATCH_ROOT,
         };
 
@@ -80,7 +80,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         }
 
         bus_match_dump(g ?: stdout, &root, 0); /* We do this even on failure, to check consistency after error. */
-        bus_match_free(&root);
+        bus_match_done(&root);
 
         return 0;
 }

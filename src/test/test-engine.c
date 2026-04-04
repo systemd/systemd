@@ -73,8 +73,8 @@ static void verify_dependency_atoms(void) {
 
 int main(int argc, char *argv[]) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error err = SD_BUS_ERROR_NULL;
-        _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error err = SD_BUS_ERROR_NULL;
+        _cleanup_free(manager) Manager *m = NULL;
         Unit *a = NULL, *b = NULL, *c = NULL, *d = NULL, *e = NULL, *g = NULL,
                 *h = NULL, *i = NULL, *a_conj = NULL, *unit_with_multiple_dashes = NULL, *stub = NULL,
                 *tomato = NULL, *sauce = NULL, *fruit = NULL, *zupa = NULL;

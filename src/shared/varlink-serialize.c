@@ -67,7 +67,7 @@ int varlink_server_deserialize_one(sd_varlink_server *s, const char *value, FDSe
                 return varlink_server_log_errno(s, fd, "Failed to deserialize varlink socket fd: %m");
 
         /* NB: varlink_server_socket_free() does not close the fd! */
-        _cleanup_(varlink_server_socket_freep) VarlinkServerSocket *ss = NULL;
+        _cleanup_free(varlink_server_socket) VarlinkServerSocket *ss = NULL;
         ss = new(VarlinkServerSocket, 1);
         if (!ss)
                 return log_oom_debug();

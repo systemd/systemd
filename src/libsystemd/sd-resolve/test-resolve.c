@@ -51,8 +51,8 @@ static int getnameinfo_handler(sd_resolve_query *q, int ret, const char *host, c
 }
 
 int main(int argc, char *argv[]) {
-        _cleanup_(sd_resolve_query_unrefp) sd_resolve_query *q1 = NULL, *q2 = NULL;
-        _cleanup_(sd_resolve_unrefp) sd_resolve *resolve = NULL;
+        _cleanup_unref(sd_resolve_query) sd_resolve_query *q1 = NULL, *q2 = NULL;
+        _cleanup_unref(sd_resolve) sd_resolve *resolve = NULL;
         int r;
 
         struct addrinfo hints = {

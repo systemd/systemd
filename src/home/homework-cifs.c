@@ -82,7 +82,7 @@ int home_setup_cifs(
                 if (passwd_fd < 0)
                         return log_error_errno(passwd_fd, "Failed to create data FD for password: %m");
 
-                _cleanup_(pidref_done) PidRef mount_pidref = PIDREF_NULL;
+                _cleanup_done(pidref) PidRef mount_pidref = PIDREF_NULL;
                 r = pidref_safe_fork(
                                 "(mount)",
                                 FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_STDOUT_TO_STDERR,
@@ -162,7 +162,7 @@ int home_activate_cifs(
                 PasswordCache *cache,
                 UserRecord **ret_home) {
 
-        _cleanup_(user_record_unrefp) UserRecord *new_home = NULL, *header_home = NULL;
+        _cleanup_unref(user_record) UserRecord *new_home = NULL, *header_home = NULL;
         const char *hdo, *hd;
         int r;
 
@@ -198,7 +198,7 @@ int home_activate_cifs(
 }
 
 int home_create_cifs(UserRecord *h, HomeSetup *setup, UserRecord **ret_home) {
-        _cleanup_(user_record_unrefp) UserRecord *new_home = NULL;
+        _cleanup_unref(user_record) UserRecord *new_home = NULL;
         int r;
 
         assert(h);

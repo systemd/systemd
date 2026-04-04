@@ -273,7 +273,7 @@ TEST(timezone_is_valid) {
 }
 
 TEST(get_timezones) {
-        _cleanup_strv_free_ char **zones = NULL;
+        _cleanup_free(strv) char **zones = NULL;
         int r;
 
         r = get_timezones(&zones);
@@ -487,7 +487,7 @@ static void test_format_timestamp_with_tz_one(const char *tz) {
 }
 
 TEST(FORMAT_TIMESTAMP_with_tz) {
-        _cleanup_strv_free_ char **timezones = NULL;
+        _cleanup_free(strv) char **timezones = NULL;
 
         test_format_timestamp_with_tz_one("UTC");
 
@@ -1044,7 +1044,7 @@ static void test_parse_timestamp_with_tz_one(const char *tz) {
 }
 
 TEST(parse_timestamp_with_tz) {
-        _cleanup_strv_free_ char **timezones = NULL;
+        _cleanup_free(strv) char **timezones = NULL;
 
         test_parse_timestamp_with_tz_one("UTC");
 

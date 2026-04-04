@@ -19,12 +19,12 @@ static int active_timestamp_build_json(MetricFamilyContext *context, void *userd
 
         assert(context);
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *enter_fields = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *enter_fields = NULL;
         r = sd_json_buildo(&enter_fields, SD_JSON_BUILD_PAIR_STRING("event", "enter"));
         if (r < 0)
                 return r;
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *exit_fields = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *exit_fields = NULL;
         r = sd_json_buildo(&exit_fields, SD_JSON_BUILD_PAIR_STRING("event", "exit"));
         if (r < 0)
                 return r;
@@ -196,7 +196,7 @@ static int units_by_type_total_build_json(MetricFamilyContext *context, void *us
         assert(context);
 
         for (UnitType type = 0; type < _UNIT_TYPE_MAX; type++) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *fields = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *fields = NULL;
                 uint64_t counter = 0;
 
                 LIST_FOREACH(units_by_type, _u, manager->units_by_type[type])
@@ -237,7 +237,7 @@ static int units_by_state_total_build_json(MetricFamilyContext *context, void *u
         }
 
         for (UnitActiveState state = 0; state < _UNIT_ACTIVE_STATE_MAX; state++) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *fields = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *fields = NULL;
 
                 r = sd_json_buildo(&fields, SD_JSON_BUILD_PAIR_STRING("state", unit_active_state_to_string(state)));
                 if (r < 0)
@@ -297,7 +297,7 @@ static int units_by_load_state_total_build_json(MetricFamilyContext *context, vo
         }
 
         for (UnitLoadState state = 0; state < _UNIT_LOAD_STATE_MAX; state++) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *fields = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *fields = NULL;
 
                 r = sd_json_buildo(&fields, SD_JSON_BUILD_PAIR_STRING("load_state", unit_load_state_to_string(state)));
                 if (r < 0)

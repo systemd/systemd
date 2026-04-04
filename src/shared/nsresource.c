@@ -62,7 +62,7 @@ int nsresource_connect(sd_varlink **ret) {
 
         assert(ret);
 
-        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        _cleanup_unref(sd_varlink) sd_varlink *vl = NULL;
         r = sd_varlink_connect_address(&vl, "/run/systemd/io.systemd.NamespaceResource");
         if (r < 0)
                 return log_debug_errno(r, "Failed to connect to namespace resource manager: %m");
@@ -94,7 +94,7 @@ int nsresource_allocate_userns_full(sd_varlink *vl, const char *name, uint64_t s
         if (size <= 0 || size > UINT64_C(0x100000000)) /* Note: the server actually only allows allocating 1 or 64K right now */
                 return -EINVAL;
 
-        _cleanup_(sd_varlink_unrefp) sd_varlink *_vl = NULL;
+        _cleanup_unref(sd_varlink) sd_varlink *_vl = NULL;
         if (!vl) {
                 r = nsresource_connect(&_vl);
                 if (r < 0)
@@ -156,7 +156,7 @@ int nsresource_register_userns(sd_varlink *vl, const char *name, int userns_fd) 
                 userns_fd = _userns_fd;
         }
 
-        _cleanup_(sd_varlink_unrefp) sd_varlink *_vl = NULL;
+        _cleanup_unref(sd_varlink) sd_varlink *_vl = NULL;
         if (!vl) {
                 r = nsresource_connect(&_vl);
                 if (r < 0)
@@ -203,7 +203,7 @@ int nsresource_add_mount(sd_varlink *vl, int userns_fd, int mount_fd) {
                 userns_fd = _userns_fd;
         }
 
-        _cleanup_(sd_varlink_unrefp) sd_varlink *_vl = NULL;
+        _cleanup_unref(sd_varlink) sd_varlink *_vl = NULL;
         if (!vl) {
                 r = nsresource_connect(&_vl);
                 if (r < 0)
@@ -255,7 +255,7 @@ int nsresource_add_cgroup(sd_varlink *vl, int userns_fd, int cgroup_fd) {
                 userns_fd = _userns_fd;
         }
 
-        _cleanup_(sd_varlink_unrefp) sd_varlink *_vl = NULL;
+        _cleanup_unref(sd_varlink) sd_varlink *_vl = NULL;
         if (!vl) {
                 r = nsresource_connect(&_vl);
                 if (r < 0)
@@ -333,7 +333,7 @@ int nsresource_add_netif_veth(
                 netns_fd = _netns_fd;
         }
 
-        _cleanup_(sd_varlink_unrefp) sd_varlink *_vl = NULL;
+        _cleanup_unref(sd_varlink) sd_varlink *_vl = NULL;
         if (!vl) {
                 r = nsresource_connect(&_vl);
                 if (r < 0)
@@ -374,7 +374,7 @@ int nsresource_add_netif_veth(
                 { "namespaceInterfaceName", SD_JSON_VARIANT_STRING, sd_json_dispatch_string, offsetof(InterfaceParams, namespace_interface_name), SD_JSON_MANDATORY },
         };
 
-        _cleanup_(interface_params_done) InterfaceParams p = {};
+        _cleanup_done(interface_params) InterfaceParams p = {};
         r = sd_json_dispatch(reply, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &p);
         if (r < 0)
                 return r;
@@ -404,7 +404,7 @@ int nsresource_add_netif_tap(
                 userns_fd = _userns_fd;
         }
 
-        _cleanup_(sd_varlink_unrefp) sd_varlink *_vl = NULL;
+        _cleanup_unref(sd_varlink) sd_varlink *_vl = NULL;
         if (!vl) {
                 r = nsresource_connect(&_vl);
                 if (r < 0)
@@ -439,7 +439,7 @@ int nsresource_add_netif_tap(
                 { "interfaceFileDescriptor", _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_uint,   offsetof(InterfaceParams, interface_fd_index),  SD_JSON_MANDATORY },
         };
 
-        _cleanup_(interface_params_done) InterfaceParams p = {};
+        _cleanup_done(interface_params) InterfaceParams p = {};
         r = sd_json_dispatch(reply, dispatch_table, SD_JSON_ALLOW_EXTENSIONS, &p);
         if (r < 0)
                 return r;

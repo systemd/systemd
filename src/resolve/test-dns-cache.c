@@ -97,7 +97,7 @@ static char* checked_strdup(const char *str) {
 }
 
 static void answer_add_a(PutArgs *args, DnsResourceKey *key, int addr, int ttl, DnsAnswerFlags flags) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
 
         rr = dns_resource_record_new(key);
         ASSERT_NOT_NULL(rr);
@@ -107,7 +107,7 @@ static void answer_add_a(PutArgs *args, DnsResourceKey *key, int addr, int ttl, 
 }
 
 static void answer_add_cname(PutArgs *args, DnsResourceKey *key, const char *alias, int ttl, DnsAnswerFlags flags) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
 
         rr = dns_resource_record_new(key);
         ASSERT_NOT_NULL(rr);
@@ -117,7 +117,7 @@ static void answer_add_cname(PutArgs *args, DnsResourceKey *key, const char *ali
 }
 
 static void answer_add_opt(PutArgs *args, DnsResourceKey *key, int ttl, DnsAnswerFlags flags) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
 
         rr = dns_resource_record_new(key);
         ASSERT_NOT_NULL(rr);
@@ -136,8 +136,8 @@ static void answer_add_opt(PutArgs *args, DnsResourceKey *key, int ttl, DnsAnswe
  * ================================================================ */
 
 TEST(dns_a_success_is_cached) {
-        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
-        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
+        _cleanup_unref(dns_cache) DnsCache cache = new_cache();
+        _cleanup_unref(put_args) PutArgs put_args = mk_put_args();
 
         put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(put_args.key);
@@ -149,9 +149,9 @@ TEST(dns_a_success_is_cached) {
 }
 
 TEST(dns_a_success_non_matching_type_is_cached) {
-        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
-        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_cache) DnsCache cache = new_cache();
+        _cleanup_unref(put_args) PutArgs put_args = mk_put_args();
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
 
         put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(put_args.key);
@@ -166,9 +166,9 @@ TEST(dns_a_success_non_matching_type_is_cached) {
 }
 
 TEST(dns_a_success_non_matching_name_is_cached) {
-        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
-        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_cache) DnsCache cache = new_cache();
+        _cleanup_unref(put_args) PutArgs put_args = mk_put_args();
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
 
         put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(put_args.key);
@@ -183,9 +183,9 @@ TEST(dns_a_success_non_matching_name_is_cached) {
 }
 
 TEST(dns_a_success_mdns_no_key_is_cached) {
-        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
-        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_cache) DnsCache cache = new_cache();
+        _cleanup_unref(put_args) PutArgs put_args = mk_put_args();
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
 
         put_args.protocol = DNS_PROTOCOL_MDNS;
         put_args.rcode = DNS_RCODE_SUCCESS;
@@ -199,8 +199,8 @@ TEST(dns_a_success_mdns_no_key_is_cached) {
 }
 
 TEST(dns_a_success_mdns_update_existing) {
-        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
-        _cleanup_(put_args_unrefp) PutArgs args1 = mk_put_args(), args2 = mk_put_args();
+        _cleanup_unref(dns_cache) DnsCache cache = new_cache();
+        _cleanup_unref(put_args) PutArgs args1 = mk_put_args(), args2 = mk_put_args();
         DnsResourceKey *key = NULL;
 
         args1.protocol = DNS_PROTOCOL_MDNS;
@@ -225,8 +225,8 @@ TEST(dns_a_success_mdns_update_existing) {
 }
 
 TEST(dns_a_success_mdns_zero_ttl_removes_existing) {
-        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
-        _cleanup_(put_args_unrefp) PutArgs args1 = mk_put_args(), args2 = mk_put_args();
+        _cleanup_unref(dns_cache) DnsCache cache = new_cache();
+        _cleanup_unref(put_args) PutArgs args1 = mk_put_args(), args2 = mk_put_args();
         DnsResourceKey *key = NULL;
 
         args1.protocol = DNS_PROTOCOL_MDNS;
@@ -251,8 +251,8 @@ TEST(dns_a_success_mdns_zero_ttl_removes_existing) {
 }
 
 TEST(dns_a_success_mdns_same_key_different_payloads) {
-        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
-        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
+        _cleanup_unref(dns_cache) DnsCache cache = new_cache();
+        _cleanup_unref(put_args) PutArgs put_args = mk_put_args();
         DnsResourceKey *key = NULL;
 
         put_args.protocol = DNS_PROTOCOL_MDNS;
@@ -275,9 +275,9 @@ TEST(dns_a_success_mdns_same_key_different_payloads) {
 }
 
 TEST(dns_a_success_escaped_key_returns_error) {
-        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
-        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_cache) DnsCache cache = new_cache();
+        _cleanup_unref(put_args) PutArgs put_args = mk_put_args();
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
 
         put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(put_args.key);
@@ -292,8 +292,8 @@ TEST(dns_a_success_escaped_key_returns_error) {
 }
 
 TEST(dns_a_success_empty_answer_is_not_cached) {
-        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
-        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
+        _cleanup_unref(dns_cache) DnsCache cache = new_cache();
+        _cleanup_unref(put_args) PutArgs put_args = mk_put_args();
 
         put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(put_args.key);
@@ -304,8 +304,8 @@ TEST(dns_a_success_empty_answer_is_not_cached) {
 }
 
 TEST(dns_a_success_any_class_is_not_cached) {
-        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
-        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
+        _cleanup_unref(dns_cache) DnsCache cache = new_cache();
+        _cleanup_unref(put_args) PutArgs put_args = mk_put_args();
 
         put_args.key = dns_resource_key_new(DNS_CLASS_ANY, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(put_args.key);
@@ -317,8 +317,8 @@ TEST(dns_a_success_any_class_is_not_cached) {
 }
 
 TEST(dns_a_success_any_type_not_cached) {
-        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
-        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
+        _cleanup_unref(dns_cache) DnsCache cache = new_cache();
+        _cleanup_unref(put_args) PutArgs put_args = mk_put_args();
 
         put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_ANY, "www.example.com");
         ASSERT_NOT_NULL(put_args.key);
@@ -330,8 +330,8 @@ TEST(dns_a_success_any_type_not_cached) {
 }
 
 TEST(dns_a_success_opt_not_cached) {
-        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
-        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
+        _cleanup_unref(dns_cache) DnsCache cache = new_cache();
+        _cleanup_unref(put_args) PutArgs put_args = mk_put_args();
 
         put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_OPT, "www.example.com");
         ASSERT_NOT_NULL(put_args.key);
@@ -343,8 +343,8 @@ TEST(dns_a_success_opt_not_cached) {
 }
 
 TEST(dns_a_nxdomain_is_cached) {
-        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
-        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
+        _cleanup_unref(dns_cache) DnsCache cache = new_cache();
+        _cleanup_unref(put_args) PutArgs put_args = mk_put_args();
 
         put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(put_args.key);
@@ -356,8 +356,8 @@ TEST(dns_a_nxdomain_is_cached) {
 }
 
 TEST(dns_a_nxdomain_no_soa_not_cached) {
-        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
-        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
+        _cleanup_unref(dns_cache) DnsCache cache = new_cache();
+        _cleanup_unref(put_args) PutArgs put_args = mk_put_args();
 
         put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(put_args.key);
@@ -368,8 +368,8 @@ TEST(dns_a_nxdomain_no_soa_not_cached) {
 }
 
 TEST(dns_a_nxdomain_any_class_is_not_cached) {
-        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
-        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
+        _cleanup_unref(dns_cache) DnsCache cache = new_cache();
+        _cleanup_unref(put_args) PutArgs put_args = mk_put_args();
 
         put_args.key = dns_resource_key_new(DNS_CLASS_ANY, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(put_args.key);
@@ -381,8 +381,8 @@ TEST(dns_a_nxdomain_any_class_is_not_cached) {
 }
 
 TEST(dns_a_nxdomain_any_type_not_cached) {
-        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
-        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
+        _cleanup_unref(dns_cache) DnsCache cache = new_cache();
+        _cleanup_unref(put_args) PutArgs put_args = mk_put_args();
 
         put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_ANY, "www.example.com");
         ASSERT_NOT_NULL(put_args.key);
@@ -394,8 +394,8 @@ TEST(dns_a_nxdomain_any_type_not_cached) {
 }
 
 TEST(dns_a_nxdomain_opt_not_cached) {
-        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
-        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
+        _cleanup_unref(dns_cache) DnsCache cache = new_cache();
+        _cleanup_unref(put_args) PutArgs put_args = mk_put_args();
 
         put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_OPT, "www.example.com");
         ASSERT_NOT_NULL(put_args.key);
@@ -407,8 +407,8 @@ TEST(dns_a_nxdomain_opt_not_cached) {
 }
 
 TEST(dns_a_servfail_is_cached) {
-        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
-        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
+        _cleanup_unref(dns_cache) DnsCache cache = new_cache();
+        _cleanup_unref(put_args) PutArgs put_args = mk_put_args();
 
         put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(put_args.key);
@@ -419,8 +419,8 @@ TEST(dns_a_servfail_is_cached) {
 }
 
 TEST(dns_a_refused_is_not_cached) {
-        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
-        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
+        _cleanup_unref(dns_cache) DnsCache cache = new_cache();
+        _cleanup_unref(put_args) PutArgs put_args = mk_put_args();
 
         put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(put_args.key);
@@ -431,8 +431,8 @@ TEST(dns_a_refused_is_not_cached) {
 }
 
 TEST(dns_a_success_zero_ttl_is_not_cached) {
-        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
-        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
+        _cleanup_unref(dns_cache) DnsCache cache = new_cache();
+        _cleanup_unref(put_args) PutArgs put_args = mk_put_args();
 
         put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(put_args.key);
@@ -444,8 +444,8 @@ TEST(dns_a_success_zero_ttl_is_not_cached) {
 }
 
 TEST(dns_a_success_zero_ttl_removes_existing_entry) {
-        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
-        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
+        _cleanup_unref(dns_cache) DnsCache cache = new_cache();
+        _cleanup_unref(put_args) PutArgs put_args = mk_put_args();
 
         put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(put_args.key);
@@ -465,8 +465,8 @@ TEST(dns_a_success_zero_ttl_removes_existing_entry) {
 }
 
 TEST(dns_a_success_not_cacheable_is_not_cached) {
-        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
-        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
+        _cleanup_unref(dns_cache) DnsCache cache = new_cache();
+        _cleanup_unref(put_args) PutArgs put_args = mk_put_args();
 
         put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(put_args.key);
@@ -478,9 +478,9 @@ TEST(dns_a_success_not_cacheable_is_not_cached) {
 }
 
 TEST(dns_a_to_cname_success_is_cached) {
-        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
-        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_cache) DnsCache cache = new_cache();
+        _cleanup_unref(put_args) PutArgs put_args = mk_put_args();
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
 
         put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(put_args.key);
@@ -495,9 +495,9 @@ TEST(dns_a_to_cname_success_is_cached) {
 }
 
 TEST(dns_a_to_cname_success_escaped_name_returns_error) {
-        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
-        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_cache) DnsCache cache = new_cache();
+        _cleanup_unref(put_args) PutArgs put_args = mk_put_args();
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
 
         put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(put_args.key);
@@ -516,10 +516,10 @@ TEST(dns_a_to_cname_success_escaped_name_returns_error) {
  * ================================================================ */
 
 TEST(dns_cache_lookup_miss) {
-        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
-        _cleanup_(dns_answer_unrefp) DnsAnswer *ret_answer = NULL;
-        _cleanup_(dns_packet_unrefp) DnsPacket *ret_full_packet = NULL;
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_cache) DnsCache cache = new_cache();
+        _cleanup_unref(dns_answer) DnsAnswer *ret_answer = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *ret_full_packet = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
         int query_flags, ret_rcode;
         uint64_t ret_query_flags;
 
@@ -538,12 +538,12 @@ TEST(dns_cache_lookup_miss) {
 }
 
 TEST(dns_cache_lookup_success) {
-        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
-        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
-        _cleanup_(dns_answer_unrefp) DnsAnswer *ret_answer = NULL;
-        _cleanup_(dns_packet_unrefp) DnsPacket *ret_full_packet = NULL;
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_cache) DnsCache cache = new_cache();
+        _cleanup_unref(put_args) PutArgs put_args = mk_put_args();
+        _cleanup_unref(dns_answer) DnsAnswer *ret_answer = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *ret_full_packet = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
         int query_flags, ret_rcode;
         uint64_t ret_query_flags;
 
@@ -575,12 +575,12 @@ TEST(dns_cache_lookup_success) {
 }
 
 TEST(dns_cache_lookup_clamp_ttl) {
-        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
-        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
-        _cleanup_(dns_answer_unrefp) DnsAnswer *ret_answer = NULL;
-        _cleanup_(dns_packet_unrefp) DnsPacket *ret_full_packet = NULL;
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_cache) DnsCache cache = new_cache();
+        _cleanup_unref(put_args) PutArgs put_args = mk_put_args();
+        _cleanup_unref(dns_answer) DnsAnswer *ret_answer = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *ret_full_packet = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
         int query_flags, ret_rcode;
         uint64_t ret_query_flags;
 
@@ -612,11 +612,11 @@ TEST(dns_cache_lookup_clamp_ttl) {
 }
 
 TEST(dns_cache_lookup_returns_most_recent_response) {
-        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
-        _cleanup_(put_args_unrefp) PutArgs args1 = mk_put_args(), args2 = mk_put_args();
-        _cleanup_(dns_answer_unrefp) DnsAnswer *ret_answer = NULL;
-        _cleanup_(dns_packet_unrefp) DnsPacket *ret_full_packet = NULL;
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_cache) DnsCache cache = new_cache();
+        _cleanup_unref(put_args) PutArgs args1 = mk_put_args(), args2 = mk_put_args();
+        _cleanup_unref(dns_answer) DnsAnswer *ret_answer = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *ret_full_packet = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
         DnsResourceRecord *rr = NULL;
         int query_flags, ret_rcode;
         uint64_t ret_query_flags;
@@ -662,11 +662,11 @@ TEST(dns_cache_lookup_returns_most_recent_response) {
 }
 
 TEST(dns_cache_lookup_retains_multiple_answers_from_one_response) {
-        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
-        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
-        _cleanup_(dns_answer_unrefp) DnsAnswer *ret_answer = NULL;
-        _cleanup_(dns_packet_unrefp) DnsPacket *ret_full_packet = NULL;
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_cache) DnsCache cache = new_cache();
+        _cleanup_unref(put_args) PutArgs put_args = mk_put_args();
+        _cleanup_unref(dns_answer) DnsAnswer *ret_answer = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *ret_full_packet = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
         DnsResourceRecord *rr = NULL;
         int query_flags, ret_rcode;
         uint64_t ret_query_flags;
@@ -707,12 +707,12 @@ TEST(dns_cache_lookup_retains_multiple_answers_from_one_response) {
 }
 
 TEST(dns_cache_lookup_nxdomain) {
-        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
-        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
-        _cleanup_(dns_answer_unrefp) DnsAnswer *ret_answer = NULL;
-        _cleanup_(dns_packet_unrefp) DnsPacket *ret_full_packet = NULL;
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_cache) DnsCache cache = new_cache();
+        _cleanup_unref(put_args) PutArgs put_args = mk_put_args();
+        _cleanup_unref(dns_answer) DnsAnswer *ret_answer = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *ret_full_packet = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
         int query_flags, ret_rcode;
         uint64_t ret_query_flags;
 
@@ -750,11 +750,11 @@ TEST(dns_cache_lookup_nxdomain) {
 }
 
 TEST(dns_cache_lookup_any_always_misses) {
-        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
-        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
-        _cleanup_(dns_answer_unrefp) DnsAnswer *ret_answer = NULL;
-        _cleanup_(dns_packet_unrefp) DnsPacket *ret_full_packet = NULL;
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_cache) DnsCache cache = new_cache();
+        _cleanup_unref(put_args) PutArgs put_args = mk_put_args();
+        _cleanup_unref(dns_answer) DnsAnswer *ret_answer = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *ret_full_packet = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
         int query_flags, ret_rcode;
         uint64_t ret_query_flags;
 
@@ -781,10 +781,10 @@ TEST(dns_cache_lookup_any_always_misses) {
 }
 
 TEST(dns_cache_lookup_mdns_multiple_shared_responses_are_cached) {
-        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
-        _cleanup_(put_args_unrefp) PutArgs args1 = mk_put_args(), args2 = mk_put_args();
-        _cleanup_(dns_answer_unrefp) DnsAnswer *ret_answer = NULL;
-        _cleanup_(dns_packet_unrefp) DnsPacket *ret_full_packet = NULL;
+        _cleanup_unref(dns_cache) DnsCache cache = new_cache();
+        _cleanup_unref(put_args) PutArgs args1 = mk_put_args(), args2 = mk_put_args();
+        _cleanup_unref(dns_answer) DnsAnswer *ret_answer = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *ret_full_packet = NULL;
         DnsResourceKey *key = NULL;
         DnsResourceRecord *rr = NULL;
         int query_flags, ret_rcode;
@@ -837,10 +837,10 @@ TEST(dns_cache_lookup_mdns_multiple_shared_responses_are_cached) {
 }
 
 TEST(dns_cache_lookup_mdns_multiple_unshared_responses_are_not_cached) {
-        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
-        _cleanup_(put_args_unrefp) PutArgs args1 = mk_put_args(), args2 = mk_put_args();
-        _cleanup_(dns_answer_unrefp) DnsAnswer *ret_answer = NULL;
-        _cleanup_(dns_packet_unrefp) DnsPacket *ret_full_packet = NULL;
+        _cleanup_unref(dns_cache) DnsCache cache = new_cache();
+        _cleanup_unref(put_args) PutArgs args1 = mk_put_args(), args2 = mk_put_args();
+        _cleanup_unref(dns_answer) DnsAnswer *ret_answer = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *ret_full_packet = NULL;
         DnsResourceKey *key = NULL;
         DnsResourceRecord *rr = NULL;
         int query_flags, ret_rcode;
@@ -897,8 +897,8 @@ TEST(dns_cache_lookup_mdns_multiple_unshared_responses_are_not_cached) {
  * ================================================================ */
 
 TEST(dns_cache_prune) {
-        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
-        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
+        _cleanup_unref(dns_cache) DnsCache cache = new_cache();
+        _cleanup_unref(put_args) PutArgs put_args = mk_put_args();
         DnsResourceKey *key = NULL;
 
         key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "ns1.example.com");
@@ -935,9 +935,9 @@ TEST(dns_cache_prune) {
  * ================================================================ */
 
 TEST(dns_cache_check_conflicts_same_key_and_owner) {
-        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
-        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_cache) DnsCache cache = new_cache();
+        _cleanup_unref(put_args) PutArgs put_args = mk_put_args();
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
 
         put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "ns1.example.com");
         ASSERT_NOT_NULL(put_args.key);
@@ -952,9 +952,9 @@ TEST(dns_cache_check_conflicts_same_key_and_owner) {
 }
 
 TEST(dns_cache_check_conflicts_same_key_different_owner) {
-        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
-        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_cache) DnsCache cache = new_cache();
+        _cleanup_unref(put_args) PutArgs put_args = mk_put_args();
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
 
         put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "ns1.example.com");
         ASSERT_NOT_NULL(put_args.key);
@@ -969,9 +969,9 @@ TEST(dns_cache_check_conflicts_same_key_different_owner) {
 }
 
 TEST(dns_cache_check_conflicts_different_key) {
-        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
-        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_cache) DnsCache cache = new_cache();
+        _cleanup_unref(put_args) PutArgs put_args = mk_put_args();
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
 
         put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "ns2.example.com");
         ASSERT_NOT_NULL(put_args.key);
@@ -990,9 +990,9 @@ TEST(dns_cache_check_conflicts_different_key) {
  * ================================================================ */
 
 TEST(dns_cache_export_shared_to_packet) {
-        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
-        _cleanup_(put_args_unrefp) PutArgs args1 = mk_put_args(), args2 = mk_put_args();
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_cache) DnsCache cache = new_cache();
+        _cleanup_unref(put_args) PutArgs args1 = mk_put_args(), args2 = mk_put_args();
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
         DnsResourceKey *key = NULL;
 
         args1.protocol = DNS_PROTOCOL_MDNS;
@@ -1041,9 +1041,9 @@ TEST(dns_cache_export_shared_to_packet) {
 }
 
 TEST(dns_cache_export_shared_to_packet_multi) {
-        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
-        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_cache) DnsCache cache = new_cache();
+        _cleanup_unref(put_args) PutArgs put_args = mk_put_args();
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
         DnsResourceKey *key = NULL;
 
         put_args.protocol = DNS_PROTOCOL_MDNS;
@@ -1151,8 +1151,8 @@ static void check_dump_contents(FILE *f, const char **expected, size_t n) {
 }
 
 TEST(dns_cache_dump_single_a) {
-        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
-        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
+        _cleanup_unref(dns_cache) DnsCache cache = new_cache();
+        _cleanup_unref(put_args) PutArgs put_args = mk_put_args();
 
         put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(put_args.key);
@@ -1174,9 +1174,9 @@ TEST(dns_cache_dump_single_a) {
 }
 
 TEST(dns_cache_dump_a_with_cname) {
-        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
-        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_cache) DnsCache cache = new_cache();
+        _cleanup_unref(put_args) PutArgs put_args = mk_put_args();
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
 
         put_args.key = dns_resource_key_new(DNS_CLASS_IN, DNS_TYPE_A, "www.example.com");
         ASSERT_NOT_NULL(put_args.key);
@@ -1212,9 +1212,9 @@ TEST(dns_cache_dump_a_with_cname) {
  * ================================================================ */
 
 TEST(dns_cache_dump_json_basic) {
-        _cleanup_(dns_cache_unrefp) DnsCache cache = new_cache();
-        _cleanup_(put_args_unrefp) PutArgs put_args = mk_put_args();
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL, *expected = NULL;
+        _cleanup_unref(dns_cache) DnsCache cache = new_cache();
+        _cleanup_unref(put_args) PutArgs put_args = mk_put_args();
+        _cleanup_unref(sd_json_variant) sd_json_variant *json = NULL, *expected = NULL;
         sd_json_variant *item = NULL, *rr = NULL;
         _cleanup_free_ char *str = calloc(256, sizeof(char));
 

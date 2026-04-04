@@ -30,8 +30,8 @@ void swap_devices_list_free(SwapDevice **head) {
 }
 
 int swap_list_get(const char *swaps, SwapDevice **head) {
-        _cleanup_(mnt_free_tablep) struct libmnt_table *t = NULL;
-        _cleanup_(mnt_free_iterp) struct libmnt_iter *i = NULL;
+        _cleanup_free(mnt_table) struct libmnt_table *t = NULL;
+        _cleanup_free(mnt_iter) struct libmnt_iter *i = NULL;
         int r;
 
         assert(head);

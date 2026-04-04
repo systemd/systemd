@@ -26,7 +26,7 @@ int boot_config_load_and_select(
                 return r;
 
         if (!arg_root) {
-                _cleanup_strv_free_ char **efi_entries = NULL;
+                _cleanup_free(strv) char **efi_entries = NULL;
 
                 r = efi_loader_get_entries(&efi_entries);
                 if (r == -ENOENT || ERRNO_IS_NEG_NOT_SUPPORTED(r))

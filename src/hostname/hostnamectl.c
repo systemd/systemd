@@ -111,7 +111,7 @@ static const char *os_support_end_color(usec_t n, usec_t eol) {
 }
 
 static int print_status_info(StatusInfo *i) {
-        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_unref(table) Table *table = NULL;
         TableCell *cell;
         int r;
 
@@ -379,8 +379,8 @@ static int print_status_info(StatusInfo *i) {
 }
 
 static int get_one_name(sd_bus *bus, const char* attr, char **ret) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *s;
         int r;
 
@@ -452,8 +452,8 @@ static int show_all_names(sd_bus *bus) {
                 {}
         };
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *host_message = NULL, *manager_message = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *host_message = NULL, *manager_message = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         r = bus_map_all_properties(bus,
@@ -478,7 +478,7 @@ static int show_all_names(sd_bus *bus) {
         if (r < 0)
                 return log_error_errno(r, "Failed to query system properties: %s", bus_error_message(&error, r));
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *product_uuid_reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *product_uuid_reply = NULL;
         r = bus_call_method(bus,
                             bus_hostname,
                             "GetProductUUID",
@@ -500,7 +500,7 @@ static int show_all_names(sd_bus *bus) {
                         return bus_log_parse_error(r);
         }
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *hardware_serial_reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *hardware_serial_reply = NULL;
         r = bus_call_method(bus,
                             bus_hostname,
                             "GetHardwareSerial",
@@ -551,9 +551,9 @@ static int verb_show_status(int argc, char *argv[], uintptr_t _data, void *userd
         int r;
 
         if (sd_json_format_enabled(arg_json_format_flags)) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
                 const char *text = NULL;
 
                 r = bus_call_method(bus, bus_hostname, "Describe", &error, &reply, NULL);
@@ -579,7 +579,7 @@ static int verb_show_status(int argc, char *argv[], uintptr_t _data, void *userd
 }
 
 static int set_simple_string_internal(sd_bus *bus, sd_bus_error *error, const char *target, const char *method, const char *value) {
-        _cleanup_(sd_bus_error_free) sd_bus_error e = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error e = SD_BUS_ERROR_NULL;
         int r;
 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
@@ -620,7 +620,7 @@ static int verb_set_hostname(int argc, char *argv[], uintptr_t _data, void *user
         }
 
         if (arg_pretty) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
                 const char *p;
 
                 /* If the passed hostname is already valid, then assume the user doesn't know anything about pretty
@@ -657,7 +657,7 @@ static int verb_set_hostname(int argc, char *argv[], uintptr_t _data, void *user
         }
 
         if (arg_static) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                 r = set_simple_string_internal(bus, &error, "static hostname", "SetStaticHostname", hostname);
                 if (r < 0) {
@@ -721,7 +721,7 @@ static int verb_get_or_set_location(int argc, char *argv[], uintptr_t _data, voi
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL, *verbs = NULL;
+        _cleanup_unref(table) Table *options = NULL, *verbs = NULL;
         int r;
 
         r = terminal_urlify_man("hostnamectl", "1", &link);

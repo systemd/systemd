@@ -87,7 +87,7 @@ static int blockdev_get_subsystem(sd_device *d, char **ret_subsystem) {
 }
 
 int blockdev_list(BlockDevListFlags flags, BlockDevice **ret_devices, size_t *ret_n_devices) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *e = NULL;
         int r;
 
         assert(!!ret_devices == !!ret_n_devices);
@@ -179,7 +179,7 @@ int blockdev_list(BlockDevListFlags flags, BlockDevice **ret_devices, size_t *re
                         }
                 }
 
-                _cleanup_strv_free_ char **list = NULL;
+                _cleanup_free(strv) char **list = NULL;
                 if (FLAGS_SET(flags, BLOCKDEV_LIST_SHOW_SYMLINKS)) {
                         FOREACH_DEVICE_DEVLINK(dev, sl)
                                 if (strv_extend(&list, sl) < 0)

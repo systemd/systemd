@@ -35,7 +35,7 @@ static int sr_iov_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req,
 }
 
 static int sr_iov_configure(SRIOV *sr_iov, Link *link, Request *req) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         int r;
 
         assert(sr_iov);
@@ -125,7 +125,7 @@ int link_request_sr_iov_vfs(Link *link) {
 }
 
 static int find_ifindex_from_pci_dev_port(sd_device *pci_dev, const char *dev_port) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *e = NULL;
         sd_device *dev;
         int ifindex, r;
 
@@ -212,7 +212,7 @@ static int manager_update_sr_iov_ifindices(Manager *manager, int phys_port_ifind
 }
 
 static int link_set_sr_iov_phys_port(Link *link, sd_device *pci_dev, const char *dev_port) {
-        _cleanup_(sd_device_unrefp) sd_device *pci_physfn_dev = NULL;
+        _cleanup_unref(sd_device) sd_device *pci_physfn_dev = NULL;
         int r;
 
         assert(link);

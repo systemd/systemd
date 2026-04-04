@@ -178,7 +178,7 @@ TEST(pidref_gethostname_full) {
 
         s = mfree(s);
 
-        _cleanup_(pidref_done) PidRef self = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef self = PIDREF_NULL;
         ASSERT_OK(pidref_set_self(&self));
 
         ASSERT_OK(pidref_gethostname_full(&self, /* flags= */ 0, &s));

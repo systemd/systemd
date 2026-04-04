@@ -365,7 +365,7 @@ static int selinux_fix_fd(
                 const char *label_path,
                 LabelFixFlags flags) {
 
-        _cleanup_freecon_ char* fcon = NULL;
+        _cleanup_(freeconp) char* fcon = NULL;
         struct stat st;
         int r;
 
@@ -400,7 +400,7 @@ static int selinux_fix_fd(
                         return 0;
 
                 /* If the old label is identical to the new one, suppress any kind of error */
-                _cleanup_freecon_ char *oldcon = NULL;
+                _cleanup_(freeconp) char *oldcon = NULL;
                 if (sym_getfilecon_raw(FORMAT_PROC_FD_PATH(fd), &oldcon) >= 0 && streq_ptr(fcon, oldcon))
                         return 0;
 
@@ -503,7 +503,7 @@ int mac_selinux_apply_fd(int fd, const char *path, const char *label) {
 
 int mac_selinux_get_create_label_from_exe(const char *exe, char **ret_label) {
 #if HAVE_SELINUX
-        _cleanup_freecon_ char *mycon = NULL, *fcon = NULL;
+        _cleanup_(freeconp) char *mycon = NULL, *fcon = NULL;
         security_class_t sclass;
         int r;
 
@@ -548,7 +548,7 @@ int mac_selinux_get_our_label(char **ret_label) {
         if (r == 0)
                 return -EOPNOTSUPP;
 
-        _cleanup_freecon_ char *con = NULL;
+        _cleanup_(freeconp) char *con = NULL;
         if (sym_getcon_raw(&con) < 0)
                 return -errno;
         if (!con)
@@ -574,7 +574,7 @@ int mac_selinux_get_peer_label(int socket_fd, char **ret_label) {
         if (r == 0)
                 return -EOPNOTSUPP;
 
-        _cleanup_freecon_ char *con = NULL;
+        _cleanup_(freeconp) char *con = NULL;
         if (sym_getpeercon_raw(socket_fd, &con) < 0)
                 return -errno;
         if (!con)
@@ -589,8 +589,8 @@ int mac_selinux_get_peer_label(int socket_fd, char **ret_label) {
 
 int mac_selinux_get_child_mls_label(int socket_fd, const char *exe, const char *exec_label, char **ret_label) {
 #if HAVE_SELINUX
-        _cleanup_freecon_ char *mycon = NULL, *peercon = NULL, *fcon = NULL;
-        _cleanup_(context_freep) context_t pcon = NULL, bcon = NULL;
+        _cleanup_(freeconp) char *mycon = NULL, *peercon = NULL, *fcon = NULL;
+        _cleanup_free(context) context_t pcon = NULL, bcon = NULL;
         const char *range = NULL, *bcon_str = NULL;
         security_class_t sclass;
         int r;
@@ -653,7 +653,7 @@ int mac_selinux_get_child_mls_label(int socket_fd, const char *exe, const char *
 
 #if HAVE_SELINUX
 static int selinux_create_file_prepare_abspath(const char *abspath, mode_t mode) {
-        _cleanup_freecon_ char *filecon = NULL;
+        _cleanup_(freeconp) char *filecon = NULL;
         int r;
 
         assert(abspath);
@@ -783,7 +783,7 @@ int mac_selinux_bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
         /* Binds a socket and label its file system object according to the SELinux policy */
 
 #if HAVE_SELINUX
-        _cleanup_freecon_ char *fcon = NULL;
+        _cleanup_(freeconp) char *fcon = NULL;
         const struct sockaddr_un *un;
         bool context_changed = false;
         size_t sz;

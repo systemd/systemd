@@ -217,7 +217,7 @@ static int run(int argc, char *argv[]) {
                 return log_full_errno(priority, r, "Failed to start bus forwarding server: %m");
 
         for (;;) {
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+                _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
                 int events_a, events_b, fd;
                 usec_t timeout_a, timeout_b, t;
 

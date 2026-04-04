@@ -218,7 +218,7 @@ int bus_map_all_properties(
                 sd_bus_message **ret_reply,
                 void *userdata) {
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         int r;
 
         assert(bus);

@@ -129,8 +129,8 @@ int local_addresses(
                 int af,
                 struct local_address **ret) {
 
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *req = NULL, *reply = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *rtnl = NULL;
         _cleanup_free_ struct local_address *list = NULL;
         size_t n_list = 0;
         int r;
@@ -369,8 +369,8 @@ int local_gateways(
                 int af,
                 struct local_address **ret) {
 
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *req = NULL, *reply = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *rtnl = NULL;
         _cleanup_free_ struct local_address *list = NULL;
         size_t n_list = 0;
         int r;

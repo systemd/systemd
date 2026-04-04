@@ -59,7 +59,7 @@ static const sd_json_dispatch_field lldp_neighbor_dispatch_table[] = {
 };
 
 int dump_lldp_neighbors(sd_varlink *vl, Table *table, int ifindex) {
-        _cleanup_strv_free_ char **buf = NULL;
+        _cleanup_free(strv) char **buf = NULL;
         sd_json_variant *reply;
         int r;
 
@@ -77,7 +77,7 @@ int dump_lldp_neighbors(sd_varlink *vl, Table *table, int ifindex) {
 
         sd_json_variant *i;
         JSON_VARIANT_ARRAY_FOREACH(i, sd_json_variant_by_key(reply, "Neighbors")) {
-                _cleanup_(interface_info_done) InterfaceInfo info = {};
+                _cleanup_done(interface_info) InterfaceInfo info = {};
 
                 r = sd_json_dispatch(i, interface_info_dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, &info);
                 if (r < 0)
@@ -183,7 +183,7 @@ static bool interface_match_pattern(const InterfaceInfo *info, char * const *pat
 }
 
 static int dump_lldp_neighbors_json(sd_json_variant *reply, char * const *patterns) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL, *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *array = NULL, *v = NULL;
         int r;
 
         assert(reply);
@@ -195,7 +195,7 @@ static int dump_lldp_neighbors_json(sd_json_variant *reply, char * const *patter
 
         sd_json_variant *i;
         JSON_VARIANT_ARRAY_FOREACH(i, sd_json_variant_by_key(reply, "Neighbors")) {
-                _cleanup_(interface_info_done) InterfaceInfo info = {};
+                _cleanup_done(interface_info) InterfaceInfo info = {};
 
                 r = sd_json_dispatch(i, interface_info_dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, &info);
                 if (r < 0)
@@ -221,7 +221,7 @@ static int dump_lldp_neighbors_json(sd_json_variant *reply, char * const *patter
 
 int verb_link_lldp_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *vl = NULL;
-        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_unref(table) Table *table = NULL;
         sd_json_variant *reply;
         uint64_t all = 0;
         TableCell *cell;
@@ -266,7 +266,7 @@ int verb_link_lldp_status(int argc, char *argv[], uintptr_t _data, void *userdat
 
         sd_json_variant *i;
         JSON_VARIANT_ARRAY_FOREACH(i, sd_json_variant_by_key(reply, "Neighbors")) {
-                _cleanup_(interface_info_done) InterfaceInfo info = {};
+                _cleanup_done(interface_info) InterfaceInfo info = {};
 
                 r = sd_json_dispatch(i, interface_info_dispatch_table, SD_JSON_LOG|SD_JSON_ALLOW_EXTENSIONS, &info);
                 if (r < 0)

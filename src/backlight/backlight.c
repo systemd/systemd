@@ -46,7 +46,7 @@ static int help(void) {
 }
 
 static int has_multiple_graphics_cards(void) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *e = NULL;
         bool found = false;
         int r;
 
@@ -181,7 +181,7 @@ static int same_device(sd_device *a, sd_device *b) {
 }
 
 static int validate_device(sd_device *device) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *enumerate = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *enumerate = NULL;
         const char *v, *sysname;
         sd_device *parent;
         int r;
@@ -516,7 +516,7 @@ static int read_saved_brightness(sd_device *device, unsigned *ret) {
 }
 
 static int device_new_from_arg(const char *s, sd_device **ret) {
-        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        _cleanup_unref(sd_device) sd_device *device = NULL;
         _cleanup_free_ char *subsystem = NULL;
         const char *sysname;
         int r;
@@ -556,7 +556,7 @@ static int device_new_from_arg(const char *s, sd_device **ret) {
 }
 
 static int verb_load(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        _cleanup_unref(sd_device) sd_device *device = NULL;
         unsigned max_brightness, brightness, percent;
         bool clamp;
         int r;
@@ -606,7 +606,7 @@ static int verb_load(int argc, char *argv[], uintptr_t _data, void *userdata) {
 }
 
 static int verb_save(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        _cleanup_unref(sd_device) sd_device *device = NULL;
         _cleanup_free_ char *path = NULL;
         unsigned max_brightness, brightness;
         int r;
