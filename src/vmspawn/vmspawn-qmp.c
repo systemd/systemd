@@ -611,6 +611,42 @@ static int qmp_setup_virtiofs(QmpClient *qmp, const QmpVirtiofsInfo *virtiofs, s
         return 0;
 }
 
+static int qmp_setup_rng(QmpClient *qmp) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *object_args = NULL, *device_args = NULL;
+        _cleanup_free_ char *error_class = NULL;
+        int r;
+
+        /* object-add: create rng-random backend */
+        r = sd_json_buildo(
+                        &object_args,
+                        SD_JSON_BUILD_PAIR_STRING("qom-type", "rng-random"),
+                        SD_JSON_BUILD_PAIR_STRING("id", "rng0"),
+                        SD_JSON_BUILD_PAIR_STRING("filename", "/dev/urandom"));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build RNG object-add JSON: %m");
+
+        r = qmp_client_call(qmp, "object-add", object_args, /* ret_result= */ NULL, &error_class);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add RNG backend via QMP: %s", strna(error_class));
+
+        /* device_add: create virtio-rng-pci frontend */
+        r = sd_json_buildo(
+                        &device_args,
+                        SD_JSON_BUILD_PAIR_STRING("driver", "virtio-rng-pci"),
+                        SD_JSON_BUILD_PAIR_STRING("id", "rng-device0"),
+                        SD_JSON_BUILD_PAIR_STRING("rng", "rng0"));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build RNG device_add JSON: %m");
+
+        error_class = mfree(error_class);
+        r = qmp_client_call(qmp, "device_add", device_args, /* ret_result= */ NULL, &error_class);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add RNG device via QMP: %s", strna(error_class));
+
+        log_debug("Added virtio-rng-pci device via QMP");
+        return 0;
+}
+
 static bool drives_need_scsi_controller(const QmpDriveInfo *drives, size_t n_drives) {
         for (size_t i = 0; i < n_drives; i++)
                 if (STR_IN_SET(drives[i].disk_driver, "scsi-hd", "scsi-cd"))
@@ -699,6 +735,11 @@ int vmspawn_qmp_init(
 
         /* Add virtiofs chardevs and devices via QMP */
         r = qmp_setup_virtiofs(qmp, virtiofs, n_virtiofs);
+        if (r < 0)
+                return r;
+
+        /* Add RNG device via QMP */
+        r = qmp_setup_rng(qmp);
         if (r < 0)
                 return r;
 
