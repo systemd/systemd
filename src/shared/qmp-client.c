@@ -9,6 +9,7 @@
 #include "hashmap.h"
 #include "io-util.h"
 #include "iovec-util.h"
+#include "json-util.h"
 #include "log.h"
 #include "qmp-client.h"
 #include "socket-util.h"
@@ -671,6 +672,89 @@ int qmp_client_fdset_add_fd(QmpClient *c, QmpFdset *fdset, int fd) {
         assert_return(fd >= 0, -EBADF);
 
         return qmp_client_fdset_add_fd_internal(c, fdset->id, fd);
+}
+
+int qmp_client_job_wait(QmpClient *c, const char *job_id, char **ret_error) {
+        int r;
+
+        assert_return(c, -EINVAL);
+        assert_return(job_id, -EINVAL);
+        assert_return(!c->io_event_source, -EBUSY);
+
+        if (!c->connected)
+                return -ENOTCONN;
+
+        /* Read messages until we see JOB_STATUS_CHANGE with our job reaching "concluded".
+         * QEMU job transitions: created → running → waiting → pending → concluded (success)
+         * or created → running → aborting → concluded (failure). blockdev-create uses
+         * auto_dismiss=false, so the job remains in concluded state until we dismiss it. */
+        for (;;) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *msg = NULL;
+
+                r = qmp_client_read_message(c, &msg);
+                if (r < 0)
+                        return r;
+
+                /* Skip non-event messages (shouldn't arrive during job wait) */
+                if (!sd_json_variant_by_key(msg, "event"))
+                        continue;
+
+                sd_json_variant *data = sd_json_variant_by_key(msg, "data");
+                const char *event = sd_json_variant_string(sd_json_variant_by_key(msg, "event"));
+
+                if (streq_ptr(event, "JOB_STATUS_CHANGE") && data) {
+                        const char *id = sd_json_variant_string(sd_json_variant_by_key(data, "id"));
+                        const char *status = sd_json_variant_string(sd_json_variant_by_key(data, "status"));
+
+                        if (streq_ptr(id, job_id) && streq_ptr(status, "concluded"))
+                                break;
+
+                        if (streq_ptr(id, job_id))
+                                continue; /* Our job but not concluded yet */
+                }
+
+                /* Dispatch unrelated events to the event callback */
+                qmp_client_dispatch_event(c, msg);
+        }
+
+        /* Job concluded. Query its error status — the job is guaranteed to still exist
+         * because blockdev-create sets auto_dismiss=false. */
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *jobs = NULL;
+        _cleanup_free_ char *error_class = NULL;
+        const char *job_error = NULL;
+
+        r = qmp_client_call(c, "query-jobs", /* arguments= */ NULL, &jobs, &error_class);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to query jobs after conclusion: %s", strna(error_class));
+
+        sd_json_variant *entry;
+        JSON_VARIANT_ARRAY_FOREACH(entry, jobs) {
+                sd_json_variant *id = sd_json_variant_by_key(entry, "id");
+                if (!streq_ptr(sd_json_variant_string(id), job_id))
+                        continue;
+
+                sd_json_variant *err = sd_json_variant_by_key(entry, "error");
+                job_error = sd_json_variant_string(err);
+                break;
+        }
+
+        /* Dismiss the concluded job */
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *dismiss_args = NULL;
+        (void) sd_json_buildo(&dismiss_args, SD_JSON_BUILD_PAIR_STRING("id", job_id));
+        (void) qmp_client_call(c, "job-dismiss", dismiss_args, /* ret_result= */ NULL, /* ret_error= */ NULL);
+
+        if (job_error) {
+                if (ret_error) {
+                        r = free_and_strdup(ret_error, job_error);
+                        if (r < 0)
+                                return r;
+                }
+                return -EIO;
+        }
+
+        if (ret_error)
+                *ret_error = mfree(*ret_error);
+        return 0;
 }
 
 int qmp_client_execute(
