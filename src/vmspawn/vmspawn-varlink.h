@@ -102,15 +102,21 @@ static inline void qmp_vsock_info_done(QmpVsockInfo *info) {
         info->fd = safe_close(info->fd);
 }
 
-/* QMP handshake, feature detection, device setup, and VM start.
- * vmgenid is optional: pass SD_ID128_NULL to skip vmgenid device creation.
- * vsock is optional: pass NULL to skip VSOCK device creation. */
-int vmspawn_varlink_init(QmpClient **ret, int qmp_fd, sd_event *event,
-                      const QmpDriveInfo *drives, size_t n_drives,
-                      const QmpNetworkInfo *network,
-                      const QmpVirtiofsInfo *virtiofs, size_t n_virtiofs,
-                      sd_id128_t vmgenid,
-                      QmpVsockInfo *vsock);
+/* Phase 1: QMP handshake. Returns a connected QmpClient ready for device
+ * setup commands. */
+int vmspawn_varlink_init(QmpClient **ret, int qmp_fd, sd_event *event);
+
+/* Phase 2: Device setup — call any subset in any order before vmspawn_varlink_start(). */
+int vmspawn_varlink_setup_drives(QmpClient *qmp, const QmpDriveInfos *drives);
+int vmspawn_varlink_setup_network(QmpClient *qmp, QmpNetworkInfo *network);
+int vmspawn_varlink_setup_virtiofs(QmpClient *qmp, const QmpVirtiofsInfos *virtiofs);
+int vmspawn_varlink_setup_rng(QmpClient *qmp);
+int vmspawn_varlink_setup_balloon(QmpClient *qmp);
+int vmspawn_varlink_setup_vmgenid(QmpClient *qmp, sd_id128_t vmgenid);
+int vmspawn_varlink_setup_vsock(QmpClient *qmp, QmpVsockInfo *vsock);
+
+/* Phase 3: Resume vCPUs and switch QMP client to async event processing. */
+int vmspawn_varlink_start(QmpClient *qmp);
 
 /* Varlink server for VM control on top of an established QMP client */
 int vmspawn_varlink_setup(VmspawnVarlinkContext **ret, QmpClient *qmp,
