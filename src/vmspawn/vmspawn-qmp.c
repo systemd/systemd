@@ -482,8 +482,42 @@ static int qmp_setup_one_drive(QmpClient *qmp, const QmpDriveInfo *drive, bool i
         return 0;
 }
 
+static bool drives_need_scsi_controller(const QmpDriveInfo *drives, size_t n_drives) {
+        for (size_t i = 0; i < n_drives; i++)
+                if (STR_IN_SET(drives[i].disk_driver, "scsi-hd", "scsi-cd"))
+                        return true;
+
+        return false;
+}
+
+static int qmp_setup_scsi_controller(QmpClient *qmp) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *args = NULL;
+        _cleanup_free_ char *error_class = NULL;
+        int r;
+
+        r = sd_json_buildo(
+                        &args,
+                        SD_JSON_BUILD_PAIR_STRING("driver", "virtio-scsi-pci"),
+                        SD_JSON_BUILD_PAIR_STRING("id", "vmspawn_scsi"));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build SCSI controller JSON: %m");
+
+        r = qmp_client_call(qmp, "device_add", args, /* ret_result= */ NULL, &error_class);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add SCSI controller via QMP: %s", strna(error_class));
+
+        log_debug("Added virtio-scsi-pci controller via QMP");
+        return 0;
+}
+
 static int qmp_setup_drives(QmpClient *qmp, const QmpDriveInfo *drives, size_t n_drives, bool io_uring) {
         int r;
+
+        if (drives_need_scsi_controller(drives, n_drives)) {
+                r = qmp_setup_scsi_controller(qmp);
+                if (r < 0)
+                        return r;
+        }
 
         for (size_t i = 0; i < n_drives; i++) {
                 r = qmp_setup_one_drive(qmp, &drives[i], io_uring);
