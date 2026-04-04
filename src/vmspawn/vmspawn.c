@@ -2473,13 +2473,13 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         _cleanup_close_ int delegate_userns_fd = -EBADF, tap_fd = -EBADF;
         _cleanup_free_ char *tap_name = NULL;
         struct ether_addr mac_vm = {};
-        QmpNetworkInfo qmp_network = {};
+        QmpNetworkInfo qmp_network = { .fd = -EBADF };
 
         if (arg_network_stack == NETWORK_STACK_TAP) {
                 if (have_effective_cap(CAP_NET_ADMIN) <= 0) {
-                        /* Without CAP_NET_ADMIN we use nsresourced to create a TAP device
-                         * and pass the FD to QEMU directly. This must stay on the command
-                         * line since QEMU needs the FD at startup via inheritance. */
+                        /* Without CAP_NET_ADMIN we use nsresourced to create a TAP device.
+                         * The TAP fd is passed to QEMU via QMP getfd + SCM_RIGHTS after
+                         * the handshake, then referenced by name in netdev_add. */
                         delegate_userns_fd = userns_acquire_self_root();
                         if (delegate_userns_fd < 0)
                                 return log_error_errno(delegate_userns_fd, "Failed to acquire userns: %m");
@@ -2501,22 +2501,10 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         if (tap_fd < 0)
                                 return log_error_errno(tap_fd, "Failed to allocate network tap device: %m");
 
-                        r = strv_extend(&cmdline, "-netdev");
-                        if (r < 0)
-                                return log_oom();
-
-                        r = strv_extendf(&cmdline, "tap,id=net0,fd=%i", tap_fd);
-                        if (r < 0)
-                                return log_oom();
-
-                        r = strv_extend_many(&cmdline, "-device", "virtio-net-pci,netdev=net0");
-                        if (r < 0)
-                                return log_oom();
-
-                        if (!GREEDY_REALLOC(pass_fds, n_pass_fds + 1))
-                                return log_oom();
-
-                        pass_fds[n_pass_fds++] = tap_fd;
+                        qmp_network = (QmpNetworkInfo) {
+                                .type = "tap",
+                                .fd   = TAKE_FD(tap_fd),
+                        };
                 } else {
                         /* With CAP_NET_ADMIN we create the TAP interface by name.
                          * Configure via QMP after QEMU starts. */
@@ -3396,10 +3384,11 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 _exit(EXIT_FAILURE);
         }
 
-        /* Close relevant fds we passed to qemu in the parent. We don't need them anymore. */
+        /* Close relevant fds we passed to QEMU in the parent. The TAP fd (if any) was
+         * already TAKE_FD'd into qmp_network and will be closed after vmspawn_qmp_init()
+         * sends it to QEMU via SCM_RIGHTS. */
         child_vsock_fd = safe_close(child_vsock_fd);
         qmp_fds[1] = safe_close(qmp_fds[1]);
-        tap_fd = safe_close(tap_fd);
 
         /* Build drive info for QMP-based setup */
         _cleanup_(qmp_drive_infos_done) QmpDriveInfos qmp_drives = {};
@@ -3483,6 +3472,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                               qmp_network.type ? &qmp_network : NULL,
                               qmp_virtiofs.entries, qmp_virtiofs.n,
                               vmgenid);
+        qmp_network.fd = safe_close(qmp_network.fd);
         if (r < 0)
                 return r;
 
