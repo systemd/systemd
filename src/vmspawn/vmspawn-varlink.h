@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <net/ethernet.h>
+
 #include "sd-event.h"
 
 #include "cleanup-util.h"
@@ -47,9 +49,19 @@ static inline void qmp_drive_infos_done(QmpDriveInfos *infos) {
         infos->n = 0;
 }
 
-/* QMP handshake, feature detection, drive setup, and VM start */
+/* Network info for QMP-based network setup. Only used for cases where QEMU can
+ * be configured via QMP (privileged TAP and user-mode). The nsresourced TAP case
+ * (FD inheritance) and no-network case stay on the QEMU command line. */
+typedef struct QmpNetworkInfo {
+        const char *type;                  /* "tap" or "user" */
+        const char *ifname;                /* TAP interface name (tap only) */
+        const struct ether_addr *mac;      /* VM-side MAC address (tap only, NULL if unset) */
+} QmpNetworkInfo;
+
+/* QMP handshake, feature detection, device setup, and VM start */
 int vmspawn_varlink_init(QmpClient **ret, int qmp_fd, sd_event *event,
-                      const QmpDriveInfo *drives, size_t n_drives);
+                      const QmpDriveInfo *drives, size_t n_drives,
+                      const QmpNetworkInfo *network);
 
 /* Varlink server for VM control on top of an established QMP client */
 int vmspawn_varlink_setup(VmspawnVarlinkContext **ret, QmpClient *qmp,
