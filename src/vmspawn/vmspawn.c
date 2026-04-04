@@ -2591,6 +2591,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         _cleanup_close_ int child_vsock_fd = -EBADF;
         unsigned child_cid = arg_vsock_cid;
+        QmpVsockInfo qmp_vsock = { .fd = -EBADF };
         if (use_vsock) {
                 int device_fd = vhost_device_fd;
 
@@ -2606,23 +2607,10 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to fix CID for the guest VSOCK socket: %m");
 
-                r = qemu_config_section(config_file, "device", "vsock0",
-                                        "driver", "vhost-vsock-pci");
-                if (r < 0)
-                        return r;
-
-                r = qemu_config_keyf(config_file, "guest-cid", "%u", child_cid);
-                if (r < 0)
-                        return r;
-
-                r = qemu_config_keyf(config_file, "vhostfd", "%d", device_fd);
-                if (r < 0)
-                        return r;
-
-                if (!GREEDY_REALLOC(pass_fds, n_pass_fds + 1))
-                        return log_oom();
-
-                pass_fds[n_pass_fds++] = device_fd;
+                qmp_vsock = (QmpVsockInfo) {
+                        .fd  = device_fd,
+                        .cid = child_cid,
+                };
         }
 
         /* -cpu stays on cmdline since not all flags are supported in config */
@@ -3386,8 +3374,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 _exit(EXIT_FAILURE);
         }
 
-        /* Close relevant fds we passed to qemu in the parent. We don't need them anymore. */
-        child_vsock_fd = safe_close(child_vsock_fd);
+        /* Close QEMU's end of the QMP socketpair and the TAP fd in the parent.
+         * The VSOCK fd is kept open until vmspawn_qmp_init() sends it via getfd. */
         qmp_fds[1] = safe_close(qmp_fds[1]);
         tap_fd = safe_close(tap_fd);
 
@@ -3472,7 +3460,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         r = vmspawn_qmp_init(&qmp, TAKE_FD(qmp_fds[0]), event, qmp_drives.drives, qmp_drives.n,
                               qmp_network.type ? &qmp_network : NULL,
                               qmp_virtiofs.entries, qmp_virtiofs.n,
-                              vmgenid);
+                              vmgenid,
+                              qmp_vsock.fd >= 0 ? &qmp_vsock : NULL);
         if (r < 0)
                 return r;
 

@@ -703,6 +703,46 @@ static int qmp_setup_balloon(QmpClient *qmp) {
         return 0;
 }
 
+static int qmp_setup_vsock(QmpClient *qmp, const QmpVsockInfo *vsock) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *getfd_args = NULL, *device_args = NULL;
+        _cleanup_free_ char *error_class = NULL;
+        int r;
+
+        assert(qmp);
+        assert(vsock);
+        assert(vsock->fd >= 0);
+
+        /* getfd: pass the vhost-vsock fd to QEMU via SCM_RIGHTS */
+        r = sd_json_buildo(
+                        &getfd_args,
+                        SD_JSON_BUILD_PAIR_STRING("fdname", "vmspawn_vsock"));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build getfd JSON for VSOCK: %m");
+
+        r = qmp_client_call_send_fd(qmp, "getfd", getfd_args, vsock->fd,
+                                    /* ret_result= */ NULL, &error_class);
+        if (r < 0)
+                return log_error_errno(r, "Failed to pass VSOCK fd to QEMU via getfd: %s", strna(error_class));
+
+        /* device_add: create vhost-vsock-pci device referencing the named fd */
+        r = sd_json_buildo(
+                        &device_args,
+                        SD_JSON_BUILD_PAIR_STRING("driver", "vhost-vsock-pci"),
+                        SD_JSON_BUILD_PAIR_STRING("id", "vsock0"),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("guest-cid", vsock->cid),
+                        SD_JSON_BUILD_PAIR_STRING("vhostfd", "vmspawn_vsock"));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build VSOCK device_add JSON: %m");
+
+        error_class = mfree(error_class);
+        r = qmp_client_call(qmp, "device_add", device_args, /* ret_result= */ NULL, &error_class);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add VSOCK device via QMP: %s", strna(error_class));
+
+        log_debug("Added vhost-vsock-pci device via QMP (cid=%u)", vsock->cid);
+        return 0;
+}
+
 static bool drives_need_scsi_controller(const QmpDriveInfo *drives, size_t n_drives) {
         for (size_t i = 0; i < n_drives; i++)
                 if (STR_IN_SET(drives[i].disk_driver, "scsi-hd", "scsi-cd"))
@@ -758,7 +798,8 @@ int vmspawn_qmp_init(
                 const QmpNetworkInfo *network,
                 const QmpVirtiofsInfo *virtiofs,
                 size_t n_virtiofs,
-                sd_id128_t vmgenid) {
+                sd_id128_t vmgenid,
+                const QmpVsockInfo *vsock) {
 
         _cleanup_(qmp_client_freep) QmpClient *qmp = NULL;
         _cleanup_close_ int fd = TAKE_FD(qmp_fd);
@@ -808,6 +849,13 @@ int vmspawn_qmp_init(
         /* Add vmgenid device via QMP (if supported and UUID provided) */
         if (!sd_id128_is_null(vmgenid)) {
                 r = qmp_setup_vmgenid(qmp, vmgenid);
+                if (r < 0)
+                        return r;
+        }
+
+        /* Add VSOCK device via QMP (if requested) */
+        if (vsock) {
+                r = qmp_setup_vsock(qmp, vsock);
                 if (r < 0)
                         return r;
         }
