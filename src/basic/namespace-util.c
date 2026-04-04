@@ -804,16 +804,19 @@ int process_is_owned_by_uid(const PidRef *pidref, uid_t uid) {
         uid_t process_uid;
         r = pidref_get_uid(pidref, &process_uid);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to get UID of process " PID_FMT ": %m", pidref->pid);
         if (process_uid == uid)
                 return true;
+
+        log_debug("Process " PID_FMT " has UID " UID_FMT ", which doesn't match expected UID " UID_FMT ", checking user namespace ownership.",
+                  pidref->pid, process_uid, uid);
 
         _cleanup_close_ int userns_fd = -EBADF;
         userns_fd = pidref_namespace_open_by_type(pidref, NAMESPACE_USER);
         if (userns_fd == -ENOPKG) /* If userns is not supported, then they don't matter for ownership */
                 return false;
         if (userns_fd < 0)
-                return userns_fd;
+                return log_debug_errno(userns_fd, "Failed to open user namespace of process " PID_FMT ": %m", pidref->pid);
 
         for (unsigned iteration = 0;; iteration++) {
                 uid_t ns_uid;
@@ -822,14 +825,21 @@ int process_is_owned_by_uid(const PidRef *pidref, uid_t uid) {
                  * themselves matter. */
                 r = is_our_namespace(userns_fd, NAMESPACE_USER);
                 if (r < 0)
-                        return r;
-                if (r > 0)
+                        return log_debug_errno(r, "Failed to check if user namespace of process " PID_FMT " is our own (iteration %u): %m", pidref->pid, iteration);
+                if (r > 0) {
+                        log_debug("User namespace of process " PID_FMT " is our own namespace (iteration %u), not owned by expected UID.", pidref->pid, iteration);
                         return false;
+                }
 
                 if (ioctl(userns_fd, NS_GET_OWNER_UID, &ns_uid) < 0)
-                        return -errno;
-                if (ns_uid == uid)
+                        return log_debug_errno(errno, "Failed to get owner UID of user namespace of process " PID_FMT " (iteration %u): %m", pidref->pid, iteration);
+                if (ns_uid == uid) {
+                        log_debug("User namespace of process " PID_FMT " is owned by UID " UID_FMT " (iteration %u), ownership check passed.", pidref->pid, uid, iteration);
                         return true;
+                }
+
+                log_debug("User namespace of process " PID_FMT " is owned by UID " UID_FMT ", expected UID " UID_FMT " (iteration %u), going up the tree.",
+                          pidref->pid, ns_uid, uid, iteration);
 
                 /* Paranoia check */
                 if (iteration > 16)
@@ -838,10 +848,12 @@ int process_is_owned_by_uid(const PidRef *pidref, uid_t uid) {
                 /* Go up the tree */
                 _cleanup_close_ int parent_fd = ioctl(userns_fd, NS_GET_USERNS);
                 if (parent_fd < 0) {
-                        if (errno == EPERM) /* EPERM means we left our own userns */
+                        if (errno == EPERM) { /* EPERM means we left our own userns */
+                                log_debug("NS_GET_USERNS ioctl returned EPERM for process " PID_FMT " (iteration %u), left our own userns.", pidref->pid, iteration);
                                 return false;
+                        }
 
-                        return -errno;
+                        return log_debug_errno(errno, "NS_GET_USERNS ioctl failed for process " PID_FMT " (iteration %u): %m", pidref->pid, iteration);
                 }
 
                 close_and_replace(userns_fd, parent_fd);
