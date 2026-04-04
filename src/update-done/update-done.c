@@ -63,7 +63,7 @@ static int save_timestamp(const char *dir, struct timespec *ts) {
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL;
+        _cleanup_unref(table) Table *options = NULL;
         int r;
 
         r = terminal_urlify_man("systemd-update-done", "8", &link);

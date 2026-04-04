@@ -80,7 +80,7 @@ int varlink_callb_and_log(
                 sd_json_variant **ret_parameters,
                 ...) {
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *parameters = NULL;
         va_list ap;
         int r;
 
@@ -117,7 +117,7 @@ int varlink_many_notifyb(Set *s, ...) {
         if (set_isempty(s))
                 return 0;
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *parameters = NULL;
         va_list ap;
         va_start(ap, s);
         r = sd_json_buildv(&parameters, ap);
@@ -172,7 +172,7 @@ int varlink_server_new(
                 sd_varlink_server_flags_t flags,
                 void *userdata) {
 
-        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        _cleanup_unref(sd_varlink_server) sd_varlink_server *s = NULL;
         int r;
 
         r = sd_varlink_server_new(&s, flags|SD_VARLINK_SERVER_FD_PASSING_INPUT_STRICT);

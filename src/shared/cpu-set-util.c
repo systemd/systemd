@@ -239,7 +239,7 @@ int config_parse_cpu_set(
                 return 1;
         }
 
-        _cleanup_(cpu_set_done) CPUSet cpuset = {};
+        _cleanup_done(cpu_set) CPUSet cpuset = {};
         for (const char *p = rvalue;;) {
                 _cleanup_free_ char *word = NULL;
 
@@ -306,7 +306,7 @@ int config_parse_cpu_set(
 }
 
 int parse_cpu_set(const char *s, CPUSet *ret) {
-        _cleanup_(cpu_set_done) CPUSet c = {};
+        _cleanup_done(cpu_set) CPUSet c = {};
         int r;
 
         assert(s);
@@ -383,7 +383,7 @@ int cpu_set_to_dbus(const CPUSet *c, uint8_t **ret, size_t *ret_size) {
 }
 
 int cpu_set_from_dbus(const uint8_t *bits, size_t size, CPUSet *ret) {
-        _cleanup_(cpu_set_done) CPUSet c = {};
+        _cleanup_done(cpu_set) CPUSet c = {};
         int r;
 
         assert(bits || size == 0);

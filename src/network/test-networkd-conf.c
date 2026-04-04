@@ -59,7 +59,7 @@ static void test_config_parse_ether_addr_one(const char *rvalue, const struct et
 }
 
 static void test_config_parse_ether_addrs_one(const char *rvalue, const struct ether_addr* list, size_t n) {
-        _cleanup_set_free_ Set *s = NULL;
+        _cleanup_free(set) Set *s = NULL;
 
         ASSERT_OK(config_parse_ether_addrs("network", "filename", 1, "section", 1, "lvalue", 0, rvalue, &s, NULL));
         ASSERT_EQ(set_size(s), n);
@@ -185,8 +185,8 @@ TEST(config_parse_ether_addr) {
 }
 
 static void test_config_parse_address_one(const char *rvalue, int family, unsigned n_addresses, const union in_addr_union *u, unsigned char prefixlen) {
-        _cleanup_(manager_freep) Manager *manager = NULL;
-        _cleanup_(network_unrefp) Network *network = NULL;
+        _cleanup_free(manager) Manager *manager = NULL;
+        _cleanup_unref(network) Network *network = NULL;
 
         assert_se(manager_new(&manager, /* test_mode= */ true) >= 0);
         assert_se(network = new0(Network, 1));
@@ -238,7 +238,7 @@ TEST(config_parse_address) {
 }
 
 TEST(config_parse_match_ifnames) {
-        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_free(strv) char **names = NULL;
 
         assert_se(config_parse_match_ifnames("network", "filename", 1, "section", 1, "Name", 0, "!hoge hogehoge foo", &names, NULL) == 0);
         assert_se(config_parse_match_ifnames("network", "filename", 1, "section", 1, "Name", 0, "!baz", &names, NULL) == 0);
@@ -248,7 +248,7 @@ TEST(config_parse_match_ifnames) {
 }
 
 TEST(config_parse_match_strv) {
-        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_free(strv) char **names = NULL;
 
         assert_se(config_parse_match_strv("network", "filename", 1, "section", 1, "Name", 0, "!hoge hogehoge foo", &names, NULL) == 0);
         assert_se(config_parse_match_strv("network", "filename", 1, "section", 1, "Name", 0, "!baz", &names, NULL) == 0);
@@ -271,7 +271,7 @@ static int parse_mpr(const char *rvalue, OrderedSet **nexthops) {
 }
 
 static void test_config_parse_multipath_route_one(const char *rvalue, int expected_ret, size_t expected_size) {
-        _cleanup_ordered_set_free_ OrderedSet *nexthops = NULL;
+        _cleanup_free(ordered_set) OrderedSet *nexthops = NULL;
 
         ASSERT_OK_EQ(parse_mpr(rvalue, &nexthops), expected_ret);
         ASSERT_EQ(ordered_set_size(nexthops), expected_size);
@@ -285,7 +285,7 @@ static void test_config_parse_multipath_route_verify(
                 int expected_ifindex,
                 uint32_t expected_weight) {
 
-        _cleanup_ordered_set_free_ OrderedSet *nexthops = NULL;
+        _cleanup_free(ordered_set) OrderedSet *nexthops = NULL;
         RouteNextHop *nh;
 
         ASSERT_OK_EQ(parse_mpr(rvalue, &nexthops), 1);
@@ -308,7 +308,7 @@ static void test_config_parse_multipath_route_verify(
 }
 
 TEST(config_parse_multipath_route) {
-        _cleanup_ordered_set_free_ OrderedSet *nexthops = NULL;
+        _cleanup_free(ordered_set) OrderedSet *nexthops = NULL;
 
         /* Device only routes */
         test_config_parse_multipath_route_verify("@wg0", AF_UNSPEC, NULL, "wg0", 0, 0);
@@ -369,7 +369,7 @@ TEST(config_parse_multipath_route) {
         nexthops = ordered_set_free(nexthops);
 
         /* Insertion order does not affect deduplication */
-        _cleanup_ordered_set_free_ OrderedSet *nexthops2 = NULL;
+        _cleanup_free(ordered_set) OrderedSet *nexthops2 = NULL;
         ASSERT_OK_EQ(parse_mpr("@wg0 10", &nexthops), 1);
         ASSERT_OK_EQ(parse_mpr("@wg1 20", &nexthops), 1);
         ASSERT_OK_EQ(parse_mpr("@wg1 20", &nexthops2), 1);

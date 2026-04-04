@@ -19,8 +19,8 @@
 #include "varlink-util.h"
 
 static int parse_interfaces(sd_netlink **rtnl, char *argv[], OrderedSet **ret) {
-        _cleanup_(sd_netlink_unrefp) sd_netlink *our_rtnl = NULL;
-        _cleanup_ordered_set_free_ OrderedSet *indexes = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *our_rtnl = NULL;
+        _cleanup_free(ordered_set) OrderedSet *indexes = NULL;
         int r;
 
         assert(ret);
@@ -46,15 +46,15 @@ static int parse_interfaces(sd_netlink **rtnl, char *argv[], OrderedSet **ret) {
 int verb_link_delete(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r, ret = 0;
 
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        _cleanup_ordered_set_free_ OrderedSet *indexes = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *rtnl = NULL;
+        _cleanup_free(ordered_set) OrderedSet *indexes = NULL;
         r = parse_interfaces(&rtnl, argv, &indexes);
         if (r < 0)
                 return r;
 
         void *p;
         ORDERED_SET_FOREACH(p, indexes) {
-                _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+                _cleanup_unref(sd_netlink_message) sd_netlink_message *req = NULL;
                 int index = PTR_TO_INT(p);
 
                 r = sd_rtnl_message_new_link(rtnl, &req, RTM_DELLINK, index);
@@ -98,7 +98,7 @@ int verb_link_varlink_simple_method(int argc, char *argv[], uintptr_t _data, voi
                 }
         assert(a);
 
-        _cleanup_ordered_set_free_ OrderedSet *indexes = NULL;
+        _cleanup_free(ordered_set) OrderedSet *indexes = NULL;
         r = parse_interfaces(/* rtnl= */ NULL, argv, &indexes);
         if (r < 0)
                 return r;

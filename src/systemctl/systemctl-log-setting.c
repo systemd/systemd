@@ -40,7 +40,7 @@ int verb_log_setting(int argc, char *argv[], uintptr_t _data, void *userdata) {
 }
 
 static int service_name_to_dbus(sd_bus *bus, const char *name, char **ret_dbus_name) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *bus_name = NULL;
         int r;
 

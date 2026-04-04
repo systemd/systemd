@@ -378,9 +378,9 @@ int unit_file_build_name_map(
          * and output. Existing contents will be freed before the new contents are stored.
          */
 
-        _cleanup_hashmap_free_ Hashmap *ids = NULL, *names = NULL;
-        _cleanup_set_free_ Set *paths = NULL;
-        _cleanup_strv_free_ char **expanded_search_path = NULL;
+        _cleanup_free(hashmap) Hashmap *ids = NULL, *names = NULL;
+        _cleanup_free(set) Set *paths = NULL;
+        _cleanup_free(strv) char **expanded_search_path = NULL;
         uint64_t timestamp_hash;
         int r;
 
@@ -749,7 +749,7 @@ int unit_file_find_fragment(
 
         const char *fragment = NULL;
         _cleanup_free_ char *template = NULL, *instance = NULL;
-        _cleanup_set_free_ Set *names = NULL;
+        _cleanup_free(set) Set *names = NULL;
         int r;
 
         /* Finds a fragment path, and returns the set of names:

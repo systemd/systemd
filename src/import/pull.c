@@ -119,8 +119,8 @@ static void on_tar_finished(TarPull *pull, int error, void *userdata) {
 
 static int verb_pull_tar(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_free_ char *ll = NULL, *normalized = NULL;
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        _cleanup_(tar_pull_unrefp) TarPull *pull = NULL;
+        _cleanup_unref(sd_event) sd_event *event = NULL;
+        _cleanup_unref(tar_pull) TarPull *pull = NULL;
         const char *url, *local;
         int r;
 
@@ -189,8 +189,8 @@ static void on_raw_finished(RawPull *pull, int error, void *userdata) {
 
 static int verb_pull_raw(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_free_ char *ll = NULL, *normalized = NULL;
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        _cleanup_(raw_pull_unrefp) RawPull *pull = NULL;
+        _cleanup_unref(sd_event) sd_event *event = NULL;
+        _cleanup_unref(raw_pull) RawPull *pull = NULL;
         const char *url, *local;
         int r;
 
@@ -285,12 +285,12 @@ static int verb_pull_oci(int argc, char *argv[], uintptr_t _data, void *userdata
         if (r < 0)
                 return r;
 
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_unref(sd_event) sd_event *event = NULL;
         r = import_allocate_event_with_signals(&event);
         if (r < 0)
                 return r;
 
-        _cleanup_(oci_pull_unrefp) OciPull *pull = NULL;
+        _cleanup_unref(oci_pull) OciPull *pull = NULL;
         r = oci_pull_new(&pull, event, arg_image_root, on_oci_finished, event);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate puller: %m");

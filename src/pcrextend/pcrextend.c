@@ -241,7 +241,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int determine_banks(Tpm2Context *c, uint32_t target_pcr_mask) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         int r;
 
         assert(c);
@@ -285,7 +285,7 @@ static int extend_pcr_now(
                 size_t size,
                 Tpm2UserspaceEventType event) {
 
-        _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
+        _cleanup_unref(tpm2_context) Tpm2Context *c = NULL;
         int r;
 
         assert(pcr_mask != 0);
@@ -333,7 +333,7 @@ static int extend_nvpcr_now(
                 size_t size,
                 Tpm2UserspaceEventType event) {
 
-        _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
+        _cleanup_unref(tpm2_context) Tpm2Context *c = NULL;
         int r;
 
         assert(name);
@@ -401,7 +401,7 @@ static int vl_method_extend(sd_varlink *link, sd_json_variant *parameters, sd_va
                 { "eventType", SD_JSON_VARIANT_STRING,        json_dispatch_tpm2_userspace_event_type, offsetof(MethodExtendParameters, event_type), 0 },
                 {}
         };
-        _cleanup_(method_extend_parameters_done) MethodExtendParameters p = {
+        _cleanup_done(method_extend_parameters) MethodExtendParameters p = {
                 .pcr = UINT_MAX,
                 .event_type = _TPM2_USERSPACE_EVENT_TYPE_INVALID,
         };
@@ -452,7 +452,7 @@ static int vl_method_extend(sd_varlink *link, sd_json_variant *parameters, sd_va
 }
 
 static int vl_server(void) {
-        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
+        _cleanup_unref(sd_varlink_server) sd_varlink_server *varlink_server = NULL;
         int r;
 
         r = varlink_server_new(&varlink_server, SD_VARLINK_SERVER_ROOT_ONLY, /* userdata= */ NULL);

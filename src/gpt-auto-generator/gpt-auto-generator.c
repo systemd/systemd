@@ -1133,8 +1133,8 @@ mount:
 }
 
 static int enumerate_partitions(dev_t devnum) {
-        _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
-        _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
+        _cleanup_unref(dissected_image) DissectedImage *m = NULL;
+        _cleanup_unref(loop_device) LoopDevice *loop = NULL;
         _cleanup_free_ char *devname = NULL;
         int r;
 
@@ -1331,7 +1331,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
         else if (proc_cmdline_key_streq(key, "systemd.image_policy"))
                 return parse_image_policy_argument(value, &arg_image_policy);
         else if (proc_cmdline_key_streq(key, "systemd.image_filter")) {
-                _cleanup_(image_filter_freep) ImageFilter *f = NULL;
+                _cleanup_free(image_filter) ImageFilter *f = NULL;
 
                 r = image_filter_parse(value, &f);
                 if (r < 0)

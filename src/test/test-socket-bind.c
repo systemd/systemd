@@ -34,7 +34,7 @@ static int test_socket_bind(
                 char **allow_rules,
                 char **deny_rules) {
         _cleanup_free_ char *exec_start = NULL;
-        _cleanup_(unit_freep) Unit *u = NULL;
+        _cleanup_free(unit) Unit *u = NULL;
         CGroupContext *cc = NULL;
         int cld_code, r;
 
@@ -101,7 +101,7 @@ static int test_socket_bind(
 int main(int argc, char *argv[]) {
         _cleanup_free_ char *unit_dir = NULL, *netcat_path = NULL;
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
-        _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_free(manager) Manager *m = NULL;
         struct rlimit rl;
         int r;
 

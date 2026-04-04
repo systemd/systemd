@@ -11,7 +11,7 @@ static int run(int argc, char *argv[]) {
         int r = 0;
         unsigned n = 0;
 
-        _cleanup_(mmap_cache_unrefp) MMapCache *m = mmap_cache_new();
+        _cleanup_unref(mmap_cache) MMapCache *m = mmap_cache_new();
         assert_se(m);
 
         pager_open(/* flags= */ 0);

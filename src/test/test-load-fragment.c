@@ -41,7 +41,7 @@ _unused_ static ConfigPerfItemLookup unused_lookup = load_fragment_gperf_lookup;
 
 TEST_RET(unit_file_get_list) {
         int r;
-        _cleanup_hashmap_free_ Hashmap *h = NULL;
+        _cleanup_free(hashmap) Hashmap *h = NULL;
         UnitFileList *p;
 
         r = unit_file_get_list(RUNTIME_SCOPE_SYSTEM, NULL, NULL, NULL, &h);
@@ -98,8 +98,8 @@ TEST(config_parse_exec) {
 
         ExecCommand *c = NULL, *c1;
         const char *ccc;
-        _cleanup_(manager_freep) Manager *m = NULL;
-        _cleanup_(unit_freep) Unit *u = NULL;
+        _cleanup_free(manager) Manager *m = NULL;
+        _cleanup_free(unit) Unit *u = NULL;
 
         r = manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_MINIMAL, &m);
         if (manager_errno_skip_test(r)) {
@@ -419,8 +419,8 @@ TEST(config_parse_log_extra_fields) {
 
         int r;
 
-        _cleanup_(manager_freep) Manager *m = NULL;
-        _cleanup_(unit_freep) Unit *u = NULL;
+        _cleanup_free(manager) Manager *m = NULL;
+        _cleanup_free(unit) Unit *u = NULL;
         ExecContext c = {};
 
         r = manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_MINIMAL, &m);
@@ -742,7 +742,7 @@ TEST(config_parse_pass_environ) {
                  void *data,
                  void *userdata) */
 
-        _cleanup_strv_free_ char **passenv = NULL;
+        _cleanup_free(strv) char **passenv = NULL;
 
         ASSERT_OK(config_parse_pass_environ(NULL, "fake", 1, "section", 1,
                                             "PassEnvironment", 0, "A B",
@@ -776,9 +776,9 @@ TEST(config_parse_unit_env_file) {
                  void *data,
                  void *userdata) */
 
-        _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_free(manager) Manager *m = NULL;
         Unit *u;
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_free(strv) char **files = NULL;
         int r;
 
         r = manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_MINIMAL, &m);
@@ -901,7 +901,7 @@ TEST(contains_instance_specifier_superset) {
 }
 
 TEST(unit_is_recursive_template_dependency) {
-        _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_free(manager) Manager *m = NULL;
         Unit *u;
         int r;
 
@@ -994,9 +994,9 @@ TEST(config_parse_log_filter_patterns) {
 }
 
 TEST(config_parse_open_file) {
-        _cleanup_(manager_freep) Manager *m = NULL;
-        _cleanup_(unit_freep) Unit *u = NULL;
-        _cleanup_(open_file_freep) OpenFile *of = NULL;
+        _cleanup_free(manager) Manager *m = NULL;
+        _cleanup_free(unit) Unit *u = NULL;
+        _cleanup_free(open_file) OpenFile *of = NULL;
         int r;
 
         r = manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_MINIMAL, &m);
@@ -1036,7 +1036,7 @@ TEST(config_parse_open_file) {
 
 TEST(config_parse_service_refresh_on_reload) {
         ServiceRefreshOnReload flags;
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         int r;
 
         r = service_refresh_on_reload_from_string_many("extensions", &flags);
@@ -1055,8 +1055,8 @@ TEST(config_parse_service_refresh_on_reload) {
 
         ASSERT_ERROR(service_refresh_on_reload_from_string_many("hoge", &flags), EINVAL);
 
-        _cleanup_(manager_freep) Manager *m = NULL;
-        _cleanup_(unit_freep) Unit *u = NULL;
+        _cleanup_free(manager) Manager *m = NULL;
+        _cleanup_free(unit) Unit *u = NULL;
 
         r = manager_new(RUNTIME_SCOPE_USER, MANAGER_TEST_RUN_MINIMAL, &m);
         if (manager_errno_skip_test(r)) {

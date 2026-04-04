@@ -56,15 +56,15 @@ static void status_info_clear(StatusInfo *info) {
 }
 
 static int print_status_info(StatusInfo *i) {
-        _cleanup_strv_free_ char **kernel_locale = NULL;
-        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_free(strv) char **kernel_locale = NULL;
+        _cleanup_unref(table) Table *table = NULL;
         TableCell *cell;
         int r;
 
         assert(i);
 
         if (arg_transport == BUS_TRANSPORT_LOCAL) {
-                _cleanup_(locale_context_clear) LocaleContext c = {};
+                _cleanup_clear(locale_context) LocaleContext c = {};
 
                 r = locale_context_load(&c, LOCALE_LOAD_PROC_CMDLINE);
                 if (r < 0)
@@ -148,7 +148,7 @@ static int print_status_info(StatusInfo *i) {
 }
 
 static int verb_show_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(status_info_clear) StatusInfo info = {};
+        _cleanup_clear(status_info) StatusInfo info = {};
         static const struct bus_properties_map map[]  = {
                 { "VConsoleKeymap",       "s",  NULL, offsetof(StatusInfo, vconsole_keymap) },
                 { "VConsoleKeymapToggle", "s",  NULL, offsetof(StatusInfo, vconsole_keymap_toggle) },
@@ -160,8 +160,8 @@ static int verb_show_status(int argc, char *argv[], uintptr_t _data, void *userd
                 {}
         };
 
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
@@ -180,8 +180,8 @@ static int verb_show_status(int argc, char *argv[], uintptr_t _data, void *userd
 }
 
 static int verb_set_locale(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
@@ -208,7 +208,7 @@ static int verb_set_locale(int argc, char *argv[], uintptr_t _data, void *userda
 }
 
 static int verb_list_locales(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         int r;
 
         r = get_locales(&l);
@@ -222,7 +222,7 @@ static int verb_list_locales(int argc, char *argv[], uintptr_t _data, void *user
 }
 
 static int verb_set_vconsole_keymap(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *map, *toggle_map;
         sd_bus *bus = ASSERT_PTR(userdata);
         int r;
@@ -246,7 +246,7 @@ static int verb_set_vconsole_keymap(int argc, char *argv[], uintptr_t _data, voi
 }
 
 static int verb_list_vconsole_keymaps(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         int r;
 
         r = get_keymaps(&l);
@@ -261,7 +261,7 @@ static int verb_list_vconsole_keymaps(int argc, char *argv[], uintptr_t _data, v
 }
 
 static int verb_set_x11_keymap(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *layout, *model, *variant, *options;
         sd_bus *bus = userdata;
         int r;
@@ -297,7 +297,7 @@ static const char* xkb_directory(void) {
 
 static int verb_list_x11_keymaps(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_strv_free_ char **list = NULL;
+        _cleanup_free(strv) char **list = NULL;
         enum {
                 NONE,
                 MODELS,

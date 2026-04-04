@@ -113,7 +113,7 @@ UdevBuiltinCommand udev_builtin_lookup(const char *command) {
 }
 
 int udev_builtin_run(UdevEvent *event, UdevBuiltinCommand cmd, const char *command) {
-        _cleanup_strv_free_ char **argv = NULL;
+        _cleanup_free(strv) char **argv = NULL;
         int r;
 
         assert(event);

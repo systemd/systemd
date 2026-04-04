@@ -16,7 +16,7 @@
 #define HASH_KEY SD_ID128_MAKE(d3,1e,48,90,4b,fa,4c,fe,af,9d,d5,a1,d7,2e,8a,b1)
 
 static void verify_rr_copy(DnsResourceRecord *rr) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *copy = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *copy = NULL;
         const char *a, *b;
 
         assert_se(copy = dns_resource_record_copy(rr));
@@ -47,8 +47,8 @@ static void test_packet_from_file(const char* filename, bool canonical) {
         log_info("============== %s %s==============", filename, canonical ? "canonical " : "");
 
         for (offset = 0; offset < data_size; offset += 8 + packet_size) {
-                _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL, *p2 = NULL;
-                _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL, *rr2 = NULL;
+                _cleanup_unref(dns_packet) DnsPacket *p = NULL, *p2 = NULL;
+                _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL, *rr2 = NULL;
                 const char *s, *s2;
                 uint64_t hash1, hash2;
 
@@ -87,7 +87,7 @@ static void test_packet_from_file(const char* filename, bool canonical) {
 }
 
 static void test_dns_resource_record_get_cname_target(void) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *cname = NULL, *dname = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *cname = NULL, *dname = NULL;
         _cleanup_free_ char *target = NULL;
 
         assert_se(cname = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_CNAME, "quux.foobar"));
@@ -120,7 +120,7 @@ static void test_dns_resource_record_get_cname_target(void) {
 }
 
 int main(int argc, char **argv) {
-        _cleanup_strv_free_ char **v = NULL;
+        _cleanup_free(strv) char **v = NULL;
         char **fnames;
 
         test_setup_logging(LOG_DEBUG);

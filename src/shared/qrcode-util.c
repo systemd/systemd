@@ -214,7 +214,7 @@ int print_qrcode_full(
         if (r < 0)
                 return r;
 
-        _cleanup_(QRcode_freep) QRcode *qr = sym_QRcode_encodeString(string, 0, QR_ECLEVEL_L, QR_MODE_8, 1);
+        _cleanup_free(QRcode) QRcode *qr = sym_QRcode_encodeString(string, 0, QR_ECLEVEL_L, QR_MODE_8, 1);
         if (!qr)
                 return log_oom_debug();
 

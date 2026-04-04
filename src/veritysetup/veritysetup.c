@@ -319,7 +319,7 @@ static int parse_options(const char *options) {
 }
 
 static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_free(crypt) struct crypt_device *cd = NULL;
         _cleanup_free_ void *rh = NULL;
         struct crypt_params_verity p = {};
         crypt_status_info status;
@@ -346,7 +346,7 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
         if (empty_or_dash(root_hash) || streq_ptr(root_hash, "auto"))
                 root_hash = NULL;
 
-        _cleanup_(sd_device_unrefp) sd_device *datadev = NULL;
+        _cleanup_unref(sd_device) sd_device *datadev = NULL;
         if (!root_hash || arg_root_hash_signature_auto) {
                 r = sd_device_new_from_path(&datadev, data_device);
                 if (r < 0)
@@ -453,7 +453,7 @@ static int verb_attach(int argc, char *argv[], uintptr_t _data, void *userdata) 
 }
 
 static int verb_detach(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_free(crypt) struct crypt_device *cd = NULL;
         int r;
 
         assert(argc == 2);

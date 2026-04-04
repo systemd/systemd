@@ -690,8 +690,8 @@ TEST(path_make_relative_parent) {
 
 TEST(path_strv_resolve) {
         char tmp_dir[] = "/tmp/test-path-util-XXXXXX";
-        _cleanup_strv_free_ char **search_dirs = NULL;
-        _cleanup_strv_free_ char **absolute_dirs = NULL;
+        _cleanup_free(strv) char **search_dirs = NULL;
+        _cleanup_free(strv) char **absolute_dirs = NULL;
 
         ASSERT_NOT_NULL(mkdtemp(tmp_dir));
 

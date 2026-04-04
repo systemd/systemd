@@ -43,11 +43,11 @@ int vl_method_get_entries(sd_varlink *link, sd_json_variant *parameters, sd_varl
                 {}
         };
 
-        _cleanup_(get_entries_parameters_done) GetEntriesParameters p = {
+        _cleanup_done(get_entries_parameters) GetEntriesParameters p = {
                 .uid = UID_INVALID,
                 .priority = -1,
         };
-        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_close(sd_journal) sd_journal *j = NULL;
         int r;
 
         assert(link);
@@ -104,7 +104,7 @@ int vl_method_get_entries(sd_varlink *link, sd_json_variant *parameters, sd_varl
                 return r;
 
         for (uint64_t i = 0; i < n; i++) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *entry = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *entry = NULL;
 
                 r = sd_journal_next(j);
                 if (r < 0)

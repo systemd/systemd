@@ -16,7 +16,7 @@
 #include "process-util.h"
 
 static int operation_done(sd_event_source *s, const siginfo_t *si, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         Operation *o = ASSERT_PTR(userdata);
         int r;
 

@@ -149,7 +149,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_IMAGE_FILTER: {
-                        _cleanup_(image_filter_freep) ImageFilter *f = NULL;
+                        _cleanup_free(image_filter) ImageFilter *f = NULL;
                         r = image_filter_parse(optarg, &f);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse image filter expression: %s", optarg);
@@ -313,7 +313,7 @@ static int parse_argv_as_mount_helper(int argc, char *argv[]) {
 }
 
 static int inspect_mstack(void) {
-        _cleanup_(mstack_freep) MStack *mstack = NULL;
+        _cleanup_free(mstack) MStack *mstack = NULL;
         int r;
 
         assert(arg_what);
@@ -322,7 +322,7 @@ static int inspect_mstack(void) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to load .mstack/ directory '%s': %m", arg_what);
 
-        _cleanup_(table_unrefp) Table *t = NULL;
+        _cleanup_unref(table) Table *t = NULL;
 
         t = table_new("type", "name", "image", "what", "where", "sort");
         if (!t)

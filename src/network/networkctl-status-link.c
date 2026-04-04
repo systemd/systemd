@@ -51,7 +51,7 @@ static void lease_info_done(LeaseInfo *p) {
 }
 
 static int dump_dhcp_leases(Table *table, const char *prefix, const LinkInfo *link) {
-        _cleanup_strv_free_ char **buf = NULL;
+        _cleanup_free(strv) char **buf = NULL;
         int r;
 
         assert(table);
@@ -73,7 +73,7 @@ static int dump_dhcp_leases(Table *table, const char *prefix, const LinkInfo *li
 
         sd_json_variant *lease;
         JSON_VARIANT_ARRAY_FOREACH(lease, leases) {
-                _cleanup_(lease_info_done) LeaseInfo info = {};
+                _cleanup_done(lease_info) LeaseInfo info = {};
                 _cleanup_free_ char *client_id = NULL;
 
                 r = sd_json_dispatch(lease, dispatch_table, SD_JSON_LOG | SD_JSON_WARNING | SD_JSON_ALLOW_EXTENSIONS, &info);
@@ -234,15 +234,15 @@ static int link_status_one(
                 sd_varlink *vl,
                 const LinkInfo *info) {
 
-        _cleanup_strv_free_ char **dns = NULL, **ntp = NULL, **sip = NULL, **search_domains = NULL,
+        _cleanup_free(strv) char **dns = NULL, **ntp = NULL, **sip = NULL, **search_domains = NULL,
                 **route_domains = NULL, **link_dropins = NULL, **network_dropins = NULL, **netdev_dropins = NULL;
         _cleanup_free_ char *t = NULL, *network = NULL, *netdev = NULL, *iaid = NULL, *duid = NULL, *captive_portal = NULL,
                 *setup_state = NULL, *operational_state = NULL, *online_state = NULL, *activation_policy = NULL;
         const char *driver = NULL, *path = NULL, *vendor = NULL, *model = NULL, *link = NULL,
                 *on_color_operational, *off_color_operational, *on_color_setup, *off_color_setup, *on_color_online;
         _cleanup_free_ int *carrier_bound_to = NULL, *carrier_bound_by = NULL;
-        _cleanup_(sd_dhcp_lease_unrefp) sd_dhcp_lease *lease = NULL;
-        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_unref(sd_dhcp_lease) sd_dhcp_lease *lease = NULL;
+        _cleanup_unref(table) Table *table = NULL;
         int r;
 
         assert(rtnl);
@@ -908,10 +908,10 @@ static int link_status_one(
 }
 
 int verb_link_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *rtnl = NULL;
+        _cleanup_unref(sd_hwdb) sd_hwdb *hwdb = NULL;
         _cleanup_(sd_varlink_flush_close_unrefp) sd_varlink *vl = NULL;
-        _cleanup_(link_info_array_freep) LinkInfo *links = NULL;
+        _cleanup_free(link_info_array) LinkInfo *links = NULL;
         int r, c;
 
         r = dump_description(argc, argv);

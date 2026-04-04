@@ -130,9 +130,9 @@ static void maybe_insert_empty_line(void) {
 }
 
 int verb_test_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(udev_rules_freep) UdevRules *rules = NULL;
-        _cleanup_(udev_event_unrefp) UdevEvent *event = NULL;
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        _cleanup_free(udev_rules) UdevRules *rules = NULL;
+        _cleanup_unref(udev_event) UdevEvent *event = NULL;
+        _cleanup_unref(sd_device) sd_device *dev = NULL;
         sigset_t mask, sigmask_orig;
         int r;
 

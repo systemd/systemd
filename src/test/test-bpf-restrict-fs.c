@@ -13,7 +13,7 @@
 
 static int test_restrict_filesystems(Manager *m, const char *unit_name, const char *file_path, char **allowed_filesystems) {
         _cleanup_free_ char *exec_start = NULL;
-        _cleanup_(unit_freep) Unit *u = NULL;
+        _cleanup_free(unit) Unit *u = NULL;
         ExecContext *ec = NULL;
         int cld_code, r;
 
@@ -61,7 +61,7 @@ static int test_restrict_filesystems(Manager *m, const char *unit_name, const ch
 
 int main(int argc, char *argv[]) {
         _cleanup_(rm_rf_physical_and_freep) char *runtime_dir = NULL;
-        _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_free(manager) Manager *m = NULL;
         _cleanup_free_ char *unit_dir = NULL;
         struct rlimit rl;
         int r;

@@ -212,7 +212,7 @@ static int find_addr_records(
         int ifindex, r;
 
         DNS_ANSWER_FOREACH_IFINDEX(rr, ifindex, q->answer) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *entry = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *entry = NULL;
                 int family;
                 const void *p;
 
@@ -252,9 +252,9 @@ static int find_addr_records(
 }
 
 static void vl_method_resolve_hostname_complete(DnsQuery *query) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *canonical = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
-        _cleanup_(dns_query_freep) DnsQuery *q = query;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *canonical = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *array = NULL;
+        _cleanup_free(dns_query) DnsQuery *q = query;
         _cleanup_free_ char *normalized = NULL;
         DnsQuestion *question;
         int r;
@@ -348,11 +348,11 @@ static int vl_method_resolve_hostname(sd_varlink *link, sd_json_variant *paramet
                 {}
         };
 
-        _cleanup_(dns_question_unrefp) DnsQuestion *question_idna = NULL, *question_utf8 = NULL;
-        _cleanup_(lookup_parameters_destroy) LookupParameters p = {
+        _cleanup_unref(dns_question) DnsQuestion *question_idna = NULL, *question_utf8 = NULL;
+        _cleanup_destroy(lookup_parameters) LookupParameters p = {
                 .family = AF_UNSPEC,
         };
-        _cleanup_(dns_query_freep) DnsQuery *q = NULL;
+        _cleanup_free(dns_query) DnsQuery *q = NULL;
         Manager *m;
         int r;
 
@@ -410,8 +410,8 @@ static int vl_method_resolve_hostname(sd_varlink *link, sd_json_variant *paramet
 }
 
 static void vl_method_resolve_address_complete(DnsQuery *query) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
-        _cleanup_(dns_query_freep) DnsQuery *q = query;
+        _cleanup_unref(sd_json_variant) sd_json_variant *array = NULL;
+        _cleanup_free(dns_query) DnsQuery *q = query;
         DnsQuestion *question;
         DnsResourceRecord *rr;
         int ifindex, r;
@@ -478,11 +478,11 @@ static int vl_method_resolve_address(sd_varlink *link, sd_json_variant *paramete
                 {}
         };
 
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
-        _cleanup_(lookup_parameters_destroy) LookupParameters p = {
+        _cleanup_unref(dns_question) DnsQuestion *question = NULL;
+        _cleanup_destroy(lookup_parameters) LookupParameters p = {
                 .family = AF_UNSPEC,
         };
-        _cleanup_(dns_query_freep) DnsQuery *q = NULL;
+        _cleanup_free(dns_query) DnsQuery *q = NULL;
         Manager *m;
         int r;
 
@@ -543,7 +543,7 @@ static int append_txt(sd_json_variant **txt, DnsResourceRecord *rr) {
                 return 0;
 
         LIST_FOREACH(items, i, rr->txt.items) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *entry = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *entry = NULL;
 
                 if (i->length <= 0)
                         continue;
@@ -565,8 +565,8 @@ static int append_srv(
                 DnsResourceRecord *rr,
                 sd_json_variant **array) {
 
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *canonical = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *canonical = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         _cleanup_free_ char *normalized = NULL;
         int r;
 
@@ -644,7 +644,7 @@ static int append_srv(
         }
 
         if ((q->flags & SD_RESOLVED_NO_ADDRESS) == 0) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *addresses = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *addresses = NULL;
 
                 LIST_FOREACH(auxiliary_queries, aux, q->auxiliary_queries) {
                         DnsQuestion *question;
@@ -690,10 +690,10 @@ static sd_varlink* take_vl_link_aux_query(DnsQuery *aux) {
 }
 
 static void resolve_service_all_complete(DnsQuery *query) {
-        _cleanup_(dns_query_freep) DnsQuery *q = query;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *srv = NULL, *txt = NULL;
+        _cleanup_free(dns_query) DnsQuery *q = query;
+        _cleanup_unref(sd_json_variant) sd_json_variant *srv = NULL, *txt = NULL;
         _cleanup_free_ char *name = NULL, *type = NULL, *domain = NULL;
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *canonical = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *canonical = NULL;
         DnsQuestion *question;
         DnsResourceRecord *rr;
         int r;
@@ -838,8 +838,8 @@ static void resolve_service_hostname_complete(DnsQuery *q) {
 }
 
 static int resolve_service_hostname(DnsQuery *q, DnsResourceRecord *rr, int ifindex) {
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
-        _cleanup_(dns_query_freep) DnsQuery *aux = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *question = NULL;
+        _cleanup_free(dns_query) DnsQuery *aux = NULL;
         int r;
 
         assert(q);
@@ -882,7 +882,7 @@ static int resolve_service_hostname(DnsQuery *q, DnsResourceRecord *rr, int ifin
 }
 
 static void vl_method_resolve_service_complete(DnsQuery *query) {
-        _cleanup_(dns_query_freep) DnsQuery *q = query;
+        _cleanup_free(dns_query) DnsQuery *q = query;
         bool has_root_domain = false;
         DnsResourceRecord *rr;
         DnsQuestion *question;
@@ -963,12 +963,12 @@ static int vl_method_resolve_service(sd_varlink* link, sd_json_variant* paramete
                 {}
         };
 
-        _cleanup_(dns_question_unrefp) DnsQuestion *question_idna = NULL, *question_utf8 = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *question_idna = NULL, *question_utf8 = NULL;
         LookupParametersResolveService p = {
                 .family = AF_UNSPEC,
         };
 
-        _cleanup_(dns_query_freep) DnsQuery *q = NULL;
+        _cleanup_free(dns_query) DnsQuery *q = NULL;
         Manager *m;
         int r;
 
@@ -1040,8 +1040,8 @@ static int vl_method_resolve_service(sd_varlink* link, sd_json_variant* paramete
 }
 
 static void vl_method_resolve_record_complete(DnsQuery *query) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
-        _cleanup_(dns_query_freep) DnsQuery *q = query;
+        _cleanup_unref(sd_json_variant) sd_json_variant *array = NULL;
+        _cleanup_free(dns_query) DnsQuery *q = query;
         DnsQuestion *question;
         int r;
 
@@ -1067,7 +1067,7 @@ static void vl_method_resolve_record_complete(DnsQuery *query) {
         int ifindex;
         DnsResourceRecord *rr;
         DNS_ANSWER_FOREACH_IFINDEX(rr, ifindex, q->answer) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
 
                 r = dns_question_matches_rr(question, rr, NULL);
                 if (r < 0)
@@ -1118,11 +1118,11 @@ static int vl_method_resolve_record(sd_varlink *link, sd_json_variant *parameter
                 {}
         };
 
-        _cleanup_(lookup_parameters_destroy) LookupParameters p = {
+        _cleanup_destroy(lookup_parameters) LookupParameters p = {
                 .class = DNS_CLASS_IN,
                 .type = _DNS_TYPE_INVALID,
         };
-        _cleanup_(dns_query_freep) DnsQuery *q = NULL;
+        _cleanup_free(dns_query) DnsQuery *q = NULL;
         Manager *m;
         int r;
 
@@ -1153,11 +1153,11 @@ static int vl_method_resolve_record(sd_varlink *link, sd_json_variant *parameter
         if (validate_and_mangle_query_flags(m, &p.flags, p.name, SD_RESOLVED_NO_SEARCH) < 0)
                 return sd_varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("flags"));
 
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = dns_question_new(1);
+        _cleanup_unref(dns_question) DnsQuestion *question = dns_question_new(1);
         if (!question)
                 return -ENOMEM;
 
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
         key = dns_resource_key_new(p.class, p.type, p.name);
         if (!key)
                 return -ENOMEM;
@@ -1259,7 +1259,7 @@ static int vl_method_subscribe_query_results(sd_varlink *link, sd_json_variant *
 }
 
 static int vl_method_dump_cache(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *list = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *list = NULL;
         Manager *m = ASSERT_PTR(sd_varlink_get_userdata(ASSERT_PTR(link)));
         int r;
 
@@ -1270,7 +1270,7 @@ static int vl_method_dump_cache(sd_varlink *link, sd_json_variant *parameters, s
                 return r;
 
         LIST_FOREACH(scopes, s, m->dns_scopes) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *j = NULL;
 
                 r = dns_scope_to_json(s, /* with_cache= */ true, &j);
                 if (r < 0)
@@ -1291,7 +1291,7 @@ static int vl_method_dump_cache(sd_varlink *link, sd_json_variant *parameters, s
 }
 
 static int dns_server_dump_state_to_json_list(DnsServer *server, sd_json_variant **list) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *j = NULL;
         int r;
 
         assert(list);
@@ -1305,7 +1305,7 @@ static int dns_server_dump_state_to_json_list(DnsServer *server, sd_json_variant
 }
 
 static int vl_method_dump_server_state(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *list = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *list = NULL;
         Manager *m = ASSERT_PTR(sd_varlink_get_userdata(ASSERT_PTR(link)));
         Link *l;
         int r;
@@ -1343,7 +1343,7 @@ static int vl_method_dump_server_state(sd_varlink *link, sd_json_variant *parame
 }
 
 static int vl_method_dump_statistics(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *j = NULL;
         Manager *m = ASSERT_PTR(sd_varlink_get_userdata(ASSERT_PTR(link)));
         int r;
 
@@ -1410,7 +1410,7 @@ fail:
 }
 
 static int vl_method_dump_dns_configuration(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *configuration = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *configuration = NULL;
         Manager *m;
         Link *l;
         int r;
@@ -1433,7 +1433,7 @@ static int vl_method_dump_dns_configuration(sd_varlink *link, sd_json_variant *p
 }
 
 static int varlink_monitor_server_init(Manager *m) {
-        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *server = NULL;
+        _cleanup_unref(sd_varlink_server) sd_varlink_server *server = NULL;
         int r;
 
         assert(m);
@@ -1483,7 +1483,7 @@ static int varlink_monitor_server_init(Manager *m) {
 }
 
 static int varlink_main_server_init(Manager *m) {
-        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        _cleanup_unref(sd_varlink_server) sd_varlink_server *s = NULL;
         int r;
 
         assert(m);

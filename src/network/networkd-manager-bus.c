@@ -22,7 +22,7 @@
 #include "path-util.h"
 
 static int method_list_links(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         Manager *manager = userdata;
         Link *link;
         int r;
@@ -59,7 +59,7 @@ static int method_list_links(sd_bus_message *message, void *userdata, sd_bus_err
 }
 
 static int method_get_link_by_name(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         _cleanup_free_ char *path = NULL;
         Manager *manager = userdata;
         const char *name;
@@ -89,7 +89,7 @@ static int method_get_link_by_name(sd_bus_message *message, void *userdata, sd_b
 }
 
 static int method_get_link_by_index(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         _cleanup_free_ char *path = NULL;
         Manager *manager = userdata;
         int ifindex, r;
@@ -230,8 +230,8 @@ static int bus_method_describe_link(sd_bus_message *message, void *userdata, sd_
 }
 
 static int bus_method_describe(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         _cleanup_free_ char *text = NULL;
         Manager *manager = ASSERT_PTR(userdata);
         int r;

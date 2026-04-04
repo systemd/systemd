@@ -112,7 +112,7 @@ _sd_printf_(3, 4) static int reply_method_errorf(
                 const char *format,
                 ...) {
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *req = NULL;
         va_list ap;
         int r;
 
@@ -136,7 +136,7 @@ _sd_printf_(3, 4) static int reply_method_errnof(
                 const char *format,
                 ...) {
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *req = NULL;
         int r;
 
         assert(query);
@@ -210,8 +210,8 @@ static int reply_query_state(DnsQuery *q) {
                 return reply_method_errorf(q, BUS_ERROR_STUB_LOOP, "Configured DNS server loops back to us");
 
         case DNS_TRANSACTION_RCODE_FAILURE: {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *req = NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_unref(sd_bus_message) sd_bus_message *req = NULL;
 
                 req = dns_query_steal_request(q);
                 if (!req) /* No bus message set anymore? then we already replied already, let's not answer a second time */
@@ -286,9 +286,9 @@ static int append_address(sd_bus_message *reply, DnsResourceRecord *rr, int ifin
 }
 
 static void bus_method_resolve_hostname_complete(DnsQuery *query) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *canonical = NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(dns_query_freep) DnsQuery *q = query;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *canonical = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
+        _cleanup_free(dns_query) DnsQuery *q = query;
         _cleanup_free_ char *normalized = NULL;
         DnsQuestion *question;
         DnsResourceRecord *rr;
@@ -378,7 +378,7 @@ finish:
 }
 
 static int parse_as_address(sd_bus_message *m, int ifindex, const char *hostname, int family, uint64_t flags) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         _cleanup_free_ char *canonical = NULL;
         union in_addr_union parsed;
         int r, ff, parsed_ifindex = 0;
@@ -443,7 +443,7 @@ static int parse_as_address(sd_bus_message *m, int ifindex, const char *hostname
 }
 
 void bus_client_log(sd_bus_message *m, const char *what) {
-        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+        _cleanup_unref(sd_bus_creds) sd_bus_creds *creds = NULL;
         const char *comm = NULL;
         uid_t uid = UID_INVALID;
         pid_t pid = 0;
@@ -468,8 +468,8 @@ void bus_client_log(sd_bus_message *m, const char *what) {
 }
 
 static int bus_method_resolve_hostname(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_(dns_question_unrefp) DnsQuestion *question_idna = NULL, *question_utf8 = NULL;
-        _cleanup_(dns_query_freep) DnsQuery *q = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *question_idna = NULL, *question_utf8 = NULL;
+        _cleanup_free(dns_query) DnsQuery *q = NULL;
         Manager *m = ASSERT_PTR(userdata);
         const char *hostname;
         int family, ifindex;
@@ -534,8 +534,8 @@ static int bus_method_resolve_hostname(sd_bus_message *message, void *userdata, 
 }
 
 static void bus_method_resolve_address_complete(DnsQuery *query) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(dns_query_freep) DnsQuery *q = query;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
+        _cleanup_free(dns_query) DnsQuery *q = query;
         DnsQuestion *question;
         DnsResourceRecord *rr;
         unsigned added = 0;
@@ -617,8 +617,8 @@ finish:
 }
 
 static int bus_method_resolve_address(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
-        _cleanup_(dns_query_freep) DnsQuery *q = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *question = NULL;
+        _cleanup_free(dns_query) DnsQuery *q = NULL;
         Manager *m = ASSERT_PTR(userdata);
         union in_addr_union a;
         int family, ifindex;
@@ -703,8 +703,8 @@ static int bus_message_append_rr(sd_bus_message *m, DnsResourceRecord *rr, int i
 }
 
 static void bus_method_resolve_record_complete(DnsQuery *query) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(dns_query_freep) DnsQuery *q = query;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
+        _cleanup_free(dns_query) DnsQuery *q = query;
         DnsResourceRecord *rr;
         DnsQuestion *question;
         unsigned added = 0;
@@ -779,9 +779,9 @@ finish:
 }
 
 static int bus_method_resolve_record(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
-        _cleanup_(dns_query_freep) DnsQuery *q = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *question = NULL;
+        _cleanup_free(dns_query) DnsQuery *q = NULL;
         Manager *m = ASSERT_PTR(userdata);
         uint16_t class, type;
         const char *name;
@@ -851,7 +851,7 @@ static int bus_method_resolve_record(sd_bus_message *message, void *userdata, sd
 }
 
 static int append_srv(DnsQuery *q, sd_bus_message *reply, DnsResourceRecord *rr) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *canonical = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *canonical = NULL;
         _cleanup_free_ char *normalized = NULL;
         int r;
 
@@ -1006,10 +1006,10 @@ static int append_txt(sd_bus_message *reply, DnsResourceRecord *rr) {
 }
 
 static void resolve_service_all_complete(DnsQuery *query) {
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *canonical = NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *canonical = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         _cleanup_free_ char *name = NULL, *type = NULL, *domain = NULL;
-        _cleanup_(dns_query_freep) DnsQuery *q = query;
+        _cleanup_free(dns_query) DnsQuery *q = query;
         DnsQuestion *question;
         DnsResourceRecord *rr;
         unsigned added = 0;
@@ -1183,8 +1183,8 @@ static void resolve_service_hostname_complete(DnsQuery *q) {
 }
 
 static int resolve_service_hostname(DnsQuery *q, DnsResourceRecord *rr, int ifindex) {
-        _cleanup_(dns_question_unrefp) DnsQuestion *question = NULL;
-        _cleanup_(dns_query_freep) DnsQuery *aux = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *question = NULL;
+        _cleanup_free(dns_query) DnsQuery *aux = NULL;
         int r;
 
         assert(q);
@@ -1229,7 +1229,7 @@ static int resolve_service_hostname(DnsQuery *q, DnsResourceRecord *rr, int ifin
 }
 
 static void bus_method_resolve_service_complete(DnsQuery *query) {
-        _cleanup_(dns_query_freep) DnsQuery *q = query;
+        _cleanup_free(dns_query) DnsQuery *q = query;
         bool has_root_domain = false;
         DnsResourceRecord *rr;
         DnsQuestion *question;
@@ -1310,8 +1310,8 @@ finish:
 }
 
 static int bus_method_resolve_service(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_(dns_question_unrefp) DnsQuestion *question_idna = NULL, *question_utf8 = NULL;
-        _cleanup_(dns_query_freep) DnsQuery *q = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *question_idna = NULL, *question_utf8 = NULL;
+        _cleanup_free(dns_query) DnsQuery *q = NULL;
         const char *name, *type, *domain;
         Manager *m = ASSERT_PTR(userdata);
         int family, ifindex;
@@ -1865,9 +1865,9 @@ static int dnssd_registered_service_on_bus_track(sd_bus_track *t, void *userdata
 }
 
 static int bus_method_register_service(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
-        _cleanup_(dnssd_registered_service_freep) DnssdRegisteredService *service = NULL;
-        _cleanup_(sd_bus_track_unrefp) sd_bus_track *bus_track = NULL;
+        _cleanup_unref(sd_bus_creds) sd_bus_creds *creds = NULL;
+        _cleanup_free(dnssd_registered_service) DnssdRegisteredService *service = NULL;
+        _cleanup_unref(sd_bus_track) sd_bus_track *bus_track = NULL;
         const char *id, *name_template, *type;
         _cleanup_free_ char *path = NULL;
         DnssdRegisteredService *s = NULL;
@@ -1931,7 +1931,7 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
                 return r;
 
         while ((r = sd_bus_message_enter_container(message, SD_BUS_TYPE_ARRAY, "{say}")) > 0) {
-                _cleanup_(dnssd_txtdata_freep) DnssdTxtData *txt_data = NULL;
+                _cleanup_free(dnssd_txtdata) DnssdTxtData *txt_data = NULL;
                 DnsTxtItem *last = NULL;
 
                 txt_data = new0(DnssdTxtData, 1);
@@ -1990,7 +1990,7 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
                 return r;
 
         if (!service->txt_data_items) {
-                _cleanup_(dnssd_txtdata_freep) DnssdTxtData *txt_data = NULL;
+                _cleanup_free(dnssd_txtdata) DnssdTxtData *txt_data = NULL;
 
                 txt_data = new0(DnssdTxtData, 1);
                 if (!txt_data)
@@ -2099,7 +2099,7 @@ static int bus_method_get_delegate(sd_bus_message *message, void *userdata, sd_b
 }
 
 static int bus_method_list_delegates(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         Manager *m = ASSERT_PTR(userdata);
         int r;
 

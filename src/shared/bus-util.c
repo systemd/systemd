@@ -179,7 +179,7 @@ int bus_event_loop_with_idle(
 }
 
 int bus_name_has_owner(sd_bus *bus, const char *name, sd_bus_error *reterr_error) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *rep = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *rep = NULL;
         int r, has_owner = 0;
 
         assert(bus);
@@ -710,7 +710,7 @@ int bus_track_add_name_many(sd_bus_track *t, char * const *l) {
 }
 
 int bus_track_to_strv(sd_bus_track *t, char ***ret) {
-        _cleanup_strv_free_ char **subscribed = NULL;
+        _cleanup_free(strv) char **subscribed = NULL;
         int r;
 
         assert(ret);
@@ -784,7 +784,7 @@ int bus_open_system_watch_bind_with_description(sd_bus **ret, const char *descri
 }
 
 int bus_reply_pair_array(sd_bus_message *m, char * const *l) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         int r;
 
         assert(m);
@@ -814,7 +814,7 @@ int bus_reply_pair_array(sd_bus_message *m, char * const *l) {
 }
 
 static int method_dump_memory_state_by_fd(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        _cleanup_(memstream_done) MemStream m = {};
+        _cleanup_done(memstream) MemStream m = {};
         _cleanup_free_ char *dump = NULL;
         _cleanup_close_ int fd = -EBADF;
         size_t dump_size;
@@ -903,7 +903,7 @@ int bus_query_sender_pidref(
                 sd_bus_message *m,
                 PidRef *ret) {
 
-        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+        _cleanup_unref(sd_bus_creds) sd_bus_creds *creds = NULL;
         int r;
 
         assert(m);
@@ -917,7 +917,7 @@ int bus_query_sender_pidref(
 }
 
 int bus_get_instance_id(sd_bus *bus, sd_id128_t *ret) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         int r;
 
         assert(bus);

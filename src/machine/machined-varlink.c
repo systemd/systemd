@@ -171,7 +171,7 @@ static int vl_method_get_user_record(sd_varlink *link, sd_json_variant *paramete
                 {}
         };
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         LookupParameters p = {
                 .uid = UID_INVALID,
         };
@@ -337,7 +337,7 @@ static int vl_method_get_group_record(sd_varlink *link, sd_json_variant *paramet
                 {}
         };
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         LookupParameters p = {
                 .gid = GID_INVALID,
         };
@@ -406,7 +406,7 @@ static int vl_method_get_memberships(sd_varlink *link, sd_json_variant *paramete
 }
 
 static int json_build_local_addresses(const struct local_address *addresses, size_t n_addresses, sd_json_variant **ret) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *array = NULL;
         int r;
 
         assert(addresses || n_addresses == 0);
@@ -427,8 +427,8 @@ static int json_build_local_addresses(const struct local_address *addresses, siz
 }
 
 static int list_machine_one_and_maybe_read_metadata(sd_varlink *link, Machine *m, AcquireMetadata am) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *addr_array = NULL;
-        _cleanup_strv_free_ char **os_release = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL, *addr_array = NULL;
+        _cleanup_free(strv) char **os_release = NULL;
         uid_t shift = UID_INVALID;
         int r;
 
@@ -522,7 +522,7 @@ static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varl
         };
 
         Manager *m = ASSERT_PTR(userdata);
-        _cleanup_(machine_lookup_parameters_done) MachineLookupParameters p = {
+        _cleanup_done(machine_lookup_parameters) MachineLookupParameters p = {
                 .pidref = PIDREF_NULL,
         };
         int r;
@@ -570,7 +570,7 @@ static int lookup_machine_and_call_method(sd_varlink *link, sd_json_variant *par
         };
 
         Manager *manager = ASSERT_PTR(userdata);
-        _cleanup_(machine_lookup_parameters_done) MachineLookupParameters p = {
+        _cleanup_done(machine_lookup_parameters) MachineLookupParameters p = {
                 .pidref = PIDREF_NULL,
         };
         Machine *machine;
@@ -627,7 +627,7 @@ static int list_image_one_and_maybe_read_metadata(Manager *m, sd_varlink *link, 
                         log_debug_errno(r, "Failed to read image metadata (graceful mode), ignoring: %m");
         }
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
 
         r = sd_json_buildo(
                         &v,
@@ -686,7 +686,7 @@ static int vl_method_list_images(sd_varlink *link, sd_json_variant *parameters, 
                 return r;
 
         if (p.image_name) {
-                _cleanup_(image_unrefp) Image *found = NULL;
+                _cleanup_unref(image) Image *found = NULL;
 
                 if (!image_name_is_valid(p.image_name))
                         return sd_varlink_error_invalid_parameter_name(link, "name");
@@ -703,7 +703,7 @@ static int vl_method_list_images(sd_varlink *link, sd_json_variant *parameters, 
         if (!FLAGS_SET(flags, SD_VARLINK_METHOD_MORE))
                 return sd_varlink_error(link, SD_VARLINK_ERROR_EXPECTED_MORE, NULL);
 
-        _cleanup_hashmap_free_ Hashmap *images = NULL;
+        _cleanup_free(hashmap) Hashmap *images = NULL;
         r = image_discover(m->runtime_scope, IMAGE_MACHINE, /* root= */ NULL, &images);
         if (r < 0)
                 return log_debug_errno(r, "Failed to discover images: %m");
@@ -719,7 +719,7 @@ static int vl_method_list_images(sd_varlink *link, sd_json_variant *parameters, 
 }
 
 static int manager_varlink_init_userdb(Manager *m) {
-        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        _cleanup_unref(sd_varlink_server) sd_varlink_server *s = NULL;
         int r;
 
         assert(m);
@@ -760,7 +760,7 @@ static int manager_varlink_init_userdb(Manager *m) {
 }
 
 static int manager_varlink_init_machine(Manager *m) {
-        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        _cleanup_unref(sd_varlink_server) sd_varlink_server *s = NULL;
         int r;
 
         assert(m);
@@ -848,7 +848,7 @@ static void on_resolve_hook_disconnect(sd_varlink_server *server, sd_varlink *li
 }
 
 static int manager_varlink_init_resolve_hook(Manager *m) {
-        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        _cleanup_unref(sd_varlink_server) sd_varlink_server *s = NULL;
         int r;
 
         assert(m);

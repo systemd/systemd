@@ -37,14 +37,14 @@ static OrderedHashmap* test_import(const char* contents, ssize_t size, int code)
 }
 
 static void test_catalog_import_invalid(void) {
-        _cleanup_ordered_hashmap_free_ OrderedHashmap *h = NULL;
+        _cleanup_free(ordered_hashmap) OrderedHashmap *h = NULL;
 
         h = test_import("xxx", -1, -EINVAL);
         assert_se(ordered_hashmap_isempty(h));
 }
 
 static void test_catalog_import_badid(void) {
-        _unused_ _cleanup_ordered_hashmap_free_ OrderedHashmap *h = NULL;
+        _unused_ _cleanup_free(ordered_hashmap) OrderedHashmap *h = NULL;
         const char *input =
 "-- 0027229ca0644181a76c4e92458afaff dededededededededededededededede\n" \
 "Subject: message\n" \
@@ -54,7 +54,7 @@ static void test_catalog_import_badid(void) {
 }
 
 static void test_catalog_import_one(void) {
-        _cleanup_ordered_hashmap_free_ OrderedHashmap *h = NULL;
+        _cleanup_free(ordered_hashmap) OrderedHashmap *h = NULL;
         char *payload;
 
         const char *input =
@@ -78,7 +78,7 @@ static void test_catalog_import_one(void) {
 }
 
 static void test_catalog_import_merge(void) {
-        _cleanup_ordered_hashmap_free_ OrderedHashmap *h = NULL;
+        _cleanup_free(ordered_hashmap) OrderedHashmap *h = NULL;
         char *payload;
 
         const char *input =
@@ -110,7 +110,7 @@ static void test_catalog_import_merge(void) {
 }
 
 static void test_catalog_import_merge_no_body(void) {
-        _cleanup_ordered_hashmap_free_ OrderedHashmap *h = NULL;
+        _cleanup_free(ordered_hashmap) OrderedHashmap *h = NULL;
         char *payload;
 
         const char *input =

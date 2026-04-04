@@ -162,7 +162,7 @@ static int getnameinfo_done(sd_resolve_query *q);
 static void resolve_query_disconnect(sd_resolve_query *q);
 
 #define RESOLVE_DONT_DESTROY(resolve) \
-        _cleanup_(sd_resolve_unrefp) _unused_ sd_resolve *_dont_destroy_##resolve = sd_resolve_ref(resolve)
+        _cleanup_unref(sd_resolve) _unused_ sd_resolve *_dont_destroy_##resolve = sd_resolve_ref(resolve)
 
 static void query_assign_errno(sd_resolve_query *q, int ret, int error, int h_error) {
         assert(q);
@@ -479,7 +479,7 @@ static bool resolve_pid_changed(sd_resolve *r) {
 }
 
 int sd_resolve_new(sd_resolve **ret) {
-        _cleanup_(sd_resolve_unrefp) sd_resolve *resolve = NULL;
+        _cleanup_unref(sd_resolve) sd_resolve *resolve = NULL;
         int i;
 
         assert_return(ret, -EINVAL);
@@ -926,7 +926,7 @@ int resolve_getaddrinfo_with_destroy_callback(
                 sd_resolve_destroy_t destroy_callback,
                 void *userdata) {
 
-        _cleanup_(sd_resolve_query_unrefp) sd_resolve_query *q = NULL;
+        _cleanup_unref(sd_resolve_query) sd_resolve_query *q = NULL;
         size_t node_len, service_len;
         AddrInfoRequest req = {};
         struct iovec iov[3];
@@ -1019,7 +1019,7 @@ int resolve_getnameinfo_with_destroy_callback(
                 sd_resolve_destroy_t destroy_callback,
                 void *userdata) {
 
-        _cleanup_(sd_resolve_query_unrefp) sd_resolve_query *q = NULL;
+        _cleanup_unref(sd_resolve_query) sd_resolve_query *q = NULL;
         NameInfoRequest req = {};
         struct iovec iov[2];
         struct msghdr mh;

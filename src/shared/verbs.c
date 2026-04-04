@@ -91,7 +91,7 @@ int _dispatch_verb_with_args(char **args, const Verb verbs[], const Verb verbs_e
 
         const Verb *verb = verbs_find_verb(name, verbs, verbs_end);
         if (!verb) {
-                _cleanup_strv_free_ char **verb_strv = NULL;
+                _cleanup_free(strv) char **verb_strv = NULL;
 
                 for (verb = verbs; verb < verbs_end; verb++) {
                         if (verb_is_metadata(verb))
@@ -169,7 +169,7 @@ int _verbs_get_help_table(
 
         assert(ret);
 
-        _cleanup_(table_unrefp) Table *table = table_new("verb", "help");
+        _cleanup_unref(table) Table *table = table_new("verb", "help");
         if (!table)
                 return log_oom();
 
@@ -202,7 +202,7 @@ int _verbs_get_help_table(
                 if (r < 0)
                         return table_log_add_error(r);
 
-                _cleanup_strv_free_ char **s = strv_split(verb->help, /* separators= */ NULL);
+                _cleanup_free(strv) char **s = strv_split(verb->help, /* separators= */ NULL);
                 if (!s)
                         return log_oom();
 

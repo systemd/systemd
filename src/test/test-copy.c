@@ -132,7 +132,7 @@ TEST(copy_file_fd) {
 }
 
 TEST(copy_tree) {
-        _cleanup_hashmap_free_ Hashmap *denylist = NULL;
+        _cleanup_free(hashmap) Hashmap *denylist = NULL;
         _cleanup_free_ char *cp = NULL;
         char original_dir[] = "/tmp/test-copy_tree/";
         char copy_dir[] = "/tmp/test-copy_tree-copy/";

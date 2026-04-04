@@ -31,7 +31,7 @@ static int tasks_max_build_json(sd_json_variant **ret, const char *name, void *u
 }
 
 static int io_device_weights_build_json(sd_json_variant **ret, const char *name, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         CGroupIODeviceWeight *weights = userdata;
         int r;
 
@@ -52,7 +52,7 @@ static int io_device_weights_build_json(sd_json_variant **ret, const char *name,
 }
 
 static int io_device_limits_build_json(sd_json_variant **ret, const char *name, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         CGroupIODeviceLimit *limits = userdata;
         int r;
 
@@ -79,7 +79,7 @@ static int io_device_limits_build_json(sd_json_variant **ret, const char *name, 
 }
 
 static int io_device_latencies_build_json(sd_json_variant **ret, const char *name, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         CGroupIODeviceLatency *latencies = userdata;
         int r;
 
@@ -100,7 +100,7 @@ static int io_device_latencies_build_json(sd_json_variant **ret, const char *nam
 }
 
 static int ip_address_access_build_json(sd_json_variant **ret, const char *name, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         Set *prefixes = userdata;
         int r;
 
@@ -123,7 +123,7 @@ static int ip_address_access_build_json(sd_json_variant **ret, const char *name,
 }
 
 static int socket_bind_build_json(sd_json_variant **ret, const char *name, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         CGroupSocketBindItem *items = userdata;
         int r;
 
@@ -146,7 +146,7 @@ static int socket_bind_build_json(sd_json_variant **ret, const char *name, void 
 }
 
 static int nft_set_build_json(sd_json_variant **ret, const char *name, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         NFTSetContext *c = ASSERT_PTR(userdata);
         int r;
 
@@ -169,7 +169,7 @@ static int nft_set_build_json(sd_json_variant **ret, const char *name, void *use
 }
 
 static int bpf_program_build_json(sd_json_variant **ret, const char *name, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         CGroupBPFForeignProgram *programs = userdata;
         int r;
 
@@ -190,7 +190,7 @@ static int bpf_program_build_json(sd_json_variant **ret, const char *name, void 
 }
 
 static int device_allow_build_json(sd_json_variant **ret, const char *name, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         CGroupDeviceAllow *allow = userdata;
         int r;
 
@@ -208,7 +208,7 @@ static int device_allow_build_json(sd_json_variant **ret, const char *name, void
 }
 
 static int controllers_build_json(sd_json_variant **ret, const char *name, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         CGroupMask *mask = ASSERT_PTR(userdata);
         int r;
 
@@ -432,7 +432,7 @@ empty:
 
 static int effective_cpuset_build_json(sd_json_variant **ret, const char *name, void *userdata, const char *cpuset_name) {
         Unit *u = ASSERT_PTR(userdata);
-        _cleanup_(cpu_set_done) CPUSet cpus = {};
+        _cleanup_done(cpu_set) CPUSet cpus = {};
         int r;
 
         assert(ret);

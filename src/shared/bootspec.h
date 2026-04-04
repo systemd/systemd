@@ -116,7 +116,7 @@ static inline const BootEntry* boot_config_default_entry(const BootConfig *confi
         return config->entries + config->default_entry;
 }
 
-void boot_config_free(BootConfig *config);
+void boot_config_done(BootConfig *config);
 
 int boot_loader_read_conf(BootConfig *config, FILE *file, const char *path);
 

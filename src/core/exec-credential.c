@@ -119,7 +119,7 @@ int exec_context_put_load_credential(ExecContext *c, const char *id, const char 
 
                 old->encrypted = encrypted;
         } else {
-                _cleanup_(exec_load_credential_freep) ExecLoadCredential *lc = NULL;
+                _cleanup_free(exec_load_credential) ExecLoadCredential *lc = NULL;
 
                 lc = new(ExecLoadCredential, 1);
                 if (!lc)
@@ -167,7 +167,7 @@ int exec_context_put_set_credential(
                 old->size = size;
                 old->encrypted = encrypted;
         } else {
-                _cleanup_(exec_set_credential_freep) ExecSetCredential *sc = NULL;
+                _cleanup_free(exec_set_credential) ExecSetCredential *sc = NULL;
 
                 sc = new(ExecSetCredential, 1);
                 if (!sc)
@@ -194,7 +194,7 @@ int exec_context_put_set_credential(
 }
 
 int exec_context_put_import_credential(ExecContext *c, const char *glob, const char *rename) {
-        _cleanup_(exec_import_credential_freep) ExecImportCredential *ic = NULL;
+        _cleanup_free(exec_import_credential) ExecImportCredential *ic = NULL;
         int r;
 
         assert(c);
@@ -357,7 +357,7 @@ static int credential_search_path(
                 CredentialSearchPath path,
                 char ***ret) {
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         int r;
 
         assert(context);
@@ -373,7 +373,7 @@ static int credential_search_path(
                 if (r < 0)
                         return r;
 
-                _cleanup_strv_free_ char **add = NULL;
+                _cleanup_free(strv) char **add = NULL;
                 r = credential_store_path_encrypted(context->scope, &add);
                 if (r < 0)
                         return r;
@@ -388,7 +388,7 @@ static int credential_search_path(
                 if (r < 0)
                         return r;
 
-                _cleanup_strv_free_ char **add = NULL;
+                _cleanup_free(strv) char **add = NULL;
                 r = credential_store_path(context->scope, &add);
                 if (r < 0)
                         return r;
@@ -550,7 +550,7 @@ static int load_credential_glob(
         assert(search_path);
 
         STRV_FOREACH(d, search_path) {
-                _cleanup_strv_free_ char **paths = NULL;
+                _cleanup_free(strv) char **paths = NULL;
                 _cleanup_free_ char *j = NULL;
 
                 j = path_join(*d, ic->glob);
@@ -622,7 +622,7 @@ static int load_credential(
                 const char *path) {
 
         ReadFullFileFlags flags = READ_FULL_FILE_SECURE|READ_FULL_FILE_FAIL_WHEN_LARGER;
-        _cleanup_strv_free_ char **search_path = NULL;
+        _cleanup_free(strv) char **search_path = NULL;
         _cleanup_free_ char *bindname = NULL;
         const char *source = NULL;
         bool missing_ok;
@@ -1227,7 +1227,7 @@ int unit_refresh_credentials(Unit *u) {
         }
 
         _cleanup_close_pair_ int tunnel_fds[2] = EBADF_PAIR;
-        _cleanup_(pidref_done) PidRef child = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef child = PIDREF_NULL;
         _cleanup_close_ int userns_fd = -EBADF;
 
         PidRef *main_pid = unit_main_pid(u);

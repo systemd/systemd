@@ -52,8 +52,8 @@ int umount_recursive_full(const char *prefix, int flags, char **keep) {
                 return log_debug_errno(errno, "Failed to open %s: %m", "/proc/self/mountinfo");
 
         for (;;) {
-                _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
-                _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
+                _cleanup_free(mnt_table) struct libmnt_table *table = NULL;
+                _cleanup_free(mnt_iter) struct libmnt_iter *iter = NULL;
                 bool again = false;
 
                 r = libmount_parse_full("/proc/self/mountinfo", f, MNT_ITER_BACKWARD, &table, &iter);
@@ -209,7 +209,7 @@ int bind_remount_recursive_with_mountinfo(
 
 #if HAVE_LIBMOUNT
         _cleanup_fclose_ FILE *proc_self_mountinfo_opened = NULL;
-        _cleanup_set_free_ Set *done = NULL;
+        _cleanup_free(set) Set *done = NULL;
         unsigned n_tries = 0;
         int r;
 
@@ -236,9 +236,9 @@ int bind_remount_recursive_with_mountinfo(
          * remount operation. Note that we'll ignore the deny list for the top-level path. */
 
         for (;;) {
-                _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
-                _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
-                _cleanup_hashmap_free_ Hashmap *todo = NULL;
+                _cleanup_free(mnt_table) struct libmnt_table *table = NULL;
+                _cleanup_free(mnt_iter) struct libmnt_iter *iter = NULL;
+                _cleanup_free(hashmap) Hashmap *todo = NULL;
                 bool top_autofs = false;
 
                 if (n_tries++ >= 32) /* Let's not retry this loop forever */
@@ -443,7 +443,7 @@ int bind_remount_one_with_mountinfo(
         }
 
 #if HAVE_LIBMOUNT
-        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
+        _cleanup_free(mnt_table) struct libmnt_table *table = NULL;
         unsigned long flags = 0;
         struct libmnt_fs *fs;
         const char *opts;
@@ -967,7 +967,7 @@ static int mount_in_namespace_legacy(
         bool mount_slave_created = false, mount_slave_mounted = false,
                 mount_tmp_created = false, mount_tmp_mounted = false,
                 mount_outside_created = false, mount_outside_mounted = false;
-        _cleanup_(pidref_done) PidRef child = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef child = PIDREF_NULL;
         int r;
 
         assert(chased_src_path);
@@ -1236,10 +1236,10 @@ static int mount_in_namespace(
                                 options,
                                 image_policy);
 
-        _cleanup_(dissected_image_unrefp) DissectedImage *img = NULL;
+        _cleanup_unref(dissected_image) DissectedImage *img = NULL;
         _cleanup_close_ int new_mount_fd = -EBADF;
         _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR;
-        _cleanup_(pidref_done) PidRef child = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef child = PIDREF_NULL;
 
         if (flags & MOUNT_IN_NAMESPACE_IS_IMAGE) {
                 r = verity_dissect_and_mount(
@@ -1781,8 +1781,8 @@ static void sub_mount_drop(SubMount *s, size_t n) {
 
 int get_sub_mounts(const char *prefix, SubMount **ret_mounts, size_t *ret_n_mounts) {
 #if HAVE_LIBMOUNT
-        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
-        _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
+        _cleanup_free(mnt_table) struct libmnt_table *table = NULL;
+        _cleanup_free(mnt_iter) struct libmnt_iter *iter = NULL;
         SubMount *mounts = NULL;
         size_t n = 0;
         int r;
@@ -2143,8 +2143,8 @@ int path_get_mount_info_at(
                 char **ret_source) {
 
 #if HAVE_LIBMOUNT
-        _cleanup_(mnt_free_tablep) struct libmnt_table *table = NULL;
-        _cleanup_(mnt_free_iterp) struct libmnt_iter *iter = NULL;
+        _cleanup_free(mnt_table) struct libmnt_table *table = NULL;
+        _cleanup_free(mnt_iter) struct libmnt_iter *iter = NULL;
         int r, mnt_id;
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);

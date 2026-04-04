@@ -432,7 +432,7 @@ int bus_print_all_properties(
                 BusPrintPropertyFlags flags,
                 sd_bus_error *reterr_error) {
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         int r;
 
         assert(bus);

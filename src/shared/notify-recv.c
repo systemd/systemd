@@ -56,7 +56,7 @@ int notify_socket_prepare_full(
                         log_debug_errno(r, "Failed to disable SO_PASSRIGHTS on notification socket, ignoring: %m");
         }
 
-        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *s = NULL;
         r = sd_event_add_io(event, &s, fd, EPOLLIN, handler, userdata);
         if (r < 0)
                 return log_debug_errno(r, "Failed to create notification event source: %m");
@@ -229,7 +229,7 @@ int notify_recv_with_fds_strv(
                 PidRef *ret_pidref,
                 FDSet **ret_fds) {
 
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         _cleanup_(fdset_free_asyncp) FDSet *fds = NULL;
         struct ucred ucred = UCRED_INVALID;
         _cleanup_free_ char *text = NULL;

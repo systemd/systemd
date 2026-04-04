@@ -11,7 +11,7 @@
 
 int open_file_parse(const char *v, OpenFile **ret) {
         _cleanup_free_ char *options = NULL;
-        _cleanup_(open_file_freep) OpenFile *of = NULL;
+        _cleanup_free(open_file) OpenFile *of = NULL;
         int r;
 
         assert(v);

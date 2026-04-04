@@ -83,7 +83,7 @@ int enroll_fido2(
         _cleanup_(iovec_done_erase) struct iovec salt = {};
         _cleanup_(erase_and_freep) void *secret = NULL;
         _cleanup_(erase_and_freep) char *base64_encoded = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         _cleanup_free_ char *keyslot_as_string = NULL;
         size_t cid_size, secret_size;
         _cleanup_free_ void *cid = NULL;

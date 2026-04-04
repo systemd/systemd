@@ -701,7 +701,7 @@ static int bootctl_main(int argc, char *argv[]) {
 }
 
 static int vl_server(void) {
-        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
+        _cleanup_unref(sd_varlink_server) sd_varlink_server *varlink_server = NULL;
         int r;
 
         /* Invocation as Varlink service */
@@ -734,7 +734,7 @@ static int vl_server(void) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
+        _cleanup_unref(loop_device) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
         int r;
 

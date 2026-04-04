@@ -31,7 +31,7 @@ static struct restrict_fs_bpf *restrict_fs_bpf_free(struct restrict_fs_bpf *obj)
 DEFINE_TRIVIAL_CLEANUP_FUNC(struct restrict_fs_bpf *, restrict_fs_bpf_free);
 
 static bool bpf_can_link_lsm_program(struct bpf_program *prog) {
-        _cleanup_(bpf_link_freep) struct bpf_link *link = NULL;
+        _cleanup_free(bpf_link) struct bpf_link *link = NULL;
 
         assert(prog);
 
@@ -44,7 +44,7 @@ static bool bpf_can_link_lsm_program(struct bpf_program *prog) {
 }
 
 static int prepare_restrict_fs_bpf(struct restrict_fs_bpf **ret_obj) {
-        _cleanup_(restrict_fs_bpf_freep) struct restrict_fs_bpf *obj = NULL;
+        _cleanup_free(restrict_fs_bpf) struct restrict_fs_bpf *obj = NULL;
         _cleanup_close_ int inner_map_fd = -EBADF;
         int r;
 
@@ -82,7 +82,7 @@ static int prepare_restrict_fs_bpf(struct restrict_fs_bpf **ret_obj) {
 }
 
 bool bpf_restrict_fs_supported(bool initialize) {
-        _cleanup_(restrict_fs_bpf_freep) struct restrict_fs_bpf *obj = NULL;
+        _cleanup_free(restrict_fs_bpf) struct restrict_fs_bpf *obj = NULL;
         static int supported = -1;
         int r;
 
@@ -121,8 +121,8 @@ bool bpf_restrict_fs_supported(bool initialize) {
 }
 
 int bpf_restrict_fs_setup(Manager *m) {
-        _cleanup_(restrict_fs_bpf_freep) struct restrict_fs_bpf *obj = NULL;
-        _cleanup_(bpf_link_freep) struct bpf_link *link = NULL;
+        _cleanup_free(restrict_fs_bpf) struct restrict_fs_bpf *obj = NULL;
+        _cleanup_free(bpf_link) struct bpf_link *link = NULL;
         int r;
 
         assert(m);

@@ -44,8 +44,8 @@ static int bridge_mdb_new_static(
                 unsigned section_line,
                 BridgeMDB **ret) {
 
-        _cleanup_(config_section_freep) ConfigSection *n = NULL;
-        _cleanup_(bridge_mdb_freep) BridgeMDB *mdb = NULL;
+        _cleanup_free(config_section) ConfigSection *n = NULL;
+        _cleanup_free(bridge_mdb) BridgeMDB *mdb = NULL;
         int r;
 
         assert(network);
@@ -111,7 +111,7 @@ static int bridge_mdb_configure_handler(sd_netlink *rtnl, sd_netlink_message *m,
 
 /* send a request to the kernel to add an MDB entry */
 static int bridge_mdb_configure(BridgeMDB *mdb, Link *link, Request *req) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         struct br_mdb_entry entry;
         int r;
 

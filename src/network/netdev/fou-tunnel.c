@@ -81,7 +81,7 @@ static int netdev_fill_fou_tunnel_message(NetDev *netdev, sd_netlink_message *m)
 }
 
 static int netdev_create_fou_tunnel_message(NetDev *netdev, sd_netlink_message **ret) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         int r;
 
         assert(netdev);
@@ -120,7 +120,7 @@ static int fou_tunnel_create_handler(sd_netlink *rtnl, sd_netlink_message *m, Ne
 }
 
 static int netdev_fou_tunnel_create(NetDev *netdev) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         int r;
 
         assert(FOU(netdev));

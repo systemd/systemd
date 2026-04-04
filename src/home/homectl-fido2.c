@@ -20,8 +20,8 @@ static int add_fido2_credential_id(
                 const void *cid,
                 size_t cid_size) {
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *w = NULL;
+        _cleanup_free(strv) char **l = NULL;
         _cleanup_free_ char *escaped = NULL;
         ssize_t escaped_size;
         int r;
@@ -68,7 +68,7 @@ static int add_fido2_salt(
                 size_t secret_size,
                 Fido2EnrollFlags lock_with) {
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *l = NULL, *w = NULL, *e = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *l = NULL, *w = NULL, *e = NULL;
         _cleanup_(erase_and_freep) char *base64_encoded = NULL, *hashed = NULL;
         ssize_t base64_encoded_size;
         int r;
@@ -126,7 +126,7 @@ int identity_add_fido2_parameters(
 
 #if HAVE_LIBFIDO2
         sd_json_variant *un, *realm, *rn;
-        _cleanup_(iovec_done) struct iovec salt = {};
+        _cleanup_done(iovec) struct iovec salt = {};
         _cleanup_(erase_and_freep) void *secret = NULL;
         _cleanup_(erase_and_freep) char *used_pin = NULL;
         size_t cid_size, secret_size;

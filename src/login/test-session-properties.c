@@ -24,7 +24,7 @@ static BusLocator session;
 /* Tests org.freedesktop.logind.Session SetType */
 TEST(set_type) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus* bus = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char* types[] = {"tty", "x11", "wayland", "mir", "web"};
         _cleanup_free_ char *type = NULL, *type2 = NULL;
 
@@ -65,7 +65,7 @@ TEST(set_type) {
 /* Tests org.freedesktop.logind.Session SetDisplay */
 TEST(set_display) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus* bus = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *display = NULL;
 
         assert_se(sd_bus_open_system(&bus) >= 0);
@@ -104,7 +104,7 @@ TEST(set_display) {
 /* Tests org.freedesktop.logind.Session SetTTY */
 TEST(set_tty) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus* bus = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *tty = NULL;
         int fd;
 
@@ -132,7 +132,7 @@ TEST(set_tty) {
 /* Tests org.freedesktop.logind.Session SetIdleHint */
 TEST(set_idle_hint) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus* bus = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         int idle_hint;
         time_t stamp, idle_since1, idle_since2;
 

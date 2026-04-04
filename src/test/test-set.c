@@ -8,7 +8,7 @@
 #include "tests.h"
 
 TEST(set_steal_first) {
-        _cleanup_set_free_ Set *m = NULL;
+        _cleanup_free(set) Set *m = NULL;
         int seen[3] = {};
         char *val;
 
@@ -52,7 +52,7 @@ TEST(set_free_with_hash_ops) {
 }
 
 TEST(set_put) {
-        _cleanup_set_free_ Set *m = NULL;
+        _cleanup_free(set) Set *m = NULL;
 
         m = set_new(&string_hash_ops);
         assert_se(m);
@@ -74,7 +74,7 @@ TEST(set_put) {
 }
 
 TEST(set_put_strndup) {
-        _cleanup_set_free_ Set *m = NULL;
+        _cleanup_free(set) Set *m = NULL;
 
         assert_se(set_put_strndup(&m, "12345", 0) == 1);
         assert_se(set_put_strndup(&m, "12345", 1) == 1);
@@ -95,7 +95,7 @@ TEST(set_put_strndup) {
 }
 
 TEST(set_put_strdup) {
-        _cleanup_set_free_ Set *m = NULL;
+        _cleanup_free(set) Set *m = NULL;
 
         assert_se(set_put_strdup(&m, "aaa") == 1);
         assert_se(set_put_strdup(&m, "aaa") == 0);
@@ -110,7 +110,7 @@ TEST(set_put_strdup) {
 }
 
 TEST(set_put_strdupv) {
-        _cleanup_set_free_ Set *m = NULL;
+        _cleanup_free(set) Set *m = NULL;
 
         assert_se(set_put_strdupv(&m, STRV_MAKE("aaa", "aaa", "bbb", "bbb", "aaa")) == 2);
         assert_se(set_put_strdupv(&m, STRV_MAKE("aaa", "aaa", "bbb", "bbb", "ccc")) == 1);
@@ -123,7 +123,7 @@ TEST(set_put_strdupv) {
 }
 
 TEST(set_ensure_allocated) {
-        _cleanup_set_free_ Set *m = NULL;
+        _cleanup_free(set) Set *m = NULL;
 
         ASSERT_OK_POSITIVE(set_ensure_allocated(&m, &string_hash_ops));
         ASSERT_OK_ZERO(set_ensure_allocated(&m, &string_hash_ops));
@@ -132,7 +132,7 @@ TEST(set_ensure_allocated) {
 }
 
 TEST(set_copy) {
-        _cleanup_set_free_ Set *s = NULL, *copy = NULL;
+        _cleanup_free(set) Set *s = NULL, *copy = NULL;
         _cleanup_free_ char *key1 = NULL, *key2 = NULL, *key3 = NULL, *key4 = NULL;
 
         key1 = strdup("key1");
@@ -159,7 +159,7 @@ TEST(set_copy) {
 }
 
 TEST(set_ensure_put) {
-        _cleanup_set_free_ Set *m = NULL;
+        _cleanup_free(set) Set *m = NULL;
 
         ASSERT_OK_POSITIVE(set_ensure_put(&m, &string_hash_ops, "a"));
         ASSERT_OK_ZERO(set_ensure_put(&m, &string_hash_ops, "a"));
@@ -171,7 +171,7 @@ TEST(set_ensure_put) {
 }
 
 TEST(set_ensure_consume) {
-        _cleanup_set_free_ Set *m = NULL;
+        _cleanup_free(set) Set *m = NULL;
         char *s, *t;
 
         assert_se(s = strdup("a"));
@@ -193,7 +193,7 @@ TEST(set_ensure_consume) {
 }
 
 TEST(set_strjoin) {
-        _cleanup_set_free_ Set *m = NULL;
+        _cleanup_free(set) Set *m = NULL;
         _cleanup_free_ char *joined = NULL;
 
         /* Empty set */
@@ -270,7 +270,7 @@ TEST(set_strjoin) {
 }
 
 TEST(set_equal) {
-        _cleanup_set_free_ Set *a = NULL, *b = NULL;
+        _cleanup_free(set) Set *a = NULL, *b = NULL;
         void *p;
         int r;
 
@@ -341,7 +341,7 @@ TEST(set_equal) {
 }
 
 TEST(set_fnmatch) {
-        _cleanup_set_free_ Set *match = NULL, *nomatch = NULL;
+        _cleanup_free(set) Set *match = NULL, *nomatch = NULL;
 
         assert_se(set_put_strdup(&match, "aaa") >= 0);
         assert_se(set_put_strdup(&match, "bbb*") >= 0);
@@ -387,8 +387,8 @@ TEST(set_fnmatch) {
 }
 
 TEST(set_to_strv) {
-        _cleanup_set_free_ Set *set = NULL;
-        _cleanup_strv_free_ char **a = NULL;
+        _cleanup_free(set) Set *set = NULL;
+        _cleanup_free(strv) char **a = NULL;
         _cleanup_free_ char **b = NULL;
         char **v = STRV_MAKE("aaa", "bbb", "ccc");
 

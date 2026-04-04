@@ -43,7 +43,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 Wiphy, wiphy_free);
 
 static int wiphy_new(Manager *manager, sd_netlink_message *message, Wiphy **ret) {
-        _cleanup_(wiphy_freep) Wiphy *w = NULL;
+        _cleanup_free(wiphy) Wiphy *w = NULL;
         _cleanup_free_ char *name = NULL;
         uint32_t index;
         int r;
@@ -118,7 +118,7 @@ int wiphy_get_by_name(Manager *manager, const char *name, Wiphy **ret) {
 }
 
 static int link_get_wiphy(Link *link, Wiphy **ret) {
-        _cleanup_(sd_device_unrefp) sd_device *phy = NULL;
+        _cleanup_unref(sd_device) sd_device *phy = NULL;
         const char *s;
         int r;
 
@@ -267,7 +267,7 @@ static int wiphy_update_name(Wiphy *w, sd_netlink_message *message) {
 }
 
 static int wiphy_update_device(Wiphy *w) {
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        _cleanup_unref(sd_device) sd_device *dev = NULL;
         int r;
 
         assert(w);
@@ -294,7 +294,7 @@ static int wiphy_update_device(Wiphy *w) {
 }
 
 static int wiphy_update_rfkill(Wiphy *w) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *e = NULL;
         sd_device *rfkill;
         int r;
 

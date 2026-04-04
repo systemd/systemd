@@ -593,7 +593,7 @@ static int json_variant_array_put_element(sd_json_variant *array, sd_json_varian
 }
 
 _public_ int sd_json_variant_new_array(sd_json_variant **ret, sd_json_variant **array, size_t n) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         int r;
 
         assert_return(ret, -EINVAL);
@@ -660,7 +660,7 @@ _public_ int sd_json_variant_new_array_bytes(sd_json_variant **ret, const void *
 }
 
 _public_ int sd_json_variant_new_array_strv(sd_json_variant **ret, char **l) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         size_t n;
         int r;
 
@@ -717,7 +717,7 @@ _public_ int sd_json_variant_new_array_strv(sd_json_variant **ret, char **l) {
 }
 
 _public_ int sd_json_variant_new_object(sd_json_variant **ret, sd_json_variant **array, size_t n) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         const char *prev = NULL;
         bool sorted = true, normalized = true;
 
@@ -1859,7 +1859,7 @@ static int json_format(FILE *f, sd_json_variant *v, sd_json_format_flags_t flags
 }
 
 _public_ int sd_json_variant_format(sd_json_variant *v, sd_json_format_flags_t flags, char **ret) {
-        _cleanup_(memstream_done) MemStream m = {};
+        _cleanup_done(memstream) MemStream m = {};
         size_t sz;
         FILE *f;
         int r;
@@ -1925,7 +1925,7 @@ _public_ int sd_json_variant_dump(sd_json_variant *v, sd_json_format_flags_t fla
 }
 
 _public_ int sd_json_variant_filter(sd_json_variant **v, char **to_remove) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *w = NULL;
         _cleanup_free_ sd_json_variant **array = NULL;
         size_t n = 0, k = 0;
         int r;
@@ -1980,7 +1980,7 @@ _public_ int sd_json_variant_filter(sd_json_variant **v, char **to_remove) {
 }
 
 _public_ int sd_json_variant_set_field(sd_json_variant **v, const char *field, sd_json_variant *value) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *field_variant = NULL, *w = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *field_variant = NULL, *w = NULL;
         _cleanup_free_ sd_json_variant **array = NULL;
         size_t k = 0;
         int r;
@@ -2049,7 +2049,7 @@ _public_ int sd_json_variant_set_field(sd_json_variant **v, const char *field, s
 }
 
 _public_ int sd_json_variant_set_fieldb(sd_json_variant **v, const char *field, ...) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *w = NULL;
         va_list ap;
         int r;
 
@@ -2063,7 +2063,7 @@ _public_ int sd_json_variant_set_fieldb(sd_json_variant **v, const char *field, 
 }
 
 _public_ int sd_json_variant_set_field_string(sd_json_variant **v, const char *field, const char *value) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *m = NULL;
         int r;
 
         r = sd_json_variant_new_string(&m, value);
@@ -2082,7 +2082,7 @@ _public_ int sd_json_variant_set_field_uuid(sd_json_variant **v, const char *fie
 }
 
 _public_ int sd_json_variant_set_field_integer(sd_json_variant **v, const char *field, int64_t value) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *m = NULL;
         int r;
 
         r = sd_json_variant_new_integer(&m, value);
@@ -2093,7 +2093,7 @@ _public_ int sd_json_variant_set_field_integer(sd_json_variant **v, const char *
 }
 
 _public_ int sd_json_variant_set_field_unsigned(sd_json_variant **v, const char *field, uint64_t value) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *m = NULL;
         int r;
 
         r = sd_json_variant_new_unsigned(&m, value);
@@ -2104,7 +2104,7 @@ _public_ int sd_json_variant_set_field_unsigned(sd_json_variant **v, const char 
 }
 
 _public_ int sd_json_variant_set_field_boolean(sd_json_variant **v, const char *field, int b) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *m = NULL;
         int r;
 
         r = sd_json_variant_new_boolean(&m, b);
@@ -2115,7 +2115,7 @@ _public_ int sd_json_variant_set_field_boolean(sd_json_variant **v, const char *
 }
 
 _public_ int sd_json_variant_set_field_strv(sd_json_variant **v, const char *field, char **l) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *m = NULL;
         int r;
 
         r = sd_json_variant_new_array_strv(&m, l);
@@ -2126,7 +2126,7 @@ _public_ int sd_json_variant_set_field_strv(sd_json_variant **v, const char *fie
 }
 
 _public_ int sd_json_variant_merge_object(sd_json_variant **v, sd_json_variant *m) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *w = NULL;
         _cleanup_free_ sd_json_variant **array = NULL;
         size_t v_elements, m_elements, k;
         bool v_blank, m_blank;
@@ -2189,7 +2189,7 @@ _public_ int sd_json_variant_merge_object(sd_json_variant **v, sd_json_variant *
 }
 
 _public_ int sd_json_variant_merge_objectb(sd_json_variant **v, ...) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *w = NULL;
         va_list ap;
         int r;
 
@@ -2203,7 +2203,7 @@ _public_ int sd_json_variant_merge_objectb(sd_json_variant **v, ...) {
 }
 
 _public_ int sd_json_variant_append_array(sd_json_variant **v, sd_json_variant *element) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *nv = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *nv = NULL;
         bool blank;
         int r;
 
@@ -2226,7 +2226,7 @@ _public_ int sd_json_variant_append_array(sd_json_variant **v, sd_json_variant *
                  * to itself, or one of the objects embedded in *v to *v. If the reference count grows, we
                  * need to fall back to the other method below. */
 
-                _unused_ _cleanup_(sd_json_variant_unrefp) sd_json_variant *dummy = sd_json_variant_ref(element);
+                _unused_ _cleanup_unref(sd_json_variant) sd_json_variant *dummy = sd_json_variant_ref(element);
                 if (json_variant_n_ref(*v) == 1) {
                         /* We hold the only reference. Let's mutate the object. */
                         size_t size = sd_json_variant_elements(*v);
@@ -2268,7 +2268,7 @@ _public_ int sd_json_variant_append_array(sd_json_variant **v, sd_json_variant *
 }
 
 _public_ int sd_json_variant_append_arrayb(sd_json_variant **v, ...) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *w = NULL;
         va_list ap;
         int r;
 
@@ -3057,7 +3057,7 @@ static int json_parse_internal(
                 column = &column_buffer;
 
         for (;;) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *add = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *add = NULL;
                 _cleanup_free_ char *string = NULL;
                 unsigned line_token, column_token;
                 JsonStack *current;
@@ -3427,7 +3427,7 @@ _public_ int sd_json_parse_with_source(
                 unsigned *reterr_line,
                 unsigned *reterr_column) {
 
-        _cleanup_(json_source_unrefp) JsonSource *s = NULL;
+        _cleanup_unref(json_source) JsonSource *s = NULL;
 
         if (isempty(string))
                 return -ENODATA;
@@ -3449,7 +3449,7 @@ _public_ int sd_json_parse_with_source_continue(
                 unsigned *reterr_line,
                 unsigned *reterr_column) {
 
-        _cleanup_(json_source_unrefp) JsonSource *s = NULL;
+        _cleanup_unref(json_source) JsonSource *s = NULL;
 
         if (source) {
                 s = json_source_new(source);
@@ -3553,7 +3553,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
         };
 
         for (;;) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *add = NULL, *add_more = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *add = NULL, *add_more = NULL;
                 size_t n_subtract = 0; /* how much to subtract from current->n_suppress, i.e. how many elements would
                                         * have been added to the current variant */
                 JsonStack *current;
@@ -3924,7 +3924,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         l = va_arg(ap, char **);
 
                         if (current->n_suppress == 0) {
-                                _cleanup_strv_free_ char **el = NULL;
+                                _cleanup_free(strv) char **el = NULL;
 
                                 r = strv_env_get_merged(l, &el);
                                 if (r < 0)
@@ -4602,7 +4602,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
                         l = va_arg(ap, char **);
 
                         if (!strv_isempty(l) && current->n_suppress == 0) {
-                                _cleanup_strv_free_ char **el = NULL;
+                                _cleanup_free(strv) char **el = NULL;
 
                                 if (command == _JSON_BUILD_PAIR_STRV_ENV_PAIR_NON_EMPTY) {
                                         r = strv_env_get_merged(l, &el);
@@ -4740,7 +4740,7 @@ _public_ int sd_json_buildv(sd_json_variant **ret, va_list ap) {
 
                                 if (IN_SET(command, _JSON_BUILD_PAIR_IN_ADDR_WITH_STRING, _JSON_BUILD_PAIR_IN_ADDR_WITH_STRING_NON_NULL)) {
                                         _cleanup_free_ char *string_key_name = NULL;
-                                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *string_key = NULL, *string_value = NULL;
+                                        _cleanup_unref(sd_json_variant) sd_json_variant *string_key = NULL, *string_value = NULL;
 
                                         string_key_name = strjoin(n, "String");
                                         if (!string_key_name) {
@@ -5638,7 +5638,7 @@ _public_ int sd_json_dispatch_const_string(const char *name, sd_json_variant *va
 }
 
 _public_ int sd_json_dispatch_strv(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         char ***s = userdata;
         sd_json_variant *e;
         int r;
@@ -5801,7 +5801,7 @@ static int json_cmp_strings(const void *x, const void *y) {
 
 _public_ int sd_json_variant_sort(sd_json_variant **v) {
         _cleanup_free_ sd_json_variant **a = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *n = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *n = NULL;
         size_t m;
         int r;
 
@@ -5841,7 +5841,7 @@ _public_ int sd_json_variant_sort(sd_json_variant **v) {
 
 _public_ int sd_json_variant_normalize(sd_json_variant **v) {
         _cleanup_free_ sd_json_variant **a = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *n = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *n = NULL;
         size_t i, m;
         int r;
 

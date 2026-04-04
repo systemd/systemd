@@ -65,7 +65,7 @@ static int json_dispatch_entries(const char *name, sd_json_variant *variant, sd_
 
 static int json_dispatch_loader(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         BootConfig *config = ASSERT_PTR(userdata);
-        _cleanup_strv_free_ char **entries = NULL;
+        _cleanup_free(strv) char **entries = NULL;
         int r;
 
         r = sd_json_dispatch_strv(name, variant, flags, &entries);
@@ -85,7 +85,7 @@ static const sd_json_dispatch_field data_dispatch[] = {
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_free_ const char *datadup = NULL;
-        _cleanup_(boot_config_free) BootConfig config = BOOT_CONFIG_NULL;
+        _cleanup_done(boot_config) BootConfig config = BOOT_CONFIG_NULL;
         int r;
 
         if (outside_size_range(size, 0, 65536))
@@ -95,7 +95,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         assert_se(datadup = memdup_suffix0(data, size));
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         r = sd_json_parse(datadup, 0, &v, NULL, NULL);
         if (r < 0)
                 return 0;

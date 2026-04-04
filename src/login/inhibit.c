@@ -46,7 +46,7 @@ static enum {
 } arg_action = ACTION_INHIBIT;
 
 static int inhibit(sd_bus *bus, sd_bus_error *error) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         int r;
         int fd;
 
@@ -64,10 +64,10 @@ static int inhibit(sd_bus *bus, sd_bus_error *error) {
 }
 
 static int print_inhibitors(sd_bus *bus) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(table_unrefp) Table *table = NULL;
-        _cleanup_strv_free_ char **what_filter = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
+        _cleanup_unref(table) Table *table = NULL;
+        _cleanup_free(strv) char **what_filter = NULL;
 
         int r;
 
@@ -325,8 +325,8 @@ static int run(int argc, char *argv[]) {
         if (arg_action == ACTION_LIST)
                 return print_inhibitors(bus);
         else {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_strv_free_ char **arguments = NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_free(strv) char **arguments = NULL;
                 _cleanup_free_ char *w = NULL;
                 _cleanup_close_ int fd = -EBADF;
 
@@ -358,7 +358,7 @@ static int run(int argc, char *argv[]) {
                 if (!arguments)
                         return log_oom();
 
-                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+                _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
                 r = pidref_safe_fork("(inhibit)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pidref);
                 if (r < 0)
                         return r;

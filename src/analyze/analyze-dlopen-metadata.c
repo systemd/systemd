@@ -21,7 +21,7 @@ int verb_dlopen_metadata(int argc, char *argv[], uintptr_t _data, void *userdata
         if (fd < 0)
                 return log_error_errno(fd, "Could not open \"%s\": %m", argv[1]);
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *dlopen_metadata = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *dlopen_metadata = NULL;
         r = parse_elf_object(
                         fd,
                         abspath,
@@ -39,7 +39,7 @@ int verb_dlopen_metadata(int argc, char *argv[], uintptr_t _data, void *userdata
         if (sd_json_format_enabled(arg_json_format_flags))
                 return sd_json_variant_dump(dlopen_metadata, arg_json_format_flags, stdout, NULL);
 
-        _cleanup_(table_unrefp) Table *t = NULL;
+        _cleanup_unref(table) Table *t = NULL;
         t = table_new("feature", "description", "soname", "priority");
         if (!t)
                 return log_oom();
@@ -48,7 +48,7 @@ int verb_dlopen_metadata(int argc, char *argv[], uintptr_t _data, void *userdata
 
         sd_json_variant *z;
         JSON_VARIANT_ARRAY_FOREACH(z, dlopen_metadata) {
-                _cleanup_strv_free_ char **sonames = NULL;
+                _cleanup_free(strv) char **sonames = NULL;
 
                 r = sd_json_variant_strv(sd_json_variant_by_key(z, "soname"), &sonames);
                 if (r < 0)

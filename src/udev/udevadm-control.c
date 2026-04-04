@@ -197,7 +197,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int send_control_commands_via_ctrl(void) {
-        _cleanup_(udev_ctrl_unrefp) UdevCtrl *uctrl = NULL;
+        _cleanup_unref(udev_ctrl) UdevCtrl *uctrl = NULL;
         int r;
 
         r = udev_ctrl_new(&uctrl);

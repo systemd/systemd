@@ -220,7 +220,7 @@ static int spc_indirect_data_content_new(const void *digest, size_t digestsz, ui
                 0x00, 0x3e, 0x00, 0x3e
         };
 
-        _cleanup_(SpcLink_freep) SpcLink *link = SpcLink_new();
+        _cleanup_free(SpcLink) SpcLink *link = SpcLink_new();
         if (!link)
                 return log_oom();
 
@@ -238,7 +238,7 @@ static int spc_indirect_data_content_new(const void *digest, size_t digestsz, ui
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to set ASN1 string: %s",
                                        ERR_error_string(ERR_get_error(), NULL));
 
-        _cleanup_(SpcPeImageData_freep) SpcPeImageData *peid = SpcPeImageData_new();
+        _cleanup_free(SpcPeImageData) SpcPeImageData *peid = SpcPeImageData_new();
         if (!peid)
                 return log_oom();
 
@@ -250,7 +250,7 @@ static int spc_indirect_data_content_new(const void *digest, size_t digestsz, ui
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to convert SpcPeImageData to BER: %s",
                                        ERR_error_string(ERR_get_error(), NULL));
 
-        _cleanup_(SpcIndirectDataContent_freep) SpcIndirectDataContent *idc = SpcIndirectDataContent_new();
+        _cleanup_free(SpcIndirectDataContent) SpcIndirectDataContent *idc = SpcIndirectDataContent_new();
         idc->data->value = ASN1_TYPE_new();
         if (!idc->data->value)
                 return log_oom();
@@ -334,7 +334,7 @@ static int pkcs7_new_with_attributes(
         assert(ret_p7);
         assert(ret_si);
 
-        _cleanup_(PKCS7_freep) PKCS7 *p7 = NULL;
+        _cleanup_free(PKCS7) PKCS7 *p7 = NULL;
         PKCS7_SIGNER_INFO *si = NULL; /* avoid false maybe-uninitialized warning */
         r = pkcs7_new(certificate, private_key, hash_algorithm, &p7, &si);
         if (r < 0)
@@ -361,7 +361,7 @@ static int pkcs7_new_with_attributes(
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to add content type signed attribute to signer info: %s",
                                        ERR_error_string(ERR_get_error(), NULL));
 
-        _cleanup_(ASN1_TIME_freep) ASN1_TIME *time = NULL;
+        _cleanup_free(ASN1_TIME) ASN1_TIME *time = NULL;
         r = asn1_timestamp(&time);
         if (r < 0)
                 return r;
@@ -442,11 +442,11 @@ static int pkcs7_add_digest_attribute(PKCS7 *p7, BIO *data, PKCS7_SIGNER_INFO *s
 }
 
 static int verb_sign(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(openssl_ask_password_ui_freep) OpenSSLAskPasswordUI *ui = NULL;
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *private_key = NULL;
-        _cleanup_(X509_freep) X509 *certificate = NULL;
+        _cleanup_free(openssl_ask_password_ui) OpenSSLAskPasswordUI *ui = NULL;
+        _cleanup_free(EVP_PKEY) EVP_PKEY *private_key = NULL;
+        _cleanup_free(X509) X509 *certificate = NULL;
         _cleanup_(x509_attribute_free_manyp) STACK_OF(X509_ATTRIBUTE) *signed_attributes = NULL;
-        _cleanup_(iovec_done) struct iovec signed_attributes_signature = {};
+        _cleanup_done(iovec) struct iovec signed_attributes_signature = {};
         int r;
 
         if (argc < 2)
@@ -560,7 +560,7 @@ static int verb_sign(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (r < 0)
                 return r;
 
-        _cleanup_(PKCS7_freep) PKCS7 *p7 = NULL;
+        _cleanup_free(PKCS7) PKCS7 *p7 = NULL;
         PKCS7_SIGNER_INFO *si = NULL; /* avoid false maybe-uninitialized warning */
         r = pkcs7_new_with_attributes(certificate, private_key, /* hash_algorithm= */ NULL, signed_attributes, &p7, &si);
         if (r < 0)
@@ -609,7 +609,7 @@ static int verb_sign(int argc, char *argv[], uintptr_t _data, void *userdata) {
                                                ERR_error_string(ERR_get_error(), NULL));
         }
 
-        _cleanup_(PKCS7_freep) PKCS7 *p7c = PKCS7_new();
+        _cleanup_free(PKCS7) PKCS7 *p7c = PKCS7_new();
         if (!p7c)
                 return log_oom();
 

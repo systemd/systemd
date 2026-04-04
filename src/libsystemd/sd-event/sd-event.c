@@ -471,7 +471,7 @@ _public_ sd_event* sd_event_unref(sd_event *e) {
 }
 
 #define PROTECT_EVENT(e)                                                \
-        _unused_ _cleanup_(sd_event_unrefp) sd_event *_ref = sd_event_ref(e);
+        _unused_ _cleanup_unref(sd_event) sd_event *_ref = sd_event_ref(e);
 
 _public_ sd_event_source* sd_event_source_disable_unref(sd_event_source *s) {
         int r;
@@ -1240,7 +1240,7 @@ _public_ int sd_event_add_io(
                 sd_event_io_handler_t callback,
                 void *userdata) {
 
-        _cleanup_(source_freep) sd_event_source *s = NULL;
+        _cleanup_free(source) sd_event_source *s = NULL;
         int r;
 
         assert_return(e, -EINVAL);
@@ -1387,7 +1387,7 @@ _public_ int sd_event_add_time(
                 void *userdata) {
 
         EventSourceType type;
-        _cleanup_(source_freep) sd_event_source *s = NULL;
+        _cleanup_free(source) sd_event_source *s = NULL;
         struct clock_data *d;
         int r;
 
@@ -1473,7 +1473,7 @@ _public_ int sd_event_add_signal(
                 sd_event_signal_handler_t callback,
                 void *userdata) {
 
-        _cleanup_(source_freep) sd_event_source *s = NULL;
+        _cleanup_free(source) sd_event_source *s = NULL;
         struct signal_data *d;
         sigset_t new_ss;
         bool block_it;
@@ -1605,7 +1605,7 @@ _public_ int sd_event_add_child(
                 sd_event_child_handler_t callback,
                 void *userdata) {
 
-        _cleanup_(source_freep) sd_event_source *s = NULL;
+        _cleanup_free(source) sd_event_source *s = NULL;
         int r;
 
         assert_return(e, -EINVAL);
@@ -1686,7 +1686,7 @@ _public_ int sd_event_add_child_pidfd(
                 sd_event_child_handler_t callback,
                 void *userdata) {
 
-        _cleanup_(source_freep) sd_event_source *s = NULL;
+        _cleanup_free(source) sd_event_source *s = NULL;
         pid_t pid;
         int r;
 
@@ -1767,7 +1767,7 @@ _public_ int sd_event_add_defer(
                 sd_event_handler_t callback,
                 void *userdata) {
 
-        _cleanup_(source_freep) sd_event_source *s = NULL;
+        _cleanup_free(source) sd_event_source *s = NULL;
         int r;
 
         assert_return(e, -EINVAL);
@@ -1803,7 +1803,7 @@ _public_ int sd_event_add_post(
                 sd_event_handler_t callback,
                 void *userdata) {
 
-        _cleanup_(source_freep) sd_event_source *s = NULL;
+        _cleanup_free(source) sd_event_source *s = NULL;
         int r;
 
         assert_return(e, -EINVAL);
@@ -1840,7 +1840,7 @@ _public_ int sd_event_add_exit(
                 sd_event_handler_t callback,
                 void *userdata) {
 
-        _cleanup_(source_freep) sd_event_source *s = NULL;
+        _cleanup_free(source) sd_event_source *s = NULL;
         int r;
 
         assert_return(e, -EINVAL);
@@ -1924,7 +1924,7 @@ _public_ int sd_event_add_memory_pressure(
                 void *userdata) {
 
         _cleanup_free_ char *w = NULL;
-        _cleanup_(source_freep) sd_event_source *s = NULL;
+        _cleanup_free(source) sd_event_source *s = NULL;
         _cleanup_close_ int path_fd = -EBADF, fd = -EBADF;
         _cleanup_free_ void *write_buffer = NULL;
         const char *watch, *watch_fallback = NULL, *env;
@@ -2424,7 +2424,7 @@ static int event_add_inotify_fd_internal(
                 void *userdata) {
 
         _cleanup_close_ int donated_fd = donate ? fd : -EBADF;
-        _cleanup_(source_freep) sd_event_source *s = NULL;
+        _cleanup_free(source) sd_event_source *s = NULL;
         InotifyData *inotify_data = NULL;
         InodeData *inode_data = NULL;
         struct stat st;

@@ -21,7 +21,7 @@
  * ================================================================ */
 
 TEST(packet_header_query_basic) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -54,7 +54,7 @@ TEST(packet_header_query_basic) {
 }
 
 TEST(packet_header_query_status_recursion_desired) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -87,7 +87,7 @@ TEST(packet_header_query_status_recursion_desired) {
 }
 
 TEST(packet_header_reply_authoritative) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -120,7 +120,7 @@ TEST(packet_header_reply_authoritative) {
 }
 
 TEST(packet_header_reply_nxdomain) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -153,7 +153,7 @@ TEST(packet_header_reply_nxdomain) {
 }
 
 TEST(packet_header_reply_recursive_non_authoritative) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -186,7 +186,7 @@ TEST(packet_header_reply_recursive_non_authoritative) {
 }
 
 TEST(packet_header_reply_delegate) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -219,7 +219,7 @@ TEST(packet_header_reply_delegate) {
 }
 
 TEST(packet_header_reply_dnssec_bits) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -256,7 +256,7 @@ TEST(packet_header_reply_dnssec_bits) {
  * ================================================================ */
 
 TEST(packet_validate_query_qr_bit) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -279,7 +279,7 @@ TEST(packet_validate_query_qr_bit) {
 }
 
 TEST(packet_validate_query_no_qr_bit) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -302,7 +302,7 @@ TEST(packet_validate_query_no_qr_bit) {
 }
 
 TEST(packet_validate_query_bad_opcode) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -325,7 +325,7 @@ TEST(packet_validate_query_bad_opcode) {
 }
 
 TEST(packet_validate_query_truncated) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -351,7 +351,7 @@ TEST(packet_validate_query_truncated) {
 }
 
 TEST(packet_validate_query_no_questions) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -371,7 +371,7 @@ TEST(packet_validate_query_no_questions) {
 }
 
 TEST(packet_validate_query_too_many_questions) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -401,7 +401,7 @@ TEST(packet_validate_query_too_many_questions) {
 }
 
 TEST(packet_validate_query_with_anwser) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -434,7 +434,7 @@ TEST(packet_validate_query_with_anwser) {
 }
 
 TEST(packet_validate_query_llmnr_with_authority) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_LLMNR, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -465,7 +465,7 @@ TEST(packet_validate_query_llmnr_with_authority) {
 }
 
 TEST(packet_validate_query_mdns_valid_rcode) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_MDNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -488,7 +488,7 @@ TEST(packet_validate_query_mdns_valid_rcode) {
 }
 
 TEST(packet_validate_query_mdns_bad_rcode) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_MDNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -515,8 +515,8 @@ TEST(packet_validate_query_mdns_bad_rcode) {
  * ================================================================ */
 
 TEST(packet_query_single) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -546,7 +546,7 @@ TEST(packet_query_single) {
 }
 
 TEST(packet_query_multi) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
         DnsResourceKey *key = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
@@ -590,7 +590,7 @@ TEST(packet_query_multi) {
 }
 
 TEST(packet_query_multi_compressed_domain_1) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
         DnsResourceKey *key = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
@@ -633,7 +633,7 @@ TEST(packet_query_multi_compressed_domain_1) {
 }
 
 TEST(packet_query_multi_compressed_domain_2) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
         DnsResourceKey *key = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
@@ -675,7 +675,7 @@ TEST(packet_query_multi_compressed_domain_2) {
 }
 
 TEST(packet_query_single_missing_bytes) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -699,8 +699,8 @@ TEST(packet_query_single_missing_bytes) {
 }
 
 TEST(packet_query_single_unknown_class) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -728,8 +728,8 @@ TEST(packet_query_single_unknown_class) {
 }
 
 TEST(packet_query_single_unknown_type) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -757,7 +757,7 @@ TEST(packet_query_single_unknown_type) {
 }
 
 TEST(packet_query_single_bad_type) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -781,8 +781,8 @@ TEST(packet_query_single_bad_type) {
 }
 
 TEST(packet_query_single_long_domain) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -830,7 +830,7 @@ TEST(packet_query_single_long_domain) {
 }
 
 TEST(packet_query_single_long_label) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -860,8 +860,8 @@ TEST(packet_query_single_long_label) {
 }
 
 TEST(packet_query_single_invalid_label) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -889,8 +889,8 @@ TEST(packet_query_single_invalid_label) {
 }
 
 TEST(packet_query_single_extra_bytes) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -919,7 +919,7 @@ TEST(packet_query_single_extra_bytes) {
 }
 
 TEST(packet_query_single_domain_overflow) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -943,7 +943,7 @@ TEST(packet_query_single_domain_overflow) {
 }
 
 TEST(packet_query_single_domain_underflow) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -967,7 +967,7 @@ TEST(packet_query_single_domain_underflow) {
 }
 
 TEST(packet_query_single_domain_missing_root) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -991,7 +991,7 @@ TEST(packet_query_single_domain_missing_root) {
 }
 
 TEST(packet_query_missing_question) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -1015,8 +1015,8 @@ TEST(packet_query_missing_question) {
 }
 
 TEST(packet_query_extra_question) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -1049,7 +1049,7 @@ TEST(packet_query_extra_question) {
 }
 
 TEST(packet_query_bad_compression) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -1077,7 +1077,7 @@ TEST(packet_query_bad_compression) {
 }
 
 TEST(packet_query_bad_compression_2) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -1105,7 +1105,7 @@ TEST(packet_query_bad_compression_2) {
 }
 
 TEST(packet_query_bad_compression_3) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -1134,7 +1134,7 @@ TEST(packet_query_bad_compression_3) {
 }
 
 TEST(packet_query_bad_compression_4) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -1162,7 +1162,7 @@ TEST(packet_query_bad_compression_4) {
 }
 
 TEST(packet_query_bad_compression_5) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -1190,7 +1190,7 @@ TEST(packet_query_bad_compression_5) {
 }
 
 TEST(packet_query_bad_compression_6) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -1218,7 +1218,7 @@ TEST(packet_query_bad_compression_6) {
  * ================================================================ */
 
 TEST(packet_validate_reply_qr_bit) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -1235,7 +1235,7 @@ TEST(packet_validate_reply_qr_bit) {
 }
 
 TEST(packet_validate_reply_no_qr_bit) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -1252,7 +1252,7 @@ TEST(packet_validate_reply_no_qr_bit) {
 }
 
 TEST(packet_validate_reply_bad_opcode) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -1269,7 +1269,7 @@ TEST(packet_validate_reply_bad_opcode) {
 }
 
 TEST(packet_validate_reply_mdns_success_rcode) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_MDNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -1286,7 +1286,7 @@ TEST(packet_validate_reply_mdns_success_rcode) {
 }
 
 TEST(packet_validate_reply_mdns_bad_rcode) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_MDNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -1303,7 +1303,7 @@ TEST(packet_validate_reply_mdns_bad_rcode) {
 }
 
 TEST(packet_validate_reply_llmnr_with_questions) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_LLMNR, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -1326,7 +1326,7 @@ TEST(packet_validate_reply_llmnr_with_questions) {
 }
 
 TEST(packet_validate_reply_llmnr_no_questions) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_LLMNR, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -1347,8 +1347,8 @@ TEST(packet_validate_reply_llmnr_no_questions) {
  * ================================================================ */
 
 TEST(packet_is_reply_for_no_question) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -1367,8 +1367,8 @@ TEST(packet_is_reply_for_no_question) {
 }
 
 TEST(packet_is_reply_for_too_many_questions) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -1401,8 +1401,8 @@ TEST(packet_is_reply_for_too_many_questions) {
 }
 
 TEST(packet_is_reply_for_match_question) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -1428,8 +1428,8 @@ TEST(packet_is_reply_for_match_question) {
 }
 
 TEST(packet_is_reply_for_no_match_question) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -1455,8 +1455,8 @@ TEST(packet_is_reply_for_no_match_question) {
 }
 
 TEST(packet_is_reply_for_extract_failure) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -1485,7 +1485,7 @@ TEST(packet_is_reply_for_extract_failure) {
  * ================================================================ */
 
 TEST(packet_reply_cannot_use_class_any) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -1513,7 +1513,7 @@ TEST(packet_reply_cannot_use_class_any) {
 }
 
 TEST(packet_reply_cannot_use_type_any) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -1554,8 +1554,8 @@ static void check_answer_contains(DnsPacket *packet, DnsResourceRecord *rr, DnsA
 }
 
 TEST(packet_reply_a_single) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -1590,8 +1590,8 @@ TEST(packet_reply_a_single) {
 }
 
 TEST(packet_reply_a_zero_ip) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
-        _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -1626,7 +1626,7 @@ TEST(packet_reply_a_zero_ip) {
 }
 
 TEST(packet_reply_a_multi) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
         DnsResourceRecord *rr = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
@@ -1678,7 +1678,7 @@ TEST(packet_reply_a_multi) {
 }
 
 TEST(packet_reply_a_bad_rdata_size) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -1706,7 +1706,7 @@ TEST(packet_reply_a_bad_rdata_size) {
 }
 
 TEST(packet_reply_a_rdata_truncated) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -1738,7 +1738,7 @@ TEST(packet_reply_a_rdata_truncated) {
  * ================================================================ */
 
 TEST(packet_reply_ns_single) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
         DnsResourceRecord *rr = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
@@ -1776,7 +1776,7 @@ TEST(packet_reply_ns_single) {
 }
 
 TEST(packet_reply_ns_multi) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
         DnsResourceRecord *rr = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
@@ -1846,7 +1846,7 @@ TEST(packet_reply_ns_multi) {
 }
 
 TEST(packet_reply_ns_domain_underflows_rdata) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -1877,7 +1877,7 @@ TEST(packet_reply_ns_domain_underflows_rdata) {
 }
 
 TEST(packet_reply_ns_domain_overflows_rdata) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -1908,7 +1908,7 @@ TEST(packet_reply_ns_domain_overflows_rdata) {
 }
 
 TEST(packet_reply_ns_domain_overflows_rdata_compressed) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -1937,7 +1937,7 @@ TEST(packet_reply_ns_domain_overflows_rdata_compressed) {
 }
 
 TEST(packet_reply_ns_domain_unterminated) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -1972,7 +1972,7 @@ TEST(packet_reply_ns_domain_unterminated) {
  * ================================================================ */
 
 static void check_cname_reply_compression(const uint8_t *data, size_t len) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
         DnsResourceKey *key = NULL;
         DnsResourceRecord *rr = NULL;
 
@@ -2113,7 +2113,7 @@ TEST(packet_reply_cname_full_compression) {
  * ================================================================ */
 
 TEST(packet_reply_soa_basic) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
         DnsResourceRecord *rr = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
@@ -2164,7 +2164,7 @@ TEST(packet_reply_soa_basic) {
 }
 
 TEST(packet_reply_soa_rdata_overflow) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -2200,7 +2200,7 @@ TEST(packet_reply_soa_rdata_overflow) {
 }
 
 TEST(packet_reply_soa_rdata_underminated_domain) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -2238,7 +2238,7 @@ TEST(packet_reply_soa_rdata_underminated_domain) {
 }
 
 TEST(packet_reply_soa_rdata_missing_field) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -2274,7 +2274,7 @@ TEST(packet_reply_soa_rdata_missing_field) {
 }
 
 TEST(packet_reply_soa_rdata_partial_final_field) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -2314,7 +2314,7 @@ TEST(packet_reply_soa_rdata_partial_final_field) {
  * ================================================================ */
 
 TEST(packet_reply_hinfo_basic) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
         DnsResourceRecord *rr = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
@@ -2353,7 +2353,7 @@ TEST(packet_reply_hinfo_basic) {
 }
 
 TEST(packet_reply_hinfo_overflow) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -2382,7 +2382,7 @@ TEST(packet_reply_hinfo_overflow) {
 }
 
 TEST(packet_reply_hinfo_valid_utf8) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
         DnsResourceRecord *rr = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
@@ -2421,7 +2421,7 @@ TEST(packet_reply_hinfo_valid_utf8) {
 }
 
 TEST(packet_reply_hinfo_invalid_utf8) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -2454,7 +2454,7 @@ TEST(packet_reply_hinfo_invalid_utf8) {
  * ================================================================ */
 
 TEST(packet_reply_txt) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
         DnsResourceRecord *rr = NULL;
         DnsTxtItem *item = NULL;
 
@@ -2504,7 +2504,7 @@ TEST(packet_reply_txt) {
 }
 
 TEST(packet_reply_txt_empty) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
         DnsResourceRecord *rr = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
@@ -2540,7 +2540,7 @@ TEST(packet_reply_txt_empty) {
 }
 
 TEST(packet_reply_txt_overflow_rdata) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -2573,7 +2573,7 @@ TEST(packet_reply_txt_overflow_rdata) {
  * ================================================================ */
 
 TEST(packet_reply_loc_basic) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
         DnsResourceRecord *rr = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
@@ -2622,7 +2622,7 @@ TEST(packet_reply_loc_basic) {
 }
 
 TEST(packet_reply_loc_bad_version) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
         DnsResourceRecord *rr = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
@@ -2672,7 +2672,7 @@ TEST(packet_reply_loc_bad_version) {
  * ================================================================ */
 
 TEST(packet_reply_srv_with_a) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
         DnsResourceRecord *rr = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
@@ -2737,7 +2737,7 @@ TEST(packet_reply_srv_with_a) {
 /* we allow compression of the SRV target field even though RFC 2782 advises against it */
 
 TEST(packet_reply_srv_compression) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
         DnsResourceRecord *rr = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
@@ -2798,7 +2798,7 @@ TEST(packet_reply_srv_compression) {
 }
 
 TEST(packet_reply_srv_allow_non_srv_names) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
         DnsResourceRecord *rr = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
@@ -2847,7 +2847,7 @@ TEST(packet_reply_srv_allow_non_srv_names) {
  * ================================================================ */
 
 TEST(packet_reply_naptr_basic) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
         DnsResourceRecord *rr = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
@@ -2906,7 +2906,7 @@ TEST(packet_reply_naptr_basic) {
 }
 
 TEST(packet_reply_naptr_compressed_replace) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -2951,7 +2951,7 @@ TEST(packet_reply_naptr_compressed_replace) {
  * ================================================================ */
 
 TEST(packet_reply_opt_no_do_empty) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
         DnsResourceRecord *rr = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
@@ -2990,7 +2990,7 @@ TEST(packet_reply_opt_no_do_empty) {
 }
 
 TEST(packet_reply_opt_multiple) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -3026,7 +3026,7 @@ TEST(packet_reply_opt_multiple) {
 }
 
 TEST(packet_reply_opt_not_root) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -3055,7 +3055,7 @@ TEST(packet_reply_opt_not_root) {
 }
 
 TEST(packet_reply_opt_wrong_section) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -3083,7 +3083,7 @@ TEST(packet_reply_opt_wrong_section) {
 }
 
 TEST(packet_query_opt_version_ok) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
         DnsResourceRecord *rr = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
@@ -3121,7 +3121,7 @@ TEST(packet_query_opt_version_ok) {
 }
 
 TEST(packet_reply_opt_version_bad) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -3149,7 +3149,7 @@ TEST(packet_reply_opt_version_bad) {
 }
 
 TEST(packet_reply_opt_with_do) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
         DnsResourceRecord *rr = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
@@ -3187,7 +3187,7 @@ TEST(packet_reply_opt_with_do) {
 }
 
 TEST(packet_reply_opt_with_data) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
         DnsResourceRecord *rr = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
@@ -3241,7 +3241,7 @@ TEST(packet_reply_opt_with_data) {
 }
 
 TEST(packet_reply_opt_bad_data_size) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -3275,7 +3275,7 @@ TEST(packet_reply_opt_bad_data_size) {
 }
 
 TEST(packet_query_opt_with_rfc6975_data) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
         DnsResourceRecord *rr = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
@@ -3319,7 +3319,7 @@ TEST(packet_query_opt_with_rfc6975_data) {
 }
 
 TEST(packet_reply_opt_with_rfc6975_data) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -3354,7 +3354,7 @@ TEST(packet_reply_opt_with_rfc6975_data) {
  * ================================================================ */
 
 TEST(packet_ede_rcode_empty) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
         int ret_ede_rcode;
         char *ret_ede_msg;
 
@@ -3383,7 +3383,7 @@ TEST(packet_ede_rcode_empty) {
 }
 
 TEST(packet_ede_rcode_ede_option_code) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
         _cleanup_free_ char *ret_ede_msg;
         int ret_ede_rcode;
 
@@ -3418,7 +3418,7 @@ TEST(packet_ede_rcode_ede_option_code) {
 }
 
 TEST(packet_ede_rcode_ede_valid_utf8) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
         _cleanup_free_ char *ret_ede_msg;
         int ret_ede_rcode;
 
@@ -3453,7 +3453,7 @@ TEST(packet_ede_rcode_ede_valid_utf8) {
 }
 
 TEST(packet_ede_rcode_ede_invalid_utf8) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
         _cleanup_free_ char *ret_ede_msg;
         int ret_ede_rcode;
 
@@ -3488,7 +3488,7 @@ TEST(packet_ede_rcode_ede_invalid_utf8) {
 }
 
 TEST(packet_ede_rcode_non_ede_code) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
         int ret_ede_rcode;
         char *ret_ede_msg;
 
@@ -3521,7 +3521,7 @@ TEST(packet_ede_rcode_non_ede_code) {
 }
 
 TEST(packet_ede_rcode_malformed_ede_payload) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
         int ret_ede_rcode;
         char *ret_ede_msg;
 
@@ -3558,7 +3558,7 @@ TEST(packet_ede_rcode_malformed_ede_payload) {
  * ================================================================ */
 
 TEST(packet_has_nsid_request_no_match) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -3585,7 +3585,7 @@ TEST(packet_has_nsid_request_no_match) {
 }
 
 TEST(packet_has_nsid_request_match_empty_option) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -3614,7 +3614,7 @@ TEST(packet_has_nsid_request_match_empty_option) {
 }
 
 TEST(packet_has_nsid_request_match_multiple) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -3645,7 +3645,7 @@ TEST(packet_has_nsid_request_match_multiple) {
 }
 
 TEST(packet_has_nsid_request_match_not_empty) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -3679,7 +3679,7 @@ TEST(packet_has_nsid_request_match_not_empty) {
  * ================================================================ */
 
 TEST(packet_reply_rrsig_for_a) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
         DnsResourceRecord *rr = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
@@ -3756,7 +3756,7 @@ TEST(packet_reply_rrsig_for_a) {
 }
 
 TEST(packet_reply_rrsig_no_compression) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -3800,7 +3800,7 @@ TEST(packet_reply_rrsig_no_compression) {
 }
 
 TEST(packet_reply_rrsig_signature_underflow) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -3846,7 +3846,7 @@ TEST(packet_reply_rrsig_signature_underflow) {
 }
 
 TEST(packet_reply_rrsig_signer_overflow) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -3910,7 +3910,7 @@ static DnsSvcParam* add_svcb_param(DnsResourceRecord *rr, uint16_t key, const ch
 }
 
 TEST(packet_reply_svcb_alias_mode) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
         DnsResourceRecord *rr = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
@@ -3954,7 +3954,7 @@ TEST(packet_reply_svcb_alias_mode) {
 }
 
 TEST(packet_reply_svcb_compressed_target) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -3989,7 +3989,7 @@ TEST(packet_reply_svcb_compressed_target) {
  * We accept this when parsing messages. */
 
 TEST(packet_reply_svcb_alias_mode_same_owner_and_target) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
         DnsResourceRecord *rr = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
@@ -4036,7 +4036,7 @@ TEST(packet_reply_svcb_alias_mode_same_owner_and_target) {
  * parser. */
 
 TEST(packet_reply_svcb_alias_mode_with_param) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
         DnsResourceRecord *rr = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
@@ -4084,7 +4084,7 @@ TEST(packet_reply_svcb_alias_mode_with_param) {
 }
 
 TEST(packet_reply_svcb_service_mode) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
         DnsResourceRecord *rr = NULL;
         DnsSvcParam *param = NULL;
 
@@ -4163,7 +4163,7 @@ TEST(packet_reply_svcb_service_mode) {
  * parsed; handling of them is down to later business logic. */
 
 TEST(packet_reply_svcb_service_mode_unknown_param) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
         DnsResourceRecord *rr = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
@@ -4211,7 +4211,7 @@ TEST(packet_reply_svcb_service_mode_unknown_param) {
 }
 
 TEST(packet_reply_svcb_service_mode_duplicate_key) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -4251,7 +4251,7 @@ TEST(packet_reply_svcb_service_mode_duplicate_key) {
 }
 
 TEST(packet_reply_svcb_service_mode_key_bad_order) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -4290,7 +4290,7 @@ TEST(packet_reply_svcb_service_mode_key_bad_order) {
 }
 
 TEST(packet_reply_svcb_service_mode_alpn_too_long) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -4328,7 +4328,7 @@ TEST(packet_reply_svcb_service_mode_alpn_too_long) {
 }
 
 TEST(packet_reply_svcb_service_mode_alpn_too_short) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -4366,7 +4366,7 @@ TEST(packet_reply_svcb_service_mode_alpn_too_short) {
 }
 
 TEST(packet_reply_svcb_service_mode_valid_alpn_overflows_rdata) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -4404,7 +4404,7 @@ TEST(packet_reply_svcb_service_mode_valid_alpn_overflows_rdata) {
 }
 
 TEST(packet_reply_svcb_service_mode_valid_alpn_and_port_overflows_rdata) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -4445,7 +4445,7 @@ TEST(packet_reply_svcb_service_mode_valid_alpn_and_port_overflows_rdata) {
 }
 
 TEST(packet_reply_svcb_service_mode_bad_no_default_alpn) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -4482,7 +4482,7 @@ TEST(packet_reply_svcb_service_mode_bad_no_default_alpn) {
 }
 
 TEST(packet_reply_svcb_service_mode_port_too_long) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -4519,7 +4519,7 @@ TEST(packet_reply_svcb_service_mode_port_too_long) {
 }
 
 TEST(packet_reply_svcb_service_mode_port_too_short) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -4556,7 +4556,7 @@ TEST(packet_reply_svcb_service_mode_port_too_short) {
 }
 
 TEST(packet_reply_svcb_service_mode_bad_ipv4hint) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -4593,7 +4593,7 @@ TEST(packet_reply_svcb_service_mode_bad_ipv4hint) {
 }
 
 TEST(packet_reply_svcb_service_mode_bad_ipv6hint) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -4635,7 +4635,7 @@ TEST(packet_reply_svcb_service_mode_bad_ipv6hint) {
  * ================================================================ */
 
 TEST(packet_equal_match) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *p1 = NULL, *p2 = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *p1 = NULL, *p2 = NULL;
 
         ASSERT_OK(dns_packet_new(&p1, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(p1);
@@ -4656,7 +4656,7 @@ TEST(packet_equal_match) {
 }
 
 TEST(packet_equal_no_match) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *p1 = NULL, *p2 = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *p1 = NULL, *p2 = NULL;
 
         ASSERT_OK(dns_packet_new(&p1, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(p1);
@@ -4773,7 +4773,7 @@ TEST(format_dns_svc_param_key) {
 }
 
 TEST(overlong_domain) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *packet = NULL;
 
         ASSERT_OK(dns_packet_new(&packet, DNS_PROTOCOL_DNS, 0, DNS_PACKET_SIZE_MAX));
         ASSERT_NOT_NULL(packet);
@@ -4794,7 +4794,7 @@ TEST(overlong_domain) {
 
         ASSERT_OK(dns_packet_append_blob(packet, data, sizeof(data), NULL));
         ASSERT_OK(dns_packet_validate_query(packet));
-        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
+        _cleanup_unref(dns_resource_key) DnsResourceKey *key = NULL;
         ASSERT_ERROR(dns_packet_read_key(packet, &key, NULL, NULL), EBADMSG);
 
         const uint8_t data2[] = {

@@ -86,7 +86,7 @@ static int bus_scope_set_transient_property(
                 return bus_set_transient_oom_policy(u, name, &s->oom_policy, message, flags, reterr_error);
 
         if (streq(name, "PIDs")) {
-                _cleanup_(pidref_done) PidRef sender_pidref = PIDREF_NULL;
+                _cleanup_done(pidref) PidRef sender_pidref = PIDREF_NULL;
                 unsigned n = 0;
 
                 r = sd_bus_message_enter_container(message, 'a', "u");
@@ -94,7 +94,7 @@ static int bus_scope_set_transient_property(
                         return r;
 
                 for (;;) {
-                        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+                        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
                         uint32_t upid;
                         PidRef *p;
 
@@ -148,7 +148,7 @@ static int bus_scope_set_transient_property(
                         return r;
 
                 for (;;) {
-                        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+                        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
                         int fd;
 
                         r = sd_bus_message_read(message, "h", &fd);
@@ -256,7 +256,7 @@ int bus_scope_commit_properties(Unit *u) {
 }
 
 int bus_scope_send_request_stop(Scope *s) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
         _cleanup_free_ char *p = NULL;
         int r;
 

@@ -148,7 +148,7 @@ static void public_key_data_done(struct public_key_data *d) {
                 d->pkey = NULL;
         }
         if (d->public) {
-                Esys_Freep(&d->public);
+                Esys_freep(&d->public);
                 d->public = NULL;
         }
         d->fingerprint = mfree(d->fingerprint);
@@ -177,7 +177,7 @@ static int public_key_make_fingerprint(struct public_key_data *d) {
 }
 
 static int load_public_key_disk(const char *path, struct public_key_data *ret) {
-        _cleanup_(public_key_data_done) struct public_key_data data = {};
+        _cleanup_done(public_key_data) struct public_key_data data = {};
         _cleanup_free_ char *blob = NULL;
         size_t blob_size;
         int r;
@@ -216,8 +216,8 @@ static int load_public_key_disk(const char *path, struct public_key_data *ret) {
 }
 
 static int load_public_key_tpm2(struct public_key_data *ret) {
-        _cleanup_(public_key_data_done) struct public_key_data data = {};
-        _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
+        _cleanup_done(public_key_data) struct public_key_data data = {};
+        _cleanup_unref(tpm2_context) Tpm2Context *c = NULL;
         int r;
 
         assert(ret);
@@ -261,7 +261,7 @@ static int load_public_key_tpm2(struct public_key_data *ret) {
 static int setup_srk(void) {
         int r;
 
-        _cleanup_(public_key_data_done) struct public_key_data runtime_key = {}, persistent_key = {}, tpm2_key = {};
+        _cleanup_done(public_key_data) struct public_key_data runtime_key = {}, persistent_key = {}, tpm2_key = {};
 
         r = load_public_key_disk(TPM2_SRK_PEM_RUNTIME_PATH, &runtime_key);
         if (r < 0)
@@ -452,10 +452,10 @@ static int setup_nvpcr_one(
 }
 
 static int setup_nvpcr(void) {
-        _cleanup_(setup_nvpcr_context_done) SetupNvPCRContext c = {};
+        _cleanup_done(setup_nvpcr_context) SetupNvPCRContext c = {};
         int r;
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         r = conf_files_list_nulstr(
                         &l,
                         ".nvpcr",

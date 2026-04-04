@@ -1745,7 +1745,7 @@ static int assess(const SecurityInfo *info,
         };
 
         uint64_t badness_sum = 0, weight_sum = 0, exposure;
-        _cleanup_(table_unrefp) Table *details_table = NULL;
+        _cleanup_unref(table) Table *details_table = NULL;
         size_t i;
         int r;
 
@@ -2238,7 +2238,7 @@ static int property_read_ip_filters(
                 void *userdata) {
 
         SecurityInfo *info = userdata;
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         int r;
 
         assert(bus);
@@ -2345,7 +2345,7 @@ static int acquire_security_info(sd_bus *bus, const char *name, SecurityInfo *in
                 {}
         };
 
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *path = NULL;
         int r;
 
@@ -2425,7 +2425,7 @@ static int analyze_security_one(sd_bus *bus,
                                 PagerFlags pager_flags,
                                 sd_json_format_flags_t json_format_flags) {
 
-        _cleanup_(security_info_freep) SecurityInfo *info = security_info_new();
+        _cleanup_free(security_info) SecurityInfo *info = security_info_new();
         if (!info)
                 return log_oom();
 
@@ -2451,7 +2451,7 @@ static int analyze_security_one(sd_bus *bus,
 static int get_security_info(Unit *u, ExecContext *c, CGroupContext *g, SecurityInfo **ret_info) {
         assert(ret_info);
 
-        _cleanup_(security_info_freep) SecurityInfo *info = security_info_new();
+        _cleanup_free(security_info) SecurityInfo *info = security_info_new();
         if (!info)
                 return log_oom();
 
@@ -2659,9 +2659,9 @@ static int offline_security_check(Unit *u,
                                   PagerFlags pager_flags,
                                   sd_json_format_flags_t json_format_flags) {
 
-        _cleanup_(table_unrefp) Table *overview_table = NULL;
+        _cleanup_unref(table) Table *overview_table = NULL;
         AnalyzeSecurityFlags flags = 0;
-        _cleanup_(security_info_freep) SecurityInfo *info = NULL;
+        _cleanup_free(security_info) SecurityInfo *info = NULL;
         int r;
 
         assert(u);
@@ -2695,7 +2695,7 @@ static int offline_security_checks(
                 MANAGER_TEST_DONT_OPEN_EXECUTOR |
                 run_generators * MANAGER_TEST_RUN_GENERATORS;
 
-        _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_free(manager) Manager *m = NULL;
         Unit *units[strv_length(filenames)];
         int r, k;
         size_t count = 0;
@@ -2794,7 +2794,7 @@ static int analyze_security(sd_bus *bus,
                      PagerFlags pager_flags,
                      AnalyzeSecurityFlags flags) {
 
-        _cleanup_(table_unrefp) Table *overview_table = NULL;
+        _cleanup_unref(table) Table *overview_table = NULL;
         int ret = 0, r;
 
         assert(!!bus != offline);
@@ -2809,9 +2809,9 @@ static int analyze_security(sd_bus *bus,
         }
 
         if (strv_isempty(units)) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-                _cleanup_strv_free_ char **list = NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
+                _cleanup_free(strv) char **list = NULL;
                 size_t n = 0;
 
                 r = bus_call_method(
@@ -2908,7 +2908,7 @@ static int analyze_security(sd_bus *bus,
 
 int verb_security(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *policy = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *policy = NULL;
         int r;
 
         if (!arg_offline) {

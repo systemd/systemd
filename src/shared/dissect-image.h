@@ -149,7 +149,7 @@ typedef struct ExtensionReleaseData {
 } ExtensionReleaseData;
 
 MountOptions* mount_options_free_all(MountOptions *options);
-DEFINE_TRIVIAL_CLEANUP_FUNC(MountOptions*, mount_options_free_all);
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL_RENAME(MountOptions*, mount_options_free_all, mount_options_freep, NULL);
 const char* mount_options_from_designator(const MountOptions *options, PartitionDesignator designator);
 int mount_options_set_and_consume(MountOptions **options, PartitionDesignator d, char *s);
 int mount_options_dup(const MountOptions *source, MountOptions **ret);

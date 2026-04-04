@@ -40,7 +40,7 @@ static int process_message(Manager *manager, sd_netlink_message *message) {
 }
 
 static int speed_meter_handler(sd_event_source *s, uint64_t usec, void *userdata) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL, *reply = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *req = NULL, *reply = NULL;
         Manager *manager = ASSERT_PTR(userdata);
         usec_t usec_now;
         Link *link;
@@ -119,7 +119,7 @@ void link_get_bit_rates(Link *link, uint64_t *ret_tx, uint64_t *ret_rx) {
 }
 
 int manager_start_speed_meter(Manager *manager) {
-        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *s = NULL;
         int r;
 
         assert(manager);

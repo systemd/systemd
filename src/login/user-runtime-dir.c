@@ -32,7 +32,7 @@
 #include "userdb.h"
 
 static int acquire_runtime_dir_properties(uint64_t *ret_size, uint64_t *ret_inodes) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         uint64_t size, inodes;
         int r;
@@ -204,7 +204,7 @@ static int apply_tmpfs_quota(
                 uint64_t limit,
                 uint32_t scale) {
 
-        _cleanup_set_free_ Set *processed = NULL;
+        _cleanup_free(set) Set *processed = NULL;
         int r;
 
         assert(uid_is_valid(uid));
@@ -346,7 +346,7 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         if (streq(verb, "start")) {
-                _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
+                _cleanup_unref(user_record) UserRecord *ur = NULL;
                 r = userdb_by_name(user, /* match= */ NULL, USERDB_PARSE_NUMERIC|USERDB_SUPPRESS_SHADOW, &ur);
                 if (r < 0)
                         return log_error_errno(r, "Failed to resolve user '%s': %s", user, STRERROR_USER(r));

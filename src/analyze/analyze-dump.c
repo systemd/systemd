@@ -14,8 +14,8 @@
 #include "unit-name.h"
 
 static int dump_string(sd_bus *bus) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         int r;
 
         assert(bus);
@@ -28,8 +28,8 @@ static int dump_string(sd_bus *bus) {
 }
 
 static int dump_fd(sd_bus *bus) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         int r;
 
         r = bus_call_method(bus, bus_systemd_mgr, "DumpByFileDescriptor", &error, &reply, NULL);
@@ -45,8 +45,8 @@ static int dump_fd(sd_bus *bus) {
 }
 
 static int dump_patterns_string(sd_bus *bus, char **patterns) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL, *m = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL, *m = NULL;
         int r;
 
         if (strv_isempty(patterns))
@@ -69,8 +69,8 @@ static int dump_patterns_string(sd_bus *bus, char **patterns) {
 }
 
 static int dump_patterns_fd(sd_bus *bus, char **patterns) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL, *m = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL, *m = NULL;
         int r;
 
         if (strv_isempty(patterns))
@@ -93,7 +93,7 @@ static int dump_patterns_fd(sd_bus *bus, char **patterns) {
 }
 
 static int mangle_patterns(char **args, char ***ret) {
-        _cleanup_strv_free_ char **mangled = NULL;
+        _cleanup_free(strv) char **mangled = NULL;
         int r;
 
         STRV_FOREACH(arg, args) {
@@ -114,7 +114,7 @@ static int mangle_patterns(char **args, char ***ret) {
 
 int verb_dump(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_strv_free_ char **patterns = NULL;
+        _cleanup_free(strv) char **patterns = NULL;
         int r;
 
         r = acquire_bus(&bus, NULL);

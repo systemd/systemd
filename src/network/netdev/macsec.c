@@ -55,8 +55,8 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 ReceiveAssociation, macsec_receive_association_free);
 
 static int macsec_receive_association_new_static(MACsec *s, const char *filename, unsigned section_line, ReceiveAssociation **ret) {
-        _cleanup_(config_section_freep) ConfigSection *n = NULL;
-        _cleanup_(macsec_receive_association_freep) ReceiveAssociation *c = NULL;
+        _cleanup_free(config_section) ConfigSection *n = NULL;
+        _cleanup_free(macsec_receive_association) ReceiveAssociation *c = NULL;
         int r;
 
         assert(s);
@@ -141,8 +141,8 @@ static int macsec_receive_channel_new(MACsec *s, uint64_t sci, ReceiveChannel **
 }
 
 static int macsec_receive_channel_new_static(MACsec *s, const char *filename, unsigned section_line, ReceiveChannel **ret) {
-        _cleanup_(config_section_freep) ConfigSection *n = NULL;
-        _cleanup_(macsec_receive_channel_freep) ReceiveChannel *c = NULL;
+        _cleanup_free(config_section) ConfigSection *n = NULL;
+        _cleanup_free(macsec_receive_channel) ReceiveChannel *c = NULL;
         int r;
 
         assert(s);
@@ -195,8 +195,8 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 TransmitAssociation, macsec_transmit_association_free);
 
 static int macsec_transmit_association_new_static(MACsec *s, const char *filename, unsigned section_line, TransmitAssociation **ret) {
-        _cleanup_(config_section_freep) ConfigSection *n = NULL;
-        _cleanup_(macsec_transmit_association_freep) TransmitAssociation *a = NULL;
+        _cleanup_free(config_section) ConfigSection *n = NULL;
+        _cleanup_free(macsec_transmit_association) TransmitAssociation *a = NULL;
         int r;
 
         assert(s);
@@ -233,7 +233,7 @@ static int macsec_transmit_association_new_static(MACsec *s, const char *filenam
 }
 
 static int netdev_macsec_create_message(NetDev *netdev, int command, sd_netlink_message **ret) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         int r;
 
         assert(netdev);
@@ -343,7 +343,7 @@ static int macsec_receive_association_handler(sd_netlink *rtnl, sd_netlink_messa
 }
 
 static int netdev_macsec_configure_receive_association(NetDev *netdev, ReceiveAssociation *a) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         int r;
 
         assert(netdev);
@@ -418,7 +418,7 @@ static void receive_channel_destroy_callback(ReceiveChannel *c) {
 }
 
 static int netdev_macsec_configure_receive_channel(NetDev *netdev, ReceiveChannel *c) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         int r;
 
         assert(netdev);
@@ -469,7 +469,7 @@ static int macsec_transmit_association_handler(sd_netlink *rtnl, sd_netlink_mess
 }
 
 static int netdev_macsec_configure_transmit_association(NetDev *netdev, TransmitAssociation *a) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         int r;
 
         assert(netdev);
@@ -1116,7 +1116,7 @@ static int macsec_receive_association_verify(ReceiveAssociation *a) {
 
         c = ordered_hashmap_get(a->macsec->receive_channels, &a->sci.as_uint64);
         if (!c) {
-                _cleanup_(macsec_receive_channel_freep) ReceiveChannel *new_channel = NULL;
+                _cleanup_free(macsec_receive_channel) ReceiveChannel *new_channel = NULL;
 
                 r = macsec_receive_channel_new(a->macsec, a->sci.as_uint64, &new_channel);
                 if (r < 0)

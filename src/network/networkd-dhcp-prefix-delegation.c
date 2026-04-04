@@ -356,7 +356,7 @@ static int dhcp_pd_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Reques
 }
 
 static int dhcp_pd_request_route(Link *link, const struct in6_addr *prefix, usec_t lifetime_usec) {
-        _cleanup_(route_unrefp) Route *route = NULL;
+        _cleanup_unref(route) Route *route = NULL;
         Route *existing;
         int r;
 
@@ -481,7 +481,7 @@ static int dhcp_pd_request_address(
         if (!link->network->dhcp_pd_assign)
                 return 0;
 
-        _cleanup_hashmap_free_ Hashmap *tokens_by_address = NULL;
+        _cleanup_free(hashmap) Hashmap *tokens_by_address = NULL;
         r = dhcp_pd_generate_addresses(link, prefix, &tokens_by_address);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to generate addresses for acquired DHCP delegated prefix: %m");
@@ -489,7 +489,7 @@ static int dhcp_pd_request_address(
         IPv6Token *token;
         struct in6_addr *a;
         HASHMAP_FOREACH_KEY(token, a, tokens_by_address) {
-                _cleanup_(address_unrefp) Address *address = NULL;
+                _cleanup_unref(address) Address *address = NULL;
 
                 r = address_new(&address);
                 if (r < 0)
@@ -815,7 +815,7 @@ static int dhcp_request_unreachable_route(
                 route_netlink_handler_t callback,
                 bool *configured) {
 
-        _cleanup_(route_unrefp) Route *route = NULL;
+        _cleanup_unref(route) Route *route = NULL;
         Route *existing;
         int r;
 
@@ -938,7 +938,7 @@ static int dhcp_pd_prefix_add(Link *link, const struct in6_addr *prefix, uint8_t
 }
 
 static int dhcp4_pd_request_default_gateway_on_6rd_tunnel(Link *link, const struct in_addr *br_address, usec_t lifetime_usec) {
-        _cleanup_(route_unrefp) Route *route = NULL;
+        _cleanup_unref(route) Route *route = NULL;
         Route *existing;
         int r;
 

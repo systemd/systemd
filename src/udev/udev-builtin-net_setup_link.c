@@ -11,7 +11,7 @@ static LinkConfigContext *ctx = NULL;
 
 static int builtin_net_setup_link(UdevEvent *event, int argc, char **argv) {
         sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
-        _cleanup_(link_freep) Link *link = NULL;
+        _cleanup_free(link) Link *link = NULL;
         int r;
 
         if (argc > 1)

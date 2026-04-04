@@ -66,7 +66,7 @@ DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(rfkill_type, int);
 static int find_device(
                 const struct rfkill_event *event,
                 sd_device **ret) {
-        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        _cleanup_unref(sd_device) sd_device *device = NULL;
         _cleanup_free_ char *sysname = NULL;
         const char *name;
         int r;
@@ -96,7 +96,7 @@ static int determine_state_file(
                 const struct rfkill_event *event,
                 char **ret) {
 
-        _cleanup_(sd_device_unrefp) sd_device *d = NULL, *device = NULL;
+        _cleanup_unref(sd_device) sd_device *d = NULL, *device = NULL;
         const char *path_id, *type;
         char *state_file;
         int r;

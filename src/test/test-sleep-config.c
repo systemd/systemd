@@ -10,7 +10,7 @@
 #include "tests.h"
 
 TEST(parse_sleep_config) {
-        _cleanup_(sleep_config_freep) SleepConfig *sleep_config = NULL;
+        _cleanup_free(sleep_config) SleepConfig *sleep_config = NULL;
 
         assert_se(parse_sleep_config(&sleep_config) == 0);
 
@@ -35,7 +35,7 @@ TEST(parse_sleep_config) {
 }
 
 TEST(sleep_supported) {
-        _cleanup_strv_free_ char
+        _cleanup_free(strv) char
                 **standby = strv_new("standby"),
                 **mem = strv_new("mem"),
                 **disk = strv_new("disk"),

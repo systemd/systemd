@@ -177,18 +177,18 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_fdset_free_ FDSet *fdset = NULL;
-        _cleanup_(cgroup_context_done) CGroupContext cgroup_context = {};
-        _cleanup_(exec_context_done) ExecContext context = {};
-        _cleanup_(exec_command_done) ExecCommand command = {};
+        _cleanup_free(fdset) FDSet *fdset = NULL;
+        _cleanup_done(cgroup_context) CGroupContext cgroup_context = {};
+        _cleanup_done(exec_context) ExecContext context = {};
+        _cleanup_done(exec_command) ExecCommand command = {};
         _cleanup_(exec_params_deep_clear) ExecParameters params = EXEC_PARAMETERS_INIT(/* flags= */ 0);
-        _cleanup_(exec_shared_runtime_done) ExecSharedRuntime shared = {
+        _cleanup_done(exec_shared_runtime) ExecSharedRuntime shared = {
                 .userns_storage_socket = EBADF_PAIR,
                 .netns_storage_socket = EBADF_PAIR,
                 .ipcns_storage_socket = EBADF_PAIR,
         };
-        _cleanup_(dynamic_creds_done) DynamicCreds dynamic_creds = {};
-        _cleanup_(exec_runtime_clear) ExecRuntime runtime = {
+        _cleanup_done(dynamic_creds) DynamicCreds dynamic_creds = {};
+        _cleanup_clear(exec_runtime) ExecRuntime runtime = {
                 .ephemeral_storage_socket = EBADF_PAIR,
                 .shared = &shared,
                 .dynamic_creds = &dynamic_creds,

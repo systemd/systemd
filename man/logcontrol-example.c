@@ -42,6 +42,7 @@
 #include <systemd/sd-journal.h>
 
 #define _cleanup_(f) __attribute__((cleanup(f)))
+#define _cleanup_unref(x) _cleanup_(x ## _unrefp)
 
 static int log_error(int log_level, int error, const char *str) {
   sd_journal_print(log_level, "%s failed: %s", str, strerror(-error));
@@ -185,7 +186,7 @@ int main(int argc, char **argv) {
    * attribute allows us to do it nicely and cleanly whenever we exit the
    * block.
    */
-  _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+  _cleanup_unref(sd_bus_flush_close) sd_bus *bus = NULL;
 
   object o = {
     .log_level = LOG_INFO,

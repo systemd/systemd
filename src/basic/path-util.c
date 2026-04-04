@@ -26,7 +26,7 @@ bool is_path(const char *p) {
 }
 
 int path_split_and_make_absolute(const char *p, char ***ret) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         int r;
 
         assert(p);

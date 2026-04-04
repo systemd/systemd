@@ -219,8 +219,8 @@ static int ipv4acd_start_one(Link *link, sd_ipv4acd *acd) {
 }
 
 int ipv4acd_configure(Link *link, const Address *address) {
-        _cleanup_(sd_ipv4acd_unrefp) sd_ipv4acd *acd = NULL;
-        _cleanup_(address_unrefp) Address *a = NULL;
+        _cleanup_unref(sd_ipv4acd) sd_ipv4acd *acd = NULL;
+        _cleanup_unref(address) Address *a = NULL;
         sd_ipv4acd *existing;
         int r;
 

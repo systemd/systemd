@@ -13,7 +13,7 @@
 #include "time-util.h"
 
 TEST(issue_9549) {
-        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_unref(table) Table *table = NULL;
         _cleanup_free_ char *formatted = NULL;
 
         ASSERT_NOT_NULL((table = table_new("name", "type", "ro", "usage", "created", "modified")));
@@ -36,7 +36,7 @@ TEST(issue_9549) {
 }
 
 TEST(multiline) {
-        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_unref(table) Table *table = NULL;
         _cleanup_free_ char *formatted = NULL;
 
         ASSERT_NOT_NULL((table = table_new("foo", "bar")));
@@ -148,7 +148,7 @@ TEST(multiline) {
 }
 
 TEST(strv) {
-        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_unref(table) Table *table = NULL;
         _cleanup_free_ char *formatted = NULL;
 
         ASSERT_NOT_NULL((table = table_new("foo", "bar")));
@@ -260,7 +260,7 @@ TEST(strv) {
 }
 
 TEST(strv_wrapped) {
-        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_unref(table) Table *table = NULL;
         _cleanup_free_ char *formatted = NULL;
 
         ASSERT_NOT_NULL((table = table_new("foo", "bar")));
@@ -362,8 +362,8 @@ TEST(strv_wrapped) {
 }
 
 TEST(json) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *w = NULL;
-        _cleanup_(table_unrefp) Table *t = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL, *w = NULL;
+        _cleanup_unref(table) Table *t = NULL;
 
         ASSERT_NOT_NULL((t = table_new_raw(4)));
 
@@ -440,7 +440,7 @@ TEST(json_mangling) {
 }
 
 TEST(table) {
-        _cleanup_(table_unrefp) Table *t = NULL;
+        _cleanup_unref(table) Table *t = NULL;
         _cleanup_free_ char *formatted = NULL;
 
         ASSERT_NOT_NULL((t = table_new("one", "two", "three", "four")));
@@ -582,7 +582,7 @@ TEST(table) {
 }
 
 TEST(signed_integers) {
-        _cleanup_(table_unrefp) Table *t = NULL;
+        _cleanup_unref(table) Table *t = NULL;
         _cleanup_free_ char *formatted = NULL;
 
         ASSERT_NOT_NULL((t = table_new("int", "int8", "int16", "int32", "int64")));
@@ -616,7 +616,7 @@ TEST(signed_integers) {
                      "2147483647  127  32767  2147483647  9223372036854775807\n"
                      "-2147483648 -128 -32768 -2147483648 -9223372036854775808\n");
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *a = NULL, *b = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *a = NULL, *b = NULL;
         ASSERT_OK(table_to_json(t, &a));
 
         table_print_json(t, /* f= */ NULL, SD_JSON_FORMAT_NEWLINE);
@@ -647,7 +647,7 @@ TEST(signed_integers) {
 }
 
 TEST(unsigned_integers) {
-        _cleanup_(table_unrefp) Table *t = NULL;
+        _cleanup_unref(table) Table *t = NULL;
         _cleanup_free_ char *formatted = NULL;
 
         ASSERT_NOT_NULL((t = table_new("uint", "uint8", "uint16", "uint32", "uhex32", "uint64", "uhex64")));
@@ -678,7 +678,7 @@ TEST(unsigned_integers) {
                      "0          0     0      0          0        0                    0\n"
                      "4294967295 255   65535  4294967295 ffffffff 18446744073709551615 ffffffffffffffff\n");
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *a = NULL, *b = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *a = NULL, *b = NULL;
         ASSERT_OK(table_to_json(t, &a));
 
         table_print_json(t, /* f= */ NULL, SD_JSON_FORMAT_NEWLINE);
@@ -707,7 +707,7 @@ TEST(unsigned_integers) {
 }
 
 TEST(vertical) {
-        _cleanup_(table_unrefp) Table *t = NULL;
+        _cleanup_unref(table) Table *t = NULL;
         _cleanup_free_ char *formatted = NULL;
 
         ASSERT_NOT_NULL((t = table_new_vertical()));
@@ -730,7 +730,7 @@ TEST(vertical) {
                      "        quux: asdf\n"
                      "lllllllllllo: jjjjjjjjjjjjjjjjj\n");
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *a = NULL, *b = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *a = NULL, *b = NULL;
         ASSERT_OK(table_to_json(t, &a));
 
         ASSERT_OK(sd_json_build(&b, SD_JSON_BUILD_OBJECT(
@@ -743,7 +743,7 @@ TEST(vertical) {
 }
 
 TEST(path_basename) {
-        _cleanup_(table_unrefp) Table *t = NULL;
+        _cleanup_unref(table) Table *t = NULL;
         _cleanup_free_ char *formatted = NULL;
 
         ASSERT_NOT_NULL((t = table_new("x")));
@@ -761,7 +761,7 @@ TEST(path_basename) {
 }
 
 TEST(dup_cell) {
-        _cleanup_(table_unrefp) Table *t = NULL;
+        _cleanup_unref(table) Table *t = NULL;
         _cleanup_free_ char *formatted = NULL;
 
         ASSERT_NOT_NULL((t = table_new("foo", "bar", "x", "baz", ".", "%", "!", "~", "+")));
@@ -804,7 +804,7 @@ TEST(dup_cell) {
 }
 
 TEST(table_bps) {
-        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_unref(table) Table *table = NULL;
         _cleanup_free_ char *formatted = NULL;
 
         ASSERT_NOT_NULL((table = table_new("uint64", "size", "bps")));
@@ -838,7 +838,7 @@ TEST(table_bps) {
 }
 
 TEST(table_ansi) {
-        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_unref(table) Table *table = NULL;
 
         ASSERT_NOT_NULL((table = table_new("foo", "bar", "baz", "kkk")));
 
@@ -892,7 +892,7 @@ TEST(table_ansi) {
 
         ASSERT_OK(table_print(table));
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL, *jj = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *j = NULL, *jj = NULL;
 
         ASSERT_OK(table_to_json(table, &j));
 

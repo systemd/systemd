@@ -465,7 +465,7 @@ static int import_file(struct trie *trie, int fd, const char *filename, uint16_t
                 HW_DATA,
         } state = HW_NONE;
         _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_strv_free_ char **match_list = NULL;
+        _cleanup_free(strv) char **match_list = NULL;
         uint32_t line_number = 0;
         int r;
 
@@ -576,7 +576,7 @@ static int import_file(struct trie *trie, int fd, const char *filename, uint16_t
 
 int hwdb_update(const char *root, const char *hwdb_bin_dir, bool strict, bool compat) {
         _cleanup_free_ char *hwdb_bin = NULL;
-        _cleanup_(trie_freep) struct trie *trie = NULL;
+        _cleanup_free(trie) struct trie *trie = NULL;
         uint16_t file_priority = 1;
         int r, ret = 0;
 
@@ -664,7 +664,7 @@ int hwdb_update(const char *root, const char *hwdb_bin_dir, bool strict, bool co
 }
 
 int hwdb_query(const char *modalias, const char *root) {
-        _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
+        _cleanup_unref(sd_hwdb) sd_hwdb *hwdb = NULL;
         const char *key, *value;
         int r;
 

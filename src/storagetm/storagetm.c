@@ -372,7 +372,7 @@ static int nvme_namespace_write_metadata(int namespace_fd, sd_device *device, co
 }
 
 static int nvme_subsystem_add(const char *node, int consumed_fd, sd_device *device, NvmeSubsystem **ret) {
-        _cleanup_(sd_device_unrefp) sd_device *allocated_device = NULL;
+        _cleanup_unref(sd_device) sd_device *allocated_device = NULL;
         _cleanup_close_ int fd = consumed_fd; /* always take possession of the fd */
         int r;
 
@@ -849,7 +849,7 @@ static void device_track_back(sd_device *d, sd_device **ret) {
         const char *devname = NULL;
         (void) sd_device_get_devname(d, &devname);
 
-        _cleanup_(sd_device_unrefp) sd_device *d_originating = NULL;
+        _cleanup_unref(sd_device) sd_device *d_originating = NULL;
         r = block_device_get_originating(d, &d_originating, /* recursive= */ true);
         if (r < 0 && r != -ENOENT)
                 log_device_debug_errno(d, r, "Failed to get originating device for '%s', ignoring: %m", strna(devname));
@@ -902,17 +902,17 @@ static bool device_is_allowed(sd_device *d) {
         if (root_devnum == 0) /* Not backed by a block device? */
                 return true;
 
-        _cleanup_(sd_device_unrefp) sd_device *root_device = NULL;
+        _cleanup_unref(sd_device) sd_device *root_device = NULL;
          r = sd_device_new_from_devnum(&root_device, 'b', root_devnum);
         if (r < 0) {
                 log_warning_errno(r, "Failed to get root block device, assuming device '%s' is same as root device: %m", devname);
                 return false;
         }
 
-        _cleanup_(sd_device_unrefp) sd_device *whole_root_device = NULL;
+        _cleanup_unref(sd_device) sd_device *whole_root_device = NULL;
         device_track_back(root_device, &whole_root_device);
 
-        _cleanup_(sd_device_unrefp) sd_device *whole_d = NULL;
+        _cleanup_unref(sd_device) sd_device *whole_d = NULL;
         device_track_back(d, &whole_d);
 
         r = device_is_same(whole_root_device, whole_d);
@@ -1104,9 +1104,9 @@ static int on_address_change(sd_netlink *rtnl, sd_netlink_message *mm, void *use
 }
 
 static int run(int argc, char* argv[]) {
-         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor = NULL;
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        _cleanup_(context_done) Context context = {};
+         _cleanup_unref(sd_device_monitor) sd_device_monitor *monitor = NULL;
+        _cleanup_unref(sd_event) sd_event *event = NULL;
+        _cleanup_done(context) Context context = {};
         int r;
 
         log_setup();
@@ -1201,7 +1201,7 @@ static int run(int argc, char* argv[]) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to start device monitor: %m");
 
-                _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *enumerator = NULL;
+                _cleanup_unref(sd_device_enumerator) sd_device_enumerator *enumerator = NULL;
                 r = sd_device_enumerator_new(&enumerator);
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate enumerator: %m");
@@ -1225,7 +1225,7 @@ static int run(int argc, char* argv[]) {
                 }
         }
 
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *rtnl = NULL;
         r = sd_netlink_open(&rtnl);
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to netlink: %m");

@@ -8,8 +8,8 @@
 #include "user-record.h"
 
 static int user_record_signable_json(UserRecord *ur, char **ret) {
-        _cleanup_(user_record_unrefp) UserRecord *reduced = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+        _cleanup_unref(user_record) UserRecord *reduced = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *j = NULL;
         int r;
 
         assert(ur);
@@ -29,8 +29,8 @@ static int user_record_signable_json(UserRecord *ur, char **ret) {
 }
 
 int user_record_sign(UserRecord *ur, EVP_PKEY *private_key, UserRecord **ret) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        _cleanup_(user_record_unrefp) UserRecord *signed_ur = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
+        _cleanup_unref(user_record) UserRecord *signed_ur = NULL;
         _cleanup_free_ char *text = NULL, *key = NULL;
         _cleanup_free_ void *signature = NULL;
         size_t signature_size = 0;
@@ -102,7 +102,7 @@ int user_record_verify(UserRecord *ur, EVP_PKEY *public_key) {
                 return r;
 
         JSON_VARIANT_ARRAY_FOREACH(e, array) {
-                _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX *md_ctx = NULL;
+                _cleanup_free(EVP_MD_CTX) EVP_MD_CTX *md_ctx = NULL;
                 _cleanup_free_ void *signature = NULL;
                 size_t signature_size = 0;
                 sd_json_variant *data;

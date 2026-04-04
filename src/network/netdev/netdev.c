@@ -341,7 +341,7 @@ int netdev_get(Manager *manager, const char *name, NetDev **ret) {
 }
 
 void link_assign_netdev(Link *link) {
-        _unused_ _cleanup_(netdev_unrefp) NetDev *old = NULL;
+        _unused_ _cleanup_unref(netdev) NetDev *old = NULL;
         NetDev *netdev;
 
         assert(link);
@@ -745,7 +745,7 @@ static int netdev_create_message(NetDev *netdev, Link *link, sd_netlink_message 
 }
 
 static int independent_netdev_create(NetDev *netdev) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         int r;
 
         assert(netdev);
@@ -782,7 +782,7 @@ static int independent_netdev_create(NetDev *netdev) {
 }
 
 static int stacked_netdev_create(NetDev *netdev, Link *link, Request *req) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         int r;
 
         assert(netdev);
@@ -1001,7 +1001,7 @@ static int netdev_request_to_create(NetDev *netdev) {
 }
 
 int netdev_load_one(Manager *manager, const char *filename, NetDev **ret) {
-        _cleanup_(netdev_unrefp) NetDev *netdev_raw = NULL, *netdev = NULL;
+        _cleanup_unref(netdev) NetDev *netdev_raw = NULL, *netdev = NULL;
         _cleanup_free_ char *file_basename = NULL;
         const char *dropin_dirname;
         int r;
@@ -1100,7 +1100,7 @@ int netdev_load_one(Manager *manager, const char *filename, NetDev **ret) {
 }
 
 int netdev_load(Manager *manager) {
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_free(strv) char **files = NULL;
         int r;
 
         assert(manager);
@@ -1110,7 +1110,7 @@ int netdev_load(Manager *manager) {
                 return log_error_errno(r, "Failed to enumerate netdev files: %m");
 
         STRV_FOREACH(f, files) {
-                _cleanup_(netdev_unrefp) NetDev *netdev = NULL;
+                _cleanup_unref(netdev) NetDev *netdev = NULL;
 
                 if (netdev_load_one(manager, *f, &netdev) < 0)
                         continue;
@@ -1128,8 +1128,8 @@ int netdev_load(Manager *manager) {
 }
 
 int netdev_reload(Manager *manager) {
-        _cleanup_hashmap_free_ Hashmap *new_netdevs = NULL;
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_free(hashmap) Hashmap *new_netdevs = NULL;
+        _cleanup_free(strv) char **files = NULL;
         int r;
 
         assert(manager);
@@ -1139,7 +1139,7 @@ int netdev_reload(Manager *manager) {
                 return log_error_errno(r, "Failed to enumerate netdev files: %m");
 
         STRV_FOREACH(f, files) {
-                _cleanup_(netdev_unrefp) NetDev *netdev = NULL;
+                _cleanup_unref(netdev) NetDev *netdev = NULL;
                 NetDev *old;
 
                 if (netdev_load_one(manager, *f, &netdev) < 0)
@@ -1178,7 +1178,7 @@ int netdev_reload(Manager *manager) {
 
         /* Attach new NetDev objects to Manager. */
         for (;;) {
-                _cleanup_(netdev_unrefp) NetDev *netdev = hashmap_steal_first(new_netdevs);
+                _cleanup_unref(netdev) NetDev *netdev = hashmap_steal_first(new_netdevs);
                 if (!netdev)
                         break;
 

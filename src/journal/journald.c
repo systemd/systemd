@@ -20,7 +20,7 @@
 #include "time-util.h"
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_free(manager) Manager *m = NULL;
         const char *namespace;
         LogTarget log_target;
         int r;

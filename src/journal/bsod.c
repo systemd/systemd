@@ -56,7 +56,7 @@ static int help(void) {
 }
 
 static int acquire_first_emergency_log_message(char **ret) {
-        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_close(sd_journal) sd_journal *j = NULL;
         _cleanup_free_ char *message = NULL;
         const void *d;
         size_t l;

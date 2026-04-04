@@ -243,7 +243,7 @@ TEST(proc, .sd_booted = true) {
 
         for (;;) {
                 _cleanup_free_ char *path = NULL, *path_shifted = NULL, *session = NULL, *unit = NULL, *user_unit = NULL, *machine = NULL, *slice = NULL;
-                _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
+                _cleanup_done(pidref) PidRef pid = PIDREF_NULL;
                 uid_t uid = UID_INVALID;
 
                 r = proc_dir_read_pidref(d, &pid);

@@ -452,7 +452,7 @@ static int setup_event(Context *c, int fd) {
         assert(fd >= 0);
         assert(!c->event);
 
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
         r = sd_event_default(&e);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate sd_event object: %m");
@@ -510,7 +510,7 @@ static int update_cursor(sd_journal *j) {
 }
 
 int action_show(char **matches) {
-        _cleanup_(context_done) Context c = {};
+        _cleanup_done(context) Context c = {};
         int n_shown, r, poll_fd = -EBADF;
 
         assert(arg_action == ACTION_SHOW);

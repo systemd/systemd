@@ -164,7 +164,7 @@ static Transfer *transfer_unref(Transfer *t) {
 DEFINE_TRIVIAL_CLEANUP_FUNC(Transfer*, transfer_unref);
 
 static int transfer_new(Manager *m, Transfer **ret) {
-        _cleanup_(transfer_unrefp) Transfer *t = NULL;
+        _cleanup_unref(transfer) Transfer *t = NULL;
         uint32_t id;
         int r;
 
@@ -660,7 +660,7 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
         int r;
 
         _cleanup_free_ char *buf = NULL;
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         r = notify_recv(fd, &buf, /* ret_ucred= */ NULL, &pidref);
         if (r == -EAGAIN)
                 return 0;
@@ -697,7 +697,7 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
 }
 
 static int manager_new(RuntimeScope scope, Manager **ret) {
-        _cleanup_(manager_unrefp) Manager *m = NULL;
+        _cleanup_unref(manager) Manager *m = NULL;
         int r;
 
         assert(ret);
@@ -761,7 +761,7 @@ static Transfer *manager_find(Manager *m, TransferType type, const char *remote)
 }
 
 static int method_import_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
-        _cleanup_(transfer_unrefp) Transfer *t = NULL;
+        _cleanup_unref(transfer) Transfer *t = NULL;
         ImageClass class = _IMAGE_CLASS_INVALID;
         Manager *m = ASSERT_PTR(userdata);
         const char *local;
@@ -866,7 +866,7 @@ static int method_import_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
 }
 
 static int method_import_fs(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
-        _cleanup_(transfer_unrefp) Transfer *t = NULL;
+        _cleanup_unref(transfer) Transfer *t = NULL;
         ImageClass class = _IMAGE_CLASS_INVALID;
         Manager *m = ASSERT_PTR(userdata);
         const char *local;
@@ -964,7 +964,7 @@ static int method_import_fs(sd_bus_message *msg, void *userdata, sd_bus_error *e
 }
 
 static int method_export_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
-        _cleanup_(transfer_unrefp) Transfer *t = NULL;
+        _cleanup_unref(transfer) Transfer *t = NULL;
         ImageClass class = _IMAGE_CLASS_INVALID;
         Manager *m = ASSERT_PTR(userdata);
         const char *local, *format;
@@ -1064,7 +1064,7 @@ static int method_export_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
 }
 
 static int method_pull_tar_or_raw_or_oci(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
-        _cleanup_(transfer_unrefp) Transfer *t = NULL;
+        _cleanup_unref(transfer) Transfer *t = NULL;
         ImageClass class = _IMAGE_CLASS_INVALID;
         const char *remote, *local, *verify;
         Manager *m = ASSERT_PTR(userdata);
@@ -1208,7 +1208,7 @@ static int method_pull_tar_or_raw_or_oci(sd_bus_message *msg, void *userdata, sd
 }
 
 static int method_list_transfers(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         Manager *m = ASSERT_PTR(userdata);
         ImageClass class = _IMAGE_CLASS_INVALID;
         Transfer *t;
@@ -1346,7 +1346,7 @@ static int method_cancel_transfer(sd_bus_message *msg, void *userdata, sd_bus_er
 }
 
 static int method_list_images(sd_bus_message *msg, void *userdata, sd_bus_error *error) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         ImageClass class = _IMAGE_CLASS_INVALID;
         Manager *m = ASSERT_PTR(userdata);
         int r;
@@ -1383,7 +1383,7 @@ static int method_list_images(sd_bus_message *msg, void *userdata, sd_bus_error 
              class < 0 ? (c < _IMAGE_CLASS_MAX) : (c == class);
              c++) {
 
-                _cleanup_hashmap_free_ Hashmap *images = NULL;
+                _cleanup_free(hashmap) Hashmap *images = NULL;
 
                 r = image_discover(m->runtime_scope, c, /* root= */ NULL, &images);
                 if (r < 0) {
@@ -1484,7 +1484,7 @@ static int transfer_node_enumerator(
                 char ***nodes,
                 sd_bus_error *error) {
 
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         Manager *m = userdata;
         Transfer *t;
         unsigned k = 0;
@@ -1848,7 +1848,7 @@ static int vl_method_list_transfers(sd_varlink *link, sd_json_variant *parameter
                 if (p.class >= 0 && p.class != t->class)
                         continue;
 
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
                 r = make_transfer_json(t, &v);
                 if (r < 0)
                         return r;
@@ -1943,7 +1943,7 @@ static int vl_method_pull(sd_varlink *link, sd_json_variant *parameters, sd_varl
                         return r;
         }
 
-        _cleanup_(transfer_unrefp) Transfer *t = NULL;
+        _cleanup_unref(transfer) Transfer *t = NULL;
 
         r = transfer_new(m, &t);
         if (r < 0)
@@ -2077,7 +2077,7 @@ static void manager_parse_env(Manager *m) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(manager_unrefp) Manager *m = NULL;
+        _cleanup_unref(manager) Manager *m = NULL;
         RuntimeScope scope = RUNTIME_SCOPE_SYSTEM;
         int r;
 

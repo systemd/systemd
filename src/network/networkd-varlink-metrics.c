@@ -225,7 +225,7 @@ int manager_varlink_metrics_init(Manager *m, int fd) {
                 return 0;
         }
 
-        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        _cleanup_unref(sd_varlink_server) sd_varlink_server *s = NULL;
         r = metrics_setup_varlink_server(
                         &s,
                         SD_VARLINK_SERVER_INHERIT_USERDATA,

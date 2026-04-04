@@ -104,7 +104,7 @@ static int get_machine_list(
                 char **patterns) {
 
         struct machine_info *machine_infos = NULL;
-        _cleanup_strv_free_ char **m = NULL;
+        _cleanup_free(strv) char **m = NULL;
         _cleanup_free_ char *hn = NULL;
         int c = 0, r;
 
@@ -158,7 +158,7 @@ static int get_machine_list(
 }
 
 static int output_machines_list(struct machine_info *machine_infos, unsigned n) {
-        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_unref(table) Table *table = NULL;
         bool state_missing = false;
         int r;
 

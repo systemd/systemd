@@ -28,7 +28,7 @@ static bool arg_varlink = false;
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL, *verbs = NULL;
+        _cleanup_unref(table) Table *options = NULL, *verbs = NULL;
         int r;
 
         r = terminal_urlify_man("systemd-factory-reset", "8", &link);
@@ -162,7 +162,7 @@ static int verb_request(int argc, char *argv[], uintptr_t _data, void *userdata)
         /* NB: we don't really use the version fields for anything on the parsing side, because we want to
          * allow some flexibility between OS/image versions that request the factory reset and that execute
          * it. However, we include it nonetheless to make things more clearly debuggable. */
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         r = sd_json_buildo(
                         &v,
                         SD_JSON_BUILD_PAIR_STRING("osReleaseId", id),
@@ -233,7 +233,7 @@ static int retrigger_block_devices(void) {
                 return 0;
         }
 
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *e = NULL;
         r = sd_device_enumerator_new(&e);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate device enumerator: %m");
@@ -330,7 +330,7 @@ static int varlink_service(void) {
 
         /* Invocation as Varlink service */
 
-        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
+        _cleanup_unref(sd_varlink_server) sd_varlink_server *varlink_server = NULL;
         r = varlink_server_new(&varlink_server, /* flags= */ 0, /* userdata= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate Varlink server: %m");

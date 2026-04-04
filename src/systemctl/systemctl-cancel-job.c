@@ -28,7 +28,7 @@ int verb_cancel(int argc, char *argv[], uintptr_t data, void *userdata) {
         r = 0;
 
         STRV_FOREACH(name, strv_skip(argv, 1)) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
                 uint32_t id;
                 int q;
 

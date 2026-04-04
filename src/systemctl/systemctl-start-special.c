@@ -23,7 +23,7 @@
 #include "systemctl-util.h"
 
 static int load_kexec_kernel(void) {
-        _cleanup_(boot_config_free) BootConfig config = BOOT_CONFIG_NULL;
+        _cleanup_done(boot_config) BootConfig config = BOOT_CONFIG_NULL;
         _cleanup_free_ char *kernel = NULL, *initrd = NULL, *options = NULL;
         const BootEntry *e;
         int r;
@@ -112,7 +112,7 @@ static int load_kexec_kernel(void) {
 }
 
 static int set_exit_code(uint8_t code) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         sd_bus *bus;
         int r;
 

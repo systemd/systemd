@@ -98,8 +98,8 @@ static int convert_user(
                 UserRecord **ret_converted_user,
                 GroupRecord **ret_converted_group) {
 
-        _cleanup_(group_record_unrefp) GroupRecord *converted_group = NULL;
-        _cleanup_(user_record_unrefp) UserRecord *converted_user = NULL;
+        _cleanup_unref(group_record) GroupRecord *converted_group = NULL;
+        _cleanup_unref(user_record) UserRecord *converted_user = NULL;
         _cleanup_free_ char *h = NULL;
         sd_json_variant *p, *hp = NULL, *ssh = NULL;
         int r;
@@ -217,7 +217,7 @@ int machine_bind_user_prepare(
                 char **bind_user_groups,
                 MachineBindUserContext **ret) {
 
-        _cleanup_(machine_bind_user_context_freep) MachineBindUserContext *c = NULL;
+        _cleanup_free(machine_bind_user_context) MachineBindUserContext *c = NULL;
         uid_t current_uid = MAP_UID_MIN;
         int r;
 
@@ -240,8 +240,8 @@ int machine_bind_user_prepare(
                 return log_oom();
 
         STRV_FOREACH(n, bind_user) {
-                _cleanup_(user_record_unrefp) UserRecord *u = NULL, *cu = NULL;
-                _cleanup_(group_record_unrefp) GroupRecord *g = NULL, *cg = NULL;
+                _cleanup_unref(user_record) UserRecord *u = NULL, *cu = NULL;
+                _cleanup_unref(group_record) GroupRecord *g = NULL, *cg = NULL;
 
                 r = userdb_by_name(*n, /* match= */ NULL, USERDB_DONT_SYNTHESIZE_INTRINSIC|USERDB_DONT_SYNTHESIZE_FOREIGN, &u);
                 if (r == -ENOEXEC)

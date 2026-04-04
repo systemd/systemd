@@ -137,7 +137,7 @@ static int probe_file_system_by_fd(
                 sd_id128_t *ret_uuid) {
 
 #if HAVE_BLKID
-        _cleanup_(blkid_free_probep) blkid_probe b = NULL;
+        _cleanup_free(blkid_probe) blkid_probe b = NULL;
         const char *fstype = NULL;
         sd_id128_t id;
         int r;
@@ -240,7 +240,7 @@ static int run_fsck(const char *node, const char *fstype) {
                 return 0;
         }
 
-        _cleanup_(pidref_done) PidRef fsck_pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef fsck_pidref = PIDREF_NULL;
         r = pidref_safe_fork(
                         "(fsck)",
                         FORK_RESET_SIGNALS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_STDOUT_TO_STDERR|FORK_CLOSE_ALL_FDS,
@@ -413,7 +413,7 @@ static int luks_setup(
                 key_serial_t *ret_key_serial) {
 
         _cleanup_(keyring_unlinkp) key_serial_t key_serial = -1;
-        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_free(sym_crypt) struct crypt_device *cd = NULL;
         _cleanup_(erase_and_freep) void *vk = NULL;
         sd_id128_t p;
         size_t vks;
@@ -524,7 +524,7 @@ static int acquire_open_luks_device(
                 HomeSetup *setup,
                 bool graceful) {
 
-        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_free(sym_crypt) struct crypt_device *cd = NULL;
         int r;
 
         assert(h);
@@ -672,7 +672,7 @@ static int luks_validate(
                 uint64_t *ret_size) {
 
 #if HAVE_BLKID
-        _cleanup_(blkid_free_probep) blkid_probe b = NULL;
+        _cleanup_free(blkid_probe) blkid_probe b = NULL;
         sd_id128_t found_partition_uuid = SD_ID128_NULL;
         const char *fstype = NULL, *pttype = NULL;
         blkid_loff_t offset = 0, size = 0;
@@ -859,9 +859,9 @@ static int luks_validate_home_record(
         assert(h);
 
         for (int token = 0; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *rr = NULL;
-                _cleanup_(EVP_CIPHER_CTX_freep) EVP_CIPHER_CTX *context = NULL;
-                _cleanup_(user_record_unrefp) UserRecord *lhr = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL, *rr = NULL;
+                _cleanup_free(EVP_CIPHER_CTX) EVP_CIPHER_CTX *context = NULL;
+                _cleanup_unref(user_record) UserRecord *lhr = NULL;
                 _cleanup_free_ void *encrypted = NULL, *iv = NULL;
                 size_t decrypted_size, encrypted_size, iv_size;
                 int decrypted_size_out1, decrypted_size_out2;
@@ -974,8 +974,8 @@ static int format_luks_token_text(
                 char **ret) {
 
         int r, encrypted_size_out1 = 0, encrypted_size_out2 = 0, iv_size, key_size;
-        _cleanup_(EVP_CIPHER_CTX_freep) EVP_CIPHER_CTX *context = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_free(EVP_CIPHER_CTX) EVP_CIPHER_CTX *context = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         _cleanup_free_ void *iv = NULL, *encrypted = NULL;
         size_t text_length, encrypted_size;
         _cleanup_free_ char *text = NULL;
@@ -1052,7 +1052,7 @@ int home_store_header_identity_luks(
                 HomeSetup *setup,
                 UserRecord *old_home) {
 
-        _cleanup_(user_record_unrefp) UserRecord *header_home = NULL;
+        _cleanup_unref(user_record) UserRecord *header_home = NULL;
         _cleanup_free_ char *text = NULL;
         int r;
 
@@ -1279,7 +1279,7 @@ int home_setup_luks(
                 UserRecord **ret_luks_home) {
 
         sd_id128_t found_partition_uuid, found_fs_uuid = SD_ID128_NULL, found_luks_uuid = SD_ID128_NULL;
-        _cleanup_(user_record_unrefp) UserRecord *luks_home = NULL;
+        _cleanup_unref(user_record) UserRecord *luks_home = NULL;
         _cleanup_(erase_and_freep) void *volume_key = NULL;
         size_t volume_key_size = 0;
         uint64_t offset, size;
@@ -1580,7 +1580,7 @@ int home_activate_luks(
                 PasswordCache *cache,
                 UserRecord **ret_home) {
 
-        _cleanup_(user_record_unrefp) UserRecord *new_home = NULL, *luks_home_record = NULL;
+        _cleanup_unref(user_record) UserRecord *new_home = NULL, *luks_home_record = NULL;
         uint64_t host_size, encrypted_size;
         const char *hdo, *hd;
         struct statfs sfs;
@@ -1781,8 +1781,8 @@ static int luks_format(
                 UserRecord *hr,
                 struct crypt_device **ret) {
 
-        _cleanup_(user_record_unrefp) UserRecord *reduced = NULL;
-        _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_unref(user_record) UserRecord *reduced = NULL;
+        _cleanup_free(sym_crypt) struct crypt_device *cd = NULL;
         _cleanup_(erase_and_freep) void *volume_key = NULL;
         struct crypt_pbkdf_type good_pbkdf, minimal_pbkdf;
         _cleanup_free_ char *text = NULL;
@@ -1906,9 +1906,9 @@ static int make_partition_table(
                 uint64_t *ret_size,
                 sd_id128_t *ret_disk_uuid) {
 
-        _cleanup_(fdisk_unref_partitionp) struct fdisk_partition *p = NULL, *q = NULL;
-        _cleanup_(fdisk_unref_parttypep) struct fdisk_parttype *t = NULL;
-        _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
+        _cleanup_unref(fdisk_partition) struct fdisk_partition *p = NULL, *q = NULL;
+        _cleanup_unref(fdisk_parttype) struct fdisk_parttype *t = NULL;
+        _cleanup_unref(fdisk_context) struct fdisk_context *c = NULL;
         _cleanup_free_ char *disk_uuid_as_string = NULL;
         uint64_t offset, size, first_lba, start, last_lba, end, fdisk_sector_size;
         sd_id128_t disk_uuid;
@@ -2191,14 +2191,14 @@ int home_create_luks(
         _cleanup_free_ char *subdir = NULL, *disk_uuid_path = NULL;
         uint64_t encrypted_size, image_sector_size, luks_sector_size,
                 host_size = 0, partition_offset = 0, partition_size = 0; /* Unnecessary initialization to appease gcc */
-        _cleanup_(user_record_unrefp) UserRecord *new_home = NULL;
+        _cleanup_unref(user_record) UserRecord *new_home = NULL;
         sd_id128_t partition_uuid, fs_uuid, luks_uuid, disk_uuid;
         _cleanup_close_ int mount_fd = -EBADF;
         const char *fstype, *ip;
         struct statfs sfs;
         struct stat st;
         int r;
-        _cleanup_strv_free_ char **extra_mkfs_options = NULL;
+        _cleanup_free(strv) char **extra_mkfs_options = NULL;
 
         assert(h);
         assert(h->storage < 0 || h->storage == USER_LUKS);
@@ -2675,7 +2675,7 @@ static int ext4_offline_resize_fs(
 
         _cleanup_free_ char *size_str = NULL;
         bool re_open = false, re_mount = false;
-        _cleanup_(pidref_done) PidRef fsck_pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef fsck_pidref = PIDREF_NULL;
         int r, exit_status;
 
         assert(setup);
@@ -2775,8 +2775,8 @@ static int prepare_resize_partition(
                 struct fdisk_table **ret_table,
                 struct fdisk_partition **ret_partition) {
 
-        _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
-        _cleanup_(fdisk_unref_tablep) struct fdisk_table *t = NULL;
+        _cleanup_unref(fdisk_context) struct fdisk_context *c = NULL;
+        _cleanup_unref(fdisk_table) struct fdisk_table *t = NULL;
         _cleanup_free_ char *disk_uuid_as_string = NULL;
         struct fdisk_partition *found = NULL;
         sd_id128_t disk_uuid;
@@ -2861,7 +2861,7 @@ static int get_maximum_partition_size(
                 struct fdisk_partition *p,
                 uint64_t *ret_maximum_partition_size) {
 
-        _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
+        _cleanup_unref(fdisk_context) struct fdisk_context *c = NULL;
         uint64_t start_lba, start, last_lba, end, fdisk_sector_size;
         int r;
 
@@ -2920,7 +2920,7 @@ static int apply_resize_partition(
                 struct fdisk_partition *p,
                 size_t new_partition_size) {
 
-        _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
+        _cleanup_unref(fdisk_context) struct fdisk_context *c = NULL;
         uint32_t ssz;
         int r;
 
@@ -3218,8 +3218,8 @@ int home_resize_luks(
 
         uint64_t old_image_size, new_image_size, old_fs_size, new_fs_size, crypto_offset, crypto_offset_bytes,
                 new_partition_size, smallest_fs_size, resized_fs_size;
-        _cleanup_(user_record_unrefp) UserRecord *header_home = NULL, *embedded_home = NULL, *new_home = NULL;
-        _cleanup_(fdisk_unref_tablep) struct fdisk_table *table = NULL;
+        _cleanup_unref(user_record) UserRecord *header_home = NULL, *embedded_home = NULL, *new_home = NULL;
+        _cleanup_unref(fdisk_table) struct fdisk_table *table = NULL;
         struct fdisk_partition *partition = NULL;
         _cleanup_close_ int opened_image_fd = -EBADF;
         _cleanup_free_ char *whole_disk = NULL;
@@ -3840,7 +3840,7 @@ int home_unlock_luks(UserRecord *h, HomeSetup *setup, const PasswordCache *cache
 }
 
 static int device_is_gone(HomeSetup *setup) {
-        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
+        _cleanup_unref(sd_device) sd_device *d = NULL;
         struct stat st;
         int r;
 
@@ -3887,8 +3887,8 @@ static int device_monitor_handler(sd_device_monitor *monitor, sd_device *device,
 }
 
 int wait_for_block_device_gone(HomeSetup *setup, usec_t timeout_usec) {
-        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *m = NULL;
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_unref(sd_device_monitor) sd_device_monitor *m = NULL;
+        _cleanup_unref(sd_event) sd_event *event = NULL;
         int r;
 
         assert(setup);

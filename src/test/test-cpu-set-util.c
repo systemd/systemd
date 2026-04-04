@@ -212,7 +212,7 @@ TEST(config_parse_cpu_set) {
 }
 
 TEST(cpu_set_to_from_dbus) {
-        _cleanup_(cpu_set_done) CPUSet c = {}, c2 = {};
+        _cleanup_done(cpu_set) CPUSet c = {}, c2 = {};
 
         ASSERT_OK(parse_cpu_set("1 3 8 100-200", &c));
         ASSERT_CPUSET_COUNT(c, 104);
@@ -263,7 +263,7 @@ TEST(print_cpu_alloc_size) {
 }
 
 TEST(cpu_set_add) {
-        _cleanup_(cpu_set_done) CPUSet c = {};
+        _cleanup_done(cpu_set) CPUSet c = {};
 
         for (size_t i = 0; i < 8192; i++)
                 ASSERT_OK(cpu_set_add(&c, 8191));
@@ -273,7 +273,7 @@ TEST(cpu_set_add) {
 }
 
 TEST(cpu_set_add_range) {
-        _cleanup_(cpu_set_done) CPUSet c = {};
+        _cleanup_done(cpu_set) CPUSet c = {};
 
         ASSERT_ERROR(cpu_set_add_range(&c, 0, 8192), ERANGE);
         ASSERT_ERROR(cpu_set_add_range(&c, 0, SIZE_MAX), ERANGE);

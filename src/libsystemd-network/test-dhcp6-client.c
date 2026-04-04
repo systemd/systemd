@@ -92,7 +92,7 @@ static unsigned test_client_sent_message_count = 0;
 static sd_dhcp6_client *client_ref = NULL;
 
 TEST(client_basic) {
-        _cleanup_(sd_dhcp6_client_unrefp) sd_dhcp6_client *client = NULL;
+        _cleanup_unref(sd_dhcp6_client) sd_dhcp6_client *client = NULL;
         int v;
 
         assert_se(sd_dhcp6_client_new(&client) >= 0);
@@ -160,7 +160,7 @@ TEST(client_basic) {
 
 TEST(parse_domain) {
         _cleanup_free_ char *domain = NULL;
-        _cleanup_strv_free_ char **list = NULL;
+        _cleanup_free(strv) char **list = NULL;
         uint8_t *data;
 
         data = (uint8_t []) { 7, 'e', 'x', 'a', 'm', 'p', 'l', 'e', 3, 'c', 'o', 'm', 0 };
@@ -324,7 +324,7 @@ TEST(option_status) {
                 /* PD prefix status option */
                 0x00, 0x0d, 0x00, 0x02, 0x00, 0x00,
         };
-        _cleanup_(dhcp6_ia_freep) DHCP6IA *ia = NULL;
+        _cleanup_free(dhcp6_ia) DHCP6IA *ia = NULL;
         DHCP6Option *option;
         be32_t iaid;
         int r;
@@ -438,8 +438,8 @@ TEST(client_parse_message_issue_22099) {
         static const uint8_t duid[] = {
                 0x00, 0x00, 0xab, 0x11, 0x5c, 0x6b, 0x90, 0xec, 0xda, 0x95, 0x15, 0x45,
         };
-        _cleanup_(sd_dhcp6_client_unrefp) sd_dhcp6_client *client = NULL;
-        _cleanup_(sd_dhcp6_lease_unrefp) sd_dhcp6_lease *lease = NULL;
+        _cleanup_unref(sd_dhcp6_client) sd_dhcp6_client *client = NULL;
+        _cleanup_unref(sd_dhcp6_lease) sd_dhcp6_lease *lease = NULL;
 
         assert_se(sd_dhcp6_client_new(&client) >= 0);
         assert_se(sd_dhcp6_client_set_iaid(client, 0xcc59117b) >= 0);
@@ -482,8 +482,8 @@ TEST(client_parse_message_issue_24002) {
         static const uint8_t duid[] = {
                 0x00, 0x00, 0xab, 0x11, 0x5c, 0x6b, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff,
         };
-        _cleanup_(sd_dhcp6_client_unrefp) sd_dhcp6_client *client = NULL;
-        _cleanup_(sd_dhcp6_lease_unrefp) sd_dhcp6_lease *lease = NULL;
+        _cleanup_unref(sd_dhcp6_client) sd_dhcp6_client *client = NULL;
+        _cleanup_unref(sd_dhcp6_lease) sd_dhcp6_lease *lease = NULL;
 
         assert_se(sd_dhcp6_client_new(&client) >= 0);
         assert_se(sd_dhcp6_client_set_iaid(client, 0xaabbccdd) >= 0);
@@ -1107,8 +1107,8 @@ int dhcp6_network_bind_udp_socket(int ifindex, const struct in6_addr *a) {
 }
 
 TEST(dhcp6_client) {
-        _cleanup_(sd_dhcp6_client_unrefp) sd_dhcp6_client *client = NULL;
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_unref(sd_dhcp6_client) sd_dhcp6_client *client = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
 
         assert_se(sd_event_new(&e) >= 0);
         assert_se(sd_event_add_time_relative(e, NULL, CLOCK_BOOTTIME,

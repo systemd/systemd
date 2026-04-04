@@ -198,7 +198,7 @@ static int dhcp6_request_address(
                 usec_t lifetime_preferred_usec,
                 usec_t lifetime_valid_usec) {
 
-        _cleanup_(address_unrefp) Address *addr = NULL;
+        _cleanup_unref(address) Address *addr = NULL;
         Address *existing;
         int r;
 
@@ -304,7 +304,7 @@ static int dhcp6_request_hostname(Link *link) {
 }
 
 static int dhcp6_lease_ip_acquired(sd_dhcp6_client *client, Link *link) {
-        _cleanup_(sd_dhcp6_lease_unrefp) sd_dhcp6_lease *lease_old = NULL;
+        _cleanup_unref(sd_dhcp6_lease) sd_dhcp6_lease *lease_old = NULL;
         sd_dhcp6_lease *lease;
         int r;
 
@@ -604,7 +604,7 @@ static int dhcp6_set_identifier(Link *link, sd_dhcp6_client *client) {
 }
 
 static int dhcp6_configure(Link *link) {
-        _cleanup_(sd_dhcp6_client_unrefp) sd_dhcp6_client *client = NULL;
+        _cleanup_unref(sd_dhcp6_client) sd_dhcp6_client *client = NULL;
         sd_dhcp6_option *vendor_option;
         sd_dhcp6_option *send_option;
         void *request_options;

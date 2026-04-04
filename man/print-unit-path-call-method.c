@@ -15,6 +15,8 @@
 #include <systemd/sd-bus.h>
 
 #define _cleanup_(f) __attribute__((cleanup(f)))
+#define _cleanup_unref(x) _cleanup_(x ## _unrefp)
+#define _cleanup_done(x) _cleanup_(x ## _done)
 #define DESTINATION "org.freedesktop.systemd1"
 #define PATH        "/org/freedesktop/systemd1"
 #define INTERFACE   "org.freedesktop.systemd1.Manager"
@@ -26,9 +28,9 @@ static int log_error(int error, const char *message) {
 }
 
 int main(int argc, char **argv) {
-  _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-  _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-  _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+  _cleanup_unref(sd_bus_flush_close) sd_bus *bus = NULL;
+  _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+  _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
   int r;
 
   r = sd_bus_open_system(&bus);

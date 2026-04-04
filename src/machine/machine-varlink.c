@@ -49,7 +49,7 @@ static int machine_name(const char *name, sd_json_variant *variant, sd_json_disp
 
 static int machine_pidref(const char *name, sd_json_variant *variant, sd_json_dispatch_flags_t flags, void *userdata) {
         PidRef *pidref = ASSERT_PTR(userdata);
-        _cleanup_(pidref_done) PidRef temp = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef temp = PIDREF_NULL;
         int r;
 
         r = json_dispatch_pidref(name, variant, flags, &temp);
@@ -125,7 +125,7 @@ static int machine_cid(const char *name, sd_json_variant *variant, sd_json_dispa
 
 int vl_method_register(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
-        _cleanup_(machine_freep) Machine *machine = NULL;
+        _cleanup_free(machine) Machine *machine = NULL;
         int r;
 
         static const sd_json_dispatch_field dispatch_table[] = {
@@ -177,7 +177,7 @@ int vl_method_register(sd_varlink *link, sd_json_variant *parameters, sd_varlink
         }
 
         if (!pidref_is_set(&machine->supervisor)) {
-                _cleanup_(pidref_done) PidRef client_pidref = PIDREF_NULL;
+                _cleanup_done(pidref) PidRef client_pidref = PIDREF_NULL;
 
                 r = varlink_get_peer_pidref(link, &client_pidref);
                 if (r < 0)
@@ -243,7 +243,7 @@ static int lookup_machine_by_name(sd_varlink *link, Manager *manager, const char
 }
 
 static int lookup_machine_by_pidref(sd_varlink *link, Manager *manager, const PidRef *pidref, Machine **ret_machine) {
-        _cleanup_(pidref_done) PidRef peer = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef peer = PIDREF_NULL;
         Machine *machine;
         int r;
 
@@ -381,7 +381,7 @@ int vl_method_kill(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
         };
 
         Manager *manager = ASSERT_PTR(userdata);
-        _cleanup_(machine_kill_paramaters_done) MachineKillParameters p = {
+        _cleanup_done(machine_kill_paramaters) MachineKillParameters p = {
                 .pidref = PIDREF_NULL,
         };
         KillWhom whom;
@@ -514,14 +514,14 @@ int vl_method_open(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
 
         Manager *manager = ASSERT_PTR(userdata);
         _cleanup_close_ int ptmx_fd = -EBADF;
-        _cleanup_(machine_open_paramaters_done) MachineOpenParameters p = {
+        _cleanup_done(machine_open_paramaters) MachineOpenParameters p = {
                 .pidref = PIDREF_NULL,
                 .mode = _MACHINE_OPEN_MODE_INVALID,
         };
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         _cleanup_free_ char *ptmx_name = NULL, *command_line = NULL;
         const char *user = NULL, *path = NULL; /* gcc complains about uninitialized variables */
-        _cleanup_strv_free_ char **args = NULL;
+        _cleanup_free(strv) char **args = NULL;
         Machine *machine;
         int r, ptmx_fd_idx;
 
@@ -574,7 +574,7 @@ int vl_method_open(sd_varlink *link, sd_json_variant *parameters, sd_varlink_met
                                 return sd_varlink_error(link, SD_VARLINK_ERROR_PERMISSION_DENIED, NULL);
                 }
 
-                _cleanup_strv_free_ char **polkit_details = NULL;
+                _cleanup_free(strv) char **polkit_details = NULL;
 
                 polkit_details = machine_open_polkit_details(p.mode, machine->name, user, path, command_line);
                 r = varlink_verify_polkit_async_full(
@@ -667,8 +667,8 @@ int vl_method_map_from(sd_varlink *link, sd_json_variant *parameters, sd_varlink
         };
 
         Manager *manager = ASSERT_PTR(userdata);
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        _cleanup_(machine_map_paramaters_done) MachineMapParameters p = {
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
+        _cleanup_done(machine_map_paramaters) MachineMapParameters p = {
                 .pidref = PIDREF_NULL,
                 .uid = UID_INVALID,
                 .gid = GID_INVALID,
@@ -733,8 +733,8 @@ int vl_method_map_to(sd_varlink *link, sd_json_variant *parameters, sd_varlink_m
         };
 
         Manager *manager = ASSERT_PTR(userdata);
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        _cleanup_(machine_map_paramaters_done) MachineMapParameters p = {
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
+        _cleanup_done(machine_map_paramaters) MachineMapParameters p = {
                 .pidref = PIDREF_NULL,
                 .uid = UID_INVALID,
                 .gid = GID_INVALID,
@@ -831,7 +831,7 @@ int vl_method_bind_mount(sd_varlink *link, sd_json_variant *parameters, sd_varli
         };
 
         Manager *manager = ASSERT_PTR(userdata);
-        _cleanup_(machine_mount_paramaters_done) MachineMountParameters p = {
+        _cleanup_done(machine_mount_paramaters) MachineMountParameters p = {
                 .pidref = PIDREF_NULL,
         };
         MountInNamespaceFlags mount_flags = 0;
@@ -941,7 +941,7 @@ int vl_method_copy_internal(sd_varlink *link, sd_json_variant *parameters, sd_va
 
         int r;
         Manager *manager = ASSERT_PTR(userdata);
-        _cleanup_(machine_copy_paramaters_done) MachineCopyParameters p = {
+        _cleanup_done(machine_copy_paramaters) MachineCopyParameters p = {
                 .pidref = PIDREF_NULL
         };
 
@@ -998,7 +998,7 @@ int vl_method_copy_internal(sd_varlink *link, sd_json_variant *parameters, sd_va
 }
 
 int vl_method_open_root_directory_internal(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         _cleanup_close_ int fd = -EBADF;
         Machine *machine = ASSERT_PTR(userdata);
         Manager *manager = ASSERT_PTR(machine->manager);

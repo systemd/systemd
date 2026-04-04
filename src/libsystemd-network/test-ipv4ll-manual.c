@@ -66,9 +66,9 @@ static int client_run(int ifindex, const char *seed_str, const struct in_addr *s
 }
 
 static int test_ll(const char *ifname, const char *seed, const struct in_addr *start_address) {
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL, *reply = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
+        _cleanup_unref(sd_netlink) sd_netlink *rtnl = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL, *reply = NULL;
         struct ether_addr ha;
         int ifindex;
 

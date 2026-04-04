@@ -24,7 +24,7 @@ static Manager* manager_unref(Manager *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_unref);
 
 static int manager_new(RuntimeScope scope, Manager **ret) {
-        _cleanup_(manager_unrefp) Manager *m = NULL;
+        _cleanup_unref(manager) Manager *m = NULL;
         int r;
 
         assert(ret);
@@ -139,7 +139,7 @@ static bool check_idle(void *userdata) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(manager_unrefp) Manager *m = NULL;
+        _cleanup_unref(manager) Manager *m = NULL;
         RuntimeScope scope = RUNTIME_SCOPE_SYSTEM;
         int r;
 

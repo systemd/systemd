@@ -159,7 +159,7 @@ static int varlink_new(sd_varlink **ret) {
 }
 
 _public_ int sd_varlink_connect_address(sd_varlink **ret, const char *address) {
-        _cleanup_(sd_varlink_unrefp) sd_varlink *v = NULL;
+        _cleanup_unref(sd_varlink) sd_varlink *v = NULL;
         union sockaddr_union sockaddr;
         int r;
 
@@ -214,7 +214,7 @@ _public_ int sd_varlink_connect_exec(sd_varlink **ret, const char *_command, cha
         _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
         _cleanup_(pidref_done_sigkill_wait) PidRef pidref = PIDREF_NULL;
         _cleanup_free_ char *command = NULL;
-        _cleanup_strv_free_ char **argv = NULL;
+        _cleanup_free(strv) char **argv = NULL;
         int r;
 
         assert_return(ret, -EINVAL);
@@ -408,14 +408,14 @@ static int varlink_connect_ssh_exec(sd_varlink **ret, const char *where) {
         if (!h)
                 return log_oom_debug();
 
-        _cleanup_strv_free_ char **cmdline = NULL;
+        _cleanup_free(strv) char **cmdline = NULL;
         r = strv_split_full(&cmdline, e + 1, /* separators= */ NULL, EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
         if (r < 0)
                 return log_debug_errno(r, "Failed to split command line: %m");
         if (strv_isempty(cmdline))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Remote command line is empty, refusing.");
 
-        _cleanup_strv_free_ char **full_cmdline = NULL;
+        _cleanup_free(strv) char **full_cmdline = NULL;
         full_cmdline = strv_new("ssh", "-e", "none", "-T", h, "env", "SYSTEMD_VARLINK_LISTEN=-");
         if (!full_cmdline)
                 return log_oom_debug();
@@ -1070,7 +1070,7 @@ static int varlink_test_timeout(sd_varlink *v) {
 }
 
 static int varlink_dispatch_local_error(sd_varlink *v, const char *error) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *empty = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *empty = NULL;
         int r;
 
         assert(v);
@@ -1122,7 +1122,7 @@ static int varlink_sanitize_incoming_parameters(sd_json_variant **v) {
 
         /* Convert NULL or JSON null to empty object for method handlers (backward compatibility) */
         if (!*v || sd_json_variant_is_null(*v)) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *empty = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *empty = NULL;
                 r = sd_json_variant_new_object(&empty, NULL, 0);
                 if (r < 0)
                         return r;
@@ -1140,7 +1140,7 @@ static int varlink_sanitize_incoming_parameters(sd_json_variant **v) {
 }
 
 static int varlink_dispatch_reply(sd_varlink *v) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL, *error = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *parameters = NULL, *error = NULL;
         sd_varlink_reply_flags_t flags = 0;
         sd_json_variant *e;
         const char *k;
@@ -1248,7 +1248,7 @@ static int generic_method_get_info(
                 sd_varlink_method_flags_t flags,
                 void *userdata) {
 
-        _cleanup_strv_free_ char **interfaces = NULL;
+        _cleanup_free(strv) char **interfaces = NULL;
         int r;
 
         assert(link);
@@ -1460,7 +1460,7 @@ static int varlink_enqueue_json(sd_varlink *v, sd_json_variant *m) {
 }
 
 static int varlink_dispatch_method(sd_varlink *v) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *parameters = NULL;
         sd_varlink_method_flags_t flags = 0;
         const char *method = NULL;
         sd_json_variant *e;
@@ -2125,7 +2125,7 @@ _public_ sd_varlink* sd_varlink_flush_close_unref(sd_varlink *v) {
 }
 
 _public_ int sd_varlink_send(sd_varlink *v, const char *method, sd_json_variant *parameters) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *m = NULL;
         int r;
 
         assert_return(v, -EINVAL);
@@ -2156,7 +2156,7 @@ _public_ int sd_varlink_send(sd_varlink *v, const char *method, sd_json_variant 
 }
 
 _public_ int sd_varlink_sendb(sd_varlink *v, const char *method, ...) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *parameters = NULL;
         va_list ap;
         int r;
 
@@ -2173,7 +2173,7 @@ _public_ int sd_varlink_sendb(sd_varlink *v, const char *method, ...) {
 }
 
 _public_ int sd_varlink_invoke(sd_varlink *v, const char *method, sd_json_variant *parameters) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *m = NULL;
         int r;
 
         assert_return(v, -EINVAL);
@@ -2205,7 +2205,7 @@ _public_ int sd_varlink_invoke(sd_varlink *v, const char *method, sd_json_varian
 }
 
 _public_ int sd_varlink_invokeb(sd_varlink *v, const char *method, ...) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *parameters = NULL;
         va_list ap;
         int r;
 
@@ -2222,7 +2222,7 @@ _public_ int sd_varlink_invokeb(sd_varlink *v, const char *method, ...) {
 }
 
 _public_ int sd_varlink_observe(sd_varlink *v, const char *method, sd_json_variant *parameters) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *m = NULL;
         int r;
 
         assert_return(v, -EINVAL);
@@ -2256,7 +2256,7 @@ _public_ int sd_varlink_observe(sd_varlink *v, const char *method, sd_json_varia
 }
 
 _public_ int sd_varlink_observeb(sd_varlink *v, const char *method, ...) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *parameters = NULL;
         va_list ap;
         int r;
 
@@ -2337,7 +2337,7 @@ _public_ int sd_varlink_call_full(
                 const char **ret_error_id,
                 sd_varlink_reply_flags_t *ret_flags) {
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *m = NULL;
         int r;
 
         assert_return(v, -EINVAL);
@@ -2394,7 +2394,7 @@ _public_ int sd_varlink_call_and_upgrade(
                 int *ret_input_fd,
                 int *ret_output_fd) {
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *m = NULL;
         int r;
 
         assert_return(v, -EINVAL);
@@ -2507,7 +2507,7 @@ _public_ int sd_varlink_callb_ap(
                 sd_varlink_reply_flags_t *ret_flags,
                 va_list ap) {
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *parameters = NULL;
         int r;
 
         assert_return(v, -EINVAL);
@@ -2561,7 +2561,7 @@ _public_ int sd_varlink_collect_full(
                 const char **ret_error_id,
                 sd_varlink_reply_flags_t *ret_flags) {
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL, *collected = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *m = NULL, *collected = NULL;
         int r;
 
         assert_return(v, -EINVAL);
@@ -2639,7 +2639,7 @@ _public_ int sd_varlink_collect_full(
                         if (sd_json_variant_elements(collected) >= VARLINK_COLLECT_MAX)
                                 return varlink_log_errno(v, SYNTHETIC_ERRNO(E2BIG), "Number of reply messages grew too large (%zu) while collecting.", sd_json_variant_elements(collected));
 
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *empty = NULL;
+                        _cleanup_unref(sd_json_variant) sd_json_variant *empty = NULL;
                         if (!p) {
                                 r = sd_json_variant_new_array(&empty, /* array= */ NULL, /* n= */ 0);
                                 if (r < 0)
@@ -2702,7 +2702,7 @@ _public_ int sd_varlink_collectb(
                 const char **ret_error_id,
                 ...) {
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *parameters = NULL;
         va_list ap;
         int r;
 
@@ -2747,7 +2747,7 @@ _public_ int sd_varlink_reply(sd_varlink *v, sd_json_variant *parameters) {
                                           v->current_method->name, strna(bad_field));
         }
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *m = NULL;
         r = sd_json_buildo(&m, JSON_BUILD_PAIR_VARIANT_NON_EMPTY("parameters", parameters));
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
@@ -2790,7 +2790,7 @@ _public_ int sd_varlink_reply(sd_varlink *v, sd_json_variant *parameters) {
 }
 
 _public_ int sd_varlink_replyb(sd_varlink *v, ...) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *parameters = NULL;
         va_list ap;
         int r;
 
@@ -2820,7 +2820,7 @@ _public_ int sd_varlink_reset_fds(sd_varlink *v) {
 }
 
 _public_ int sd_varlink_error(sd_varlink *v, const char *error_id, sd_json_variant *parameters) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *m = NULL;
         int r;
 
         assert_return(v, -EINVAL);
@@ -2893,7 +2893,7 @@ _public_ int sd_varlink_error(sd_varlink *v, const char *error_id, sd_json_varia
 }
 
 _public_ int sd_varlink_errorb(sd_varlink *v, const char *error_id, ...) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *parameters = NULL;
         va_list ap;
         int r;
 
@@ -2925,7 +2925,7 @@ _public_ int sd_varlink_error_invalid_parameter(sd_varlink *v, sd_json_variant *
          * parameter sanitization to fail, and it returns -EINVAL. */
 
         if (sd_json_variant_is_string(parameters)) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters_obj = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *parameters_obj = NULL;
 
                 r = sd_json_buildo(&parameters_obj, SD_JSON_BUILD_PAIR_VARIANT("parameter", parameters));
                 if (r < 0)
@@ -2936,7 +2936,7 @@ _public_ int sd_varlink_error_invalid_parameter(sd_varlink *v, sd_json_variant *
 
         if (sd_json_variant_is_object(parameters) &&
             sd_json_variant_elements(parameters) > 0) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters_obj = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *parameters_obj = NULL;
 
                 r = sd_json_buildo(&parameters_obj, SD_JSON_BUILD_PAIR_VARIANT("parameter", sd_json_variant_by_index(parameters, 0)));
                 if (r < 0)
@@ -2974,7 +2974,7 @@ _public_ int sd_varlink_error_errno(sd_varlink *v, int error) {
 }
 
 _public_ int sd_varlink_notify(sd_varlink *v, sd_json_variant *parameters) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *m = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *m = NULL;
         int r;
 
         assert_return(v, -EINVAL);
@@ -3025,7 +3025,7 @@ _public_ int sd_varlink_notify(sd_varlink *v, sd_json_variant *parameters) {
 }
 
 _public_ int sd_varlink_notifyb(sd_varlink *v, ...) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *parameters = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *parameters = NULL;
         va_list ap;
         int r;
 
@@ -3590,7 +3590,7 @@ _public_ int sd_varlink_set_input_sensitive(sd_varlink *v) {
 }
 
 _public_ int sd_varlink_server_new(sd_varlink_server **ret, sd_varlink_server_flags_t flags) {
-        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        _cleanup_unref(sd_varlink_server) sd_varlink_server *s = NULL;
         int r;
 
         assert_return(ret, -EINVAL);
@@ -3759,7 +3759,7 @@ _public_ int sd_varlink_server_add_connection_pair(
                 const struct ucred *override_ucred,
                 sd_varlink **ret) {
 
-        _cleanup_(sd_varlink_unrefp) sd_varlink *v = NULL;
+        _cleanup_unref(sd_varlink) sd_varlink *v = NULL;
         struct ucred ucred = UCRED_INVALID;
         bool ucred_acquired;
         int r;
@@ -3893,7 +3893,7 @@ static int connect_callback(sd_event_source *source, int fd, uint32_t revents, v
 }
 
 static int varlink_server_create_listen_fd_socket(sd_varlink_server *s, int fd, VarlinkServerSocket **ret_ss) {
-        _cleanup_(varlink_server_socket_freep) VarlinkServerSocket *ss = NULL;
+        _cleanup_free(varlink_server_socket) VarlinkServerSocket *ss = NULL;
         int r;
 
         assert(s);
@@ -3920,7 +3920,7 @@ static int varlink_server_create_listen_fd_socket(sd_varlink_server *s, int fd, 
 }
 
 _public_ int sd_varlink_server_listen_fd(sd_varlink_server *s, int fd) {
-        _cleanup_(varlink_server_socket_freep) VarlinkServerSocket *ss = NULL;
+        _cleanup_free(varlink_server_socket) VarlinkServerSocket *ss = NULL;
         int r;
 
         assert_return(s, -EINVAL);
@@ -3950,7 +3950,7 @@ _public_ int sd_varlink_server_listen_fd(sd_varlink_server *s, int fd) {
 }
 
 _public_ int sd_varlink_server_listen_address(sd_varlink_server *s, const char *address, mode_t m) {
-        _cleanup_(varlink_server_socket_freep) VarlinkServerSocket *ss = NULL;
+        _cleanup_free(varlink_server_socket) VarlinkServerSocket *ss = NULL;
         union sockaddr_union sockaddr;
         socklen_t sockaddr_len;
         _cleanup_close_ int fd = -EBADF;
@@ -4070,7 +4070,7 @@ _public_ int sd_varlink_server_add_connection_stdio(sd_varlink_server *s, sd_var
 }
 
 _public_ int sd_varlink_server_listen_name(sd_varlink_server *s, const char *name) {
-        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_free(strv) char **names = NULL;
         int r, m, n = 0;
 
         assert_return(s, -EINVAL);
@@ -4156,7 +4156,7 @@ _public_ void* sd_varlink_server_get_userdata(sd_varlink_server *s) {
 }
 
 _public_ int sd_varlink_server_loop_auto(sd_varlink_server *server) {
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_unref(sd_event) sd_event *event = NULL;
         int r;
 
         assert_return(server, -EINVAL);
@@ -4237,7 +4237,7 @@ _public_ int sd_varlink_server_set_exit_on_idle(sd_varlink_server *s, int b) {
 }
 
 int varlink_server_add_socket_event_source(sd_varlink_server *s, VarlinkServerSocket *ss) {
-        _cleanup_(sd_event_source_unrefp) sd_event_source *es = NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *es = NULL;
         int r;
 
         assert(s);
@@ -4508,7 +4508,7 @@ _public_ int sd_varlink_server_set_description(sd_varlink_server *s, const char 
 }
 
 _public_ int sd_varlink_invocation(sd_varlink_invocation_flags_t flags) {
-        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_free(strv) char **names = NULL;
         int r, b;
         socklen_t l = sizeof(b);
 

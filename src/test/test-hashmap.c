@@ -16,7 +16,7 @@ DEFINE_HASH_OPS_FULL(custom_hash_ops, char, string_hash_func, string_compare_fun
 // NOLINTEND(misc-use-internal-linkage)
 
 TEST(ordered_hashmap_next) {
-        _cleanup_ordered_hashmap_free_ OrderedHashmap *m = NULL;
+        _cleanup_free(ordered_hashmap) OrderedHashmap *m = NULL;
         int i;
 
         assert_se(m = ordered_hashmap_new(NULL));
@@ -105,7 +105,7 @@ TEST(iterated_cache) {
 }
 
 TEST(hashmap_put_strdup) {
-        _cleanup_hashmap_free_ Hashmap *m = NULL;
+        _cleanup_free(hashmap) Hashmap *m = NULL;
         char *s;
 
         /* We don't have ordered_hashmap_put_strdup() yet. If it is added,
@@ -131,7 +131,7 @@ TEST(hashmap_put_strdup) {
 }
 
 TEST(hashmap_put_strdup_null) {
-        _cleanup_hashmap_free_ Hashmap *m = NULL;
+        _cleanup_free(hashmap) Hashmap *m = NULL;
         char *s;
 
         assert_se(hashmap_put_strdup(&m, "foo", "bar") == 1);

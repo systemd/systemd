@@ -62,7 +62,7 @@ struct sd_device_enumerator {
 };
 
 _public_ int sd_device_enumerator_new(sd_device_enumerator **ret) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *enumerator = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *enumerator = NULL;
 
         assert(ret);
 
@@ -733,7 +733,7 @@ static int enumerator_scan_dir_and_add_devices(
         }
 
         FOREACH_DIRENT_ALL(de, dir, return -errno) {
-                _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+                _cleanup_unref(sd_device) sd_device *device = NULL;
                 char syspath[strlen(path) + 1 + strlen(de->d_name) + 1];
 
                 if (!relevant_sysfs_subdir(de))
@@ -833,7 +833,7 @@ static int enumerator_scan_devices_tag(sd_device_enumerator *enumerator, const c
         /* TODO: filter away subsystems? */
 
         FOREACH_DIRENT_ALL(de, dir, return -errno) {
-                _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+                _cleanup_unref(sd_device) sd_device *device = NULL;
                 int k;
 
                 if (de->d_name[0] == '.')
@@ -883,7 +883,7 @@ static int enumerator_scan_devices_tags(sd_device_enumerator *enumerator) {
 }
 
 static int parent_add_child(sd_device_enumerator *enumerator, const char *path, MatchFlag flags) {
-        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        _cleanup_unref(sd_device) sd_device *device = NULL;
         int r;
 
         r = sd_device_new_from_syspath(&device, path);
@@ -947,7 +947,7 @@ static int parent_crawl_children(sd_device_enumerator *enumerator, const char *p
 }
 
 static int enumerator_scan_devices_children(sd_device_enumerator *enumerator) {
-        _cleanup_set_free_ Set *stack = NULL;
+        _cleanup_free(set) Set *stack = NULL;
         const char *path;
         int r = 0, k;
 

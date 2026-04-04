@@ -323,7 +323,7 @@ fail:
 
 static int scope_enter_start_chown(Scope *s) {
         Unit *u = UNIT(ASSERT_PTR(s));
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         int r;
 
         assert(s->user);
@@ -548,7 +548,7 @@ static int scope_deserialize_item(Unit *u, const char *key, const char *value, F
                         return log_oom();
 
         } else if (streq(key, "pids")) {
-                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+                _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
 
                 /* We don't check if we already received the pid before here because unit_watch_pidref()
                  * does this check internally and discards the new pidref if we already received it before. */

@@ -497,7 +497,7 @@ static bool menu_run(
         bool new_mode = true, clear = true;
         bool refresh = true, highlight = false;
         size_t x_start = 0, y_start = 0, y_status = 0, x_max, y_max;
-        _cleanup_strv_free_ char16_t **lines = NULL;
+        _cleanup_free(strv) char16_t **lines = NULL;
         _cleanup_free_ char16_t *clearline = NULL, *separator = NULL, *status = NULL;
         uint64_t timeout_efivar_saved = config->timeout_sec_efivar,
                 timeout_remain = config->timeout_sec == TIMEOUT_MENU_FORCE ? 0 : config->timeout_sec;
@@ -1361,7 +1361,7 @@ static void boot_entry_add_type1(
                 char *content,
                 const char16_t *loaded_image_path) {
 
-        _cleanup_(boot_entry_freep) BootEntry *entry = NULL;
+        _cleanup_free(boot_entry) BootEntry *entry = NULL;
         char *line;
         size_t pos = 0, n_initrd = 0;
         char *key, *value;
@@ -2617,7 +2617,7 @@ static EFI_STATUS initrd_prepare(
                 return EFI_SUCCESS;
         }
 
-        _cleanup_pages_ Pages pages = xmalloc_initrd_pages(padded_size);
+        _cleanup_done(pages) Pages pages = xmalloc_initrd_pages(padded_size);
         uint8_t *p = PHYSICAL_ADDRESS_TO_POINTER(pages.addr);
 
         STRV_FOREACH(i, entry->initrd) {
@@ -2739,7 +2739,7 @@ static EFI_STATUS call_image_start(
                 EFI_FILE *root_dir,
                 EFI_HANDLE parent_image) {
 
-        _cleanup_(devicetree_cleanup) struct devicetree_state dtstate = {};
+        _cleanup_done(devicetree_state) struct devicetree_state dtstate = {};
         _cleanup_(unload_imagep) EFI_HANDLE image = NULL;
         EFI_STATUS err;
 
@@ -2812,9 +2812,9 @@ static EFI_STATUS call_image_start(
                 return log_error_status(err, "Error loading EFI binary %ls: %m", entry->loader);
         }
 
-        _cleanup_(cleanup_initrd) EFI_HANDLE initrd_handle = NULL;
+        _cleanup_done(initrd_handle) EFI_HANDLE initrd_handle = NULL;
         _cleanup_free_ char16_t *options_initrd = NULL;
-        _cleanup_pages_ Pages initrd_pages = {};
+        _cleanup_done(pages) Pages initrd_pages = {};
         size_t initrd_size = 0;
         if (image_root) {
                 err = initrd_prepare(image_root, entry, &options_initrd, &initrd_pages, &initrd_size);
@@ -2903,7 +2903,7 @@ static EFI_STATUS call_image_start(
         return log_error_status(err, "Failed to execute %ls (%ls): %m", entry->title_show, entry->loader ?: entry->url);
 }
 
-static void config_free(Config *config) {
+static void config_done(Config *config) {
         assert(config);
         for (size_t i = 0; i < config->n_entries; i++)
                 boot_entry_free(config->entries[i]);
@@ -3179,7 +3179,7 @@ static EFI_STATUS discover_root_dir(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, EFI
 static EFI_STATUS run(EFI_HANDLE image) {
         EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
         _cleanup_file_close_ EFI_FILE *root_dir = NULL;
-        _cleanup_(config_free) Config config = {};
+        _cleanup_done(config) Config config = {};
         EFI_STATUS err;
         uint64_t init_usec;
         bool menu = false;

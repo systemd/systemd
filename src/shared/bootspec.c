@@ -75,7 +75,7 @@ static void boot_entry_addons_done(BootEntryAddons *addons) {
         addons->n_items = 0;
 }
 
-static void boot_entry_free(BootEntry *entry) {
+static void boot_entry_done(BootEntry *entry) {
         assert(entry);
 
         free(entry->id);
@@ -188,7 +188,7 @@ static int parse_path_many(
                 char ***s,
                 const char *p) {
 
-        _cleanup_strv_free_ char **l = NULL, **f = NULL;
+        _cleanup_free(strv) char **l = NULL, **f = NULL;
         int r;
 
         l = strv_split(p, NULL);
@@ -321,7 +321,7 @@ static int boot_entry_load_type1(
                 const char *fname,
                 BootEntry *ret) {
 
-        _cleanup_(boot_entry_free) BootEntry tmp = BOOT_ENTRY_INIT(BOOT_ENTRY_TYPE1, source);
+        _cleanup_done(boot_entry) BootEntry tmp = BOOT_ENTRY_INIT(BOOT_ENTRY_TYPE1, source);
         char *c;
         int r;
 
@@ -459,7 +459,7 @@ int boot_config_load_type1(
         return 0;
 }
 
-void boot_config_free(BootConfig *config) {
+void boot_config_done(BootConfig *config) {
         assert(config);
 
         free(config->preferred_pattern);
@@ -472,7 +472,7 @@ void boot_config_free(BootConfig *config) {
         free(config->entry_sysfail);
 
         FOREACH_ARRAY(i, config->entries, config->n_entries)
-                boot_entry_free(i);
+                boot_entry_done(i);
         free(config->entries);
 
         FOREACH_ELEMENT(i, config->global_addons)
@@ -774,7 +774,7 @@ static int boot_entry_load_unified(
         if (r < 0)
                 return log_error_errno(r, "Failed to extract file name from '%s': %m", path);
 
-        _cleanup_(boot_entry_free) BootEntry tmp = BOOT_ENTRY_INIT(BOOT_ENTRY_TYPE2, source);
+        _cleanup_done(boot_entry) BootEntry tmp = BOOT_ENTRY_INIT(BOOT_ENTRY_TYPE2, source);
 
         r = boot_filename_extract_tries(fname, &tmp.id, &tmp.tries_left, &tmp.tries_done);
         if (r < 0)
@@ -1116,7 +1116,7 @@ static int boot_entries_find_unified_addons(
 
         _cleanup_closedir_ DIR *d = NULL;
         _cleanup_free_ char *full = NULL;
-        _cleanup_(boot_entry_addons_done) BootEntryAddons addons = {};
+        _cleanup_done(boot_entry_addons) BootEntryAddons addons = {};
         int r;
 
         assert(ret_addons);
@@ -1737,7 +1737,7 @@ static void print_addon(
 
 static int indent_embedded_newlines(char *cmdline, char **ret_cmdline) {
         _cleanup_free_ char *t = NULL;
-        _cleanup_strv_free_ char **ts = NULL;
+        _cleanup_free(strv) char **ts = NULL;
 
         assert(ret_cmdline);
 
@@ -1828,7 +1828,7 @@ static int json_cmdline(
                 sd_json_variant **v) {
 
         _cleanup_free_ char *combined_cmdline = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *addons_array = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *addons_array = NULL;
         int r;
 
         assert(e);
@@ -1980,7 +1980,7 @@ int show_boot_entry(
 }
 
 int boot_entry_to_json(const BootConfig *c, size_t i, sd_json_variant **ret) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         _cleanup_free_ char *opts = NULL;
         const BootEntry *e;
         int r;
@@ -2053,10 +2053,10 @@ int show_boot_entries(const BootConfig *config, sd_json_format_flags_t json_form
         assert(config);
 
         if (sd_json_format_enabled(json_format)) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *array = NULL;
 
                 for (size_t i = 0; i < config->n_entries; i++) {
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
 
                         r = boot_entry_to_json(config, i, &v);
                         if (r < 0)

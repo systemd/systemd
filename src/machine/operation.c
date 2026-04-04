@@ -61,7 +61,7 @@ static int operation_done(sd_event_source *s, const siginfo_t *si, void *userdat
                  * If o->done is not set, the default action is to simply return
                  * an error on failure or an empty success message on success. */
 
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
                 if (o->done)
                         r = o->done(o, r, &error);
 

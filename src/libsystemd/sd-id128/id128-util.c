@@ -279,7 +279,7 @@ sd_id128_t id128_digest(const void *data, size_t size) {
 
 int id128_get_boot_for_machine(const char *machine, sd_id128_t *ret) {
         _cleanup_close_ int pidnsfd = -EBADF, mntnsfd = -EBADF, rootfd = -EBADF;
-        _cleanup_(pidref_done) PidRef child = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef child = PIDREF_NULL;
         _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
         pid_t pid;
         sd_id128_t id;

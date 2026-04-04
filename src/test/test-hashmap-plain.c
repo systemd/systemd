@@ -19,7 +19,7 @@
 #endif
 
 TEST(hashmap_replace) {
-        _cleanup_hashmap_free_ Hashmap *m = NULL;
+        _cleanup_free(hashmap) Hashmap *m = NULL;
         _cleanup_free_ char *val1 = NULL, *val2 = NULL, *val3 = NULL, *val4 = NULL, *val5 = NULL;
         char *r;
 
@@ -51,7 +51,7 @@ TEST(hashmap_replace) {
 }
 
 TEST(hashmap_ensure_replace) {
-        _cleanup_hashmap_free_ Hashmap *m = NULL;
+        _cleanup_free(hashmap) Hashmap *m = NULL;
         _cleanup_free_ char *val1 = NULL, *val2 = NULL;
 
         val1 = strdup("val1");
@@ -75,7 +75,7 @@ TEST(hashmap_ensure_replace) {
 }
 
 TEST(hashmap_copy) {
-        _cleanup_hashmap_free_ Hashmap *m = NULL, *copy = NULL;
+        _cleanup_free(hashmap) Hashmap *m = NULL, *copy = NULL;
 
         ASSERT_NOT_NULL((m = hashmap_new(&string_hash_ops)));
 
@@ -93,8 +93,8 @@ TEST(hashmap_copy) {
 }
 
 TEST(hashmap_get_strv) {
-        _cleanup_hashmap_free_ Hashmap *m = NULL;
-        _cleanup_strv_free_ char **strv = NULL;
+        _cleanup_free(hashmap) Hashmap *m = NULL;
+        _cleanup_free(strv) char **strv = NULL;
         char *val1, *val2, *val3, *val4;
 
         val1 = strdup("val1");
@@ -126,7 +126,7 @@ TEST(hashmap_get_strv) {
 }
 
 TEST(hashmap_move_one) {
-        _cleanup_hashmap_free_ Hashmap *m = NULL, *n = NULL;
+        _cleanup_free(hashmap) Hashmap *m = NULL, *n = NULL;
         char *val1, *val2, *val3, *val4, *r;
 
         val1 = strdup("val1");
@@ -162,7 +162,7 @@ TEST(hashmap_move_one) {
 }
 
 TEST(hashmap_move) {
-        _cleanup_hashmap_free_ Hashmap *m = NULL, *n = NULL;
+        _cleanup_free(hashmap) Hashmap *m = NULL, *n = NULL;
         char *val1, *val2, *val3, *val4, *r;
 
         val1 = strdup("val1");
@@ -201,7 +201,7 @@ TEST(hashmap_move) {
 }
 
 TEST(hashmap_update) {
-        _cleanup_hashmap_free_ Hashmap *m = NULL;
+        _cleanup_free(hashmap) Hashmap *m = NULL;
         _cleanup_free_ char *val1 = NULL, *val2 = NULL;
         char *r;
 
@@ -225,7 +225,7 @@ TEST(hashmap_update) {
 }
 
 TEST(hashmap_put) {
-        _cleanup_hashmap_free_ Hashmap *m = NULL;
+        _cleanup_free(hashmap) Hashmap *m = NULL;
         int valid_hashmap_put;
         void *val1 = (void*) "val 1";
         void *val2 = (void*) "val 2";
@@ -244,7 +244,7 @@ TEST(hashmap_put) {
 }
 
 TEST(hashmap_remove1) {
-        _cleanup_hashmap_free_ Hashmap *m = NULL;
+        _cleanup_free(hashmap) Hashmap *m = NULL;
         char *r;
 
         r = hashmap_remove(NULL, "key 1");
@@ -268,7 +268,7 @@ TEST(hashmap_remove1) {
 }
 
 TEST(hashmap_remove2) {
-        _cleanup_hashmap_free_ Hashmap *m = NULL;
+        _cleanup_free(hashmap) Hashmap *m = NULL;
         char key1[] = "key 1";
         char key2[] = "key 2";
         char val1[] = "val 1";
@@ -299,7 +299,7 @@ TEST(hashmap_remove2) {
 }
 
 TEST(hashmap_remove_value) {
-        _cleanup_hashmap_free_ Hashmap *m = NULL;
+        _cleanup_free(hashmap) Hashmap *m = NULL;
         char *r;
 
         char val1[] = "val 1";
@@ -333,7 +333,7 @@ TEST(hashmap_remove_value) {
 }
 
 TEST(hashmap_remove_and_put) {
-        _cleanup_hashmap_free_ Hashmap *m = NULL;
+        _cleanup_free(hashmap) Hashmap *m = NULL;
         int valid;
         char *r;
 
@@ -363,7 +363,7 @@ TEST(hashmap_remove_and_put) {
 }
 
 TEST(hashmap_remove_and_replace) {
-        _cleanup_hashmap_free_ Hashmap *m = NULL;
+        _cleanup_free(hashmap) Hashmap *m = NULL;
         int valid;
         void *key1 = UINT_TO_PTR(1);
         void *key2 = UINT_TO_PTR(2);
@@ -419,7 +419,7 @@ TEST(hashmap_remove_and_replace) {
 }
 
 TEST(hashmap_ensure_allocated) {
-        _cleanup_hashmap_free_ Hashmap *m = NULL;
+        _cleanup_free(hashmap) Hashmap *m = NULL;
 
         ASSERT_OK_POSITIVE(hashmap_ensure_allocated(&m, &string_hash_ops));
         ASSERT_OK_ZERO(hashmap_ensure_allocated(&m, &string_hash_ops));
@@ -427,7 +427,7 @@ TEST(hashmap_ensure_allocated) {
 }
 
 TEST(hashmap_foreach_key) {
-        _cleanup_hashmap_free_ Hashmap *m = NULL;
+        _cleanup_free(hashmap) Hashmap *m = NULL;
         bool key_found[] = { false, false, false, false };
         const char *s;
         const char *key;
@@ -459,7 +459,7 @@ TEST(hashmap_foreach_key) {
 }
 
 TEST(hashmap_foreach) {
-        _cleanup_hashmap_free_ Hashmap *m = NULL;
+        _cleanup_free(hashmap) Hashmap *m = NULL;
         bool value_found[] = { false, false, false, false };
         char *val1, *val2, *val3, *val4, *s;
         unsigned count;
@@ -506,7 +506,7 @@ TEST(hashmap_foreach) {
 }
 
 TEST(hashmap_merge) {
-        _cleanup_hashmap_free_ Hashmap *m = NULL, *n = NULL;
+        _cleanup_free(hashmap) Hashmap *m = NULL, *n = NULL;
         char *val1, *val2, *val3, *val4, *r;
 
         val1 = strdup("my val1");
@@ -537,7 +537,7 @@ TEST(hashmap_merge) {
 }
 
 TEST(hashmap_contains) {
-        _cleanup_hashmap_free_ Hashmap *m = NULL;
+        _cleanup_free(hashmap) Hashmap *m = NULL;
         char *val1;
 
         val1 = strdup("my val");
@@ -556,7 +556,7 @@ TEST(hashmap_contains) {
 }
 
 TEST(hashmap_isempty) {
-        _cleanup_hashmap_free_ Hashmap *m = NULL;
+        _cleanup_free(hashmap) Hashmap *m = NULL;
         char *val1;
 
         val1 = strdup("my val");
@@ -572,7 +572,7 @@ TEST(hashmap_isempty) {
 }
 
 TEST(hashmap_size) {
-        _cleanup_hashmap_free_ Hashmap *m = NULL;
+        _cleanup_free(hashmap) Hashmap *m = NULL;
         char *val1, *val2, *val3, *val4;
 
         val1 = strdup("my val");
@@ -600,7 +600,7 @@ TEST(hashmap_size) {
 }
 
 TEST(hashmap_get) {
-        _cleanup_hashmap_free_ Hashmap *m = NULL;
+        _cleanup_free(hashmap) Hashmap *m = NULL;
         char *r;
         char *val;
 
@@ -624,7 +624,7 @@ TEST(hashmap_get) {
 }
 
 TEST(hashmap_get2) {
-        _cleanup_hashmap_free_ Hashmap *m = NULL;
+        _cleanup_free(hashmap) Hashmap *m = NULL;
         char *r;
         char *val;
         char key_orig[] = "Key 1";
@@ -759,7 +759,7 @@ TEST(hashmap_free) {
 }
 
 TEST(hashmap_first) {
-        _cleanup_hashmap_free_ Hashmap *m = NULL;
+        _cleanup_free(hashmap) Hashmap *m = NULL;
 
         m = hashmap_new(&string_hash_ops);
         assert_se(m);
@@ -776,7 +776,7 @@ TEST(hashmap_first) {
 }
 
 TEST(hashmap_first_key) {
-        _cleanup_hashmap_free_ Hashmap *m = NULL;
+        _cleanup_free(hashmap) Hashmap *m = NULL;
 
         m = hashmap_new(&string_hash_ops);
         assert_se(m);
@@ -793,7 +793,7 @@ TEST(hashmap_first_key) {
 }
 
 TEST(hashmap_steal_first_key) {
-        _cleanup_hashmap_free_ Hashmap *m = NULL;
+        _cleanup_free(hashmap) Hashmap *m = NULL;
 
         m = hashmap_new(&string_hash_ops);
         assert_se(m);
@@ -806,7 +806,7 @@ TEST(hashmap_steal_first_key) {
 }
 
 TEST(hashmap_steal_first) {
-        _cleanup_hashmap_free_ Hashmap *m = NULL;
+        _cleanup_free(hashmap) Hashmap *m = NULL;
         int seen[3] = {};
         char *val;
 
@@ -829,7 +829,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(test_hash_ops_key, char, string_hash
 DEFINE_PRIVATE_HASH_OPS_FULL(test_hash_ops_full, char, string_hash_func, string_compare_func, free, char, free);
 
 TEST(hashmap_clear) {
-        _cleanup_hashmap_free_ Hashmap *m = NULL;
+        _cleanup_free(hashmap) Hashmap *m = NULL;
 
         m = hashmap_new(&string_hash_ops_free_free);
         assert_se(m);
@@ -872,7 +872,7 @@ TEST(hashmap_clear) {
 }
 
 TEST(hashmap_reserve) {
-        _cleanup_hashmap_free_ Hashmap *m = NULL;
+        _cleanup_free(hashmap) Hashmap *m = NULL;
 
         m = hashmap_new(&string_hash_ops);
 
@@ -889,7 +889,7 @@ TEST(hashmap_reserve) {
 }
 
 TEST(path_hashmap) {
-        _cleanup_hashmap_free_ Hashmap *h = NULL;
+        _cleanup_free(hashmap) Hashmap *h = NULL;
 
         assert_se(h = hashmap_new(&path_hash_ops));
 
@@ -922,7 +922,7 @@ TEST(path_hashmap) {
 }
 
 TEST(string_strv_hashmap) {
-        _cleanup_hashmap_free_ Hashmap *m = NULL;
+        _cleanup_free(hashmap) Hashmap *m = NULL;
         char **s;
 
         assert_se(string_strv_hashmap_put(&m, "foo", "bar") == 1);
@@ -966,7 +966,7 @@ TEST(hashmap_dump_sorted) {
         static void * const expected[] = { UINT_TO_PTR(123U), UINT_TO_PTR(12U), UINT_TO_PTR(345U), };
         static const char *expected_keys[] = { "key 0", "key 1", "key 2", };
         static void * const expected_keys2[] = { UINT_TO_PTR(111U), UINT_TO_PTR(222U), UINT_TO_PTR(333U), };
-        _cleanup_hashmap_free_ Hashmap *m = NULL;
+        _cleanup_free(hashmap) Hashmap *m = NULL;
         _cleanup_free_ void **vals = NULL;
         size_t n;
 

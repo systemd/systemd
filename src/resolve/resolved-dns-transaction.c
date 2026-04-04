@@ -253,7 +253,7 @@ int dns_transaction_new(
                 DnsPacket *bypass,
                 uint64_t query_flags) {
 
-        _cleanup_(dns_transaction_freep) DnsTransaction *t = NULL;
+        _cleanup_free(dns_transaction) DnsTransaction *t = NULL;
         int r;
 
         assert(ret);
@@ -693,7 +693,7 @@ static uint16_t dns_transaction_port(DnsTransaction *t) {
 
 static int dns_transaction_emit_tcp(DnsTransaction *t) {
         usec_t stream_timeout_usec = DNS_STREAM_DEFAULT_TIMEOUT_USEC;
-        _cleanup_(dns_stream_unrefp) DnsStream *s = NULL;
+        _cleanup_unref(dns_stream) DnsStream *s = NULL;
         _cleanup_close_ int fd = -EBADF;
         union sockaddr_union sa;
         DnsStreamType type;
@@ -1458,7 +1458,7 @@ fail:
 }
 
 static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *p = NULL;
         DnsTransaction *t = ASSERT_PTR(userdata);
         int r;
 
@@ -1860,7 +1860,7 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
 }
 
 static int dns_packet_append_zone(DnsPacket *p, DnsTransaction *t, DnsResourceKey *k, unsigned *nscount) {
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *answer = NULL;
         bool tentative;
         int r;
 
@@ -1879,8 +1879,8 @@ static int dns_packet_append_zone(DnsPacket *p, DnsTransaction *t, DnsResourceKe
 }
 
 static int mdns_make_dummy_packet(DnsTransaction *t, DnsPacket **ret_packet, Set **ret_keys) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
-        _cleanup_set_free_ Set *keys = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *p = NULL;
+        _cleanup_free(set) Set *keys = NULL;
         bool add_known_answers = false;
         unsigned qdcount;
         usec_t ts;
@@ -1988,8 +1988,8 @@ static int mdns_make_dummy_packet(DnsTransaction *t, DnsPacket **ret_packet, Set
 }
 
 static int dns_transaction_make_packet_mdns(DnsTransaction *t) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL, *dummy = NULL;
-        _cleanup_set_free_ Set *keys = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *p = NULL, *dummy = NULL;
+        _cleanup_free(set) Set *keys = NULL;
         bool add_known_answers;
         DnsResourceKey *k;
         unsigned c;
@@ -2053,7 +2053,7 @@ static int dns_transaction_make_packet_mdns(DnsTransaction *t) {
 }
 
 static int dns_transaction_make_packet(DnsTransaction *t) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *p = NULL;
         int r;
 
         assert(t);
@@ -2307,7 +2307,7 @@ static int dns_transaction_add_dnssec_transaction(DnsTransaction *t, DnsResource
 }
 
 static int dns_transaction_request_dnssec_rr_full(DnsTransaction *t, DnsResourceKey *key, DnsTransaction **ret) {
-        _cleanup_(dns_answer_unrefp) DnsAnswer *a = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *a = NULL;
         DnsTransaction *aux;
         int r;
 
@@ -2499,7 +2499,7 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
 
                 case DNS_TYPE_RRSIG: {
                         /* For each RRSIG we request the matching DNSKEY */
-                        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *dnskey = NULL;
+                        _cleanup_unref(dns_resource_key) DnsResourceKey *dnskey = NULL;
                         DnsTransaction *aux;
 
                         /* If this RRSIG is about a DNSKEY RR and the
@@ -2545,7 +2545,7 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                          * in the near future. Let's request it in advance so we don't have to wait in the
                          * common case. */
                         if (aux) {
-                                _cleanup_(dns_resource_key_unrefp) DnsResourceKey *ds =
+                                _cleanup_unref(dns_resource_key) DnsResourceKey *ds =
                                         dns_resource_key_new(rr->key->class, DNS_TYPE_DS, dns_resource_key_name(dnskey));
                                 if (!ds)
                                         return -ENOMEM;
@@ -2558,7 +2558,7 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
 
                 case DNS_TYPE_DNSKEY: {
                         /* For each DNSKEY we request the matching DS */
-                        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *ds = NULL;
+                        _cleanup_unref(dns_resource_key) DnsResourceKey *ds = NULL;
 
                         /* If the DNSKEY we are looking at is not for
                          * zone we are interested in, nor any of its
@@ -2588,7 +2588,7 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
 
                 case DNS_TYPE_SOA:
                 case DNS_TYPE_NS: {
-                        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *ds = NULL;
+                        _cleanup_unref(dns_resource_key) DnsResourceKey *ds = NULL;
 
                         /* For an unsigned SOA or NS, try to acquire
                          * the matching DS RR, as we are at a zone cut
@@ -2651,7 +2651,7 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                 case DNS_TYPE_DS:
                 case DNS_TYPE_CNAME:
                 case DNS_TYPE_DNAME: {
-                        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *ds = NULL;
+                        _cleanup_unref(dns_resource_key) DnsResourceKey *ds = NULL;
                         const char *name;
 
                         /* CNAMEs and DNAMEs cannot be located at a
@@ -2700,7 +2700,7 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                                 return r;
 
                         if (t->scope->dnssec_mode == DNSSEC_ALLOW_DOWNGRADE && dns_name_is_root(name)) {
-                                _cleanup_(dns_resource_key_unrefp) DnsResourceKey *soa = NULL;
+                                _cleanup_unref(dns_resource_key) DnsResourceKey *soa = NULL;
                                 /* We made it all the way to the root zone. If we are in allow-downgrade
                                  * mode, we need to make at least one request that we can be certain should
                                  * have been signed, to test for servers that are not dnssec aware. */
@@ -2718,7 +2718,7 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                 }
 
                 default: {
-                        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *ds = NULL;
+                        _cleanup_unref(dns_resource_key) DnsResourceKey *ds = NULL;
 
                         /* For other unsigned RRsets (including
                          * NSEC/NSEC3!), look for proof the zone is
@@ -2781,7 +2781,7 @@ int dns_transaction_request_dnssec_keys(DnsTransaction *t) {
                                 name = NULL;
 
                 if (name) {
-                        _cleanup_(dns_resource_key_unrefp) DnsResourceKey *ds = NULL;
+                        _cleanup_unref(dns_resource_key) DnsResourceKey *ds = NULL;
 
                         log_debug("Requesting DS (%s %s) to validate transaction %" PRIu16 " (%s empty response).",
                                   glyph(GLYPH_ARROW_RIGHT), name, t->id,
@@ -3305,7 +3305,7 @@ static int dnssec_validate_records(
         /* Returns negative on error, 0 if validation failed, 1 to restart validation, 2 when finished. */
 
         DNS_ANSWER_FOREACH(rr, t->answer) {
-                _unused_ _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr_ref = dns_resource_record_ref(rr);
+                _unused_ _cleanup_unref(dns_resource_record) DnsResourceRecord *rr_ref = dns_resource_record_ref(rr);
                 DnsResourceRecord *rrsig = NULL;
                 DnssecResult result;
 
@@ -3586,7 +3586,7 @@ static int dnssec_validate_records(
 }
 
 int dns_transaction_validate_dnssec(DnsTransaction *t) {
-        _cleanup_(dns_answer_unrefp) DnsAnswer *validated = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *validated = NULL;
         Phase phase;
         DnsAnswerFlags flags;
         int r;

@@ -176,10 +176,10 @@ static void notify_bus_error(const sd_bus_error *error) {
 }
 
 static int verb_list_bus_names(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_strv_free_ char **acquired = NULL, **activatable = NULL;
+        _cleanup_free(strv) char **acquired = NULL, **activatable = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_hashmap_free_ Hashmap *names = NULL;
-        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_free(hashmap) Hashmap *names = NULL;
+        _cleanup_unref(table) Table *table = NULL;
         char *k;
         void *v;
         int r;
@@ -276,7 +276,7 @@ static int verb_list_bus_names(int argc, char *argv[], uintptr_t _data, void *us
                 return log_error_errno(r, "Failed to set columns to display: %m");
 
         HASHMAP_FOREACH_KEY(v, k, names) {
-                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+                _cleanup_unref(sd_bus_creds) sd_bus_creds *creds = NULL;
 
                 if (v == NAME_IS_ACTIVATABLE) {
                         r = table_add_many(
@@ -468,8 +468,8 @@ static int find_nodes(sd_bus *bus, const char *service, const char *path, Set *p
                 .on_path = on_path,
         };
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         const char *xml;
         int r;
 
@@ -493,7 +493,7 @@ static int find_nodes(sd_bus *bus, const char *service, const char *path, Set *p
 }
 
 static int tree_one(sd_bus *bus, const char *service) {
-        _cleanup_set_free_ Set *paths = NULL, *done = NULL, *failed = NULL;
+        _cleanup_free(set) Set *paths = NULL, *done = NULL, *failed = NULL;
         _cleanup_free_ char **l = NULL;
         int r;
 
@@ -568,7 +568,7 @@ static int verb_tree(int argc, char *argv[], uintptr_t _data, void *userdata) {
                         RET_GATHER(r, tree_one(bus, *arg));
                 }
         else {
-                _cleanup_strv_free_ char **names = NULL;
+                _cleanup_free(strv) char **names = NULL;
 
                 r = sd_bus_list_names(bus, &names, NULL);
                 if (r < 0)
@@ -812,7 +812,7 @@ static Member* member_free(Member *m) {
 DEFINE_TRIVIAL_CLEANUP_FUNC(Member*, member_free);
 
 static int on_interface(const char *interface, uint64_t flags, void *userdata) {
-        _cleanup_(member_freep) Member *m = NULL;
+        _cleanup_free(member) Member *m = NULL;
         Set *members = ASSERT_PTR(userdata);
         int r;
 
@@ -842,7 +842,7 @@ static int on_interface(const char *interface, uint64_t flags, void *userdata) {
 }
 
 static int on_method(const char *interface, const char *name, const char *signature, const char *result, uint64_t flags, void *userdata) {
-        _cleanup_(member_freep) Member *m = NULL;
+        _cleanup_free(member) Member *m = NULL;
         Set *members = userdata;
         int r;
 
@@ -885,7 +885,7 @@ static int on_method(const char *interface, const char *name, const char *signat
 }
 
 static int on_signal(const char *interface, const char *name, const char *signature, uint64_t flags, void *userdata) {
-        _cleanup_(member_freep) Member *m = NULL;
+        _cleanup_free(member) Member *m = NULL;
         Set *members = userdata;
         int r;
 
@@ -924,7 +924,7 @@ static int on_signal(const char *interface, const char *name, const char *signat
 }
 
 static int on_property(const char *interface, const char *name, const char *signature, bool writable, uint64_t flags, void *userdata) {
-        _cleanup_(member_freep) Member *m = NULL;
+        _cleanup_free(member) Member *m = NULL;
         Set *members = userdata;
         int r;
 
@@ -1005,9 +1005,9 @@ static int verb_introspect(int argc, char *argv[], uintptr_t _data, void *userda
         };
 
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply_xml = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_set_free_ Set *members = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply_xml = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free(set) Set *members = NULL;
         Member *m;
         const char *xml;
         int r;
@@ -1047,7 +1047,7 @@ static int verb_introspect(int argc, char *argv[], uintptr_t _data, void *userda
 
         /* Second, find the current values for them */
         SET_FOREACH(m, members) {
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+                _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
 
                 if (!streq(m->type, "property"))
                         continue;
@@ -1072,7 +1072,7 @@ static int verb_introspect(int argc, char *argv[], uintptr_t _data, void *userda
                         return bus_log_parse_error(r);
 
                 for (;;) {
-                        _cleanup_(memstream_done) MemStream ms = {};
+                        _cleanup_done(memstream) MemStream ms = {};
                         _cleanup_free_ char *buf = NULL;
                         const char *name, *contents;
                         Member *z;
@@ -1139,7 +1139,7 @@ static int verb_introspect(int argc, char *argv[], uintptr_t _data, void *userda
         if (r < 0)
                 return log_oom();
 
-        _cleanup_(table_unrefp) Table *table = table_new("name", "type", "signature", "result/value", "flags");
+        _cleanup_unref(table) Table *table = table_new("name", "type", "signature", "result/value", "flags");
         if (!table)
                 return log_oom();
 
@@ -1216,7 +1216,7 @@ static int message_pcap(sd_bus_message *m, FILE *f) {
 }
 
 static int message_json(sd_bus_message *m, FILE *f) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         int r;
 
         assert(m);
@@ -1234,8 +1234,8 @@ static int message_json(sd_bus_message *m, FILE *f) {
 
 static int monitor(int argc, char **argv, int (*dump)(sd_bus_message *m, FILE *f)) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *message = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *message = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         uint32_t flags = 0;
         const char *unique_name;
         bool is_monitor = false;
@@ -1317,7 +1317,7 @@ static int monitor(int argc, char **argv, int (*dump)(sd_bus_message *m, FILE *f
         (void) sd_notify(/* unset_environment=false */ false, "READY=1");
 
         for (;;) {
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+                _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
 
                 r = sd_bus_process(bus, &m);
                 if (r < 0)
@@ -1410,7 +1410,7 @@ static int verb_capture(int argc, char *argv[], uintptr_t _data, void *userdata)
 
 static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+        _cleanup_unref(sd_bus_creds) sd_bus_creds *creds = NULL;
         pid_t pid;
         int r;
 
@@ -1738,7 +1738,7 @@ static int bus_message_dump(sd_bus_message *m, uint64_t flags) {
         }
 
         if (sd_json_format_enabled(arg_json_format_flags)) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
 
                 if (arg_json_format_flags & (SD_JSON_FORMAT_PRETTY|SD_JSON_FORMAT_PRETTY_AUTO))
                         pager_open(arg_pager_flags);
@@ -1780,9 +1780,9 @@ static int bus_message_dump(sd_bus_message *m, uint64_t flags) {
 
 static int verb_call(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
-        _cleanup_fdset_free_ FDSet *passed_fdset = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_free(fdset) FDSet *passed_fdset = NULL;
         int r;
 
         r = acquire_bus(false, &bus);
@@ -1847,8 +1847,8 @@ static int verb_call(int argc, char *argv[], uintptr_t _data, void *userdata) {
 
 static int verb_emit_signal(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        _cleanup_fdset_free_ FDSet *passed_fdset = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
+        _cleanup_free(fdset) FDSet *passed_fdset = NULL;
         int r;
 
         r = acquire_bus(false, &bus);
@@ -1892,7 +1892,7 @@ static int verb_emit_signal(int argc, char *argv[], uintptr_t _data, void *userd
 
 static int verb_get_property(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         if (!service_name_is_valid(argv[1]))
@@ -1907,7 +1907,7 @@ static int verb_get_property(int argc, char *argv[], uintptr_t _data, void *user
                 return r;
 
         STRV_FOREACH(i, argv + 4) {
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+                _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
 
                 r = sd_bus_call_method(bus, argv[1], argv[2],
                                        "org.freedesktop.DBus.Properties", "Get",
@@ -1950,8 +1950,8 @@ static int on_bus_signal(sd_bus_message *msg, void *userdata, sd_bus_error *ret_
 
 static int verb_wait_signal(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
-        _cleanup_(sd_event_source_unrefp) sd_event_source *timer = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *timer = NULL;
         int argn = 1, r;
 
         const char *sender = argc == 5 ? argv[argn++] : NULL;
@@ -1998,9 +1998,9 @@ static int verb_wait_signal(int argc, char *argv[], uintptr_t _data, void *userd
 
 static int verb_set_property(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_fdset_free_ FDSet *passed_fdset = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free(fdset) FDSet *passed_fdset = NULL;
         char **p;
         int r;
 

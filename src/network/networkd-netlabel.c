@@ -28,7 +28,7 @@ static int netlabel_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link)
 }
 
 static int netlabel_command(uint16_t command, const char *label, const Address *address) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         int r;
 
         assert(command != NLBL_UNLABEL_C_UNSPEC && command < __NLBL_UNLABEL_C_MAX);

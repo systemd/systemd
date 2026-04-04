@@ -339,7 +339,7 @@ static int dns_stub_make_reply_packet(
                 DnsQuestion *q,
                 bool *ret_truncated) {
 
-        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *p = NULL;
         bool tc = false;
         int r;
 
@@ -605,7 +605,7 @@ static int dns_stub_send_reply(
                 DnsQuery *q,
                 int rcode) {
 
-        _cleanup_(dns_packet_unrefp) DnsPacket *reply = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *reply = NULL;
         bool truncated, edns0_do;
         int r;
 
@@ -660,7 +660,7 @@ static int dns_stub_send_failure(
                 int rcode,
                 bool authenticated) {
 
-        _cleanup_(dns_packet_unrefp) DnsPacket *reply = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *reply = NULL;
         bool truncated;
         int r;
 
@@ -700,7 +700,7 @@ static int dns_stub_patch_bypass_reply_packet(
                 DnsPacket *request,    /* The packet the patched packet shall look like a reply to */
                 bool validated,
                 bool authenticated) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *c = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *c = NULL;
         int r;
 
         assert(ret);
@@ -753,7 +753,7 @@ static int dns_stub_patch_bypass_reply_packet(
 }
 
 static void dns_stub_query_complete(DnsQuery *query) {
-        _cleanup_(dns_query_freep) DnsQuery *q = query;
+        _cleanup_free(dns_query) DnsQuery *q = query;
         int r;
 
         assert(q);
@@ -766,7 +766,7 @@ static void dns_stub_query_complete(DnsQuery *query) {
 
                 if (q->answer_full_packet &&
                     q->answer_full_packet->protocol == DNS_PROTOCOL_DNS) {
-                        _cleanup_(dns_packet_unrefp) DnsPacket *reply = NULL;
+                        _cleanup_unref(dns_packet) DnsPacket *reply = NULL;
 
                         r = dns_stub_patch_bypass_reply_packet(&reply, q->answer_full_packet, q->request_packet,
                                         /* validated= */ !FLAGS_SET(q->flags, SD_RESOLVED_NO_VALIDATE),
@@ -913,7 +913,7 @@ static int dns_stub_stream_complete(DnsStream *s, int error) {
 
 static void dns_stub_process_query(Manager *m, DnsStubListenerExtra *l, DnsStream *s, DnsPacket *p) {
         uint64_t protocol_flags = SD_RESOLVED_PROTOCOLS_ALL;
-        _cleanup_(dns_query_freep) DnsQuery *q = NULL;
+        _cleanup_free(dns_query) DnsQuery *q = NULL;
         Hashmap **queries_by_packet;
         DnsQuery *existing;
         bool bypass = false;
@@ -1054,7 +1054,7 @@ static void dns_stub_process_query(Manager *m, DnsStubListenerExtra *l, DnsStrea
 }
 
 static int on_dns_stub_packet_internal(sd_event_source *s, int fd, uint32_t revents, Manager *m, DnsStubListenerExtra *l) {
-        _cleanup_(dns_packet_unrefp) DnsPacket *p = NULL;
+        _cleanup_unref(dns_packet) DnsPacket *p = NULL;
         int r;
 
         r = manager_recv(m, fd, DNS_PROTOCOL_DNS, &p);

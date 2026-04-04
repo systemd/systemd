@@ -26,7 +26,7 @@
 #include "version.h"
 
 int run_udevd(int argc, char *argv[]) {
-        _cleanup_(manager_freep) Manager *manager = NULL;
+        _cleanup_free(manager) Manager *manager = NULL;
         int r;
 
         log_setup();
