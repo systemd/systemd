@@ -1,6 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <endian.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
 #include "alloc-util.h"
+#include "blockdev-util.h"
 #include "bus-polkit.h"
 #include "errno-util.h"
 #include "ether-addr-util.h"
@@ -336,11 +341,13 @@ static int qmp_detect_features(QmpClient *qmp, QemuFeatures *ret) {
         assert(qmp);
         assert(ret);
 
-        *ret = (QemuFeatures) {};
+        *ret = (QemuFeatures) { .io_uring = -1 };
 
         r = qmp_client_call(qmp, "query-qmp-schema", /* arguments= */ NULL, &schema, /* ret_error= */ NULL);
         if (r < 0)
                 return r;
+
+        ret->io_uring = 0; /* Schema probed successfully, assume unavailable until found */
 
         sd_json_variant *entry;
         JSON_VARIANT_ARRAY_FOREACH(entry, schema) {
@@ -357,40 +364,70 @@ static int qmp_detect_features(QmpClient *qmp, QemuFeatures *ret) {
                 JSON_VARIANT_ARRAY_FOREACH(member, members) {
                         sd_json_variant *mname = sd_json_variant_by_key(member, "name");
                         if (streq_ptr(sd_json_variant_string(mname), "io_uring")) {
-                                ret->io_uring = true;
+                                ret->io_uring = 1;
                                 break;
                         }
                 }
                 break;
         }
 
-        log_debug("QEMU feature detection: io_uring=%s", yes_no(ret->io_uring));
+        log_debug("QEMU feature detection: io_uring=%s", ret->io_uring > 0 ? "yes" : ret->io_uring < 0 ? "unprobed" : "no");
         return 0;
 }
 
-/* Build blockdev-add JSON arguments for a drive */
-static int qmp_build_blockdev_add(const QmpDriveInfo *drive, bool io_uring, sd_json_variant **ret) {
-        assert(drive);
+/* Build blockdev-add JSON for the protocol-level (file) node */
+static int qmp_build_blockdev_add_file(
+                const char *node_name,
+                const char *filename,
+                const char *driver,
+                bool io_uring,
+                bool read_only,
+                sd_json_variant **ret) {
+
+        assert(node_name);
+        assert(filename);
+        assert(driver);
         assert(ret);
 
-        /* aio and cache are members of BlockdevOptionsFile (the protocol-level driver), not of
-         * BlockdevOptions (the format-level base). They must be inside the "file" sub-object.
-         * discard is in the BlockdevOptions base and correctly stays at the top level.
-         * cache.direct=false uses the page cache (QEMU default). cache.no-flush=true suppresses
+        /* cache.direct=false uses the page cache (QEMU default). cache.no-flush=true suppresses
          * host flush on guest fsync, matching the old -blockdev CLI behavior. */
         return sd_json_buildo(
                         ret,
-                        SD_JSON_BUILD_PAIR_STRING("node-name", drive->node_name),
-                        SD_JSON_BUILD_PAIR_STRING("driver", drive->format),
-                        SD_JSON_BUILD_PAIR_CONDITION(drive->read_only, "read-only", SD_JSON_BUILD_BOOLEAN(true)),
-                        SD_JSON_BUILD_PAIR_CONDITION(drive->discard, "discard", SD_JSON_BUILD_STRING("unmap")),
-                        SD_JSON_BUILD_PAIR("file", SD_JSON_BUILD_OBJECT(
-                                        SD_JSON_BUILD_PAIR_STRING("driver", drive->is_block_device ? "host_device" : "file"),
-                                        SD_JSON_BUILD_PAIR_STRING("filename", drive->path),
-                                        SD_JSON_BUILD_PAIR_CONDITION(io_uring, "aio", SD_JSON_BUILD_STRING("io_uring")),
-                                        SD_JSON_BUILD_PAIR("cache", SD_JSON_BUILD_OBJECT(
-                                                        SD_JSON_BUILD_PAIR_BOOLEAN("direct", false),
-                                                        SD_JSON_BUILD_PAIR_BOOLEAN("no-flush", true))))));
+                        SD_JSON_BUILD_PAIR_STRING("node-name", node_name),
+                        SD_JSON_BUILD_PAIR_STRING("driver", driver),
+                        SD_JSON_BUILD_PAIR_STRING("filename", filename),
+                        SD_JSON_BUILD_PAIR_CONDITION(read_only, "read-only", SD_JSON_BUILD_BOOLEAN(true)),
+                        SD_JSON_BUILD_PAIR_CONDITION(io_uring, "aio", SD_JSON_BUILD_STRING("io_uring")),
+                        SD_JSON_BUILD_PAIR("cache", SD_JSON_BUILD_OBJECT(
+                                        SD_JSON_BUILD_PAIR_BOOLEAN("direct", false),
+                                        SD_JSON_BUILD_PAIR_BOOLEAN("no-flush", true))));
+}
+
+/* Build blockdev-add JSON for the format-level node */
+static int qmp_build_blockdev_add_format(
+                const char *node_name,
+                const char *format,
+                const char *file_node_name,
+                bool read_only,
+                bool discard,
+                const char *backing,
+                sd_json_variant **ret) {
+
+        assert(node_name);
+        assert(format);
+        assert(file_node_name);
+        assert(ret);
+
+        /* When "file" is a string (not an object), QEMU interprets it as a reference to an
+         * existing node-name. The "backing" field likewise references a format-level node. */
+        return sd_json_buildo(
+                        ret,
+                        SD_JSON_BUILD_PAIR_STRING("node-name", node_name),
+                        SD_JSON_BUILD_PAIR_STRING("driver", format),
+                        SD_JSON_BUILD_PAIR_STRING("file", file_node_name),
+                        SD_JSON_BUILD_PAIR_CONDITION(read_only, "read-only", SD_JSON_BUILD_BOOLEAN(true)),
+                        SD_JSON_BUILD_PAIR_CONDITION(discard, "discard", SD_JSON_BUILD_STRING("unmap")),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!backing, "backing", SD_JSON_BUILD_STRING(backing)));
 }
 
 /* Build device_add JSON arguments for a drive */
@@ -409,39 +446,234 @@ static int qmp_build_device_add(const QmpDriveInfo *drive, sd_json_variant **ret
                                                     "bus", SD_JSON_BUILD_STRING("vmspawn_scsi.0")));
 }
 
-/* Configure a single drive via synchronous QMP commands: blockdev-add to create the block
- * backend, device_add to attach it, and optionally blockdev-snapshot-sync for ephemeral
- * overlays. If blockdev-add with io_uring fails, retries without it. */
-static int qmp_setup_one_drive(QmpClient *qmp, const QmpDriveInfo *drive, bool io_uring) {
+/* Issue blockdev-add for a file node, with io_uring fallback */
+static int qmp_add_file_node(QmpClient *qmp, const char *node_name, const char *filename,
+                             const char *driver, bool read_only, QemuFeatures *features) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *args = NULL;
+        _cleanup_free_ char *error_class = NULL;
+        int r;
+
+        r = qmp_build_blockdev_add_file(node_name, filename, driver, features->io_uring > 0, read_only, &args);
+        if (r < 0)
+                return r;
+
+        r = qmp_client_call(qmp, "blockdev-add", args, /* ret_result= */ NULL, &error_class);
+        if (r == -EIO && features->io_uring > 0) {
+                log_debug("blockdev-add with aio=io_uring failed for '%s' (%s), retrying without",
+                          filename, strna(error_class));
+
+                args = sd_json_variant_unref(args);
+                error_class = mfree(error_class);
+
+                r = qmp_build_blockdev_add_file(node_name, filename, driver, /* io_uring= */ false, read_only, &args);
+                if (r < 0)
+                        return r;
+
+                r = qmp_client_call(qmp, "blockdev-add", args, /* ret_result= */ NULL, &error_class);
+                features->io_uring = 0;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to add file node '%s': %s", filename, strna(error_class));
+
+        return 0;
+}
+
+/* Get the virtual size of an image from the fd directly. For raw images the virtual size
+ * equals the file/device size. For qcow2 the virtual size is a big-endian uint64 at header
+ * offset 24 (the "size" field in the qcow2 header). */
+static int get_image_virtual_size(int fd, const char *format, bool is_block_device, uint64_t *ret) {
+        assert(fd >= 0);
+        assert(format);
+        assert(ret);
+
+        if (streq(format, "raw")) {
+                if (is_block_device)
+                        return blockdev_get_device_size(fd, ret);
+
+                struct stat st;
+                if (fstat(fd, &st) < 0)
+                        return log_error_errno(errno, "Failed to stat image: %m");
+
+                *ret = st.st_size;
+                return 0;
+        }
+
+        if (streq(format, "qcow2")) {
+                uint32_t magic;
+                ssize_t n = pread(fd, &magic, sizeof(magic), 0);
+                if (n < 0)
+                        return log_error_errno(errno, "Failed to read qcow2 magic: %m");
+                if (n != sizeof(magic) || be32toh(magic) != UINT32_C(0x514649fb))
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Not a valid qcow2 image (bad magic)");
+
+                uint64_t size_be;
+                n = pread(fd, &size_be, sizeof(size_be), 24);
+                if (n < 0)
+                        return log_error_errno(errno, "Failed to read qcow2 header: %m");
+                if (n != sizeof(size_be))
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Short read on qcow2 header");
+
+                *ret = be64toh(size_be);
+                return 0;
+        }
+
+        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Unsupported image format '%s'", format);
+}
+
+/* Run blockdev-create synchronously: issue the command and wait for the job to conclude
+ * via JOB_STATUS_CHANGE events. */
+static int qmp_blockdev_create_and_wait(QmpClient *qmp, sd_json_variant *options, const char *job_id) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *cmd_args = NULL;
+        _cleanup_free_ char *error_class = NULL;
+        int r;
+
+        assert(qmp);
+        assert(options);
+        assert(job_id);
+
+        r = sd_json_buildo(&cmd_args,
+                        SD_JSON_BUILD_PAIR_STRING("job-id", job_id),
+                        SD_JSON_BUILD_PAIR_VARIANT("options", options));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build blockdev-create JSON: %m");
+
+        r = qmp_client_call(qmp, "blockdev-create", cmd_args, /* ret_result= */ NULL, &error_class);
+        if (r < 0)
+                return log_error_errno(r, "Failed to start blockdev-create job '%s': %s", job_id, strna(error_class));
+
+        error_class = mfree(error_class);
+        r = qmp_client_job_wait(qmp, job_id, &error_class);
+        if (r < 0)
+                return log_error_errno(r, "blockdev-create job '%s' failed: %s", job_id, strna(error_class));
+
+        return 0;
+}
+
+/* Configure a single drive via QMP. Uses add-fd to pass pre-opened fds, split
+ * file/format blockdev-add nodes, and blockdev-create for ephemeral overlays. */
+static int qmp_setup_one_drive(QmpClient *qmp, const QmpDriveInfo *drive, QemuFeatures *features) {
         _cleanup_free_ char *error_class = NULL;
         int r;
 
         assert(qmp);
         assert(drive);
+        assert(drive->fd >= 0);
 
-        /* blockdev-add: create the block backend */
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *blockdev_args = NULL;
-        r = qmp_build_blockdev_add(drive, io_uring, &blockdev_args);
-        if (r < 0)
-                return r;
+        bool ephemeral = drive->overlay_fd >= 0;
 
-        r = qmp_client_call(qmp, "blockdev-add", blockdev_args, /* ret_result= */ NULL, &error_class);
-        if (r == -EIO && io_uring) {
-                log_debug("blockdev-add with aio=io_uring failed for '%s' (%s), retrying without",
-                          drive->path, strna(error_class));
+        if (ephemeral) {
+                /* Ephemeral mode: base image (read-only) + anonymous qcow2 overlay (read-write).
+                 * Node names: <name>-base-file, <name>-base-fmt, <name>-overlay-file, <name> */
+                const char *base_file_node = strjoina(drive->node_name, "-base-file");
+                const char *base_fmt_node = strjoina(drive->node_name, "-base-fmt");
+                const char *overlay_file_node = strjoina(drive->node_name, "-overlay-file");
 
-                blockdev_args = sd_json_variant_unref(blockdev_args);
-                error_class = mfree(error_class);
-
-                r = qmp_build_blockdev_add(drive, /* io_uring= */ false, &blockdev_args);
+                /* Step 1-2: Pass both fds to QEMU */
+                _cleanup_(qmp_fdset_done) QmpFdset base_fdset = {};
+                r = qmp_client_fdset_new(qmp, drive->fd, &base_fdset);
                 if (r < 0)
                         return r;
 
-                r = qmp_client_call(qmp, "blockdev-add", blockdev_args, /* ret_result= */ NULL, &error_class);
-                io_uring = false;
+                _cleanup_(qmp_fdset_done) QmpFdset overlay_fdset = {};
+                r = qmp_client_fdset_new(qmp, drive->overlay_fd, &overlay_fdset);
+                if (r < 0)
+                        return r;
+
+                /* Step 3: Base image file node (read-only) */
+                r = qmp_add_file_node(qmp, base_file_node, base_fdset.path,
+                                      drive->is_block_device ? "host_device" : "file",
+                                      /* read_only= */ true, features);
+                if (r < 0)
+                        return r;
+
+                /* Step 4: Base image format node (read-only) */
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *base_fmt_args = NULL;
+                r = qmp_build_blockdev_add_format(base_fmt_node, drive->format, base_file_node,
+                                                  /* read_only= */ true, /* discard= */ false, /* backing= */ NULL, &base_fmt_args);
+                if (r < 0)
+                        return r;
+
+                r = qmp_client_call(qmp, "blockdev-add", base_fmt_args, /* ret_result= */ NULL, &error_class);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add base format node for '%s': %s",
+                                               drive->path, strna(error_class));
+
+                /* Step 5: Overlay file node (read-write) */
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *overlay_file_args = NULL;
+                r = qmp_build_blockdev_add_file(overlay_file_node, overlay_fdset.path, "file",
+                                                /* io_uring= */ false, /* read_only= */ false, &overlay_file_args);
+                if (r < 0)
+                        return r;
+
+                error_class = mfree(error_class);
+                r = qmp_client_call(qmp, "blockdev-add", overlay_file_args, /* ret_result= */ NULL, &error_class);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add overlay file node for '%s': %s",
+                                               drive->path, strna(error_class));
+
+                /* Step 6: Get base image virtual size directly from the fd */
+                uint64_t virtual_size;
+                r = get_image_virtual_size(drive->fd, drive->format, drive->is_block_device, &virtual_size);
+                if (r < 0)
+                        return r;
+
+                /* Step 7: Format overlay as qcow2 via blockdev-create */
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *create_options = NULL;
+                r = sd_json_buildo(&create_options,
+                                SD_JSON_BUILD_PAIR_STRING("driver", "qcow2"),
+                                SD_JSON_BUILD_PAIR_STRING("file", overlay_file_node),
+                                SD_JSON_BUILD_PAIR_UNSIGNED("size", virtual_size),
+                                SD_JSON_BUILD_PAIR_STRING("backing-file", base_fmt_node),
+                                SD_JSON_BUILD_PAIR_STRING("backing-fmt", drive->format));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to build blockdev-create options: %m");
+
+                const char *job_id = strjoina("create-", drive->node_name);
+
+                r = qmp_blockdev_create_and_wait(qmp, create_options, job_id);
+                if (r < 0)
+                        return r;
+
+                /* Step 8: Open formatted overlay as qcow2 with backing reference */
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *overlay_fmt_args = NULL;
+                r = qmp_build_blockdev_add_format(drive->node_name, "qcow2", overlay_file_node,
+                                                  /* read_only= */ false, drive->discard, base_fmt_node, &overlay_fmt_args);
+                if (r < 0)
+                        return r;
+
+                error_class = mfree(error_class);
+                r = qmp_client_call(qmp, "blockdev-add", overlay_fmt_args, /* ret_result= */ NULL, &error_class);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add overlay format node for '%s': %s",
+                                               drive->path, strna(error_class));
+        } else {
+                /* Non-ephemeral: single file node + format node.
+                 * Node names: <name>-file, <name> */
+                const char *file_node_name = strjoina(drive->node_name, "-file");
+
+                _cleanup_(qmp_fdset_done) QmpFdset fdset = {};
+                r = qmp_client_fdset_new(qmp, drive->fd, &fdset);
+                if (r < 0)
+                        return r;
+
+                r = qmp_add_file_node(qmp, file_node_name, fdset.path,
+                                      drive->is_block_device ? "host_device" : "file",
+                                      drive->read_only, features);
+                if (r < 0)
+                        return r;
+
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *fmt_args = NULL;
+                r = qmp_build_blockdev_add_format(drive->node_name, drive->format, file_node_name,
+                                                  drive->read_only, drive->discard, /* backing= */ NULL, &fmt_args);
+                if (r < 0)
+                        return r;
+
+                error_class = mfree(error_class);
+                r = qmp_client_call(qmp, "blockdev-add", fmt_args, /* ret_result= */ NULL, &error_class);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add format node for '%s': %s",
+                                               drive->path, strna(error_class));
         }
-        if (r < 0)
-                return log_error_errno(r, "Failed to add block device '%s': %s", drive->path, strna(error_class));
 
         /* device_add: attach to virtual hardware */
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *device_args = NULL;
@@ -454,27 +686,9 @@ static int qmp_setup_one_drive(QmpClient *qmp, const QmpDriveInfo *drive, bool i
         if (r < 0)
                 return log_error_errno(r, "Failed to add device for '%s': %s", drive->path, strna(error_class));
 
-        /* blockdev-snapshot-sync: ephemeral overlay */
-        if (drive->snapshot_file) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *snap_args = NULL;
-                r = sd_json_buildo(
-                                &snap_args,
-                                SD_JSON_BUILD_PAIR_STRING("node-name", drive->node_name),
-                                SD_JSON_BUILD_PAIR_STRING("snapshot-file", drive->snapshot_file),
-                                SD_JSON_BUILD_PAIR_STRING("format", "qcow2"));
-                if (r < 0)
-                        return log_error_errno(r, "Failed to build blockdev-snapshot-sync JSON: %m");
-
-                error_class = mfree(error_class);
-                r = qmp_client_call(qmp, "blockdev-snapshot-sync", snap_args, /* ret_result= */ NULL, &error_class);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to create ephemeral snapshot for '%s': %s",
-                                               drive->path, strna(error_class));
-        }
-
         log_debug("Added drive '%s' via QMP (aio=%s%s)", drive->path,
-                   io_uring ? "io_uring" : "default",
-                   drive->snapshot_file ? ", ephemeral" : "");
+                   features->io_uring > 0 ? "io_uring" : "default",
+                   ephemeral ? ", ephemeral" : "");
 
         return 0;
 }
@@ -784,7 +998,7 @@ static int qmp_setup_scsi_controller(QmpClient *qmp) {
 int vmspawn_qmp_setup_drives(QmpClient *qmp, const QmpDriveInfo *drives, size_t n_drives) {
         int r;
 
-        QemuFeatures features = {};
+        QemuFeatures features = { .io_uring = -1 };
         r = qmp_detect_features(qmp, &features);
         if (r < 0)
                 log_warning_errno(r, "Failed to detect QEMU features, continuing with defaults: %m");
@@ -796,7 +1010,7 @@ int vmspawn_qmp_setup_drives(QmpClient *qmp, const QmpDriveInfo *drives, size_t 
         }
 
         for (size_t i = 0; i < n_drives; i++) {
-                r = qmp_setup_one_drive(qmp, &drives[i], features.io_uring);
+                r = qmp_setup_one_drive(qmp, &drives[i], &features);
                 if (r < 0)
                         return r;
         }
