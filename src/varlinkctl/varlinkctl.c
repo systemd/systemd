@@ -72,7 +72,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_push_fds, push_fds_done);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
-        _cleanup_(table_unrefp) Table *options = NULL;
+        _cleanup_(table_unrefp) Table *options = NULL, *verbs = NULL;
         int r;
 
         r = terminal_urlify_man("varlinkctl", "1", &link);
@@ -83,45 +83,42 @@ static int help(void) {
         if (r < 0)
                 return r;
 
+        r = verbs_get_help_table(&verbs);
+        if (r < 0)
+                return r;
+
+        (void) table_sync_column_widths(0, options, verbs);
+
         pager_open(arg_pager_flags);
 
-        printf("%1$s [OPTIONS...] COMMAND ...\n\n"
-               "%3$sIntrospect Varlink Services.%4$s\n"
-               "\n%2$sCommands:%4$s\n"
-               "  info ADDRESS           Show service information\n"
-               "  list-interfaces ADDRESS\n"
-               "                         List interfaces implemented by service\n"
-               "  list-methods ADDRESS [INTERFACE…]\n"
-               "                         List methods implemented by services or specific\n"
-               "                         interfaces\n"
-               "  introspect ADDRESS [INTERFACE…]\n"
-               "                         Show interface definition\n"
-               "  call ADDRESS METHOD [PARAMS]\n"
-               "                         Invoke method\n"
-               "  --exec call ADDRESS METHOD PARAMS -- CMDLINE…\n"
-               "                         Invoke method and pass response and fds to command\n"
-               "  list-registry          Show list of services in the service registry\n"
-               "  validate-idl [FILE]    Validate interface description\n"
-               "  help                   Show this help\n"
-               "\n%2$sOptions:%4$s\n",
+        printf("%s [OPTIONS...] COMMAND ...\n\n"
+               "%sIntrospect Varlink Services.%s\n"
+               "\nCommands:\n",
                program_invocation_short_name,
-               ansi_underline(),
                ansi_highlight(),
                ansi_normal());
+
+        r = table_print_or_warn(verbs);
+        if (r < 0)
+                return r;
+
+        printf("\nOptions:\n");
 
         r = table_print_or_warn(options);
         if (r < 0)
                 return r;
 
+        printf("\nWith --exec, specify the command to invoke:\n"
+               "  %s --exec call ADDRESS METHOD PARAMS -- CMDLINE…\n",
+               program_invocation_short_name);
+
         printf("\nSee the %s for details.\n", link);
         return 0;
 }
 
-static int verb_help(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        return help();
-}
+VERB_COMMON_HELP(help);
 
-static int parse_argv(int argc, char *argv[]) {
+static int parse_argv(int argc, char *argv[], char ***ret_args) {
         int r;
 
         assert(argc >= 0);
@@ -256,6 +253,7 @@ static int parse_argv(int argc, char *argv[]) {
 
         strv_sort_uniq(arg_graceful);
 
+        *ret_args = option_parser_get_args(&state);
         return 1;
 }
 
@@ -324,6 +322,8 @@ static void get_info_data_done(GetInfoData *d) {
         d->interfaces = strv_free(d->interfaces);
 }
 
+VERB(verb_info, "info", "ADDRESS", 2, 2, 0, "Show service information");
+VERB(verb_info, "list-interfaces", "ADDRESS", 2, 2, 0, "List interfaces implemented by service");
 static int verb_info(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         const char *url;
@@ -417,6 +417,9 @@ typedef struct GetInterfaceDescriptionData {
         const char *description;
 } GetInterfaceDescriptionData;
 
+VERB(verb_introspect, "introspect", "ADDRESS [INTERFACE…]", 2, VERB_ANY, 0, "Show interface definition");
+VERB(verb_introspect, "list-methods", "ADDRESS [INTERFACE…]", 2, VERB_ANY, 0,
+     "List methods implemented by services or specific interfaces");
 static int verb_introspect(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
         _cleanup_strv_free_ char **auto_interfaces = NULL;
@@ -742,6 +745,7 @@ static int varlink_call_and_upgrade(const char *url, const char *method, sd_json
         return 0;
 }
 
+VERB(verb_call, "call", "ADDRESS METHOD [PARAMS]", 3, VERB_ANY, 0, "Invoke method");
 static int verb_call(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *jp = NULL;
         _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
@@ -1015,6 +1019,7 @@ static int verb_call(int argc, char *argv[], uintptr_t _data, void *userdata) {
         return 0;
 }
 
+VERB(verb_validate_idl, "validate-idl", "[FILE]", 1, 2, 0, "Validate interface description");
 static int verb_validate_idl(int argc, char *argv[], uintptr_t _data, void *userdata) {
         _cleanup_(sd_varlink_interface_freep) sd_varlink_interface *vi = NULL;
         _cleanup_free_ char *text = NULL;
@@ -1064,6 +1069,7 @@ static int verb_validate_idl(int argc, char *argv[], uintptr_t _data, void *user
         return 0;
 }
 
+VERB_NOARG(verb_list_registry, "list-registry", "Show list of services in the service registry");
 static int verb_list_registry(int argc, char *argv[], uintptr_t _data, void *userdata) {
         int r;
 
@@ -1163,32 +1169,17 @@ static int verb_list_registry(int argc, char *argv[], uintptr_t _data, void *use
         return 0;
 }
 
-static int varlinkctl_main(int argc, char *argv[]) {
-        static const Verb verbs[] = {
-                { "info",            2,        2,        0, verb_info          },
-                { "list-interfaces", 2,        2,        0, verb_info          },
-                { "introspect",      2,        VERB_ANY, 0, verb_introspect    },
-                { "list-methods",    2,        VERB_ANY, 0, verb_introspect    },
-                { "call",            3,        VERB_ANY, 0, verb_call          },
-                { "list-registry",   VERB_ANY, 1,        0, verb_list_registry },
-                { "validate-idl",    1,        2,        0, verb_validate_idl  },
-                { "help",            VERB_ANY, VERB_ANY, 0, verb_help          },
-                {}
-        };
-
-        return dispatch_verb(argc, argv, verbs, NULL);
-}
-
 static int run(int argc, char *argv[]) {
         int r;
 
         log_setup();
 
-        r = parse_argv(argc, argv);
+        char **args = NULL;  /* unnecessary initialization to appease gcc <= 13 */
+        r = parse_argv(argc, argv, &args);
         if (r <= 0)
                 return r;
 
-        return varlinkctl_main(argc, argv);
+        return dispatch_verb_with_args(args, NULL);
 }
 
 DEFINE_MAIN_FUNCTION(run);
