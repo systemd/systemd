@@ -1354,8 +1354,6 @@ Features:
 * automatic boot assessment: add one more default success check that just waits
   for a bit after boot, and blesses the boot if the system stayed up that long.
 
-* systemd-repart: add support for generating ISO9660 images
-
 * systemd-repart: in addition to the existing "factory reset" mode (which
   simply empties existing partitions marked for that). add a mode where
   partitions marked for it are entirely removed. Use case: remove secondary OS
