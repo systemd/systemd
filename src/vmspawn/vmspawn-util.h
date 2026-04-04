@@ -39,6 +39,26 @@
 #  define ARCHITECTURE_SUPPORTS_CXL 0
 #endif
 
+#if defined(__x86_64__) || defined(__i386__) || defined(__arm__) || defined(__aarch64__) || defined(__riscv) || defined(__loongarch64)
+#  define ARCHITECTURE_SUPPORTS_FW_CFG 1
+#else
+#  define ARCHITECTURE_SUPPORTS_FW_CFG 0
+#endif
+
+/* QEMU's fw_cfg file path buffer is FW_CFG_MAX_FILE_PATH (56) bytes including NUL */
+#define QEMU_FW_CFG_MAX_KEY_LEN 55
+
+/* These match the kernel's COMMAND_LINE_SIZE for each architecture */
+#if defined(__loongarch64)
+#  define KERNEL_CMDLINE_SIZE 4096
+#elif defined(__x86_64__) || defined(__i386__) || defined(__aarch64__)
+#  define KERNEL_CMDLINE_SIZE 2048
+#elif defined(__arm__) || defined(__riscv)
+#  define KERNEL_CMDLINE_SIZE 1024
+#else
+#  define KERNEL_CMDLINE_SIZE 512
+#endif
+
 #if defined(__x86_64__) || defined(__i386__)
 #  define QEMU_MACHINE_TYPE "q35"
 #elif defined(__arm__) || defined(__aarch64__) || defined(__riscv) || defined(__loongarch64) || defined(__m68k__)
