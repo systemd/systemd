@@ -2447,18 +2447,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return r;
         }
 
-        r = qemu_config_section(config_file, "object", "rng0",
-                                "qom-type", "rng-random",
-                                "filename", "/dev/urandom");
-        if (r < 0)
-                return r;
-
-        r = qemu_config_section(config_file, "device", "rng-device0",
-                                "driver", "virtio-rng-pci",
-                                "rng", "rng0");
-        if (r < 0)
-                return r;
-
         r = qemu_config_section(config_file, "device", "balloon0",
                                 "driver", "virtio-balloon",
                                 "free-page-reporting", "on");
