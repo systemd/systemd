@@ -529,6 +529,87 @@ static int qmp_setup_network(QmpClient *qmp, const QmpNetworkInfo *network) {
         return 0;
 }
 
+static int qmp_setup_one_virtiofs(QmpClient *qmp, const QmpVirtiofsInfo *vfs) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *chardev_args = NULL, *device_args = NULL;
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *addr = NULL, *backend_data = NULL, *backend = NULL;
+        _cleanup_free_ char *error_class = NULL;
+        int r;
+
+        assert(qmp);
+        assert(vfs);
+        assert(vfs->id);
+        assert(vfs->socket_path);
+        assert(vfs->tag);
+
+        /* chardev-add: connect to virtiofsd socket.
+         * ChardevBackend and SocketAddressLegacy are QAPI legacy unions with explicit "data"
+         * wrapper objects at each level — the nesting is mandatory on the wire. Build bottom-up
+         * to keep each level readable. */
+        r = sd_json_buildo(
+                        &addr,
+                        SD_JSON_BUILD_PAIR_STRING("type", "unix"),
+                        SD_JSON_BUILD_PAIR("data", SD_JSON_BUILD_OBJECT(
+                                        SD_JSON_BUILD_PAIR_STRING("path", vfs->socket_path))));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build chardev address JSON for '%s': %m", vfs->id);
+
+        r = sd_json_buildo(
+                        &backend_data,
+                        SD_JSON_BUILD_PAIR_VARIANT("addr", addr),
+                        SD_JSON_BUILD_PAIR_BOOLEAN("server", false));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build chardev backend JSON for '%s': %m", vfs->id);
+
+        r = sd_json_buildo(
+                        &backend,
+                        SD_JSON_BUILD_PAIR_STRING("type", "socket"),
+                        SD_JSON_BUILD_PAIR_VARIANT("data", backend_data));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build chardev backend wrapper JSON for '%s': %m", vfs->id);
+
+        r = sd_json_buildo(
+                        &chardev_args,
+                        SD_JSON_BUILD_PAIR_STRING("id", vfs->id),
+                        SD_JSON_BUILD_PAIR_VARIANT("backend", backend));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build chardev-add JSON for '%s': %m", vfs->id);
+
+        r = qmp_client_call(qmp, "chardev-add", chardev_args, /* ret_result= */ NULL, &error_class);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add chardev '%s' via QMP: %s", vfs->id, strna(error_class));
+
+        /* device_add: create vhost-user-fs-pci device */
+        r = sd_json_buildo(
+                        &device_args,
+                        SD_JSON_BUILD_PAIR_STRING("driver", "vhost-user-fs-pci"),
+                        SD_JSON_BUILD_PAIR_STRING("id", vfs->id),
+                        SD_JSON_BUILD_PAIR_STRING("chardev", vfs->id),
+                        SD_JSON_BUILD_PAIR_STRING("tag", vfs->tag),
+                        SD_JSON_BUILD_PAIR_UNSIGNED("queue-size", 1024));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build virtiofs device_add JSON for '%s': %m", vfs->id);
+
+        error_class = mfree(error_class);
+        r = qmp_client_call(qmp, "device_add", device_args, /* ret_result= */ NULL, &error_class);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add virtiofs device '%s' via QMP: %s", vfs->id, strna(error_class));
+
+        log_debug("Added virtiofs device '%s' (tag=%s) via QMP", vfs->id, vfs->tag);
+        return 0;
+}
+
+static int qmp_setup_virtiofs(QmpClient *qmp, const QmpVirtiofsInfo *virtiofs, size_t n_virtiofs) {
+        int r;
+
+        for (size_t i = 0; i < n_virtiofs; i++) {
+                r = qmp_setup_one_virtiofs(qmp, &virtiofs[i]);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static bool drives_need_scsi_controller(const QmpDriveInfo *drives, size_t n_drives) {
         for (size_t i = 0; i < n_drives; i++)
                 if (STR_IN_SET(drives[i].disk_driver, "scsi-hd", "scsi-cd"))
@@ -581,7 +662,9 @@ int vmspawn_qmp_init(
                 sd_event *event,
                 const QmpDriveInfo *drives,
                 size_t n_drives,
-                const QmpNetworkInfo *network) {
+                const QmpNetworkInfo *network,
+                const QmpVirtiofsInfo *virtiofs,
+                size_t n_virtiofs) {
 
         _cleanup_(qmp_client_freep) QmpClient *qmp = NULL;
         _cleanup_close_ int fd = TAKE_FD(qmp_fd);
@@ -612,6 +695,11 @@ int vmspawn_qmp_init(
                 if (r < 0)
                         return r;
         }
+
+        /* Add virtiofs chardevs and devices via QMP */
+        r = qmp_setup_virtiofs(qmp, virtiofs, n_virtiofs);
+        if (r < 0)
+                return r;
 
         _cleanup_free_ char *cont_error = NULL;
         r = qmp_client_call(qmp, "cont", /* arguments= */ NULL, /* ret_result= */ NULL, &cont_error);
