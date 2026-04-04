@@ -7,6 +7,7 @@
 #include "sd-id128.h"
 
 #include "cleanup-util.h"
+#include "fd-util.h"
 #include "macro.h"
 
 typedef struct VmspawnVarlinkBridge VmspawnVarlinkBridge;
@@ -17,20 +18,22 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(VmspawnVarlinkBridge *, vmspawn_varlink_bridge_free)
 
 /* QEMU feature flags detected via QMP schema introspection */
 typedef struct QemuFeatures {
-        bool io_uring;     /* aio=io_uring for block devices */
+        int io_uring;          /* aio=io_uring: -1 unprobed, 0 unavailable, 1 available */
 } QemuFeatures;
 
 /* Drive info for QMP-based drive setup */
 typedef struct DriveInfo {
-        const char *path;
+        const char *path;          /* kept for logging only — not passed to QEMU */
         const char *format;        /* "raw" or "qcow2" */
         const char *disk_driver;   /* "virtio-blk-pci", "scsi-hd", "scsi-cd", "nvme" */
         char *serial;              /* owned */
         char *node_name;           /* owned */
-        const char *snapshot_file; /* if non-NULL, overlay with this temp file (ephemeral mode) */
+        int fd;                    /* pre-opened image fd (owned, -EBADF if unused) */
+        int overlay_fd;            /* pre-opened anonymous overlay fd for ephemeral (owned, -EBADF if unused) */
         bool is_block_device;
         bool read_only;
         bool discard;
+        bool no_flush;
         bool boot;
 } DriveInfo;
 
@@ -38,6 +41,8 @@ static inline void drive_info_done(DriveInfo *info) {
         assert(info);
         info->serial = mfree(info->serial);
         info->node_name = mfree(info->node_name);
+        info->fd = safe_close(info->fd);
+        info->overlay_fd = safe_close(info->overlay_fd);
 }
 
 typedef struct DriveInfos {
@@ -106,7 +111,7 @@ static inline void vsock_info_done(VsockInfo *info) {
         info->fd = safe_close(info->fd);
 }
 
-/* Phase 1: Connect to VMM backend. Connect to VMM backend. Returns an opaque bridge ready for device setup. */
+/* Phase 1: Connect to VMM backend. Returns an opaque bridge ready for device setup. */
 int vmspawn_varlink_init(VmspawnVarlinkBridge **ret, int qmp_fd, sd_event *event);
 
 /* Phase 2: Device setup — call any subset in any order before vmspawn_varlink_start(). */
