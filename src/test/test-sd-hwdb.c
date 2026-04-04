@@ -8,7 +8,7 @@
 #include "tests.h"
 
 TEST(failed_enumerate) {
-        _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
+        _cleanup_unref(sd_hwdb) sd_hwdb *hwdb = NULL;
         const char *key, *value;
 
         assert_se(sd_hwdb_new(&hwdb) == 0);
@@ -24,7 +24,7 @@ TEST(failed_enumerate) {
         "evdev:atkbd:dmi:bvnXXX:bvrYYY:bdZZZ:svnDellXXX:pnYYY:"
 
 TEST(basic_enumerate) {
-        _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
+        _cleanup_unref(sd_hwdb) sd_hwdb *hwdb = NULL;
         const char *key, *value;
         size_t len1 = 0, len2 = 0;
         int r;
@@ -53,7 +53,7 @@ TEST(basic_enumerate) {
 }
 
 TEST(sd_hwdb_new_from_path) {
-        _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
+        _cleanup_unref(sd_hwdb) sd_hwdb *hwdb = NULL;
         int r;
 
         ASSERT_RETURN_EXPECTED_SE(sd_hwdb_new_from_path(NULL, &hwdb) == -EINVAL);
@@ -70,7 +70,7 @@ TEST(sd_hwdb_new_from_path) {
 }
 
 static int intro(void) {
-        _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
+        _cleanup_unref(sd_hwdb) sd_hwdb *hwdb = NULL;
         int r;
 
         r = sd_hwdb_new(&hwdb);

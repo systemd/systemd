@@ -33,7 +33,7 @@ enum SessionDeviceNotifications {
 };
 
 static int session_device_notify(SessionDevice *sd, enum SessionDeviceNotifications type) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
         _cleanup_free_ char *path = NULL;
         const char *t = NULL;
         uint32_t major, minor;
@@ -295,7 +295,7 @@ static DeviceType detect_device_type(sd_device *dev) {
 }
 
 static int session_device_verify(SessionDevice *sd) {
-        _cleanup_(sd_device_unrefp) sd_device *p = NULL;
+        _cleanup_unref(sd_device) sd_device *p = NULL;
         const char *sp, *node;
         sd_device *dev;
         int r;

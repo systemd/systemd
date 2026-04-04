@@ -101,7 +101,7 @@ int vl_method_get_user_record(sd_varlink *link, sd_json_variant *parameters, sd_
                         if (!user_match_lookup_parameters(&p, d->name, uid))
                                 continue;
 
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
                         r = build_user_json(d->name, uid, &v);
                         if (r < 0)
                                 return r;
@@ -124,7 +124,7 @@ int vl_method_get_user_record(sd_varlink *link, sd_json_variant *parameters, sd_
         if (!user_match_lookup_parameters(&p, un, uid))
                 return sd_varlink_error(link, "io.systemd.UserDatabase.ConflictingRecordFound", NULL);
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         r = build_user_json(un, uid, &v);
         if (r < 0)
                 return r;
@@ -210,7 +210,7 @@ int vl_method_get_group_record(sd_varlink *link, sd_json_variant *parameters, sd
                         if (!group_match_lookup_parameters(&p, d->name, (gid_t) uid))
                                 continue;
 
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
                         r = build_group_json(d->name, (gid_t) uid, &v);
                         if (r < 0)
                                 return r;
@@ -233,7 +233,7 @@ int vl_method_get_group_record(sd_varlink *link, sd_json_variant *parameters, sd
         if (!group_match_lookup_parameters(&p, gn, gid))
                 return sd_varlink_error(link, "io.systemd.UserDatabase.ConflictingRecordFound", NULL);
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         r = build_group_json(gn, gid, &v);
         if (r < 0)
                 return r;

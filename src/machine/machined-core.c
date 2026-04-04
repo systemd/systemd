@@ -22,7 +22,7 @@
 #include "user-util.h"
 
 int manager_get_machine_by_pidref(Manager *m, const PidRef *pidref, Machine **ret) {
-        _cleanup_(pidref_done) PidRef current = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef current = PIDREF_NULL;
         Machine *mm = NULL;
 
         assert(m);
@@ -46,7 +46,7 @@ int manager_get_machine_by_pidref(Manager *m, const PidRef *pidref, Machine **re
                 /* Maybe this process is in per-user unit? If so, let's go up the process tree, and check
                  * that, we should eventually hit PID 1 of the container tree, which we should be able to
                  * recognize. */
-                _cleanup_(pidref_done) PidRef parent = PIDREF_NULL;
+                _cleanup_done(pidref) PidRef parent = PIDREF_NULL;
                 if (pidref_get_ppid_as_pidref(pidref, &parent) < 0)
                         break;
 
@@ -226,7 +226,7 @@ int machine_get_addresses(Machine *machine, struct local_address **ret_addresses
         }
 
         case MACHINE_CONTAINER: {
-                _cleanup_(pidref_done) PidRef child = PIDREF_NULL;
+                _cleanup_done(pidref) PidRef child = PIDREF_NULL;
                 _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
                 _cleanup_close_ int netns_fd = -EBADF;
                 int r;
@@ -327,7 +327,7 @@ int machine_get_addresses(Machine *machine, struct local_address **ret_addresses
 #define EXIT_NOT_FOUND 2
 
 int machine_get_os_release(Machine *machine, char ***ret_os_release) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         int r;
 
         assert(machine);
@@ -344,7 +344,7 @@ int machine_get_os_release(Machine *machine, char ***ret_os_release) {
 
         case MACHINE_CONTAINER: {
                 _cleanup_close_ int mntns_fd = -EBADF, root_fd = -EBADF, pidns_fd = -EBADF;
-                _cleanup_(pidref_done) PidRef child = PIDREF_NULL;
+                _cleanup_done(pidref) PidRef child = PIDREF_NULL;
                 _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
                 _cleanup_fclose_ FILE *f = NULL;
 
@@ -458,7 +458,7 @@ int manager_acquire_image(Manager *m, const char *name, Image **ret) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to enable source: %m") ;
 
-        _cleanup_(image_unrefp) Image *image = NULL;
+        _cleanup_unref(image) Image *image = NULL;
         r = image_find(m->runtime_scope, IMAGE_MACHINE, name, NULL, &image);
         if (r < 0)
                 return log_debug_errno(r, "Failed to find image: %m");

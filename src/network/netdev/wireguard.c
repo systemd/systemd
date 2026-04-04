@@ -77,8 +77,8 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 WireguardPeer, wireguard_peer_free);
 
 static int wireguard_peer_new_static(Wireguard *w, const char *filename, unsigned section_line, WireguardPeer **ret) {
-        _cleanup_(config_section_freep) ConfigSection *n = NULL;
-        _cleanup_(wireguard_peer_freep) WireguardPeer *peer = NULL;
+        _cleanup_free(config_section) ConfigSection *n = NULL;
+        _cleanup_free(wireguard_peer) WireguardPeer *peer = NULL;
         int r;
 
         assert(w);
@@ -231,7 +231,7 @@ cancel:
 }
 
 static int wireguard_set_interface(NetDev *netdev) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *message = NULL;
         WireguardIPmask *mask_start = NULL;
         bool sent_once = false;
         uint32_t serial;
@@ -1221,7 +1221,7 @@ static int wireguard_verify(NetDev *netdev, const char *filename) {
                         continue;
 
                 LIST_FOREACH(ipmasks, ipmask, peer->ipmasks) {
-                        _cleanup_(route_unrefp) Route *route = NULL;
+                        _cleanup_unref(route) Route *route = NULL;
 
                         r = route_new(&route);
                         if (r < 0)

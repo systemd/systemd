@@ -140,7 +140,7 @@ static int oci_console_size(const char *name, sd_json_variant *v, sd_json_dispat
 }
 
 static int oci_args(const char *name, sd_json_variant *v, sd_json_dispatch_flags_t flags, void *userdata) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         char ***value = ASSERT_PTR(userdata);
         int r;
 
@@ -488,7 +488,7 @@ static int oci_mounts(const char *name, sd_json_variant *v, sd_json_dispatch_fla
                 };
 
                 _cleanup_free_ char *joined_options = NULL;
-                _cleanup_(oci_mount_data_done) oci_mount_data data = {};
+                _cleanup_done(oci_mount_data) oci_mount_data data = {};
                 CustomMount *m;
 
                 r = oci_dispatch(e, table, flags, &data);
@@ -583,7 +583,7 @@ static int oci_namespaces(const char *name, sd_json_variant *v, sd_json_dispatch
         int r;
 
         JSON_VARIANT_ARRAY_FOREACH(e, v) {
-                _cleanup_(namespace_data_done) struct namespace_data data = {};
+                _cleanup_done(namespace_data) struct namespace_data data = {};
 
                 static const sd_json_dispatch_field table[] = {
                         { "type", SD_JSON_VARIANT_STRING, oci_namespace_type, offsetof(struct namespace_data, type), SD_JSON_MANDATORY },
@@ -1440,7 +1440,7 @@ static int oci_cgroup_pids(const char *name, sd_json_variant *v, sd_json_dispatc
                 {}
         };
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *k = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *k = NULL;
         Settings *s = ASSERT_PTR(userdata);
         uint64_t m;
         int r;
@@ -1769,7 +1769,7 @@ static int oci_seccomp_syscalls(const char *name, sd_json_variant *v, sd_json_di
                         { "args",   SD_JSON_VARIANT_ARRAY,  oci_seccomp_args,      0,                                     0              },
                         {}
                 };
-                _cleanup_(syscall_rule_done) struct syscall_rule rule = {
+                _cleanup_done(syscall_rule) struct syscall_rule rule = {
                         .action = UINT32_MAX,
                 };
 
@@ -2074,8 +2074,8 @@ int oci_load(FILE *f, const char *bundle, Settings **ret) {
                 {}
         };
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *oci = NULL;
-        _cleanup_(settings_freep) Settings *s = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *oci = NULL;
+        _cleanup_free(settings) Settings *s = NULL;
         unsigned line = 0, column = 0;
         sd_json_variant *v;
         const char *path;

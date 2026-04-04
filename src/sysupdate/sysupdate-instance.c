@@ -15,7 +15,7 @@ int instance_new(
                 const InstanceMetadata *f,
                 Instance **ret) {
 
-        _cleanup_(instance_freep) Instance *i = NULL;
+        _cleanup_free(instance) Instance *i = NULL;
         _cleanup_free_ char *p = NULL, *v = NULL;
 
         assert(rr);

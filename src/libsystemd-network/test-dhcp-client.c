@@ -46,7 +46,7 @@ static be32_t xid;
 
 TEST(dhcp_client_setters) {
         /* Initialize client without Anonymize settings. */
-        _cleanup_(sd_dhcp_client_unrefp) sd_dhcp_client *client = NULL;
+        _cleanup_unref(sd_dhcp_client) sd_dhcp_client *client = NULL;
         ASSERT_OK(sd_dhcp_client_new(&client, /* anonymize= */ false));
         ASSERT_NOT_NULL(client);
 
@@ -92,7 +92,7 @@ TEST(dhcp_client_setters) {
 
 TEST(dhcp_client_anonymize) {
         /* Initialize client with Anonymize settings. */
-        _cleanup_(sd_dhcp_client_unrefp) sd_dhcp_client *client = NULL;
+        _cleanup_unref(sd_dhcp_client) sd_dhcp_client *client = NULL;
         ASSERT_OK(sd_dhcp_client_new(&client, /* anonymize= */ true));
         ASSERT_NOT_NULL(client);
 
@@ -228,11 +228,11 @@ static void test_discover_message_verify(size_t size, struct DHCPMessage *dhcp) 
 }
 
 TEST(discover_message) {
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
         ASSERT_OK(sd_event_new(&e));
         ASSERT_NOT_NULL(e);
 
-        _cleanup_(sd_dhcp_client_unrefp) sd_dhcp_client *client = NULL;
+        _cleanup_unref(sd_dhcp_client) sd_dhcp_client *client = NULL;
         ASSERT_OK(sd_dhcp_client_new(&client, /* anonymize= */ false));
         ASSERT_NOT_NULL(client);
 
@@ -415,11 +415,11 @@ static void test_addr_acq_recv_discover(size_t size, DHCPMessage *discover) {
 }
 
 TEST(addr_acq) {
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
         ASSERT_OK(sd_event_new(&e));
         ASSERT_NOT_NULL(e);
 
-        _cleanup_(sd_dhcp_client_unrefp) sd_dhcp_client *client = NULL;
+        _cleanup_unref(sd_dhcp_client) sd_dhcp_client *client = NULL;
         ASSERT_OK(sd_dhcp_client_new(&client, /* anonymize= */ false));
         ASSERT_NOT_NULL(client);
 
@@ -590,11 +590,11 @@ static void test_bootp_recv_request(size_t size, DHCPMessage *request) {
 };
 
 static void test_bootp_one(void) {
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
         ASSERT_OK(sd_event_new(&e));
         ASSERT_NOT_NULL(e);
 
-        _cleanup_(sd_dhcp_client_unrefp) sd_dhcp_client *client = NULL;
+        _cleanup_unref(sd_dhcp_client) sd_dhcp_client *client = NULL;
         ASSERT_OK(sd_dhcp_client_new(&client, /* anonymize= */ false));
         ASSERT_NOT_NULL(client);
 

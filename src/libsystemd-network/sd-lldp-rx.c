@@ -61,7 +61,7 @@ static int lldp_rx_make_space(sd_lldp_rx *lldp_rx, size_t extra) {
          * are free. */
 
         for (;;) {
-                _cleanup_(sd_lldp_neighbor_unrefp) sd_lldp_neighbor *n = NULL;
+                _cleanup_unref(sd_lldp_neighbor) sd_lldp_neighbor *n = NULL;
 
                 n = prioq_peek(lldp_rx->neighbor_by_expiry);
                 if (!n)
@@ -113,7 +113,7 @@ static bool lldp_rx_keep_neighbor(sd_lldp_rx *lldp_rx, sd_lldp_neighbor *n) {
 static int lldp_rx_start_timer(sd_lldp_rx *lldp_rx, sd_lldp_neighbor *neighbor);
 
 static int lldp_rx_add_neighbor(sd_lldp_rx *lldp_rx, sd_lldp_neighbor *n) {
-        _cleanup_(sd_lldp_neighbor_unrefp) sd_lldp_neighbor *old = NULL;
+        _cleanup_unref(sd_lldp_neighbor) sd_lldp_neighbor *old = NULL;
         bool keep;
         int r;
 
@@ -194,7 +194,7 @@ static int lldp_rx_handle_datagram(sd_lldp_rx *lldp_rx, sd_lldp_neighbor *n) {
 }
 
 static int lldp_rx_receive_datagram(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
-        _cleanup_(sd_lldp_neighbor_unrefp) sd_lldp_neighbor *n = NULL;
+        _cleanup_unref(sd_lldp_neighbor) sd_lldp_neighbor *n = NULL;
         ssize_t space, length;
         sd_lldp_rx *lldp_rx = ASSERT_PTR(userdata);
         struct timespec ts;
@@ -398,7 +398,7 @@ static sd_lldp_rx *lldp_rx_free(sd_lldp_rx *lldp_rx) {
 DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_lldp_rx, sd_lldp_rx, lldp_rx_free);
 
 int sd_lldp_rx_new(sd_lldp_rx **ret) {
-        _cleanup_(sd_lldp_rx_unrefp) sd_lldp_rx *lldp_rx = NULL;
+        _cleanup_unref(sd_lldp_rx) sd_lldp_rx *lldp_rx = NULL;
 
         assert_return(ret, -EINVAL);
 
@@ -495,7 +495,7 @@ int sd_lldp_rx_get_neighbors(sd_lldp_rx *lldp_rx, sd_lldp_neighbor ***ret) {
 }
 
 int lldp_rx_build_neighbors_json(sd_lldp_rx *lldp_rx, sd_json_variant **ret) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         int r;
 
         assert(lldp_rx);
@@ -503,7 +503,7 @@ int lldp_rx_build_neighbors_json(sd_lldp_rx *lldp_rx, sd_json_variant **ret) {
 
         sd_lldp_neighbor *n;
         HASHMAP_FOREACH(n, lldp_rx->neighbor_by_id) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *w = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *w = NULL;
 
                 r = lldp_neighbor_build_json(n, &w);
                 if (r < 0)

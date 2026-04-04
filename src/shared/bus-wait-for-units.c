@@ -113,7 +113,7 @@ static int match_disconnected(sd_bus_message *m, void *userdata, sd_bus_error *r
 }
 
 int bus_wait_for_units_new(sd_bus *bus, BusWaitForUnits **ret) {
-        _cleanup_(bus_wait_for_units_freep) BusWaitForUnits *d = NULL;
+        _cleanup_free(bus_wait_for_units) BusWaitForUnits *d = NULL;
         int r;
 
         assert(bus);
@@ -283,7 +283,7 @@ int bus_wait_for_units_add_unit(
                 bus_wait_for_units_unit_callback_t callback,
                 void *userdata) {
 
-        _cleanup_(wait_for_item_freep) WaitForItem *item = NULL;
+        _cleanup_free(wait_for_item) WaitForItem *item = NULL;
         _cleanup_free_ char *bus_path = NULL;
         int r;
 

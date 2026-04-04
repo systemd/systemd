@@ -58,8 +58,8 @@ static int sr_iov_new(SRIOV **ret) {
 }
 
 static int sr_iov_new_static(OrderedHashmap **sr_iov_by_section, const char *filename, unsigned section_line, SRIOV **ret) {
-        _cleanup_(config_section_freep) ConfigSection *n = NULL;
-        _cleanup_(sr_iov_freep) SRIOV *sr_iov = NULL;
+        _cleanup_free(config_section) ConfigSection *n = NULL;
+        _cleanup_free(sr_iov) SRIOV *sr_iov = NULL;
         SRIOV *existing = NULL;
         int r;
 
@@ -381,7 +381,7 @@ static int sr_iov_section_verify(uint32_t num_vfs, SRIOV *sr_iov) {
 }
 
 int sr_iov_drop_invalid_sections(uint32_t num_vfs, OrderedHashmap *sr_iov_by_section) {
-        _cleanup_set_free_ Set *set = NULL;
+        _cleanup_free(set) Set *set = NULL;
         SRIOV *sr_iov;
         int r;
 

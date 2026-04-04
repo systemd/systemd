@@ -220,7 +220,7 @@ static int simplex_forward_new(
                 void *userdata,
                 SimplexForward **ret) {
 
-        _cleanup_(simplex_forward_freep) SimplexForward *fwd = NULL;
+        _cleanup_free(simplex_forward) SimplexForward *fwd = NULL;
         int r;
 
         assert(event);
@@ -329,7 +329,7 @@ int socket_forward_new_pair(
                             server_write_fd_close = server_write_fd,
                             client_read_fd_close = client_read_fd,
                             client_write_fd_close = client_write_fd;
-        _cleanup_(socket_forward_freep) SocketForward *sf = NULL;
+        _cleanup_free(socket_forward) SocketForward *sf = NULL;
         int r;
 
         assert(event);

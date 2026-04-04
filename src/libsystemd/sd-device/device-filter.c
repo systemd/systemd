@@ -45,7 +45,7 @@ int update_match_strv(Hashmap **match_strv, const char *key, const char *value, 
                         return r;
 
         } else {
-                _cleanup_strv_free_ char **strv_alloc = NULL;
+                _cleanup_free(strv) char **strv_alloc = NULL;
                 _cleanup_free_ char *key_alloc = NULL;
 
                 key_alloc = strdup(key);

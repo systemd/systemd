@@ -171,7 +171,7 @@ int netlink_add_match_internal(
 
 /* Make sure callbacks don't destroy the netlink connection */
 #define NETLINK_DONT_DESTROY(nl) \
-        _cleanup_(sd_netlink_unrefp) _unused_ sd_netlink *_dont_destroy_##nl = sd_netlink_ref(nl)
+        _cleanup_unref(sd_netlink) _unused_ sd_netlink *_dont_destroy_##nl = sd_netlink_ref(nl)
 
 bool nfproto_is_valid(int nfproto);
 

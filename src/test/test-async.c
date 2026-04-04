@@ -16,7 +16,7 @@
 #include "tmpfile-util.h"
 
 TEST(asynchronous_sync) {
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         ASSERT_OK(asynchronous_sync(&pidref));
         ASSERT_OK(pidref_wait_for_terminate(&pidref, NULL));
 }

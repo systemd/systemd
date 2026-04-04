@@ -170,7 +170,7 @@ static int sync_req_add_stream(SyncReq *req, StdoutStream *ss) {
         if (v <= 0)
                 return 0; /* Pending messages are zero anyway? then there's nothing to track */
 
-        _cleanup_(stream_sync_req_freep) StreamSyncReq *ssr = new(StreamSyncReq, 1);
+        _cleanup_free(stream_sync_req) StreamSyncReq *ssr = new(StreamSyncReq, 1);
         if (!ssr)
                 return -ENOMEM;
 
@@ -194,7 +194,7 @@ int sync_req_new(Manager *m, sd_varlink *link, SyncReq **ret) {
         assert(link);
         assert(ret);
 
-        _cleanup_(sync_req_freep) SyncReq *req = new(SyncReq, 1);
+        _cleanup_free(sync_req) SyncReq *req = new(SyncReq, 1);
         if (!req)
                 return -ENOMEM;
 

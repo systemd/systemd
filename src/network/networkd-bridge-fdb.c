@@ -52,8 +52,8 @@ static int bridge_fdb_new_static(
                 unsigned section_line,
                 BridgeFDB **ret) {
 
-        _cleanup_(config_section_freep) ConfigSection *n = NULL;
-        _cleanup_(bridge_fdb_freep) BridgeFDB *fdb = NULL;
+        _cleanup_free(config_section) ConfigSection *n = NULL;
+        _cleanup_free(bridge_fdb) BridgeFDB *fdb = NULL;
         int r;
 
         assert(network);
@@ -168,7 +168,7 @@ static int bridge_fdb_configure_message(const BridgeFDB *fdb, Link *link, sd_net
 }
 
 static int bridge_fdb_configure(BridgeFDB *fdb, Link *link, Request *req) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         int r;
 
         assert(fdb);

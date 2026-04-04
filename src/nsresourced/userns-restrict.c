@@ -55,7 +55,7 @@ int userns_restrict_install(
                 struct userns_restrict_bpf **ret) {
 
 #if HAVE_VMLINUX_H
-        _cleanup_(userns_restrict_bpf_freep) struct userns_restrict_bpf *obj = NULL;
+        _cleanup_free(userns_restrict_bpf) struct userns_restrict_bpf *obj = NULL;
         _cleanup_close_ int dummy_mnt_id_hash_fd = -EBADF;
         int r;
 
@@ -129,7 +129,7 @@ int userns_restrict_install(
                 return log_error_errno(r, "Failed to load BPF object: %m");
 
         for (int i = 0; i < obj->skeleton->prog_cnt; i++) {
-                _cleanup_(bpf_link_freep) struct bpf_link *link = NULL;
+                _cleanup_free(bpf_link) struct bpf_link *link = NULL;
                 struct bpf_prog_skeleton *ps = obj->skeleton->progs + i;
                 _cleanup_free_ char *fn = NULL;
                 bool linked = false;

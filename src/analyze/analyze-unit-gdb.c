@@ -26,8 +26,8 @@ int verb_unit_gdb(int argc, char *argv[], uintptr_t _data, void *userdata) {
         };
 
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *unit = NULL;
         int r;
 
@@ -74,7 +74,7 @@ int verb_unit_gdb(int argc, char *argv[], uintptr_t _data, void *userdata) {
         if (!STR_IN_SET(arg_debugger, "gdb", "lldb"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "The debugger must be either 'gdb' or 'lldb'.");
 
-        _cleanup_strv_free_ char **debugger_call = NULL;
+        _cleanup_free(strv) char **debugger_call = NULL;
         r = strv_extend(&debugger_call, arg_debugger);
         if (r < 0)
                 return log_oom();
@@ -114,7 +114,7 @@ int verb_unit_gdb(int argc, char *argv[], uintptr_t _data, void *userdata) {
         (void) sigaction(SIGTERM, &sa, NULL);
 
         _cleanup_free_ char *fork_name = strjoin("(", debugger_call[0], ")");
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         r = pidref_safe_fork(fork_name, FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL, &pidref);
         if (r < 0)
                 return log_error_errno(r, "Fork failed: %m");

@@ -181,7 +181,7 @@ static void pty_forward_disconnect(PTYForward *f) {
 }
 
 static int pty_forward_done(PTYForward *f, int rcode) {
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
         assert(f);
 
         if (f->done)
@@ -927,7 +927,7 @@ int pty_forward_new(
                 PTYForwardFlags flags,
                 PTYForward **ret) {
 
-        _cleanup_(pty_forward_freep) PTYForward *f = NULL;
+        _cleanup_free(pty_forward) PTYForward *f = NULL;
         struct winsize ws;
         int r;
 

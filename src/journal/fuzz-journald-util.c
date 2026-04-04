@@ -8,7 +8,7 @@
 #include "tests.h"
 
 void dummy_manager_new(Manager **ret, const uint8_t *buffer, size_t size) {
-        _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_free(manager) Manager *m = NULL;
 
         assert(ret);
 
@@ -31,7 +31,7 @@ void fuzz_journald_processing_function(
         if (size == 0)
                 return;
 
-        _cleanup_(manager_freep) Manager *m = NULL;
+        _cleanup_free(manager) Manager *m = NULL;
         dummy_manager_new(&m, data, size);
         f(m, m->buffer, size, /* ucred= */ NULL, /* tv= */ NULL, /* label= */ NULL);
 }

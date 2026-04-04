@@ -47,7 +47,7 @@ EFI_STATUS console_key_read(uint64_t *ret_key, uint64_t timeout_usec) {
         static bool checked = false;
         size_t index;
         EFI_STATUS err;
-        _cleanup_(event_closep) EFI_EVENT timer = NULL;
+        _cleanup_close(event) EFI_EVENT timer = NULL;
 
         if (!checked) {
                 /* Get the *first* TextInputEx device. */

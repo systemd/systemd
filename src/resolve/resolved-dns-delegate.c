@@ -43,7 +43,7 @@ int dns_delegate_new(Manager *m, const char *id, DnsDelegate **ret) {
         if (!id_copy)
                 return -ENOMEM;
 
-        _cleanup_(dns_delegate_freep) DnsDelegate *d = new(DnsDelegate, 1);
+        _cleanup_free(dns_delegate) DnsDelegate *d = new(DnsDelegate, 1);
         if (!d)
                 return -ENOMEM;
 
@@ -179,7 +179,7 @@ static int dns_delegate_load(Manager *m, const char *path) {
         if (!dropin_dirname)
                 return log_oom();
 
-        _cleanup_(dns_delegate_freep) DnsDelegate *d = NULL;
+        _cleanup_free(dns_delegate) DnsDelegate *d = NULL;
         r = dns_delegate_new(m, id, &d);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate delegate '%s': %m", id);
@@ -203,7 +203,7 @@ static int dns_delegate_load(Manager *m, const char *path) {
 }
 
 int manager_load_delegates(Manager *m) {
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_free(strv) char **files = NULL;
         int r;
 
         assert(m);

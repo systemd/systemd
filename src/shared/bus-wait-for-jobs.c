@@ -79,7 +79,7 @@ static int match_job_removed(sd_bus_message *m, void *userdata, sd_bus_error *re
 }
 
 int bus_wait_for_jobs_new(sd_bus *bus, BusWaitForJobs **ret) {
-        _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *d = NULL;
+        _cleanup_free(bus_wait_for_jobs) BusWaitForJobs *d = NULL;
         int r;
 
         assert(bus);

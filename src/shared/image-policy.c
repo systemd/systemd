@@ -785,7 +785,7 @@ int config_parse_image_policy(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(image_policy_freep) ImagePolicy *np = NULL;
+        _cleanup_free(image_policy) ImagePolicy *np = NULL;
         ImagePolicy **p = ASSERT_PTR(data);
         int r;
 
@@ -810,7 +810,7 @@ int config_parse_image_policy(
 }
 
 int parse_image_policy_argument(const char *s, ImagePolicy **policy) {
-        _cleanup_(image_policy_freep) ImagePolicy *np = NULL;
+        _cleanup_free(image_policy) ImagePolicy *np = NULL;
         int r;
 
         assert(s);
@@ -862,7 +862,7 @@ static int policy_intersect_or_union(
                 PartitionPolicyFlags (*op)(PartitionPolicyFlags a, PartitionPolicyFlags b),
                 ImagePolicy **ret) {
 
-        _cleanup_(image_policy_freep) ImagePolicy *p = NULL;
+        _cleanup_free(image_policy) ImagePolicy *p = NULL;
 
         assert(op);
 
@@ -958,7 +958,7 @@ int image_policy_ignore_designators(const ImagePolicy *p, const PartitionDesigna
          * available partitions shall be mounted, and hence the policy for the others really doesn't
          * matter. */
 
-        _cleanup_(image_policy_freep) ImagePolicy *np = image_policy_new(_PARTITION_DESIGNATOR_MAX);
+        _cleanup_free(image_policy) ImagePolicy *np = image_policy_new(_PARTITION_DESIGNATOR_MAX);
         if (!np)
                 return -ENOMEM;
 

@@ -64,7 +64,7 @@ static int config_parse_sleep_mode(
                 void *userdata) {
 
         char ***sv = ASSERT_PTR(data);
-        _cleanup_strv_free_ char **modes = NULL;
+        _cleanup_free(strv) char **modes = NULL;
         int r;
 
         assert(filename);
@@ -106,7 +106,7 @@ static void sleep_config_validate_state_and_mode(SleepConfig *sc) {
 }
 
 int parse_sleep_config(SleepConfig **ret) {
-        _cleanup_(sleep_config_freep) SleepConfig *sc = NULL;
+        _cleanup_free(sleep_config) SleepConfig *sc = NULL;
         int allow_suspend = -1, allow_hibernate = -1, allow_s2h = -1, allow_hybrid_sleep = -1;
 
         assert(ret);
@@ -404,7 +404,7 @@ static int sleep_supported_internal(
 }
 
 int sleep_supported_full(SleepOperation operation, SleepSupport *ret_support) {
-        _cleanup_(sleep_config_freep) SleepConfig *sleep_config = NULL;
+        _cleanup_free(sleep_config) SleepConfig *sleep_config = NULL;
         SleepSupport support;
         int r;
 

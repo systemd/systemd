@@ -18,7 +18,7 @@ ssize_t sendmsg(int __fd, const struct msghdr *__message, int flags) {
 }
 
 static int add_lease(sd_dhcp_server *server, const struct in_addr *server_address, uint8_t i) {
-        _cleanup_(sd_dhcp_server_lease_unrefp) sd_dhcp_server_lease *lease = NULL;
+        _cleanup_unref(sd_dhcp_server_lease) sd_dhcp_server_lease *lease = NULL;
         int r;
 
         assert(server);
@@ -65,7 +65,7 @@ static int add_static_lease(sd_dhcp_server *server, uint8_t i) {
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
-        _cleanup_(sd_dhcp_server_unrefp) sd_dhcp_server *server = NULL;
+        _cleanup_unref(sd_dhcp_server) sd_dhcp_server *server = NULL;
         struct in_addr address = { .s_addr = htobe32(UINT32_C(10) << 24 | UINT32_C(1))};
         _cleanup_free_ uint8_t *duped = NULL;
         _cleanup_close_ int dir_fd = -EBADF;

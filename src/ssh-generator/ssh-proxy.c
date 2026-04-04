@@ -277,12 +277,12 @@ static int fetch_machine(const char *machine, RuntimeScope scope, sd_json_varian
         if (r < 0)
                 return r;
 
-        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        _cleanup_unref(sd_varlink) sd_varlink *vl = NULL;
         r = sd_varlink_connect_address(&vl, addr);
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to machined on %s: %m", addr);
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *result = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *result = NULL;
         const char *error_id;
         r = sd_varlink_callbo(
                         vl,
@@ -313,7 +313,7 @@ static int process_machine(const char *machine, const char *port) {
         assert(machine);
         assert(port);
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *result = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *result = NULL;
         RuntimeScope scope = RUNTIME_SCOPE_USER;
         r = fetch_machine(machine, scope, &result);
         if (r == -ESRCH) {

@@ -82,7 +82,7 @@ int bus_match_run(sd_bus *bus, BusMatchNode *node, sd_bus_message *m);
 int bus_match_add(BusMatchNode *root, BusMatchComponent *components, size_t n_components, BusMatchCallback *callback);
 int bus_match_remove(BusMatchNode *root, BusMatchCallback *callback);
 
-void bus_match_free(BusMatchNode *node);
+void bus_match_done(BusMatchNode *node);
 
 void bus_match_dump(FILE *out, BusMatchNode *node, unsigned level);
 

@@ -12,8 +12,8 @@
 
 int verb_srk(int argc, char *argv[], uintptr_t _data, void *userdata) {
 #if HAVE_TPM2
-        _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
-        _cleanup_(Esys_Freep) TPM2B_PUBLIC *public = NULL;
+        _cleanup_unref(tpm2_context) Tpm2Context *c = NULL;
+        _cleanup_free(Esys) TPM2B_PUBLIC *public = NULL;
         int r;
 
         r = tpm2_context_new_or_warn(/* device= */ NULL, &c);

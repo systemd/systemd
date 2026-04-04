@@ -612,7 +612,7 @@ TEST(preset_and_list) {
         UnitFileState state;
         bool got_yes = false, got_no = false;
         UnitFileList *fl;
-        _cleanup_hashmap_free_ Hashmap *h = NULL;
+        _cleanup_free(hashmap) Hashmap *h = NULL;
 
         CLEANUP_ARRAY(changes, n_changes, install_changes_free);
 

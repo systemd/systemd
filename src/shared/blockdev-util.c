@@ -102,7 +102,7 @@ int block_device_get_whole_disk(sd_device *dev, sd_device **ret) {
 }
 
 static int block_device_get_originating_one(sd_device *dev, sd_device **ret) {
-        _cleanup_(sd_device_unrefp) sd_device *first_found = NULL;
+        _cleanup_unref(sd_device) sd_device *first_found = NULL;
         const char *suffix;
         dev_t devnum = 0;  /* avoid false maybe-uninitialized warning */
 
@@ -149,7 +149,7 @@ static int block_device_get_originating_one(sd_device *dev, sd_device **ret) {
 }
 
 int block_device_get_originating(sd_device *dev, sd_device **ret, bool recursive) {
-        _cleanup_(sd_device_unrefp) sd_device *current = NULL;
+        _cleanup_unref(sd_device) sd_device *current = NULL;
         int r;
 
         assert(dev);
@@ -182,7 +182,7 @@ int block_device_get_originating(sd_device *dev, sd_device **ret, bool recursive
 }
 
 int block_device_new_from_fd(int fd, BlockDeviceLookupFlags flags, sd_device **ret) {
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        _cleanup_unref(sd_device) sd_device *dev = NULL;
         dev_t devnum;
         int r;
 
@@ -198,7 +198,7 @@ int block_device_new_from_fd(int fd, BlockDeviceLookupFlags flags, sd_device **r
                 return r;
 
         if (FLAGS_SET(flags, BLOCK_DEVICE_LOOKUP_ORIGINATING)) {
-                _cleanup_(sd_device_unrefp) sd_device *dev_origin = NULL;
+                _cleanup_unref(sd_device) sd_device *dev_origin = NULL;
                 sd_device *dev_whole_disk;
 
                 r = block_device_get_whole_disk(dev, &dev_whole_disk);
@@ -324,7 +324,7 @@ int get_block_device(const char *path, dev_t *ret) {
 }
 
 int block_get_originating(dev_t dt, dev_t *ret, bool recursive) {
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL, *origin = NULL;
+        _cleanup_unref(sd_device) sd_device *dev = NULL, *origin = NULL;
         int r;
 
         assert(ret);
@@ -505,7 +505,7 @@ int blockdev_partscan_enabled(sd_device *dev) {
 }
 
 int blockdev_partscan_enabled_fd(int fd) {
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        _cleanup_unref(sd_device) sd_device *dev = NULL;
         int r;
 
         assert(fd >= 0);
@@ -725,7 +725,7 @@ int block_device_resize_partition(
 }
 
 int partition_enumerator_new(sd_device *dev, sd_device_enumerator **ret) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *e = NULL;
         const char *s;
         int r;
 
@@ -774,8 +774,8 @@ int partition_enumerator_new(sd_device *dev, sd_device_enumerator **ret) {
 }
 
 int block_device_remove_all_partitions(sd_device *dev, int fd) {
-        _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
-        _cleanup_(sd_device_unrefp) sd_device *dev_unref = NULL;
+        _cleanup_unref(sd_device_enumerator) sd_device_enumerator *e = NULL;
+        _cleanup_unref(sd_device) sd_device *dev_unref = NULL;
         _cleanup_close_ int fd_close = -EBADF;
         bool has_partitions = false;
         int r, k = 0;

@@ -507,7 +507,7 @@ static int journal_file_reshuffle_newest_by_boot_id(sd_journal *j, JournalFile *
                         prioq_reshuffle(found->prioq, f, &f->newest_boot_id_prioq_idx); /* Reshuffle otherwise */
 
         } else {
-                _cleanup_(prioq_freep) Prioq *q = NULL;
+                _cleanup_free(prioq) Prioq *q = NULL;
 
                 /* No priority queue yet, then allocate one */
 
@@ -1694,7 +1694,7 @@ error:
 }
 
 int journal_get_directories(sd_journal *j, char ***ret) {
-        _cleanup_strv_free_ char **paths = NULL;
+        _cleanup_free(strv) char **paths = NULL;
         JournalFile *f;
         const char *p;
         size_t n = SIZE_MAX;
@@ -1963,7 +1963,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
         directory_free);
 
 static int add_directory_impl(sd_journal *j, const char *path, bool is_root, Directory **ret) {
-        _cleanup_(directory_freep) Directory *m = NULL;
+        _cleanup_free(directory) Directory *m = NULL;
         Directory *existing;
         int r;
 
@@ -2270,7 +2270,7 @@ static int allocate_inotify(sd_journal *j) {
 }
 
 static sd_journal *journal_new(int flags, const char *path, const char *namespace) {
-        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_close(sd_journal) sd_journal *j = NULL;
 
         j = new(sd_journal, 1);
         if (!j)
@@ -2325,7 +2325,7 @@ static sd_journal *journal_new(int flags, const char *path, const char *namespac
          SD_JOURNAL_ASSUME_IMMUTABLE)
 
 _public_ int sd_journal_open_namespace(sd_journal **ret, const char *name_space, int flags) {
-        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_close(sd_journal) sd_journal *j = NULL;
         int r;
 
         assert_return(ret, -EINVAL);
@@ -2354,7 +2354,7 @@ _public_ int sd_journal_open(sd_journal **ret, int flags) {
 
 _public_ int sd_journal_open_container(sd_journal **ret, const char *machine, int flags) {
         _cleanup_free_ char *root = NULL, *class = NULL;
-        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_close(sd_journal) sd_journal *j = NULL;
         char *p;
         int r;
 
@@ -2399,7 +2399,7 @@ _public_ int sd_journal_open_container(sd_journal **ret, const char *machine, in
          SD_JOURNAL_ASSUME_IMMUTABLE)
 
 _public_ int sd_journal_open_directory(sd_journal **ret, const char *path, int flags) {
-        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_close(sd_journal) sd_journal *j = NULL;
         int r;
 
         assert_return(ret, -EINVAL);
@@ -2425,7 +2425,7 @@ _public_ int sd_journal_open_directory(sd_journal **ret, const char *path, int f
         (SD_JOURNAL_ASSUME_IMMUTABLE)
 
 _public_ int sd_journal_open_files(sd_journal **ret, const char **paths, int flags) {
-        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_close(sd_journal) sd_journal *j = NULL;
         int r;
 
         assert_return(ret, -EINVAL);
@@ -2455,7 +2455,7 @@ _public_ int sd_journal_open_files(sd_journal **ret, const char **paths, int fla
          SD_JOURNAL_ASSUME_IMMUTABLE)
 
 _public_ int sd_journal_open_directory_fd(sd_journal **ret, int fd, int flags) {
-        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_close(sd_journal) sd_journal *j = NULL;
         struct stat st;
         bool take_fd;
         int r;
@@ -2495,7 +2495,7 @@ _public_ int sd_journal_open_directory_fd(sd_journal **ret, int fd, int flags) {
 
 _public_ int sd_journal_open_files_fd(sd_journal **ret, int fds[], unsigned n_fds, int flags) {
         JournalFile *f;
-        _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_close(sd_journal) sd_journal *j = NULL;
         int r;
 
         assert_return(ret, -EINVAL);

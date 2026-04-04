@@ -186,7 +186,7 @@ static int parse_mutable_mode(const char *p) {
 static DEFINE_CONFIG_PARSE_ENUM(config_parse_mutable_mode, mutable_mode, MutableMode);
 
 static int parse_config_file(ImageClass image_class) {
-        _cleanup_(image_policy_freep) ImagePolicy *config_image_policy = NULL;
+        _cleanup_free(image_policy) ImagePolicy *config_image_policy = NULL;
         MutableMode config_mutable = MUTABLE_NO;
         const char *section = image_class == IMAGE_SYSEXT ? "SysExt" : "ConfExt";
         const char *sections = image_class == IMAGE_SYSEXT ? "SysExt\0" : "ConfExt\0";
@@ -300,7 +300,7 @@ static int need_reload(
 
         STRV_FOREACH(p, hierarchies) {
                 _cleanup_free_ char *f = NULL, *buf = NULL, *resolved = NULL;
-                _cleanup_strv_free_ char **mounted_extensions = NULL;
+                _cleanup_free(strv) char **mounted_extensions = NULL;
 
                 r = chase(*p, arg_root, CHASE_PREFIX_ROOT, &resolved, NULL);
                 if (r == -ENOENT) {
@@ -331,7 +331,7 @@ static int need_reload(
                         return log_oom();
 
                 STRV_FOREACH(extension, mounted_extensions) {
-                        _cleanup_strv_free_ char **extension_release = NULL;
+                        _cleanup_free(strv) char **extension_release = NULL;
                         const char *extension_reload_manager = NULL;
                         int b;
 
@@ -612,7 +612,7 @@ static int verb_unmerge(int argc, char *argv[], uintptr_t _data, void *userdata)
 }
 
 static int parse_image_class_parameter(sd_varlink *link, const char *value, ImageClass *image_class, char ***hierarchies) {
-        _cleanup_strv_free_ char **h = NULL;
+        _cleanup_free(strv) char **h = NULL;
         ImageClass c;
         int r;
 
@@ -655,7 +655,7 @@ static int vl_method_unmerge(sd_varlink *link, sd_json_variant *parameters, sd_v
                 .no_reload = -1,
         };
         Hashmap **polkit_registry = ASSERT_PTR(userdata);
-        _cleanup_strv_free_ char **hierarchies = NULL;
+        _cleanup_free(strv) char **hierarchies = NULL;
         ImageClass image_class = arg_image_class;
         bool no_reload;
         int r;
@@ -691,7 +691,7 @@ static int vl_method_unmerge(sd_varlink *link, sd_json_variant *parameters, sd_v
 }
 
 static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(table_unrefp) Table *t = NULL;
+        _cleanup_unref(table) Table *t = NULL;
         int r, ret = 0;
 
         t = table_new("hierarchy", "extensions", "since");
@@ -702,7 +702,7 @@ static int verb_status(int argc, char *argv[], uintptr_t _data, void *userdata) 
 
         STRV_FOREACH(p, arg_hierarchies) {
                 _cleanup_free_ char *resolved = NULL, *f = NULL, *buf = NULL;
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_free(strv) char **l = NULL;
                 struct stat st;
 
                 r = chase(*p, arg_root, CHASE_PREFIX_ROOT, &resolved, NULL);
@@ -1126,7 +1126,7 @@ static int overlayfs_paths_new(const char *hierarchy, const char *workspace_path
 }
 
 static int determine_used_extensions(const char *hierarchy, char **paths, char ***ret_used_paths, size_t *ret_extensions_used) {
-        _cleanup_strv_free_ char **used_paths = NULL;
+        _cleanup_free(strv) char **used_paths = NULL;
         size_t n = 0;
         int r;
 
@@ -1732,8 +1732,8 @@ static int merge_hierarchy(
                 const char *overlay_path,
                 const char *workspace_path) {
 
-        _cleanup_(overlayfs_paths_freep) OverlayFSPaths *op = NULL;
-        _cleanup_strv_free_ char **used_paths = NULL;
+        _cleanup_free(overlayfs_paths) OverlayFSPaths *op = NULL;
+        _cleanup_free(strv) char **used_paths = NULL;
         size_t extensions_used = 0;
         int r;
 
@@ -1837,8 +1837,8 @@ static int merge_subprocess(
                         *host_os_release_version_id = NULL, *host_os_release_api_level = NULL,
                         *filename = NULL, *old_origin_content = NULL,
                         *extensions_origin_content = NULL, *root_resolved = NULL;
-        _cleanup_strv_free_ char **extensions = NULL, **extensions_v = NULL, **paths = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *extensions_origin_entries = NULL,
+        _cleanup_free(strv) char **extensions = NULL, **extensions_v = NULL, **paths = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *extensions_origin_entries = NULL,
                         *extensions_origin_json = NULL, *mutable_dir_entries = NULL;
         size_t n_extensions = 0;
         unsigned n_ignored = 0;
@@ -1889,7 +1889,7 @@ static int merge_subprocess(
         /* Let's now mount all images */
         HASHMAP_FOREACH(img, images) {
                 _cleanup_free_ char *p = NULL, *path_without_root = NULL;
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *verity_hash = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *verity_hash = NULL;
 
                 p = path_join(workspace, image_class_info[image_class].short_identifier_plural, img->name);
                 if (!p)
@@ -1926,9 +1926,9 @@ static int merge_subprocess(
 
                 case IMAGE_RAW:
                 case IMAGE_BLOCK: {
-                        _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
-                        _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
-                        _cleanup_(verity_settings_done) VeritySettings verity_settings = VERITY_SETTINGS_DEFAULT;
+                        _cleanup_unref(dissected_image) DissectedImage *m = NULL;
+                        _cleanup_unref(loop_device) LoopDevice *d = NULL;
+                        _cleanup_done(verity_settings) VeritySettings verity_settings = VERITY_SETTINGS_DEFAULT;
                         DissectImageFlags flags =
                                 DISSECT_IMAGE_READ_ONLY |
                                 DISSECT_IMAGE_GENERIC_ROOT |
@@ -2093,7 +2093,7 @@ static int merge_subprocess(
                  * modifications to be picked up, they need to set the --always-refresh=yes flag (as will be
                  * printed out). */
 
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *origin_entry = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *origin_entry = NULL;
 
                 /* We suppress inclusion of weak identifiers when a strong one is there so that, e.g.,
                  * a confext image stored on /usr gets identified only by the verity hash instead of also
@@ -2134,7 +2134,7 @@ static int merge_subprocess(
         typesafe_qsort(extensions_v, n_extensions, strverscmp_improvedp);
 
         STRV_FOREACH(h, hierarchies) {
-                _cleanup_(overlayfs_paths_freep) OverlayFSPaths *op = NULL;
+                _cleanup_free(overlayfs_paths) OverlayFSPaths *op = NULL;
                 _cleanup_free_ char *f = NULL, *buf = NULL, *resolved = NULL, *mutable_directory_without_root = NULL;
 
                 /* The origin file includes the backing directories for mutable overlays. */
@@ -2212,7 +2212,7 @@ static int merge_subprocess(
         log_debug("New extension origin entry (unordered):\n%s\n", extensions_origin_content);
 
         if (old_origin_content) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *old_origin_json = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *old_origin_json = NULL;
 
                 log_debug("Old extension origin entry (unordered):\n%s\n", old_origin_content);
                 r = sd_json_parse(old_origin_content, /* flags= */ 0, &old_origin_json, /* reterr_line= */ NULL, /* reterr_column= */ NULL);
@@ -2376,7 +2376,7 @@ static int merge(ImageClass image_class,
         (void) dlopen_libblkid();
         (void) dlopen_libmount();
 
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         r = pidref_safe_fork("(sd-merge)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_NEW_MOUNTNS, &pidref);
         if (r < 0)
                 return log_error_errno(r, "Failed to fork off child: %m");
@@ -2421,7 +2421,7 @@ static int merge(ImageClass image_class,
 }
 
 static int image_discover_and_read_metadata(ImageClass image_class, Hashmap **ret_images) {
-        _cleanup_hashmap_free_ Hashmap *images = NULL;
+        _cleanup_free(hashmap) Hashmap *images = NULL;
         Image *img;
         int r;
 
@@ -2477,7 +2477,7 @@ static int look_for_merged_hierarchies(
 }
 
 static int verb_merge(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_hashmap_free_ Hashmap *images = NULL;
+        _cleanup_free(hashmap) Hashmap *images = NULL;
         const char *which;
         int r;
 
@@ -2535,14 +2535,14 @@ static int parse_merge_parameters(sd_varlink *link, sd_json_variant *parameters,
 
 static int vl_method_merge(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
         Hashmap **polkit_registry = ASSERT_PTR(userdata);
-        _cleanup_hashmap_free_ Hashmap *images = NULL;
+        _cleanup_free(hashmap) Hashmap *images = NULL;
         MethodMergeParameters p = {
                 .force = -1,
                 .no_reload = -1,
                 .always_refresh = -1,
                 .noexec = -1,
         };
-        _cleanup_strv_free_ char **hierarchies = NULL;
+        _cleanup_free(strv) char **hierarchies = NULL;
         ImageClass image_class = arg_image_class;
         bool force, no_reload, always_refresh;
         int r, noexec;
@@ -2604,7 +2604,7 @@ static int refresh(
                 bool always_refresh,
                 int noexec) {
 
-        _cleanup_hashmap_free_ Hashmap *images = NULL;
+        _cleanup_free(hashmap) Hashmap *images = NULL;
         int r;
 
         r = image_discover_and_read_metadata(image_class, &images);
@@ -2665,7 +2665,7 @@ static int vl_method_refresh(sd_varlink *link, sd_json_variant *parameters, sd_v
                 .noexec = -1,
         };
         Hashmap **polkit_registry = ASSERT_PTR(userdata);
-        _cleanup_strv_free_ char **hierarchies = NULL;
+        _cleanup_free(strv) char **hierarchies = NULL;
         ImageClass image_class = arg_image_class;
         bool force, no_reload, always_refresh;
         int r, noexec;
@@ -2706,8 +2706,8 @@ static int vl_method_refresh(sd_varlink *link, sd_json_variant *parameters, sd_v
 }
 
 static int verb_list(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_hashmap_free_ Hashmap *images = NULL;
-        _cleanup_(table_unrefp) Table *t = NULL;
+        _cleanup_free(hashmap) Hashmap *images = NULL;
+        _cleanup_unref(table) Table *t = NULL;
         Image *img;
         int r;
 
@@ -2772,7 +2772,7 @@ static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varl
         if (r <= 0)
                 return r;
 
-        _cleanup_hashmap_free_ Hashmap *images = NULL;
+        _cleanup_free(hashmap) Hashmap *images = NULL;
         r = image_discover(RUNTIME_SCOPE_SYSTEM, image_class, arg_root, &images);
         if (r < 0)
                 return r;
@@ -2783,7 +2783,7 @@ static int vl_method_list(sd_varlink *link, sd_json_variant *parameters, sd_varl
 
         Image *img;
         HASHMAP_FOREACH(img, images) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
                 r = image_to_json(img, &v);
                 if (r < 0)
                         return r;
@@ -3046,8 +3046,8 @@ static int run(int argc, char *argv[]) {
                 log_warning_errno(r, "Failed to parse global config file, ignoring: %m");
 
         if (arg_varlink) {
-                _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
-                _cleanup_hashmap_free_ Hashmap *polkit_registry = NULL;
+                _cleanup_unref(sd_varlink_server) sd_varlink_server *varlink_server = NULL;
+                _cleanup_free(hashmap) Hashmap *polkit_registry = NULL;
 
                 /* Invocation as Varlink service */
 

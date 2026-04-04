@@ -276,7 +276,7 @@ static int trie_search_f(sd_hwdb *hwdb, const char *search) {
 }
 
 static int hwdb_new(const char *path, sd_hwdb **ret) {
-        _cleanup_(sd_hwdb_unrefp) sd_hwdb *hwdb = NULL;
+        _cleanup_unref(sd_hwdb) sd_hwdb *hwdb = NULL;
         const char sig[] = HWDB_SIG;
 
         assert_return(ret, -EINVAL);

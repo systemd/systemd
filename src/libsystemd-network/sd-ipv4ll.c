@@ -18,7 +18,7 @@
 #define IPV4LL_NETMASK UINT32_C(0xFFFF0000)
 
 #define IPV4LL_DONT_DESTROY(ll) \
-        _cleanup_(sd_ipv4ll_unrefp) _unused_ sd_ipv4ll *_dont_destroy_##ll = sd_ipv4ll_ref(ll)
+        _cleanup_unref(sd_ipv4ll) _unused_ sd_ipv4ll *_dont_destroy_##ll = sd_ipv4ll_ref(ll)
 
 struct sd_ipv4ll {
         unsigned n_ref;
@@ -68,7 +68,7 @@ static sd_ipv4ll *ipv4ll_free(sd_ipv4ll *ll) {
 DEFINE_TRIVIAL_REF_UNREF_FUNC(sd_ipv4ll, sd_ipv4ll, ipv4ll_free);
 
 int sd_ipv4ll_new(sd_ipv4ll **ret) {
-        _cleanup_(sd_ipv4ll_unrefp) sd_ipv4ll *ll = NULL;
+        _cleanup_unref(sd_ipv4ll) sd_ipv4ll *ll = NULL;
         int r;
 
         assert_return(ret, -EINVAL);

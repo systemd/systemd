@@ -12,7 +12,7 @@
 #include "socket-util.h"
 
 int coredump_receive(int fd) {
-        _cleanup_(coredump_context_done) CoredumpContext context = COREDUMP_CONTEXT_NULL;
+        _cleanup_done(coredump_context) CoredumpContext context = COREDUMP_CONTEXT_NULL;
         enum {
                 STATE_PAYLOAD,
                 STATE_INPUT_FD_DONE,
@@ -42,7 +42,7 @@ int coredump_receive(int fd) {
                 if (l < 0)
                         return log_error_errno(l, "Failed to determine datagram size to read: %m");
 
-                _cleanup_(iovec_done) struct iovec iovec = {
+                _cleanup_done(iovec) struct iovec iovec = {
                         .iov_len = l,
                         .iov_base = malloc(l + 1),
                 };

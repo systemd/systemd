@@ -16,7 +16,7 @@ static int unsigned_compare(const unsigned *a, const unsigned *b) {
 }
 
 TEST(unsigned) {
-        _cleanup_(prioq_freep) Prioq *q = NULL;
+        _cleanup_free(prioq) Prioq *q = NULL;
         unsigned buffer[SET_SIZE], u, n;
 
         srand(0);
@@ -60,8 +60,8 @@ static void test_hash(const struct test *x, struct siphash *state) {
 DEFINE_PRIVATE_HASH_OPS(test_hash_ops, struct test, test_hash, test_compare);
 
 TEST(struct) {
-        _cleanup_(prioq_freep) Prioq *q = NULL;
-        _cleanup_set_free_ Set *s = NULL;
+        _cleanup_free(prioq) Prioq *q = NULL;
+        _cleanup_free(set) Set *s = NULL;
         unsigned previous = 0, i;
         struct test *t;
 

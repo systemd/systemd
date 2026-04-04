@@ -77,10 +77,10 @@ static int dnssec_rsa_verify_raw(
         int r;
 
         DISABLE_WARNING_DEPRECATED_DECLARATIONS;
-        _cleanup_(RSA_freep) RSA *rpubkey = NULL;
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *epubkey = NULL;
-        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *ctx = NULL;
-        _cleanup_(BN_freep) BIGNUM *e = NULL, *m = NULL;
+        _cleanup_free(RSA) RSA *rpubkey = NULL;
+        _cleanup_free(EVP_PKEY) EVP_PKEY *epubkey = NULL;
+        _cleanup_free(EVP_PKEY_CTX) EVP_PKEY_CTX *ctx = NULL;
+        _cleanup_free(BN) BIGNUM *e = NULL, *m = NULL;
 
         assert(hash_algorithm);
 
@@ -197,12 +197,12 @@ static int dnssec_ecdsa_verify_raw(
         int k;
 
         DISABLE_WARNING_DEPRECATED_DECLARATIONS;
-        _cleanup_(EC_GROUP_freep) EC_GROUP *ec_group = NULL;
-        _cleanup_(EC_POINT_freep) EC_POINT *p = NULL;
-        _cleanup_(EC_KEY_freep) EC_KEY *eckey = NULL;
-        _cleanup_(BN_CTX_freep) BN_CTX *bctx = NULL;
-        _cleanup_(BN_freep) BIGNUM *r = NULL, *s = NULL;
-        _cleanup_(ECDSA_SIG_freep) ECDSA_SIG *sig = NULL;
+        _cleanup_free(EC_GROUP) EC_GROUP *ec_group = NULL;
+        _cleanup_free(EC_POINT) EC_POINT *p = NULL;
+        _cleanup_free(EC_KEY) EC_KEY *eckey = NULL;
+        _cleanup_free(BN_CTX) BN_CTX *bctx = NULL;
+        _cleanup_free(BN) BIGNUM *r = NULL, *s = NULL;
+        _cleanup_free(ECDSA_SIG) ECDSA_SIG *sig = NULL;
 
         assert(hash_algorithm);
 
@@ -311,9 +311,9 @@ static int dnssec_eddsa_verify_raw(
                 const uint8_t *data, size_t data_size,
                 const uint8_t *key, size_t key_size) {
 
-        _cleanup_(EVP_PKEY_freep) EVP_PKEY *evkey = NULL;
-        _cleanup_(EVP_PKEY_CTX_freep) EVP_PKEY_CTX *pctx = NULL;
-        _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX *ctx = NULL;
+        _cleanup_free(EVP_PKEY) EVP_PKEY *evkey = NULL;
+        _cleanup_free(EVP_PKEY_CTX) EVP_PKEY_CTX *pctx = NULL;
+        _cleanup_free(EVP_MD_CTX) EVP_MD_CTX *ctx = NULL;
         int r;
 
         assert(curve == NID_ED25519);
@@ -553,7 +553,7 @@ static int dnssec_rrset_serialize_sig(
                 char **ret_sig_data,
                 size_t *ret_sig_size) {
 
-        _cleanup_(memstream_done) MemStream m = {};
+        _cleanup_done(memstream) MemStream m = {};
         uint8_t wire_format_name[DNS_WIRE_FORMAT_HOSTNAME_MAX];
         DnsResourceRecord *rr;
         FILE *f;
@@ -642,7 +642,7 @@ static int dnssec_rrset_verify_sig(
                 if (!md_algorithm)
                         return -EOPNOTSUPP;
 
-                _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX *ctx = EVP_MD_CTX_new();
+                _cleanup_free(EVP_MD_CTX) EVP_MD_CTX *ctx = EVP_MD_CTX_new();
                 if (!ctx)
                         return -ENOMEM;
 
@@ -1086,7 +1086,7 @@ int dnssec_verify_dnskey_by_ds(DnsResourceRecord *dnskey, DnsResourceRecord *ds,
         if (!md_algorithm)
                 return -EOPNOTSUPP;
 
-        _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX *ctx = NULL;
+        _cleanup_free(EVP_MD_CTX) EVP_MD_CTX *ctx = NULL;
         uint8_t result[EVP_MAX_MD_SIZE];
 
         unsigned hash_size = EVP_MD_size(md_algorithm);
@@ -1213,7 +1213,7 @@ int dnssec_nsec3_hash(DnsResourceRecord *nsec3, const char *name, void *ret) {
         if (nsec3->nsec3.next_hashed_name_size != hash_size)
                 return -EINVAL;
 
-        _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX *ctx = EVP_MD_CTX_new();
+        _cleanup_free(EVP_MD_CTX) EVP_MD_CTX *ctx = EVP_MD_CTX_new();
         if (!ctx)
                 return -ENOMEM;
 

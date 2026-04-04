@@ -139,9 +139,9 @@ static void on_tar_finished(TarImport *import, int error, void *userdata) {
 }
 
 static int verb_import_tar(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(tar_import_unrefp) TarImport *import = NULL;
+        _cleanup_unref(tar_import) TarImport *import = NULL;
         _cleanup_free_ char *ll = NULL, *normalized = NULL;
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_unref(sd_event) sd_event *event = NULL;
         const char *path = NULL, *local = NULL;
         _cleanup_close_ int open_fd = -EBADF;
         int r, fd;
@@ -208,9 +208,9 @@ static void on_raw_finished(RawImport *import, int error, void *userdata) {
 }
 
 static int verb_import_raw(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(raw_import_unrefp) RawImport *import = NULL;
+        _cleanup_unref(raw_import) RawImport *import = NULL;
         _cleanup_free_ char *ll = NULL, *normalized = NULL;
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_unref(sd_event) sd_event *event = NULL;
         const char *path = NULL, *local = NULL;
         _cleanup_close_ int open_fd = -EBADF;
         int r, fd;

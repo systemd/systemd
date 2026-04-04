@@ -69,7 +69,7 @@ int dispatch_link(sd_varlink *vlink, sd_json_variant *parameters, Manager *manag
 }
 
 int vl_method_link_describe(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         Manager *manager = ASSERT_PTR(userdata);
         Link *link;
         int r;

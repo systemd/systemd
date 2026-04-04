@@ -165,7 +165,7 @@ static int found_override(const char *top, const char *bottom) {
 
         fflush(stdout);
 
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         r = pidref_safe_fork(
                         "(diff)",
                         FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG,
@@ -230,7 +230,7 @@ static int enumerate_dir_d(
 
         _cleanup_free_ char *unit = NULL;
         _cleanup_free_ char *path = NULL;
-        _cleanup_strv_free_ char **list = NULL;
+        _cleanup_free(strv) char **list = NULL;
         char *c;
         int r;
 
@@ -303,7 +303,7 @@ static int enumerate_dir(
                 const char *path, bool dropins) {
 
         _cleanup_closedir_ DIR *d = NULL;
-        _cleanup_strv_free_ char **files = NULL, **dirs = NULL;
+        _cleanup_free(strv) char **files = NULL, **dirs = NULL;
         size_t n_files = 0, n_dirs = 0;
         int r;
 
@@ -378,7 +378,7 @@ static int process_suffix(const char *suffix, const char *onlyprefix) {
 
         bool dropins = nulstr_contains(have_dropins, suffix);
 
-        _cleanup_ordered_hashmap_free_ OrderedHashmap *top = NULL, *bottom = NULL, *drops = NULL;
+        _cleanup_free(ordered_hashmap) OrderedHashmap *top = NULL, *bottom = NULL, *drops = NULL;
         NULSTR_FOREACH(p, prefixes) {
                 _cleanup_free_ char *t = NULL;
 

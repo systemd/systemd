@@ -96,7 +96,7 @@ static sd_device* skip_subsystem(sd_device *dev, const char *subsys) {
 
 static sd_device* handle_scsi_fibre_channel(sd_device *parent, char **path) {
         sd_device *targetdev;
-        _cleanup_(sd_device_unrefp) sd_device *fcdev = NULL;
+        _cleanup_unref(sd_device) sd_device *fcdev = NULL;
         const char *port, *sysname;
         _cleanup_free_ char *lun = NULL;
 
@@ -119,7 +119,7 @@ static sd_device* handle_scsi_fibre_channel(sd_device *parent, char **path) {
 
 static sd_device* handle_scsi_sas_wide_port(sd_device *parent, char **path) {
         sd_device *targetdev, *target_parent;
-        _cleanup_(sd_device_unrefp) sd_device *sasdev = NULL;
+        _cleanup_unref(sd_device) sd_device *sasdev = NULL;
         const char *sas_address, *sysname;
         _cleanup_free_ char *lun = NULL;
 
@@ -144,7 +144,7 @@ static sd_device* handle_scsi_sas_wide_port(sd_device *parent, char **path) {
 
 static sd_device* handle_scsi_sas(sd_device *parent, char **path) {
         sd_device *targetdev, *target_parent, *port, *expander;
-        _cleanup_(sd_device_unrefp) sd_device *target_sasdev = NULL, *expander_sasdev = NULL, *port_sasdev = NULL;
+        _cleanup_unref(sd_device) sd_device *target_sasdev = NULL, *expander_sasdev = NULL, *port_sasdev = NULL;
         const char *sas_address = NULL, *phy_id, *sysname;
         unsigned num_phys;
         _cleanup_free_ char *lun = NULL;
@@ -203,7 +203,7 @@ static sd_device* handle_scsi_sas(sd_device *parent, char **path) {
 
 static sd_device* handle_scsi_iscsi(sd_device *parent, char **path) {
         sd_device *transportdev;
-        _cleanup_(sd_device_unrefp) sd_device *sessiondev = NULL, *conndev = NULL;
+        _cleanup_unref(sd_device) sd_device *sessiondev = NULL, *conndev = NULL;
         const char *target, *connname, *addr, *port, *sysname, *sysnum;
         _cleanup_free_ char *lun = NULL;
 
@@ -246,7 +246,7 @@ static sd_device* handle_scsi_iscsi(sd_device *parent, char **path) {
 
 static sd_device* handle_scsi_ata(sd_device *parent, char **path, char **compat_path) {
         sd_device *targetdev, *target_parent;
-        _cleanup_(sd_device_unrefp) sd_device *atadev = NULL;
+        _cleanup_unref(sd_device) sd_device *atadev = NULL;
         const char *port_no, *sysname, *name;
         unsigned host, bus, target, lun;
 
@@ -585,7 +585,7 @@ static sd_device* handle_ap(sd_device *parent, char **path) {
 }
 
 static int find_real_nvme_parent(sd_device *dev, sd_device **ret) {
-        _cleanup_(sd_device_unrefp) sd_device *nvme = NULL;
+        _cleanup_unref(sd_device) sd_device *nvme = NULL;
         const char *sysname, *end, *devpath;
         int r;
 
@@ -686,7 +686,7 @@ static void add_id_tag(UdevEvent *event, const char *path) {
 
 static int builtin_path_id(UdevEvent *event, int argc, char *argv[]) {
         sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
-        _cleanup_(sd_device_unrefp) sd_device *dev_other_branch = NULL;
+        _cleanup_unref(sd_device) sd_device *dev_other_branch = NULL;
         _cleanup_free_ char *path = NULL, *compat_path = NULL;
         bool supported_transport = false, supported_parent = false;
         int r;

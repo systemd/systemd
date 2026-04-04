@@ -98,8 +98,8 @@ static int signal_disconnected(sd_bus_message *message, void *userdata, sd_bus_e
 }
 
 static int signal_activation_request(sd_bus_message *message, void *userdata, sd_bus_error *ret_error) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         Manager *m = ASSERT_PTR(userdata);
         const char *name;
         Unit *u;
@@ -197,7 +197,7 @@ static int mac_selinux_filter(sd_bus_message *message, void *userdata, sd_bus_er
         }
 
         if (streq(path, "/org/freedesktop/systemd1/unit/self")) {
-                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+                _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
 
                 r = bus_query_sender_pidref(message, &pidref);
                 if (r < 0)
@@ -231,7 +231,7 @@ static int find_unit(Manager *m, sd_bus *bus, const char *path, Unit **unit, sd_
         assert(path);
 
         if (streq(path, "/org/freedesktop/systemd1/unit/self")) {
-                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+                _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
                 sd_bus_message *message;
 
                 message = sd_bus_get_current_message(bus);
@@ -411,7 +411,7 @@ static int bus_kill_context_find(sd_bus *bus, const char *path, const char *inte
 }
 
 static int bus_unit_enumerate(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *reterr_error) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         Manager *m = userdata;
         unsigned k = 0;
         Unit *u;
@@ -692,7 +692,7 @@ static int bus_on_connection(sd_event_source *s, int fd, uint32_t revents, void 
         }
 
         if (DEBUG_LOGGING) {
-                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *c = NULL;
+                _cleanup_unref(sd_bus_creds) sd_bus_creds *c = NULL;
                 const char *comm = NULL, *description = NULL;
                 pid_t pid = 0;
 
@@ -976,7 +976,7 @@ static void destroy_bus(Manager *m, sd_bus **bus) {
 
         /* Get rid of tracked clients on this bus */
         if (m->subscribed && sd_bus_track_get_bus(m->subscribed) == *bus) {
-                _cleanup_strv_free_ char **subscribed = NULL;
+                _cleanup_free(strv) char **subscribed = NULL;
                 int r;
 
                 r = bus_track_to_strv(m->subscribed, &subscribed);

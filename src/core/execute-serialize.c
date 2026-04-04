@@ -1511,7 +1511,7 @@ static int serialize_mount_options(const MountOptions *mount_options, char **s) 
 }
 
 static int deserialize_mount_options(const char *s, MountOptions **ret_mount_options) {
-        _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
+        _cleanup_free(mount_options) MountOptions *options = NULL;
         int r;
 
         assert(ret_mount_options);
@@ -2539,7 +2539,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                                 return k;
                         free_and_replace(c->root_image, p);
                 } else if ((val = startswith(l, "exec-context-root-image-options="))) {
-                        _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
+                        _cleanup_free(mount_options) MountOptions *options = NULL;
 
                         r = deserialize_mount_options(val, &options);
                         if (r < 0)
@@ -3482,7 +3482,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-mount-image="))) {
-                        _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
+                        _cleanup_free(mount_options) MountOptions *options = NULL;
                         _cleanup_free_ char *source = NULL, *destination = NULL;
                         bool permissive = false;
                         char *s;
@@ -3521,7 +3521,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         if (r < 0)
                                 return log_oom_debug();
                 } else if ((val = startswith(l, "exec-context-extension-image="))) {
-                        _cleanup_(mount_options_free_allp) MountOptions *options = NULL;
+                        _cleanup_free(mount_options) MountOptions *options = NULL;
                         _cleanup_free_ char *source = NULL;
                         bool permissive = false;
                         char *s;

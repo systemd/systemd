@@ -79,8 +79,8 @@ static usec_t mdns_maintenance_jitter(uint32_t ttl) {
 }
 
 static void mdns_maintenance_query_complete(DnsQuery *q) {
-        _cleanup_(dns_service_browser_unrefp) DnsServiceBrowser *sb = NULL;
-        _cleanup_(dns_query_freep) DnsQuery *query = q;
+        _cleanup_unref(dns_service_browser) DnsServiceBrowser *sb = NULL;
+        _cleanup_free(dns_query) DnsQuery *query = q;
         DnssdDiscoveredService *service = NULL;
         int r;
 
@@ -105,7 +105,7 @@ static void mdns_maintenance_query_complete(DnsQuery *q) {
 
 static int mdns_maintenance_query(sd_event_source *s, uint64_t usec, void *userdata) {
         DnssdDiscoveredService *service = ASSERT_PTR(userdata);
-        _cleanup_(dns_query_freep) DnsQuery *q = NULL;
+        _cleanup_free(dns_query) DnsQuery *q = NULL;
         int r;
 
         /* Check if the TTL state has reached the maximum value, then revisit
@@ -156,7 +156,7 @@ static int mdns_maintenance_query(sd_event_source *s, uint64_t usec, void *userd
 }
 
 int dns_add_new_service(DnsServiceBrowser *sb, DnsResourceRecord *rr, int owner_family, int ifindex, usec_t until) {
-        _cleanup_(dnssd_discovered_service_unrefp) DnssdDiscoveredService *s = NULL;
+        _cleanup_unref(dnssd_discovered_service) DnssdDiscoveredService *s = NULL;
         int r;
 
         assert(sb);
@@ -318,7 +318,7 @@ void dns_browse_services_purge(Manager *m, int family) {
 
 int mdns_manage_services_answer(DnsServiceBrowser *sb, DnsAnswer *answer, int owner_family) {
         DnsAnswerItem *item;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *array = NULL;
         int r;
 
         assert(sb);
@@ -326,7 +326,7 @@ int mdns_manage_services_answer(DnsServiceBrowser *sb, DnsAnswer *answer, int ow
         /* Check for new service added */
         DNS_ANSWER_FOREACH_ITEM(item, answer) {
                 _cleanup_free_ char *name = NULL, *type = NULL, *domain = NULL;
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *entry = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *entry = NULL;
                 int ifindex;
 
                 if (dns_service_match_and_update(sb->dns_services, item->rr, owner_family, item->until))
@@ -396,7 +396,7 @@ int mdns_manage_services_answer(DnsServiceBrowser *sb, DnsAnswer *answer, int ow
         /* Check for services removed */
         LIST_FOREACH(dns_services, service, sb->dns_services) {
                 _cleanup_free_ char *name = NULL, *type = NULL, *domain = NULL;
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *entry = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *entry = NULL;
                 int ifindex;
 
                 if (service->family != owner_family)
@@ -458,7 +458,7 @@ int mdns_manage_services_answer(DnsServiceBrowser *sb, DnsAnswer *answer, int ow
         }
 
         if (!sd_json_variant_is_blank_array(array)) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *vm = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *vm = NULL;
 
                 r = sd_json_buildo(&vm, SD_JSON_BUILD_PAIR_VARIANT("browserServiceData", array));
                 if (r < 0) {
@@ -481,7 +481,7 @@ finish:
 }
 
 int mdns_browser_revisit_cache(DnsServiceBrowser *sb, int owner_family) {
-        _cleanup_(dns_answer_unrefp) DnsAnswer *lookup_ret_answer = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *lookup_ret_answer = NULL;
         int r;
 
         assert(sb);
@@ -490,7 +490,7 @@ int mdns_browser_revisit_cache(DnsServiceBrowser *sb, int owner_family) {
         /* ifindex=0 means "all interfaces" */
         if (sb->ifindex == 0) {
                 LIST_FOREACH(scopes, scope, sb->manager->dns_scopes) {
-                        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = NULL;
+                        _cleanup_unref(dns_answer) DnsAnswer *answer = NULL;
 
                         if (scope->protocol != DNS_PROTOCOL_MDNS)
                                 continue;
@@ -594,8 +594,8 @@ int mdns_notify_browsers_unsolicited_updates(Manager *m, DnsAnswer *answer, int 
 }
 
 static void mdns_browse_service_query_complete(DnsQuery *q) {
-        _cleanup_(dns_service_browser_unrefp) DnsServiceBrowser *sb = NULL;
-        _cleanup_(dns_query_freep) DnsQuery *query = q;
+        _cleanup_unref(dns_service_browser) DnsServiceBrowser *sb = NULL;
+        _cleanup_free(dns_query) DnsQuery *query = q;
         int r;
 
         assert(query);
@@ -623,8 +623,8 @@ static void mdns_browse_service_query_complete(DnsQuery *q) {
 }
 
 static int mdns_next_query_schedule(sd_event_source *s, uint64_t usec, void *userdata) {
-        _cleanup_(dns_service_browser_unrefp) DnsServiceBrowser *sb = NULL;
-        _cleanup_(dns_query_freep) DnsQuery *q = NULL;
+        _cleanup_unref(dns_service_browser) DnsServiceBrowser *sb = NULL;
+        _cleanup_free(dns_query) DnsQuery *q = NULL;
         int r;
 
         assert(userdata);
@@ -708,8 +708,8 @@ void dns_browse_services_restart(Manager *m) {
 int dns_subscribe_browse_service(
                 Manager *m, sd_varlink *link, const char *domain, const char *type, int ifindex, uint64_t flags) {
 
-        _cleanup_(dns_service_browser_unrefp) DnsServiceBrowser *sb = NULL;
-        _cleanup_(dns_question_unrefp) DnsQuestion *question_idna = NULL, *question_utf8 = NULL;
+        _cleanup_unref(dns_service_browser) DnsServiceBrowser *sb = NULL;
+        _cleanup_unref(dns_question) DnsQuestion *question_idna = NULL, *question_utf8 = NULL;
         int r;
 
         assert(m);

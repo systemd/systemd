@@ -1438,7 +1438,7 @@ int parse_nsec(const char *t, nsec_t *ret) {
 
 static int get_timezones_from_zone1970_tab(char ***ret) {
         _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_strv_free_ char **zones = NULL;
+        _cleanup_free(strv) char **zones = NULL;
         int r;
 
         assert(ret);
@@ -1483,7 +1483,7 @@ static int get_timezones_from_zone1970_tab(char ***ret) {
 
 static int get_timezones_from_tzdata_zi(char ***ret) {
         _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_strv_free_ char **zones = NULL;
+        _cleanup_free(strv) char **zones = NULL;
         int r;
 
         assert(ret);
@@ -1538,7 +1538,7 @@ static int get_timezones_from_tzdata_zi(char ***ret) {
 }
 
 int get_timezones(char ***ret) {
-        _cleanup_strv_free_ char **zones = NULL;
+        _cleanup_free(strv) char **zones = NULL;
         int r;
 
         assert(ret);

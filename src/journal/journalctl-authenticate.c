@@ -36,7 +36,7 @@ static int format_key(
                 uint64_t interval,
                 char **ret) {
 
-        _cleanup_(memstream_done) MemStream m = {};
+        _cleanup_done(memstream) MemStream m = {};
         FILE *f;
 
         assert(seed);
@@ -182,7 +182,7 @@ int action_setup_keys(void) {
                 hostname_cleanup(hn);
 
         if (sd_json_format_enabled(arg_json_format_flags)) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
 
                 if (arg_json_format_flags & (SD_JSON_FORMAT_SSE | SD_JSON_FORMAT_SEQ)) {
                         log_debug("Specified --output=%s with --setup-keys, migrating to --output=json.",

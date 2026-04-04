@@ -70,7 +70,7 @@ static int build_managed_oom_json_array_element(Unit *u, const char *property, s
 }
 
 static int build_managed_oom_cgroups_json(Manager *m, bool allow_empty, sd_json_variant **ret) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *arr = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *arr = NULL;
         int r;
 
         assert(m);
@@ -102,7 +102,7 @@ static int build_managed_oom_cgroups_json(Manager *m, bool allow_empty, sd_json_
                                 continue;
 
                         FOREACH_ELEMENT(i, managed_oom_mode_properties) {
-                                _cleanup_(sd_json_variant_unrefp) sd_json_variant *e = NULL;
+                                _cleanup_unref(sd_json_variant) sd_json_variant *e = NULL;
 
                                 /* For the initial varlink call we only care about units that enabled (i.e. mode is not
                                  * set to "auto") oomd properties. */
@@ -135,7 +135,7 @@ static int build_managed_oom_cgroups_json(Manager *m, bool allow_empty, sd_json_
 }
 
 static int manager_varlink_send_managed_oom_initial(Manager *m) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         int r;
 
         assert(m);
@@ -224,7 +224,7 @@ static int manager_varlink_managed_oom_connect(Manager *m) {
 }
 
 int manager_varlink_send_managed_oom_update(Unit *u) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *arr = NULL, *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *arr = NULL, *v = NULL;
         CGroupRuntime *crt;
         CGroupContext *c;
         int r;
@@ -265,7 +265,7 @@ int manager_varlink_send_managed_oom_update(Unit *u) {
         }
 
         FOREACH_ELEMENT(i, managed_oom_mode_properties) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *e = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *e = NULL;
 
                 r = build_managed_oom_json_array_element(u, *i, &e);
                 if (r < 0)
@@ -305,7 +305,7 @@ static int vl_method_subscribe_managed_oom_cgroups(
                 void *userdata) {
 
         Manager *m = ASSERT_PTR(userdata);
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         Unit *u;
         int r;
 
@@ -333,7 +333,7 @@ static int vl_method_subscribe_managed_oom_cgroups(
         if (FLAGS_SET(flags, SD_VARLINK_METHOD_MORE) && m->managed_oom_varlink)
                 return sd_varlink_error(link, "io.systemd.ManagedOOM.SubscriptionTaken", NULL);
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
 
         r = build_managed_oom_cgroups_json(m, /* allow_empty= */ true, &v);
         if (r < 0)
@@ -358,7 +358,7 @@ static void vl_disconnect(sd_varlink_server *s, sd_varlink *link, void *userdata
 }
 
 int manager_setup_varlink_server(Manager *m) {
-        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        _cleanup_unref(sd_varlink_server) sd_varlink_server *s = NULL;
         int r;
 
         assert(m);

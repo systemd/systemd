@@ -169,7 +169,7 @@ static int finalize_credentials_dir(const char *dir, const char *envvar) {
 }
 
 static int import_credentials_boot(void) {
-        _cleanup_(import_credentials_context_done) ImportCredentialsContext context = {
+        _cleanup_done(import_credentials_context) ImportCredentialsContext context = {
                 .target_dir_fd = -EBADF,
         };
         int r;
@@ -702,7 +702,7 @@ static int import_credentials_initrd(ImportCredentialsContext *c) {
 }
 
 static int import_credentials_trusted(void) {
-        _cleanup_(import_credentials_context_done) ImportCredentialsContext c = {
+        _cleanup_done(import_credentials_context) ImportCredentialsContext c = {
                 .target_dir_fd = -EBADF,
         };
         int r, ret = 0;
@@ -728,7 +728,7 @@ static int import_credentials_trusted(void) {
 }
 
 static int merge_credentials_trusted(const char *creds_dir) {
-        _cleanup_(import_credentials_context_done) ImportCredentialsContext c = {
+        _cleanup_done(import_credentials_context) ImportCredentialsContext c = {
                 .target_dir_fd = -EBADF,
         };
         int r;

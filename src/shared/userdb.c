@@ -217,7 +217,7 @@ static int userdb_maybe_restart_query(
                 return 0;
 
         /* Now patch the fields out */
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *patched_query =
+        _cleanup_unref(sd_json_variant) sd_json_variant *patched_query =
                 sd_json_variant_ref(iterator->query);
 
         r = sd_json_variant_filter(&patched_query, (char**const) fields);
@@ -286,14 +286,14 @@ static int userdb_on_query_reply(
         switch (iterator->what) {
 
         case LOOKUP_USER: {
-                _cleanup_(user_group_data_done) struct user_group_data user_data = {};
+                _cleanup_done(user_group_data) struct user_group_data user_data = {};
 
                 static const sd_json_dispatch_field dispatch_table[] = {
                         { "record",     _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_variant, offsetof(struct user_group_data, record),     0 },
                         { "incomplete", SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool, offsetof(struct user_group_data, incomplete), 0 },
                         {}
                 };
-                _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
+                _cleanup_unref(user_record) UserRecord *hr = NULL;
 
                 assert_se(!iterator->found_user);
 
@@ -343,14 +343,14 @@ static int userdb_on_query_reply(
         }
 
         case LOOKUP_GROUP: {
-                _cleanup_(user_group_data_done) struct user_group_data group_data = {};
+                _cleanup_done(user_group_data) struct user_group_data group_data = {};
 
                 static const sd_json_dispatch_field dispatch_table[] = {
                         { "record",     _SD_JSON_VARIANT_TYPE_INVALID, sd_json_dispatch_variant, offsetof(struct user_group_data, record),     0 },
                         { "incomplete", SD_JSON_VARIANT_BOOLEAN,       sd_json_dispatch_stdbool, offsetof(struct user_group_data, incomplete), 0 },
                         {}
                 };
-                _cleanup_(group_record_unrefp) GroupRecord *g = NULL;
+                _cleanup_unref(group_record) GroupRecord *g = NULL;
 
                 assert_se(!iterator->found_group);
 
@@ -396,7 +396,7 @@ static int userdb_on_query_reply(
         }
 
         case LOOKUP_MEMBERSHIP: {
-                _cleanup_(membership_data_done) struct membership_data membership_data = {};
+                _cleanup_done(membership_data) struct membership_data membership_data = {};
 
                 static const sd_json_dispatch_field dispatch_table[] = {
                         { "userName",  SD_JSON_VARIANT_STRING, json_dispatch_user_group_name, offsetof(struct membership_data, user_name),  SD_JSON_RELAX },
@@ -447,7 +447,7 @@ static int userdb_connect(
                 bool more,
                 sd_json_variant *query) {
 
-        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        _cleanup_unref(sd_varlink) sd_varlink *vl = NULL;
         int r;
 
         assert(iterator);
@@ -487,7 +487,7 @@ static int userdb_connect(
                 return log_debug_errno(r, "Failed to extract service name from socket path: %m");
         assert(r != O_DIRECTORY);
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *patched_query = sd_json_variant_ref(query);
+        _cleanup_unref(sd_json_variant) sd_json_variant *patched_query = sd_json_variant_ref(query);
         r = sd_json_variant_set_field_string(&patched_query, "service", service);
         if (r < 0)
                 return log_debug_errno(r, "Unable to set service JSON field: %m");
@@ -512,7 +512,7 @@ static int userdb_start_query(
                 sd_json_variant *query,
                 UserDBFlags flags) {
 
-        _cleanup_strv_free_ char **except = NULL, **only = NULL;
+        _cleanup_free(strv) char **except = NULL, **only = NULL;
         _cleanup_closedir_ DIR *d = NULL;
         const char *e;
         int r, ret = 0;
@@ -801,7 +801,7 @@ nomatch:
 
 static int query_append_common(sd_json_variant **query, const UserDBMatch *match) {
         int r;
-        _cleanup_strv_free_ char **dispositions = NULL;
+        _cleanup_free(strv) char **dispositions = NULL;
 
         assert(query);
 
@@ -892,8 +892,8 @@ static int userdb_by_name_fallbacks(
 }
 
 int userdb_by_name(const char *name, const UserDBMatch *match, UserDBFlags flags, UserRecord **ret) {
-        _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *query = NULL;
+        _cleanup_free(userdb_iterator) UserDBIterator *iterator = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *query = NULL;
         int r;
 
         /* Well known errors this returns:
@@ -928,7 +928,7 @@ int userdb_by_name(const char *name, const UserDBMatch *match, UserDBFlags flags
         if (!iterator)
                 return -ENOMEM;
 
-        _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
+        _cleanup_unref(user_record) UserRecord *ur = NULL;
         r = userdb_start_query(iterator, "io.systemd.UserDatabase.GetUserRecord", /* more= */ false, query, flags);
         if (r >= 0) {
                 r = userdb_process(iterator, &ur, /* ret_group_record= */ NULL, /* ret_user_name= */ NULL, /* ret_group_name= */ NULL);
@@ -999,8 +999,8 @@ static int userdb_by_uid_fallbacks(
 }
 
 int userdb_by_uid(uid_t uid, const UserDBMatch *match, UserDBFlags flags, UserRecord **ret) {
-        _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *query = NULL;
+        _cleanup_free(userdb_iterator) UserDBIterator *iterator = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *query = NULL;
         int r;
 
         if (!uid_is_valid(uid))
@@ -1018,7 +1018,7 @@ int userdb_by_uid(uid_t uid, const UserDBMatch *match, UserDBFlags flags, UserRe
         if (!iterator)
                 return -ENOMEM;
 
-        _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
+        _cleanup_unref(user_record) UserRecord *ur = NULL;
         r = userdb_start_query(iterator, "io.systemd.UserDatabase.GetUserRecord", /* more= */ false, query, flags);
         if (r >= 0) {
                 r = userdb_process(iterator, &ur, /* ret_group_record= */ NULL, /* ret_user_name= */ NULL, /* ret_group_name= */ NULL);
@@ -1041,8 +1041,8 @@ int userdb_by_uid(uid_t uid, const UserDBMatch *match, UserDBFlags flags, UserRe
 }
 
 int userdb_all(const UserDBMatch *match, UserDBFlags flags, UserDBIterator **ret) {
-        _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *query = NULL;
+        _cleanup_free(userdb_iterator) UserDBIterator *iterator = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *query = NULL;
         int r, qr;
 
         assert(ret);
@@ -1208,7 +1208,7 @@ int userdb_iterator_get(UserDBIterator *iterator, const UserDBMatch *match, User
         assert(iterator->what == LOOKUP_USER);
 
         for (;;) {
-                _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
+                _cleanup_unref(user_record) UserRecord *ur = NULL;
 
                 r = userdb_iterator_get_one(iterator, userdb_match_is_set(match) || ret ? &ur : NULL);
                 if (r < 0)
@@ -1356,8 +1356,8 @@ static int groupdb_by_name_fallbacks(
 }
 
 int groupdb_by_name(const char *name, const UserDBMatch *match, UserDBFlags flags, GroupRecord **ret) {
-        _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *query = NULL;
+        _cleanup_free(userdb_iterator) UserDBIterator *iterator = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *query = NULL;
         int r;
 
         assert(name);
@@ -1384,7 +1384,7 @@ int groupdb_by_name(const char *name, const UserDBMatch *match, UserDBFlags flag
         if (!iterator)
                 return -ENOMEM;
 
-        _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
+        _cleanup_unref(group_record) GroupRecord *gr = NULL;
         r = userdb_start_query(iterator, "io.systemd.UserDatabase.GetGroupRecord", /* more= */ false, query, flags);
         if (r >= 0) {
                 r = userdb_process(iterator, /* ret_user_record= */ NULL, &gr, /* ret_user_name= */ NULL, /* ret_group_name= */ NULL);
@@ -1451,8 +1451,8 @@ static int groupdb_by_gid_fallbacks(
 }
 
 int groupdb_by_gid(gid_t gid, const UserDBMatch *match, UserDBFlags flags, GroupRecord **ret) {
-        _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *query = NULL;
+        _cleanup_free(userdb_iterator) UserDBIterator *iterator = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *query = NULL;
         int r;
 
         if (!gid_is_valid(gid))
@@ -1470,7 +1470,7 @@ int groupdb_by_gid(gid_t gid, const UserDBMatch *match, UserDBFlags flags, Group
         if (!iterator)
                 return -ENOMEM;
 
-        _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
+        _cleanup_unref(group_record) GroupRecord *gr = NULL;
         r = userdb_start_query(iterator, "io.systemd.UserDatabase.GetGroupRecord", /* more= */ false, query, flags);
         if (r >= 0) {
                 r = userdb_process(iterator, /* ret_user_record= */ NULL, &gr, /* ret_user_name= */ NULL, /* ret_group_name= */ NULL);
@@ -1493,8 +1493,8 @@ int groupdb_by_gid(gid_t gid, const UserDBMatch *match, UserDBFlags flags, Group
 }
 
 int groupdb_all(const UserDBMatch *match, UserDBFlags flags, UserDBIterator **ret) {
-        _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *query = NULL;
+        _cleanup_free(userdb_iterator) UserDBIterator *iterator = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *query = NULL;
         int r, qr;
 
         assert(ret);
@@ -1647,7 +1647,7 @@ int groupdb_iterator_get(UserDBIterator *iterator, const UserDBMatch *match, Gro
         assert(iterator->what == LOOKUP_GROUP);
 
         for (;;) {
-                _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
+                _cleanup_unref(group_record) GroupRecord *gr = NULL;
 
                 r = groupdb_iterator_get_one(iterator, userdb_match_is_set(match) || ret ? &gr : NULL);
                 if (r < 0)
@@ -1677,8 +1677,8 @@ static void discover_membership_dropins(UserDBIterator *i, UserDBFlags flags) {
 }
 
 int membershipdb_by_user(const char *name, UserDBFlags flags, UserDBIterator **ret) {
-        _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *query = NULL;
+        _cleanup_free(userdb_iterator) UserDBIterator *iterator = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *query = NULL;
         int r, qr;
 
         assert(ret);
@@ -1722,8 +1722,8 @@ int membershipdb_by_user(const char *name, UserDBFlags flags, UserDBIterator **r
 }
 
 int membershipdb_by_group(const char *name, UserDBFlags flags, UserDBIterator **ret) {
-        _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *query = NULL;
+        _cleanup_free(userdb_iterator) UserDBIterator *iterator = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *query = NULL;
         int r, qr;
 
         assert(ret);
@@ -1746,7 +1746,7 @@ int membershipdb_by_group(const char *name, UserDBFlags flags, UserDBIterator **
         qr = userdb_start_query(iterator, "io.systemd.UserDatabase.GetMemberships", true, query, flags);
 
         if (!FLAGS_SET(flags, USERDB_EXCLUDE_NSS) && (qr < 0 || !iterator->nss_covered)) {
-                _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
+                _cleanup_unref(group_record) GroupRecord *gr = NULL;
 
                 r = userdb_iterator_block_nss_systemd(iterator);
                 if (r < 0)
@@ -1780,7 +1780,7 @@ int membershipdb_by_group(const char *name, UserDBFlags flags, UserDBIterator **
 }
 
 int membershipdb_all(UserDBFlags flags, UserDBIterator **ret) {
-        _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
+        _cleanup_free(userdb_iterator) UserDBIterator *iterator = NULL;
         int r, qr;
 
         assert(ret);
@@ -1945,8 +1945,8 @@ int membershipdb_iterator_get(
 }
 
 int membershipdb_by_group_strv(const char *name, UserDBFlags flags, char ***ret) {
-        _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
-        _cleanup_strv_free_ char **members = NULL;
+        _cleanup_free(userdb_iterator) UserDBIterator *iterator = NULL;
+        _cleanup_free(strv) char **members = NULL;
         int r;
 
         assert(name);

@@ -231,7 +231,7 @@ static int parse_argv(int argc, char **argv,
                       char ***the_modules,
                       char ***the_names) {
 
-        _cleanup_strv_free_ char **modules = NULL, **names = NULL;
+        _cleanup_free(strv) char **modules = NULL, **names = NULL;
         const char *p;
         int r;
 
@@ -272,7 +272,7 @@ static int parse_argv(int argc, char **argv,
 
 static int run(int argc, char **argv) {
         _cleanup_free_ char *dir = NULL;
-        _cleanup_strv_free_ char **modules = NULL, **names = NULL;
+        _cleanup_free(strv) char **modules = NULL, **names = NULL;
         int r;
 
         test_setup_logging(LOG_INFO);

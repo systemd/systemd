@@ -7,7 +7,7 @@
 #include "time-util.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
-        _cleanup_(calendar_spec_freep) CalendarSpec *cspec = NULL;
+        _cleanup_free(calendar_spec) CalendarSpec *cspec = NULL;
         _cleanup_free_ char *str = NULL;
         int r;
 
@@ -31,7 +31,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         log_debug("spec: %s → %s", str, p);
 
-        _cleanup_(calendar_spec_freep) CalendarSpec *cspec2 = NULL;
+        _cleanup_free(calendar_spec) CalendarSpec *cspec2 = NULL;
         assert_se(calendar_spec_from_string(p, &cspec2) >= 0);
         assert_se(calendar_spec_valid(cspec2));
 

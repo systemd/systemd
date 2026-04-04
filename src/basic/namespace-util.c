@@ -119,7 +119,7 @@ int pidref_namespace_open_by_type(const PidRef *pidref, NamespaceType type) {
 }
 
 int namespace_open_by_type(NamespaceType type) {
-        _cleanup_(pidref_done) PidRef self = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef self = PIDREF_NULL;
         int r;
 
         assert(type >= 0 && type < _NAMESPACE_TYPE_MAX);
@@ -218,7 +218,7 @@ int namespace_open(
                 int *ret_userns_fd,
                 int *ret_root_fd) {
 
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         int r;
 
         r = pidref_set_pid(&pidref, pid);
@@ -482,11 +482,11 @@ int namespace_get_leader(PidRef *pidref, NamespaceType type, PidRef *ret) {
         assert(type >= 0 && type < _NAMESPACE_TYPE_MAX);
         assert(ret);
 
-        _cleanup_(pidref_done) PidRef current = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef current = PIDREF_NULL;
         PidRef *c = pidref;
 
         for (;;) {
-                _cleanup_(pidref_done) PidRef parent = PIDREF_NULL;
+                _cleanup_done(pidref) PidRef parent = PIDREF_NULL;
 
                 r = pidref_get_ppid_as_pidref(c, &parent);
                 if (r < 0)

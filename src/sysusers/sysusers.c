@@ -371,7 +371,7 @@ static int putgrent_with_members(
 
         a = ordered_hashmap_get(c->members, gr->gr_name);
         if (a) {
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_free(strv) char **l = NULL;
                 bool added = false;
 
                 l = strv_copy(gr->gr_mem);
@@ -419,7 +419,7 @@ static int putsgent_with_members(
 
         a = ordered_hashmap_get(c->members, sg->sg_namp);
         if (a) {
-                _cleanup_strv_free_ char **l = NULL;
+                _cleanup_free(strv) char **l = NULL;
                 bool added = false;
 
                 l = strv_copy(sg->sg_mem);
@@ -1543,7 +1543,7 @@ static Item* item_new(ItemType type, const char *name, const char *filename, uns
         assert(name);
         assert(!!filename == (line > 0));
 
-        _cleanup_(item_freep) Item *new = new(Item, 1);
+        _cleanup_free(item) Item *new = new(Item, 1);
         if (!new)
                 return NULL;
 
@@ -1569,7 +1569,7 @@ static int add_implicit(Context *c) {
         ORDERED_HASHMAP_FOREACH_KEY(l, g, c->members) {
                 STRV_FOREACH(m, l)
                         if (!ordered_hashmap_contains(c->users, *m)) {
-                                _cleanup_(item_freep) Item *j =
+                                _cleanup_free(item) Item *j =
                                         item_new(ADD_USER, *m, /* filename= */ NULL, /* line= */ 0);
                                 if (!j)
                                         return log_oom();
@@ -1586,7 +1586,7 @@ static int add_implicit(Context *c) {
 
                 if (!(ordered_hashmap_contains(c->users, g) ||
                       ordered_hashmap_contains(c->groups, g))) {
-                        _cleanup_(item_freep) Item *j =
+                        _cleanup_free(item) Item *j =
                                 item_new(ADD_GROUP, g, /* filename= */ NULL, /* line= */ 0);
                         if (!j)
                                 return log_oom();
@@ -1725,7 +1725,7 @@ static int parse_line(
                 *description = NULL, *resolved_description = NULL,
                 *home = NULL, *resolved_home = NULL,
                 *shell = NULL, *resolved_shell = NULL;
-        _cleanup_(item_freep) Item *i = NULL;
+        _cleanup_free(item) Item *i = NULL;
         Item *existing;
         OrderedHashmap *h;
         int r;
@@ -2034,7 +2034,7 @@ static int read_config_file(Context *c, const char *fn, bool ignore_enoent) {
 }
 
 static int cat_config(void) {
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_free(strv) char **files = NULL;
         int r;
 
         r = conf_files_list_with_replacement(arg_root, CONF_PATHS_STRV("sysusers.d"), arg_replace, &files, NULL);
@@ -2221,7 +2221,7 @@ static int parse_arguments(Context *c, char **args) {
 }
 
 static int read_config_files(Context *c, char **args) {
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_free(strv) char **files = NULL;
         _cleanup_free_ char *p = NULL;
         int r;
 
@@ -2270,10 +2270,10 @@ static int read_credential_lines(Context *c) {
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
+        _cleanup_unref(loop_device) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
         _cleanup_close_ int lock = -EBADF;
-        _cleanup_(context_done) Context c = {
+        _cleanup_done(context) Context c = {
                 .audit_fd = -EBADF,
                 .search_uid = UID_INVALID,
         };

@@ -206,7 +206,7 @@ int pam_acquire_bus_connection(
                 sd_bus **ret_bus,
                 PamBusData **ret_pam_bus_data) {
 
-        _cleanup_(pam_bus_data_freep) PamBusData *d = NULL;
+        _cleanup_free(pam_bus_data) PamBusData *d = NULL;
         _cleanup_free_ char *cache_id = NULL;
         int r;
 

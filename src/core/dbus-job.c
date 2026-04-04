@@ -69,7 +69,7 @@ int bus_job_method_cancel(sd_bus_message *message, void *userdata, sd_bus_error 
 }
 
 int bus_job_method_get_waiting_jobs(sd_bus_message *message, void *userdata, sd_bus_error *reterr_error) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         _cleanup_free_ Job **list = NULL;
         Job *j = userdata;
         int r, n;
@@ -161,7 +161,7 @@ static int bus_job_find(sd_bus *bus, const char *path, const char *interface, vo
 }
 
 static int bus_job_enumerate(sd_bus *bus, const char *path, void *userdata, char ***nodes, sd_bus_error *reterr_error) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         Manager *m = userdata;
         unsigned k = 0;
         Job *j;
@@ -193,7 +193,7 @@ const BusObjectImplementation job_object = {
 };
 
 static int send_new_signal(sd_bus *bus, void *userdata) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
         _cleanup_free_ char *p = NULL;
         Job *j = ASSERT_PTR(userdata);
         int r;
@@ -272,7 +272,7 @@ void bus_job_send_pending_change_signal(Job *j, bool including_new) {
 }
 
 static int send_removed_signal(sd_bus *bus, void *userdata) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
         _cleanup_free_ char *p = NULL;
         Job *j = ASSERT_PTR(userdata);
         int r;
@@ -338,7 +338,7 @@ static int bus_job_allocate_bus_track(Job *j) {
 }
 
 int bus_job_coldplug_bus_track(Job *j) {
-        _cleanup_strv_free_ char **deserialized_clients = NULL;
+        _cleanup_free(strv) char **deserialized_clients = NULL;
         int r;
 
         assert(j);

@@ -69,7 +69,7 @@ void udev_watch_dump(void) {
                 return (void) log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
                                              "Failed to open old watches directory '/run/udev/watch/': %m");
 
-        _cleanup_set_free_ Set *pending_wds = NULL, *verified_wds = NULL;
+        _cleanup_free(set) Set *pending_wds = NULL, *verified_wds = NULL;
         FOREACH_DIRENT(de, dir, break) {
                 if (safe_atoi(de->d_name, NULL) >= 0) {
                         /* This should be wd -> ID symlink */
@@ -91,7 +91,7 @@ void udev_watch_dump(void) {
                 }
 
                 const char *devnode = NULL;
-                _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+                _cleanup_unref(sd_device) sd_device *dev = NULL;
                 if (sd_device_new_from_device_id(&dev, de->d_name) >= 0)
                         (void) sd_device_get_devname(dev, &devnode);
 
@@ -131,7 +131,7 @@ void udev_watch_dump(void) {
                 }
 
                 const char *devnode = NULL;
-                _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+                _cleanup_unref(sd_device) sd_device *dev = NULL;
                 if (sd_device_new_from_device_id(&dev, id) >= 0)
                         (void) sd_device_get_devname(dev, &devnode);
 
@@ -236,7 +236,7 @@ static int synthesize_change(Manager *manager, sd_device *dev) {
         if (r == 0)
                 return synthesize_change_one(manager, dev);
 
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         r = pidref_safe_fork(
                         "(udev-synth)",
                         FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_REOPEN_LOG,
@@ -249,7 +249,7 @@ static int synthesize_change(Manager *manager, sd_device *dev) {
                 _exit(EXIT_SUCCESS);
         }
 
-        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *s = NULL;
         r = event_add_child_pidref(manager->event, &s, &pidref, WEXITED, synthesize_change_child_handler, manager);
         if (r < 0) {
                 log_debug_errno(r, "Failed to add child event source for "PID_FMT", ignoring: %m", pidref.pid);
@@ -283,7 +283,7 @@ static int manager_process_inotify(Manager *manager, const struct inotify_event 
         if (!FLAGS_SET(e->mask, IN_CLOSE_WRITE))
                 return 0;
 
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        _cleanup_unref(sd_device) sd_device *dev = NULL;
         r = device_new_from_watch_handle_at(&dev, -EBADF, e->wd);
         if (r < 0) /* Device may be removed just after closed. */
                 return log_debug_errno(r, "Failed to create sd_device object from watch handle, ignoring: %m");
@@ -346,7 +346,7 @@ static int udev_watch_restore(Manager *manager) {
                 if (safe_atoi(de->d_name, &wd) < 0)
                         continue; /* This should be ID -> wd symlink. Skipping. */
 
-                _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+                _cleanup_unref(sd_device) sd_device *dev = NULL;
                 r = device_new_from_watch_handle_at(&dev, dirfd(dir), wd);
                 if (r < 0) {
                         log_full_errno(ERRNO_IS_NEG_DEVICE_ABSENT(r) ? LOG_DEBUG : LOG_WARNING, r,
@@ -409,7 +409,7 @@ int manager_start_inotify(Manager *manager) {
 
         udev_watch_dump();
 
-        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *s = NULL;
         r = sd_event_add_io(manager->event, &s, manager->inotify_fd, EPOLLIN, on_inotify, manager);
         if (r < 0)
                 return log_error_errno(r, "Failed to create inotify event source: %m");
@@ -651,7 +651,7 @@ static int notify_and_wait_signal(UdevWorker *worker, sd_device *dev, const char
         if (sd_device_get_devname(dev, NULL) < 0)
                 return 0;
 
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
         r = sd_event_new(&e);
         if (r < 0)
                 return r;

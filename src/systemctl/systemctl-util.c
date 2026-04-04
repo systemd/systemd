@@ -127,7 +127,7 @@ int translate_bus_error_to_exit_status(int r, const sd_bus_error *error) {
 }
 
 int get_state_one_unit(sd_bus *bus, const char *unit, UnitActiveState *ret_active_state) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *buf = NULL, *dbus_path = NULL;
         UnitActiveState state;
         int r;
@@ -160,7 +160,7 @@ int get_state_one_unit(sd_bus *bus, const char *unit, UnitActiveState *ret_activ
 }
 
 int get_sub_state_one_unit(sd_bus *bus, const char *unit, char **ret_sub_state) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *sub_state = NULL, *dbus_path = NULL;
         int r;
 
@@ -195,9 +195,9 @@ int get_unit_list(
                 int c,
                 sd_bus_message **ret_reply) {
 
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         int r;
         bool fallback = false;
 
@@ -278,7 +278,7 @@ int expand_unit_names(
                 char ***ret,
                 bool *ret_expanded) {
 
-        _cleanup_strv_free_ char **mangled = NULL, **globs = NULL;
+        _cleanup_free(strv) char **mangled = NULL, **globs = NULL;
         int r;
 
         assert(bus);
@@ -303,7 +303,7 @@ int expand_unit_names(
         /* Query the manager only if any of the names are a glob, since this is fairly expensive */
         bool expanded = !strv_isempty(globs);
         if (expanded) {
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+                _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
                 _cleanup_free_ UnitInfo *unit_infos = NULL;
 
                 r = get_unit_list(bus, NULL, globs, &unit_infos, 0, &reply);
@@ -323,8 +323,8 @@ int expand_unit_names(
 }
 
 int get_active_triggering_units(sd_bus *bus, const char *unit, bool ignore_masked, char ***ret) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_strv_free_ char **triggered_by = NULL, **active = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free(strv) char **triggered_by = NULL, **active = NULL;
         _cleanup_free_ char *name = NULL, *dbus_path = NULL;
         int r;
 
@@ -387,7 +387,7 @@ skip:
 }
 
 void warn_triggering_units(sd_bus *bus, const char *unit, const char *operation, bool ignore_masked) {
-        _cleanup_strv_free_ char **triggered_by = NULL;
+        _cleanup_free(strv) char **triggered_by = NULL;
         _cleanup_free_ char *joined = NULL;
         int r;
 
@@ -415,7 +415,7 @@ void warn_triggering_units(sd_bus *bus, const char *unit, const char *operation,
 }
 
 int need_daemon_reload(sd_bus *bus, const char *unit) {
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         const char *path;
         int b, r;
 
@@ -500,7 +500,7 @@ int unit_find_paths(
                 char **ret_fragment_path,
                 char ***ret_dropin_paths) {
 
-        _cleanup_strv_free_ char **dropins = NULL;
+        _cleanup_free(strv) char **dropins = NULL;
         _cleanup_free_ char *path = NULL;
         int r;
 
@@ -526,7 +526,7 @@ int unit_find_paths(
         if (!force_client_side &&
             install_client_side() == INSTALL_CLIENT_SIDE_NO &&
             !unit_name_is_valid(unit_name, UNIT_NAME_TEMPLATE)) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_free_ char *load_state = NULL, *dbus_path = NULL;
 
                 dbus_path = unit_dbus_path_from_name(unit_name);
@@ -584,7 +584,7 @@ int unit_find_paths(
                 }
 
                 const char *_path;
-                _cleanup_set_free_ Set *names = NULL;
+                _cleanup_free(set) Set *names = NULL;
                 r = unit_file_find_fragment(*cached_id_map, *cached_name_map, unit_name, &_path, &names);
                 if (r < 0)
                         return log_error_errno(r, "Failed to find fragment for '%s': %m", unit_name);
@@ -686,8 +686,8 @@ int unit_is_masked(sd_bus *bus, const char *unit) {
         assert(unit);
 
         if (unit_name_is_valid(unit, UNIT_NAME_TEMPLATE)) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
                 const char *state;
 
                 r = bus_call_method(bus, bus_systemd_mgr, "GetUnitFileState", &error, &reply, "s", unit);
@@ -721,8 +721,8 @@ int unit_exists(LookupPaths *lp, const char *unit) {
                 {},
         };
 
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
         _cleanup_free_ char *path = NULL;
         UnitStateInfo info = {};
         sd_bus *bus;
@@ -747,7 +747,7 @@ int unit_exists(LookupPaths *lp, const char *unit) {
 }
 
 int append_unit_dependencies(sd_bus *bus, char **names, char ***ret) {
-        _cleanup_strv_free_ char **with_deps = NULL;
+        _cleanup_free(strv) char **with_deps = NULL;
 
         assert(bus);
         assert(ret);
@@ -770,7 +770,7 @@ int append_unit_dependencies(sd_bus *bus, char **names, char ***ret) {
 }
 
 int maybe_extend_with_unit_dependencies(sd_bus *bus, char ***list) {
-        _cleanup_strv_free_ char **list_with_deps = NULL;
+        _cleanup_free(strv) char **list_with_deps = NULL;
         int r;
 
         assert(bus);
@@ -787,7 +787,7 @@ int maybe_extend_with_unit_dependencies(sd_bus *bus, char ***list) {
 }
 
 int unit_get_dependencies(sd_bus *bus, const char *name, char ***ret) {
-        _cleanup_strv_free_ char **deps = NULL;
+        _cleanup_free(strv) char **deps = NULL;
 
         static const struct bus_properties_map map[_DEPENDENCY_MAX][7] = {
                 [DEPENDENCY_FORWARD] = {
@@ -818,7 +818,7 @@ int unit_get_dependencies(sd_bus *bus, const char *name, char ***ret) {
                 },
         };
 
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_free_ char *dbus_path = NULL;
         int r;
 
@@ -941,7 +941,7 @@ UnitFileFlags unit_file_flags_from_args(void) {
 }
 
 int mangle_names(const char *operation, char * const *original_names, char ***ret) {
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         int r;
 
         assert(operation);
@@ -1009,8 +1009,8 @@ int halt_now(enum action a) {
 }
 
 int get_unit_by_pid(sd_bus *bus, pid_t pid, char **ret_unit, char **ret_path) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         int r;
 
         assert(bus);
@@ -1057,8 +1057,8 @@ int get_unit_by_pid(sd_bus *bus, pid_t pid, char **ret_unit, char **ret_path) {
 }
 
 static int get_unit_by_pidfd(sd_bus *bus, const PidRef *pid, char **ret_unit, char **ret_path) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         int r;
 
         assert(bus);
@@ -1117,7 +1117,7 @@ int lookup_unit_by_pidref(sd_bus *bus, pid_t pid, char **ret_unit, char **ret_pa
                 return get_unit_by_pid(bus, pid, ret_unit, ret_path);
 
         static bool use_pidfd = true;
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
 
         r = pidref_set_pid(&pidref, pid);
         if (r < 0)

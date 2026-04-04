@@ -130,7 +130,7 @@ int pidref_set_pid_and_pidfd_id(
 
         assert(pidref);
 
-        _cleanup_(pidref_done) PidRef n = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef n = PIDREF_NULL;
         r = pidref_set_pid(&n, pid);
         if (r < 0)
                 return r;
@@ -220,7 +220,7 @@ int pidref_set_pidfd_consume(PidRef *pidref, int fd) {
 }
 
 int pidref_set_parent(PidRef *ret) {
-        _cleanup_(pidref_done) PidRef parent = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef parent = PIDREF_NULL;
         pid_t ppid;
         int r;
 
@@ -269,7 +269,7 @@ PidRef* pidref_free(PidRef *pidref) {
 }
 
 int pidref_copy(const PidRef *pidref, PidRef *ret) {
-        _cleanup_(pidref_done) PidRef copy = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef copy = PIDREF_NULL;
 
         /* If NULL is passed we'll generate a PidRef that refers to no process. This makes it easy to
          * copy pidref fields that might or might not reference a process yet. */
@@ -298,7 +298,7 @@ int pidref_copy(const PidRef *pidref, PidRef *ret) {
 }
 
 int pidref_dup(const PidRef *pidref, PidRef **ret) {
-        _cleanup_(pidref_freep) PidRef *dup_pidref = NULL;
+        _cleanup_free(pidref) PidRef *dup_pidref = NULL;
         int r;
 
         /* Allocates a new PidRef on the heap, making it a copy of the specified pidref. This does not try to
@@ -319,7 +319,7 @@ int pidref_dup(const PidRef *pidref, PidRef **ret) {
 }
 
 int pidref_new_from_pid(pid_t pid, PidRef **ret) {
-        _cleanup_(pidref_freep) PidRef *n = NULL;
+        _cleanup_free(pidref) PidRef *n = NULL;
         int r;
 
         assert(ret);

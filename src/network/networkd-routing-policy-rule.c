@@ -121,8 +121,8 @@ static int routing_policy_rule_new(RoutingPolicyRule **ret) {
 }
 
 static int routing_policy_rule_new_static(Network *network, const char *filename, unsigned section_line, RoutingPolicyRule **ret) {
-        _cleanup_(routing_policy_rule_unrefp) RoutingPolicyRule *rule = NULL;
-        _cleanup_(config_section_freep) ConfigSection *n = NULL;
+        _cleanup_unref(routing_policy_rule) RoutingPolicyRule *rule = NULL;
+        _cleanup_free(config_section) ConfigSection *n = NULL;
         int r;
 
         assert(network);
@@ -158,7 +158,7 @@ static int routing_policy_rule_new_static(Network *network, const char *filename
 }
 
 static int routing_policy_rule_dup(const RoutingPolicyRule *src, int family, RoutingPolicyRule **ret) {
-        _cleanup_(routing_policy_rule_unrefp) RoutingPolicyRule *dest = NULL;
+        _cleanup_unref(routing_policy_rule) RoutingPolicyRule *dest = NULL;
 
         assert(src);
         assert(ret);
@@ -462,7 +462,7 @@ static int routing_policy_rule_attach(Manager *m, RoutingPolicyRule *rule) {
 }
 
 static int routing_policy_rule_acquire_priority(Manager *manager, RoutingPolicyRule *rule) {
-        _cleanup_set_free_ Set *priorities = NULL;
+        _cleanup_free(set) Set *priorities = NULL;
         RoutingPolicyRule *tmp;
         uint32_t priority;
         Network *network;
@@ -734,7 +734,7 @@ static int routing_policy_rule_remove_handler(sd_netlink *rtnl, sd_netlink_messa
 }
 
 static int routing_policy_rule_remove(RoutingPolicyRule *rule, Manager *manager) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         int r;
 
         assert(rule);
@@ -769,7 +769,7 @@ static int routing_policy_rule_remove(RoutingPolicyRule *rule, Manager *manager)
 }
 
 static int routing_policy_rule_configure(RoutingPolicyRule *rule, Link *link, Request *req) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         int r;
 
         assert(rule);
@@ -949,7 +949,7 @@ static int static_routing_policy_rule_configure_handler(
 }
 
 static int link_request_routing_policy_rule(Link *link, const RoutingPolicyRule *rule, int family) {
-        _cleanup_(routing_policy_rule_unrefp) RoutingPolicyRule *tmp = NULL;
+        _cleanup_unref(routing_policy_rule) RoutingPolicyRule *tmp = NULL;
         RoutingPolicyRule *existing = NULL;
         int r;
 
@@ -1075,7 +1075,7 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Man
                 return 0;
         }
 
-        _cleanup_(routing_policy_rule_unrefp) RoutingPolicyRule *tmp = NULL;
+        _cleanup_unref(routing_policy_rule) RoutingPolicyRule *tmp = NULL;
         r = routing_policy_rule_new(&tmp);
         if (r < 0) {
                 log_oom();

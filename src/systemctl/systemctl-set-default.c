@@ -68,8 +68,8 @@ static int determine_default(char **ret_name) {
 
         } else {
                 sd_bus *bus;
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
                 const char *name;
 
                 r = acquire_bus(BUS_MANAGER, &bus);
@@ -127,8 +127,8 @@ int verb_set_default(int argc, char *argv[], uintptr_t _data, void *userdata) {
                 if (r < 0)
                         return r;
         } else {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
                 sd_bus *bus;
 
                 polkit_agent_open_maybe();

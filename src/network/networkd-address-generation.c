@@ -144,7 +144,7 @@ static int ipv6_token_put_by_addr(Hashmap **tokens_by_address, const struct in6_
 }
 
 static int ipv6_token_type_put_by_addr(Hashmap **tokens_by_addr, const struct in6_addr *addr, AddressGenerationType type) {
-        _cleanup_(ipv6_token_unrefp) IPv6Token *token = NULL;
+        _cleanup_unref(ipv6_token) IPv6Token *token = NULL;
         int r;
 
         assert(tokens_by_addr);
@@ -314,7 +314,7 @@ static int generate_addresses(
                 uint8_t prefixlen,
                 Hashmap **ret) {
 
-        _cleanup_hashmap_free_ Hashmap *tokens_by_address = NULL;
+        _cleanup_free(hashmap) Hashmap *tokens_by_address = NULL;
         struct in6_addr masked, addr;
         IPv6Token *j;
         int r;

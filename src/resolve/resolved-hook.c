@@ -184,7 +184,7 @@ static int hook_varlink_connect(Hook *h, int64_t priority, sd_varlink **ret) {
         assert(h);
         assert(ret);
 
-        _cleanup_(sd_varlink_unrefp) sd_varlink *v = NULL;
+        _cleanup_unref(sd_varlink) sd_varlink *v = NULL;
         r = sd_varlink_connect_address(&v, h->socket_path);
         if (ERRNO_IS_NEG_DISCONNECT(r) || r == -ENOENT) {
                 log_debug_errno(r, "Socket '%s' is not connectible, probably stale, ignoring: %m", h->socket_path);
@@ -222,7 +222,7 @@ static int hook_acquire_filter(Hook *h) {
         if (h->filter_link)
                 return 0;
 
-        _cleanup_(sd_varlink_unrefp) sd_varlink *v = NULL;
+        _cleanup_unref(sd_varlink) sd_varlink *v = NULL;
         r = hook_varlink_connect(h, SD_EVENT_PRIORITY_NORMAL-10, &v); /* Give the querying of the filter a bit of priority */
         if (r <= 0)
                 return r;
@@ -349,7 +349,7 @@ static int manager_hook_add(Manager *m, const char *p, usec_t seen_usec) {
         if (!s)
                 return log_oom();
 
-        _cleanup_(hook_unrefp) Hook *h = new(Hook, 1);
+        _cleanup_unref(hook) Hook *h = new(Hook, 1);
         if (!h)
                 return log_oom();
 
@@ -520,7 +520,7 @@ static void hook_query_ready(HookQuery *hq) {
         /* The complete() callback quite likely will destroy 'hq', which might be what keeps the answer
          * object alive. Let's take an explicit ref here hence, so that it definitely remains alive for the
          * whole callback lifetime */
-        _cleanup_(dns_answer_unrefp) DnsAnswer *answer = dns_answer_ref(hq->answer);
+        _cleanup_unref(dns_answer) DnsAnswer *answer = dns_answer_ref(hq->answer);
         hq->complete(hq, hq->answer_rcode, answer, hq->userdata);
 }
 
@@ -555,13 +555,13 @@ static int dispatch_answer(const char *name, sd_json_variant *variant, sd_json_d
         if (!sd_json_variant_is_array(variant))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array.", strna(name));
 
-        _cleanup_(dns_answer_unrefp) DnsAnswer *l = NULL;
+        _cleanup_unref(dns_answer) DnsAnswer *l = NULL;
         sd_json_variant *e;
         JSON_VARIANT_ARRAY_FOREACH(e, variant) {
                 if (!sd_json_variant_is_object(e))
                         return json_log(e, flags, SYNTHETIC_ERRNO(EINVAL), "JSON array element is not an object");
 
-                _cleanup_(iovec_done) struct iovec iovec = {};
+                _cleanup_done(iovec) struct iovec iovec = {};
                 static const sd_json_dispatch_field dispatch_table[] = {
                         { "raw", SD_JSON_VARIANT_STRING, json_dispatch_unbase64_iovec, 0, SD_JSON_MANDATORY },
                         { "rr",  SD_JSON_VARIANT_OBJECT, NULL,                         0, 0                 },
@@ -572,7 +572,7 @@ static int dispatch_answer(const char *name, sd_json_variant *variant, sd_json_d
                 if (r < 0)
                         return r;
 
-                _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
+                _cleanup_unref(dns_resource_record) DnsResourceRecord *rr = NULL;
                 r = dns_resource_record_new_from_raw(&rr, iovec.iov_base, iovec.iov_len);
                 if (r < 0)
                         return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL),
@@ -612,7 +612,7 @@ static int on_query_reply(
 
         assert(link);
 
-        _cleanup_(query_reply_parameters_done) QueryReplyParameters p = {
+        _cleanup_done(query_reply_parameters) QueryReplyParameters p = {
                 .rcode = -1,
         };
 
@@ -684,11 +684,11 @@ static int dns_questions_to_json(DnsQuestion *a, DnsQuestion *b, sd_json_variant
         /* Takes both questions and turns them into a JSON array of objects with the key. Note this takes two
          * questions, one in IDNA and one in UTF-8 encoding, and merges them, removing duplicates. */
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *l = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *l = NULL;
 
         DnsResourceKey *key;
         DNS_QUESTION_FOREACH(key, a) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
                 r = dns_resource_key_to_json(key, &v);
                 if (r < 0)
                         return r;
@@ -703,7 +703,7 @@ static int dns_questions_to_json(DnsQuestion *a, DnsQuestion *b, sd_json_variant
                         if (dns_question_contains_key(a, key))
                                 continue;
 
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
                         r = dns_resource_key_to_json(key, &v);
                         if (r < 0)
                                 return r;
@@ -724,7 +724,7 @@ static int hook_query_add_candidate(HookQuery *hq, Hook *h) {
         assert(hq);
         assert(h);
 
-        _cleanup_(sd_varlink_unrefp) sd_varlink *vl = NULL;
+        _cleanup_unref(sd_varlink) sd_varlink *vl = NULL;
         for (;;) {
                 /* Before we create a new connection, let's see if there are still idle connections we can
                  * use. */
@@ -756,7 +756,7 @@ static int hook_query_add_candidate(HookQuery *hq, Hook *h) {
         if (r < 0)
                 return log_error_errno(r, "Failed to bind reply callback to Varlink connection: %m");
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *jq = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *jq = NULL;
         r = dns_questions_to_json(hq->question_idna, hq->question_utf8, &jq);
         if (r < 0)
                 return log_error_errno(r, "Failed to convert question to JSON: %m");
@@ -768,7 +768,7 @@ static int hook_query_add_candidate(HookQuery *hq, Hook *h) {
         if (r < 0)
                 return log_error_errno(r, "Failed to enqueue question onto Varlink connection: %m");
 
-        _cleanup_(hook_query_candidate_freep) HookQueryCandidate *qc = new(HookQueryCandidate, 1);
+        _cleanup_free(hook_query_candidate) HookQueryCandidate *qc = new(HookQueryCandidate, 1);
         if (!qc)
                 return log_oom();
 
@@ -823,7 +823,7 @@ int manager_hook_query(
         /* Let's bring our list of hooks up-to-date */
         (void) manager_hook_discover(m);
 
-        _cleanup_(hook_query_freep) HookQuery *hq = NULL;
+        _cleanup_free(hook_query) HookQuery *hq = NULL;
 
         Hook *h;
         HASHMAP_FOREACH(h, m->hooks) {

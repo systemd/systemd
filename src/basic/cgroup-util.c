@@ -253,7 +253,7 @@ int cg_kill(
                 cg_kill_log_func_t log_kill,
                 void *userdata) {
 
-        _cleanup_set_free_ Set *allocated_set = NULL;
+        _cleanup_free(set) Set *allocated_set = NULL;
         int r, ret = 0;
 
         assert(path);
@@ -289,7 +289,7 @@ int cg_kill(
                         return RET_GATHER(ret, log_debug_errno(r, "Failed to enumerate cgroup items: %m"));
 
                 for (;;) {
-                        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+                        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
 
                         r = cg_read_pidref(f, &pidref, flags);
                         if (r == -ENODEV) {
@@ -358,7 +358,7 @@ int cg_kill_recursive(
                 cg_kill_log_func_t log_kill,
                 void *userdata) {
 
-        _cleanup_set_free_ Set *allocated_set = NULL;
+        _cleanup_free(set) Set *allocated_set = NULL;
         _cleanup_closedir_ DIR *d = NULL;
         int r, ret;
 
@@ -1362,7 +1362,7 @@ int cg_slice_to_path(const char *unit, char **ret) {
 
 int cg_is_threaded(const char *path) {
         _cleanup_free_ char *fs = NULL, *contents = NULL;
-        _cleanup_strv_free_ char **v = NULL;
+        _cleanup_free(strv) char **v = NULL;
         int r;
 
         r = cg_get_path(path, "cgroup.type", &fs);

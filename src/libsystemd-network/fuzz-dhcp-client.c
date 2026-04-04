@@ -43,11 +43,11 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         fuzz_setup_logging();
 
-        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_unref(sd_event) sd_event *e = NULL;
         ASSERT_OK(sd_event_new(&e));
         ASSERT_NOT_NULL(e);
 
-        _cleanup_(sd_dhcp_client_unrefp) sd_dhcp_client *client = NULL;
+        _cleanup_unref(sd_dhcp_client) sd_dhcp_client *client = NULL;
         ASSERT_OK(sd_dhcp_client_new(&client, /* anonymize= */ false));
         ASSERT_NOT_NULL(client);
 
@@ -66,7 +66,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
                 ASSERT_OK(dhcp_lease_save(client->lease, lease_file));
 
-                _cleanup_(sd_dhcp_lease_unrefp) sd_dhcp_lease *lease = NULL;
+                _cleanup_unref(sd_dhcp_lease) sd_dhcp_lease *lease = NULL;
                 ASSERT_OK(dhcp_lease_load(&lease, lease_file));
         }
 

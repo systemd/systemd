@@ -9,7 +9,7 @@
 #include "sysupdate-util.h"
 
 int reboot_now(void) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
         int r;
 

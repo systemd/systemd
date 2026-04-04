@@ -99,7 +99,7 @@ static int vl_method_set_environment(sd_varlink *link, sd_json_variant *paramete
 
         assert(link);
 
-        _cleanup_strv_free_ char **v = NULL;
+        _cleanup_free(strv) char **v = NULL;
         r = sd_varlink_dispatch(link, parameters, dispatch_table, &v);
         if (r != 0)
                 return r;
@@ -170,7 +170,7 @@ static int vl_method_exit(sd_varlink *link, sd_json_variant *parameters, sd_varl
 }
 
 int manager_start_varlink_server(Manager *manager, int fd) {
-        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *v = NULL;
+        _cleanup_unref(sd_varlink_server) sd_varlink_server *v = NULL;
         _cleanup_close_ int fd_close = fd;
         int r;
 

@@ -83,5 +83,3 @@ void ordered_set_print(FILE *f, const char *field, OrderedSet *s);
         _ORDERED_SET_FOREACH(e, s, UNIQ_T(i, UNIQ))
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(OrderedSet*, ordered_set_free);
-
-#define _cleanup_ordered_set_free_ _cleanup_(ordered_set_freep)

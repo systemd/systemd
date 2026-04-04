@@ -59,7 +59,7 @@ int machine_credential_add(
         if (size == SIZE_MAX)
                 size = strlen_ptr(value);
 
-        _cleanup_(machine_credential_done) MachineCredential cred = {};
+        _cleanup_done(machine_credential) MachineCredential cred = {};
         cred.id = strdup(id);
         if (!cred.id)
                 return -ENOMEM;

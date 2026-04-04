@@ -575,7 +575,7 @@ static int request_handler_entries(
                 struct MHD_Connection *connection,
                 void *connection_cls) {
 
-        _cleanup_(MHD_destroy_responsep) struct MHD_Response *response = NULL;
+        _cleanup_free(MHD_response) struct MHD_Response *response = NULL;
         RequestMeta *m = ASSERT_PTR(connection_cls);
         int r;
 
@@ -727,7 +727,7 @@ static int request_handler_fields(
                 const char *field,
                 void *connection_cls) {
 
-        _cleanup_(MHD_destroy_responsep) struct MHD_Response *response = NULL;
+        _cleanup_free(MHD_response) struct MHD_Response *response = NULL;
         RequestMeta *m = ASSERT_PTR(connection_cls);
         int r;
 
@@ -759,7 +759,7 @@ static int request_handler_redirect(
                 const char *target) {
 
         _cleanup_free_ char *page = NULL;
-        _cleanup_(MHD_destroy_responsep) struct MHD_Response *response = NULL;
+        _cleanup_free(MHD_response) struct MHD_Response *response = NULL;
 
         assert(connection);
         assert(target);
@@ -784,7 +784,7 @@ static int request_handler_file(
                 const char *path,
                 const char *mime_type) {
 
-        _cleanup_(MHD_destroy_responsep) struct MHD_Response *response = NULL;
+        _cleanup_free(MHD_response) struct MHD_Response *response = NULL;
         _cleanup_close_ int fd = -EBADF;
         struct stat st;
 
@@ -811,7 +811,7 @@ static int request_handler_file(
 }
 
 static int get_virtualization(char **v) {
-        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+        _cleanup_unref(sd_bus) sd_bus *bus = NULL;
         char *b = NULL;
         int r;
 
@@ -837,7 +837,7 @@ static int request_handler_machine(
                 struct MHD_Connection *connection,
                 void *connection_cls) {
 
-        _cleanup_(MHD_destroy_responsep) struct MHD_Response *response = NULL;
+        _cleanup_free(MHD_response) struct MHD_Response *response = NULL;
         RequestMeta *m = ASSERT_PTR(connection_cls);
         int r;
         _cleanup_free_ char *hostname = NULL, *pretty_name = NULL, *os_name = NULL;
@@ -909,7 +909,7 @@ static int request_handler_machine(
 }
 
 static int output_boot(FILE *f, LogId boot, int boot_display_index) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *json = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *json = NULL;
         int r;
 
         r = sd_json_build(
@@ -1008,7 +1008,7 @@ static int request_handler_boots(
                 struct MHD_Connection *connection,
                 void *connection_cls) {
 
-        _cleanup_(MHD_destroy_responsep) struct MHD_Response *response = NULL;
+        _cleanup_free(MHD_response) struct MHD_Response *response = NULL;
         RequestMeta *m = ASSERT_PTR(connection_cls);
         int r;
 

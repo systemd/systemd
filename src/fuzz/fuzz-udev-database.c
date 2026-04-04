@@ -7,7 +7,7 @@
 #include "tmpfile-util.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        _cleanup_unref(sd_device) sd_device *dev = NULL;
         _cleanup_(unlink_tempfilep) char filename[] = "/tmp/fuzz-udev-database.XXXXXX";
         _cleanup_fclose_ FILE *f = NULL;
 

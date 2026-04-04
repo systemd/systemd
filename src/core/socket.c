@@ -528,7 +528,7 @@ static SocketPeer* socket_peer_free(SocketPeer *p) {
 DEFINE_TRIVIAL_REF_UNREF_FUNC(SocketPeer, socket_peer, socket_peer_free);
 
 int socket_acquire_peer(Socket *s, int fd, SocketPeer **ret) {
-        _cleanup_(socket_peer_unrefp) SocketPeer *remote = NULL;
+        _cleanup_unref(socket_peer) SocketPeer *remote = NULL;
         SocketPeer key = {
                 .peer_salen = sizeof(union sockaddr_union),
                 .peer_cred = UCRED_INVALID,
@@ -1593,7 +1593,7 @@ static int socket_address_listen_in_cgroup(
                 }
         }
 
-        _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pid = PIDREF_NULL;
         _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
         _cleanup_close_ int fd = -EBADF;
 
@@ -1965,7 +1965,7 @@ static int socket_coldplug(Unit *u) {
 static int socket_spawn(Socket *s, ExecCommand *c, PidRef *ret_pid) {
         _cleanup_(exec_params_shallow_clear) ExecParameters exec_params = EXEC_PARAMETERS_INIT(
                         EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN);
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         int r;
 
         assert(s);
@@ -1986,7 +1986,7 @@ static int socket_spawn(Socket *s, ExecCommand *c, PidRef *ret_pid) {
 
         /* Note that ExecStartPre= command doesn't inherit any FDs. It runs before we open listen FDs. */
         if (s->pass_fds_to_exec) {
-                _cleanup_strv_free_ char **fd_names = NULL;
+                _cleanup_free(strv) char **fd_names = NULL;
                 _cleanup_free_ int *fds = NULL;
                 int n_fds;
 
@@ -2022,7 +2022,7 @@ static int socket_spawn(Socket *s, ExecCommand *c, PidRef *ret_pid) {
 }
 
 static int socket_chown(Socket *s, PidRef *ret_pid) {
-        _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pid = PIDREF_NULL;
         int r;
 
         assert(s);
@@ -2383,7 +2383,7 @@ static bool socket_may_defer(Socket *s) {
 
 static bool socket_stop_notify(Unit *u) {
         Socket *s = ASSERT_PTR(SOCKET(u));
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(s->state == SOCKET_DEFERRED);
@@ -2435,7 +2435,7 @@ static void socket_enter_running(Socket *s, int cfd_in) {
         /* Note that this call takes possession of the connection fd passed. It either has to assign it
          * somewhere or close it. */
         _cleanup_close_ int cfd = cfd_in;
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(s);
@@ -2498,7 +2498,7 @@ static void socket_enter_running(Socket *s, int cfd_in) {
 
                 socket_set_state(s, SOCKET_RUNNING);
         } else { /* Accept=yes case */
-                _cleanup_(socket_peer_unrefp) SocketPeer *p = NULL;
+                _cleanup_unref(socket_peer) SocketPeer *p = NULL;
                 Unit *service;
 
                 if (s->n_connections >= s->max_connections) {
@@ -3108,7 +3108,7 @@ static int socket_accept_do(Socket *s, int fd) {
 }
 
 static int socket_accept_in_cgroup(Socket *s, SocketPort *p, int fd) {
-        _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pid = PIDREF_NULL;
         _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
         int cfd, r;
 
@@ -3561,7 +3561,7 @@ static PidRef* socket_control_pid(Unit *u) {
 
 static int socket_clean(Unit *u, ExecCleanMask mask) {
         Socket *s = ASSERT_PTR(SOCKET(u));
-        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free(strv) char **l = NULL;
         int r;
 
         assert(mask != 0);

@@ -18,7 +18,7 @@ struct keyslot_metadata {
 
 int list_enrolled(struct crypt_device *cd) {
         _cleanup_free_ struct keyslot_metadata *keyslot_metadata = NULL;
-        _cleanup_(table_unrefp) Table *t = NULL;
+        _cleanup_unref(table) Table *t = NULL;
         size_t n_keyslot_metadata = 0;
         int slot_max, r;
         TableCell *cell;
@@ -45,7 +45,7 @@ int list_enrolled(struct crypt_device *cd) {
         /* Second step, enumerate through all tokens, and update the slot table, indicating what kind of
          * token they are assigned to */
         for (int token = 0; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
                 const char *type;
                 sd_json_variant *w, *z;
                 EnrollType et;

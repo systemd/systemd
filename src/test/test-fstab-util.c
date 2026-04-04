@@ -30,7 +30,7 @@ static void do_fstab_filter_options(const char *opts,
         int r;
         const char *name;
         _cleanup_free_ char *value = NULL, *filtered = NULL, *joined = NULL;
-        _cleanup_strv_free_ char **values = NULL;
+        _cleanup_free(strv) char **values = NULL;
 
         /* test mode which returns the last value */
 

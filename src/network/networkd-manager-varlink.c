@@ -24,7 +24,7 @@
 #include "varlink-util.h"
 
 static int vl_method_describe(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         Manager *m = ASSERT_PTR(userdata);
         int r;
 
@@ -108,7 +108,7 @@ static int link_append_lldp_neighbors(Link *link, sd_json_variant *v, sd_json_va
 }
 
 static int vl_method_get_lldp_neighbors(sd_varlink *vlink, sd_json_variant *parameters, sd_varlink_method_flags_t flags, Manager *manager) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *array = NULL;
         Link *link = NULL;
         int r;
 
@@ -120,7 +120,7 @@ static int vl_method_get_lldp_neighbors(sd_varlink *vlink, sd_json_variant *para
                 return r;
 
         if (link) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
 
                 if (link->lldp_rx) {
                         r = lldp_rx_build_neighbors_json(link->lldp_rx, &v);
@@ -133,7 +133,7 @@ static int vl_method_get_lldp_neighbors(sd_varlink *vlink, sd_json_variant *para
                         return r;
         } else
                 HASHMAP_FOREACH(link, manager->links_by_index) {
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
 
                         if (!link->lldp_rx)
                                 continue;
@@ -269,7 +269,7 @@ static int vl_method_reload(sd_varlink *vlink, sd_json_variant *parameters, sd_v
 }
 
 int manager_varlink_init(Manager *m, int fd) {
-        _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *s = NULL;
+        _cleanup_unref(sd_varlink_server) sd_varlink_server *s = NULL;
         _unused_ _cleanup_close_ int fd_close = fd; /* take possession */
         int r;
 

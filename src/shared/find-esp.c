@@ -70,7 +70,7 @@ static int verify_esp_blkid(
         uint32_t part = 0;
 
 #if HAVE_BLKID
-        _cleanup_(blkid_free_probep) blkid_probe b = NULL;
+        _cleanup_free(blkid_probe) blkid_probe b = NULL;
         _cleanup_free_ char *node = NULL;
         bool searching = FLAGS_SET(flags, VERIFY_ESP_SEARCHING);
         const char *v;
@@ -174,7 +174,7 @@ static int verify_esp_udev(
                 sd_id128_t *ret_uuid) {
 
         bool searching = FLAGS_SET(flags, VERIFY_ESP_SEARCHING);
-        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
+        _cleanup_unref(sd_device) sd_device *d = NULL;
         sd_id128_t uuid = SD_ID128_NULL;
         uint64_t pstart = 0, psize = 0;
         uint32_t part = 0;
@@ -577,7 +577,7 @@ static int verify_xbootldr_blkid(
 
 #if HAVE_BLKID
         bool searching = FLAGS_SET(flags, VERIFY_ESP_SEARCHING);
-        _cleanup_(blkid_free_probep) blkid_probe b = NULL;
+        _cleanup_free(blkid_probe) blkid_probe b = NULL;
         _cleanup_free_ char *node = NULL;
         const char *type, *v;
         int r;
@@ -659,7 +659,7 @@ static int verify_xbootldr_udev(
                 sd_id128_t *ret_uuid) {
 
         bool searching = FLAGS_SET(flags, VERIFY_ESP_SEARCHING);
-        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
+        _cleanup_unref(sd_device) sd_device *d = NULL;
         sd_id128_t uuid = SD_ID128_NULL;
         const char *node, *type, *v;
         int r;

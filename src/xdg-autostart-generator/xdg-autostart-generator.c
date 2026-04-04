@@ -17,7 +17,7 @@
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(xdgautostartservice_hash_ops, char, string_hash_func, string_compare_func, XdgAutostartService, xdg_autostart_service_free);
 
 static int xdg_base_dirs(char ***ret_config_dirs, char ***ret_data_dirs) {
-        _cleanup_strv_free_ char **config_dirs = NULL, **data_dirs = NULL;
+        _cleanup_free(strv) char **config_dirs = NULL, **data_dirs = NULL;
         const char *e;
 
         /* Implement the mechanisms defined in
@@ -50,9 +50,9 @@ static int xdg_base_dirs(char ***ret_config_dirs, char ***ret_data_dirs) {
 }
 
 static int enumerate_xdg_autostart(Hashmap *all_services) {
-        _cleanup_strv_free_ char **autostart_dirs = NULL;
-        _cleanup_strv_free_ char **config_dirs = NULL;
-        _unused_ _cleanup_strv_free_ char **data_dirs = NULL;
+        _cleanup_free(strv) char **autostart_dirs = NULL;
+        _cleanup_free(strv) char **config_dirs = NULL;
+        _unused_ _cleanup_free(strv) char **data_dirs = NULL;
         _cleanup_free_ char *user_config_autostart_dir = NULL;
         int r;
 
@@ -107,7 +107,7 @@ static int enumerate_xdg_autostart(Hashmap *all_services) {
                         if (!fpath)
                                 return log_oom();
 
-                        _cleanup_(xdg_autostart_service_freep) XdgAutostartService *service =
+                        _cleanup_free(xdg_autostart_service) XdgAutostartService *service =
                                 xdg_autostart_service_parse_desktop(fpath);
                         if (!service)
                                 return log_oom();
@@ -124,7 +124,7 @@ static int enumerate_xdg_autostart(Hashmap *all_services) {
 }
 
 static int run(const char *dest, const char *dest_early, const char *dest_late) {
-        _cleanup_hashmap_free_ Hashmap *all_services = NULL;
+        _cleanup_free(hashmap) Hashmap *all_services = NULL;
         XdgAutostartService *service;
         int r;
 

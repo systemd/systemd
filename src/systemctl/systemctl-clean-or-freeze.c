@@ -14,8 +14,8 @@
 #include "systemctl-util.h"
 
 int verb_clean_or_freeze(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(bus_wait_for_units_freep) BusWaitForUnits *w = NULL;
-        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_free(bus_wait_for_units) BusWaitForUnits *w = NULL;
+        _cleanup_free(strv) char **names = NULL;
         int r, ret = EXIT_SUCCESS;
         const char *method;
         sd_bus *bus;
@@ -52,8 +52,8 @@ int verb_clean_or_freeze(int argc, char *argv[], uintptr_t _data, void *userdata
                 assert_not_reached();
 
         STRV_FOREACH(name, names) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
 
                 if (w) {
                         /* If we shall wait for the cleaning to complete, let's add a ref on the unit first */

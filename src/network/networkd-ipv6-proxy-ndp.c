@@ -60,7 +60,7 @@ static int ipv6_proxy_ndp_address_configure_handler(
 
 /* send a request to the kernel to add an IPv6 Proxy entry to the neighbour table */
 static int ipv6_proxy_ndp_address_configure(const struct in6_addr *address, Link *link, Request *req) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *m = NULL;
         int r;
 
         assert(address);

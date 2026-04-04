@@ -119,7 +119,7 @@ TEST(pid_get_comm) {
 
 static void test_pid_get_cmdline_one(pid_t pid) {
         _cleanup_free_ char *c = NULL, *d = NULL, *e = NULL, *f = NULL, *g = NULL, *h = NULL, *joined = NULL;
-        _cleanup_strv_free_ char **strv_a = NULL, **strv_b = NULL;
+        _cleanup_free(strv) char **strv_a = NULL, **strv_b = NULL;
         int r;
 
         r = pid_get_cmdline(pid, SIZE_MAX, 0, &c);
@@ -262,7 +262,7 @@ TEST(pid_get_cmdline_harder) {
         char path[] = "/tmp/test-cmdlineXXXXXX";
         _cleanup_close_ int fd = -EBADF;
         _cleanup_free_ char *line = NULL;
-        _cleanup_strv_free_ char **args = NULL;
+        _cleanup_free(strv) char **args = NULL;
         int r;
 
         if (geteuid() != 0) {
@@ -620,7 +620,7 @@ TEST(getpid_measure) {
 }
 
 TEST(pidref_safe_fork) {
-        _cleanup_(pidref_done) PidRef child = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef child = PIDREF_NULL;
         siginfo_t status;
         pid_t pid;
         int r;
@@ -851,11 +851,11 @@ TEST(pid_get_ppid) {
         }
 
         /* the same via pidref */
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
         ASSERT_OK(pidref_set_self(&pidref));
         for (;;) {
                 _cleanup_free_ char *c1 = NULL, *c2 = NULL;
-                _cleanup_(pidref_done) PidRef parent = PIDREF_NULL;
+                _cleanup_done(pidref) PidRef parent = PIDREF_NULL;
                 r = pidref_get_ppid_as_pidref(&pidref, &parent);
                 if (r == -EADDRNOTAVAIL) {
                         log_info("No further parent PID");
@@ -1009,7 +1009,7 @@ TEST(is_reaper_process) {
 }
 
 TEST(pid_get_start_time) {
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
 
         ASSERT_OK(pidref_set_self(&pidref));
 
@@ -1032,7 +1032,7 @@ TEST(pid_get_start_time) {
 TEST(pidref_from_same_root_fs) {
         int r;
 
-        _cleanup_(pidref_done) PidRef pid1 = PIDREF_NULL, self = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef pid1 = PIDREF_NULL, self = PIDREF_NULL;
 
         ASSERT_OK(pidref_set_self(&self));
         ASSERT_OK(pidref_set_pid(&pid1, 1));
@@ -1092,7 +1092,7 @@ TEST(pidfd_get_inode_id_self_cached) {
 }
 
 TEST(getenv_for_pid) {
-        _cleanup_strv_free_ char **copy_env = NULL;
+        _cleanup_free(strv) char **copy_env = NULL;
         pid_t pid = getpid_cached();
         int r;
 

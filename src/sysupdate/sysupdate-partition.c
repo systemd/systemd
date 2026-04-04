@@ -151,9 +151,9 @@ int find_suitable_partition(
                 sd_id128_t *partition_type,
                 PartitionInfo *ret) {
 
-        _cleanup_(partition_info_destroy) PartitionInfo smallest = PARTITION_INFO_NULL;
-        _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
-        _cleanup_(fdisk_unref_tablep) struct fdisk_table *t = NULL;
+        _cleanup_destroy(partition_info) PartitionInfo smallest = PARTITION_INFO_NULL;
+        _cleanup_unref(fdisk_context) struct fdisk_context *c = NULL;
+        _cleanup_unref(fdisk_table) struct fdisk_table *t = NULL;
         size_t n_partitions;
         int r;
 
@@ -173,7 +173,7 @@ int find_suitable_partition(
 
         n_partitions = fdisk_table_get_nents(t);
         for (size_t i = 0; i < n_partitions; i++)  {
-                _cleanup_(partition_info_destroy) PartitionInfo pinfo = PARTITION_INFO_NULL;
+                _cleanup_destroy(partition_info) PartitionInfo pinfo = PARTITION_INFO_NULL;
 
                 r = read_partition_info(c, t, i, &pinfo);
                 if (r < 0)
@@ -212,8 +212,8 @@ int patch_partition(
                 const PartitionInfo *info,
                 PartitionChange change) {
 
-        _cleanup_(fdisk_unref_partitionp) struct fdisk_partition *pa = NULL;
-        _cleanup_(fdisk_unref_contextp) struct fdisk_context *c = NULL;
+        _cleanup_unref(fdisk_partition) struct fdisk_partition *pa = NULL;
+        _cleanup_unref(fdisk_context) struct fdisk_context *c = NULL;
         bool tweak_no_auto, tweak_read_only, tweak_growfs;
         GptPartitionType type;
         int r, fd;
@@ -257,7 +257,7 @@ int patch_partition(
         }
 
         if (change & PARTITION_TYPE) {
-                _cleanup_(fdisk_unref_parttypep) struct fdisk_parttype *pt = NULL;
+                _cleanup_unref(fdisk_parttype) struct fdisk_parttype *pt = NULL;
 
                 pt = fdisk_new_parttype();
                 if (!pt)

@@ -142,11 +142,11 @@ static int helper_on_exit(sd_event_source *s, const siginfo_t *si, void *userdat
 }
 
 static int run(int argc, char *argv[]) {
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_unref(sd_event) sd_event *event = NULL;
         _cleanup_close_ int pty_fd = -EBADF, peer_fd = -EBADF;
-        _cleanup_(pty_forward_freep) PTYForward *forward = NULL;
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
-        _cleanup_(sd_event_source_unrefp) sd_event_source *child = NULL;
+        _cleanup_free(pty_forward) PTYForward *forward = NULL;
+        _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *child = NULL;
         sd_event_source **forward_signal_sources = NULL;
         size_t n_forward_signal_sources = 0;
         int r;
@@ -159,7 +159,7 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        _cleanup_strv_free_ char **l = strv_copy(argv + optind);
+        _cleanup_free(strv) char **l = strv_copy(argv + optind);
         if (!l)
                 return log_oom();
 

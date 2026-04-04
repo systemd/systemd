@@ -697,7 +697,7 @@ enum nss_status _nss_systemd_getpwent_r(
                 char *buffer, size_t buflen,
                 int *errnop) {
 
-        _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
+        _cleanup_unref(user_record) UserRecord *ur = NULL;
         int r;
 
         PROTECT_ERRNO;
@@ -742,8 +742,8 @@ enum nss_status _nss_systemd_getgrent_r(
                 char *buffer, size_t buflen,
                 int *errnop) {
 
-        _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
-        _cleanup_strv_free_ char **members = NULL;
+        _cleanup_unref(group_record) GroupRecord *gr = NULL;
+        _cleanup_free(strv) char **members = NULL;
         int r;
 
         PROTECT_ERRNO;
@@ -869,7 +869,7 @@ enum nss_status _nss_systemd_getspent_r(
                 char *buffer, size_t buflen,
                 int *errnop) {
 
-        _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
+        _cleanup_unref(user_record) UserRecord *ur = NULL;
         int r;
 
         PROTECT_ERRNO;
@@ -921,7 +921,7 @@ enum nss_status _nss_systemd_getsgent_r(
                 char *buffer, size_t buflen,
                 int *errnop) {
 
-        _cleanup_(group_record_unrefp) GroupRecord *gr = NULL;
+        _cleanup_unref(group_record) GroupRecord *gr = NULL;
         int r;
 
         PROTECT_ERRNO;
@@ -977,7 +977,7 @@ enum nss_status _nss_systemd_initgroups_dyn(
                 long limit,
                 int *errnop) {
 
-        _cleanup_(userdb_iterator_freep) UserDBIterator *iterator = NULL;
+        _cleanup_free(userdb_iterator) UserDBIterator *iterator = NULL;
         bool any = false;
         int r;
 
@@ -1008,7 +1008,7 @@ enum nss_status _nss_systemd_initgroups_dyn(
         }
 
         for (;;) {
-                _cleanup_(group_record_unrefp) GroupRecord *g = NULL;
+                _cleanup_unref(group_record) GroupRecord *g = NULL;
                 _cleanup_free_ char *group_name = NULL;
 
                 r = membershipdb_iterator_get(iterator, NULL, &group_name);

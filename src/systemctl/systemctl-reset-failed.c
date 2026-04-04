@@ -11,7 +11,7 @@
 #include "systemctl-util.h"
 
 int verb_reset_failed(int argc, char *argv[], uintptr_t data, void *userdata) {
-        _cleanup_strv_free_ char **names = NULL;
+        _cleanup_free(strv) char **names = NULL;
         sd_bus *bus;
         int r, q;
 
@@ -29,7 +29,7 @@ int verb_reset_failed(int argc, char *argv[], uintptr_t data, void *userdata) {
                 return log_error_errno(r, "Failed to expand names: %m");
 
         STRV_FOREACH(name, names) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                 q = bus_call_method(bus, bus_systemd_mgr, "ResetFailedUnit", &error, NULL, "s", *name);
                 if (q < 0) {

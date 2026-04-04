@@ -242,7 +242,7 @@ int bus_match_run(
                 BusMatchNode *node,
                 sd_bus_message *m) {
 
-        _cleanup_strv_free_ char **test_strv = NULL;
+        _cleanup_free(strv) char **test_strv = NULL;
         const char *test_str = NULL;
         uint8_t test_u8 = 0;
         int r;
@@ -305,7 +305,7 @@ int bus_match_run(
 
                 /* Run the callback. And then invoke siblings. */
                 if (node->leaf.callback->callback) {
-                        _cleanup_(sd_bus_error_free) sd_bus_error error_buffer = SD_BUS_ERROR_NULL;
+                        _cleanup_done(sd_bus_error) sd_bus_error error_buffer = SD_BUS_ERROR_NULL;
                         sd_bus_slot *slot;
 
                         slot = container_of(node->leaf.callback, sd_bus_slot, match_callback);
@@ -826,7 +826,7 @@ int bus_match_parse(
 }
 
 char* bus_match_to_string(BusMatchComponent *components, size_t n_components) {
-        _cleanup_(memstream_done) MemStream m = {};
+        _cleanup_done(memstream) MemStream m = {};
         FILE *f;
         int r;
 
@@ -922,7 +922,7 @@ int bus_match_remove(
         return 1;
 }
 
-void bus_match_free(BusMatchNode *node) {
+void bus_match_done(BusMatchNode *node) {
         BusMatchNode *c;
 
         if (!node)
@@ -931,13 +931,13 @@ void bus_match_free(BusMatchNode *node) {
         if (BUS_MATCH_CAN_HASH(node->type)) {
 
                 HASHMAP_FOREACH(c, node->compare.children)
-                        bus_match_free(c);
+                        bus_match_done(c);
 
                 assert(hashmap_isempty(node->compare.children));
         }
 
         while ((c = node->child))
-                bus_match_free(c);
+                bus_match_done(c);
 
         if (node->type != BUS_MATCH_ROOT)
                 bus_match_node_free(node);

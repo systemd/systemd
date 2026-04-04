@@ -357,7 +357,7 @@ static int event_log_add_record(
                 EventLog *el,
                 EventLogRecord **ret) {
 
-        _cleanup_(event_log_record_freep) EventLogRecord *record = NULL;
+        _cleanup_free(event_log_record) EventLogRecord *record = NULL;
 
         assert(el);
 
@@ -451,7 +451,7 @@ static int event_log_record_add_bank(
                 size_t hash_size,
                 EventLogRecordBank **ret) {
 
-        _cleanup_(event_log_record_bank_freep) EventLogRecordBank *bank = NULL;
+        _cleanup_free(event_log_record_bank) EventLogRecordBank *bank = NULL;
         _cleanup_free_ void *h = NULL;
 
         assert(record);
@@ -1171,7 +1171,7 @@ static int event_log_load_userspace(EventLog *el) {
                 return log_error_errno(errno, "Failed to lock userspace TPM measurement log file: %m");
 
         for (;;) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *j = NULL;
                 EventLogRecord *record;
                 int ch;
 
@@ -1234,7 +1234,7 @@ static int event_log_load_userspace(EventLog *el) {
 }
 
 static EventLog *event_log_new(void) {
-        _cleanup_(event_log_freep) EventLog *el = NULL;
+        _cleanup_free(event_log) EventLog *el = NULL;
 
         el = new(EventLog, 1);
         if (!el)
@@ -1264,7 +1264,7 @@ static int event_log_load(EventLog *el) {
 }
 
 static int event_log_read_pcrs(EventLog *el) {
-        _cleanup_(tpm2_context_unrefp) Tpm2Context *tc = NULL;
+        _cleanup_unref(tpm2_context) Tpm2Context *tc = NULL;
         int r;
 
         assert(el);
@@ -1366,7 +1366,7 @@ static int event_log_calculate_pcrs(EventLog *el) {
 
                 for (size_t i = 0; i < el->n_algorithms; i++) {
                         const char *n = tpm2_hash_alg_to_string(el->algorithms[i]);
-                        _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX *mc = NULL;
+                        _cleanup_free(EVP_MD_CTX) EVP_MD_CTX *mc = NULL;
                         EventLogRegisterBank *reg_b;
                         EventLogRecordBank *rec_b;
                         unsigned sz;
@@ -1617,7 +1617,7 @@ static EventLogComponent *event_log_find_component(EventLog *el, const char *id)
 }
 
 static int event_log_add_component(EventLog *el, const char *id, EventLogComponent **ret) {
-        _cleanup_(event_log_component_freep) EventLogComponent *component = NULL;
+        _cleanup_free(event_log_component) EventLogComponent *component = NULL;
         _cleanup_free_ char *id_copy = NULL;
         EventLogComponent *found;
 
@@ -1679,9 +1679,9 @@ static int event_log_record_equal(const EventLogRecord *a, const EventLogRecord 
 }
 
 static int event_log_add_component_file(EventLog *el, EventLogComponent *component, const char *path) {
-        _cleanup_(event_log_component_variant_freep) EventLogComponentVariant *variant = NULL;
+        _cleanup_free(event_log_component_variant) EventLogComponentVariant *variant = NULL;
         _cleanup_free_ char *fname = NULL, *id = NULL, *path_copy = NULL;
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *j = NULL;
         sd_json_variant *records;
         const char *e;
         int r;
@@ -1750,7 +1750,7 @@ static int event_log_add_component_file(EventLog *el, EventLogComponent *compone
                 }
 
                 JSON_VARIANT_ARRAY_FOREACH(rj, records) {
-                        _cleanup_(event_log_record_freep) EventLogRecord *record = NULL;
+                        _cleanup_free(event_log_record) EventLogRecord *record = NULL;
 
                         if (!GREEDY_REALLOC(variant->records, variant->n_records+1))
                                 return log_oom();
@@ -1774,7 +1774,7 @@ static int event_log_add_component_file(EventLog *el, EventLogComponent *compone
 
 static int event_log_add_component_dir(EventLog *el, const char *path, char **base_search) {
         _cleanup_free_ char *fname = NULL, *id = NULL;
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_free(strv) char **files = NULL;
         EventLogComponent *component;
         const char *e;
         int r;
@@ -1797,7 +1797,7 @@ static int event_log_add_component_dir(EventLog *el, const char *path, char **ba
         if (r < 0)
                 return r;
 
-        _cleanup_strv_free_ char **search = NULL;
+        _cleanup_free(strv) char **search = NULL;
 
         STRV_FOREACH(b, base_search) {
                 _cleanup_free_ char *q = NULL;
@@ -1827,7 +1827,7 @@ static int event_log_add_component_dir(EventLog *el, const char *path, char **ba
 }
 
 static int event_log_load_components(EventLog *el) {
-        _cleanup_strv_free_ char **files = NULL;
+        _cleanup_free(strv) char **files = NULL;
         char **dirs;
         int r;
 
@@ -2130,7 +2130,7 @@ static int add_algorithm_columns(
 }
 
 static int show_log_table(EventLog *el, sd_json_variant **ret_variant) {
-        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_unref(table) Table *table = NULL;
         int r;
 
         assert(el);
@@ -2276,7 +2276,7 @@ static bool event_log_pcr_checks_out(const EventLog *el, const EventLogRegister 
 }
 
 static int show_pcr_table(EventLog *el, sd_json_variant **ret_variant) {
-        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_unref(table) Table *table = NULL;
         int r;
 
         assert(el);
@@ -2453,7 +2453,7 @@ static int event_determine_primary_algorithm(EventLog *el) {
 }
 
 static int event_log_load_and_process(EventLog **ret) {
-        _cleanup_(event_log_freep) EventLog *el = NULL;
+        _cleanup_free(event_log) EventLog *el = NULL;
         int r;
 
         el = event_log_new();
@@ -2499,8 +2499,8 @@ static int event_log_load_and_process(EventLog **ret) {
 }
 
 static int verb_show_log(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *log_table = NULL, *pcr_table = NULL;
-        _cleanup_(event_log_freep) EventLog *el = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *log_table = NULL, *pcr_table = NULL;
+        _cleanup_free(event_log) EventLog *el = NULL;
         bool want_json = sd_json_format_enabled(arg_json_format_flags);
         int r;
 
@@ -2523,7 +2523,7 @@ static int verb_show_log(int argc, char *argv[], uintptr_t _data, void *userdata
                 return r;
 
         if (want_json) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *object = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *object = NULL;
 
                 r = sd_json_buildo(
                                 &object,
@@ -2541,7 +2541,7 @@ static int verb_show_log(int argc, char *argv[], uintptr_t _data, void *userdata
 }
 
 static int event_log_record_to_cel(EventLogRecord *record, uint64_t *recnum, sd_json_variant **ret) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *ja = NULL, *fj = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *ja = NULL, *fj = NULL;
         sd_json_variant *cd = NULL;
         const char *ct = NULL;
         int r;
@@ -2612,8 +2612,8 @@ static int event_log_record_to_cel(EventLogRecord *record, uint64_t *recnum, sd_
 }
 
 static int verb_show_cel(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
-        _cleanup_(event_log_freep) EventLog *el = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *array = NULL;
+        _cleanup_free(event_log) EventLog *el = NULL;
         uint64_t recnum = 0;
         int r;
 
@@ -2628,7 +2628,7 @@ static int verb_show_cel(int argc, char *argv[], uintptr_t _data, void *userdata
         /* Output the event log in TCG CEL-JSON. */
 
         FOREACH_ARRAY(rr, el->records, el->n_records) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *cel = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *cel = NULL;
 
                 r = event_log_record_to_cel(*rr, &recnum, &cel);
                 if (r < 0)
@@ -2647,8 +2647,8 @@ static int verb_show_cel(int argc, char *argv[], uintptr_t _data, void *userdata
 }
 
 static int verb_list_components(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(event_log_freep) EventLog *el = NULL;
-        _cleanup_(table_unrefp) Table *table = NULL;
+        _cleanup_free(event_log) EventLog *el = NULL;
+        _cleanup_unref(table) Table *table = NULL;
         enum {
                 BEFORE_LOCATION,
                 BETWEEN_LOCATION,
@@ -2761,7 +2761,7 @@ static int make_pcrlock_record(
                 size_t data_size,
                 sd_json_variant **ret_record) {
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *digests = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *digests = NULL;
         int r;
 
         assert(data || data_size == 0);
@@ -2821,7 +2821,7 @@ static int make_pcrlock_record_from_stream(
                 FILE *f,
                 sd_json_variant **ret_records) {
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *digests = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *digests = NULL;
         _cleanup_(evp_md_ctx_free_all) EVP_MD_CTX *mdctx[TPM2_N_HASH_ALGORITHMS] = {};
         int r;
 
@@ -2883,7 +2883,7 @@ static int make_pcrlock_record_from_stream(
         }
 
         for (uint32_t i = 0; i < TPM2_PCRS_MAX; i++) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *record = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *record = NULL;
 
                 if (!BIT_SET(pcr_mask, i))
                         continue;
@@ -2908,7 +2908,7 @@ static const char *pcrlock_path(const char *default_pcrlock_path) {
 }
 
 static int write_pcrlock(sd_json_variant *array, const char *default_pcrlock_path) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *a = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL, *a = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         const char *p;
         int r;
@@ -2967,7 +2967,7 @@ static int unlink_pcrlock(const char *default_pcrlock_path) {
 }
 
 static int verb_lock_raw(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *records = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *records = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
@@ -3006,14 +3006,14 @@ static int verb_lock_secureboot_policy(int argc, char *argv[], uintptr_t _data, 
                 { EFI_VENDOR_DATABASE, "dbr",       -1 },
         };
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *array = NULL;
         int r;
 
         /* Generates expected records from the current SecureBoot state, as readable in the EFI variables
          * right now. */
 
         FOREACH_ELEMENT(vv, variables) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *record = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *record = NULL;
 
                 _cleanup_free_ char *name = NULL;
                 if (asprintf(&name, "%s-" SD_ID128_UUID_FORMAT_STR, vv->name, SD_ID128_FORMAT_VAL(vv->id)) < 0)
@@ -3186,8 +3186,8 @@ static int event_log_ensure_secureboot_consistency(EventLog *el) {
 }
 
 static int verb_lock_secureboot_authority(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
-        _cleanup_(event_log_freep) EventLog *el = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *array = NULL;
+        _cleanup_free(event_log) EventLog *el = NULL;
         int r;
 
         /* Lock down the EV_EFI_VARIABLE_AUTHORITY records from the existing log. Note that there's not too
@@ -3236,7 +3236,7 @@ static int verb_lock_secureboot_authority(int argc, char *argv[], uintptr_t _dat
                 return r;
 
         FOREACH_ARRAY(rr, el->records, el->n_records) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *digests = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *digests = NULL;
                 EventLogRecord *rec = *rr;
 
                 if (!event_log_record_is_secureboot_authority(rec))
@@ -3269,8 +3269,8 @@ static int verb_unlock_secureboot_authority(int argc, char *argv[], uintptr_t _d
 }
 
 static int verb_lock_gpt(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL, *record = NULL;
-        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *array = NULL, *record = NULL;
+        _cleanup_unref(sd_device) sd_device *d = NULL;
         uint8_t h[2 * 4096]; /* space for at least two 4K sectors. GPT header should definitely be in here */
         uint64_t start, n_members, member_size;
         _cleanup_close_ int fd = -EBADF;
@@ -3441,8 +3441,8 @@ static void enable_json_sse(void) {
 }
 
 static int verb_lock_firmware(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array_early = NULL, *array_late = NULL;
-        _cleanup_(event_log_freep) EventLog *el = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *array_early = NULL, *array_late = NULL;
+        _cleanup_free(event_log) EventLog *el = NULL;
         uint32_t always_mask, separator_mask, separator_seen_mask = 0, action_seen_mask = 0;
         const char *default_pcrlock_early_path, *default_pcrlock_late_path;
         int r;
@@ -3507,7 +3507,7 @@ static int verb_lock_firmware(int argc, char *argv[], uintptr_t _data, void *use
         //        and exactly once
 
         FOREACH_ARRAY(rr, el->records, el->n_records) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *digests = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *digests = NULL;
                 EventLogRecord *rec = *rr;
                 uint32_t bit = UINT32_C(1) << rec->pcr;
 
@@ -3586,7 +3586,7 @@ static int verb_unlock_firmware(int argc, char *argv[], uintptr_t _data, void *u
 }
 
 static int verb_lock_machine_id(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *record = NULL, *array = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *record = NULL, *array = NULL;
         _cleanup_free_ char *word = NULL;
         int r;
 
@@ -3663,7 +3663,7 @@ static int verb_lock_file_system(int argc, char *argv[], uintptr_t _data, void *
 
         STRV_FOREACH(p, paths) {
                 _cleanup_free_ char *word = NULL, *normalized_path = NULL, *pcrlock_file = NULL;
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *record = NULL, *array = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *record = NULL, *array = NULL;
 
                 r = pcrextend_file_system_word(*p, &word, &normalized_path);
                 if (r < 0)
@@ -3720,7 +3720,7 @@ static int verb_unlock_file_system(int argc, char *argv[], uintptr_t _data, void
 }
 
 static int verb_lock_pe(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *array = NULL;
         _cleanup_close_ int fd = -EBADF;
         int r;
 
@@ -3737,7 +3737,7 @@ static int verb_lock_pe(int argc, char *argv[], uintptr_t _data, void *userdata)
                 arg_pcr_mask = UINT32_C(1) << TPM2_PCR_BOOT_LOADER_CODE;
 
         for (uint32_t i = 0; i < TPM2_PCRS_MAX; i++) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *digests = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *digests = NULL;
 
                 if (!BIT_SET(arg_pcr_mask, i))
                         continue;
@@ -3784,8 +3784,8 @@ static void section_hashes_array_done(SectionHashArray *array) {
 }
 
 static int verb_lock_uki(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *array = NULL, *pe_digests = NULL;
-        _cleanup_(section_hashes_array_done) SectionHashArray section_hashes = {};
+        _cleanup_unref(sd_json_variant) sd_json_variant *array = NULL, *pe_digests = NULL;
+        _cleanup_done(section_hashes_array) SectionHashArray section_hashes = {};
         size_t hash_sizes[TPM2_N_HASH_ALGORITHMS];
         _cleanup_close_ int fd = -EBADF;
         int r;
@@ -3831,7 +3831,7 @@ static int verb_lock_uki(int argc, char *argv[], uintptr_t _data, void *userdata
                 return log_error_errno(r, "Failed to append record object: %m");
 
         for (UnifiedSection section = 0; section < _UNIFIED_SECTION_MAX; section++) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *section_digests = NULL, *record = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *section_digests = NULL, *record = NULL;
 
                 if (!unified_section_measure(section))
                         continue;
@@ -3879,7 +3879,7 @@ static int verb_lock_uki(int argc, char *argv[], uintptr_t _data, void *userdata
 }
 
 static int verb_lock_kernel_cmdline(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *record = NULL, *array = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *record = NULL, *array = NULL;
         _cleanup_free_ char *cmdline = NULL;
         int r;
 
@@ -3920,7 +3920,7 @@ static int verb_unlock_kernel_cmdline(int argc, char *argv[], uintptr_t _data, v
 }
 
 static int verb_lock_kernel_initrd(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *records = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *records = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         uint32_t pcr_mask = UINT32_C(1) << TPM2_PCR_KERNEL_INITRD;
         int r;
@@ -4065,7 +4065,7 @@ static int event_log_component_variant_calculate(
                         continue;
 
                 for (size_t i = 0; i < TPM2_N_HASH_ALGORITHMS; i++) {
-                        _cleanup_(EVP_MD_CTX_freep) EVP_MD_CTX *md_ctx = NULL;
+                        _cleanup_free(EVP_MD_CTX) EVP_MD_CTX *md_ctx = NULL;
                         EventLogRecordBank *b;
 
                         if (result->hash[i].size <= 0) /* already invalidated */
@@ -4218,10 +4218,10 @@ static int event_log_show_predictions(Tpm2PCRPrediction *context, uint16_t alg) 
         pager_open(arg_pager_flags);
 
         if (sd_json_format_enabled(arg_json_format_flags)) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *j = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *j = NULL;
 
                 for (size_t i = 0; i < TPM2_N_HASH_ALGORITHMS; i++) {
-                        _cleanup_(sd_json_variant_unrefp) sd_json_variant *aj = NULL;
+                        _cleanup_unref(sd_json_variant) sd_json_variant *aj = NULL;
 
                         r = tpm2_pcr_prediction_to_json(
                                         context,
@@ -4327,10 +4327,10 @@ static int tpm2_pcr_prediction_run(
 }
 
 static int verb_predict(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(tpm2_pcr_prediction_done) Tpm2PCRPrediction context = {
+        _cleanup_done(tpm2_pcr_prediction) Tpm2PCRPrediction context = {
                 arg_pcr_mask != 0 ? arg_pcr_mask : DEFAULT_PCR_MASK,
         };
-        _cleanup_(event_log_freep) EventLog *el = NULL;
+        _cleanup_free(event_log) EventLog *el = NULL;
         ssize_t count;
         int r;
 
@@ -4448,7 +4448,7 @@ static int write_boot_policy_file(const char *json_text) {
                 return 0;
         }
 
-        _cleanup_(iovec_done) struct iovec encoded = {};
+        _cleanup_done(iovec) struct iovec encoded = {};
         r = encrypt_credential_and_warn(
                         CRED_AES256_GCM_BY_NULL,
                         credential_name,
@@ -4504,12 +4504,12 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
 
         usec_t start_usec = now(CLOCK_MONOTONIC);
 
-        _cleanup_(event_log_freep) EventLog *el = NULL;
+        _cleanup_free(event_log) EventLog *el = NULL;
         r = event_log_load_and_process(&el);
         if (r < 0)
                 return r;
 
-        _cleanup_(tpm2_pcr_prediction_done) Tpm2PCRPrediction new_prediction = {
+        _cleanup_done(tpm2_pcr_prediction) Tpm2PCRPrediction new_prediction = {
                 arg_pcr_mask != 0 ? arg_pcr_mask : DEFAULT_PCR_MASK,
         };
         r = event_log_reduce_to_safe_pcrs(el, &new_prediction.pcrs);
@@ -4527,7 +4527,7 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
 
         log_info("Predicted future PCRs in %s.", FORMAT_TIMESPAN(usec_sub_unsigned(now(CLOCK_MONOTONIC), predict_start_usec), 1));
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *new_prediction_json = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *new_prediction_json = NULL;
         r = tpm2_pcr_prediction_to_json(&new_prediction, el->primary_algorithm, &new_prediction_json);
         if (r < 0)
                 return r;
@@ -4545,7 +4545,7 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
                         return log_oom();
         }
 
-        _cleanup_(tpm2_pcrlock_policy_done) Tpm2PCRLockPolicy old_policy = {};
+        _cleanup_done(tpm2_pcrlock_policy) Tpm2PCRLockPolicy old_policy = {};
         r = tpm2_pcrlock_policy_load(arg_policy_path, &old_policy);
         if (r < 0)
                 return r;
@@ -4553,7 +4553,7 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
         bool have_old_policy = r > 0;
 
         /* When we update the policy the old serializations for NV, SRK, PIN remain the same */
-        _cleanup_(iovec_done) struct iovec
+        _cleanup_done(iovec) struct iovec
                 nv_blob = TAKE_STRUCT(old_policy.nv_handle),
                 nv_public_blob = TAKE_STRUCT(old_policy.nv_public),
                 srk_blob = TAKE_STRUCT(old_policy.srk_handle),
@@ -4572,7 +4572,7 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
                 }
         }
 
-        _cleanup_(tpm2_context_unrefp) Tpm2Context *tc = NULL;
+        _cleanup_unref(tpm2_context) Tpm2Context *tc = NULL;
         r = tpm2_context_new_or_warn(/* device= */ NULL, &tc);
         if (r < 0)
                 return r;
@@ -4582,7 +4582,7 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
         if (!tpm2_supports_alg(tc, TPM2_ALG_SHA256))
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "TPM2 does not support SHA-256 hash algorithm, refusing.");
 
-        _cleanup_(tpm2_handle_freep) Tpm2Handle *srk_handle = NULL;
+        _cleanup_free(tpm2_handle) Tpm2Handle *srk_handle = NULL;
 
         r = tpm2_deserialize(
                         tc,
@@ -4602,7 +4602,7 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
                         return log_error_errno(r, "Failed to install SRK: %m");
         }
 
-        _cleanup_(tpm2_handle_freep) Tpm2Handle *encryption_session = NULL;
+        _cleanup_free(tpm2_handle) Tpm2Handle *encryption_session = NULL;
         r = tpm2_make_encryption_session(
                         tc,
                         srk_handle,
@@ -4656,7 +4656,7 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
                                ansi_normal());
         }
 
-        _cleanup_(tpm2_handle_freep) Tpm2Handle *nv_handle = NULL;
+        _cleanup_free(tpm2_handle) Tpm2Handle *nv_handle = NULL;
         TPM2_HANDLE nv_index = 0;
 
         r = tpm2_deserialize(tc, &nv_blob, &nv_handle);
@@ -4682,7 +4682,7 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
 
                 _cleanup_(iovec_done_erase) struct iovec secret = {};
                 for (unsigned attempt = 0;; attempt++) {
-                        _cleanup_(tpm2_handle_freep) Tpm2Handle *policy_session = NULL;
+                        _cleanup_free(tpm2_handle) Tpm2Handle *policy_session = NULL;
 
                         r = tpm2_make_policy_session(
                                         tc,
@@ -4737,7 +4737,7 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
         }
 
         /* Now convert the PIN into an HMAC-SHA256 key that we can use in PolicySigned to protect access to the nvindex with */
-        _cleanup_(tpm2_handle_freep) Tpm2Handle *pin_handle = NULL;
+        _cleanup_free(tpm2_handle) Tpm2Handle *pin_handle = NULL;
         r = tpm2_hmac_key_from_pin(tc, encryption_session, &auth, &pin_handle);
         if (r < 0)
                 return r;
@@ -4746,7 +4746,7 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
         usec_t nv_index_start_usec = now(CLOCK_MONOTONIC);
 
         if (!iovec_is_set(&nv_blob)) {
-                _cleanup_(Esys_Freep) TPM2B_NAME *pin_name = NULL;
+                _cleanup_free(Esys) TPM2B_NAME *pin_name = NULL;
                 r = tpm2_get_name(
                                 tc,
                                 pin_handle,
@@ -4774,7 +4774,7 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
                         return log_error_errno(r, "Failed to allocate NV index: %m");
         }
 
-        _cleanup_(tpm2_handle_freep) Tpm2Handle *policy_session = NULL;
+        _cleanup_free(tpm2_handle) Tpm2Handle *policy_session = NULL;
         r = tpm2_make_policy_session(
                         tc,
                         srk_handle,
@@ -4866,7 +4866,7 @@ static int make_policy(bool force, RecoveryPinMode recovery_pin_mode) {
                         return log_error_errno(r, "Failed to marshal NV public area: %m");
         }
 
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *new_configuration_json = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *new_configuration_json = NULL;
         r = sd_json_buildo(
                         &new_configuration_json,
                         SD_JSON_BUILD_PAIR_STRING("pcrBank", tpm2_hash_alg_to_string(el->primary_algorithm)),
@@ -4924,12 +4924,12 @@ static int undefine_policy_nv_index(
         assert(nv_blob);
         assert(srk_blob);
 
-        _cleanup_(tpm2_context_unrefp) Tpm2Context *tc = NULL;
+        _cleanup_unref(tpm2_context) Tpm2Context *tc = NULL;
         r = tpm2_context_new_or_warn(/* device= */ NULL, &tc);
         if (r < 0)
                 return r;
 
-        _cleanup_(tpm2_handle_freep) Tpm2Handle *srk_handle = NULL;
+        _cleanup_free(tpm2_handle) Tpm2Handle *srk_handle = NULL;
         r = tpm2_deserialize(
                         tc,
                         srk_blob,
@@ -4937,7 +4937,7 @@ static int undefine_policy_nv_index(
         if (r < 0)
                 return log_error_errno(r, "Failed to deserialize SRK TR: %m");
 
-        _cleanup_(tpm2_handle_freep) Tpm2Handle *nv_handle = NULL;
+        _cleanup_free(tpm2_handle) Tpm2Handle *nv_handle = NULL;
         r = tpm2_deserialize(
                         tc,
                         nv_blob,
@@ -4945,7 +4945,7 @@ static int undefine_policy_nv_index(
         if (r < 0)
                 return log_error_errno(r, "Failed to deserialize NV TR: %m");
 
-        _cleanup_(tpm2_handle_freep) Tpm2Handle *encryption_session = NULL;
+        _cleanup_free(tpm2_handle) Tpm2Handle *encryption_session = NULL;
         r = tpm2_make_encryption_session(
                         tc,
                         srk_handle,
@@ -4969,7 +4969,7 @@ static int undefine_policy_nv_index(
 static int remove_policy(void) {
         int ret = 0, r;
 
-        _cleanup_(tpm2_pcrlock_policy_done) Tpm2PCRLockPolicy policy = {};
+        _cleanup_done(tpm2_pcrlock_policy) Tpm2PCRLockPolicy policy = {};
         r = tpm2_pcrlock_policy_load(arg_policy_path, &policy);
         if (r == 0) {
                 log_info("No policy found.");
@@ -5019,7 +5019,7 @@ static int test_tpm2_support_pcrlock(Tpm2Support *ret) {
 
         /* If basic support is available, let's also check the things we need for systemd-pcrlock */
         if (s == TPM2_SUPPORT_FULL) {
-                _cleanup_(tpm2_context_unrefp) Tpm2Context *tc = NULL;
+                _cleanup_unref(tpm2_context) Tpm2Context *tc = NULL;
                 r = tpm2_context_new_or_warn(/* device= */ NULL, &tc);
                 if (r < 0)
                         return r;
@@ -5400,7 +5400,7 @@ static int pcrlock_main(int argc, char *argv[]) {
 }
 
 static int vl_method_read_event_log(sd_varlink *link, sd_json_variant *parameters, sd_varlink_method_flags_t flags, void *userdata) {
-        _cleanup_(event_log_freep) EventLog *el = NULL;
+        _cleanup_free(event_log) EventLog *el = NULL;
         uint64_t recnum = 0;
         int r;
 
@@ -5425,7 +5425,7 @@ static int vl_method_read_event_log(sd_varlink *link, sd_json_variant *parameter
                 return r;
 
         FOREACH_ARRAY(rr, el->records, el->n_records) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *rec_cel = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *rec_cel = NULL;
                 r = event_log_record_to_cel(*rr, &recnum, &rec_cel);
                 if (r < 0)
                         return r;
@@ -5495,7 +5495,7 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         if (arg_varlink) {
-                _cleanup_(sd_varlink_server_unrefp) sd_varlink_server *varlink_server = NULL;
+                _cleanup_unref(sd_varlink_server) sd_varlink_server *varlink_server = NULL;
 
                 /* Invocation as Varlink service */
 

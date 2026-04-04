@@ -1004,7 +1004,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(CalloutContext*, callout_context_free);
 
 static int callout_context_new(const Transfer *t, const Instance *i, TransferProgress cb,
                                const char *name, void* userdata, CalloutContext **ret) {
-        _cleanup_(callout_context_freep) CalloutContext *ctx = NULL;
+        _cleanup_free(callout_context) CalloutContext *ctx = NULL;
 
         assert(t);
         assert(i);
@@ -1064,7 +1064,7 @@ static int helper_on_notify(sd_event_source *s, int fd, uint32_t revents, void *
         assert(fd >= 0);
 
         _cleanup_free_ char *buf = NULL;
-        _cleanup_(pidref_done) PidRef sender_pid = PIDREF_NULL;
+        _cleanup_done(pidref) PidRef sender_pid = PIDREF_NULL;
         r = notify_recv(fd, &buf, /* ret_ucred= */ NULL, &sender_pid);
         if (r == -EAGAIN)
                 return 0;
@@ -1119,12 +1119,12 @@ static int run_callout(
         assert(cmdline);
         assert(cmdline[0]);
 
-        _cleanup_(callout_context_freep) CalloutContext *ctx = NULL;
+        _cleanup_free(callout_context) CalloutContext *ctx = NULL;
         r = callout_context_new(transfer, instance, callback, name, userdata, &ctx);
         if (r < 0)
                 return log_oom();
 
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_unref(sd_event) sd_event *event = NULL;
         r = sd_event_new(&event);
         if (r < 0)
                 return log_error_errno(r, "Failed to create event: %m");
@@ -1162,7 +1162,7 @@ static int run_callout(
         }
 
         /* Quit the loop w/ when child process exits */
-        _cleanup_(sd_event_source_unrefp) sd_event_source *exit_source = NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *exit_source = NULL;
         r = event_add_child_pidref(event, &exit_source, &ctx->pid, WEXITED, helper_on_exit, ctx);
         if (r < 0)
                 return log_error_errno(r, "Failed to add child process to event loop: %m");

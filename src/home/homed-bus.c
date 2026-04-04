@@ -12,8 +12,8 @@
 #include "user-record.h"
 
 int bus_message_read_secret(sd_bus_message *m, UserRecord **ret, sd_bus_error *error) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL, *full = NULL;
-        _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL, *full = NULL;
+        _cleanup_unref(user_record) UserRecord *hr = NULL;
         unsigned line = 0, column = 0;
         const char *json;
         int r;
@@ -45,8 +45,8 @@ int bus_message_read_secret(sd_bus_message *m, UserRecord **ret, sd_bus_error *e
 }
 
 int bus_message_read_home_record(sd_bus_message *m, UserRecordLoadFlags flags, UserRecord **ret, sd_bus_error *error) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
-        _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
+        _cleanup_unref(user_record) UserRecord *hr = NULL;
         unsigned line = 0, column = 0;
         const char *json;
         int r;
@@ -74,7 +74,7 @@ int bus_message_read_home_record(sd_bus_message *m, UserRecordLoadFlags flags, U
 }
 
 int bus_message_read_blobs(sd_bus_message *m, Hashmap **ret, sd_bus_error *error) {
-        _cleanup_hashmap_free_ Hashmap *blobs = NULL;
+        _cleanup_free(hashmap) Hashmap *blobs = NULL;
         int r;
 
         assert(m);

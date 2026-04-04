@@ -235,7 +235,7 @@ static int killall(int sig, Set *pids, bool send_sighup) {
                 return log_warning_errno(r, "Failed to open %s: %m", "/proc/");
 
         for (;;) {
-                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+                _cleanup_done(pidref) PidRef pidref = PIDREF_NULL;
 
                 r = proc_dir_read_pidref(dir, &pidref);
                 if (r < 0)
@@ -285,7 +285,7 @@ static int killall(int sig, Set *pids, bool send_sighup) {
 int broadcast_signal(int sig, bool wait_for_exit, bool send_sighup, usec_t timeout) {
         int n_children_left;
         sigset_t mask, oldmask;
-        _cleanup_set_free_ Set *pids = NULL;
+        _cleanup_free(set) Set *pids = NULL;
 
         /* Send the specified signal to all remaining processes, if not excluded by ignore_proc().
          * Return:

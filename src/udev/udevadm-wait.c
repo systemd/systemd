@@ -45,7 +45,7 @@ static const char * const wait_until_table[_WAIT_UNTIL_MAX] = {
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(wait_until, WaitUntil);
 
 static int check_device(const char *path) {
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        _cleanup_unref(sd_device) sd_device *dev = NULL;
         int r;
 
         assert(path);
@@ -173,7 +173,7 @@ static int device_monitor_handler(sd_device_monitor *monitor, sd_device *device,
 }
 
 static int setup_monitor(sd_event *event, MonitorNetlinkGroup group, const char *description, sd_device_monitor **ret) {
-        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor = NULL;
+        _cleanup_unref(sd_device_monitor) sd_device_monitor *monitor = NULL;
         int r;
 
         assert(event);
@@ -204,7 +204,7 @@ static int on_inotify(sd_event_source *s, const struct inotify_event *event, voi
 }
 
 static int setup_inotify(sd_event *event) {
-        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *s = NULL;
         int r;
 
         assert(event);
@@ -224,7 +224,7 @@ static int setup_inotify(sd_event *event) {
 }
 
 static int setup_timer(sd_event *event) {
-        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *s = NULL;
         int r;
 
         assert(event);
@@ -279,7 +279,7 @@ static int reset_timer(sd_event *e, sd_event_source **s) {
 }
 
 static int setup_periodic_timer(sd_event *event) {
-        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        _cleanup_unref(sd_event_source) sd_event_source *s = NULL;
         int r;
 
         assert(event);
@@ -377,8 +377,8 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 int verb_wait_main(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *udev_monitor = NULL, *kernel_monitor = NULL;
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        _cleanup_unref(sd_device_monitor) sd_device_monitor *udev_monitor = NULL, *kernel_monitor = NULL;
+        _cleanup_unref(sd_event) sd_event *event = NULL;
         int r;
 
         r = parse_argv(argc, argv);

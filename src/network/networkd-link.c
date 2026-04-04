@@ -1469,7 +1469,7 @@ int link_reconfigure_impl(Link *link, LinkReconfigurationFlag flags) {
          * map here, as it depends on .network files assigned to other links. */
         link_free_bound_to_list(link);
 
-        _cleanup_(network_unrefp) Network *old_network = TAKE_PTR(link->network);
+        _cleanup_unref(network) Network *old_network = TAKE_PTR(link->network);
 
         /* Then, apply new .network file */
         link->network = network_ref(network);
@@ -1579,8 +1579,8 @@ static int link_reconfigure_handler(sd_netlink *rtnl, sd_netlink_message *m, Lin
 }
 
 int link_reconfigure_full(Link *link, LinkReconfigurationFlag flags, sd_bus_message *message, sd_varlink *varlink, unsigned *counter) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
-        _cleanup_(link_reconfiguration_data_freep) LinkReconfigurationData *data = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *req = NULL;
+        _cleanup_free(link_reconfiguration_data) LinkReconfigurationData *data = NULL;
         int r;
 
         assert(link);
@@ -1714,7 +1714,7 @@ static int link_initialized(Link *link, sd_device *device) {
 }
 
 int link_check_initialized(Link *link) {
-        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        _cleanup_unref(sd_device) sd_device *device = NULL;
         int r;
 
         assert(link);
@@ -2008,7 +2008,7 @@ void link_update_operstate(Link *link, bool also_update_master) {
         LinkCarrierState carrier_state;
         LinkAddressState ipv4_address_state, ipv6_address_state, address_state;
         LinkOnlineState online_state;
-        _cleanup_strv_free_ char **p = NULL;
+        _cleanup_free(strv) char **p = NULL;
         bool changed = false;
 
         assert(link);
@@ -2520,7 +2520,7 @@ static int link_update_mtu(Link *link, sd_netlink_message *message) {
 }
 
 static int link_update_alternative_names(Link *link, sd_netlink_message *message) {
-        _cleanup_strv_free_ char **altnames = NULL;
+        _cleanup_free(strv) char **altnames = NULL;
         int r;
 
         assert(link);
@@ -2979,7 +2979,7 @@ int link_getlink_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link 
 }
 
 int link_call_getlink(Link *link, link_netlink_message_handler_t callback) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        _cleanup_unref(sd_netlink_message) sd_netlink_message *req = NULL;
         int r;
 
         assert(link);

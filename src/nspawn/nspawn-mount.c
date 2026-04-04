@@ -311,7 +311,7 @@ int tmpfs_mount_parse(CustomMount **l, size_t *n, const char *s) {
 
 int overlay_mount_parse(CustomMount **l, size_t *n, const char *s, bool read_only) {
         _cleanup_free_ char *upper = NULL, *destination = NULL;
-        _cleanup_strv_free_ char **lower = NULL;
+        _cleanup_free(strv) char **lower = NULL;
         CustomMount *m;
         int r, k;
 
@@ -942,7 +942,7 @@ static int mount_tmpfs(const char *dest, CustomMount *m, uid_t uid_shift, const 
 }
 
 static char *joined_and_escaped_lower_dirs(char **lower) {
-        _cleanup_strv_free_ char **sv = NULL;
+        _cleanup_free(strv) char **sv = NULL;
 
         sv = strv_copy(lower);
         if (!sv)

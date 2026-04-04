@@ -126,7 +126,7 @@ static int stack_directory_read_one(int dirfd, const char *id, char **devnode, i
                         return r;
 
         } else if (r == -EINVAL) { /* Not a symlink ? try the old format */
-                _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+                _cleanup_unref(sd_device) sd_device *dev = NULL;
                 const char *val;
 
                 /* Old format. The devnode and priority must be obtained from uevent and udev database. */
@@ -398,7 +398,7 @@ static int stack_directory_open_and_lock(
 }
 
 static int node_get_current(const char *slink, int dirfd, char **ret_id, int *ret_prio) {
-        _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+        _cleanup_unref(sd_device) sd_device *dev = NULL;
         _cleanup_free_ char *id_dup = NULL;
         const char *id;
         int r;

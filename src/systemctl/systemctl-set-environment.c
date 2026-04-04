@@ -20,7 +20,7 @@
 #include "systemctl-util.h"
 
 static int json_transform_message(sd_bus_message *m, sd_json_variant **ret) {
-        _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+        _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
         const char *text;
         int r;
 
@@ -71,8 +71,8 @@ static int print_variable(const char *s) {
 }
 
 int verb_show_environment(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *reply = NULL;
         const char *text;
         sd_bus *bus;
         int r;
@@ -92,7 +92,7 @@ int verb_show_environment(int argc, char *argv[], uintptr_t _data, void *userdat
                 return bus_log_parse_error(r);
 
         if (OUTPUT_MODE_IS_JSON(arg_output)) {
-                _cleanup_(sd_json_variant_unrefp) sd_json_variant *v = NULL;
+                _cleanup_unref(sd_json_variant) sd_json_variant *v = NULL;
 
                 r = json_transform_message(reply, &v);
                 if (r < 0)
@@ -123,8 +123,8 @@ static void invalid_callback(const char *p, void *userdata) {
 }
 
 int verb_set_environment(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
         const char *method;
         sd_bus *bus;
         int r;
@@ -158,8 +158,8 @@ int verb_set_environment(int argc, char *argv[], uintptr_t _data, void *userdata
 }
 
 int verb_import_environment(int argc, char *argv[], uintptr_t _data, void *userdata) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_done(sd_bus_error) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_unref(sd_bus_message) sd_bus_message *m = NULL;
         sd_bus *bus;
         int r;
 
@@ -176,7 +176,7 @@ int verb_import_environment(int argc, char *argv[], uintptr_t _data, void *userd
         if (argc < 2) {
                 log_warning("Calling import-environment without a list of variable names is deprecated.");
 
-                _cleanup_strv_free_ char **copy = strv_copy(environ);
+                _cleanup_free(strv) char **copy = strv_copy(environ);
                 if (!copy)
                         return log_oom();
 
