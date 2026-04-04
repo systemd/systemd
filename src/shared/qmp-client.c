@@ -8,8 +8,10 @@
 #include "fd-util.h"
 #include "hashmap.h"
 #include "io-util.h"
+#include "iovec-util.h"
 #include "log.h"
 #include "qmp-client.h"
+#include "socket-util.h"
 #include "string-util.h"
 
 /* Match QEMU's own CHR_READ_BUF_LEN (include/chardev/char.h) for the per-read() chunk size.
@@ -170,7 +172,7 @@ static int qmp_client_read_message(QmpClient *c, sd_json_variant **ret) {
         }
 }
 
-static int qmp_client_write_json(QmpClient *c, sd_json_variant *v) {
+static int qmp_client_write_json_fd(QmpClient *c, sd_json_variant *v, int fd) {
         _cleanup_free_ char *json_str = NULL;
         int r;
 
@@ -181,12 +183,27 @@ static int qmp_client_write_json(QmpClient *c, sd_json_variant *v) {
         if (r < 0)
                 return r;
 
+        if (fd >= 0) {
+                /* Send the JSON message with an FD as SCM_RIGHTS ancillary data in a single
+                 * sendmsg() call. QEMU's getfd command requires the FD to arrive as ancillary
+                 * data alongside the command JSON. */
+                struct iovec iov = IOVEC_MAKE_STRING(json_str);
+                ssize_t n = send_one_fd_iov_sa(c->fd, fd, &iov, 1, /* sa= */ NULL, /* len= */ 0, /* flags= */ 0);
+                if (n < 0)
+                        return (int) n;
+                return 0;
+        }
+
         /* NB: loop_write() with timeout=0 returns -EAGAIN immediately on a non-blocking fd if the
          * socket buffer is full. In async mode (after qmp_client_start_async()) this means a write could
          * theoretically fail. In practice QMP commands are tiny (< 1KB) and the kernel socket buffer is
          * 128KB+, so this cannot happen in any realistic scenario. If this ever becomes a problem, the
          * fix is buffered writes with EPOLLOUT on the sd-event source. */
         return loop_write(c->fd, json_str, SIZE_MAX);
+}
+
+static int qmp_client_write_json(QmpClient *c, sd_json_variant *v) {
+        return qmp_client_write_json_fd(c, v, -EBADF);
 }
 
 static void qmp_client_dispatch_event(QmpClient *c, sd_json_variant *v) {
@@ -540,13 +557,15 @@ int qmp_client_start_async(QmpClient *c) {
         return 0;
 }
 
-/* Execute a QMP command synchronously (blocking). Only valid during Phase 1, before
+/* Execute a QMP command synchronously (blocking), optionally sending an FD as SCM_RIGHTS
+ * ancillary data alongside the command message. Only valid during Phase 1, before
  * qmp_client_start_async(). Returns the result JSON on success, -EIO on QMP error
  * (with error class in ret_error), negative errno on transport failure. */
-int qmp_client_call(
+static int qmp_client_call_full(
                 QmpClient *c,
                 const char *command,
                 sd_json_variant *arguments,
+                int fd,
                 sd_json_variant **ret_result,
                 char **ret_error) {
 
@@ -554,9 +573,9 @@ int qmp_client_call(
         uint64_t id;
         int r;
 
-        assert_return(c, -EINVAL);
-        assert_return(command, -EINVAL);
-        assert_return(!c->io_event_source, -EBUSY);
+        assert(c);
+        assert(command);
+        assert(!c->io_event_source);
 
         if (!c->connected)
                 return -ENOTCONN;
@@ -565,13 +584,42 @@ int qmp_client_call(
         if (r < 0)
                 return r;
 
-        r = qmp_client_write_json(c, cmd);
+        r = qmp_client_write_json_fd(c, cmd, fd);
         if (r < 0)
                 return r;
 
         return qmp_client_wait_response(c, id, ret_result, ret_error);
 }
 
+int qmp_client_call(
+                QmpClient *c,
+                const char *command,
+                sd_json_variant *arguments,
+                sd_json_variant **ret_result,
+                char **ret_error) {
+
+        assert_return(c, -EINVAL);
+        assert_return(command, -EINVAL);
+        assert_return(!c->io_event_source, -EBUSY);
+
+        return qmp_client_call_full(c, command, arguments, /* fd= */ -EBADF, ret_result, ret_error);
+}
+
+int qmp_client_call_send_fd(
+                QmpClient *c,
+                const char *command,
+                sd_json_variant *arguments,
+                int fd,
+                sd_json_variant **ret_result,
+                char **ret_error) {
+
+        assert_return(c, -EINVAL);
+        assert_return(command, -EINVAL);
+        assert_return(fd >= 0, -EBADF);
+        assert_return(!c->io_event_source, -EBUSY);
+
+        return qmp_client_call_full(c, command, arguments, fd, ret_result, ret_error);
+}
 int qmp_client_execute(
                 QmpClient *c,
                 const char *command,

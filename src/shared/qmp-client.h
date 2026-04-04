@@ -48,6 +48,16 @@ int qmp_client_call(
                 sd_json_variant **ret_result,
                 char **ret_error);
 
+/* Like qmp_client_call(), but sends an FD as SCM_RIGHTS ancillary data alongside
+ * the command message. Used for the QEMU "getfd" command. */
+int qmp_client_call_send_fd(
+                QmpClient *client,
+                const char *command,
+                sd_json_variant *arguments,
+                int fd,
+                sd_json_variant **ret_result,
+                char **ret_error);
+
 /* Send a QMP command asynchronously. The callback is invoked exactly once from the sd-event loop when
  * the matching response arrives or the connection drops (-ECONNRESET). Returns 0 if the command was
  * sent and registered (callback will be invoked later), negative errno on failure (callback NOT invoked). */
