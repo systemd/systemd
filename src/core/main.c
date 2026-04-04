@@ -163,6 +163,7 @@ static void *arg_random_seed;
 static size_t arg_random_seed_size;
 static usec_t arg_reload_limit_interval_sec;
 static unsigned arg_reload_limit_burst;
+static usec_t arg_minimum_uptime_usec;
 
 /* A copy of the original environment block */
 static char **saved_env = NULL;
@@ -554,6 +555,17 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                         return 0;
                 }
 
+        } else if (proc_cmdline_key_streq(key, "systemd.minimum_uptime_sec")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                r = parse_sec(value, &arg_minimum_uptime_usec);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to parse systemd.minimum_uptime_sec= argument '%s', ignoring: %m", value);
+                        return 0;
+                }
+
         } else if (streq(key, "quiet") && !value) {
 
                 if (arg_show_status == _SHOW_STATUS_INVALID)
@@ -813,6 +825,7 @@ static int parse_config_file(void) {
                 { "Manager", "ReloadLimitIntervalSec",       config_parse_sec,                   0,                        &arg_reload_limit_interval_sec               },
                 { "Manager", "ReloadLimitBurst",             config_parse_unsigned,              0,                        &arg_reload_limit_burst                      },
                 { "Manager", "DefaultMemoryZSwapWriteback",  config_parse_bool,                  0,                        &arg_defaults.memory_zswap_writeback         },
+                { "Manager", "MinimumUptimeSec",             config_parse_sec,                   0,                        &arg_minimum_uptime_usec                     },
 #if ENABLE_SMACK
                 { "Manager", "DefaultSmackProcessLabel",     config_parse_string,                0,                        &arg_defaults.smack_process_label            },
 #else
@@ -1739,6 +1752,9 @@ static int become_shutdown(int objective, int retval) {
 
         if (arg_watchdog_device)
                 (void) strv_extendf(&env_block, "WATCHDOG_DEVICE=%s", arg_watchdog_device);
+
+        if (arg_minimum_uptime_usec != USEC_INFINITY)
+                (void) strv_extendf(&env_block, "MINIMUM_UPTIME_USEC=" USEC_FMT, arg_minimum_uptime_usec);
 
         (void) write_boot_or_shutdown_osc("shutdown");
 
@@ -2830,6 +2846,8 @@ static void reset_arguments(void) {
 
         arg_reload_limit_interval_sec = 0;
         arg_reload_limit_burst = 0;
+
+        arg_minimum_uptime_usec = USEC_INFINITY;
 }
 
 static void determine_default_oom_score_adjust(void) {

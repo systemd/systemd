@@ -51,6 +51,7 @@
 
 #define SYNC_PROGRESS_ATTEMPTS 3
 #define SYNC_TIMEOUT_USEC (10*USEC_PER_SEC)
+#define DEFAULT_MINIMUM_UPTIME_USEC (15U * USEC_PER_SEC)
 
 static const char *arg_verb = NULL;
 static uint8_t arg_exit_code = 0;
@@ -286,14 +287,30 @@ static void init_watchdog(void) {
         const char *s;
         int r;
 
-        s = getenv("WATCHDOG_DEVICE");
+        /* NB: we do not insist on $WATCHDOG_PID being set because old systemd versions didn't set it at all,
+         * and we want to retain some basic compatibility between an old service manager and a new shutdown
+         * binary. If it *is* set we'll insist on it being set to 1 however. */
+        s = secure_getenv("WATCHDOG_PID");
+        if (s) {
+                pid_t pid;
+
+                r = parse_pid(s, &pid);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse $WATCHDOG_PID, ignoring: %s", s);
+                else if (pid != getpid_cached()) {
+                        log_warning("$WATCHDOG_PID set, but not to " PID_FMT ", skipping watchdog logic.", getpid_cached());
+                        return;
+                }
+        }
+
+        s = secure_getenv("WATCHDOG_DEVICE");
         if (s) {
                 r = watchdog_set_device(s);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to set watchdog device to %s, ignoring: %m", s);
+                        log_warning_errno(r, "Failed to set watchdog device to '%s', ignoring: %m", s);
         }
 
-        s = getenv("WATCHDOG_USEC");
+        s = secure_getenv("WATCHDOG_USEC");
         if (s) {
                 usec_t usec;
 
@@ -325,6 +342,35 @@ static void notify_supervisor(void) {
                                   "EXIT_STATUS=%i\n"
                                   "X_SYSTEMD_SHUTDOWN=%s",
                                   arg_exit_code, arg_verb);
+}
+
+static void sleep_until_minimum_uptime(void) {
+        uint64_t minimum_uptime_usec = DEFAULT_MINIMUM_UPTIME_USEC;
+        int r;
+
+        const char *e = secure_getenv("MINIMUM_UPTIME_USEC");
+        if (e) {
+                r = safe_atou64(e, &minimum_uptime_usec);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse $MINIMUM_UPTIME_USEC, ignoring: %s", e);
+        }
+
+        if (minimum_uptime_usec <= 0) /* turned off? */
+                return;
+
+        for (;;) {
+                usec_t n = now(CLOCK_BOOTTIME);
+                if (n >= minimum_uptime_usec)
+                        break;
+
+                usec_t m = minimum_uptime_usec - n;
+                log_notice("Delaying shutdown for %s, in order to reach minimum uptime of %s.",
+                           FORMAT_TIMESPAN(m, USEC_PER_SEC),
+                           FORMAT_TIMESPAN(minimum_uptime_usec, USEC_PER_SEC));
+
+                /* Sleep for up to 3s, then show message again, as a progress indicator. */
+                usleep_safe(MIN(m, 3 * USEC_PER_SEC));
+        }
 }
 
 int main(int argc, char *argv[]) {
@@ -594,6 +640,12 @@ int main(int argc, char *argv[]) {
                 (void) sync_with_progress(-EBADF);
 
         notify_supervisor();
+
+        /* Enforce the minimum uptime, but don't bother with it in containers, since – unlike on bare metal
+         * and VMs – the screen output isn't flushed out immediately when we reboot (as OVMF or real PC
+         * firmwares do) */
+        if (!in_container)
+                sleep_until_minimum_uptime();
 
         if (streq(arg_verb, "exit")) {
                 if (in_container) {
