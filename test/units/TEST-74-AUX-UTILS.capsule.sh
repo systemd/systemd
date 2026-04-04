@@ -58,3 +58,8 @@ systemctl clean capsule@foobar.service --what=all
 (! test -f /run/capsules/foobar )
 (! test -f /var/lib/capsules/foobar )
 (! id -u c-foobar )
+
+systemctl status capsule@foobar.service || :
+
+systemctl --state=failed --no-legend --no-pager | tee /failed
+test ! -s /failed
