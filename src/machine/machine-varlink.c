@@ -193,7 +193,7 @@ int vl_method_register(sd_varlink *link, sd_json_variant *parameters, sd_varlink
                 return r;
 
         /* Ensure an unprivileged user cannot claim any process they don't control as their own machine */
-        if (machine->uid != 0) {
+        if (manager->runtime_scope != RUNTIME_SCOPE_USER && machine->uid != 0) {
                 r = process_is_owned_by_uid(&machine->leader, machine->uid);
                 if (r < 0)
                         return r;
