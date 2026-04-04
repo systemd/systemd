@@ -3447,14 +3447,49 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_oom();
         }
 
-        /* QMP handshake, feature detection, device setup, and VM start */
+        /* QMP handshake */
         _cleanup_(qmp_client_freep) QmpClient *qmp = NULL;
-        r = vmspawn_qmp_init(&qmp, TAKE_FD(qmp_fds[0]), event, qmp_drives.drives, qmp_drives.n,
-                              qmp_network.type ? &qmp_network : NULL,
-                              qmp_virtiofs.entries, qmp_virtiofs.n,
-                              vmgenid,
-                              qmp_vsock.fd >= 0 ? &qmp_vsock : NULL);
-        qmp_network.fd = safe_close(qmp_network.fd);
+        r = vmspawn_qmp_init(&qmp, TAKE_FD(qmp_fds[0]), event);
+        if (r < 0)
+                return r;
+
+        /* Device setup via QMP — all before resuming vCPUs */
+        r = vmspawn_qmp_setup_drives(qmp, &qmp_drives);
+        if (r < 0)
+                return r;
+
+        if (qmp_network.type) {
+                r = vmspawn_qmp_setup_network(qmp, &qmp_network);
+                if (r < 0)
+                        return r;
+        }
+
+        r = vmspawn_qmp_setup_virtiofs(qmp, &qmp_virtiofs);
+        if (r < 0)
+                return r;
+
+        r = vmspawn_qmp_setup_rng(qmp);
+        if (r < 0)
+                return r;
+
+        r = vmspawn_qmp_setup_balloon(qmp);
+        if (r < 0)
+                return r;
+
+        if (!sd_id128_is_null(vmgenid)) {
+                r = vmspawn_qmp_setup_vmgenid(qmp, vmgenid);
+                if (r < 0)
+                        return r;
+        }
+
+        if (qmp_vsock.fd >= 0) {
+                r = vmspawn_qmp_setup_vsock(qmp, &qmp_vsock);
+                if (r < 0)
+                        return r;
+        }
+
+        /* Resume vCPUs and switch to async event processing */
+        r = vmspawn_qmp_start(qmp);
         if (r < 0)
                 return r;
 
