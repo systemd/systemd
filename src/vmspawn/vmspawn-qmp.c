@@ -3,6 +3,7 @@
 #include "alloc-util.h"
 #include "bus-polkit.h"
 #include "errno-util.h"
+#include "ether-addr-util.h"
 #include "fd-util.h"
 #include "hashmap.h"
 #include "json-util.h"
@@ -473,6 +474,53 @@ static int qmp_setup_one_drive(QmpClient *qmp, const QmpDriveInfo *drive, bool i
         return 0;
 }
 
+static int qmp_setup_network(QmpClient *qmp, const QmpNetworkInfo *network) {
+        _cleanup_(sd_json_variant_unrefp) sd_json_variant *netdev_args = NULL, *device_args = NULL;
+        _cleanup_free_ char *error_class = NULL;
+        int r;
+
+        assert(qmp);
+        assert(network);
+        assert(network->type);
+
+        /* netdev_add: create the network backend */
+        r = sd_json_buildo(
+                        &netdev_args,
+                        SD_JSON_BUILD_PAIR_STRING("type", network->type),
+                        SD_JSON_BUILD_PAIR_STRING("id", "net0"),
+                        SD_JSON_BUILD_PAIR_CONDITION(streq(network->type, "tap"),
+                                                     "ifname", SD_JSON_BUILD_STRING(network->ifname)),
+                        SD_JSON_BUILD_PAIR_CONDITION(streq(network->type, "tap"),
+                                                     "script", SD_JSON_BUILD_STRING("no")),
+                        SD_JSON_BUILD_PAIR_CONDITION(streq(network->type, "tap"),
+                                                     "downscript", SD_JSON_BUILD_STRING("no")));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build netdev_add JSON: %m");
+
+        r = qmp_client_call(qmp, "netdev_add", netdev_args, /* ret_result= */ NULL, &error_class);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add network backend via QMP: %s", strna(error_class));
+
+        /* device_add: attach NIC frontend */
+        r = sd_json_buildo(
+                        &device_args,
+                        SD_JSON_BUILD_PAIR_STRING("driver", "virtio-net-pci"),
+                        SD_JSON_BUILD_PAIR_STRING("netdev", "net0"),
+                        SD_JSON_BUILD_PAIR_STRING("id", "nic0"),
+                        SD_JSON_BUILD_PAIR_CONDITION(!!network->mac,
+                                                     "mac", SD_JSON_BUILD_STRING(network->mac ? ETHER_ADDR_TO_STR(network->mac) : NULL)));
+        if (r < 0)
+                return log_error_errno(r, "Failed to build NIC device_add JSON: %m");
+
+        error_class = mfree(error_class);
+        r = qmp_client_call(qmp, "device_add", device_args, /* ret_result= */ NULL, &error_class);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add NIC device via QMP: %s", strna(error_class));
+
+        log_debug("Added %s network via QMP", network->type);
+        return 0;
+}
+
 static bool drives_need_scsi_controller(const QmpDriveInfo *drives, size_t n_drives) {
         for (size_t i = 0; i < n_drives; i++)
                 if (STR_IN_SET(drives[i].disk_driver, "scsi-hd", "scsi-cd"))
@@ -524,7 +572,8 @@ int vmspawn_qmp_init(
                 int qmp_fd,
                 sd_event *event,
                 const QmpDriveInfo *drives,
-                size_t n_drives) {
+                size_t n_drives,
+                const QmpNetworkInfo *network) {
 
         _cleanup_(qmp_client_freep) QmpClient *qmp = NULL;
         _cleanup_close_ int fd = TAKE_FD(qmp_fd);
@@ -544,10 +593,17 @@ int vmspawn_qmp_init(
         if (r < 0)
                 log_warning_errno(r, "Failed to detect QEMU features, continuing with defaults: %m");
 
-        /* Add drives via pipelined QMP commands, then resume the VM */
+        /* Add drives via QMP commands */
         r = qmp_setup_drives(qmp, drives, n_drives, features.io_uring);
         if (r < 0)
                 return r;
+
+        /* Add network via QMP commands (if not already configured on the command line) */
+        if (network) {
+                r = qmp_setup_network(qmp, network);
+                if (r < 0)
+                        return r;
+        }
 
         _cleanup_free_ char *cont_error = NULL;
         r = qmp_client_call(qmp, "cont", /* arguments= */ NULL, /* ret_result= */ NULL, &cont_error);
