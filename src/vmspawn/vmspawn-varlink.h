@@ -53,14 +53,20 @@ static inline void drive_infos_done(DriveInfos *infos) {
         infos->n = 0;
 }
 
-/* Network info for QMP-based network setup. Only used for cases where QEMU can
- * be configured via QMP (privileged TAP and user-mode). The nsresourced TAP case
- * (FD inheritance) and no-network case stay on the QEMU command line. */
+/* Network info for QMP-based network setup. Covers privileged TAP (by name),
+ * nsresourced TAP (by FD via getfd), and user-mode networking. The no-network
+ * case (-nic none) stays on the QEMU command line. */
 typedef struct NetworkInfo {
         const char *type;                  /* "tap" or "user" */
-        const char *ifname;                /* TAP interface name (tap only) */
+        const char *ifname;                /* TAP interface name (tap by name only) */
         const struct ether_addr *mac;      /* VM-side MAC address (tap only, NULL if unset) */
+        int fd;                            /* TAP fd to pass via getfd (tap by fd only, -EBADF if unused) */
 } NetworkInfo;
+
+static inline void network_info_done(NetworkInfo *info) {
+        assert(info);
+        info->fd = safe_close(info->fd);
+}
 
 /* Virtiofs device info for QMP-based chardev + device setup */
 typedef struct VirtiofsInfo {
