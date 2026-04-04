@@ -2928,8 +2928,11 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (r < 0)
                 return log_error_errno(r, "Failed to find systemd-socket-activate binary: %m");
 
+        _cleanup_free_ QmpVirtiofsInfo *qmp_virtiofs = NULL;
+        size_t n_qmp_virtiofs = 0;
+        _cleanup_free_ char *rootdir_listen_address = NULL;
+
         if (arg_directory) {
-                _cleanup_free_ char *listen_address = NULL;
                 _cleanup_(fork_notify_terminate) PidRef child = PIDREF_NULL;
 
                 if (!GREEDY_REALLOC(children, n_children + 1))
@@ -2957,7 +2960,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                 /* target_uid= */ 0,
                                 /* uid_range= */ arg_uid_range,
                                 runtime_dir,
-                                &listen_address,
+                                &rootdir_listen_address,
                                 &child);
                 if (r < 0)
                         return r;
@@ -2970,19 +2973,14 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 pidref_done(&child);
                 children[n_children++] = TAKE_PTR(source);
 
-                r = qemu_config_section(config_file, "chardev", "rootdir",
-                                        "backend", "socket",
-                                        "path", listen_address);
-                if (r < 0)
-                        return r;
+                if (!GREEDY_REALLOC(qmp_virtiofs, n_qmp_virtiofs + 1))
+                        return log_oom();
 
-                r = qemu_config_section(config_file, "device", "rootdir",
-                                        "driver", "vhost-user-fs-pci",
-                                        "queue-size", "1024",
-                                        "chardev", "rootdir",
-                                        "tag", "root");
-                if (r < 0)
-                        return r;
+                qmp_virtiofs[n_qmp_virtiofs++] = (QmpVirtiofsInfo) {
+                        .id          = "rootdir",
+                        .socket_path = rootdir_listen_address,
+                        .tag         = "root",
+                };
 
                 if (strv_extend(&arg_kernel_cmdline_extra, "root=root rootfstype=virtiofs rw") < 0)
                         return log_oom();
@@ -3522,7 +3520,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         /* QMP handshake, feature detection, device setup, and VM start */
         _cleanup_(qmp_client_freep) QmpClient *qmp = NULL;
         r = vmspawn_varlink_init(&qmp, TAKE_FD(qmp_fds[0]), event, qmp_drives.drives, qmp_drives.n,
-                              qmp_network.type ? &qmp_network : NULL);
+                              qmp_network.type ? &qmp_network : NULL,
+                              qmp_virtiofs, n_qmp_virtiofs);
         if (r < 0)
                 return r;
 
