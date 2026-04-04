@@ -61,10 +61,18 @@ typedef struct NetworkInfo {
         const struct ether_addr *mac;      /* VM-side MAC address (tap only, NULL if unset) */
 } NetworkInfo;
 
+/* Virtiofs device info for QMP-based chardev + device setup */
+typedef struct VirtiofsInfo {
+        const char *id;              /* chardev and device id (e.g. "rootdir", "mnt0") */
+        const char *socket_path;     /* virtiofsd listen socket path */
+        const char *tag;             /* virtiofs mount tag visible to guest */
+} VirtiofsInfo;
+
 /* QMP handshake, feature detection, device setup, and VM start */
 int vmspawn_varlink_init(VmspawnVarlinkBridge **ret, int qmp_fd, sd_event *event,
                       const DriveInfo *drives, size_t n_drives,
-                      const NetworkInfo *network);
+                      const NetworkInfo *network,
+                      const VirtiofsInfo *virtiofs, size_t n_virtiofs);
 
 /* Varlink server for VM control on top of an established bridge connection */
 int vmspawn_varlink_setup(VmspawnVarlinkContext **ret, VmspawnVarlinkBridge *bridge,
