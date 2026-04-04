@@ -7920,7 +7920,12 @@ static int write_boot_catalog(int fd, uint32_t load_block) {
         return 0;
 }
 
-static int write_directories(int fd, usec_t usec, bool utc, uint32_t root_sector) {
+static int write_directories(
+                int fd,
+                usec_t usec,
+                bool utc,
+                uint32_t root_sector) {
+
         int r;
 
         assert(fd >= 0);
@@ -7978,7 +7983,15 @@ static int write_directories(int fd, usec_t usec, bool utc, uint32_t root_sector
         return 0;
 }
 
-static int write_eltorito(int fd, usec_t usec, bool utc, uint32_t load_block, const char *system_id, const char *volume_id, const char *publisher_id) {
+static int write_eltorito(
+                int fd,
+                usec_t usec,
+                bool utc,
+                uint32_t load_block, /* in iso9660 blocks */
+                const char *system_id,
+                const char *volume_id,
+                const char *publisher_id) {
+
         int r;
 
         assert(fd >= 0);
