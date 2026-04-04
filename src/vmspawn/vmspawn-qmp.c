@@ -482,26 +482,51 @@ static int qmp_setup_one_drive(QmpClient *qmp, const QmpDriveInfo *drive, bool i
 static int qmp_setup_network(QmpClient *qmp, const QmpNetworkInfo *network) {
         _cleanup_(sd_json_variant_unrefp) sd_json_variant *netdev_args = NULL, *device_args = NULL;
         _cleanup_free_ char *error_class = NULL;
+        bool tap_by_fd;
         int r;
 
         assert(qmp);
         assert(network);
         assert(network->type);
 
+        tap_by_fd = streq(network->type, "tap") && network->fd >= 0;
+
+        /* For TAP-by-fd: pass the TAP fd to QEMU via getfd + SCM_RIGHTS, then reference it by name
+         * in netdev_add. QEMU stores the received fd under the given fdname and closes it on removal. */
+        if (tap_by_fd) {
+                _cleanup_(sd_json_variant_unrefp) sd_json_variant *getfd_args = NULL;
+
+                r = sd_json_buildo(
+                                &getfd_args,
+                                SD_JSON_BUILD_PAIR_STRING("fdname", "vmspawn_tap"));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to build getfd JSON: %m");
+
+                r = qmp_client_call_send_fd(qmp, "getfd", getfd_args, network->fd,
+                                            /* ret_result= */ NULL, &error_class);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to pass TAP fd to QEMU via getfd: %s", strna(error_class));
+
+                error_class = mfree(error_class);
+        }
+
         /* netdev_add: create the network backend */
         r = sd_json_buildo(
                         &netdev_args,
                         SD_JSON_BUILD_PAIR_STRING("type", network->type),
                         SD_JSON_BUILD_PAIR_STRING("id", "net0"),
-                        SD_JSON_BUILD_PAIR_CONDITION(streq(network->type, "tap"),
+                        SD_JSON_BUILD_PAIR_CONDITION(tap_by_fd,
+                                                     "fd", SD_JSON_BUILD_STRING("vmspawn_tap")),
+                        SD_JSON_BUILD_PAIR_CONDITION(!tap_by_fd && !!network->ifname,
                                                      "ifname", SD_JSON_BUILD_STRING(network->ifname)),
-                        SD_JSON_BUILD_PAIR_CONDITION(streq(network->type, "tap"),
+                        SD_JSON_BUILD_PAIR_CONDITION(!tap_by_fd && streq(network->type, "tap"),
                                                      "script", SD_JSON_BUILD_STRING("no")),
-                        SD_JSON_BUILD_PAIR_CONDITION(streq(network->type, "tap"),
+                        SD_JSON_BUILD_PAIR_CONDITION(!tap_by_fd && streq(network->type, "tap"),
                                                      "downscript", SD_JSON_BUILD_STRING("no")));
         if (r < 0)
                 return log_error_errno(r, "Failed to build netdev_add JSON: %m");
 
+        error_class = mfree(error_class);
         r = qmp_client_call(qmp, "netdev_add", netdev_args, /* ret_result= */ NULL, &error_class);
         if (r < 0)
                 return log_error_errno(r, "Failed to add network backend via QMP: %s", strna(error_class));
@@ -522,7 +547,7 @@ static int qmp_setup_network(QmpClient *qmp, const QmpNetworkInfo *network) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add NIC device via QMP: %s", strna(error_class));
 
-        log_debug("Added %s network via QMP", network->type);
+        log_debug("Added %s network via QMP%s", network->type, tap_by_fd ? " (fd via getfd)" : "");
         return 0;
 }
 
