@@ -3016,10 +3016,11 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         }
 
         _cleanup_free_ char *fstab_extra = NULL;
+        _cleanup_strv_free_ char **mount_listen_addresses = NULL, **mount_ids = NULL;
 
         for (size_t j = 0; j < arg_runtime_mounts.n_mounts; j++) {
                 RuntimeMount *m = arg_runtime_mounts.mounts + j;
-                _cleanup_free_ char *listen_address = NULL;
+                _cleanup_free_ char *listen_address = NULL, *id = NULL;
                 _cleanup_(fork_notify_terminate) PidRef child = PIDREF_NULL;
 
                 if (!GREEDY_REALLOC(children, n_children + 1))
@@ -3045,23 +3046,27 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 pidref_done(&child);
                 children[n_children++] = TAKE_PTR(source);
 
-                _cleanup_free_ char *id = NULL;
                 if (asprintf(&id, "mnt%zu", j) < 0)
                         return log_oom();
 
-                r = qemu_config_section(config_file, "chardev", id,
-                                        "backend", "socket",
-                                        "path", listen_address);
-                if (r < 0)
-                        return r;
+                if (!GREEDY_REALLOC(qmp_virtiofs, n_qmp_virtiofs + 1))
+                        return log_oom();
 
-                r = qemu_config_section(config_file, "device", id,
-                                        "driver", "vhost-user-fs-pci",
-                                        "queue-size", "1024",
-                                        "chardev", id,
-                                        "tag", id);
+                /* Ownership of listen_address and id strings transfers to the strv arrays
+                 * which keep them alive until after vmspawn_varlink_init() consumes them. */
+                r = strv_consume(&mount_listen_addresses, TAKE_PTR(listen_address));
                 if (r < 0)
-                        return r;
+                        return log_oom();
+
+                r = strv_consume(&mount_ids, TAKE_PTR(id));
+                if (r < 0)
+                        return log_oom();
+
+                qmp_virtiofs[n_qmp_virtiofs++] = (QmpVirtiofsInfo) {
+                        .id          = mount_ids[j],
+                        .socket_path = mount_listen_addresses[j],
+                        .tag         = mount_ids[j],
+                };
 
                 /* fstab uses whitespace as field separator, so octal-escape spaces in paths */
                 _cleanup_free_ char *escaped_target = octescape_full(m->target, SIZE_MAX, " \t");
@@ -3069,7 +3074,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_oom();
 
                 if (strextendf(&fstab_extra, "%s %s virtiofs %s,x-initrd.mount\n",
-                               id, escaped_target, m->read_only ? "ro" : "rw") < 0)
+                               mount_ids[j], escaped_target, m->read_only ? "ro" : "rw") < 0)
                         return log_oom();
         }
 
