@@ -84,11 +84,13 @@ static inline void qmp_virtiofs_infos_done(QmpVirtiofsInfos *infos) {
         infos->entries = mfree(infos->entries);
 }
 
-/* QMP handshake, feature detection, device setup, and VM start */
+/* QMP handshake, feature detection, device setup, and VM start.
+ * vmgenid is optional: pass SD_ID128_NULL to skip vmgenid device creation. */
 int vmspawn_qmp_init(QmpClient **ret, int qmp_fd, sd_event *event,
                       const QmpDriveInfo *drives, size_t n_drives,
                       const QmpNetworkInfo *network,
-                      const QmpVirtiofsInfo *virtiofs, size_t n_virtiofs);
+                      const QmpVirtiofsInfo *virtiofs, size_t n_virtiofs,
+                      sd_id128_t vmgenid);
 
 /* Varlink server for VM control on top of an established QMP client */
 int vmspawn_qmp_setup(VmspawnQmpContext **ret, QmpClient *qmp,
